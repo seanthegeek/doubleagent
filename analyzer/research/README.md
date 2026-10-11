@@ -23,7 +23,7 @@ it.
 | `aider` | [aider.md](aider.md) | markdown and readline-style text in the repository | yes |
 | `antigravity` | [antigravity.md](antigravity.md) | SQLite of protobuf blobs; schema from the `agy` binary's embedded descriptors | yes |
 | `claude-code` | [claude-code.md](claude-code.md) | JSONL per session with `uuid`/`parentUuid` chains, subagent files beside it, prompt history | yes |
-| `claude-desktop` | [claude-desktop.md](claude-desktop.md) | session records (JSON) and an HMAC-chained `audit.jsonl` per Cowork session around Claude Code JSONL transcripts; closed source, from the app bundle | no |
+| `claude-desktop` | [claude-desktop.md](claude-desktop.md) | session records (JSON) and an HMAC-chained `audit.jsonl` per Cowork session around Claude Code JSONL transcripts; closed source, from the app bundle | yes |
 | `cline` | [cline.md](cline.md) | JSON arrays per task; SDK session files; SQLite indexes | yes |
 | `codex-cli` | [codex-cli.md](codex-cli.md) | JSONL rollouts (`session_meta`, `response_item`, `event_msg`), optionally zstd-compressed | yes |
 | `cody` | [cody.md](cody.md) | rows in the editor `state.vscdb`; JetBrains global-state JSON | yes |

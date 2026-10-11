@@ -7,6 +7,7 @@ from .aider import AiderParser
 from .antigravity import AntigravityParser
 from .base import Options, Parser
 from .claude_code import ClaudeCodeParser
+from .claude_desktop import ClaudeDesktopParser
 from .cline import ClineParser
 from .codex import CodexParser
 from .cody import CodyParser
@@ -38,6 +39,7 @@ from .zed import ZedParser
 
 ALL: list[Parser] = [
     ClaudeCodeParser(),
+    ClaudeDesktopParser(),
     CodexParser(),
     AntigravityParser(),
     QwenCodeParser(),

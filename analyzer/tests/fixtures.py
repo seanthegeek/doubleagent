@@ -1119,6 +1119,7 @@ def build_home(home: Path, with_noise: bool = True) -> Path:
     build_pearai(home)
     build_muse_code(home)
     build_ollama(home)
+    build_claude_desktop(home)
     if with_noise:
         (home / "Documents").mkdir(parents=True, exist_ok=True)
         (home / "Documents/notes.txt").write_text("not an agent file\n", encoding="utf-8")
@@ -6432,4 +6433,349 @@ def build_ollama(home: Path) -> None:
     manifest.write_text(
         '{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.v2+json"}',
         encoding="utf-8",
+    )
+
+
+# -- Claude Desktop (app bundle 2.31226.1) ------------------------------------------
+CD_BASE = "Library/Application Support/Claude"
+CD_ACCT = "aaaaaaaa-0000-4000-8000-000000000001"
+CD_ORG = "bbbbbbbb-0000-4000-8000-000000000002"
+CD_COWORK_ORG = "%s/local-agent-mode-sessions/%s/%s" % (CD_BASE, CD_ACCT, CD_ORG)
+CD_CODE_ORG = "%s/claude-code-sessions/%s/%s" % (CD_BASE, CD_ACCT, CD_ORG)
+CD_SESSION = "local_c0c0c0c0-1111-4222-8333-444444444444"
+CD_CLI_SESSION = "d1d1d1d1-5555-4666-8777-888888888888"
+CD_GUEST_CWD = "/sessions/quiet-river-1234"
+CD_RECORD_REL = "%s/%s.json" % (CD_COWORK_ORG, CD_SESSION)
+CD_TRANSCRIPT_REL = "%s/%s/.claude/projects/session/%s.jsonl" % (
+    CD_COWORK_ORG,
+    CD_SESSION,
+    CD_CLI_SESSION,
+)
+CD_AUDIT_REL = "%s/%s/audit.jsonl" % (CD_COWORK_ORG, CD_SESSION)
+# A session dir in the short (eight hex) form holding only an audit log.
+CD_FALLBACK_DIR = "f3f3f3f3"
+CD_FALLBACK_CLI = "d2d2d2d2-5555-4666-8777-888888888888"
+CD_FALLBACK_REL = "%s/%s/audit.jsonl" % (CD_COWORK_ORG, CD_FALLBACK_DIR)
+CD_CODE_SESSION = "local_e2e2e2e2-9999-4aaa-8bbb-cccccccccccc"
+# Its own CLI id: a Code-tab record that joined the claude-code fixture
+# session would put two agents under one session id in sessions.jsonl.
+CD_CODE_CLI = "11111111-2222-4333-8444-555555555555"
+CD_CODE_RECORD_REL = "%s/%s.json" % (CD_CODE_ORG, CD_CODE_SESSION)
+CD_SCHED_REL = "%s/scheduled-tasks.json" % CD_COWORK_ORG
+CD_WORKTREES_REL = "%s/git-worktrees.json" % CD_BASE
+
+
+def claude_desktop_record():
+    return {
+        "sessionId": CD_SESSION,
+        "processName": "quiet-river-1234",
+        "cliSessionId": CD_CLI_SESSION,
+        "cwd": CD_GUEST_CWD,
+        "userSelectedFolders": ["/srv/proj"],
+        "createdAt": 1790762400000,
+        "lastActivityAt": 1790762460000,
+        "model": "claude-fable-5-1",
+        "permissionMode": "default",
+        "isArchived": False,
+        "title": "Summarise the test failures",
+        "vmProcessName": "quiet-river-1234",
+        "initialMessage": "why does the test fail?",
+        "sessionType": "agent",
+        "emailAddress": "user@example.invalid",
+    }
+
+
+def claude_desktop_transcript_records():
+    """The claude-code fixture as the Cowork VM's CLI writes it: guest cwd,
+    `entrypoint` local-agent and the record's `cliSessionId`."""
+    out = []
+    for r in claude_session_records(cwd=CD_GUEST_CWD):
+        r = dict(r)
+        if "sessionId" in r:
+            r["sessionId"] = CD_CLI_SESSION
+        if "entrypoint" in r:
+            r["entrypoint"] = "local-agent"
+        out.append(r)
+    return out
+
+
+def _cd_hmac(n: int) -> str:
+    return "%064x" % n
+
+
+def claude_desktop_audit_records():
+    """Research section 8, verbatim (HMAC values are placeholders)."""
+    sid = CD_CLI_SESSION
+    return [
+        {
+            "type": "user",
+            "uuid": "00000000-0000-4000-8000-0000000000a1",
+            "session_id": sid,
+            "parent_tool_use_id": None,
+            "client_platform": "desktop_app",
+            "timestamp": "2026-10-01T10:00:00.000Z",
+            "message": {
+                "role": "user",
+                "content": [{"type": "text", "text": "why does the test fail?"}],
+            },
+            "_audit_timestamp": "2026-10-01T10:00:00.004Z",
+            "_audit_hmac": _cd_hmac(1),
+        },
+        {
+            "type": "system",
+            "subtype": "init",
+            "session_id": sid,
+            "cwd": CD_GUEST_CWD,
+            "model": "claude-fable-5-1",
+            "_audit_timestamp": "2026-10-01T10:00:01.000Z",
+            "_audit_hmac": _cd_hmac(2),
+        },
+        {
+            "type": "assistant",
+            "uuid": "00000000-0000-4000-8000-0000000000a2",
+            "session_id": sid,
+            "parent_tool_use_id": None,
+            "message": {
+                "model": "claude-fable-5-1",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_01",
+                        "name": "Bash",
+                        "input": {"command": "npm test"},
+                    }
+                ],
+            },
+            "_audit_timestamp": "2026-10-01T10:00:03.000Z",
+            "_audit_hmac": _cd_hmac(3),
+        },
+        {
+            "type": "system",
+            "subtype": "permission_request",
+            "uuid": "00000000-0000-4000-8000-0000000000a3",
+            "session_id": sid,
+            "tool_name": "Bash",
+            "tool_input": {"command": "npm test"},
+            "_audit_timestamp": "2026-10-01T10:00:03.100Z",
+            "_audit_hmac": _cd_hmac(4),
+        },
+        {
+            "type": "system",
+            "subtype": "permission_response",
+            "uuid": "00000000-0000-4000-8000-0000000000a3",
+            "session_id": sid,
+            "tool_name": "Bash",
+            "decision": "once",
+            "granted": True,
+            "_audit_timestamp": "2026-10-01T10:00:05.000Z",
+            "_audit_hmac": _cd_hmac(5),
+        },
+        {
+            "type": "user",
+            "uuid": "00000000-0000-4000-8000-0000000000a4",
+            "session_id": sid,
+            "parent_tool_use_id": None,
+            "message": {
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "toolu_01", "content": "1 failing"}
+                ],
+            },
+            "_audit_timestamp": "2026-10-01T10:00:09.000Z",
+            "_audit_hmac": _cd_hmac(6),
+        },
+        {
+            "type": "result",
+            "subtype": "success",
+            "duration_ms": 9000,
+            "duration_api_ms": 4000,
+            "is_error": False,
+            "num_turns": 2,
+            "session_id": sid,
+            "uuid": "00000000-0000-4000-8000-0000000000a5",
+            "_audit_timestamp": "2026-10-01T10:00:12.000Z",
+            "_audit_hmac": _cd_hmac(7),
+        },
+    ]
+
+
+def claude_desktop_fallback_records():
+    """An audit log whose session dir has no transcript: every line counts.
+    Line numbers are what ClaudeDesktopTests.test_audit_fallback asserts."""
+    sid = CD_FALLBACK_CLI
+
+    def line(n, ts, **rec):
+        rec.setdefault("session_id", sid)
+        rec["_audit_timestamp"] = "2026-10-02T09:00:%s.000Z" % ts
+        rec["_audit_hmac"] = _cd_hmac(100 + n)
+        return rec
+
+    return [
+        line(
+            1,
+            "00",
+            type="user",
+            uuid="00000000-0000-4000-8000-0000000000b1",
+            parent_tool_use_id=None,
+            client_platform="desktop_app",
+            timestamp="2026-10-02T08:59:59.500Z",
+            message={"role": "user", "content": [{"type": "text", "text": "list the files"}]},
+        ),  # 1
+        line(2, "01", type="system", subtype="init", cwd=CD_GUEST_CWD, model="claude-fable-5-1"),
+        line(
+            3,
+            "02",
+            type="user",
+            uuid="00000000-0000-4000-8000-0000000000b2",
+            parent_tool_use_id=None,
+            client_platform="desktop_app",
+            isSynthetic=True,
+            message={"role": "user", "content": [{"type": "text", "text": "folder mounted"}]},
+        ),  # 3
+        line(
+            4,
+            "03",
+            type="assistant",
+            uuid="00000000-0000-4000-8000-0000000000b3",
+            parent_tool_use_id=None,
+            message={
+                "model": "claude-fable-5-1",
+                "role": "assistant",
+                "content": [
+                    {"type": "thinking", "thinking": "use ls", "signature": "x"},
+                    {"type": "text", "text": "Listing."},
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_b1",
+                        "name": "Bash",
+                        "input": {"command": "ls"},
+                    },
+                ],
+            },
+        ),  # 4
+        line(
+            5,
+            "04",
+            type="system",
+            subtype="permission_auto_approved",
+            tool_name="Bash",
+            source="always_allow",
+        ),  # 5
+        line(
+            6,
+            "05",
+            type="user",
+            uuid="00000000-0000-4000-8000-0000000000b4",
+            parent_tool_use_id=None,
+            message={
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "toolu_b1", "content": "README.md"}
+                ],
+            },
+        ),  # 6
+        line(
+            7,
+            "06",
+            type="assistant",
+            uuid="00000000-0000-4000-8000-0000000000b5",
+            parent_tool_use_id=None,
+            message={
+                "model": "claude-fable-5-1",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "One file: README.md"}],
+            },
+        ),  # 7
+        line(8, "07", type="prompt_suggestion", suggestion="open it"),  # 8: skipped
+        line(
+            9,
+            "08",
+            type="result",
+            subtype="success",
+            duration_ms=8000,
+            duration_api_ms=3000,
+            is_error=False,
+            num_turns=1,
+            uuid="00000000-0000-4000-8000-0000000000b6",
+        ),  # 9
+    ]
+
+
+def claude_desktop_code_record():
+    return {
+        "sessionId": CD_CODE_SESSION,
+        "cliSessionId": CD_CODE_CLI,
+        "cwd": "/srv/proj",
+        "originCwd": "/srv/proj",
+        "branch": "main",
+        "createdAt": 1790762400000,
+        "lastActivityAt": 1790762520000,
+        "model": "claude-fable-5-1",
+        "isArchived": False,
+        "title": "Fix the failing test",
+        "permissionMode": "default",
+    }
+
+
+def claude_desktop_scheduled_tasks():
+    return {
+        "scheduledTasks": [
+            {
+                "id": "daily-report",
+                "cronExpression": "0 9 * * 1-5",
+                "enabled": True,
+                "filePath": "/home/user/Claude/Scheduled/daily-report/SKILL.md",
+                "createdAt": 1790762400000,
+                "cwd": "/srv/proj",
+            }
+        ],
+        "recordedSkips": {},
+        "sundayAliasBoundaryStamped": True,
+        "dayFieldsOrBoundaryStamped": True,
+    }
+
+
+def claude_desktop_worktrees():
+    return {
+        "schemaVersion": 2,
+        "worktrees": {
+            "brave-otter": {
+                "name": "brave-otter",
+                "path": "/srv/proj/.claude/worktrees/brave-otter",
+                "leasedBy": CD_CODE_SESSION,
+                "baseRepo": "/srv/proj",
+                "branch": "claude/brave-otter",
+                "sourceBranch": "main",
+                "createdAt": 1790762401000,
+            }
+        },
+        "untrackedDirGc": {"cwds": {}, "roots": {}, "sightings": {}},
+    }
+
+
+def build_claude_desktop(home: Path) -> None:
+    cowork = home / CD_COWORK_ORG
+    cowork.mkdir(parents=True, exist_ok=True)
+    (home / CD_RECORD_REL).write_text(
+        json.dumps(claude_desktop_record(), indent=2), encoding="utf-8"
+    )
+    _jsonl(home / CD_TRANSCRIPT_REL, claude_desktop_transcript_records())
+    _jsonl(home / CD_AUDIT_REL, claude_desktop_audit_records())
+    _jsonl(home / CD_FALLBACK_REL, claude_desktop_fallback_records())
+    code = home / CD_CODE_RECORD_REL
+    code.parent.mkdir(parents=True, exist_ok=True)
+    code.write_text(json.dumps(claude_desktop_code_record()), encoding="utf-8")
+    (home / CD_SCHED_REL).write_text(json.dumps(claude_desktop_scheduled_tasks()), encoding="utf-8")
+    (home / CD_WORKTREES_REL).write_text(json.dumps(claude_desktop_worktrees()), encoding="utf-8")
+    # Noise the parser must not want.
+    (cowork / "spaces.json").write_text('{"spaces":[]}', encoding="utf-8")
+    (cowork / "cowork_settings.json").write_text("{}", encoding="utf-8")
+    (cowork / "rpm").mkdir(exist_ok=True)
+    (cowork / "rpm/manifest.json").write_text(
+        '{"lastUpdated":1790762400000,"plugins":[]}', encoding="utf-8"
+    )
+    (cowork / CD_SESSION / ".audit-key").write_bytes(b"not a real key")
+    (home / CD_BASE / "claude_desktop_config.json").write_text(
+        '{"mcpServers":{}}', encoding="utf-8"
     )

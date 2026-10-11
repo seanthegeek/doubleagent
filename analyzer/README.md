@@ -97,20 +97,20 @@ which subcommands take it, and the full exit-code table.
 
 ## Parsers
 
-Parsers exist for Claude Code, Codex CLI, Gemini CLI, Antigravity, Qwen
-Code, Amazon Q CLI (the `kiro` entry), VS Code chat (including Copilot
-Chat), Cline, Roo Code, Kilo Code, Continue, Aider, OpenCode, Crush, Goose,
-Zed, Tabby, OpenHands, ShellGPT, pi, little-coder, Letta, Hermes, Agent
-Zero, Open Interpreter, OpenClaw, nanobot, Sourcegraph Cody, Twinny, PearAI,
-Muse Code and Ollama; [docs/parsers.md](docs/parsers.md) lists the files
-each one reads and the evidence it was validated against. Every other agent
-in the catalog (Claude Desktop, ChatGPT Desktop, Copilot CLI and the Copilot
-editor token store, Cursor, Windsurf, Amp, Factory Droid, Augment, Local
-Deep Research, AutoGen Studio, CAMEL, CrewAI, Dify, Flowise, Langflow,
-MetaGPT, n8n and the Pydantic AI CLIs) is detected and reported but not yet
-parsed, as are the legacy Open Interpreter Python tool's conversation
-files. Thinking and
-reasoning blocks are left out unless `--include-thinking` is passed.
+Parsers exist for Claude Code, Claude Desktop, Codex CLI, Gemini CLI,
+Antigravity, Qwen Code, Amazon Q CLI (the `kiro` entry), VS Code chat
+(including Copilot Chat), Cline, Roo Code, Kilo Code, Continue, Aider,
+OpenCode, Crush, Goose, Zed, Tabby, OpenHands, ShellGPT, pi, little-coder,
+Letta, Hermes, Agent Zero, Open Interpreter, OpenClaw, nanobot, Sourcegraph
+Cody, Twinny, PearAI, Muse Code and Ollama;
+[docs/parsers.md](docs/parsers.md) lists the files each one reads and the
+evidence it was validated against. Every other agent in the catalog (ChatGPT
+Desktop, Copilot CLI and the Copilot editor token store, Cursor, Windsurf,
+Amp, Factory Droid, Augment, Local Deep Research, AutoGen Studio, CAMEL,
+CrewAI, Dify, Flowise, Langflow, MetaGPT, n8n and the Pydantic AI CLIs) is
+detected and reported but not yet parsed, as are the legacy Open Interpreter
+Python tool's conversation files. Thinking and reasoning blocks are left out
+unless `--include-thinking` is passed.
 
 ## Documentation
 

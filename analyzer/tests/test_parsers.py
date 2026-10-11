@@ -520,6 +520,7 @@ class TimelineTests(ParserBase):
         # Subset checks: each parser branch adds its own agents and sessions.
         expected_agents = {
             "claude-code",
+            "claude-desktop",
             "codex-cli",
             "antigravity",
             "qwen-code",
@@ -4853,3 +4854,310 @@ class OllamaTests(ParserBase):
         rows = self.rows_for(OllamaParser(), self.HISTORY_REL)
         self.assertEqual(len(rows), 4)
         self.assertEqual(rows[-1].text, "half a pro�")
+
+
+from doubleagent.parsers.claude_desktop import ClaudeDesktopParser
+from fixtures import (
+    CD_AUDIT_REL,
+    CD_CLI_SESSION,
+    CD_CODE_CLI,
+    CD_CODE_RECORD_REL,
+    CD_COWORK_ORG,
+    CD_FALLBACK_CLI,
+    CD_FALLBACK_DIR,
+    CD_FALLBACK_REL,
+    CD_RECORD_REL,
+    CD_SCHED_REL,
+    CD_SESSION,
+    CD_TRANSCRIPT_REL,
+    CD_WORKTREES_REL,
+    claude_subagent_records,
+)
+
+
+class ClaudeDesktopTests(ParserBase):
+    def test_transcript_rows(self):
+        arts = {a.rel: a for a in self.col.artifacts}
+        self.assertEqual(arts[CD_TRANSCRIPT_REL].agent, "claude-desktop")
+        rows = self.rows_for(ClaudeDesktopParser(), CD_TRANSCRIPT_REL)
+        # The claude-code reader's rows, line for line.
+        self.assertEqual(
+            [(r.source_line, r.turn_type) for r in rows],
+            [(n, t) for n, t, _ in ClaudeCodeTests.EXPECTED],
+        )
+        for r in rows:
+            self.assertEqual((r.host, r.user, r.agent), ("h1", "alice", "claude-desktop"))
+            self.assertEqual(r.session_id, CD_CLI_SESSION)
+            # From the record's userSelectedFolders, not the guest cwd.
+            self.assertEqual(r.project_path, "/srv/proj", r)
+            self.assertEqual(r.source_file, "/alice/" + CD_TRANSCRIPT_REL)
+        self.assertEqual(rows[0].text, "delete the logs in /var/log please")
+
+    def test_transcript_without_record_keeps_jsonl_cwd(self):
+        (self.home / CD_RECORD_REL).unlink()
+        rows = self.rows_for(ClaudeDesktopParser(), CD_TRANSCRIPT_REL)
+        self.assertEqual(rows[0].project_path, "/sessions/quiet-river-1234")
+
+    def test_record_not_read_through_symlink(self):
+        record = self.home / CD_RECORD_REL
+        target = self.tmp / "outside.json"
+        target.write_bytes(record.read_bytes())
+        record.unlink()
+        try:
+            record.symlink_to(target)
+        except OSError:
+            self.skipTest("symlinks not available")
+        rows = self.rows_for(ClaudeDesktopParser(), CD_TRANSCRIPT_REL)
+        self.assertEqual(rows[0].project_path, "/sessions/quiet-river-1234")
+
+    def test_subagent_transcript(self):
+        rel = CD_TRANSCRIPT_REL[: -len(".jsonl")] + "/subagents/agent-abc.jsonl"
+        path = self.home / rel
+        path.parent.mkdir(parents=True)
+        lines = [json.dumps(r) for r in claude_subagent_records()]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+        rows = self.rows_for(ClaudeDesktopParser(), rel)
+        self.assertEqual(rows[0].text, "subagent abc of %s" % CLAUDE_SESSION)
+        self.assertEqual({r.project_path for r in rows}, {"/srv/proj"})
+        self.assertEqual({r.agent for r in rows}, {"claude-desktop"})
+
+    def test_audit_with_transcript(self):
+        # The transcript holds the turns: only permission and result rows.
+        rows = self.rows_for(ClaudeDesktopParser(), CD_AUDIT_REL)
+        self.assertEqual(
+            [(r.source_line, r.turn_type, r.tool_name, r.timestamp_utc, r.text) for r in rows],
+            [
+                (
+                    4,
+                    "system",
+                    "Bash",
+                    "2026-10-01T10:00:03.100Z",
+                    "permission request: Bash npm test",
+                ),
+                (
+                    5,
+                    "system",
+                    "Bash",
+                    "2026-10-01T10:00:05.000Z",
+                    "permission response: Bash once granted=true",
+                ),
+                (
+                    7,
+                    "system",
+                    "",
+                    "2026-10-01T10:00:12.000Z",
+                    "result: success turns=2 error=false",
+                ),
+            ],
+        )
+        for r in rows:
+            self.assertEqual((r.agent, r.session_id), ("claude-desktop", CD_CLI_SESSION))
+            self.assertEqual(r.project_path, "/srv/proj")
+
+    def test_audit_fallback(self):
+        rows = self.rows_for(ClaudeDesktopParser(), CD_FALLBACK_REL)
+        self.assertEqual(
+            [(r.source_line, r.turn_type, r.text) for r in rows],
+            [
+                (1, "user", "list the files"),
+                (2, "system", "init: cwd=/sessions/quiet-river-1234 model=claude-fable-5-1"),
+                (3, "system", "context: notification: folder mounted"),
+                (4, "assistant", "Listing."),
+                (4, "tool_use", "ls"),
+                (5, "system", "permission auto-approved: Bash (always_allow)"),
+                (6, "tool_result", "README.md"),
+                (7, "assistant", "One file: README.md"),
+                (9, "system", "result: success turns=1 error=false"),
+            ],
+        )
+        by = {(r.source_line, r.turn_type): r for r in rows}
+        # The prompt's own timestamp wins over the audit write time.
+        self.assertEqual(by[1, "user"].timestamp_utc, "2026-10-02T08:59:59.500Z")
+        self.assertEqual(by[2, "system"].timestamp_utc, "2026-10-02T09:00:01.000Z")
+        use = by[4, "tool_use"]
+        self.assertEqual(
+            (use.tool_name, use.tool_use_id, use.model), ("Bash", "toolu_b1", "claude-fable-5-1")
+        )
+        self.assertEqual(by[6, "tool_result"].tool_use_id, "toolu_b1")
+        # No session record: the line's session id, no project.
+        self.assertEqual({r.session_id for r in rows}, {CD_FALLBACK_CLI})
+        self.assertEqual({r.project_path for r in rows}, {""})
+
+    def test_audit_short_dir_joins_record(self):
+        # A record under agent/ whose UUID starts with the short dir name.
+        rec = (
+            self.home
+            / CD_COWORK_ORG
+            / "agent"
+            / ("local_%s-aaaa-4bbb-8ccc-dddddddddddd.json" % CD_FALLBACK_DIR)
+        )
+        rec.parent.mkdir()
+        rec.write_text(
+            json.dumps(
+                {
+                    "sessionId": "local_%s-aaaa-4bbb-8ccc-dddddddddddd" % CD_FALLBACK_DIR,
+                    "cliSessionId": "cafecafe-0000-4000-8000-000000000001",
+                    "userSelectedFolders": ["/srv/other"],
+                    "createdAt": 1790762400000,
+                    "lastActivityAt": 1790762400000,
+                }
+            ),
+            encoding="utf-8",
+        )
+        rows = self.rows_for(ClaudeDesktopParser(), CD_FALLBACK_REL)
+        self.assertEqual({r.session_id for r in rows}, {"cafecafe-0000-4000-8000-000000000001"})
+        self.assertEqual({r.project_path for r in rows}, {"/srv/other"})
+
+    def test_cowork_record(self):
+        rows = self.rows_for(ClaudeDesktopParser(), CD_RECORD_REL)
+        # The transcript and audit log exist, so initialMessage is not repeated.
+        self.assertEqual(
+            [(r.source_line, r.turn_type, r.text) for r in rows],
+            [(1, "system", 'desktop session: agent "Summarise the test failures"')],
+        )
+        r = rows[0]
+        self.assertEqual(
+            (r.timestamp_utc, r.session_id, r.project_path, r.git_branch, r.model),
+            ("2026-09-30T10:00:00.000Z", CD_CLI_SESSION, "/srv/proj", "", "claude-fable-5-1"),
+        )
+
+    def test_record_without_session_and_with_error(self):
+        shutil.rmtree(self.home / CD_COWORK_ORG / CD_SESSION)
+        path = self.home / CD_RECORD_REL
+        rec = json.loads(path.read_text(encoding="utf-8"))
+        rec.update(error="VM failed to start", errorCategory="vm", errorAt=1790762430000)
+        path.write_text(json.dumps(rec), encoding="utf-8")
+        rows = self.rows_for(ClaudeDesktopParser(), CD_RECORD_REL)
+        self.assertEqual(
+            [(r.turn_type, r.timestamp_utc, r.text) for r in rows],
+            [
+                (
+                    "system",
+                    "2026-09-30T10:00:00.000Z",
+                    'desktop session: agent "Summarise the test failures"',
+                ),
+                ("user", "2026-09-30T10:00:00.000Z", "why does the test fail?"),
+                ("system", "2026-09-30T10:00:30.000Z", "session error: vm: VM failed to start"),
+            ],
+        )
+
+    def test_code_record(self):
+        rows = self.rows_for(ClaudeDesktopParser(), CD_CODE_RECORD_REL)
+        self.assertEqual(len(rows), 1)
+        r = rows[0]
+        self.assertEqual(
+            (r.turn_type, r.text, r.timestamp_utc, r.session_id, r.project_path, r.git_branch),
+            (
+                "system",
+                'desktop code session: "Fix the failing test"',
+                "2026-09-30T10:00:00.000Z",
+                CD_CODE_CLI,
+                "/srv/proj",
+                "main",
+            ),
+        )
+
+    def test_code_record_joins_home_transcript(self):
+        # The Code tab's transcript is claude-code's ~/.claude/projects file:
+        # when it is in the input, the first prompt is not repeated.
+        path = self.home / CD_CODE_RECORD_REL
+        rec = json.loads(path.read_text(encoding="utf-8"))
+        rec.update(cliSessionId=CLAUDE_SESSION, initialMessage="fix the test")
+        path.write_text(json.dumps(rec), encoding="utf-8")
+        rows = self.rows_for(ClaudeDesktopParser(), CD_CODE_RECORD_REL)
+        self.assertEqual([(r.turn_type, r.session_id) for r in rows], [("system", CLAUDE_SESSION)])
+        shutil.rmtree(self.home / ".claude/projects")
+        rows = self.rows_for(ClaudeDesktopParser(), CD_CODE_RECORD_REL)
+        self.assertEqual([r.turn_type for r in rows], ["system", "user"])
+        self.assertEqual(rows[1].text, "fix the test")
+
+    def test_bad_record_is_one_row(self):
+        (self.home / CD_RECORD_REL).write_text("[1, 2]", encoding="utf-8")
+        rows = self.rows_for(ClaudeDesktopParser(), CD_RECORD_REL)
+        self.assertEqual([r.turn_type for r in rows], ["system"])
+        self.assertIn("not a JSON object", rows[0].text)
+
+    def test_scheduled_tasks_and_worktrees(self):
+        rows = self.rows_for(ClaudeDesktopParser(), CD_SCHED_REL)
+        self.assertEqual(
+            [(r.source_line, r.turn_type, r.timestamp_utc, r.project_path, r.text) for r in rows],
+            [
+                (
+                    1,
+                    "system",
+                    "2026-09-30T10:00:00.000Z",
+                    "/srv/proj",
+                    "scheduled task: daily-report 0 9 * * 1-5 enabled=true",
+                )
+            ],
+        )
+        rows = self.rows_for(ClaudeDesktopParser(), CD_WORKTREES_REL)
+        self.assertEqual(len(rows), 1)
+        r = rows[0]
+        self.assertEqual(
+            (r.turn_type, r.timestamp_utc, r.project_path, r.git_branch, r.session_id),
+            ("system", "2026-09-30T10:00:01.000Z", "/srv/proj", "claude/brave-otter", ""),
+        )
+        self.assertEqual(
+            r.text,
+            "worktree created: /srv/proj/.claude/worktrees/brave-otter "
+            "branch=claude/brave-otter from=main leased by "
+            "local_e2e2e2e2-9999-4aaa-8bbb-cccccccccccc",
+        )
+
+    def test_thinking_opt_in(self):
+        p = ClaudeDesktopParser()
+        rows = self.rows_for(p, CD_TRANSCRIPT_REL)
+        self.assertFalse(any(r.turn_type == "thinking" for r in rows))
+        rows = self.rows_for(p, CD_TRANSCRIPT_REL, include_thinking=True)
+        self.assertEqual(
+            [(r.source_line, r.text) for r in rows if r.turn_type == "thinking"],
+            [(3, "private reasoning")],
+        )
+        rows = self.rows_for(p, CD_FALLBACK_REL, include_thinking=True)
+        self.assertEqual(
+            [(r.source_line, r.text) for r in rows if r.turn_type == "thinking"], [(4, "use ls")]
+        )
+
+    def test_not_wanted(self):
+        p = ClaudeDesktopParser()
+        arts = {a.rel: a for a in self.col.artifacts}
+        base = "Library/Application Support/Claude/"
+        for rel in (
+            CD_COWORK_ORG + "/spaces.json",
+            CD_COWORK_ORG + "/cowork_settings.json",
+            CD_COWORK_ORG + "/rpm/manifest.json",
+            CD_COWORK_ORG + "/%s/.audit-key" % CD_SESSION,
+            base + "claude_desktop_config.json",
+        ):
+            self.assertEqual(arts[rel].agent, "claude-desktop", rel)
+            self.assertFalse(p.wants(arts[rel]), rel)
+        # Each parser reads only its own tree.
+        self.assertFalse(ClaudeCodeParser().wants(arts[CD_TRANSCRIPT_REL]))
+        self.assertFalse(p.wants(arts[ClaudeCodeTests.REL]))
+        self.assertFalse(p.wants(arts[".claude/history.jsonl"]))
+        # The other catalog bases, and the staged import tree.
+        tail = CD_TRANSCRIPT_REL[len(base) :]
+        for root in (".config/Claude-3p/", "AppData/Roaming/Claude/", "AppData/Local/Claude-3p/"):
+            self.assertTrue(p.wants(rel_only(root + tail)), root)
+        self.assertFalse(p.wants(rel_only("AppData/Local/Claude/" + tail)))
+        self.assertFalse(p.wants(rel_only("Claude/" + tail)))
+        self.assertTrue(
+            p.wants(rel_only(base + "claude-code-sessions/a/b/imported-staging/x.jsonl"))
+        )
+
+    def test_truncated_line_is_reported_not_fatal(self):
+        write_bad_line(self.home / CD_AUDIT_REL)
+        rows = self.rows_for(ClaudeDesktopParser(), CD_AUDIT_REL)
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(
+            (rows[-1].turn_type, rows[-1].session_id, rows[-1].source_line),
+            ("system", CD_CLI_SESSION, 8),
+        )
+        self.assertIn("1 unparseable line", rows[-1].text)
+        write_bad_line(self.home / CD_TRANSCRIPT_REL)
+        rows = self.rows_for(ClaudeDesktopParser(), CD_TRANSCRIPT_REL)
+        self.assertEqual(len(rows), len(ClaudeCodeTests.EXPECTED) + 1)
+        self.assertIn("1 unparseable line", rows[-1].text)
+        self.assertEqual(rows[-1].source_line, 35)

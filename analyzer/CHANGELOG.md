@@ -9,8 +9,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-10
+
 ### Added
 
+- A `claude-desktop` parser: Claude Desktop's Cowork and Code-tab
+  transcripts (Claude Code JSONL under the app-data directory, with the
+  project path taken from the session record), each Cowork session's
+  `audit.jsonl` (permission requests, responses and automatic decisions,
+  and every turn when the transcript is missing), session records,
+  scheduled tasks and Code-tab worktrees. The rows come out under agent
+  `claude-desktop` (#48).
 - The bundled catalog copy follows collector 1.10.0: the agents
   `autogen-studio`, `camel-ai`, `crewai`, `dify`, `flowise`, `langflow`,
   `metagpt`, `n8n` and `pydantic-clai`, the project entry `.clai`, the
@@ -378,7 +387,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--summary-length` (default 400), `--include-thinking` and `--agent`;
   `detect --json` and `--files`; `catalog --agents`.
 
-[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.10.0...HEAD
+[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.11.0...HEAD
+[0.11.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.10.0...analyzer-v0.11.0
 [0.10.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.9.0...analyzer-v0.10.0
 [0.9.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.8.1...analyzer-v0.9.0
 [0.8.1]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.8.0...analyzer-v0.8.1

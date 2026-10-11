@@ -43,25 +43,24 @@ matrix are in the pages under [collectors/docs/](collectors/docs/).
 
 `doubleagent`, a Python command-line tool that reads a collector archive, an
 extracted collection, or any loose directory such as a copied home or a
-mounted image, detects which agents
-left state in it using the collectors' own catalog, and parses the transcripts
-it understands into a normalised JSONL timeline of turns, tool calls and tool
-results, plus a per-session summary. Parsers exist for Claude Code, Codex
-CLI, Gemini CLI, Antigravity, Qwen Code, Amazon Q CLI (the `kiro` entry), VS
-Code chat (including Copilot Chat), Cline, Roo Code, Kilo Code, Continue,
-Aider, OpenCode, Crush, Goose, Zed, Tabby, OpenHands, ShellGPT, pi,
-little-coder, Letta, Hermes, Agent Zero, Open Interpreter, OpenClaw, nanobot,
-Sourcegraph Cody, Twinny, PearAI, Muse Code and Ollama. Every other agent in
-the catalog (Claude Desktop, ChatGPT Desktop, Copilot CLI and the Copilot
-editor token store, Cursor, Windsurf, Amp, Factory Droid, Augment,
-Local Deep Research, and the agent frameworks and platforms) is detected
-and reported but not yet parsed. Parsing never happens
-on the host, so the analyzer is free to carry its own requirements. It needs
-Python 3.10 or later; `pip install ./analyzer` installs the `doubleagent`
-command and the packages in `analyzer/requirements.txt`:
-`python-dateutil` and `zstandard`, the second for Zed threads,
-zstd-compressed Codex and Open Interpreter rollouts, and OpenClaw's
-compressed transcript rows.
+mounted image, detects which agents left state in it using the collectors'
+own catalog, and parses the transcripts it understands into a normalised
+JSONL timeline of turns, tool calls and tool results, plus a per-session
+summary. Parsers exist for Claude Code, Claude Desktop, Codex CLI, Gemini
+CLI, Antigravity, Qwen Code, Amazon Q CLI (the `kiro` entry), VS Code chat
+(including Copilot Chat), Cline, Roo Code, Kilo Code, Continue, Aider,
+OpenCode, Crush, Goose, Zed, Tabby, OpenHands, ShellGPT, pi, little-coder,
+Letta, Hermes, Agent Zero, Open Interpreter, OpenClaw, nanobot, Sourcegraph
+Cody, Twinny, PearAI, Muse Code and Ollama. Every other agent in the catalog
+(ChatGPT Desktop, Copilot CLI and the Copilot editor token store, Cursor,
+Windsurf, Amp, Factory Droid, Augment, Local Deep Research, and the agent
+frameworks and platforms) is detected and reported but not yet parsed.
+Parsing never happens on the host, so the analyzer is free to carry its own
+requirements. It needs Python 3.10 or later; `pip install ./analyzer`
+installs the `doubleagent` command and the packages in
+`analyzer/requirements.txt`: `python-dateutil` and `zstandard`, the second
+for Zed threads, zstd-compressed Codex and Open Interpreter rollouts, and
+OpenClaw's compressed transcript rows.
 
 Usage and options are in [analyzer/README.md](analyzer/README.md); accepted
 inputs, the JSONL schema, recipes for searching large timelines and the
