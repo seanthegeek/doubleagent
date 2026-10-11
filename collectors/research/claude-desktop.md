@@ -1,5 +1,8 @@
 # claude-desktop
 
+Catalog agent: `claude-desktop`. Transcript schema is in
+[`analyzer/research/claude-desktop.md`](../../analyzer/research/claude-desktop.md).
+
 ## 1. Source and evidence level
 
 Closed Electron app; no package inspected. Evidence: **official docs** claude.com/docs/third-party/claude-desktop/data-storage ("User identity and local data", fetched 2026-10-03), modelcontextprotocol.io/docs/tools/debugging (log and config paths), code.claude.com/docs/en/iam and /settings (relation to `~/.claude`); **community/forum**: github.com/aaddrick/claude-desktop-debian README (Linux path), github.com/CodeZeno/Claude-Code-Usage-Monitor/issues/105 and github.com/yhm138/ai-quota-tray/pull/6 (token cache keys and encryption), github.com/blind0wl/dms-ai-usage/issues/8 (Linux `~/.config/Claude/config.json` keys, unanswered). No DFIR write-up found for this app.
