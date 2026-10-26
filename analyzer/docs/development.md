@@ -47,6 +47,22 @@ or permission to create symlinks are skipped, with the reason, when it is
 missing. CI runs the suite on Python 3.10, 3.11, 3.12, 3.13 and 3.14 with
 `requirements.txt` installed.
 
+## Updating the output examples
+
+The real-run blocks in [`output.md`](output.md) come from a small collected
+fixture built from the Windows, Linux and macOS Claude Code records in
+`tests/fixtures.py`. After changing the CLI output, regenerate the blocks from
+the repository root and check them with the analyzer suite:
+
+```sh
+python3 analyzer/tools/regenerate_output_examples.py
+cd analyzer && tests/run.sh test_output_examples
+```
+
+The script builds an extracted collection from those fixtures, runs `detect`
+and `timeline`, and updates the marked JSON, JSONL and stdout blocks. `--check`
+runs the same fixture and fails when the documentation is stale.
+
 Lint and type checks, from the repository root, at the versions CI pins
 (see "Quality gates" in [AGENTS.md](../../AGENTS.md#quality-gates)):
 

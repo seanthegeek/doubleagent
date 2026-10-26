@@ -115,14 +115,13 @@ by two spaces, and exits `0` even when nothing was found. This example
 is a real run on a test collection of host `ws01` with `--json --files`;
 the `files` key appears only with `--files`:
 
+<!-- BEGIN GENERATED: detect-json -->
 ```json
 {
-  "input": "/cases/ws01/ws01",
+  "input": "ws01",
   "kind": "collected",
   "host": "ws01",
-  "notes": [
-    "1 manifest rows did not parse"
-  ],
+  "notes": [],
   "homes": [
     {
       "user": "alice",
@@ -130,34 +129,9 @@ the `files` key appears only with `--files`:
       "inferred": false,
       "agents": [
         {
-          "agent": "amp",
-          "files": 1,
-          "bytes": 2,
-          "parser": false
-        },
-        {
           "agent": "claude-code",
-          "files": 3,
-          "bytes": 4343,
-          "parser": true
-        }
-      ]
-    },
-    {
-      "user": "bob",
-      "home": "/home/bob",
-      "inferred": false,
-      "agents": [
-        {
-          "agent": "gemini-cli",
-          "files": 1,
-          "bytes": 2,
-          "parser": true
-        },
-        {
-          "agent": "ollama",
-          "files": 1,
-          "bytes": 25,
+          "files": 8,
+          "bytes": 32908,
           "parser": true
         }
       ]
@@ -169,40 +143,32 @@ the `files` key appears only with `--files`:
       "users": [
         "alice"
       ],
-      "agents": [
+      "agents": [],
+      "shared_files": 2,
+      "shared_bytes": 481,
+      "remotes": [
         {
-          "agent": "aider",
-          "files": 1,
-          "bytes": 41,
-          "parser": true
+          "name": "origin",
+          "urls": [
+            "git@github.com:alice/proj.git",
+            "https://mirror.example.com/alice/proj.git"
+          ],
+          "pushurls": [
+            "https://github.com/alice/proj.git"
+          ]
         },
         {
-          "agent": "cursor",
-          "files": 1,
-          "bytes": 9,
-          "parser": true
+          "name": "upstream",
+          "urls": [
+            "https://github.com/upstream/proj.git"
+          ],
+          "pushurls": []
         }
       ],
-      "shared_files": 1,
-      "shared_bytes": 9,
-      "remotes": [],
-      "head": ""
-    },
-    {
-      "path": "/srv/shared",
-      "users": [
-        "alice"
-      ],
-      "agents": [],
-      "shared_files": 1,
-      "shared_bytes": 9,
-      "remotes": [],
-      "head": ""
+      "head": "main"
     }
   ],
-  "problems": [
-    "/home/bob/.gemini/tmp/chats/gone.json: missing from the collection"
-  ],
+  "problems": [],
   "files": [
     {
       "user": "alice",
@@ -212,60 +178,60 @@ the `files` key appears only with `--files`:
     {
       "user": "alice",
       "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl"
+      "path": "/home/alice/.claude/paste-cache/0f1e2d3c4b5a6978.txt"
     },
     {
       "user": "alice",
       "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-/99999999-8888-4777-8666-555555555555.jsonl"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/.ollama/history"
+      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000003.jsonl"
     },
     {
       "user": "alice",
-      "agent": "amp",
-      "path": "/home/alice/.config/amp/settings.json"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/settings.json"
+      "agent": "claude-code",
+      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/tool-results/k3j9x2m1q.txt"
     },
     {
       "user": "alice",
-      "agent": "aider",
-      "path": "/srv/proj/.aider.input.history"
+      "agent": "claude-code",
+      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl"
     },
     {
       "user": "alice",
-      "agent": "cursor",
-      "path": "/srv/proj/.cursor/rules/style.mdc"
+      "agent": "claude-code",
+      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-dddddddddddd.jsonl"
     },
     {
       "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/AGENTS.md"
+      "agent": "claude-code",
+      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl"
+    },
+    {
+      "user": "alice",
+      "agent": "claude-code",
+      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl"
     },
     {
       "user": "alice",
       "agent": "project",
-      "path": "/srv/shared/AGENTS.md"
+      "path": "/srv/proj/.git/config"
+    },
+    {
+      "user": "alice",
+      "agent": "project",
+      "path": "/srv/proj/.git/HEAD"
     }
   ]
 }
 ```
+<!-- END GENERATED: detect-json -->
 
-`inferred` is `true` only in loose mode, where `projects` is always `[]`,
-so no single run shows both. The run was made before analyzer 0.21.0;
-its collection holds no `.git/` files, so each project's `remotes` and
-`head` are filled in as `[]` and `""` by the 0.21.0 rules, not by a run. `homes` holds the counts of the first table
-of `detect`, which prints one line per user, home and agent in the order
-each one's first file was met, while `homes` groups them by home and
-sorts each home's agents: here alice's `amp` comes before `claude-code`,
-which the first table prints first. Its keys, in order:
+`inferred` is `true` only in loose mode, where `projects` is always `[]`.
+This collected fixture gets the home and project paths from its manifest,
+so `inferred` is `false` and the project entry includes the remotes and
+`HEAD` read from its collected `.git` files. `homes` groups the first
+table of `detect` by home and sorts each home's agents; the first table
+keeps the order each user, home and agent's first file was met. Its keys,
+in order:
 
 | Key | Type | Meaning |
 | --- | --- | --- |
@@ -339,16 +305,26 @@ dropped:   0 duplicate rows from secondary sources
 ```
 
 Then come the `agents:` line, the row count with a breakdown by agent and
-`turn_type`, and the session count. The breakdown counts the rows written. The
-last three line groups name the three files, one each, in this order:
+`turn_type`, and the session count. The breakdown counts the rows written. This
+is the output of a real run on the same test collection; its three final lines
+name the files written:
 
+<!-- BEGIN GENERATED: timeline-stdout -->
 ```text
-rows:      214 in out/timeline.jsonl
-           claude-code    assistant    40
-           claude-code    user         50
-sessions:  6 in out/sessions.jsonl
+input:     ws01 (collected)
+host:      ws01
+dropped:   7 duplicate rows from secondary sources (claude-code 7)
+agents:    parsed: claude-code; detected but not parsed: none
+rows:      80 in out/timeline.jsonl
+           claude-code    assistant    1
+           claude-code    system       48
+           claude-code    tool_result  8
+           claude-code    tool_use     8
+           claude-code    user         15
+sessions:  5 in out/sessions.jsonl (1 synced, 1 remote, 1 recovered)
 inventory: out/inventory.json (homes, projects, scratch directories, counts per agent, problems)
 ```
+<!-- END GENERATED: timeline-stdout -->
 
 `rows:` is followed by one indented line per agent and `turn_type` with
 its count, sorted by agent and type, and nothing when there are no rows.
@@ -356,13 +332,10 @@ When at least one record of `sessions.jsonl` has `synced` `yes`,
 `relayed` `yes`, `origin` `remote` or `recovered` `yes` or `partial`,
 the `sessions:` line ends with those counts in parentheses after the
 path, in that order, each part present only when its count is greater
-than 0 and the parts joined by a comma:
-`sessions:  6 in out/sessions.jsonl (1 synced)`,
-`sessions:  6 in out/sessions.jsonl (2 relayed)` or
-`sessions:  6 in out/sessions.jsonl (1 synced, 2 relayed, 1 remote, 3 recovered)`.
-With none it ends at the path, as above. The `synced` part is there
-since analyzer 0.14.0, the `relayed`, `remote` and `recovered` parts
-since 0.15.0.
+than 0 and the parts joined by a comma. The fixture run above reports
+`(1 synced, 1 remote, 1 recovered)`; with none of those marks, the line
+ends at the path. The `synced` part is there since analyzer 0.14.0, and
+the `relayed`, `remote` and `recovered` parts since 0.15.0.
 The paths are `-o` joined with the file name, as given on the command
 line. The exit code is `0` when at least one row was written and `1`
 otherwise; the files are written either way. Before analyzer 0.12.0
@@ -420,32 +393,22 @@ filters, except that `--agent` changes the parser problems, which come
 from the parsers that ran. This example is a real run of `timeline` on
 the test collection of the [`detect --json`](#detect---json) example:
 
+<!-- BEGIN GENERATED: inventory-json -->
 ```json
 {
-  "doubleagent_version": "0.14.0",
-  "input": "/cases/ws01/ws01",
+  "doubleagent_version": "0.21.0",
+  "input": "ws01",
   "kind": "collected",
   "host": "ws01",
-  "notes": [
-    "1 manifest rows did not parse"
-  ],
-  "problems": [
-    "/home/bob/.gemini/tmp/chats/gone.json: missing from the collection"
-  ],
-  "rows": 18,
-  "sessions": 2,
+  "notes": [],
+  "problems": [],
+  "rows": 80,
+  "sessions": 5,
   "parsed": [
-    "aider",
-    "claude-code",
-    "ollama"
+    "claude-code"
   ],
-  "detected_not_parsed": [
-    "amp"
-  ],
-  "no_rows": [
-    "cursor",
-    "gemini-cli"
-  ],
+  "detected_not_parsed": [],
+  "no_rows": [],
   "homes": [
     {
       "user": "alice",
@@ -453,57 +416,85 @@ the test collection of the [`detect --json`](#detect---json) example:
       "inferred": false,
       "agents": [
         {
-          "agent": "amp",
-          "files": 1,
-          "bytes": 2,
-          "parser": false,
-          "synced_sessions": 0,
-          "relayed_sessions": 0,
-          "remote_sessions": 0,
-          "recovered_sessions": 0
-        },
-        {
           "agent": "claude-code",
-          "files": 3,
-          "bytes": 4343,
+          "files": 8,
+          "bytes": 32908,
           "parser": true,
-          "synced_sessions": 0,
+          "synced_sessions": 1,
           "relayed_sessions": 0,
-          "remote_sessions": 0,
-          "recovered_sessions": 0
-        }
-      ]
-    },
-    {
-      "user": "bob",
-      "home": "/home/bob",
-      "inferred": false,
-      "agents": [
-        {
-          "agent": "gemini-cli",
-          "files": 1,
-          "bytes": 2,
-          "parser": true,
-          "synced_sessions": 0,
-          "relayed_sessions": 0,
-          "remote_sessions": 0,
-          "recovered_sessions": 0
-        },
-        {
-          "agent": "ollama",
-          "files": 1,
-          "bytes": 25,
-          "parser": true,
-          "synced_sessions": 0,
-          "relayed_sessions": 0,
-          "remote_sessions": 0,
-          "recovered_sessions": 0
+          "remote_sessions": 1,
+          "recovered_sessions": 1
         }
       ]
     }
   ],
   "projects": {
-    "/srv/gone": {
+    "/srv/proj": {
+      "status": "collected",
+      "rows": 79,
+      "sessions": 5,
+      "agents": {
+        "claude-code": {
+          "rows": 79,
+          "sessions": 5,
+          "turn_types": {
+            "assistant": 1,
+            "system": 47,
+            "tool_result": 8,
+            "tool_use": 8,
+            "user": 15
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 2,
+      "synced": "partial",
+      "relayed": "",
+      "origin": "mixed",
+      "recovered": "partial",
+      "remotes": [
+        {
+          "name": "origin",
+          "urls": [
+            "git@github.com:alice/proj.git",
+            "https://mirror.example.com/alice/proj.git"
+          ],
+          "pushurls": [
+            "https://github.com/alice/proj.git"
+          ]
+        },
+        {
+          "name": "upstream",
+          "urls": [
+            "https://github.com/upstream/proj.git"
+          ],
+          "pushurls": []
+        }
+      ],
+      "head": "main",
+      "recorded_remotes": []
+    }
+  },
+  "outside_projects": {
+    "rows": 0,
+    "sessions": 0,
+    "agents": {},
+    "synced": "",
+    "relayed": "",
+    "origin": "",
+    "recovered": ""
+  },
+  "deduplicated": {
+    "claude-code": 7
+  },
+  "collected_only": [],
+  "synced_sessions": 1,
+  "relayed_sessions": 0,
+  "remote_sessions": 1,
+  "recovered_sessions": 1,
+  "scratch_directories": {
+    "/tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad": {
       "status": "referenced",
       "rows": 1,
       "sessions": 0,
@@ -512,7 +503,7 @@ the test collection of the [`detect --json`](#detect---json) example:
           "rows": 1,
           "sessions": 0,
           "turn_types": {
-            "user": 1
+            "system": 1
           },
           "files": 0,
           "bytes": 0
@@ -526,143 +517,21 @@ the test collection of the [`detect --json`](#detect---json) example:
       "remotes": [],
       "head": "",
       "recorded_remotes": []
-    },
-    "/srv/proj": {
-      "status": "collected",
-      "rows": 8,
-      "sessions": 1,
-      "agents": {
-        "aider": {
-          "rows": 1,
-          "sessions": 0,
-          "turn_types": {
-            "user": 1
-          },
-          "files": 1,
-          "bytes": 41
-        },
-        "claude-code": {
-          "rows": 7,
-          "sessions": 1,
-          "turn_types": {
-            "assistant": 2,
-            "system": 1,
-            "tool_result": 1,
-            "tool_use": 1,
-            "user": 2
-          },
-          "files": 0,
-          "bytes": 0
-        },
-        "cursor": {
-          "rows": 0,
-          "sessions": 0,
-          "turn_types": {},
-          "files": 1,
-          "bytes": 9
-        }
-      },
-      "shared_files": 1,
-      "synced": "no",
-      "relayed": "",
-      "origin": "",
-      "recovered": "no",
-      "remotes": [],
-      "head": "",
-      "recorded_remotes": []
-    },
-    "/srv/shared": {
-      "status": "collected",
-      "rows": 0,
-      "sessions": 0,
-      "agents": {},
-      "shared_files": 1,
-      "synced": "",
-      "relayed": "",
-      "origin": "",
-      "recovered": "",
-      "remotes": [],
-      "head": "",
-      "recorded_remotes": []
     }
-  },
-  "outside_projects": {
-    "rows": 9,
-    "sessions": 1,
-    "agents": {
-      "claude-code": {
-        "rows": 7,
-        "sessions": 1,
-        "turn_types": {
-          "assistant": 2,
-          "system": 1,
-          "tool_result": 1,
-          "tool_use": 1,
-          "user": 2
-        }
-      },
-      "ollama": {
-        "rows": 2,
-        "sessions": 0,
-        "turn_types": {
-          "system": 1,
-          "user": 1
-        }
-      }
-    },
-    "synced": "no",
-    "relayed": "",
-    "origin": "",
-    "recovered": "no"
-  },
-  "deduplicated": {},
-  "collected_only": [],
-  "synced_sessions": 0,
-  "relayed_sessions": 0,
-  "remote_sessions": 0,
-  "recovered_sessions": 0,
-  "scratch_directories": {}
+  }
 }
 ```
+<!-- END GENERATED: inventory-json -->
 
-`claude-code` is counted in three places. Under `/srv/proj` it has 7
-rows and 1 session: one `history.jsonl` line and the six rows of a
-session transcript whose working directory is `/srv/proj`; it has no
-project files there, because its transcripts are in alice's home, where
-`homes` counts its 3 files. Under `/srv/gone`, a `referenced` project, it
-has one history line. Under
-`outside_projects` it has the other 7 rows and 1 session: the history
-line with no project and a session transcript that records no working
-directory. `cursor` has a project file its parser does not read, and
-`gemini-cli` a settings file, so both have a parser that found no rows;
-`amp` has no parser. `deduplicated` is `{}`
-because none of the three `history.jsonl` prompts is one a transcript
-records, so every history line is kept, `collected_only` is `[]`
-because no agent of the input is one with nothing to parse, and every
-`synced_sessions`, `relayed_sessions` and `remote_sessions` is 0
-because no session here carries a `session synced:`, `session relayed:`
-or `session origin:` row. The `claude-code` parser records sync state
-since 0.21.0, so the `synced` of `/srv/proj` and of `outside_projects`,
-whose only sessions are its, is `no`; the other parsers with sessions
-here record no sync, relay or origin state (the `cursor` parser records
-origin, but `cursor` has no session), so every other project's `synced`
-and every `relayed` and `origin` is `""`.
-Every `recovered_sessions` is 0 because the session under `/srv/proj`
-and the one outside projects come from their transcripts alone (the
-history lines that survive carry no session), so the `recovered` of
-`/srv/proj` and of `outside_projects` is `no`, while `/srv/gone` and
-`/srv/shared` have no session and read `""`. The run was made with
-analyzer 0.14.0, before `relayed_sessions`, `remote_sessions`,
-`recovered_sessions` and the project and `outside_projects` marks
-existed; those keys are filled in by applying the 0.15.0 rules to the
-agents and sessions the run shows, not by a run. `scratch_directories`
-is `{}` the same way, by the 0.18.0 rules: none of the example's paths
-lies under a home or project catalog entry, and none of its agents wrote
-a `scratch directory:` row. Each project's `remotes`, `head` and
-`recorded_remotes` are filled in by the 0.21.0 rules the same way: the
-collection holds no `.git/` files, and none of its parsers writes a `git
-remote:` row; so are the two `no` marks of `synced`, by the 0.21.0 rule
-that the `claude-code` parser records sync state. Its keys, in order:
+This fixture has one home and a collected `/srv/proj` project. It contains
+five Claude Code sessions from the Windows, Linux and macOS fixtures; the
+timeline run writes 80 rows, drops seven duplicate history rows and
+summarises five sessions. The sessions show local and remote origins, a
+synced Remote Control session, and one partially recovered session whose
+history retains events absent from its transcript. The project remotes and
+`HEAD` come from the fixture's `.git/config` and `.git/HEAD`. The 0.21.0
+fields below are generated by the current CLI run rather than added to an
+older example. Its keys, in order:
 
 | Key | Type | Meaning |
 | --- | --- | --- |
@@ -915,6 +784,23 @@ alike. [searching.md](searching.md) has recipes.
 ## timeline.jsonl
 
 `timeline.jsonl` fields, in order:
+
+The following selected system rows are from a real run on the `ws01` test
+collection. They show the denial, scheduled task, remote origin and sync rows
+from the Windows, Linux and macOS fixture records:
+
+<!-- BEGIN GENERATED: timeline-jsonl -->
+```jsonl
+{"timestamp_utc":"2026-10-01T10:00:05.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-dddddddddddd","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_310b","text":"permission decision: reject source=user_reject reason=- {\"decision\":\"reject\",\"reasonCode\":\"bashMiss:no-rule-match\",\"source\":\"user_reject\"} toolDenialKind=user-rejected userFeedback=I changed my mind","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-dddddddddddd.jsonl","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:03.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_m1","text":"permission decision: reject (interrupted) toolDenialKind=user-rejected","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:06.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_m2","text":"permission decision: reject (interrupted) toolDenialKind=user-rejected","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:20.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scheduled task fired: a1b2c3d4 cron=*/1 * * * *","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","source_line":11,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:20.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=system turnOrigin=scheduled","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","source_line":12,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (Remote Control, entrypoint sdk-cli)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:06.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_309b","text":"permission decision: reject source=user_reject reason=- {\"decision\":\"reject\",\"reasonCode\":\"other\",\"source\":\"user_reject\"} toolDenialKind=user-rejected userFeedback=use the test runner instead","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":12,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:07.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote control bridge cse_0a1b2c3d4e5f6a7b url https://claude.ai/code/session_0a1b2c3d4e5f6a7b","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":14,"recovered":""}
+```
+<!-- END GENERATED: timeline-jsonl -->
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -2644,6 +2530,18 @@ non-empty `session_id`; records without one belong to no session. It is
 built after filtering, so it summarises the rows written. It is sorted by
 `first_timestamp_utc`, then `agent`, then `session_id`, so sessions with
 no timestamp come first. Its fields, in order:
+
+These session records are from a real run on the same `ws01` test collection:
+
+<!-- BEGIN GENERATED: sessions-jsonl -->
+```jsonl
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-dddddddddddd","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:01.000Z","last_timestamp_utc":"2026-10-01T10:00:12.000Z","models":["claude-sonnet-5-5"],"user_turns":2,"assistant_turns":1,"tool_calls":3,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-dddddddddddd.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:01.000Z","last_timestamp_utc":"2026-10-01T11:00:59.000Z","models":["claude-fable-5-1"],"user_turns":8,"assistant_turns":0,"tool_calls":2,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","synced":"no","relayed":"","origin":"local","recovered":"partial"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:57.000Z","last_timestamp_utc":"2026-10-01T11:00:57.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000003.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:00.000Z","last_timestamp_utc":"2026-10-01T12:00:03.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","synced":"no","relayed":"","origin":"remote","recovered":"no"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T13:00:01.000Z","last_timestamp_utc":"2026-10-01T13:00:11.000Z","models":["claude-sonnet-5-5"],"user_turns":4,"assistant_turns":0,"tool_calls":2,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","synced":"yes","relayed":"","origin":"local","recovered":"no"}
+```
+<!-- END GENERATED: sessions-jsonl -->
 
 | Field | Type | Meaning |
 | --- | --- | --- |

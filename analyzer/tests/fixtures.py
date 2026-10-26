@@ -3448,6 +3448,46 @@ def build_image(root: Path) -> Path:
     return root
 
 
+def build_output_example_image(root: Path) -> Path:
+    """A small fake disk image for the generated `output.md` examples.
+
+    Its Claude Code sessions use the fixture records from the Windows,
+    Linux and macOS rounds of issue 256, including a Remote Control spawn,
+    scheduled task, denial and history rows. Keeping this fixture focused
+    makes the documented real-run output readable.
+    """
+    build_git_repo(root / "srv/proj")
+    config = root / "srv/proj/.git/config"
+    config.write_text(
+        PROJ_GIT_CONFIG.replace(PROJ_PUSH_URL, "https://github.com/alice/proj.git"),
+        encoding="utf-8",
+    )
+    home = root / "home/alice"
+    project = home / ".claude/projects/-srv-proj"
+    sessions = (
+        (CLAUDE_309_SESSION, claude_309_records()),
+        (CLAUDE_310_SESSION, claude_310_records()),
+        (CLAUDE_MAC_SESSION, claude_mac_records()),
+        (CLAUDE_MAC_SPAWN_SESSION, claude_mac_spawn_records()),
+        (CLAUDE_MAC_CLEARED_SESSION, claude_mac_cleared_records()),
+    )
+    for session_id, records in sessions:
+        _jsonl(project / (session_id + ".jsonl"), records)
+
+    _jsonl(home / ".claude/history.jsonl", claude_mac_history_records())
+    paste_cache = home / ".claude/paste-cache"
+    paste_cache.mkdir(parents=True)
+    (paste_cache / (CLAUDE_MAC_PASTE_HASH + ".txt")).write_text(
+        CLAUDE_MAC_LONG_PASTE, encoding="utf-8"
+    )
+    persisted = project / CLAUDE_309_SESSION / "tool-results" / CLAUDE_309_TOOL_RESULT
+    persisted.parent.mkdir(parents=True, exist_ok=True)
+    persisted.write_text(CLAUDE_309_PERSISTED, encoding="utf-8")
+    (root / "etc").mkdir(parents=True, exist_ok=True)
+    (root / "etc/passwd").write_text("alice:x:1000:1000::/home/alice:/bin/sh\n", encoding="utf-8")
+    return root
+
+
 # A JSON object cut off mid-write, as a running agent leaves a transcript's
 # last line.
 BAD_LINE = '{"type": "user", "truncated": tr'
