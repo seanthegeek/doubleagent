@@ -111,14 +111,18 @@ since its collection holds no `.git/` files.
 ### detect --json
 
 With `--json`, `detect` prints the same data as one JSON object, indented
-by two spaces, and exits `0` even when nothing was found. This example
-is a real run on a test collection of host `ws01` with `--json --files`;
-the `files` key appears only with `--files`:
+by two spaces, and exits `0` even when nothing was found. This generated
+example comes from an analyzer run on a collection produced by the POSIX
+collector from the suite's full fake disk image. The generator normalizes
+fixture text line endings, source paths to the fake image root, the temporary
+input path to `/tmp/doubleagent-output-examples/ws01`, and the collection
+hostname to `ws01` so output is stable across runs and operating systems.
+This example omits `--files`; the `files` key appears only with `--files`:
 
 <!-- BEGIN GENERATED: detect-json -->
 ```json
 {
-  "input": "ws01",
+  "input": "/tmp/doubleagent-output-examples/ws01",
   "kind": "collected",
   "host": "ws01",
   "notes": [],
@@ -129,9 +133,479 @@ the `files` key appears only with `--files`:
       "inferred": false,
       "agents": [
         {
+          "agent": "agent-zero",
+          "files": 6,
+          "bytes": 7301,
+          "parser": true
+        },
+        {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true
+        },
+        {
+          "agent": "antigravity",
+          "files": 22,
+          "bytes": 89691,
+          "parser": true
+        },
+        {
+          "agent": "chatgpt-desktop",
+          "files": 1,
+          "bytes": 24,
+          "parser": true
+        },
+        {
           "agent": "claude-code",
+          "files": 19,
+          "bytes": 34293,
+          "parser": true
+        },
+        {
+          "agent": "claude-desktop",
+          "files": 16,
+          "bytes": 24355,
+          "parser": true
+        },
+        {
+          "agent": "cline",
+          "files": 16,
+          "bytes": 62513,
+          "parser": true
+        },
+        {
+          "agent": "codex-cli",
+          "files": 11,
+          "bytes": 128926,
+          "parser": true
+        },
+        {
+          "agent": "cody",
+          "files": 2,
+          "bytes": 1930,
+          "parser": true
+        },
+        {
+          "agent": "continue",
+          "files": 13,
+          "bytes": 7903,
+          "parser": true
+        },
+        {
+          "agent": "copilot",
+          "files": 1,
+          "bytes": 96,
+          "parser": false
+        },
+        {
+          "agent": "copilot-cli",
+          "files": 15,
+          "bytes": 119404,
+          "parser": true
+        },
+        {
+          "agent": "copilot-desktop",
           "files": 8,
-          "bytes": 32908,
+          "bytes": 316390,
+          "parser": true
+        },
+        {
+          "agent": "crush",
+          "files": 7,
+          "bytes": 102757,
+          "parser": true
+        },
+        {
+          "agent": "cursor",
+          "files": 10,
+          "bytes": 100650,
+          "parser": true
+        },
+        {
+          "agent": "gemini-cli",
+          "files": 10,
+          "bytes": 4901,
+          "parser": true
+        },
+        {
+          "agent": "goose",
+          "files": 8,
+          "bytes": 86840,
+          "parser": true
+        },
+        {
+          "agent": "hermes",
+          "files": 12,
+          "bytes": 160904,
+          "parser": true
+        },
+        {
+          "agent": "kilo-code",
+          "files": 6,
+          "bytes": 58566,
+          "parser": true
+        },
+        {
+          "agent": "kiro",
+          "files": 9,
+          "bytes": 61860,
+          "parser": true
+        },
+        {
+          "agent": "letta",
+          "files": 16,
+          "bytes": 7368,
+          "parser": true
+        },
+        {
+          "agent": "little-coder",
+          "files": 12,
+          "bytes": 3254,
+          "parser": true
+        },
+        {
+          "agent": "muse-code",
+          "files": 6,
+          "bytes": 24278,
+          "parser": true
+        },
+        {
+          "agent": "nanobot",
+          "files": 26,
+          "bytes": 57426,
+          "parser": true
+        },
+        {
+          "agent": "ollama",
+          "files": 13,
+          "bytes": 205634,
+          "parser": true
+        },
+        {
+          "agent": "open-interpreter",
+          "files": 10,
+          "bytes": 56107,
+          "parser": true
+        },
+        {
+          "agent": "openclaw",
+          "files": 15,
+          "bytes": 415034,
+          "parser": true
+        },
+        {
+          "agent": "opencode",
+          "files": 14,
+          "bytes": 235320,
+          "parser": true
+        },
+        {
+          "agent": "openhands",
+          "files": 35,
+          "bytes": 10231,
+          "parser": true
+        },
+        {
+          "agent": "pearai",
+          "files": 14,
+          "bytes": 21787,
+          "parser": true
+        },
+        {
+          "agent": "pi",
+          "files": 10,
+          "bytes": 8463,
+          "parser": true
+        },
+        {
+          "agent": "qwen-code",
+          "files": 11,
+          "bytes": 5725,
+          "parser": true
+        },
+        {
+          "agent": "roo-code",
+          "files": 14,
+          "bytes": 6391,
+          "parser": true
+        },
+        {
+          "agent": "shellgpt",
+          "files": 8,
+          "bytes": 1437,
+          "parser": true
+        },
+        {
+          "agent": "tabby",
+          "files": 10,
+          "bytes": 300710,
+          "parser": true
+        },
+        {
+          "agent": "twinny",
+          "files": 1,
+          "bytes": 40,
+          "parser": true
+        },
+        {
+          "agent": "vscode",
+          "files": 18,
+          "bytes": 131517,
+          "parser": true
+        },
+        {
+          "agent": "zed",
+          "files": 4,
+          "bytes": 62041,
+          "parser": true
+        }
+      ]
+    },
+    {
+      "user": "bob",
+      "home": "/home/bob",
+      "inferred": false,
+      "agents": [
+        {
+          "agent": "agent-zero",
+          "files": 6,
+          "bytes": 7301,
+          "parser": true
+        },
+        {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true
+        },
+        {
+          "agent": "antigravity",
+          "files": 22,
+          "bytes": 89691,
+          "parser": true
+        },
+        {
+          "agent": "chatgpt-desktop",
+          "files": 1,
+          "bytes": 24,
+          "parser": true
+        },
+        {
+          "agent": "claude-code",
+          "files": 19,
+          "bytes": 34293,
+          "parser": true
+        },
+        {
+          "agent": "claude-desktop",
+          "files": 16,
+          "bytes": 24355,
+          "parser": true
+        },
+        {
+          "agent": "cline",
+          "files": 16,
+          "bytes": 62513,
+          "parser": true
+        },
+        {
+          "agent": "codex-cli",
+          "files": 11,
+          "bytes": 128926,
+          "parser": true
+        },
+        {
+          "agent": "cody",
+          "files": 2,
+          "bytes": 1930,
+          "parser": true
+        },
+        {
+          "agent": "continue",
+          "files": 13,
+          "bytes": 7903,
+          "parser": true
+        },
+        {
+          "agent": "copilot",
+          "files": 1,
+          "bytes": 96,
+          "parser": false
+        },
+        {
+          "agent": "copilot-cli",
+          "files": 15,
+          "bytes": 119404,
+          "parser": true
+        },
+        {
+          "agent": "copilot-desktop",
+          "files": 8,
+          "bytes": 316390,
+          "parser": true
+        },
+        {
+          "agent": "crush",
+          "files": 7,
+          "bytes": 102757,
+          "parser": true
+        },
+        {
+          "agent": "cursor",
+          "files": 10,
+          "bytes": 100650,
+          "parser": true
+        },
+        {
+          "agent": "gemini-cli",
+          "files": 10,
+          "bytes": 4901,
+          "parser": true
+        },
+        {
+          "agent": "goose",
+          "files": 8,
+          "bytes": 86840,
+          "parser": true
+        },
+        {
+          "agent": "hermes",
+          "files": 12,
+          "bytes": 160904,
+          "parser": true
+        },
+        {
+          "agent": "kilo-code",
+          "files": 6,
+          "bytes": 58566,
+          "parser": true
+        },
+        {
+          "agent": "kiro",
+          "files": 9,
+          "bytes": 61860,
+          "parser": true
+        },
+        {
+          "agent": "letta",
+          "files": 16,
+          "bytes": 7368,
+          "parser": true
+        },
+        {
+          "agent": "little-coder",
+          "files": 12,
+          "bytes": 3254,
+          "parser": true
+        },
+        {
+          "agent": "muse-code",
+          "files": 6,
+          "bytes": 24278,
+          "parser": true
+        },
+        {
+          "agent": "nanobot",
+          "files": 26,
+          "bytes": 57426,
+          "parser": true
+        },
+        {
+          "agent": "ollama",
+          "files": 13,
+          "bytes": 205634,
+          "parser": true
+        },
+        {
+          "agent": "open-interpreter",
+          "files": 10,
+          "bytes": 56107,
+          "parser": true
+        },
+        {
+          "agent": "openclaw",
+          "files": 15,
+          "bytes": 415034,
+          "parser": true
+        },
+        {
+          "agent": "opencode",
+          "files": 14,
+          "bytes": 235320,
+          "parser": true
+        },
+        {
+          "agent": "openhands",
+          "files": 35,
+          "bytes": 10231,
+          "parser": true
+        },
+        {
+          "agent": "pearai",
+          "files": 14,
+          "bytes": 21787,
+          "parser": true
+        },
+        {
+          "agent": "pi",
+          "files": 10,
+          "bytes": 8463,
+          "parser": true
+        },
+        {
+          "agent": "qwen-code",
+          "files": 11,
+          "bytes": 5725,
+          "parser": true
+        },
+        {
+          "agent": "roo-code",
+          "files": 14,
+          "bytes": 6391,
+          "parser": true
+        },
+        {
+          "agent": "shellgpt",
+          "files": 8,
+          "bytes": 1437,
+          "parser": true
+        },
+        {
+          "agent": "tabby",
+          "files": 10,
+          "bytes": 300710,
+          "parser": true
+        },
+        {
+          "agent": "twinny",
+          "files": 1,
+          "bytes": 40,
+          "parser": true
+        },
+        {
+          "agent": "vscode",
+          "files": 18,
+          "bytes": 131517,
+          "parser": true
+        },
+        {
+          "agent": "zed",
+          "files": 4,
+          "bytes": 62041,
+          "parser": true
+        }
+      ]
+    },
+    {
+      "user": "carol",
+      "home": "/Users/carol",
+      "inferred": false,
+      "agents": [
+        {
+          "agent": "codex-cli",
+          "files": 1,
+          "bytes": 127,
           "parser": true
         }
       ]
@@ -145,7 +619,7 @@ the `files` key appears only with `--files`:
       ],
       "agents": [],
       "shared_files": 2,
-      "shared_bytes": 481,
+      "shared_bytes": 486,
       "remotes": [
         {
           "name": "origin",
@@ -154,7 +628,7 @@ the `files` key appears only with `--files`:
             "https://mirror.example.com/alice/proj.git"
           ],
           "pushurls": [
-            "https://github.com/alice/proj.git"
+            "https://alice:FIXTURE-TOKEN@github.com/alice/proj.git"
           ]
         },
         {
@@ -168,59 +642,7 @@ the `files` key appears only with `--files`:
       "head": "main"
     }
   ],
-  "problems": [],
-  "files": [
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/history.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/paste-cache/0f1e2d3c4b5a6978.txt"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000003.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/tool-results/k3j9x2m1q.txt"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-dddddddddddd.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/config"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/HEAD"
-    }
-  ]
+  "problems": []
 }
 ```
 <!-- END GENERATED: detect-json -->
@@ -311,17 +733,17 @@ name the files written:
 
 <!-- BEGIN GENERATED: timeline-stdout -->
 ```text
-input:     ws01 (collected)
+input:     /tmp/doubleagent-output-examples/ws01 (collected)
 host:      ws01
-dropped:   7 duplicate rows from secondary sources (claude-code 7)
-agents:    parsed: claude-code; detected but not parsed: none
-rows:      80 in out/timeline.jsonl
-           claude-code    assistant    1
-           claude-code    system       48
-           claude-code    tool_result  8
-           claude-code    tool_use     8
-           claude-code    user         15
-sessions:  5 in out/sessions.jsonl (1 synced, 1 remote, 1 recovered)
+dropped:   4 duplicate rows from secondary sources (claude-code 4)
+agents:    parsed: claude-code; detected but not parsed: none; collected only: copilot
+rows:      218 in out/timeline.jsonl
+           claude-code    assistant    12
+           claude-code    system       146
+           claude-code    tool_result  16
+           claude-code    tool_use     16
+           claude-code    user         28
+sessions:  14 in out/sessions.jsonl (4 synced, 2 recovered)
 inventory: out/inventory.json (homes, projects, scratch directories, counts per agent, problems)
 ```
 <!-- END GENERATED: timeline-stdout -->
@@ -390,20 +812,21 @@ the agents selected. `homes`, `notes`, `problems` and the file counts
 (`homes[].agents[].files` and `bytes`, and the project `files`, `bytes`
 and `shared_files`) describe the whole input and do not follow the
 filters, except that `--agent` changes the parser problems, which come
-from the parsers that ran. This example is a real run of `timeline` on
-the test collection of the [`detect --json`](#detect---json) example:
+from the parsers that ran. This example is a real run of `timeline` with
+`--agent claude-code` on the test collection of the
+[`detect --json`](#detect---json) example:
 
 <!-- BEGIN GENERATED: inventory-json -->
 ```json
 {
   "doubleagent_version": "0.21.0",
-  "input": "ws01",
+  "input": "/tmp/doubleagent-output-examples/ws01",
   "kind": "collected",
   "host": "ws01",
   "notes": [],
   "problems": [],
-  "rows": 80,
-  "sessions": 5,
+  "rows": 218,
+  "sessions": 14,
   "parsed": [
     "claude-code"
   ],
@@ -416,33 +839,831 @@ the test collection of the [`detect --json`](#detect---json) example:
       "inferred": false,
       "agents": [
         {
-          "agent": "claude-code",
-          "files": 8,
-          "bytes": 32908,
+          "agent": "agent-zero",
+          "files": 6,
+          "bytes": 7301,
           "parser": true,
-          "synced_sessions": 1,
+          "synced_sessions": 0,
           "relayed_sessions": 0,
-          "remote_sessions": 1,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "antigravity",
+          "files": 22,
+          "bytes": 89691,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "chatgpt-desktop",
+          "files": 1,
+          "bytes": 24,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "claude-code",
+          "files": 19,
+          "bytes": 34293,
+          "parser": true,
+          "synced_sessions": 2,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
           "recovered_sessions": 1
+        },
+        {
+          "agent": "claude-desktop",
+          "files": 16,
+          "bytes": 24355,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "cline",
+          "files": 16,
+          "bytes": 62513,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "codex-cli",
+          "files": 11,
+          "bytes": 128926,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "cody",
+          "files": 2,
+          "bytes": 1930,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "continue",
+          "files": 13,
+          "bytes": 7903,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "copilot",
+          "files": 1,
+          "bytes": 96,
+          "parser": false,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "copilot-cli",
+          "files": 15,
+          "bytes": 119404,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "copilot-desktop",
+          "files": 8,
+          "bytes": 316390,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "crush",
+          "files": 7,
+          "bytes": 102757,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "cursor",
+          "files": 10,
+          "bytes": 100650,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "gemini-cli",
+          "files": 10,
+          "bytes": 4901,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "goose",
+          "files": 8,
+          "bytes": 86840,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "hermes",
+          "files": 12,
+          "bytes": 160904,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "kilo-code",
+          "files": 6,
+          "bytes": 58566,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "kiro",
+          "files": 9,
+          "bytes": 61860,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "letta",
+          "files": 16,
+          "bytes": 7368,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "little-coder",
+          "files": 12,
+          "bytes": 3254,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "muse-code",
+          "files": 6,
+          "bytes": 24278,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "nanobot",
+          "files": 26,
+          "bytes": 57426,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "ollama",
+          "files": 13,
+          "bytes": 205634,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "open-interpreter",
+          "files": 10,
+          "bytes": 56107,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "openclaw",
+          "files": 15,
+          "bytes": 415034,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "opencode",
+          "files": 14,
+          "bytes": 235320,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "openhands",
+          "files": 35,
+          "bytes": 10231,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "pearai",
+          "files": 14,
+          "bytes": 21787,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "pi",
+          "files": 10,
+          "bytes": 8463,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "qwen-code",
+          "files": 11,
+          "bytes": 5725,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "roo-code",
+          "files": 14,
+          "bytes": 6391,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "shellgpt",
+          "files": 8,
+          "bytes": 1437,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "tabby",
+          "files": 10,
+          "bytes": 300710,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "twinny",
+          "files": 1,
+          "bytes": 40,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "vscode",
+          "files": 18,
+          "bytes": 131517,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "zed",
+          "files": 4,
+          "bytes": 62041,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        }
+      ]
+    },
+    {
+      "user": "bob",
+      "home": "/home/bob",
+      "inferred": false,
+      "agents": [
+        {
+          "agent": "agent-zero",
+          "files": 6,
+          "bytes": 7301,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "antigravity",
+          "files": 22,
+          "bytes": 89691,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "chatgpt-desktop",
+          "files": 1,
+          "bytes": 24,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "claude-code",
+          "files": 19,
+          "bytes": 34293,
+          "parser": true,
+          "synced_sessions": 2,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 1
+        },
+        {
+          "agent": "claude-desktop",
+          "files": 16,
+          "bytes": 24355,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "cline",
+          "files": 16,
+          "bytes": 62513,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "codex-cli",
+          "files": 11,
+          "bytes": 128926,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "cody",
+          "files": 2,
+          "bytes": 1930,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "continue",
+          "files": 13,
+          "bytes": 7903,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "copilot",
+          "files": 1,
+          "bytes": 96,
+          "parser": false,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "copilot-cli",
+          "files": 15,
+          "bytes": 119404,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "copilot-desktop",
+          "files": 8,
+          "bytes": 316390,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "crush",
+          "files": 7,
+          "bytes": 102757,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "cursor",
+          "files": 10,
+          "bytes": 100650,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "gemini-cli",
+          "files": 10,
+          "bytes": 4901,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "goose",
+          "files": 8,
+          "bytes": 86840,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "hermes",
+          "files": 12,
+          "bytes": 160904,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "kilo-code",
+          "files": 6,
+          "bytes": 58566,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "kiro",
+          "files": 9,
+          "bytes": 61860,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "letta",
+          "files": 16,
+          "bytes": 7368,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "little-coder",
+          "files": 12,
+          "bytes": 3254,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "muse-code",
+          "files": 6,
+          "bytes": 24278,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "nanobot",
+          "files": 26,
+          "bytes": 57426,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "ollama",
+          "files": 13,
+          "bytes": 205634,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "open-interpreter",
+          "files": 10,
+          "bytes": 56107,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "openclaw",
+          "files": 15,
+          "bytes": 415034,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "opencode",
+          "files": 14,
+          "bytes": 235320,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "openhands",
+          "files": 35,
+          "bytes": 10231,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "pearai",
+          "files": 14,
+          "bytes": 21787,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "pi",
+          "files": 10,
+          "bytes": 8463,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "qwen-code",
+          "files": 11,
+          "bytes": 5725,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "roo-code",
+          "files": 14,
+          "bytes": 6391,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "shellgpt",
+          "files": 8,
+          "bytes": 1437,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "tabby",
+          "files": 10,
+          "bytes": 300710,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "twinny",
+          "files": 1,
+          "bytes": 40,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "vscode",
+          "files": 18,
+          "bytes": 131517,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "zed",
+          "files": 4,
+          "bytes": 62041,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        }
+      ]
+    },
+    {
+      "user": "carol",
+      "home": "/Users/carol",
+      "inferred": false,
+      "agents": [
+        {
+          "agent": "codex-cli",
+          "files": 1,
+          "bytes": 127,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
         }
       ]
     }
   ],
   "projects": {
-    "/srv/proj": {
-      "status": "collected",
-      "rows": 79,
-      "sessions": 5,
+    "/srv/old": {
+      "status": "referenced",
+      "rows": 2,
+      "sessions": 2,
       "agents": {
         "claude-code": {
-          "rows": 79,
-          "sessions": 5,
+          "rows": 2,
+          "sessions": 2,
           "turn_types": {
-            "assistant": 1,
-            "system": 47,
-            "tool_result": 8,
-            "tool_use": 8,
-            "user": 15
+            "user": 2
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "no",
+      "relayed": "",
+      "origin": "local",
+      "recovered": "yes",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/proj": {
+      "status": "collected",
+      "rows": 192,
+      "sessions": 12,
+      "agents": {
+        "claude-code": {
+          "rows": 192,
+          "sessions": 12,
+          "turn_types": {
+            "assistant": 12,
+            "system": 124,
+            "tool_result": 16,
+            "tool_use": 16,
+            "user": 24
           },
           "files": 0,
           "bytes": 0
@@ -451,8 +1672,8 @@ the test collection of the [`detect --json`](#detect---json) example:
       "shared_files": 2,
       "synced": "partial",
       "relayed": "",
-      "origin": "mixed",
-      "recovered": "partial",
+      "origin": "local",
+      "recovered": "no",
       "remotes": [
         {
           "name": "origin",
@@ -461,7 +1682,7 @@ the test collection of the [`detect --json`](#detect---json) example:
             "https://mirror.example.com/alice/proj.git"
           ],
           "pushurls": [
-            "https://github.com/alice/proj.git"
+            "https://alice:FIXTURE-TOKEN@github.com/alice/proj.git"
           ]
         },
         {
@@ -474,36 +1695,95 @@ the test collection of the [`detect --json`](#detect---json) example:
       ],
       "head": "main",
       "recorded_remotes": []
+    },
+    "/srv/proj2": {
+      "status": "referenced",
+      "rows": 4,
+      "sessions": 0,
+      "agents": {
+        "claude-code": {
+          "rows": 4,
+          "sessions": 0,
+          "turn_types": {
+            "system": 2,
+            "user": 2
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/work": {
+      "status": "referenced",
+      "rows": 2,
+      "sessions": 0,
+      "agents": {
+        "claude-code": {
+          "rows": 2,
+          "sessions": 0,
+          "turn_types": {
+            "system": 2
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
     }
   },
   "outside_projects": {
-    "rows": 0,
+    "rows": 16,
     "sessions": 0,
-    "agents": {},
+    "agents": {
+      "claude-code": {
+        "rows": 16,
+        "sessions": 0,
+        "turn_types": {
+          "system": 16
+        }
+      }
+    },
     "synced": "",
     "relayed": "",
     "origin": "",
     "recovered": ""
   },
   "deduplicated": {
-    "claude-code": 7
+    "claude-code": 4
   },
-  "collected_only": [],
-  "synced_sessions": 1,
+  "collected_only": [
+    "copilot"
+  ],
+  "synced_sessions": 4,
   "relayed_sessions": 0,
-  "remote_sessions": 1,
-  "recovered_sessions": 1,
+  "remote_sessions": 0,
+  "recovered_sessions": 2,
   "scratch_directories": {
     "/tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad": {
       "status": "referenced",
-      "rows": 1,
+      "rows": 2,
       "sessions": 0,
       "agents": {
         "claude-code": {
-          "rows": 1,
+          "rows": 2,
           "sessions": 0,
           "turn_types": {
-            "system": 1
+            "system": 2
           },
           "files": 0,
           "bytes": 0
@@ -785,20 +2065,24 @@ alike. [searching.md](searching.md) has recipes.
 
 `timeline.jsonl` fields, in order:
 
-The following selected system rows are from a real run on the `ws01` test
-collection. They show the denial, scheduled task, remote origin and sync rows
-from the Windows, Linux and macOS fixture records:
+The following block contains every generated timeline row for Alice's short
+Claude Code 2.1.295 session in the full fixture (2026-10-01T11:00Z). Rows
+from all other fixture sessions are omitted:
 
 <!-- BEGIN GENERATED: timeline-jsonl -->
 ```jsonl
-{"timestamp_utc":"2026-10-01T10:00:05.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-dddddddddddd","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_310b","text":"permission decision: reject source=user_reject reason=- {\"decision\":\"reject\",\"reasonCode\":\"bashMiss:no-rule-match\",\"source\":\"user_reject\"} toolDenialKind=user-rejected userFeedback=I changed my mind","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-dddddddddddd.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:03.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_m1","text":"permission decision: reject (interrupted) toolDenialKind=user-rejected","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:06.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_m2","text":"permission decision: reject (interrupted) toolDenialKind=user-rejected","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:20.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scheduled task fired: a1b2c3d4 cron=*/1 * * * *","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","source_line":11,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:20.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=system turnOrigin=scheduled","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (Remote Control, entrypoint sdk-cli)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:06.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_309b","text":"permission decision: reject source=user_reject reason=- {\"decision\":\"reject\",\"reasonCode\":\"other\",\"source\":\"user_reject\"} toolDenialKind=user-rejected userFeedback=use the test runner instead","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:07.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote control bridge cse_0a1b2c3d4e5f6a7b url https://claude.ai/code/session_0a1b2c3d4e5f6a7b","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":14,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:00.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt queued: delivered at line 4","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:00.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"claude-code process 4242 interactive status=idle entrypoint=claude-desktop bridge=none host_session=local_f4f4f4f4-9999-4aaa-8bbb-cccccccccccc","source_file":"/home/alice/.claude/sessions/4242.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:00.100Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"queue dequeue:","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":2,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: claude-desktop","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: auto","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"list the cron jobs","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=sdk turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:02.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":5,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:02.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_95","text":"cd /srv/proj && crontab -l","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":5,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:03.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_95","text":"0 3 * * * x","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":6,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:03.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_95","text":"permission decision: allow source=auto_mode reason=classifier","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":6,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:04.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"stop_hook_summary: {\"hasOutput\":false,\"hookAdditionalContext\":[],\"hookCount\":1,\"hookErrors\":[],\"hookInfos\":[{\"command\":\"true\",\"durationMs\":5}],\"level\":\"suggestion\",\"preventedContinuation\":false,\"stopReason\":\"\",\"toolUseID\":\"toolu_95\"}","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":8,"recovered":""}
 ```
 <!-- END GENERATED: timeline-jsonl -->
 
@@ -2535,11 +3819,20 @@ These session records are from a real run on the same `ws01` test collection:
 
 <!-- BEGIN GENERATED: sessions-jsonl -->
 ```jsonl
-{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-dddddddddddd","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:01.000Z","last_timestamp_utc":"2026-10-01T10:00:12.000Z","models":["claude-sonnet-5-5"],"user_turns":2,"assistant_turns":1,"tool_calls":3,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-dddddddddddd.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
-{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-ffffffffffff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:01.000Z","last_timestamp_utc":"2026-10-01T11:00:59.000Z","models":["claude-fable-5-1"],"user_turns":8,"assistant_turns":0,"tool_calls":2,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-ffffffffffff.jsonl","synced":"no","relayed":"","origin":"local","recovered":"partial"}
-{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:57.000Z","last_timestamp_utc":"2026-10-01T11:00:57.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000003.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
-{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:00.000Z","last_timestamp_utc":"2026-10-01T12:00:03.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","synced":"no","relayed":"","origin":"remote","recovered":"no"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"99999999-0000-4000-8000-000000000000","project_path":"/srv/old","first_timestamp_utc":"2026-09-30T10:00:00.000Z","last_timestamp_utc":"2026-09-30T10:00:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/history.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
+{"host":"ws01","user":"bob","agent":"claude-code","session_id":"99999999-0000-4000-8000-000000000000","project_path":"/srv/old","first_timestamp_utc":"2026-09-30T10:00:00.000Z","last_timestamp_utc":"2026-09-30T10:00:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.claude/history.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:00.000Z","last_timestamp_utc":"2026-10-01T10:00:20.000Z","models":["claude-fable-5-1"],"user_turns":4,"assistant_turns":2,"tool_calls":5,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"bob","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:00.000Z","last_timestamp_utc":"2026-10-01T10:00:20.000Z","models":["claude-fable-5-1"],"user_turns":4,"assistant_turns":2,"tool_calls":5,"source_file":"/home/bob/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:30.000Z","last_timestamp_utc":"2026-10-01T10:00:31.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":1,"tool_calls":0,"source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"bob","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:30.000Z","last_timestamp_utc":"2026-10-01T10:00:31.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":1,"tool_calls":0,"source_file":"/home/bob/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:00.000Z","last_timestamp_utc":"2026-10-01T11:00:04.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"bob","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:00.000Z","last_timestamp_utc":"2026-10-01T11:00:04.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/bob/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-888888888888","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:00.000Z","last_timestamp_utc":"2026-10-01T12:00:00.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/sessions/4343.json","synced":"yes","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"bob","agent":"claude-code","session_id":"11111111-2222-4333-8444-888888888888","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:00.000Z","last_timestamp_utc":"2026-10-01T12:00:00.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.claude/sessions/4343.json","synced":"yes","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:01.000Z","last_timestamp_utc":"2026-10-01T12:00:10.000Z","models":["claude-fable-5-1","claude-opus-5-5"],"user_turns":3,"assistant_turns":3,"tool_calls":0,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"bob","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:01.000Z","last_timestamp_utc":"2026-10-01T12:00:10.000Z","models":["claude-fable-5-1","claude-opus-5-5"],"user_turns":3,"assistant_turns":3,"tool_calls":0,"source_file":"/home/bob/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
 {"host":"ws01","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T13:00:01.000Z","last_timestamp_utc":"2026-10-01T13:00:11.000Z","models":["claude-sonnet-5-5"],"user_turns":4,"assistant_turns":0,"tool_calls":2,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","synced":"yes","relayed":"","origin":"local","recovered":"no"}
+{"host":"ws01","user":"bob","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T13:00:01.000Z","last_timestamp_utc":"2026-10-01T13:00:11.000Z","models":["claude-sonnet-5-5"],"user_turns":4,"assistant_turns":0,"tool_calls":2,"source_file":"/home/bob/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","synced":"yes","relayed":"","origin":"local","recovered":"no"}
 ```
 <!-- END GENERATED: sessions-jsonl -->
 

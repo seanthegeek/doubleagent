@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-REGENERATOR = REPO / "analyzer" / "tools" / "regenerate_output_examples.py"
+REGENERATOR = REPO / "analyzer" / "tests" / "regenerate_output_examples.py"
 
 
 class OutputExamplesTests(unittest.TestCase):

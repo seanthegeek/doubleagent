@@ -49,19 +49,23 @@ missing. CI runs the suite on Python 3.10, 3.11, 3.12, 3.13 and 3.14 with
 
 ## Updating the output examples
 
-The real-run blocks in [`output.md`](output.md) come from a small collected
-fixture built from the Windows, Linux and macOS Claude Code records in
-`tests/fixtures.py`. After changing the CLI output, regenerate the blocks from
-the repository root and check them with the analyzer suite:
+The real-run blocks in [`output.md`](output.md) come from a collected image
+built with `build_image` in `tests/fixtures.py` and the POSIX collector. Run
+the generator from Linux, macOS or WSL with the analyzer dependencies
+installed. It normalizes fixture line endings, source paths and the collection
+hostname so the examples stay stable across runs and operating systems.
+After changing the CLI output, regenerate the blocks from the repository root
+and check them with the analyzer suite:
 
 ```sh
-python3 analyzer/tools/regenerate_output_examples.py
+python3 analyzer/tests/regenerate_output_examples.py
 cd analyzer && tests/run.sh test_output_examples
 ```
 
-The script builds an extracted collection from those fixtures, runs `detect`
-and `timeline`, and updates the marked JSON, JSONL and stdout blocks. `--check`
-runs the same fixture and fails when the documentation is stale.
+The script builds the full fake disk image, runs it through the collector,
+then runs `detect` and `timeline` on the extracted collection. It updates the
+marked JSON, JSONL and stdout blocks. `--check` runs the same process and fails
+when the documentation is stale.
 
 Lint and type checks, from the repository root, at the versions CI pins
 (see "Quality gates" in [AGENTS.md](../../AGENTS.md#quality-gates)):
