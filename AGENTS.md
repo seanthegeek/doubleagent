@@ -1274,6 +1274,12 @@ skipped without it. Never add a `python3` requirement to the collector.
 - Read results from the output files, not from whether the watcher ended.
 - For CI, use `gh pr checks <n> --watch` or
   `gh run watch <id> --exit-status`.
+- While a change is in progress, run only the test modules it touches;
+  the full analyzer suite runs once, before the commit, and never beside
+  another CPU-bound job.
+- A fuzz run, seed search or sweep over the repository gets a wall-clock
+  limit before it starts; reaching it ends the run, and the result says
+  how far it got.
 
 ### Quality gates
 
