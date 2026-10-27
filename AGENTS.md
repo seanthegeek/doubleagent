@@ -1274,6 +1274,16 @@ skipped without it. Never add a `python3` requirement to the collector.
 - Read results from the output files, not from whether the watcher ended.
 - For CI, use `gh pr checks <n> --watch` or
   `gh run watch <id> --exit-status`.
+- While a change is in progress the full analyzer suite runs last: after
+  the test modules of the changed files pass (`test_<module>.py` for a
+  module, `tests/test_parsers.py` for a parser, the whole suite for a
+  change to `model.py`, `cli.py` or `parsers/base.py`), and again after
+  each fix. It runs alone, never beside a smoke test or another run of
+  the suite.
+- A run with no fixed end (fuzzing, generated inputs, a search over
+  seeds) gets a wall-clock limit before it starts. Unlike a timeout on a
+  check that should finish, reaching the limit is a planned stop, and the
+  result says how far the run got.
 
 ### Quality gates
 
