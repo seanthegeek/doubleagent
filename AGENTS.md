@@ -473,13 +473,10 @@ The analyzer runs on the analyst's workstation, never on the host.
   and no test module imports it, since the pyright gate runs without it: a
   list of cases is a loop with the case in each assertion's message, never
   `pytest.mark.parametrize`.
-- **Tests.** `analyzer/tests/run.sh`, which runs pytest, passes. While a
-  change is in progress, run the test modules covering the files it
-  changes; the whole suite runs once, before the commit, and not beside
-  a smoke test or another run of the suite. Every parser has a fixture
-  and a test class, every new input shape a detection test. A proximity
-  join of two record kinds is bounded by the next record of the same kind
-  and tested with two interleaved pairs (A, A's partner,
+- **Tests.** `analyzer/tests/run.sh`, which runs pytest, passes. Every
+  parser has a fixture and a test class, every new input shape a detection
+  test. A proximity join of two record kinds is bounded by the next record
+  of the same kind and tested with two interleaved pairs (A, A's partner,
   B, B's partner). A secondary-source join is tested with each axis of its
   predicate and the inverse: the earlier and the later claimant missing,
   equal-time copies across files, a narrower and a broader scope, the same
@@ -1277,9 +1274,16 @@ skipped without it. Never add a `python3` requirement to the collector.
 - Read results from the output files, not from whether the watcher ended.
 - For CI, use `gh pr checks <n> --watch` or
   `gh run watch <id> --exit-status`.
-- An open-ended run (generated inputs, or a pass over every file in the
-  repository) gets a wall-clock limit before it starts; reaching it is a
-  planned stop, not a failure, and the result says how far it got.
+- While a change is in progress the full analyzer suite runs last: after
+  the test modules of the changed files pass (`test_<module>.py` for a
+  module, `tests/test_parsers.py` for a parser, the whole suite for a
+  change to `model.py`, `cli.py` or `parsers/base.py`), and again after
+  each fix. It runs alone, never beside a smoke test or another run of
+  the suite.
+- A run with no fixed end (fuzzing, generated inputs, a search over
+  seeds) gets a wall-clock limit before it starts. Unlike a timeout on a
+  check that should finish, reaching the limit is a planned stop, and the
+  result says how far the run got.
 
 ### Quality gates
 

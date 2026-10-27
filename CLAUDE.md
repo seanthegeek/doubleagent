@@ -5,10 +5,10 @@
 Notes for Claude Code on this workstation:
 
 - After editing a collector, run `collectors/tests/smoke.sh dash` first: dash
-  is the strictest installed shell. After editing the analyzer, run the
-  test modules covering the change, and `analyzer/tests/run.sh` once
-  before committing (see Tests under
-  [Analyzer standards](AGENTS.md#analyzer-standards)). Run the matching
+  is the strictest installed shell. After editing the analyzer, run its
+  tests in the order
+  [Waiting for long-running checks](AGENTS.md#waiting-for-long-running-checks)
+  gives, with the venv below. Run the matching
   [Quality gates](AGENTS.md#quality-gates) before committing; CI runs them,
   the pre-commit hook does not.
 - Pass `-q` to the collector from a tool call; without it, every collected
