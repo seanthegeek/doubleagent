@@ -3,56 +3,68 @@
 
 Usage: tools/reflow_markdown.py [--check] [--width N] [--keep-mtime] [-r | --recurse] PATH...
 
-A PATH is a file. One holding `*`, `?` or `[` that names no file is expanded here (`**`
-included), so a shell that does not expand globs behaves like one that does; a pattern matching
-nothing is an error. A directory needs `-r`, which takes every `.md` and `.markdown` file below
-it without following symlinked directories. Each file is processed once.
+A PATH is a file; one holding `*`, `?` or `[` that names no file is a pattern expanded here,
+`**` included, and a pattern matching nothing is an error. A directory needs `-r`, which takes
+the `.md` and `.markdown` files below it. A symlinked directory is never followed, not even as
+a PATH; a symlinked file is rewritten through to its target. Each file is processed once.
 
-Without `--check` each file whose reflow differs is rewritten in place and its path printed;
-`--keep-mtime` keeps its access and modification times. With `--check` nothing is written: a
-unified diff is printed per file that would change, then a summary. `--width` sets the target
-width (default 80, at least 20). The exit status is 0 when nothing would change or every
-rewrite succeeded, 1 when `--check` found a file to change, 2 on an error (a bad path, an
-unreadable, non-UTF-8 or mixed line-ending file, or a refused reflow); the worst status wins.
+Without `--check` each file whose reflow differs is rewritten and its path printed;
+`--keep-mtime` keeps its access and modification times, and a file with other hard links or
+without write permission is refused. `--check` writes nothing: it prints a diff per file that
+would change, then a summary. `--width` (default 80, at least 20) counts code points. The exit
+status is 0 when nothing changes or every rewrite succeeds, 1 when `--check` finds a change and
+2 on an error or a refused file; the worst status wins.
 
-Only paragraph text is reflowed, at top level, in list items and in blockquotes; a word, code
-span, autolink, inline HTML tag or link destination is never split, and no wrapped line starts
-with text that Markdown would read as block syntax. Left byte for byte: front matter, fenced and
-indented code, headings, thematic breaks, tables, HTML blocks and comments, link reference,
-footnote and abbreviation definitions, admonitions, attribute lists, definition lists, math
-blocks, a paragraph holding template tags (`{%`, `{{`), a raw HTML tag spanning lines, a
-`[label]:` line or a trailing `<br>`, a paragraph one of those blocks interrupts, and each line
-ending in a hard break (the text between such lines is filled on its own). Each file keeps its
-line ends (LF or CRLF), final newline and byte order mark. Before anything is written or
-reported, the output is parsed again and the file is refused unless its blocks, the words of
-each paragraph and a second reflow are unchanged.
+Only paragraphs are reflowed, at top level, in list items and in blockquotes, and only their
+line breaks change: no wrapped line starts with block syntax, and whitespace in a code span, an
+HTML tag, a `<pre>` or `<code>` element, a link destination or an image's alt text is kept.
+Code, front matter, headings, tables, HTML blocks and each line ending in a hard break are kept.
+A construct only one dialect knows (math, admonitions, attribute and definition lists,
+abbreviations, footnotes) never changes the block structure read; it leaves the paragraph
+holding it unchanged, as template tags, an unmatched backtick or a neighbour that
+Python-Markdown and CommonMark could read differently do. Line ends (LF or CRLF), the final
+newline and a byte order mark are kept. Before anything is written or reported the output is
+parsed again: its blocks and words must be unchanged and a second reflow must change nothing.
+When Python-Markdown (`markdown`) or markdown-it-py (`markdown_it`) imports, each must render
+the file the same apart from whitespace; without them that check is skipped (enable it with
+`pip install markdown markdown-it-py`).
 """
 
 from __future__ import annotations
 
 import argparse
 import difflib
+import functools
 import glob
+import importlib
 import os
 import re
+import stat
 import sys
 import tempfile
+import types
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from html.parser import HTMLParser
 
 DEFAULT_WIDTH = 80
 MIN_WIDTH = 20
 MARKDOWN_SUFFIXES = (".md", ".markdown")
-BYTE_ORDER_MARK = "﻿"
-# The containers and leaves whose own lines decide where they end, so they take every line
-# their containers pass on.
-ACCEPTING = {"fence", "indented code", "html", "math"}
+BYTE_ORDER_MARK = "\ufeff"
+# The leaves whose own lines decide where they end, so they take every line their containers
+# pass on.
+ACCEPTING = {"fence", "indented code", "html"}
 CONTAINERS = {"document", "quote", "item"}
 
 ATX_HEADING = re.compile(r"#{1,6}(?:[ \t]|$)")
 FENCE = re.compile(r"`{3,}|~{3,}")
+# A fence Python-Markdown also reads as one: at the start of the line, with at most one word or
+# an attribute list after it. It reads any other as backticks in paragraph text.
+PYTHON_MARKDOWN_FENCE = re.compile(r"(?:`{3,}|~{3,})[ ]*(?:\{[^}\n]*\}|\.?[\w#.+-]*)[ ]*$")
 FENCE_CLOSE = re.compile(r"(`{3,}|~{3,})[ \t]*$")
 THEMATIC_BREAK = re.compile(r"(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$")
 SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)[ \t]*$")
+LIST_MARKER = re.compile(r"(?:[-+*]|\d{1,9}[.)])[ \t]")
 BULLET = re.compile(r"[-+*](?=[ \t]|$)")
 ORDERED = re.compile(r"(\d{1,9})[.)](?=[ \t]|$)")
 DELIMITER_ROW = re.compile(r"\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$")
@@ -86,28 +98,79 @@ HTML_STARTS = (
         None,
     ),
 )
-# Python-Markdown and MkDocs block syntax CommonMark does not know; each is copied unchanged.
-EXTENSION_STARTS = (
-    ("admonition", re.compile(r"!!!|\?\?\?")),
-    ("footnote", re.compile(r"\[\^[^\]]*\]:")),
-    ("abbreviation", re.compile(r"\*\[")),
-    ("definition", re.compile(r":(?:[ \t]|$)")),
-    ("attribute list", re.compile(r"\{(?![{%<])[^}]*\}[ \t]*$")),
-    ("table of contents", re.compile(r"\[TOC\][ \t]*$")),
-    ("link reference", re.compile(r"\[(?:[^\[\]\\]|\\.)+\]:")),
+# Line starts only one dialect reads as a block (Python-Markdown and MkDocs extensions, math,
+# and a reference definition interrupting a paragraph). They never open a block here; they
+# leave the paragraph holding them unchanged.
+ONE_DIALECT_START = re.compile(
+    r"!!!|\?\?\?|\[\^[^\]]*\]:|\*\[|:(?:[ \t]|$)|\{[^}]*\}[ \t]*$|\[TOC\][ \t]*$|\$\$|\\\[|\\\]"
 )
-MATH_OPENERS = (("$$", "$$"), ("\\[", "\\]"))
+DEFINITION = re.compile(r":(?:[ \t]|$)")
+# Whole lines only one dialect reads as a block: an attribute list, a table of contents.
+WHOLE_LINE_START = re.compile(r"\{[^}]*\}[ \t]*$|\[TOC\][ \t]*$")
+# Line starts Python-Markdown or CommonMark could read as a block inside a paragraph: a heading
+# with or without a space, a quote, a list item of any number, a setext underline, a fence,
+# and a pipe, which Python-Markdown may read as a table row.
+EITHER_BLOCK_START = re.compile(
+    r"#|>|[-+*](?:[ \t]|$)|\d{1,9}[.)](?:[ \t]|$)|(?:=+|-+)[ \t]*$|`{3}|~{3}|\|"
+)
 # A `[label]:` shape over the rest of a paragraph, since a label may span lines.
 LABEL_COLON = re.compile(r"\[(?:[^\[\]\\]|\\.)*\]:")
-# Text a wrapped line may not start with: the block starts above and what other parsers read
-# as one (any `#`, `<`, `|`, `:` or `{`, an ordered item of any number, an empty item).
+# Text a wrapped line may not start with: every block start above and what other parsers read
+# as one (any `<`, `|`, `:` or `{`).
 HAZARD = re.compile(
     r"#|>|[-+*](?:[ \t]|$)|\d{1,9}[.)](?:[ \t]|$)|(?:=+|-+)[ \t]*$|\||`{3}|~{3}"
-    r"|<|\[\^|:|!!!|\?\?\?|\{|\*\[|\$\$|\\\[|\[TOC\]"
+    r"|<|\[\^|:|!!!|\?\?\?|\{|\*\[|\$\$|\\\[|\\\]|\[TOC\]"
 )
+# A backtick inside a link destination: the dialects disagree on whether the code span or the
+# link wins.
+BACKTICK_DESTINATION = re.compile(r"\]\([^)]*`")
+# Link text and a label with whitespace between: Python-Markdown may read a reference link.
+SPACED_REFERENCE = re.compile(r"\][ \t\n]+\[")
 TEMPLATE = re.compile(r"\{%|%\}|\{\{|\}\}")
 TRAILING_BREAK_TAG = re.compile(r"<br[ \t]*/?>[ \t]*$", re.I)
+BREAK_TAG_END = re.compile(r"<br[ \t]*/?>$", re.I)
+AUTOLINK_START = re.compile(r"<[A-Za-z][A-Za-z0-9+.-]{1,31}:")
+# Elements whose content keeps its whitespace when rendered.
+PRESERVED_ELEMENTS = ("pre", "code", "textarea", "script", "style")
+PRESERVED_OPEN = re.compile(r"<(pre|code|textarea|script|style)(?=[\s/>])", re.I)
+RAW_ELEMENT_TAG = re.compile(r"<(/?)(pre|code|textarea|script|style)(?=[\s/>])[^>]*>", re.I)
 ASCII_WHITESPACE = " \t"
+HTML_WHITESPACE = re.compile(r"[ \t\n\r\f]+")
+RENDERED_BLOCKS = {
+    "blockquote",
+    "dd",
+    "div",
+    "dl",
+    "dt",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "li",
+    "ol",
+    "p",
+    "table",
+    "tbody",
+    "td",
+    "th",
+    "thead",
+    "tr",
+    "ul",
+}
+PYTHON_MARKDOWN_EXTENSIONS = (
+    "fenced_code",
+    "tables",
+    "attr_list",
+    "md_in_html",
+    "toc",
+    "admonition",
+    "def_list",
+    "footnotes",
+    "abbr",
+)
 
 
 class ReflowError(RuntimeError):
@@ -125,17 +188,17 @@ class Line:
     segments: list[tuple[str, str]] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(eq=False)
 class Block:
     """A container (document, quote, list item) or a leaf block and the lines it holds."""
 
     kind: str
-    label: str = ""
     marker: str = ""
     content_indent: int = 0
     lines: list[int] = field(default_factory=list)
     starts: list[int] = field(default_factory=list)
     children: list[Block] = field(default_factory=list)
+    chain: list[Block] = field(default_factory=list)
     verbatim: bool = False
     has_content: bool = False
     closer: str = ""
@@ -183,28 +246,11 @@ def html_start(text: str) -> tuple[int, re.Pattern[str] | None] | None:
     return None
 
 
-def extension_start(text: str) -> str:
-    """Return the name of the extension block `text` starts, or an empty string."""
-    for label, pattern in EXTENSION_STARTS:
-        if pattern.match(text):
-            return label
-    return ""
-
-
-def math_closer(text: str) -> str:
-    """Return the closing delimiter of the math block `text` opens, or an empty string."""
-    for opener, closer in MATH_OPENERS:
-        if text.startswith(opener):
-            return closer
-    return ""
-
-
 class Parser:
     """A conservative CommonMark block parser that records which lines each block holds.
 
     It follows the line-by-line algorithm of the CommonMark specification's appendix: open
     containers are matched first, then new block starts, then lazy paragraph continuation.
-    Python-Markdown extension blocks start wherever a line looks like one.
     """
 
     def __init__(self, texts: list[str]):
@@ -233,6 +279,7 @@ class Parser:
         for number in range(1, len(self.texts)):
             if self.texts[number].rstrip(ASCII_WHITESPACE) in closers:
                 block = Block("front matter", lines=list(range(number + 1)))
+                block.chain = [self.document]
                 self.document.children.append(block)
                 self.leaves.append(block)
                 return number + 1
@@ -274,6 +321,7 @@ class Parser:
             self.stack.append(block)
             self.matched = len(self.stack)
         else:
+            block.chain = list(self.stack)
             self.leaves.append(block)
             self.tip = block
 
@@ -284,16 +332,14 @@ class Parser:
         keep_open: bool = False,
         closer: str = "",
         end: re.Pattern[str] | None = None,
-    ) -> Block:
+    ) -> None:
         """Add a leaf of `kind` holding line `number`, left open only when `keep_open`."""
-        block = Block(kind, lines=[number], closer=closer, end=end)
-        self.open_block(block)
+        self.open_block(Block(kind, lines=[number], closer=closer, end=end))
         if not keep_open:
             self.tip = None
-        return block
 
     def continue_accepting(self, tip: Block, line: Line, number: int) -> bool:
-        """Give `line` to an open fence, code, HTML or math block; False when it ends first."""
+        """Give `line` to an open fence, code or HTML block; False when the block ends first."""
         columns, index = leading_whitespace(line)
         rest = line.text[index:]
         if tip.kind == "fence":
@@ -311,36 +357,29 @@ class Parser:
             if index == len(line.text) or columns >= 4:
                 tip.lines.append(number)
                 return True
-        elif tip.kind == "html":
-            if tip.end is not None:
-                tip.lines.append(number)
-                if tip.end.search(line.text, line.index):
-                    self.tip = None
-                return True
-            if index < len(line.text):
-                tip.lines.append(number)
-                return True
-        else:
+        elif tip.end is not None:
             tip.lines.append(number)
-            if tip.closer in line.text[line.index :]:
+            if tip.end.search(line.text, line.index):
                 self.tip = None
+            return True
+        elif index < len(line.text):
+            tip.lines.append(number)
             return True
         self.tip = None
         return False
 
     def add_paragraph_line(self, block: Block, line: Line, number: int) -> None:
-        """Add a continuation line to the paragraph-like `block`."""
+        """Add a continuation line to the paragraph `block`."""
         _columns, index = leading_whitespace(line)
         if line.tabbed or "\t" in line.text[line.index : index]:
             block.verbatim = True
         block.lines.append(number)
         block.starts.append(index)
 
-    def open_paragraph(self, line: Line, number: int, label: str = "") -> Block:
-        """Start a paragraph-like leaf at `line`; a `label` names an extension kept verbatim."""
+    def open_paragraph(self, line: Line, number: int) -> None:
+        """Start a paragraph at `line`."""
         _columns, index = leading_whitespace(line)
-        block = Block("paragraph", label=label, verbatim=bool(label), lines=[number])
-        block.starts = [index]
+        block = Block("paragraph", lines=[number], starts=[index])
         block.first_prefix = line.text[:index]
         block.continuation_prefix = "".join(
             text if kind == "quote" else " " * len(text) for kind, text in line.segments
@@ -348,7 +387,14 @@ class Parser:
         if line.tabbed or "\t" in block.first_prefix:
             block.verbatim = True
         self.open_block(block)
-        return block
+
+    def only_definitions(self, block: Block) -> bool:
+        """Say whether a paragraph holds only link reference definitions so far.
+
+        markdown-it reads those as definitions, not a paragraph, so a list may start after them.
+        """
+        lines = paragraph_contents(block, self.texts)
+        return all(LABEL_COLON.match(line) or line.startswith(('"', "'", "(")) for line in lines)
 
     def open_item(self, number: int, line: Line, columns: int, index: int) -> bool:
         """Start a list item when `line` has a marker at `index`; False when it has none."""
@@ -358,7 +404,10 @@ class Parser:
             return False
         tip = self.tip
         interrupting = (
-            tip is not None and tip.kind == "paragraph" and self.matched == len(self.stack)
+            tip is not None
+            and tip.kind == "paragraph"
+            and self.matched == len(self.stack)
+            and not self.only_definitions(tip)
         )
         after = Line(text, match.end(), line.column + columns + match.end() - index)
         spaces, content = leading_whitespace(after)
@@ -371,11 +420,10 @@ class Parser:
         line.index = match.end()
         consume_columns(line, used)
         line.segments.append(("item", text[start : line.index]))
-        marker = match.group()[-1]
         self.open_block(
             Block(
                 "item",
-                marker=marker,
+                marker=match.group()[-1],
                 content_indent=columns + len(match.group()) + used,
                 lines=[number],
             )
@@ -444,13 +492,8 @@ class Parser:
             if self.open_item(number, line, columns, index):
                 started = True
                 continue
-            label = extension_start(rest)
-            if label or math_closer(rest):
-                if paragraph_tip and fresh and tip is not None:
-                    tip.verbatim = True
-                if lazy:
-                    return False
-                self.start_extension(number, line, rest, label)
+            if tip is not None and tip.kind == "table" and fresh and all_matched:
+                tip.lines.append(number)
                 return True
             return False
 
@@ -459,8 +502,7 @@ class Parser:
     ) -> bool:
         """Open the CommonMark leaf block `rest` starts, other than a paragraph or code.
 
-        `tip` is the open leaf when no container started on this line, else None; a table takes
-        every line that starts no other leaf.
+        `tip` is the open leaf when no container started on this line, else None.
         """
         if ATX_HEADING.match(rest):
             self.open_leaf("heading", number)
@@ -481,87 +523,18 @@ class Parser:
                 tip.lines.append(number)
                 self.tip = None
                 return True
-            if "|" in rest and DELIMITER_ROW.match(rest) and tip.label == "":
+            if "|" in rest and DELIMITER_ROW.match(rest):
                 tip.kind = "table"
                 tip.lines.append(number)
                 return True
         if THEMATIC_BREAK.match(rest):
             self.open_leaf("thematic break", number)
             return True
-        if tip is not None and tip.kind == "table" and not lazy and self.matched == len(self.stack):
-            tip.lines.append(number)
-            return True
         return False
-
-    def start_extension(self, number: int, line: Line, rest: str, label: str) -> None:
-        """Open the math block or verbatim extension block `rest` starts."""
-        closer = math_closer(rest)
-        if closer and not label:
-            self.open_leaf("math", number, keep_open=True, closer=closer)
-            if closer in rest[len(closer) :]:
-                self.tip = None
-            return
-        if label == "definition":
-            del self.stack[self.matched :]
-            siblings = [child for child in self.stack[-1].children if child.kind != "blank"]
-            if siblings and siblings[-1].kind == "paragraph":
-                siblings[-1].verbatim = True
-        self.open_paragraph(line, number, label)
-
-
-def tokenize(text: str) -> tuple[list[str], bool]:
-    """Split paragraph text at ASCII whitespace outside atomic inline constructs.
-
-    Code spans, autolinks and inline HTML, `](...)` link destinations with their titles and
-    any `{...}` (an attribute list) are atomic. Returns the tokens and whether an atomic construct
-    holds a line break.
-    """
-    tokens: list[str] = []
-    current: list[str] = []
-    spans_line = False
-    index = 0
-    length = len(text)
-    while index < length:
-        character = text[index]
-        end = 0
-        if character in " \t\n":
-            if current:
-                tokens.append("".join(current))
-                current = []
-            index += 1
-            continue
-        if character == "\\" and index + 1 < length and text[index + 1] not in " \t\n":
-            end = index + 2
-        elif character == "`":
-            end = code_span_end(text, index)
-        elif (
-            character == "<"
-            and index + 1 < length
-            and (text[index + 1].isalpha() or text[index + 1] in "/!?")
-        ):
-            closer = "-->" if text.startswith("<!--", index) else ">"
-            found = text.find(closer, index + 1)
-            end = found + len(closer) if found >= 0 else index + 1
-        elif character == "]" and text.startswith("(", index + 1):
-            close = link_destination_end(text, index + 1)
-            end = close + 1 if close >= 0 else index + 1
-        elif character == "{":
-            found = text.find("}", index + 1)
-            end = found + 1 if found >= 0 else index + 1
-        else:
-            end = index + 1
-        piece = text[index:end]
-        if "\n" in piece:
-            spans_line = True
-        current.append(piece)
-        index = end
-    if current:
-        tokens.append("".join(current))
-    return tokens, spans_line
 
 
 def code_span_end(text: str, start: int) -> int:
-    """Return the index after the code span opening at `start`, or after its backtick run."""
+    """Return the index after the code span opening at `start`, or -1 when it has no closer."""
     run_end = start
     while run_end < len(text) and text[run_end] == "`":
         run_end += 1
@@ -570,7 +543,7 @@ def code_span_end(text: str, start: int) -> int:
     while True:
         found = text.find("`" * run, search)
         if found < 0:
-            return run_end
+            return -1
         after = found + run
         if (after == len(text) or text[after] != "`") and text[found - 1] != "`":
             return after
@@ -579,8 +552,167 @@ def code_span_end(text: str, start: int) -> int:
         search = after
 
 
+def backtick_run_end(text: str, start: int) -> int:
+    """Return the index after the run of backticks at `start`."""
+    index = start
+    while index < len(text) and text[index] == "`":
+        index += 1
+    return index
+
+
+def without_code_spans(text: str) -> tuple[str, bool]:
+    """Return `text` with its code spans blanked, and whether a backtick run is unmatched."""
+    pieces: list[str] = []
+    unmatched = False
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if character == "\\":
+            pieces.append(text[index : index + 2])
+            index += 2
+        elif character == "`":
+            end = code_span_end(text, index)
+            if end < 0:
+                unmatched = True
+                end = backtick_run_end(text, index)
+                pieces.append(text[index:end])
+            else:
+                pieces.append(" " * (end - index))
+            index = end
+        else:
+            pieces.append(character)
+            index += 1
+    return "".join(pieces), unmatched
+
+
+def tag_end(text: str, start: int) -> int:
+    """Return the index after the HTML tag, comment or autolink at `start`, or -1.
+
+    Quoted attribute values are honoured, so a `>` inside one does not end the tag.
+    """
+    if text.startswith("<!--", start):
+        found = text.find("-->", start + 4)
+        return found + 3 if found >= 0 else -1
+    if AUTOLINK_START.match(text, start):
+        found = text.find(">", start)
+        return found + 1 if found >= 0 else -1
+    index = start + 1
+    while index < len(text):
+        character = text[index]
+        if character in "\"'":
+            close = text.find(character, index + 1)
+            if close < 0:
+                return -1
+            index = close + 1
+            continue
+        if character == ">":
+            return index + 1
+        index += 1
+    return -1
+
+
+def element_end(text: str, start: int) -> int:
+    """Return the index after the HTML tag at `start` and, for `<pre>` and kin, its content.
+
+    Returns -1 when the tag, or a preserved element's closing tag, is missing.
+    """
+    end = tag_end(text, start)
+    opener = PRESERVED_OPEN.match(text, start)
+    if end < 0 or opener is None or text[end - 2] == "/":
+        return end
+    closing = re.compile(r"</%s[ \t\n]*>" % opener.group(1), re.I).search(text, end)
+    return closing.end() if closing else -1
+
+
+def bracket_end(text: str, start: int) -> int:
+    """Return the index of the `]` closing the bracket at `start`, or -1."""
+    depth = 0
+    index = start
+    while index < len(text):
+        character = text[index]
+        if character == "\\":
+            index += 2
+            continue
+        if character == "[":
+            depth += 1
+        elif character == "]":
+            depth -= 1
+            if depth == 0:
+                return index
+        index += 1
+    return -1
+
+
+def atomic_end(text: str, index: int) -> int:
+    """Return the end of the construct at `index` that may not be split, or -1 if unsafe.
+
+    A code span, an HTML tag (or a `<pre>`, `<code>`, `<textarea>`, `<script>` or `<style>`
+    element), an autolink, an image's alt text, a link destination with its title and a
+    `{...}` attribute list are atomic; any other character is its own piece.
+    """
+    character = text[index]
+    following = text[index + 1] if index + 1 < len(text) else ""
+    if character == "\\" and following not in " \t\n":
+        return index + 2
+    if character == "`":
+        end = code_span_end(text, index)
+        return end if end >= 0 else -1
+    if character == "<" and (following.isalpha() or following in "/!?"):
+        end = element_end(text, index)
+        if end < 0 and PRESERVED_OPEN.match(text, index):
+            return -1
+        return end if end >= 0 else index + 1
+    if character == "!" and following == "[":
+        close = bracket_end(text, index + 1)
+        return close if close >= 0 else index + 1
+    if character == "]" and following == "(":
+        close = link_destination_end(text, index + 1)
+        if close < 0:
+            # Not a CommonMark destination, but another dialect may read one up to the `)`.
+            close = text.find(")", index + 2)
+        return close + 1 if close >= 0 else index + 1
+    if character == "{":
+        found = text.find("}", index + 1)
+        return found + 1 if found >= 0 else index + 1
+    return index + 1
+
+
+def tokenize(text: str) -> tuple[list[str], bool]:
+    """Split paragraph text at ASCII whitespace outside the constructs `atomic_end` names.
+
+    Returns the tokens and whether the text is unsafe to refill: an atomic construct holds a
+    line break, a backtick run or a `<pre>`-like element is unmatched.
+    """
+    tokens: list[str] = []
+    current: list[str] = []
+    unsafe = False
+    index = 0
+    while index < len(text):
+        if text[index] in " \t\n":
+            if current:
+                tokens.append("".join(current))
+                current = []
+            index += 1
+            continue
+        end = atomic_end(text, index)
+        if end < 0:
+            unsafe = True
+            end = backtick_run_end(text, index) if text[index] == "`" else index + 1
+        piece = text[index:end]
+        if "\n" in piece:
+            unsafe = True
+        current.append(piece)
+        index = end
+    if current:
+        tokens.append("".join(current))
+    return tokens, unsafe
+
+
 def link_destination_end(text: str, start: int) -> int:
-    """Return the index of the `)` closing the link destination opening at `start`, or -1."""
+    """Return the index of the `)` closing the link destination opening at `start`, or -1.
+
+    A destination holding a backtick is not one, since a code span binds more tightly.
+    """
     index = start + 1
     length = len(text)
 
@@ -619,7 +751,7 @@ def link_destination_end(text: str, start: int) -> int:
         if index >= length:
             return -1
         index = skip_space(index + 1)
-    if index < length and text[index] == ")":
+    if index < length and text[index] == ")" and "`" not in text[start:index]:
         return index
     return -1
 
@@ -632,6 +764,21 @@ def starts_block(tokens: list[str], start: int, stop: int) -> bool:
     if "|" in line and DELIMITER_ROW.match(line):
         return True
     return bool(LABEL_COLON.match(" ".join(tokens[start:])))
+
+
+def whole_line_block(line: str) -> bool:
+    """Say whether `line`, as a whole, reads as a block: an underline, a break, a table row."""
+    if SETEXT_UNDERLINE.match(line) or THEMATIC_BREAK.match(line):
+        return True
+    if "|" in line and DELIMITER_ROW.match(line):
+        return True
+    kind = html_start(line)
+    return bool(WHOLE_LINE_START.match(line) or (kind and kind[0] == 7))
+
+
+def ends_in_break(token: str) -> bool:
+    """Say whether a line ending in `token` would end in a hard break or a `<br>` tag."""
+    return token.endswith("\\") or bool(BREAK_TAG_END.search(token))
 
 
 def greedy_starts(tokens: list[str], first_room: int, room: int, forbidden: set[int]) -> list[int]:
@@ -662,7 +809,7 @@ def greedy_starts(tokens: list[str], first_room: int, room: int, forbidden: set[
 
 def fill(tokens: list[str], first_room: int, room: int) -> list[str]:
     """Fill `tokens` into lines of at most `room` characters, the first `first_room`."""
-    forbidden = {index for index in range(1, len(tokens)) if tokens[index - 1].endswith("\\")}
+    forbidden = {index for index in range(1, len(tokens)) if ends_in_break(tokens[index - 1])}
     while True:
         starts = greedy_starts(tokens, first_room, room, forbidden)
         stops = [*starts[1:], len(tokens)]
@@ -671,6 +818,8 @@ def fill(tokens: list[str], first_room: int, room: int) -> list[str]:
             for start, stop in zip(starts[1:], stops[1:], strict=True)
             if starts_block(tokens, start, stop)
         ]
+        if not bad and len(starts) > 1 and whole_line_block(" ".join(tokens[: stops[0]])):
+            bad = [starts[1]]
         if not bad:
             return [" ".join(tokens[start:stop]) for start, stop in zip(starts, stops, strict=True)]
         forbidden.add(bad[0])
@@ -682,33 +831,298 @@ def paragraph_contents(block: Block, texts: list[str]) -> list[str]:
 
 
 def break_lines(contents: list[str]) -> list[bool]:
-    """Say for each line whether it ends in a hard line break."""
-    return [
-        index < len(contents) - 1 and (content.endswith("  ") or content.endswith("\\"))
-        for index, content in enumerate(contents)
-    ]
+    """Say for each line whether it ends in a hard line break.
+
+    The last line counts too: a dialect that reads the next line into the same paragraph sees
+    the break.
+    """
+    return [content.endswith("  ") or content.endswith("\\") for content in contents]
+
+
+def either_block_start(content: str, rest: str) -> bool:
+    """Say whether a line `content` inside a paragraph could open a block in either dialect."""
+    if EITHER_BLOCK_START.match(content) or THEMATIC_BREAK.match(content):
+        return True
+    if "|" in content and DELIMITER_ROW.match(content):
+        return True
+    if ONE_DIALECT_START.match(content) or LABEL_COLON.match(rest):
+        return True
+    kind = html_start(content)
+    return kind is not None and kind[0] < 7
 
 
 def keeps_verbatim(contents: list[str]) -> bool:
-    """Say whether paragraph text holds something the reflow must not touch."""
+    """Say whether paragraph text holds something a refill could change the meaning of."""
     text = "\n".join(contents)
-    if TEMPLATE.search(text):
+    if TEMPLATE.search(text) or without_code_spans(text)[1] or BACKTICK_DESTINATION.search(text):
+        return True
+    # A `-->` before any `<!--` closes a comment Python-Markdown may have opened earlier.
+    if SPACED_REFERENCE.search(text) or "-->" in text.split("<!--", 1)[0]:
         return True
     for index, content in enumerate(contents):
         trailing = content[len(content.rstrip(ASCII_WHITESPACE)) :]
         if "\t" in trailing or TRAILING_BREAK_TAG.search(content):
             return True
-        if LABEL_COLON.match("\n".join(contents[index:])):
+        stripped = content.lstrip(ASCII_WHITESPACE)
+        if either_block_start(stripped, "\n".join(contents[index:])):
             return True
     return tokenize(text)[1]
+
+
+def blank_like(text: str) -> bool:
+    """Say whether a line holds only whitespace and blockquote markers."""
+    return not text.strip(" \t>")
+
+
+def started_containers(leaf: Block, number: int) -> set[str]:
+    """Return the kinds of the containers holding `leaf` that start on line `number`."""
+    return {
+        container.kind
+        for container in leaf.chain
+        if container.kind != "document" and container.lines[0] == number
+    }
+
+
+def container_kinds(leaf: Block) -> set[str]:
+    """Return the kinds of the containers holding `leaf`."""
+    return {container.kind for container in leaf.chain}
+
+
+def unknown_lists(block: Block, found: set[int]) -> bool:
+    """Add to `found` each container holding a `)` list item, which Python-Markdown lacks."""
+    unknown = block.kind == "item" and block.marker == ")"
+    for child in block.children:
+        if child.kind in CONTAINERS and unknown_lists(child, found):
+            unknown = True
+    if unknown:
+        found.add(id(block))
+    return unknown
+
+
+def hidden_lists(block: Block, texts: list[str], owners: dict[int, Block], found: set[int]) -> None:
+    """Add to `found` each list item Python-Markdown would read as paragraph text.
+
+    It opens a list only after a blank line or on the line after another item's text.
+    """
+    for child in block.children:
+        if child.kind not in CONTAINERS:
+            continue
+        first = child.lines[0]
+        if child.kind == "item" and first > 0 and not blank_like(texts[first - 1]):
+            previous = owners.get(first - 1)
+            if (
+                previous is None
+                or previous.kind != "paragraph"
+                or "item" not in container_kinds(previous)
+            ):
+                found.add(id(child))
+        hidden_lists(child, texts, owners, found)
+
+
+def lazy_items(leaves: list[Block], texts: list[str], found: set[int]) -> None:
+    """Add to `found` each list item holding a lazy line, one indented less than its content.
+
+    Python-Markdown may end the list at that line and read the rest of the item differently.
+    """
+    for leaf in leaves:
+        items = [container for container in leaf.chain if container.kind == "item"]
+        if leaf.kind != "paragraph" or not items:
+            continue
+        column = sum(container.content_indent for container in leaf.chain)
+        for number in leaf.lines[1:]:
+            text = texts[number]
+            if len(text) - len(text.lstrip(" ")) < column and not text.lstrip(" ").startswith(">"):
+                found.update(id(item) for item in items)
+                break
+
+
+def containers_disagree(leaf: Block, first_line: str, unknown: set[int]) -> bool:
+    """Say whether Python-Markdown could read the containers holding a paragraph differently.
+
+    It knows no `)` list marker, so nothing in a container holding one is safe; it nests
+    blocks in list items by four-column steps, so a quote marker inside a list item may be
+    text to it; and it may read a first line indented four columns or more as code unless that
+    is both the item's content column and four columns per list level.
+    """
+    if any(id(container) in unknown for container in leaf.chain[1:]):
+        return True
+    kinds = [container.kind for container in leaf.chain]
+    if "quote" in kinds and "item" in kinds[: len(kinds) - kinds[::-1].index("quote")]:
+        return True
+    indent = len(first_line) - len(first_line.lstrip(" "))
+    column = sum(container.content_indent for container in leaf.chain)
+    return indent >= 4 and not indent == column == 4 * kinds.count("item")
+
+
+def dialects_disagree(
+    leaf: Block, owners: dict[int, Block], texts: list[str], unknown: set[int]
+) -> bool:
+    """Say whether the lines around a paragraph could give it another block structure.
+
+    A list item or blockquote that starts beside the paragraph with no blank line between,
+    where the neighbour is not inside a container of that kind, an indented code or HTML block
+    right before it, or a setext underline after it, may be read differently by
+    Python-Markdown, which needs a blank line before a list; so may the containers
+    `containers_disagree` names.
+    """
+    first = leaf.lines[0]
+    last = leaf.lines[-1]
+    if containers_disagree(leaf, texts[first], unknown):
+        return True
+    if first > 0 and not blank_like(texts[first - 1]):
+        before = owners.get(first - 1)
+        if before is not None and before.kind in ("indented code", "html"):
+            return True
+    started = started_containers(leaf, first)
+    if started and first > 0 and not blank_like(texts[first - 1]):
+        previous = owners.get(first - 1)
+        if previous is None or not started <= container_kinds(previous):
+            return True
+    following = last + 1
+    if following < len(texts) and not blank_like(texts[following]):
+        if SETEXT_UNDERLINE.match(texts[following].lstrip(" \t>")):
+            return True
+        neighbour = owners.get(following)
+        if neighbour is not None:
+            after = started_containers(neighbour, following)
+            if after and not after <= container_kinds(leaf):
+                return True
+    return False
+
+
+def raw_element_depths(text: str, depths: dict[str, int]) -> bool:
+    """Update the open `<pre>`-like element counts from `text`; True when they changed."""
+    before = dict(depths)
+    for match in RAW_ELEMENT_TAG.finditer(text):
+        name = match.group(2).lower()
+        depths[name] = max(0, depths[name] + (-1 if match.group(1) else 1))
+    return depths != before
+
+
+def definition_terms(number: int, texts: list[str], owners: dict[int, Block]) -> list[Block]:
+    """Return the blocks of a definition line and of the terms Python-Markdown gives it.
+
+    The terms are every line of the run of non-blank lines before it, past blank lines,
+    reference, footnote and abbreviation definitions and indented lines.
+    """
+    found = [owners[number]] if number in owners else []
+    line = number - 1
+    # Python-Markdown removes reference, footnote and abbreviation definitions, with their
+    # indented lines, before it reads the blocks.
+    while line >= 0 and (
+        not ascii_strip(texts[line])
+        or LABEL_COLON.match(ascii_strip(texts[line]).lstrip("*"))
+        or texts[line].startswith("    ")
+    ):
+        line -= 1
+    while line >= 0 and ascii_strip(texts[line]):
+        if line in owners:
+            found.append(owners[line])
+        line -= 1
+    return found
+
+
+def table_rows(table: Block, texts: list[str], owners: dict[int, Block]) -> list[Block]:
+    """Return the blocks after a table up to the next blank line: Python-Markdown's rows."""
+    found = []
+    line = table.lines[-1] + 1
+    while line < len(texts) and ascii_strip(texts[line]):
+        if line in owners:
+            found.append(owners[line])
+        line += 1
+    return found
+
+
+def line_run(leaf: Block, texts: list[str], owners: dict[int, Block]) -> list[Block]:
+    """Return the blocks of the run of non-blank lines holding `leaf`.
+
+    Python-Markdown may join such a run into one block, so a backtick left open in one of its
+    paragraphs can close in another.
+    """
+    first = leaf.lines[0]
+    last = leaf.lines[-1]
+    while first > 0 and ascii_strip(texts[first - 1]):
+        first -= 1
+    while last + 1 < len(texts) and ascii_strip(texts[last + 1]):
+        last += 1
+    return [owners[line] for line in range(first, last + 1) if line in owners]
+
+
+def neighbour_runs(leaves: list[Block], texts: list[str], owners: dict[int, Block]) -> set[int]:
+    """Return the ids of the blocks in a run of lines Python-Markdown may join differently.
+
+    Those are the lines after a table up to a blank line, the run around a fence it does not
+    know, a block with an unmatched backtick or a table delimiter row, and a definition with
+    its terms.
+    """
+    found: set[int] = set()
+    for leaf in leaves:
+        raw = "\n".join(texts[number] for number in leaf.lines)
+        first = texts[leaf.lines[0]]
+        unknown_fence = leaf.kind == "fence" and not PYTHON_MARKDOWN_FENCE.match(first)
+        open_backtick = leaf.kind not in ("fence", "indented code") and without_code_spans(raw)[1]
+        if leaf.kind == "table":
+            found.update(id(block) for block in table_rows(leaf, texts, owners))
+        elif unknown_fence or open_backtick:
+            found.update(id(block) for block in line_run(leaf, texts, owners))
+    for number, text in enumerate(texts):
+        stripped = text.lstrip(" \t>")
+        if DEFINITION.match(stripped):
+            found.update(id(leaf) for leaf in definition_terms(number, texts, owners))
+        if "|" in stripped and DELIMITER_ROW.match(stripped) and not LIST_MARKER.match(stripped):
+            # Python-Markdown may read a table here whatever the containers around it.
+            found.update(id(leaf) for leaf in line_run(owners[number], texts, owners))
+    return found
+
+
+def html_leaves_open(leaf: Block, texts: list[str], depths: dict[str, int]) -> bool:
+    """Update the open `<pre>`-like counts from an HTML block; True when one stays open.
+
+    A fence line inside the block counts as open too: CommonMark reads it as HTML, while
+    Python-Markdown may end the block before it and open a fence there.
+    """
+    raw_element_depths("\n".join(texts[number] for number in leaf.lines), depths)
+    fence = any(FENCE.match(texts[number].lstrip(" \t>")) for number in leaf.lines)
+    return fence or any(depths.values())
+
+
+def verbatim_paragraphs(document: Block, leaves: list[Block], texts: list[str]) -> set[int]:
+    """Return the ids of the paragraph leaves to copy unchanged."""
+    owners = {number: leaf for leaf in leaves for number in leaf.lines}
+    unknown: set[int] = set()
+    unknown_lists(document, unknown)
+    hidden_lists(document, texts, owners, unknown)
+    lazy_items(leaves, texts, unknown)
+    verbatim = neighbour_runs(leaves, texts, owners)
+    depths: dict[str, int] = {name: 0 for name in PRESERVED_ELEMENTS}
+    # Once a `<pre>`-like element stays open past its block, or an HTML block holds a fence
+    # line, the dialects may close them in different places: no later paragraph is safe.
+    unclosed = False
+    for leaf in leaves:
+        if leaf.kind == "html":
+            unclosed = html_leaves_open(leaf, texts, depths) or unclosed
+            continue
+        if leaf.kind != "paragraph":
+            continue
+        inside = unclosed or any(depths.values())
+        raw = "\n".join(texts[number] for number in leaf.lines)
+        changed = raw_element_depths(without_code_spans(raw)[0], depths)
+        unclosed = unclosed or any(depths.values())
+        if (
+            leaf.verbatim
+            or inside
+            or changed
+            or keeps_verbatim(paragraph_contents(leaf, texts))
+            or dialects_disagree(leaf, owners, texts, unknown)
+        ):
+            verbatim.add(id(leaf))
+    return verbatim
 
 
 def reflow_paragraph(block: Block, texts: list[str], width: int) -> list[str]:
     """Return the paragraph's lines filled to `width`, or its lines unchanged."""
     original = [texts[number] for number in block.lines]
     contents = paragraph_contents(block, texts)
-    if block.verbatim or keeps_verbatim(contents):
-        return original
     breaks = break_lines(contents)
     output: list[str] = []
     index = 0
@@ -722,7 +1136,7 @@ def reflow_paragraph(block: Block, texts: list[str], width: int) -> list[str]:
             stop += 1
         words = " ".join(ascii_strip(content) for content in contents[index:stop])
         tokens = tokenize(words)[0]
-        if stop < len(contents) and tokens[-1].endswith("\\"):
+        if stop < len(contents) and ends_in_break(tokens[-1]):
             return original
         first = block.first_prefix if index == 0 else block.continuation_prefix
         rest = block.continuation_prefix
@@ -733,13 +1147,19 @@ def reflow_paragraph(block: Block, texts: list[str], width: int) -> list[str]:
     return output
 
 
+def parse(texts: list[str]) -> tuple[Block, list[Block], set[int]]:
+    """Parse `texts` and return the document, its leaves and the verbatim paragraph ids."""
+    parser = Parser(texts)
+    document = parser.parse()
+    return document, parser.leaves, verbatim_paragraphs(document, parser.leaves, texts)
+
+
 def reflow_lines(texts: list[str], width: int) -> list[str]:
     """Return the lines of a document with every paragraph reflowed to `width`."""
-    parser = Parser(texts)
-    parser.parse()
+    _document, leaves, verbatim = parse(texts)
     output: list[str] = []
-    for leaf in parser.leaves:
-        if leaf.kind == "paragraph":
+    for leaf in leaves:
+        if leaf.kind == "paragraph" and id(leaf) not in verbatim:
             output.extend(reflow_paragraph(leaf, texts, width))
         else:
             output.extend(texts[number] for number in leaf.lines)
@@ -749,9 +1169,10 @@ def reflow_lines(texts: list[str], width: int) -> list[str]:
 def outline(texts: list[str]) -> list[tuple[int, tuple]]:
     """Return each block of the parsed document with its first line and what must not change.
 
-    A container gives its kind, list marker and depth; a reflowable paragraph its words and its
-    hard-break lines; any other leaf its lines.
+    A container gives its kind, list marker and depth; a reflowed paragraph its words and its
+    hard-break lines; any other leaf, an unchanged paragraph included, its lines.
     """
+    document, _leaves, verbatim = parse(texts)
     entries: list[tuple[int, tuple]] = []
 
     def visit(block: Block, depth: int) -> None:
@@ -759,9 +1180,8 @@ def outline(texts: list[str]) -> list[tuple[int, tuple]]:
             if child.kind in CONTAINERS:
                 entries.append((child.lines[0], (depth, child.kind, child.marker)))
                 visit(child, depth + 1)
-                continue
-            contents = paragraph_contents(child, texts) if child.kind == "paragraph" else []
-            if contents and not (child.verbatim or keeps_verbatim(contents)):
+            elif child.kind == "paragraph" and id(child) not in verbatim:
+                contents = paragraph_contents(child, texts)
                 words = tuple(word for word in re.split(r"[ \t]+", " ".join(contents)) if word)
                 kept = tuple(
                     ascii_strip(content)
@@ -770,11 +1190,11 @@ def outline(texts: list[str]) -> list[tuple[int, tuple]]:
                 )
                 entries.append((child.lines[0], (depth, "paragraph", words, kept)))
             else:
+                kind = "verbatim paragraph" if child.kind == "paragraph" else child.kind
                 lines = tuple(texts[number] for number in child.lines)
-                entries.append((child.lines[0], (depth, child.kind, child.label, lines)))
+                entries.append((child.lines[0], (depth, kind, lines)))
 
-    parser = Parser(texts)
-    visit(parser.parse(), 0)
+    visit(document, 0)
     return entries
 
 
@@ -786,24 +1206,171 @@ def check_reflow(texts: list[str], output: list[str], width: int) -> None:
         if old == new:
             continue
         where = "line %d of the output" % (new_line + 1)
-        if old[:2] == new[:2] and old[1] == "paragraph":
+        if old[:2] != new[:2]:
+            raise ReflowError(
+                "the block structure changed at %s: a %s is now a %s" % (where, old[1], new[1])
+            )
+        if old[1] == "paragraph" and old[2] != new[2]:
             raise ReflowError("the words of the paragraph at %s changed" % where)
-        raise ReflowError("the block structure changed at %s" % where)
+        raise ReflowError("the %s at %s changed" % (old[1], where))
     if len(before) != len(after):
         raise ReflowError("the number of blocks changed from %d to %d" % (len(before), len(after)))
     if reflow_lines(output, width) != output:
         raise ReflowError("reflowing the output again changes it")
 
 
+class RenderedEvents(HTMLParser):
+    """The tags, attributes, text and comments of rendered HTML, in order."""
+
+    def __init__(self) -> None:
+        """Start with no events."""
+        super().__init__(convert_charrefs=True)
+        self.events: list[tuple] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Record a start tag with its attributes exactly."""
+        self.events.append(("start", tag, tuple(attrs)))
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Record a self-closing tag."""
+        self.events.append(("start", tag, tuple(attrs)))
+        self.events.append(("end", tag))
+
+    def handle_endtag(self, tag: str) -> None:
+        """Record an end tag."""
+        self.events.append(("end", tag))
+
+    def handle_data(self, data: str) -> None:
+        """Record text, merged with the text before it."""
+        if self.events and self.events[-1][0] == "text":
+            data = self.events.pop()[1] + data
+        self.events.append(("text", data))
+
+    def handle_comment(self, data: str) -> None:
+        """Record a comment, whitespace collapsed, since a reader never sees it."""
+        self.events.append(("comment", HTML_WHITESPACE.sub(" ", data)))
+
+    def handle_decl(self, decl: str) -> None:
+        """Record a declaration exactly."""
+        self.events.append(("declaration", decl))
+
+    def handle_pi(self, data: str) -> None:
+        """Record a processing instruction exactly."""
+        self.events.append(("processing instruction", data))
+
+    def unknown_decl(self, data: str) -> None:
+        """Record a CDATA section or other declaration exactly."""
+        self.events.append(("declaration", data))
+
+
+def html_events(html: str) -> list[tuple]:
+    """Return rendered HTML as events, whitespace collapsed outside preserved elements.
+
+    Whitespace at the edge of a block element's text is dropped, since a reflow may move a line
+    break there.
+    """
+    parser = RenderedEvents()
+    preserving = 0
+    events: list[tuple] = []
+    parser.feed(html)
+    parser.close()
+    for event in parser.events:
+        if event[0] == "start" and event[1] in PRESERVED_ELEMENTS:
+            preserving += 1
+        elif event[0] == "end" and event[1] in PRESERVED_ELEMENTS and preserving:
+            preserving -= 1
+        if event[0] == "text" and not preserving:
+            event = ("text", HTML_WHITESPACE.sub(" ", event[1]))
+        events.append(event)
+    trimmed: list[tuple] = []
+    for index, event in enumerate(events):
+        if event[0] == "text" and event[1].strip(" ") != event[1]:
+            text = event[1]
+            if index == 0 or events[index - 1][1] in RENDERED_BLOCKS:
+                text = text.lstrip(" ")
+            if index + 1 == len(events) or events[index + 1][1] in RENDERED_BLOCKS:
+                text = text.rstrip(" ")
+            if not text:
+                continue
+            event = ("text", text)
+        trimmed.append(event)
+    return trimmed
+
+
+def python_markdown_renderer(module: types.ModuleType, extensions: list[str]) -> Callable:
+    """Return a function rendering Markdown with the `markdown` module and `extensions`."""
+
+    def render(text: str) -> str:
+        return module.Markdown(extensions=extensions).convert(text)
+
+    return render
+
+
+@functools.lru_cache(maxsize=1)
+def renderers() -> tuple[tuple[str, Callable[[str], str]], ...]:
+    """Return the Markdown renderers that import here, by name.
+
+    They are imported by name at run time because neither is a dependency: the tool runs, and
+    type-checks, without them.
+    """
+    found: list[tuple[str, Callable[[str], str]]] = []
+    try:
+        markdown = importlib.import_module("markdown")
+    except ImportError:
+        markdown = None
+    if markdown is not None:
+        extensions = []
+        for name in PYTHON_MARKDOWN_EXTENSIONS:
+            try:
+                importlib.import_module("markdown.extensions." + name)
+            except ImportError:
+                continue
+            extensions.append(name)
+        found.append(("Python-Markdown", python_markdown_renderer(markdown, extensions)))
+    try:
+        markdown_it = importlib.import_module("markdown_it")
+    except ImportError:
+        markdown_it = None
+    if markdown_it is not None:
+        engine = markdown_it.MarkdownIt("commonmark").enable("table")
+        found.append(("markdown-it-py", engine.render))
+    return tuple(found)
+
+
+def render_difference(before: str, after: str) -> str:
+    """Return how the renderings of `before` and `after` differ, or an empty string."""
+    for name, render in renderers():
+        old = html_events(render(before))
+        new = html_events(render(after))
+        if old == new:
+            continue
+        index = next(
+            (
+                number
+                for number, pair in enumerate(zip(old, new, strict=False))
+                if pair[0] != pair[1]
+            ),
+            min(len(old), len(new)),
+        )
+        shown = old[index] if index < len(old) else "the end"
+        return "%s renders it differently, first at %r" % (name, shown)
+    return ""
+
+
 def reflow_text(text: str, width: int = DEFAULT_WIDTH) -> str:
-    """Return LF-terminated Markdown `text` reflowed to `width`, after the safety check."""
+    """Return LF-terminated Markdown `text` reflowed to `width`, after the safety checks."""
     if not text:
         return text
     final_newline = text.endswith("\n")
     texts = (text[:-1] if final_newline else text).split("\n")
     output = reflow_lines(texts, width)
     check_reflow(texts, output, width)
-    return "\n".join(output) + ("\n" if final_newline else "")
+    result = "\n".join(output) + ("\n" if final_newline else "")
+    if result != text:
+        difference = render_difference(text, result)
+        if difference:
+            raise ReflowError(difference)
+    return result
 
 
 def decode(data: bytes) -> tuple[str, str, str]:
@@ -823,10 +1390,17 @@ def decode(data: bytes) -> tuple[str, str, str]:
     return text.replace("\r\n", "\n"), mark, "\r\n"
 
 
-def write_file(path: str, data: bytes, keep_times: bool) -> None:
-    """Replace the file at `path` with `data` through a temporary file, keeping its mode."""
-    real = os.path.realpath(path)
-    status = os.stat(real)
+def split_lines(text: str) -> list[str]:
+    """Split LF text into lines that keep their line ends."""
+    parts = text.split("\n")
+    lines = [part + "\n" for part in parts[:-1]]
+    if parts[-1]:
+        lines.append(parts[-1] + "\n")
+    return lines
+
+
+def write_file(real: str, data: bytes, status: os.stat_result, keep_times: bool) -> None:
+    """Replace the file `real` with `data` through a temporary file, keeping its mode."""
     directory, name = os.path.split(real)
     handle, temporary = tempfile.mkstemp(prefix="." + name + ".", suffix=".tmp", dir=directory)
     try:
@@ -844,8 +1418,12 @@ def write_file(path: str, data: bytes, keep_times: bool) -> None:
 
 def process_file(path: str, width: int, check: bool, keep_times: bool) -> int:
     """Reflow or check one file and return its exit status."""
+    real = os.path.realpath(path)
     try:
-        with open(path, "rb") as stream:
+        status = os.stat(real)
+        if not stat.S_ISREG(status.st_mode):
+            raise ReflowError("not a regular file")
+        with open(real, "rb") as stream:
             data = stream.read()
     except OSError as error:
         raise ReflowError("cannot read (%s)" % (error.strerror or error)) from error
@@ -855,15 +1433,16 @@ def process_file(path: str, width: int, check: bool, keep_times: bool) -> int:
         return 0
     if check:
         diff = difflib.unified_diff(
-            text.splitlines(keepends=True),
-            result.splitlines(keepends=True),
-            "a/" + path,
-            "b/" + path,
+            split_lines(text), split_lines(result), "a/" + path, "b/" + path
         )
         sys.stdout.writelines(line if line.endswith("\n") else line + "\n" for line in diff)
         return 1
+    if status.st_nlink > 1:
+        raise ReflowError("has %d hard links, which a rewrite would split" % status.st_nlink)
+    if not os.access(real, os.W_OK):
+        raise ReflowError("not writable")
     try:
-        write_file(path, (mark + result.replace("\n", newline)).encode("utf-8"), keep_times)
+        write_file(real, (mark + result.replace("\n", newline)).encode("utf-8"), status, keep_times)
     except OSError as error:
         raise ReflowError("cannot write (%s)" % (error.strerror or error)) from error
     print(path)
@@ -890,7 +1469,9 @@ def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[s
                 errors.append("%s: no file matches the pattern" % argument)
                 continue
         for name in names:
-            if os.path.isdir(name):
+            if os.path.isdir(name) and os.path.islink(name):
+                errors.append("%s: a symlinked directory, which is not followed" % name)
+            elif os.path.isdir(name):
                 if not recurse:
                     errors.append("%s: is a directory; pass -r to recurse into it" % name)
                     continue
@@ -905,6 +1486,8 @@ def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[s
                     add(path)
             elif os.path.isfile(name):
                 add(name)
+            elif os.path.exists(name):
+                errors.append("%s: not a regular file" % name)
             else:
                 errors.append("%s: no such file" % name)
     return files, errors

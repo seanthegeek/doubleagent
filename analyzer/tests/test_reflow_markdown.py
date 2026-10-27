@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import random
 import sys
 import textwrap
 import unittest
@@ -185,9 +186,14 @@ def test_ordered_item_continuation_indent():
         "10. one two three\n    four five six\n",
     )
     check(
-        "1) one two three four five six\n",
-        "1) one two three\n   four five six\n",
+        "1. one two three four five six\n",
+        "1. one two three\n   four five six\n",
     )
+
+
+def test_a_list_python_markdown_lacks_is_left_unchanged():
+    text = "1) one two three four five six\n"
+    assert reflow(text) == text
 
 
 def test_nested_item_continuation_indent():
@@ -215,33 +221,32 @@ def test_nested_blockquote_prefix():
     )
 
 
-def test_quote_inside_list_and_list_inside_quote():
-    check(
-        "- > one two three four five\n",
-        "- > one two three\n  > four five\n",
-    )
+def test_list_inside_quote_is_reflowed_and_quote_inside_list_is_not():
+    text = "- > one two three four five\n"
+    assert reflow(text) == text
     check(
         "> - one two three four five\n",
         "> - one two three\n>   four five\n",
     )
 
 
-def test_lazy_continuation_lines_join_the_paragraph():
+def test_lazy_continuation_lines_join_a_quoted_paragraph():
     check(
         "> one two three\nfour five six seven\n",
         "> one two three four\n> five six seven\n",
     )
-    check(
-        "- one two three\nfour five six seven\n",
-        "- one two three four\n  five six seven\n",
-    )
+
+
+def test_a_list_item_with_a_lazy_line_is_left_unchanged():
+    text = "- one two three\nfour five six seven\n"
+    assert reflow(text) == text
 
 
 def test_a_blockquote_ends_a_table():
-    check(
-        "| a |\n| - |\n> one two three four five six\n",
-        "| a |\n| - |\n> one two three four\n> five six\n",
-    )
+    text = "| a |\n| - |\n> one two three four five six\n"
+    kinds = [entry[1][1] for entry in reflow_markdown.outline(text[:-1].split("\n"))]
+    assert kinds == ["table", "quote", "verbatim paragraph"], kinds
+    assert reflow(text) == text
 
 
 def test_a_line_starting_a_block_ends_the_lazy_paragraph():
@@ -330,8 +335,9 @@ def test_code_span_keeps_its_inner_spaces():
     check("aaaa `b   c` dddd eeee ffff\n", "aaaa `b   c` dddd\neeee ffff\n")
 
 
-def test_unmatched_backticks_are_text():
-    check("aaaaa `bbbb cccc dddd eeee\n", "aaaaa `bbbb cccc\ndddd eeee\n")
+def test_a_paragraph_with_an_unmatched_backtick_is_left_unchanged():
+    text = "aaaaa `bbbb cccc dddd eeee\n"
+    assert reflow(text) == text
 
 
 def test_link_text_breaks_but_destination_and_title_do_not():
@@ -345,10 +351,10 @@ def test_link_destination_in_angle_brackets():
     check("see [x](<a b c d e f g>) and more\n", "see\n[x](<a b c d e f g>)\nand more\n")
 
 
-def test_image_destination_is_never_split():
+def test_image_alt_text_and_destination_are_never_split():
     check(
-        '![alt text words](img.png "a long title") end\n',
-        '![alt text\nwords](img.png "a long title")\nend\n',
+        'aa ![alt text words](img.png "a long title") end\n',
+        'aa\n![alt text words](img.png "a long title")\nend\n',
     )
 
 
@@ -386,8 +392,8 @@ def test_hard_break_line_is_kept_as_written():
     assert reflow(text) == "a\nbbbb cccc dddd eeee ffff gggg\\\nh\n"
 
 
-def test_trailing_spaces_on_the_last_line_are_dropped():
-    check("one two  \n", "one two\n")
+def test_trailing_spaces_on_the_last_line_are_kept():
+    check("one\ntwo  \n", "one\ntwo  \n")
 
 
 def test_tab_between_words_is_collapsed():
@@ -662,12 +668,24 @@ def test_safety_check_refuses_a_changed_block():
     texts = ["para", "", "```", "code", "```"]
     doctored = ["para", "", "```", "code changed", "```"]
     message = raises(reflow_markdown.check_reflow, texts, doctored, WIDTH)
-    assert "block structure changed" in message
+    assert message == "the fence at line 3 of the output changed"
 
 
 def test_safety_check_refuses_a_new_block():
     message = raises(reflow_markdown.check_reflow, ["one", "two"], ["one", "==="], WIDTH)
-    assert "block structure changed" in message
+    assert message == (
+        "the block structure changed at line 1 of the output: a paragraph is now a heading"
+    )
+
+
+def test_safety_check_names_a_paragraph_that_became_unchanged():
+    texts = ["one two three four five six seven <br> eight"]
+    doctored = ["one two three four five six seven <br>", "eight"]
+    message = raises(reflow_markdown.check_reflow, texts, doctored, WIDTH)
+    assert message == (
+        "the block structure changed at line 1 of the output: "
+        "a paragraph is now a verbatim paragraph"
+    )
 
 
 def test_safety_check_refuses_an_output_that_reflows_again():
@@ -688,3 +706,278 @@ def test_safety_check_refusal_leaves_the_file_untouched(tmp_path, capsys, monkey
     assert (status, stdout) == (2, "")
     assert stderr.startswith("error: %s: " % path)
     assert path.read_bytes() == WRAPPED.encode()
+
+
+# Constructs only one dialect knows, and neighbours the dialects read differently.
+
+
+def test_math_and_bracket_lines_keep_the_list_structure():
+    for text in (
+        "1. \\[Optional\\] Set up the thing\nand this is a lazy line\n2. Do the next step\n",
+        "1. $$5 fee per run\nand a lazy line\n2. second step\n",
+    ):
+        assert reflow(text, 80) == text, text
+        kinds = [entry[1][1] for entry in reflow_markdown.outline(text[:-1].split("\n"))]
+        assert kinds.count("item") == 2, (text, kinds)
+
+
+def test_one_dialect_lines_never_open_a_block():
+    for line in ("$$", "\\[", "!!! note", "[^1]: x", "*[HTML]: y", ": def", "{: .x }"):
+        text = "- one two\n  %s\n- three\n" % line
+        kinds = [entry[1][1] for entry in reflow_markdown.outline(text[:-1].split("\n"))]
+        assert kinds == ["item", "verbatim paragraph", "item", "paragraph"], (line, kinds)
+
+
+def test_a_break_tag_is_never_left_at_a_line_end():
+    text = "one two three four five six seven <br> eight nine ten eleven twelve\n"
+    for width in [*range(20, 23), *range(38, 44)]:
+        lines = reflow(text, width).split("\n")
+        assert not any(line.endswith("<br>") for line in lines), (width, lines)
+
+
+def test_an_ordered_marker_on_a_continuation_line_keeps_the_paragraph():
+    text = "- Set the retry count to\n  10. Then run it again.\n"
+    assert reflow(text, 80) == text
+
+
+def test_a_list_right_after_a_paragraph_line_is_left_unchanged():
+    text = "Text before\n- > quoted item text that is long enough to wrap here\n"
+    assert reflow(text, 30) == text
+    text = "Text before that is long enough to wrap\n- item\n"
+    assert reflow(text, 20) == text
+
+
+def test_a_setext_underline_after_a_container_line_keeps_the_paragraph():
+    for text in ("> foo\n===\n", "- foo " + LONG + "\n---\n"):
+        assert reflow(text) == text, text
+
+
+def test_whitespace_in_a_raw_pre_body_is_kept():
+    text = (
+        "<div><pre>\nline one\n\nsome   preformatted   text that is long enough to wrap\n"
+        "</pre></div>\n\nafter one two three four five\n"
+    )
+    assert reflow(text) == text
+
+
+def test_whitespace_inside_inline_pre_code_and_tags_is_kept():
+    check("aaaa x <pre>a  b</pre> y\n", "aaaa\nx <pre>a  b</pre> y\n")
+    check('aa <span title="a>b  c">s</span> tail\n', 'aa <span title="a>b  c">s</span>\ntail\n')
+    check("aa ![alt  text](i.png) tail words\n", "aa\n![alt  text](i.png)\ntail words\n")
+
+
+def test_a_backtick_in_a_link_destination_keeps_the_paragraph():
+    text = "word [x](foo`) and  more` other words here\n"
+    assert reflow(text) == text
+
+
+# The render check, when a renderer is installed.
+
+
+def only_renderer(monkeypatch, name: str) -> None:
+    """Make `name` the only renderer, or skip the test when it is not installed."""
+    found = [entry for entry in reflow_markdown.renderers() if entry[0] == name]
+    if not found:
+        raise unittest.SkipTest("%s is not installed" % name)
+    monkeypatch.setattr(reflow_markdown, "renderers", lambda: tuple(found))
+
+
+def render_check_cases(monkeypatch, name: str) -> None:
+    """Assert what the render check accepts and refuses with renderer `name` alone."""
+    only_renderer(monkeypatch, name)
+    difference = reflow_markdown.render_difference
+    assert difference("one\ntwo   three\n", "one two three\n") == "", name
+    assert difference("*one*\n", "one\n") != "", name
+    assert difference("<pre>a  b</pre>\n", "<pre>a b</pre>\n") != "", name
+    assert difference('<span title="a  b">x</span>\n', '<span title="a b">x</span>\n') != ""
+
+
+def test_render_check_with_python_markdown(monkeypatch):
+    render_check_cases(monkeypatch, "Python-Markdown")
+
+
+def test_render_check_with_markdown_it(monkeypatch):
+    render_check_cases(monkeypatch, "markdown-it-py")
+
+
+def test_render_difference_refuses_the_file(tmp_path, capsys, monkeypatch):
+    if not reflow_markdown.renderers():
+        raise unittest.SkipTest("no renderer is installed")
+    path = write(tmp_path / "a.md", WRAPPED)
+    monkeypatch.setattr(reflow_markdown, "render_difference", lambda before, after: "it differs")
+    assert run(capsys, "--width", "24", str(path)) == (2, "", "error: %s: it differs\n" % path)
+    assert path.read_bytes() == WRAPPED.encode()
+
+
+def test_without_a_renderer_the_tool_still_reflows(monkeypatch):
+    monkeypatch.setattr(reflow_markdown, "renderers", lambda: ())
+    check("one two three four five six\n", "one two three four\nfive six\n")
+
+
+# File handling the rewrite refuses.
+
+
+def test_keep_mtime_keeps_distinct_access_and_modification_times(tmp_path, capsys):
+    path = write(tmp_path / "a.md", WRAPPED)
+    os.utime(path, ns=(OLD_TIME, OLD_TIME + 5 * 10**9))
+    assert run(capsys, "--keep-mtime", "--width", "24", str(path))[0] == 0
+    after = path.stat()
+    assert (after.st_atime_ns, after.st_mtime_ns) == (OLD_TIME, OLD_TIME + 5 * 10**9)
+
+
+def test_a_symlinked_directory_argument_is_refused(tmp_path, capsys):
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    target = write(tree / "a.md", WRAPPED)
+    link = tmp_path / "link"
+    try:
+        link.symlink_to(tree, target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+        raise unittest.SkipTest("cannot create a symlink: %s" % error) from error
+    status, _stdout, stderr = run(capsys, "-r", str(link))
+    assert status == 2
+    assert "symlinked directory" in stderr
+    assert target.read_bytes() == WRAPPED.encode()
+
+
+def test_a_file_with_other_hard_links_is_refused(tmp_path, capsys):
+    path = write(tmp_path / "a.md", WRAPPED)
+    try:
+        os.link(path, tmp_path / "b.md")
+    except (OSError, NotImplementedError) as error:
+        raise unittest.SkipTest("cannot create a hard link: %s" % error) from error
+    status, _stdout, stderr = run(capsys, "--width", "24", str(path))
+    assert status == 2
+    assert "hard links" in stderr
+    assert path.read_bytes() == WRAPPED.encode()
+
+
+def test_a_file_without_write_permission_is_refused(tmp_path, capsys):
+    path = write(tmp_path / "a.md", WRAPPED)
+    path.chmod(0o444)
+    if os.access(path, os.W_OK):
+        raise unittest.SkipTest("the user can write a read-only file")
+    status, _stdout, stderr = run(capsys, "--width", "24", str(path))
+    path.chmod(0o644)
+    assert status == 2
+    assert "not writable" in stderr
+    assert path.read_bytes() == WRAPPED.encode()
+
+
+def test_a_fifo_is_not_a_regular_file(tmp_path, capsys):
+    if not hasattr(os, "mkfifo"):
+        raise unittest.SkipTest("no FIFOs on this platform")
+    path = tmp_path / "pipe.md"
+    os.mkfifo(path)
+    status, _stdout, stderr = run(capsys, str(path))
+    assert status == 2
+    assert "not a regular file" in stderr
+
+
+def test_check_diff_splits_lines_only_at_line_ends(tmp_path, capsys):
+    path = write(tmp_path / "a.md", WRAPPED.replace("seven", "se\u2028ven"))
+    status, stdout, _stderr = run(capsys, "--check", "--width", "24", str(path))
+    assert status == 1
+    assert "-" + WRAPPED.replace("seven", "se\u2028ven") in stdout
+
+
+# Generated documents.
+
+FUZZ_WORDS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota"]
+FUZZ_SPECIAL = [
+    "#", "#64", ">", ">x", "-", "+", "*", "1.", "10.", "7)", "|", "```", "~~~", "<b>x</b>",
+    "<!--c-->", "[^1]", "[label]:", ":", "!!!", "???", "{:x}", "*[x", "$$", "\\[", "\\]",
+    "===", "---", "`a  b`", "``c ` d``", '[link  text](http://e.com/a "t  t")',
+    "![alt  text](i.png)", "<https://e.com/x>", '<span title="a>b  c">s</span>',
+    "<code>a  b</code>", "<br>", "<br />", "x\\", "{x}", "`odd", "&amp;", "_em_", "**b**",
+    "[ref][r]", "<pre>p  q</pre>", "{{ v }}", "2026.", "[x](foo`)", "and  more`",
+]  # fmt: skip
+
+
+def fuzz_words(generator, count: int) -> str:
+    """Return `count` words, about one in seven of them a construct from FUZZ_SPECIAL."""
+    pool = [
+        generator.choice(FUZZ_SPECIAL)
+        if generator.random() < 0.15
+        else generator.choice(FUZZ_WORDS)
+        for _ in range(count)
+    ]
+    return " ".join(pool)
+
+
+def fuzz_paragraph(generator) -> list[str]:
+    """Return the lines of a paragraph, some ending in a hard break."""
+    lines = []
+    for _ in range(generator.randint(1, 4)):
+        line = fuzz_words(generator, generator.randint(1, 12))
+        if generator.random() < 0.08:
+            line += generator.choice(["  ", "\\"])
+        lines.append(line)
+    return lines
+
+
+def fuzz_block(generator, depth: int = 0) -> list[str]:
+    """Return the lines of a block: a paragraph, a list item, a quote or a fixed construct."""
+    kind = generator.random()
+    if kind < 0.35 or depth > 2:
+        return fuzz_paragraph(generator)
+    if kind < 0.5:
+        marker = generator.choice(["- ", "* ", "1. ", "2) ", "10. "])
+        inner = fuzz_block(generator, depth + 1)
+        indent = " " * len(marker)
+        lines = [marker + inner[0]]
+        lines += [(indent if generator.random() < 0.8 else "") + line for line in inner[1:]]
+        if generator.random() < 0.5:
+            lines += [""] * generator.randint(0, 1) + [marker + fuzz_words(generator, 8)]
+        return lines
+    if kind < 0.6:
+        inner = fuzz_block(generator, depth + 1)
+        return [
+            ("> " if generator.random() < 0.9 or not index else "") + line
+            for index, line in enumerate(inner)
+        ]
+    words = fuzz_words(generator, 10)
+    return generator.choice(
+        [
+            ["```py", words, "", "x  y", "```"],
+            ["    code  " + words],
+            ["## " + words],
+            [words, generator.choice(["===", "---"])],
+            ["| a | b |", "| - | - |", "| " + words + " | c |"],
+            ["<div>", words, "</div>"],
+            ["<div><pre>", "line one", "", "some   pre   text " + words, "</pre></div>"],
+            ["<!-- " + words, "", "more -->"],
+            ["$$", words, "$$"],
+            ["!!! note", "    " + words],
+            ["[^1]: " + words, "    " + words],
+            ["Term", ":   " + words],
+            ["{: .class }"],
+            ["*[HTML]: Hyper Text"],
+            ['[r]: http://e.com/r "T"'],
+            ["***"],
+        ]
+    )
+
+
+def fuzz_documents(count: int, seed: int) -> list[str]:
+    """Return `count` documents built from `seed`, most blocks separated by a blank line."""
+    generator = random.Random(seed)
+    documents = []
+    for _ in range(count):
+        parts = ["---\ntitle: x\n---"] if generator.random() < 0.1 else []
+        parts += ["\n".join(fuzz_block(generator)) for _ in range(generator.randint(2, 7))]
+        separator = "\n\n" if generator.random() < 0.7 else "\n"
+        documents.append(separator.join(parts) + "\n")
+    return documents
+
+
+def test_generated_documents_reflow_without_refusal():
+    for number, document in enumerate(fuzz_documents(300, 306)):
+        for width in (20, 33, 80):
+            try:
+                output = reflow_markdown.reflow_text(document, width)
+            except reflow_markdown.ReflowError as error:
+                message = "document %d, width %d: %s\n%s" % (number, width, error, document)
+                raise AssertionError(message) from error
+            again = reflow_markdown.reflow_text(output, width)
+            assert again == output, "document %d, width %d is not stable" % (number, width)
