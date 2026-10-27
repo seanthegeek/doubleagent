@@ -10,6 +10,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
+from test_errors import CAN_DENY, DENY_REASON
+
 TOOL = Path(__file__).resolve().parents[2] / "tools" / "reflow_markdown.py"
 _spec = importlib.util.spec_from_file_location("reflow_markdown", TOOL)
 assert _spec is not None and _spec.loader is not None
@@ -816,7 +818,7 @@ def render_check_cases(monkeypatch, name: str) -> None:
     assert difference("one\ntwo   three\n", "one two three\n") == "", name
     assert difference("*one*\n", "one\n") != "", name
     assert difference("<pre>a  b</pre>\n", "<pre>a b</pre>\n") != "", name
-    assert difference('<span title="a  b">x</span>\n', '<span title="a b">x</span>\n') != ""
+    assert difference('<span title="a  b">x</span>\n', '<span title="a b">x</span>\n') != "", name
 
 
 def test_render_check_with_python_markdown(monkeypatch):
@@ -881,9 +883,9 @@ def test_a_file_with_other_hard_links_is_refused(tmp_path, capsys):
 
 def test_a_file_without_write_permission_is_refused(tmp_path, capsys):
     path = write(tmp_path / "a.md", WRAPPED)
+    if not CAN_DENY:
+        raise unittest.SkipTest(DENY_REASON)
     path.chmod(0o444)
-    if os.access(path, os.W_OK):
-        raise unittest.SkipTest("the user can write a read-only file")
     status, _stdout, stderr = run(capsys, "--width", "24", str(path))
     path.chmod(0o644)
     assert status == 2
@@ -1028,7 +1030,7 @@ def test_rewrite_with_one_renderer_exits_2(tmp_path, capsys, monkeypatch):
     path = write(tmp_path / "a.md", WRAPPED)
     monkeypatch.setattr(reflow_markdown, "renderers", lambda: (("markdown-it-py", str),))
     assert reflow_markdown.main(["--width", "24", str(path)]) == 2
-    capsys.readouterr()
+    assert capsys.readouterr().err.startswith("error: rewriting needs Python-Markdown and")
     assert path.read_bytes() == WRAPPED.encode()
 
 
@@ -1065,6 +1067,16 @@ def test_a_pattern_skips_a_symlinked_directory(tmp_path, capsys, monkeypatch):
     assert "+++ b/real/x.md" in stdout
     assert "link" not in stdout
     assert stdout.endswith("1 of 1 files would be reflowed\n")
+
+
+def test_a_pattern_skips_matched_directories_and_symlinks(tmp_path, capsys, monkeypatch):
+    symlinked_tree(tmp_path, monkeypatch)
+    write(tmp_path / "a.md", WRAPPED)
+    for extra in ([], ["-r"]):
+        status, stdout, stderr = run(capsys, "--check", "--width", "24", *extra, "*")
+        assert (status, stderr) == (1, ""), extra
+        assert "+++ b/a.md" in stdout and "x.md" not in stdout, extra
+        assert stdout.endswith("1 of 1 files would be reflowed\n"), extra
 
 
 def test_a_path_through_a_symlinked_directory_is_refused(tmp_path, capsys, monkeypatch):

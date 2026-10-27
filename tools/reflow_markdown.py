@@ -3,31 +3,32 @@
 
 Usage: tools/reflow_markdown.py [--check] [--width N] [--keep-mtime] [-r | --recurse] PATH...
 
-A PATH is a file. One holding `*`, `?` or `[` that names no file is a pattern expanded here,
-`**` included, to the `.md` and `.markdown` files it matches; one matching none is an error. A
+A PATH is a file. One holding `*`, `?` or `[` that names no file is a pattern expanded here, `**`
+included, to the `.md` and `.markdown` files it matches; one matching none is an error. A
 directory needs `-r`, which takes those files below it. Suffixes match in any case. A symlinked
 directory below the working directory is never followed: a PATH through one is an error and a
-pattern skips it. A symlinked file is rewritten through to its target. Each file is read once.
+pattern skips it. A symlinked file is rewritten through to its target. Paths resolving to one
+file are read once (names differing only in case are two paths).
 
-Without `--check` each file whose reflow differs is rewritten and its path printed; every
-rewrite refuses a file with other hard links or without write permission, and `--keep-mtime`
-keeps its access and modification times. Rewriting needs Python-Markdown and markdown-it-py
-(`python3 -m pip install markdown markdown-it-py`); without both it writes nothing. `--check`
-never writes: it prints a diff per file that would change and a summary, warning when the
-renderers are missing. `--width` (default 80, at least 20) counts code points. Exit status: 0
-when nothing changes or every rewrite succeeds, 1 when `--check` finds a change, 2 on an error,
-a refused file or missing renderers in rewrite mode; the worst status wins.
+Without `--check` each file whose reflow differs is rewritten, keeping its mode (not its owner,
+extended attributes or ACLs), and its path printed; a file with other hard links or without write
+permission is refused, and `--keep-mtime` keeps its access and modification times. Rewriting
+needs Python-Markdown and markdown-it-py (`python3 -m pip install markdown markdown-it-py`) and
+writes nothing without both. `--check` never writes: it prints a diff per changed file and a
+summary, warning when the renderers are missing. `--width` (default 80, at least 20) counts code
+points. Exit status: 0 when nothing changes or every rewrite succeeds, 1 when `--check` finds a
+change, 2 on an error, a refused file or missing renderers; the worst status wins.
 
-Only paragraphs are reflowed, at top level, in list items and in blockquotes, and only their
-line breaks change: no wrapped line starts with block syntax, and whitespace in a code span, an
-HTML tag, a `<pre>` or `<code>` element, a link destination or image alt text is kept. Code,
-front matter, headings, tables, HTML blocks and lines ending in a hard break are kept. A
-construct only one dialect knows (math, admonitions, attribute and definition lists,
-abbreviations, footnotes) never changes the block structure read; it leaves its paragraph
-unchanged, as a tab, template tags, an unmatched backtick or a neighbour the dialects could read
-differently do. Line ends, the final newline and a byte order mark are kept. The output is
-parsed again, by this file's own parser first: blocks and words must be unchanged and a second
-reflow must change nothing; then both renderers must render it the same apart from whitespace.
+Only paragraphs are reflowed, at top level, in list items and in blockquotes, and only the
+whitespace between their words changes (line breaks, space runs collapsed, continuation indents):
+no wrapped line starts with block syntax, and whitespace in a code span, an HTML tag, a `<pre>` or
+`<code>` element, a link destination or image alt text is kept. Code, front matter, headings,
+tables, HTML blocks and hard-break lines are kept. A construct only one dialect knows (math,
+admonitions, attribute and definition lists, abbreviations, footnotes), a tab, template tags, an
+unmatched backtick or a neighbour the dialects read differently leaves its paragraph unchanged.
+Line ends, the final newline and a byte order mark are kept. The output must parse to the same
+blocks and words and reflow to itself, then render the same, apart from whitespace, under both
+renderers (Python-Markdown with common extensions, markdown-it-py as CommonMark with tables).
 """
 
 from __future__ import annotations
@@ -1510,7 +1511,8 @@ def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[s
                 name
                 for name in sorted(glob.glob(argument, recursive=True))
                 if not through_symlinked_directory(name)
-                and (os.path.isdir(name) or name.lower().endswith(MARKDOWN_SUFFIXES))
+                and not os.path.isdir(name)
+                and name.lower().endswith(MARKDOWN_SUFFIXES)
             ]
             if not names:
                 errors.append("%s: no Markdown file matches the pattern" % argument)
