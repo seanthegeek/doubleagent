@@ -3,3 +3,8 @@
 
 # The test runner; it runs the suite's unittest classes as they are.
 pytest
+
+# The renderers tools/reflow_markdown.py compares a reflow with; its render-check tests skip
+# without them. Python-Markdown at the version requirements-docs.txt pins.
+markdown==3.11.2
+markdown-it-py==4.2.0

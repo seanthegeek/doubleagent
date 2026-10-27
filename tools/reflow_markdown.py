@@ -3,31 +3,31 @@
 
 Usage: tools/reflow_markdown.py [--check] [--width N] [--keep-mtime] [-r | --recurse] PATH...
 
-A PATH is a file; one holding `*`, `?` or `[` that names no file is a pattern expanded here,
-`**` included, and a pattern matching nothing is an error. A directory needs `-r`, which takes
-the `.md` and `.markdown` files below it. A symlinked directory is never followed, not even as
-a PATH; a symlinked file is rewritten through to its target. Each file is processed once.
+A PATH is a file. One holding `*`, `?` or `[` that names no file is a pattern expanded here,
+`**` included, to the `.md` and `.markdown` files it matches; one matching none is an error. A
+directory needs `-r`, which takes those files below it. Suffixes match in any case. A symlinked
+directory below the working directory is never followed: a PATH through one is an error and a
+pattern skips it. A symlinked file is rewritten through to its target. Each file is read once.
 
-Without `--check` each file whose reflow differs is rewritten and its path printed;
-`--keep-mtime` keeps its access and modification times, and a file with other hard links or
-without write permission is refused. `--check` writes nothing: it prints a diff per file that
-would change, then a summary. `--width` (default 80, at least 20) counts code points. The exit
-status is 0 when nothing changes or every rewrite succeeds, 1 when `--check` finds a change and
-2 on an error or a refused file; the worst status wins.
+Without `--check` each file whose reflow differs is rewritten and its path printed; every
+rewrite refuses a file with other hard links or without write permission, and `--keep-mtime`
+keeps its access and modification times. Rewriting needs Python-Markdown and markdown-it-py
+(`python3 -m pip install markdown markdown-it-py`); without both it writes nothing. `--check`
+never writes: it prints a diff per file that would change and a summary, warning when the
+renderers are missing. `--width` (default 80, at least 20) counts code points. Exit status: 0
+when nothing changes or every rewrite succeeds, 1 when `--check` finds a change, 2 on an error,
+a refused file or missing renderers in rewrite mode; the worst status wins.
 
 Only paragraphs are reflowed, at top level, in list items and in blockquotes, and only their
 line breaks change: no wrapped line starts with block syntax, and whitespace in a code span, an
-HTML tag, a `<pre>` or `<code>` element, a link destination or an image's alt text is kept.
-Code, front matter, headings, tables, HTML blocks and each line ending in a hard break are kept.
-A construct only one dialect knows (math, admonitions, attribute and definition lists,
-abbreviations, footnotes) never changes the block structure read; it leaves the paragraph
-holding it unchanged, as template tags, an unmatched backtick or a neighbour that
-Python-Markdown and CommonMark could read differently do. Line ends (LF or CRLF), the final
-newline and a byte order mark are kept. Before anything is written or reported the output is
-parsed again: its blocks and words must be unchanged and a second reflow must change nothing.
-When Python-Markdown (`markdown`) or markdown-it-py (`markdown_it`) imports, each must render
-the file the same apart from whitespace; without them that check is skipped (enable it with
-`pip install markdown markdown-it-py`).
+HTML tag, a `<pre>` or `<code>` element, a link destination or image alt text is kept. Code,
+front matter, headings, tables, HTML blocks and lines ending in a hard break are kept. A
+construct only one dialect knows (math, admonitions, attribute and definition lists,
+abbreviations, footnotes) never changes the block structure read; it leaves its paragraph
+unchanged, as a tab, template tags, an unmatched backtick or a neighbour the dialects could read
+differently do. Line ends, the final newline and a byte order mark are kept. The output is
+parsed again, by this file's own parser first: blocks and words must be unchanged and a second
+reflow must change nothing; then both renderers must render it the same apart from whitespace.
 """
 
 from __future__ import annotations
@@ -64,9 +64,10 @@ PYTHON_MARKDOWN_FENCE = re.compile(r"(?:`{3,}|~{3,})[ ]*(?:\{[^}\n]*\}|\.?[\w#.+
 FENCE_CLOSE = re.compile(r"(`{3,}|~{3,})[ \t]*$")
 THEMATIC_BREAK = re.compile(r"(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$")
 SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)[ \t]*$")
-LIST_MARKER = re.compile(r"(?:[-+*]|\d{1,9}[.)])[ \t]")
+LIST_MARKER = re.compile(r"(?:[-+*]|\d+[.)])[ \t]")
 BULLET = re.compile(r"[-+*](?=[ \t]|$)")
-ORDERED = re.compile(r"(\d{1,9})[.)](?=[ \t]|$)")
+# Any digit count: CommonMark stops at nine digits, Python-Markdown does not.
+ORDERED = re.compile(r"(\d+)[.)](?=[ \t]|$)")
 DELIMITER_ROW = re.compile(r"\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$")
 BLOCK_TAGS = (
     "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|"
@@ -109,16 +110,16 @@ DEFINITION = re.compile(r":(?:[ \t]|$)")
 WHOLE_LINE_START = re.compile(r"\{[^}]*\}[ \t]*$|\[TOC\][ \t]*$")
 # Line starts Python-Markdown or CommonMark could read as a block inside a paragraph: a heading
 # with or without a space, a quote, a list item of any number, a setext underline, a fence,
-# and a pipe, which Python-Markdown may read as a table row.
+# a pipe, which Python-Markdown may read as a table row, and `<!`, an HTML comment or declaration.
 EITHER_BLOCK_START = re.compile(
-    r"#|>|[-+*](?:[ \t]|$)|\d{1,9}[.)](?:[ \t]|$)|(?:=+|-+)[ \t]*$|`{3}|~{3}|\|"
+    r"#|>|<!|[-+*](?:[ \t]|$)|\d+[.)](?:[ \t]|$)|(?:=+|-+)[ \t]*$|`{3}|~{3}|\|"
 )
 # A `[label]:` shape over the rest of a paragraph, since a label may span lines.
 LABEL_COLON = re.compile(r"\[(?:[^\[\]\\]|\\.)*\]:")
 # Text a wrapped line may not start with: every block start above and what other parsers read
 # as one (any `<`, `|`, `:` or `{`).
 HAZARD = re.compile(
-    r"#|>|[-+*](?:[ \t]|$)|\d{1,9}[.)](?:[ \t]|$)|(?:=+|-+)[ \t]*$|\||`{3}|~{3}"
+    r"#|>|[-+*](?:[ \t]|$)|\d+[.)](?:[ \t]|$)|(?:=+|-+)[ \t]*$|\||`{3}|~{3}"
     r"|<|\[\^|:|!!!|\?\?\?|\{|\*\[|\$\$|\\\[|\\\]|\[TOC\]"
 )
 # A backtick inside a link destination: the dialects disagree on whether the code span or the
@@ -160,6 +161,8 @@ RENDERED_BLOCKS = {
     "tr",
     "ul",
 }
+RENDERER_NAMES = ("Python-Markdown", "markdown-it-py")
+INSTALL_RENDERERS = "python3 -m pip install markdown markdown-it-py"
 PYTHON_MARKDOWN_EXTENSIONS = (
     "fenced_code",
     "tables",
@@ -859,9 +862,11 @@ def keeps_verbatim(contents: list[str]) -> bool:
     # A `-->` before any `<!--` closes a comment Python-Markdown may have opened earlier.
     if SPACED_REFERENCE.search(text) or "-->" in text.split("<!--", 1)[0]:
         return True
+    if "\t" in text:
+        # A tab's width depends on its column, which a refill moves.
+        return True
     for index, content in enumerate(contents):
-        trailing = content[len(content.rstrip(ASCII_WHITESPACE)) :]
-        if "\t" in trailing or TRAILING_BREAK_TAG.search(content):
+        if TRAILING_BREAK_TAG.search(content):
             return True
         stripped = content.lstrip(ASCII_WHITESPACE)
         if either_block_start(stripped, "\n".join(contents[index:])):
@@ -1101,6 +1106,11 @@ def verbatim_paragraphs(document: Block, leaves: list[Block], texts: list[str]) 
     for leaf in leaves:
         if leaf.kind == "html":
             unclosed = html_leaves_open(leaf, texts, depths) or unclosed
+            continue
+        if leaf.kind in ("heading", "table"):
+            raw = "\n".join(texts[number] for number in leaf.lines)
+            raw_element_depths(without_code_spans(raw)[0], depths)
+            unclosed = unclosed or any(depths.values())
             continue
         if leaf.kind != "paragraph":
             continue
@@ -1449,8 +1459,39 @@ def process_file(path: str, width: int, check: bool, keep_times: bool) -> int:
     return 0
 
 
+def through_symlinked_directory(path: str) -> bool:
+    """Say whether `path` passes through a symlinked directory below the working directory.
+
+    The directories above the working directory (macOS's `/var`, say) are the system's, not
+    the tree being reflowed, and are not checked.
+    """
+    here = os.path.abspath(os.getcwd())
+    directory = os.path.dirname(os.path.abspath(path))
+    while directory.startswith(here + os.sep):
+        if os.path.islink(directory):
+            return True
+        directory = os.path.dirname(directory)
+    return False
+
+
+def directory_files(directory: str) -> list[str]:
+    """Return the Markdown files below `directory`, sorted, never following a symlinked one."""
+    found = []
+    for root, _directories, filenames in os.walk(directory):
+        found.extend(
+            os.path.join(root, filename)
+            for filename in filenames
+            if filename.lower().endswith(MARKDOWN_SUFFIXES)
+        )
+    return sorted(found)
+
+
 def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[str]]:
-    """Return the files the PATH arguments name, once each, and the errors they gave."""
+    """Return the files the PATH arguments name, once each, and the errors they gave.
+
+    A pattern takes only the Markdown files it matches and skips any match reached through a
+    symlinked directory; a PATH reached through one is an error.
+    """
     files: list[str] = []
     errors: list[str] = []
     seen: set[str] = set()
@@ -1463,26 +1504,27 @@ def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[s
 
     for argument in arguments:
         names = [argument]
-        if not os.path.lexists(argument) and any(mark in argument for mark in "*?["):
-            names = sorted(glob.glob(argument, recursive=True))
+        pattern = not os.path.lexists(argument) and any(mark in argument for mark in "*?[")
+        if pattern:
+            names = [
+                name
+                for name in sorted(glob.glob(argument, recursive=True))
+                if not through_symlinked_directory(name)
+                and (os.path.isdir(name) or name.lower().endswith(MARKDOWN_SUFFIXES))
+            ]
             if not names:
-                errors.append("%s: no file matches the pattern" % argument)
+                errors.append("%s: no Markdown file matches the pattern" % argument)
                 continue
         for name in names:
             if os.path.isdir(name) and os.path.islink(name):
                 errors.append("%s: a symlinked directory, which is not followed" % name)
+            elif through_symlinked_directory(name):
+                errors.append("%s: inside a symlinked directory, which is not followed" % name)
             elif os.path.isdir(name):
                 if not recurse:
                     errors.append("%s: is a directory; pass -r to recurse into it" % name)
                     continue
-                found = []
-                for root, _directories, filenames in os.walk(name):
-                    found.extend(
-                        os.path.join(root, filename)
-                        for filename in filenames
-                        if filename.lower().endswith(MARKDOWN_SUFFIXES)
-                    )
-                for path in sorted(found):
+                for path in directory_files(name):
                     add(path)
             elif os.path.isfile(name):
                 add(name)
@@ -1506,6 +1548,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.width < MIN_WIDTH:
         parser.error("--width must be at least %d" % MIN_WIDTH)
+    installed = {name for name, _render in renderers()}
+    if installed != set(RENDERER_NAMES):
+        if not args.check:
+            print(
+                "error: rewriting needs Python-Markdown and markdown-it-py to prove the reflow "
+                "renders the same: " + INSTALL_RENDERERS,
+                file=sys.stderr,
+            )
+            return 2
+        print(
+            "warning: without Python-Markdown and markdown-it-py --check cannot prove the "
+            "reflow renders the same: " + INSTALL_RENDERERS,
+            file=sys.stderr,
+        )
     files, errors = expand_paths(args.paths, args.recurse)
     status = 2 if errors else 0
     for message in errors:

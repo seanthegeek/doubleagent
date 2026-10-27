@@ -396,8 +396,9 @@ def test_trailing_spaces_on_the_last_line_are_kept():
     check("one\ntwo  \n", "one\ntwo  \n")
 
 
-def test_tab_between_words_is_collapsed():
-    check("one\ttwo\t\tthree\n", "one two three\n")
+def test_a_paragraph_holding_a_tab_is_left_unchanged():
+    for text in ("one\ttwo three four five six seven\n", "one two three four five\tsix seven\n"):
+        assert reflow(text) == text, repr(text)
 
 
 def test_tab_in_the_indent_leaves_the_paragraph():
@@ -408,8 +409,26 @@ def test_tab_in_the_indent_leaves_the_paragraph():
 # Command line and file handling.
 
 
+# Whether both renderers are installed, which rewriting needs; read before any test replaces
+# the tool's `renderers`.
+RENDERERS_INSTALLED = len(reflow_markdown.renderers()) == 2
+CHECK_WARNING = (
+    ""
+    if RENDERERS_INSTALLED
+    else (
+        "warning: without Python-Markdown and markdown-it-py --check cannot prove the reflow "
+        "renders the same: python3 -m pip install markdown markdown-it-py\n"
+    )
+)
+
+
 def run(capsys, *arguments: str) -> tuple[int, str, str]:
-    """Run the tool's main() and return its status, stdout and stderr."""
+    """Run the tool's main() and return its status, stdout and stderr.
+
+    A rewrite skips the test unless both renderers are installed, since rewriting needs them.
+    """
+    if "--check" not in arguments and not RENDERERS_INSTALLED:
+        raise unittest.SkipTest("rewriting needs Python-Markdown and markdown-it-py")
     status = reflow_markdown.main(list(arguments))
     captured = capsys.readouterr()
     return status, captured.out, captured.err
@@ -451,10 +470,18 @@ def test_glob_expanded_by_the_tool(tmp_path, capsys):
     assert (status, stdout) == (0, str(deep) + "\n")
 
 
+def test_a_pattern_takes_only_markdown_files(tmp_path, capsys):
+    page = write(tmp_path / "a.MD", WRAPPED)
+    other = write(tmp_path / "notes.txt", WRAPPED)
+    status, stdout, _stderr = run(capsys, "--width", "24", str(tmp_path / "*"))
+    assert (status, stdout) == (0, str(page) + "\n")
+    assert other.read_bytes() == WRAPPED.encode()
+
+
 def test_pattern_matching_nothing_is_an_error(tmp_path, capsys):
     status, _out, stderr = run(capsys, str(tmp_path / "*.nothing"))
     assert status == 2
-    assert "no file matches" in stderr
+    assert "no Markdown file matches the pattern" in stderr
 
 
 def test_missing_file_is_an_error(tmp_path, capsys):
@@ -514,7 +541,7 @@ def test_check_prints_a_diff_and_writes_nothing(tmp_path, capsys):
     path = write(tmp_path / "a.md", WRAPPED)
     clean = write(tmp_path / "b.md", REFLOWED)
     status, stdout, stderr = run(capsys, "--check", "--width", "24", str(path), str(clean))
-    assert (status, stderr) == (1, "")
+    assert (status, stderr) == (1, CHECK_WARNING)
     assert "--- a/%s\n+++ b/%s\n" % (path, path) in stdout
     assert "-" + WRAPPED in stdout
     assert "+six seven eight nine ten\n" in stdout
@@ -527,7 +554,7 @@ def test_check_of_clean_files_exits_zero(tmp_path, capsys):
     assert run(capsys, "--check", "--width", "24", str(path)) == (
         0,
         "0 of 1 files would be reflowed\n",
-        "",
+        CHECK_WARNING,
     )
 
 
@@ -981,3 +1008,94 @@ def test_generated_documents_reflow_without_refusal():
                 raise AssertionError(message) from error
             again = reflow_markdown.reflow_text(output, width)
             assert again == output, "document %d, width %d is not stable" % (number, width)
+
+
+# Rewriting needs both renderers; --check warns without them.
+
+
+def test_rewrite_without_renderers_exits_2_and_writes_nothing(tmp_path, capsys, monkeypatch):
+    path = write(tmp_path / "a.md", WRAPPED)
+    monkeypatch.setattr(reflow_markdown, "renderers", lambda: ())
+    status = reflow_markdown.main(["--width", "24", str(path)])
+    captured = capsys.readouterr()
+    assert (status, captured.out) == (2, "")
+    assert captured.err.startswith("error: rewriting needs Python-Markdown and markdown-it-py")
+    assert "python3 -m pip install markdown markdown-it-py" in captured.err
+    assert path.read_bytes() == WRAPPED.encode()
+
+
+def test_rewrite_with_one_renderer_exits_2(tmp_path, capsys, monkeypatch):
+    path = write(tmp_path / "a.md", WRAPPED)
+    monkeypatch.setattr(reflow_markdown, "renderers", lambda: (("markdown-it-py", str),))
+    assert reflow_markdown.main(["--width", "24", str(path)]) == 2
+    capsys.readouterr()
+    assert path.read_bytes() == WRAPPED.encode()
+
+
+def test_check_without_renderers_warns_and_reports(tmp_path, capsys, monkeypatch):
+    path = write(tmp_path / "a.md", WRAPPED)
+    monkeypatch.setattr(reflow_markdown, "renderers", lambda: ())
+    status, stdout, stderr = run(capsys, "--check", "--width", "24", str(path))
+    assert status == 1
+    assert stdout.endswith("1 of 1 files would be reflowed\n")
+    assert stderr.startswith("warning: without Python-Markdown and markdown-it-py --check cannot")
+    assert stderr.count("\n") == 1
+    assert path.read_bytes() == WRAPPED.encode()
+
+
+# A symlinked directory below the working directory is never followed.
+
+
+def symlinked_tree(tmp_path, monkeypatch) -> Path:
+    """Make `real/x.md` and `link -> real` in the working directory; return the page."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "real").mkdir()
+    page = write(tmp_path / "real" / "x.md", WRAPPED)
+    try:
+        (tmp_path / "link").symlink_to("real", target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+        raise unittest.SkipTest("cannot create a symlink: %s" % error) from error
+    return page
+
+
+def test_a_pattern_skips_a_symlinked_directory(tmp_path, capsys, monkeypatch):
+    symlinked_tree(tmp_path, monkeypatch)
+    status, stdout, _stderr = run(capsys, "--check", "--width", "24", "**/*.md")
+    assert status == 1
+    assert "+++ b/real/x.md" in stdout
+    assert "link" not in stdout
+    assert stdout.endswith("1 of 1 files would be reflowed\n")
+
+
+def test_a_path_through_a_symlinked_directory_is_refused(tmp_path, capsys, monkeypatch):
+    page = symlinked_tree(tmp_path, monkeypatch)
+    status, stdout, stderr = run(capsys, "--check", "--width", "24", "link/x.md")
+    assert status == 2
+    assert "link/x.md: inside a symlinked directory" in stderr
+    assert stdout == "0 of 0 files would be reflowed\n"
+    assert page.read_bytes() == WRAPPED.encode()
+
+
+# Parser cases.
+
+
+def test_an_ordered_marker_of_ten_digits_is_a_line_start_hazard():
+    text = "aaaa bbbb cccc dddd 1234567890. eeee\n"
+    lines = reflow(text).split("\n")
+    assert not any(line.startswith("1234567890.") for line in lines), lines
+
+
+def test_a_continuation_line_with_a_long_ordered_marker_keeps_the_paragraph():
+    text = "one two three\n1234567890. four five six seven eight\n"
+    assert reflow(text) == text
+
+
+def test_a_pre_opened_in_a_heading_keeps_later_paragraphs():
+    for opener in ("# Title <pre>\n", "| a <pre> |\n| - |\n"):
+        text = opener + "\nsome   spaced   words that run past the width\n"
+        assert reflow(text) == text, opener
+
+
+def test_a_line_starting_with_an_html_declaration_keeps_the_paragraph():
+    text = "one two three four\n<!- five six seven eight\n"
+    assert reflow(text) == text
