@@ -105,15 +105,15 @@ problem: /home/bob/.gemini/tmp/chats/gone.json: missing from the collection
 
 user           home                             agent                 files        bytes  parser
 alice          /home/alice                      claude-code               3         3099  yes
-alice          /home/alice                      amp                       1            2  detect only
-bob            /home/bob                        gemini-cli                1            2  yes
+alice          /home/alice                      amp                       1          177  detect only
+bob            /home/bob                        gemini-cli                1          190  yes
 bob            /home/bob                        ollama                    1           25  yes
 
 project                                  users          agent                 files        bytes  parser
-/srv/proj                                alice          aider                     1           41  yes
-                                                        cursor                    1            9  yes
-                                                        (shared)                  1            9
-/srv/shared                              alice          (shared)                  1            9
+/srv/proj                                alice          aider                     1           72  yes
+                                                        cursor                    1          372  yes
+                                                        (shared)                  1          567
+/srv/shared                              alice          (shared)                  1          184
 ```
 <!-- end generated: detect-text -->
 
@@ -156,7 +156,7 @@ example is a real run with `--json --files` on the collection of the
         {
           "agent": "amp",
           "files": 1,
-          "bytes": 2,
+          "bytes": 177,
           "parser": false
         },
         {
@@ -175,7 +175,7 @@ example is a real run with `--json --files` on the collection of the
         {
           "agent": "gemini-cli",
           "files": 1,
-          "bytes": 2,
+          "bytes": 190,
           "parser": true
         },
         {
@@ -197,18 +197,18 @@ example is a real run with `--json --files` on the collection of the
         {
           "agent": "aider",
           "files": 1,
-          "bytes": 41,
+          "bytes": 72,
           "parser": true
         },
         {
           "agent": "cursor",
           "files": 1,
-          "bytes": 9,
+          "bytes": 372,
           "parser": true
         }
       ],
       "shared_files": 1,
-      "shared_bytes": 9,
+      "shared_bytes": 567,
       "remotes": [],
       "head": ""
     },
@@ -219,7 +219,7 @@ example is a real run with `--json --files` on the collection of the
       ],
       "agents": [],
       "shared_files": 1,
-      "shared_bytes": 9,
+      "shared_bytes": 184,
       "remotes": [],
       "head": ""
     }
@@ -509,7 +509,7 @@ run shown under [timeline](#timeline):
         {
           "agent": "amp",
           "files": 1,
-          "bytes": 2,
+          "bytes": 177,
           "parser": false,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -536,7 +536,7 @@ run shown under [timeline](#timeline):
         {
           "agent": "gemini-cli",
           "files": 1,
-          "bytes": 2,
+          "bytes": 190,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -593,7 +593,7 @@ run shown under [timeline](#timeline):
             "user": 1
           },
           "files": 1,
-          "bytes": 41
+          "bytes": 72
         },
         "claude-code": {
           "rows": 7,
@@ -613,7 +613,7 @@ run shown under [timeline](#timeline):
           "sessions": 0,
           "turn_types": {},
           "files": 1,
-          "bytes": 9
+          "bytes": 372
         }
       },
       "shared_files": 1,
@@ -1020,7 +1020,7 @@ records:
 {"timestamp_utc":"2026-10-01T10:05:01.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"99999999-8888-4777-8666-555555555555","project_path":"","git_branch":"","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_05","text":"ls","source_file":"/home/alice/.claude/projects/-/99999999-8888-4777-8666-555555555555.jsonl","source_line":2,"recovered":""}
 {"timestamp_utc":"2026-10-01T10:05:02.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"99999999-8888-4777-8666-555555555555","project_path":"","git_branch":"","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_05","text":"README.md","source_file":"/home/alice/.claude/projects/-/99999999-8888-4777-8666-555555555555.jsonl","source_line":3,"recovered":""}
 {"timestamp_utc":"2026-10-01T10:05:03.000Z","host":"ws01","user":"alice","agent":"claude-code","session_id":"99999999-8888-4777-8666-555555555555","project_path":"","git_branch":"","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"There is one file, README.md.","source_file":"/home/alice/.claude/projects/-/99999999-8888-4777-8666-555555555555.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:05.123Z","host":"ws01","user":"alice","agent":"aider","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"add tests","source_file":"/srv/proj/.aider.input.history","source_line":2,"recovered":"yes"}
+{"timestamp_utc":"2026-10-02T12:00:05.123Z","host":"ws01","user":"alice","agent":"aider","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"add tests for the invoice total rounding","source_file":"/srv/proj/.aider.input.history","source_line":2,"recovered":"yes"}
 {"timestamp_utc":"","host":"ws01","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"why is the sky blue","source_file":"/home/bob/.ollama/history","source_line":1,"recovered":""}
 {"timestamp_utc":"","host":"ws01","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: /bye","source_file":"/home/bob/.ollama/history","source_line":2,"recovered":""}
 ```

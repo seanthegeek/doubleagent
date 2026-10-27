@@ -141,6 +141,73 @@ def _claude_history() -> str:
     )
 
 
+# Invented contents for the settings and project files, so their sizes look like a host's.
+PROJECT_AGENTS = """\
+# Ledger service
+
+A small HTTP service that records invoices for the billing team.
+
+## Build and test
+
+- `make build` compiles the service into `bin/ledger`.
+- `make test` runs the unit tests; run it before every commit.
+- `make lint` runs the formatter and the linter; fix what it reports.
+
+## Style
+
+- Go code is formatted with `gofmt`; keep functions under 50 lines.
+- Every exported function has a doc comment.
+- Database migrations go in `migrations/`, one file per change, never edited after merge.
+- Do not add a dependency without asking in the pull request.
+"""
+SHARED_AGENTS = """\
+# Shared scripts
+
+Shell helpers used by several repositories.
+
+- Scripts are POSIX sh; check each with `shellcheck` before committing.
+- Keep every script runnable from any directory.
+"""
+CURSOR_RULE = """\
+---
+description: Code style for the ledger service
+globs: "**/*.go"
+alwaysApply: false
+---
+
+- Use tabs for indentation, as gofmt does.
+- Return errors with context: `fmt.Errorf("load invoice %d: %w", id, err)`.
+- Name tests `TestFunction_Case` and keep them table-driven.
+- Never log invoice amounts or customer names.
+- Prefer the standard library over a new dependency.
+"""
+AIDER_HISTORY = "\n# 2026-10-02 12:00:05.123456\n+add tests for the invoice total rounding\n"
+AMP_SETTINGS = """\
+{
+  "amp.notifications.enabled": true,
+  "amp.showCosts": false,
+  "amp.git.commit.coauthor.enabled": false,
+  "amp.updates.mode": "warn",
+  "amp.terminal.copyOnSelect": true
+}
+"""
+# No key the gemini-cli parser turns into a row, so the agent stays under `parser found no rows`.
+GEMINI_SETTINGS = """\
+{
+  "general": {
+    "vimMode": true,
+    "preferredEditor": "vim"
+  },
+  "ui": {
+    "theme": "GitHub",
+    "hideBanner": true
+  },
+  "privacy": {
+    "usageStatisticsEnabled": false
+  }
+}
+"""
+
 # user, home, agent, path relative to the home, content.
 FILES: list[tuple[str, str, str, str, str]] = [
     ("alice", "/home/alice", "claude-code", ".claude/history.jsonl", _claude_history()),
@@ -158,20 +225,14 @@ FILES: list[tuple[str, str, str, str, str]] = [
         ".claude/projects/-/%s.jsonl" % CLAUDE_LOOSE_SESSION,
         _claude_transcript(CLAUDE_LOOSE_SESSION, None, 5),
     ),
-    ("alice", "/home/alice", "amp", ".config/amp/settings.json", "{}"),
-    ("bob", "/home/bob", "gemini-cli", ".gemini/settings.json", "{}"),
+    ("alice", "/home/alice", "amp", ".config/amp/settings.json", AMP_SETTINGS),
+    ("bob", "/home/bob", "gemini-cli", ".gemini/settings.json", GEMINI_SETTINGS),
     ("bob", "/home/bob", "gemini-cli", ".gemini/tmp/chats/gone.json", '{"messages": []}'),
     ("bob", "/home/bob", "ollama", ".ollama/history", "why is the sky blue\n/bye\n"),
-    (
-        "alice",
-        "/srv/proj",
-        "aider",
-        ".aider.input.history",
-        "\n# 2026-10-02 12:00:05.123456\n+add tests\n",
-    ),
-    ("alice", "/srv/proj", "cursor", ".cursor/rules/style.mdc", "use tabs\n"),
-    ("alice", "/srv/proj", "project", "AGENTS.md", "# agents\n"),
-    ("alice", "/srv/shared", "project", "AGENTS.md", "# agents\n"),
+    ("alice", "/srv/proj", "aider", ".aider.input.history", AIDER_HISTORY),
+    ("alice", "/srv/proj", "cursor", ".cursor/rules/style.mdc", CURSOR_RULE),
+    ("alice", "/srv/proj", "project", "AGENTS.md", PROJECT_AGENTS),
+    ("alice", "/srv/shared", "project", "AGENTS.md", SHARED_AGENTS),
 ]
 # Collected rows whose file is left out of fs/, as if it was lost after the collection.
 MISSING = {"/home/bob/.gemini/tmp/chats/gone.json"}
