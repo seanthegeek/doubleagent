@@ -76,7 +76,8 @@ tools/check_doc_links.py       verifies every relative link and heading fragment
                                Markdown documents, that section and external
                                references are links, that a reader page
                                introduces this file's terms of art before using them,
-                               and that this file links no issue or pull request
+                               and that this file and CLAUDE.md link no issue or pull
+                               request
 mkdocs/mkdocs.yml              the documentation site: MkDocs with the Material theme,
                                built from the documents where they are; its nav: tree
 mkdocs/hooks.py                site build hooks: GitHub heading ids, code spans with
@@ -1270,8 +1271,8 @@ documentation-only change needs only the last two rows and markdownlint.
   exception). A concrete value (a glob, a name, a row form) stays only when
   the rule depends on it; an example stays only when it is the
   specification; a rule already stated elsewhere in this file is linked, not
-  repeated. `tools/check_doc_links.py` fails on an issue or pull request
-  link in this file.
+  repeated. The same holds for `CLAUDE.md`, and `tools/check_doc_links.py`
+  fails on an issue or pull request link in either file.
 - An index table (the agents page, the survival table) gives a short cell
   and a link, never the documents' detail.
 - A document never says how it is maintained, never states its own
