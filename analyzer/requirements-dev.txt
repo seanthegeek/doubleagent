@@ -5,6 +5,8 @@
 pytest
 
 # The renderers tools/reflow_markdown.py compares a reflow with; its render-check tests skip
-# without them. Python-Markdown at the version requirements-docs.txt pins.
-markdown==3.11.2
+# without them. Python-Markdown at the version requirements-docs.txt pins, and on Python 3.10,
+# which 3.11 does not support, the last release that does.
+markdown==3.11.2; python_version >= "3.11"
+markdown==3.10.2; python_version < "3.11"
 markdown-it-py==4.2.0

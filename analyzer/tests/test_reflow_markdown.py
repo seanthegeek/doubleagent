@@ -436,6 +436,19 @@ def run(capsys, *arguments: str) -> tuple[int, str, str]:
     return status, captured.out, captured.err
 
 
+def test_a_comment_ended_by_bang_stays_raw_up_to_its_commonmark_end(tmp_path, capsys):
+    """Python-Markdown ends the comment at `--!>`, CommonMark only at `-->`."""
+    text = (
+        "<!-- note --!>\nfirst line of text that is long enough to wrap at twenty four\n\n"
+        "-->\n\nafter the comment a paragraph that is long enough to wrap here\n"
+    )
+    path = write(tmp_path / "a.md", text)
+    status, _stdout, stderr = run(capsys, "--width", "24", str(path))
+    assert (status, stderr) == (0, "")
+    out = path.read_bytes().decode()
+    assert out.startswith(text.split("\n\nafter")[0] + "\n\nafter the comment a\n"), out
+
+
 WRAPPED = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen\n"
 REFLOWED = "one two three four five\nsix seven eight nine ten\neleven twelve thirteen\nfourteen\n"
 

@@ -87,6 +87,8 @@ HTML_STARTS = (
         re.compile(r"<(?:pre|script|style|textarea)(?:[ \t>]|$)", re.I),
         re.compile(r"</(?:pre|script|style|textarea)>", re.I),
     ),
+    # CommonMark ends a comment block only at `-->`; Python-Markdown also stops at `--!>`, so
+    # keeping every line up to `-->` raw leaves both renderers' text unreflowed.
     (re.compile(r"<!--"), re.compile(r"-->")),
     (re.compile(r"<\?"), re.compile(r"\?>")),
     (re.compile(r"<![A-Za-z]"), re.compile(r">")),
