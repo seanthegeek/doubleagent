@@ -85,6 +85,7 @@ tools/check_doc_links.py       verifies every relative link and heading fragment
                                request
 tools/check_code_style.py      verifies the names, comments and docstring lengths of
                                every Python, sh and PowerShell file against "Code style"
+tools/reflow_markdown.py       checks and reflows Markdown paragraphs to a width
 mkdocs/mkdocs.yml              the documentation site: MkDocs with the Material theme,
                                built from the documents where they are; its nav: tree
 mkdocs/hooks.py                site build hooks: GitHub heading ids, code spans with
