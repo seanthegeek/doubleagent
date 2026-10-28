@@ -1192,7 +1192,7 @@ class FileEntry(NamedTuple):
     rel: str
     data: bytes
     mode: str
-    secret: bool
+    flagged: bool
     mtime: str
     uid: int
 
@@ -1208,7 +1208,7 @@ def files() -> Iterator[FileEntry | SkippedDirectory]:
     """Yield every row of the collection in manifest order, home rows before project rows.
 
     A file's `mtime` is its modification time on the example's day, `HH:MM:SS`; `agent` is
-    what the collector records, and `secret` is true where a `SECRET_GLOBS` line matches. An
+    what the collector records, and `flagged` is true where a `SECRET_GLOBS` line matches. An
     excluded directory comes before the files of the catalog entry that reached it, as the
     collector writes it, with the size `du -sk` reports.
     """
@@ -1313,7 +1313,7 @@ def _local_settings() -> dict:
 
 
 # Files a `SECRET_GLOBS` line matches, beside every `sessions/*.key` file.
-SECRET_FILES = {".claude.json", ".codex/config.toml"}
+FLAGGED_FILES = {".claude.json", ".codex/config.toml"}
 # Directories whose transcripts, cached pastes and registry files Claude Code writes with mode 0600.
 PRIVATE_PREFIXES = (".claude/projects/", ".claude/paste-cache/", ".claude/sessions/")
 
@@ -1337,9 +1337,9 @@ def _compact(document: dict) -> str:
 
 def _entry(user, home, agent, rel, data, mtime, owner=None) -> FileEntry:
     raw = data if isinstance(data, bytes) else data.encode("utf-8")
-    secret = rel in SECRET_FILES or rel.endswith(".key")
+    flagged = rel in FLAGGED_FILES or rel.endswith(".key")
     uid = UIDS[owner or user]
-    return FileEntry(user, home, agent, rel, raw, _mode(rel), secret, mtime, uid)
+    return FileEntry(user, home, agent, rel, raw, _mode(rel), flagged, mtime, uid)
 
 
 # Files the manifest lists as collected but `fs/` lacks, as if lost after the collection.
@@ -1390,7 +1390,7 @@ def manifest_row(entry: FileEntry | SkippedDirectory) -> dict:
         "gid": PROJECT_GID if entry.home == PROJECT else uid,
         "mode": entry.mode,
         "sha256": hashlib.sha256(entry.data).hexdigest(),
-        "secret": entry.secret,
+        "secret": entry.flagged,
         "status": "collected",
         "target": "",
         "error": "",
