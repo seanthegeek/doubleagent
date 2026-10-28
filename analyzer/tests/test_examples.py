@@ -6,6 +6,7 @@ import contextlib
 import importlib.util
 import io
 import itertools
+import json
 import stat
 import sys
 import unittest
@@ -45,8 +46,9 @@ def test_check_reports_a_stale_block(tmp_path):
     document.write_bytes(stale.encode("utf-8"))
     status, stdout, _ = run_main("--check", "--document", str(document))
     assert status == 1
-    assert '-  "kind": "loose",' in stdout and "detect-json" in stdout
-    assert "inventory-json" not in stdout
+    assert '-  "kind": "loose",' in stdout
+    named = [name for name in examples.BLOCKS if "(%s, documented)" % name in stdout]
+    assert named == ["detect-json"], named
     assert document.read_text(encoding="utf-8") == stale, "--check must write nothing"
     assert run_main("--document", str(document))[0] == 0
     assert document.read_text(encoding="utf-8") == text
@@ -60,12 +62,10 @@ def marker_faults(text: str) -> dict[str, str]:
     lines = text.split("\n")
     slots = [lines.index(marker) for marker in markers]
     cases = {}
-    for order in itertools.permutations(markers):
-        if list(order) != markers:
-            moved = list(lines)
-            for slot, marker in zip(slots, order, strict=True):
-                moved[slot] = marker
-            cases["order " + " / ".join(order)] = "\n".join(moved)
+    for first, second in itertools.combinations(range(len(markers)), 2):
+        moved = list(lines)
+        moved[slots[first]], moved[slots[second]] = markers[second], markers[first]
+        cases["swapped %s / %s" % (markers[first], markers[second])] = "\n".join(moved)
     for slot, marker in zip(slots, markers, strict=True):
         cases["missing " + marker] = "\n".join(lines[:slot] + lines[slot + 1 :])
         cases["duplicated " + marker] = "\n".join([*lines[:slot], marker, *lines[slot:]])
@@ -77,7 +77,8 @@ def marker_faults(text: str) -> dict[str, str]:
 def test_every_marker_fault_fails_and_writes_nothing(tmp_path):
     text = examples.DOCUMENT.read_text(encoding="utf-8")
     cases = marker_faults(text)
-    assert len(cases) == 23 + 4 + 4 + 1
+    count = len(examples.BLOCKS) * 2
+    assert len(cases) == count * (count - 1) // 2 + count + count + 1
     document = tmp_path / "output.md"
     for case, broken in cases.items():
         document.write_bytes(broken.encode("utf-8"))
@@ -86,6 +87,22 @@ def test_every_marker_fault_fails_and_writes_nothing(tmp_path):
             assert status == 2, (case, mode)
             assert stdout == "" and "error: markers must be" in stderr, (case, mode)
             assert document.read_text(encoding="utf-8") == broken, (case, mode)
+
+
+def test_generated_blocks_have_their_fence_and_jsonl_lines_parse():
+    blocks = examples.generate()
+    assert list(blocks) == list(examples.BLOCKS)
+    for name, block in blocks.items():
+        language = "text" if name in ("detect-text", "timeline-stdout") else "json"
+        lines = block.split("\n")
+        assert lines[0] == "```" + language and lines[-2:] == ["```", ""], name
+        if name.endswith("-jsonl"):
+            for line in lines[1:-2]:
+                assert isinstance(json.loads(line), dict), (name, line)
+    stdout = blocks["timeline-stdout"]
+    for line in ("rows:      18 in out/timeline.jsonl", "sessions:  2 in out/sessions.jsonl"):
+        assert "\n%s\n" % line in stdout, line
+    assert "\ninventory: out/inventory.json (" in stdout
 
 
 def test_unreadable_document_exits_2(tmp_path):
