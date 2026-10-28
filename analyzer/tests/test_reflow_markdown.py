@@ -767,7 +767,9 @@ def test_one_dialect_lines_never_open_a_block():
     for line in ("$$", "\\[", "!!! note", "[^1]: x", "*[HTML]: y", ": def", "{: .x }"):
         text = "- one two\n  %s\n- three\n" % line
         kinds = [entry[1][1] for entry in reflow_markdown.outline(text[:-1].split("\n"))]
-        assert kinds == ["item", "verbatim paragraph", "item", "paragraph"], (line, kinds)
+        # An unclosed math opener keeps everything after it, as a math extension would read it.
+        last = "verbatim paragraph" if line in ("$$", "\\[") else "paragraph"
+        assert kinds == ["item", "verbatim paragraph", "item", last], (line, kinds)
 
 
 def test_a_break_tag_is_never_left_at_a_line_end():
@@ -1099,6 +1101,68 @@ def test_a_path_through_a_symlinked_directory_is_refused(tmp_path, capsys, monke
     assert "link/x.md: inside a symlinked directory" in stderr
     assert stdout == "0 of 0 files would be reflowed\n"
     assert page.read_bytes() == WRAPPED.encode()
+
+
+def test_an_absolute_path_through_a_symlinked_directory_is_refused(tmp_path, capsys, monkeypatch):
+    (tmp_path / "repo").mkdir()
+    (tmp_path / "ext" / "real").mkdir(parents=True)
+    page = write(tmp_path / "ext" / "real" / "x.md", WRAPPED)
+    try:
+        (tmp_path / "ext" / "link").symlink_to("real", target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+        raise unittest.SkipTest("cannot create a symlink: %s" % error) from error
+    monkeypatch.chdir(tmp_path / "repo")
+    outside = str(tmp_path / "ext" / "link" / "x.md")
+    status, _stdout, stderr = run(capsys, "--check", "--width", "24", outside)
+    assert status == 2 and "inside a symlinked directory" in stderr, stderr
+    pattern = str(tmp_path / "ext" / "*" / "x.md")
+    status, stdout, stderr = run(capsys, "--check", "--width", "24", pattern)
+    assert (status, stderr) == (1, ""), stderr
+    assert "real/x.md" in stdout and "link/x.md" not in stdout, stdout
+    assert page.read_bytes() == WRAPPED.encode()
+
+
+def test_a_pattern_never_lists_a_symlinked_directory(tmp_path, capsys, monkeypatch):
+    symlinked_tree(tmp_path, monkeypatch)
+    listed: list[str] = []
+    real_scandir = os.scandir
+
+    def spy(path="."):
+        listed.append(os.fspath(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(reflow_markdown.os, "scandir", spy)
+    status, stdout, _stderr = run(capsys, "--check", "--width", "24", "**/*.md")
+    assert status == 1 and "+++ b/real/x.md" in stdout
+    assert not any("link" in path for path in listed), listed
+
+
+def test_an_unlistable_directory_under_recurse_is_an_error(tmp_path, capsys):
+    if not CAN_DENY:
+        raise unittest.SkipTest(DENY_REASON)
+    locked = tmp_path / "tree" / "locked"
+    locked.mkdir(parents=True)
+    write(locked / "a.md", WRAPPED)
+    locked.chmod(0o000)
+    try:
+        status, stdout, stderr = run(capsys, "--check", "-r", str(tmp_path / "tree"))
+    finally:
+        locked.chmod(0o755)
+    assert status == 2 and "locked: cannot list" in stderr, stderr
+    assert stdout == "0 of 0 files would be reflowed\n"
+
+
+def test_math_between_blank_lines_is_left_unchanged():
+    for text in (
+        "$$\n\nx = 1 % note\ny = 2\n\n$$\n\n" + LONG + "\n",
+        "\\[\n\nx = 1 % note\ny = 2\n\n\\]\n\n" + LONG + "\n",
+        "> $$\n>\n> x = 1 % note\n> y = 2\n>\n> $$\n",
+    ):
+        out = reflow(text, 24)
+        body = "x = 1 % note\n> y = 2\n" if text.startswith(">") else "x = 1 % note\ny = 2\n"
+        assert body in out, (text, out)
+        if LONG in text:
+            assert out != text, "the paragraph after a closed region is reflowed: %r" % text
 
 
 # Parser cases.

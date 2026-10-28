@@ -5,38 +5,38 @@ Usage: tools/reflow_markdown.py [--check] [--width N] [--keep-mtime] [-r | --rec
 
 A PATH is a file. One holding `*`, `?` or `[` that names no file is a pattern expanded here, `**`
 included, to the `.md` and `.markdown` files it matches; one matching none is an error. A
-directory needs `-r`, which takes those files below it. Suffixes match in any case. A symlinked
-directory below the working directory is never followed: a PATH through one is an error and a
-pattern skips it. A symlinked file is rewritten through to its target. Paths resolving to one
+directory needs `-r`, which takes those files below it; one that cannot be listed is an error.
+Suffixes match in any case. A symlinked directory is never followed (bar the working
+directory's ancestors and links under the root, as macOS's `/tmp`): a PATH through one is an
+error and a pattern skips it. A symlinked file is rewritten through to its target; paths to one
 file are read once (names differing only in case are two paths).
 
-Without `--check` each file whose reflow differs is rewritten, keeping its mode (not its owner,
-extended attributes or ACLs), and its path printed; a file with other hard links or without write
+Without `--check` each changed file is rewritten, keeping its mode (not its owner, extended
+attributes or ACLs), and its path printed; a file with other hard links or without write
 permission is refused, and `--keep-mtime` keeps its access and modification times. Rewriting
 needs Python-Markdown and markdown-it-py (`python3 -m pip install markdown markdown-it-py`) and
 writes nothing without both. `--check` never writes: it prints a diff per changed file and a
 summary, warning when the renderers are missing. `--width` (default 80, at least 20) counts code
 points. Exit status: 0 when nothing changes or every rewrite succeeds, 1 when `--check` finds a
 change, 2 on an error, a refused file or missing renderers; the worst status wins.
-
 Only paragraphs are reflowed, at top level, in list items and in blockquotes, and only the
 whitespace between their words changes (line breaks, space runs collapsed, continuation indents):
 no wrapped line starts with block syntax, and whitespace in a code span, an HTML tag, a `<pre>` or
-`<code>` element, a link destination or image alt text is kept. Code, front matter, headings,
-tables, HTML blocks and hard-break lines are kept. A construct only one dialect knows (math,
+`<code>` element, a link destination or image alt text is kept, as are code, front matter,
+headings, tables, HTML blocks and hard-break lines. A construct only one dialect knows (math,
 admonitions, attribute and definition lists, abbreviations, footnotes), a tab, template tags, an
-unmatched backtick or a neighbour the dialects read differently leaves its paragraph unchanged.
-Line ends, the final newline and a byte order mark are kept. The output must parse to the same
-blocks and words and reflow to itself, then render the same, apart from whitespace, under both
-renderers (Python-Markdown with common extensions, markdown-it-py as CommonMark with tables).
+unmatched backtick, a neighbour the dialects read differently or an open math region leaves its
+paragraph unchanged. Line ends, the final newline and a byte order mark are kept. The output must
+parse to the same blocks and words and reflow to itself, then render the same, bar whitespace,
+under Python-Markdown (common extensions) and markdown-it-py (CommonMark with tables).
 """
 
 from __future__ import annotations
 
 import argparse
 import difflib
+import fnmatch
 import functools
-import glob
 import importlib
 import os
 import re
@@ -1094,6 +1094,29 @@ def html_leaves_open(leaf: Block, texts: list[str], depths: dict[str, int]) -> b
     return fence or any(depths.values())
 
 
+def math_toggles(leaf: Block, texts: list[str], open_now: bool) -> tuple[bool, bool]:
+    """Return whether a math region (`$$`, or a backslash bracket) is open after the paragraph.
+
+    The second value says whether the paragraph opened or closed one.
+
+    Math extensions read a region across blank lines, so the paragraphs between its opening
+    and closing lines are math, not text, though neither configured renderer knows math; an
+    unclosed region keeps everything after it.
+    """
+    toggled = False
+    for content in paragraph_contents(leaf, texts):
+        line = ascii_strip(content)
+        if line.startswith("$$"):
+            if not (len(line) > 2 and line.count("$$") % 2 == 0):
+                open_now, toggled = not open_now, True
+        elif line.startswith("\\["):
+            if "\\]" not in line:
+                open_now, toggled = True, True
+        elif line.startswith("\\]"):
+            open_now, toggled = False, True
+    return open_now, toggled
+
+
 def verbatim_paragraphs(document: Block, leaves: list[Block], texts: list[str]) -> set[int]:
     """Return the ids of the paragraph leaves to copy unchanged."""
     owners = {number: leaf for leaf in leaves for number in leaf.lines}
@@ -1106,6 +1129,7 @@ def verbatim_paragraphs(document: Block, leaves: list[Block], texts: list[str]) 
     # Once a `<pre>`-like element stays open past its block, or an HTML block holds a fence
     # line, the dialects may close them in different places: no later paragraph is safe.
     unclosed = False
+    math_open = False
     for leaf in leaves:
         if leaf.kind == "html":
             unclosed = html_leaves_open(leaf, texts, depths) or unclosed
@@ -1117,7 +1141,9 @@ def verbatim_paragraphs(document: Block, leaves: list[Block], texts: list[str]) 
             continue
         if leaf.kind != "paragraph":
             continue
-        inside = unclosed or any(depths.values())
+        in_math = math_open
+        math_open, toggled = math_toggles(leaf, texts, math_open)
+        inside = unclosed or any(depths.values()) or in_math or toggled
         raw = "\n".join(texts[number] for number in leaf.lines)
         changed = raw_element_depths(without_code_spans(raw)[0], depths)
         unclosed = unclosed or any(depths.values())
@@ -1463,30 +1489,98 @@ def process_file(path: str, width: int, check: bool, keep_times: bool) -> int:
 
 
 def through_symlinked_directory(path: str) -> bool:
-    """Say whether `path` passes through a symlinked directory below the working directory.
+    """Say whether a directory of `path`, as given, is a symlink the tool must not follow.
 
-    The directories above the working directory (macOS's `/var`, say) are the system's, not
-    the tree being reflowed, and are not checked.
+    Every directory is checked except the working directory and its ancestors and those
+    directly under the file system root (macOS's `/tmp` and `/var`), which are the system's.
     """
     here = os.path.abspath(os.getcwd())
     directory = os.path.dirname(os.path.abspath(path))
-    while directory.startswith(here + os.sep):
-        if os.path.islink(directory):
+    while True:
+        parent = os.path.dirname(directory)
+        if parent == directory or os.path.dirname(parent) == parent:
+            return False
+        above_here = here == directory or here.startswith(directory.rstrip(os.sep) + os.sep)
+        if not above_here and os.path.islink(directory):
             return True
-        directory = os.path.dirname(directory)
-    return False
+        directory = parent
 
 
-def directory_files(directory: str) -> list[str]:
-    """Return the Markdown files below `directory`, sorted, never following a symlinked one."""
+def directory_files(directory: str, errors: list[str]) -> list[str]:
+    """Return the Markdown files below `directory`, sorted, never following a symlinked one.
+
+    A directory that cannot be listed is added to `errors`, so a partial walk is not a pass.
+    """
+
+    def failed(error: OSError) -> None:
+        errors.append("%s: cannot list (%s)" % (error.filename, error.strerror or error))
+
     found = []
-    for root, _directories, filenames in os.walk(directory):
+    for root, _directories, filenames in os.walk(directory, onerror=failed):
         found.extend(
             os.path.join(root, filename)
             for filename in filenames
             if filename.lower().endswith(MARKDOWN_SUFFIXES)
         )
     return sorted(found)
+
+
+def is_pattern(text: str) -> bool:
+    """Say whether a path component holds a glob wildcard."""
+    return any(mark in text for mark in "*?[")
+
+
+def pattern_matches(pattern: str, errors: list[str]) -> list[str]:
+    """Return the paths `pattern` matches, as glob does, never entering a symlinked directory.
+
+    `**` stands for zero or more directories; a wildcard matches a leading dot only when its
+    component starts with one. A directory that cannot be listed is added to `errors`.
+    """
+    parts = re.split(r"[\\/]+" if os.sep == "\\" else "/+", pattern)
+    first = next(index for index, part in enumerate(parts) if is_pattern(part))
+    base = os.sep.join(parts[:first]) if first else ""
+    if pattern.startswith(("/", "\\")) and not base:
+        base = os.sep
+    found: list[str] = []
+
+    def entries(directory: str) -> list[os.DirEntry[str]]:
+        try:
+            with os.scandir(directory or ".") as listing:
+                return sorted(listing, key=lambda entry: entry.name)
+        except OSError as error:
+            errors.append("%s: cannot list (%s)" % (directory or ".", error.strerror or error))
+            return []
+
+    def walk(directory: str, rest: list[str]) -> None:
+        part, more = rest[0], rest[1:]
+        if part == "**":
+            if more:
+                walk(directory, more)
+            for entry in entries(directory):
+                if entry.is_dir(follow_symlinks=False) and not entry.name.startswith("."):
+                    walk(os.path.join(directory, entry.name), rest)
+                elif not more and not entry.name.startswith("."):
+                    found.append(os.path.join(directory, entry.name))
+            return
+        if not is_pattern(part):
+            path = os.path.join(directory, part)
+            if not more:
+                if os.path.lexists(path):
+                    found.append(path)
+            elif os.path.isdir(path) and not os.path.islink(path):
+                walk(path, more)
+            return
+        for entry in entries(directory):
+            if entry.name.startswith(".") and not part.startswith("."):
+                continue
+            if fnmatch.fnmatch(entry.name, part):
+                if not more:
+                    found.append(os.path.join(directory, entry.name))
+                elif entry.is_dir(follow_symlinks=False):
+                    walk(os.path.join(directory, entry.name), more)
+
+    walk(base, [part for part in parts[first:] if part])
+    return sorted(set(found))
 
 
 def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[str]]:
@@ -1511,7 +1605,7 @@ def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[s
         if pattern:
             names = [
                 name
-                for name in sorted(glob.glob(argument, recursive=True))
+                for name in pattern_matches(argument, errors)
                 if not through_symlinked_directory(name)
                 and not os.path.isdir(name)
                 and name.lower().endswith(MARKDOWN_SUFFIXES)
@@ -1528,7 +1622,7 @@ def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[s
                 if not recurse:
                     errors.append("%s: is a directory; pass -r to recurse into it" % name)
                     continue
-                for path in directory_files(name):
+                for path in directory_files(name, errors):
                     add(path)
             elif os.path.isfile(name):
                 add(name)
