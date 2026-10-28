@@ -6,9 +6,9 @@ Usage: tools/reflow_markdown.py [--check] [--width N] [--keep-mtime] [-r | --rec
 A PATH is a file. One holding `*`, `?` or `[` that names no file is a pattern expanded here, `**`
 included, to the `.md` and `.markdown` files it matches; one matching none is an error. A
 directory needs `-r`, which takes those files below it; one that cannot be listed is an error.
-Suffixes match in any case. A symlinked directory is never followed (bar the working
-directory's ancestors and links under the root, as macOS's `/tmp`): a PATH through one is an
-error and a pattern skips it. A symlinked file is rewritten through to its target; paths to one
+Suffixes match in any case. A symlinked directory is never followed, however the path spells it
+(bar links directly under the root, as macOS's `/tmp`): a PATH through one is an error and a
+pattern skips it. A symlinked file is rewritten through to its target; paths to one
 file are read once (names differing only in case are two paths).
 
 Without `--check` each changed file is rewritten, keeping its mode (not its owner, extended
@@ -1489,21 +1489,30 @@ def process_file(path: str, width: int, check: bool, keep_times: bool) -> int:
 
 
 def through_symlinked_directory(path: str) -> bool:
-    """Say whether a directory of `path`, as given, is a symlink the tool must not follow.
+    """Say whether reaching `path` goes through a symlinked directory the tool must not follow.
 
-    Every directory is checked except the working directory and its ancestors and those
-    directly under the file system root (macOS's `/tmp` and `/var`), which are the system's.
+    The path is walked one component at a time the way the system resolves it, `..` included,
+    so no spelling (`link/..`, `link/`, `link/.`) hides a link. The last component may be a
+    symlinked file; a link directly under the file system root (macOS's `/tmp`) is followed.
     """
-    here = os.path.abspath(os.getcwd())
-    directory = os.path.dirname(os.path.abspath(path))
-    while True:
-        parent = os.path.dirname(directory)
-        if parent == directory or os.path.dirname(parent) == parent:
-            return False
-        above_here = here == directory or here.startswith(directory.rstrip(os.sep) + os.sep)
-        if not above_here and os.path.islink(directory):
-            return True
-        directory = parent
+    drive, tail = os.path.splitdrive(path)
+    current = drive + os.sep if os.path.isabs(path) else os.getcwd()
+    parts = re.split(r"[\\/]" if os.sep == "\\" else "/", tail)
+    names = [part for part in parts if part not in ("", ".")]
+    for index, part in enumerate(names):
+        if part == "..":
+            current = os.path.dirname(current)
+            continue
+        candidate = os.path.join(current, part)
+        if os.path.islink(candidate):
+            last = index == len(names) - 1 and not path.endswith(("/", "\\", "/.", "\\."))
+            under_root = os.path.dirname(current) == current
+            if not under_root and (not last or os.path.isdir(candidate)):
+                return True
+            current = os.path.realpath(candidate)
+        else:
+            current = candidate
+    return False
 
 
 def directory_files(directory: str, errors: list[str]) -> list[str]:
@@ -1579,6 +1588,9 @@ def pattern_matches(pattern: str, errors: list[str]) -> list[str]:
                 elif entry.is_dir(follow_symlinks=False):
                     walk(os.path.join(directory, entry.name), more)
 
+    # The literal prefix is walked by the system, so a symlinked directory in it is checked first.
+    if base and through_symlinked_directory(base + os.sep):
+        return []
     walk(base, [part for part in parts[first:] if part])
     return sorted(set(found))
 
@@ -1614,7 +1626,7 @@ def expand_paths(arguments: list[str], recurse: bool) -> tuple[list[str], list[s
                 errors.append("%s: no Markdown file matches the pattern" % argument)
                 continue
         for name in names:
-            if os.path.isdir(name) and os.path.islink(name):
+            if os.path.isdir(name) and os.path.islink(os.path.normpath(name)):
                 errors.append("%s: a symlinked directory, which is not followed" % name)
             elif through_symlinked_directory(name):
                 errors.append("%s: inside a symlinked directory, which is not followed" % name)

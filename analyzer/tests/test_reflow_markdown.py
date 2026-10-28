@@ -1165,6 +1165,35 @@ def test_math_between_blank_lines_is_left_unchanged():
             assert out != text, "the paragraph after a closed region is reflowed: %r" % text
 
 
+def test_no_spelling_of_a_path_follows_a_symlinked_directory(tmp_path, capsys, monkeypatch):
+    page = symlinked_tree(tmp_path, monkeypatch)
+    (tmp_path / "outside" / "sub").mkdir(parents=True)
+    outside = write(tmp_path / "outside" / "page.md", WRAPPED)
+    (tmp_path / "up").symlink_to(Path("outside") / "sub", target_is_directory=True)
+    for spelling in ("up/../page.md", "link/", "link/.", "link/../real/x.md"):
+        status, stdout, stderr = run(capsys, "--check", "-r", "--width", "24", spelling)
+        assert status == 2 and "symlinked directory" in stderr, (spelling, stderr)
+        assert stdout == "0 of 0 files would be reflowed\n", (spelling, stdout)
+    status, stdout, _stderr = run(capsys, "--check", "--width", "24", "real/../real/x.md")
+    assert status == 1 and stdout.endswith("1 of 1 files would be reflowed\n"), stdout
+    assert page.read_bytes() == outside.read_bytes() == WRAPPED.encode()
+
+
+def test_a_pattern_with_a_symlinked_prefix_lists_nothing(tmp_path, capsys, monkeypatch):
+    symlinked_tree(tmp_path, monkeypatch)
+    listed: list[str] = []
+    real_scandir = os.scandir
+
+    def spy(path="."):
+        listed.append(os.fspath(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(reflow_markdown.os, "scandir", spy)
+    status, _stdout, stderr = run(capsys, "--check", "--width", "24", "link/**/*.md")
+    assert status == 2 and "no Markdown file matches" in stderr, stderr
+    assert listed == [], listed
+
+
 # Parser cases.
 
 
