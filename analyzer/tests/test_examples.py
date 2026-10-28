@@ -1,4 +1,4 @@
-"""Tests that the real-run examples of docs/output.md match what the analyzer writes now."""
+"""Tests that the generated examples of docs/output.md match what the analyzer writes now."""
 
 from __future__ import annotations
 
@@ -7,17 +7,27 @@ import importlib.util
 import io
 import itertools
 import json
+import re
 import stat
 import sys
 import unittest
 from pathlib import Path
 
-TOOL = Path(__file__).resolve().parents[1] / "tools" / "regenerate_examples.py"
-_spec = importlib.util.spec_from_file_location("regenerate_examples", TOOL)
-assert _spec is not None and _spec.loader is not None
-examples = importlib.util.module_from_spec(_spec)
-sys.modules["regenerate_examples"] = examples
-_spec.loader.exec_module(examples)
+TOOLS = Path(__file__).resolve().parents[1] / "tools"
+
+
+def load_tool(name: str):
+    """Import the tool module `tools/<name>.py` and return it."""
+    spec = importlib.util.spec_from_file_location(name, TOOLS / (name + ".py"))
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+examples = load_tool("regenerate_examples")
+collection = load_tool("example_collection")
 
 RUN = "run python3 analyzer/tools/regenerate_examples.py"
 
@@ -100,9 +110,105 @@ def test_generated_blocks_have_their_fence_and_jsonl_lines_parse():
             for line in lines[1:-2]:
                 assert isinstance(json.loads(line), dict), (name, line)
     stdout = blocks["timeline-stdout"]
-    for line in ("rows:      18 in out/timeline.jsonl", "sessions:  2 in out/sessions.jsonl"):
-        assert "\n%s\n" % line in stdout, line
+    for label, name in (("rows", "timeline"), ("sessions", "sessions")):
+        match = re.search(r"\n%s: +(\d+) in out/%s\.jsonl[ \n]" % (label, name), stdout)
+        assert match, label
+        lines = blocks[name + "-jsonl"].split("\n")[1:-2]
+        assert int(match.group(1)) == len(lines), (label, match.group(1), len(lines))
     assert "\ninventory: out/inventory.json (" in stdout
+
+
+def jsonl_block(block: str) -> list[dict]:
+    """Return the records of a generated `json` block holding one JSON object per line."""
+    return [json.loads(line) for line in block.split("\n")[1:-2]]
+
+
+def test_example_collection_shows_every_documented_row_form():
+    blocks = examples.generate()
+    rows = jsonl_block(blocks["timeline-jsonl"])
+    sessions = jsonl_block(blocks["sessions-jsonl"])
+    results = {row["tool_use_id"] for row in rows if row["turn_type"] == "tool_result"}
+
+    def starts(prefix: str, project: str | None = None):
+        def test(row: dict) -> bool:
+            if project is not None and row["project_path"] != project:
+                return False
+            return row["text"].startswith(prefix)
+
+        return test
+
+    row_cases = {
+        "a tool_use a tool_result joins": lambda row: (
+            row["turn_type"] == "tool_use" and row["tool_use_id"] in results
+        ),
+        "an accepted decision": starts("permission decision: accept"),
+        "a rejected decision": starts("permission decision: reject"),
+        "a model switch": lambda row: row["text"].startswith("model: ") and " -> " in row["text"],
+        "a permission mode": starts("permission mode: "),
+        "a project permission setting": starts("permission setting: ", "/srv/proj"),
+        "a user permission setting": starts("permission setting: ", ""),
+        "a Remote Control origin": starts("session origin: remote (Remote Control"),
+        "a teleport origin": starts("session origin: remote (teleport"),
+        "a bridge sync": starts("session synced: remote control bridge"),
+        "a remote event sync": starts("session synced: remote event"),
+        "a cloud session sync": starts("session synced: cloud session"),
+        "a Remote Control environment": starts("remote control: environment"),
+        "a scratch directory": starts("scratch directory: "),
+        "a git remote": starts("git remote: "),
+        "a thread record": starts("thread record: "),
+        "a source host": starts("source host: github"),
+        "a recovered row": lambda row: row["recovered"] == "yes",
+        "an unparseable line": starts("parser: unparseable line"),
+        "a slash command": starts("slash command: "),
+        "an empty timestamp": lambda row: row["timestamp_utc"] == "",
+        "a multi-line text": lambda row: "\n" in row["text"],
+        "an Edit call": lambda row: row["tool_name"] == "Edit",
+    }
+    for case, test in row_cases.items():
+        assert any(test(row) for row in rows), "no timeline row shows " + case
+    session_cases = {
+        "a synced session": lambda session: session["synced"] == "yes",
+        "a remote session": lambda session: session["origin"] == "remote",
+        "a recovered session": lambda session: session["recovered"] == "yes",
+        "a session of three tool calls": lambda session: session["tool_calls"] >= 3,
+        "a claude-code session": lambda session: session["agent"] == "claude-code",
+        "a codex-cli session": lambda session: session["agent"] == "codex-cli",
+    }
+    for case, test in session_cases.items():
+        assert any(test(session) for session in sessions), "no session shows " + case
+    assert "\n  remotes: origin " in blocks["detect-text"]
+    stdout = blocks["timeline-stdout"]
+    assert "\nnote:" in stdout and "\nproblem:" in stdout
+    dropped = re.search(r"\ndropped: +(\d+) duplicate rows", stdout)
+    assert dropped and int(dropped.group(1)) > 0, stdout
+
+
+def test_example_paste_is_long_enough_for_the_paste_cache():
+    """Claude Code keeps a paste's text in `paste-cache/` only above 1,024 characters."""
+    assert len(collection.CI_FAILURE) > 1024
+
+
+def test_example_collection_builds_on_disk(tmp_path):
+    target = tmp_path / "ex"
+    target.mkdir()
+    with contextlib.redirect_stdout(io.StringIO()) as stdout:
+        assert collection.main([str(target)]) == 0
+    built = target / "wsdev14"
+    assert stdout.getvalue() == "%s\n" % built
+    for name in ("collection.json", "manifest.jsonl", "collector.log"):
+        assert (built / name).is_file(), name
+    assert (built / "fs").is_dir()
+    occupied = tmp_path / "occupied"
+    occupied.mkdir()
+    (occupied / "notes.txt").write_text("keep\n", encoding="utf-8")
+    missing = tmp_path / "missing"
+    for case, path in {"not empty": occupied, "missing": missing}.items():
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            assert collection.main([str(path)]) == 2, case
+        assert stderr.getvalue().startswith("error: "), case
+    assert [path.name for path in occupied.iterdir()] == ["notes.txt"]
+    assert (occupied / "notes.txt").read_text(encoding="utf-8") == "keep\n"
+    assert not missing.exists()
 
 
 def test_unreadable_document_exits_2(tmp_path):
