@@ -238,9 +238,10 @@ Synthetic fixture.
 Files read: `.claude/projects/<slug>/<session>.jsonl`, subagent
 transcripts under the session directory (each opens with a `subagent <id>
 of <session>` row), `tool-results/*.txt` in the session directory when a
-result's `<persisted-output>` stub names it, `.claude/history.jsonl`, and
-the per-process registry `.claude/sessions/<pid>.json` (one `system` row
-per running process at `startedAt`: `claude-code process <pid> <kind>
+result's `<persisted-output>` stub names it, `.claude/history.jsonl` with
+`.claude/paste-cache/<contentHash>.txt` to expand its paste placeholders,
+and the per-process registry `.claude/sessions/<pid>.json` (one `system`
+row per running process at `startedAt`: `claude-code process <pid> <kind>
 status=<status> entrypoint=<entrypoint> bridge=<bridgeSessionId or none>
 host_session=<hostSessionId or none>`, a `bridge=` value meaning the
 process was under Remote Control when the collector ran and giving a
