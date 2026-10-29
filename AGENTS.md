@@ -938,9 +938,12 @@ framework) keeps its own shape.
 #### Research rounds with subagents
 
 The split in [CLAUDE.md](CLAUDE.md) applies: the main session writes one
-brief and a per-tool assignment, one research subagent per tool runs in
-parallel, one integration subagent makes the table, test and index
-changes, and the main session reviews. The brief sets the safety envelope:
+brief and an assignment per research subagent, each covering one tool or
+a group of them, the subagents run in parallel, one integration subagent
+makes the table, test and index changes, and the main session reviews.
+However the tools are grouped, a research subagent writes one document
+per catalog agent and never a page spanning several. The brief sets the
+safety envelope:
 
 - Fetch untrusted code; never execute it. Clones, `npm pack` tarballs and
   binaries for `strings` go in the scratchpad and are only read: no
