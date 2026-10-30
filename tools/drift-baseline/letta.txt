@@ -40,11 +40,6 @@ check_fixture_schema|substitution-undeclared|/srv/shared
 check_parser_research|key-undocumented|scheduledFor
 check_parser_research|parser-message-undocumented|parser: %s is not a JSON object
 check_parser_research|parser-message-undocumented|parser: %s is not a JSON object with a routes list
-check_parser_research|pattern-undocumented|^\.letta/channels/([^/]+)/routing\.(?:json|yaml)$
-check_parser_research|pattern-undocumented|^\.letta/lc-local-backend/conversations/([^/]+)/messages\.jsonl$
-check_parser_research|pattern-undocumented|^\.letta/listener-state/[0-9a-f]{24}/[^/]+\.json$
-check_parser_research|pattern-undocumented|^\.letta/runs/[^/]+\.jsonl$
-check_parser_research|pattern-undocumented|^\.letta/transcripts/([^/]+)/([^/]+)/transcript\.jsonl$
 check_parser_research|row-text-undocumented|compaction: tokensBefore=
 check_parser_research|row-text-undocumented|letta local-backend conversation start:
 check_parser_research|row-text-undocumented|session_info: name=

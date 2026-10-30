@@ -1,7 +1,6 @@
 check_fixture_schema|module-provenance-missing|aider
 check_parser_research|key-undocumented|kind
 check_parser_research|key-undocumented|lines
-check_parser_research|pattern-undocumented|^(?:.*/)?(\.aider\.(?:chat\.history\.md|input\.history|llm\.history))$
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aider/caches
 check_smoke_coverage|exclusion-check-missing|smoke.sh .aider/caches
 check_smoke_coverage|fixture-missing|smoke.ps1 home .aider

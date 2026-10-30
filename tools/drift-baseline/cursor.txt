@@ -10,7 +10,6 @@ check_fixture_schema|module-provenance-missing|cursor
 check_fixture_schema|sample-equals-builder|.cursor/projects/srv-proj/agent-transcripts/c0000001-0000-4000-8000-000000000001/c0000001-0000-4000-8000-000000000001.jsonl
 check_fixture_schema|sample-equals-builder|.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl
 check_fixture_schema|sample-equals-builder|Library/Application Support/Cursor/User/globalStorage/mcp-oauth-attempts/0000.json
-check_parser_research|pattern-undocumented|^\.cursor/projects/[^/]+/agent-transcripts/[^/]+/([^/]+)\.jsonl$
 check_research_structure|latest-version-missing|Cursor Agent CLI features the macOS round did
 check_research_structure|latest-version-missing|The Agent CLI on Windows and on Linux:
 check_research_structure|observed-label-missing|Cursor Agent CLI features the macOS round did

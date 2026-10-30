@@ -43,9 +43,7 @@ check_parser_research|key-undocumented|c3
 check_parser_research|key-undocumented|row
 check_parser_research|key-undocumented|runtimeContextCarrier
 check_parser_research|pattern-undocumented|\.trajectory$
-check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/(?:agents/[^/]+/)?sessions/(?P<name>[^/]+?)(?:(?P<archive>\.jsonl\.(reset|deleted)\.\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d(?:\.\d{3})?Z(?:\.[0-9a-f]{32})?(?:\.zst)?)|(?P<copy>\.checkpoint\.[0-9a-fA-F-]{36}\.jsonl|\.jsonl\.pre-doctor-(?:branch|openai-codex)-repair-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d-\d{3}Z\.bak)|\.jsonl)$
 check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/(?:agents/[^/]+/)?sessions/cold/[0-9a-f]{64}\.jsonl\.zst$
-check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/agents/[^/]+/agent/openclaw-agent\.sqlite$
 check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/state/openclaw\.sqlite$
 check_parser_research|row-text-undocumented|branch summary:
 check_parser_research|row-text-undocumented|reset:

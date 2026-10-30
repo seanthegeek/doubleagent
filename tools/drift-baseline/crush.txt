@@ -12,9 +12,6 @@ check_parser_research|parser-message-undocumented|parser: not a SQLite database
 check_parser_research|parser-message-undocumented|parser: projects.json could not be read: %s
 check_parser_research|parser-message-undocumented|parser: projects.json did not parse: %s
 check_parser_research|pattern-undocumented|(^|/)\.crush/crush\.db$
-check_parser_research|pattern-undocumented|^(\.config/crush/crush\.json|\.local/share/crush/crush\.json|AppData/Local/crush/crush\.json|\.crush/crush\.json|\.?crush\.json)$
-check_parser_research|pattern-undocumented|^(\.config/crush/crushrc|\.?crushrc)$
-check_parser_research|pattern-undocumented|^(\.local/share/crush|AppData/Local/crush)/projects\.json$
 check_parser_research|row-text-undocumented|shell:
 check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/crush
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/crush

@@ -32,8 +32,6 @@ check_parser_research|key-undocumented|sha
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s
 check_parser_research|parser-message-undocumented|parser: not a SQLite database
 check_parser_research|parser-message-undocumented|parser: user_event %s payload did not parse
-check_parser_research|pattern-undocumented|(?:^|/)JetBrains/[^/]+/options/intellij-tabby-command-history\.xml$
-check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
 check_parser_research|row-text-undocumented|relevant questions:
 check_parser_research|row-text-undocumented|unknown log entry:
 check_research_structure|bare-doc-reference|All claims from source except the JetBrains settings directory, which is from JetBrains documentation.

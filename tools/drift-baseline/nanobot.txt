@@ -20,15 +20,10 @@ check_parser_research|parser-message-undocumented|parser: SQLite error: %s
 check_parser_research|parser-message-undocumented|parser: no %s table in the session database
 check_parser_research|parser-message-undocumented|parser: not a SQLite database
 check_parser_research|parser-message-undocumented|parser: unreadable %s: %s
-check_parser_research|pattern-undocumented|^(?:\.nanobot(?:-[^/]+)?/(?P<ws>.+/)?)?(?P<kind>cron|triggers)/runs/[^/]+\.json$
 check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/(?:.+/)?memory/history\.jsonl$
-check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/config\.json$
-check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/history/cli_history$
 check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/pairing\.json$
-check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/sessions/(?:(?P<ws>[0-9a-f]{32})/(?P<sub>\.migration-conflicts/|jsonl-backup/)?)?(?P<stem>[^/]+)\.jsonl$
 check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/sessions/[0-9a-f]{32}/\.webui_session_index\.json$
 check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/sessions/[0-9a-f]{32}/sessions\.sqlite3$
-check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/webui/(?:(?P<seg>[^/]+)\.segments/\d{6}|(?P<stem>[^/]+))\.jsonl$
 check_parser_research|row-text-undocumented|context compaction:
 check_parser_research|row-text-undocumented|file edit:
 check_parser_research|row-text-undocumented|session start: key=

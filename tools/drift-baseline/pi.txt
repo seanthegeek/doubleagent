@@ -12,7 +12,6 @@ check_fixture_schema|key-undocumented|total
 check_fixture_schema|module-provenance-missing|pi
 check_fixture_schema|sample-equals-builder|.pi/agent/sessions/--srv-proj--/2026-10-01T09-00-00-000Z_0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1b.jsonl
 check_parser_research|pattern-undocumented|.pi/agent/pi-debug.log
-check_parser_research|pattern-undocumented|^\.pi/agent/(?:sessions/[^/]+/)?[^/]+\.jsonl$
 check_parser_research|pattern-undocumented|^\.pi/agent/experimental/sessions/([^/]+)/meta\.json$
 check_parser_research|row-text-undocumented|compaction: tokensBefore=
 check_parser_research|row-text-undocumented|experimental durable session created: cwd=

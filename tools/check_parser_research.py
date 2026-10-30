@@ -13,8 +13,8 @@ parser's effective set, that parser's agent document names it.
   the Parsing part.
 - `parser-message-undocumented`: a literal beginning `parser: ` has its constant pieces, in
   order, in no code span or fenced line of the Parsing part.
-- `pattern-undocumented`: a file pattern the parser selects files with equals no code span or
-  fenced line of the Parsing part, both sides unescaped.
+- `pattern-undocumented`: a file pattern the parser selects files with equals no Parsing part
+  span or fenced line, both unescaped, and fully matches no path or glob span (`span_paths`).
 - `key-undocumented`: a key the parser reads from a record, or a column or table a `select`
   names, is no word of the Parsing part's code spans and fenced lines.
 - `flag-undocumented`: `records_sync`, `records_relay` or `records_origin` is True while Sync,
@@ -616,6 +616,7 @@ class Corpus:
     joined: str
     words: frozenset[str]
     patterns: frozenset[str]
+    paths: frozenset[str]
 
     def documents_prefix(self, prefix: str) -> bool:
         """Return whether a code span or fenced line holds `prefix`.
@@ -632,8 +633,18 @@ class Corpus:
         return any(holds_pieces(text, pieces) for text in self.texts)
 
     def documents_pattern(self, pattern: str) -> bool:
-        """Return whether a code span or fenced line equals the pattern, both unescaped."""
-        return unescape_pattern(pattern) in self.patterns
+        r"""Return whether a code span or fenced line equals the pattern, both unescaped.
+
+        A code span naming a path or glob the pattern fully matches documents it too, in the
+        form `span_paths` gives: `^\.qwen/trustedFolders\.json$` by `.qwen/trustedFolders.json`.
+        """
+        if unescape_pattern(pattern) in self.patterns:
+            return True
+        try:
+            compiled = re.compile(pattern)
+        except re.error:
+            return False
+        return any(compiled.fullmatch(path) for path in self.paths)
 
     def documents_key(self, key: str) -> bool:
         """Return whether a key is a word of the code spans and fenced lines.
@@ -665,12 +676,28 @@ def corpus_of(texts: Iterable[str], spans: Iterable[str]) -> Corpus:
     """Return the corpus of code span and fenced line texts, `spans` the code spans among them."""
     kept = tuple(text for text in texts if text)
     joined = "\n".join(kept)
+    spans = frozenset(spans)
     return Corpus(
         kept,
-        frozenset(spans),
+        spans,
         joined,
         frozenset(WORD.findall(joined)),
         frozenset(unescape_pattern(text) for text in kept),
+        span_paths(spans),
+    )
+
+
+def span_paths(spans: Iterable[str]) -> frozenset[str]:
+    """Return the home-relative sample path of each code span naming a path or glob.
+
+    A span names one when it holds a `/` or a dot and is no regex (`looks_like_pattern`); it is
+    read as `normalise_span` reads it, then each `*` and `?` becomes `x` (`sample_path`), so
+    `~/.qwen/projects/*/chats/*.jsonl` gives `.qwen/projects/x/chats/x.jsonl`.
+    """
+    return frozenset(
+        drift_common.sample_path(drift_common.normalise_span(span))
+        for span in spans
+        if ("/" in span or "." in span) and not looks_like_pattern(span)
     )
 
 
@@ -956,12 +983,12 @@ def parser_message_findings(context: Context) -> Iterator[drift_common.Finding]:
 
 
 def pattern_findings(context: Context) -> Iterator[drift_common.Finding]:
-    """Yield `pattern-undocumented` per file pattern no code span of the Parsing part equals."""
+    """Yield `pattern-undocumented` per file pattern the Parsing part does not document."""
     document = context.relative(context.document.path)
     for selector in context.selectors:
         documents = context.documents_for(selector.literal)
         if not any(item.parsing.documents_pattern(selector.literal.text) for item in documents):
-            message = "no code span or fenced line of the Parsing part of %s equals it" % document
+            message = "no code span or fenced line of the Parsing part of %s names it" % document
             yield context.finding(
                 "pattern-undocumented", selector.literal.text, selector.literal, message
             )

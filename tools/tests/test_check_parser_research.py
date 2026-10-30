@@ -257,13 +257,32 @@ def test_constant_pieces_and_holds_pieces_forms():
 
 
 def test_pattern_undocumented_and_documented_unescaped(tmp_path):
-    root = repository(tmp_path, text=document(plan="Read: `.alpha/logs/x.jsonl`."))
+    root = repository(tmp_path, text=document(plan="Read: `.alpha/logs/x.json`."))
     found = findings(root, "pattern-undocumented")
     assert [(item.detail, item.line) for item in found] == [(r"^\.alpha/logs/[^/]+\.jsonl$", 7)]
     unescaped = document(plan="`^.alpha/logs/[^/]+.jsonl$`")
     assert details(repository(tmp_path, text=unescaped), "pattern-undocumented") == []
     fenced = document(plan="```text\n^\\.alpha/logs/[^/]+\\.jsonl$\n```")
     assert details(repository(tmp_path, text=fenced), "pattern-undocumented") == []
+
+
+def test_pattern_documented_by_a_path_or_glob_it_matches(tmp_path):
+    for span in ("`.alpha/logs/*.jsonl`", "`~/.alpha/logs/x.jsonl`", "`$HOME/.alpha/logs/?.jsonl`"):
+        root = repository(tmp_path, text=document(plan="Globs (home-relative): %s." % span))
+        assert details(root, "pattern-undocumented") == [], span
+    for span in ("`.alpha/logs/*.json`", "`.alpha/logs`", "`.alpha/logs/a/x.jsonl`"):
+        root = repository(tmp_path, text=document(plan="Globs (home-relative): %s." % span))
+        found = details(root, "pattern-undocumented")
+        assert found == [r"^\.alpha/logs/[^/]+\.jsonl$"], span
+
+
+def test_corpus_documents_pattern_by_span_path():
+    spans = [".qwen/trustedFolders.json", "trustedFolders", r"^\.other\.json$"]
+    corpus = checker.corpus_of(spans, spans)
+    assert corpus.documents_pattern(r"^\.qwen/trustedFolders\.json$")
+    assert not corpus.documents_pattern(r"^\.qwen/trusted\.json$")
+    assert not corpus.documents_pattern(r"^[a-zA-Z]+$")
+    assert not corpus.documents_pattern("(")
 
 
 def test_selectors_are_what_wants_and_secondary_use(tmp_path):

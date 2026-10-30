@@ -59,8 +59,6 @@ check_parser_research|parser-message-undocumented|parser: unreadable %s
 check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/brain/([^/]+)/\.system_generated/logs/(?:(transcript(?:_full)?)\.jsonl|chunks/(transcript(?:_full)?)/(\d+)\.jsonl)$
 check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/conversation_summaries\.db$
 check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/conversations/[^/]+\.db$
-check_parser_research|pattern-undocumented|^\.gemini/config/projects/[^/]+\.json$
-check_parser_research|pattern-undocumented|^\.gemini/config/sidecars/[^/]+/sidecar\.json$
 check_parser_research|row-text-undocumented|children:
 check_parser_research|row-text-undocumented|directory rules:
 check_parser_research|row-text-undocumented|ephemeral:

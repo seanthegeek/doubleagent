@@ -14,16 +14,7 @@ check_parser_research|parser-message-undocumented|parser: %s rule is not an arra
 check_parser_research|parser-message-undocumented|parser: logs.json is not a JSON array
 check_parser_research|parser-message-undocumented|parser: unparseable logs.json: %s
 check_parser_research|parser-message-undocumented|parser: unreadable logs.json: %s
-check_parser_research|pattern-undocumented|^(?:\.cache/)?\.gemini/trustedFolders\.json$
 check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/bug-report-history-(?P<ms>[0-9]+)\.json$
-check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/chats/(?:.*/)?[^/]+\.jsonl?$
-check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/checkpoint-(?P<tag>[^/]+)\.json$
-check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/logs\.json$
-check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/shell_history$
-check_parser_research|pattern-undocumented|^\.gemini/acknowledgments/agents\.json$
-check_parser_research|pattern-undocumented|^\.gemini/policies/[^/]+\.toml(?:\.bak)?$
-check_parser_research|pattern-undocumented|^\.gemini/settings\.json$
-check_parser_research|pattern-undocumented|^\.gemini/trusted_hooks\.json$
 check_parser_research|row-text-undocumented|not a chat history: neither a JSON array nor an object with history
 check_parser_research|row-text-undocumented|session start: kind=
 check_parser_research|row-text-undocumented|unparseable session file:

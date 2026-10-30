@@ -16,12 +16,6 @@ check_fixture_schema|key-undocumented|titleSource
 check_fixture_schema|key-undocumented|totalTokenCount
 check_fixture_schema|module-provenance-missing|qwen_code
 check_parser_research|pattern-undocumented|.ledger.jsonl
-check_parser_research|pattern-undocumented|^\.qwen/(channels/(?:sessions\.json|daemon/[^/]+/routes\.json))$
-check_parser_research|pattern-undocumented|^\.qwen/projects/[^/]+/chats/(?:archive/)?[^/]+\.jsonl$
-check_parser_research|pattern-undocumented|^\.qwen/settings\.json$
-check_parser_research|pattern-undocumented|^\.qwen/tmp/[^/]+/logs\.json$
-check_parser_research|pattern-undocumented|^\.qwen/trustedFolders\.json$
-check_parser_research|pattern-undocumented|^\.qwen/usage_record\.jsonl$
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/arena
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/artifacts
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/bin

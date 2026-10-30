@@ -11,8 +11,6 @@ check_parser_research|key-undocumented|screenshot
 check_parser_research|key-undocumented|suggest
 check_parser_research|pattern-undocumented|^(?:.*/)?User/globalStorage/saoudrizwan\.claude-dev/cache/sync-queue\.json$
 check_parser_research|pattern-undocumented|^\.cline/data/cloud-pending-starts/\d+-[0-9a-f-]+\.json$
-check_parser_research|pattern-undocumented|^\.cline/data/sessions/([^/]+)/\1\.json$
-check_parser_research|pattern-undocumented|^\.cline/data/sessions/[^/]+/[^/]+\.messages\.json$
 check_parser_research|row-text-undocumented|checkpoint_created:
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/saoudrizwan.claude-dev/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/agent-plugins

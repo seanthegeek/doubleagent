@@ -10,8 +10,6 @@ check_parser_research|parser-message-undocumented|parser: unreadable history fil
 check_parser_research|pattern-undocumented|(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrains-globalState/cody-local-chatHistory-v2$
 check_parser_research|pattern-undocumented|(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrains-globalState/cody-model-preferences$
 check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
-check_parser_research|pattern-undocumented|(?:^|/)User/settings\.json$
-check_parser_research|pattern-undocumented|(?:^|/)\.idea/cody_history\.xml$
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Cody-nodejs/Config/dist
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Cody-nodejs/Data/symf/symf-*
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Cody-nodejs/dist
