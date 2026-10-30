@@ -23,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The `hermes` parser reads a home with `HERMES_DATA_DIR_SUFFIX` appended with no separator (`.hermes<suffix>` and `AppData/Local/hermes<suffix>`, such as `.hermes-dev`, as Hermes writes it) and the desktop app's suffixed `Hermes<suffix>/connections.json`; it read only `.hermes_<suffix>`, so such a home was detected but not parsed ([#324]).
 - The `openclaw` parser reads a cold archive stored in the database in chunks (`session_transcript_cold_archive_chunks`, agent schema 37), chunk by chunk; such generations gave no rows before. A database-stored cold archive or chunk with no bytes is a `parser: cold archive <name> has no stored bytes` row, not silence ([#206], [#326]).
+- The `kilo-code` parser reads the pinned session ids of the Kilo Code TUI's `.local/state/kilo/session.json`, as it does OpenCode's, giving one `session pinned:` row per id; it had skipped the file, assuming Kilo's TUI kept none ([#326]).
 
 ## [0.21.0] - 2026-10-28
 

@@ -4,8 +4,8 @@ Kilo Code's CLI, TUI and server are an OpenCode fork with the same SQLite and JS
 this parser is `OpenCodeParser` (see `opencode.py` for the tables, fields and row mapping)
 pointed at Kilo's paths: `.local/share/kilo/kilo.db`, `kilo-<channel>.db` and
 `opencode-<channel>.db`, the `storage/` JSON tree, and the terminal UI's
-`.local/state/kilo/prompt-history.jsonl` (secondary) and `prompt-stash.jsonl`; its
-`session.json` is not read. It also reads Kilo's own files:
+`.local/state/kilo/prompt-history.jsonl` (secondary), `prompt-stash.jsonl` and the pinned ids
+of `session.json` (secondary). It also reads Kilo's own files:
 
 * `<VS Code user dir>/User/globalStorage/kilocode.kilo-code/tasks/<id>/
   api_conversation_history.json`, the pre-fork extension's tasks: a JSON array of Anthropic
@@ -182,12 +182,11 @@ class KiloCodeParser(OpenCodeParser):
     database_prefixes = ("kilo", "opencode")
     # Kilo Code has no `session_v2` table and no pre-release database that a
     # later build imports, so every database under its directory,
-    # `opencode-next.db` included, is primary. Its one secondary source is the
-    # terminal UI's `prompt-history.jsonl` (see `opencode.py`).
+    # `opencode-next.db` included, is primary. Its secondary sources are the
+    # terminal UI's `prompt-history.jsonl` and `session.json` (see `opencode.py`).
     has_secondary = True
     next_database = ""
     state_dir = ".local/state/kilo"
-    pinned_sessions = False
 
     def __init__(self) -> None:
         """Compile the patterns of Kilo's data-directory files."""
