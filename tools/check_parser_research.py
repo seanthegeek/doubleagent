@@ -26,7 +26,8 @@ parser's effective set, that parser's agent document names it.
 - `not-read-contradicted`: a name the Parsing part says is not read is a key the parser reads
   or a file one of its file patterns matches.
 - `docstring-fact-undocumented`: a code span of the parser's module docstring that is a row
-  text, a pattern or a key is in no code span or fenced line of the document.
+  text, a pattern or a key is in no code span or fenced line of the document; one that is a
+  `key_value` needs its key and value both words of the Parsing part's.
 
 Usage: tools/check_parser_research.py [--update-baseline]
 """
@@ -64,6 +65,7 @@ ROW_TEXT = re.compile(r"^[a-z][a-z0-9 _/-]*:( |$)")
 ROW_TEXT_SETTING = re.compile(r"^[A-Za-z][^:\n]{0,60}: .*?(?<![\w.])[A-Za-z_][\w.]*=")
 PLACEHOLDER = re.compile(r"\{[^{}]*\}|%(?:\([^)]*\))?[-#0 +]*\d*(?:\.\d+)?[sdrifxXeEgGc]| <")
 KEY_FORM = re.compile(r"^[A-Za-z_$@][A-Za-z0-9_$@.-]*$")
+KEY_VALUE = re.compile(r"""^([A-Za-z_$@][A-Za-z0-9_$@.-]*): (?:"([^"]+)"|'([^']+)')$""")
 WORD = re.compile(r"[A-Za-z0-9_$@-]+")
 SQL_SELECT = re.compile(r"\bselect\s+(.*?)\s+from\s", re.IGNORECASE | re.DOTALL)
 SQL_TABLE = re.compile(r"\b(?:from|join)\s+[\"'`\[]?([A-Za-z_][A-Za-z0-9_]*)", re.IGNORECASE)
@@ -334,6 +336,16 @@ def is_row_text(text: str) -> bool:
     if text.startswith(PARSER_PREFIX):
         return False
     return bool(ROW_TEXT.match(text) or ROW_TEXT_SETTING.match(text))
+
+
+def key_value(text: str) -> tuple[str, str] | None:
+    """Return (key, value) of a code span of the form `<key>: "<value>"` or `<key>: '<value>'`.
+
+    `type: "session"` gives (`type`, `session`); `type: session`, `model: a -> b` and an empty
+    quoted value give None. Such a span is a fact about a record, never a row text.
+    """
+    match = KEY_VALUE.match(text)
+    return (match.group(1), match.group(2) or match.group(3)) if match else None
 
 
 def constant_prefix(text: str) -> str:
@@ -1050,7 +1062,7 @@ def not_read_findings(context: Context) -> Iterator[drift_common.Finding]:
 
 
 def docstring_facts(text: str, code_names: frozenset[str]) -> list[tuple[str, int]]:
-    """Return the code spans of a docstring that are a row text, a pattern or a key, with offsets.
+    """Return each docstring code span that is a key-value, row text, pattern or key, with offset.
 
     A key span is not a file name (its last dotted segment a file extension such as `jsonl`)
     and its first segment names no function, class, constant or parameter of the analyzer.
@@ -1058,7 +1070,8 @@ def docstring_facts(text: str, code_names: frozenset[str]) -> list[tuple[str, in
     found: list[tuple[str, int]] = []
     for match in CODE_SPAN.finditer(text):
         span = drift_common.collapse(match.group(2))
-        if is_row_text(span) or span.startswith(PARSER_PREFIX) or looks_like_pattern(span):
+        fact = key_value(span) or is_row_text(span) or span.startswith(PARSER_PREFIX)
+        if fact or looks_like_pattern(span):
             found.append((span, match.start()))
         elif is_key(span):
             segments = span.split(".")
@@ -1078,7 +1091,11 @@ def docstring_findings(context: Context) -> Iterator[drift_common.Finding]:
     whole = context.document.whole
     document = context.relative(context.document.path)
     for span, offset in docstring_facts(docstring, context.code_names):
-        if span.startswith(PARSER_PREFIX):
+        pair = key_value(span)
+        if pair:
+            parsing = context.document.parsing
+            documented = all(parsing.documents_key(word) for word in pair)
+        elif span.startswith(PARSER_PREFIX):
             documented = whole.documents_pieces(constant_pieces(span))
         elif is_row_text(span):
             documented = whole.documents_prefix(constant_prefix(span))

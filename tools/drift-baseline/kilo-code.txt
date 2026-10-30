@@ -33,7 +33,6 @@ check_parser_research|docstring-fact-undocumented|image
 check_parser_research|docstring-fact-undocumented|isSummary
 check_parser_research|docstring-fact-undocumented|parentTaskId
 check_parser_research|docstring-fact-undocumented|reasoning_content
-check_parser_research|docstring-fact-undocumented|type: "reasoning"
 check_parser_research|key-undocumented|attempt
 check_parser_research|key-undocumented|duration
 check_parser_research|key-undocumented|entries

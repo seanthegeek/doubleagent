@@ -624,15 +624,40 @@ def test_docstring_fact_undocumented_and_documented(tmp_path):
     assert findings(repository(tmp_path, alpha, text), "docstring-fact-undocumented") == []
 
 
+def test_docstring_key_value_fact(tmp_path):
+    alpha = ALPHA.replace(
+        '"""Alpha transcripts."""',
+        '"""Alpha transcripts.\n\n    A header line has `type: "session"`.\n    """',
+    )
+    found = findings(repository(tmp_path / "absent", alpha), "docstring-fact-undocumented")
+    assert [item.detail for item in found] == ['type: "session"']
+    for name, schema in (("json", '`{"type":"session"}`'), ("spans", "`type` and `session`")):
+        root = repository(tmp_path / name, alpha, document(schema=schema))
+        assert findings(root, "docstring-fact-undocumented") == [], name
+    outside = document(schema="`type`", intro="`session`")
+    root = repository(tmp_path / "outside", alpha, outside)
+    assert [item.detail for item in findings(root, "docstring-fact-undocumented")] == [
+        'type: "session"'
+    ]
+
+
+def test_key_value_forms():
+    assert checker.key_value('type: "session"') == ("type", "session")
+    assert checker.key_value("role: 'user'") == ("role", "user")
+    assert checker.key_value('payload.type: "x.y"') == ("payload.type", "x.y")
+    for span in ("type: session", 'type: ""', "model: a -> b", 'a b: "c"', 'type:"x"'):
+        assert checker.key_value(span) is None, span
+
+
 def test_docstring_facts_forms():
     code = frozenset({"artifact", "ClaudeParser", "vscode_state"})
     text = (
         "`type`, `message.model`, `session synced:`, `parser: x`, `^a$`, `history.jsonl`, "
         "`artifact.rel`, `ClaudeParser._parse`, `vscode_state.EDITOR_AGENTS`, `TITLE_FIELDS`, "
-        "`a/b/c`, `x y`"
+        "`a/b/c`, `x y`, `kind: 'k'`"
     )
     found = [span for span, _ in checker.docstring_facts(text, code)]
-    assert found == ["type", "message.model", "session synced:", "parser: x", "^a$"]
+    assert found == ["type", "message.model", "session synced:", "parser: x", "^a$", "kind: 'k'"]
 
 
 # --- The effective set ------------------------------------------------------------------------
