@@ -85,7 +85,7 @@ def hermes_diverted_records():
     """sessions/<id>.jsonl.
 
     Message dicts appended while state.db was replaced under a running process
-    (hermes_state.py:429-444).
+    (hermes_state.py:435-442).
 
     Source: research/hermes.md#divert-lines; source 6bb377a
     """
@@ -724,7 +724,7 @@ HERMES_CONNECTIONS = {
 
 
 # trajectory_samples.jsonl (agent/trajectory.py:37-41 and
-# agent/agent_runtime_helpers.py:170-196 at 86fa9e6), in a project directory.
+# agent/agent_runtime_helpers.py:170-196 at 6bb377a), in a project directory.
 def hermes_trajectory_records():
     """A `--save-trajectories` file: one ShareGPT run and one line whose conversations is no list.
 
