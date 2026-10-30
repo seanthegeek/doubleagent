@@ -1192,13 +1192,6 @@ AppData/Roaming/Hermes*/GPUCache
 .openclaw/browser/*/user-data/*/Code Cache
 .openclaw/browser/*/user-data/*/GPUCache
 .openclaw/browser/*/user-data/*/Service Worker
-.openclaw-*/dev
-.openclaw-*/git
-.openclaw-*/npm
-.openclaw-*/npm-runtime
-.openclaw-*/tmp
-.openclaw-*/tools
-.openclaw-*/worktrees
 .openclaw-*/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
 .openclaw-*/plugin-skills
 .openclaw-*/extensions/*/node_modules

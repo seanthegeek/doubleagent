@@ -436,9 +436,21 @@ so the exclusion
 names it, and nothing else under `projects/` is pruned; which repository each clone is stays in
 `state/openclaw.sqlite` `projects` (`origin_url`, `repo_root`). The cold archive directory
 `agents/<agentId>/sessions/cold/` holds transcript history and is not excluded
-([Transcript stores](#transcript-stores)). Every exclusion applies below each state directory
-form, the legacy `.clawdbot` and `.moltbot` included, since a build that used one as its state
-directory wrote the same tree there ([Legacy names](#legacy-names)).
+([Transcript stores](#transcript-stores)).
+
+Every exclusion above applies below `.openclaw` and the legacy `.clawdbot` and `.moltbot`, since a
+build that used one as its state directory wrote the same tree there
+([Legacy names](#legacy-names)). Below a profile directory `.openclaw-<profile>` only the
+exclusions of generated or copied trees apply (`projects/` clones, `plugin-skills`,
+`sandbox/skills-workspaces`, `cache/control-ui-assets`, `extensions/*/node_modules`, the agent
+temporary trees and the Chromium caches): a profile's name is any of up to 64 letters, digits,
+`_` and `-`
+([`src/cli/profile-utils.ts:5`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/cli/profile-utils.ts#L5)), so no glob names the profile directory alone, and an exclusion
+for its `tools/` would also match a `tools/` anywhere below the profile, such as in the
+profile's default workspace `.openclaw-<profile>/workspace`
+([`agents/workspace-default-path.ts:20-22`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/workspace-default-path.ts#L20-L22)).
+A profile's `dev/`, `git/`, `npm/`, `npm-runtime/`, `tmp/`, `tools/` and `worktrees/` are
+therefore collected. `.openclaw-worker`, a remote worker's workspace root, has the profile form.
 
 ### Project-local files
 

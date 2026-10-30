@@ -426,13 +426,6 @@ excl||.openclaw/browser/b1/user-data/Default/Cache
 excl||.openclaw/browser/b1/user-data/Default/Code Cache
 excl||.openclaw/browser/b1/user-data/Default/GPUCache
 excl||.openclaw/browser/b1/user-data/Default/Service Worker
-excl||.openclaw-work/dev
-excl||.openclaw-work/git
-excl||.openclaw-work/npm
-excl||.openclaw-work/npm-runtime
-excl||.openclaw-work/tmp
-excl||.openclaw-work/tools
-excl||.openclaw-work/worktrees
 excl||.openclaw-work/projects/0123456789abcdef
 excl||.openclaw-work/plugin-skills
 excl||.openclaw-work/extensions/e1/node_modules
@@ -537,6 +530,9 @@ agent|openclaw|.openclaw/agents/main/agent/openclaw-agent.sqlite
 agent|openclaw|.openclaw/agents/main/agent/openclaw-agent.sqlite-wal
 agent|openclaw|.openclaw/workspace/tmp/AGENTS.md
 agent|openclaw|.openclaw/workspace/tools/TOOLS.md
+agent|openclaw|.openclaw-work/workspace/tools/TOOLS.md
+agent|openclaw|.openclaw-work/workspace/tmp/AGENTS.md
+agent|openclaw|.openclaw-work/tools/TOOLS.md
 agent|openclaw|.openclaw-work/openclaw.json
 agent|openclaw|.config/systemd/user/openclaw-gateway.service
 agent|openclaw|.config/systemd/user/clawdbot-gateway.service

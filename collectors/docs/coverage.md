@@ -983,19 +983,22 @@ text. `.claude/plugins/plugin-directory-cache*`, a downloaded copy of the
 plugin directory (2.6 MB on the Windows install observed in October
 2026), is excluded from 1.19.0.
 
-OpenClaw's exclusions name the top-level directories of its state
-directory, `~/.openclaw`, a profile's `~/.openclaw-<profile>` and the legacy
-`~/.clawdbot` and `~/.moltbot`: `dev`, `git`, `npm`, `npm-runtime`, `tmp`
-and `tools` (managed checkouts, packages, temporary files and downloaded
-runtimes, the directories `openclaw backup` also skips), `worktrees`,
-`plugin-skills`, `sandbox/skills-workspaces` and `cache/control-ui-assets`.
-Under `~/.openclaw`, `~/.clawdbot` and `~/.moltbot` each matches only the
-top-level directory, so a `tmp` or `tools` directory inside an agent
-workspace (`workspace/`, `workspace-<agentId>/`) or a skill is collected.
-Under a profile's directory the glob is `.openclaw-*/tmp`, whose `*` crosses
-`/`, so there a `tmp`, `tools`, `git`, `dev`, `npm` or `worktrees` directory
-at any depth is pruned and has only the directory's `skipped_excluded` row;
-pass `--full` (`-Full`) to collect it. The Gateway's clones of repositories
+OpenClaw's exclusions name the top-level directories of `~/.openclaw` and
+the legacy `~/.clawdbot` and `~/.moltbot`: `dev`, `git`, `npm`,
+`npm-runtime`, `tmp` and `tools` (managed checkouts, packages, temporary
+files and downloaded runtimes, the directories `openclaw backup` also
+skips), `worktrees`, `plugin-skills`, `sandbox/skills-workspaces` and
+`cache/control-ui-assets`. Each matches only the top-level directory, so a
+`tmp` or `tools` directory inside an agent workspace (`workspace/`,
+`workspace-<agentId>/`) or a skill is collected. A profile's
+`~/.openclaw-<profile>` has no `dev`, `git`, `npm`, `npm-runtime`, `tmp`,
+`tools` or `worktrees` exclusion, because the `*` of `.openclaw-*` crosses
+`/` and such a line would also prune those names inside the profile's
+workspace: they are collected, however large. Its other exclusions (the
+clones, `plugin-skills`, `sandbox/skills-workspaces`,
+`cache/control-ui-assets`, `extensions/*/node_modules`, the agent temporary
+trees and the Chromium caches) still match at any depth below the profile
+directory. The Gateway's clones of repositories
 added from a remote URL, `projects/<16 hex>/<name>`, are excluded by the
 clone directory's name alone, so anything else under `projects/` is
 collected; which repository each clone is stays in the `projects` table of

@@ -21,7 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- OpenClaw's runtime-root exclusions (`dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools`, `worktrees` and the others) match only the top level of `~/.openclaw`, `~/.clawdbot` and `~/.moltbot`, so a workspace's own `tmp` or `tools` is collected; a profile directory keeps the form `.openclaw-*/<name>`, which still matches at any depth ([#252]).
+- OpenClaw's runtime-root exclusions (`dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools`, `worktrees` and the others) match only the top level of `~/.openclaw`, `~/.clawdbot` and `~/.moltbot`, so a workspace's own `tmp` or `tools` is collected; a profile directory `~/.openclaw-<profile>` no longer has the `dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools` and `worktrees` exclusions, which matched at any depth below it, so those directories are collected there ([#252]).
 
 ### Fixed
 
