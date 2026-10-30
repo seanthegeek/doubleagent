@@ -604,12 +604,12 @@ cost counters, compression bookkeeping and the handoff columns are omitted.
 | `id` | string | | |
 | `runtime_revision` | number | | schema 32 |
 | `runtime_generation` | number | | schema 32 |
-| `source` | string | `cli`, `cron`, `kanban`, `acp`, `api_server`, `subagent`, `tool`, `recovered`, `local`, `claude-code`, `codex-cli`, a messaging platform | |
+| `source` | string | | |
 | `created_source` | string or null | | |
 | `user_id` | string or null | | |
 | `session_key` | string or null | | |
 | `chat_id` | string or null | | |
-| `chat_type` | string or null | `dm`, `group`, `channel`, `thread` | |
+| `chat_type` | string or null | | |
 | `thread_id` | string or null | | |
 | `display_name` | string or null | | |
 | `origin_json` | string or null | | |
@@ -619,7 +619,7 @@ cost counters, compression bookkeeping and the handoff columns are omitted.
 | `parent_session_id` | string or null | | |
 | `started_at` | number | | |
 | `ended_at` | number or null | | |
-| `end_reason` | string or null | `compression`, `branched` | |
+| `end_reason` | string or null | | |
 | `message_count` | number | | |
 | `cwd` | string or null | | |
 | `git_branch` | string or null | | |
@@ -641,7 +641,16 @@ importer's tool names ([Imported sessions](#imported-sessions)) and the messagin
 and `git_branch` are set at creation and updated by `update_session_cwd`
 ([`hermes_state_sessions.py:373`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_sessions.py#L373),
 [`567-575`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_sessions.py#L567-L575)). `system_prompt_hash` joins
-`system_prompts.hash`.
+`system_prompts.hash`. `end_reason` is an open set: besides `compression` and `branched`
+([Joins and timestamps](#joins-and-timestamps)) the writers set reset reasons such as
+`session_reset` and `session_switch`, close reasons such as `agent_close`, `ws_orphan_reap` and
+`startup_orphan_reap`
+([`hermes_state_common.py:179-201`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_common.py#L179-L201)), and front-end reasons
+such as `cli_close`, `tui_close` and `user_exit`. `chat_type` takes the platform adapters' values
+(`dm`, `group`, `channel`, `thread` among them). `archived`, `auto_archived`, `pinned` and
+`hidden` are flags, `0` or `1`
+([`hermes_state_portability.py:75`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_portability.py#L75),
+[`722`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_portability.py#L722)).
 
 #### Messages table
 
@@ -652,7 +661,7 @@ OpenAI message:
 | --- | --- | --- | --- |
 | `id` | number | | |
 | `session_id` | string | | |
-| `role` | string | `user`, `assistant`, `tool`, `system`, `session_meta` | |
+| `role` | string | | |
 | `content` | string or null | | |
 | `tool_call_id` | string or null | | |
 | `tool_calls` | string or null | | |
@@ -670,7 +679,7 @@ OpenAI message:
 | `active` | number | `0`, `1` | |
 | `compacted` | number | `0`, `1` | |
 | `api_content` | string or null | | |
-| `display_kind` | string or null | `model_switch`, `hidden`, `steer`, `internal_notification`, `async_delegation_complete`, `process_complete`, `failed_turn` | |
+| `display_kind` | string or null | | |
 | `display_metadata` | string or null | | |
 | `message_uid` | string or null | | |
 | `tool_call_uid` | string or null | | |
@@ -720,12 +729,14 @@ models. One row per (`session_id`, `model`, `billing_provider`, `billing_base_ur
 | `billing_provider` | string | | |
 | `billing_base_url` | string | | |
 | `billing_mode` | string | | |
-| `task` | string | `vision`, `compression`, `title_generation` | |
+| `task` | string | | |
 | `api_call_count` | number | | |
 | `first_seen` | number or null | | |
 | `last_seen` | number or null | | |
 
-`task` is empty for the main agent loop and names the work for auxiliary calls; `first_seen` and
+`task` is empty for the main agent loop and names the work for auxiliary calls (`vision`,
+`compression`, `title_generation`, `background_review`, `moa_reference`, `moa_aggregator` and
+`plugin_side_question` among them); `first_seen` and
 `last_seen` are `time.time()` epoch seconds. `sessions.model` is overwritten by a mid-session
 `/model` switch
 ([`hermes_state_sessions.py:717-744`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_sessions.py#L717-L744)), so it holds the
@@ -742,8 +753,9 @@ this point forward, ...]`, timestamped at the switch
 deactivates the earlier marker rows of the session (`active = 0`), which are kept, never deleted
 ([`hermes_state_messages.py:1086-1092`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_messages.py#L1086-L1092)), so every switch
 survives as one row with the model, the provider and the time; the classic CLI's `/model` writes
-no row and only updates `sessions.model`. The other `display_kind` values mark rows that are not
-typed input either
+no row and only updates `sessions.model`. Other `display_kind` values, `hidden`, `steer`,
+`internal_notification`, `async_delegation_complete`, `process_complete` and `failed_turn` among
+them, mark rows that are not typed input either
 ([`hermes_state_detached_results.py:29`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_detached_results.py#L29),
 [`agent/prompt_builder.py:583`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/prompt_builder.py#L583),
 [`agent/turn_failure_copy.py:74`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/turn_failure_copy.py#L74),
@@ -765,7 +777,7 @@ object
 | `output` | string | | |
 | `exit_code` | number | | |
 | `error` | string or null | | |
-| `status` | string | `blocked`, `pending_approval` | |
+| `status` | string | | |
 | `user_summary` | string | | |
 | `approval` | string | | |
 | `approval_pending` | boolean | `true` | |
@@ -838,7 +850,7 @@ A messaging session's row names the platform and the people: `sessions.source` i
 | `platform` | string | | |
 | `chat_id` | string | | |
 | `chat_name` | string or null | | |
-| `chat_type` | string | `dm`, `group`, `channel`, `thread` | |
+| `chat_type` | string | | |
 | `user_id` | string or null | | |
 | `user_name` | string or null | | |
 | `thread_id` | string or null | | |
@@ -1048,7 +1060,7 @@ Bot Mode is the desktop app's roster of profiles as named bots that share group 
 | `room_id` | string | | |
 | `seq` | number | | |
 | `event_id` | string | | |
-| `kind` | string | `message.user`, `message.member`, `member.unavailable`, `room.activity`, `room.stop_requested`, `room.created`, `room.disbanded`, `room.members_changed`, `room.renamed` | |
+| `kind` | string | | |
 | `actor_json` | string | | |
 | `payload_json` | string | | |
 | `created_at` | number | | |
