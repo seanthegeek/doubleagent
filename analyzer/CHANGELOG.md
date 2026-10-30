@@ -15,6 +15,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The bundled catalog copy gains the catalog lines of collector 1.20.0, so detection follows them: a Hermes home or desktop user-data directory with any `HERMES_DATA_DIR_SUFFIX` (`.hermes?*`, `AppData/Local/hermes?*` and `Hermes?*` under each OS's application data directory, replacing `.hermes_*` and `AppData/Local/hermes_*`) is detected as `hermes` ([#324]); and in `AppData/Roaming/devin` only the Devin CLI's `mcp_config.json` and `credentials.toml` are attributed to `windsurf`, not the Devin IDE's files beside them ([#321]).
 - The bundled catalog copy gains the collector's new Hermes secret globs; the secret globs change as in the collector's Unreleased entry ([#326]).
+- The `openclaw` parser reads a cold archive stored in the database in chunks (`session_transcript_cold_archive_chunks`, agent schema 37), chunk by chunk; such generations gave no rows before ([#206], [#326]).
+- The bundled catalog copy gains the OpenClaw lines of collector 1.21.0: the new secret globs and exclusions under `.openclaw`, `.clawdbot` and `.moltbot`, and no `openclaw` volume lines ([#326]).
 
 ### Fixed
 
