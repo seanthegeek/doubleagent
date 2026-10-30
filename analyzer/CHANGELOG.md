@@ -12,11 +12,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - The bundled catalog copy gains the catalog lines of collector 1.20.0, so detection follows them: a Hermes home or desktop user-data directory with any `HERMES_DATA_DIR_SUFFIX` (`.hermes?*`, `AppData/Local/hermes?*` and `Hermes?*` under each OS's application data directory, replacing `.hermes_*` and `AppData/Local/hermes_*`) is detected as `hermes` ([#324]); and in `AppData/Roaming/devin` only the Devin CLI's `mcp_config.json` and `credentials.toml` are attributed to `windsurf`, not the Devin IDE's files beside them ([#321]).
-- The bundled catalog copy gains the collector's new Hermes secret globs, so the config writers' `config.yaml.*` copies, `bot-desktop/`, `webapp/`, `feishu_comment_pairing.json`, the Google Meet node token and the OS credential directories of a Hermes home are secrets, and so are their volume-relative forms in a Hermes volume ([#326]).
+- The bundled catalog copy gains the collector's new Hermes secret globs; the secret globs change as in the collector's Unreleased entry ([#326]).
 
 ### Fixed
 
-- The `hermes` parser reads a home with `HERMES_DATA_DIR_SUFFIX` appended with no separator (`.hermes-<suffix>`, `AppData/Local/hermes-<suffix>`, as Hermes writes it) and the desktop app's suffixed `Hermes<suffix>/connections.json`; it read only `.hermes_<suffix>`, so such a home was detected but not parsed ([#324]).
+- The `hermes` parser reads a home with `HERMES_DATA_DIR_SUFFIX` appended with no separator (`.hermes<suffix>` and `AppData/Local/hermes<suffix>`, such as `.hermes-dev`, as Hermes writes it) and the desktop app's suffixed `Hermes<suffix>/connections.json`; it read only `.hermes_<suffix>`, so such a home was detected but not parsed ([#324]).
 
 ## [0.21.0] - 2026-10-28
 
