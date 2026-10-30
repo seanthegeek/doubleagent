@@ -734,7 +734,8 @@ OpenAI message:
 - `content`: list or dict content (multimodal parts) is stored as `"\x00json:"` + JSON, and a
   literal string starting with that prefix is stored JSON-encoded behind it
   ([`hermes_state_messages.py:140-160`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_messages.py#L140-L160), prefix at
-  [`hermes_state.py:1629`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state.py#L1629)).
+  [`hermes_state.py:1629`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state.py#L1629)). The JSON is a list of OpenAI content
+  parts ([Content parts](#content-parts)).
 - `tool_calls`: a JSON list on assistant rows
   ([`hermes_state_messages.py:278`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_messages.py#L278)); each entry is
   `{id, call_id, response_item_id, type, function: {name, arguments}}` with `arguments` a JSON
@@ -755,6 +756,43 @@ OpenAI message:
   ([`hermes_state_messages.py:406-408`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_messages.py#L406-L408)).
 - `platform_message_id`, `display_metadata`, `message_uid`, `tool_call_uid(s)`: gateway and UI
   bookkeeping; `display_kind` is under [Model-switch markers](#model-switch-markers).
+
+#### Content parts
+
+A part list holds OpenAI chat-completions content parts: text parts and image parts, whose `type`
+is `image_url` (with an `image_url` object holding the `url`), `image` or `input_image`
+([`agent/session_persistence.py:46`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/session_persistence.py#L46),
+[`agent/image_routing.py:562`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/image_routing.py#L562)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `type` | string | `text`, `image_url`, `image`, `input_image` | |
+| `text` | string | | |
+| `image_url` | object | | |
+
+The agent's own turn writer stores a part list's text projection, each image as `[screenshot]`
+([`agent/session_persistence.py:122-133`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/session_persistence.py#L122-L133)); a
+gateway line of a divert keeps the message as the gateway queued it, parts included.
+
+#### Divert lines
+
+A line of `sessions/<id>.jsonl` ([Transcript stores](#transcript-stores)) is the message dict
+JSON-encoded as a whole, so `tool_calls` is the list itself rather than a JSON string, and an
+agent's line carries its booleans `_compressed_summary` and `observed`
+([`agent/session_persistence.py:242-256`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/session_persistence.py#L242-L256),
+[`hermes_state.py:434-448`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state.py#L434-L448)). The keys the parser reads:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `role` | string | | |
+| `content` | string, array, object or null | | |
+| `tool_calls` | array or null | | |
+| `tool_call_id` | string or null | | |
+| `tool_name` | string or null | | |
+| `timestamp` | number or null | | |
+| `reasoning` | string or null | | |
+| `reasoning_content` | string or null | | |
+| `display_kind` | string or null | | |
 
 #### Model usage
 
@@ -877,8 +915,9 @@ beside `<platform>-pending.json`
 A messaging session's row names the platform and the people: `sessions.source` is the platform
 (`telegram`, `discord`, `whatsapp`, `whatsapp_cloud`, `slack`, `signal`, `mattermost`, `matrix`,
 `email`, `sms`, `dingtalk`, `feishu`, `wecom`, `wecom_callback`, `weixin`, `bluebubbles`,
-`qqbot`, `yuanbao`, `webhook`, `msgraph_webhook`, or a plugin platform such as `irc`, `line`,
-`teams` or `google_chat`; `api_server` and `local` are not messaging platforms)
+`qqbot`, `yuanbao`, `webhook`, `msgraph_webhook`, `relay` (the experimental connector relay), or a
+plugin platform such as `irc`, `line`, `teams` or `google_chat`; `api_server` and `local` are not
+messaging platforms)
 ([`gateway/config.py:217-262`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/gateway/config.py#L217-L262)), and the row carries `user_id`, `chat_id`,
 `chat_type`, `thread_id`, `display_name` (the chat name) and `origin_json`, the serialized source
 ([`gateway/session.py:69-81`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/gateway/session.py#L69-L81),
@@ -904,7 +943,7 @@ separate connector service) records the underlying platform, not `relay`
 
 #### Deletion fences
 
-`state_meta` is a key and JSON value table
+`state_meta` is a key and JSON value table, columns `key` and `value`
 ([`hermes_state_common.py:640-643`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_common.py#L640-L643)). A delete writes the key
 `gateway.retired_session.v1.<session id>`
 ([`hermes_state_mutation_retirement.py:9`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_mutation_retirement.py#L9),
@@ -1373,7 +1412,7 @@ of rewound or compacted turns.
 | model | `sessions.model` |
 | tool_name | `tool_calls[].function.name`, or `messages.tool_name` |
 | tool_use_id | `tool_calls[].id` / `messages.tool_call_id` |
-| text | `content` (strip `\x00json:` and join text parts); for tool_use the `command`/`path` key of `arguments`, else the arguments |
+| text | `content` (strip `\x00json:`, join text parts, an image part as `[image]`); for tool_use the first of the `command`, `path`, `file_path`, `url` and `query` keys of `arguments`, else the arguments |
 | source_line | `messages.id` |
 
 `-` stands for an absent value in every row text below. `wants()` accepts the files of a Hermes
@@ -1584,6 +1623,11 @@ markers are described under [Deletion fences](#deletion-fences). The `gateway.re
 fences are not read.
 
 #### Bad-line rows
+
+A `state.db`, a snapshot or a `response_store.db` that is not an SQLite file is one row
+`parser: not a SQLite database`, one SQLite cannot read is `parser: SQLite error: <message>`, and
+a `response_store.db` with no `responses` table is `parser: no responses table`; a `state.db`
+with no `messages` table gives no rows.
 
 `sessions/<id>.jsonl` goes through `iter_jsonl` and `error_rows`. In `pastes/pending.json` a file
 that does not parse or is not a JSON list is one `parser:` row, and an entry that is not an object

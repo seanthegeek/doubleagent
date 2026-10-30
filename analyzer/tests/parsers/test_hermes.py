@@ -220,6 +220,27 @@ class HermesTests(ParserBase):
                 self.assertFalse(parser.wants(artifact), artifact.rel)
         self.assertEqual(decode_content('\x00json:{"text":"x"}'), {"text": "x"})
 
+    def test_suffixed_homes_are_wanted(self):
+        """`HERMES_DATA_DIR_SUFFIX` is appended to the home and the desktop directory unseparated."""
+        parser = HermesParser()
+        for rel in (
+            ".hermes-channel-build-canary/state.db",
+            ".hermes-canary/profiles/work/state.db",
+            ".hermes-canary/state-snapshots/20261001-120000/state.db",
+            "AppData/Local/hermes-canary/sessions/abc.jsonl",
+            "AppData/Local/hermes-canary/.hermes_history",
+            ".config/Hermes-canary/connections.json",
+            "Library/Application Support/Hermes-canary/connections.json",
+            "AppData/Roaming/Hermes-canary/connections.json",
+        ):
+            self.assertTrue(parser.wants(rel_only(rel)), rel)
+        for rel in (
+            ".hermes-canary/auth.json",
+            ".config/Hermes-canary/connection.json",
+            ".config/Hermes-canary/sub/connections.json",
+        ):
+            self.assertFalse(parser.wants(rel_only(rel)), rel)
+
     def test_older_schema_without_active_or_reasoning(self):
         database = self.tmp / "old" / "state.db"
         database.parent.mkdir()
