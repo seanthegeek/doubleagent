@@ -737,10 +737,8 @@ OpenAI message:
   [`hermes_state.py:1629`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state.py#L1629)). The JSON is a list of OpenAI content
   parts ([Content parts](#content-parts)).
 - `tool_calls`: a JSON list on assistant rows
-  ([`hermes_state_messages.py:278`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_messages.py#L278)); each entry is
-  `{id, call_id, response_item_id, type, function: {name, arguments}}` with `arguments` a JSON
-  string
-  ([`agent/chat_completion_helpers.py:1609-1611`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/chat_completion_helpers.py#L1609-L1611)).
+  ([`hermes_state_messages.py:278`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_messages.py#L278)), its entries under
+  [Tool call entries](#tool-call-entries).
 - `tool_call_id`, `tool_name`: on `role='tool'` result rows
   ([`agent/turn_tool_round.py:118-121`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/turn_tool_round.py#L118-L121)).
 - `timestamp`: `time.time()` epoch seconds, UTC
@@ -756,6 +754,24 @@ OpenAI message:
   ([`hermes_state_messages.py:406-408`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state_messages.py#L406-L408)).
 - `platform_message_id`, `display_metadata`, `message_uid`, `tool_call_uid(s)`: gateway and UI
   bookkeeping; `display_kind` is under [Model-switch markers](#model-switch-markers).
+
+#### Tool call entries
+
+Each entry of a `tool_calls` list, as the agent builds it, with `type` taken from the model
+provider's tool call and `arguments` the model's JSON text
+([`agent/chat_completion_helpers.py:1609-1611`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/chat_completion_helpers.py#L1609-L1611)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | string | | |
+| `call_id` | string | | |
+| `response_item_id` | string or null | | |
+| `type` | string | | |
+| `function` | object | | |
+| `name` | string | | |
+| `arguments` | string | | |
+
+`name` and `arguments` are the keys of `function`.
 
 #### Content parts
 

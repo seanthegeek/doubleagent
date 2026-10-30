@@ -1,4 +1,11 @@
-"""Synthetic Hermes state for the analyzer tests."""
+"""Synthetic Hermes state for the analyzer tests.
+
+The records follow the Record schema and Other stores of research/hermes.md, from
+NousResearch/hermes-agent at 6bb377a; the main state.db keeps the schema 31 columns of 8b66a51,
+which the parser still reads.
+
+Paths: `/opt/data/workspace`
+"""
 
 from __future__ import annotations
 
@@ -32,11 +39,13 @@ CREATE TABLE session_model_usage (session_id TEXT NOT NULL, model TEXT NOT NULL,
 
 
 def hermes_records(cwd="/srv/proj"):
-    """The INSERT statements of research/hermes.md, Parser plan, and three more.
+    """A CLI session with a tool call, its child and a rewound and a multimodal turn.
 
-    The INSERT statements of research/hermes.md, Parser plan, with the shared project path, plus a
-    rewound turn kept as active=0, a multimodal user message behind the NUL json prefix, and a
-    subagent child session.
+    The session's `terminal` call and result at the shared project path, plus a rewound turn kept
+    as active=0, a multimodal user message behind the NUL json prefix, and a subagent child
+    session.
+
+    Source: research/hermes.md#messages-table; source 8b66a51
     """
     return [
         "INSERT INTO schema_version VALUES (31)",
@@ -77,6 +86,8 @@ def hermes_diverted_records():
 
     Message dicts appended while state.db was replaced under a running process
     (hermes_state.py:429-444).
+
+    Source: research/hermes.md#divert-lines; source 6bb377a
     """
     return [
         {"role": "user", "content": "show the env", "timestamp": 1790859600.0},
@@ -117,6 +128,8 @@ def hermes_pruned_records(cwd="/srv/proj"):
     """A Hermes session the live state.db no longer holds.
 
     A session the live state.db no longer holds (pruned or deleted), as the quick snapshots keep it.
+
+    Source: research/hermes.md#what-survives-a-delete; source 8b66a51
     """
     return [
         "INSERT INTO sessions VALUES ('%s','cli','anthropic/claude-sonnet-4',NULL,1789894800.0,"
@@ -133,6 +146,8 @@ def hermes_snapshot_records(cwd="/srv/proj"):
 
     The live database as it was at 12:00:04, the main session's first four messages and its first
     model, plus the pruned session.
+
+    Source: research/hermes.md#transcript-stores; source 6bb377a
     """
     live = hermes_records(cwd)
     return [
@@ -152,6 +167,8 @@ def hermes_session_jsonl_records():
 
     A divert of the main session, one message the live state.db also holds (list content, not the
     NUL json form) and one it lacks.
+
+    Source: research/hermes.md#divert-lines; source 6bb377a
     """
     return [
         {
@@ -192,9 +209,7 @@ def build_hermes(home: Path) -> None:
     )
     _jsonl(home / HERMES_SESSION_JSONL_REL, hermes_session_jsonl_records())
     (hermes / "config.yaml").write_text("model: anthropic/claude-sonnet-4\n", encoding="utf-8")
-    (hermes / "auth.json").write_text(
-        '{"providers": {"nous": {"access_token": "not-real"}}}', encoding="utf-8"
-    )
+    (hermes / "auth.json").write_text("{}", encoding="utf-8")
     (hermes / "sessions/sessions.json").write_text("{}", encoding="utf-8")
 
 
@@ -205,6 +220,10 @@ HERMES_PASTES_REL = ".hermes/pastes/pending.json"
 
 
 def hermes_pastes_records():
+    """The `pastes/pending.json` entries of two `hermes debug share` uploads.
+
+    Source: research/hermes.md#debug-share-paste-list; source 6bb377a
+    """
     return [
         {"url": "https://paste.rs/AbCdE", "expire_at": 1790875200.5},
         {"url": "https://paste.rs/FgHiJ", "expire_at": 1790875260.0},
@@ -251,6 +270,8 @@ def hermes_switch_records():
     claude-sonnet-4, then two switches: the first marker, superseded, has active=0; the second names
     no provider, and a third marker's text has an unknown form. Between them three assistant
     messages whose tool_calls do not decode, with plain user turns before and after.
+
+    Source: research/hermes.md#model-switch-markers; source 6bb377a
     """
     session_id = HERMES_SWITCH
     marker = HERMES_SWITCH_MARKER
@@ -392,6 +413,10 @@ def _hermes_call(call_id: str, command: str) -> str:
 
 
 def hermes_gateway_records():
+    """The gateway state.db rows: relay, permission, import, worktree, deletion and room records.
+
+    Source: research/hermes.md#messaging-sessions; source 6bb377a
+    """
     quote = _hermes_sql
     tg_origin = json.dumps(
         {
@@ -701,6 +726,10 @@ HERMES_CONNECTIONS = {
 # trajectory_samples.jsonl (agent/trajectory.py:37-41 and
 # agent/agent_runtime_helpers.py:170-196 at 86fa9e6), in a project directory.
 def hermes_trajectory_records():
+    """A `--save-trajectories` file: one ShareGPT run and one line whose conversations is no list.
+
+    Source: research/hermes.md#trajectory-files; source 6bb377a
+    """
     return [
         {
             "conversations": [
