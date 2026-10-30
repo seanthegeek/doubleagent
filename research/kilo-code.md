@@ -352,7 +352,8 @@ delete failed ([Logs](#logs), [What survives a delete](#what-survives-a-delete))
 [`marketplace/paths.ts:77`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/kilocode/marketplace/paths.ts#L77),
 [`:82`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/kilocode/marketplace/paths.ts#L82);
 [`tui-worktree.ts:17`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/kilocode/cli/cmd/tui-worktree.ts#L17), added to
-`.git/info/exclude`), `mcp.json`
+`.git/info/exclude`; the rule directories hold Markdown files such as `.kilocode/rules/<name>.md`,
+[`rules-migrator.ts:41-48`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/kilocode/rules-migrator.ts#L41-L48)), `mcp.json`
 ([`actions.ts:141-142`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/services/marketplace/actions.ts#L141-L142)),
 and `agent-manager.json`, the extension's agent manager state
 ([`packages/kilo-vscode/src/agent-manager/WorktreeStateManager.ts:113`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/agent-manager/WorktreeStateManager.ts#L113),
