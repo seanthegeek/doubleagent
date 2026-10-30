@@ -492,6 +492,8 @@ def test_declared_paths_read_a_wrapped_paths_line():
         "Paths: `/home/alice/proj`,\n"
         "       `C:\\Users\\alice\\proj` and\n"
         "         `/Users/alice/proj`.\n"
+        "         see `/prose` for the rest\n"
+        "         `/after-the-prose`\n"
         "      `/under-indented`\n"
         "       `/after-the-break`\n"
         "\n"

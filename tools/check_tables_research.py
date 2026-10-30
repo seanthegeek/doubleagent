@@ -80,8 +80,8 @@ NOT_PATH_CHARACTERS = re.compile(r"[=(){}\"'|;,]|^\$|^<|:(?!\\)")
 KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
 # Phrases saying a file named before them in the sentence is not a credential.
 NOT_A_CREDENTIAL = re.compile(
-    r"\b(?:is not one|is not a credential|not a credential file|holds no credentials?"
-    r"|no credentials?)\b",
+    r"\b(?:is not one|is not a credential|not a credential file"
+    r"|(?:holds|has|contains|stores) no credentials?)\b",
     re.I,
 )
 # The end of a sentence: a stop before whitespace, a blank line or the next list item.
