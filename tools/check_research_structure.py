@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Check that every research document follows the structure and conventions AGENTS.md fixes.
 
-Each agent's document under `research/` (not README.md or frameworks.md) follows "Research
-document structure" in AGENTS.md. Hard failures, never baselined: the H1 is `# <file stem>`
-with an intro paragraph; the H2s are `SECTIONS` in order, Collection holds `COLLECTION_H3` and
-Parsing `PARSING_H3` or prose alone; the `FIXED` subsections sit under their heading in order,
-Parser plan's eight first; no paragraph opens with a bold label; no line assumes two documents
-per agent (`SPLIT_PHRASE`); no confidence statement stands outside `## Confidence`; no prose
-line passes `--width` (100) unless it holds a URL or is one code span. Baseline findings
-follow; a "No real install." or "No real install:" Observed bullet is exempt from the first three:
+Each agent's document under `research/` (not README.md or frameworks.md) follows "Research document
+structure" in AGENTS.md. Hard failures, never baselined: the H1 is `# <file stem>` with an intro
+paragraph; the H2s are `SECTIONS` in order, Collection holds `COLLECTION_H3` and Parsing
+`PARSING_H3` or prose alone; the `FIXED` subsections sit under their heading in order, Parser plan's
+eight first; no paragraph opens with a bold label; no line assumes two documents per agent
+(`SPLIT_PHRASE`); no confidence statement stands outside `## Confidence`; no prose line passes
+`--width` (100) unless it holds a URL or is one code span. Baseline findings follow; an Observed
+bullet or paragraph opening "No real install." or "No real install:" is exempt from the first three:
 
 - `observed-label-missing`: an Observed bullet not opening with a cell label (`observed_label`).
 - `observed-cell-duplicate`: two Observed bullets of one document with the same label.
@@ -492,19 +492,23 @@ def observed_bullets(lines: list[str], span: Span) -> list[tuple[int, str]]:
     """Return (line, text) of each top-level list item in an Observed span.
 
     An item runs to the next item, heading or unindented line; its indented lines, blank lines
-    between them included, continue it.
+    between them included, continue it. A paragraph opening `NO_INSTALL` is an item too, up to
+    its blank line, as a document with no install may write `No real install.` without a dash.
     """
     bullets: list[tuple[int, list[str]]] = []
-    in_item = False
+    in_item = in_paragraph = False
     for number in range(span.start + 1, span.end + 1):
         line = lines[number - 1]
+        in_item = in_item and (not line.strip() or line[:1] == " ")
+        in_paragraph = in_paragraph and bool(line.strip()) and not ATX.match(line)
         if re.match(r"^[-*] ", line):
             bullets.append((number, [line[2:]]))
-            in_item = True
-        elif in_item and (not line.strip() or line[:1] == " "):
+            in_item, in_paragraph = True, False
+        elif in_item or in_paragraph:
             bullets[-1][1].append(line)
-        elif line.strip():
-            in_item = False
+        elif NO_INSTALL.match(line):
+            bullets.append((number, [line]))
+            in_paragraph = True
     return [(number, " ".join(" ".join(text).split())) for number, text in bullets]
 
 

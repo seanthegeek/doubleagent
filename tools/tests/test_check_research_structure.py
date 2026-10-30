@@ -187,10 +187,24 @@ def test_observed_label_missing(tmp_path, capsys):
 
 
 def test_observed_label_missing_exempts_no_real_install(tmp_path, capsys):
-    for text in ("- No real install.", "- No real install: nothing was run."):
+    forms = (
+        "- No real install.",
+        "- No real install: nothing was run.",
+        "No real install.",
+        "No real install: the parser rests on source\nat one commit.",
+    )
+    for text in forms:
         write_document(tmp_path, document(observed=text))
         status, output = run(tmp_path, capsys)
         assert (status, kinds(output)) == (0, []), text
+
+
+def test_observed_bullets_reads_the_no_install_paragraph_form():
+    lines: list[str] = ["### Observed", "", "Intro.", "", "No real install: on source"]
+    lines += ["at one commit.", "", "More.", ""]
+    span = checker.Span(("Source and evidence", "Observed"), 3, 1, len(lines))
+    found = checker.observed_bullets(lines, span)
+    assert found == [(5, "No real install: on source at one commit.")]
 
 
 def test_observed_cell_duplicate(tmp_path, capsys):
