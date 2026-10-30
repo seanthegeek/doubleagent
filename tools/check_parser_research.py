@@ -1070,7 +1070,8 @@ def match_group_reads(root: ast.AST) -> set[int]:
     function, is one: `fields.groupdict()["sid"]`, `groups.get("sid")`, `"sid" in groups`; a
     name later rebound to a record, by unpacking, a `with` target or an `async for` too, is
     no match's groups; storing into one of its items does not rebind it. A comprehension is
-    its own scope: it sees the names around it less those its own targets bind.
+    its own scope: it sees the names around it less those its own targets bind, while a
+    walrus inside it binds in the function around it.
     """
     found: set[int] = set()
     scopes = dict.fromkeys(
@@ -1082,8 +1083,29 @@ def match_group_reads(root: ast.AST) -> set[int]:
         for node in nodes:
             for name, from_match in _bindings(node):
                 bindings.setdefault(name, []).append(from_match)
+            if isinstance(node, COMPREHENSIONS):
+                for name, from_match in _walrus_bindings(node):
+                    bindings.setdefault(name, []).append(from_match)
         bound = {name for name, forms in bindings.items() if all(forms)}
         _classify_reads(nodes, bound, found)
+    return found
+
+
+def _walrus_bindings(comprehension: ast.AST) -> list[tuple[str, bool]]:
+    """Return the bindings of the walrus expressions inside a comprehension, nested ones too.
+
+    A `:=` inside a comprehension binds its name in the containing function, not in the
+    comprehension, so these bindings belong to the enclosing scope.
+    """
+    found: list[tuple[str, bool]] = []
+    pending = list(ast.iter_child_nodes(comprehension))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, FUNCTIONS):
+            continue
+        if isinstance(node, ast.NamedExpr):
+            found.extend(_bindings(node))
+        pending.extend(ast.iter_child_nodes(node))
     return found
 
 

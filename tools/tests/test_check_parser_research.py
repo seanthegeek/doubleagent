@@ -542,6 +542,10 @@ def test_match_group_reads_scope_async_loops_and_comprehensions():
         "    recovered = [groups['sid'] for groups in records]\n"
         "    kept = {groups['sid']: row['sid'] for row in records}\n"
         "    return groups['sid'], recovered, kept\n"
+        "def walrus(match, records):\n"
+        "    groups = match.groupdict()\n"
+        "    saved = [(groups := record) for record in records]\n"
+        "    return groups['sid'], saved\n"
     )
     tree = ast.parse(source)
     nodes = [node for node in ast.walk(tree) if isinstance(node, ast.Subscript)]
@@ -549,7 +553,8 @@ def test_match_group_reads_scope_async_loops_and_comprehensions():
     exempt = sorted((node.lineno, node.col_offset) for node in nodes if id(node) in skipped)
     assert exempt == [(10, 12), (11, 11)], (
         "an async for rebinds the name; a comprehension's own target hides the outer name only"
-        " inside it, and the outer name stays a match's groups elsewhere, inside one too"
+        " inside it, and the outer name stays a match's groups elsewhere, inside one too; a"
+        " walrus inside a comprehension rebinds the name in the function"
     )
 
 
