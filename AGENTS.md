@@ -916,7 +916,10 @@ when the page has one.
 
 1. `## Source and evidence`: the repository and commit (or bundle, binary,
    documentation), the evidence level per claim, then `### Observed` and
-   `### Source reviews`.
+   `### Source reviews`. When the reviewed commit is ahead of the latest
+   release tag in what it writes, the document names that tag beside the
+   commit, and Format versions says which shapes the tag's build writes
+   differently, since a host runs a released build.
    - An Observed bullet is one cell, one platform and surface: build, date,
      the steps run and what each wrote, in one paragraph. It opens with its
      cell label in bold, `**<Platform> <surface>**:` (the colon inside or
@@ -976,8 +979,9 @@ when the page has one.
      table, here or under Other stores, has the header
      `| Key | Type | Values | Since |` (or `Builds` for `Since`): Key a
      code span, Type the JSON type names (`string`, `number`, `boolean`,
-     `object`, `array`, `null`) joined by "or", a comma or a slash, Values
-     the allowed values as code spans, empty for any value.
+     `object`, `array`, `null`), and `blob` for a SQLite BLOB column,
+     joined by "or", a comma or a slash, Values the allowed values as code
+     spans, empty for any value.
    - `### Joins and timestamps`: session id, project path, tool-call ids,
      the time basis and precision, what cannot be joined.
    - `### Other stores`: databases, indexes, histories, logs, mirrors and
@@ -998,7 +1002,9 @@ when the page has one.
      follow them. A list of what the parser does not read starts
      `Not read:` and names each file or key as a code span; a parenthesis
      inside it that says something is read is phrased
-     ``(`x` is read only for ...)``.
+     ``(`x` is read only for ...)``, and a clause opening `whose` (or
+     `its` or `their` after a comma) describes the item before it and
+     names nothing up to the next comma, semicolon, colon or full stop.
 4. `## Confidence`: one list for both halves, confidence per item and what
    could not be determined, holding no fact the body states and no item it
    has answered. A confidence paragraph elsewhere is a defect.

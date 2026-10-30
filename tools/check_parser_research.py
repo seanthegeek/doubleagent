@@ -87,6 +87,8 @@ NOT_READ = re.compile(r"(?<!was )(?<!were )\b(?:does )?not read\b", re.IGNORECAS
 LIST_ITEM = re.compile(r"^\s*(?:[-*]|\d+\.)\s")
 CLAUSE_END = re.compile(r"[;:]|\.(?:\s|$)")
 READ_EXCEPTION = re.compile(r"\((?=[^()]*\bread\b)(?![^()]*\bnot read\b)[^()]*\)")
+# A clause describing the item before it ("`a`, whose `b` is open"), whose spans name nothing.
+DESCRIBING_CLAUSE = re.compile(r"(?:\bwhose\b|(?<=,)\s*\b(?:its|their)\b)(?:[^,;:.]|\.(?!\s|$))*")
 SENTENCE_END = re.compile(r"(?<=\.)\s+(?=[A-Z`(\[])")
 CODE_SPAN = re.compile(r"(`+)(.+?)\1", re.DOTALL)
 # A regex quantifier, lazy or not, that makes the piece before it variable.
@@ -670,13 +672,13 @@ def _sentences(masked: str, start: int, end: int) -> list[tuple[int, int]]:
 def not_read_spans(section: drift_common.Section) -> list[drift_common.CodeSpan]:
     """Return the code spans a section says are not read.
 
-    In each unit of `text_units` holding "not read" or "does not read": a unit starting "Not
-    read" gives every span after the phrase, less a parenthesis saying something is read; a
-    phrase inside a parenthesis gives the span just before it; "does not read" gives the spans
-    after it to the clause's end (`;`, `:` or `.`); any other gives the spans of its clause
-    (from `;`, `:`, `.` or `,`) before it ("`x` and `y` are not read"), or only the last for
-    "is not read" ("`config.json` `key` is not read" names the key). "was not read" and
-    "were not read" report what a researcher did not read, so they count for nothing.
+    A `.` below is one followed by whitespace or the end. In each unit of `text_units` holding
+    "not read" or "does not read": a unit starting "Not read" gives every span after the phrase
+    but those of a parenthesis saying something is read and of a describing clause (`whose`, or
+    `its` or `their` after a comma, up to the next `,`, `;`, `:` or `.`, so a later item needs a
+    comma first); a phrase inside a parenthesis gives the span just before it; "does not read"
+    the spans after it up to `;`, `:` or `.`; any other the spans of its clause (from `;`, `:`,
+    `.` or `,`) before it, or only the last for "is not read". "was", "were not read": nothing.
     """
     text = section.text
     masked = mask_code_spans(text)
@@ -707,11 +709,15 @@ def _chosen_spans(
         exceptions = [
             (start + match.start(), start + match.end()) for match in READ_EXCEPTION.finditer(unit)
         ]
+        descriptions = [
+            (start + match.start(), start + match.end())
+            for match in DESCRIBING_CLAUSE.finditer(unit)
+        ]
         return [
             item
             for item in inside
             if item[0] >= phrase.end()
-            and not any(low <= item[0] < high for low, high in exceptions)
+            and not any(low <= item[0] < high for low, high in exceptions + descriptions)
         ]
     if opening >= 0 and masked.find(")", opening, phrase.start()) < 0:
         before = [item for item in inside if item[1] <= opening]

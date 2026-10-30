@@ -16,8 +16,8 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
    a field name (`is_field_name`) in a file of an agent and is not documented;
    `file-unclaimed`: a file no catalog entry claims (`claiming_agent`).
 4. `enum-undocumented`: a value (`is_enum_value`) of a key in `ENUM_KEYS` not documented.
-5. `type-mismatch`: a value whose `json_type` is not in its key's `Type` cell, or not among
-   the code spans of its `Values` cell, in a key table of Record schema or Other stores.
+5. `type-mismatch`: a value no key table row of its key (Record schema, Other stores) `accepts`;
+   a key in several tables passes when any one of its rows accepts both its type and its value.
 6. `substitution-undeclared`: a project path (`project_path`) outside `/srv/proj` and the
    `declared_paths` of the agent's fixture modules.
 7. `cross-agent-builder`: a call to a function imported from another agent's fixture module
@@ -26,7 +26,7 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
    key-sorted form equals a record `build_home` wrote.
 
 A key table's header row is `| Key | Type | Values | Since |` (or `Builds`): Key a code span,
-Type `JSON_TYPES` names joined by ` or `, `,` or `/`, Values code spans (empty for any).
+Type `TYPE_NAMES` joined by ` or `, `,` or `/`, Values code spans (empty for any).
 
 Usage: tools/check_fixture_schema.py [--update-baseline], with the analyzer's requirements.
 """
@@ -63,7 +63,8 @@ SHARED_MODULES = frozenset({"__init__", "common"})
 SUBSTITUTE_PATH = "/srv/proj"
 FIXTURES_SECTION = ("Parsing", "Parser plan", "Fixtures")
 ENUM_KEYS = frozenset({"type", "role", "kind", "status", "level", "source", "mode", "decision"})
-JSON_TYPES = ("string", "number", "boolean", "object", "array", "null")
+# The JSON type names, and `blob` for a SQLite BLOB column.
+TYPE_NAMES = ("string", "number", "boolean", "object", "array", "null", "blob")
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
 # Key words naming a directory a session ran in; see `project_path`.
@@ -210,7 +211,7 @@ def toml_keys(line: str) -> list[str]:
 
 
 def json_type(value: object) -> str:
-    """Return the JSON type name of a decoded value: `boolean` before `number`; other is ""."""
+    """Return the type name of a decoded value: `boolean` before `number`, bytes `blob`, else ""."""
     if value is None:
         return "null"
     for kind, python in (
@@ -219,6 +220,7 @@ def json_type(value: object) -> str:
         ("string", str),
         ("object", dict),
         ("array", list),
+        ("blob", bytes),
     ):
         if isinstance(value, python):
             return kind
@@ -226,9 +228,9 @@ def json_type(value: object) -> str:
 
 
 def table_types(cell: str) -> set[str]:
-    """Return the JSON type names a key table's Type cell gives; other words are ignored."""
+    """Return the `TYPE_NAMES` a key table's Type cell gives; other words are ignored."""
     words = (word.strip(" `").lower() for word in TYPE_SEPARATOR.split(cell))
-    return {word for word in words if word in JSON_TYPES}
+    return {word for word in words if word in TYPE_NAMES}
 
 
 def is_enum_value(value: object) -> bool:
@@ -651,14 +653,14 @@ class AgentDocument:
 
     path: str
     names: set[str]
-    key_rows: dict[str, KeyRow]
+    key_rows: dict[str, list[KeyRow]]
     samples: list[tuple[str, int]]
     key_tables: int
 
 
-def key_tables(sections: list[drift_common.Section]) -> tuple[dict[str, KeyRow], int]:
-    """Return the rows of every key table in the sections, keyed by key, and the table count."""
-    rows: dict[str, KeyRow] = {}
+def key_tables(sections: list[drift_common.Section]) -> tuple[dict[str, list[KeyRow]], int]:
+    """Return every key table row in the sections, in document order per key, and the count."""
+    rows: dict[str, list[KeyRow]] = {}
     count = 0
     for section in sections:
         in_table = False
@@ -676,7 +678,8 @@ def key_tables(sections: list[drift_common.Section]) -> tuple[dict[str, KeyRow],
             spans = CODE_SPAN.findall(cells[0])
             key = spans[0] if spans else cells[0]
             values = set(CODE_SPAN.findall(cells[2]))
-            rows[key] = KeyRow(table_types(cells[1]), values, section.start + offset)
+            row = KeyRow(table_types(cells[1]), values, section.start + offset)
+            rows.setdefault(key, []).append(row)
     return rows, count
 
 
@@ -718,10 +721,23 @@ def agent_document(root: pathlib.Path, path: pathlib.Path) -> AgentDocument:
 # --- Rules on the built files ---------------------------------------------------------------
 
 
+def accepts(row: KeyRow, value: object) -> bool:
+    """Return whether a key table row allows a value.
+
+    Its `Type` cell is empty or holds the value's `json_type`, and its `Values` cell is empty,
+    the value is not a string, or the string is among the cell's code spans.
+    """
+    typed = not row.types or json_type(value) in row.types
+    return typed and (not row.values or not isinstance(value, str) or value in row.values)
+
+
 def file_findings(
     built: BuiltFile, document: AgentDocument, allowed: list[str], seen: set[tuple[str, str]]
 ) -> Iterator[drift_common.Finding]:
-    """Yield the findings of rules 3 to 6 for one built file, each (kind, detail) once per agent."""
+    """Yield the findings of rules 3 to 6 for one built file, each (kind, detail) once per agent.
+
+    A `type-mismatch` finding names the line of the first key table row of its key.
+    """
 
     def report(kind: str, detail: str, line: int = 0) -> Iterator[drift_common.Finding]:
         # A blank key would make a blank detail, which no baseline line can hold.
@@ -745,13 +761,19 @@ def file_findings(
             path = project_path(key, value)
             if path and not is_substitute(path, [SUBSTITUTE_PATH, *allowed]):
                 yield from report("substitution-undeclared", path)
-            row = document.key_rows.get(key)
-            if row is None or in_list:
+            rows = document.key_rows.get(key, [])
+            if not rows or in_list or any(accepts(row, value) for row in rows):
                 continue
-            if row.types and json_type(value) not in row.types:
-                yield from report("type-mismatch", "%s:%s" % (key, json_type(value)), row.line)
-            if row.values and isinstance(value, str) and value not in row.values:
-                yield from report("type-mismatch", "%s=%s" % (key, value), row.line)
+            # Each half no row meets gets its detail; when each is met by a different row, the
+            # value detail names the mismatch.
+            typed = any(not row.types or json_type(value) in row.types for row in rows)
+            listed = not isinstance(value, str) or any(
+                not row.values or value in row.values for row in rows
+            )
+            if not typed:
+                yield from report("type-mismatch", "%s:%s" % (key, json_type(value)), rows[0].line)
+            if typed or not listed:
+                yield from report("type-mismatch", "%s=%s" % (key, value), rows[0].line)
 
 
 def sample_findings(

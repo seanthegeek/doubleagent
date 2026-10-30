@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import pathlib
+import sqlite3
 
 import check_fixture_schema as checker
 import drift_common
@@ -356,6 +357,111 @@ def test_type_mismatch_value_outside_values_cell(tmp_path):
     assert ("type-mismatch", "mode=fast") not in found
 
 
+TWO_TABLES_DOCUMENT = """\
+# beta
+
+## Parsing
+
+### Record schema
+
+#### Turn lines
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | `user`, `assistant` | 1.0 |
+| `count` | number | | 1.0 |
+
+### Other stores
+
+#### Index
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | `entry` | 1.0 |
+| `count` | string | | 1.0 |
+"""
+
+
+def two_table_findings(tmp_path, records, document=TWO_TABLES_DOCUMENT):
+    """Return (detail, line) of the type mismatches of records against a document's tables."""
+    write(tmp_path / "research/beta.md", document)
+    parsed = checker.agent_document(tmp_path, tmp_path / "research/beta.md")
+    built = checker.BuiltFile(".beta/state.json", "beta", records=records)
+    found = checker.file_findings(built, parsed, [], set())
+    return {(item.detail, item.line) for item in found if item.kind == "type-mismatch"}
+
+
+def table_line(text):
+    """Return the line number of a row of the two-table document."""
+    return TWO_TABLES_DOCUMENT.split("\n").index(text) + 1
+
+
+def test_type_mismatch_passes_when_one_row_accepts_the_value(tmp_path):
+    records: list[object] = [{"type": "entry", "count": "three"}, {"type": "user", "count": 3}]
+    assert two_table_findings(tmp_path, records) == set()
+
+
+def test_type_mismatch_allowed_by_no_table_names_the_first_row(tmp_path):
+    records: list[object] = [{"type": "system", "count": True}]
+    expected = {
+        ("type=system", table_line("| `type` | string | `user`, `assistant` | 1.0 |")),
+        ("count:boolean", table_line("| `count` | number | | 1.0 |")),
+    }
+    assert two_table_findings(tmp_path, records) == expected
+
+
+def test_type_mismatch_type_and_value_met_by_different_rows(tmp_path):
+    document = TWO_TABLES_DOCUMENT.replace("| `type` | string | `entry` |", "| `type` | number | |")
+    found = two_table_findings(tmp_path, [{"type": "system"}], document)
+    line = table_line("| `type` | string | `user`, `assistant` | 1.0 |")
+    assert found == {("type=system", line)}
+
+
+def test_type_mismatch_met_by_no_row_gives_both_details(tmp_path):
+    document = TWO_TABLES_DOCUMENT.replace(
+        "| `type` | string | `user`, `assistant` |", "| `type` | number | `one` |"
+    ).replace("| `type` | string | `entry` |", "| `type` | boolean | `yes` |")
+    found = two_table_findings(tmp_path, [{"type": "system"}], document)
+    line = table_line("| `type` | string | `user`, `assistant` | 1.0 |")
+    assert found == {("type:string", line), ("type=system", line)}
+
+
+BLOB_DOCUMENT = """\
+# beta
+
+## Parsing
+
+### Record schema
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `data` | blob or null | | 1.0 |
+"""
+
+
+def blob_mismatches(tmp_path, document):
+    """Return the type mismatches of a SQLite table with a BLOB column against a document."""
+    database = tmp_path / "home/.beta/store.db"
+    database.parent.mkdir(parents=True)
+    connection = sqlite3.connect(database)
+    connection.execute("CREATE TABLE archive (data BLOB)")
+    connection.executemany("INSERT INTO archive VALUES (?)", [(b"\x00\x01",), (None,)])
+    connection.commit()
+    connection.close()
+    built = checker.BuiltFile(".beta/store.db", "beta")
+    checker.read_built_file(database, built)
+    write(tmp_path / "research/beta.md", document)
+    parsed = checker.agent_document(tmp_path, tmp_path / "research/beta.md")
+    found = checker.file_findings(built, parsed, [], set())
+    return {item.detail for item in found if item.kind == "type-mismatch"}
+
+
+def test_type_mismatch_blob_column(tmp_path):
+    assert blob_mismatches(tmp_path / "blob", BLOB_DOCUMENT) == set()
+    document = BLOB_DOCUMENT.replace("blob or null", "string or null")
+    assert blob_mismatches(tmp_path / "string", document) == {"data:blob"}
+
+
 def test_substitution_undeclared(tmp_path):
     found = findings_of(tmp_path)
     assert ("alpha", "substitution-undeclared", "/home/alice/other") in found
@@ -560,7 +666,8 @@ def test_json_type_forms():
         ("x", "string"),
         ({}, "object"),
         ([], "array"),
-        (b"x", ""),
+        (b"x", "blob"),
+        (object(), ""),
     ]
     for value, kind in cases:
         assert checker.json_type(value) == kind, value
@@ -571,6 +678,7 @@ def test_table_types_forms():
     assert checker.table_types("string or null") == {"string", "null"}
     assert checker.table_types("`number`, `boolean`") == {"number", "boolean"}
     assert checker.table_types("object/array") == {"object", "array"}
+    assert checker.table_types("blob or null") == {"blob", "null"}
     assert checker.table_types("integer") == set()
 
 
@@ -579,8 +687,17 @@ def test_key_tables_forms(tmp_path):
     sections = drift_common.within(drift_common.research_sections(tmp_path / "doc.md"), "Parsing")
     rows, count = checker.key_tables(sections)
     assert count == 1
-    assert rows["mode"].types == {"string"} and rows["mode"].values == {"fast", "medium", "slow"}
-    assert rows["count"].values == set()
+    assert len(rows["mode"]) == 1
+    assert rows["mode"][0].types == {"string"}
+    assert rows["mode"][0].values == {"fast", "medium", "slow"}
+    assert rows["count"][0].values == set()
+    write(tmp_path / "two.md", TWO_TABLES_DOCUMENT)
+    sections = drift_common.within(drift_common.research_sections(tmp_path / "two.md"), "Parsing")
+    rows, count = checker.key_tables(sections)
+    assert count == 2
+    assert [row.values for row in rows["type"]] == [{"user", "assistant"}, {"entry"}]
+    assert [row.types for row in rows["count"]] == [{"number"}, {"string"}]
+    assert rows["type"][0].line < rows["type"][1].line
     other = BETA_DOCUMENT.replace("| Key | Type | Values | Builds |", "| Key | Type | Notes |")
     write(tmp_path / "other.md", other)
     sections = drift_common.within(drift_common.research_sections(tmp_path / "other.md"), "Parsing")
