@@ -300,7 +300,14 @@ Its settings are the application settings files `kiloLogSettings.xml` and
 ([Directories used by the IDE, configuration directory](https://www.jetbrains.com/help/idea/directories-used-by-the-ide-to-store-settings-caches-plugins-and-logs.html#config-directory);
 [`KiloLogSettingsService.kt:13-16`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/settings/KiloLogSettingsService.kt#L13-L16),
 [`KiloAutocompleteSettingsService.kt:11-14`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/autocomplete/KiloAutocompleteSettingsService.kt#L11-L14)):
-log level and display preferences and autocomplete switches.
+log level and display preferences and autocomplete switches. Its other settings are IDE
+properties under `kilo.session.*`, `kilo.integrations.github` and `kilo.worktree.fetchBase`, among
+them `kilo.session.autoApprove` and `kilo.session.agent`, kept through the IDE's
+`PropertiesComponent`
+([`KiloPluginSettings.kt:9-20`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/plugin/KiloPluginSettings.kt#L9-L20),
+[`:30`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/plugin/KiloPluginSettings.kt#L30)); the IntelliJ platform keeps application properties in the `options/other.xml` that every
+plugin shares, a convention this repository does not show. No catalog line names that file, so it
+is not collected.
 
 ### Credentials
 
@@ -1206,7 +1213,9 @@ a mode that carries its own permission ruleset
   session, since the file names are hashes. A file that is not the expected JSON is one `parser:`
   row.
 - Not read: the project's `kilo.json`, `kilo.jsonc` and `.kilo/` permission keys, and the project's
-  `sandboxes` ([issue 98](https://github.com/seanthegeek/doubleagent/issues/98)).
+  `sandboxes` ([issue 98](https://github.com/seanthegeek/doubleagent/issues/98)); the JetBrains
+  plugin's `kilo.session.autoApprove` property in the IDE's shared `options/other.xml`
+  ([JetBrains plugin](#jetbrains-plugin)), which is not collected.
 
 #### Model rows
 
@@ -1462,8 +1471,9 @@ sends it to the ingest service; the file is not parsed.
 - For the round: the cloud session marker after sign-in, share, unshare and delete; the remote
   control log lines; a sandbox policy and preference file; a retention pass; a memory digest after
   `/memory on`; a turn marker during a turn; `daemon.json` after `kilo daemon`; the JetBrains
-  plugin's `kilo/` system folder and its `options/` files; `.kilo/agent-manager.json`; board rows
-  from a subagent run.
+  plugin's `kilo/` system folder and its `options/` files, and whether its `kilo.*` properties,
+  `kilo.session.autoApprove` among them, land in `options/other.xml`; `.kilo/agent-manager.json`;
+  board rows from a subagent run.
 - Not determined: where the `opencode-gitlab-auth` package keeps a GitLab sign-in.
 - Not determined: the code path that imports the legacy JSON `storage/` into SQLite
   ([`packages/opencode/src/storage/db.ts`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/storage/db.ts), not traced),
