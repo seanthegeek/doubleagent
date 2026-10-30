@@ -529,6 +529,30 @@ def test_match_group_reads_cover_membership_and_stop_at_unpacking():
     )
 
 
+def test_match_group_reads_scope_async_loops_and_comprehensions():
+    source = (
+        "import re\n"
+        "PATTERN = re.compile(r'(?P<sid>\\S+)')\n"
+        "async def stream(match, records):\n"
+        "    groups = match.groupdict()\n"
+        "    async for groups in records:\n"
+        "        yield groups['sid']\n"
+        "def collect(match, records):\n"
+        "    groups = match.groupdict()\n"
+        "    recovered = [groups['sid'] for groups in records]\n"
+        "    kept = {groups['sid']: row['sid'] for row in records}\n"
+        "    return groups['sid'], recovered, kept\n"
+    )
+    tree = ast.parse(source)
+    nodes = [node for node in ast.walk(tree) if isinstance(node, ast.Subscript)]
+    skipped = checker.match_group_reads(tree)
+    exempt = sorted((node.lineno, node.col_offset) for node in nodes if id(node) in skipped)
+    assert exempt == [(10, 12), (11, 11)], (
+        "an async for rebinds the name; a comprehension's own target hides the outer name only"
+        " inside it, and the outer name stays a match's groups elsewhere, inside one too"
+    )
+
+
 def test_match_group_reads_forms():
     tree = ast.parse(
         textwrap.dedent(

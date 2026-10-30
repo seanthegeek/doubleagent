@@ -104,6 +104,7 @@ FILE_EXTENSIONS = frozenset(
 
 
 FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
 
 
 # --- Literals ---------------------------------------------------------------------------------
@@ -1067,8 +1068,9 @@ def match_group_reads(root: ast.AST) -> set[int]:
     The object of a subscript, a method call or a membership test is a `.groupdict()` or
     `.group(...)` call, or a name whose every binding in the same function, or outside any
     function, is one: `fields.groupdict()["sid"]`, `groups.get("sid")`, `"sid" in groups`; a
-    name later rebound to a record, by unpacking or a `with` target too, is no match's
-    groups; storing into one of its items does not rebind it.
+    name later rebound to a record, by unpacking, a `with` target or an `async for` too, is
+    no match's groups; storing into one of its items does not rebind it. A comprehension is
+    its own scope: it sees the names around it less those its own targets bind.
     """
     found: set[int] = set()
     scopes = dict.fromkeys(
@@ -1081,18 +1083,34 @@ def match_group_reads(root: ast.AST) -> set[int]:
             for name, from_match in _bindings(node):
                 bindings.setdefault(name, []).append(from_match)
         bound = {name for name, forms in bindings.items() if all(forms)}
-        for node in nodes:
-            if isinstance(node, ast.Subscript):
-                holder = node.value
-            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                holder = node.func.value
-            elif _is_membership(node):
-                holder = node.comparators[0]
-            else:
-                continue
-            if _is_match_groups(holder) or (isinstance(holder, ast.Name) and holder.id in bound):
-                found.add(id(node))
+        _classify_reads(nodes, bound, found)
     return found
+
+
+def _classify_reads(nodes: list[ast.AST], bound: set[str], found: set[int]) -> None:
+    """Add to `found` the reads among `nodes` whose object is a match's groups or a `bound` name.
+
+    A comprehension among the nodes is classified on its own, with the names its generators
+    bind removed from `bound`.
+    """
+    for node in nodes:
+        if isinstance(node, COMPREHENSIONS):
+            own = {
+                name for generator in node.generators for name in _stored_names(generator.target)
+            }
+            inner = [child for child in _scope_nodes(node) if child is not node]
+            _classify_reads(inner, bound - own, found)
+            continue
+        if isinstance(node, ast.Subscript):
+            holder = node.value
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            holder = node.func.value
+        elif _is_membership(node):
+            holder = node.comparators[0]
+        else:
+            continue
+        if _is_match_groups(holder) or (isinstance(holder, ast.Name) and holder.id in bound):
+            found.add(id(node))
 
 
 def _is_membership(node: ast.AST) -> TypeGuard[ast.Compare]:
@@ -1108,8 +1126,8 @@ def _bindings(node: ast.AST) -> list[tuple[str, bool]]:
     """Return the names a statement binds, each with whether its value is a match's groups.
 
     An assignment, annotated assignment or walrus binds a plain-name target to its value; a
-    name inside an unpacking target (`groups, other = ...`), a `for` target, a `with ... as`
-    name and a function parameter bind to something else.
+    name inside an unpacking target (`groups, other = ...`), a `for` or `async for` target, a
+    `with ... as` name and a function parameter bind to something else.
     """
     if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
         if node.value is None:
@@ -1123,7 +1141,7 @@ def _bindings(node: ast.AST) -> list[tuple[str, bool]]:
             else:
                 found.extend((name, False) for name in _stored_names(target))
         return found
-    if isinstance(node, (ast.For, ast.comprehension)):
+    if isinstance(node, (ast.For, ast.AsyncFor)):
         return [(name, False) for name in _stored_names(node.target)]
     if isinstance(node, ast.withitem) and node.optional_vars is not None:
         return [(name, False) for name in _stored_names(node.optional_vars)]
@@ -1146,14 +1164,20 @@ def _stored_names(target: ast.AST) -> list[str]:
 
 
 def _scope_nodes(scope: ast.AST) -> Iterator[ast.AST]:
-    """Yield the nodes below `scope`, the scope itself included, never inside a nested function."""
+    """Yield the nodes below `scope`, the scope itself included, never inside a nested scope.
+
+    A nested function is left out; a comprehension is yielded but not entered, since it is a
+    scope of its own (`_classify_reads`).
+    """
     pending = [scope]
     while pending:
         node = pending.pop()
         yield node
-        pending.extend(
-            child for child in ast.iter_child_nodes(node) if not isinstance(child, FUNCTIONS)
-        )
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, COMPREHENSIONS):
+                yield child
+            elif not isinstance(child, FUNCTIONS):
+                pending.append(child)
 
 
 def _is_match_groups(node: ast.AST) -> bool:

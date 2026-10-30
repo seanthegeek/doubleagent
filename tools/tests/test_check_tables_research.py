@@ -388,8 +388,11 @@ def test_denies_credential_forms(tmp_path):
         "`lock.json` holds no credentials, only a pid.",
         "`lock.json` (see [`a1b2c3d`](https://x)) has no credential.",
         "`lock.json` contains no credentials.",
+        "`lock.json` is\nnot one.",
     )
     rejected = (
+        "`lock.json` is not one\nof the excluded files and holds the token.",
+        "`lock.json` is not one  of the excluded files and holds the token.",
         "`lock.json` is read with no credentials cached in the keychain.",
         "`lock.json` is not one of the excluded files and holds the token.",
         "`lock.json` is the token file; the rest of the directory holds no credentials.",
