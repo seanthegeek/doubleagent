@@ -720,3 +720,68 @@ def test_fold_forms(tmp_path):
     assert index.fold(module, bindings["PLAIN"][1]) == "c"
     assert index.fold(module, bindings["RUNTIME"][1]) is None
     assert index.fold(module, ast.Name("MISSING")) is None
+
+
+INHERITING_REGISTRY = """\
+    from .alpha import AlphaParser
+    from .beta import BetaParser
+
+    ALL = [AlphaParser(), BetaParser()]
+    """
+
+BETA_BASE = """\
+    from .base import Parser
+
+
+    class BetaParser(Parser):
+        agent = "beta"
+
+        def parse(self, artifact, record):
+            return record.get("inherited")
+    """
+
+ALPHA_CHILD = """\
+    from .beta import BetaParser
+
+
+    class AlphaParser(BetaParser):
+        agent = "alpha"
+
+        def wants(self, artifact):
+            return artifact.rel.get("own")
+    """
+
+
+def test_inherited_key_is_documented_by_the_base_agents_document(tmp_path):
+    root = repository(
+        tmp_path,
+        ALPHA_CHILD,
+        document(schema="`own`", plan=""),
+        {"beta.py": BETA_BASE},
+        INHERITING_REGISTRY,
+    )
+    write(
+        root / "research/beta.md", document(schema="`inherited`", plan="").replace("alpha", "beta")
+    )
+    assert findings(root, "key-undocumented") == []
+    write(root / "research/beta.md", document(schema="`other`", plan="").replace("alpha", "beta"))
+    found = findings(root, "key-undocumented")
+    assert [(item.agent, item.detail, item.path, item.line) for item in found] == [
+        ("alpha", "inherited", PARSERS + "/beta.py", 8),
+        ("beta", "inherited", PARSERS + "/beta.py", 8),
+    ]
+
+
+def test_own_module_literal_is_checked_against_the_own_document_only(tmp_path):
+    root = repository(
+        tmp_path,
+        ALPHA_CHILD,
+        document(schema="`inherited`", plan=""),
+        {"beta.py": BETA_BASE},
+        INHERITING_REGISTRY,
+    )
+    write(root / "research/beta.md", document(schema="`inherited`, `own`").replace("alpha", "beta"))
+    found = findings(root, "key-undocumented")
+    assert [(item.agent, item.detail, item.path) for item in found] == [
+        ("alpha", "own", PARSERS + "/alpha.py")
+    ]

@@ -1,12 +1,12 @@
 """Check the parsers against the Parsing part of their research documents.
 
-Each class of `parsers.ALL` is read with `ast`, never imported, and compared with
-`research/<agent>.md` of its own agent, `reads_agents` notwithstanding. Its literals are those
-of its effective set: its own module and the module of each base in `parsers/`, whole, and the
-definitions those modules import from another parsers-package module (`from .x import name`,
-or `x.name` after `from . import x`, inside a function too) with the top-level names they use;
-`base.py` is never in it. "Documented" means found in the code spans and fenced lines of the
-part named.
+Each `parsers.ALL` class is read with `ast` and compared with its own agent's document. Its
+literals are its effective set's: its module and each base's in `parsers/`, whole, and what
+those import from another parsers module (`from .x import name`, `x.name`, in functions too)
+with the top-level names that uses; never `base.py`. "Documented" means found in the code spans
+and fenced lines of the part named. For rules 1 to 4, a literal is documented when the parser's
+own document names it or, when the module defining it is not the parser's own and is in another
+parser's effective set, that parser's agent document names it.
 
 - `row-text-undocumented`: a row text's constant prefix is in no code span or fenced line of
   the Parsing part.
@@ -887,6 +887,18 @@ class Context:
     keys: list[Literal]
     selectors: list[Selector]
     code_names: frozenset[str]
+    # The agent documents of the other parsers whose effective set holds each module.
+    owners: dict[pathlib.Path, list[Document]]
+
+    def documents_for(self, literal: Literal) -> list[Document]:
+        """Return the documents that may document a literal: the parser's own, then others.
+
+        A literal of the parser's own module has its own document only; one of a base or reader
+        module also has the documents of the other parsers whose effective set holds that module.
+        """
+        if literal.path == self.parser.module:
+            return [self.document]
+        return [self.document, *self.owners.get(literal.path, [])]
 
     def relative(self, path: pathlib.Path) -> str:
         """Return a path relative to the repository root, in POSIX form."""
@@ -908,7 +920,8 @@ def row_text_findings(context: Context) -> Iterator[drift_common.Finding]:
         if not is_row_text(literal.text):
             continue
         prefix = constant_prefix(literal.text)
-        if prefix and not context.document.parsing.documents_prefix(prefix):
+        documents = context.documents_for(literal)
+        if prefix and not any(item.parsing.documents_prefix(prefix) for item in documents):
             message = "no code span or fenced line of the Parsing part of %s holds it" % document
             yield context.finding("row-text-undocumented", prefix, literal, message)
 
@@ -920,7 +933,7 @@ def parser_message_findings(context: Context) -> Iterator[drift_common.Finding]:
         if not literal.text.startswith(PARSER_PREFIX):
             continue
         pieces = constant_pieces(literal.text)
-        if not context.document.plan.documents_pieces(pieces):
+        if not any(item.plan.documents_pieces(pieces) for item in context.documents_for(literal)):
             message = "its constant pieces are in no code span of the Parser plan of %s" % document
             detail = drift_common.collapse(literal.text)
             yield context.finding("parser-message-undocumented", detail, literal, message)
@@ -930,7 +943,8 @@ def pattern_findings(context: Context) -> Iterator[drift_common.Finding]:
     """Yield `pattern-undocumented` per file pattern no code span of the Parsing part equals."""
     document = context.relative(context.document.path)
     for selector in context.selectors:
-        if not context.document.parsing.documents_pattern(selector.literal.text):
+        documents = context.documents_for(selector.literal)
+        if not any(item.parsing.documents_pattern(selector.literal.text) for item in documents):
             message = "no code span or fenced line of the Parsing part of %s equals it" % document
             yield context.finding(
                 "pattern-undocumented", selector.literal.text, selector.literal, message
@@ -941,7 +955,8 @@ def key_findings(context: Context) -> Iterator[drift_common.Finding]:
     """Yield `key-undocumented` per key, column or table the Parsing part does not name."""
     document = context.relative(context.document.path)
     for literal in context.keys:
-        if not context.document.parsing.documents_key(literal.text):
+        documents = context.documents_for(literal)
+        if not any(item.parsing.documents_key(literal.text) for item in documents):
             message = "no code span or fenced line of the Parsing part of %s names it" % document
             yield context.finding("key-undocumented", literal.text, literal, message)
 
@@ -1113,26 +1128,31 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
     package = parsers.parent
     index = ModuleIndex(package)
     names = code_names(index, package)
-    documents = drift_common.agent_documents(root)
-    read: dict[str, Document] = {}
+    paths = drift_common.agent_documents(root)
+    classes = [item for item in drift_common.parser_classes(parsers) if item.agent in paths]
+    read = {item.agent: read_document(paths[item.agent]) for item in classes}
+    effective = {id(item): effective_set(index, item, parsers) for item in classes}
+    holders: dict[pathlib.Path, list[str]] = {}
+    for item in classes:
+        for module in effective[id(item)].nodes:
+            holders.setdefault(module, []).append(item.agent)
     seen: set[tuple[str, str, str]] = set()
-    for parser in drift_common.parser_classes(parsers):
-        path = documents.get(parser.agent)
-        if path is None:
-            continue
-        if parser.agent not in read:
-            read[parser.agent] = read_document(path)
-        effective = effective_set(index, parser, parsers)
+    for parser in classes:
+        owners = {
+            module: [read[agent] for agent in dict.fromkeys(agents) if agent != parser.agent]
+            for module, agents in holders.items()
+        }
         context = Context(
             root,
             parsers,
             index,
             parser,
             read[parser.agent],
-            effective.literals(index),
-            key_reads(index, effective),
+            effective[id(parser)].literals(index),
+            key_reads(index, effective[id(parser)]),
             selectors(index, parser, parsers),
             names,
+            owners,
         )
         for rule in RULES:
             for finding in rule(context):
