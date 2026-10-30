@@ -34,14 +34,12 @@ check_parser_research|docstring-fact-undocumented|isSummary
 check_parser_research|docstring-fact-undocumented|parentTaskId
 check_parser_research|docstring-fact-undocumented|reasoning_content
 check_parser_research|key-undocumented|attempt
-check_parser_research|key-undocumented|duration
 check_parser_research|key-undocumented|entries
 check_parser_research|key-undocumented|filename
 check_parser_research|key-undocumented|isSummary
 check_parser_research|key-undocumented|is_error
 check_parser_research|key-undocumented|parentTaskId
 check_parser_research|key-undocumented|reasoning_content
-check_parser_research|key-undocumented|sid
 check_parser_research|key-undocumented|task
 check_parser_research|key-undocumented|thinking
 check_parser_research|key-undocumented|workspace

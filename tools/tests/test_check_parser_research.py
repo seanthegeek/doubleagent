@@ -458,6 +458,138 @@ def test_key_read_forms(tmp_path):
     ]
 
 
+def test_named_group_read_from_a_match_is_not_a_key(tmp_path):
+    alpha = alpha_with(
+        """\
+        fields = FIELDS.search(record["line"])
+        groups = fields.groupdict()
+        first = fields.group(1)
+        return groups["sid"], groups.get("took"), fields.groupdict()["took"], first[0]
+        """,
+        header='FIELDS = re.compile(r"sessionID=(?P<sid>\\S+) durationMs=(?P<took>\\d+)")\n',
+    )
+    root = repository(tmp_path / "groups", alpha, document(schema="`line`"))
+    assert details(root, "key-undocumented") == []
+    from_record = alpha.replace("first[0]\n", 'first[0], record["sid"], groups["other"]\n')
+    root = repository(tmp_path / "record", from_record, document(schema="`line`"))
+    assert sorted(details(root, "key-undocumented")) == ["other", "sid"]
+
+
+def test_match_group_reads_skip_a_name_rebound_to_a_record():
+    source = (
+        "import re\n"
+        "PATTERN = re.compile(r'(?P<sid>\\S+)')\n"
+        "def read(match, line):\n"
+        "    data = match.groupdict()\n"
+        "    first = data.get('sid')\n"
+        "    data = json.loads(line)\n"
+        "    return first, data.get('sid')\n"
+        "def loop(match, rows):\n"
+        "    for data in rows:\n"
+        "        data = match.groupdict()\n"
+        "        yield data['sid']\n"
+    )
+    tree = ast.parse(source)
+    reads = [node for node in ast.walk(tree) if isinstance(node, (ast.Call, ast.Subscript))]
+    skipped = checker.match_group_reads(tree)
+    lines = sorted(node.lineno for node in reads if id(node) in skipped)
+    assert lines == [], "a name bound once by a record or a loop is never a match's groups"
+
+
+def test_match_group_reads_cover_membership_and_stop_at_unpacking():
+    source = (
+        "import re\n"
+        "PATTERN = re.compile(r'(?P<sid>\\S+)')\n"
+        "def read(match, record):\n"
+        "    groups = match.groupdict()\n"
+        "    a = 'sid' in groups\n"
+        "    b = 'sid' not in match.groupdict()\n"
+        "    c = 'sid' in record\n"
+        "    return a, b, c\n"
+        "def unpack(match, record):\n"
+        "    groups = match.groupdict()\n"
+        "    groups, other = record, None\n"
+        "    return groups['sid']\n"
+        "def update(match):\n"
+        "    groups = match.groupdict()\n"
+        "    groups['sid'] = groups['sid'].upper()\n"
+        "    return groups['sid']\n"
+        "def context(match, record):\n"
+        "    groups = match.groupdict()\n"
+        "    with nullcontext((record, None)) as (groups, other):\n"
+        "        return groups['sid']\n"
+    )
+    tree = ast.parse(source)
+    nodes = [node for node in ast.walk(tree) if isinstance(node, (ast.Compare, ast.Subscript))]
+    skipped = checker.match_group_reads(tree)
+    lines = sorted(node.lineno for node in nodes if id(node) in skipped)
+    assert lines == [5, 6, 15, 15, 16], (
+        "membership tests and reads after storing into an item are skipped; reads after an"
+        " unpacking or with-target rebinding are not"
+    )
+
+
+def test_match_group_reads_scope_async_loops_and_comprehensions():
+    source = (
+        "import re\n"
+        "PATTERN = re.compile(r'(?P<sid>\\S+)')\n"
+        "async def stream(match, records):\n"
+        "    groups = match.groupdict()\n"
+        "    async for groups in records:\n"
+        "        yield groups['sid']\n"
+        "def collect(match, records):\n"
+        "    groups = match.groupdict()\n"
+        "    recovered = [groups['sid'] for groups in records]\n"
+        "    kept = {groups['sid']: row['sid'] for row in records}\n"
+        "    return groups['sid'], recovered, kept\n"
+        "def walrus(match, records):\n"
+        "    groups = match.groupdict()\n"
+        "    saved = [(groups := record) for record in records]\n"
+        "    return groups['sid'], saved\n"
+    )
+    tree = ast.parse(source)
+    nodes = [node for node in ast.walk(tree) if isinstance(node, ast.Subscript)]
+    skipped = checker.match_group_reads(tree)
+    exempt = sorted((node.lineno, node.col_offset) for node in nodes if id(node) in skipped)
+    assert exempt == [(10, 12), (11, 11)], (
+        "an async for rebinds the name; a comprehension's own target hides the outer name only"
+        " inside it, and the outer name stays a match's groups elsewhere, inside one too; a"
+        " walrus inside a comprehension rebinds the name in the function"
+    )
+
+
+def test_match_group_reads_forms():
+    tree = ast.parse(
+        textwrap.dedent(
+            """\
+            def parse(match, record):
+                groups = match.groupdict()
+                if (found := match.groupdict()):
+                    found.get("a")
+                return groups["a"], match.groupdict()["a"], record["a"], record.get("a")
+
+            def other(groups):
+                return groups["a"]
+            """
+        )
+    )
+    reads = checker.match_group_reads(tree)
+    on_groups = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript):
+            on_groups.append((ast.unparse(node.value), id(node) in reads))
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.args:
+            on_groups.append((ast.unparse(node.func.value), id(node) in reads))
+    assert sorted(on_groups) == [
+        ("found", True),
+        ("groups", False),
+        ("groups", True),
+        ("match.groupdict()", True),
+        ("record", False),
+        ("record", False),
+    ]
+
+
 def test_sql_names_forms():
     assert checker.sql_names("select rowid as _rowid, key, value from ItemTable where x = ?") == [
         "key",

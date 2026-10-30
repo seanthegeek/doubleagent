@@ -54,5 +54,3 @@ check_smoke_coverage|secret-check-missing|smoke.sh .config/crush/crushrc
 check_smoke_coverage|secret-check-missing|smoke.sh .crush/crush.json
 check_smoke_coverage|secret-check-missing|smoke.sh .local/share/crush/crush.json
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/crush/crush.json
-check_tables_research|credential-unflagged|.crush/crush.lock
-check_tables_research|credential-unflagged|AppData/Local/crush/crush.lock

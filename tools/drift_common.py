@@ -13,7 +13,8 @@ fails, so new drift fails CI while the drift recorded in the baseline expires ag
   `stale: remove "<key>" from tools/drift-baseline/<agent>.txt`.
 - A baseline line with fewer than three fields belongs to no checker; every checker fails on it.
 - `--update-baseline` rewrites the checker's own lines of every agent file from the run's
-  findings, deletes a file left empty, keeps every other checker's lines, and exits 0.
+  findings, deletes a file left empty, keeps every other checker's lines, and exits 0; it drops
+  a malformed line with `<file>:<n>: dropped malformed baseline line: <text>` on stderr.
 
 A checker defines `run(root)`, yielding `Finding`s for the repository at `root`, and ends with
 `sys.exit(main_with_baseline("check_example", run))`; `tools/tests/example_checker.py` is the
@@ -199,8 +200,9 @@ def compare(
 def update_baseline(root: pathlib.Path, checker: str, findings: Iterable[Finding]) -> int:
     """Rewrite the lines of `checker` in every baseline file from `findings`.
 
-    Every other checker's lines stay; a file left empty is deleted; the directory is created
-    only when a line is written. Returns the number of lines `checker` now owns.
+    Every other checker's lines stay and a malformed line, which no checker owns, is dropped
+    with a message on stderr; a file left empty is deleted; the directory is created only when
+    a line is written. Returns the number of lines `checker` now owns.
     """
     wanted: dict[str, set[str]] = {}
     for finding in findings:
@@ -211,8 +213,15 @@ def update_baseline(root: pathlib.Path, checker: str, findings: Iterable[Finding
     for agent in sorted(present | set(wanted)):
         path = root / baseline_file(agent)
         old = path.read_text(encoding="utf-8") if path.is_file() else ""
-        kept = {line.rstrip("\r") for line in old.split("\n") if line.strip()}
-        kept = {line for line in kept if line_owner(line) != checker}
+        kept: set[str] = set()
+        for number, raw in enumerate(old.split("\n"), 1):
+            line = raw.rstrip("\r")
+            owner = line_owner(line) if line.strip() else checker
+            if not owner:
+                message = "%s:%d: dropped malformed baseline line: %s"
+                print(message % (baseline_file(agent), number, line), file=sys.stderr)
+            elif owner != checker:
+                kept.add(line)
         lines = sorted(kept | wanted.get(agent, set()))
         text = "".join(line + "\n" for line in lines)
         if not lines:

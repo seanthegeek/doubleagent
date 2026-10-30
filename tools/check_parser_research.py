@@ -16,14 +16,14 @@ set, in that parser's agent document (rules 1 to 4).
   matched by the pattern's glob form there (`regex_components`, `*` any text): a segment with a
   quantifier, class, group or `.*` only by one with `*`, `?` or `<...>`, a fixed one by its
   literal; a top-level alternation by a branch; a pattern that does not compile by nothing.
-- `key-undocumented`: a key the parser reads, or a `select` column or table, is no Parsing word.
+- `key-undocumented`: a key the parser reads, or a `select` column or table, is no Parsing word;
+  a named group `(?P<name>...)` of its literals read from a match's groups is no key read.
 - `flag-undocumented`: `records_sync`, `records_relay` or `records_origin` is True while Sync,
   relay and origin rows says "The agent records none." or "Not stated.", or `has_secondary` is True
   while Past-use rows and secondary sources says so.
 - `flag-unset`: that subsection names a `session synced:`, `session relayed:` or `session origin:`
   row or a secondary source in a sentence neither denying nor only supposing it, its flag False.
-- `not-read-contradicted`: a name the Parsing part says is not read is a key the parser reads or a
-  file one of its file patterns matches.
+- `not-read-contradicted`: a name Parsing says is not read is a key read or a file patterns match.
 - `docstring-fact-undocumented`: a module docstring span is a row text or key in no span or fenced
   line of the document, a pattern the whole document does not document by rule 3's test, or a
   `key_value` with a key or value Parsing lacks.
@@ -40,6 +40,7 @@ import re
 import sys
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
+from typing import TypeGuard
 
 import drift_common
 
@@ -53,6 +54,9 @@ PARSER_PREFIX = "parser: "
 SELECTOR_METHODS = ("wants", "secondary")
 REGEX_FUNCTIONS = frozenset({"compile", "match", "search", "fullmatch"})
 KEY_READ_METHODS = frozenset({"get", "pop"})
+# The methods of a regex match whose results hold its groups, not record keys.
+MATCH_GROUP_METHODS = frozenset({"groupdict", "group"})
+NAMED_GROUP = re.compile(r"\(\?P<([A-Za-z_][A-Za-z0-9_]*)>")
 # The flag a `session <label>:` row of the Sync, relay and origin rows subsection calls for.
 SYNC_ROW_FLAGS = {
     "session synced:": "records_sync",
@@ -97,6 +101,10 @@ FILE_EXTENSIONS = frozenset(
     {"json", "jsonl", "md", "db", "sqlite", "sqlite3", "txt", "toml", "yaml", "yml", "log"}
     | {"vscdb", "pb", "key", "py", "ts", "js", "lock", "xml", "env", "html", "csv", "zst"}
 )
+
+
+FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
 
 
 # --- Literals ---------------------------------------------------------------------------------
@@ -1030,22 +1038,177 @@ def key_reads(index: ModuleIndex, effective: EffectiveSet) -> list[Literal]:
 
     A key read is the first argument of `.get` or `.pop`, a subscript, or the left side of `in`
     or `not in` against anything but a literal string or collection, when it folds to a string
-    of the key form (`is_key`); SQLite's own `rowid` and its `_rowid` alias are not keys.
+    of the key form (`is_key`); SQLite's own `rowid` and its `_rowid` alias are not keys, nor is
+    a named group of a literal read on a match's groups (`match_group_reads`).
     """
     found: list[Literal] = []
+    literals = effective.literals(index)
+    groups = {name for literal in literals for name in NAMED_GROUP.findall(literal.text)}
     for path, nodes in effective.nodes.items():
         for root in nodes:
+            on_groups = match_group_reads(root)
             for node in ast.walk(root):
                 candidate = _read_key_node(node)
                 text = index.fold(path, candidate) if candidate is not None else None
+                if text in groups and id(node) in on_groups:
+                    continue
                 if text is not None and is_key(text) and text.lower() not in SQLITE_ROW_IDS:
                     found.append(Literal(text, path, getattr(candidate, "lineno", 0)))
-    for literal in effective.literals(index):
+    for literal in literals:
         if "select" in literal.text.lower():
             found.extend(
                 Literal(name, literal.path, literal.line) for name in sql_names(literal.text)
             )
     return found
+
+
+def match_group_reads(root: ast.AST) -> set[int]:
+    """Return the ids of the key reads under `root` whose object holds a regex match's groups.
+
+    The object of a subscript, a method call or a membership test is a `.groupdict()` or
+    `.group(...)` call, or a name whose every binding in the same function, or outside any
+    function, is one: `fields.groupdict()["sid"]`, `groups.get("sid")`, `"sid" in groups`; a
+    name later rebound to a record, by unpacking, a `with` target or an `async for` too, is
+    no match's groups; storing into one of its items does not rebind it. A comprehension is
+    its own scope: it sees the names around it less those its own targets bind, while a
+    walrus inside it binds in the function around it.
+    """
+    found: set[int] = set()
+    scopes = dict.fromkeys(
+        [root, *(node for node in ast.walk(root) if isinstance(node, FUNCTIONS))]
+    )
+    for scope in scopes:
+        nodes = list(_scope_nodes(scope))
+        bindings: dict[str, list[bool]] = {}
+        for node in nodes:
+            for name, from_match in _bindings(node):
+                bindings.setdefault(name, []).append(from_match)
+            if isinstance(node, COMPREHENSIONS):
+                for name, from_match in _walrus_bindings(node):
+                    bindings.setdefault(name, []).append(from_match)
+        bound = {name for name, forms in bindings.items() if all(forms)}
+        _classify_reads(nodes, bound, found)
+    return found
+
+
+def _walrus_bindings(comprehension: ast.AST) -> list[tuple[str, bool]]:
+    """Return the bindings of the walrus expressions inside a comprehension, nested ones too.
+
+    A `:=` inside a comprehension binds its name in the containing function, not in the
+    comprehension, so these bindings belong to the enclosing scope.
+    """
+    found: list[tuple[str, bool]] = []
+    pending = list(ast.iter_child_nodes(comprehension))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, FUNCTIONS):
+            continue
+        if isinstance(node, ast.NamedExpr):
+            found.extend(_bindings(node))
+        pending.extend(ast.iter_child_nodes(node))
+    return found
+
+
+def _classify_reads(nodes: list[ast.AST], bound: set[str], found: set[int]) -> None:
+    """Add to `found` the reads among `nodes` whose object is a match's groups or a `bound` name.
+
+    A comprehension among the nodes is classified on its own, with the names its generators
+    bind removed from `bound`.
+    """
+    for node in nodes:
+        if isinstance(node, COMPREHENSIONS):
+            own = {
+                name for generator in node.generators for name in _stored_names(generator.target)
+            }
+            inner = [child for child in _scope_nodes(node) if child is not node]
+            _classify_reads(inner, bound - own, found)
+            continue
+        if isinstance(node, ast.Subscript):
+            holder = node.value
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            holder = node.func.value
+        elif _is_membership(node):
+            holder = node.comparators[0]
+        else:
+            continue
+        if _is_match_groups(holder) or (isinstance(holder, ast.Name) and holder.id in bound):
+            found.add(id(node))
+
+
+def _is_membership(node: ast.AST) -> TypeGuard[ast.Compare]:
+    """Return whether `node` is a one-operator `in` or `not in` comparison."""
+    return (
+        isinstance(node, ast.Compare)
+        and len(node.ops) == 1
+        and isinstance(node.ops[0], (ast.In, ast.NotIn))
+    )
+
+
+def _bindings(node: ast.AST) -> list[tuple[str, bool]]:
+    """Return the names a statement binds, each with whether its value is a match's groups.
+
+    An assignment, annotated assignment or walrus binds a plain-name target to its value; a
+    name inside an unpacking target (`groups, other = ...`), a `for` or `async for` target, a
+    `with ... as` name and a function parameter bind to something else.
+    """
+    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+        if node.value is None:
+            return []
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        from_match = _is_match_groups(node.value)
+        found: list[tuple[str, bool]] = []
+        for target in targets:
+            if isinstance(target, ast.Name):
+                found.append((target.id, from_match))
+            else:
+                found.extend((name, False) for name in _stored_names(target))
+        return found
+    if isinstance(node, (ast.For, ast.AsyncFor)):
+        return [(name, False) for name in _stored_names(node.target)]
+    if isinstance(node, ast.withitem) and node.optional_vars is not None:
+        return [(name, False) for name in _stored_names(node.optional_vars)]
+    if isinstance(node, ast.arg):
+        return [(node.arg, False)]
+    return []
+
+
+def _stored_names(target: ast.AST) -> list[str]:
+    """Return the names a target binds: its `Name` nodes in store context, not the containers.
+
+    `groups["sid"] = x` stores into `groups` without rebinding it, so `groups` is not returned;
+    `(groups, other)` returns both names.
+    """
+    return [
+        name.id
+        for name in ast.walk(target)
+        if isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store)
+    ]
+
+
+def _scope_nodes(scope: ast.AST) -> Iterator[ast.AST]:
+    """Yield the nodes below `scope`, the scope itself included, never inside a nested scope.
+
+    A nested function is left out; a comprehension is yielded but not entered, since it is a
+    scope of its own (`_classify_reads`).
+    """
+    pending = [scope]
+    while pending:
+        node = pending.pop()
+        yield node
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, COMPREHENSIONS):
+                yield child
+            elif not isinstance(child, FUNCTIONS):
+                pending.append(child)
+
+
+def _is_match_groups(node: ast.AST) -> bool:
+    """Return whether a node is a call of a `MATCH_GROUP_METHODS` method."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in MATCH_GROUP_METHODS
+    )
 
 
 def _read_key_node(node: ast.AST) -> ast.AST | None:
