@@ -11,7 +11,7 @@ parser's effective set, that parser's agent document names it.
 - `row-text-undocumented`: a row text's constant prefix is in no code span or fenced line of
   the Parsing part.
 - `parser-message-undocumented`: a literal beginning `parser: ` has its constant pieces, in
-  order, in no code span or fenced line of the Parser plan and its subsections.
+  order, in no code span or fenced line of the Parsing part.
 - `pattern-undocumented`: a file pattern the parser selects files with equals no code span or
   fenced line of the Parsing part, both sides unescaped.
 - `key-undocumented`: a key the parser reads from a record, or a column or table a `select`
@@ -68,6 +68,8 @@ SQL_SELECT = re.compile(r"\bselect\s+(.*?)\s+from\s", re.IGNORECASE | re.DOTALL)
 SQL_TABLE = re.compile(r"\b(?:from|join)\s+[\"'`\[]?([A-Za-z_][A-Za-z0-9_]*)", re.IGNORECASE)
 SQL_IDENTIFIER = re.compile(r"[\"'`\[]?([A-Za-z_][A-Za-z0-9_]*)[\"'`\]]?(\s*\()?")
 SQL_ALIAS = re.compile(r"\s+as\s+\S+\s*$", re.IGNORECASE)
+# A table name or alias qualifying a column (`d.` of `d.created_at`, `"d".` of `"d".*`).
+SQL_QUALIFIER = re.compile(r"[\"'`\[]?[A-Za-z_][A-Za-z0-9_]*[\"'`\]]?\s*\.\s*")
 SQL_WORDS = frozenset(
     {"as", "distinct", "all", "case", "when", "then", "else", "end", "null", "and", "or", "not"}
     | {"rowid", "_rowid", "oid", "count", "length", "max", "min", "sum", "coalesce", "instr"}
@@ -378,14 +380,17 @@ def is_key(text: str) -> bool:
 def sql_names(text: str) -> list[str]:
     """Return the columns of each `select` list and the tables after `from` and `join` in `text`.
 
-    A column is an identifier of a list item less its `as` alias and outside a function name;
-    `*`, `rowid`, keywords, functions and `%s` placeholders are not names. Matching ignores case.
+    A column is an identifier of a list item less its `as` alias, its table qualifier and any
+    function name: `c.channel` gives `channel` and `d.*` nothing, so a table alias defined after
+    a table name (`from x d`, `join x as d`) is never a name. `*`, `rowid`, keywords and `%s`
+    placeholders are not names either. Matching ignores case.
     """
     selects = list(SQL_SELECT.finditer(text))
     names: list[str] = []
     for match in selects:
         for item in match.group(1).split(","):
             item = SQL_ALIAS.sub("", PLACEHOLDER.sub(" ", item))
+            item = SQL_QUALIFIER.sub("", item)
             for identifier in SQL_IDENTIFIER.finditer(item):
                 if not identifier.group(2):
                     names.append(identifier.group(1))
@@ -659,12 +664,11 @@ def corpus_of(texts: Iterable[str], spans: Iterable[str]) -> Corpus:
 
 @dataclass
 class Document:
-    """A research document read for this check: its sections and three corpora."""
+    """A research document read for this check: its sections and two corpora."""
 
     path: pathlib.Path
     sections: dict[str, drift_common.Section]
     parsing: Corpus
-    plan: Corpus
     whole: Corpus
 
     def subsection(self, title: str) -> drift_common.Section | None:
@@ -674,13 +678,12 @@ class Document:
 
 
 def read_document(path: pathlib.Path) -> Document:
-    """Return the document at `path` with its Parsing, Parser plan and whole corpora."""
+    """Return the document at `path` with its Parsing and whole corpora."""
     sections = drift_common.research_sections(path)
     return Document(
         path,
         sections,
         corpus(drift_common.within(sections, *PARSING)),
-        corpus(drift_common.within(sections, *PARSER_PLAN)),
         corpus(list(sections.values())),
     )
 
@@ -927,14 +930,15 @@ def row_text_findings(context: Context) -> Iterator[drift_common.Finding]:
 
 
 def parser_message_findings(context: Context) -> Iterator[drift_common.Finding]:
-    """Yield `parser-message-undocumented` per `parser: ` literal the Parser plan lacks."""
+    """Yield `parser-message-undocumented` per `parser: ` literal the Parsing part lacks."""
     document = context.relative(context.document.path)
     for literal in context.literals:
         if not literal.text.startswith(PARSER_PREFIX):
             continue
         pieces = constant_pieces(literal.text)
-        if not any(item.plan.documents_pieces(pieces) for item in context.documents_for(literal)):
-            message = "its constant pieces are in no code span of the Parser plan of %s" % document
+        documents = context.documents_for(literal)
+        if not any(item.parsing.documents_pieces(pieces) for item in documents):
+            message = "its constant pieces are in no code span of the Parsing part of %s" % document
             detail = drift_common.collapse(literal.text)
             yield context.finding("parser-message-undocumented", detail, literal, message)
 

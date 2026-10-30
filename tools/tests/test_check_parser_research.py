@@ -229,15 +229,19 @@ def test_constant_prefix_stops_at_the_first_placeholder():
 # --- Rule 2: parser messages ------------------------------------------------------------------
 
 
-def test_parser_message_documented_only_under_the_parser_plan(tmp_path):
+def test_parser_message_documented_anywhere_in_the_parsing_part(tmp_path):
     alpha = alpha_with('return "parser: %s is not a JSON object" % record.get("type")')
     under_schema = document(schema="`type`; `parser: index is not a JSON object`")
-    root = repository(tmp_path, alpha, under_schema)
-    assert details(root, "parser-message-undocumented") == ["parser: %s is not a JSON object"]
+    root = repository(tmp_path / "schema", alpha, under_schema)
+    assert details(root, "parser-message-undocumented") == []
     under_bad_lines = document(bad="`parser: index is not a JSON object`")
-    assert (
-        details(repository(tmp_path, alpha, under_bad_lines), "parser-message-undocumented") == []
+    root = repository(tmp_path / "bad", alpha, under_bad_lines)
+    assert details(root, "parser-message-undocumented") == []
+    under_collection = document().replace(
+        "Collected: `.alpha/notes.md`.", "`parser: index is not a JSON object`"
     )
+    root = repository(tmp_path / "collection", alpha, under_collection)
+    assert details(root, "parser-message-undocumented") == ["parser: %s is not a JSON object"]
 
 
 def test_constant_pieces_and_holds_pieces_forms():
@@ -384,6 +388,13 @@ def test_sql_names_forms():
         "b",
     ]
     assert checker.sql_names("select * from sessions order by created_at") == ["sessions"]
+    openclaw = (
+        "select d.rowid as _rowid, d.*, c.channel from conversation_deliveries d"
+        " join conversations c using (conversation_id) order by d.created_at, d.rowid"
+    )
+    assert checker.sql_names(openclaw) == ["channel", "conversation_deliveries", "conversations"]
+    aliased = 'select "t".thread_id, a.* from worktrees as a left join links t on t.id = a.id'
+    assert checker.sql_names(aliased) == ["thread_id", "worktrees", "links"]
     assert checker.sql_names("pragma table_info(steps)") == []
     assert checker.sql_names("read from the file") == []
 

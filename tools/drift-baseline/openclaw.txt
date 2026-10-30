@@ -39,12 +39,9 @@ check_fixture_schema|key-undocumented|updatedAt
 check_fixture_schema|module-provenance-missing|openclaw
 check_fixture_schema|sample-equals-builder|.openclaw/agents/main/agent/openclaw-agent.sqlite
 check_fixture_schema|substitution-undeclared|/srv/scratch
-check_parser_research|key-undocumented|c
 check_parser_research|key-undocumented|c1
 check_parser_research|key-undocumented|c2
 check_parser_research|key-undocumented|c3
-check_parser_research|key-undocumented|d
-check_parser_research|key-undocumented|l
 check_parser_research|key-undocumented|row
 check_parser_research|key-undocumented|runtimeContextCarrier
 check_parser_research|pattern-undocumented|\.trajectory$
