@@ -49,10 +49,6 @@ check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .tabby/ee/db.sqlite-shm
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .tabby/ee/db.sqlite-wal
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .tabby/ee/db.sqlite-shm
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .tabby/ee/db.sqlite-wal
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .tabby-client/agent/config.toml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .tabby/config.toml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .tabby-client/agent/config.toml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .tabby/config.toml
 check_tables_research|line-unnamed|home .config/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|line-unnamed|home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|line-unnamed|home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml

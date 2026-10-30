@@ -1,10 +1,4 @@
-check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 n8n
-check_smoke_coverage|framework-nosecrets-missing|smoke.sh n8n
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .n8n/config
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .n8n/ssh/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 ssh/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .n8n/config
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .n8n/ssh/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh ssh/*
 check_tables_research|credential-wording|collected unflagged `database.sqlite`
 check_tables_research|volume-glob-unnamed|exclude n8n-sdk-templates

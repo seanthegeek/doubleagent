@@ -24,10 +24,6 @@ check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .local/share/muse/plugi
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .local/share/muse/plugins/cache/local/p1/plugin.json
 check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/muse/auth.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/muse/settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/muse/auth.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/muse/settings.json
 check_tables_research|parsing-fact-under-collection|auth.jsonstoragemcp_oauthmcp_oauth_client: mcp-oauth-v1mcp_oauth:
 check_tables_research|parsing-fact-under-collection|provider_id
 check_tables_research|parsing-fact-under-collection|schema_version

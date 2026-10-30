@@ -184,7 +184,6 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh workdir/*/.venv
 check_smoke_coverage|exclusion-check-missing|smoke.sh workdir/*/node_modules
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/profiles/*/mcp.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/api-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/secret-key.txt
@@ -215,7 +214,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/plugins/_desktop/prof
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 whatsapp/session/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/profiles/*/mcp.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/api-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/secret-key.txt

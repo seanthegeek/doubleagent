@@ -45,36 +45,6 @@ check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/archive
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/credentials/c1
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/rules/r.md
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/secrets/s1
-check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 open-interpreter
-check_smoke_coverage|framework-nosecrets-missing|smoke.sh open-interpreter
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Open Interpreter*/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/open-interpreter/profiles/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/.credentials.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/.sandbox-secrets/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/auth.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/config.toml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/credentials/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/device_id
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/secrets/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Open Interpreter*/Open Interpreter*/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/open-interpreter/open-interpreter/profiles/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Open Interpreter*/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/open-interpreter/profiles/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/Open Interpreter*/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/open-interpreter/profiles/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/.credentials.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/.sandbox-secrets/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/auth.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/config.toml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/credentials/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/device_id
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/secrets/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Open Interpreter*/Open Interpreter*/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/open-interpreter/open-interpreter/profiles/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Open Interpreter*/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/open-interpreter/profiles/*
 check_tables_research|credential-wording|can embed `config.toml`
 check_tables_research|line-unnamed|exclude AppData/Local/open-interpreter/open-interpreter/models
 check_tables_research|line-unnamed|home AppData/Local/Open Interpreter*

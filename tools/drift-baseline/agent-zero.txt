@@ -53,10 +53,6 @@ check_smoke_coverage|fixture-name-undocumented|smoke.sh .config/Agent Zero Launc
 check_smoke_coverage|fixture-name-undocumented|smoke.sh agent-zero/main/usr/plugins/_desktop/profiles/d1/.gnupg/k1
 check_smoke_coverage|fixture-name-undocumented|smoke.sh agent-zero/main/usr/plugins/_desktop/profiles/d1/.ssh/id_ed25519
 check_smoke_coverage|fixture-name-undocumented|smoke.sh projects/p219/notes.md
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Agent Zero Launcher/Local State
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Agent Zero Launcher/docker_manager/state.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .agent-zero/.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .agent-zero/session_cookies.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/tmp/secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/tmp/settings.json
@@ -65,16 +61,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/p
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/tmp/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/tmp/settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/projects/*/.a0proj/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 tmp/secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 tmp/settings.json
@@ -82,10 +68,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/projects/*/.a0proj/secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh */Agent Zero Launcher/Local State
-check_smoke_coverage|nosecrets-check-missing|smoke.sh */Agent Zero Launcher/docker_manager/state.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .agent-zero/.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .agent-zero/session_cookies.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/tmp/secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/tmp/settings.json
@@ -94,16 +76,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/pl
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/tmp/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/tmp/settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/projects/*/.a0proj/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh tmp/secrets.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh tmp/settings.json

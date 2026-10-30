@@ -41,16 +41,8 @@ check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .nanobot-work/whatsapp-
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .nanobot/matrix-store/s1
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .nanobot-work/whatsapp-auth/a1
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .nanobot/matrix-store/s1
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .nanobot*/auth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .nanobot*/config.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .nanobot*/matrix-store/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .nanobot*/whatsapp-auth/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 matrix-store/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 whatsapp-auth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .nanobot*/auth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .nanobot*/config.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .nanobot*/matrix-store/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .nanobot*/whatsapp-auth/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh matrix-store/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh whatsapp-auth/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 matrix-store/*

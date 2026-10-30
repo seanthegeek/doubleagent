@@ -2180,6 +2180,28 @@ foreach ($driftPath in $driftCrushFiles) {
   Check "#323 Crush project file skipped without secrets: $driftPath" { (StatusOf "crushwin/$driftPath") -eq 'skipped_secret' }
 }
 
+# 2026-10-04 catalog cases
+foreach ($caseLine in $CasesCatalog) {
+  $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"
+  switch ($fields[0]) {
+    'secret' { Check "no-secrets: $($fields[2])" { $row -and $row.status -eq 'skipped_secret' } }
+  }
+}
+# 2026-10-04 Muse Code
+foreach ($caseLine in $CasesMuse) {
+  $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"
+  switch ($fields[0]) {
+    'secret' { Check "no-secrets: $($fields[2])" { $row -and $row.agent -eq 'muse-code' -and $row.status -eq 'skipped_secret' } }
+  }
+}
+# 2026-10-06 frameworks sweep (#64)
+foreach ($caseLine in $CasesFrameworks) {
+  $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"
+  switch ($fields[0]) {
+    'secret' { Check "no-secrets: $($fields[2])" { $row -and $row.status -eq 'skipped_secret' } }
+  }
+}
+
 # ---- -Full ----------------------------------------------------------------
 Run 'full' @{ Full = $true }
 Check 'Full exit 0' { $script:ExitCode -eq 0 }

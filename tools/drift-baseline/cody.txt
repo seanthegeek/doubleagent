@@ -38,14 +38,10 @@ check_smoke_coverage|fixture-missing|smoke.sh home Library/Preferences/Cody-node
 check_smoke_coverage|fixture-missing|smoke.sh project .cody
 check_smoke_coverage|fixture-missing|smoke.sh project .sourcegraph
 check_smoke_coverage|fixture-missing|smoke.sh project .vscode/cody.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Cody-nodejs/Config/user-settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Cody-nodejs/user-settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/JetBrains/*/options/cody.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/JetBrains/*/options/cody_accounts.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody_accounts.xml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh */Cody-nodejs/Config/user-settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh */Cody-nodejs/user-settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody_accounts.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody.xml

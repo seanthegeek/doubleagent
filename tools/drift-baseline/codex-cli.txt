@@ -82,13 +82,11 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/visualizations
 check_smoke_coverage|fixture-missing|smoke.ps1 project .codex
 check_smoke_coverage|fixture-missing|smoke.sh project .codex
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/.credentials.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/.sandbox-secrets/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/config.toml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/secrets/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/.credentials.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/.sandbox-secrets/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/config.toml
