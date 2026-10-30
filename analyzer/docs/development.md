@@ -136,8 +136,9 @@ is stale and fails too, printed as
 commit that fixes the drift also deletes its line; when an agent is
 rebuilt from fresh evidence, its file empties and is deleted.
 `--update-baseline` rewrites one checker's lines in every file from the
-current findings and exits `0` (`check_research_structure.py` still exits
-`1` on an outline breach). It may add lines only in the commit that adds
+current findings, drops a malformed line and names it on stderr, and
+exits `0` (`check_research_structure.py` still exits `1` on an outline
+breach). It may add lines only in the commit that adds
 or changes a checker's rule, recording the breaches the new rule finds,
 and that commit's message body says why; a finding an edit of yours causes
 is fixed, never added to the baseline.

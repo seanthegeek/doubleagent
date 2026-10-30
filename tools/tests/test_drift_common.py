@@ -181,6 +181,26 @@ def test_update_removes_stale_line_and_keeps_other_checkers_lines(tmp_path):
     assert drift_common.main_with_baseline("check_tables", run_with([ALPHA]), [], tmp_path) == 0
 
 
+def test_update_drops_a_malformed_line_and_names_it(tmp_path, capsys):
+    write(
+        tmp_path / "tools/drift-baseline/alpha.txt",
+        "check_smoke|fixture-missing|.alpha\nno fields here\n",
+    )
+    write(tmp_path / "tools/drift-baseline/beta.txt", "\nalso|malformed\n")
+    drift_common.main_with_baseline(
+        "check_tables", run_with([ALPHA]), ["--update-baseline"], tmp_path
+    )
+    assert capsys.readouterr().err.splitlines()[:2] == [
+        "tools/drift-baseline/alpha.txt:2: dropped malformed baseline line: no fields here",
+        "tools/drift-baseline/beta.txt:2: dropped malformed baseline line: also|malformed",
+    ]
+    assert baseline_text(tmp_path, "alpha") == (
+        "check_smoke|fixture-missing|.alpha\ncheck_tables|line-unnamed|.alpha/x\n"
+    )
+    assert not (tmp_path / "tools/drift-baseline/beta.txt").exists()
+    assert drift_common.main_with_baseline("check_tables", run_with([ALPHA]), [], tmp_path) == 0
+
+
 def test_update_deletes_emptied_file_and_keeps_shared_one(tmp_path):
     write(tmp_path / "tools/drift-baseline/beta.txt", "check_tables|line-unnamed|.config/beta\n")
     write(tmp_path / "tools/drift-baseline/unattributed.txt", "check_smoke|check-unparsed|x\n")
