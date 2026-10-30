@@ -264,7 +264,11 @@ and reads there what pre-fork installs left: `tasks/` with `tasks/_index.json`
 [`packages/kilo-vscode/src/services/marketplace/actions.ts:145`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/services/marketplace/actions.ts#L145)),
 `settings/custom_modes.yaml`
 ([`modes-migrator.ts:166`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/kilocode/modes-migrator.ts#L166)) and
-`skills/`; pre-fork installs also leave `checkpoints/` and `cache/` there. The extension also reads
+`skills/`; pre-fork installs also leave `checkpoints/` and `cache/` there. On a remote host (WSL,
+SSH or a tunnel) the extension runs in VS Code's remote server, whose user data is
+`~/.vscode-server/data/User`
+([Remote server in `vscode.md`](vscode.md#remote-server)), so its folder there is
+`.vscode-server/data/User/globalStorage/kilocode.kilo-code`. The extension also reads
 Roo Code's task directories under the sibling `globalStorage/rooveterinaryinc.roo-cline`,
 `rooveterinaryinc.roo-code`, `roovscode.roo-cline` and `roovscode.roo-code` to import them
 ([`packages/kilo-vscode/src/roo-import/service.ts:12-17`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/roo-import/service.ts#L12-L17),
@@ -289,9 +293,9 @@ and `machine-id`, a random UUID sent to the CLI as `KILO_MACHINE_ID`
 ([`:658-665`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/backend/src/main/kotlin/ai/kilocode/backend/cli/KiloBackendCliManager.kt#L658-L665)).
 Its settings are the application settings files `kiloLogSettings.xml` and
 `kiloAutocompleteSettings.xml` in the `options/` folder of the IDE's configuration directory,
-`Library/Application Support/JetBrains/<product><version>` on macOS,
-`AppData/Roaming/JetBrains/<product><version>` on Windows and
-`.config/JetBrains/<product><version>` on Linux
+`Library/Application Support/JetBrains/<product><version>/options/kiloLogSettings.xml` on macOS,
+`AppData/Roaming/JetBrains/<product><version>/options/kiloLogSettings.xml` on Windows and
+`.config/JetBrains/<product><version>/options/kiloLogSettings.xml` on Linux
 ([Directories used by the IDE, configuration directory](https://www.jetbrains.com/help/idea/directories-used-by-the-ide-to-store-settings-caches-plugins-and-logs.html#config-directory);
 [`KiloLogSettingsService.kt:13-16`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/settings/KiloLogSettingsService.kt#L13-L16),
 [`KiloAutocompleteSettingsService.kt:11-14`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/autocomplete/KiloAutocompleteSettingsService.kt#L11-L14)):
@@ -316,7 +320,9 @@ log level and display preferences and autocomplete switches.
   on macOS, `AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`
   on Windows and `.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`
   on Linux, which hold MCP server `env` values.
-- `kilo.db` mixes credentials with the transcripts; it is named in [Secrets](#secrets).
+- `kilo.db`, and the channel databases `kilo-<channel>.db` and `opencode-<channel>.db`, mix
+  credentials with the transcripts, so they are flagged as credential files; the columns are named
+  in [Secrets](#secrets).
 - No keychain use. `KILO_SERVER_PASSWORD` is passed in the environment only
   ([`packages/core/src/flag/flag.ts:68`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/flag/flag.ts#L68)).
 - The JetBrains `machine-id` is an install identifier, not a credential: it authenticates nothing.
@@ -325,13 +331,14 @@ log level and display preferences and autocomplete switches.
 
 `.local/share/kilo/snapshot`, `.local/share/kilo/worktree`, `.local/share/kilo/repos`,
 `.local/share/kilo/tool-output`, `.local/state/kilo/indexing`, `.local/share/kilo/state/indexing`,
-`.cache/kilo` (binaries and package clones), `.kilo/bin`, the project `.kilo/worktrees`, and the
+`.kilo/bin`, the project `.kilo/worktrees`, and the
 JetBrains plugin's downloaded binaries `Library/Caches/JetBrains/*/kilo/cli`,
 `Library/Caches/JetBrains/*/kilo/repo-cli`, `AppData/Local/JetBrains/*/kilo/cli`,
 `AppData/Local/JetBrains/*/kilo/repo-cli`, `.cache/JetBrains/*/kilo/cli` and
 `.cache/JetBrains/*/kilo/repo-cli`. Keep `plans/`, `retention/`, `memory/`, `session-export*` and
 `log/`: the logs are bounded and hold the only local record of a session deletion whose remote
-delete failed ([Logs](#logs), [What survives a delete](#what-survives-a-delete)).
+delete failed ([Logs](#logs), [What survives a delete](#what-survives-a-delete)). `.cache/kilo`
+(binaries, package clones and downloaded skills) has no catalog line and is not collected.
 
 ### Project-local files
 
@@ -365,15 +372,23 @@ and `agent-manager.json`, the extension's agent manager state
 
 `kilo.db` holds the project paths in its `project` and `project_directory` tables
 ([`packages/core/src/project/sql.ts:6-35`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/project/sql.ts#L6-L35); columns
-in [`project` and `project_directory`](#project-and-project_directory)); the legacy JSON store in
-`storage/project/<id>.json`. SQLite only; left to the analyzer. A worktree the agent created is a
+in [`project` and `project_directory`](#project-and-project_directory)), which discovery leaves to
+the analyzer. The legacy JSON store names each project's root in the `worktree` key of
+`storage/project/<id>.json`, which Kilo's migration copies into the `project` table
+([`packages/opencode/src/kilocode/storage/json-migration.ts:264-268`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/kilocode/storage/json-migration.ts#L264-L268)),
+and the pre-fork extension's task index `tasks/_index.json` names each task's project in the
+`workspace` of its `entries`, as does a task's `tasks/<id>/history_item.json`
+([`packages/kilo-vscode/src/legacy-migration/task-store.ts:135-147`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/task-store.ts#L135-L147),
+[`:169-178`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/task-store.ts#L169-L178),
+[`:194-204`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/task-store.ts#L194-L204)). A worktree the agent created is a
 `project_directory` row of type `git_worktree` and an entry of the project's sandboxes, and a
 session run in it has the worktree as its directory
 ([`sql.ts:16`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/project/sql.ts#L16),
 [`:20-35`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/project/sql.ts#L20-L35)). Two files outside the database also name
-project roots: each project memory folder's `manifest.json`
-([`packages/kilo-memory/src/storage/state.ts:48-76`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-memory/src/storage/state.ts#L48-L76))
-and the project's own `.kilo/agent-manager.json`, which names its worktrees.
+project roots: each project memory folder's `manifest.json`, in its `canonical` key
+([`packages/kilo-memory/src/storage/state.ts:48-76`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-memory/src/storage/state.ts#L48-L76)),
+and the project's own `.kilo/agent-manager.json`, which names its worktrees and is found only
+inside a project already known.
 
 ## Parsing
 
@@ -514,8 +529,21 @@ and assistant ([`:499-531`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69
 | `variant` | string | | |
 
 `time` holds `created` and, for the assistant, `completed`; the user `model` holds `providerID`,
-`modelID` and `variant`; `path` holds `cwd` and `root`; `tokens` holds `input`, `output`,
-`reasoning` and `cache` (`read`, `write`). `editorContext` is Kilo's addition.
+`modelID` and `variant`; `path` holds `cwd` and `root`. `editorContext` is Kilo's addition. The
+assistant's `tokens`
+([`:518-529`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/schema/src/v1/session.ts#L518-L529)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `total` | number | | |
+| `input` | number | | |
+| `output` | number | | |
+| `reasoning` | number | | |
+| `cache` | object | | |
+| `read` | number | | |
+| `write` | number | | |
+
+`read` and `write` are the keys of `cache`.
 
 Parts all carry `type`
 ([`v1/session.ts:402`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/schema/src/v1/session.ts#L402)): `text`
@@ -587,6 +615,56 @@ The `type` column is one of `agent-switched`, `model-switched`, `user`, `synthet
 `content[]`, `structured`, `error` and `result`, and `time` with `created`, `ran` and `completed`)
 ([`:122-158`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/schema/src/session-message.ts#L122-L158)).
 
+#### Legacy extension tasks
+
+The pre-fork extension's `tasks/<id>/api_conversation_history.json` is a JSON array of Anthropic
+`MessageParam` records extended with Roo Code's keys
+([`packages/kilo-vscode/src/legacy-migration/sessions/lib/legacy-types.ts:13-28`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/sessions/lib/legacy-types.ts#L13-L28)):
+`content` is a string or an array of blocks, `text`, `image`, `tool_use` (`id`, `name`, `input`),
+`tool_result` (`tool_use_id`, `content`, `is_error`) and `thinking` (`thinking`), the block shapes
+of [Legacy task files in `cline.md`](cline.md#legacy-task-files); a record with `type`
+`reasoning` holds the model's reasoning in `text`, `summary` (a list) or
+`reasoning_content`
+([`packages/kilo-vscode/src/legacy-migration/sessions/lib/parts/parts-util.ts:10-43`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/sessions/lib/parts/parts-util.ts#L10-L43)),
+and `isSummary` marks a condensed summary of the earlier conversation.
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `role` | string | `user`, `assistant` | |
+| `content` | string or array | | |
+| `ts` | number | | |
+| `isSummary` | boolean | | |
+| `type` | string | `reasoning`, `text`, `image`, `tool_use`, `tool_result`, `thinking` | |
+| `summary` | array | | |
+| `reasoning_content` | string | | |
+| `text` | string | | |
+| `id` | string | | |
+| `name` | string | | |
+| `input` | object | | |
+| `tool_use_id` | string | | |
+| `is_error` | boolean | | |
+| `thinking` | string | | |
+
+The task's history item, `tasks/<id>/history_item.json` or its entry in the `entries` array of
+`tasks/_index.json`, is Roo Code's `HistoryItem`
+([Task files in `roo-code.md`](roo-code.md#task-files)), of which Kilo reads `id`, `task`,
+`workspace`, `ts`, `mode`, `rootTaskId` and `parentTaskId`
+([`packages/kilo-vscode/src/legacy-migration/task-store.ts:194-204`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/task-store.ts#L194-L204);
+[`legacy-types.ts:3-11`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/sessions/lib/legacy-types.ts#L3-L11)).
+Roo Code's `status` is there too. `mode` is the task's mode slug: `code`, `architect`, `ask`,
+`debug`, `orchestrator` or a custom mode
+([`packages/opencode/src/kilocode/rules-migrator.ts:15`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/kilocode/rules-migrator.ts#L15)).
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `entries` | array | | |
+| `task` | string | | |
+| `workspace` | string | | |
+| `mode` | string | | |
+| `status` | string | | |
+| `rootTaskId` | string | | |
+| `parentTaskId` | string | | |
+
 ### Joins and timestamps
 
 `session.id` ← `message.session_id` ← `part.message_id`; `session.directory` is the working
@@ -631,6 +709,16 @@ journal as in OpenCode; the `-wal` sidecar holds the latest writes.
 | `share_url` | string or null | | |
 | `metadata` | string or null | | |
 | `revert` | string or null | | |
+| `summary_additions` | number or null | | |
+| `summary_deletions` | number or null | | |
+| `summary_files` | number or null | | |
+| `summary_diffs` | string or null | | |
+| `cost` | number | | |
+| `tokens_input` | number | | |
+| `tokens_output` | number | | |
+| `tokens_reasoning` | number | | |
+| `tokens_cache_read` | number | | |
+| `tokens_cache_write` | number | | |
 | `permission` | string or null | | |
 | `agent` | string or null | | |
 | `model` | string or null | | |
@@ -645,7 +733,10 @@ journal as in OpenCode; the `-wal` sidecar holds the latest writes.
 | `data` | string | | |
 
 The table covers the `session` columns and those of `message`, `part` and `session_message`; the
-JSON columns (`model`, `permission`, `revert`, `metadata`, `data`) are JSON text. Kilo adds a
+JSON columns (`model`, `permission`, `revert`, `metadata`, `summary_diffs`, `data`) are JSON text.
+The `summary_*`, `cost` and `tokens_*` columns are the session's diff counts, cost and token
+totals, `cost` and the token counts 0 by default
+([`sql.ts:40-50`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/session/sql.ts#L40-L50)). Kilo adds a
 workspace restore status to `revert`
 ([`sql.ts:51-54`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/session/sql.ts#L51-L54)).
 
@@ -659,7 +750,12 @@ workspace restore status to `revert`
 | `worktree` | string | | |
 | `vcs` | string or null | | |
 | `name` | string or null | | |
+| `icon_url` | string or null | | |
+| `icon_url_override` | string or null | | |
+| `icon_color` | string or null | | |
+| `time_initialized` | number or null | | |
 | `sandboxes` | string | | |
+| `commands` | string or null | | |
 | `directory` | string | | |
 | `strategy` | string or null | | |
 
@@ -995,9 +1091,13 @@ Globs:
 - `.local/share/kilo/storage/session_share/*.json`
 - `.local/share/kilo/log/*.log`, `.local/share/kilo/retention/state.json`
 - `.local/state/kilo/prompt-history.jsonl`, `.local/state/kilo/prompt-stash.jsonl`
-- `.config/kilo/{kilo.jsonc,kilo.json,opencode.jsonc,opencode.json,config.json}`
+- `.config/kilo/{kilo.jsonc,kilo.json,opencode.jsonc,opencode.json,config.json}`, matched as
+  `.config/kilo/<config file>`
 - `.local/state/kilo-sandbox-policy/*/*.json`, `.local/state/kilo-sandbox-preference/*.json`
-- `<GS>/kilocode.kilo-code/tasks/**` for pre-migration tasks, parsed with the Roo mapping
+- `.local/share/kilo/memory/*/sessions/*.md`
+- `User/globalStorage/kilocode.kilo-code/tasks/<id>/api_conversation_history.json` under any VS
+  Code user directory, for pre-migration tasks, with the task's `history_item.json` or
+  `tasks/_index.json`
 
 Rows: one per V1 `part`, or per V2 `session_message` content item.
 
@@ -1013,7 +1113,23 @@ Rows: one per V1 `part`, or per V2 `session_message` content item.
 | text | `text` or `state.title` |
 
 The code is OpenCode's with Kilo's changes, so the per-call, table and column readers are the
-shared OpenCode parser's, which the `kilo-code` parser subclasses.
+shared OpenCode parser's, which the `kilo-code` parser subclasses. Through it, each session
+opens with a
+`session start: <title> slug=<slug> version=<version> agent=<agent> directory=<directory>`
+row, a `file` part is a `file: <filename> <url>` row and a `retry` part a
+`retry attempt=<attempt> <error>` row.
+
+A pre-migration task ([Legacy extension tasks](#legacy-extension-tasks)) is the task directory's
+session, with the history item's `workspace` as `project_path`. The history item is one
+`task: <task> mode=<mode> status=<status> parent=<parentTaskId>` row at the item's `ts` (each
+field only when set), `source_line` 0. Each record's rows follow at its array position, timed by
+its `ts`, else the item's: the record's text and `image` blocks are one row by its `role` (an
+image as `[image]`), placed where the first was; a text block opening `<environment_details>` is a
+`system` row; a `tool_use` block is a `tool_use` row with `name` and `id`; a `tool_result` block a
+`tool_result` row joined on `tool_use_id`, its text opening `[error] ` when `is_error` is true; a
+`thinking` block, and a `reasoning` record's `summary` texts, `reasoning_content` or `text`, a
+`thinking` row only with thinking rows on; a record with `isSummary` one
+`summary: <text>` row; any other block a `<type>: <block JSON>` `system` row.
 
 #### Permission rows
 
@@ -1111,8 +1227,9 @@ The remote control lines of the logs are under
 The project memory session digests ([Project memory](#project-memory)) record past use that
 outlives a session delete; the plan is one `system` row per digest,
 `memory digest: <topic>: <summary> (from .local/share/kilo/memory/<folder>/sessions/<file>, Updated)`,
-at its `Updated:` time with the session id of its heading and the manifest's project root as
-`project_path`. They summarise rather than repeat events, so they are a primary record of what
+at its `Updated:` time with the session id of its heading and the manifest's `canonical` project
+root as `project_path`, the summary being every line after `## Summary` and the topic `-` when the
+digest has none. They summarise rather than repeat events, so they are a primary record of what
 they hold, not a secondary source. Not read: `kilo_board_message` (each post repeats a board tool
 call's input), `session-turn/` (a running or crashed turn, no content), `.kilo/agent-manager.json`
 and project memory's `project.md`, `environment.md` and `corrections.md` (notes with no session or
@@ -1220,12 +1337,28 @@ the OpenCode reader.
 Every file the parser reads is covered. Each line of `prompt-history.jsonl` and
 `prompt-stash.jsonl` that does not decode is its own `parser: unparseable line (<reason>): <line>`
 row, read before Kilo's next start drops it; a log line that names a remote control message
-without its fields is `parser: unparseable line (<message> without its fields): <line>`; a config,
-sandbox or retention file that does not decode is one `parser:` row. Through the OpenCode reader
-([Bad-line rows of `opencode.md`](opencode.md#bad-line-rows)) each undecodable database record or
-part file is its own `parser: unparseable record <rowid> (<table>.data: <reason>): <data>` or
+without its fields is `parser: unparseable line (<message> without its fields): <line>`. A file
+that does not decode is one row: a global config file
+`parser: <file> could not be decoded (<reason>)`, or `parser: <file> is not a JSON object` when
+it decodes to something else; a sandbox policy file or a cloud session marker
+`parser: <file> is not a JSON object`; a sandbox preference file
+`parser: <file> is not true or false`; the retention state
+`parser: retention/state.json is not a JSON object`; a memory digest without a `## Summary` line
+`parser: <file> is not a memory digest (no ## Summary line)`, and its folder's `manifest.json`
+when it is not a JSON object `parser: memory manifest.json is not a JSON object` beside the
+digest's row. A pre-migration `api_conversation_history.json` is read record by record: a record
+that does not decode is `parser: unparseable record <N> (<reason>): <text from that record on>`,
+with every earlier record's rows kept, and a file that is not an array, an array cut off after a
+record or data after the array is one `parser: not a JSON array`,
+`parser: array cut off after record <n>` or `parser: unexpected data after the array` row.
+Through the OpenCode reader a database that cannot be opened is
+`parser: database could not be read: <reason>`, a legacy session or message file that does not
+decode is `parser: session file could not be decoded` or
+`parser: message file could not be decoded`, and each undecodable database record or part file
+is its own `parser: unparseable record <rowid> (<table>.data: <reason>): <data>` or
 `parser: unparseable part <partID> (<reason>): <text>` row carrying it in full
-([issue 139](https://github.com/seanthegeek/doubleagent/issues/139)), and a database with
+([Bad-line rows of `opencode.md`](opencode.md#bad-line-rows);
+[issue 139](https://github.com/seanthegeek/doubleagent/issues/139)). A database with
 `session_v2` ([Format versions](#format-versions)) is read from it, its `session_message`
 transcript and the 1.x tables only for a session that `session_message` lacks
 ([issue 165](https://github.com/seanthegeek/doubleagent/issues/165)).
