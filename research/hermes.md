@@ -152,7 +152,10 @@ The image declares `/opt/data` a volume
 ([`docker.md:252`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/website/docs/user-guide/docker.md#L252)); the catalog's volume line
 `hermes|*hermes*` matches it. Such a volume's `_data` directory is the Hermes home itself: its
 files are `state.db`, `sessions/<id>.jsonl`, `state-snapshots/<id>/state.db`,
-`pastes/pending.json` and `profiles/<name>/...` with no `.hermes/` prefix. The home-relative
+`pastes/pending.json` and `profiles/<name>/...` with no `.hermes/` prefix. The image's runtime
+user `hermes` has `/opt/data` as its login home
+([`Dockerfile:178`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/Dockerfile#L178)), so a credential a tool writes to its own home inside
+the container (`.ssh/<file>`, `.config/gh/<file>`) lands in `_data` too. The home-relative
 exclusions and secret globs are anchored to `.hermes*/`, so each has a volume-relative twin
 matched against `_data`. The excluded subtrees ([Exclusions](#exclusions)) in a volume are
 `hermes-agent/[!.]*`, `hermes-agent/.[!e]*`, `models`, `runtimes`, `node`, `installs`, `tools`,
@@ -163,15 +166,17 @@ files ([Credentials](#credentials)) in a volume are flagged by `.env`, `.env.bak
 `npmrc`, `auth.json`, `auth.json.*`, `auth/*`, `.anthropic_oauth.json`, `.copilot_jwt.json`,
 `google_*.json`, `google_chat_user_tokens/*`, `slack_tokens.json`, `honcho.json`, `mem0.json`,
 `webhook_subscriptions.json`, `teams_pipeline_store.json`, `mcp-tokens/*`, `vault/*`,
-`browser_auth/*`, `bot-desktop/*`, `webapp/session-token`, `webapp/native-sign-in-tokens.json`,
-`webapp/sign-in-registration.json`, `pairing/*`, `platforms/pairing/*`,
+`browser_auth/*`, `bot-desktop/*`, `webapp/*`, `pairing/*`, `platforms/pairing/*`,
 `feishu_comment_pairing.json`, `whatsapp/session/*`, `platforms/whatsapp/session/*`,
 `matrix/store/*`, `platforms/matrix/store/*`, `cache/bws_cache*.json`,
 `workspace/meetings/node_token.json`, `weixin/accounts/*`, `runtime/photon-sidecar.json`,
-`proxy/*`, `home/*`, `config.yaml` and `config.yaml.*`. The credential copies
-inside a snapshot are flagged by `state-snapshots/*/.env`, `state-snapshots/*/auth.json`,
-`state-snapshots/*/config.yaml`, `state-snapshots/*/feishu_comment_pairing.json`,
-`state-snapshots/*/pairing/*` and `state-snapshots/*/platforms/pairing/*`.
+`proxy/*`, `home/*`, `config.yaml`, `config.yaml.*`, `.ssh/*`, `.aws/credentials`, `.aws/config`,
+`.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*` and `.envrc`; the
+AWS twin names its two files, since a bare `.aws/*` would also flag Kiro's `.aws/amazonq/`
+transcripts in a home. The credential copies inside a snapshot are flagged by
+`state-snapshots/*/.env`, `state-snapshots/*/auth.json`, `state-snapshots/*/config.yaml`,
+`state-snapshots/*/feishu_comment_pairing.json`, `state-snapshots/*/pairing/*` and
+`state-snapshots/*/platforms/pairing/*`.
 
 #### Contents of the home
 
@@ -301,7 +306,7 @@ on Windows:
 | `auth.json` | OAuth provider credentials and the credential pool |
 | `.env` | API keys, platform bot tokens |
 | `config.yaml` | MCP server `env` values and `headers` (below) |
-| `config.yaml.bak-<stamp>`, `config.yaml.bak.<n>`, `config.yaml.corrupt.<time>`, `config.yaml.bak-pre-migrate-<time>` (the files `config.yaml.*`) | the config writers' copies of `config.yaml` |
+| `config.yaml.bak-<stamp>`, `config.yaml.bak.<n>`, `config.yaml.corrupt.<time>`, `config.yaml.bak-pre-migrate-<time>` (the files `config.yaml.*`) | the config writers' copies of `config.yaml`; the glob also takes any other `config.yaml.*` a user names, which Hermes' own list leaves out |
 | `auth/google_oauth.json`, `google_token.json`, `google_client_secret.json`, `google_oauth_pending.json` | Google OAuth |
 | `google_chat_user_tokens/`, `google_chat_user_client_secret.json`, `google_chat_user_oauth_pending.json`, `google_chat_user_token.json` (the files `google_chat_user_*.json`), `google_chat_user_oauth_pending/` | Google Chat user OAuth |
 | `.op.env` | 1Password service-account token |
