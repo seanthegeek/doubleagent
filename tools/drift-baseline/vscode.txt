@@ -1,0 +1,92 @@
+check_fixture_schema|builder-provenance-missing|vscode_log_records
+check_fixture_schema|enum-undocumented|type=embed
+check_fixture_schema|key-undocumented|isBuiltin
+check_fixture_schema|key-undocumented|scheme
+check_fixture_schema|module-provenance-missing|vscode
+check_parser_research|not-read-contradicted|timestamp
+check_parser_research|parser-message-undocumented|parser: cloudSessions.json is not a JSON object
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:profiles/(?:builtin/)?[^/]+/)?settings\.json$
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:workspaceStorage/[^/]+/chatSessions/[^/]+\.jsonl?|globalStorage/emptyWindowChatSessions/[^/]+\.jsonl?|globalStorage/transferredChatSessions/[^/]+\.json)$
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?P<scope>globalStorage|profiles/(?:builtin/)?[^/]+/globalStorage|workspaceStorage/[^/]+)/state\.vscdb$
+check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/globalStorage/github\.copilot-chat/cloudSessions\.json$
+check_parser_research|row-text-undocumented|error:
+check_parser_research|row-text-undocumented|session start:
+check_parser_research|row-text-undocumented|system initiated:
+check_research_structure|latest-version-missing|No real-install round. The L5 evidence is a
+check_research_structure|observed-label-missing|No real-install round. The L5 evidence is a
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Code*/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Positron/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Trae*/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/VSCodium*/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/VSCodium*/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .positron-server/data/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .vscode*/argv.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home .vscode*/cli/token*.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home .vscode*/extensions/extensions.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home .vscode-server*/data/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .vscodium-server*/data/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Code*/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Positron/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Trae*/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/VSCodium*/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/VSCodium*/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Code*/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Code*/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Positron/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Trae*/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/VSCodium*/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/VSCodium*/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Code*/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Positron/User
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Trae*/User
+check_smoke_coverage|fixture-missing|smoke.sh home .config/VSCodium*/User
+check_smoke_coverage|fixture-missing|smoke.sh home .config/VSCodium*/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .positron-server/data/User
+check_smoke_coverage|fixture-missing|smoke.sh home .vscode*/argv.json
+check_smoke_coverage|fixture-missing|smoke.sh home .vscode*/cli/token*.json
+check_smoke_coverage|fixture-missing|smoke.sh home .vscode*/extensions/extensions.json
+check_smoke_coverage|fixture-missing|smoke.sh home .vscode-server*/data/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .vscodium-server*/data/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Code*/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Code*/logs
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Positron/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Trae*/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/VSCodium*/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/VSCodium*/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Code*/User
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Code*/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Positron/User
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Trae*/User
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/VSCodium*/User
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/VSCodium*/logs
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .vscode*/cli/token*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .vscode*/cli/token*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .vscode*/cli/token*.json
+check_smoke_coverage|secret-check-missing|smoke.sh .vscode*/cli/token*.json
+check_tables_research|credential-wording|can embed `token-<namespace>.json`
+check_tables_research|credential-wording|collected unflagged `User/settings.json`
+check_tables_research|line-unnamed|home .config/Code*/User
+check_tables_research|line-unnamed|home .config/Code*/logs
+check_tables_research|line-unnamed|home .config/Positron/User
+check_tables_research|line-unnamed|home .config/Trae*/User
+check_tables_research|line-unnamed|home .config/VSCodium*/User
+check_tables_research|line-unnamed|home .config/VSCodium*/logs
+check_tables_research|line-unnamed|home .positron-server/data/User
+check_tables_research|line-unnamed|home .vscode*/argv.json
+check_tables_research|line-unnamed|home .vscode*/cli/token*.json
+check_tables_research|line-unnamed|home .vscode*/extensions/extensions.json
+check_tables_research|line-unnamed|home .vscode-server*/data/logs
+check_tables_research|line-unnamed|home .vscodium-server*/data/User
+check_tables_research|line-unnamed|home AppData/Roaming/Code*/User
+check_tables_research|line-unnamed|home AppData/Roaming/Code*/logs
+check_tables_research|line-unnamed|home AppData/Roaming/Positron/User
+check_tables_research|line-unnamed|home AppData/Roaming/Trae*/User
+check_tables_research|line-unnamed|home AppData/Roaming/VSCodium*/User
+check_tables_research|line-unnamed|home AppData/Roaming/VSCodium*/logs
+check_tables_research|line-unnamed|home Library/Application Support/Code*/User
+check_tables_research|line-unnamed|home Library/Application Support/Code*/logs
+check_tables_research|line-unnamed|home Library/Application Support/Positron/User
+check_tables_research|line-unnamed|home Library/Application Support/Trae*/User
+check_tables_research|line-unnamed|home Library/Application Support/VSCodium*/User
+check_tables_research|line-unnamed|home Library/Application Support/VSCodium*/logs
+check_tables_research|line-unnamed|secret .vscode*/cli/token*.json

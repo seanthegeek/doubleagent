@@ -1,0 +1,377 @@
+check_fixture_schema|file-unclaimed|.claude-code-router/config.json
+check_fixture_schema|file-unclaimed|Documents/notes.txt
+check_smoke_coverage|check-by-suffix|smoke.ps1 $claudeworksession
+check_smoke_coverage|check-by-suffix|smoke.ps1 $openclawCloneId/repo/README.md
+check_smoke_coverage|check-by-suffix|smoke.ps1 *.bash_history
+check_smoke_coverage|check-by-suffix|smoke.ps1 */.config/pearai/user*
+check_smoke_coverage|check-by-suffix|smoke.ps1 */9b32b47ec4b3/*
+check_smoke_coverage|check-by-suffix|smoke.ps1 */repo-0123456789/.git/HEAD
+check_smoke_coverage|check-by-suffix|smoke.ps1 */web/Codex/component_crx_cache*
+check_smoke_coverage|check-by-suffix|smoke.ps1 */x-5d404e14/.keep
+check_smoke_coverage|check-by-suffix|smoke.ps1 *Application Support/Codex/component_crx_cache*
+check_smoke_coverage|check-by-suffix|smoke.ps1 *ConsoleHost_history.txt
+check_smoke_coverage|check-by-suffix|smoke.ps1 *Roaming*Code*User*globalStorage*saoudrizwan.claude-dev*taskHistory.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 *antigravity-cli*conversations*c1.db
+check_smoke_coverage|check-by-suffix|smoke.ps1 *docker/volumes*
+check_smoke_coverage|check-by-suffix|smoke.ps1 *globalStorage/rjmacarthy.twinny/twinny-providers.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 *little-coder-prompt-history.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 *local_44444444-4444-4444-8444-444444444444.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 *nanows/triggers/inbox*
+check_smoke_coverage|check-by-suffix|smoke.ps1 *node_modules/f.js
+check_smoke_coverage|check-by-suffix|smoke.ps1 *sourcegraph.cody-ai/symf/indexroot/meta.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 .cache/amp/bin/amp
+check_smoke_coverage|check-by-suffix|smoke.ps1 .cache/amp/desktop/state.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 .cache/amp/obelisk-runs/run.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 .cache/amp/runner-desktop/r1/state.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 .factory/temp/run1/out.txt
+check_smoke_coverage|check-by-suffix|smoke.ps1 .gemini/antigravity/bin/webm_encoder
+check_smoke_coverage|check-by-suffix|smoke.ps1 .plugin-appserver/codex.exe
+check_smoke_coverage|check-by-suffix|smoke.ps1 /$projectGit/config
+check_smoke_coverage|check-by-suffix|smoke.ps1 /$projectGit/worktrees/wt1/index
+check_smoke_coverage|check-by-suffix|smoke.ps1 /$projectGit/worktrees/wt1/index.lock
+check_smoke_coverage|check-by-suffix|smoke.ps1 /$projectGit/worktrees/wt1/modules
+check_smoke_coverage|check-by-suffix|smoke.ps1 /$projectGit/worktrees/wt1/sharedindex.3333333333333333333333333333333333333333
+check_smoke_coverage|check-by-suffix|smoke.ps1 Antigravity/Code Cache/js/x
+check_smoke_coverage|check-by-suffix|smoke.ps1 AppData/Local/devin/bin/devin.exe
+check_smoke_coverage|check-by-suffix|smoke.ps1 Application Support/Antigravity/Cache/data_0
+check_smoke_coverage|check-by-suffix|smoke.ps1 Cache/data_0
+check_smoke_coverage|check-by-suffix|smoke.ps1 Claude/claude_desktop_config.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 Codex/Default/Cache/data_0
+check_smoke_coverage|check-by-suffix|smoke.ps1 Computer Use.app/Contents/Info.plist
+check_smoke_coverage|check-by-suffix|smoke.ps1 Cursor/User/globalStorage/state.vscdb
+check_smoke_coverage|check-by-suffix|smoke.ps1 Devin/Cache
+check_smoke_coverage|check-by-suffix|smoke.ps1 Devin/Cache/data_0
+check_smoke_coverage|check-by-suffix|smoke.ps1 Dictionaries/en-US-10-1.bdic
+check_smoke_coverage|check-by-suffix|smoke.ps1 Documents/app/.cursorrules
+check_smoke_coverage|check-by-suffix|smoke.ps1 Documents/app/AGENTS.md
+check_smoke_coverage|check-by-suffix|smoke.ps1 Library/Caches/com.electron.ollama/data_0
+check_smoke_coverage|check-by-suffix|smoke.ps1 Library/Caches/ollama/data_0
+check_smoke_coverage|check-by-suffix|smoke.ps1 Open Interpreter Terminal/conversations/old.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 Programs/antigravity/Antigravity.exe
+check_smoke_coverage|check-by-suffix|smoke.ps1 Roaming/Antigravity/Cache/data_0
+check_smoke_coverage|check-by-suffix|smoke.ps1 Roaming/Claude/Cache
+check_smoke_coverage|check-by-suffix|smoke.ps1 Roaming/Claude/config.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 agent-cli/.local/share/x
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/$($fields[2])
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/.claude.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/.credentials.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/backups/.claude.json.backup.1792800000000
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/daemon/control.key
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/daemon/roster.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/history.jsonl
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.hermes/hermes-agent/.env
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.hermes/hermes-agent/hermes_cli
+check_smoke_coverage|check-by-suffix|smoke.ps1 alice/AppData/Local/Programs/muse/muse-bin-1.4.2-R1.exe
+check_smoke_coverage|check-by-suffix|smoke.ps1 antigravity-cli/antigravity-oauth-token
+check_smoke_coverage|check-by-suffix|smoke.ps1 antigravity-cli/bin
+check_smoke_coverage|check-by-suffix|smoke.ps1 antigravity-cli/cli.log
+check_smoke_coverage|check-by-suffix|smoke.ps1 antigravity-cli/jn
+check_smoke_coverage|check-by-suffix|smoke.ps1 antigravity-cli/jn%TEMP%x
+check_smoke_coverage|check-by-suffix|smoke.ps1 antigravity-updater/installer.exe
+check_smoke_coverage|check-by-suffix|smoke.ps1 antigravity/lib/node_modules/sidecar_sdk/index.mjs
+check_smoke_coverage|check-by-suffix|smoke.ps1 anysphere.cursor-agent-worker/agent-cli/x
+check_smoke_coverage|check-by-suffix|smoke.ps1 cache/cursor-public/x/0123abcd/mcp.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 cache/junk.bin
+check_smoke_coverage|check-by-suffix|smoke.ps1 case29-editor.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 case29-lower.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 case29-upper.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 codex-browser-app/Cache/data_0
+check_smoke_coverage|check-by-suffix|smoke.ps1 compile-cache/x
+check_smoke_coverage|check-by-suffix|smoke.ps1 config/node_modules/sidecar_sdk/index.mjs
+check_smoke_coverage|check-by-suffix|smoke.ps1 gdocs/bin/gdocs-1
+check_smoke_coverage|check-by-suffix|smoke.ps1 globalStorage/ms-python.python
+check_smoke_coverage|check-by-suffix|smoke.ps1 index/globalContext.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 index/lancedb
+check_smoke_coverage|check-by-suffix|smoke.ps1 node_modules/x.d.ts
+check_smoke_coverage|check-by-suffix|smoke.ps1 pending/hermes-setup.exe
+check_smoke_coverage|check-by-suffix|smoke.ps1 plugin-secrets.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 saoudrizwan.claude-dev/checkpoints
+check_smoke_coverage|check-by-suffix|smoke.ps1 settings/providers.json
+check_smoke_coverage|check-by-suffix|smoke.ps1 weird name with spaces & [brackets].txt
+check_smoke_coverage|check-path-unresolved|smoke.ps1 _
+check_smoke_coverage|check-path-unresolved|smoke.ps1 deeptranscript
+check_smoke_coverage|check-path-unresolved|smoke.ps1 lonesurrogate
+check_smoke_coverage|check-path-unresolved|smoke.ps1 nonasciiarchive
+check_smoke_coverage|check-path-unresolved|smoke.ps1 nonasciilink
+check_smoke_coverage|check-path-unresolved|smoke.ps1 nonasciinames
+check_smoke_coverage|check-path-unresolved|smoke.ps1 socketdir
+check_smoke_coverage|check-path-unresolved|smoke.sh CARRIAGE_RETURN
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Claude*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Claude*/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Claude*/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Claude*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Claude*/claude-code-vm
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Claude*/sentry
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Claude*/vm_bundles
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/eamodio*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/github.copilot-chat/logContextRecordings
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/github.copilot-chat/workspaceRecordings
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/golang*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/kiro.kiroagent/*lance*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/kiro.kiroagent/index
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/ms-*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/pearai.pearai-roo-cline/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/pearai.pearai-roo-cline/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/pearai.pearai-roo-cline/tasks/*/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/redhat*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rust-lang*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/vscjava*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/yzane.markdown-pdf
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/workspaceStorage/*/GitHub.copilot-chat/codebase-external.sqlite*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/workspaceStorage/*/ms-*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/workspaceStorage/*/redhat*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/workspaceStorage/*/rust-lang*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/workspaceStorage/*/vscjava*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aider.tags.cache*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor-server/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor-server/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .time_travel
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/agy
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 bot-desktop/browser-profile
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 browser/*/user-data/*/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 browser/*/user-data/*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 browser/*/user-data/*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 browser/*/user-data/*/Service Worker
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 checkpoints/legacy-*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 checkpoints/store/indexes
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 checkpoints/store/objects
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 models
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 plugins/*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 plugins/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 sandboxes
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 tools
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 usr/workdir/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 workdir/*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 workdir/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Claude*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Claude*/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Claude*/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Claude*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Claude*/claude-code-vm
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Claude*/sentry
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Claude*/vm_bundles
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/eamodio*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/github.copilot-chat/logContextRecordings
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/github.copilot-chat/workspaceRecordings
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/golang*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/kiro.kiroagent/*lance*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/kiro.kiroagent/index
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/redhat*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/rust-lang*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/vscjava*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/yzane.markdown-pdf
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/workspaceStorage/*/GitHub.copilot-chat/codebase-external.sqlite*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/workspaceStorage/*/ms-*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/workspaceStorage/*/redhat*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/workspaceStorage/*/rust-lang*
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/workspaceStorage/*/vscjava*
+check_smoke_coverage|exclusion-check-missing|smoke.sh .aider.tags.cache*
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor-server/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor-server/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh .time_travel
+check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Local/agy
+check_smoke_coverage|exclusion-check-missing|smoke.sh bot-desktop/browser-profile
+check_smoke_coverage|exclusion-check-missing|smoke.sh browser/*/user-data/*/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh browser/*/user-data/*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh browser/*/user-data/*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh browser/*/user-data/*/Service Worker
+check_smoke_coverage|exclusion-check-missing|smoke.sh checkpoints/legacy-*
+check_smoke_coverage|exclusion-check-missing|smoke.sh checkpoints/store/indexes
+check_smoke_coverage|exclusion-check-missing|smoke.sh checkpoints/store/objects
+check_smoke_coverage|exclusion-check-missing|smoke.sh models
+check_smoke_coverage|exclusion-check-missing|smoke.sh plugins/*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.sh plugins/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh sandboxes
+check_smoke_coverage|exclusion-check-missing|smoke.sh tools
+check_smoke_coverage|exclusion-check-missing|smoke.sh usr/workdir/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh workdir/*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.sh workdir/*/node_modules
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/profiles/*/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/api-key.txt
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/secret-key.txt
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/agent/models.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/memory/.git/config
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 auth/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 browser/*/user-data/*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 channels/*/accounts.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 config
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 lc-local-backend/providers/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 pairing/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 platforms/matrix/store/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 platforms/pairing/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 platforms/whatsapp/session/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 profiles/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 projects/*/.a0proj/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 whatsapp/session/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/profiles/*/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/api-key.txt
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/secret-key.txt
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/agent/models.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/memory/.git/config
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|nosecrets-check-missing|smoke.sh auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh auth/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh browser/*/user-data/*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh channels/*/accounts.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh config
+check_smoke_coverage|nosecrets-check-missing|smoke.sh config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.sh credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh lc-local-backend/providers/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh pairing/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh platforms/matrix/store/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh platforms/pairing/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh platforms/whatsapp/session/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh profiles/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh projects/*/.a0proj/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh whatsapp/session/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 */User/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 */User/profiles/*/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/sessions/*.key
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-canvas/api-key.txt
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-canvas/secret-key.txt
+check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/agent/models.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/memory/.git/config
+check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|secret-check-missing|smoke.ps1 auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 auth/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 browser/*/user-data/*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.ps1 channels/*/accounts.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 config.toml
+check_smoke_coverage|secret-check-missing|smoke.ps1 credentials
+check_smoke_coverage|secret-check-missing|smoke.ps1 credentials/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 lc-local-backend/providers/auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 pairing/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 platforms/matrix/store/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 platforms/pairing/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 platforms/whatsapp/session/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 profiles/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 projects/*/.a0proj/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 whatsapp/session/*
+check_smoke_coverage|secret-check-missing|smoke.sh */User/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.sh */User/profiles/*/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.sh agent-canvas/api-key.txt
+check_smoke_coverage|secret-check-missing|smoke.sh agent-canvas/secret-key.txt
+check_smoke_coverage|secret-check-missing|smoke.sh agents/*/agent/models.json
+check_smoke_coverage|secret-check-missing|smoke.sh agents/*/memory/.git/config
+check_smoke_coverage|secret-check-missing|smoke.sh agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|secret-check-missing|smoke.sh auth.json
+check_smoke_coverage|secret-check-missing|smoke.sh auth/*
+check_smoke_coverage|secret-check-missing|smoke.sh browser/*/user-data/*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.sh channels/*/accounts.json
+check_smoke_coverage|secret-check-missing|smoke.sh config.json
+check_smoke_coverage|secret-check-missing|smoke.sh config.toml
+check_smoke_coverage|secret-check-missing|smoke.sh credentials
+check_smoke_coverage|secret-check-missing|smoke.sh credentials/*
+check_smoke_coverage|secret-check-missing|smoke.sh lc-local-backend/providers/auth.json
+check_smoke_coverage|secret-check-missing|smoke.sh pairing/*
+check_smoke_coverage|secret-check-missing|smoke.sh platforms/matrix/store/*
+check_smoke_coverage|secret-check-missing|smoke.sh platforms/pairing/*
+check_smoke_coverage|secret-check-missing|smoke.sh platforms/whatsapp/session/*
+check_smoke_coverage|secret-check-missing|smoke.sh plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|secret-check-missing|smoke.sh plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|secret-check-missing|smoke.sh profiles/*
+check_smoke_coverage|secret-check-missing|smoke.sh projects/*/.a0proj/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.sh settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|secret-check-missing|smoke.sh usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|secret-check-missing|smoke.sh whatsapp/session/*
+check_tables_research|exclusion-unreachable|.aider.tags.cache*
+check_tables_research|exclusion-unreachable|.cursor-server/bin
+check_tables_research|exclusion-unreachable|.cursor-server/extensions
+check_tables_research|exclusion-unreachable|.time_travel
+check_tables_research|exclusion-unreachable|AppData/Local/agy
+check_tables_research|exclusion-unreachable|bot-desktop/browser-profile
+check_tables_research|exclusion-unreachable|browser/*/user-data/*/Cache
+check_tables_research|exclusion-unreachable|browser/*/user-data/*/Code Cache
+check_tables_research|exclusion-unreachable|browser/*/user-data/*/GPUCache
+check_tables_research|exclusion-unreachable|browser/*/user-data/*/Service Worker
+check_tables_research|exclusion-unreachable|checkpoints/legacy-*
+check_tables_research|exclusion-unreachable|checkpoints/store/indexes
+check_tables_research|exclusion-unreachable|checkpoints/store/objects
+check_tables_research|exclusion-unreachable|models
+check_tables_research|exclusion-unreachable|plugins/*/.venv
+check_tables_research|exclusion-unreachable|plugins/*/node_modules
+check_tables_research|exclusion-unreachable|projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+check_tables_research|exclusion-unreachable|sandboxes
+check_tables_research|exclusion-unreachable|tools
+check_tables_research|exclusion-unreachable|usr/workdir/*/node_modules
+check_tables_research|exclusion-unreachable|workdir/*/.venv
+check_tables_research|exclusion-unreachable|workdir/*/node_modules
+check_tables_research|line-unnamed|exclude */User/globalStorage/eamodio*
+check_tables_research|line-unnamed|exclude */User/globalStorage/github.copilot-chat/workspaceRecordings
+check_tables_research|line-unnamed|exclude */User/globalStorage/golang*
+check_tables_research|line-unnamed|exclude */User/globalStorage/kiro.kiroagent/*lance*
+check_tables_research|line-unnamed|exclude */User/globalStorage/pearai.pearai-roo-cline/cache
+check_tables_research|line-unnamed|exclude */User/globalStorage/pearai.pearai-roo-cline/tasks/*/checkpoints
+check_tables_research|line-unnamed|exclude */User/globalStorage/redhat*
+check_tables_research|line-unnamed|exclude */User/globalStorage/rust-lang*
+check_tables_research|line-unnamed|exclude */User/globalStorage/vscjava*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/GitHub.copilot-chat/codebase-external.sqlite*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/ms-*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/redhat*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/rust-lang*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/vscjava*
+check_tables_research|line-unnamed|secret */Claude*/local-agent-mode-sessions/*/.audit-key
+check_tables_research|line-unnamed|secret */Claude*/spaces-present/*/link-key
+check_tables_research|line-unnamed|secret */User/profiles/*/mcp.json
+check_tables_research|secret-unreachable|*/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
+check_tables_research|secret-unreachable|.claude-*/sessions/*.key
+check_tables_research|secret-unreachable|.env
+check_tables_research|secret-unreachable|agent-canvas/api-key.txt
+check_tables_research|secret-unreachable|agent-canvas/secret-key.txt
+check_tables_research|secret-unreachable|agents/*/agent/models.json
+check_tables_research|secret-unreachable|agents/*/memory/.git/config
+check_tables_research|secret-unreachable|agents/*/memory/.git/letta-credential-helper.cmd
+check_tables_research|secret-unreachable|auth.json
+check_tables_research|secret-unreachable|auth/*
+check_tables_research|secret-unreachable|browser/*/user-data/*/Cookies*
+check_tables_research|secret-unreachable|channels/*/accounts.json
+check_tables_research|secret-unreachable|config
+check_tables_research|secret-unreachable|config.json
+check_tables_research|secret-unreachable|config.toml
+check_tables_research|secret-unreachable|credentials
+check_tables_research|secret-unreachable|credentials/*
+check_tables_research|secret-unreachable|lc-local-backend/providers/auth.json
+check_tables_research|secret-unreachable|pairing/*
+check_tables_research|secret-unreachable|platforms/matrix/store/*
+check_tables_research|secret-unreachable|platforms/pairing/*
+check_tables_research|secret-unreachable|platforms/whatsapp/session/*
+check_tables_research|secret-unreachable|plugins/_desktop/profiles/*/.gnupg/*
+check_tables_research|secret-unreachable|plugins/_desktop/profiles/*/.ssh/*
+check_tables_research|secret-unreachable|profiles/*
+check_tables_research|secret-unreachable|projects/*/.a0proj/secrets.env
+check_tables_research|secret-unreachable|settings.json
+check_tables_research|secret-unreachable|usr/plugins/_desktop/profiles/*/.gnupg/*
+check_tables_research|secret-unreachable|usr/plugins/_desktop/profiles/*/.ssh/*
+check_tables_research|secret-unreachable|whatsapp/session/*

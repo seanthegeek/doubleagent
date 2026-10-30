@@ -1,0 +1,63 @@
+check_fixture_schema|enum-undocumented|type=summary_text
+check_fixture_schema|key-undocumented|initialEffort
+check_fixture_schema|key-undocumented|metrics
+check_fixture_schema|key-undocumented|modelDisplayName
+check_fixture_schema|key-undocumented|object
+check_fixture_schema|key-undocumented|parentAgentTaskId
+check_fixture_schema|key-undocumented|properties
+check_fixture_schema|key-undocumented|supportedNativeDocumentMimeTypes
+check_fixture_schema|key-undocumented|totalApiDurationMs
+check_fixture_schema|module-provenance-missing|copilot_cli
+check_fixture_schema|sample-equals-builder|.copilot/command-history-state.json
+check_fixture_schema|sample-equals-builder|.copilot/permissions-config.json
+check_fixture_schema|sample-equals-builder|.copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/events.jsonl
+check_fixture_schema|sample-equals-builder|.copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/rewind-file-snapshots/index.json
+check_fixture_schema|sample-equals-builder|.copilot/sidebar-sessions-state/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972.json
+check_parser_research|key-undocumented|project
+check_parser_research|parser-message-undocumented|parser: SQLite error: %s
+check_parser_research|parser-message-undocumented|parser: command history is not a JSON object
+check_parser_research|parser-message-undocumented|parser: not a SQLite database
+check_parser_research|parser-message-undocumented|parser: permissions-config.json is not a JSON object
+check_parser_research|parser-message-undocumented|parser: rewind snapshot index is not a JSON object
+check_parser_research|parser-message-undocumented|parser: settings.json is not a JSON object
+check_parser_research|pattern-undocumented|^((?:\.copilot|\.local/state/\.copilot|\.config/\.copilot))/session-store\.db$
+check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/command-history-state\.json$
+check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/logs/process-\d+-\d+\.log$
+check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/permissions-config\.json$
+check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/session-state/([0-9a-f-]{36})/events\.jsonl$
+check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/session-state/([0-9a-f-]{36})/rewind-file-snapshots/index\.json$
+check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/session-state/([0-9a-f-]{36})/workspace\.yaml$
+check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/settings\.json$
+check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/sidebar-sessions-state/[0-9a-f]{64}\.json$
+check_research_structure|bare-doc-reference|Closed source: github/copilot-cli holds issues and a changelog only, so there are no commit links.
+check_research_structure|observed-label-missing|Linux, npm, 1.0.98, 2026-10-16: installed with `sudo npm
+check_research_structure|observed-label-missing|Windows, through Copilot Desktop, bundled CLI 1.0.99-2, 2026-10-17:
+check_research_structure|observed-label-missing|Windows, winget, standalone CLI 1.0.98, 2026-10-17: installed with
+check_research_structure|observed-label-missing|macOS, Homebrew npm, 1.0.98, 2026-10-15: the author's workstation;
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cache/copilot/marketplaces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cache/copilot/pkg
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .copilot/installed-plugins
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/copilot/pkg
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Caches/copilot/marketplaces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Caches/copilot/pkg
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cache/copilot/marketplaces
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cache/copilot/pkg
+check_smoke_coverage|exclusion-check-missing|smoke.sh .copilot/installed-plugins
+check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Local/copilot/pkg
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Caches/copilot/marketplaces
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Caches/copilot/pkg
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/state/.copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Caches/copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/agents
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/hooks
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/lsp.json
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/skills
+check_smoke_coverage|fixture-missing|smoke.sh home .cache/copilot
+check_smoke_coverage|fixture-missing|smoke.sh home .local/state/.copilot
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Caches/copilot
+check_smoke_coverage|fixture-missing|smoke.sh project .github/agents
+check_smoke_coverage|fixture-missing|smoke.sh project .github/hooks
+check_smoke_coverage|fixture-missing|smoke.sh project .github/lsp.json
+check_smoke_coverage|fixture-missing|smoke.sh project .github/skills
+check_tables_research|credential-wording|can embed `mcp-config.json`

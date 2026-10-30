@@ -1,0 +1,75 @@
+check_fixture_schema|builder-provenance-missing|roo_api_records
+check_fixture_schema|builder-provenance-missing|roo_ui_records
+check_fixture_schema|enum-undocumented|type=summary_text
+check_fixture_schema|key-undocumented|allowAll
+check_fixture_schema|key-undocumented|args
+check_fixture_schema|key-undocumented|customInstructions
+check_fixture_schema|key-undocumented|method
+check_fixture_schema|key-undocumented|providers
+check_fixture_schema|key-undocumented|roo_edit_date
+check_fixture_schema|key-undocumented|roo_read_date
+check_fixture_schema|key-undocumented|someWorkspaceKey
+check_fixture_schema|key-undocumented|user_edit_date
+check_fixture_schema|module-provenance-missing|roo_code
+check_parser_research|docstring-fact-undocumented|formatResponse
+check_parser_research|key-undocumented|answer
+check_parser_research|key-undocumented|coordinate
+check_parser_research|key-undocumented|currentUrl
+check_parser_research|key-undocumented|screenshot
+check_parser_research|key-undocumented|suggest
+check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb$
+check_parser_research|row-text-undocumented|checkpoint_created:
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/Roo-Code/MCP
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .roo-code/mcp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .roo/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .vscode-mock/global-storage/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .vscode-mock/global-storage/tasks/*/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/Roo-Code/MCP
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/rooveterinaryinc.roo-cline/cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/Roo-Code/MCP
+check_smoke_coverage|exclusion-check-missing|smoke.sh .roo-code/mcp
+check_smoke_coverage|exclusion-check-missing|smoke.sh .roo/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.sh .vscode-mock/global-storage/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.sh .vscode-mock/global-storage/tasks/*/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/Roo-Code/MCP
+check_smoke_coverage|fixture-missing|smoke.ps1 home .*-server*/data/User/globalStorage/rooveterinaryinc.roo-cline
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/Roo-Code
+check_smoke_coverage|fixture-missing|smoke.ps1 home .roo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Roo-Code
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_smoke_coverage|fixture-missing|smoke.ps1 project .rooignore
+check_smoke_coverage|fixture-missing|smoke.ps1 project .roomodes
+check_smoke_coverage|fixture-missing|smoke.ps1 project .rooprotected
+check_smoke_coverage|fixture-missing|smoke.ps1 project .roorules*
+check_smoke_coverage|fixture-missing|smoke.sh home .*-server*/data/User/globalStorage/rooveterinaryinc.roo-cline
+check_smoke_coverage|fixture-missing|smoke.sh home .local/share/Roo-Code
+check_smoke_coverage|fixture-missing|smoke.sh home .roo-code
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Roo-Code
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_smoke_coverage|fixture-missing|smoke.sh project .rooignore
+check_smoke_coverage|fixture-missing|smoke.sh project .roomodes
+check_smoke_coverage|fixture-missing|smoke.sh project .rooprotected
+check_smoke_coverage|fixture-missing|smoke.sh project .roorules*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .roo/cli-credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .vscode-mock/global-storage/secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .roo/cli-credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .vscode-mock/global-storage/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .vscode-mock/global-storage/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.sh .vscode-mock/global-storage/secrets.json
+check_tables_research|credential-wording|can embed `.roo/mcp.json`
+check_tables_research|line-unnamed|exclude */User/globalStorage/rooveterinaryinc.roo-cline/cache
+check_tables_research|line-unnamed|exclude */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+check_tables_research|line-unnamed|exclude */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
+check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|home .config/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|secret .vscode-mock/global-storage/settings/*mcp_settings.json

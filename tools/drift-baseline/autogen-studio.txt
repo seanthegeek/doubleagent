@@ -1,0 +1,10 @@
+check_research_structure|bare-doc-reference|Not determined: whether older Studio releases used another database name (the README mentions database.sqlite).
+check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 autogen-studio
+check_smoke_coverage|framework-nosecrets-missing|smoke.sh autogen-studio
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .autogenstudio/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .autogenstudio/temp_env_vars.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .autogenstudio/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .autogenstudio/temp_env_vars.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .autogenstudio/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .autogenstudio/temp_env_vars.env
+check_tables_research|credential-wording|collected unflagged `api_key`

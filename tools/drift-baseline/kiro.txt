@@ -1,0 +1,111 @@
+check_fixture_schema|builder-provenance-missing|kiro_conversation_records
+check_fixture_schema|builder-provenance-missing|kiro_delegate_records
+check_fixture_schema|builder-provenance-missing|kiro_denial_records
+check_fixture_schema|builder-provenance-missing|kiro_export_records
+check_fixture_schema|key-undocumented|access_token
+check_fixture_schema|key-undocumented|current_turn
+check_fixture_schema|key-undocumented|message_locked
+check_fixture_schema|key-undocumented|number
+check_fixture_schema|key-undocumented|pending_user_message
+check_fixture_schema|key-undocumented|shadow_repo_path
+check_fixture_schema|key-undocumented|tag_index
+check_fixture_schema|key-undocumented|title
+check_fixture_schema|key-undocumented|tools_in_turn
+check_fixture_schema|key-undocumented|work_tree_path
+check_fixture_schema|module-provenance-missing|kiro
+check_fixture_schema|substitution-undeclared|/home/alice/.aws/amazonq/cli-checkouts/9e8d7c6b-5a49-4382-9170-6f5e4d3c2b1a
+check_parser_research|parser-message-undocumented|parser: truncated conversation, %d history entries recovered: %s
+check_parser_research|parser-message-undocumented|parser: unparseable conversation: %s
+check_parser_research|pattern-undocumented|^(?:\.aws/amazonq|\.amazonq)/cli-agents/[^/]+\.json$
+check_parser_research|pattern-undocumented|^(?:\.local/share|Library/Application Support|AppData/Local)/(?:amazon-q|kiro-cli)/data\.sqlite3$
+check_parser_research|pattern-undocumented|^\.kiro/sessions/
+check_parser_research|row-text-undocumented|compact: conversation history summarised
+check_parser_research|row-text-undocumented|shell history:
+check_research_structure|bare-doc-reference|Nothing in the repository mentions .kiro, kiro-cli, sessions/ or workspace-roots; those catalog paths come from the closed binary's strings and the kiro.dev documentation, not from source, and their record shapes remain unverified.
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aws/amazonq/cli-checkouts
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aws/amazonq/knowledge_bases
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .kiro/cloud-cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .kiro/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .kiro/sandbox-curl
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .kiro/sandbox-state
+check_smoke_coverage|exclusion-check-missing|smoke.sh .aws/amazonq/cli-checkouts
+check_smoke_coverage|exclusion-check-missing|smoke.sh .aws/amazonq/knowledge_bases
+check_smoke_coverage|exclusion-check-missing|smoke.sh .kiro/cloud-cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh .kiro/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh .kiro/sandbox-curl
+check_smoke_coverage|exclusion-check-missing|smoke.sh .kiro/sandbox-state
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aws/sso/cache
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .kiro-server/data/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/amazon-q
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/amazon-q
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/amazon-q
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.ps1 project .kiro
+check_smoke_coverage|fixture-missing|smoke.ps1 project AmazonQ.md
+check_smoke_coverage|fixture-missing|smoke.sh home .aws/sso/cache
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .kiro-server/data/User
+check_smoke_coverage|fixture-missing|smoke.sh home .local/share/amazon-q
+check_smoke_coverage|fixture-missing|smoke.sh home .local/share/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/amazon-q
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/amazon-q
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.sh project .kiro
+check_smoke_coverage|fixture-missing|smoke.sh project AmazonQ.md
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */amazon-q/data.sqlite3*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */kiro-cli/data.sqlite3*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aws/amazonq/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aws/sso/cache/*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/agents/*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/powers/installed/*/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/settings/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/web-session/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */amazon-q/data.sqlite3*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */kiro-cli/data.sqlite3*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .aws/amazonq/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .aws/sso/cache/*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/agents/*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/powers/installed/*/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/settings/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/web-session/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 */amazon-q/data.sqlite3*
+check_smoke_coverage|secret-check-missing|smoke.ps1 */kiro-cli/data.sqlite3*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .aws/amazonq/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .aws/sso/cache/*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .kiro/agents/*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .kiro/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .kiro/settings/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .kiro/web-session/*
+check_smoke_coverage|secret-check-missing|smoke.sh */amazon-q/data.sqlite3*
+check_smoke_coverage|secret-check-missing|smoke.sh */kiro-cli/data.sqlite3*
+check_smoke_coverage|secret-check-missing|smoke.sh .aws/amazonq/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.sh .aws/sso/cache/*.json
+check_smoke_coverage|secret-check-missing|smoke.sh .kiro/agents/*.json
+check_smoke_coverage|secret-check-missing|smoke.sh .kiro/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.sh .kiro/settings/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.sh .kiro/web-session/*
+check_tables_research|line-unnamed|home .config/Kiro/logs
+check_tables_research|line-unnamed|home .local/share/amazon-q
+check_tables_research|line-unnamed|home .local/share/kiro-cli
+check_tables_research|line-unnamed|home AppData/Local/amazon-q
+check_tables_research|line-unnamed|home AppData/Local/kiro-cli
+check_tables_research|line-unnamed|home AppData/Roaming/Kiro/logs
+check_tables_research|line-unnamed|home Library/Application Support/Kiro/logs
+check_tables_research|line-unnamed|home Library/Application Support/amazon-q
+check_tables_research|line-unnamed|home Library/Application Support/kiro-cli

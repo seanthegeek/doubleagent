@@ -1,0 +1,19 @@
+check_research_structure|bare-doc-reference|The README's cd dify suggests a clone named dify, often in a home directory, but that is an inference, so the bind mounts have no catalog line.
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 out.txt
+check_smoke_coverage|fixture-name-undocumented|smoke.sh out.txt
+check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 dify
+check_smoke_coverage|framework-nosecrets-missing|smoke.sh dify
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/difyctl/tokens.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/difyctl/login-pending.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/difyctl/tokens.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/difyctl/login-pending.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/difyctl/tokens.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/difyctl/tokens.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/difyctl/login-pending.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/difyctl/tokens.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/difyctl/login-pending.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/difyctl/tokens.yml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/difyctl/tokens.yml
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/difyctl/tokens.yml
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/difyctl/tokens.yml
+check_tables_research|line-unnamed|home AppData/Local/difyctl

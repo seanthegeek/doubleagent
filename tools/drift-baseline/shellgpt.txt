@@ -1,0 +1,11 @@
+check_fixture_schema|module-provenance-missing|shellgpt
+check_parser_research|parser-message-undocumented|parser: not a ShellGPT chat file
+check_parser_research|pattern-undocumented|(^|/)\.config/shell_gpt/\.sgptrc$
+check_parser_research|pattern-undocumented|(^|/)\.config/shell_gpt/functions/[^/]+\.py$
+check_parser_research|pattern-undocumented|(^|/)chat_cache/[^/]+$
+check_parser_research|pattern-undocumented|(^|/)shell_gpt/cache/[0-9a-f]{32}$
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/Temp/shell_gpt
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/Temp/shell_gpt
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/shell_gpt/.sgptrc
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/shell_gpt/.sgptrc
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/shell_gpt/.sgptrc

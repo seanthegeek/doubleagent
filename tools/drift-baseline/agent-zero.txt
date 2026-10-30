@@ -1,0 +1,202 @@
+check_fixture_schema|key-undocumented|chat_model_provider
+check_fixture_schema|key-undocumented|day
+check_fixture_schema|key-undocumented|hour
+check_fixture_schema|key-undocumented|minute
+check_fixture_schema|key-undocumented|month
+check_fixture_schema|key-undocumented|project_color
+check_fixture_schema|key-undocumented|runtime
+check_fixture_schema|key-undocumented|weekday
+check_fixture_schema|module-provenance-missing|agent_zero
+check_parser_research|key-undocumented|plugin
+check_parser_research|key-undocumented|text
+check_parser_research|parser-message-undocumented|parser: chat.json did not parse (%s); log items recovered without history
+check_parser_research|parser-message-undocumented|parser: history of agent %s did not parse (%s)
+check_parser_research|parser-message-undocumented|parser: state.json %s
+check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?(?:usr|tmp)/)?scheduler/tasks\.json$
+check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/(?P<plugin>_infection_check|_orchestrator)/\.toggle-(?P<state>[01])$
+check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/(?P<plugin>_tool_access|_orchestrator)/config\.json$
+check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?plugins/_telegram_integration/state\.json$
+check_research_structure|bare-doc-reference|tmp/ is beside usr/ only in a native run or a whole-/a0 mount; the installer, the launcher and the README volume mount usr alone, so tmp/ stays inside the container.
+check_research_structure|latest-version-missing|The Docker volume layout of chats (`chats/<ctxid>/chat.json` at
+check_research_structure|latest-version-missing|The `session synced:` and `session relayed:` rows are
+check_research_structure|observed-label-missing|The Docker volume layout of chats (`chats/<ctxid>/chat.json` at
+check_research_structure|observed-label-missing|The `session synced:` and `session relayed:` rows are
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Agent Zero Launcher/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Agent Zero Launcher/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Agent Zero Launcher/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Agent Zero Launcher/docker_manager/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/a0/browser-profiles
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/A0/Browser Profiles
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Desktop/agent-zero*/.conda
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Desktop/agent-zero*/.git
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Desktop/agent-zero*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Desktop/agent-zero*/tmp/memory/embeddings
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Desktop/agent-zero*/tmp/playwright
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Desktop/agent-zero*/usr/.time_travel
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Desktop/agent-zero*/usr/workdir/*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Desktop/agent-zero*/usr/workdir/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/A0/Browser Profiles
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-zero*/.conda
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-zero*/.git
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-zero*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-zero*/tmp/memory/embeddings
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-zero*/tmp/playwright
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-zero*/usr/.time_travel
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-zero*/usr/workdir/*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-zero*/usr/workdir/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 tmp/memory/embeddings
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 usr/.time_travel
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 usr/workdir/*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/.git
+check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/tmp/memory/embeddings
+check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/tmp/playwright
+check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/usr/.time_travel
+check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/usr/workdir/*/.venv
+check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/usr/workdir/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh tmp/memory/embeddings
+check_smoke_coverage|exclusion-check-missing|smoke.sh usr/.time_travel
+check_smoke_coverage|exclusion-check-missing|smoke.sh usr/workdir/*/.venv
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Agent Zero Launcher
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Agent Zero Launcher
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Agent Zero Launcher
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Agent Zero Launcher
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .config/Agent Zero Launcher/Local State
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 agent-zero/main/usr/plugins/_desktop/profiles/d1/.gnupg/k1
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 agent-zero/main/usr/plugins/_desktop/profiles/d1/.ssh/id_ed25519
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 projects/p219/notes.md
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .config/Agent Zero Launcher/Local State
+check_smoke_coverage|fixture-name-undocumented|smoke.sh agent-zero/main/usr/plugins/_desktop/profiles/d1/.gnupg/k1
+check_smoke_coverage|fixture-name-undocumented|smoke.sh agent-zero/main/usr/plugins/_desktop/profiles/d1/.ssh/id_ed25519
+check_smoke_coverage|fixture-name-undocumented|smoke.sh projects/p219/notes.md
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Agent Zero Launcher/Local State
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Agent Zero Launcher/docker_manager/state.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .agent-zero/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .agent-zero/session_cookies.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/tmp/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/tmp/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Desktop/agent-zero*/usr/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/tmp/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/tmp/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-zero*/usr/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 tmp/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 tmp/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Agent Zero Launcher/Local State
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Agent Zero Launcher/docker_manager/state.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .agent-zero/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .agent-zero/session_cookies.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/tmp/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/tmp/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Desktop/agent-zero*/usr/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/tmp/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/tmp/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-zero*/usr/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh tmp/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh tmp/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/secrets.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 */Agent Zero Launcher/Local State
+check_smoke_coverage|secret-check-missing|smoke.ps1 */Agent Zero Launcher/docker_manager/state.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .agent-zero/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .agent-zero/session_cookies.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/tmp/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/tmp/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/usr/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/usr/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 Desktop/agent-zero*/usr/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/tmp/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/tmp/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/usr/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/usr/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 agent-zero*/usr/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 tmp/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 tmp/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 usr/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 usr/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 usr/settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh Desktop/agent-zero*/.env
+check_smoke_coverage|secret-check-missing|smoke.sh Desktop/agent-zero*/tmp/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.sh Desktop/agent-zero*/tmp/settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh Desktop/agent-zero*/usr/.env
+check_smoke_coverage|secret-check-missing|smoke.sh Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_smoke_coverage|secret-check-missing|smoke.sh Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_smoke_coverage|secret-check-missing|smoke.sh Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.sh Desktop/agent-zero*/usr/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.sh secrets.env
+check_smoke_coverage|secret-check-missing|smoke.sh tmp/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.sh tmp/settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh usr/.env
+check_smoke_coverage|secret-check-missing|smoke.sh usr/projects/*/.a0proj/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.sh usr/secrets.env
+check_smoke_coverage|secret-check-missing|smoke.sh usr/settings.json
+check_tables_research|credential-wording|not flagged `.a0proj/`
+check_tables_research|line-unnamed|exclude */Agent Zero Launcher/Cache
+check_tables_research|line-unnamed|exclude */Agent Zero Launcher/Code Cache
+check_tables_research|line-unnamed|exclude */Agent Zero Launcher/GPUCache
+check_tables_research|line-unnamed|exclude Desktop/agent-zero*/usr/workdir/*/node_modules
+check_tables_research|line-unnamed|exclude agent-zero*/usr/workdir/*/node_modules
+check_tables_research|line-unnamed|home .config/Agent Zero Launcher
+check_tables_research|line-unnamed|home AppData/Local/Temp/_a0_connector
+check_tables_research|line-unnamed|home AppData/Roaming/Agent Zero Launcher
+check_tables_research|line-unnamed|home Library/Application Support/Agent Zero Launcher
+check_tables_research|line-unnamed|secret */Agent Zero Launcher/Local State
+check_tables_research|line-unnamed|secret Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_tables_research|line-unnamed|secret Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_tables_research|line-unnamed|secret agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_tables_research|line-unnamed|secret agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_tables_research|volume-glob-unnamed|exclude tmp/memory/embeddings
+check_tables_research|volume-glob-unnamed|exclude tmp/playwright
+check_tables_research|volume-glob-unnamed|exclude usr/.time_travel
+check_tables_research|volume-glob-unnamed|exclude usr/workdir/*/.venv
+check_tables_research|volume-glob-unnamed|secret plugins/*/config.json
+check_tables_research|volume-glob-unnamed|secret secrets.env
+check_tables_research|volume-glob-unnamed|secret tmp/secrets.env
+check_tables_research|volume-glob-unnamed|secret tmp/settings.json
+check_tables_research|volume-glob-unnamed|secret tmp/whatsapp/session/*
+check_tables_research|volume-glob-unnamed|secret usr/.env
+check_tables_research|volume-glob-unnamed|secret usr/plugins/*/config.json
+check_tables_research|volume-glob-unnamed|secret usr/projects/*/.a0proj/secrets.env
+check_tables_research|volume-glob-unnamed|secret usr/secrets.env
+check_tables_research|volume-glob-unnamed|secret usr/settings.json

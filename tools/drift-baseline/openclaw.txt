@@ -1,0 +1,201 @@
+check_fixture_schema|builder-provenance-missing|openclaw_legacy_records
+check_fixture_schema|builder-provenance-missing|openclaw_records
+check_fixture_schema|enum-undocumented|kind=event
+check_fixture_schema|enum-undocumented|kind=header
+check_fixture_schema|enum-undocumented|source=registered
+check_fixture_schema|enum-undocumented|status=published
+check_fixture_schema|enum-undocumented|status=replied
+check_fixture_schema|enum-undocumented|status=running
+check_fixture_schema|enum-undocumented|type=human
+check_fixture_schema|enum-undocumented|type=oauth
+check_fixture_schema|enum-undocumented|type=trace
+check_fixture_schema|key-undocumented|access
+check_fixture_schema|key-undocumented|addedAt
+check_fixture_schema|key-undocumented|archive_bytes
+check_fixture_schema|key-undocumented|archive_sha256
+check_fixture_schema|key-undocumented|c1
+check_fixture_schema|key-undocumented|c2
+check_fixture_schema|key-undocumented|c3
+check_fixture_schema|key-undocumented|config_key
+check_fixture_schema|key-undocumented|event_count
+check_fixture_schema|key-undocumented|event_id
+check_fixture_schema|key-undocumented|has_socket_token
+check_fixture_schema|key-undocumented|identity_profile_id
+check_fixture_schema|key-undocumented|last_seq
+check_fixture_schema|key-undocumented|navigation_json
+check_fixture_schema|key-undocumented|operation_id
+check_fixture_schema|key-undocumented|queue_name
+check_fixture_schema|key-undocumented|raw_bytes
+check_fixture_schema|key-undocumented|refresh
+check_fixture_schema|key-undocumented|request_id
+check_fixture_schema|key-undocumented|retained
+check_fixture_schema|key-undocumented|row
+check_fixture_schema|key-undocumented|sort_order
+check_fixture_schema|key-undocumented|store_key
+check_fixture_schema|key-undocumented|total
+check_fixture_schema|key-undocumented|updatedAt
+check_fixture_schema|module-provenance-missing|openclaw
+check_fixture_schema|sample-equals-builder|.openclaw/agents/main/agent/openclaw-agent.sqlite
+check_fixture_schema|substitution-undeclared|/srv/scratch
+check_parser_research|key-undocumented|c1
+check_parser_research|key-undocumented|c2
+check_parser_research|key-undocumented|c3
+check_parser_research|key-undocumented|row
+check_parser_research|key-undocumented|runtimeContextCarrier
+check_parser_research|pattern-undocumented|\.trajectory$
+check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/(?:agents/[^/]+/)?sessions/(?P<name>[^/]+?)(?:(?P<archive>\.jsonl\.(reset|deleted)\.\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d(?:\.\d{3})?Z(?:\.[0-9a-f]{32})?(?:\.zst)?)|(?P<copy>\.checkpoint\.[0-9a-fA-F-]{36}\.jsonl|\.jsonl\.pre-doctor-(?:branch|openai-codex)-repair-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d-\d{3}Z\.bak)|\.jsonl)$
+check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/(?:agents/[^/]+/)?sessions/cold/[0-9a-f]{64}\.jsonl\.zst$
+check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/agents/[^/]+/agent/openclaw-agent\.sqlite$
+check_parser_research|pattern-undocumented|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/state/openclaw\.sqlite$
+check_parser_research|row-text-undocumented|branch summary:
+check_parser_research|row-text-undocumented|reset:
+check_parser_research|row-text-undocumented|runtime context:
+check_parser_research|row-text-undocumented|session name:
+check_parser_research|row-text-undocumented|session start:
+check_parser_research|row-text-undocumented|thinking level:
+check_research_structure|latest-version-missing|No real install of OpenClaw has been surveyed;
+check_research_structure|latest-version-missing|The bad-line rows of [issue 177](https://github.com/seanthegeek/doubleagent/issues/177) (the legacy
+check_research_structure|latest-version-missing|The public-share and backup-upload rows are fixture only
+check_research_structure|observed-label-missing|No real install of OpenClaw has been surveyed;
+check_research_structure|observed-label-missing|The bad-line rows of [issue 177](https://github.com/seanthegeek/doubleagent/issues/177) (the legacy
+check_research_structure|observed-label-missing|The public-share and backup-upload rows are fixture only
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .clawdbot/npm
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .clawdbot/tools
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/agents/*/agent/.tmp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/agents/*/agent/tmp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/browser/*/user-data/*/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/browser/*/user-data/*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/browser/*/user-data/*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/browser/*/user-data/*/Service Worker
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/dev
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/extensions/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/git
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/npm
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/npm-runtime
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/plugin-skills
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/sandbox/skills-workspaces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/tmp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/tools
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 extensions/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 npm
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 npm-runtime
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 sandbox/skills-workspaces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.sh extensions/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh npm
+check_smoke_coverage|exclusion-check-missing|smoke.sh npm-runtime
+check_smoke_coverage|exclusion-check-missing|smoke.sh sandbox/skills-workspaces
+check_smoke_coverage|exclusion-check-missing|smoke.sh worktrees
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/systemd/user/clawdbot-*
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/OpenClaw
+check_smoke_coverage|fixture-missing|smoke.ps1 project .openclaw
+check_smoke_coverage|fixture-missing|smoke.ps1 project BOOTSTRAP.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project TOOLS.md
+check_smoke_coverage|fixture-missing|smoke.sh home .config/systemd/user/clawdbot-*
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/OpenClaw
+check_smoke_coverage|fixture-missing|smoke.sh project .openclaw
+check_smoke_coverage|fixture-missing|smoke.sh project BOOTSTRAP.md
+check_smoke_coverage|fixture-missing|smoke.sh project TOOLS.md
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .clawdbot/credentials/c1
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .moltbot/credentials/c1
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openclaw/agents/main/agent/openclaw-agent.sqlite-wal
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openclaw/browser/b1/user-data/Default/Cookies
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openclaw/clawdbot.json.bak
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openclaw/credentials/c1.json
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .clawdbot/credentials/c1
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .moltbot/credentials/c1
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openclaw/agents/main/agent/openclaw-agent.sqlite-wal
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openclaw/browser/b1/user-data/Default/Cookies
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openclaw/clawdbot.json.bak
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openclaw/credentials/c1.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .clawdbot/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .clawdbot/clawdbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .clawdbot/credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/openclaw/gateway.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .moltbot/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .moltbot/credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .moltbot/moltbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/agents/*/agent/auth-profiles.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/agents/*/agent/models.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/browser/*/user-data/*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/clawdbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/openclaw.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/service-env/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/agent/auth-profiles.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 clawdbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 moltbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 openclaw.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 service-env/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .clawdbot/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .clawdbot/clawdbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .clawdbot/credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/openclaw/gateway.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .moltbot/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .moltbot/credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .moltbot/moltbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/agents/*/agent/auth-profiles.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/agents/*/agent/models.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/browser/*/user-data/*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/clawdbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/openclaw.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/service-env/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/agent/auth-profiles.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh clawdbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh moltbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh openclaw.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh service-env/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .clawdbot/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .clawdbot/clawdbot.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .clawdbot/credentials/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/openclaw/gateway.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .moltbot/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .moltbot/credentials/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .moltbot/moltbot.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/agents/*/agent/auth-profiles.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/agents/*/agent/models.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/browser/*/user-data/*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/clawdbot.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/credentials/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/openclaw.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/service-env/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/agent/auth-profiles.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 clawdbot.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 moltbot.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 openclaw.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 service-env/*
+check_smoke_coverage|secret-check-missing|smoke.sh agents/*/agent/auth-profiles.json*
+check_smoke_coverage|secret-check-missing|smoke.sh clawdbot.json*
+check_smoke_coverage|secret-check-missing|smoke.sh moltbot.json*
+check_smoke_coverage|secret-check-missing|smoke.sh openclaw.json*
+check_smoke_coverage|secret-check-missing|smoke.sh service-env/*
+check_tables_research|line-unnamed|exclude .openclaw*/browser/*/user-data/*/Cache
+check_tables_research|line-unnamed|exclude .openclaw*/browser/*/user-data/*/Code Cache
+check_tables_research|line-unnamed|exclude .openclaw*/browser/*/user-data/*/GPUCache
+check_tables_research|line-unnamed|exclude .openclaw*/browser/*/user-data/*/Service Worker
+check_tables_research|line-unnamed|exclude .openclaw*/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+check_tables_research|line-unnamed|home .config/systemd/user/clawdbot-*
+check_tables_research|line-unnamed|secret .openclaw*/agents/*/agent/models.json
+check_tables_research|line-unnamed|secret .openclaw*/browser/*/user-data/*/Cookies*
+check_tables_research|parsing-fact-under-collection|audit_events
+check_tables_research|parsing-fact-under-collection|exec_approvals_config
+check_tables_research|parsing-fact-under-collection|operator_approvals
+check_tables_research|volume-glob-unnamed|exclude agents/*/agent/.tmp
+check_tables_research|volume-glob-unnamed|exclude agents/*/agent/tmp
+check_tables_research|volume-glob-unnamed|exclude extensions/*/node_modules
+check_tables_research|volume-glob-unnamed|exclude npm
+check_tables_research|volume-glob-unnamed|exclude npm-runtime
+check_tables_research|volume-glob-unnamed|exclude plugin-skills
+check_tables_research|volume-glob-unnamed|exclude sandbox/skills-workspaces
+check_tables_research|volume-glob-unnamed|exclude worktrees
+check_tables_research|volume-glob-unnamed|secret agents/*/agent/auth-profiles.json*
+check_tables_research|volume-glob-unnamed|secret clawdbot.json*
+check_tables_research|volume-glob-unnamed|secret exec-approvals.json
+check_tables_research|volume-glob-unnamed|secret moltbot.json*
+check_tables_research|volume-glob-unnamed|secret openclaw.json*
+check_tables_research|volume-glob-unnamed|secret service-env/*

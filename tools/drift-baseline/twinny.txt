@@ -1,0 +1,58 @@
+check_fixture_schema|builder-provenance-missing|twinny_415_records
+check_fixture_schema|builder-provenance-missing|twinny_records
+check_fixture_schema|builder-provenance-missing|twinny_said_records
+check_fixture_schema|module-provenance-missing|twinny
+check_parser_research|docstring-fact-undocumented|reviewOwner
+check_parser_research|docstring-fact-undocumented|reviewRepo
+check_parser_research|pattern-undocumented|(?:^|/)User/(?:workspaceStorage/[^/]+|globalStorage)/rjmacarthy\.twinny/agent-changes/[^/]+\.json$
+check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?$
+check_parser_research|row-text-undocumented|conversation:
+check_parser_research|row-text-undocumented|secret shield withheld:
+check_research_structure|version-without-change|#### Since 4.3.5
+check_research_structure|version-without-change|A toolSteps[] entry with said: true (since 4.3.5; name said, id said.<id>, the message in summary, status done) is a message the user sent while the reply ran, and the parser emits it as a user row with the summary as its text, in its place among the reply's steps, with no tool_name, tool_use_id or model (src/extension/chat/tool-steps.ts:101-104, src/common/types.ts:129-133); before the fix for issue 171 it was a tool_use named said and an empty tool_result.
+check_research_structure|version-without-change|ChatGPT plan sign-in (new since 4.3.5): access, refresh and id tokens in VS Code secret storage under twinny.chatgpt-plan.credentials, an encrypted secret:// row; the account's email and subject in plain globalState (Since 4.3.5) (src/extension/chatgpt-plan/session.ts:11-13, 59-66, 484).
+check_research_structure|version-without-change|Secondary, new since 4.3.5: when agent mode changes files, the extension keeps one JSON file per reply under the workspace's extension storage, agent-changes/<uuid>.json (src/extension/chat/index.ts:210-221; src/extension/chat/reply-changes.ts:211-228).
+check_research_structure|version-without-change|workspaceStorage/<id>/rjmacarthy.twinny/agent-changes/*.json (since 4.3.5): key root, the absolute workspace root agent mode worked in (src/extension/chat/reply-changes.ts:42-47, 161); a grep-able "root":"<path>" in one-line JSON.
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/embeddings/*/chunks.lance
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/server/plugins/*/repos/*/checkout
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/server/plugins/*/repos/*/index
+check_smoke_coverage|fixture-missing|smoke.ps1 home .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/globalStorage/rjmacarthy.twinny/twinny-providers.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/node/identity.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/license
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/plugins/*/repos.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/plugins/*/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/globalStorage/rjmacarthy.twinny/twinny-providers.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/node/identity.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/license
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/plugins/*/repos.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/plugins/*/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 */User/globalStorage/rjmacarthy.twinny/twinny-providers.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/node/identity.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/server/license
+check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/server/plugins/*/settings.json
+check_tables_research|line-unnamed|exclude .twinny/server/plugins/*/repos/*/index
+check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|home .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|home .config/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|home .config/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|home Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|secret .twinny/server/license
+check_tables_research|line-unnamed|secret .twinny/server/plugins/*/repos.json
+check_tables_research|line-unnamed|secret .twinny/server/plugins/*/settings.json

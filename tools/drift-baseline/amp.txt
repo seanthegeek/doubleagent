@@ -1,0 +1,30 @@
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .amp/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .amp/bin
+check_smoke_coverage|fixture-missing|smoke.ps1 home .amp
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/amp/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/amp/terminal
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/amp/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .amp
+check_smoke_coverage|fixture-missing|smoke.sh home .cache/amp/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .cache/amp/terminal
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/amp/logs
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .amp/oauth/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/amp/accounts.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/amp/accounts/*/secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/amp/secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .amp/oauth/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/amp/accounts.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/amp/accounts/*/secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/amp/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .amp/oauth/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/amp/accounts.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/amp/accounts/*/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/amp/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.sh .amp/oauth/*
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/amp/accounts.json
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/amp/accounts/*/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/amp/secrets.json
+check_tables_research|credential-unflagged|.local/share/amp/ide/x
+check_tables_research|credential-wording|can embed `settings.json`
+check_tables_research|line-unnamed|home .cache/amp/terminal
+check_tables_research|line-unnamed|home AppData/Local/amp/logs

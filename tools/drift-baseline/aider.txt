@@ -1,0 +1,46 @@
+check_fixture_schema|module-provenance-missing|aider
+check_parser_research|key-undocumented|kind
+check_parser_research|key-undocumented|lines
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aider/caches
+check_smoke_coverage|exclusion-check-missing|smoke.sh .aider/caches
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aider
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aider.chat.history.md
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aider.conf.yml
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aider.input.history
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aider.llm.history
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aider.model.metadata.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aider.model.settings.yml
+check_smoke_coverage|fixture-missing|smoke.ps1 project .aider.chat.history.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project .aider.conf.yml
+check_smoke_coverage|fixture-missing|smoke.ps1 project .aider.input.history
+check_smoke_coverage|fixture-missing|smoke.ps1 project .aider.llm.history
+check_smoke_coverage|fixture-missing|smoke.ps1 project .aider.model.metadata.json
+check_smoke_coverage|fixture-missing|smoke.ps1 project .aider.model.settings.yml
+check_smoke_coverage|fixture-missing|smoke.ps1 project .aiderignore
+check_smoke_coverage|fixture-missing|smoke.sh home .aider
+check_smoke_coverage|fixture-missing|smoke.sh home .aider.chat.history.md
+check_smoke_coverage|fixture-missing|smoke.sh home .aider.conf.yml
+check_smoke_coverage|fixture-missing|smoke.sh home .aider.input.history
+check_smoke_coverage|fixture-missing|smoke.sh home .aider.llm.history
+check_smoke_coverage|fixture-missing|smoke.sh home .aider.model.metadata.json
+check_smoke_coverage|fixture-missing|smoke.sh home .aider.model.settings.yml
+check_smoke_coverage|fixture-missing|smoke.sh project .aider.chat.history.md
+check_smoke_coverage|fixture-missing|smoke.sh project .aider.conf.yml
+check_smoke_coverage|fixture-missing|smoke.sh project .aider.input.history
+check_smoke_coverage|fixture-missing|smoke.sh project .aider.llm.history
+check_smoke_coverage|fixture-missing|smoke.sh project .aider.model.metadata.json
+check_smoke_coverage|fixture-missing|smoke.sh project .aider.model.settings.yml
+check_smoke_coverage|fixture-missing|smoke.sh project .aiderignore
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aider.conf.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aider.model.settings.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aider/oauth-keys.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .aider.conf.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .aider.model.settings.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .aider/oauth-keys.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .aider.conf.yml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .aider.model.settings.yml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .aider/oauth-keys.env
+check_smoke_coverage|secret-check-missing|smoke.sh .aider.conf.yml
+check_smoke_coverage|secret-check-missing|smoke.sh .aider.model.settings.yml
+check_smoke_coverage|secret-check-missing|smoke.sh .aider/oauth-keys.env
+check_tables_research|parsing-fact-under-collection|FileHistory

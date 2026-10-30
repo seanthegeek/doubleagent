@@ -1,0 +1,82 @@
+check_fixture_schema|key-undocumented|command
+check_fixture_schema|key-undocumented|completionOptions
+check_fixture_schema|key-undocumented|models
+check_fixture_schema|module-provenance-missing|continue_dev
+check_fixture_schema|sample-equals-builder|.continue/input_history.json
+check_parser_research|parser-message-undocumented|parser: unreadable session file: %s
+check_parser_research|pattern-undocumented|^(?:.*/)?\.continue/dev_data/(?:[^/]+/)?(chatInteraction|toolUsage|editInteraction|editOutcome|chatFeedback)\.jsonl$
+check_parser_research|pattern-undocumented|^(?:.*/)?\.continue/sessions/([^/]+)\.json$
+check_parser_research|pattern-undocumented|^\.continue/logs/cn[0-9]*\.log$
+check_parser_research|row-text-undocumented|session start:
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/.diffs
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/.migrations
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/.utils
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/dev_data/devdata.sqlite
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/index/*.sqlite
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/index/lancedb
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/out
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/types
+check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/.diffs
+check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/.migrations
+check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/.utils
+check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/dev_data/devdata.sqlite
+check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/index/*.sqlite
+check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/out
+check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/types
+check_smoke_coverage|fixture-missing|smoke.ps1 home .*-server*/data/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 project .continue
+check_smoke_coverage|fixture-missing|smoke.ps1 project .continueignore
+check_smoke_coverage|fixture-missing|smoke.sh home .*-server*/data/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.sh home .config/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.sh project .continue
+check_smoke_coverage|fixture-missing|smoke.sh project .continueignore
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */globalStorage/continue.continue/*.bin
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/.configs/*/config.js*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/auth*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/config.ts
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/config.yaml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/index/globalContext.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/mcpServers/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */globalStorage/continue.continue/*.bin
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/.configs/*/config.js*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/auth*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/config.ts
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/config.yaml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/index/globalContext.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/mcpServers/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 */globalStorage/continue.continue/*.bin
+check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/.configs/*/config.js*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/auth*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/config.ts
+check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/config.yaml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/index/globalContext.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/mcpServers/*
+check_smoke_coverage|secret-check-missing|smoke.sh */globalStorage/continue.continue/*.bin
+check_smoke_coverage|secret-check-missing|smoke.sh .continue/.configs/*/config.js*
+check_smoke_coverage|secret-check-missing|smoke.sh .continue/.env
+check_smoke_coverage|secret-check-missing|smoke.sh .continue/auth*.json
+check_smoke_coverage|secret-check-missing|smoke.sh .continue/config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .continue/config.ts
+check_smoke_coverage|secret-check-missing|smoke.sh .continue/config.yaml
+check_smoke_coverage|secret-check-missing|smoke.sh .continue/mcpServers/*
+check_tables_research|credential-wording|can embed `index/`
+check_tables_research|credential-wording|can embed `mcpServers/*.yaml|json`
+check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/continue.continue
+check_tables_research|line-unnamed|home .config/*/User/globalStorage/continue.continue
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/continue.continue
+check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/continue.continue
+check_tables_research|parsing-fact-under-collection|userId
+check_tables_research|parsing-fact-under-collection|workspaceDirectory

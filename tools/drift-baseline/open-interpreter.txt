@@ -1,0 +1,110 @@
+check_fixture_schema|builder-provenance-missing|open_interpreter_imported_records
+check_fixture_schema|builder-provenance-missing|open_interpreter_rollout_records
+check_fixture_schema|cross-agent-builder|codex_log_rows
+check_fixture_schema|cross-agent-builder|write_codex_logs
+check_fixture_schema|cross-agent-builder|write_codex_state
+check_fixture_schema|cross-agent-builder|write_thread_history
+check_fixture_schema|key-undocumented|estimated_bytes
+check_fixture_schema|key-undocumented|final_agent_item_id
+check_fixture_schema|key-undocumented|first_user_item_id
+check_fixture_schema|key-undocumented|item_id
+check_fixture_schema|key-undocumented|module_path
+check_fixture_schema|key-undocumented|next_rollout_byte_offset
+check_fixture_schema|key-undocumented|next_rollout_ordinal
+check_fixture_schema|key-undocumented|rollout_byte_offset
+check_fixture_schema|key-undocumented|rollout_end_byte_offset
+check_fixture_schema|key-undocumented|thread_history_projection_state
+check_fixture_schema|key-undocumented|updated_at_ordinal
+check_fixture_schema|module-provenance-missing|open_interpreter
+check_fixture_schema|sample-equals-builder|.openinterpreter/sessions/2026/10/01/rollout-2026-10-01T12-00-00-0199a1b2-0000-7000-8000-000000000001.jsonl
+check_parser_research|docstring-fact-undocumented|session_meta.originator
+check_parser_research|key-undocumented|agent_thread_id
+check_parser_research|key-undocumented|body
+check_parser_research|key-undocumented|content_items
+check_parser_research|key-undocumented|saved_path
+check_parser_research|key-undocumented|tool_name
+check_parser_research|parser-message-undocumented|parser: SQLite error: %s
+check_parser_research|parser-message-undocumented|parser: global state is not a JSON object
+check_parser_research|parser-message-undocumented|parser: import ledger has no records list
+check_parser_research|parser-message-undocumented|parser: not a SQLite database
+check_parser_research|parser-message-undocumented|parser: unreadable automation.toml: %s
+check_parser_research|parser-message-undocumented|parser: unreadable global state: %s
+check_parser_research|parser-message-undocumented|parser: unreadable import ledger: %s
+check_parser_research|parser-message-undocumented|parser: unreadable memory summary: %s
+check_parser_research|parser-message-undocumented|parser: unreadable rules file: %s
+check_parser_research|row-text-undocumented|session start:
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .config/open-interpreter/models
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/.sandbox
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/.sandbox-bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/.tmp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/models-cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/packages
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/plugins/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/skills/.system
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/tmp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/visualizations
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/open-interpreter/open-interpreter/models
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/open-interpreter/models
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .codewhale/notes.md
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/.sandbox-secrets/s1
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/archived_sessions/rollout-2026-10-01T00-00-00-u2.jsonl
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/credentials/c1
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/rules/r.md
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/secrets/s1
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .codewhale/notes.md
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/.sandbox-secrets/s1
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/archived_sessions/2026/10/01/rollout-2026-10-01T00-00-00-u2.jsonl
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/credentials/c1
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/rules/r.md
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .openinterpreter/secrets/s1
+check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 open-interpreter
+check_smoke_coverage|framework-nosecrets-missing|smoke.sh open-interpreter
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Open Interpreter*/config.yaml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/open-interpreter/profiles/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/.credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/.sandbox-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/device_id
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openinterpreter/secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Open Interpreter*/Open Interpreter*/config.yaml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/open-interpreter/open-interpreter/profiles/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Open Interpreter*/config.yaml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/open-interpreter/profiles/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/Open Interpreter*/config.yaml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/open-interpreter/profiles/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/.credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/.sandbox-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/credentials/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/device_id
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .openinterpreter/secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Open Interpreter*/Open Interpreter*/config.yaml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/open-interpreter/open-interpreter/profiles/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Open Interpreter*/config.yaml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/open-interpreter/profiles/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/Open Interpreter*/config.yaml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/open-interpreter/profiles/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/.credentials.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/.sandbox-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/config.toml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/credentials/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/device_id
+check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Open Interpreter*/Open Interpreter*/config.yaml
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/open-interpreter/open-interpreter/profiles/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Open Interpreter*/config.yaml
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/open-interpreter/profiles/*
+check_tables_research|credential-wording|can embed `config.toml`
+check_tables_research|line-unnamed|exclude AppData/Local/open-interpreter/open-interpreter/models
+check_tables_research|line-unnamed|home AppData/Local/Open Interpreter*
+check_tables_research|line-unnamed|home Library/Application Support/Open Interpreter*
+check_tables_research|line-unnamed|secret AppData/Local/open-interpreter/open-interpreter/profiles/*

@@ -1,0 +1,65 @@
+check_fixture_schema|builder-provenance-missing|tabby_backup2_records
+check_fixture_schema|builder-provenance-missing|tabby_backup_records
+check_fixture_schema|builder-provenance-missing|tabby_event_records
+check_fixture_schema|builder-provenance-missing|tabby_records
+check_fixture_schema|builder-provenance-missing|tabby_secret_records
+check_fixture_schema|key-undocumented|auth_method
+check_fixture_schema|key-undocumented|avatar
+check_fixture_schema|key-undocumented|base_dn
+check_fixture_schema|key-undocumented|bind_dn
+check_fixture_schema|key-undocumented|client_id
+check_fixture_schema|key-undocumented|config_scopes
+check_fixture_schema|key-undocumented|config_url
+check_fixture_schema|key-undocumented|email_attribute
+check_fixture_schema|key-undocumented|encryption
+check_fixture_schema|key-undocumented|expires_at
+check_fixture_schema|key-undocumented|from_address
+check_fixture_schema|key-undocumented|is_admin
+check_fixture_schema|key-undocumented|name_attribute
+check_fixture_schema|key-undocumented|port
+check_fixture_schema|key-undocumented|provider
+check_fixture_schema|key-undocumented|skip_tls_verify
+check_fixture_schema|key-undocumented|smtp_port
+check_fixture_schema|key-undocumented|smtp_server
+check_fixture_schema|key-undocumented|smtp_username
+check_fixture_schema|key-undocumented|user_filter
+check_fixture_schema|module-provenance-missing|tabby
+check_fixture_schema|sample-equals-builder|.tabby/events/2025-10-01.json
+check_parser_research|key-undocumented|file_list
+check_parser_research|key-undocumented|link
+check_parser_research|key-undocumented|page_link
+check_parser_research|key-undocumented|sha
+check_parser_research|parser-message-undocumented|parser: SQLite error: %s
+check_parser_research|parser-message-undocumented|parser: not a SQLite database
+check_parser_research|parser-message-undocumented|parser: user_event %s payload did not parse
+check_parser_research|pattern-undocumented|(?:^|/)JetBrains/[^/]+/options/intellij-tabby-command-history\.xml$
+check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
+check_parser_research|row-text-undocumented|relevant questions:
+check_parser_research|row-text-undocumented|unknown log entry:
+check_research_structure|bare-doc-reference|All claims from source except the JetBrains settings directory, which is from JetBrains documentation.
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/index
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/models
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/repositories
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 index
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 repositories
+check_smoke_coverage|exclusion-check-missing|smoke.sh index
+check_smoke_coverage|exclusion-check-missing|smoke.sh repositories
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .tabby/ee/db.sqlite-shm
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .tabby/ee/db.sqlite-wal
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .tabby/ee/db.sqlite-shm
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .tabby/ee/db.sqlite-wal
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .tabby-client/agent/config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .tabby/config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .tabby-client/agent/config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .tabby/config.toml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .tabby-client/agent/config.toml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .tabby/config.toml
+check_tables_research|line-unnamed|home .config/JetBrains/*/options/intellij-tabby*.xml
+check_tables_research|line-unnamed|home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
+check_tables_research|line-unnamed|home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
+check_tables_research|volume-glob-unnamed|exclude index
+check_tables_research|volume-glob-unnamed|exclude repositories

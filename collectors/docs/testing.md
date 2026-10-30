@@ -103,6 +103,52 @@ row and log line, that a run with `CAC_NO_BATCH=1` (the per-file path)
 writes the same manifest in the same order apart from `atime`, and that a
 copy of the collector forced onto `shasum` writes the same manifest.
 
+## Table coverage checks
+
+Two checkers compare each line of the five catalog tables with what
+should exist for it elsewhere in the repository. Run them from the
+repository root; both use the standard library alone:
+
+```sh
+python3 tools/check_tables_research.py   # each line against its agent's research document
+python3 tools/check_smoke_coverage.py    # each line against both smoke tests
+```
+
+`tools/check_tables_research.py` reports a line whose glob no code span of
+the Collection part of the agent's research document names, a credential
+file that document names that no secret glob flags and the Secrets section
+does not list, a secret glob an exclusion hides, an exclusion or secret glob
+that no home or project entry reaches and no one Docker volume agent's
+document names, a Docker volume glob that the document's Per-user storage
+subsection about the volume does not name, an exclusion below a Docker
+volume's mount directory without its volume-relative twin, two agents' home
+entries whose first differing segment differs only by case or whose first
+segments differ and can still match one path, a Credentials section saying
+a file is
+left unflagged instead of naming its secret glob, a timeline row text or
+record key under Collection, a catalog agent without a research document or
+a row on the [agents page](../../docs/agents.md), and a row on that page
+naming no catalog agent.
+
+`tools/check_smoke_coverage.py` requires, in both smoke files, a
+default-run check asserting `secret: true` and a `--no-secrets` check
+asserting `skipped_secret` on a path each `SECRET_GLOBS` line matches, a
+check asserting `skipped_excluded` for each `EXCLUDES` line, and for each
+`CATALOG` and `PROJECT_CATALOG` line a fixture path it matches whose name
+the research document gives, and for each agent with a `secret` case in
+the frameworks case list (`CASES_FW` in `smoke.sh`, `$CasesFrameworks` in
+`smoke.ps1`) a `--no-secrets` check asserting `skipped_secret` on one of
+them. It reads both smoke tests as text: keep
+fixture paths and check arguments as literals, variables assigned from
+literals, `kind|agent|path` case lists, or here-document lists read by
+`while read`, and write `Row` and `StatusOf` arguments in `smoke.ps1` from
+the image root (`Users/alice/...`), never as a suffix.
+
+The disagreements that existed when the checkers were written are
+recorded in `tools/drift-baseline/`, and only a finding missing from it
+fails; [Drift checkers in `analyzer/docs/development.md`](../../analyzer/docs/development.md#drift-checkers)
+describes the finding format and the baseline.
+
 ## Catalog drift check and CI
 
 `tests/catalog-sync.sh` extracts the five tables from both scripts and fails
@@ -116,7 +162,7 @@ copy is stale or the tables differ; the linters run in CI only.
 CI (`.github/workflows/ci.yml`) runs the drift test and shellcheck, the sh
 smoke test under sh, dash, bash, busybox ash, zsh and posh, the drift test
 and the sh smoke test under dash on macOS, where the tools are the BSD
-ones, a lint job, the
+ones, a lint job that also runs the table coverage checks, the
 PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell 5.1
 on Windows, and the analyzer tests, then a `CI result` job that fails when
 any of them failed, on every push to `main` and every pull request.

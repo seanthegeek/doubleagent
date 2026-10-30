@@ -1,0 +1,70 @@
+check_fixture_schema|builder-provenance-missing|qwen_bare_event_records
+check_fixture_schema|builder-provenance-missing|qwen_injected_records
+check_fixture_schema|builder-provenance-missing|qwen_permission_records
+check_fixture_schema|builder-provenance-missing|qwen_session_records
+check_fixture_schema|builder-provenance-missing|qwen_usage_records
+check_fixture_schema|key-undocumented|absolute_path
+check_fixture_schema|key-undocumented|access_token
+check_fixture_schema|key-undocumented|candidatesTokenCount
+check_fixture_schema|key-undocumented|command
+check_fixture_schema|key-undocumented|customTitle
+check_fixture_schema|key-undocumented|messageId
+check_fixture_schema|key-undocumented|output
+check_fixture_schema|key-undocumented|promptTokenCount
+check_fixture_schema|key-undocumented|started_at
+check_fixture_schema|key-undocumented|titleSource
+check_fixture_schema|key-undocumented|totalTokenCount
+check_fixture_schema|module-provenance-missing|qwen_code
+check_parser_research|pattern-undocumented|.ledger.jsonl
+check_parser_research|pattern-undocumented|^\.qwen/(channels/(?:sessions\.json|daemon/[^/]+/routes\.json))$
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/arena
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/artifacts
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/extension-store
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/extensions/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/locales
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/resources
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/sandbox
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/scratch-workspaces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/startup-perf
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/updates
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/arena
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/artifacts
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/extension-store
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/extensions/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/locales
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/resources
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/sandbox
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/scratch-workspaces
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/startup-perf
+check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/updates
+check_smoke_coverage|fixture-missing|smoke.ps1 project .qwenignore
+check_smoke_coverage|fixture-missing|smoke.ps1 project QWEN.md
+check_smoke_coverage|fixture-missing|smoke.sh project .qwenignore
+check_smoke_coverage|fixture-missing|smoke.sh project QWEN.md
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/extension-secrets-v1.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/extensions/*/.qwen-extension-git-credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/mcp-oauth-tokens*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/oauth_creds.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .qwen/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .qwen/extension-secrets-v1.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .qwen/extensions/*/.qwen-extension-git-credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .qwen/mcp-oauth-tokens*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .qwen/oauth_creds.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .qwen/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .qwen/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .qwen/extension-secrets-v1.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .qwen/extensions/*/.qwen-extension-git-credentials.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .qwen/mcp-oauth-tokens*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .qwen/oauth_creds.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .qwen/settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh .qwen/.env
+check_smoke_coverage|secret-check-missing|smoke.sh .qwen/extension-secrets-v1.json
+check_smoke_coverage|secret-check-missing|smoke.sh .qwen/extensions/*/.qwen-extension-git-credentials.json
+check_smoke_coverage|secret-check-missing|smoke.sh .qwen/mcp-oauth-tokens*.json
+check_smoke_coverage|secret-check-missing|smoke.sh .qwen/oauth_creds.json
+check_smoke_coverage|secret-check-missing|smoke.sh .qwen/settings.json
+check_tables_research|credential-unflagged|.qwen/channels/dingtalk-groups.json

@@ -23,12 +23,13 @@ env:
 
 jobs:
   # A change that touches only Markdown and the markdownlint configuration
-  # needs markdownlint and the document link check, nothing else: the
-  # released scripts and package are unchanged (AGENTS.md, "Validation and
-  # testing"). This job classifies the push or pull request, and every
-  # other job except the Markdown and code style steps of lint is skipped
-  # when it is documentation only. A push whose "before" commit is unknown (a new
-  # branch, a force push) counts as a code change.
+  # needs markdownlint, the document checks and the drift checkers, nothing
+  # else: the released scripts and package are unchanged (AGENTS.md,
+  # "Validation and testing"). This job classifies the push or pull request,
+  # and every other job except the Markdown, document, drift and code style
+  # steps of lint is skipped when it is documentation only. A push whose
+  # "before" commit is unknown (a new branch, a force push) counts as a code
+  # change.
   changes:
     name: Classify the change
     runs-on: ubuntu-latest
@@ -188,6 +189,10 @@ jobs:
         run: pip install -r analyzer/requirements-dev.txt
       - name: pytest
         run: analyzer/tests/run.sh
+      # The drift checkers' tests; tools/tests/conftest.py puts tools/ on
+      # the import path, so they run from the repository root.
+      - name: pytest (drift checkers)
+        run: python3 -m pytest tools/tests -q
 
   lint:
     name: Lint (ruff, pyright, markdownlint, sh linters, PSScriptAnalyzer)
@@ -195,13 +200,17 @@ jobs:
     needs: changes
     steps:
       - uses: actions/checkout@v7
+      # The analyzer's dependencies are installed on every change: a research
+      # document edit alone can create drift, and the fixture schema checker
+      # imports the analyzer's test fixtures.
       - uses: actions/setup-python@v7
-        if: needs.changes.outputs.docs-only != 'true'
         with:
           python-version: "3.10"
-      - name: Install Python linters and analyzer dependencies
+      - name: Install analyzer dependencies
+        run: pip install -r analyzer/requirements.txt
+      - name: Install Python linters
         if: needs.changes.outputs.docs-only != 'true'
-        run: pip install "ruff==$RUFF_VERSION" "pyright==$PYRIGHT_VERSION" -r analyzer/requirements.txt
+        run: pip install "ruff==$RUFF_VERSION" "pyright==$PYRIGHT_VERSION"
       - name: ruff check
         if: needs.changes.outputs.docs-only != 'true'
         run: ruff check .
@@ -217,6 +226,18 @@ jobs:
         run: python3 tools/check_doc_links.py
       - name: research document structure
         run: python3 tools/check_research_structure.py
+      # The drift checkers compare the research documents with the tables,
+      # the smoke tests, the parsers and the fixtures, each against its
+      # baseline under tools/drift-baseline/; the structure step above also
+      # runs the baselined convention rules.
+      - name: drift, tables against research
+        run: python3 tools/check_tables_research.py
+      - name: drift, smoke test coverage
+        run: python3 tools/check_smoke_coverage.py
+      - name: drift, parsers against research
+        run: python3 tools/check_parser_research.py
+      - name: drift, fixtures against research
+        run: python tools/check_fixture_schema.py
       - name: code style
         run: python3 tools/check_code_style.py
       - name: Install sh linters
