@@ -74,6 +74,8 @@ SOURCE_LINE = re.compile(
 )
 RESEARCH_DOCUMENT = re.compile(r"research/([a-z0-9][a-z0-9._-]*)\.md")
 CODE_SPAN = re.compile(r"`([^`]+)`")
+# A docstring line opening with a label of its own, such as `Source:` or `Lineage:`.
+LABEL = re.compile(r"^[A-Z][A-Za-z]*:")
 YAML_KEY = re.compile(
     r"""^\s*(?:-\s+)?"""
     r"""(?:"([^"]+)"|'([^']+)'|([A-Za-z_$][\w.$-]*))\s*:(?:\s|$)"""
@@ -137,11 +139,23 @@ def module_agent(stem: str, docstring: str, documents: set[str]) -> str:
 
 
 def declared_paths(docstring: str) -> list[str]:
-    """Return the project paths a docstring declares: each code span on a line `Paths: ...`."""
+    """Return the project paths a docstring declares: each code span of a `Paths:` line.
+
+    A `Paths:` line continues on each following line indented at least as far as its text
+    after `Paths:`, up to a blank line or a line opening with another label (`Source:`).
+    """
     found: list[str] = []
+    column = -1
     for line in docstring.split("\n"):
-        if line.strip().startswith("Paths:"):
-            found.extend(CODE_SPAN.findall(line))
+        text = line.lstrip(" \t")
+        indent = len(line) - len(text)
+        if text.startswith("Paths:"):
+            after = text[len("Paths:") :]
+            column = indent + len("Paths:") + len(after) - len(after.lstrip(" \t"))
+        elif column < 0 or not text or LABEL.match(text) or indent < column:
+            column = -1
+            continue
+        found.extend(CODE_SPAN.findall(line))
     return found
 
 

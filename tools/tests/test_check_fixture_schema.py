@@ -453,6 +453,33 @@ def test_declared_paths_forms():
     assert checker.declared_paths("No paths: `/x` here.") == []
 
 
+def test_declared_paths_read_a_wrapped_paths_line():
+    docstring = (
+        "Intro `/intro`.\n\n"
+        "Paths: `/home/alice/proj`,\n"
+        "       `C:\\Users\\alice\\proj` and\n"
+        "         `/Users/alice/proj`.\n"
+        "      `/under-indented`\n"
+        "       `/after-the-break`\n"
+        "\n"
+        "  Paths: `/indented`\n"
+        "         `/continued`\n"
+        "         Source: `/a-label`\n"
+        "         `/after-the-label`\n"
+        "Paths: `/last`\n"
+        "\n"
+        "       `/after-a-blank-line`\n"
+    )
+    assert checker.declared_paths(docstring) == [
+        "/home/alice/proj",
+        "C:\\Users\\alice\\proj",
+        "/Users/alice/proj",
+        "/indented",
+        "/continued",
+        "/last",
+    ]
+
+
 def test_lineage_forms():
     assert checker.lineage("Intro.\n\nLineage: codex-cli, opencode\n") == {"codex-cli", "opencode"}
     assert checker.lineage("Lineage: roo-code") == {"roo-code"}
