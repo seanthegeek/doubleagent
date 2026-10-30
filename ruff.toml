@@ -39,9 +39,6 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-# Each parser's tests import their parser and fixtures at the head of their
-# own section of this long file, so the sections can be read alone.
-"analyzer/tests/test_parsers.py" = ["E402"]
 # Test methods and functions are named for what they prove, so need no docstring.
 "analyzer/tests/*.py" = ["D102", "D103", "D105", "D107"]
 # These parsers define a small row-building closure inside the record loop
@@ -55,5 +52,5 @@ convention = "google"
 
 [lint.isort]
 # Fixed here so import order does not depend on the directory ruff runs
-# from; the tests import their fixtures module as a top-level name.
+# from; the tests import their fixtures package as a top-level name.
 known-first-party = ["doubleagent", "fixtures"]
