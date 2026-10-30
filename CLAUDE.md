@@ -27,6 +27,14 @@ Notes for Claude Code on this workstation:
   running and far longer beside a Parallels VM, which holds most of the
   8 GB, so never run it beside one. While a Linux lab VM is up, run dash,
   bash and busybox there and the analyzer tests here.
+- A Bash call with `run_in_background` and a subagent each re-invoke the
+  session when they end, with the exit code and the output file: wait for
+  that notification and read the file. Never write a loop that sleeps and
+  polls for the run (`until ! pgrep -f 'smoke.sh dash'`, `while ps | grep`),
+  in this session or in a brief: `pgrep -f` matches the waiting shell
+  itself, so the loop never ends. Bound a foreground command with
+  `perl -e 'alarm N; exec @ARGV' -- <command>`, since macOS has no
+  `timeout`.
 - Under fish, a string of ssh flags in a variable is not word-split: keep an
   ssh config file with host aliases in the scratchpad and pass it with `-F`.
 
@@ -61,8 +69,9 @@ Work is split by model to keep Fable for the parts that need it.
 The brief is one file in the scratchpad that every subagent of a round
 reads, the cold reader excepted, so the rules are identical and each
 prompt is only its assignment.
-It names the files to read first, the rules that must hold, the files the
-agent may and may not touch, and the report format.
+It names the files to read first, the rules that must hold (the waiting
+rule above among them), the files the agent may and may not touch, and the
+report format.
 
 In a [real-install round](AGENTS.md#real-install-rounds) of a CLI agent,
 Fable drives the agent in the VM over ssh and `screen`; the user does only
