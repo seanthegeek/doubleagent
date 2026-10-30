@@ -531,7 +531,7 @@ hermes|Library/Application Support/Hermes
 hermes|Library/Application Support/Hermes?*
 hermes|AppData/Roaming/Hermes
 hermes|AppData/Roaming/Hermes?*
-# OpenClaw (formerly Clawdbot and Moltbot; profiles are ~/.openclaw-<profile>, ~/.clawdbot may be a symlink)
+# OpenClaw (formerly Clawdbot and Moltbot; profiles are ~/.openclaw-<profile>; ~/.clawdbot and ~/.moltbot are legacy state directories)
 openclaw|.openclaw
 openclaw|.openclaw-*
 openclaw|.clawdbot
@@ -1183,14 +1183,55 @@ AppData/Roaming/Hermes*/GPUCache
 .openclaw*/plugin-skills
 .openclaw*/extensions/*/node_modules
 .openclaw*/sandbox/skills-workspaces
+.openclaw*/cache/control-ui-assets
 .openclaw*/agents/*/agent/tmp
 .openclaw*/agents/*/agent/.tmp
+.openclaw*/agents/*/agent/*/tmp
+.openclaw*/agents/*/agent/*/.tmp
 .openclaw*/browser/*/user-data/*/Cache
 .openclaw*/browser/*/user-data/*/Code Cache
 .openclaw*/browser/*/user-data/*/GPUCache
 .openclaw*/browser/*/user-data/*/Service Worker
-.clawdbot/tools
+.clawdbot/dev
+.clawdbot/git
 .clawdbot/npm
+.clawdbot/npm-runtime
+.clawdbot/tmp
+.clawdbot/tools
+.clawdbot/worktrees
+.clawdbot/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+.clawdbot/plugin-skills
+.clawdbot/extensions/*/node_modules
+.clawdbot/sandbox/skills-workspaces
+.clawdbot/cache/control-ui-assets
+.clawdbot/agents/*/agent/tmp
+.clawdbot/agents/*/agent/.tmp
+.clawdbot/agents/*/agent/*/tmp
+.clawdbot/agents/*/agent/*/.tmp
+.clawdbot/browser/*/user-data/*/Cache
+.clawdbot/browser/*/user-data/*/Code Cache
+.clawdbot/browser/*/user-data/*/GPUCache
+.clawdbot/browser/*/user-data/*/Service Worker
+.moltbot/dev
+.moltbot/git
+.moltbot/npm
+.moltbot/npm-runtime
+.moltbot/tmp
+.moltbot/tools
+.moltbot/worktrees
+.moltbot/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+.moltbot/plugin-skills
+.moltbot/extensions/*/node_modules
+.moltbot/sandbox/skills-workspaces
+.moltbot/cache/control-ui-assets
+.moltbot/agents/*/agent/tmp
+.moltbot/agents/*/agent/.tmp
+.moltbot/agents/*/agent/*/tmp
+.moltbot/agents/*/agent/*/.tmp
+.moltbot/browser/*/user-data/*/Cache
+.moltbot/browser/*/user-data/*/Code Cache
+.moltbot/browser/*/user-data/*/GPUCache
+.moltbot/browser/*/user-data/*/Service Worker
 .nanobot*/bin
 .nanobot*/run
 .nanobot*/cache
@@ -1285,19 +1326,6 @@ chrome-debug
 bot-desktop/browser-profile
 plugins/*/node_modules
 plugins/*/.venv
-npm
-npm-runtime
-worktrees
-projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
-plugin-skills
-agents/*/agent/tmp
-agents/*/agent/.tmp
-extensions/*/node_modules
-sandbox/skills-workspaces
-browser/*/user-data/*/Cache
-browser/*/user-data/*/Code Cache
-browser/*/user-data/*/GPUCache
-browser/*/user-data/*/Service Worker
 bin
 mod-cache
 tool_execution_dir
@@ -1741,20 +1769,47 @@ Library/Application Support/Hermes*/connection*.json*
 AppData/Roaming/Hermes*/connection*.json*
 .openclaw*/openclaw.json*
 .openclaw*/clawdbot.json*
+.openclaw*/moltbot.json*
 .openclaw*/.env
 .openclaw*/credentials/*
 .openclaw*/service-env/*
+.openclaw*/client/credentials.sqlite*
+.openclaw*/identity/*
+.openclaw*/exec-approvals.json*
 .openclaw*/agents/*/agent/auth-profiles.json*
+.openclaw*/agents/*/agent/auth-state.json*
+.openclaw*/agents/*/agent/auth.json*
 .openclaw*/agents/*/agent/models.json
 .openclaw*/browser/*/user-data/*/Cookies*
-.openclaw*/exec-approvals.json
-.openclaw-auth-profile-secrets/*
+.clawdbot/openclaw.json*
 .clawdbot/clawdbot.json*
+.clawdbot/moltbot.json*
 .clawdbot/.env
 .clawdbot/credentials/*
+.clawdbot/service-env/*
+.clawdbot/client/credentials.sqlite*
+.clawdbot/identity/*
+.clawdbot/exec-approvals.json*
+.clawdbot/agents/*/agent/auth-profiles.json*
+.clawdbot/agents/*/agent/auth-state.json*
+.clawdbot/agents/*/agent/auth.json*
+.clawdbot/agents/*/agent/models.json
+.clawdbot/browser/*/user-data/*/Cookies*
+.moltbot/openclaw.json*
+.moltbot/clawdbot.json*
 .moltbot/moltbot.json*
 .moltbot/.env
 .moltbot/credentials/*
+.moltbot/service-env/*
+.moltbot/client/credentials.sqlite*
+.moltbot/identity/*
+.moltbot/exec-approvals.json*
+.moltbot/agents/*/agent/auth-profiles.json*
+.moltbot/agents/*/agent/auth-state.json*
+.moltbot/agents/*/agent/auth.json*
+.moltbot/agents/*/agent/models.json
+.moltbot/browser/*/user-data/*/Cookies*
+.openclaw-auth-profile-secrets/*
 .config/openclaw/gateway.env
 .nanobot*/config.json
 .nanobot*/auth/*
@@ -1970,15 +2025,6 @@ profiles/*/.azure/*
 profiles/*/.config/gh/*
 profiles/*/.config/gcloud/*
 profiles/*/.envrc
-openclaw.json*
-clawdbot.json*
-moltbot.json*
-credentials/*
-service-env/*
-agents/*/agent/auth-profiles.json*
-agents/*/agent/models.json
-browser/*/user-data/*/Cookies*
-exec-approvals.json
 config.json
 whatsapp-auth/*
 matrix-store/*
@@ -2018,14 +2064,12 @@ n8n|*n8n_data
 n8n|*n8n-data
 # Inferred names: the documentation of these tools bind-mounts the home directory
 # instead of a named volume; a volume replacing it has the same layout (~/.tabby
-# at /data, ~/.hermes at /opt/data, ~/.openclaw at /home/node/.openclaw, ...)
+# at /data, ~/.hermes at /opt/data, ...)
 tabby|*tabby*
 local-deep-research|*local-deep-research*
 openhands|*openhands*
 letta|*letta*
 hermes|*hermes*
-openclaw|*openclaw*
-openclaw|*clawdbot*
 nanobot|*nanobot*
 '
 
@@ -3117,11 +3161,13 @@ find_agent_session_projects() {
     "$1"/.openhands/conversations/*/base_state.json
   json_vals workspaceDirectory "$1/.pearai/sessions/sessions.json"
 }
-# find_config_file_projects HOME: OpenClaw (and its clawdbot name), nanobot,
-# Tabby and Twinny. Temporaries: _fcfp_.
+# find_config_file_projects HOME: OpenClaw (and its Clawdbot and Moltbot configs),
+# nanobot, Tabby and Twinny. Temporaries: _fcfp_.
 find_config_file_projects() {
-  json5_vals workspace "$1"/.openclaw*/openclaw.json "$1/.clawdbot/clawdbot.json"
-  json5_vals agentDir "$1"/.openclaw*/openclaw.json "$1/.clawdbot/clawdbot.json"
+  for _fcfp_key in workspace cwd agentDir; do
+    json5_vals "$_fcfp_key" "$1"/.openclaw*/openclaw.json "$1/.clawdbot/openclaw.json" \
+      "$1/.clawdbot/clawdbot.json" "$1/.clawdbot/moltbot.json" "$1/.moltbot/moltbot.json"
+  done
   for _fcfp_file in "$1"/.nanobot*/sessions/*/.workspace; do
     [ -f "$_fcfp_file" ] && awk 1 "$_fcfp_file"
   done

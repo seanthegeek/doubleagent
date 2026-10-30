@@ -220,14 +220,16 @@ and the source give:
 - Rolling logs `openclaw[-<profile>]-YYYY-MM-DD.log` in `/tmp/openclaw` or a per-user
   `os.tmpdir()` fallback, on Windows under `AppData/Local/Temp`
   ([`logging/log-file-path.ts:43-50`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/logging/log-file-path.ts#L43-L50)).
-- macOS app: `~/Library/Application Support/OpenClaw/databases/`, its chat transcript cache, and
-  `OpenClaw/canvas`
+- macOS app: `~/Library/Application Support/OpenClaw/databases/`, its chat transcript cache
+  (`databases/gateway-cache.sqlite` and `databases/client-state.sqlite`,
+  [`ClientDatabases.swift:35-36`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/apps/shared/OpenClawKit/Sources/OpenClawChatUI/ClientDatabases.swift#L35-L36)),
+  and `OpenClaw/canvas`
   ([`ChatTranscriptCacheSupport.swift:121-126`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/apps/macos/Sources/OpenClaw/ChatTranscriptCacheSupport.swift#L121-L126),
   [`CanvasManager.swift:19-22`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/apps/macos/Sources/OpenClaw/CanvasManager.swift#L19-L22)).
 - Persistence: `~/Library/LaunchAgents/ai.openclaw.gateway.plist` and `ai.openclaw.node.plist`,
   systemd user units `~/.config/systemd/user/openclaw-gateway.service` and `openclaw-node.service`,
-  the legacy unit `clawdbot-gateway.service`, and Windows scheduled tasks `OpenClaw Gateway` and
-  `OpenClaw Node` running `<state>/gateway.cmd`
+  the legacy unit `~/.config/systemd/user/clawdbot-gateway.service`, and Windows scheduled tasks
+  `OpenClaw Gateway` and `OpenClaw Node` running `<state>/gateway.cmd`
   ([`daemon/constants.ts:4-6`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/daemon/constants.ts#L4-L6),
   [`:28-34`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/daemon/constants.ts#L28-L34);
   [`launchd-service-files.ts:55`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/daemon/launchd-service-files.ts#L55);
@@ -286,7 +288,13 @@ variables only draw a warning
 ### Credentials
 
 Paths are home-relative and the same on Linux, macOS and Windows; `.openclaw` stands for every
-state directory form, `.openclaw-<profile>` and the legacy `.clawdbot` included.
+state directory form, `.openclaw-<profile>` and the legacy `.clawdbot` and `.moltbot` included
+([Legacy names](#legacy-names)). Below each form the credential files are `openclaw.json`,
+`clawdbot.json`, `moltbot.json`, `.env`, `credentials/*`, `service-env/*`,
+`client/credentials.sqlite`, `identity/*`, `exec-approvals.json`,
+`agents/<agentId>/agent/auth-profiles.json`, `agents/<agentId>/agent/auth-state.json`,
+`agents/<agentId>/agent/auth.json`, `agents/<agentId>/agent/models.json` and
+`browser/<profile>/user-data/<chromium-profile>/Cookies`, each with the copies named below.
 
 - `.openclaw/openclaw.json` holds `gateway.auth.token` and `password`
   ([`config/zod-schema.gateway.ts:254-256`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.gateway.ts#L254-L256)),
@@ -346,6 +354,10 @@ state directory form, `.openclaw-<profile>` and the legacy `.clawdbot` included.
   doctor migrates
   ([`commands/doctor-model-catalog-credentials.ts:81-95`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/commands/doctor-model-catalog-credentials.ts#L81-L95),
   [`:255-259`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/commands/doctor-model-catalog-credentials.ts#L255-L259)).
+- `.openclaw/browser/<profile>/user-data/Default/Cookies`, the cookie store of the Chromium
+  profile the agent drives
+  ([`extensions/browser/src/browser/chrome.ts:512`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/extensions/browser/src/browser/chrome.ts#L512)),
+  holds the session cookies of every site the agent signed into, with its `Cookies-journal`.
 - `.openclaw/credentials/` subtrees written by channel plugins: `whatsapp/<accountId>/` session
   keys
   ([`extensions/whatsapp/src/accounts.ts:68`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/extensions/whatsapp/src/accounts.ts#L68)),
@@ -408,17 +420,25 @@ top of the state directory, and says names such as `tmp` and `.tmp` are not blan
 in custom agent directories
 ([`docs/cli/backup.md:872-874`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/cli/backup.md#L872-L874));
 a workspace's `tmp/` or `tools/` is the agent's own work. Add `worktrees/` (git worktrees of user
-repositories) and the Chromium cache subtrees under `browser/*/user-data/`; do not exclude
-`browser/*/user-data` as a whole, since its History and Cookies show what the agent browsed.
+repositories) and the Chromium cache subtrees under `browser/*/user-data/`,
+`browser/*/user-data/*/Cache`, `browser/*/user-data/*/Code Cache`,
+`browser/*/user-data/*/GPUCache` and `browser/*/user-data/*/Service Worker`; do not exclude
+`browser/*/user-data` as a whole, since its History and Cookies show what the agent browsed. The
+temporary trees deeper in an agent directory are `agents/*/agent/**/tmp` and
+`agents/*/agent/**/.tmp`.
 
 The full git clones the Gateway makes when a project is added from a remote URL,
 `projects/<16 hex>/<name>`, are the same kind of tree as `worktrees/`. The clone directory's name
 is exactly 16 lower-case hex characters
 ([`src/projects/project-clone.ts:302-318`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/projects/project-clone.ts#L302-L318)),
-so the pattern names it, `.openclaw*/projects/` followed by sixteen `[0-9a-f]` classes, and nothing
-else under `projects/` is pruned; which repository each clone is stays in `state/openclaw.sqlite`
-`projects` (`origin_url`, `repo_root`). The cold archive directory `agents/<agentId>/sessions/cold/`
-holds transcript history and is not excluded ([Transcript stores](#transcript-stores)).
+so the exclusion
+`projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]`
+names it, and nothing else under `projects/` is pruned; which repository each clone is stays in
+`state/openclaw.sqlite` `projects` (`origin_url`, `repo_root`). The cold archive directory
+`agents/<agentId>/sessions/cold/` holds transcript history and is not excluded
+([Transcript stores](#transcript-stores)). Every exclusion applies below each state directory
+form, the legacy `.clawdbot` and `.moltbot` included, since a build that used one as its state
+directory wrote the same tree there ([Legacy names](#legacy-names)).
 
 ### Project-local files
 
@@ -444,7 +464,11 @@ No per-project database.
   ([`config/zod-schema.agents.ts:30-39`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.agents.ts#L30-L39);
   [`zod-schema.agent-defaults-base.ts:62`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.agent-defaults-base.ts#L62);
   [`zod-schema.agent-entry-base.ts:85-87`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.agent-entry-base.ts#L85-L87)).
-  JSON5, so a key may be unquoted.
+  JSON5, so a key may be unquoted. A build that used a legacy state directory kept the same keys
+  in `.clawdbot/openclaw.json` or `.clawdbot/clawdbot.json`
+  ([`src/config/paths.ts:36-41` at `3b16db7`](https://github.com/openclaw/openclaw/blob/3b16db73c0b5209aad2ee7c3fb5ddfb12fb208f9/src/config/paths.ts#L36-L41)),
+  and a Moltbot build in `.moltbot/moltbot.json` or `.clawdbot/moltbot.json`
+  ([Credentials](#credentials)).
 - `state/openclaw.sqlite` tables `projects` (`repo_root`, `origin_url`, `source` `registered` for a
   repository the user pointed the Gateway at, `cloned` for one it cloned into `projects/`) and
   `worktrees` (`repo_root`, `path`, `owner_kind` `manual|workboard|session`, `owner_id`,
@@ -466,7 +490,8 @@ No per-project database.
 Home-relative, with `.openclaw` replaceable by `.openclaw-<profile>` or, on a host doctor never
 migrated, the legacy `.clawdbot`:
 
-- `.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite` with `-wal` and `-shm`: the live store.
+- `.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite` with its sidecars
+  `openclaw-agent.sqlite-wal` and `openclaw-agent.sqlite-shm`: the live store.
   One `session_nodes` row per logical session, one `session_windows` row per generation, one
   `transcript_events` row per entry ([Database rows](#database-rows)). Its directory, `agentDir`,
   can be moved by config ([Contents of the state directory](#contents-of-the-state-directory)).
