@@ -16,7 +16,6 @@ check_research_structure|latest-version-missing|Desktop app, macOS and Windows: 
 check_research_structure|observed-label-missing|CLI and server, Linux: Ollama 0.35.1 systemd install
 check_research_structure|observed-label-missing|CLI and server, macOS and Windows: no real
 check_research_structure|observed-label-missing|Desktop app, macOS and Windows: no real install;
-check_research_structure|version-without-change|One launch edits another agent's session state: for OpenClaw, clearSessionModelOverride rewrites .openclaw/agents/main/sessions/sessions.json without a backup, setting each session's model to the launched model and dropping modelOverride/providerOverride (openclaw.go:757-792), unchanged since v0.30.7.
 check_research_structure|version-without-change|The routes that ollama launch points agents at, /api/chat, /api/generate, /v1/chat/completions, /v1/completions, /v1/responses and /v1/messages, all end in ChatHandler or GenerateHandler (server/routes.go:2072-2092), as do /v1/responses/compact and /v1/systemone, which are new since v0.30.7 and write no file either.
 check_research_structure|version-without-change|The same holds for the integrations added since v0.30.7, chatgpt (the Codex desktop app), muse and dsh; the subsections below take each store in turn.
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/Ollama/updates

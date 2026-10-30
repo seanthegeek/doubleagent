@@ -475,6 +475,8 @@ def test_version_phrases_forms():
         "since the 2.1 line",
         "since 2026-10-13",
         "added in the last two builds 2.1",
+        "are unchanged since `v0.30.7`",
+        "Unchanged since 4.3.5",
     )
     for line in rejected:
         assert checker.version_phrases(line) == [], line

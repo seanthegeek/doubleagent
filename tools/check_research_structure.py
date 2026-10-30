@@ -109,7 +109,7 @@ EARLIER_BUILDS = re.compile(
 )
 EARLIER_BUILD_ITEM = re.compile(r"(?:^|, )(?P<build>[^,()]+?) \((?P<date>\d{4}-\d{2}-\d{2})\)")
 VERSION_PHRASE = re.compile(
-    r"\b(?:[Ss]ince|[Aa]dded in|[Ii]ntroduced in|[Nn]ew in)"
+    r"\b(?:(?<![Uu]nchanged )[Ss]ince|[Aa]dded in|[Ii]ntroduced in|[Nn]ew in)"
     r"(?: (?:version|build))?(?: (?!(?i:collector|analyzer)\b)[A-Z][\w-]*)?"
     r" `?v?(?P<version>\d+\.\d+(?:\.\d+)*)"
 )
@@ -372,8 +372,8 @@ def version_phrases(line: str) -> list[tuple[str, str]]:
     "build", then optionally one capitalised product word, then a version, perhaps in a code
     span and with a `v`; it is returned without backticks: `since 2.1.309`, `Added in CLI 1.3`,
     ``since `v0.30.7` ``. A lower-case word between ("since the 2.1 line"), "since collector
-    1.5.0" or "since analyzer 0.17.0" (this project's tools) and "changed between <build> and
-    <build>" do not count.
+    1.5.0" or "since analyzer 0.17.0" (this project's tools), "unchanged since <version>" and
+    "changed between <build> and <build>" do not count.
     """
     return [
         (match.group(0).replace("`", ""), match.group("version"))
