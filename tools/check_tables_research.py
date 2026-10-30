@@ -87,6 +87,8 @@ NOT_A_CREDENTIAL = re.compile(
 # A clause ends at these marks; a denial further than CLAUSE_WORDS words away is about
 # something else.
 CLAUSE_BREAK = re.compile(r"[,;:]")
+# A link's target, whose URL holds a colon that is no clause break.
+LINK_TARGET = re.compile(r"\]\([^)]*\)")
 CLAUSE_WORDS = 4
 # The end of a sentence: a stop before whitespace, a blank line or the next list item.
 SENTENCE_END = re.compile(r"[.!?](?=\s|$)|\n[ \t]*\n|\n[ \t]*(?:[-*+]|\d+[.)])[ \t]")
@@ -398,7 +400,7 @@ def denies_credential(section: Section, end: int) -> bool:
     phrase = NOT_A_CREDENTIAL.search(section.text, end, stop.start() if stop else len(section.text))
     if phrase is None:
         return False
-    between = section.text[end : phrase.start()]
+    between = LINK_TARGET.sub("]", section.text[end : phrase.start()])
     if CLAUSE_BREAK.search(between) or len(between.split()) > CLAUSE_WORDS:
         return False
     return not any(end <= start < phrase.start() for _, start, _ in plain_spans(section))
