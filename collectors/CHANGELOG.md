@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Hermes' remaining credential stores are flagged `secret: true` in every home and profile (`.hermes*/` and `AppData/Local/hermes*/`): the config writers' `config.yaml.*` copies, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json` and the OS credential directories `.ssh/*`, `.aws/*`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*` and `.envrc`; in a Hermes volume, whose `_data` is the container user's home, the volume-relative `config.yaml.*`, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json`, `.ssh/*`, `.aws/credentials`, `.aws/config`, the AWS CLI credential cache `.aws/cli/cache/*.json`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*`, `.envrc` and the quick snapshots' `state-snapshots/*/config.yaml` and `state-snapshots/*/feishu_comment_pairing.json` ([#326]).
 - OpenClaw's local client credential store `client/credentials.sqlite`, the legacy device identity files `identity/*`, the legacy auth sources `agents/*/agent/auth-state.json` and `auth.json` with their archives, the `exec-approvals.json` archives and the Moltbot config `.clawdbot/moltbot.json` are flagged `secret: true`, under `.openclaw`, a profile's `.openclaw-<profile>` and the legacy `.clawdbot` and `.moltbot` alike ([#219], [#326]).
 - OpenClaw's exclusions and secret globs apply under the legacy `.clawdbot` and `.moltbot` state directories as under `.openclaw`, and `cache/control-ui-assets` and the agent temporary trees deeper in `agents/*/agent/` are excluded ([#326]).
+- A Docker or Podman volume named `*openclaw_home`, the container home OpenClaw's Docker setup keeps in `OPENCLAW_HOME_VOLUME`, is collected as `claude-code`: it holds a Claude Code install made in the container, `.claude/` and `.claude.json` among it ([#326]).
 - Project discovery reads OpenClaw's `cwd` key beside `workspace` and `agentDir`, and the legacy configs `.clawdbot/openclaw.json`, `.clawdbot/moltbot.json` and `.moltbot/moltbot.json` ([#326]).
 
 ### Changed
@@ -29,7 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-- The `openclaw` `DOCKER_VOLUMES` lines (`*openclaw*`, `*clawdbot*`) and OpenClaw's volume-relative exclusions and secret globs: OpenClaw keeps no state in a named volume, so a volume such as `openclaw_home` is now `skipped_unmatched_volume` ([#326]).
+- The `openclaw` `DOCKER_VOLUMES` lines (`*openclaw*`, `*clawdbot*`) and OpenClaw's volume-relative exclusions and secret globs: OpenClaw keeps no state in a named volume ([#326]).
 
 ## [1.20.0] - 2026-10-29
 

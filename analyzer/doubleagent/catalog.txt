@@ -1953,6 +1953,9 @@ langflow|*langflow-data
 # file (n8n_n8n-data); both mounted at /home/node/.n8n
 n8n|*n8n_data
 n8n|*n8n-data
+# The OpenClaw Docker setup: OPENCLAW_HOME_VOLUME (openclaw_home in its guide),
+# mounted at /home/node, the home of a Claude Code install made in the container
+claude-code|*openclaw_home
 # Inferred names: the documentation of these tools bind-mounts the home directory
 # instead of a named volume; a volume replacing it has the same layout (~/.tabby
 # at /data, ~/.hermes at /opt/data, ...)

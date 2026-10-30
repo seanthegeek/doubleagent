@@ -1163,6 +1163,9 @@ MakeFile 'clawcwd/TOOLS.md' '# tools'
 MakeFile 'clawold/BOOTSTRAP.md' '# bootstrap'
 MakeFile 'moltws/.openclaw/worktree-setup.sh' "#!/bin/sh`n"
 MakeFile 'moltold/SOUL.md' '# soul'
+$openclawHomeVolume = 'var/lib/docker/volumes/openclaw_home/_data'
+MakeFile "$openclawHomeVolume/.claude.json" '{"oauthAccount":{}}'
+MakeFile "$openclawHomeVolume/.claude/history.jsonl" '{"display":"hi"}'
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 $opencodeDesktop = 'Users/alice/Library/Application Support/ai.opencode.desktop'
@@ -1956,6 +1959,8 @@ Check 'openclaw JSON5 agent cwd discovers project' { (StatusOf 'clawcwd/TOOLS.md
 Check 'openclaw legacy .clawdbot/openclaw.json discovers project' { (StatusOf 'clawold/BOOTSTRAP.md') -eq 'collected' }
 Check 'openclaw Moltbot .moltbot/moltbot.json discovers project' { (StatusOf 'moltws/.openclaw/worktree-setup.sh') -eq 'collected' }
 Check 'openclaw Moltbot .clawdbot/moltbot.json discovers project' { (StatusOf 'moltold/SOUL.md') -eq 'collected' }
+Check 'openclaw_home volume .claude.json flagged secret as claude-code' { $row = Row "$openclawHomeVolume/.claude.json"; $row -and $row.user -eq 'docker' -and $row.agent -eq 'claude-code' -and $row.secret -eq $true -and $row.status -eq 'collected' }
+Check 'openclaw_home volume .claude file collected as claude-code' { $row = Row "$openclawHomeVolume/.claude/history.jsonl"; $row -and $row.user -eq 'docker' -and $row.agent -eq 'claude-code' -and $row.secret -eq $false -and $row.status -eq 'collected' }
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 Check '#213 OpenCode service.json flagged secret' { (IsAgentRow 'Users/alice/.config/opencode/service.json' 'opencode' $true) -and (IsAgentRow 'Users/alice/.local/state/opencode/service-local.json' 'opencode' $true) }

@@ -1250,6 +1250,10 @@ printf '# tools\n' >"$ROOT/srv/clawcwd/TOOLS.md"
 printf '# bootstrap\n' >"$ROOT/srv/clawold/BOOTSTRAP.md"
 printf '#!/bin/sh\n' >"$ROOT/srv/moltws/.openclaw/worktree-setup.sh"
 printf '# soul\n' >"$ROOT/srv/moltold/SOUL.md"
+OPENCLAW_HOME_VOLUME="$VOLUMES/openclaw_home/_data"
+mkdir -p "$OPENCLAW_HOME_VOLUME/.claude"
+printf '{"oauthAccount":{}}\n' >"$OPENCLAW_HOME_VOLUME/.claude.json"
+printf '{"display":"hi"}\n' >"$OPENCLAW_HOME_VOLUME/.claude/history.jsonl"
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 OPENCODE_DESKTOP="$BOB/Library/Application Support/ai.opencode.desktop"
@@ -1916,6 +1920,8 @@ check "openclaw JSON5 agent cwd discovers project" "[ \"\$(status_of \"$ROOT/srv
 check "openclaw legacy .clawdbot/openclaw.json discovers project" "[ \"\$(status_of \"$ROOT/srv/clawold/BOOTSTRAP.md\")\" = collected ]"
 check "openclaw Moltbot .moltbot/moltbot.json discovers project" "[ \"\$(status_of \"$ROOT/srv/moltws/.openclaw/worktree-setup.sh\")\" = collected ]"
 check "openclaw Moltbot .clawdbot/moltbot.json discovers project" "[ \"\$(status_of \"$ROOT/srv/moltold/SOUL.md\")\" = collected ]"
+check "openclaw_home volume .claude.json flagged secret as claude-code" "row \"$OPENCLAW_HOME_VOLUME/.claude.json\" | grep -q '\"user\":\"docker\".*\"agent\":\"claude-code\".*$SECRET_COLLECTED'"
+check "openclaw_home volume .claude file collected as claude-code" "row \"$OPENCLAW_HOME_VOLUME/.claude/history.jsonl\" | grep -q '\"user\":\"docker\".*\"agent\":\"claude-code\".*\"status\":\"collected\"'"
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 check "#213 OpenCode service.json flagged secret" "row \"$ALICE/.config/opencode/service.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED' && row \"$ALICE/.local/state/opencode/service-local.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"

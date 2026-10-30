@@ -822,6 +822,16 @@ registry files of `sessions/` (its `*.key` files are), `todos/`, `plans/`, `task
 `session-env/`, `shell-snapshots/`, `debug/` and the other subdirectories, and any config home
 outside the home directory or not named `.claude-<name>`.
 
+#### Docker volume of OpenClaw's setup
+
+OpenClaw's Docker setup can keep the container user's home, `/home/node`, in a named volume chosen
+with `OPENCLAW_HOME_VOLUME`, `openclaw_home` in OpenClaw's guide, so that a Claude Code install
+made inside the container survives image upgrades; the volume then holds that install's
+`.local/bin/claude`, `.local/share/claude`, `.claude/` and `.claude.json` at its root
+([`scripts/docker/setup.sh:591-602`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/scripts/docker/setup.sh#L591-L602);
+[`docs/install/docker/networking-and-storage.md:46-52`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/install/docker/networking-and-storage.md#L46-L52),
+[`:100`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/install/docker/networking-and-storage.md#L100)).
+
 #### Used by other agents
 
 Other agents read this agent's config home or drive the CLI (from source; none seen on a real
