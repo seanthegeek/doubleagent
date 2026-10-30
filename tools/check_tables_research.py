@@ -84,6 +84,10 @@ NOT_A_CREDENTIAL = re.compile(
     r"|(?:holds|has|contains|stores) no credentials?)\b",
     re.I,
 )
+# A clause ends at these marks; a denial further than CLAUSE_WORDS words away is about
+# something else.
+CLAUSE_BREAK = re.compile(r"[,;:]")
+CLAUSE_WORDS = 4
 # The end of a sentence: a stop before whitespace, a blank line or the next list item.
 SENTENCE_END = re.compile(r"[.!?](?=\s|$)|\n[ \t]*\n|\n[ \t]*(?:[-*+]|\d+[.)])[ \t]")
 MOUNTED_AT = re.compile(r"\bmounted at\s+(/\S*)")
@@ -385,13 +389,17 @@ def plain_spans(section: Section) -> list[tuple[str, int, int]]:
 def denies_credential(section: Section, end: int) -> bool:
     """Return whether the sentence of a code span ending at `end` says it is not a credential.
 
-    A `NOT_A_CREDENTIAL` phrase between the span and its sentence's end (`SENTENCE_END`), with
-    no other code span outside a link text (`plain_spans`) between the span and the phrase,
-    denies it: "`.crush/crush.lock` is not one".
+    A `NOT_A_CREDENTIAL` phrase in the span's own clause, at most `CLAUSE_WORDS` words after
+    it with no `,`, `;` or `:` and no other code span outside a link text (`plain_spans`)
+    between, before the sentence's end (`SENTENCE_END`), denies it: "`.crush/crush.lock` is not
+    one"; "`auth.json` is the token file; the rest holds no credentials" does not.
     """
     stop = SENTENCE_END.search(section.text, end)
     phrase = NOT_A_CREDENTIAL.search(section.text, end, stop.start() if stop else len(section.text))
     if phrase is None:
+        return False
+    between = section.text[end : phrase.start()]
+    if CLAUSE_BREAK.search(between) or len(between.split()) > CLAUSE_WORDS:
         return False
     return not any(end <= start < phrase.start() for _, start, _ in plain_spans(section))
 

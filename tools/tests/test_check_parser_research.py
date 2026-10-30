@@ -475,6 +475,27 @@ def test_named_group_read_from_a_match_is_not_a_key(tmp_path):
     assert sorted(details(root, "key-undocumented")) == ["other", "sid"]
 
 
+def test_match_group_reads_skip_a_name_rebound_to_a_record():
+    source = (
+        "import re\n"
+        "PATTERN = re.compile(r'(?P<sid>\\S+)')\n"
+        "def read(match, line):\n"
+        "    data = match.groupdict()\n"
+        "    first = data.get('sid')\n"
+        "    data = json.loads(line)\n"
+        "    return first, data.get('sid')\n"
+        "def loop(match, rows):\n"
+        "    for data in rows:\n"
+        "        data = match.groupdict()\n"
+        "        yield data['sid']\n"
+    )
+    tree = ast.parse(source)
+    reads = [node for node in ast.walk(tree) if isinstance(node, (ast.Call, ast.Subscript))]
+    skipped = checker.match_group_reads(tree)
+    lines = sorted(node.lineno for node in reads if id(node) in skipped)
+    assert lines == [], "a name bound once by a record or a loop is never a match's groups"
+
+
 def test_match_group_reads_forms():
     tree = ast.parse(
         textwrap.dedent(

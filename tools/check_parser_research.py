@@ -1063,8 +1063,9 @@ def key_reads(index: ModuleIndex, effective: EffectiveSet) -> list[Literal]:
 def match_group_reads(root: ast.AST) -> set[int]:
     """Return the ids of the key reads under `root` whose object holds a regex match's groups.
 
-    The object is a `.groupdict()` or `.group(...)` call, or a name bound from one in the same
-    function, or outside any function: `fields.groupdict()["sid"]`, `groups.get("sid")`.
+    The object is a `.groupdict()` or `.group(...)` call, or a name whose every binding in the
+    same function, or outside any function, is one: `fields.groupdict()["sid"]`,
+    `groups.get("sid")`; a name later rebound to a record is no match's groups.
     """
     found: set[int] = set()
     scopes = dict.fromkeys(
@@ -1072,13 +1073,11 @@ def match_group_reads(root: ast.AST) -> set[int]:
     )
     for scope in scopes:
         nodes = list(_scope_nodes(scope))
-        bound = {
-            target.id
-            for node in nodes
-            if isinstance(node, (ast.Assign, ast.NamedExpr)) and _is_match_groups(node.value)
-            for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
-            if isinstance(target, ast.Name)
-        }
+        bindings: dict[str, list[bool]] = {}
+        for node in nodes:
+            for name, from_match in _bindings(node):
+                bindings.setdefault(name, []).append(from_match)
+        bound = {name for name, forms in bindings.items() if all(forms)}
         for node in nodes:
             if isinstance(node, ast.Subscript):
                 holder = node.value
@@ -1089,6 +1088,27 @@ def match_group_reads(root: ast.AST) -> set[int]:
             if _is_match_groups(holder) or (isinstance(holder, ast.Name) and holder.id in bound):
                 found.add(id(node))
     return found
+
+
+def _bindings(node: ast.AST) -> list[tuple[str, bool]]:
+    """Return the names a statement binds, each with whether its value is a match's groups.
+
+    An assignment, annotated assignment or walrus binds its plain-name targets to its value; a
+    `for` target, a `with ... as` name and a function parameter bind to something else.
+    """
+    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+        if node.value is None:
+            return []
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        from_match = _is_match_groups(node.value)
+        return [(target.id, from_match) for target in targets if isinstance(target, ast.Name)]
+    if isinstance(node, (ast.For, ast.comprehension)):
+        return [(name.id, False) for name in ast.walk(node.target) if isinstance(name, ast.Name)]
+    if isinstance(node, ast.withitem) and isinstance(node.optional_vars, ast.Name):
+        return [(node.optional_vars.id, False)]
+    if isinstance(node, ast.arg):
+        return [(node.arg, False)]
+    return []
 
 
 def _scope_nodes(scope: ast.AST) -> Iterator[ast.AST]:

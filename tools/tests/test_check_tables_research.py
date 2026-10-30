@@ -383,7 +383,7 @@ def test_denies_credential_forms(tmp_path):
         "No new credential file. The project lock file `.crush/crush.lock` is not one\n"
         "([Data directory files](#data-directory-files)).",
         "`lock.json` is not a credential.",
-        "`lock.json`, the lock, is not a credential file.",
+        "`lock.json` is a lock and not a credential file.",
         "`lock.json` holds no credential.",
         "`lock.json` holds no credentials, only a pid.",
         "`lock.json` (see [`a1b2c3d`](https://x)) has no credential.",
@@ -391,6 +391,9 @@ def test_denies_credential_forms(tmp_path):
     )
     rejected = (
         "`lock.json` is read with no credentials cached in the keychain.",
+        "`lock.json` is the token file; the rest of the directory holds no credentials.",
+        "`lock.json` holds the OAuth token, which is not a credential file for the project.",
+        "`lock.json` holds the token the agent sends on every request and is not one.",
         "`lock.json` holds the token.",
         "`lock.json` holds the token. The pid file is not one.",
         "`lock.json` holds the token and `pid.json` is not one.",
