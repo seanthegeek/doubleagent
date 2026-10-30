@@ -760,6 +760,8 @@ def test_not_read_spans_forms(tmp_path):
         "Not read: `a`, `its` and `b`.": ["a", "its", "b"],
         "Not read: `a`, whose `b` is open and `c`.": ["a"],
         "Not read: `a`, whose `b` key: `c`.": ["a", "c"],
+        "Not read: `a`, whose `b` is set since 1.2 by `c`, and `d`.": ["a", "d"],
+        "Not read: `a`, their `b` and `c` keys unused, and `d`.": ["a", "d"],
     }
     for body, expected in cases.items():
         spans = checker.not_read_spans(section_of(tmp_path, body))
