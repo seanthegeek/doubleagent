@@ -471,16 +471,19 @@ No per-project database.
 
 ### Where the project path is recorded
 
-- `openclaw.json`: `agents.defaults.workspace` and `agents.entries.<id>.workspace`, `cwd` and
-  `agentDir`
+- `openclaw.json`: `agents.defaults.workspace`, `agents.defaults.cwd`, and
+  `agents.entries.<id>.workspace`, `cwd` and `agentDir`
   ([`config/zod-schema.agents.ts:30-39`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.agents.ts#L30-L39);
-  [`zod-schema.agent-defaults-base.ts:62`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.agent-defaults-base.ts#L62);
+  [`zod-schema.agent-defaults-base.ts:62-63`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.agent-defaults-base.ts#L62-L63);
   [`zod-schema.agent-entry-base.ts:85-87`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.agent-entry-base.ts#L85-L87)).
   JSON5, so a key may be unquoted. A build that used a legacy state directory kept the same keys
   in `.clawdbot/openclaw.json` or `.clawdbot/clawdbot.json`
   ([`src/config/paths.ts:36-41` at `3b16db7`](https://github.com/openclaw/openclaw/blob/3b16db73c0b5209aad2ee7c3fb5ddfb12fb208f9/src/config/paths.ts#L36-L41)),
   and a Moltbot build in `.moltbot/moltbot.json` or `.clawdbot/moltbot.json`
-  ([Credentials](#credentials)).
+  ([Credentials](#credentials)). An MCP server entry, `mcp.servers.<name>`, also takes a `cwd`, the
+  directory its command runs in
+  ([`config/zod-schema.mcp-server.ts:30`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/zod-schema.mcp-server.ts#L30)), which
+  a reader of every `cwd` key picks up beside the agents' directories.
 - `state/openclaw.sqlite` tables `projects` (`repo_root`, `origin_url`, `source` `registered` for a
   repository the user pointed the Gateway at, `cloned` for one it cloned into `projects/`) and
   `worktrees` (`repo_root`, `path`, `owner_kind` `manual|workboard|session`, `owner_id`,

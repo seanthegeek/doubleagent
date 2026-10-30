@@ -664,7 +664,7 @@ agent state that can be read with grep, and from every `-p` directory.
 | Muse Code | Trusted projects (`.config/muse/trust.json`) and session logs (`workspace_root`). |
 | nanobot | Workspace markers and config. |
 | Open Interpreter | Rollouts in `sessions` and `archived_sessions`; a `cwd` under the home's `.openinterpreter/worktrees` is skipped from collector 1.18.0. |
-| OpenClaw | Workspace and agent directories from its JSON5 config. |
+| OpenClaw | Workspace, working and agent directories (`workspace`, `cwd`, `agentDir`) from its JSON5 config and the legacy Clawdbot and Moltbot configs; `cwd` also names an MCP server's working directory. |
 | OpenCode | Legacy project store. |
 | OpenHands | Workspaces and conversation metadata. |
 | PearAI | Sessions. |
