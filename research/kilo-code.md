@@ -10,8 +10,9 @@ of Cline, and still reads the Roo-style task directories that pre-fork installs 
 "Kilo Cloud" below is Kilo's web service at `app.kilo.ai`. This document rests on Kilo Code 7.8.25
 at commit
 [`0a9faef`](https://github.com/Kilo-Org/kilocode/commit/0a9faeff69fff8712da184ee5188bb7985c6f057).
-The analyzer parses its `kilo.db` sessions and the cloud session marker, from source and fixtures
-only.
+The analyzer parses its `kilo.db` sessions, the cloud session marker, the TUI's prompt history,
+stash and pinned sessions, the standing settings, the retention state, the project memory digests,
+the remote control log lines and the pre-fork extension's tasks, from source and fixtures only.
 
 ## Source and evidence
 
@@ -443,8 +444,9 @@ What remains after a delete:
   their `creating session`, `removing share` and `remote session started` lines; whether a delete
   touches them is not stated.
 
-The analyzer reads the `kilo.db` sessions, the marker files, the prompt history as a secondary
-source, the remote control lines of the logs and `retention/state.json`
+The analyzer reads the `kilo.db` sessions, the marker files, the prompt history and the pinned
+sessions of `session.json` as secondary sources, the project memory session digests, the remote
+control lines of the logs and `retention/state.json`
 ([Parser plan](#parser-plan),
 [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
 
@@ -1219,7 +1221,9 @@ set): its lines carry no time, session or directory, so each is a `user` row wit
 [What survives a delete](#what-survives-a-delete). `prompt-stash.jsonl` is a primary record of
 unsent prompts, one `system` row per line at its `timestamp`,
 `prompt stashed (unsent): <text> (from .local/state/kilo/prompt-stash.jsonl, timestamp)`. The TUI's
-`session.json` and `frecency.jsonl` follow OpenCode's plan
+`session.json` is a secondary source as in OpenCode: one `system` row per pinned id,
+`session pinned: <session id> (from .local/state/kilo/session.json pinned, file mtime)`, a pinned
+id with no other row being a trace of a deleted session; `frecency.jsonl` follows OpenCode's plan
 ([Past-use rows and secondary sources in
 `opencode.md`](opencode.md#past-use-rows-and-secondary-sources)).
 The remote control lines of the logs are under

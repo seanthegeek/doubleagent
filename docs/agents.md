@@ -55,7 +55,7 @@ agent name in each row links to its subsection.
 | [`gemini-cli`](#gemini-cli) | parsed | source; fixture only | [research](../research/gemini-cli.md) |
 | [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md) |
 | [`hermes`](#hermes) | parsed | source; fixture only | [research](../research/hermes.md); [issue 208](https://github.com/seanthegeek/doubleagent/issues/208); the nested `config.yaml` `approvals` settings are not parsed |
-| [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); [issue 221](https://github.com/seanthegeek/doubleagent/issues/221); the session pull request links and the terminal UI's pinned sessions are not parsed yet |
+| [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); [issue 221](https://github.com/seanthegeek/doubleagent/issues/221); the session pull request links are not parsed yet |
 | [`kiro`](#kiro) | parsed | source; fixture only | [research](../research/kiro.md); [issue 212](https://github.com/seanthegeek/doubleagent/issues/212); Kiro CLI's own sessions and permission files wait for a real install |
 | [`langflow`](#langflow) | backlog | Source, platformdirs source; Desktop from docs only | [research](../research/langflow.md); [issue 141](https://github.com/seanthegeek/doubleagent/issues/141); Desktop's `database.db`; the server's `langflow.db` is not collected |
 | [`letta`](#letta) | parsed | source; fixture only | [research](../research/letta.md) |
@@ -787,7 +787,8 @@ the cloud session markers
 `.local/share/kilo/storage/session_share/<sessionID>.json` (one
 `session synced:` row each), and pre-migration VS Code tasks
 `<globalStorage>/kilocode.kilo-code/tasks/<id>/api_conversation_history.json`;
-the terminal UI's `.local/state/kilo/prompt-history.jsonl` (secondary) and
+the terminal UI's `.local/state/kilo/prompt-history.jsonl` and `session.json`
+(pinned sessions, one `session pinned:` row each; both secondary) and
 `prompt-stash.jsonl`; the `permission` key of the global config files in
 `.config/kilo`; the sandbox files under `.local/state/kilo-sandbox-policy`
 and `.local/state/kilo-sandbox-preference`; `.local/share/kilo/retention/state.json`;
