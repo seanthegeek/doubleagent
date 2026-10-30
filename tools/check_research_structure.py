@@ -2,14 +2,13 @@
 """Check that every research document follows the structure and conventions AGENTS.md fixes.
 
 Each agent's document under `research/` (not README.md or frameworks.md) follows "Research
-document structure" in AGENTS.md. These rules are hard failures, never baselined: the H1 is
-`# <file stem>` with an intro paragraph after it; the H2s are `SECTIONS` in order, Collection
-holds `COLLECTION_H3` and Parsing `PARSING_H3` or prose alone; the `FIXED` subsections sit under
-their heading in order, Parser plan's eight first; no paragraph opens with a bold label; no line
-assumes two documents per agent (`SPLIT_PHRASE`); no confidence statement stands outside
-`## Confidence`; no prose line is longer than `--width` (100) unless it holds a URL or is one
-code span. These give findings against the baseline under `tools/drift-baseline/`, and an
-Observed bullet opening "No real install." or "No real install:" is exempt from the first three:
+document structure" in AGENTS.md. Hard failures, never baselined: the H1 is `# <file stem>`
+with an intro paragraph; the H2s are `SECTIONS` in order, Collection holds `COLLECTION_H3` and
+Parsing `PARSING_H3` or prose alone; the `FIXED` subsections sit under their heading in order,
+Parser plan's eight first; no paragraph opens with a bold label; no line assumes two documents
+per agent (`SPLIT_PHRASE`); no confidence statement stands outside `## Confidence`; no prose
+line passes `--width` (100) unless it holds a URL or is one code span. Baseline findings
+follow; a "No real install." or "No real install:" Observed bullet is exempt from the first three:
 
 - `observed-label-missing`: an Observed bullet not opening with a cell label (`observed_label`).
 - `observed-cell-duplicate`: two Observed bullets of one document with the same label.
@@ -121,7 +120,9 @@ DOCUMENTATION = re.compile(
     r"(?i:\b(?:documentation|docs page|changelogs?|release notes)\b)|\bREADME\b"
 )
 # Words that, among the three before a documentation phrase, say it is no page to link.
-NOT_A_PAGE_WORDS = frozenset({"no", "not", "without", "binary", "embedded", "bundled"})
+NOT_A_PAGE_WORDS = frozenset(
+    {"no", "not", "without", "binary", "embedded", "bundled", "str", "strings"}
+)
 # This project's own documentation, which a research document names without a link.
 OWN_DOCUMENTATION = re.compile(r"\b(?:collector|analyzer|project) documentation\b", re.I)
 # A sentence saying no official documentation exists or was read.
@@ -417,8 +418,8 @@ def documentation_reference(sentence: str) -> str | None:
 
     A sentence names documentation when it holds "documentation", "docs page", "changelog(s)"
     or "release notes" in any case, or "README" in capitals, outside a code span. It does not
-    when the phrase has "no", "not", "without", "binary", "embedded" or "bundled" among the
-    three words before it; is "collector", "analyzer" or "project documentation"; is in a
+    when the phrase has "no", "not", "without", "binary", "embedded", "bundled", "str" or
+    "strings" (evidence tags) among the three words before it; is "collector", "analyzer" or "project documentation"; is in a
     sentence saying "no official" one "was found" or "was consulted"; or sits in a
     parenthesis right after a code span or an evidence-level label (`L2 (... documentation)`).
     """

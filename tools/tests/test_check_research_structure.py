@@ -538,6 +538,8 @@ def test_documentation_reference_forms():
         "it is not in the changelog",
         "a build without release notes",
         "a key (binary changelog; observed)",
+        '"marketplace cache ... staging directories" (str changelog).',
+        "the strings changelog of the build names it",
         "The embedded changelog's newest heading is `1.2`.",
         "the bundled README lists it",
         "the collector documentation names it as a manual step",

@@ -65,7 +65,6 @@ check_parser_research|row-text-undocumented|children:
 check_parser_research|row-text-undocumented|directory rules:
 check_parser_research|row-text-undocumented|ephemeral:
 check_parser_research|row-text-undocumented|notify user:
-check_research_structure|bare-doc-reference|/,,,, also appear (binary), consistent with the dir (live, observed; empty) used as the plugin "marketplace cache... staging directories" (str changelog).
 check_research_structure|observed-label-missing|**Linux, CLI** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83), [issue 89](https://github.com/seanthegeek/doubleagent/issues/89) and [issue
 check_research_structure|observed-label-missing|**Linux, desktop app** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83) and [issue 91](https://github.com/seanthegeek/doubleagent/issues/91)):
 check_research_structure|observed-label-missing|**Windows, CLI** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83), [issue 89](https://github.com/seanthegeek/doubleagent/issues/89) and [issue
