@@ -458,6 +458,55 @@ def test_key_read_forms(tmp_path):
     ]
 
 
+def test_named_group_read_from_a_match_is_not_a_key(tmp_path):
+    alpha = alpha_with(
+        """\
+        fields = FIELDS.search(record["line"])
+        groups = fields.groupdict()
+        first = fields.group(1)
+        return groups["sid"], groups.get("took"), fields.groupdict()["took"], first[0]
+        """,
+        header='FIELDS = re.compile(r"sessionID=(?P<sid>\\S+) durationMs=(?P<took>\\d+)")\n',
+    )
+    root = repository(tmp_path / "groups", alpha, document(schema="`line`"))
+    assert details(root, "key-undocumented") == []
+    from_record = alpha.replace("first[0]\n", 'first[0], record["sid"], groups["other"]\n')
+    root = repository(tmp_path / "record", from_record, document(schema="`line`"))
+    assert sorted(details(root, "key-undocumented")) == ["other", "sid"]
+
+
+def test_match_group_reads_forms():
+    tree = ast.parse(
+        textwrap.dedent(
+            """\
+            def parse(match, record):
+                groups = match.groupdict()
+                if (found := match.groupdict()):
+                    found.get("a")
+                return groups["a"], match.groupdict()["a"], record["a"], record.get("a")
+
+            def other(groups):
+                return groups["a"]
+            """
+        )
+    )
+    reads = checker.match_group_reads(tree)
+    on_groups = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript):
+            on_groups.append((ast.unparse(node.value), id(node) in reads))
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.args:
+            on_groups.append((ast.unparse(node.func.value), id(node) in reads))
+    assert sorted(on_groups) == [
+        ("found", True),
+        ("groups", False),
+        ("groups", True),
+        ("match.groupdict()", True),
+        ("record", False),
+        ("record", False),
+    ]
+
+
 def test_sql_names_forms():
     assert checker.sql_names("select rowid as _rowid, key, value from ItemTable where x = ?") == [
         "key",

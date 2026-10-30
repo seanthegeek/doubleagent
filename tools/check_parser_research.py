@@ -16,14 +16,14 @@ set, in that parser's agent document (rules 1 to 4).
   matched by the pattern's glob form there (`regex_components`, `*` any text): a segment with a
   quantifier, class, group or `.*` only by one with `*`, `?` or `<...>`, a fixed one by its
   literal; a top-level alternation by a branch; a pattern that does not compile by nothing.
-- `key-undocumented`: a key the parser reads, or a `select` column or table, is no Parsing word.
+- `key-undocumented`: a key the parser reads, or a `select` column or table, is no Parsing word;
+  a named group `(?P<name>...)` of its literals read from a match's groups is no key read.
 - `flag-undocumented`: `records_sync`, `records_relay` or `records_origin` is True while Sync,
   relay and origin rows says "The agent records none." or "Not stated.", or `has_secondary` is True
   while Past-use rows and secondary sources says so.
 - `flag-unset`: that subsection names a `session synced:`, `session relayed:` or `session origin:`
   row or a secondary source in a sentence neither denying nor only supposing it, its flag False.
-- `not-read-contradicted`: a name the Parsing part says is not read is a key the parser reads or a
-  file one of its file patterns matches.
+- `not-read-contradicted`: a name Parsing says is not read is a key read or a file patterns match.
 - `docstring-fact-undocumented`: a module docstring span is a row text or key in no span or fenced
   line of the document, a pattern the whole document does not document by rule 3's test, or a
   `key_value` with a key or value Parsing lacks.
@@ -53,6 +53,9 @@ PARSER_PREFIX = "parser: "
 SELECTOR_METHODS = ("wants", "secondary")
 REGEX_FUNCTIONS = frozenset({"compile", "match", "search", "fullmatch"})
 KEY_READ_METHODS = frozenset({"get", "pop"})
+# The methods of a regex match whose results hold its groups, not record keys.
+MATCH_GROUP_METHODS = frozenset({"groupdict", "group"})
+NAMED_GROUP = re.compile(r"\(\?P<([A-Za-z_][A-Za-z0-9_]*)>")
 # The flag a `session <label>:` row of the Sync, relay and origin rows subsection calls for.
 SYNC_ROW_FLAGS = {
     "session synced:": "records_sync",
@@ -97,6 +100,9 @@ FILE_EXTENSIONS = frozenset(
     {"json", "jsonl", "md", "db", "sqlite", "sqlite3", "txt", "toml", "yaml", "yml", "log"}
     | {"vscdb", "pb", "key", "py", "ts", "js", "lock", "xml", "env", "html", "csv", "zst"}
 )
+
+
+FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 
 
 # --- Literals ---------------------------------------------------------------------------------
@@ -1030,22 +1036,79 @@ def key_reads(index: ModuleIndex, effective: EffectiveSet) -> list[Literal]:
 
     A key read is the first argument of `.get` or `.pop`, a subscript, or the left side of `in`
     or `not in` against anything but a literal string or collection, when it folds to a string
-    of the key form (`is_key`); SQLite's own `rowid` and its `_rowid` alias are not keys.
+    of the key form (`is_key`); SQLite's own `rowid` and its `_rowid` alias are not keys, nor is
+    a named group of a literal read on a match's groups (`match_group_reads`).
     """
     found: list[Literal] = []
+    literals = effective.literals(index)
+    groups = {name for literal in literals for name in NAMED_GROUP.findall(literal.text)}
     for path, nodes in effective.nodes.items():
         for root in nodes:
+            on_groups = match_group_reads(root)
             for node in ast.walk(root):
                 candidate = _read_key_node(node)
                 text = index.fold(path, candidate) if candidate is not None else None
+                if text in groups and id(node) in on_groups:
+                    continue
                 if text is not None and is_key(text) and text.lower() not in SQLITE_ROW_IDS:
                     found.append(Literal(text, path, getattr(candidate, "lineno", 0)))
-    for literal in effective.literals(index):
+    for literal in literals:
         if "select" in literal.text.lower():
             found.extend(
                 Literal(name, literal.path, literal.line) for name in sql_names(literal.text)
             )
     return found
+
+
+def match_group_reads(root: ast.AST) -> set[int]:
+    """Return the ids of the key reads under `root` whose object holds a regex match's groups.
+
+    The object is a `.groupdict()` or `.group(...)` call, or a name bound from one in the same
+    function, or outside any function: `fields.groupdict()["sid"]`, `groups.get("sid")`.
+    """
+    found: set[int] = set()
+    scopes = dict.fromkeys(
+        [root, *(node for node in ast.walk(root) if isinstance(node, FUNCTIONS))]
+    )
+    for scope in scopes:
+        nodes = list(_scope_nodes(scope))
+        bound = {
+            target.id
+            for node in nodes
+            if isinstance(node, (ast.Assign, ast.NamedExpr)) and _is_match_groups(node.value)
+            for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+            if isinstance(target, ast.Name)
+        }
+        for node in nodes:
+            if isinstance(node, ast.Subscript):
+                holder = node.value
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                holder = node.func.value
+            else:
+                continue
+            if _is_match_groups(holder) or (isinstance(holder, ast.Name) and holder.id in bound):
+                found.add(id(node))
+    return found
+
+
+def _scope_nodes(scope: ast.AST) -> Iterator[ast.AST]:
+    """Yield the nodes below `scope`, the scope itself included, never inside a nested function."""
+    pending = [scope]
+    while pending:
+        node = pending.pop()
+        yield node
+        pending.extend(
+            child for child in ast.iter_child_nodes(node) if not isinstance(child, FUNCTIONS)
+        )
+
+
+def _is_match_groups(node: ast.AST) -> bool:
+    """Return whether a node is a call of a `MATCH_GROUP_METHODS` method."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in MATCH_GROUP_METHODS
+    )
 
 
 def _read_key_node(node: ast.AST) -> ast.AST | None:
