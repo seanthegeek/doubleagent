@@ -321,6 +321,14 @@ log level and display preferences and autocomplete switches.
   on macOS, `AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`
   on Windows and `.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`
   on Linux, which hold MCP server `env` values.
+- A project's `kilo.jsonc`, `kilo.json`, `opencode.jsonc` and `opencode.json`, at its root and in
+  its `.kilo/` and `.kilocode/` (`.kilo/kilo.json`, `.kilocode/opencode.jsonc` and so on), and the
+  same names in `~/.kilo` and `~/.kilocode`: `kilo mcp add` writes the `mcp` key into the first of
+  them that exists
+  ([`packages/opencode/src/cli/cmd/mcp.ts:396-424`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/cli/cmd/mcp.ts#L396-L424)),
+  and an MCP server there takes `environment` and `headers` values
+  ([`packages/core/src/v1/config/mcp.ts:17`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/v1/config/mcp.ts#L17),
+  [`:86`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/v1/config/mcp.ts#L86)).
 - `kilo.db`, and the channel databases `kilo-<channel>.db` and `opencode-<channel>.db`, mix
   credentials with the transcripts, so they are flagged as credential files; the columns are named
   in [Secrets](#secrets).

@@ -21,6 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Project discovery reads OpenClaw's `cwd` key beside `workspace` and `agentDir`, and the legacy configs `.clawdbot/openclaw.json`, `.clawdbot/moltbot.json` and `.moltbot/moltbot.json` ([#326]).
 - Kilo Code's JetBrains plugin: the `kilo` folder in each JetBrains IDE's system directory (`Library/Caches/JetBrains/*/kilo`, `AppData/Local/JetBrains/*/kilo`, `.cache/JetBrains/*/kilo`) and its `kiloLogSettings.xml` and `kiloAutocompleteSettings.xml` settings in the IDE's `options/` directory are collected as `kilo-code`; the plugin's downloaded CLI binaries in `kilo/cli` and `kilo/repo-cli` are excluded ([#326]).
 - Kilo Code's `.local/state/kilo/daemon.json` (the background server's password and token) and the pre-fork VS Code extension's `settings/mcp_settings.json` (glob `*/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`) are flagged `secret: true` ([#326]).
+- A project's Kilo Code config files, `kilo.json` and `kilo.jsonc` at its root and `kilo.json*` and `opencode.json*` in its `.kilo/` and `.kilocode/` (and the same names in `~/.kilo` and `~/.kilocode`), are flagged `secret: true`: `kilo mcp add` writes MCP servers there, whose `environment` and `headers` values can hold credentials ([#326]).
 - Project discovery reads Kilo Code's legacy JSON project store (`.local/share/kilo/storage/project/*.json`, key `worktree`) and its project memory manifests (`.local/share/kilo/memory/*/manifest.json`, key `canonical`) ([#326]).
 
 ### Changed

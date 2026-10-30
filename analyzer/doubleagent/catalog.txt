@@ -1409,6 +1409,11 @@ Documents/Cline/webhook_config.json
 .kilocode/cli/config.json
 .local/state/kilo/daemon.json
 */User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json
+kilo.json*
+.kilo/kilo.json*
+.kilo/opencode.json*
+.kilocode/kilo.json*
+.kilocode/opencode.json*
 .continue/auth*.json
 .continue/.env
 .continue/config.yaml

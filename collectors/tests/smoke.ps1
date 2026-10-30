@@ -1446,7 +1446,9 @@ MakeFile 'kilomem/.kilocode/rules/style.md' "rule`n"
 MakeFile 'kilomem/.kilocodemodes' "{}`n"
 MakeFile 'kilomem/.kilocodeignore' "dist`n"
 MakeFile 'kilolegacy/.kilocoderules' "rule`n"
-MakeFile 'kilolegacy/kilo.json' "{}`n"
+# The project config files `kilo mcp add` writes MCP servers into, one per secret glob.
+$kiloProjectConfigs = @('kilo.json', '.kilo/kilo.jsonc', '.kilo/opencode.json', '.kilocode/kilo.json', '.kilocode/opencode.jsonc')
+foreach ($kiloPath in $kiloProjectConfigs) { MakeFile "kilolegacy/$kiloPath" "{`"mcp`":{`"x`":{`"type`":`"local`",`"environment`":{`"TOKEN`":`"t`"}}}}`n" }
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2291,8 +2293,11 @@ foreach ($driftPath in $driftCrushFiles) {
 # 2026-10-30 kilo-code rebuild (#326)
 Check '#326 Kilo memory manifest discovers project' { IsAgentRow 'kilomem/.kilocodeignore' 'kilo-code' $false }
 Check '#326 Kilo legacy project store discovers project' { IsAgentRow 'kilolegacy/.kilocoderules' 'kilo-code' $false }
-foreach ($kiloPath in @('kilomem/.kilocode/rules/style.md', 'kilomem/.kilocodemodes', 'kilolegacy/kilo.json')) {
+foreach ($kiloPath in @('kilomem/.kilocode/rules/style.md', 'kilomem/.kilocodemodes')) {
   Check "#326 Kilo project file collected: $kiloPath" { IsAgentRow $kiloPath 'kilo-code' $false }
+}
+foreach ($kiloPath in $kiloProjectConfigs) {
+  Check "#326 Kilo project config flagged secret: $kiloPath" { IsAgentRow "kilolegacy/$kiloPath" 'kilo-code' $true }
 }
 Check '#326 Kilo memory manifest collected' { IsAgentRow "$kiloMemory/manifest.json" 'kilo-code' $false }
 
@@ -2374,6 +2379,10 @@ foreach ($driftPath in $driftCrushFiles) {
   Check "#323 Crush project file skipped without secrets: $driftPath" { (StatusOf "crushwin/$driftPath") -eq 'skipped_secret' }
 }
 
+# 2026-10-30 kilo-code rebuild (#326)
+foreach ($kiloPath in $kiloProjectConfigs) {
+  Check "#326 Kilo project config skipped without secrets: $kiloPath" { (StatusOf "kilolegacy/$kiloPath") -eq 'skipped_secret' }
+}
 # 2026-10-04 catalog cases
 foreach ($caseLine in $CasesCatalog) {
   $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"

@@ -1518,14 +1518,17 @@ done
 # Projects named by a project memory manifest and by the legacy JSON project store.
 KILO_MEMORY="$ALICE/.local/share/kilo/memory/kilomem-0123456789ab"
 mkdir -p "$KILO_MEMORY" "$ALICE/.local/share/kilo/storage/project" "$ROOT/srv/kilomem/.kilocode/rules" \
-  "$ROOT/srv/kilolegacy"
+  "$ROOT/srv/kilolegacy/.kilo" "$ROOT/srv/kilolegacy/.kilocode"
 printf '{\n  "kind": "kilo-memory",\n  "canonical": "/srv/kilomem"\n}\n' >"$KILO_MEMORY/manifest.json"
 printf '{"id":"p1","worktree":"/srv/kilolegacy"}\n' >"$ALICE/.local/share/kilo/storage/project/p1.json"
 printf 'rule\n' >"$ROOT/srv/kilomem/.kilocode/rules/style.md"
 printf '{}\n' >"$ROOT/srv/kilomem/.kilocodemodes"
 printf 'dist\n' >"$ROOT/srv/kilomem/.kilocodeignore"
 printf 'rule\n' >"$ROOT/srv/kilolegacy/.kilocoderules"
-printf '{}\n' >"$ROOT/srv/kilolegacy/kilo.json"
+# The project config files `kilo mcp add` writes MCP servers into, one per secret glob.
+for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.json .kilocode/opencode.jsonc; do
+  printf '{"mcp":{"x":{"type":"local","environment":{"TOKEN":"t"}}}}\n' >"$ROOT/srv/kilolegacy/$_kilo_path"
+done
 
 run() { # run NAME ARGS...
   _name=$1; shift
@@ -2066,8 +2069,11 @@ done
 # 2026-10-30 kilo-code rebuild (#326)
 check "#326 Kilo memory manifest discovers project" "row \"$ROOT/srv/kilomem/.kilocodeignore\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
 check "#326 Kilo legacy project store discovers project" "row \"$ROOT/srv/kilolegacy/.kilocoderules\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
-for _kilo_path in kilomem/.kilocode/rules/style.md kilomem/.kilocodemodes kilolegacy/kilo.json; do
-  check "#326 Kilo project file collected: $_kilo_path" "row \"$ROOT/srv/$_kilo_path\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
+for _kilo_path in kilomem/.kilocode/rules/style.md kilomem/.kilocodemodes; do
+  check "#326 Kilo project file collected: $_kilo_path" "row \"$ROOT/srv/$_kilo_path\" | grep -q '\"agent\":\"kilo-code\".*\"secret\":false,\"status\":\"collected\"'"
+done
+for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.json .kilocode/opencode.jsonc; do
+  check "#326 Kilo project config flagged secret: $_kilo_path" "row \"$ROOT/srv/kilolegacy/$_kilo_path\" | grep -q '\"agent\":\"kilo-code\".*$SECRET_COLLECTED'"
 done
 check "#326 Kilo memory manifest collected" "row \"$KILO_MEMORY/manifest.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
 
@@ -2146,6 +2152,10 @@ for _drift_path in crushrc .crushrc crush.json .crush.json; do
   check "#323 Crush project file skipped without secrets: $_drift_path" "[ \"\$(status_of \"$ROOT/srv/crushwin/$_drift_path\")\" = skipped_secret ]"
 done
 
+# 2026-10-30 kilo-code rebuild (#326)
+for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.json .kilocode/opencode.jsonc; do
+  check "#326 Kilo project config skipped without secrets: $_kilo_path" "[ \"\$(status_of \"$ROOT/srv/kilolegacy/$_kilo_path\")\" = skipped_secret ]"
+done
 # 2026-10-04 catalog cases
 printf '%s\n' "$CASES_CATALOG" >"$WORK/nosecrets14"
 while IFS='|' read -r _kind _agent _relpath; do
