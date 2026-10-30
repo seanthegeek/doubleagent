@@ -2010,7 +2010,7 @@ HOME_BUILDERS: tuple[tuple[Callable[[Path], None], str], ...] = (
 
 
 def build_home(home: Path, with_noise: bool = True) -> Path:
-    """A user home with Claude Code and Codex state plus unrelated files."""
+    """A user home with every fixture agent's state plus unrelated files."""
     for builder, directory in HOME_BUILDERS:
         builder(home / directory)
     if with_noise:
