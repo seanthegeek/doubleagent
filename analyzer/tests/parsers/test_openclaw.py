@@ -451,6 +451,23 @@ class OpenClawTests(ParserBase):
         )
         self.assertIn("event seq 9 unreadable", rows[-1].text)
 
+    def test_cold_archive_without_bytes_is_reported(self):
+        connection = sqlite3.connect(str(self.home / self.DATABASE))
+        connection.execute(
+            "INSERT INTO session_transcript_cold_archives VALUES "
+            "(?,'g9',?,?,1,1,1,0,1790852000000,'sqlite',NULL)",
+            ("lost-cold", "e" * 64 + ".jsonl.zst", "e" * 64),
+        )
+        connection.commit()
+        connection.close()
+        rows = self.rows_for(OpenClawParser(), self.DATABASE)
+        lost = [row for row in rows if row.session_id == "lost-cold"]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in lost],
+            [("system", "parser: cold archive %s.jsonl.zst has no stored bytes" % ("e" * 64))],
+        )
+        self.assertEqual(lost[0].timestamp_utc, "2026-10-01T10:53:20.000Z")
+
     def test_null_event_row_is_reported_not_fatal(self):
         # A row whose event_json is valid JSON but not an object (here
         # `null`) is reported as "not a JSON object".

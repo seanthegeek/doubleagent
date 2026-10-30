@@ -1519,7 +1519,9 @@ types other than `message` give `system` rows: `thinking level: <thinkingLevel>`
 `archive_blob`, or, when `session_transcript_cold_archive_chunks` has rows for it, from each
 chunk's `archive_blob` in `chunk_index` order; only its `event` records give rows, the session id
 coming from the `header`; an `event_json` that does not decode is
-`parser: cold archive event seq <seq> unreadable: <reason>`. The rows below rest on source alone;
+`parser: cold archive event seq <seq> unreadable: <reason>`, and a database-stored archive or
+chunk whose `archive_blob` is NULL is
+`parser: cold archive <archive_name> has no stored bytes`. The rows below rest on source alone;
 each subsection says which are fixture only.
 
 #### Permission rows

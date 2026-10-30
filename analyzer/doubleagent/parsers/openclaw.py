@@ -1629,7 +1629,9 @@ class OpenClawParser(Parser):
         """Yield the rows of each `sqlite`-stored cold archive, chunk by chunk when chunked.
 
         A chunked archive keeps its bytes in `session_transcript_cold_archive_chunks`, a table
-        without row ids, so its rows carry the parent archive's rowid as `source_line`.
+        without row ids, so its rows carry the parent archive's rowid as `source_line`. A
+        `sqlite`-stored archive or chunk whose blob is NULL has lost its bytes, so it is one
+        `parser:` row.
         """
         for row in connection.execute(
             "select rowid as _rowid, session_id, archive_name, archived_at, archive_blob "
@@ -1657,7 +1659,17 @@ class OpenClawParser(Parser):
                 ]
                 blobs = chunks or blobs
             for name, blob in blobs:
-                data, error = _maybe_zstd(blob or b"")
+                if blob is None:
+                    yield self._bad(
+                        artifact,
+                        session,
+                        line,
+                        "cold archive %s has no stored bytes" % name,
+                        opts,
+                        to_utc(row.get("archived_at")),
+                    )
+                    continue
+                data, error = _maybe_zstd(blob)
                 if data is None:
                     yield self._bad(
                         artifact,
