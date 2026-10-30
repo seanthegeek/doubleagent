@@ -356,6 +356,66 @@ def test_type_mismatch_value_outside_values_cell(tmp_path):
     assert ("type-mismatch", "mode=fast") not in found
 
 
+TWO_TABLES_DOCUMENT = """\
+# beta
+
+## Parsing
+
+### Record schema
+
+#### Turn lines
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | `user`, `assistant` | 1.0 |
+| `count` | number | | 1.0 |
+
+### Other stores
+
+#### Index
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | `entry` | 1.0 |
+| `count` | string | | 1.0 |
+"""
+
+
+def two_table_findings(tmp_path, records, document=TWO_TABLES_DOCUMENT):
+    """Return (detail, line) of the type mismatches of records against a document's tables."""
+    write(tmp_path / "research/beta.md", document)
+    parsed = checker.agent_document(tmp_path, tmp_path / "research/beta.md")
+    built = checker.BuiltFile(".beta/state.json", "beta", records=records)
+    found = checker.file_findings(built, parsed, [], set())
+    return {(item.detail, item.line) for item in found if item.kind == "type-mismatch"}
+
+
+def table_line(text):
+    """Return the line number of a row of the two-table document."""
+    return TWO_TABLES_DOCUMENT.split("\n").index(text) + 1
+
+
+def test_type_mismatch_checks_the_union_of_a_keys_tables(tmp_path):
+    records: list[object] = [{"type": "entry", "count": "three"}, {"type": "user", "count": 3}]
+    assert two_table_findings(tmp_path, records) == set()
+
+
+def test_type_mismatch_allowed_by_no_table_names_the_first_row(tmp_path):
+    records: list[object] = [{"type": "system", "count": True}]
+    expected = {
+        ("type=system", table_line("| `type` | string | `user`, `assistant` | 1.0 |")),
+        ("count:boolean", table_line("| `count` | number | | 1.0 |")),
+    }
+    assert two_table_findings(tmp_path, records) == expected
+
+
+def test_type_mismatch_type_and_value_met_by_different_rows(tmp_path):
+    document = TWO_TABLES_DOCUMENT.replace("| `type` | string | `entry` |", "| `type` | number | |")
+    found = two_table_findings(tmp_path, [{"type": "system"}], document)
+    line = table_line("| `type` | string | `user`, `assistant` | 1.0 |")
+    assert found == {("type=system", line)}
+
+
 def test_substitution_undeclared(tmp_path):
     found = findings_of(tmp_path)
     assert ("alpha", "substitution-undeclared", "/home/alice/other") in found
@@ -579,8 +639,17 @@ def test_key_tables_forms(tmp_path):
     sections = drift_common.within(drift_common.research_sections(tmp_path / "doc.md"), "Parsing")
     rows, count = checker.key_tables(sections)
     assert count == 1
-    assert rows["mode"].types == {"string"} and rows["mode"].values == {"fast", "medium", "slow"}
-    assert rows["count"].values == set()
+    assert len(rows["mode"]) == 1
+    assert rows["mode"][0].types == {"string"}
+    assert rows["mode"][0].values == {"fast", "medium", "slow"}
+    assert rows["count"][0].values == set()
+    write(tmp_path / "two.md", TWO_TABLES_DOCUMENT)
+    sections = drift_common.within(drift_common.research_sections(tmp_path / "two.md"), "Parsing")
+    rows, count = checker.key_tables(sections)
+    assert count == 2
+    assert [row.values for row in rows["type"]] == [{"user", "assistant"}, {"entry"}]
+    assert [row.types for row in rows["count"]] == [{"number"}, {"string"}]
+    assert rows["type"][0].line < rows["type"][1].line
     other = BETA_DOCUMENT.replace("| Key | Type | Values | Builds |", "| Key | Type | Notes |")
     write(tmp_path / "other.md", other)
     sections = drift_common.within(drift_common.research_sections(tmp_path / "other.md"), "Parsing")
