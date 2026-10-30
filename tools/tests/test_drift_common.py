@@ -150,7 +150,7 @@ def test_malformed_line_fails(tmp_path, capsys):
     ]
 
 
-def test_update_writes_sorted_keys_per_agent_and_dash_file_for_no_agent(tmp_path):
+def test_update_writes_sorted_keys_per_agent_and_unattributed_file_for_no_agent(tmp_path):
     later = Finding("alpha", "credential-unflagged", ".alpha/auth.json", "research/alpha.md")
     findings = [ALPHA, later, ALPHA, NO_AGENT, BETA]
     arguments = ["--update-baseline"]
@@ -162,7 +162,8 @@ def test_update_writes_sorted_keys_per_agent_and_dash_file_for_no_agent(tmp_path
         "check_tables|credential-unflagged|.alpha/auth.json\ncheck_tables|line-unnamed|.alpha/x\n"
     )
     assert baseline_text(tmp_path, "beta") == "check_tables|line-unnamed|.config/beta\n"
-    assert baseline_text(tmp_path, "-") == "check_tables|exclusion-unreachable|tmp/x\n"
+    assert baseline_text(tmp_path, "unattributed") == "check_tables|exclusion-unreachable|tmp/x\n"
+    assert not (tmp_path / "tools/drift-baseline/-.txt").exists()
     assert drift_common.main_with_baseline("check_tables", run_with(findings), [], tmp_path) == 0
 
 
@@ -182,10 +183,22 @@ def test_update_removes_stale_line_and_keeps_other_checkers_lines(tmp_path):
 
 def test_update_deletes_emptied_file_and_keeps_shared_one(tmp_path):
     write(tmp_path / "tools/drift-baseline/beta.txt", "check_tables|line-unnamed|.config/beta\n")
-    write(tmp_path / "tools/drift-baseline/-.txt", "check_smoke|check-unparsed|x\n")
+    write(tmp_path / "tools/drift-baseline/unattributed.txt", "check_smoke|check-unparsed|x\n")
     drift_common.main_with_baseline("check_tables", run_with([]), ["--update-baseline"], tmp_path)
     assert not (tmp_path / "tools/drift-baseline/beta.txt").exists()
-    assert baseline_text(tmp_path, "-") == "check_smoke|check-unparsed|x\n"
+    assert baseline_text(tmp_path, "unattributed") == "check_smoke|check-unparsed|x\n"
+
+
+def test_unattributed_file_holds_the_findings_of_no_agent(tmp_path, capsys):
+    write(tmp_path / "tools/drift-baseline/unattributed.txt", "check_tables|kind-x|gone\n")
+    run = run_with([NO_AGENT])
+    assert drift_common.main_with_baseline("check_tables", run, [], tmp_path) == 1
+    output = capsys.readouterr().out
+    assert "exclusion-unreachable [-]: tmp/x" in output
+    assert "from tools/drift-baseline/unattributed.txt" in output
+    assert drift_common.baseline_file("-") == "tools/drift-baseline/unattributed.txt"
+    assert drift_common.file_agent("unattributed") == "-"
+    assert drift_common.file_agent("alpha") == "alpha"
 
 
 def test_update_creates_no_directory_without_findings(tmp_path):

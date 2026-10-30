@@ -5,8 +5,8 @@ tables, the smoke tests, the parsers and the analyzer fixtures. Each finding not
 fails, so new drift fails CI while the drift recorded in the baseline expires agent by agent.
 
 - A finding's baseline key is `<checker>|<kind>|<detail>`, its detail's whitespace runs
-  collapsed to one space; the key is a line of `tools/drift-baseline/<agent>.txt`, `-.txt` when
-  the finding names no agent; a file holds one key per line, sorted, and no comments.
+  collapsed to one space; the key is a line of `tools/drift-baseline/<agent>.txt`,
+  `unattributed.txt` when the finding names no agent (`-`); one key per line, sorted, no comments.
 - A checker reads only the baseline lines whose first field is its own name.
 - A finding whose agent and key are not a baseline line is new, and fails.
 - A baseline line of the checker that no finding produced is stale, and fails with
@@ -45,6 +45,8 @@ if TYPE_CHECKING:
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ANALYZER = ROOT / "analyzer"
 BASELINE = pathlib.PurePosixPath("tools/drift-baseline")
+# The stem of the baseline file holding the findings of no agent, `-`.
+UNATTRIBUTED = "unattributed"
 CATALOG_TEXT = pathlib.PurePosixPath("analyzer/doubleagent/catalog.txt")
 AGENTS_PAGE = pathlib.PurePosixPath("docs/agents.md")
 PARSERS = pathlib.PurePosixPath("analyzer/doubleagent/parsers")
@@ -138,7 +140,12 @@ class BaselineLines:
 
 def baseline_file(agent: str) -> str:
     """Return the baseline file of an agent relative to the repository root."""
-    return "%s/%s.txt" % (BASELINE, agent)
+    return "%s/%s.txt" % (BASELINE, UNATTRIBUTED if agent == "-" else agent)
+
+
+def file_agent(stem: str) -> str:
+    """Return the agent a baseline file's stem stands for: `-` for `UNATTRIBUTED`."""
+    return "-" if stem == UNATTRIBUTED else stem
 
 
 def line_owner(line: str) -> str:
@@ -160,11 +167,12 @@ def load_baseline(root: pathlib.Path, checker: str) -> BaselineLines:
                 continue
             owner = line_owner(line)
             if not owner:
+                agent = file_agent(path.stem)
                 found.malformed.append(
-                    "%s:%d: malformed baseline line: %s" % (baseline_file(path.stem), number, line)
+                    "%s:%d: malformed baseline line: %s" % (baseline_file(agent), number, line)
                 )
             elif owner == checker:
-                found.own.setdefault((path.stem, line), number)
+                found.own.setdefault((file_agent(path.stem), line), number)
     return found
 
 
@@ -198,9 +206,10 @@ def update_baseline(root: pathlib.Path, checker: str, findings: Iterable[Finding
     for finding in findings:
         wanted.setdefault(finding.agent, set()).add(finding.key(checker))
     directory = root / BASELINE
-    present = {path.stem for path in directory.glob("*.txt")} if directory.is_dir() else set()
+    files = directory.glob("*.txt") if directory.is_dir() else []
+    present = {file_agent(path.stem) for path in files}
     for agent in sorted(present | set(wanted)):
-        path = directory / ("%s.txt" % agent)
+        path = root / baseline_file(agent)
         old = path.read_text(encoding="utf-8") if path.is_file() else ""
         kept = {line.rstrip("\r") for line in old.split("\n") if line.strip()}
         kept = {line for line in kept if line_owner(line) != checker}

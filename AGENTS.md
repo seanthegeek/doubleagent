@@ -99,7 +99,8 @@ tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines,
                                keys and values with the research documents
 tools/tests/                   pytest suite of the drift checkers, on synthetic inputs
 tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
-                               disagreements recorded so far
+                               disagreements recorded so far, unattributed.txt for
+                               those of no agent
 mkdocs/mkdocs.yml              the documentation site: MkDocs with the Material theme,
                                built from the documents where they are; its nav: tree
 mkdocs/hooks.py                site build hooks: GitHub heading ids, code spans with

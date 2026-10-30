@@ -125,8 +125,8 @@ and a summary of the counts on stderr, and exits `1` on a new finding, a
 stale baseline line or a malformed one, `0` otherwise.
 
 The drift that existed when the checkers were written is recorded in the
-baseline, `tools/drift-baseline/<agent>.txt`, one file per agent (`-.txt`
-for a finding that names none) holding one `<checker>|<kind>|<detail>`
+baseline, `tools/drift-baseline/<agent>.txt`, one file per agent
+(`unattributed.txt` for a finding that names none) holding one `<checker>|<kind>|<detail>`
 line per finding, sorted. A finding missing from the baseline is new and
 fails CI: fix the table, document, parser or fixture that disagrees. A
 baseline line that no finding produces any more is stale and fails too,
