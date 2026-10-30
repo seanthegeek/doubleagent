@@ -695,6 +695,22 @@ runtime context) and `operatorMessage`; its assistant message adds `openclawDeli
 | `fromId` | string | | |
 | `tokensBefore` | number | | |
 
+`usage`, its `cost`
+([`llm-core/src/types.ts:316-347`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/packages/llm-core/src/types.ts#L316-L347))
+and `runtimeContext`
+([`:384-387`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/packages/llm-core/src/types.ts#L384-L387)) hold:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `input` | number | | |
+| `output` | number | | |
+| `cacheRead` | number | | |
+| `cacheWrite` | number | | |
+| `totalTokens` | number | | |
+| `cost` | object | | |
+| `total` | number | | |
+| `retained` | boolean | | |
+
 `stopReason` values are at
 [`llm-core/src/types.ts:364`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/packages/llm-core/src/types.ts#L364); `api` values include
 `anthropic-messages`
@@ -832,7 +848,15 @@ user had picked when a fallback replaced it. `delivery` is `{kind:"none"}`, `{ki
 names `sandbox`, `gateway` or `node`
 ([`infra/exec-approvals-core.ts:13-14`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/infra/exec-approvals-core.ts#L13-L14)).
 `archivedBy` is a `{type, id, label}` actor
-([`session-entry-provenance.ts:17-19`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/sessions/session-entry-provenance.ts#L17-L19)).
+([`session-entry-provenance.ts:17-19`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/sessions/session-entry-provenance.ts#L17-L19);
+[`sessions-row.ts:73-76`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/packages/gateway-protocol/src/schema/sessions-row.ts#L73-L76)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `type` | string | `human`, `agent`, `system` | |
+| `id` | string | | |
+| `label` | string | | |
+
 The `delivery` `origin` object holds `provider`, `surface`, `chatType`, `from`, `to`,
 `accountId`, `threadId`, `nativeChannelId` and `nativeDirectUserId`; `publicShare` is
 `{id, sessionId, createdAt}`, `id` 48 lower-case hex characters, `sessionId` the generation it
@@ -860,9 +884,47 @@ with its chunks, the cold tier
 | `storage` | string | `file`, `sqlite` | |
 | `archived_at` | number | | |
 | `event_count` | number | | |
+| `raw_bytes` | number | | |
+| `archive_bytes` | number | | |
 | `last_seq` | number | | |
 | `chunk_index` | number | | |
 | `first_seq` | number | | |
+
+#### Cold archive records
+
+A cold archive, decompressed, is JSONL whose records carry `kind`: one `header`, then per
+moved transcript row an `event` (the `transcript_events` row), an `identity` (its tree index
+row), and `active`, `index` and `fts` rows of the generation's indexes, each under `row`
+([`session-cold-storage-codec.ts:78-127`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/sessions/session-cold-storage-codec.ts#L78-L127)).
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `kind` | string | `header`, `event`, `identity`, `active`, `index`, `fts` | |
+| `version` | number | `1` | |
+| `sessionId` | string | | |
+| `generation` | string | | |
+| `row` | object | | |
+| `seq` | number | | |
+| `event_json` | string | | |
+| `created_at` | number | | |
+| `event_id` | string | | |
+| `event_type` | string or null | | |
+| `parent_id` | string or null | | |
+| `message_idempotency_key` | string or null | | |
+| `active_position` | number | | |
+| `event_seq` | number | | |
+| `message_position` | number or null | | |
+| `context_eligible` | number or null | | |
+| `indexed_seq` | number | | |
+| `leaf_event_id` | string or null | | |
+| `needs_rebuild` | number | | |
+| `active_event_count` | number | | |
+| `active_message_count` | number | | |
+| `updated_at` | number | | |
+| `text` | string or null | | |
+| `message_id` | string or null | | |
+| `role` | string or null | | |
+| `timestamp` | string or number or null | | |
 
 ### Joins and timestamps
 
@@ -996,6 +1058,7 @@ account
 | `channel_key` | string | | |
 | `account_id` | string | | |
 | `entry` | string | | |
+| `sort_order` | number | | |
 | `updated_at` | number | | |
 
 `audit_events` carries `tool_call_id`, `tool_name`, `action`, `status`, `reason_code` and
@@ -1032,11 +1095,12 @@ Every source is present at the reviewed commit; the parser reads all but the mem
 | `accepted_at` | number | | |
 | `consumed_event_id` | string or null | | |
 
-`session_transcript_fts_content`, the FTS5 content table, has columns `c0` to `c4`, being `text`,
-`session_id`, `message_id`, `role` and `timestamp` in the declared order:
+`session_transcript_fts_content`, the FTS5 content table, has the row id `id` and columns `c0` to
+`c4`, being `text`, `session_id`, `message_id`, `role` and `timestamp` in the declared order:
 
 | Key | Type | Values | Since |
 | --- | --- | --- | --- |
+| `id` | number | | |
 | `c0` | string | | |
 | `c1` | string | | |
 | `c2` | string or null | | |
@@ -1185,6 +1249,7 @@ No prompt-history file exists: `history.jsonl`, `input-history`, `prompt-history
 | `session_key` | string | | |
 | `agent_id` | string | | |
 | `identity_source` | string | `system-detected`, `system-configured`, `agent-override`, `personal` | |
+| `identity_profile_id` | string or null | | |
 | `identity_account_id` | number | | |
 | `identity_login` | string | | |
 | `status` | string | `requested`, `publishing`, `needs_confirmation`, `published`, `failed` | |
@@ -1229,6 +1294,31 @@ engine.
 | `store_id` | string | | |
 | `engine` | string | `postgres` | |
 | `schema` | string | | |
+
+#### Auth profile store
+
+`openclaw-agent.sqlite` `auth_profile_store`, one row per store key
+([`openclaw-agent-schema.sql:647-651`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L647-L651)),
+whose `store_json` is `{version, profiles}`, `profiles` mapping each profile id to a credential
+([`agents/auth-profiles/types.ts:33-39`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/auth-profiles/types.ts#L33-L39),
+[`:161-164`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/auth-profiles/types.ts#L161-L164);
+[`credential-schema.ts:44-75`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/auth-profiles/credential-schema.ts#L44-L75)).
+Its values are credentials ([Secrets](#secrets)); the parser never reads the table.
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `store_key` | string | | |
+| `store_json` | string | | |
+| `updated_at` | number | | |
+| `version` | number | | |
+| `profiles` | object | | |
+| `type` | string | `api_key`, `token`, `oauth` | |
+| `provider` | string | | |
+| `key` | string | | |
+| `token` | string | | |
+| `access` | string | | |
+| `refresh` | string | | |
+| `expires` | number | | |
 
 #### Audit, ingress and debug logs
 
@@ -1383,8 +1473,39 @@ Then the archive blobs.
 | text | text blocks; `toolCall.arguments.command`/`path`/`url` else JSON; tool result text; `summary` for compaction; `reason` for reset |
 | source_line | `transcript_events.rowid`, or the JSONL line number |
 
-Put `session_key` (channel and peer) into the session-start row. The rows below rest on source
-alone; each subsection says which are fixture only.
+The file patterns, matched against the home-relative path:
+
+```text
+^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/agents/[^/]+/agent/openclaw-agent\.sqlite$
+^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/state/openclaw\.sqlite$
+^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/(?:agents/[^/]+/)?sessions/(?P<name>[^/]+?)(?:(?P<archive>\.jsonl\.(reset|deleted)\.\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d(?:\.\d{3})?Z(?:\.[0-9a-f]{32})?(?:\.zst)?)|(?P<copy>\.checkpoint\.[0-9a-fA-F-]{36}\.jsonl|\.jsonl\.pre-doctor-(?:branch|openai-codex)-repair-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d-\d{3}Z\.bak)|\.jsonl)$
+^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/(?:agents/[^/]+/)?sessions/cold/[0-9a-f]{64}\.jsonl\.zst$
+\.trajectory$
+```
+
+The last skips a JSONL file whose name, less `.jsonl`, ends in `.trajectory`.
+
+Each session opens with a `system` row
+`session start: key=<session_key> <window columns> version=<version> parent_session=<parentSession>`,
+the window columns being `channel`, `account_id`, `chat_type`, `reason`, `previous_session_id`,
+`parent_session_key`, `spawned_by`, `display_name` and `model_provider` as `<column>=<value>` when
+set; an archive blob adds `archive=<reason> name=<archive_name>`, a cold archive
+`cold_archive=<archive_name>`, and a copy file `archive=<reason>.<ts>` or `copy=<suffix>`. Entry
+types other than `message` give `system` rows: `thinking level: <thinkingLevel>`,
+`compaction (tokens_before=<tokensBefore> tokens_after=<tokensAfter>): <summary>`,
+`reset: <reason>`, `branch summary: <summary>`, `custom <customType>: <data>`,
+`custom message <customType>: <content>`, `label: <label> (entry <targetId>)` and
+`session name: <name>`; any other type gives `<type>: <the record as JSON>`. A user message with
+`runtimeContext`, or the older `runtimeContextCarrier`, is a `system` row
+`runtime context: <text>`, not a human turn. An assistant message whose `stopReason` is `error` or
+`aborted`, or that has `errorMessage`, adds `assistant <stopReason>: <errorMessage>`; a
+`branchSummary` or `compactionSummary` message is `branch summary: <summary>` or
+`compaction summary: <summary>`. A cold archive stored in the database is read from its
+`archive_blob`, or, when `session_transcript_cold_archive_chunks` has rows for it, from each
+chunk's `archive_blob` in `chunk_index` order; only its `event` records give rows, the session id
+coming from the `header`; an `event_json` that does not decode is
+`parser: cold archive event seq <seq> unreadable: <reason>`. The rows below rest on source alone;
+each subsection says which are fixture only.
 
 #### Permission rows
 
@@ -1460,8 +1581,8 @@ store's row records the same event (see
   a legacy transcript before doctor rewrote it ([Format versions](#format-versions)); its rows for
   the abandoned branches, which no other store has, are kept.
 - Not read: `<id>.trajectory.jsonl`, the trajectory flight recorder (a per-run log of runtime
-  events: prompt submitted, tool call, model completed), a different schema marked
-  `openclaw-trajectory`
+  events: prompt submitted, tool call, model completed), a different schema whose records carry
+  `traceSchema` `openclaw-trajectory` and `schemaVersion`
   ([`docs/tools/trajectory.md:76-107`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/tools/trajectory.md#L76-L107)),
   not a transcript copy; `*.migrated[.N]`
   ([`artifacts.ts:22`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/sessions/artifacts.ts#L22)), for which no writer of a session
