@@ -1067,7 +1067,8 @@ def match_group_reads(root: ast.AST) -> set[int]:
     The object of a subscript, a method call or a membership test is a `.groupdict()` or
     `.group(...)` call, or a name whose every binding in the same function, or outside any
     function, is one: `fields.groupdict()["sid"]`, `groups.get("sid")`, `"sid" in groups`; a
-    name later rebound to a record, by unpacking too, is no match's groups.
+    name later rebound to a record, by unpacking or a `with` target too, is no match's
+    groups; storing into one of its items does not rebind it.
     """
     found: set[int] = set()
     scopes = dict.fromkeys(
@@ -1120,17 +1121,28 @@ def _bindings(node: ast.AST) -> list[tuple[str, bool]]:
             if isinstance(target, ast.Name):
                 found.append((target.id, from_match))
             else:
-                found.extend(
-                    (name.id, False) for name in ast.walk(target) if isinstance(name, ast.Name)
-                )
+                found.extend((name, False) for name in _stored_names(target))
         return found
     if isinstance(node, (ast.For, ast.comprehension)):
-        return [(name.id, False) for name in ast.walk(node.target) if isinstance(name, ast.Name)]
-    if isinstance(node, ast.withitem) and isinstance(node.optional_vars, ast.Name):
-        return [(node.optional_vars.id, False)]
+        return [(name, False) for name in _stored_names(node.target)]
+    if isinstance(node, ast.withitem) and node.optional_vars is not None:
+        return [(name, False) for name in _stored_names(node.optional_vars)]
     if isinstance(node, ast.arg):
         return [(node.arg, False)]
     return []
+
+
+def _stored_names(target: ast.AST) -> list[str]:
+    """Return the names a target binds: its `Name` nodes in store context, not the containers.
+
+    `groups["sid"] = x` stores into `groups` without rebinding it, so `groups` is not returned;
+    `(groups, other)` returns both names.
+    """
+    return [
+        name.id
+        for name in ast.walk(target)
+        if isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store)
+    ]
 
 
 def _scope_nodes(scope: ast.AST) -> Iterator[ast.AST]:

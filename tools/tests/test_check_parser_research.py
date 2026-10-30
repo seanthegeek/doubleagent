@@ -510,12 +510,23 @@ def test_match_group_reads_cover_membership_and_stop_at_unpacking():
         "    groups = match.groupdict()\n"
         "    groups, other = record, None\n"
         "    return groups['sid']\n"
+        "def update(match):\n"
+        "    groups = match.groupdict()\n"
+        "    groups['sid'] = groups['sid'].upper()\n"
+        "    return groups['sid']\n"
+        "def context(match, record):\n"
+        "    groups = match.groupdict()\n"
+        "    with nullcontext((record, None)) as (groups, other):\n"
+        "        return groups['sid']\n"
     )
     tree = ast.parse(source)
     nodes = [node for node in ast.walk(tree) if isinstance(node, (ast.Compare, ast.Subscript))]
     skipped = checker.match_group_reads(tree)
     lines = sorted(node.lineno for node in nodes if id(node) in skipped)
-    assert lines == [5, 6], "membership tests on a match's groups are skipped, nothing else"
+    assert lines == [5, 6, 15, 15, 16], (
+        "membership tests and reads after storing into an item are skipped; reads after an"
+        " unpacking or with-target rebinding are not"
+    )
 
 
 def test_match_group_reads_forms():

@@ -391,6 +391,7 @@ def test_denies_credential_forms(tmp_path):
     )
     rejected = (
         "`lock.json` is read with no credentials cached in the keychain.",
+        "`lock.json` is not one of the excluded files and holds the token.",
         "`lock.json` is the token file; the rest of the directory holds no credentials.",
         "`lock.json` holds the OAuth token, which is not a credential file for the project.",
         "`lock.json` holds the token the agent sends on every request and is not one.",
