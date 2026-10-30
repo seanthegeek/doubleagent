@@ -122,8 +122,9 @@ that no home or project entry reaches and no one Docker volume agent's
 document names, a Docker volume glob that the document's Per-user storage
 subsection about the volume does not name, an exclusion below a Docker
 volume's mount directory without its volume-relative twin, two agents' home
-entries that differ at a segment only by case, or whose first segments
-differ and can still match one path, a Credentials section saying a file is
+entries whose first differing segment differs only by case or whose first
+segments differ and can still match one path, a Credentials section saying
+a file is
 left unflagged instead of naming its secret glob, a timeline row text or
 record key under Collection, a catalog agent without a research document or
 a row on the [agents page](../../docs/agents.md), and a row on that page

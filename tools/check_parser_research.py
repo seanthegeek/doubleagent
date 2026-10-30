@@ -5,18 +5,18 @@ Each `parsers.ALL` class is read with `ast` and compared with its own agent's do
 literals are its effective set's: its module and each base's in `parsers/`, whole, and what those
 import from another parsers module (`from .x import name`, `x.name`, in functions too) with the
 top-level names that uses; never `base.py`. "Documented" means in the code spans and fenced lines
-of the part named; for rules 1 to 4, of the parser's own document or, for a module not the parser's
-own in another parser's effective set, of that parser's agent document.
+of the part named, in the parser's own document or, for a module of another parser's effective
+set, in that parser's agent document (rules 1 to 4).
 
 - `row-text-undocumented`: a row text's constant prefix is in no Parsing part span or fenced line.
 - `parser-message-undocumented`: a `parser: ` literal's constant pieces, in order, are in no
   Parsing part span or fenced line.
 - `pattern-undocumented`: a file pattern of the parser equals no Parsing part span or fenced line,
   both unescaped, and no path or glob span outside Fixtures has its count of segments, each
-  matching the pattern's there (`regex_components`): one with a quantifier, class, group or `.*`
-  by one with `*`, `?` or `<...>`, a fixed one by its literal; a top-level alternation by a branch.
-- `key-undocumented`: a key the parser reads from a record, or a column or table a `select` names,
-  is no word of the Parsing part's code spans and fenced lines.
+  matched by the pattern's glob form there (`regex_components`, `*` any text): a segment with a
+  quantifier, class, group or `.*` only by one with `*`, `?` or `<...>`, a fixed one by its
+  literal; a top-level alternation by a branch; a pattern that does not compile by nothing.
+- `key-undocumented`: a key the parser reads, or a `select` column or table, is no Parsing word.
 - `flag-undocumented`: `records_sync`, `records_relay` or `records_origin` is True while Sync,
   relay and origin rows says "The agent records none." or "Not stated.", or `has_secondary` is True
   while Past-use rows and secondary sources says so.
@@ -25,8 +25,8 @@ own in another parser's effective set, of that parser's agent document.
 - `not-read-contradicted`: a name the Parsing part says is not read is a key the parser reads or a
   file one of its file patterns matches.
 - `docstring-fact-undocumented`: a module docstring span is a row text or key in no span or fenced
-  line of the document, a pattern it does not document (rule 3), or a `key_value` with a key or
-  value Parsing lacks.
+  line of the document, a pattern the whole document does not document by rule 3's test, or a
+  `key_value` with a key or value Parsing lacks.
 
 Usage: tools/check_parser_research.py [--update-baseline]
 """
@@ -758,10 +758,15 @@ class Corpus:
         r"""Return whether the corpus documents a file pattern, as `pattern-undocumented` says.
 
         `^\.qwen/trustedFolders\.json$` is documented by `.qwen/trustedFolders.json` and
-        `^\.pi/.*$` by `.pi/*`, never by `.pi/probe/x.jsonl`.
+        `^\.pi/.*$` by `.pi/*`, never by `.pi/probe/x.jsonl`; a pattern that does not compile
+        is documented by nothing.
         """
         if unescape_pattern(pattern) in self.patterns:
             return True
+        try:
+            re.compile(pattern)
+        except re.error:
+            return False
         branches = top_level_branches(pattern)
         if len(branches) > 1:
             return any(self.documents_pattern(branch) for branch in branches)

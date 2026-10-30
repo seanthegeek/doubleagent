@@ -17,8 +17,8 @@
   Per-user storage volume subsections (`is_volume_section`) names.
 - `volume-twin-missing`: an exclusion below a directory a docker volume is `mounted at`
   (`mount_path`, `volume_home_remainders`) with no volume-relative twin (`volume_twin`).
-- `case-overlap`: two agents' home entries that differ at a segment only by case, or whose first
-  segments differ and can still match one path (`case_overlap`).
+- `case-overlap`: two agents' home entries whose first differing segment differs only by case,
+  or whose first segments differ and can still match one path (`case_overlap`).
 - `credential-wording`: a `WORDING_PHRASES` phrase in a Credentials section.
 - `document-missing`, `catalog-missing`: a catalog agent with no research document, and back.
 - `agents-row-missing`, `agents-row-orphan`: a catalog agent, `project` aside, with no

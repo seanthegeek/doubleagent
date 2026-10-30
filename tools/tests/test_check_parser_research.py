@@ -315,6 +315,7 @@ def test_corpus_documents_pattern_by_span_path():
         (r"^(?:\.a/b/c\.json|\.d\.json)$", ".a/*/c.json", False),
         (r"^[a-zA-Z]+$", "trustedFolders", False),
         ("(", ".x/y", False),
+        (r"^\.x/[y$", ".x/*", False),
     )
     for pattern, span, expected in cases:
         corpus = checker.corpus_of([span], [span])
