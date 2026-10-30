@@ -18,12 +18,12 @@ the analyzer's own:
 ```sh
 cd analyzer
 python3 -m pip install -r requirements-dev.txt
-tests/run.sh                                            # the whole suite
-tests/run.sh tests/test_catalog.py                      # one module
-tests/run.sh tests/parsers/test_claude_code.py          # one parser's tests
-tests/run.sh tests/parsers/test_claude_code.py::ClaudeCodeTests     # one class
+tests/run.sh                                                      # the whole suite
+tests/run.sh tests/test_catalog.py                                # one module
+tests/run.sh tests/parsers/test_claude_code.py                    # one parser's tests
+tests/run.sh tests/parsers/test_claude_code.py::ClaudeCodeTests   # one class
 tests/run.sh tests/parsers/test_claude_code.py::ClaudeCodeTests::test_rows  # one method
-tests/run.sh -k Glob -x                                 # pytest options
+tests/run.sh -k Glob -x                                           # pytest options
 ```
 
 Each parser's tests are one module, `tests/parsers/test_<parser>.py`, named
@@ -36,12 +36,15 @@ extend, which builds the fixture home for each test, and the helpers
 several modules use; `tests/parsers/test_shared.py` holds the tests of the
 helpers the parsers share and of the outputs and routing across parsers.
 The fixture builders are one module per catalog agent,
-`tests/fixtures/<agent>.py` (the Continue builders in `continue_dev.py`,
-since `continue` is a Python keyword), with the helpers they share in
-`tests/fixtures/common.py`. `tests/fixtures/__init__.py` re-exports every
-builder and value, so a test imports them with `from fixtures import ...`,
-and holds `build_home`, which runs the per-agent builders listed in
-`HOME_BUILDERS`, in order, to write one user's home.
+`tests/fixtures/<agent>.py`, with the hyphens of the catalog name as
+underscores (`codex_cli.py` holds the fixtures that `test_codex.py` reads)
+and the Continue builders in `continue_dev.py`, since `continue` is a
+Python keyword; the helpers they share are in `tests/fixtures/common.py`.
+`tests/fixtures/__init__.py` imports and re-exports every builder and
+value, so a test imports them with `from fixtures import ...` and a new
+name is added to its import list and `__all__`; it also holds `build_home`,
+which runs the per-agent builders listed in `HOME_BUILDERS`, in order, to
+write one user's home.
 
 `tests/run.sh` changes to the `analyzer/` directory and runs
 `python3 -m pytest` with its arguments, so it can be run from anywhere and
@@ -222,8 +225,9 @@ version bump and the lists to update, is "Adding a parser" in
 3. Register it in `doubleagent/parsers/__init__.py`. A parser that must
    read a file the catalog attributes to another agent sets `reads_agents`.
 4. Add fixture records to `tests/fixtures/<agent>.py`, with the home
-   builder in `HOME_BUILDERS` of `tests/fixtures/__init__.py`, and a test
-   class to `tests/parsers/test_<parser>.py`. Then change the agent's row in the
+   builder in `HOME_BUILDERS` of `tests/fixtures/__init__.py` and each new
+   name in that file's imports and `__all__`, and a test class to
+   `tests/parsers/test_<parser>.py`. Then change the agent's row in the
    [agents page](../../docs/agents.md) to `parsed`, and move
    its subsection to [Parsed agents](../../docs/agents.md#parsed-agents) with the
    files the parser reads and the evidence it was validated against.

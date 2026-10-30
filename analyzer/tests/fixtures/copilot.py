@@ -8,9 +8,7 @@ from .common import _json_file
 
 
 def build_copilot(home: Path) -> None:
-    """The Copilot language server's token store."""
-    # A NO_TRANSCRIPTS agent: the Copilot language server's token store, which
-    # is detected as `copilot`, wanted by no parser and reported collected only.
+    """The Copilot language server's token store, a collected-only agent no parser wants."""
     _json_file(
         home / ".config/github-copilot/apps.json",
         {"github.com:Iv1.fake": {"user": "alice", "oauth_token": "gho_FAKE_TOKEN_0000"}},

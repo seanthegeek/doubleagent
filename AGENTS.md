@@ -598,10 +598,11 @@ plan, and the parser is written from them.
    [Analyzer standards](#analyzer-standards) says; a new dependency goes in
    both `requirements.txt` and `pyproject.toml`.
 5. Add a `<agent>_records()` builder to `tests/fixtures/<agent>.py`, wired
-   into `build_home` through `HOME_BUILDERS`, using the `/srv/proj` project
-   path, a noise file the parser must not want, `write_bad_line` for the
-   truncation case, and both the present and the absent form of every key
-   the parser branches on.
+   into `build_home` through `HOME_BUILDERS` and re-exported from
+   `tests/fixtures/__init__.py`, using the `/srv/proj` project path, a
+   noise file the parser must not want, `write_bad_line` for the truncation
+   case, and both the present and the absent form of every key the parser
+   branches on.
 6. Add a `<Agent>Tests(ParserBase)` class to
    `tests/parsers/test_<parser>.py` with the existing cases: rows, thinking
    opt-in, history, not-wanted, truncated line. The truncated-line case
