@@ -21,6 +21,7 @@ match wins):
 | `*dify_agent_local_sandbox_home`, `*dify_agent_local_sandbox_workspace` | `dify` | `docker/docker-compose.yaml` (Compose names them `docker_...`) | `/home/dify`, `/workspace` |
 | `*langflow-data` | `langflow` | `docker_example/docker-compose.yml` | `/app/langflow`, the config directory |
 | `*n8n_data`, `*n8n-data` | `n8n` | README `docker run`; the `get-n8n.sh` compose file (`n8n_n8n-data`) | `/home/node/.n8n` |
+| `*openclaw_home` | `claude-code` | OpenClaw's `scripts/docker/setup.sh` and Docker guide (`OPENCLAW_HOME_VOLUME`), which keep a Claude Code install in it | `/home/node`, the container user's home |
 | `*tabby*`, `*local-deep-research*`, `*openhands*`, `*letta*`, `*hermes*`, `*nanobot*` | as named | inferred: these tools' documentation bind-mounts the home directory, and a named volume replacing it has the same layout | the tool's state directory |
 
 Dify keeps most of its state, including its PostgreSQL database, in bind
