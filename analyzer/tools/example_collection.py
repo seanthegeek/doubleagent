@@ -13,7 +13,7 @@ model manifest; alice's Amp settings; and the repository's git metadata and agen
 
 Every prompt, reply, tool result, id and time is invented; the ids derive from `uuid5` values over
 `NAMESPACE`, so they look like an agent's and never change. The record shapes follow the fixture
-builders of `analyzer/tests/fixtures.py` (`claude_310_records`, `claude_mac_records`,
+builders of `analyzer/tests/fixtures/` (`claude_310_records`, `claude_mac_records`,
 `claude_mac_spawn_records`, `claude_mac_teleport_records`, `claude_309_records`,
 `claude_registry_records`, `codex_rollout_records`, `write_codex_state`) and the research documents
 (`research/claude-code.md`, Record schema and Remote Control; `research/codex-cli.md`, Parser plan;

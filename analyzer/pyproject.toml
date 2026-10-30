@@ -29,7 +29,7 @@ path = "doubleagent/__init__.py"
 packages = ["doubleagent"]
 
 # pytest runs the unittest classes as they are; tests/ is on the import path
-# so the test modules can import the shared fixtures module by name.
+# so the test modules can import the shared fixtures package by name.
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]

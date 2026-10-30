@@ -468,7 +468,7 @@ The analyzer runs on the analyst's workstation, never on the host.
 - **Test runner.** pytest runs the suite and collects the existing
   `unittest` classes unchanged. A new test module or function is
   pytest-style (plain functions and fixtures such as `tmp_path`), except a
-  parser's tests, which join `tests/test_parsers.py` as a class
+  parser's tests, which are a class in `tests/parsers/test_<parser>.py`
   ([Adding a parser](#adding-a-parser)). pytest is listed in
   `analyzer/requirements-dev.txt`, never among the package's dependencies,
   and no test module imports it, since the pyright gate runs without it: a
@@ -597,16 +597,18 @@ plan, and the parser is written from them.
 4. Open SQLite and decode protobuf as
    [Analyzer standards](#analyzer-standards) says; a new dependency goes in
    both `requirements.txt` and `pyproject.toml`.
-5. Add a `<agent>_records()` builder to `tests/fixtures.py`, wired into
-   `build_home`, using the `/srv/proj` project path, a noise file the
-   parser must not want, `write_bad_line` for the truncation case, and
-   both the present and the absent form of every key the parser branches
-   on.
-6. Add a `<Agent>Tests(ParserBase)` class to `tests/test_parsers.py` with
-   the existing cases: rows, thinking opt-in, history, not-wanted,
-   truncated line. The truncated-line case covers every file read line by
-   line and checks that the lines around the bad one are yielded beside the
-   `parser:` row. A proximity join gets the interleaved case.
+5. Add a `<agent>_records()` builder to `tests/fixtures/<agent>.py`, wired
+   into `build_home` through `HOME_BUILDERS` and re-exported from
+   `tests/fixtures/__init__.py`, using the `/srv/proj` project path, a
+   noise file the parser must not want, `write_bad_line` for the truncation
+   case, and both the present and the absent form of every key the parser
+   branches on.
+6. Add a `<Agent>Tests(ParserBase)` class to
+   `tests/parsers/test_<parser>.py` with the existing cases: rows, thinking
+   opt-in, history, not-wanted, truncated line. The truncated-line case
+   covers every file read line by line and checks that the lines around the
+   bad one are yielded beside the `parser:` row. A proximity join gets the
+   interleaved case.
 7. In the [agents page](docs/agents.md) table, set the agent's status to
    `parsed` and its "Validated against" cell to the evidence class and
    platforms in a few words (`real installs: macOS, Windows (October 2026)`,
@@ -1277,9 +1279,9 @@ skipped without it. Never add a `python3` requirement to the collector.
   `gh run watch <id> --exit-status`.
 - While a change is in progress the full analyzer suite runs last: after
   the test modules of the changed files pass (`test_<module>.py` for a
-  module, `tests/test_parsers.py` for a parser, the whole suite for a
-  change to `model.py`, `cli.py` or `parsers/base.py`), and again after
-  each fix. It runs alone, never beside a smoke test or another run of
+  module, `tests/parsers/test_<parser>.py` for a parser, the whole suite
+  for a change to `model.py`, `cli.py` or `parsers/base.py`), and again
+  after each fix. It runs alone, never beside a smoke test or another run of
   the suite.
 - A run with no fixed end (fuzzing, generated inputs, a search over
   seeds) gets a wall-clock limit before it starts. Unlike a timeout on a

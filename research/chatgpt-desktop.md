@@ -681,8 +681,8 @@ without the table one `parser: no local_thread_catalog table` row.
 
 #### Fixtures
 
-The test fixture (`chatgpt_desktop_records()` in `analyzer/tests/fixtures.py`) builds
-`.codex/sqlite/codex-dev.db` with the `local_thread_catalog` columns of
+The test fixture (`chatgpt_desktop_records()` in `analyzer/tests/fixtures/chatgpt_desktop.py`)
+builds `.codex/sqlite/codex-dev.db` with the `local_thread_catalog` columns of
 [Record schema](#record-schema) and a `local_thread_catalog_hosts` table, its rows only in the WAL
 sidecar as on a running app: one `vscode` row (a Codex thread, which the parser skips), a `chatgpt`
 row with a title, an empty `conversation_origin` and REAL times with a fraction, and a `chatgpt`
