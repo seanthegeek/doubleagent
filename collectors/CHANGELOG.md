@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Hermes' remaining credential stores are flagged `secret: true` in every home and profile (`.hermes*/` and `AppData/Local/hermes*/`): the config writers' `config.yaml.*` copies, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json` and the OS credential directories `.ssh/*`, `.aws/*`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*` and `.envrc`; in a Hermes volume, the volume-relative `config.yaml.*`, `bot-desktop/*`, `webapp/session-token`, `webapp/native-sign-in-tokens.json`, `webapp/sign-in-registration.json`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json` and the quick snapshots' `state-snapshots/*/config.yaml` and `state-snapshots/*/feishu_comment_pairing.json` ([#326]).
+
 ## [1.20.0] - 2026-10-29
 
 ### Added
@@ -1197,6 +1201,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#326]: https://github.com/seanthegeek/doubleagent/issues/326
 [#324]: https://github.com/seanthegeek/doubleagent/issues/324
 [#323]: https://github.com/seanthegeek/doubleagent/issues/323
 [#322]: https://github.com/seanthegeek/doubleagent/issues/322
