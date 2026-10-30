@@ -121,10 +121,9 @@ exclusion hides, an exclusion or secret glob that no home or project entry
 reaches and no one Docker volume agent's document names, a Docker volume
 glob that the document's Per-user storage subsection about the volume does
 not name, an exclusion below a Docker volume's mount directory without its
-volume-relative twin, two
-agents' home entries that differ only by case or can match one path, a
-Credentials section saying a file is left unflagged instead of naming its
-secret glob, a timeline row text or record key under Collection, a
+volume-relative twin, two agents' home entries that differ only by case or
+can match one path, a Credentials section saying a file is left unflagged
+instead of naming its secret glob, a timeline row text or record key under Collection, a
 catalog agent without a research document or a row on the
 [agents page](../../docs/agents.md), and a row on that page naming no
 catalog agent.
@@ -134,7 +133,10 @@ default-run check asserting `secret: true` and a `--no-secrets` check
 asserting `skipped_secret` on a path each `SECRET_GLOBS` line matches, a
 check asserting `skipped_excluded` for each `EXCLUDES` line, and for each
 `CATALOG` and `PROJECT_CATALOG` line a fixture path it matches whose name
-the research document gives. It reads both smoke tests as text: keep
+the research document gives, and for each agent with a `secret` case in
+the frameworks case list (`CASES_FW` in `smoke.sh`, `$CasesFrameworks` in
+`smoke.ps1`) a `--no-secrets` check asserting `skipped_secret` on one of
+them. It reads both smoke tests as text: keep
 fixture paths and check arguments as literals, variables assigned from
 literals, `kind|agent|path` case lists, or here-document lists read by
 `while read`, and write `Row` and `StatusOf` arguments in `smoke.ps1` from

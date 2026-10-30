@@ -945,9 +945,10 @@ when the page has one.
      layout is described in a Per-user storage subsection whose heading or
      opening paragraph names the volume, and names each volume-relative
      exclusion and secret glob. Each table line of the agent is named in
-     the Collection part as its glob, a path it matches, or its remainder
-     below one of the agent's own catalog entries
-     (`tools/check_tables_research.py` checks this).
+     the Collection part as its glob, a path it matches or (a home or
+     project line) lies above, its remainder below one of the agent's own
+     catalog entries, or, for a glob opening `*/`, its remainder below the
+     entry it reaches (`tools/check_tables_research.py` checks this).
    - `### Credentials`: credential files (settings files that hold keys
      among them), keychain use and its file fallback, identity values to
      redact. A credential file is named by its home-relative path on each
