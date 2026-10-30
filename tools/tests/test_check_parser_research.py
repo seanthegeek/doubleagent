@@ -752,6 +752,12 @@ def test_not_read_spans_forms(tmp_path):
         "Reads `a`. The `b` key is not read.": ["b"],
         "| `a` | `b` (not read) |\n| --- | --- |": ["b"],
         "- `a` is read.\n- `b` is not read.": ["b"],
+        "Not read: `audit_events`, whose `kind` and `action` values the schema leaves open.": [
+            "audit_events"
+        ],
+        "Not read: `a` and `b`, its `c` key unused; `d`.": ["a", "b", "d"],
+        "Not read: `a`, whose `b` is open, and `c`.": ["a", "c"],
+        "Not read: `a`, `its` and `b`.": ["a", "its", "b"],
     }
     for body, expected in cases.items():
         spans = checker.not_read_spans(section_of(tmp_path, body))
