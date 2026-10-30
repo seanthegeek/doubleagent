@@ -2245,6 +2245,7 @@ MakeFile "$hermesVolumeSnapshot/.env" 'KEY=x'
 MakeFile "$hermesVolumeSnapshot/auth.json" '{"providers":{}}'
 MakeFile "$hermesVolumeSnapshot/pairing/telegram-approved.json" '{}'
 # 2026-10-29 drift sweep credential gaps (#248)
+$script:Made.Clear()
 $langflowVolumeMcp = 'var/lib/docker/volumes/langflow_langflow-data/_data/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json'
 $openhandsVolume = 'var/lib/docker/volumes/openhands_state/_data'
 $ollamaVolume = 'var/lib/docker/volumes/ollama/_data'
@@ -2255,7 +2256,7 @@ MakeFile "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json" "{
 MakeFile "$ollamaVolume/backup/codex/config.toml.1792800000" "model = `"x`"`n"
 MakeFile "$ollamaVolume/launch/muse-config/muse/settings.json" "{}`n"
 $missing = Test-Made
-Check "#248 every frameworks-volume fixture was created ($($missing.Count) missing)" { $missing.Count -eq 0 }
+Check "#248 every frameworks-volume fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Run 'fwvolumes' @{}
 Check 'frameworks volumes exit 0' { $script:ExitCode -eq 0 }
 $row = Row "$n8nVolume/database.sqlite"
