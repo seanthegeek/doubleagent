@@ -1,8 +1,5 @@
 """Tests for tools/check_tables_research.py on synthetic repositories."""
 
-# A test function is named for what it proves, so needs no docstring, as under analyzer/tests.
-# ruff: noqa: D103
-
 from __future__ import annotations
 
 import pathlib

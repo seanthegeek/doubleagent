@@ -41,6 +41,7 @@ ignore = [
 [lint.per-file-ignores]
 # Test methods and functions are named for what they prove, so need no docstring.
 "analyzer/tests/*.py" = ["D102", "D103", "D105", "D107"]
+"tools/tests/*.py" = ["D102", "D103", "D105", "D107"]
 # The fixtures package re-exports every agent module's builders and values so
 # the tests import them from one name; an __all__ would repeat the list.
 "analyzer/tests/fixtures/__init__.py" = ["F401"]

@@ -1,8 +1,5 @@
 """Tests for tools/check_fixture_schema.py on a synthetic repository and fixtures package."""
 
-# A test function is named for what it proves, so needs no docstring, as under analyzer/tests.
-# ruff: noqa: D103
-
 from __future__ import annotations
 
 import contextlib

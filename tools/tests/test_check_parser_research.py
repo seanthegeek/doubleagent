@@ -1,8 +1,5 @@
 """Tests for tools/check_parser_research.py on synthetic parser packages and documents."""
 
-# A test function is named for what it proves, so needs no docstring, as under analyzer/tests.
-# ruff: noqa: D103
-
 from __future__ import annotations
 
 import ast

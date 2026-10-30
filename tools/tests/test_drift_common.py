@@ -1,8 +1,5 @@
 """Tests for tools/drift_common.py, the drift checkers' shared module, on synthetic inputs."""
 
-# A test function is named for what it proves, so needs no docstring, as under analyzer/tests.
-# ruff: noqa: D103
-
 from __future__ import annotations
 
 import pathlib
