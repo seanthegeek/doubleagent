@@ -117,9 +117,14 @@ python3 tools/check_smoke_coverage.py    # each line against both smoke tests
 `tools/check_tables_research.py` reports a line whose glob no code span of
 the Collection part of the agent's research document names, a credential
 file that document names that no secret glob flags, a secret glob an
-exclusion hides, an exclusion no catalog entry reaches, and a catalog
-agent without a research document or a row on the
-[agents page](../../docs/agents.md).
+exclusion hides, an exclusion no catalog entry reaches, an exclusion below
+a Docker volume's mount directory without its volume-relative twin, two
+agents' home entries that differ only by case or can match one path, a
+Credentials section saying a file is left unflagged instead of naming its
+secret glob, a timeline row text or record key under Collection, a
+catalog agent without a research document or a row on the
+[agents page](../../docs/agents.md), and a row on that page naming no
+catalog agent.
 
 `tools/check_smoke_coverage.py` requires, in both smoke files, a
 default-run check asserting `secret: true` and a `--no-secrets` check

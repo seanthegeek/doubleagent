@@ -623,8 +623,14 @@ plan, and the parser is written from them.
    noise file the parser must not want, `write_bad_line` for the truncation
    case, and both the present and the absent form of every key the parser
    branches on.
-   - The records are derived from the research document's samples and
-     Record schema, never invented. Each builder's docstring has a line
+   - A Fixtures sample in the research document is a record as an install
+     wrote it, redacted. A builder derives its records from the Record
+     schema and the samples' shapes, never invents one and never copies a
+     sample verbatim, so the sample stays independent evidence.
+     `tools/check_fixture_schema.py` checks the records `build_home`
+     writes and reports one equal to a Fixtures sample, so every builder a
+     test uses is reached through `HOME_BUILDERS`. Each builder's docstring
+     has a line
      `Source: research/<agent>.md#<anchor>; build <version>` (or
      `; source <short hash>`), the anchor a heading of that document. The
      module docstring names `research/<agent>.md`, has a `Paths:` line
@@ -935,16 +941,19 @@ when the page has one.
      platform, what each holds, sizes where observed; `####` subsections
      per platform or product when layouts differ; the fixed
      `#### Scratch directories` ("None known." when none). A Docker volume
-     layout is described in a Per-user storage subsection whose heading
-     names the volume, and names each volume-relative exclusion and secret
-     glob.
+     layout is described in a Per-user storage subsection whose heading or
+     opening paragraph names the volume, and names each volume-relative
+     exclusion and secret glob. Each table line of the agent is named in
+     the Collection part as its glob, a path it matches, or its remainder
+     below one of the agent's own catalog entries
+     (`tools/check_tables_research.py` checks this).
    - `### Credentials`: credential files (settings files that hold keys
      among them), keychain use and its file fallback, identity values to
      redact. A credential file is named by its home-relative path on each
      platform form the Per-user storage section names, and each is either
      flagged by a secret glob or, for a store that mixes secrets with
-     evidence, listed in Secrets; "collected unflagged", "not flagged",
-     "may embed" and "can embed" are not used.
+     evidence, listed in Secrets; "collected unflagged", "left unflagged",
+     "not flagged", "may embed" and "can embed" are not used.
    - `### Exclusions`: large or low-value subtrees as exact patterns.
    - `### Project-local files`: files written or read inside repositories.
    - `### Where the project path is recorded`: file and key, or table and
@@ -1246,9 +1255,9 @@ PowerShell smoke test under Windows PowerShell 5.1 on the VM), fixes each
 drift finding the round's evidence settles and removes its baseline line,
 runs the merged parser over the round's archive, compares each new row
 form's count and the fixtures' values with the real records, reviews the
-diffs against the brief, and commits. When the research and parser subagents run in
-parallel, the Parser plan's row forms are copied from the parser's
-docstring at review.
+diffs against the brief, and commits. When the research and parser
+subagents run in parallel, the Parser plan's row forms are copied from the
+parser's docstring at review.
 
 ## Validation and testing
 
@@ -1555,8 +1564,9 @@ links down.
   specification; a rule already stated elsewhere in this file is linked, not
   repeated. The same holds for `CLAUDE.md`, and `tools/check_doc_links.py`
   fails on an issue or pull request link in either file. A rule added to
-  this file ships in one pull request with the checker extension that
-  tests it and a sweep that fixes or baselines every existing breach.
+  this file that a checker can test ships in one pull request with that
+  checker extension and a sweep that fixes or baselines every existing
+  breach.
 - An index table (the agents page, the survival table) gives a short cell
   and a link, never the documents' detail.
 - A document never says how it is maintained, never states its own
