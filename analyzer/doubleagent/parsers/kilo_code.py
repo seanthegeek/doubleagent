@@ -32,6 +32,7 @@ real install. See `research/kilo-code.md`.
 
 from __future__ import annotations
 
+import io
 import json
 import re
 from collections.abc import Iterator
@@ -145,6 +146,16 @@ def is_task_file(rel: str) -> bool:
     """Return True for a pre-fork task's `api_conversation_history.json` under any user directory."""
     match = TASK_PATTERN.search(rel)
     return match is not None and (match.start() == 0 or rel[match.start() - 1] == "/")
+
+
+def _read_bytes(artifact: Artifact, errors: list) -> bytes | None:
+    """Return a file's bytes, or None after appending its whole-file `could not be read` error."""
+    try:
+        with open(artifact.disk_path, "rb") as handle:
+            return handle.read()
+    except OSError as error:
+        errors.append((0, "%s could not be read (%s)" % (artifact.rel, error.strerror or error)))
+        return None
 
 
 def _read_json(path: Path):
@@ -361,12 +372,16 @@ class KiloCodeParser(OpenCodeParser):
 
         The session id is the `# Session <id>` heading's, the summary every line after
         `## Summary`, and `project_path` the `canonical` key of the folder's `manifest.json`. A
-        digest without a `## Summary` line, or a manifest that does not decode, is a `parser:` row.
+        digest that cannot be read or has no `## Summary` line, or a manifest that does not decode,
+        is a `parser:` row.
         """
         errors: list = []
         project = _manifest_root(artifact.disk_path.parent.parent / "manifest.json", errors)
-        with open(artifact.disk_path, "rb") as handle:
-            lines = [line_text(raw) for raw in handle]
+        data = _read_bytes(artifact, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors, "", project)
+            return
+        lines = [line_text(raw) for raw in io.BytesIO(data)]
         fields = {"# Session ": "", "Updated: ": "", "Topic: ": ""}
         summary_at = -1
         for number, line in enumerate(lines):
@@ -406,22 +421,22 @@ class KiloCodeParser(OpenCodeParser):
         """
         name = artifact.rel.rsplit("/", 1)[-1]
         errors: list = []
-        with open(artifact.disk_path, "rb") as handle:
-            for line_number, raw in enumerate(handle, 1):
-                line = line_text(raw)
-                message = next(
-                    (candidate for candidate in REMOTE_MESSAGES if line.endswith(" " + candidate)),
-                    "",
+        data = _read_bytes(artifact, errors)
+        for line_number, raw in enumerate(io.BytesIO(data or b""), 1):
+            line = line_text(raw)
+            message = next(
+                (candidate for candidate in REMOTE_MESSAGES if line.endswith(" " + candidate)),
+                "",
+            )
+            if not message:
+                continue
+            row = self._remote_row(artifact, name, line_number, line, message)
+            if row is None:
+                errors.append(
+                    (line_number, "unparseable line (%s without its fields)" % message, line)
                 )
-                if not message:
-                    continue
-                row = self._remote_row(artifact, name, line_number, line, message)
-                if row is None:
-                    errors.append(
-                        (line_number, "unparseable line (%s without its fields)" % message, line)
-                    )
-                else:
-                    yield row
+            else:
+                yield row
         yield from error_rows(self, artifact, errors)
 
     def _remote_row(self, artifact: Artifact, name: str, line_number: int, line: str, message: str):
@@ -548,9 +563,12 @@ class KiloCodeParser(OpenCodeParser):
             )
             yield row
 
-        with open(artifact.disk_path, "rb") as handle:
-            raw = handle.read().decode("utf-8", errors="replace")
         errors: list = []
+        data = _read_bytes(artifact, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors, task_id, project)
+            return
+        raw = data.decode("utf-8", errors="replace")
         items = iter_json_array(raw, errors)
         for position, message in enumerate(items, 1):
             if not isinstance(message, dict):

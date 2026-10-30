@@ -3,6 +3,9 @@
 import contextlib
 import io
 import json
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
@@ -520,6 +523,34 @@ class KiloCodeTests(ParserBase):
         manifest.unlink()
         rows = self.rows_for(KiloCodeParser(), KILO_DIGEST_REL)
         self.assertEqual(len(rows), 1)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_files_are_whole_file_rows(self):
+        # A digest, log or task file that is there but cannot be read is one `parser:` row
+        # carrying what is known of it, never a problem line.
+        self.with_state()
+        cases = (
+            (KILO_DIGEST_REL, "", "/srv/proj"),
+            (self.LOG, "", ""),
+            (self.TASK, KILO_TASK, "/srv/proj"),
+        )
+        for rel, session_id, project in cases:
+            path = self.home / rel
+            path.chmod(0)
+            try:
+                rows = self.rows_for(KiloCodeParser(), rel)
+            finally:
+                path.chmod(0o600)
+            problems = [row for row in rows if row.text.startswith("parser:")]
+            self.assertEqual(len(problems), 1, rel)
+            self.assertTrue(
+                problems[0].text.startswith("parser: %s could not be read (" % rel), rel
+            )
+            self.assertEqual(
+                (problems[0].session_id, problems[0].project_path, problems[0].timestamp_utc),
+                (session_id, project, ""),
+                rel,
+            )
 
     def test_memory_notes_not_wanted(self):
         self.with_state()

@@ -1369,7 +1369,9 @@ it decodes to something else; a sandbox policy file or a cloud session marker
 `parser: retention/state.json is not a JSON object`; a memory digest without a `## Summary` line
 `parser: <file> is not a memory digest (no ## Summary line)`, and its folder's `manifest.json`
 when it is not a JSON object `parser: memory manifest.json is not a JSON object` beside the
-digest's row. A pre-migration `api_conversation_history.json` is read record by record: a record
+digest's row. A memory digest, a log file or a pre-migration task file that cannot be read is one
+`parser: <file> could not be read (<reason>)` row. A pre-migration `api_conversation_history.json`
+is read record by record: a record
 that does not decode is `parser: unparseable record <N> (<reason>): <text from that record on>`,
 with every earlier record's rows kept, and a file that is not an array, an array cut off after a
 record or data after the array is one `parser: not a JSON array`,
