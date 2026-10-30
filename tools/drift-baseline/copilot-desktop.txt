@@ -1,7 +1,5 @@
 check_fixture_schema|builder-provenance-missing|copilot_desktop_records
-check_fixture_schema|enum-undocumented|kind=cron
 check_fixture_schema|enum-undocumented|source=schedule
-check_fixture_schema|key-undocumented|cron
 check_fixture_schema|key-undocumented|tab_order
 check_fixture_schema|module-provenance-missing|copilot_desktop
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s

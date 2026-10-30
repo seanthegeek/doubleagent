@@ -287,6 +287,32 @@ def test_key_undocumented_reads_only_the_parsing_part(tmp_path):
     assert not any(agent == "gamma" for agent, kind, _ in found if kind == "key-undocumented")
 
 
+def test_key_documented_by_the_document_of_an_imported_module(tmp_path):
+    state = '    (home / ".beta/state.json").write_text(json.dumps(beta_records()))\n'
+    borrowed = state + '    (home / ".beta/extra.json").write_text(json.dumps(alpha_helper()))\n'
+    literal = state + '    (home / ".beta/extra.json").write_text(\'{"helperKey": 1}\')\n'
+    own = BETA.replace("from .alpha import alpha_helper\n", "").replace(state, literal)
+    own = own.replace("json.dumps(alpha_helper())", "'{}'")
+    found = {}
+    for name, text in (("imported", BETA.replace(state, borrowed)), ("own", own)):
+        root = make_repository(tmp_path / name)
+        write(root / "analyzer/tests/fixtures/beta.py", text)
+        with contextlib.redirect_stderr(io.StringIO()):
+            found[name] = {(item.agent, item.kind, item.detail) for item in checker.run(root)}
+    assert ("beta", "key-undocumented", "helperKey") not in found["imported"]
+    assert ("beta", "cross-agent-builder", "alpha_helper") in found["imported"]
+    assert ("beta", "key-undocumented", "helperKey") in found["own"]
+
+
+def test_lineage_agents_follow_imports_not_declarations(tmp_path):
+    modules = checker.fixture_modules(make_repository(tmp_path), {"alpha", "beta", "gamma"})
+    assert checker.lineage_agents(modules) == {
+        "alpha": set(),
+        "beta": {"alpha"},
+        "gamma": {"alpha"},
+    }
+
+
 def test_file_unclaimed(tmp_path):
     found = findings_of(tmp_path)
     assert ("-", "file-unclaimed", "Documents/notes.txt") in found

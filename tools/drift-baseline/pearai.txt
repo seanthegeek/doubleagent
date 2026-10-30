@@ -2,15 +2,9 @@ check_fixture_schema|builder-provenance-missing|pearai_api_records
 check_fixture_schema|builder-provenance-missing|pearai_permission_records
 check_fixture_schema|cross-agent-builder|roo_ui_records
 check_fixture_schema|key-undocumented|accepted
-check_fixture_schema|key-undocumented|condenseId
-check_fixture_schema|key-undocumented|contextCondense
-check_fixture_schema|key-undocumented|cost
 check_fixture_schema|key-undocumented|itemId
 check_fixture_schema|key-undocumented|models
-check_fixture_schema|key-undocumented|newContextTokens
-check_fixture_schema|key-undocumented|prevContextTokens
 check_fixture_schema|key-undocumented|providerTitle
-check_fixture_schema|key-undocumented|summary
 check_fixture_schema|module-provenance-missing|pearai
 check_fixture_schema|sample-equals-builder|.pearai/dev_data/tokens_generated.jsonl
 check_parser_research|key-undocumented|answer

@@ -4,7 +4,9 @@
 A fixture module is a file of `analyzer/tests/fixtures/` other than `__init__.py` and
 `common.py`; its agent is `module_agent`'s. A name is documented when `is_documented` finds it
 in a code span of the Parsing part or a fenced line outside Parser plan's Fixtures (a sample
-never documents a key). Rules 3 to 6 and 8 read the files `build_home` writes.
+never documents a key), of the file's agent's document or of an agent whose fixture module
+that agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read the files
+`build_home` writes.
 
 1. `builder-provenance-missing`: a public builder (`is_public_builder`) whose docstring has no
    line `source_line` accepts, naming an agent document and one of its heading anchors.
@@ -23,10 +25,8 @@ never documents a key). Rules 3 to 6 and 8 read the files `build_home` writes.
 8. `sample-equals-builder`: a JSON value in a fenced block under Parser plan's Fixtures whose
    key-sorted form equals a record `build_home` wrote.
 
-A key table is a Markdown table whose header row is `| Key | Type | Values | Since |`
-(`Builds` for `Since`): Key a code span, Type the JSON type names (`string`, `number`,
-`boolean`, `object`, `array`, `null`) separated by ` or `, `,` or `/`, Values the allowed
-values as code spans (empty for any), Since the build or version that added the key.
+A key table's header row is `| Key | Type | Values | Since |` (or `Builds`): Key a code span,
+Type `JSON_TYPES` names joined by ` or `, `,` or `/`, Values code spans (empty for any).
 
 Usage: tools/check_fixture_schema.py [--update-baseline], with the analyzer's requirements.
 """
@@ -34,6 +34,7 @@ Usage: tools/check_fixture_schema.py [--update-baseline], with the analyzer's re
 from __future__ import annotations
 
 import ast
+import dataclasses
 import functools
 import hashlib
 import importlib.util
@@ -326,15 +327,7 @@ def lineage_findings(
     root: pathlib.Path, module: FixtureModule, agents: dict[str, str]
 ) -> Iterator[drift_common.Finding]:
     """Yield a `cross-agent-builder` finding per call into another agent's fixture module."""
-    imported: dict[str, str] = {}
-    for node in module.tree.body:
-        if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module in agents:
-            for alias in node.names:
-                imported[alias.asname or alias.name] = node.module
-        elif isinstance(node, ast.ImportFrom) and node.level == 1 and not node.module:
-            for alias in node.names:
-                if alias.name in agents:
-                    imported[alias.asname or alias.name] = alias.name
+    imported = imported_names(module, agents)
     allowed = lineage(module.docstring) | {module.agent}
     reported: set[str] = set()
     for node in ast.walk(module.tree):
@@ -348,6 +341,38 @@ def lineage_findings(
             yield drift_common.Finding(
                 module.agent, "cross-agent-builder", name, relative, node.lineno, message
             )
+
+
+def imported_names(module: FixtureModule, agents: dict[str, str]) -> dict[str, str]:
+    """Return each name a module binds from another fixture module, mapped to that module's stem.
+
+    `from .x import f` binds `f` to `x` and `from . import x` binds `x` to `x`, for a stem `x`
+    of `agents`; other imports bind none.
+    """
+    imported: dict[str, str] = {}
+    for node in module.tree.body:
+        if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module in agents:
+            for alias in node.names:
+                imported[alias.asname or alias.name] = node.module
+        elif isinstance(node, ast.ImportFrom) and node.level == 1 and not node.module:
+            for alias in node.names:
+                if alias.name in agents:
+                    imported[alias.asname or alias.name] = alias.name
+    return imported
+
+
+def lineage_agents(modules: list[FixtureModule]) -> dict[str, set[str]]:
+    """Return, per agent, the agents whose fixture modules its own modules import a name from.
+
+    The import relation is `imported_names`', the one rule 7 reads, whether or not a `Lineage:`
+    line declares it; an agent never lists itself.
+    """
+    agents = {module.stem: module.agent for module in modules}
+    found: dict[str, set[str]] = {}
+    for module in modules:
+        owners = {agents[stem] for stem in imported_names(module, agents).values()}
+        found.setdefault(module.agent, set()).update(owners - {module.agent})
+    return found
 
 
 def _callee(function: ast.expr, imported: dict[str, str]) -> tuple[str, str]:
@@ -721,9 +746,14 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
         else:
             by_agent.setdefault(built.agent, []).append(built)
     parsed = {agent: agent_document(root, path) for agent, path in documents.items()}
+    lineages = lineage_agents(modules)
     for agent, agent_files in sorted(by_agent.items()):
         if agent in parsed:
-            yield from agent_findings(agent, agent_files, parsed[agent], modules)
+            names = set(parsed[agent].names)
+            for other in sorted(lineages.get(agent, set()) & set(parsed)):
+                names |= parsed[other].names
+            document = dataclasses.replace(parsed[agent], names=names)
+            yield from agent_findings(agent, agent_files, document, modules)
     with_tables = len({item.path for item in parsed.values() if item.key_tables})
     print(
         "%s: build_home wrote %d file(s); %d document(s) hold a key table"
