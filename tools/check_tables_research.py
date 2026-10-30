@@ -9,7 +9,8 @@
   its detail is `<table> <glob>`, as one glob may be in several tables.
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
   secret glob flags on its own base, or on any sibling base of one platform (`sibling_bases`),
-  unless a code span of the Parsing part's Secrets section names the path (`secrets_store`).
+  unless a code span of the Parsing part's Secrets section names the path (`secrets_store`),
+  or its sentence says it is not a credential (`denies_credential`).
 - `secret-under-exclusion`: a secret glob each of whose sample paths an exclusion prunes.
 - `exclusion-unreachable`, `secret-unreachable`: an exclusion or secret glob with no owner
   (`Repository.owners`): no home or project entry reaches it, no one volume document names it.
@@ -77,6 +78,14 @@ URL = re.compile(r"^(?:[a-z][a-z0-9+.-]*://|www\.)", re.I)
 # Characters a code span holding a path never has: assignments, calls, templates, quotes.
 NOT_PATH_CHARACTERS = re.compile(r"[=(){}\"'|;,]|^\$|^<|:(?!\\)")
 KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
+# Phrases saying a file named before them in the sentence is not a credential.
+NOT_A_CREDENTIAL = re.compile(
+    r"\b(?:is not one|is not a credential|not a credential file|holds no credentials?"
+    r"|no credentials?)\b",
+    re.I,
+)
+# The end of a sentence: a stop before whitespace, a blank line or the next list item.
+SENTENCE_END = re.compile(r"[.!?](?=\s|$)|\n[ \t]*\n|\n[ \t]*(?:[-*+]|\d+[.)])[ \t]")
 MOUNTED_AT = re.compile(r"\bmounted at\s+(/\S*)")
 # The platform and the kinds of state of a home-relative directory, by its leading segments, so a
 # credential under one form of a tool's directory is expected under its other platforms' forms.
@@ -373,6 +382,20 @@ def plain_spans(section: Section) -> list[tuple[str, int, int]]:
     return found
 
 
+def denies_credential(section: Section, end: int) -> bool:
+    """Return whether the sentence of a code span ending at `end` says it is not a credential.
+
+    A `NOT_A_CREDENTIAL` phrase between the span and its sentence's end (`SENTENCE_END`), with
+    no other code span outside a link text (`plain_spans`) between the span and the phrase,
+    denies it: "`.crush/crush.lock` is not one".
+    """
+    stop = SENTENCE_END.search(section.text, end)
+    phrase = NOT_A_CREDENTIAL.search(section.text, end, stop.start() if stop else len(section.text))
+    if phrase is None:
+        return False
+    return not any(end <= start < phrase.start() for _, start, _ in plain_spans(section))
+
+
 # --- The repository --------------------------------------------------------------------------
 
 
@@ -531,16 +554,18 @@ def unflagged_credentials(repository: Repository) -> Iterator[Finding]:
         ]
         relative = path.relative_to(repository.root).as_posix()
         for section in repository.collection(agent, "Credentials"):
-            for span in section.code_spans:
-                for group in credential_paths(normalise_span(span.text), entries, named):
+            for match in check_research_structure.CODE_SPAN.finditer(section.text):
+                if denies_credential(section, match.end()):
+                    continue
+                span = drift_common.collapse(match.group(2))
+                line = section.line_of(match.start())
+                for group in credential_paths(normalise_span(span), entries, named):
                     if any(secret.fullmatch(tested) for tested in group for secret in secrets):
                         continue
                     if any(secrets_store(tested, secrets_spans) for tested in group):
                         continue
                     message = "no secret glob flags %s" % " or ".join(group)
-                    yield Finding(
-                        agent, "credential-unflagged", group[0], relative, span.line, message
-                    )
+                    yield Finding(agent, "credential-unflagged", group[0], relative, line, message)
 
 
 def credential_paths(span: str, entries: list[TableLine], named: list[str]) -> list[list[str]]:

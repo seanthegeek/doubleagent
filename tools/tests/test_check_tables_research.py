@@ -5,6 +5,7 @@ from __future__ import annotations
 import pathlib
 import textwrap
 
+import check_research_structure
 import check_tables_research as checker
 import drift_common
 from drift_common import TableLine
@@ -365,6 +366,45 @@ def test_credential_named_in_secrets_is_not_reported(tmp_path):
     alpha = ALPHA.replace("### Record schema", other + "### Record schema")
     root = repository(tmp_path / "other", catalog=catalog, alpha=alpha)
     assert findings(root, "credential-unflagged") == [("alpha", ".alpha/auth.json")]
+
+
+def test_credential_denied_in_its_sentence_is_not_reported(tmp_path):
+    catalog = CATALOG.replace(".alpha/auth.json\n", "")
+    denied = "- `~/.alpha/auth.json` is not one ([Per-user storage](#per-user-storage))."
+    alpha = ALPHA.replace("- `~/.alpha/auth.json` holds the token.", denied)
+    root = repository(tmp_path / "denied", catalog=catalog, alpha=alpha)
+    assert findings(root, "credential-unflagged") == []
+    root = repository(tmp_path / "held", catalog=catalog)
+    assert findings(root, "credential-unflagged") == [("alpha", ".alpha/auth.json")]
+
+
+def test_denies_credential_forms(tmp_path):
+    accepted = (
+        "No new credential file. The project lock file `.crush/crush.lock` is not one\n"
+        "([Data directory files](#data-directory-files)).",
+        "`lock.json` is not a credential.",
+        "`lock.json`, the lock, is not a credential file.",
+        "`lock.json` holds no credential.",
+        "`lock.json` holds no credentials, only a pid.",
+        "`lock.json` (see [`a1b2c3d`](https://x)) has no credential.",
+    )
+    rejected = (
+        "`lock.json` holds the token.",
+        "`lock.json` holds the token. The pid file is not one.",
+        "`lock.json` holds the token and `pid.json` is not one.",
+        "`lock.json` holds the token.\n- The pid file is not one.",
+        "`lock.json` holds the token\n\nThe pid file is not one.",
+        "No credential file but `lock.json` holds the token.",
+    )
+    cases = [(text, True) for text in accepted] + [(text, False) for text in rejected]
+    for sentence, expected in cases:
+        section = sections_of(tmp_path, "# x\n\n" + sentence + "\n")[""]
+        span = next(
+            match
+            for match in check_research_structure.CODE_SPAN.finditer(section.text)
+            if "lock" in match.group(2)
+        )
+        assert checker.denies_credential(section, span.end()) is expected, sentence
 
 
 def test_secrets_store_forms():
