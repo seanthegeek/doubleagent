@@ -152,16 +152,32 @@ The image declares `/opt/data` a volume
 ([`docker.md:252`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/website/docs/user-guide/docker.md#L252)); the catalog's volume line
 `hermes|*hermes*` matches it. Such a volume's `_data` directory is the Hermes home itself: its
 files are `state.db`, `sessions/<id>.jsonl`, `state-snapshots/<id>/state.db`,
-`pastes/pending.json` and `profiles/<name>/...` with no `.hermes/` prefix. The credential copies
-inside a snapshot are flagged there by the volume-relative globs `state-snapshots/*/.env`,
-`state-snapshots/*/auth.json`, `state-snapshots/*/pairing/*` and
-`state-snapshots/*/platforms/pairing/*`.
+`pastes/pending.json` and `profiles/<name>/...` with no `.hermes/` prefix. The home-relative
+exclusions and secret globs are anchored to `.hermes*/`, so each has a volume-relative twin
+matched against `_data`. The excluded subtrees ([Exclusions](#exclusions)) in a volume are
+`hermes-agent/[!.]*`, `hermes-agent/.[!e]*`, `models`, `runtimes`, `node`, `installs`, `tools`,
+`sandboxes`, `checkpoints/store/objects`, `checkpoints/store/indexes`, `checkpoints/legacy-*`,
+`backups`, `browser-profile`, `browser-profiles`, `browser_profiles`, `chrome-debug`,
+`bot-desktop/browser-profile`, `plugins/*/node_modules` and `plugins/*/.venv`. The credential
+files ([Credentials](#credentials)) in a volume are flagged by `.env`, `.env.bak*`, `.op.env`,
+`npmrc`, `auth.json`, `auth.json.*`, `auth/*`, `.anthropic_oauth.json`, `.copilot_jwt.json`,
+`google_*.json`, `google_chat_user_tokens/*`, `slack_tokens.json`, `honcho.json`, `mem0.json`,
+`webhook_subscriptions.json`, `teams_pipeline_store.json`, `mcp-tokens/*`, `vault/*`,
+`browser_auth/*`, `bot-desktop/*`, `webapp/session-token`, `webapp/native-sign-in-tokens.json`,
+`webapp/sign-in-registration.json`, `pairing/*`, `platforms/pairing/*`,
+`feishu_comment_pairing.json`, `whatsapp/session/*`, `platforms/whatsapp/session/*`,
+`matrix/store/*`, `platforms/matrix/store/*`, `cache/bws_cache*.json`,
+`workspace/meetings/node_token.json`, `weixin/accounts/*`, `runtime/photon-sidecar.json`,
+`proxy/*`, `home/*`, `config.yaml` and `config.yaml.*`. The credential copies
+inside a snapshot are flagged by `state-snapshots/*/.env`, `state-snapshots/*/auth.json`,
+`state-snapshots/*/config.yaml`, `state-snapshots/*/feishu_comment_pairing.json`,
+`state-snapshots/*/pairing/*` and `state-snapshots/*/platforms/pairing/*`.
 
 #### Contents of the home
 
 Relative to the home:
 
-- `state.db` with `-wal`/`-shm`: the session and message store, canonical for CLI, TUI, gateway,
+- `state.db` with `state.db-wal` and `state.db-shm`: the session and message store, canonical for CLI, TUI, gateway,
   desktop and Webapp ([`hermes_state.py:181`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_state.py#L181)).
 - `sessions/`: `sessions.json`, the legacy mirror of the gateway routing index whose primary copy
   is the `gateway_routing` table of `state.db`
@@ -198,7 +214,7 @@ Relative to the home:
 - `state.db.pre-update-emergency-<time>-<pid>.bak`, `state.db.malformed-backup-<time>` and
   `state.db.retired-wal-<time>-<pid>/`: older copies of `state.db` beside it
   ([State database copies](#state-database-copies)).
-- `cache/terminal` (spilled tool results, background-process logs) and `cache/scratch`
+- `cache/terminal/<artifact>` (spilled tool results, background-process logs) and `cache/scratch`
   ([Scratch directories](#scratch-directories))
   ([`configuration.md:242-258`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/website/docs/user-guide/configuration.md#L242-L258)).
 - `uploads/web-<hex>-<name>`: files a browser attached to a chat
@@ -206,8 +222,10 @@ Relative to the home:
 - `plugins/`: user-installed plugins, `plugins/.install-metadata.json` among them
   ([`hermes_cli/plugins_discovery.py:210`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/plugins_discovery.py#L210),
   [`hermes_cli/plugins_cmd_git.py:34`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/plugins_cmd_git.py#L34)).
-- `hermes-agent/`: the installer's git checkout and venv
-  ([`scripts/install.sh:97`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/scripts/install.sh#L97),
+- `hermes-agent/`: the installer's git checkout and venv, the repository's own
+  `hermes-agent/.env.example` template among its files
+  ([`.env.example`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/.env.example#L1),
+  [`scripts/install.sh:97`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/scripts/install.sh#L97),
   [`scripts/install.ps1:28-29`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/scripts/install.ps1#L28-L29)).
 - `.hermes_history`: the prompt history of the CLI and the TUI
   ([Prompt history](#prompt-history)). Collected; the profile export leaves it out, with
@@ -247,7 +265,8 @@ Electron `productName` is `Hermes`
 directory under the per-user application data folder: `Library/Application Support/Hermes` on
 macOS, `AppData/Roaming/Hermes` on Windows and `.config/Hermes` on Linux. It is overridable by
 `HERMES_DESKTOP_USER_DATA_DIR` and otherwise suffixed with `HERMES_DATA_DIR_SUFFIX` like the home
-(`Hermes<suffix>`,
+(`.config/Hermes<suffix>`, `Library/Application Support/Hermes<suffix>` and
+`AppData/Roaming/Hermes<suffix>`,
 [`data-paths.mjs:35-39`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/apps/desktop/electron/data-paths.mjs#L35-L39)). The app depends on
 `electron-updater`
 ([`apps/desktop/package.json:126`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/apps/desktop/package.json#L126)), whose download cache is
@@ -274,13 +293,15 @@ Hermes keeps its own list of credential stores, `PROFILE_CREDENTIAL_PATHS`
 profile home. Each path below sits under every Hermes home form of
 [Per-user storage](#per-user-storage) (`.hermes/`, `.hermes<suffix>/`, `AppData/Local/hermes/`,
 `AppData/Local/hermes<suffix>/` and `profiles/<name>/` inside any of them), as
-`.hermes/auth.json` and `AppData/Local/hermes/auth.json` do:
+`.hermes/auth.json` does on Linux and macOS and the same name under `AppData/Local/hermes/` does
+on Windows:
 
 | Path | Holds |
 | --- | --- |
 | `auth.json` | OAuth provider credentials and the credential pool |
 | `.env` | API keys, platform bot tokens |
 | `config.yaml` | MCP server `env` values and `headers` (below) |
+| `config.yaml.bak-<stamp>`, `config.yaml.bak.<n>`, `config.yaml.corrupt.<time>`, `config.yaml.bak-pre-migrate-<time>` (the files `config.yaml.*`) | the config writers' copies of `config.yaml` |
 | `auth/google_oauth.json`, `google_token.json`, `google_client_secret.json`, `google_oauth_pending.json` | Google OAuth |
 | `google_chat_user_tokens/`, `google_chat_user_client_secret.json`, `google_chat_user_oauth_pending.json`, `google_chat_user_token.json` (the files `google_chat_user_*.json`), `google_chat_user_oauth_pending/` | Google Chat user OAuth |
 | `.op.env` | 1Password service-account token |
@@ -292,27 +313,35 @@ profile home. Each path below sits under every Hermes home form of
 | `mcp-tokens/` | MCP OAuth tokens |
 | `vault/` | `vault.key` beside `vault.json.enc`, or the `vault.keyref` pointer |
 | `browser-profile`, `browser_auth`, `bot-desktop`, `browser-profiles`, `browser_profiles`, `chrome-debug` | browser cookies and logins |
-| `webapp` | the Webapp browser credential and sign-in tokens |
+| `webapp/session-token`, `webapp/native-sign-in-tokens.json`, `webapp/sign-in-registration.json` | the Webapp browser credential and sign-in tokens |
 | `pairing/`, `platforms/pairing/`, `feishu_comment_pairing.json` | gateway pairing stores |
-| `whatsapp/session`, `platforms/whatsapp/session`, `matrix/store`, `platforms/matrix/store` | messaging sessions |
+| `whatsapp/session/<file>`, `platforms/whatsapp/session/<file>`, `matrix/store/<file>`, `platforms/matrix/store/<file>` | messaging sessions |
 | `cache/bws_cache.json`, `cache/bws_cache.enc.json` (both `cache/bws_cache*.json`) | Bitwarden cache |
 | `workspace/meetings/node_token.json` | Google Meet node secret |
 | `weixin/accounts` | WeChat bot tokens |
 | `.copilot_jwt.json` | exchanged Copilot API token |
 | `runtime/photon-sidecar.json` | Photon sidecar token |
-| `proxy/` | proxy CA key and tokens |
-| `home/` | the subprocess `HOME` in containers: gh, git, ssh and npm credentials |
+| `proxy/ca.key` beside `proxy/ca.crt`, and the proxy tokens | iron-proxy CA key and tokens |
+| `home/<file>` | the subprocess `HOME` in containers: gh, git, ssh and npm credentials |
 | `backups`, `state-snapshots` | copies of the stores above |
-| `.ssh`, `.aws`, `.gnupg`, `.kube`, `.docker`, `.azure`, `.config/gh`, `.config/gcloud`, `.envrc` | OS credential directories inside a profile home |
+| `.ssh/`, `.aws/`, `.gnupg/`, `.kube/`, `.docker/`, `.azure/`, `.config/gh/`, `.config/gcloud/`, `.envrc` | OS credential directories inside a profile home |
 
 The subprocess `HOME` is `home/` only in containers
-([`hermes_constants.py:765-788`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_constants.py#L765-L788)); the OS credential directories
+([`hermes_constants.py:765-788`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_constants.py#L765-L788)), and the proxy's CA files are
+`proxy/ca.crt` and `proxy/ca.key`
+([`agent/proxy_sources/iron_proxy.py:149-151`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/proxy_sources/iron_proxy.py#L149-L151),
+[`262`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/proxy_sources/iron_proxy.py#L262)); the Webapp's three files are named at
+[`gateway/webapp_listener.py:32`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/gateway/webapp_listener.py#L32),
+[`hermes_cli/webapp_sign_in.py:49`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/webapp_sign_in.py#L49) and
+[`hermes_cli/webapp_access.py:32`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/webapp_access.py#L32); the OS credential directories
 come from
 [`agent/file_safety.py:210`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/file_safety.py#L210)
-([`hermes_cli/profiles.py:153-154`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/profiles.py#L153-L154)). Copies named `auth.json.*`,
-`.env.bak*` and the config writers' `config.yaml.bak-<stamp>`, `config.yaml.bak.<n>`,
-`config.yaml.corrupt.*` and `config.yaml.bak-pre-migrate-*` are also credential stores
-([`hermes_cli/profiles.py:191-198`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/profiles.py#L191-L198)).
+([`hermes_cli/profiles.py:153-154`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/profiles.py#L153-L154)). Copies named `auth.json.*`
+and `.env.bak*`, like the `config.yaml` copies in the table, are also credential stores
+([`hermes_cli/profiles.py:191-198`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/profiles.py#L191-L198)). The
+Google Chat pending grants are `google_chat_user_oauth_pending.json` or
+`google_chat_user_oauth_pending/<email>.json`
+([`plugins/platforms/google_chat/oauth.py:10`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/plugins/platforms/google_chat/oauth.py#L10)).
 
 `config.yaml` is a credential file: the documentation puts non-secret settings in `config.yaml`
 and secrets in `.env`
@@ -356,11 +385,11 @@ policy is off
 [`apps/desktop/electron/main.ts:8075-8080`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/apps/desktop/electron/main.ts#L8075-L8080),
 [`apps/desktop/electron/main.ts:8596-8603`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/apps/desktop/electron/main.ts#L8596-L8603)). On
 macOS they are `Library/Application Support/Hermes/connection.json` and
-`Library/Application Support/Hermes/connections.json`, on Windows
-`AppData/Roaming/Hermes/connection.json` and `AppData/Roaming/Hermes/connections.json`, and on
-Linux `.config/Hermes/connection.json` and `.config/Hermes/connections.json`, each also under
-`Hermes<suffix>`. The `connections.json.corrupt-<time>` copy the app keeps of an unreadable
-registry is a credential file too
+`Library/Application Support/Hermes/connections.json`, on Linux `.config/Hermes/connection.json`
+and `.config/Hermes/connections.json`, and on Windows the same two names under
+`AppData/Roaming/Hermes/`, each also under `Hermes<suffix>`. The
+`connections.json.corrupt-<time>` copy the app keeps of an unreadable registry is a credential
+file too
 ([`apps/desktop/electron/main.ts:8582`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/apps/desktop/electron/main.ts#L8582)).
 
 `state.db` mixes credentials typed into commands with the transcript; the fields are named in
@@ -375,22 +404,32 @@ checkout), `models`, `runtimes`, `node` (GGUF models, llama.cpp, Node, "tens to 
 [`hermes_constants.py:288-292`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_constants.py#L288-L292)), `installs` and `tools`
 ([`hermes_cli/home_data_layout.py:5-6`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/home_data_layout.py#L5-L6)), `checkpoints`
 (shadow git), live Chromium profiles, `node_modules`, `.venv`, `site-packages`, `sandboxes`
-([`tools/environments/base.py:191`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/environments/base.py#L191)). Keep
-`checkpoints/store/projects/*.json` for discovery. The desktop app's `Cache`, `Code Cache` and
-`GPUCache` are excluded in its `Hermes` user-data directory and the suffixed ones, and the updater
-cache `AppData/Local/hermes-updater` ([Desktop app](#desktop-app)), which the suffixed-home line
-`AppData/Local/hermes?*` reaches, is excluded.
+([`tools/environments/base.py:191`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/environments/base.py#L191)).
+
+The catalog excludes, under every Hermes home: `models`, `runtimes`, `node`, `installs`, `tools`
+and `sandboxes`; `backups`; the live browser profiles `browser-profile`, `browser-profiles`,
+`browser_profiles`, `chrome-debug` and the Bot Mode desktop's `bot-desktop/browser-profile`
+([`tools/bot_desktop/browser.py:28-31`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/bot_desktop/browser.py#L28-L31)); a plugin's
+dependency trees `plugins/<name>/node_modules` and `plugins/<name>/.venv`
+([`hermes_cli/plugins_cmd_catalog.py:476`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/plugins_cmd_catalog.py#L476)); and the
+shadow git store's `checkpoints/store/objects`, `checkpoints/store/indexes` and the archived
+pre-v2 repositories `checkpoints/legacy-<timestamp>`
+([`tools/checkpoint_manager.py:13-25`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/checkpoint_manager.py#L13-L25)), which keeps
+`checkpoints/store/projects/<hash16>.json` for discovery. The desktop app's `Cache`, `Code Cache`
+and `GPUCache` are excluded in its `Hermes` user-data directory and the suffixed ones, and the
+updater cache `AppData/Local/hermes-updater` ([Desktop app](#desktop-app)), which the
+suffixed-home line `AppData/Local/hermes?*` reaches, is excluded.
 
 `state-snapshots/` and `backups/` hold older copies of `state.db`, so they may be the only record
 of a deleted or pruned session ([What survives a delete](#what-survives-a-delete)). The catalog
 collects `state-snapshots/`, whose count is bounded ([Transcript stores](#transcript-stores)) and
 whose databases the parser reads, and excludes the zip archives under `backups/`; use `--full`
 when deletion is suspected and a zip backup may hold more. A snapshot also holds copies of `.env`,
-`auth.json` and the pairing stores, which the home-relative secret globs (their `*` crosses `/`)
-and the volume-relative globs of [Docker and Podman volumes](#docker-and-podman-volumes) flag.
-`cache/` is not excluded: `cache/terminal` holds tool output. `sandboxes/` stays excluded: a
-container backend's persistent workspace can hold whole repositories, and the commands that ran
-there are in `state.db`.
+`auth.json`, `config.yaml`, `feishu_comment_pairing.json` and the pairing stores, which the
+home-relative secret globs (their `*` crosses `/`) and the volume-relative globs of
+[Docker and Podman volumes](#docker-and-podman-volumes) flag. `cache/` is not excluded:
+`cache/terminal` holds tool output. `sandboxes/` stays excluded: a container backend's persistent
+workspace can hold whole repositories, and the commands that ran there are in `state.db`.
 
 The installer checkout is excluded entry by entry rather than as one directory
 (`hermes-agent/[!.]*` and `hermes-agent/.[!e]*`), because an exclusion wins over a secret glob:
