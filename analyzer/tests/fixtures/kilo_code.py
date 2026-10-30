@@ -1,4 +1,9 @@
-"""Synthetic Kilo Code state for the analyzer tests."""
+"""Synthetic Kilo Code state for the analyzer tests.
+
+The shapes follow `research/kilo-code.md` (Kilo-Org/kilocode at 0a9faef, 7.8.25): the `kilo.db`
+tables Kilo's parser reads, the pre-fork extension's task files, the cloud session marker and
+the standing state, past use and remote control files.
+"""
 
 from __future__ import annotations
 
@@ -8,14 +13,71 @@ import sqlite3
 from pathlib import Path
 
 from .common import _json, _json_file, _jsonl
-from .opencode import OPENCODE_SCHEMA, _oc_message, _oc_part, _oc_session, opencode_assistant
 
 KILO_SESSION = "ses_01JAX"
 KILO_TASK = "8f1c2b7e-1"
 KILO_T0 = 1791021600000  # 3 October 10:00:00 UTC, ms
 
+# The `kilo.db` tables the parser reads, with Kilo's own columns (`kilo.db` and `project` and
+# `project_directory` in research/kilo-code.md).
+KILO_SCHEMA = """
+CREATE TABLE project (id text PRIMARY KEY, worktree text NOT NULL, vcs text, name text, icon_url text,
+  icon_url_override text, icon_color text, time_created integer NOT NULL, time_updated integer NOT NULL,
+  time_initialized integer, sandboxes text NOT NULL, commands text);
+CREATE TABLE project_directory (project_id text NOT NULL, directory text NOT NULL, type text, strategy text,
+  time_created integer NOT NULL, PRIMARY KEY (project_id, directory));
+CREATE TABLE session (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, parent_id text,
+  slug text NOT NULL, directory text NOT NULL, path text, title text NOT NULL, version text NOT NULL,
+  share_url text, summary_additions integer, summary_deletions integer, summary_files integer,
+  summary_diffs text, metadata text, cost real NOT NULL DEFAULT 0, tokens_input integer NOT NULL DEFAULT 0,
+  tokens_output integer NOT NULL DEFAULT 0, tokens_reasoning integer NOT NULL DEFAULT 0,
+  tokens_cache_read integer NOT NULL DEFAULT 0, tokens_cache_write integer NOT NULL DEFAULT 0,
+  revert text, permission text, agent text, model text, time_created integer NOT NULL,
+  time_updated integer NOT NULL, time_compacting integer, time_archived integer);
+CREATE TABLE message (id text PRIMARY KEY, session_id text NOT NULL, time_created integer NOT NULL,
+  time_updated integer NOT NULL, data text NOT NULL);
+CREATE TABLE part (id text PRIMARY KEY, message_id text NOT NULL, session_id text NOT NULL,
+  time_created integer NOT NULL, time_updated integer NOT NULL, data text NOT NULL);
+CREATE TABLE session_message (id text PRIMARY KEY, session_id text NOT NULL, type text NOT NULL, seq integer,
+  time_created integer NOT NULL, time_updated integer NOT NULL, data text NOT NULL);
+"""
+
+
+def _message(connection, message_id, created, data):
+    connection.execute(
+        "INSERT INTO message VALUES (?,?,?,?,?)",
+        (message_id, KILO_SESSION, created, created, json.dumps(data)),
+    )
+
+
+def _part(connection, part_id, message_id, created, data):
+    connection.execute(
+        "INSERT INTO part VALUES (?,?,?,?,?,?)",
+        (part_id, message_id, KILO_SESSION, created, created, json.dumps(data)),
+    )
+
+
+def _assistant(created, model):
+    """Return a V1 assistant message of `model`, `parentID` the first user message."""
+    return {
+        "role": "assistant",
+        "time": {"created": created, "completed": created + 1000},
+        "parentID": "msg_01JAXU",
+        "modelID": model,
+        "providerID": "anthropic",
+        "mode": "build",
+        "agent": "build",
+        "path": {"cwd": "/srv/proj", "root": "/srv/proj"},
+        "cost": 0.004,
+        "tokens": {"input": 1200, "output": 80, "reasoning": 0, "cache": {"read": 0, "write": 0}},
+    }
+
 
 def kilo_task_records(start: int = KILO_T0 - 86400000):
+    """Return a pre-fork extension task's `api_conversation_history.json` records.
+
+    Source: research/kilo-code.md#legacy-extension-tasks; source 0a9faef
+    """
     return [
         {
             "role": "user",
@@ -53,39 +115,39 @@ def kilo_task_records(start: int = KILO_T0 - 86400000):
             ],
             "ts": start + 3000,
         },
-        {
-            "type": "reasoning",
-            "summary": [{"type": "summary_text", "text": "tests pass"}],
-            "ts": start + 3500,
-        },
+        {"type": "reasoning", "reasoning_content": "tests pass", "ts": start + 3500},
         {"role": "assistant", "content": "All three tests pass.", "ts": start + 4000},
     ]
 
 
-def build_kilo(home: Path) -> None:
-    data = home / ".local/share/kilo"
-    database = data / "kilo.db"
+def _build_database(database: Path, start: int) -> None:
     database.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(str(database))
-    connection.executescript(OPENCODE_SCHEMA)
-    start = KILO_T0
+    connection.executescript(KILO_SCHEMA)
     connection.execute(
-        "INSERT INTO project (id, worktree, vcs, time_created, time_updated, sandboxes) VALUES (?,?,?,?,?,?)",
+        "INSERT INTO project (id, worktree, vcs, time_created, time_updated, sandboxes) "
+        "VALUES (?,?,?,?,?,?)",
         ("prj_01JAX", "/srv/proj", "git", start, start, "[]"),
     )
-    _oc_session(
-        connection,
-        KILO_SESSION,
-        "prj_01JAX",
-        "/srv/proj",
-        "fix tests",
-        start,
-        model={"id": "claude-sonnet-4-5", "providerID": "anthropic"},
+    connection.execute(
+        "INSERT INTO session (id, project_id, slug, directory, title, version, agent, model, "
+        "time_created, time_updated) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (
+            KILO_SESSION,
+            "prj_01JAX",
+            "fix-tests",
+            "/srv/proj",
+            "fix tests",
+            "7.8.25",
+            "build",
+            json.dumps({"id": "claude-sonnet-4-5", "providerID": "anthropic"}),
+            start,
+            start + 5000,
+        ),
     )
-    _oc_message(
+    _message(
         connection,
         "msg_01JAXU",
-        KILO_SESSION,
         start + 1000,
         {
             "role": "user",
@@ -94,26 +156,18 @@ def build_kilo(home: Path) -> None:
             "model": {"providerID": "anthropic", "modelID": "claude-sonnet-4-5"},
         },
     )
-    _oc_part(
+    _part(
         connection,
         "prt_01JAXP",
         "msg_01JAXU",
-        KILO_SESSION,
         start + 1000,
         {"type": "text", "text": "fix the tests"},
     )
-    _oc_message(
-        connection,
-        "msg_01JAXA",
-        KILO_SESSION,
-        start + 2000,
-        dict(opencode_assistant(start + 2000, model="claude-sonnet-4-5"), parentID="msg_01JAXU"),
-    )
-    _oc_part(
+    _message(connection, "msg_01JAXA", start + 2000, _assistant(start + 2000, "claude-sonnet-4-5"))
+    _part(
         connection,
         "prt_01JAXT",
         "msg_01JAXA",
-        KILO_SESSION,
         start + 2500,
         {
             "type": "tool",
@@ -130,10 +184,9 @@ def build_kilo(home: Path) -> None:
         },
     )
     # A later turn the user sent with another model and the plan agent.
-    _oc_message(
+    _message(
         connection,
         "msg_01JAXV",
-        KILO_SESSION,
         start + 4000,
         {
             "role": "user",
@@ -142,11 +195,10 @@ def build_kilo(home: Path) -> None:
             "model": {"providerID": "openai", "modelID": "gpt-5"},
         },
     )
-    _oc_part(
+    _part(
         connection,
         "prt_01JAXQ",
         "msg_01JAXV",
-        KILO_SESSION,
         start + 4000,
         {"type": "text", "text": "plan the next fix"},
     )
@@ -163,7 +215,7 @@ def build_kilo(home: Path) -> None:
             json.dumps(
                 {
                     "agent": "build",
-                    "model": {"providerID": "anthropic", "modelID": "claude-sonnet-4-5"},
+                    "model": {"id": "claude-sonnet-4-5", "providerID": "anthropic"},
                     "content": [
                         {
                             "type": "tool",
@@ -185,6 +237,11 @@ def build_kilo(home: Path) -> None:
     )
     connection.commit()
     connection.close()
+
+
+def build_kilo(home: Path) -> None:
+    data = home / ".local/share/kilo"
+    _build_database(data / "kilo.db", KILO_T0)
     (data / "auth.json").write_text('{"kilo":{"type":"oauth","access":"REDACT"}}', encoding="utf-8")
     tasks = home / ".config/Code/User/globalStorage/kilocode.kilo-code/tasks"
     task = tasks / KILO_TASK
@@ -196,17 +253,11 @@ def build_kilo(home: Path) -> None:
     _json_file(
         tasks / "_index.json",
         {
-            "version": 1,
-            "updatedAt": KILO_T0 - 86395000,
             "entries": [
                 {
                     "id": KILO_TASK,
-                    "number": 1,
                     "ts": KILO_T0 - 86400000,
                     "task": "fix tests",
-                    "tokensIn": 1200,
-                    "tokensOut": 80,
-                    "totalCost": 0.0041,
                     "workspace": "/srv/proj",
                     "mode": "code",
                     "status": "completed",
@@ -217,8 +268,7 @@ def build_kilo(home: Path) -> None:
     build_kilo_share(home)
 
 
-# Session sync: Kilo's cloud session marker,
-# storage/session_share/<sessionID>.json (research/kilo-code.md, Other stores).
+# Session sync: Kilo's cloud session marker, storage/session_share/<sessionID>.json.
 KILO_SHARE_REL = ".local/share/kilo/storage/session_share/%s.json" % KILO_SESSION
 KILO_SHARE_MTIME = 1791022000  # 3 October 10:06:40 UTC
 
@@ -238,18 +288,19 @@ def build_kilo_share(home: Path) -> None:
 KILO_LOG_NAME = "2026-10-03T100000.log"
 KILO_SANDBOX_SESSION_HASH = "a" * 64
 KILO_SANDBOX_DIR_HASH = "b" * 64
+KILO_MEMORY_FOLDER = "proj-0123456789ab"
+KILO_DIGEST_REL = ".local/share/kilo/memory/%s/sessions/2026-10-03T10-30-00.000Z_%s_h1.md" % (
+    KILO_MEMORY_FOLDER,
+    KILO_SESSION,
+)
 
 
 def build_kilo_state(home: Path) -> None:
-    """Kilo Code's standing state, past use and remote control at 87cc35c.
+    """Kilo Code's standing state, past use, project memory and remote control files.
 
-    The TUI history and stash in the 1.x shapes (packages/tui/src/prompt/ history.tsx:9-25,
-    stash.tsx:9-13), the global config's `permission` key
-    (packages/core/src/v1/config/permission.ts:5-56), a sandbox policy and preference
-    (kilocode/sandbox/store.ts:11-17, preference.ts:10-29), the retention state
-    (kilocode/session/retention.ts:45-54) and a log with the remote control lines
-    (kilo-sessions/remote-session-log.ts:37-61, kilo-sessions.ts:1220, :1259;
-    core/src/util/log.ts:162-189).
+    The TUI history and stash, the global config's `permission` key, a sandbox policy and
+    preference, the retention state, a project memory folder with one session digest and a
+    log with the remote control lines, in the shapes of `research/kilo-code.md`.
     """
     state = home / ".local/state/kilo"
     _jsonl(
@@ -304,6 +355,24 @@ def build_kilo_state(home: Path) -> None:
             "durationMs": 830,
             "reclaimedBytes": 4096,
         },
+    )
+    memory = home / ".local/share/kilo/memory" / KILO_MEMORY_FOLDER
+    _json(
+        memory / "manifest.json",
+        {
+            "kind": "kilo-memory",
+            "display": "proj",
+            "canonical": "/srv/proj",
+            "folder": KILO_MEMORY_FOLDER,
+            "createdAt": "2026-10-02T09:00:00.000Z",
+        },
+    )
+    digest = home / KILO_DIGEST_REL
+    digest.parent.mkdir(parents=True, exist_ok=True)
+    digest.write_text(
+        "# Session %s\n\nVersion: 1\nUpdated: 2026-10-03T10:30:00.000Z\nTopic: test fixes\n\n"
+        "## Summary\nRan the suite; three tests pass.\n" % KILO_SESSION,
+        encoding="utf-8",
     )
     log = home / ".local/share/kilo/log" / KILO_LOG_NAME
     log.parent.mkdir(parents=True, exist_ok=True)

@@ -3,17 +3,17 @@
 Kilo Code's CLI, TUI and server are an OpenCode fork with the same SQLite and JSON storage, so
 this parser is `OpenCodeParser` (see `opencode.py` for the tables, fields and row mapping)
 pointed at Kilo's paths: `.local/share/kilo/kilo.db`, `kilo-<channel>.db` and
-`opencode-<channel>.db`, the `storage/` and `project/<slug>/storage/` JSON trees, and the
-terminal UI's `.local/state/kilo/prompt-history.jsonl` (secondary) and `prompt-stash.jsonl`.
-It also reads Kilo's own files:
+`opencode-<channel>.db`, the `storage/` JSON tree, and the terminal UI's
+`.local/state/kilo/prompt-history.jsonl` (secondary) and `prompt-stash.jsonl`; its
+`session.json` is not read. It also reads Kilo's own files:
 
 * `<VS Code user dir>/User/globalStorage/kilocode.kilo-code/tasks/<id>/
-  api_conversation_history.json`, the extension's tasks from before the OpenCode core: a JSON
-  array of Anthropic `MessageParam` records (`role`, `content` blocks `text`, `image`,
-  `tool_use`, `tool_result`, `thinking`, `reasoning`; Roo's `ts`, `isSummary`, top-level
-  `type: "reasoning"` with `summary` or `reasoning_content`), with the task's `workspace`,
-  `task`, `ts`, `mode`, `status` and `parentTaskId` from `history_item.json`, else
-  `tasks/_index.json` `entries`. The session id is the directory name.
+  api_conversation_history.json`, the pre-fork extension's tasks: a JSON array of Anthropic
+  `MessageParam` records (`role`, `content` blocks `text`, `image`, `tool_use`, `tool_result`
+  with `is_error`, `thinking`; `ts`, `isSummary`, top-level `type: "reasoning"` with `summary`
+  or `reasoning_content`), with the task's `workspace`, `task`, `ts`, `mode` and
+  `parentTaskId` from `history_item.json`, else the `tasks/_index.json` `entries`. The session
+  id is the directory name.
 * `.local/share/kilo/storage/session_share/<sessionID>.json` (`id`, `ingestPath`, `url`): a
   sync row.
 * `.config/kilo/{kilo.jsonc,kilo.json,opencode.jsonc,opencode.json,config.json}`: the
@@ -22,11 +22,13 @@ It also reads Kilo's own files:
   `.local/state/kilo-sandbox-preference/<hash>.json`: sandbox settings.
 * `.local/share/kilo/retention/state.json` (`at`, `deleted`, `scanned`, `skippedActive`, `failed`,
   `durationMs`, `cancelled`, `reclaimedBytes`): the last automatic deletion pass.
+* `.local/share/kilo/memory/<folder>/sessions/<file>.md`, project memory session digests, with
+  the folder's `manifest.json` `canonical` as the project path.
 * `.local/share/kilo/log/<time>.log`: the four remote control lines (`REMOTE_PATTERN`) and
   nothing else.
 
-Validated against source, Kilo-Org/kilocode at 76bcfd4 and 87cc35c, with a synthetic fixture;
-no real install. Kilo at 87cc35c has no `session_v2` table. See `research/kilo-code.md`.
+Validated against source, Kilo-Org/kilocode at 0a9faef (7.8.25), with a synthetic fixture; no
+real install. See `research/kilo-code.md`.
 """
 
 from __future__ import annotations
@@ -147,6 +149,23 @@ def _read_json(path: Path):
         return None
 
 
+def _manifest_root(path: Path, errors: list) -> str:
+    """Return the `canonical` project root of a memory folder's `manifest.json`, or "".
+
+    An absent manifest, or one without `canonical` (Kilo writes it only with the project's
+    identity), is silent; one that cannot be read or is not a JSON object appends (0, message)
+    to `errors`.
+    """
+    if not path.is_file() or path.is_symlink():
+        return ""
+    document = _read_json(path)
+    if not isinstance(document, dict):
+        errors.append((0, "memory manifest.json is not a JSON object"))
+        return ""
+    canonical = document.get("canonical")
+    return canonical if isinstance(canonical, str) else ""
+
+
 class KiloCodeParser(OpenCodeParser):
     """Parse Kilo Code's OpenCode stores, legacy extension tasks and its own settings and logs."""
 
@@ -154,14 +173,13 @@ class KiloCodeParser(OpenCodeParser):
     name = "kilo-code"
     data_dir = ".local/share/kilo"
     database_prefixes = ("kilo", "opencode")
-    # Kilo Code at 87cc35c has no `session_v2` table and no pre-release
-    # database that a later build imports, so every database under its
-    # directory, `opencode-next.db` included, is primary. Its one secondary
-    # source is the terminal UI's `prompt-history.jsonl` (see `opencode.py`).
+    # Kilo Code has no `session_v2` table and no pre-release database that a
+    # later build imports, so every database under its directory,
+    # `opencode-next.db` included, is primary. Its one secondary source is the
+    # terminal UI's `prompt-history.jsonl` (see `opencode.py`).
     has_secondary = True
     next_database = ""
     state_dir = ".local/state/kilo"
-    # Kilo's terminal UI keeps no `session.json` of pinned sessions.
     pinned_sessions = False
 
     def __init__(self) -> None:
@@ -171,6 +189,7 @@ class KiloCodeParser(OpenCodeParser):
         self.share_rx = re.compile(r"^%s/storage/session_share/([^/]+)\.json$" % data_dir)
         self.log_rx = re.compile(r"^%s/log/([^/]+\.log)$" % data_dir)
         self.retention_rx = re.compile(r"^%s/retention/state\.json$" % data_dir)
+        self.digest_rx = re.compile(r"^%s/memory/[^/]+/sessions/[^/]+\.md$" % data_dir)
 
     def wants(self, artifact: Artifact) -> bool:
         """Return True for the Kilo Code files this parser reads."""
@@ -180,6 +199,7 @@ class KiloCodeParser(OpenCodeParser):
             or self.share_rx.match(rel)
             or self.log_rx.match(rel)
             or self.retention_rx.match(rel)
+            or self.digest_rx.match(rel)
             or CONFIG_PATTERN.match(rel)
             or SANDBOX_POLICY_PATTERN.match(rel)
             or SANDBOX_PREFERENCE_PATTERN.match(rel)
@@ -197,6 +217,8 @@ class KiloCodeParser(OpenCodeParser):
             yield from self._parse_log(artifact)
         elif self.retention_rx.match(rel):
             yield from self._parse_retention(artifact)
+        elif self.digest_rx.match(rel):
+            yield from self._parse_digest(artifact)
         elif CONFIG_PATTERN.match(rel):
             yield from self._parse_config(artifact)
         elif SANDBOX_POLICY_PATTERN.match(rel) or SANDBOX_PREFERENCE_PATTERN.match(rel):
@@ -326,6 +348,45 @@ class KiloCodeParser(OpenCodeParser):
             to_utc(document.get("at")),
             "sessions deleted by retention: %s (from retention/state.json, at)" % " ".join(parts),
         )
+
+    # -- project memory -------------------------------------------------------------
+    def _parse_digest(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield the `memory digest:` row of one project memory session digest, at its `Updated:`.
+
+        The session id is the `# Session <id>` heading's, the summary every line after
+        `## Summary`, and `project_path` the `canonical` key of the folder's `manifest.json`. A
+        digest without a `## Summary` line, or a manifest that does not decode, is a `parser:` row.
+        """
+        errors: list = []
+        project = _manifest_root(artifact.disk_path.parent.parent / "manifest.json", errors)
+        with open(artifact.disk_path, "rb") as handle:
+            lines = [line_text(raw) for raw in handle]
+        fields = {"# Session ": "", "Updated: ": "", "Topic: ": ""}
+        summary_at = -1
+        for number, line in enumerate(lines):
+            if line.strip(" \t") == "## Summary":
+                summary_at = number
+                break
+            for prefix in fields:
+                if line.startswith(prefix) and not fields[prefix]:
+                    fields[prefix] = line[len(prefix) :].strip(" \t")
+        session_id = fields["# Session "]
+        if summary_at < 0:
+            errors.append((0, "%s is not a memory digest (no ## Summary line)" % artifact.rel))
+            yield from error_rows(self, artifact, errors, session_id, project)
+            return
+        summary = "\n".join(lines[summary_at + 1 :]).strip(" \t\n")
+        row = self.base_row(artifact)
+        row.session_id, row.project_path = session_id, project
+        row.source_line, row.turn_type = summary_at + 2, "system"
+        row.timestamp_utc = to_utc(fields["Updated: "])
+        row.text = "memory digest: %s: %s (from %s, Updated)" % (
+            fields["Topic: "] or "-",
+            summary,
+            artifact.rel,
+        )
+        yield row
+        yield from error_rows(self, artifact, errors, session_id, project)
 
     # -- remote control -------------------------------------------------------------
     def _parse_log(self, artifact: Artifact) -> Iterator[Row]:
