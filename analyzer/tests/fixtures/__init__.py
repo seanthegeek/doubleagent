@@ -554,6 +554,7 @@ from .hermes import (
 from .kilo_code import (
     KILO_DIGEST_REL,
     KILO_LOG_NAME,
+    KILO_PINNED_GONE,
     KILO_SANDBOX_DIR_HASH,
     KILO_SANDBOX_SESSION_HASH,
     KILO_SESSION,

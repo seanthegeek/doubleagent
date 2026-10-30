@@ -1,7 +1,10 @@
 """Tests of the Kilo Code parser."""
 
+import contextlib
+import io
 import json
 
+from doubleagent import cli
 from doubleagent.inputs import open_input
 from doubleagent.parsers.kilo_code import KiloCodeParser, is_task_file
 from doubleagent.parsers.kilo_code import iter_json_array as kilo_iter_json_array
@@ -10,6 +13,7 @@ from doubleagent.timeutil import to_utc
 from fixtures import (
     KILO_DIGEST_REL,
     KILO_LOG_NAME,
+    KILO_PINNED_GONE,
     KILO_SANDBOX_DIR_HASH,
     KILO_SANDBOX_SESSION_HASH,
     KILO_SESSION,
@@ -21,7 +25,7 @@ from fixtures import (
     write_bad_line,
 )
 
-from .base import ParserBase
+from .base import ParserBase, read_jsonl
 
 
 class KiloCodeTests(ParserBase):
@@ -526,6 +530,45 @@ class KiloCodeTests(ParserBase):
         for name in ("project.md", "manifest.json", "state.json"):
             rel = ".local/share/kilo/memory/%s/%s" % (folder.name, name)
             self.assertFalse(KiloCodeParser().wants(self.artifact(rel)), rel)
+
+    def test_pinned_sessions(self):
+        self.with_state()
+        rel = ".local/state/kilo/session.json"
+        parser = KiloCodeParser()
+        self.assertTrue(parser.wants(self.artifact(rel)))
+        self.assertTrue(parser.secondary(self.artifact(rel)))
+        rows = self.rows_for(parser, rel)
+        self.assertEqual(
+            [(row.turn_type, row.session_id, row.timestamp_utc, row.text) for row in rows],
+            [
+                (
+                    "system",
+                    session_id,
+                    to_utc(KILO_SHARE_MTIME),
+                    "session pinned: %s (from %s pinned, file mtime)" % (session_id, rel),
+                )
+                for session_id in (KILO_SESSION, KILO_PINNED_GONE)
+            ],
+        )
+        (self.home / rel).write_text('{"pinned": [', encoding="utf-8")
+        rows = self.rows_for(parser, rel)
+        self.assertEqual([row.text for row in rows], ["parser: %s is not a JSON object" % rel])
+
+    def test_pinned_sessions_kept_through_the_timeline(self):
+        self.with_state()
+        out = self.tmp / "out"
+        with contextlib.redirect_stdout(io.StringIO()):
+            cli.main(["timeline", str(self.tmp / "home"), "-o", str(out), "--agent", "kilo-code"])
+        pinned = [
+            (row["session_id"], row["recovered"])
+            for row in read_jsonl(out / "timeline.jsonl")
+            if row["text"].startswith("session pinned:")
+        ]
+        # As OpenCode's: system rows of a secondary source are kept, not marked recovered, and
+        # the pinned id of a session the database no longer holds is a session of its own.
+        self.assertEqual(pinned, [(KILO_SESSION, ""), (KILO_PINNED_GONE, "")])
+        sessions = {row["session_id"] for row in read_jsonl(out / "sessions.jsonl")}
+        self.assertIn(KILO_PINNED_GONE, sessions)
 
     def test_state_files_wanted_by_kilo_only(self):
         self.with_state()

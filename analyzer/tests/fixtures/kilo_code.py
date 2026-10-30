@@ -16,6 +16,8 @@ from .common import _json, _json_file, _jsonl
 
 KILO_SESSION = "ses_01JAX"
 KILO_TASK = "8f1c2b7e-1"
+# A pinned id whose session the database no longer holds.
+KILO_PINNED_GONE = "ses_01GONE"
 KILO_T0 = 1791021600000  # 3 October 10:00:00 UTC, ms
 
 # The `kilo.db` tables the parser reads, with Kilo's own columns (`kilo.db` and `project` and
@@ -298,9 +300,10 @@ KILO_DIGEST_REL = ".local/share/kilo/memory/%s/sessions/2026-10-03T10-30-00.000Z
 def build_kilo_state(home: Path) -> None:
     """Kilo Code's standing state, past use, project memory and remote control files.
 
-    The TUI history and stash, the global config's `permission` key, a sandbox policy and
-    preference, the retention state, a project memory folder with one session digest and a
-    log with the remote control lines, in the shapes of `research/kilo-code.md`.
+    The TUI history, stash and pinned sessions, the global config's `permission` key, a
+    sandbox policy and preference, the retention state, a project memory folder with one
+    session digest and a log with the remote control lines, in the shapes of
+    `research/kilo-code.md`.
     """
     state = home / ".local/state/kilo"
     _jsonl(
@@ -314,6 +317,9 @@ def build_kilo_state(home: Path) -> None:
         state / "prompt-stash.jsonl",
         [{"input": "stashed idea", "parts": [], "timestamp": KILO_T0 + 9000}],
     )
+    # The TUI's pinned sessions, OpenCode's `session.json` shape under Kilo's state directory.
+    _json(state / "session.json", {"pinned": [KILO_SESSION, KILO_PINNED_GONE]})
+    os.utime(state / "session.json", (KILO_SHARE_MTIME, KILO_SHARE_MTIME))
     config = home / ".config/kilo/kilo.jsonc"
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(
