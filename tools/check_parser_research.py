@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Check the parsers against the Parsing part of their research documents.
 
 Each `parsers.ALL` class is read with `ast` and compared with its own agent's document. Its

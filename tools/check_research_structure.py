@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Check that every research document follows the structure and conventions AGENTS.md fixes.
 
 Each agent's document under `research/` (not README.md or frameworks.md) follows "Research

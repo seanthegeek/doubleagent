@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Check that both smoke tests exercise every catalog table line, naming each row by full path.
 
 `collectors/tests/smoke.sh` and `collectors/tests/smoke.ps1` are read as text and evaluated only

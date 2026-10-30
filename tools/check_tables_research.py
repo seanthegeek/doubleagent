@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Check the catalog tables against the Collection part of the research documents.
 
 `research/<agent>.md` owns its agent's table lines and `research/shared.md` the `shared` and

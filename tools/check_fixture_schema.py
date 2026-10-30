@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Check the analyzer test fixtures against the Parsing part of each agent's research document.
 
 A fixture module is a file of `analyzer/tests/fixtures/` other than `__init__.py` and
