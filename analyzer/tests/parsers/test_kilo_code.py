@@ -3,7 +3,7 @@
 import json
 
 from doubleagent.inputs import open_input
-from doubleagent.parsers.kilo_code import KiloCodeParser
+from doubleagent.parsers.kilo_code import KiloCodeParser, is_task_file
 from doubleagent.parsers.kilo_code import iter_json_array as kilo_iter_json_array
 from doubleagent.parsers.opencode import OpenCodeParser
 from doubleagent.timeutil import to_utc
@@ -116,6 +116,13 @@ class KiloCodeTests(ParserBase):
         )
         self.assertEqual((result.tool_use_id, result.text), ("toolu_01A", "3 passed"))
         self.assertEqual((final.text, final.source_line), ("All three tests pass.", 5))
+
+    def test_task_file_under_any_user_directory(self):
+        rel = "User/globalStorage/kilocode.kilo-code/tasks/t1/api_conversation_history.json"
+        self.assertTrue(is_task_file(rel))
+        self.assertTrue(is_task_file(".config/VSCodium/" + rel))
+        self.assertFalse(is_task_file(".config/Code/X" + rel))
+        self.assertFalse(is_task_file(rel.replace("api_conversation_history", "ui_messages")))
 
     def test_thinking_opt_in(self):
         rows = self.rows_for(KiloCodeParser(), self.TASK, include_thinking=True)

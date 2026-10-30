@@ -1181,8 +1181,9 @@ a mode that carries its own permission ruleset
   parser reads each of the five files as JSONC and writes one
   `permission setting: permission.<permission>.<pattern>=<action> (from .config/kilo/<file>, file mtime)`
   row per rule, `permission.<permission>=<action>` for a rule given as one action and
-  `permission=<action>` for a key that is one action, at the file's modification time with no
-  session.
+  `permission=<action>` for a key that is one action
+  (`permission setting: permission=<action> (from .config/kilo/<file>, file mtime)`), at the
+  file's modification time with no session.
 - Standing, the `permission` table and `session.permission` column of
   [Permission tables and columns](#permission-tables-and-columns), through the OpenCode reader:
   `permission setting: <action> <resource>=allow (from kilo.db permission, time_created)` per row
@@ -1357,7 +1358,8 @@ Through the OpenCode reader a database that cannot be opened is
 decode is `parser: session file could not be decoded` or
 `parser: message file could not be decoded`, and each undecodable database record or part file
 is its own `parser: unparseable record <rowid> (<table>.data: <reason>): <data>` or
-`parser: unparseable part <partID> (<reason>): <text>` row carrying it in full
+`parser: unparseable part <partID> (<reason>): <text>` row carrying it in full, the reason of a
+part file that cannot be read being `unreadable: <reason>`
 ([Bad-line rows of `opencode.md`](opencode.md#bad-line-rows);
 [issue 139](https://github.com/seanthegeek/doubleagent/issues/139)). A database with
 `session_v2` ([Format versions](#format-versions)) is read from it, its `session_message`

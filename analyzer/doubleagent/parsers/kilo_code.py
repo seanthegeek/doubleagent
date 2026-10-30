@@ -54,8 +54,10 @@ from .base import (
 )
 from .opencode import OpenCodeParser, tool_summary
 
+# Searched for, under any editor's user directory; `is_task_file` checks the match starts a
+# path segment.
 TASK_PATTERN = re.compile(
-    r"(?:^|/)User/globalStorage/kilocode\.kilo-code/tasks/([^/]+)/api_conversation_history\.json$"
+    r"User/globalStorage/kilocode\.kilo-code/tasks/([^/]+)/api_conversation_history\.json$"
 )
 # The global config files an "always" approval writes the `permission` key of,
 # the first that exists in this order (packages/opencode/src/config/config.ts
@@ -140,6 +142,12 @@ def iter_json_array(raw: str, errors: list) -> list[object]:
     return items
 
 
+def is_task_file(rel: str) -> bool:
+    """Return True for a pre-fork task's `api_conversation_history.json` under any user directory."""
+    match = TASK_PATTERN.search(rel)
+    return match is not None and (match.start() == 0 or rel[match.start() - 1] == "/")
+
+
 def _read_json(path: Path):
     """Return the decoded JSON of a file, or None when it cannot be read or decoded."""
     try:
@@ -195,7 +203,7 @@ class KiloCodeParser(OpenCodeParser):
         """Return True for the Kilo Code files this parser reads."""
         rel = artifact.rel
         return bool(
-            TASK_PATTERN.search(rel)
+            is_task_file(rel)
             or self.share_rx.match(rel)
             or self.log_rx.match(rel)
             or self.retention_rx.match(rel)
@@ -209,7 +217,7 @@ class KiloCodeParser(OpenCodeParser):
         """Yield the rows of one Kilo Code file."""
         rel = artifact.rel
         match = self.share_rx.match(rel)
-        if TASK_PATTERN.search(rel):
+        if is_task_file(rel):
             yield from self._parse_task(artifact, opts)
         elif match:
             yield from self._parse_share(artifact, match.group(1))
