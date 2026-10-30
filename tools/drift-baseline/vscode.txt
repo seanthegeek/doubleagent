@@ -66,27 +66,28 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .vscode*/cli/token*.json
 check_smoke_coverage|secret-check-missing|smoke.sh .vscode*/cli/token*.json
 check_tables_research|credential-wording|can embed `token-<namespace>.json`
 check_tables_research|credential-wording|collected unflagged `User/settings.json`
-check_tables_research|line-unnamed|.config/Code*/User
-check_tables_research|line-unnamed|.config/Code*/logs
-check_tables_research|line-unnamed|.config/Positron/User
-check_tables_research|line-unnamed|.config/Trae*/User
-check_tables_research|line-unnamed|.config/VSCodium*/User
-check_tables_research|line-unnamed|.config/VSCodium*/logs
-check_tables_research|line-unnamed|.positron-server/data/User
-check_tables_research|line-unnamed|.vscode*/argv.json
-check_tables_research|line-unnamed|.vscode*/cli/token*.json
-check_tables_research|line-unnamed|.vscode*/extensions/extensions.json
-check_tables_research|line-unnamed|.vscode-server*/data/logs
-check_tables_research|line-unnamed|.vscodium-server*/data/User
-check_tables_research|line-unnamed|AppData/Roaming/Code*/User
-check_tables_research|line-unnamed|AppData/Roaming/Code*/logs
-check_tables_research|line-unnamed|AppData/Roaming/Positron/User
-check_tables_research|line-unnamed|AppData/Roaming/Trae*/User
-check_tables_research|line-unnamed|AppData/Roaming/VSCodium*/User
-check_tables_research|line-unnamed|AppData/Roaming/VSCodium*/logs
-check_tables_research|line-unnamed|Library/Application Support/Code*/User
-check_tables_research|line-unnamed|Library/Application Support/Code*/logs
-check_tables_research|line-unnamed|Library/Application Support/Positron/User
-check_tables_research|line-unnamed|Library/Application Support/Trae*/User
-check_tables_research|line-unnamed|Library/Application Support/VSCodium*/User
-check_tables_research|line-unnamed|Library/Application Support/VSCodium*/logs
+check_tables_research|line-unnamed|home .config/Code*/User
+check_tables_research|line-unnamed|home .config/Code*/logs
+check_tables_research|line-unnamed|home .config/Positron/User
+check_tables_research|line-unnamed|home .config/Trae*/User
+check_tables_research|line-unnamed|home .config/VSCodium*/User
+check_tables_research|line-unnamed|home .config/VSCodium*/logs
+check_tables_research|line-unnamed|home .positron-server/data/User
+check_tables_research|line-unnamed|home .vscode*/argv.json
+check_tables_research|line-unnamed|home .vscode*/cli/token*.json
+check_tables_research|line-unnamed|home .vscode*/extensions/extensions.json
+check_tables_research|line-unnamed|home .vscode-server*/data/logs
+check_tables_research|line-unnamed|home .vscodium-server*/data/User
+check_tables_research|line-unnamed|home AppData/Roaming/Code*/User
+check_tables_research|line-unnamed|home AppData/Roaming/Code*/logs
+check_tables_research|line-unnamed|home AppData/Roaming/Positron/User
+check_tables_research|line-unnamed|home AppData/Roaming/Trae*/User
+check_tables_research|line-unnamed|home AppData/Roaming/VSCodium*/User
+check_tables_research|line-unnamed|home AppData/Roaming/VSCodium*/logs
+check_tables_research|line-unnamed|home Library/Application Support/Code*/User
+check_tables_research|line-unnamed|home Library/Application Support/Code*/logs
+check_tables_research|line-unnamed|home Library/Application Support/Positron/User
+check_tables_research|line-unnamed|home Library/Application Support/Trae*/User
+check_tables_research|line-unnamed|home Library/Application Support/VSCodium*/User
+check_tables_research|line-unnamed|home Library/Application Support/VSCodium*/logs
+check_tables_research|line-unnamed|secret .vscode*/cli/token*.json

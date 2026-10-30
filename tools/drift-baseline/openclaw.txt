@@ -176,14 +176,14 @@ check_smoke_coverage|secret-check-missing|smoke.sh clawdbot.json*
 check_smoke_coverage|secret-check-missing|smoke.sh moltbot.json*
 check_smoke_coverage|secret-check-missing|smoke.sh openclaw.json*
 check_smoke_coverage|secret-check-missing|smoke.sh service-env/*
-check_tables_research|line-unnamed|.config/systemd/user/clawdbot-*
-check_tables_research|line-unnamed|.openclaw*/agents/*/agent/models.json
-check_tables_research|line-unnamed|.openclaw*/browser/*/user-data/*/Cache
-check_tables_research|line-unnamed|.openclaw*/browser/*/user-data/*/Code Cache
-check_tables_research|line-unnamed|.openclaw*/browser/*/user-data/*/Cookies*
-check_tables_research|line-unnamed|.openclaw*/browser/*/user-data/*/GPUCache
-check_tables_research|line-unnamed|.openclaw*/browser/*/user-data/*/Service Worker
-check_tables_research|line-unnamed|.openclaw*/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+check_tables_research|line-unnamed|exclude .openclaw*/browser/*/user-data/*/Cache
+check_tables_research|line-unnamed|exclude .openclaw*/browser/*/user-data/*/Code Cache
+check_tables_research|line-unnamed|exclude .openclaw*/browser/*/user-data/*/GPUCache
+check_tables_research|line-unnamed|exclude .openclaw*/browser/*/user-data/*/Service Worker
+check_tables_research|line-unnamed|exclude .openclaw*/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+check_tables_research|line-unnamed|home .config/systemd/user/clawdbot-*
+check_tables_research|line-unnamed|secret .openclaw*/agents/*/agent/models.json
+check_tables_research|line-unnamed|secret .openclaw*/browser/*/user-data/*/Cookies*
 check_tables_research|parsing-fact-under-collection|audit_events
 check_tables_research|parsing-fact-under-collection|exec_approvals_config
 check_tables_research|parsing-fact-under-collection|operator_approvals

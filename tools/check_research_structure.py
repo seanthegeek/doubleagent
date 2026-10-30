@@ -17,7 +17,8 @@ Observed bullet opening "No real install." or "No real install:" is exempt from 
 - `earlier-builds-malformed`: an Observed bullet saying "Earlier builds observed" without a
   sentence `earlier_builds` accepts at its end.
 - `version-without-change`: a version phrase (`version_phrases`) in Collection or Parsing outside
-  Format versions, whose version Format versions does not name, with no link near (`link_near`).
+  Format versions, whose version Format versions does not name, with no link near (`link_near`);
+  its detail is the sentence (`phrase_sentence`, `sentence_key` with code spans kept).
 - `duplicate-fact`: one sentence key (`sentence_key`) holding the same code span in two `###`
   sections of one part.
 - `bare-doc-reference`: a sentence naming documentation (`documentation_reference`) with no link.
@@ -394,15 +395,21 @@ def names_version(text: str, version: str) -> bool:
     return bool(re.search(r"(?<![\d.])v?%s(?![\d]|\.\d)" % re.escape(version), text))
 
 
-def sentence_key(sentence: str) -> str:
+def sentence_key(sentence: str, keep_code: bool = False) -> str:
     """Return a sentence less its code spans, list marker and link targets, whitespace collapsed.
 
     A list item "The file `a.json` holds [the key](#key)." gives `The file holds the key.`;
-    two sentences with the same key state one fact when they also share a code span.
+    two sentences with the same key state one fact when they also share a code span. With
+    `keep_code`, each code span stays as its text without backticks: `The file a.json holds the
+    key.`, the readable form a finding's detail takes.
     """
-    text = LIST_ITEM.sub("", CODE_SPAN.sub(" ", sentence))
+    spans = [" ".join(match.group(2).split()) for match in CODE_SPAN.finditer(sentence)]
+    text = LIST_ITEM.sub("", CODE_SPAN.sub("\x00" if keep_code else " ", sentence))
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
-    return " ".join(text.split()).replace(" .", ".").replace(" ,", ",")
+    text = " ".join(text.split()).replace(" .", ".").replace(" ,", ",")
+    for span in spans if keep_code else []:
+        text = text.replace("\x00", span, 1)
+    return text
 
 
 def documentation_reference(sentence: str) -> str | None:
@@ -572,7 +579,10 @@ def observed_findings(lines: list[str], spans: list[Span]) -> list[tuple[str, st
 
 
 def version_findings(lines: list[str], spans: list[Span]) -> list[tuple[str, str, int, str]]:
-    """Return (kind, detail, line, message) of each version phrase with no change recorded."""
+    """Return (kind, detail, line, message) of each version phrase with no change recorded.
+
+    The detail is the sentence holding the phrase (`phrase_sentence`), code spans kept.
+    """
     formats = span_of(spans, "Parsing", "Format versions")
     format_text = "\n".join(lines[formats.start - 1 : formats.end]) if formats else ""
     found: list[tuple[str, str, int, str]] = []
@@ -582,12 +592,41 @@ def version_findings(lines: list[str], spans: list[Span]) -> list[tuple[str, str
         for number in range(span.start, span.end + 1):
             if formats and formats.start <= number <= formats.end:
                 continue
-            for phrase, version in version_phrases(lines[number - 1]):
+            phrases = version_phrases(lines[number - 1])
+            for index, (phrase, version) in enumerate(phrases):
                 if names_version(format_text, version) or link_near(lines, number - 1):
                     continue
-                message = "add a Format versions entry or a citation, or write a range"
-                found.append(("version-without-change", phrase, number, message))
+                occurrence = [found for found, _ in phrases[:index]].count(phrase)
+                sentence = phrase_sentence(lines, span, number, phrase, occurrence)
+                message = 'add a Format versions entry or a citation, or write a range ("%s")' % (
+                    phrase
+                )
+                detail = sentence_key(sentence, keep_code=True)
+                found.append(("version-without-change", detail, number, message))
     return found
+
+
+def phrase_sentence(lines: list[str], span: Span, number: int, phrase: str, occurrence: int) -> str:
+    """Return the sentence holding a version phrase on line `number`.
+
+    `occurrence` counts the same phrase earlier on that line. The paragraph is the last of the
+    span (`paragraphs`) starting at or before the line, and the sentence the one holding that
+    phrase as often as the paragraph's earlier lines and the occurrence say; a phrase no
+    sentence holds whole, as one split across lines, gives the line itself.
+    """
+    starts = [item for item in paragraphs(lines, span.start + 1, span.end) if item[0] <= number]
+    first, paragraph = starts[-1] if starts else (number, lines[number - 1])
+    before = sum(
+        [found for found, _ in version_phrases(lines[line - 1].strip())].count(phrase)
+        for line in range(first, number)
+    )
+    wanted = before + occurrence
+    for sentence in sentences(paragraph):
+        count = [found for found, _ in version_phrases(sentence)].count(phrase)
+        if wanted < count:
+            return sentence
+        wanted -= count
+    return lines[number - 1]
 
 
 def duplicate_findings(lines: list[str], spans: list[Span]) -> list[tuple[str, str, int, str]]:

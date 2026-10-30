@@ -68,7 +68,7 @@ check_parser_research|row-text-undocumented|summary:
 check_parser_research|row-text-undocumented|synthetic:
 check_parser_research|row-text-undocumented|task:
 check_parser_research|row-text-undocumented|unreadable:
-check_research_structure|version-without-change|since 0.19.0
+check_research_structure|version-without-change|Before analyzer 0.19.0 the OpenCode parser counted undecodable database records, part files and events into one parser: <n> record(s) with undecodable data row; since 0.19.0 each undecodable record, part file and event is its own parser: unparseable record <rowid> (<table>.data: <reason>): <data> or parser: unparseable part <partID> (<reason>): <text> row carrying it in full (issue 139), and a database with session_v2 (Format versions) is read from it, its session_message transcript and the 1.x tables only for a session that session_message lacks (issue 165).
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/kilocode.kilo-code/cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/kilocode.kilo-code/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .kilo/bin
@@ -148,7 +148,7 @@ check_smoke_coverage|secret-check-missing|smoke.sh .local/share/kilo/kilo*.db*
 check_smoke_coverage|secret-check-missing|smoke.sh .local/share/kilo/mcp-auth.json
 check_smoke_coverage|secret-check-missing|smoke.sh .local/share/kilo/opencode*.db*
 check_tables_research|credential-wording|can embed `config.json`
-check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/kilocode.kilo-code
-check_tables_research|line-unnamed|.config/*/User/globalStorage/kilocode.kilo-code
-check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
-check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/kilocode.kilo-code
+check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/kilocode.kilo-code
+check_tables_research|line-unnamed|home .config/*/User/globalStorage/kilocode.kilo-code
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
+check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/kilocode.kilo-code

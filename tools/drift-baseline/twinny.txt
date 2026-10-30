@@ -10,8 +10,11 @@ check_parser_research|pattern-undocumented|(?:^|/)User/workspaceStorage/[^/]+/st
 check_parser_research|pattern-undocumented|(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?$
 check_parser_research|row-text-undocumented|conversation:
 check_parser_research|row-text-undocumented|secret shield withheld:
-check_research_structure|version-without-change|Since 4.3.5
-check_research_structure|version-without-change|since 4.3.5
+check_research_structure|version-without-change|#### Since 4.3.5
+check_research_structure|version-without-change|A toolSteps[] entry with said: true (since 4.3.5; name said, id said.<id>, the message in summary, status done) is a message the user sent while the reply ran, and the parser emits it as a user row with the summary as its text, in its place among the reply's steps, with no tool_name, tool_use_id or model (src/extension/chat/tool-steps.ts:101-104, src/common/types.ts:129-133); before the fix for issue 171 it was a tool_use named said and an empty tool_result.
+check_research_structure|version-without-change|ChatGPT plan sign-in (new since 4.3.5): access, refresh and id tokens in VS Code secret storage under twinny.chatgpt-plan.credentials, an encrypted secret:// row; the account's email and subject in plain globalState (Since 4.3.5) (src/extension/chatgpt-plan/session.ts:11-13, 59-66, 484).
+check_research_structure|version-without-change|Secondary, new since 4.3.5: when agent mode changes files, the extension keeps one JSON file per reply under the workspace's extension storage, agent-changes/<uuid>.json (src/extension/chat/index.ts:210-221; src/extension/chat/reply-changes.ts:211-228).
+check_research_structure|version-without-change|workspaceStorage/<id>/rjmacarthy.twinny/agent-changes/*.json (since 4.3.5): key root, the absolute workspace root agent mode worked in (src/extension/chat/reply-changes.ts:42-47, 161); a grep-able "root":"<path>" in one-line JSON.
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/embeddings/*/chunks.lance
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/server/plugins/*/repos/*/checkout
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/server/plugins/*/repos/*/index
@@ -41,15 +44,15 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 */User/globalStorage/rjmacar
 check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/node/identity.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/server/license
 check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/server/plugins/*/settings.json
-check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/rjmacarthy.twinny
-check_tables_research|line-unnamed|.*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
-check_tables_research|line-unnamed|.config/*/User/globalStorage/rjmacarthy.twinny
-check_tables_research|line-unnamed|.config/*/User/workspaceStorage/*/rjmacarthy.twinny
-check_tables_research|line-unnamed|.twinny/server/license
-check_tables_research|line-unnamed|.twinny/server/plugins/*/repos.json
-check_tables_research|line-unnamed|.twinny/server/plugins/*/repos/*/index
-check_tables_research|line-unnamed|.twinny/server/plugins/*/settings.json
-check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
-check_tables_research|line-unnamed|AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
-check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
-check_tables_research|line-unnamed|Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|exclude .twinny/server/plugins/*/repos/*/index
+check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|home .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|home .config/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|home .config/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|home Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|secret .twinny/server/license
+check_tables_research|line-unnamed|secret .twinny/server/plugins/*/repos.json
+check_tables_research|line-unnamed|secret .twinny/server/plugins/*/settings.json

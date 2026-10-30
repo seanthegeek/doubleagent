@@ -38,23 +38,24 @@ check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/worktrees/wt1/HEAD
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/worktrees/wt1/gitdir
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .mcp.json
 check_smoke_coverage|fixture-name-undocumented|smoke.sh SOUL.md
-check_tables_research|line-unnamed|.git/FETCH_HEAD
-check_tables_research|line-unnamed|.git/HEAD
-check_tables_research|line-unnamed|.git/config
-check_tables_research|line-unnamed|.git/info/exclude
-check_tables_research|line-unnamed|.git/logs
-check_tables_research|line-unnamed|.git/packed-refs
-check_tables_research|line-unnamed|.git/refs
-check_tables_research|line-unnamed|.git/worktrees
-check_tables_research|line-unnamed|.git/worktrees/*/index
-check_tables_research|line-unnamed|.git/worktrees/*/index.lock
-check_tables_research|line-unnamed|.git/worktrees/*/modules
-check_tables_research|line-unnamed|.git/worktrees/*/sharedindex.*
-check_tables_research|line-unnamed|.github/copilot-instructions.md
-check_tables_research|line-unnamed|.github/git-commit-instructions.md
-check_tables_research|line-unnamed|.github/instructions
-check_tables_research|line-unnamed|.mcp.json
-check_tables_research|line-unnamed|AGENT.md
-check_tables_research|line-unnamed|AGENTS.override.md
-check_tables_research|line-unnamed|SOUL.md
-check_tables_research|line-unnamed|USER.md
+check_tables_research|line-unnamed|exclude .git/worktrees/*/index
+check_tables_research|line-unnamed|exclude .git/worktrees/*/index.lock
+check_tables_research|line-unnamed|exclude .git/worktrees/*/modules
+check_tables_research|line-unnamed|exclude .git/worktrees/*/sharedindex.*
+check_tables_research|line-unnamed|project .git/FETCH_HEAD
+check_tables_research|line-unnamed|project .git/HEAD
+check_tables_research|line-unnamed|project .git/config
+check_tables_research|line-unnamed|project .git/info/exclude
+check_tables_research|line-unnamed|project .git/logs
+check_tables_research|line-unnamed|project .git/packed-refs
+check_tables_research|line-unnamed|project .git/refs
+check_tables_research|line-unnamed|project .git/worktrees
+check_tables_research|line-unnamed|project .github/copilot-instructions.md
+check_tables_research|line-unnamed|project .github/git-commit-instructions.md
+check_tables_research|line-unnamed|project .github/instructions
+check_tables_research|line-unnamed|project .mcp.json
+check_tables_research|line-unnamed|project AGENT.md
+check_tables_research|line-unnamed|project AGENTS.override.md
+check_tables_research|line-unnamed|project SOUL.md
+check_tables_research|line-unnamed|project USER.md
+check_tables_research|line-unnamed|secret .mcp.json

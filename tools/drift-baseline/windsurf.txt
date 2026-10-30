@@ -77,15 +77,15 @@ check_smoke_coverage|secret-check-missing|smoke.sh .codeium/mcp_config.json
 check_smoke_coverage|secret-check-missing|smoke.sh .codeium/windsurf/mcp_config.json
 check_smoke_coverage|secret-check-missing|smoke.sh .config/devin/mcp_config.json
 check_smoke_coverage|secret-check-missing|smoke.sh .local/share/devin/credentials.toml
-check_tables_research|line-unnamed|.config/Devin/User
-check_tables_research|line-unnamed|.config/Devin/logs
-check_tables_research|line-unnamed|.config/Windsurf/User
-check_tables_research|line-unnamed|.config/Windsurf/logs
-check_tables_research|line-unnamed|AppData/Roaming/Devin/User
-check_tables_research|line-unnamed|AppData/Roaming/Devin/logs
-check_tables_research|line-unnamed|AppData/Roaming/Windsurf/User
-check_tables_research|line-unnamed|AppData/Roaming/Windsurf/logs
-check_tables_research|line-unnamed|Library/Application Support/Devin/User
-check_tables_research|line-unnamed|Library/Application Support/Devin/logs
-check_tables_research|line-unnamed|Library/Application Support/Windsurf/User
-check_tables_research|line-unnamed|Library/Application Support/Windsurf/logs
+check_tables_research|line-unnamed|home .config/Devin/User
+check_tables_research|line-unnamed|home .config/Devin/logs
+check_tables_research|line-unnamed|home .config/Windsurf/User
+check_tables_research|line-unnamed|home .config/Windsurf/logs
+check_tables_research|line-unnamed|home AppData/Roaming/Devin/User
+check_tables_research|line-unnamed|home AppData/Roaming/Devin/logs
+check_tables_research|line-unnamed|home AppData/Roaming/Windsurf/User
+check_tables_research|line-unnamed|home AppData/Roaming/Windsurf/logs
+check_tables_research|line-unnamed|home Library/Application Support/Devin/User
+check_tables_research|line-unnamed|home Library/Application Support/Devin/logs
+check_tables_research|line-unnamed|home Library/Application Support/Windsurf/User
+check_tables_research|line-unnamed|home Library/Application Support/Windsurf/logs

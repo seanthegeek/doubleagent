@@ -5,7 +5,8 @@
 `project` ones; an exclusion or secret line's agent is `glob_agent` of its glob.
 
 - `line-unnamed`: a table line no Collection code span of its owners names (`names_glob`), by
-  its glob or its remainder below an owner's entry (`base_remainders`, `star_remainders`).
+  its glob or its remainder below an owner's entry (`base_remainders`, `star_remainders`);
+  its detail is `<table> <glob>`, as one glob may be in several tables.
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
   secret glob flags on its own base, or on any sibling base of one platform (`sibling_bases`),
   unless a code span of the Parsing part's Secrets section names the path (`secrets_store`).
@@ -489,7 +490,8 @@ def unnamed_lines(repository: Repository) -> Iterator[Finding]:
             line.table,
             " or ".join(documents),
         )
-        yield Finding(agent, "line-unnamed", line.glob, CATALOG_PATH, line.line, message)
+        detail = "%s %s" % (line.table, line.glob)
+        yield Finding(agent, "line-unnamed", detail, CATALOG_PATH, line.line, message)
 
 
 def named_by(

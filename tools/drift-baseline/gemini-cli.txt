@@ -68,4 +68,4 @@ check_smoke_coverage|secret-check-missing|smoke.sh *.gemini/extensions/*/.env
 check_smoke_coverage|secret-check-missing|smoke.sh *.gemini/gemini-credentials.json
 check_smoke_coverage|secret-check-missing|smoke.sh *.gemini/mcp-oauth-tokens.json
 check_smoke_coverage|secret-check-missing|smoke.sh *.gemini/oauth_creds.json
-check_tables_research|line-unnamed|*.gemini/extensions/*/.env
+check_tables_research|line-unnamed|secret *.gemini/extensions/*/.env

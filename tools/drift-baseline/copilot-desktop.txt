@@ -72,26 +72,26 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/com.github.g
 check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
 check_tables_research|credential-unflagged|.copilot/data.db
-check_tables_research|line-unnamed|.copilot/logs/github-app.*.log
-check_tables_research|line-unnamed|.copilot/media-cache
-check_tables_research|line-unnamed|.copilot/repo-metadata-cache.db*
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/BrowserMetrics-spare.pma
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/CertificateRevocation
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Default/Code Cache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Default/DawnGraphiteCache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Default/DawnWebGPUCache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Default/GPUCache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Default/Network/Cookies*
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Default/Shared Dictionary
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Default/blob_storage
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/GPUPersistentCache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/GrShaderCache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/PKIMetadata
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/ShaderCache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/Subresource Filter
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/WidevineCdm
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/component_crx_cache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/extensions_crx_cache
-check_tables_research|line-unnamed|AppData/Local/com.github.githubapp/EBWebView/hyphen-data
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/BrowserMetrics-spare.pma
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/CertificateRevocation
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/Default/Code Cache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/Default/DawnGraphiteCache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/Default/DawnWebGPUCache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/Default/GPUCache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/Default/Shared Dictionary
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/Default/blob_storage
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/GPUPersistentCache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/GrShaderCache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/PKIMetadata
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/ShaderCache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/Subresource Filter
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/WidevineCdm
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/component_crx_cache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/extensions_crx_cache
+check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/hyphen-data
+check_tables_research|line-unnamed|home .copilot/logs/github-app.*.log
+check_tables_research|line-unnamed|home .copilot/media-cache
+check_tables_research|line-unnamed|home .copilot/repo-metadata-cache.db*
+check_tables_research|line-unnamed|secret AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
+check_tables_research|line-unnamed|secret AppData/Local/com.github.githubapp/EBWebView/Default/Network/Cookies*
 check_tables_research|parsing-fact-under-collection|workspace_checkout_bindings

@@ -26,5 +26,5 @@ check_smoke_coverage|secret-check-missing|smoke.sh .local/share/amp/accounts/*/s
 check_smoke_coverage|secret-check-missing|smoke.sh .local/share/amp/secrets.json
 check_tables_research|credential-unflagged|.local/share/amp/ide/x
 check_tables_research|credential-wording|can embed `settings.json`
-check_tables_research|line-unnamed|.cache/amp/terminal
-check_tables_research|line-unnamed|AppData/Local/amp/logs
+check_tables_research|line-unnamed|home .cache/amp/terminal
+check_tables_research|line-unnamed|home AppData/Local/amp/logs

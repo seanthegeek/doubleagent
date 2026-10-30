@@ -136,7 +136,9 @@ check_smoke_coverage|secret-check-missing|smoke.sh .claude/remote/.api_key
 check_smoke_coverage|secret-check-missing|smoke.sh .claude/remote/.oauth_token
 check_tables_research|credential-wording|can embed `gh`
 check_tables_research|credential-wording|not flagged `<pid>.json`
-check_tables_research|line-unnamed|.claude-*/.claude.json.backup*
-check_tables_research|line-unnamed|.claude-*/bridge-spawn/*/mcp.json
-check_tables_research|line-unnamed|.claude-*/ide/*.lock
+check_tables_research|line-unnamed|home .claude-*/bridge-spawn/*/mcp.json
+check_tables_research|line-unnamed|home .claude-*/ide/*.lock
+check_tables_research|line-unnamed|secret .claude-*/.claude.json.backup*
+check_tables_research|line-unnamed|secret .claude-*/bridge-spawn/*/mcp.json
+check_tables_research|line-unnamed|secret .claude-*/ide/*.lock
 check_tables_research|parsing-fact-under-collection|ToolSearch

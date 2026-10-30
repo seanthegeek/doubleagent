@@ -173,20 +173,20 @@ check_smoke_coverage|secret-check-missing|smoke.sh usr/projects/*/.a0proj/secret
 check_smoke_coverage|secret-check-missing|smoke.sh usr/secrets.env
 check_smoke_coverage|secret-check-missing|smoke.sh usr/settings.json
 check_tables_research|credential-wording|not flagged `.a0proj/`
-check_tables_research|line-unnamed|*/Agent Zero Launcher/Cache
-check_tables_research|line-unnamed|*/Agent Zero Launcher/Code Cache
-check_tables_research|line-unnamed|*/Agent Zero Launcher/GPUCache
-check_tables_research|line-unnamed|*/Agent Zero Launcher/Local State
-check_tables_research|line-unnamed|.config/Agent Zero Launcher
-check_tables_research|line-unnamed|AppData/Local/Temp/_a0_connector
-check_tables_research|line-unnamed|AppData/Roaming/Agent Zero Launcher
-check_tables_research|line-unnamed|Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
-check_tables_research|line-unnamed|Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
-check_tables_research|line-unnamed|Desktop/agent-zero*/usr/workdir/*/node_modules
-check_tables_research|line-unnamed|Library/Application Support/Agent Zero Launcher
-check_tables_research|line-unnamed|agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
-check_tables_research|line-unnamed|agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
-check_tables_research|line-unnamed|agent-zero*/usr/workdir/*/node_modules
+check_tables_research|line-unnamed|exclude */Agent Zero Launcher/Cache
+check_tables_research|line-unnamed|exclude */Agent Zero Launcher/Code Cache
+check_tables_research|line-unnamed|exclude */Agent Zero Launcher/GPUCache
+check_tables_research|line-unnamed|exclude Desktop/agent-zero*/usr/workdir/*/node_modules
+check_tables_research|line-unnamed|exclude agent-zero*/usr/workdir/*/node_modules
+check_tables_research|line-unnamed|home .config/Agent Zero Launcher
+check_tables_research|line-unnamed|home AppData/Local/Temp/_a0_connector
+check_tables_research|line-unnamed|home AppData/Roaming/Agent Zero Launcher
+check_tables_research|line-unnamed|home Library/Application Support/Agent Zero Launcher
+check_tables_research|line-unnamed|secret */Agent Zero Launcher/Local State
+check_tables_research|line-unnamed|secret Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_tables_research|line-unnamed|secret Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+check_tables_research|line-unnamed|secret agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+check_tables_research|line-unnamed|secret agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
 check_tables_research|volume-glob-unnamed|exclude tmp/memory/embeddings
 check_tables_research|volume-glob-unnamed|exclude tmp/playwright
 check_tables_research|volume-glob-unnamed|exclude usr/.time_travel

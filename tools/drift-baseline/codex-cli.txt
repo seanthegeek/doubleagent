@@ -59,7 +59,7 @@ check_research_structure|observed-label-missing|Windows, Codex Desktop inside Ch
 check_research_structure|observed-label-missing|Windows, standalone CLI ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113) and [issue 120](https://github.com/seanthegeek/doubleagent/issues/120)):
 check_research_structure|observed-label-missing|macOS, Codex Desktop inside ChatGPT 26.1007.71326 and standalone
 check_research_structure|observed-label-missing|macOS, Codex Desktop inside ChatGPT 26.1013.40934 ([issue 49](https://github.com/seanthegeek/doubleagent/issues/49),
-check_research_structure|version-without-change|Since 26.1007
+check_research_structure|version-without-change|Since 26.1007 the bundle id com.openai.codex is the ChatGPT app, which bundles Codex (observed on macOS, 2026-10-15), so that directory is collected as chatgpt-desktop (issue 121).
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.sandbox
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.sandbox-bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.tmp

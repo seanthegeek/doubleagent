@@ -72,10 +72,10 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 matrix-store/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 whatsapp-auth/*
 check_smoke_coverage|secret-check-missing|smoke.sh matrix-store/*
 check_smoke_coverage|secret-check-missing|smoke.sh whatsapp-auth/*
-check_tables_research|line-unnamed|.nanobot*/bin
-check_tables_research|line-unnamed|.nanobot*/cache
-check_tables_research|line-unnamed|.nanobot*/run
-check_tables_research|line-unnamed|triggers/runs
-check_tables_research|line-unnamed|triggers/triggers.json
+check_tables_research|line-unnamed|exclude .nanobot*/bin
+check_tables_research|line-unnamed|exclude .nanobot*/cache
+check_tables_research|line-unnamed|exclude .nanobot*/run
+check_tables_research|line-unnamed|project triggers/runs
+check_tables_research|line-unnamed|project triggers/triggers.json
 check_tables_research|volume-glob-unnamed|secret matrix-store/*
 check_tables_research|volume-glob-unnamed|secret whatsapp-auth/*

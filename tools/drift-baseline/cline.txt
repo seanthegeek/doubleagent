@@ -57,10 +57,10 @@ check_smoke_coverage|secret-check-missing|smoke.sh .cline/data/secrets.json
 check_smoke_coverage|secret-check-missing|smoke.sh .cline/data/settings/cline_mcp_settings.json
 check_smoke_coverage|secret-check-missing|smoke.sh .cline/data/settings/composio/*.json
 check_tables_research|credential-wording|can embed `settings/composio/*.json`
-check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/saoudrizwan.claude-dev
-check_tables_research|line-unnamed|.cline/data/db/connectors.db*
-check_tables_research|line-unnamed|.cline/data/settings/cline_mcp_settings.json
-check_tables_research|line-unnamed|.cline/data/settings/composio/*.json
-check_tables_research|line-unnamed|.config/*/User/globalStorage/saoudrizwan.claude-dev
-check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/saoudrizwan.claude-dev
-check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
+check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/saoudrizwan.claude-dev
+check_tables_research|line-unnamed|home .config/*/User/globalStorage/saoudrizwan.claude-dev
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/saoudrizwan.claude-dev
+check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
+check_tables_research|line-unnamed|secret .cline/data/db/connectors.db*
+check_tables_research|line-unnamed|secret .cline/data/settings/cline_mcp_settings.json
+check_tables_research|line-unnamed|secret .cline/data/settings/composio/*.json

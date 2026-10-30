@@ -58,8 +58,8 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .tabby-client/agent/config
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .tabby/config.toml
 check_smoke_coverage|secret-check-missing|smoke.ps1 .tabby-client/agent/config.toml
 check_smoke_coverage|secret-check-missing|smoke.ps1 .tabby/config.toml
-check_tables_research|line-unnamed|.config/JetBrains/*/options/intellij-tabby*.xml
-check_tables_research|line-unnamed|AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
-check_tables_research|line-unnamed|Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
+check_tables_research|line-unnamed|home .config/JetBrains/*/options/intellij-tabby*.xml
+check_tables_research|line-unnamed|home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
+check_tables_research|line-unnamed|home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|volume-glob-unnamed|exclude index
 check_tables_research|volume-glob-unnamed|exclude repositories

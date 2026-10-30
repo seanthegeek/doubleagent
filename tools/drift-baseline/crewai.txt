@@ -17,9 +17,9 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Suppor
 check_smoke_coverage|secret-check-missing|smoke.ps1 .config/crewai/settings.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/crewai/credentials/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/crewai/credentials/*
-check_tables_research|line-unnamed|.local/share/*/.crewai_user.json
-check_tables_research|line-unnamed|.local/share/*/flow_states.db*
-check_tables_research|line-unnamed|.local/share/*/latest_kickoff_task_outputs.db*
-check_tables_research|line-unnamed|Library/Application Support/*/.crewai_user.json
-check_tables_research|line-unnamed|Library/Application Support/*/flow_states.db*
-check_tables_research|line-unnamed|Library/Application Support/*/latest_kickoff_task_outputs.db*
+check_tables_research|line-unnamed|home .local/share/*/.crewai_user.json
+check_tables_research|line-unnamed|home .local/share/*/flow_states.db*
+check_tables_research|line-unnamed|home .local/share/*/latest_kickoff_task_outputs.db*
+check_tables_research|line-unnamed|home Library/Application Support/*/.crewai_user.json
+check_tables_research|line-unnamed|home Library/Application Support/*/flow_states.db*
+check_tables_research|line-unnamed|home Library/Application Support/*/latest_kickoff_task_outputs.db*

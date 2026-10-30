@@ -334,23 +334,23 @@ check_tables_research|exclusion-unreachable|tools
 check_tables_research|exclusion-unreachable|usr/workdir/*/node_modules
 check_tables_research|exclusion-unreachable|workdir/*/.venv
 check_tables_research|exclusion-unreachable|workdir/*/node_modules
-check_tables_research|line-unnamed|*/Claude*/local-agent-mode-sessions/*/.audit-key
-check_tables_research|line-unnamed|*/Claude*/spaces-present/*/link-key
-check_tables_research|line-unnamed|*/User/globalStorage/eamodio*
-check_tables_research|line-unnamed|*/User/globalStorage/github.copilot-chat/workspaceRecordings
-check_tables_research|line-unnamed|*/User/globalStorage/golang*
-check_tables_research|line-unnamed|*/User/globalStorage/kiro.kiroagent/*lance*
-check_tables_research|line-unnamed|*/User/globalStorage/pearai.pearai-roo-cline/cache
-check_tables_research|line-unnamed|*/User/globalStorage/pearai.pearai-roo-cline/tasks/*/checkpoints
-check_tables_research|line-unnamed|*/User/globalStorage/redhat*
-check_tables_research|line-unnamed|*/User/globalStorage/rust-lang*
-check_tables_research|line-unnamed|*/User/globalStorage/vscjava*
-check_tables_research|line-unnamed|*/User/profiles/*/mcp.json
-check_tables_research|line-unnamed|*/User/workspaceStorage/*/GitHub.copilot-chat/codebase-external.sqlite*
-check_tables_research|line-unnamed|*/User/workspaceStorage/*/ms-*
-check_tables_research|line-unnamed|*/User/workspaceStorage/*/redhat*
-check_tables_research|line-unnamed|*/User/workspaceStorage/*/rust-lang*
-check_tables_research|line-unnamed|*/User/workspaceStorage/*/vscjava*
+check_tables_research|line-unnamed|exclude */User/globalStorage/eamodio*
+check_tables_research|line-unnamed|exclude */User/globalStorage/github.copilot-chat/workspaceRecordings
+check_tables_research|line-unnamed|exclude */User/globalStorage/golang*
+check_tables_research|line-unnamed|exclude */User/globalStorage/kiro.kiroagent/*lance*
+check_tables_research|line-unnamed|exclude */User/globalStorage/pearai.pearai-roo-cline/cache
+check_tables_research|line-unnamed|exclude */User/globalStorage/pearai.pearai-roo-cline/tasks/*/checkpoints
+check_tables_research|line-unnamed|exclude */User/globalStorage/redhat*
+check_tables_research|line-unnamed|exclude */User/globalStorage/rust-lang*
+check_tables_research|line-unnamed|exclude */User/globalStorage/vscjava*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/GitHub.copilot-chat/codebase-external.sqlite*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/ms-*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/redhat*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/rust-lang*
+check_tables_research|line-unnamed|exclude */User/workspaceStorage/*/vscjava*
+check_tables_research|line-unnamed|secret */Claude*/local-agent-mode-sessions/*/.audit-key
+check_tables_research|line-unnamed|secret */Claude*/spaces-present/*/link-key
+check_tables_research|line-unnamed|secret */User/profiles/*/mcp.json
 check_tables_research|secret-unreachable|*/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_tables_research|secret-unreachable|.claude-*/sessions/*.key
 check_tables_research|secret-unreachable|.env

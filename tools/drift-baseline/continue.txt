@@ -74,10 +74,10 @@ check_smoke_coverage|secret-check-missing|smoke.sh .continue/config.yaml
 check_smoke_coverage|secret-check-missing|smoke.sh .continue/mcpServers/*
 check_tables_research|credential-wording|can embed `index/`
 check_tables_research|credential-wording|can embed `mcpServers/*.yaml|json`
-check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/continue.continue
-check_tables_research|line-unnamed|.config/*/User/globalStorage/continue.continue
-check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/continue.continue
-check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/continue.continue
+check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/continue.continue
+check_tables_research|line-unnamed|home .config/*/User/globalStorage/continue.continue
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/continue.continue
+check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/continue.continue
 check_tables_research|parsing-fact-under-collection|chatFeedback
 check_tables_research|parsing-fact-under-collection|userId
 check_tables_research|parsing-fact-under-collection|workspaceDirectory

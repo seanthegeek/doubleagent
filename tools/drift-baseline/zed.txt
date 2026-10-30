@@ -105,11 +105,11 @@ check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Zed/global_se
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Zed/settings.json
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Zed/settings_backup.json
 check_tables_research|credential-wording|can embed `global_settings.json`
-check_tables_research|line-unnamed|.local/share/zed
-check_tables_research|line-unnamed|.var/app/dev.zed.Zed/config/zed
-check_tables_research|line-unnamed|.var/app/dev.zed.Zed/data/zed
-check_tables_research|line-unnamed|.var/app/dev.zed.ZedNightly/config/zed
-check_tables_research|line-unnamed|.var/app/dev.zed.ZedNightly/data/zed
-check_tables_research|line-unnamed|.var/app/dev.zed.ZedPreview/config/zed
-check_tables_research|line-unnamed|.var/app/dev.zed.ZedPreview/data/zed
+check_tables_research|line-unnamed|home .local/share/zed
+check_tables_research|line-unnamed|home .var/app/dev.zed.Zed/config/zed
+check_tables_research|line-unnamed|home .var/app/dev.zed.Zed/data/zed
+check_tables_research|line-unnamed|home .var/app/dev.zed.ZedNightly/config/zed
+check_tables_research|line-unnamed|home .var/app/dev.zed.ZedNightly/data/zed
+check_tables_research|line-unnamed|home .var/app/dev.zed.ZedPreview/config/zed
+check_tables_research|line-unnamed|home .var/app/dev.zed.ZedPreview/data/zed
 check_tables_research|parsing-fact-under-collection|folder_paths

@@ -102,12 +102,12 @@ check_smoke_coverage|secret-check-missing|smoke.sh .kiro/agents/*.json
 check_smoke_coverage|secret-check-missing|smoke.sh .kiro/secrets.json
 check_smoke_coverage|secret-check-missing|smoke.sh .kiro/settings/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.sh .kiro/web-session/*
-check_tables_research|line-unnamed|.config/Kiro/logs
-check_tables_research|line-unnamed|.local/share/amazon-q
-check_tables_research|line-unnamed|.local/share/kiro-cli
-check_tables_research|line-unnamed|AppData/Local/amazon-q
-check_tables_research|line-unnamed|AppData/Local/kiro-cli
-check_tables_research|line-unnamed|AppData/Roaming/Kiro/logs
-check_tables_research|line-unnamed|Library/Application Support/Kiro/logs
-check_tables_research|line-unnamed|Library/Application Support/amazon-q
-check_tables_research|line-unnamed|Library/Application Support/kiro-cli
+check_tables_research|line-unnamed|home .config/Kiro/logs
+check_tables_research|line-unnamed|home .local/share/amazon-q
+check_tables_research|line-unnamed|home .local/share/kiro-cli
+check_tables_research|line-unnamed|home AppData/Local/amazon-q
+check_tables_research|line-unnamed|home AppData/Local/kiro-cli
+check_tables_research|line-unnamed|home AppData/Roaming/Kiro/logs
+check_tables_research|line-unnamed|home Library/Application Support/Kiro/logs
+check_tables_research|line-unnamed|home Library/Application Support/amazon-q
+check_tables_research|line-unnamed|home Library/Application Support/kiro-cli

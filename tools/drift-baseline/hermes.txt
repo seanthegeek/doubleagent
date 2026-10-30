@@ -375,30 +375,30 @@ check_smoke_coverage|secret-check-missing|smoke.sh vault/*
 check_smoke_coverage|secret-check-missing|smoke.sh webhook_subscriptions.json
 check_smoke_coverage|secret-check-missing|smoke.sh weixin/accounts/*
 check_tables_research|credential-wording|collected unflagged `state.db`
-check_tables_research|line-unnamed|.config/Hermes
-check_tables_research|line-unnamed|.config/Hermes?*
-check_tables_research|line-unnamed|.hermes*/bot-desktop/browser-profile
-check_tables_research|line-unnamed|.hermes*/checkpoints/legacy-*
-check_tables_research|line-unnamed|.hermes*/checkpoints/store/indexes
-check_tables_research|line-unnamed|.hermes*/checkpoints/store/objects
-check_tables_research|line-unnamed|.hermes*/platforms/matrix/store/*
-check_tables_research|line-unnamed|.hermes*/platforms/pairing/*
-check_tables_research|line-unnamed|.hermes*/platforms/whatsapp/session/*
-check_tables_research|line-unnamed|.hermes*/plugins/*/.venv
-check_tables_research|line-unnamed|.hermes*/plugins/*/node_modules
-check_tables_research|line-unnamed|AppData/Local/hermes*/bot-desktop/browser-profile
-check_tables_research|line-unnamed|AppData/Local/hermes*/checkpoints/legacy-*
-check_tables_research|line-unnamed|AppData/Local/hermes*/checkpoints/store/indexes
-check_tables_research|line-unnamed|AppData/Local/hermes*/checkpoints/store/objects
-check_tables_research|line-unnamed|AppData/Local/hermes*/platforms/matrix/store/*
-check_tables_research|line-unnamed|AppData/Local/hermes*/platforms/pairing/*
-check_tables_research|line-unnamed|AppData/Local/hermes*/platforms/whatsapp/session/*
-check_tables_research|line-unnamed|AppData/Local/hermes*/plugins/*/.venv
-check_tables_research|line-unnamed|AppData/Local/hermes*/plugins/*/node_modules
-check_tables_research|line-unnamed|AppData/Roaming/Hermes
-check_tables_research|line-unnamed|AppData/Roaming/Hermes?*
-check_tables_research|line-unnamed|Library/Application Support/Hermes
-check_tables_research|line-unnamed|Library/Application Support/Hermes?*
+check_tables_research|line-unnamed|exclude .hermes*/bot-desktop/browser-profile
+check_tables_research|line-unnamed|exclude .hermes*/checkpoints/legacy-*
+check_tables_research|line-unnamed|exclude .hermes*/checkpoints/store/indexes
+check_tables_research|line-unnamed|exclude .hermes*/checkpoints/store/objects
+check_tables_research|line-unnamed|exclude .hermes*/plugins/*/.venv
+check_tables_research|line-unnamed|exclude .hermes*/plugins/*/node_modules
+check_tables_research|line-unnamed|exclude AppData/Local/hermes*/bot-desktop/browser-profile
+check_tables_research|line-unnamed|exclude AppData/Local/hermes*/checkpoints/legacy-*
+check_tables_research|line-unnamed|exclude AppData/Local/hermes*/checkpoints/store/indexes
+check_tables_research|line-unnamed|exclude AppData/Local/hermes*/checkpoints/store/objects
+check_tables_research|line-unnamed|exclude AppData/Local/hermes*/plugins/*/.venv
+check_tables_research|line-unnamed|exclude AppData/Local/hermes*/plugins/*/node_modules
+check_tables_research|line-unnamed|home .config/Hermes
+check_tables_research|line-unnamed|home .config/Hermes?*
+check_tables_research|line-unnamed|home AppData/Roaming/Hermes
+check_tables_research|line-unnamed|home AppData/Roaming/Hermes?*
+check_tables_research|line-unnamed|home Library/Application Support/Hermes
+check_tables_research|line-unnamed|home Library/Application Support/Hermes?*
+check_tables_research|line-unnamed|secret .hermes*/platforms/matrix/store/*
+check_tables_research|line-unnamed|secret .hermes*/platforms/pairing/*
+check_tables_research|line-unnamed|secret .hermes*/platforms/whatsapp/session/*
+check_tables_research|line-unnamed|secret AppData/Local/hermes*/platforms/matrix/store/*
+check_tables_research|line-unnamed|secret AppData/Local/hermes*/platforms/pairing/*
+check_tables_research|line-unnamed|secret AppData/Local/hermes*/platforms/whatsapp/session/*
 check_tables_research|volume-glob-unnamed|exclude backups
 check_tables_research|volume-glob-unnamed|exclude browser-profile
 check_tables_research|volume-glob-unnamed|exclude browser-profiles

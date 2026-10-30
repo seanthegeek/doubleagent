@@ -101,7 +101,7 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 channels/whatsapp/auth/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 pg_uri
 check_smoke_coverage|secret-check-missing|smoke.sh channels/whatsapp/auth/*
 check_smoke_coverage|secret-check-missing|smoke.sh pg_uri
-check_tables_research|line-unnamed|.letta/agents/*/memory/.git/letta-credential-helper.cmd
+check_tables_research|line-unnamed|secret .letta/agents/*/memory/.git/letta-credential-helper.cmd
 check_tables_research|volume-glob-unnamed|exclude bin
 check_tables_research|volume-glob-unnamed|exclude chroma
 check_tables_research|volume-glob-unnamed|exclude mod-cache

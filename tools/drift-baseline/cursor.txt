@@ -61,12 +61,12 @@ check_smoke_coverage|secret-check-missing|smoke.sh .config/cursor/auth.json
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Cursor/auth.json
 check_tables_research|credential-unflagged|.cursor/cli-config.json
 check_tables_research|credential-wording|collected unflagged `ItemTable`
-check_tables_research|line-unnamed|.config/Cursor/logs
-check_tables_research|line-unnamed|.config/Cursor/update-supervisor
-check_tables_research|line-unnamed|AppData/Roaming/Cursor/logs
-check_tables_research|line-unnamed|Library/Application Support/Cursor/AgentStores
-check_tables_research|line-unnamed|Library/Application Support/Cursor/logs
-check_tables_research|line-unnamed|Library/Application Support/Cursor/update-supervisor
+check_tables_research|line-unnamed|home .config/Cursor/logs
+check_tables_research|line-unnamed|home .config/Cursor/update-supervisor
+check_tables_research|line-unnamed|home AppData/Roaming/Cursor/logs
+check_tables_research|line-unnamed|home Library/Application Support/Cursor/AgentStores
+check_tables_research|line-unnamed|home Library/Application Support/Cursor/logs
+check_tables_research|line-unnamed|home Library/Application Support/Cursor/update-supervisor
 check_tables_research|parsing-fact-under-collection|ItemTable
 check_tables_research|parsing-fact-under-collection|authId
 check_tables_research|parsing-fact-under-collection|composerHeaders

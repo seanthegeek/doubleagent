@@ -147,7 +147,7 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/open-interpret
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Open Interpreter*/config.yaml
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/open-interpreter/profiles/*
 check_tables_research|credential-wording|can embed `config.toml`
-check_tables_research|line-unnamed|AppData/Local/Open Interpreter*
-check_tables_research|line-unnamed|AppData/Local/open-interpreter/open-interpreter/models
-check_tables_research|line-unnamed|AppData/Local/open-interpreter/open-interpreter/profiles/*
-check_tables_research|line-unnamed|Library/Application Support/Open Interpreter*
+check_tables_research|line-unnamed|exclude AppData/Local/open-interpreter/open-interpreter/models
+check_tables_research|line-unnamed|home AppData/Local/Open Interpreter*
+check_tables_research|line-unnamed|home Library/Application Support/Open Interpreter*
+check_tables_research|line-unnamed|secret AppData/Local/open-interpreter/open-interpreter/profiles/*

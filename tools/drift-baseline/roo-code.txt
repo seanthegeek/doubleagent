@@ -78,11 +78,11 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .vscode-mock/global-storag
 check_smoke_coverage|secret-check-missing|smoke.ps1 .vscode-mock/global-storage/secrets.json
 check_smoke_coverage|secret-check-missing|smoke.sh .vscode-mock/global-storage/secrets.json
 check_tables_research|credential-wording|can embed `.roo/mcp.json`
-check_tables_research|line-unnamed|*/User/globalStorage/rooveterinaryinc.roo-cline/cache
-check_tables_research|line-unnamed|*/User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
-check_tables_research|line-unnamed|*/User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
-check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/rooveterinaryinc.roo-cline
-check_tables_research|line-unnamed|.config/*/User/globalStorage/rooveterinaryinc.roo-cline
-check_tables_research|line-unnamed|.vscode-mock/global-storage/settings/*mcp_settings.json
-check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/rooveterinaryinc.roo-cline
-check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|exclude */User/globalStorage/rooveterinaryinc.roo-cline/cache
+check_tables_research|line-unnamed|exclude */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+check_tables_research|line-unnamed|exclude */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
+check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|home .config/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/rooveterinaryinc.roo-cline
+check_tables_research|line-unnamed|secret .vscode-mock/global-storage/settings/*mcp_settings.json

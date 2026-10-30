@@ -14,5 +14,7 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/gh/hosts.yml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/GitHub CLI/hosts.yml
 check_smoke_coverage|secret-check-missing|smoke.ps1 .config/gh/hosts.yml
 check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/GitHub CLI/hosts.yml
-check_tables_research|line-unnamed|.config/gh/hosts.yml
-check_tables_research|line-unnamed|AppData/Roaming/GitHub CLI/hosts.yml
+check_tables_research|line-unnamed|home .config/gh/hosts.yml
+check_tables_research|line-unnamed|home AppData/Roaming/GitHub CLI/hosts.yml
+check_tables_research|line-unnamed|secret .config/gh/hosts.yml
+check_tables_research|line-unnamed|secret AppData/Roaming/GitHub CLI/hosts.yml

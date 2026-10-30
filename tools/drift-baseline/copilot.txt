@@ -14,4 +14,4 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .config/github-copilot/*.jso
 check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/github-copilot/*.json
 check_smoke_coverage|secret-check-missing|smoke.sh .config/github-copilot/*.json
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/github-copilot/*.json
-check_tables_research|line-unnamed|AppData/Local/github-copilot
+check_tables_research|line-unnamed|home AppData/Local/github-copilot

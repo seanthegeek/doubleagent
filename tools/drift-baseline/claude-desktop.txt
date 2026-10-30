@@ -217,4 +217,4 @@ check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/C
 check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/Claude*/host-creds-*.json
 check_tables_research|credential-wording|can embed `mcpServers.*.env`
 check_tables_research|credential-wording|collected unflagged `spellcheck.dictionaries`
-check_tables_research|line-unnamed|AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude
+check_tables_research|line-unnamed|home AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude

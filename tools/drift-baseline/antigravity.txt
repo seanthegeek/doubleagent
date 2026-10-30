@@ -146,9 +146,9 @@ check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/[
 check_tables_research|credential-wording|can embed `~/.gemini/config/mcp_config.json`
 check_tables_research|credential-wording|collected unflagged `Local Storage/leveldb/`
 check_tables_research|credential-wording|collected unflagged `uninstall_metrics`
-check_tables_research|line-unnamed|.config/Antigravity IDE/logs
-check_tables_research|line-unnamed|.config/antigravity/plugin-secrets.json
-check_tables_research|line-unnamed|AppData/Roaming/Antigravity IDE/logs
-check_tables_research|line-unnamed|Library/Application Support/Antigravity IDE/User
-check_tables_research|line-unnamed|Library/Application Support/Antigravity IDE/logs
+check_tables_research|line-unnamed|home .config/Antigravity IDE/logs
+check_tables_research|line-unnamed|home .config/antigravity/plugin-secrets.json
+check_tables_research|line-unnamed|home AppData/Roaming/Antigravity IDE/logs
+check_tables_research|line-unnamed|home Library/Application Support/Antigravity IDE/User
+check_tables_research|line-unnamed|home Library/Application Support/Antigravity IDE/logs
 check_tables_research|parsing-fact-under-collection|conversationId

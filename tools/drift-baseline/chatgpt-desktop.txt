@@ -164,51 +164,52 @@ check_smoke_coverage|secret-check-missing|smoke.sh */Roaming/Codex/web/Codex/Def
 check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Login Data*
 check_smoke_coverage|secret-check-missing|smoke.sh Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
 check_tables_research|credential-wording|collected unflagged `Default`
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Cache
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Code Cache
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/DawnGraphiteCache
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/DawnWebGPUCache
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Extensions
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/GPUCache
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Network/Cookies*
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/CacheStorage
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/ScriptCache
-check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/blob_storage
-check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalState
-check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Local/Codex
-check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/.codex-tpp-local-executor-installation-id
-check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Default
-check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Last Version
-check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Local State
-check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/statsig-state.json
-check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/Settings
-check_tables_research|line-unnamed|Library/Application Support/Codex/.codex-tpp-local-executor-installation-id
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Cache
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Code Cache
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Cookies*
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/DawnGraphiteCache
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/DawnWebGPUCache
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Extensions
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/GPUCache
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Login Data*
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Service Worker/CacheStorage
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Service Worker/ScriptCache
-check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/blob_storage
-check_tables_research|line-unnamed|Library/Application Support/Codex/Last Version
-check_tables_research|line-unnamed|Library/Application Support/Codex/Local State
-check_tables_research|line-unnamed|Library/Application Support/Codex/artifact-sessions
-check_tables_research|line-unnamed|Library/Application Support/Codex/browser-sidebar-page-states.json
-check_tables_research|line-unnamed|Library/Application Support/Codex/executor-plugins
-check_tables_research|line-unnamed|Library/Application Support/Codex/executor-plugins/*/server.mjs
-check_tables_research|line-unnamed|Library/Application Support/Codex/statsig-state.json
-check_tables_research|line-unnamed|Library/Application Support/com.openai.codex
-check_tables_research|line-unnamed|Library/Application Support/com.openai.codex.installer
-check_tables_research|line-unnamed|Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService
-check_tables_research|line-unnamed|Library/HTTPStorages/com.openai.codex
-check_tables_research|line-unnamed|Library/HTTPStorages/com.openai.sky.CUAService
-check_tables_research|line-unnamed|Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
-check_tables_research|line-unnamed|Library/Logs/com.openai.codex
-check_tables_research|line-unnamed|Library/Preferences/com.openai.codex.installer.plist
-check_tables_research|line-unnamed|Library/Preferences/com.openai.codex.plist
-check_tables_research|line-unnamed|Library/Preferences/com.openai.sky.CUAService.plist
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/Cache
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/Code Cache
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/DawnGraphiteCache
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/DawnWebGPUCache
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/Extensions
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/GPUCache
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/CacheStorage
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/ScriptCache
+check_tables_research|line-unnamed|exclude */Roaming/Codex/web/Codex/Default/Partitions/*/blob_storage
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/Cache
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/Code Cache
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/DawnGraphiteCache
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/DawnWebGPUCache
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/Extensions
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/GPUCache
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/Service Worker/CacheStorage
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/Service Worker/ScriptCache
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/Default/Partitions/*/blob_storage
+check_tables_research|line-unnamed|exclude Library/Application Support/Codex/executor-plugins/*/server.mjs
+check_tables_research|line-unnamed|home AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalState
+check_tables_research|line-unnamed|home AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Local/Codex
+check_tables_research|line-unnamed|home AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/.codex-tpp-local-executor-installation-id
+check_tables_research|line-unnamed|home AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Default
+check_tables_research|line-unnamed|home AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Last Version
+check_tables_research|line-unnamed|home AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Local State
+check_tables_research|line-unnamed|home AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/statsig-state.json
+check_tables_research|line-unnamed|home AppData/Local/Packages/OpenAI.Codex_*/Settings
+check_tables_research|line-unnamed|home Library/Application Support/Codex/.codex-tpp-local-executor-installation-id
+check_tables_research|line-unnamed|home Library/Application Support/Codex/Last Version
+check_tables_research|line-unnamed|home Library/Application Support/Codex/Local State
+check_tables_research|line-unnamed|home Library/Application Support/Codex/artifact-sessions
+check_tables_research|line-unnamed|home Library/Application Support/Codex/browser-sidebar-page-states.json
+check_tables_research|line-unnamed|home Library/Application Support/Codex/executor-plugins
+check_tables_research|line-unnamed|home Library/Application Support/Codex/statsig-state.json
+check_tables_research|line-unnamed|home Library/Application Support/com.openai.codex
+check_tables_research|line-unnamed|home Library/Application Support/com.openai.codex.installer
+check_tables_research|line-unnamed|home Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService
+check_tables_research|line-unnamed|home Library/HTTPStorages/com.openai.codex
+check_tables_research|line-unnamed|home Library/HTTPStorages/com.openai.sky.CUAService
+check_tables_research|line-unnamed|home Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_tables_research|line-unnamed|home Library/Logs/com.openai.codex
+check_tables_research|line-unnamed|home Library/Preferences/com.openai.codex.installer.plist
+check_tables_research|line-unnamed|home Library/Preferences/com.openai.codex.plist
+check_tables_research|line-unnamed|home Library/Preferences/com.openai.sky.CUAService.plist
+check_tables_research|line-unnamed|secret */Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
+check_tables_research|line-unnamed|secret */Roaming/Codex/web/Codex/Default/Partitions/*/Network/Cookies*
+check_tables_research|line-unnamed|secret Library/Application Support/Codex/Default/Partitions/*/Cookies*
+check_tables_research|line-unnamed|secret Library/Application Support/Codex/Default/Partitions/*/Login Data*
+check_tables_research|line-unnamed|secret Library/HTTPStorages/com.openai.sky.CUAService.binarycookies

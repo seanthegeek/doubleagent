@@ -31,11 +31,11 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/local-deep-res
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/local-deep-research/.secret_key
 check_smoke_coverage|secret-check-missing|smoke.sh .secret_key
 check_tables_research|credential-wording|may embed `config/config.toml`
-check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-research/.secret_key
-check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-research/cache
-check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-research/journal_data
-check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-research/library
-check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-research/models
+check_tables_research|line-unnamed|exclude AppData/Local/local-deep-research/local-deep-research/cache
+check_tables_research|line-unnamed|exclude AppData/Local/local-deep-research/local-deep-research/journal_data
+check_tables_research|line-unnamed|exclude AppData/Local/local-deep-research/local-deep-research/library
+check_tables_research|line-unnamed|exclude AppData/Local/local-deep-research/local-deep-research/models
+check_tables_research|line-unnamed|secret AppData/Local/local-deep-research/local-deep-research/.secret_key
 check_tables_research|volume-glob-unnamed|exclude journal_data
 check_tables_research|volume-glob-unnamed|exclude library
 check_tables_research|volume-glob-unnamed|secret .secret_key

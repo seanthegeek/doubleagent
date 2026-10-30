@@ -174,17 +174,17 @@ check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/c
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/data/logs/llm_request.*
 check_tables_research|credential-unflagged|AppData/Roaming/Block/goose/secrets.yaml
 check_tables_research|credential-unflagged|Library/Application Support/Goose/secrets.yaml
-check_tables_research|line-unnamed|.config/goose/huggingface/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/chatgpt_codex/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/config.yaml
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/databricks/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/gemini_oauth/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/githubcopilot/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/huggingface/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/kimicode/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/muse_code/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/roaming_node_key
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/secrets.yaml
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/tls/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/config/xai_oauth/*
-check_tables_research|line-unnamed|AppData/Roaming/Block/goose/data/logs/llm_request.*
+check_tables_research|line-unnamed|secret .config/goose/huggingface/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/chatgpt_codex/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/config.yaml
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/databricks/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/gemini_oauth/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/githubcopilot/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/huggingface/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/kimicode/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/muse_code/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/roaming_node_key
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/secrets.yaml
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/tls/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/xai_oauth/*
+check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/data/logs/llm_request.*

@@ -69,6 +69,6 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .pearai/.configs/*/config.js
 check_smoke_coverage|secret-check-missing|smoke.ps1 .pearai/.env
 check_smoke_coverage|secret-check-missing|smoke.ps1 .pearai/config.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .pearai/config.ts
-check_tables_research|line-unnamed|AppData/Roaming/PearAI/User
-check_tables_research|line-unnamed|Library/Application Support/PearAI/User
+check_tables_research|line-unnamed|home AppData/Roaming/PearAI/User
+check_tables_research|line-unnamed|home Library/Application Support/PearAI/User
 check_tables_research|parsing-fact-under-collection|taskHistory

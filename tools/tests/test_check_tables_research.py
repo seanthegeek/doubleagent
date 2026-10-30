@@ -192,10 +192,12 @@ def test_update_baseline_removes_a_stale_entry(tmp_path):
 def test_new_finding_fails_until_baselined(tmp_path, capsys):
     repository(tmp_path, catalog=CATALOG.replace("beta|.beta\n", "beta|.beta\nbeta|.gamma\n"))
     assert checker.main([], tmp_path) == 1
-    assert "line-unnamed [beta]: .gamma" in capsys.readouterr().out
+    assert "line-unnamed [beta]: home .gamma" in capsys.readouterr().out
     assert checker.main(["--update-baseline"], tmp_path) == 0
     baseline = tmp_path / "tools/drift-baseline/beta.txt"
-    assert baseline.read_text(encoding="utf-8") == "check_tables_research|line-unnamed|.gamma\n"
+    assert (
+        baseline.read_text(encoding="utf-8") == "check_tables_research|line-unnamed|home .gamma\n"
+    )
     assert checker.main([], tmp_path) == 0
 
 
@@ -209,14 +211,27 @@ def test_line_unnamed(tmp_path):
     )
     catalog = catalog.replace("models\n#", "models\n.alpha/logs\nstray\n#")
     root = repository(tmp_path / "drift", catalog=catalog)
-    assert findings(root, "line-unnamed") == [("alpha", ".alpha2"), ("alpha", ".alpha/logs")]
+    assert findings(root, "line-unnamed") == [
+        ("alpha", "home .alpha2"),
+        ("alpha", "exclude .alpha/logs"),
+    ]
     assert ("-", "stray") in findings(root, "exclusion-unreachable")
+
+
+def test_one_glob_unnamed_in_two_tables_gives_two_findings(tmp_path):
+    catalog = CATALOG.replace("alpha|.alpha\nproject|", "alpha|.alphaboth\nproject|")
+    catalog = catalog.replace("beta|.beta\n", "beta|.beta\nalpha|.alphaboth\n")
+    root = repository(tmp_path, catalog=catalog)
+    assert findings(root, "line-unnamed") == [
+        ("alpha", "home .alphaboth"),
+        ("alpha", "project .alphaboth"),
+    ]
 
 
 def test_line_named_by_remainder_below_an_entry(tmp_path):
     # `cache` names `.alpha/cache` below `.alpha`; without it the line is unnamed.
     root = repository(tmp_path, alpha=ALPHA.replace("`cache` below `.alpha`.", "Caches."))
-    assert findings(root, "line-unnamed") == [("alpha", ".alpha/cache")]
+    assert findings(root, "line-unnamed") == [("alpha", "exclude .alpha/cache")]
 
 
 def test_star_line_reaching_two_agents_equally_is_checked_against_both(tmp_path):
@@ -226,7 +241,7 @@ def test_star_line_reaching_two_agents_equally_is_checked_against_both(tmp_path)
     beta = BETA.replace("`~/.beta` holds", "`~/Library/Tool` and `~/.beta` hold")
     root = repository(tmp_path, catalog=catalog, alpha=alpha, beta=beta)
     found = [finding for finding in checker.run(root) if finding.kind == "line-unnamed"]
-    assert [(finding.agent, finding.detail) for finding in found] == [("-", "*/Tool/logs")]
+    assert [(finding.agent, finding.detail) for finding in found] == [("-", "exclude */Tool/logs")]
     assert "research/alpha.md or research/beta.md" in found[0].message
 
 
@@ -236,12 +251,12 @@ def test_attributed_line_is_named_only_by_its_owner(tmp_path):
         "`~/.beta` holds everything.", "`~/.beta` holds everything, not `.alpha/logs`."
     )
     root = repository(tmp_path, catalog=catalog, beta=beta)
-    assert findings(root, "line-unnamed") == [("alpha", ".alpha/logs")]
+    assert findings(root, "line-unnamed") == [("alpha", "exclude .alpha/logs")]
 
 
 def test_shared_and_project_lines_are_owned_by_shared_document(tmp_path):
     root = repository(tmp_path, shared=SHARED.replace("`AGENTS.md`", "The instructions file"))
-    assert findings(root, "line-unnamed") == [("project", "AGENTS.md")]
+    assert findings(root, "line-unnamed") == [("project", "project AGENTS.md")]
 
 
 def test_normalise_span_forms():

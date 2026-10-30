@@ -262,7 +262,23 @@ def test_version_without_change(tmp_path, capsys):
     status, output = run(tmp_path, capsys)
     assert status == 1
     assert kinds(output) == ["version-without-change"]
-    assert "version-without-change [alpha]: since 2.1.309 - " in output
+    detail = "version-without-change [alpha]: The id key is written since 2.1.309. - "
+    assert detail in output
+
+
+def test_version_without_change_detail_is_each_sentence(tmp_path, capsys):
+    schema = "The `id` key is written since 2.1.309. The `name` key is too, since 2.1.309."
+    write_document(tmp_path, document(schema=schema))
+    findings = checker.convention_findings(
+        tmp_path / "research/alpha.md",
+        (tmp_path / "research/alpha.md").read_text(encoding="utf-8"),
+        checker.load_link_check(),
+        tmp_path,
+    )
+    assert [finding.detail for finding in findings] == [
+        "The id key is written since 2.1.309.",
+        "The name key is too, since 2.1.309.",
+    ]
 
 
 def test_version_with_format_entry_link_or_range_passes(tmp_path, capsys):
@@ -487,6 +503,8 @@ def test_sentence_key_forms():
     sentence = "- The file `a.json` holds [the key](#key) , `b`."
     assert checker.sentence_key(sentence) == "The file holds the key,."
     assert checker.sentence_key("1. Holds   `x`\n  too.") == "Holds too."
+    assert checker.sentence_key(sentence, keep_code=True) == "The file a.json holds the key, b."
+    assert checker.sentence_key("Rewrites `.a/b`.", keep_code=True) == "Rewrites .a/b."
 
 
 def test_sentences_forms():
