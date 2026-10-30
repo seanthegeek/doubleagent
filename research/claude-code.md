@@ -1040,7 +1040,7 @@ The config home is `$CLAUDE_CONFIG_DIR`, else `~/.claude`, on every OS
 | `.claude/projects/<key>/<session id>/subagents/agent-<agent id>.meta.json` | one JSON object per subagent: `agentType`, `description`, `toolUseId`, `model`, `spawnDepth`, `requestShape`, `requestNonInteractive`, and for some `isFork`, `parentAgentId`, `spawnedWithWorktree`, `worktreePath`, `worktreeBranch` (observed, 80 of 80; cc:484010 maps `.meta.json` to `.jsonl`); on Windows 2.1.309 `agentType, description, finished, launchedWithDefaults, requestNonInteractive, requestShape, spawnDepth, toolUseId`, with no `model` (226 B); on Linux 2.1.310 the same plus `isBuiltIn` (243 B, `requestShape` `background`), and on macOS 2.1.310 the Linux set (243 B) | no, [Joins and timestamps](#joins-and-timestamps) |
 | `.claude/projects/<key>/<session id>/tool-results/<name>.txt` | full output of a tool result too large to keep inline (`tool-results` constant, cc:474483); the inline result holds a `<persisted-output>` stub (cc:382991); on Windows 2.1.309 `<name>` is nine base-36 characters (1.2 MB for a 20,000-line listing; on Linux 2.1.310 191,741 B for 20,000 lines of a word list) | yes, [Persisted output files](#persisted-output-files) |
 | `.claude/projects/<key>/<session id>/custom-title.json` | `{customTitle}`, the name given with `/rename` (27 B on Windows 2.1.309 and macOS 2.1.310), beside the transcript's `custom-title` line | no; the line is read |
-| `.claude/projects/<key>/bridge-pointer.json` | `{environmentId, pid, procStart, sessionId, source}`, written when a Remote Control server starts in the project and left after it stops (macOS 2.1.310, [Remote Control](#remote-control)) | yes, [Sync, relay and origin rows](#sync-relay-and-origin-rows) |
+| `.claude/projects/<key>/bridge-pointer.json` | `{environmentId, pid, procStart, sessionId, source}`, `environmentId` 28 characters starting `env_`, written when a Remote Control server starts in the project and left after it stops (macOS 2.1.310, [Remote Control](#remote-control)) | yes, [Sync, relay and origin rows](#sync-relay-and-origin-rows) |
 | `.claude/projects/<key>/<session id>/ccr-tip.json` | `{eventId, updatedAt}`, the last claude.ai event the local side of a Remote Control session processed (macOS 2.1.310, [Remote Control](#remote-control)) | yes, [Sync, relay and origin rows](#sync-relay-and-origin-rows) |
 | `.claude/jobs/<short>/state.json`, `.claude/jobs/<short>/timeline.jsonl` | a daemon worker's job state and its state changes ([Session daemon records](#session-daemon-records)) | no |
 | `.claude/projects/<key>/<session id>/remote-agents/remote-agent-<id>.meta.json`, `.../mcp-tasks/mcp-task-<id>.meta.json` | sidecars for remote agents and MCP tasks (cc:484010, cc:488428) | no; not observed |
@@ -1262,8 +1262,10 @@ the transcript each `api-request-blob` line repeats a full request message, the 
 included ([Record schema](#record-schema)). Hermes Agent's `state.db`, a Cline session made by the
 SDK's import and Pydantic AI's CLAI `sessions.db` hold copies that outlive the original file
 (below). No deletion marker is stated or was seen. The analyzer reads `history.jsonl` as a secondary
-source and the session records and `.claude.json` for their own rows, not `file-history/`,
-`paste-cache/`, `backups/` or `jobs/`; it lists a removed project that the collected files still
+source and the session records and `.claude.json` for their own rows, and `paste-cache/` only to
+expand a history line's paste placeholders
+([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)), not
+`file-history/`, `backups/` or `jobs/`; it lists a removed project that the collected files still
 name with the `referenced` status; the other agents' copies are read, if at all, under those agents
 (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
 
@@ -1444,6 +1446,11 @@ prompt, where local sessions started in `auto`; `queueSkipAttachments` on queued
 `isVisibleInTranscriptOnly` on the compaction summary; and `remoteSourced` on the replayed cloud
 lines ([Cloud sessions](#cloud-sessions)). A refused call's result line carried `toolDenialKind`
 and neither `permissionDecision` nor `userFeedback` ([Permission decisions](#permission-decisions)).
+
+On macOS 2.1.310 a paste in a prompt's `content` is wrapped as
+`<pasted_content id="<4 hex>">` ... `</pasted_content>`, with the typed text after it, where the
+`history.jsonl` line carries the paste without a wrapper, inline or by a placeholder
+([`history.jsonl`](#historyjsonl)).
 
 #### Permission decisions
 
@@ -1626,8 +1633,8 @@ One API response becomes one `assistant` record per content block: all 9,911 obs
 records hold exactly one block, consecutive records share `message.id` and `requestId`, and only the
 last carries a non-null `stop_reason` (observed; `apiBlockIndex` numbers them). There are no
 streaming deltas to reassemble. The transcript is complete except for persisted tool output
-([Persisted output](#persisted-output)), pasted text in history ([Other stores](#other-stores)),
-and file backups (`file-history/`).
+([Persisted output](#persisted-output)) and file backups (`file-history/`); a paste is in the
+prompt and again in history or `paste-cache/` ([Other stores](#other-stores)).
 
 #### Message content, tool calls and results
 
@@ -1869,7 +1876,8 @@ and `paste-cache/<contentHash>.txt`. The key is the paste's number within the se
 `1`. On macOS 2.1.310 a 269-character paste of four lines took the inline `content` form and a
 2,416-character one of 19 lines the `contentHash` form with its `paste-cache/` file, so the cut is
 at the 1,024 characters of the bundle; `display` held the `[Pasted text #N +M lines]` placeholder
-and the typed text, where the transcript's prompt holds the paste expanded.
+and the typed text, where the transcript's prompt holds the paste expanded and wrapped
+([`user` records](#user-records)).
 
 On Windows 2.1.309 every typed prompt and slash command was a line (`/model`, `/compact`,
 `/rename`, `/exit`, `/install-github-app`), a mistyped subcommand (`claude ls`) became a prompt
@@ -2299,16 +2307,17 @@ the local process and its output back. The evidence is the 2.1.295 Linux binary 
   running console. It printed `Spawn mode: same-dir (saved for this folder; press w to change)`,
   `Connected · logsleuth · main`,
   `Capacity: 1/32 · New sessions will be created in the current directory`, a device label
-  `<hostname>-local-<word>` and an environment id `nv_<22 chars>`. The server process wrote no
-  registry file of its own; its child, a second `claude` process from `versions/2.1.310`, got
-  `sessions/<pid>.json` (578 B, the 18 keys plus `bridgeSessionId`, 32 hex, and `entrypoint`
+  `<hostname>-local-<word>` and an environment id printed as `nv_<22 chars>`. The server process
+  wrote no registry file of its own; its child, a second `claude` process from `versions/2.1.310`,
+  got `sessions/<pid>.json` (578 B, the 18 keys plus `bridgeSessionId`, 32 hex, and `entrypoint`
   `sdk-cli`) with its `.key` and socket. The start wrote `bridge-spawn/<cse id>/` with
   `append-system-prompt.txt` (24,994 B of text, the system prompt appended to spawned sessions) and
   `mcp.json` (491 B, `mcpServers.claude-code-remote{alwaysLoad, headers{X-MCP-Server-ID,
   X-Session-UUID, anthropic-version}, type, url}` with `type` `http`, a remote MCP endpoint keyed
-  by session ids); `projects/<key>/bridge-pointer.json` (168 B, `environmentId`, `pid`,
-  `procStart`, `sessionId` of 32 hex, `source` `standalone`); an empty transcript for the child,
-  named by a uuid whose third group starts with `5`, a name-based id; `remoteControlMachineId` and
+  by session ids); `projects/<key>/bridge-pointer.json` (168 B, the keys of
+  [Transcript stores](#transcript-stores), `sessionId` of 32 hex, `source` `standalone`); an empty
+  transcript for the child, named by a uuid whose third group starts with `5`, a name-based id;
+  `remoteControlMachineId` and
   `projects.<path>.remoteControlSpawnMode` (`same-dir`) in `.claude.json`; and
   `mcp-logs-claude-code-remote/` ([CLI cache directory](#cli-cache-directory)).
 - **macOS 2.1.310, a prompt from claude.ai.** A new session started on claude.ai for the machine,
@@ -2576,11 +2585,11 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `pr-link` | `system`, `pr-link: <prUrl or prNumber>`, once per session and URL (the first record wins) |
 | `queue-operation` | `system`, `queue <operation>: <content>`; an `enqueue` whose `content` a `queued_command` attachment or a `user` record of the file delivers is `prompt queued: delivered at line N` at the enqueue's own timestamp, N being the first delivering line after it (else the first), so the typing time is kept and the prompt text appears once, on the delivering row |
 | every other type ([Record schema](#record-schema) table) | skip |
-| `history.jsonl` line | `user` |
+| `history.jsonl` line | `user`, each paste placeholder in `display` expanded ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) |
 | `sessions/<pid>.json` | one `system` row at `startedAt` (epoch ms), `claude-code process <pid> <kind> status=<status> entrypoint=<entrypoint> bridge=<bridgeSessionId or none> host_session=<hostSessionId or none>` (`-` for a missing `kind`, `status` or `entrypoint`), `session_id` `sessionId`, `project_path` `cwd`, `source_line` 1; a file that is not a JSON object is one `system` row `parser: session registry file is not a JSON object`. A `bridge=` value means the process was under Remote Control when the collector ran ([Remote Control](#remote-control)), and the file then gives a second `system` row, `session synced: remote control bridge <bridgeSessionId> url - (from <path>, file mtime)`, at the file's modification time ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/<session id>/ccr-tip.json` | one `system` row at the file's modification time, `session synced: remote event <eventId> at <updatedAt> (from <path>, file mtime)`, `session_id` the directory's session ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/bridge-pointer.json` | one `system` row at the file's modification time, `remote control: environment <environmentId> session <sessionId> source=<source> (from <path>, file mtime)` |
-| `settings.json`, `settings.local.json` (user, `.claude-<name>`, or a project's) | one `system` row per `permissions.allow`, `deny`, `ask` and `additionalDirectories` entry, then one for `permissions.defaultMode` and `permissions.disableBypassPermissionsMode` when set: `permission setting: permissions.<key>=<value> (from <path relative to the home or project>, file mtime)`, a non-string value as compact JSON; `timestamp_utc` the manifest `mtime`, else the file's own; `session_id` empty; `project_path` the project directory for a `project` artifact, else empty; `source_line` 1; beside them, when `cleanupPeriodDays` is set, one `system` row `retention setting: cleanupPeriodDays=<n> (from <file>, file mtime)` at the same time, since the value decides what the retention sweep removes ([What survives a delete](#what-survives-a-delete)); when `model` is set, one `system` row `model setting: <alias> (from settings.json, file mtime)` ([Model rows](#model-rows)); no other key read; a file that is not a JSON object is one `system` row `parser: settings file is not a JSON object` |
+| `settings.json`, `settings.local.json` (user, `.claude-<name>`, or a project's) | one `system` row per `permissions.allow`, `deny`, `ask` and `additionalDirectories` entry, then one for `permissions.defaultMode` and `permissions.disableBypassPermissionsMode` when set: `permission setting: permissions.<key>=<value> (from <path relative to the home or project>, file mtime)`, a non-string value as compact JSON; `timestamp_utc` the manifest `mtime`, else the file's own; `session_id` empty; `project_path` the project directory for a `project` artifact, else empty; `source_line` 1; beside them, when `cleanupPeriodDays` is set, one `system` row `retention setting: cleanupPeriodDays=<n> (from <path>, file mtime)` at the same time, since the value decides what the retention sweep removes ([What survives a delete](#what-survives-a-delete)); when `model` is a non-empty string, one `system` row `model setting: model=<alias> (from <path>, file mtime)` at the same time ([Model rows](#model-rows)); no other key read; a file that is not a JSON object is one `system` row `parser: settings file is not a JSON object` |
 | `.claude.json`, `.claude-<name>/.claude.json` | per `projects.<path>`: one row per `allowedTools` entry, then one each for `hasTrustDialogAccepted` and `hasClaudeMdExternalIncludesApproved` when present, `permission setting: <key>=<value> (from .claude.json, file mtime)`, `project_path` the `<path>` key, times as above; when `githubWebConnectionStatusCache` is present (2.1.310), one `system` row `source host: github status=<status> (from .claude.json, file mtime)` at the file's modification time, its `accountUuid` and `orgUuid` never printed ([Sync, relay and origin rows](#sync-relay-and-origin-rows)); at the same time, `remote control: machine id set` when `remoteControlMachineId` is present, `remote control: spawn mode <mode> for <path>` per `projects.<path>.remoteControlSpawnMode`, and `cloud: hasRemoteEnvironment=<value> (from .claude.json, file mtime)`, no uuid printed; nothing else in the file is read (it holds the account's OAuth details); `.claude.json.backup*` is not wanted |
 
 Columns:
@@ -2598,8 +2607,8 @@ Columns:
 | text | user/assistant/thinking text; `tool_use`: for Bash the `command` of `wireToolInputs[<id>]` when present (it keeps the `cd <dir> &&` prefix), else per-tool key from `input` (`command`, `file_path`, `notebook_path`, `pattern`+`path`, `url`, `query`, `description`+`prompt`, `skill`+`args`, `path`), else the first of `command`, `file_path`, `path`, `pattern`, `url`, `query`, `description`, else compact JSON; `tool_result`: the block text as above |
 | source_line | 1-based line number; the subagent header row takes its first record's line |
 
-Not read: `.meta.json` sidecars, the `sessions/<pid>.<sha256>.key` files (secrets), `paste-cache/`,
-the other `sessions/<pid>.json` keys (`procStart`, `version`, `peerProtocol`, `peerFeatures`,
+Not read: `.meta.json` sidecars, the `sessions/<pid>.<sha256>.key` files (secrets), the other
+`sessions/<pid>.json` keys (`procStart`, `version`, `peerProtocol`, `peerFeatures`,
 `pidDomain`, `messagingSocketPath`, `name`, `nameSource`, `nameSince`, `updatedAt`,
 `statusUpdatedAt`), the 2.1.295 assistant keys (`advisorModel`, `apiBlockIndex`, `effort`,
 `perTurnEffort`, `serverClassifierRequest`, `thinkingDurationMs`; `requestedModel` is read only for
@@ -2646,11 +2655,11 @@ coverage table). A `/model` switch keeps its own `slash command` and `command ou
 ([Joins and timestamps](#joins-and-timestamps)). The `model` attachment and `cost-state` records are
 not read. Confirmed on Windows 2.1.309 and Linux and macOS 2.1.310: the lines carry the resolved
 id only, so the change row is the evidence of a switch. The alias the person picked is in
-`settings.json` `model`, read as `model setting: <alias> (from settings.json, file mtime)`, a row
-that also shows a change no `/model` made: the VS Code extension's start rewrote the key on macOS
-2.1.310 ([Joins and timestamps](#joins-and-timestamps)). A subagent's
-`toolUseResult.resolvedModel` that differs from the parent's model yields nothing new, since the
-subagent file's `assistant` lines carry that model.
+`settings.json` `model`, read as the `model setting:` row of the coverage table, a row that also
+shows a change no `/model` made: the VS Code extension's start rewrote the key on macOS 2.1.310
+([Joins and timestamps](#joins-and-timestamps)). A subagent's
+`toolUseResult.resolvedModel` that differs from the parent's model yields nothing new,
+since the subagent file's `assistant` lines carry that model.
 
 #### Past-use rows and secondary sources
 
@@ -2661,15 +2670,26 @@ so a session found only in `history.jsonl` is the expected trace of a swept sess
 `sessions/<pid>.json` registry and the permission settings yield rows of their own. A prompt sent
 through `claude agents` or from the VS Code extension's panel is in the transcript only
 ([`history.jsonl`](#historyjsonl)). Not read: `file-history/` and the `file-history-*` records,
-`paste-cache/` (collected; the paste is inline in the transcript, and `history.jsonl` names it by
-hash), `backups/` (dated copies of `.claude.json`), `jobs/` and the daemon's files, the
-`.meta.json` sidecars and the `claude-cli-nodejs` MCP logs, which each name the session, the
+`backups/` (dated copies of `.claude.json`), `jobs/` and the daemon's files, the `.meta.json`
+sidecars and the `claude-cli-nodejs` MCP logs, which each name the session, the
 project and a time and so could become rows of their own. A history line whose `display` is a
 slash command (`/model`, `/rename ...`, `/clear`, `/loop ...`) matches the transcript's `user` line
-that wraps the same command in `<command-name>` and `<command-args>` tags, and one whose `display`
-starts with a `[Pasted text #N +M lines]` placeholder matches the `user` line that carries the paste
-expanded with the typed text after it ([`history.jsonl`](#historyjsonl)), so only a history line
-with no transcript counterpart is a recovered row.
+that wraps the same command in `<command-name>` and `<command-args>` tags.
+
+Before the match, each `[Pasted text #N]` or `[Pasted text #N +M lines]` placeholder in a history
+line's `display` is replaced by the paste's text: `pastedContents.<N>.content` when the paste is
+kept inline ([`history.jsonl`](#historyjsonl)), else the file `paste-cache/<contentHash>.txt`
+beside `history.jsonl` ([Per-user storage](#per-user-storage)). The text is found only when
+`pastedContents` is an object with an entry for that number whose `type` is `text` or absent, and
+the entry's `content` is a string or its `contentHash` is a plain alphanumeric name that names a
+regular file in `paste-cache/`, neither the directory nor the file a symlink; any other placeholder
+is kept as written. A cache file that is there but cannot be read keeps the
+placeholder too and adds a `system` row
+`parser: paste-cache/<contentHash>.txt unreadable (<error>)` after the file's rows, `source_line`
+the history line. A prompt then matches with the transcript's `<pasted_content>` wrapper removed
+([`user` records](#user-records)) and each run of ASCII whitespace collapsed to one space, so an
+expanded history line matches the `user` line whose text is the same once unwrapped, and only a
+history line with no transcript counterpart is a recovered row.
 
 #### Sync, relay and origin rows
 
@@ -2768,7 +2788,9 @@ session whose transcript the sweep removed remains as its `history.jsonl` rows
 Each bad line becomes its own `system` row at the end of the file's rows, `source_line` its line
 number and text `parser: unparseable line (<decoder message>): <the line in full>`
 ([issue 136](https://github.com/seanthegeek/doubleagent/issues/136)); the rows before and after it
-are kept. The session sample under [Fixtures](#fixtures) ends with a cut line for this case.
+are kept. The session sample under [Fixtures](#fixtures) ends with a cut line for this case. An
+unreadable `paste-cache/` file gives a row of its own
+([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)).
 
 #### Fixtures
 
@@ -2973,6 +2995,11 @@ resolved.
   macOS 2.1.310; where `gh` keeps the token on a headless Linux host; and whether the Linux build
   writes the per-process socket that macOS keeps in `/tmp/cc-socks/`, and where (`/tmp` held none,
   and `$XDG_RUNTIME_DIR` was not surveyed).
+- Not determined on macOS 2.1.310: whether the environment id the Remote Control server printed
+  as `nv_<22 chars>` is the file's 28-character `env_` `environmentId` cut by the terminal, since
+  the round did not compare them.
+- Not determined on Windows 2.1.309 and Linux 2.1.310: whether a paste in a prompt is wrapped in
+  `<pasted_content>` as on macOS 2.1.310, which neither round recorded.
 - Not determined on macOS 2.1.310: why every refusal there took the form with no decision record,
   while Linux 2.1.310 wrote `userFeedback` for a refusal with a reason (the macOS console ran in
   `screen` with `TERM=screen`, so a terminal difference is not ruled out); whether the retention
