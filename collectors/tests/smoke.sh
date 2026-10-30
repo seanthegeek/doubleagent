@@ -1950,6 +1950,34 @@ for _drift_path in crushrc .crushrc crush.json .crush.json; do
   check "#323 Crush project file skipped without secrets: $_drift_path" "[ \"\$(status_of \"$ROOT/srv/crushwin/$_drift_path\")\" = skipped_secret ]"
 done
 
+# 2026-10-04 catalog cases
+printf '%s\n' "$CASES_CATALOG" >"$WORK/nosecrets14"
+while IFS='|' read -r _kind _agent _relpath; do
+  [ -n "$_relpath" ] || continue
+  _row=$(row "$ALICE/$_relpath")
+  case "$_kind" in
+    secret) case "$_row" in *'"status":"skipped_secret"'*) pass "no-secrets: $_relpath" ;; *) fail_check "no-secrets: $_relpath" ;; esac ;;
+  esac
+done <"$WORK/nosecrets14"
+# 2026-10-04 Muse Code
+printf '%s\n' "$CASES_MUSE" >"$WORK/nosecretsmuse"
+while IFS='|' read -r _kind _agent _relpath; do
+  [ -n "$_relpath" ] || continue
+  _row=$(row "$ALICE/$_relpath")
+  case "$_kind" in
+    secret) case "$_row" in *'"agent":"muse-code"'*'"status":"skipped_secret"'*) pass "no-secrets: $_relpath" ;; *) fail_check "no-secrets: $_relpath" ;; esac ;;
+  esac
+done <"$WORK/nosecretsmuse"
+# 2026-10-06 frameworks sweep (#64)
+printf '%s\n' "$CASES_FW" >"$WORK/nosecretsfw"
+while IFS='|' read -r _kind _agent _relpath; do
+  [ -n "$_relpath" ] || continue
+  _row=$(row "$ALICE/$_relpath")
+  case "$_kind" in
+    secret) case "$_row" in *'"status":"skipped_secret"'*) pass "no-secrets: $_relpath" ;; *) fail_check "no-secrets: $_relpath" ;; esac ;;
+  esac
+done <"$WORK/nosecretsfw"
+
 # ---- --full ---------------------------------------------------------------
 run full --full; check "full exit 0" "[ $? -eq 0 ]"
 check "cache contents collected with --full" "[ \"\$(status_of \"$ROOT/home/alice/.claude/cache/junk.bin\")\" = collected ]"

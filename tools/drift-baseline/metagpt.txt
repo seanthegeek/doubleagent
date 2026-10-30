@@ -1,8 +1,0 @@
-check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 metagpt
-check_smoke_coverage|framework-nosecrets-missing|smoke.sh metagpt
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .metagpt/config2.bak
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .metagpt/config2.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .metagpt/config2.bak
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .metagpt/config2.yaml
-check_smoke_coverage|secret-check-missing|smoke.ps1 .metagpt/config2.bak
-check_smoke_coverage|secret-check-missing|smoke.ps1 .metagpt/config2.yaml

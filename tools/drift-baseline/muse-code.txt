@@ -20,21 +20,10 @@ check_research_structure|latest-version-missing|macOS: no real install; the Mac 
 check_research_structure|observed-label-missing|Linux (WSL2), Muse Code 1.4.2-R4684.1 (`muse-bin-1.4.2-R4684.1`, the binary
 check_research_structure|observed-label-missing|Windows: no real install; the Windows claims rest
 check_research_structure|observed-label-missing|macOS: no real install; the Mac claims rest
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/muse/plugins/cache/builtin
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/muse/plugins/marketplaces
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/muse/skills/bundled
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/Programs/muse/.muse-update.*.exe
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/Programs/muse/muse-bin-*.exe
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .local/share/muse/plugins/cache/local/p1/plugin.json
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .local/share/muse/plugins/cache/local/p1/plugin.json
 check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/muse/auth.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/muse/settings.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/muse/auth.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/muse/settings.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/muse/auth.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/muse/settings.json
 check_tables_research|parsing-fact-under-collection|auth.jsonstoragemcp_oauthmcp_oauth_client: mcp-oauth-v1mcp_oauth:
 check_tables_research|parsing-fact-under-collection|provider_id
 check_tables_research|parsing-fact-under-collection|schema_version

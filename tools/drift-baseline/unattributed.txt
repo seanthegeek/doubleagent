@@ -52,7 +52,6 @@ check_smoke_coverage|check-by-suffix|smoke.ps1 Roaming/Antigravity/Cache/data_0
 check_smoke_coverage|check-by-suffix|smoke.ps1 Roaming/Claude/Cache
 check_smoke_coverage|check-by-suffix|smoke.ps1 Roaming/Claude/config.json
 check_smoke_coverage|check-by-suffix|smoke.ps1 agent-cli/.local/share/x
-check_smoke_coverage|check-by-suffix|smoke.ps1 alice/$($fields[2])
 check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/.claude.json
 check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/.credentials.json
 check_smoke_coverage|check-by-suffix|smoke.ps1 alice/.claude-work/backups/.claude.json.backup.1792800000000
@@ -110,9 +109,6 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/gola
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/kiro.kiroagent/*lance*
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/kiro.kiroagent/index
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/ms-*
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/pearai.pearai-roo-cline/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/pearai.pearai-roo-cline/checkpoints
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/pearai.pearai-roo-cline/tasks/*/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/redhat*
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rust-lang*
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/vscjava*
@@ -188,7 +184,6 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh workdir/*/.venv
 check_smoke_coverage|exclusion-check-missing|smoke.sh workdir/*/node_modules
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/profiles/*/mcp.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/api-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/secret-key.txt
@@ -219,7 +214,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/plugins/_desktop/prof
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 whatsapp/session/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/profiles/*/mcp.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/api-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/secret-key.txt
@@ -250,7 +244,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/plugins/_desktop/profi
 check_smoke_coverage|nosecrets-check-missing|smoke.sh whatsapp/session/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 */User/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 */User/profiles/*/mcp.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/sessions/*.key
 check_smoke_coverage|secret-check-missing|smoke.ps1 agent-canvas/api-key.txt
 check_smoke_coverage|secret-check-missing|smoke.ps1 agent-canvas/secret-key.txt
