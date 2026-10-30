@@ -416,12 +416,13 @@ def sentence_key(sentence: str, keep_code: bool = False) -> str:
 def documentation_reference(sentence: str) -> str | None:
     """Return the documentation phrase a sentence names outside its code spans, or None.
 
-    A sentence names documentation when it holds "documentation", "docs page", "changelog(s)"
-    or "release notes" in any case, or "README" in capitals, outside a code span. It does not
-    when the phrase has "no", "not", "without", "binary", "embedded", "bundled", "str" or
-    "strings" (evidence tags) among the three words before it; is "collector", "analyzer" or "project documentation"; is in a
-    sentence saying "no official" one "was found" or "was consulted"; or sits in a
-    parenthesis right after a code span or an evidence-level label (`L2 (... documentation)`).
+    A sentence names documentation when it holds "documentation", "docs page", "changelog(s)" or
+    "release notes" in any case, or "README" in capitals, outside a code span. It does not when
+    the phrase has "no", "not", "without", "binary", "embedded", "bundled", "str" or "strings"
+    (evidence tags) among the three words before it; is "collector", "analyzer" or "project
+    documentation"; is in a sentence saying "no official" one "was found" or "was consulted"; or
+    sits in a parenthesis right after a code span or an evidence-level label
+    (`L2 (... documentation)`).
     """
     text = CODE_SPAN.sub("\x00", sentence)
     for match in DOCUMENTATION.finditer(text):

@@ -20,7 +20,9 @@ Notes for Claude Code on this workstation:
   (`python3 -m venv venv && venv/bin/pip install -r analyzer/requirements-dev.txt
   ruff==0.16.10 pyright==1.1.414`), run the suite from `analyzer/` with
   `venv/bin/python -m pytest`, and pyright with
-  `--pythonpath venv/bin/python`.
+  `--pythonpath venv/bin/python`. Run `tools/check_fixture_schema.py` and
+  `-m pytest tools/tests` from the repository root with the same
+  `venv/bin/python`.
 - This Mac has `/bin/dash` but no busybox, posh, pwsh, uvx, shellcheck or
   shfmt; CI runs those gates. Its `/bin/sh` is bash 3.2, the one shell CI
   does not run; the smoke test under it takes about 17 minutes with no VM

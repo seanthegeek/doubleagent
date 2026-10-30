@@ -109,10 +109,10 @@ python3 -m pytest tools/tests -q            # the checkers' own tests
 
 | Checker | Compares | What it reports |
 | --- | --- | --- |
-| `check_tables_research.py` | every `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS` and `DOCKER_VOLUMES` line with the Collection part of its agent's document (`research/shared.md` for the `shared` and `project` lines) | a line no code span names, a credential file the Credentials section names that no secret glob flags and the Secrets section does not list, a secret glob an exclusion hides, an exclusion or secret glob that no home or project entry reaches and no one Docker volume agent's document names, a Docker volume glob that the document's Per-user storage subsection about the volume does not name, a missing Docker volume form of an exclusion, two agents' entries that differ only by case or can match one path, the wording "collected unflagged", "left unflagged", "not flagged", "may embed" or "can embed" in Credentials, a catalog agent without a document or an agents page row, a parser fact under Collection |
+| `check_tables_research.py` | every `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS` and `DOCKER_VOLUMES` line with the Collection part of its agent's document (`research/shared.md` for the `shared` and `project` lines) | a line no code span names, a credential file the Credentials section names that no secret glob flags and the Secrets section does not list, a secret glob an exclusion hides, an exclusion or secret glob that no home or project entry reaches and no one Docker volume agent's document names, a Docker volume glob that the document's Per-user storage subsection about the volume does not name, a missing Docker volume form of an exclusion, two agents' home entries that differ only by case, or whose first segments differ and can still match one path, the wording "collected unflagged", "left unflagged", "not flagged", "may embed" or "can embed" in Credentials, a catalog agent without a document or an agents page row, a parser fact under Collection |
 | `check_smoke_coverage.py` | every table line with `collectors/tests/smoke.sh` and `collectors/tests/smoke.ps1`, read as text | a secret glob with no `secret: true` or no `skipped_secret` check, an exclusion with no `skipped_excluded` check, a catalog line no fixture file matches, a fixture file whose name the document does not give, a `smoke.ps1` check naming a row by a suffix, an agent with a `secret` case in the frameworks case list and no `--no-secrets` check of `skipped_secret` on one, a check or path the reader cannot follow |
 | `check_parser_research.py` | each parser in `parsers.ALL`, read with Python's `ast` module, with the Parsing part of its agent's document | a row text, `parser:` message, file pattern or record key no code span or fenced line gives, a `records_sync`, `records_relay`, `records_origin` or `has_secondary` flag the Parser plan contradicts, a file or key a `Not read:` list names that the parser reads, a module docstring fact the document lacks |
-| `check_fixture_schema.py` | the files `build_home` writes and the fixture modules' docstrings with the Parsing part of each agent's document | a builder without a `Source:` line, a module that names no document, a key, table, column or enum value the document lacks (and so do the documents of the agents whose fixture modules it imports from), a value whose type a key table contradicts, a project path the module does not declare, another agent's builder called without a `Lineage:` line, a Fixtures sample identical to a fixture record |
+| `check_fixture_schema.py` | the files `build_home` leaves on disk, so not a record a later builder overwrites, and the fixture modules' docstrings with the Parsing part of each agent's document | a builder without a `Source:` line, a module that names no document, a key, table, column or enum value the document lacks (and so do the documents of the agents whose fixture modules it imports from), a value whose type a key table contradicts, a project path the module does not declare, another agent's builder called without a `Lineage:` line, a Fixtures sample identical to a fixture record |
 | `check_research_structure.py` | each research document with "Research document structure" in [AGENTS.md](../../AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an install entry under `### Observed` without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or link, a fact stated twice, documentation named without a link |
 
 Each checker prints one line per finding,
@@ -127,19 +127,20 @@ stale baseline line or a malformed one, `0` otherwise.
 
 The drift that existed when the checkers were written is recorded in the
 baseline, `tools/drift-baseline/<agent>.txt`, one file per agent
-(`unattributed.txt` for a finding that names none) holding one `<checker>|<kind>|<detail>`
-line per finding, sorted. A finding missing from the baseline is new and
-fails CI: fix the table, document, parser or fixture that disagrees. A
-baseline line that no finding produces any more is stale and fails too,
-printed as `stale: remove "<line>" from tools/drift-baseline/<agent>.txt`,
-so the commit that fixes the drift also deletes its line; when an agent
-is rebuilt from fresh evidence, its file empties and is deleted.
+(`unattributed.txt` for a finding that names none) holding one
+`<checker>|<kind>|<detail>` line per finding, sorted. A finding missing
+from the baseline is new and fails CI: fix the table, document, parser or
+fixture that disagrees. A baseline line that no finding produces any more
+is stale and fails too, printed as
+`stale: remove "<line>" from tools/drift-baseline/<agent>.txt`, so the
+commit that fixes the drift also deletes its line; when an agent is
+rebuilt from fresh evidence, its file empties and is deleted.
 `--update-baseline` rewrites one checker's lines in every file from the
 current findings and exits `0` (`check_research_structure.py` still exits
 `1` on an outline breach). It may add lines only in the commit that adds
 or changes a checker's rule, recording the breaches the new rule finds,
-and that commit's message body says why; a finding an edit of yours
-causes is fixed, never added to the baseline.
+and that commit's message body says why; a finding an edit of yours causes
+is fixed, never added to the baseline.
 
 ## Regenerating the output examples
 

@@ -116,8 +116,8 @@ python3 tools/check_smoke_coverage.py    # each line against both smoke tests
 
 `tools/check_tables_research.py` reports a line whose glob no code span of
 the Collection part of the agent's research document names, a credential
-file that document names that no secret glob flags, a secret glob an
-exclusion hides, an exclusion or secret glob that no home or project entry
+file that document names that no secret glob flags and the Secrets section
+does not list, a secret glob an exclusion hides, an exclusion or secret glob that no home or project entry
 reaches and no one Docker volume agent's document names, a Docker volume
 glob that the document's Per-user storage subsection about the volume does
 not name, an exclusion below a Docker volume's mount directory without its

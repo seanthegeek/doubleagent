@@ -4,9 +4,9 @@
 A fixture module is a file of `analyzer/tests/fixtures/` other than `__init__.py` and
 `common.py`; its agent is `module_agent`'s. A name is documented when `is_documented` finds it
 in a code span of the Parsing part or a fenced line outside Parser plan's Fixtures (a sample
-never documents a key), of the file's agent's document or of an agent whose fixture module
-that agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read the files
-`build_home` writes.
+never documents a key), of the file's agent's document or of an agent whose fixture module that
+agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read only the files
+`build_home` leaves on disk, so a record a later builder overwrites is not checked.
 
 1. `builder-provenance-missing`: a public builder (`is_public_builder`) whose docstring has no
    line `source_line` accepts, naming an agent document and one of its heading anchors.
