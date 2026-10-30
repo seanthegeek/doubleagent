@@ -2139,6 +2139,8 @@ secret|runtime/photon-sidecar.json
 secret|proxy/ca.key
 secret|home/.gitconfig
 secret|config.yaml.bak.1
+secret|state-snapshots/20261001-120004/.env
+secret|state-snapshots/20261001-120004/auth.json
 secret|state-snapshots/20261001-120004/config.yaml
 secret|state-snapshots/20261001-120004/feishu_comment_pairing.json
 secret|state-snapshots/20261001-120004/platforms/pairing/telegram-approved.json
