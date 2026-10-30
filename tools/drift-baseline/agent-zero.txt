@@ -187,3 +187,17 @@ check_tables_research|line-unnamed|Library/Application Support/Agent Zero Launch
 check_tables_research|line-unnamed|agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
 check_tables_research|line-unnamed|agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
 check_tables_research|line-unnamed|agent-zero*/usr/workdir/*/node_modules
+check_tables_research|volume-glob-unnamed|exclude tmp/memory/embeddings
+check_tables_research|volume-glob-unnamed|exclude tmp/playwright
+check_tables_research|volume-glob-unnamed|exclude usr/.time_travel
+check_tables_research|volume-glob-unnamed|exclude usr/workdir/*/.venv
+check_tables_research|volume-glob-unnamed|secret plugins/*/config.json
+check_tables_research|volume-glob-unnamed|secret secrets.env
+check_tables_research|volume-glob-unnamed|secret tmp/secrets.env
+check_tables_research|volume-glob-unnamed|secret tmp/settings.json
+check_tables_research|volume-glob-unnamed|secret tmp/whatsapp/session/*
+check_tables_research|volume-glob-unnamed|secret usr/.env
+check_tables_research|volume-glob-unnamed|secret usr/plugins/*/config.json
+check_tables_research|volume-glob-unnamed|secret usr/projects/*/.a0proj/secrets.env
+check_tables_research|volume-glob-unnamed|secret usr/secrets.env
+check_tables_research|volume-glob-unnamed|secret usr/settings.json

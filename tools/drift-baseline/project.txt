@@ -46,6 +46,10 @@ check_tables_research|line-unnamed|.git/logs
 check_tables_research|line-unnamed|.git/packed-refs
 check_tables_research|line-unnamed|.git/refs
 check_tables_research|line-unnamed|.git/worktrees
+check_tables_research|line-unnamed|.git/worktrees/*/index
+check_tables_research|line-unnamed|.git/worktrees/*/index.lock
+check_tables_research|line-unnamed|.git/worktrees/*/modules
+check_tables_research|line-unnamed|.git/worktrees/*/sharedindex.*
 check_tables_research|line-unnamed|.github/copilot-instructions.md
 check_tables_research|line-unnamed|.github/git-commit-instructions.md
 check_tables_research|line-unnamed|.github/instructions

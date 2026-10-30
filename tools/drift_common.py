@@ -653,15 +653,20 @@ def home_claim(glob: str, catalog: Catalog) -> str:
     return ""
 
 
-def closest_agent(reached: list[tuple[str, str]]) -> str:
-    """Return the agent whose (agent, remainder) pair has the fewest remainder segments, or `-`.
+def closest_agents(reached: list[tuple[str, str]]) -> list[str]:
+    """Return the agents whose (agent, remainder) pairs have the fewest remainder segments, sorted.
 
-    An empty remainder has none; two agents tied for the fewest give `-`.
+    An empty remainder has none; no pair gives no agent.
     """
     depths = [(rest.count("/") + 1 if rest else 0, agent) for agent, rest in reached]
     fewest = min((depth for depth, _ in depths), default=-1)
-    closest = {agent for depth, agent in depths if depth == fewest}
-    return closest.pop() if len(closest) == 1 else "-"
+    return sorted({agent for depth, agent in depths if depth == fewest})
+
+
+def closest_agent(reached: list[tuple[str, str]]) -> str:
+    """Return the one agent `closest_agents` gives, or `-` when it gives none or several."""
+    closest = closest_agents(reached)
+    return closest[0] if len(closest) == 1 else "-"
 
 
 def attribute_glob(
@@ -673,7 +678,7 @@ def attribute_glob(
     2. For a glob opening `*/`, the agent of the most specific home entry it reaches, the one
        with the fewest remainder segments (`star_remainders`), when no other agent's is as close.
     3. For any other glob, which is volume-relative, the one `DOCKER_VOLUMES` agent whose
-       research document under `root` names it in a Collection code span (`document_names_glob`).
+       research document under `root` names it in a Collection code span (`volume_agents_naming`).
     `catalog` defaults to the bundled one and `root` to this checkout.
     """
     catalog = catalog or _bundled_catalog()
@@ -682,12 +687,22 @@ def attribute_glob(
         return owner
     if glob.startswith("*/"):
         return closest_agent(star_remainders(glob, catalog))
+    naming = volume_agents_naming(glob, catalog, root)
+    return naming[0] if len(naming) == 1 else "-"
+
+
+def volume_agents_naming(
+    glob: str, catalog: Catalog, root: pathlib.Path | None = None
+) -> list[str]:
+    """Return the `DOCKER_VOLUMES` agents whose documents under `root` name a glob, in order.
+
+    A document names it when a code span of its Collection part does (`document_names_glob`).
+    """
     research = (ROOT if root is None else root) / "research"
     volume_agents = dict.fromkeys(entry.agent for entry in catalog.docker_volumes)
-    naming = [
+    return [
         agent for agent in volume_agents if document_names_glob(research / ("%s.md" % agent), glob)
     ]
-    return naming[0] if len(naming) == 1 else "-"
 
 
 # --- Agents ---------------------------------------------------------------------------------

@@ -77,3 +77,5 @@ check_tables_research|line-unnamed|.nanobot*/cache
 check_tables_research|line-unnamed|.nanobot*/run
 check_tables_research|line-unnamed|triggers/runs
 check_tables_research|line-unnamed|triggers/triggers.json
+check_tables_research|volume-glob-unnamed|secret matrix-store/*
+check_tables_research|volume-glob-unnamed|secret whatsapp-auth/*

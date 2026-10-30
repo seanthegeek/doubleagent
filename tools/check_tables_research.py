@@ -2,25 +2,26 @@
 """Check the catalog tables against the Collection part of the research documents.
 
 `research/<agent>.md` owns its agent's table lines and `research/shared.md` the `shared` and
-`project` ones; an exclusion or secret line's agent is `attribute_glob` of its glob.
+`project` ones; an exclusion or secret line's agent is `glob_agent` of its glob.
 
-- `line-unnamed`: a table line no Collection code span of its owner names (`names_glob`), by
-  its glob or its remainder below an entry of its agent (`base_remainders`, `star_remainders`).
+- `line-unnamed`: a table line no Collection code span of its owners names (`names_glob`), by
+  its glob or its remainder below an owner's entry (`base_remainders`, `star_remainders`).
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
   secret glob flags on its own base, or on any sibling base of one platform (`sibling_bases`),
   unless a code span of the Parsing part's Secrets section names the path (`secrets_store`).
 - `secret-under-exclusion`: a secret glob each of whose sample paths an exclusion prunes.
-- `exclusion-unreachable`: an exclusion no home entry reaches (`exclusion_reachable`) and no
-  Per-user storage volume section names (`is_volume_section`).
+- `exclusion-unreachable`, `secret-unreachable`: an exclusion or secret glob with no owner
+  (`Repository.owners`): no home or project entry reaches it, no one volume document names it.
+- `volume-glob-unnamed`: a glob a docker-volume agent's document owns that no code span of its
+  Per-user storage volume subsections (`is_volume_section`) names.
 - `volume-twin-missing`: an exclusion below a directory a docker volume is `mounted at`
   (`mount_path`, `volume_home_remainders`) with no volume-relative twin (`volume_twin`).
 - `case-overlap`: two agents' home entries that differ only by case, or whose first segments
   differ and can match a common path (`case_overlap`).
 - `credential-wording`: a `WORDING_PHRASES` phrase in a Credentials section.
-- `document-missing`: a catalog agent with no research document.
-- `catalog-missing`: a research document whose agent has no table line.
-- `agents-row-missing`: a catalog agent, `project` aside, with no `docs/agents.md` row.
-- `agents-row-orphan`: a `docs/agents.md` row naming no catalog agent.
+- `document-missing`, `catalog-missing`: a catalog agent with no research document, and back.
+- `agents-row-missing`, `agents-row-orphan`: a catalog agent, `project` aside, with no
+  `docs/agents.md` row, and a row naming no catalog agent.
 - `parsing-fact-under-collection`: a Collection code span that is a row text (`is_row_text`)
   or a key the Record schema also names (`is_key_span`), outside the project-path section.
 
@@ -205,13 +206,32 @@ def secret_samples(glob: str) -> list[str]:
     )
 
 
-def exclusion_reachable(glob: str, catalog: Catalog) -> bool:
-    """Return whether some home entry reaches a path an exclusion glob matches.
+def project_claim(glob: str, catalog: Catalog) -> str:
+    """Return the agent of the project entry claiming a sample path of a glob, or "".
 
-    A glob is reachable when a home entry claims it (`home_claim`), or, opening `*/`, when it
-    reaches a home entry (`star_remainders`).
+    The claim is `Catalog.project_agent_for`, so the most specific entry wins; the sample with
+    empty stars is tried before the one with every `*` as `x`: `.git/worktrees/*/index` is
+    `project`'s through the entry `.git/worktrees`, while `tmp/playwright` is no one's.
     """
-    return bool(drift_common.home_claim(glob, catalog) or star_remainders(glob, catalog))
+    for sample in (drift_common.sample_path(glob, True), drift_common.sample_path(glob)):
+        owner = catalog.project_agent_for(sample)
+        if owner:
+            return owner
+    return ""
+
+
+def glob_agent(glob: str, catalog: Catalog, root: pathlib.Path) -> str:
+    """Return the agent an exclusion or secret glob belongs to, or `-`.
+
+    A home entry claims it or, for a glob opening `*/`, is the closest it reaches
+    (`attribute_glob`); otherwise a project entry claims it (`project_claim`); otherwise it is
+    volume-relative and the one docker-volume agent whose document names it owns it
+    (`attribute_glob`). A glob opening `*/` that reaches several agents' entries equally is `-`.
+    """
+    owner = drift_common.home_claim(glob, catalog)
+    if owner or glob.startswith("*/"):
+        return owner or drift_common.closest_agent(star_remainders(glob, catalog))
+    return project_claim(glob, catalog) or drift_common.attribute_glob(glob, catalog, root)
 
 
 def is_volume_section(section: Section) -> bool:
@@ -396,6 +416,27 @@ class Repository:
             for document, sections in self.sections.items()
         }
 
+    @functools.cached_property
+    def glob_agents(self) -> dict[str, str]:
+        """Return the agent of each exclusion and secret glob (`glob_agent`), computed once."""
+        catalog = self.tables.catalog
+        return {
+            line.glob: glob_agent(line.glob, catalog, self.root)
+            for line in self.tables.exclude + self.tables.secret
+        }
+
+    def owners(self, line: TableLine) -> list[str]:
+        """Return the agents whose documents may name a table line.
+
+        That is the line's agent, or for a `-` glob opening `*/`, every agent whose entry it
+        reaches closest (`closest_agents`); a glob nothing reaches has none.
+        """
+        agent = line_agent(self, line)
+        if agent != "-":
+            return [agent]
+        reached = star_remainders(line.glob, self.tables.catalog)
+        return drift_common.closest_agents(reached)
+
     def entries(self, agent: str) -> list[TableLine]:
         """Return an agent's home table lines."""
         return [line for line in self.tables.home if line.agent == agent]
@@ -416,44 +457,59 @@ def load(root: pathlib.Path) -> Repository:
 
 
 def line_agent(repository: Repository, line: TableLine) -> str:
-    """Return a table line's agent, `attribute_glob` for an exclusion or secret glob."""
-    catalog = repository.tables.catalog
-    return line.agent or drift_common.attribute_glob(line.glob, catalog, repository.root)
+    """Return a table line's agent, `glob_agent` for an exclusion or secret glob."""
+    return line.agent or repository.glob_agents[line.glob]
 
 
 # --- Rules -----------------------------------------------------------------------------------
 
 
 def unnamed_lines(repository: Repository) -> Iterator[Finding]:
-    """Yield `line-unnamed` for each table line its owning document's Collection part never names.
+    """Yield `line-unnamed` for each table line its owners' Collection parts never name.
 
-    A line also counts as named by its remainder below one of its agent's home entries
-    (`base_remainders`), the form a document uses inside its own directory listing. A line of
-    no agent is named by any document; one starting with `*` by the document of an agent it
-    reaches, with its remainder below that agent's entry (`star_remainders`). A home or
-    project line is also named by a path below it (`names_glob` with `deeper`).
+    A line is checked against its owners' documents only (`Repository.owners`); a line with
+    none is left to `exclusion-unreachable` and `secret-unreachable`. It also counts as named
+    by its remainder below one of an owner's home entries (`base_remainders`), the form a
+    document uses inside its own directory listing, or, opening `*/`, below an owner's entry it
+    reaches (`star_remainders`). A home or project line is also named by a path below it
+    (`names_glob` with `deeper`).
     """
-    every_span = [span for spans in repository.collection_spans.values() for span in spans]
+    catalog = repository.tables.catalog
     for line in repository.tables.lines():
-        agent = line_agent(repository, line)
-        document = repository.document(agent)
-        if agent != "-" and document not in repository.sections:
+        owners = repository.owners(line)
+        documents = [repository.document(owner) for owner in owners]
+        if not owners or not all(document in repository.sections for document in documents):
             continue
-        spans = every_span if agent == "-" else repository.collection_spans[document]
         deeper = line.table in ("home", "project")
-        if names_glob(line.glob, spans, deeper):
+        reached = star_remainders(line.glob, catalog)
+        if any(named_by(repository, line.glob, owner, deeper, reached) for owner in owners):
             continue
-        candidates = [
-            (spans, rest) for rest in base_remainders(line.glob, repository.entries(agent))
-        ]
-        for owner, rest in star_remainders(line.glob, repository.tables.catalog):
-            owner_spans = repository.collection_spans.get(repository.document(owner), [])
-            candidates += [(owner_spans, rest), (owner_spans, line.glob)]
-        if any(names_glob(rest, owner_spans) for owner_spans, rest in candidates if rest):
-            continue
-        where = "any document" if agent == "-" else document
-        message = "the %s line is named in no Collection code span of %s" % (line.table, where)
+        agent = owners[0] if len(owners) == 1 else "-"
+        message = "the %s line is named in no Collection code span of %s" % (
+            line.table,
+            " or ".join(documents),
+        )
         yield Finding(agent, "line-unnamed", line.glob, CATALOG_PATH, line.line, message)
+
+
+def named_by(
+    repository: Repository,
+    glob: str,
+    owner: str,
+    deeper: bool,
+    reached: list[tuple[str, str]],
+) -> bool:
+    """Return whether an owner's Collection spans name a glob, whole or by a remainder.
+
+    The remainders are the glob's below each of the owner's home entries (`base_remainders`)
+    and below each of its entries the glob reaches from a leading `*/` (`reached`).
+    """
+    spans = repository.collection_spans[repository.document(owner)]
+    if names_glob(glob, spans, deeper):
+        return True
+    rests = base_remainders(glob, repository.entries(owner))
+    rests += [rest for agent, rest in reached if agent == owner]
+    return any(names_glob(rest, spans) for rest in rests if rest)
 
 
 def secrets_store(path: str, secrets_spans: Iterable[str]) -> bool:
@@ -542,21 +598,54 @@ def secrets_under_exclusions(repository: Repository) -> Iterator[Finding]:
             )
 
 
-def unreachable_exclusions(repository: Repository) -> Iterator[Finding]:
-    """Yield `exclusion-unreachable` for each exclusion no home entry or named volume reaches."""
-    volume_spans = [
-        normalise_span(span.text)
-        for sections in repository.sections.values()
-        for section in drift_common.within(sections, "Collection", "Per-user storage")
-        if is_volume_section(section)
-        for span in section.code_spans
-    ]
+def unreachable_globs(repository: Repository) -> Iterator[Finding]:
+    """Yield `exclusion-unreachable` or `secret-unreachable` for each glob with no owner.
+
+    The message names the docker-volume agents when several documents name the glob.
+    """
+    unreached = "no home or project entry reaches it and no docker-volume agent's document names it"
     catalog = repository.tables.catalog
-    for line in repository.tables.exclude:
-        if exclusion_reachable(line.glob, catalog) or names_glob(line.glob, volume_spans):
+    for line in repository.tables.exclude + repository.tables.secret:
+        if repository.owners(line):
             continue
-        message = "no home entry reaches it and no Per-user storage volume section names it"
-        yield Finding("-", "exclusion-unreachable", line.glob, CATALOG_PATH, line.line, message)
+        naming = drift_common.volume_agents_naming(line.glob, catalog, repository.root)
+        several = "the documents of %s all name it, so none owns it" % ", ".join(naming)
+        message = several if naming else unreached
+        kind = "exclusion-unreachable" if line.table == "exclude" else "secret-unreachable"
+        yield Finding("-", kind, line.glob, CATALOG_PATH, line.line, message)
+
+
+def unnamed_volume_globs(repository: Repository) -> Iterator[Finding]:
+    """Yield `volume-glob-unnamed` for each volume-relative glob its volume section never names.
+
+    The glob is one a docker-volume agent's document owns (`glob_agent`, neither a home nor a
+    project entry reaching it); its Per-user storage subsections about a volume
+    (`is_volume_section`) must name it in a code span (`names_glob`).
+    """
+    catalog = repository.tables.catalog
+    for line in repository.tables.exclude + repository.tables.secret:
+        agent = line_agent(repository, line)
+        if agent == "-" or not is_volume_relative(line.glob, catalog):
+            continue
+        if project_claim(line.glob, catalog):
+            continue
+        sections = [
+            section
+            for section in repository.collection(agent, "Per-user storage")
+            if is_volume_section(section)
+        ]
+        spans = [normalise_span(span.text) for section in sections for span in section.code_spans]
+        if names_glob(line.glob, spans):
+            continue
+        looked = (
+            ", ".join(section.key for section in sections) or "none, no subsection names a volume"
+        )
+        message = "no Per-user storage volume subsection of %s names it (looked in: %s)" % (
+            repository.document(agent),
+            looked,
+        )
+        detail = "%s %s" % (line.table, line.glob)
+        yield Finding(agent, "volume-glob-unnamed", detail, CATALOG_PATH, line.line, message)
 
 
 def missing_volume_twins(repository: Repository) -> Iterator[Finding]:
@@ -667,7 +756,8 @@ RULES = (
     unnamed_lines,
     unflagged_credentials,
     secrets_under_exclusions,
-    unreachable_exclusions,
+    unreachable_globs,
+    unnamed_volume_globs,
     missing_volume_twins,
     overlapping_cases,
     credential_wording,

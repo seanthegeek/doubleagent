@@ -209,17 +209,34 @@ def test_line_unnamed(tmp_path):
     )
     catalog = catalog.replace("models\n#", "models\n.alpha/logs\nstray\n#")
     root = repository(tmp_path / "drift", catalog=catalog)
-    assert findings(root, "line-unnamed") == [
-        ("alpha", ".alpha2"),
-        ("alpha", ".alpha/logs"),
-        ("-", "stray"),
-    ]
+    assert findings(root, "line-unnamed") == [("alpha", ".alpha2"), ("alpha", ".alpha/logs")]
+    assert ("-", "stray") in findings(root, "exclusion-unreachable")
 
 
 def test_line_named_by_remainder_below_an_entry(tmp_path):
     # `cache` names `.alpha/cache` below `.alpha`; without it the line is unnamed.
     root = repository(tmp_path, alpha=ALPHA.replace("`cache` below `.alpha`.", "Caches."))
     assert findings(root, "line-unnamed") == [("alpha", ".alpha/cache")]
+
+
+def test_star_line_reaching_two_agents_equally_is_checked_against_both(tmp_path):
+    catalog = CATALOG.replace("beta|.beta\n", "beta|.beta\nbeta|Library/Tool\nalpha|.config/Tool\n")
+    catalog = catalog.replace("models\n#", "models\n*/Tool/cache\n*/Tool/logs\n#")
+    alpha = ALPHA.replace("`~/.alpha` holds", "`~/.config/Tool` and `~/.alpha` hold")
+    beta = BETA.replace("`~/.beta` holds", "`~/Library/Tool` and `~/.beta` hold")
+    root = repository(tmp_path, catalog=catalog, alpha=alpha, beta=beta)
+    found = [finding for finding in checker.run(root) if finding.kind == "line-unnamed"]
+    assert [(finding.agent, finding.detail) for finding in found] == [("-", "*/Tool/logs")]
+    assert "research/alpha.md or research/beta.md" in found[0].message
+
+
+def test_attributed_line_is_named_only_by_its_owner(tmp_path):
+    catalog = CATALOG.replace("models\n#", "models\n.alpha/logs\n#")
+    beta = BETA.replace(
+        "`~/.beta` holds everything.", "`~/.beta` holds everything, not `.alpha/logs`."
+    )
+    root = repository(tmp_path, catalog=catalog, beta=beta)
+    assert findings(root, "line-unnamed") == [("alpha", ".alpha/logs")]
 
 
 def test_shared_and_project_lines_are_owned_by_shared_document(tmp_path):
@@ -476,27 +493,81 @@ def test_crossing_regex_forms():
     assert checker.secret_samples(".a*/b*") == [".a/b", ".ax/bx"]
 
 
-# --- Rule 4: exclusion-unreachable -----------------------------------------------------------
+# --- Rule 4: exclusion-unreachable and secret-unreachable ------------------------------------
 
 
-def test_exclusion_unreachable(tmp_path):
+def test_exclusion_and_secret_unreachable(tmp_path):
     assert findings(repository(tmp_path / "clean"), "exclusion-unreachable") == []
-    beta = BETA.replace("#### Docker volume", "#### Container")
-    beta = beta.replace("The `beta_data` volume", "The `beta_data` store")
+    beta = BETA.replace(", and `models` there is excluded", "")
     catalog = CATALOG.replace("models\n#", "models\nnowhere/cache\n#")
+    catalog = catalog.replace("token.json\n#", "token.json\nstray.key\n#")
     root = repository(tmp_path / "drift", beta=beta, catalog=catalog)
     assert findings(root, "exclusion-unreachable") == [("-", "models"), ("-", "nowhere/cache")]
+    assert findings(root, "secret-unreachable") == [("-", "stray.key")]
 
 
-def test_exclusion_reachable_forms(tmp_path):
+def test_exclusion_below_a_project_entry_is_reachable(tmp_path):
+    catalog = CATALOG.replace("alpha|.alpha\nproject|", "alpha|.alpha\nalpha|.alphaproj\nproject|")
+    catalog = catalog.replace("models\n#", "models\n.alphaproj/big\n#")
+    alpha = ALPHA.replace(
+        "A project keeps `.alpha/`.", "A project keeps `.alpha/` and `.alphaproj/big`."
+    )
+    root = repository(tmp_path, catalog=catalog, alpha=alpha)
+    assert findings(root, "exclusion-unreachable") == []
+    assert findings(root, "line-unnamed") == []
+    assert checker.load(root).glob_agents[".alphaproj/big"] == "alpha"
+
+
+def test_exclusion_two_volume_documents_name_has_no_owner(tmp_path):
+    catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
+    alpha = ALPHA.replace("`cache` below `.alpha`.", "`cache` below `.alpha`, and `models`.")
+    root = repository(tmp_path, catalog=catalog, alpha=alpha)
+    found = [finding for finding in checker.run(root) if finding.kind == "exclusion-unreachable"]
+    assert [(finding.agent, finding.detail) for finding in found] == [("-", "models")]
+    assert "the documents of beta, alpha all name it" in found[0].message
+
+
+def test_project_claim_forms(tmp_path):
+    text = "# project artifacts (relative to each discovered project)\nproject|.git/worktrees\n"
+    text += "pi|.pi\npi|.pi/approved-plan.md\n"
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
+    assert checker.project_claim(".git/worktrees/*/index", catalog) == "project"
+    assert checker.project_claim(".pi*/x", catalog) == "pi"
+    assert checker.project_claim("tmp/playwright", catalog) == ""
+
+
+def test_glob_agent_forms(tmp_path):
     text = (
         "# home artifacts (agent|glob relative to home)\nalpha|Library/Application Support/Claude\n"
     )
+    text += "# project artifacts (relative to each discovered project)\nbeta|.beta\n"
+    text += "# docker volumes (agent|volume name glob)\ngamma|*gamma_data\n"
     catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
-    assert checker.exclusion_reachable("Library/Application Support/Claude/Cache", catalog)
-    assert checker.exclusion_reachable("*/Claude*/Cache", catalog)
-    assert not checker.exclusion_reachable("*/Other/Cache", catalog)
-    assert not checker.exclusion_reachable("models", catalog)
+    write(tmp_path / "research/gamma.md", "# gamma\n\n## Collection\n\n`models`\n")
+    cases = {
+        "Library/Application Support/Claude/Cache": "alpha",
+        "*/Claude*/Cache": "alpha",
+        "*/Other/Cache": "-",
+        ".beta/cache": "beta",
+        "models": "gamma",
+        "nowhere": "-",
+    }
+    for glob, agent in cases.items():
+        assert checker.glob_agent(glob, catalog, tmp_path) == agent, glob
+
+
+# --- Rule 5: volume-glob-unnamed -------------------------------------------------------------
+
+
+def test_volume_glob_unnamed(tmp_path):
+    assert findings(repository(tmp_path / "clean"), "volume-glob-unnamed") == []
+    beta = BETA.replace("#### Docker volume", "#### Container")
+    beta = beta.replace("The `beta_data` volume", "The `beta_data` store")
+    root = repository(tmp_path / "drift", beta=beta)
+    found = [finding for finding in checker.run(root) if finding.kind == "volume-glob-unnamed"]
+    assert [(finding.agent, finding.detail) for finding in found] == [("beta", "exclude models")]
+    assert "looked in: none" in found[0].message
+    assert findings(root, "exclusion-unreachable") == []
 
 
 def test_is_volume_section_forms(tmp_path):
@@ -536,7 +607,7 @@ def test_is_volume_section_forms(tmp_path):
     }
 
 
-# --- Rule 5: volume-twin-missing -------------------------------------------------------------
+# --- Rule 6: volume-twin-missing -------------------------------------------------------------
 
 
 def test_volume_twin_missing(tmp_path):
@@ -595,7 +666,7 @@ def test_volume_home_remainders_forms():
     assert checker.volume_home_remainders(".ollama/models", "") == []
 
 
-# --- Rule 6: case-overlap --------------------------------------------------------------------
+# --- Rule 7: case-overlap --------------------------------------------------------------------
 
 
 def test_case_overlap(tmp_path):
@@ -657,7 +728,7 @@ def test_case_overlap_forms():
         assert not checker.case_overlap(first, second), (first, second)
 
 
-# --- Rule 7: credential-wording --------------------------------------------------------------
+# --- Rule 8: credential-wording --------------------------------------------------------------
 
 
 def test_credential_wording(tmp_path):
@@ -694,7 +765,7 @@ def test_plain_spans_skip_link_texts(tmp_path):
     ]
 
 
-# --- Rule 8: presence ------------------------------------------------------------------------
+# --- Rule 9: presence ------------------------------------------------------------------------
 
 
 def test_document_missing(tmp_path):

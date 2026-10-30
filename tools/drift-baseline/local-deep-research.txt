@@ -36,3 +36,6 @@ check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-
 check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-research/journal_data
 check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-research/library
 check_tables_research|line-unnamed|AppData/Local/local-deep-research/local-deep-research/models
+check_tables_research|volume-glob-unnamed|exclude journal_data
+check_tables_research|volume-glob-unnamed|exclude library
+check_tables_research|volume-glob-unnamed|secret .secret_key

@@ -187,3 +187,17 @@ check_tables_research|line-unnamed|.openclaw*/projects/[0-9a-f][0-9a-f][0-9a-f][
 check_tables_research|parsing-fact-under-collection|audit_events
 check_tables_research|parsing-fact-under-collection|exec_approvals_config
 check_tables_research|parsing-fact-under-collection|operator_approvals
+check_tables_research|volume-glob-unnamed|exclude agents/*/agent/.tmp
+check_tables_research|volume-glob-unnamed|exclude agents/*/agent/tmp
+check_tables_research|volume-glob-unnamed|exclude extensions/*/node_modules
+check_tables_research|volume-glob-unnamed|exclude npm
+check_tables_research|volume-glob-unnamed|exclude npm-runtime
+check_tables_research|volume-glob-unnamed|exclude plugin-skills
+check_tables_research|volume-glob-unnamed|exclude sandbox/skills-workspaces
+check_tables_research|volume-glob-unnamed|exclude worktrees
+check_tables_research|volume-glob-unnamed|secret agents/*/agent/auth-profiles.json*
+check_tables_research|volume-glob-unnamed|secret clawdbot.json*
+check_tables_research|volume-glob-unnamed|secret exec-approvals.json
+check_tables_research|volume-glob-unnamed|secret moltbot.json*
+check_tables_research|volume-glob-unnamed|secret openclaw.json*
+check_tables_research|volume-glob-unnamed|secret service-env/*

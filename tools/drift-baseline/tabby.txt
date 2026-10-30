@@ -61,3 +61,5 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .tabby/config.toml
 check_tables_research|line-unnamed|.config/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|line-unnamed|AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|line-unnamed|Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
+check_tables_research|volume-glob-unnamed|exclude index
+check_tables_research|volume-glob-unnamed|exclude repositories

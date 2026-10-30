@@ -33,4 +33,5 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/com.Langflow
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Caches/langflow/*secret_key
 check_tables_research|credential-unflagged|Library/Application Support/com.LangflowDesktop/data/.env
 check_tables_research|credential-wording|may embed `<user_id>/_mcp_servers_*.json`
+check_tables_research|volume-glob-unnamed|secret [0-9a-f]*-*-*-*-*/_mcp_servers_*.json
 check_tables_research|volume-twin-missing|.langflow/knowledge_bases

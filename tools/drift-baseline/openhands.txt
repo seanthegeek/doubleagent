@@ -117,3 +117,15 @@ check_smoke_coverage|secret-check-missing|smoke.sh runtime-control/*
 check_smoke_coverage|secret-check-missing|smoke.sh secrets.json
 check_tables_research|credential-wording|may embed `mcp.json`
 check_tables_research|parsing-fact-under-collection|workspace.working_dir
+check_tables_research|volume-glob-unnamed|exclude agent-canvas/tmux
+check_tables_research|volume-glob-unnamed|exclude agent-canvas/workspaces
+check_tables_research|volume-glob-unnamed|secret .jwt_secret
+check_tables_research|volume-glob-unnamed|secret .keys
+check_tables_research|volume-glob-unnamed|secret agent-canvas/*/acp/codex/auth.json
+check_tables_research|volume-glob-unnamed|secret agent_settings.json
+check_tables_research|volume-glob-unnamed|secret cloud/*
+check_tables_research|volume-glob-unnamed|secret conversations/*/acp/codex/auth.json
+check_tables_research|volume-glob-unnamed|secret mcp.json
+check_tables_research|volume-glob-unnamed|secret provider-connections/*
+check_tables_research|volume-glob-unnamed|secret runtime-control/*
+check_tables_research|volume-glob-unnamed|secret secrets.json

@@ -13,4 +13,8 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh ssh/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 .n8n/config
 check_smoke_coverage|secret-check-missing|smoke.ps1 .n8n/ssh/*
 check_tables_research|credential-wording|collected unflagged `database.sqlite`
+check_tables_research|volume-glob-unnamed|exclude n8n-sdk-templates
+check_tables_research|volume-glob-unnamed|exclude node-definitions
+check_tables_research|volume-glob-unnamed|exclude nodes/node_modules
+check_tables_research|volume-glob-unnamed|secret ssh/*
 check_tables_research|volume-twin-missing|.n8n/custom/node_modules
