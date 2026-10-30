@@ -77,7 +77,8 @@ docs/lab-vms.md                the lab VMs: the development tools in their clean
 tools/check_research_links.py  verifies every citation link in the research documents
                                resolves to its file and line range at the cited commit
 tools/check_research_structure.py  verifies every research document follows the
-                               outline; with --before, lists facts a rewrite dropped
+                               outline and its conventions; with --before, lists facts
+                               a rewrite dropped
 tools/check_doc_links.py       verifies every relative link and heading fragment in the
                                Markdown documents, that section and external
                                references are links, that a reader page
@@ -86,6 +87,19 @@ tools/check_doc_links.py       verifies every relative link and heading fragment
                                request
 tools/check_code_style.py      verifies the names, comments and docstring lengths of
                                every Python, sh and PowerShell file against "Code style"
+tools/drift_common.py          the drift checkers' shared module: findings, the baseline,
+                               and readers of the research documents, tables and parsers
+tools/check_tables_research.py  compares the catalog tables with the Collection part of
+                               each research document
+tools/check_smoke_coverage.py  verifies both smoke tests check every table line, naming
+                               each row by full path
+tools/check_parser_research.py  compares each parser's row texts, file patterns and keys
+                               with the Parsing part of its research document
+tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines, files,
+                               keys and values with the research documents
+tools/tests/                   pytest suite of the drift checkers, on synthetic inputs
+tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
+                               disagreements recorded so far
 mkdocs/mkdocs.yml              the documentation site: MkDocs with the Material theme,
                                built from the documents where they are; its nav: tree
 mkdocs/hooks.py                site build hooks: GitHub heading ids, code spans with
@@ -444,9 +458,9 @@ The analyzer runs on the analyst's workstation, never on the host.
   docstring says what the module reads and yields, the fields a parser
   depends on, the commit or install its shapes were validated against with
   any drift, and the research document it follows; record shapes, versions
-  and history stay in that document. In tests every module and class has a
-  docstring, and a test method has one only when its name cannot say what it
-  proves.
+  and history stay in that document, and a docstring states no fact the
+  document lacks. In tests every module and class has a docstring, and a
+  test method has one only when its name cannot say what it proves.
 - **Types.** A function returning a dict with fixed keys returns a
   `TypedDict`; `Row` and `SessionSummary` stay dataclasses.
 - **Exceptions.** Every exception the analyzer defines subclasses
@@ -587,6 +601,12 @@ plan, and the parser is written from them.
      that syncs or unsyncs; for a source host, where the account, its token
      or grant (a file, secret storage, the OS keychain, or server-side
      only), the repository list and repository-bound conversations live.
+     Every row text, `parser:` message, file pattern and record key a
+     parser uses appears as a code span or fenced line in the Parsing part
+     of its research document; a literal inherited from another parser's
+     module may be named in that parser's document instead
+     (`tools/check_parser_research.py` checks this). A commit that finds
+     the document wrong fixes the document in that commit.
    - **Survival table.** Update the agent's row in the
      [survival table of `research/README.md`](research/README.md#where-transcripts-live-and-what-survives)
      in the same commit: one short sentence per cell with the file name,
@@ -603,6 +623,14 @@ plan, and the parser is written from them.
    noise file the parser must not want, `write_bad_line` for the truncation
    case, and both the present and the absent form of every key the parser
    branches on.
+   - The records are derived from the research document's samples and
+     Record schema, never invented. Each builder's docstring has a line
+     `Source: research/<agent>.md#<anchor>; build <version>` (or
+     `; source <short hash>`), the anchor a heading of that document. The
+     module docstring names `research/<agent>.md`, has a `Paths:` line
+     with a code span for every project path other than `/srv/proj`, and a
+     `Lineage: <agent>[, <agent>]` line when it calls another agent's
+     builder. `tools/check_fixture_schema.py` checks these.
 6. Add a `<Agent>Tests(ParserBase)` class to
    `tests/parsers/test_<parser>.py` with the existing cases: rows, thinking
    opt-in, history, not-wanted, truncated line. The truncated-line case
@@ -691,18 +719,20 @@ attribute are the same string.
      that run's checks, under the same dated label at each place. A
      separate root and `run` is only for a layout the main image cannot
      hold.
-   - Add at least one check per new secret glob, exclusion and discovery
-     source, and one for anything unusual (symlinks, SQLite sidecars,
-     spaces, drive-letter or `file:///` project references), with identical
-     check names in both files.
-   - A secret glob's check asserts the fixture file's row with
-     `secret: true` (and `skipped_secret` under `--no-secrets`). A secret
-     glob under an entry that names a directory's children needs its own
-     catalog line (as the `.claude-*/` relocated-home globs do).
+   - Each `SECRET_GLOBS` line has a default-run check asserting
+     `secret: true` and a `--no-secrets` check asserting `skipped_secret`
+     on a path it matches, each `EXCLUDES` line a check asserting
+     `skipped_excluded`, and each `CATALOG` and `PROJECT_CATALOG` line a
+     fixture path it matches whose name its research document gives, in
+     both smoke files and by full path from the image root;
+     `tools/check_smoke_coverage.py` checks this. Add a check per new
+     discovery source and one for anything unusual (symlinks, SQLite
+     sidecars, spaces, drive-letter or `file:///` project references),
+     with identical check names in both files.
+   - A secret glob under an entry that names a directory's children needs
+     its own catalog line (as the `.claude-*/` relocated-home globs do).
    - The fixture holds one file per credential name in the research
      document's Credentials section, not one per glob.
-   - A check names a row by its full path from the image root, never a
-     suffix.
    - Run the full shell matrix of
      [Validation and testing](#validation-and-testing), Windows PowerShell
      5.1 through the WSL path included.
@@ -817,7 +847,9 @@ before any install.
 5. **Integrate in one commit.**
    - Research agents write only their research documents. One integration
      agent makes every table change after all reports are in, under the
-     vendor's comment block (or a new one), never at the end.
+     vendor's comment block (or a new one), never at the end, writing each
+     line from the document's Collection sections, never from a report's
+     Proposed lines.
    - It splits each group report into one document per catalog agent,
      named exactly as in `--list`, keeping citations and fixtures and
      dropping the proposed lines. Every agent with a catalog line gets its
@@ -858,24 +890,38 @@ platform). A surface is never split out to shorten a document nor merged in
 to save a catalog line.
 
 `tools/check_research_structure.py` enforces the outline, the split phrases
-and the placement of confidence paragraphs; with `--before <dir>` holding
-the previous copies it lists every citation, code span, fenced line, number
-and label a rewrite dropped.
+and the placement of confidence paragraphs, and reports breaches of the
+Observed bullet, version, duplication and documentation-link rules below
+against its baseline ([Quality gates](#quality-gates)); with
+`--before <dir>` holding the previous copies it lists every citation, code
+span, fenced line, number, label, Observed label and key-table row a
+rewrite dropped.
 
 The document opens with `# <agent>` (the catalog name) and one unheaded
 intro paragraph: what the agent is, its surfaces, its lineage and the
 parser's state in one sentence. Nothing else precedes
 `## Source and evidence`. A bold label never stands in for a heading; prose
 wraps at 100 characters, except a citation link or a lone code span; tables
-stay tables.
+stay tables. Every reference to vendor documentation, a changelog, release
+notes or a README is an inline link at the claim, to the section anchor
+when the page has one.
 
 1. `## Source and evidence`: the repository and commit (or bundle, binary,
    documentation), the evidence level per claim, then `### Observed` and
    `### Source reviews`.
-   - An Observed bullet is one platform and surface: build, date, the steps
-     run and what each wrote, in one paragraph; "No real install." when
-     none. Its findings are stated in the sections that own them and linked
-     from the bullet.
+   - An Observed bullet is one cell, one platform and surface: build, date,
+     the steps run and what each wrote, in one paragraph. It opens with its
+     cell label in bold, `**<Platform> <surface>**:`, where Platform is one
+     of macOS, Windows, Linux, FreeBSD or OpenBSD and surface names the
+     product's form (`**macOS CLI**:`, `**Windows desktop app**:`,
+     `**Linux lab container**:`); a document with no install has the one
+     bullet `No real install.`.
+   - Each cell has one bullet, which describes the latest round of its
+     cell, names that build, and, when earlier builds were observed, ends
+     with `Earlier builds observed: <build> (<YYYY-MM-DD>), <build> (<YYYY-MM-DD>).`;
+     what an older build wrote differently goes in Format versions. Its
+     findings are stated in the sections that own them and linked from
+     the bullet.
    - What the collector or analyzer did during a round goes to the docs
      page it concerns or to an issue, never into the document.
    - A Source reviews entry is the date, the commit or build reviewed, and
@@ -886,10 +932,17 @@ stay tables.
    - `### Per-user storage`: every directory and file under the home per
      platform, what each holds, sizes where observed; `####` subsections
      per platform or product when layouts differ; the fixed
-     `#### Scratch directories` ("None known." when none).
-   - `### Credentials`: credential files by exact name, keychain use and
-     its file fallback, config files that can embed keys, identity values
-     to redact.
+     `#### Scratch directories` ("None known." when none). A Docker volume
+     layout is described in a Per-user storage subsection whose heading
+     names the volume, and names each volume-relative exclusion and secret
+     glob.
+   - `### Credentials`: credential files (settings files that hold keys
+     among them), keychain use and its file fallback, identity values to
+     redact. A credential file is named by its home-relative path on each
+     platform form the Per-user storage section names, and each is either
+     flagged by a secret glob or, for a store that mixes secrets with
+     evidence, listed in Secrets; "collected unflagged", "not flagged",
+     "may embed" and "can embed" are not used.
    - `### Exclusions`: large or low-value subtrees as exact patterns.
    - `### Project-local files`: files written or read inside repositories.
    - `### Where the project path is recorded`: file and key, or table and
@@ -905,13 +958,22 @@ stay tables.
      a link to [Secondary sources](analyzer/docs/output.md#secondary-sources)
      and no analyzer version.
    - `### Record schema`: line or row types and their key sets, `####` per
-     store or record family; the field names the parser depends on.
+     store or record family; the field names the parser depends on. A key
+     table, here or under Other stores, has the header
+     `| Key | Type | Values | Since |` (or `Builds` for `Since`): Key a
+     code span, Type the JSON type names (`string`, `number`, `boolean`,
+     `object`, `array`, `null`) joined by "or", a comma or a slash, Values
+     the allowed values as code spans, empty for any value.
    - `### Joins and timestamps`: session id, project path, tool-call ids,
      the time basis and precision, what cannot be joined.
    - `### Other stores`: databases, indexes, histories, logs, mirrors and
      backups beside the transcript store, `####` per store.
    - `### Format versions`: how the shapes changed and which build writes
-     which.
+     which. Elsewhere a shape description names a version only as
+     `since <version>` or `added in <version>`, backed by a Format versions
+     entry naming that version or a citation link on the same line or the
+     next; an observed change without a commit or changelog is written
+     `changed between <build> and <build>`.
    - `### Secrets`: what inside the stores is a credential or an identity.
    - `### Parser plan`: the row table and the globs, then the fixed `####`
      subsections in this order, each present and saying "The agent records
@@ -919,7 +981,10 @@ stay tables.
      `Model rows`, `Past-use rows and secondary sources`,
      `Sync, relay and origin rows`, `Scratch directory rows`,
      `Deletion rows`, `Bad-line rows`, `Fixtures`; unique subsections
-     follow them.
+     follow them. A list of what the parser does not read starts
+     `Not read:` and names each file or key as a code span; a parenthesis
+     inside it that says something is read is phrased
+     ``(`x` is read only for ...)``.
 4. `## Confidence`: one list for both halves, confidence per item and what
    could not be determined, holding no fact the body states and no item it
    has answered. A confidence paragraph elsewhere is a defect.
@@ -928,10 +993,12 @@ One home per fact: Per-user storage names each file and what it holds;
 Transcript stores through Other stores describe its records; Credentials
 names credential files and Secrets the stored fields that are credentials;
 other sections link the home. A fact stated in two sections is a defect
-even when the copies agree. The document speaks as one: it never refers to
-"the collector document", "the analyzer review", "the two documents" or a
-"collector concern"; a dated subsection ("Found in the review of ...") is
-folded into its topic; a section link points at the topic it names.
+even when the copies agree: each record shape is described once, and a
+version is named only where the shape changed. The document speaks as one:
+it never refers to "the collector document", "the analyzer review", "the
+two documents" or a "collector concern"; a dated subsection ("Found in the
+review of ...") is folded into its topic; a section link points at the
+topic it names.
 
 `research/README.md` is the index (evidence level and parse status per
 agent, and the survival table); `research/frameworks.md` (one section per
@@ -1005,12 +1072,16 @@ it wrote with the research documents, the catalog and the parser.
 [`docs/lab-vms.md`](docs/lab-vms.md) describes the VMs.
 
 A round covers every surface the agent ships on every platform it ships it
-for; each cell is its own round, with its own Observed bullet. A round is
+for; each cell is its own round, and has one Observed bullet, kept current
+([Research document structure](#research-document-structure)). A round is
 required, before any table, document or parser changes, when an agent is
 added to the catalog, when its coverage is extended (a cell without an
 Observed bullet, a feature the documents do not mention), and when a
-version newer than the last Observed bullet's is in use; an install of
-another build is a new cell, never a confirmation of the old one.
+version newer than the last Observed bullet's is in use. A newer build is
+a new round of its cell, never a confirmation of the old one: it rewrites
+the bullet for that build, moves the older build into the bullet's
+earlier-builds sentence, and moves what the older build wrote differently
+into Format versions.
 
 1. **Survey names first, one step at a time.**
    - For a CLI agent the main session performs each step: it runs the
@@ -1130,10 +1201,10 @@ another build is a new cell, never a confirmation of the old one.
    on zero; one expecting none is first run against a known match, since a
    filter aimed at the wrong path returns an empty, passing-looking result.
 5. **Write it down the same day.**
-   - The Observed subsection gets a bullet per cell: version, build,
-     date, what was exercised and what each surface wrote. A layout the
-     parser handles that no real install has shown is marked "not observed
-     on any real install, bundle-derived".
+   - The cell's Observed bullet is written, or rewritten, for this round:
+     version, build, date, what was exercised and what each surface wrote.
+     A layout the parser handles that no real install has shown is marked
+     "not observed on any real install, bundle-derived".
    - Every statement about a product surface (a tab, a button, a mode)
      carries the build and date; every claim about what an agent writes,
      sanitises or removes names the build or commit it was verified at.
@@ -1167,11 +1238,13 @@ fixtures, collector docs, changelog), one for the research document and
 the agents page; each reports every check it ran with the result line.
 
 The main session then re-runs the checks (catalog drift, analyzer suite,
-markdownlint, link check, the sh smoke test under `/bin/sh` and the
-PowerShell smoke test under Windows PowerShell 5.1 on the VM), runs the
-merged parser over the round's archive, compares each new row form's count
-and the fixtures' values with the real records, reviews the diffs against
-the brief, and commits. When the research and parser subagents run in
+markdownlint, link check, the drift checkers of
+[Quality gates](#quality-gates), the sh smoke test under `/bin/sh` and the
+PowerShell smoke test under Windows PowerShell 5.1 on the VM), fixes each
+drift finding the round's evidence settles and removes its baseline line,
+runs the merged parser over the round's archive, compares each new row
+form's count and the fixtures' values with the real records, reviews the
+diffs against the brief, and commits. When the research and parser subagents run in
 parallel, the Parser plan's row forms are copied from the parser's
 docstring at review.
 
@@ -1189,12 +1262,12 @@ ruleset on `main` requires.
 A change touching only Markdown files and `.markdownlint-cli2.jsonc` is
 documentation only: CI skips every other job and the lint job runs only
 markdownlint, `tools/check_doc_links.py`,
-`tools/check_research_structure.py` and `tools/check_code_style.py`. Locally
-such a change needs markdownlint, `tools/check_doc_links.py` and
-`tools/check_research_structure.py`, since the code style check reads no
-Markdown. A push whose previous commit GitHub cannot name (a new branch, a
-force push) counts as a code change. Before committing a collector change,
-run:
+`tools/check_research_structure.py`, the drift checkers and
+`tools/check_code_style.py`. Locally such a change needs markdownlint,
+`tools/check_doc_links.py`, `tools/check_research_structure.py` and the
+drift checkers, since the code style check reads no Markdown. A push whose
+previous commit GitHub cannot name (a new branch, a force push) counts as a
+code change. Before committing a collector change, run:
 
 ```sh
 cd collectors
@@ -1209,12 +1282,17 @@ tests/catalog-sync.sh
 pwsh -NoProfile -File tests/smoke.ps1
 cd ../analyzer && tests/run.sh
 cd ..
+python3 -m pytest tools/tests -q   # the drift checkers' tests, with the same python
 # quality gates, from the repository root (see "Quality gates")
 uvx ruff@0.16.10 check . && uvx ruff@0.16.10 format --check .
 uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright
 npx -y markdownlint-cli2@0.23.3 "**/*.md"
 python3 tools/check_doc_links.py
 python3 tools/check_research_structure.py
+python3 tools/check_tables_research.py
+python3 tools/check_smoke_coverage.py
+python3 tools/check_parser_research.py
+python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as tests/run.sh does
 python3 tools/check_code_style.py
 shfmt -ln posix $(shfmt -f .) >/dev/null && shellcheck -s sh $(shfmt -f .) && checkbashisms -p $(shfmt -f .)
 pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
@@ -1293,7 +1371,8 @@ skipped without it. Never add a `python3` requirement to the collector.
 Every gate runs in the CI `lint` job, never in the pre-commit hook. The
 versions are pinned in the workflow's `env` block; change it and this table
 together. Run the commands from the repository root before pushing; a
-documentation-only change needs only the last two rows and markdownlint.
+documentation-only change needs markdownlint and the rows from document
+links down.
 
 | Gate | Version | Local command | Configuration |
 | --- | --- | --- | --- |
@@ -1307,8 +1386,20 @@ documentation-only change needs only the last two rows and markdownlint.
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
 | code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
-| research document structure | none | `python3 tools/check_research_structure.py` | none; see [Research document structure](#research-document-structure) |
+| research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |
+| tables against research | none | `python3 tools/check_tables_research.py` | the baseline under `tools/drift-baseline/` |
+| smoke test coverage | none | `python3 tools/check_smoke_coverage.py` | the baseline under `tools/drift-baseline/` |
+| parsers against research | none | `python3 tools/check_parser_research.py` | the baseline under `tools/drift-baseline/` |
+| fixtures against research | none | `python3 tools/check_fixture_schema.py`, with `analyzer/requirements.txt` installed | the baseline under `tools/drift-baseline/` |
 
+- The drift checkers (research document structure and the rows below it)
+  compare the research documents with the tables, the smoke tests, the
+  parsers and the fixtures. A finding missing from
+  `tools/drift-baseline/<agent>.txt` fails, and so does a baseline line no
+  finding produces, so an agent's file empties as the agent is rebuilt
+  from fresh evidence. `--update-baseline` adds lines only in the commit
+  that adds or changes a rule, whose body gives the reason; a finding an
+  edit causes is fixed, never baselined.
 - `shfmt -f .` finds sh files by shebang as well as extension, so the hook
   script, `lab/lab.sh` and `analyzer/tests/run.sh` are checked too.
 - pyright runs with both analyzer dependencies installed; `zstandard` and
@@ -1461,7 +1552,9 @@ documentation-only change needs only the last two rows and markdownlint.
   the rule depends on it; an example stays only when it is the
   specification; a rule already stated elsewhere in this file is linked, not
   repeated. The same holds for `CLAUDE.md`, and `tools/check_doc_links.py`
-  fails on an issue or pull request link in either file.
+  fails on an issue or pull request link in either file. A rule added to
+  this file ships in one pull request with the checker extension that
+  tests it and a sweep that fixes or baselines every existing breach.
 - An index table (the agents page, the survival table) gives a short cell
   and a link, never the documents' detail.
 - A document never says how it is maintained, never states its own
