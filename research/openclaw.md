@@ -1302,7 +1302,7 @@ engine.
 whose `store_json` is `{version, profiles}`, `profiles` mapping each profile id to a credential
 ([`agents/auth-profiles/types.ts:33-39`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/auth-profiles/types.ts#L33-L39),
 [`:161-164`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/auth-profiles/types.ts#L161-L164);
-[`credential-schema.ts:44-75`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/auth-profiles/credential-schema.ts#L44-L75)).
+[`credential-schema.ts:44-67`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/auth-profiles/credential-schema.ts#L44-L67)).
 Its values are credentials ([Secrets](#secrets)); the parser never reads the table.
 
 | Key | Type | Values | Since |
