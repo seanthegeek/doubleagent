@@ -1,14 +1,4 @@
 check_research_structure|bare-doc-reference|Medium for the Desktop paths, which rest on the documentation only.
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cache/langflow/profile_pictures
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .langflow/knowledge_bases
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/com.LangflowDesktop/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/com.LangflowDesktop/python_env
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/com.LangflowDesktop/venv
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/langflow/langflow/Cache/profile_pictures
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/com.LangflowDesktop/knowledge_bases
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/com.LangflowDesktop/python_env
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/com.LangflowDesktop/venv
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Caches/langflow/profile_pictures
 check_smoke_coverage|fixture-name-undocumented|smoke.sh Library/Logs/com.LangflowDesktop/langflow.log
 check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 langflow
 check_smoke_coverage|framework-nosecrets-missing|smoke.sh langflow
@@ -26,11 +16,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/com.Langfl
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Caches/langflow/*secret_key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh cache_secret_key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh secret_key
-check_smoke_coverage|secret-check-missing|smoke.ps1 .cache/langflow/*secret_key
-check_smoke_coverage|secret-check-missing|smoke.ps1 .langflow/data/.env
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/langflow/langflow/Cache/*secret_key
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/com.LangflowDesktop/data/.env
-check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Caches/langflow/*secret_key
 check_tables_research|credential-unflagged|Library/Application Support/com.LangflowDesktop/data/.env
 check_tables_research|credential-wording|may embed `<user_id>/_mcp_servers_*.json`
 check_tables_research|volume-glob-unnamed|secret [0-9a-f]*-*-*-*-*/_mcp_servers_*.json

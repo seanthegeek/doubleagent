@@ -1,16 +1,3 @@
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/local-deep-research/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/local-deep-research/journal_data
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/local-deep-research/library
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/local-deep-research/models
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/local-deep-research/local-deep-research/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/local-deep-research/local-deep-research/journal_data
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/local-deep-research/local-deep-research/library
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/local-deep-research/local-deep-research/models
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Documents/LocalDeepResearch/Library
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/local-deep-research/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/local-deep-research/journal_data
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/local-deep-research/library
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/local-deep-research/models
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 journal_data
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 library
 check_smoke_coverage|exclusion-check-missing|smoke.sh journal_data
@@ -25,10 +12,7 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/local-deep-re
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .secret_key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/local-deep-research/local-deep-research/.secret_key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/local-deep-research/.secret_key
-check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/local-deep-research/.secret_key
 check_smoke_coverage|secret-check-missing|smoke.ps1 .secret_key
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/local-deep-research/local-deep-research/.secret_key
-check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/local-deep-research/.secret_key
 check_smoke_coverage|secret-check-missing|smoke.sh .secret_key
 check_tables_research|credential-wording|may embed `config/config.toml`
 check_tables_research|line-unnamed|exclude AppData/Local/local-deep-research/local-deep-research/cache

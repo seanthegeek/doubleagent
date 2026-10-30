@@ -14,9 +14,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/crewai/settings.js
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/crewai/credentials/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/[Cc]rew[Aa][Ii]/credentials/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/crewai/credentials/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/crewai/settings.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/crewai/credentials/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/crewai/credentials/*
 check_tables_research|line-unnamed|home .local/share/*/.crewai_user.json
 check_tables_research|line-unnamed|home .local/share/*/flow_states.db*
 check_tables_research|line-unnamed|home .local/share/*/latest_kickoff_task_outputs.db*

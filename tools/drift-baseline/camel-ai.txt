@@ -6,4 +6,3 @@ check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 camel-ai
 check_smoke_coverage|framework-nosecrets-missing|smoke.sh camel-ai
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .camel/gmail_token.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .camel/gmail_token.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .camel/gmail_token.json

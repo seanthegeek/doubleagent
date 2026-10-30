@@ -20,15 +20,6 @@ check_parser_research|pattern-undocumented|^(?:.*/)?\.pearai/sessions/([^/]+)\.j
 check_parser_research|pattern-undocumented|^(?:.*/)?logs/[^/]+/window\d+/exthost/output_logging_[^/]+/\d+-PearAI\.log$
 check_parser_research|row-text-undocumented|checkpoint_created:
 check_parser_research|row-text-undocumented|session start:
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/.diffs
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/.migrations
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/dev_data/devdata.sqlite
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/extensions
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/index/*.sqlite
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/index/lancedb
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/node_modules
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/out
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/types
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/PearAI/logs
 check_smoke_coverage|fixture-missing|smoke.ps1 home .pearai-server/data/User
 check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/PearAI/User
@@ -61,10 +52,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .pearai/.configs/*/config.
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .pearai/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .pearai/config.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .pearai/config.ts
-check_smoke_coverage|secret-check-missing|smoke.ps1 .pearai/.configs/*/config.js*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .pearai/.env
-check_smoke_coverage|secret-check-missing|smoke.ps1 .pearai/config.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .pearai/config.ts
 check_tables_research|line-unnamed|home AppData/Roaming/PearAI/User
 check_tables_research|line-unnamed|home Library/Application Support/PearAI/User
 check_tables_research|parsing-fact-under-collection|taskHistory

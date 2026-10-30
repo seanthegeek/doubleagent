@@ -1,10 +1,7 @@
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .flowise/vectorstore
 check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 flowise
 check_smoke_coverage|framework-nosecrets-missing|smoke.sh flowise
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .flowise/*_secret.key
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .flowise/encryption.key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .flowise/*_secret.key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .flowise/encryption.key
-check_smoke_coverage|secret-check-missing|smoke.ps1 .flowise/*_secret.key
-check_smoke_coverage|secret-check-missing|smoke.ps1 .flowise/encryption.key
 check_tables_research|credential-wording|collected unflagged `database.sqlite`

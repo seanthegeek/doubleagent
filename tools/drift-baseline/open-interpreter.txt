@@ -33,20 +33,6 @@ check_parser_research|parser-message-undocumented|parser: unreadable import ledg
 check_parser_research|parser-message-undocumented|parser: unreadable memory summary: %s
 check_parser_research|parser-message-undocumented|parser: unreadable rules file: %s
 check_parser_research|row-text-undocumented|session start:
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .config/open-interpreter/models
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/.sandbox
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/.sandbox-bin
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/.tmp
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/models-cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/packages
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/plugins/cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/skills/.system
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/tmp
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/visualizations
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openinterpreter/worktrees
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/open-interpreter/open-interpreter/models
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/open-interpreter/models
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .codewhale/notes.md
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/.sandbox-secrets/s1
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/archived_sessions/rollout-2026-10-01T00-00-00-u2.jsonl
@@ -89,20 +75,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Open Interpr
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/open-interpreter/open-interpreter/profiles/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Open Interpreter*/config.yaml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/open-interpreter/profiles/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/Open Interpreter*/config.yaml
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/open-interpreter/profiles/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/.credentials.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/.env
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/.sandbox-secrets/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/auth.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/config.toml
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/credentials/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/device_id
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openinterpreter/secrets/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Open Interpreter*/Open Interpreter*/config.yaml
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/open-interpreter/open-interpreter/profiles/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Open Interpreter*/config.yaml
-check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/open-interpreter/profiles/*
 check_tables_research|credential-wording|can embed `config.toml`
 check_tables_research|line-unnamed|exclude AppData/Local/open-interpreter/open-interpreter/models
 check_tables_research|line-unnamed|home AppData/Local/Open Interpreter*

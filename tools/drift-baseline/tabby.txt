@@ -37,9 +37,6 @@ check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscd
 check_parser_research|row-text-undocumented|relevant questions:
 check_parser_research|row-text-undocumented|unknown log entry:
 check_research_structure|bare-doc-reference|All claims from source except the JetBrains settings directory, which is from JetBrains documentation.
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/index
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/models
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/repositories
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 index
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 repositories
 check_smoke_coverage|exclusion-check-missing|smoke.sh index
@@ -56,8 +53,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .tabby-client/agent/confi
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .tabby/config.toml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .tabby-client/agent/config.toml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .tabby/config.toml
-check_smoke_coverage|secret-check-missing|smoke.ps1 .tabby-client/agent/config.toml
-check_smoke_coverage|secret-check-missing|smoke.ps1 .tabby/config.toml
 check_tables_research|line-unnamed|home .config/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|line-unnamed|home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
 check_tables_research|line-unnamed|home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml

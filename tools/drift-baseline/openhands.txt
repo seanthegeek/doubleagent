@@ -25,9 +25,6 @@ check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)
 check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)?conversations|conversations)/([0-9a-fA-F]{32})/events/event-(\d{5,})-[0-9a-fA-F-]{8,}\.json$
 check_parser_research|pattern-undocumented|^\.openhands/(?:sessions|users/[^/]+/conversations)/([^/]+)/events/(\d+)\.json$
 check_parser_research|row-text-undocumented|state update:
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openhands/agent-canvas/tmux
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openhands/agent-canvas/workspaces
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openhands/cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-canvas/tmux
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 agent-canvas/workspaces
 check_smoke_coverage|exclusion-check-missing|smoke.sh agent-canvas/tmux
@@ -87,19 +84,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh secrets.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .config/OpenHands Agent Canvas/mars-credentials.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .jwt_secret
 check_smoke_coverage|secret-check-missing|smoke.ps1 .keys
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/.jwt_secret
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/.keys
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/agent-canvas/api-key.txt
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/agent-canvas/secret-key.txt
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/agent_settings.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/auth/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/cloud/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/mcp.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/profiles/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/provider-connections/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/runtime-control/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/secrets.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .openhands/settings.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/OpenHands Agent Canvas/mars-credentials.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/OpenHands Agent Canvas/mars-credentials.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 agent_settings.json

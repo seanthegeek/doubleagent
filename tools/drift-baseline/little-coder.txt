@@ -16,6 +16,5 @@ check_smoke_coverage|fixture-name-undocumented|smoke.sh .cache/little-coder/log.
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .little-coder/state.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/little-coder/models.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/little-coder/models.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/little-coder/models.json
 check_tables_research|line-unnamed|home .pi/agent/little-coder-prompt-history.json
 check_tables_research|parsing-fact-under-collection|permission_mode

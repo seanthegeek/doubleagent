@@ -45,11 +45,6 @@ check_parser_research|pattern-undocumented|^\.letta/runs/[^/]+\.jsonl$
 check_parser_research|row-text-undocumented|compaction: tokensBefore=
 check_parser_research|row-text-undocumented|letta local-backend conversation start:
 check_parser_research|row-text-undocumented|session_info: name=
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/bin
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/chroma
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/mod-cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/tool_execution_dir
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .memgpt/chroma
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 chroma
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 mod-cache
@@ -84,15 +79,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .letta/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .memgpt/credentials
 check_smoke_coverage|nosecrets-check-missing|smoke.sh channels/whatsapp/auth/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh pg_uri
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/letta/settings.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/agents/*/memory/.git/config
-check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/agents/*/memory/.git/letta-credential-helper.cmd
-check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/channels/*/accounts.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/channels/whatsapp/auth/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/credentials
-check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/lc-local-backend/providers/auth.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/pg_uri
-check_smoke_coverage|secret-check-missing|smoke.ps1 .memgpt/credentials
 check_smoke_coverage|secret-check-missing|smoke.ps1 channels/whatsapp/auth/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 pg_uri
 check_smoke_coverage|secret-check-missing|smoke.sh channels/whatsapp/auth/*

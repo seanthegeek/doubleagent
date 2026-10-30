@@ -1455,7 +1455,7 @@ Check 'claude desktop mcp config flagged secret' { $row -and $row.secret -eq $tr
 Check 'claude desktop Cache excluded' { (StatusOf 'Roaming/Claude/Cache') -eq 'skipped_excluded' }
 # 2026-10-04 catalog cases
 foreach ($caseLine in $CasesCatalog) {
-  $fields = @($caseLine -split '\|', 3); $row = Row "alice/$($fields[2])"
+  $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"
   switch ($fields[0]) {
     'excl' { Check "excluded: $($fields[2])" { $row -and $row.status -eq 'skipped_excluded' } }
     'exclf' { Check "excluded: $($fields[2])" { $row -and $row.status -eq 'skipped_excluded' } }
@@ -1515,7 +1515,7 @@ $row = Row 'Users/alice/.local/share/docker/volumes/tabby_data/_data/events/2026
 Check 'rootless volume collected as tabby' { $row -and $row.user -eq 'docker' -and $row.agent -eq 'tabby' -and $row.status -eq 'collected' }
 # 2026-10-04 Muse Code
 foreach ($caseLine in $CasesMuse) {
-  $fields = @($caseLine -split '\|', 3); $row = Row "alice/$($fields[2])"
+  $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"
   switch ($fields[0]) {
     'excl' { Check "excluded: $($fields[2])" { $row -and $row.agent -eq 'muse-code' -and $row.status -eq 'skipped_excluded' } }
     'exclf' { Check "excluded: $($fields[2])" { $row -and $row.agent -eq 'muse-code' -and $row.status -eq 'skipped_excluded' } }
@@ -1596,7 +1596,7 @@ Check 'ollama blob not collected' { $null -eq (Row 'blobs/sha256-abc') }
 
 # 2026-10-06 frameworks sweep (#64)
 foreach ($caseLine in $CasesFrameworks) {
-  $fields = @($caseLine -split '\|', 3); $row = Row "alice/$($fields[2])"
+  $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"
   switch ($fields[0]) {
     'excl' { Check "excluded: $($fields[2])" { $row -and $row.status -eq 'skipped_excluded' } }
     'exclf' { Check "excluded: $($fields[2])" { $row -and $row.status -eq 'skipped_excluded' } }
