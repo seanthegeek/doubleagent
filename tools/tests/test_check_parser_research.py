@@ -149,7 +149,7 @@ def test_stale_baseline_entry_fails(tmp_path, capsys):
     key = "check_parser_research|key-undocumented|gone"
     write(root / "tools/drift-baseline/alpha.txt", key + "\n")
     assert checker.main([], root) == 1
-    assert "stale: remove %s from tools/drift-baseline/alpha.txt" % key in capsys.readouterr().out
+    assert 'stale: remove "%s" from tools/drift-baseline/alpha.txt' % key in capsys.readouterr().out
 
 
 def test_update_baseline_removes_a_stale_entry_and_records_a_finding(tmp_path):

@@ -17,7 +17,7 @@ check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/
 check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/(?P<plugin>_tool_access|_orchestrator)/config\.json$
 check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?plugins/_telegram_integration/state\.json$
 check_parser_research|pattern-undocumented|^\.agent-zero/\.env$
-check_research_structure|bare-doc-reference|is beside only in a native run or a whole- mount; the installer, the launcher and the README volume mount alone, so stays inside the container.
+check_research_structure|bare-doc-reference|tmp/ is beside usr/ only in a native run or a whole-/a0 mount; the installer, the launcher and the README volume mount usr alone, so tmp/ stays inside the container.
 check_research_structure|latest-version-missing|The Docker volume layout of chats (`chats/<ctxid>/chat.json` at
 check_research_structure|latest-version-missing|The `session synced:` and `session relayed:` rows are
 check_research_structure|observed-label-missing|The Docker volume layout of chats (`chats/<ctxid>/chat.json` at

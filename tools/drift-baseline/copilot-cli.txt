@@ -29,7 +29,7 @@ check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot
 check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/session-state/([0-9a-f-]{36})/workspace\.yaml$
 check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/settings\.json$
 check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/sidebar-sessions-state/[0-9a-f]{64}\.json$
-check_research_structure|bare-doc-reference|Closed source: holds issues and a changelog only, so there are no commit links.
+check_research_structure|bare-doc-reference|Closed source: github/copilot-cli holds issues and a changelog only, so there are no commit links.
 check_research_structure|observed-label-missing|Linux, npm, 1.0.98, 2026-10-16: installed with `sudo npm
 check_research_structure|observed-label-missing|Windows, through Copilot Desktop, bundled CLI 1.0.99-2, 2026-10-17:
 check_research_structure|observed-label-missing|Windows, winget, standalone CLI 1.0.98, 2026-10-17: installed with

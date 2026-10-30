@@ -10,7 +10,7 @@ fails, so new drift fails CI while the drift recorded in the baseline expires ag
 - A checker reads only the baseline lines whose first field is its own name.
 - A finding whose agent and key are not a baseline line is new, and fails.
 - A baseline line of the checker that no finding produced is stale, and fails with
-  `stale: remove <key> from tools/drift-baseline/<agent>.txt`.
+  `stale: remove "<key>" from tools/drift-baseline/<agent>.txt`.
 - A baseline line with fewer than three fields belongs to no checker; every checker fails on it.
 - `--update-baseline` rewrites the checker's own lines of every agent file from the run's
   findings, deletes a file left empty, keeps every other checker's lines, and exits 0.
@@ -188,7 +188,7 @@ def compare(
         if pair not in baseline.own:
             new.append(finding)
     stale = [
-        "%s:%d: stale: remove %s from %s"
+        '%s:%d: stale: remove "%s" from %s'
         % (baseline_file(agent), number, key, baseline_file(agent))
         for (agent, key), number in sorted(baseline.own.items())
         if (agent, key) not in produced

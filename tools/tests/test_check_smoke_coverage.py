@@ -259,7 +259,7 @@ def test_stale_baseline_line_fails(tmp_path, capsys):
     key = "check_smoke_coverage|secret-check-missing|smoke.sh .alpha/gone"
     write(tmp_path / "tools/drift-baseline/alpha.txt", key + "\n")
     assert coverage.main([], tmp_path) == 1
-    assert "stale: remove %s" % key in capsys.readouterr().out
+    assert 'stale: remove "%s"' % key in capsys.readouterr().out
 
 
 def test_update_baseline_removes_stale_line(tmp_path):

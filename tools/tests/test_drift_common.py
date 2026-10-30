@@ -130,7 +130,7 @@ def test_stale_line_fails_with_remove_message(tmp_path, capsys):
     status = drift_common.main_with_baseline("check_tables", run_with([ALPHA]), [], tmp_path)
     assert status == 1
     assert capsys.readouterr().out.splitlines() == [
-        "tools/drift-baseline/alpha.txt:1: stale: remove check_tables|line-unnamed|.alpha/gone"
+        'tools/drift-baseline/alpha.txt:1: stale: remove "check_tables|line-unnamed|.alpha/gone"'
         " from tools/drift-baseline/alpha.txt"
     ]
 
@@ -227,7 +227,7 @@ def test_example_checker_form(tmp_path, capsys):
     assert baseline_text(tmp_path, "beta") == "check_example|title-mismatch|beta.md\n"
     write(tmp_path / "research/beta.md", "# beta\n")
     assert example_checker.main([], tmp_path) == 1
-    assert "stale: remove check_example|title-mismatch|beta.md" in capsys.readouterr().out
+    assert 'stale: remove "check_example|title-mismatch|beta.md"' in capsys.readouterr().out
     assert example_checker.main(["--update-baseline"], tmp_path) == 0
     assert not (tmp_path / "tools/drift-baseline/beta.txt").exists()
 

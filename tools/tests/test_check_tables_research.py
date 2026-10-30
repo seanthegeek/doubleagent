@@ -177,7 +177,7 @@ def test_stale_baseline_entry_fails(tmp_path, capsys):
     )
     assert checker.main([], tmp_path) == 1
     output = capsys.readouterr().out
-    assert "stale: remove check_tables_research|line-unnamed|.alpha-gone" in output
+    assert 'stale: remove "check_tables_research|line-unnamed|.alpha-gone"' in output
 
 
 def test_update_baseline_removes_a_stale_entry(tmp_path):

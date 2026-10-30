@@ -16,11 +16,11 @@ follow; a "No real install." or "No real install:" Observed bullet is exempt fro
 - `earlier-builds-malformed`: an Observed bullet saying "Earlier builds observed" without a
   sentence `earlier_builds` accepts at its end.
 - `version-without-change`: a version phrase (`version_phrases`) in Collection or Parsing outside
-  Format versions, whose version Format versions does not name, with no link near (`link_near`);
-  its detail is the sentence (`phrase_sentence`, `sentence_key` with code spans kept).
+  Format versions, whose version Format versions does not name, with no link near (`link_near`).
 - `duplicate-fact`: one sentence key (`sentence_key`) holding the same code span in two `###`
   sections of one part.
 - `bare-doc-reference`: a sentence naming documentation (`documentation_reference`) with no link.
+The last three rules' detail is the sentence (`phrase_sentence`), code spans kept as text.
 
 `--before DIR` prints each URL, code span, fenced line, number, bold label, Observed label and
 key-table row (`key_table_rows`) of the earlier copy (`DIR/<name>`, else `DIR/collectors/<name>`
@@ -652,7 +652,8 @@ def duplicate_findings(lines: list[str], spans: list[Span]) -> list[tuple[str, s
                             earlier[0],
                             earlier[1],
                         )
-                        found.append(("duplicate-fact", key, number, message))
+                        detail = sentence_key(sentence, keep_code=True)
+                        found.append(("duplicate-fact", detail, number, message))
     return found
 
 
@@ -664,7 +665,8 @@ def reference_findings(lines: list[str]) -> list[tuple[str, str, int, str]]:
             phrase = documentation_reference(sentence)
             if phrase and not has_link(sentence):
                 message = 'names "%s"; link the page at the claim' % phrase
-                found.append(("bare-doc-reference", sentence_key(sentence), number, message))
+                detail = sentence_key(sentence, keep_code=True)
+                found.append(("bare-doc-reference", detail, number, message))
     return found
 
 

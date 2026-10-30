@@ -19,7 +19,7 @@ check_parser_research|row-text-undocumented|experimental durable session created
 check_parser_research|row-text-undocumented|fork:
 check_parser_research|row-text-undocumented|session start: version=
 check_parser_research|row-text-undocumented|session_info: name=
-check_research_structure|bare-doc-reference|Medium: -role persistence on versions between 0.83.0 and HEAD (taken from the ai changelog's 0.86.0 note, not bisected).
+check_research_structure|bare-doc-reference|Medium: system-role persistence on versions between 0.83.0 and HEAD (taken from the ai changelog's 0.86.0 note, not bisected).
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/git/*/.git
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/git/*/node_modules

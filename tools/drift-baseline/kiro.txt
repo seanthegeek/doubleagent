@@ -23,7 +23,7 @@ check_parser_research|pattern-undocumented|^\.aws/amazonq/\.cli_bash_history$
 check_parser_research|pattern-undocumented|^\.kiro/sessions/
 check_parser_research|row-text-undocumented|compact: conversation history summarised
 check_parser_research|row-text-undocumented|shell history:
-check_research_structure|bare-doc-reference|Nothing in the repository mentions,, or ; those catalog paths come from the closed binary's strings and the kiro.dev documentation, not from source, and their record shapes remain unverified.
+check_research_structure|bare-doc-reference|Nothing in the repository mentions .kiro, kiro-cli, sessions/ or workspace-roots; those catalog paths come from the closed binary's strings and the kiro.dev documentation, not from source, and their record shapes remain unverified.
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aws/amazonq/cli-checkouts
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aws/amazonq/knowledge_bases
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .kiro/cloud-cache

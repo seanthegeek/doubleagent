@@ -31,7 +31,7 @@ check_fixture_schema|substitution-undeclared|/tmp/claude-1000/-srv-proj/11111111
 check_parser_research|not-read-contradicted|.claude.json
 check_parser_research|not-read-contradicted|model
 check_parser_research|not-read-contradicted|name
-check_research_structure|bare-doc-reference|Medium (vendor documentation only, not exercised): what deletes and leaves, and the sweep's rules for checkpoints, auto memory and Claude Desktop transcripts.
+check_research_structure|bare-doc-reference|Medium (vendor documentation only, not exercised): what claude purge deletes and leaves, and the sweep's rules for file-history/ checkpoints, auto memory and Claude Desktop transcripts.
 check_research_structure|observed-label-missing|Linux (WSL2), the author's host, October 2026, versions
 check_research_structure|observed-label-missing|Linux, the Ubuntu lab install of 2026-10-11, CLI
 check_research_structure|observed-label-missing|Ubuntu 26.04.1 LTS arm64, CLI 2.1.310 linux-arm64 from

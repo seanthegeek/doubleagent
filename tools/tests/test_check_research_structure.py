@@ -309,7 +309,8 @@ def test_duplicate_fact(tmp_path, capsys):
     status, output = run(tmp_path, capsys)
     assert status == 1
     assert kinds(output) == ["duplicate-fact"]
-    assert "duplicate-fact [alpha]: The file holds the access token. - `auth.json`" in output
+    detail = "duplicate-fact [alpha]: The file auth.json holds the access token. - `auth.json`"
+    assert detail in output
 
 
 def test_duplicate_fact_absent_for_other_span_section_part_or_short_key(tmp_path, capsys):
@@ -332,7 +333,7 @@ def test_bare_doc_reference(tmp_path, capsys):
     assert status == 1
     assert kinds(output) == ["bare-doc-reference"]
     assert (
-        'bare-doc-reference [alpha]: The vendor documentation names. - names "documentation"'
+        'bare-doc-reference [alpha]: The vendor documentation names .alpha. - names "documentation"'
         in (output)
     )
 
@@ -356,7 +357,7 @@ def test_baselined_finding_passes_and_stale_line_fails(tmp_path, capsys):
     write_document(tmp_path, document())
     status, output = run(tmp_path, capsys)
     assert status == 1
-    assert "stale: remove %s from tools/drift-baseline/alpha.txt" % key in output
+    assert 'stale: remove "%s" from tools/drift-baseline/alpha.txt' % key in output
 
 
 def test_update_baseline_removes_stale_line_and_keeps_other_checkers(tmp_path, capsys):

@@ -130,7 +130,7 @@ baseline, `tools/drift-baseline/<agent>.txt`, one file per agent
 line per finding, sorted. A finding missing from the baseline is new and
 fails CI: fix the table, document, parser or fixture that disagrees. A
 baseline line that no finding produces any more is stale and fails too,
-printed as `stale: remove <line> from tools/drift-baseline/<agent>.txt`,
+printed as `stale: remove "<line>" from tools/drift-baseline/<agent>.txt`,
 so the commit that fixes the drift also deletes its line; when an agent
 is rebuilt from fresh evidence, its file empties and is deleted.
 `--update-baseline` rewrites one checker's lines in every file from the

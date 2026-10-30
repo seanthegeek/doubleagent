@@ -381,7 +381,7 @@ def test_stale_baseline_entry_fails(tmp_path):
     path.write_text(path.read_text() + stale + "\n", encoding="utf-8")
     status, output = run_main(tmp_path, [])
     assert status == 1
-    assert "stale: remove %s" % stale in output
+    assert 'stale: remove "%s"' % stale in output
 
 
 def test_update_baseline_removes_stale_entry(tmp_path):
