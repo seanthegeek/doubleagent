@@ -916,7 +916,10 @@ when the page has one.
 
 1. `## Source and evidence`: the repository and commit (or bundle, binary,
    documentation), the evidence level per claim, then `### Observed` and
-   `### Source reviews`.
+   `### Source reviews`. When the reviewed commit is ahead of the latest
+   release tag in what it writes, the document names that tag beside the
+   commit, and Format versions says which shapes the tag's build writes
+   differently, since a host runs a released build.
    - An Observed bullet is one cell, one platform and surface: build, date,
      the steps run and what each wrote, in one paragraph. It opens with its
      cell label in bold, `**<Platform> <surface>**:` (the colon inside or
