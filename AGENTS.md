@@ -976,8 +976,9 @@ when the page has one.
      table, here or under Other stores, has the header
      `| Key | Type | Values | Since |` (or `Builds` for `Since`): Key a
      code span, Type the JSON type names (`string`, `number`, `boolean`,
-     `object`, `array`, `null`) joined by "or", a comma or a slash, Values
-     the allowed values as code spans, empty for any value.
+     `object`, `array`, `null`), and `blob` for a SQLite BLOB column,
+     joined by "or", a comma or a slash, Values the allowed values as code
+     spans, empty for any value.
    - `### Joins and timestamps`: session id, project path, tool-call ids,
      the time basis and precision, what cannot be joined.
    - `### Other stores`: databases, indexes, histories, logs, mirrors and

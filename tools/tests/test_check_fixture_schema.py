@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import pathlib
+import sqlite3
 
 import check_fixture_schema as checker
 import drift_common
@@ -416,6 +417,42 @@ def test_type_mismatch_type_and_value_met_by_different_rows(tmp_path):
     assert found == {("type=system", line)}
 
 
+BLOB_DOCUMENT = """\
+# beta
+
+## Parsing
+
+### Record schema
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `data` | blob or null | | 1.0 |
+"""
+
+
+def blob_mismatches(tmp_path, document):
+    """Return the type mismatches of a SQLite table with a BLOB column against a document."""
+    database = tmp_path / "home/.beta/store.db"
+    database.parent.mkdir(parents=True)
+    connection = sqlite3.connect(database)
+    connection.execute("CREATE TABLE archive (data BLOB)")
+    connection.executemany("INSERT INTO archive VALUES (?)", [(b"\x00\x01",), (None,)])
+    connection.commit()
+    connection.close()
+    built = checker.BuiltFile(".beta/store.db", "beta")
+    checker.read_built_file(database, built)
+    write(tmp_path / "research/beta.md", document)
+    parsed = checker.agent_document(tmp_path, tmp_path / "research/beta.md")
+    found = checker.file_findings(built, parsed, [], set())
+    return {item.detail for item in found if item.kind == "type-mismatch"}
+
+
+def test_type_mismatch_blob_column(tmp_path):
+    assert blob_mismatches(tmp_path / "blob", BLOB_DOCUMENT) == set()
+    document = BLOB_DOCUMENT.replace("blob or null", "string or null")
+    assert blob_mismatches(tmp_path / "string", document) == {"data:blob"}
+
+
 def test_substitution_undeclared(tmp_path):
     found = findings_of(tmp_path)
     assert ("alpha", "substitution-undeclared", "/home/alice/other") in found
@@ -620,7 +657,8 @@ def test_json_type_forms():
         ("x", "string"),
         ({}, "object"),
         ([], "array"),
-        (b"x", ""),
+        (b"x", "blob"),
+        (object(), ""),
     ]
     for value, kind in cases:
         assert checker.json_type(value) == kind, value
@@ -631,6 +669,7 @@ def test_table_types_forms():
     assert checker.table_types("string or null") == {"string", "null"}
     assert checker.table_types("`number`, `boolean`") == {"number", "boolean"}
     assert checker.table_types("object/array") == {"object", "array"}
+    assert checker.table_types("blob or null") == {"blob", "null"}
     assert checker.table_types("integer") == set()
 
 

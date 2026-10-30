@@ -26,7 +26,7 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
    key-sorted form equals a record `build_home` wrote.
 
 A key table's header row is `| Key | Type | Values | Since |` (or `Builds`): Key a code span,
-Type `JSON_TYPES` names joined by ` or `, `,` or `/`, Values code spans (empty for any).
+Type `TYPE_NAMES` joined by ` or `, `,` or `/`, Values code spans (empty for any).
 
 Usage: tools/check_fixture_schema.py [--update-baseline], with the analyzer's requirements.
 """
@@ -63,7 +63,8 @@ SHARED_MODULES = frozenset({"__init__", "common"})
 SUBSTITUTE_PATH = "/srv/proj"
 FIXTURES_SECTION = ("Parsing", "Parser plan", "Fixtures")
 ENUM_KEYS = frozenset({"type", "role", "kind", "status", "level", "source", "mode", "decision"})
-JSON_TYPES = ("string", "number", "boolean", "object", "array", "null")
+# The JSON type names, and `blob` for a SQLite BLOB column.
+TYPE_NAMES = ("string", "number", "boolean", "object", "array", "null", "blob")
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
 # Key words naming a directory a session ran in; see `project_path`.
@@ -210,7 +211,7 @@ def toml_keys(line: str) -> list[str]:
 
 
 def json_type(value: object) -> str:
-    """Return the JSON type name of a decoded value: `boolean` before `number`; other is ""."""
+    """Return the type name of a decoded value: `boolean` before `number`, bytes `blob`, else ""."""
     if value is None:
         return "null"
     for kind, python in (
@@ -219,6 +220,7 @@ def json_type(value: object) -> str:
         ("string", str),
         ("object", dict),
         ("array", list),
+        ("blob", bytes),
     ):
         if isinstance(value, python):
             return kind
@@ -226,9 +228,9 @@ def json_type(value: object) -> str:
 
 
 def table_types(cell: str) -> set[str]:
-    """Return the JSON type names a key table's Type cell gives; other words are ignored."""
+    """Return the `TYPE_NAMES` a key table's Type cell gives; other words are ignored."""
     words = (word.strip(" `").lower() for word in TYPE_SEPARATOR.split(cell))
-    return {word for word in words if word in JSON_TYPES}
+    return {word for word in words if word in TYPE_NAMES}
 
 
 def is_enum_value(value: object) -> bool:
