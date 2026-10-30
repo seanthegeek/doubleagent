@@ -15,7 +15,6 @@ check_fixture_schema|sample-equals-builder|.local/share/muse/tui-history.jsonl
 check_parser_research|key-undocumented|type
 check_parser_research|parser-message-undocumented|parser: trust.json is not a JSON object
 check_parser_research|row-text-undocumented|subagent task:
-check_research_structure|bare-doc-reference|No official documentation was consulted.
 check_research_structure|latest-version-missing|Windows: no real install; the Windows claims rest
 check_research_structure|latest-version-missing|macOS: no real install; the Mac claims rest
 check_research_structure|observed-label-missing|Linux (WSL2), Muse Code 1.4.2-R4684.1 (`muse-bin-1.4.2-R4684.1`, the binary

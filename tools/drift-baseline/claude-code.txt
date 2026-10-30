@@ -34,7 +34,6 @@ check_parser_research|not-read-contradicted|.claude.json
 check_parser_research|not-read-contradicted|model
 check_parser_research|not-read-contradicted|name
 check_research_structure|bare-doc-reference|Medium (vendor documentation only, not exercised): what deletes and leaves, and the sweep's rules for checkpoints, auto memory and Claude Desktop transcripts.
-check_research_structure|bare-doc-reference|Patterns are relative to the home: (git clones, 13.7 MB for the official marketplace on Windows 2.1.309; on macOS 2.1.310 a 13.8 MB download with no ),, (the 2.6 MB download of the plugin directory, excluded since this round),,,,, (the changelog and the model catalog), (flag cache, optional), (~245 MB per version, 282.7 MB for 2.1.309 win32-arm64, 274 MB for 2.1.310 darwin-arm64).
 check_research_structure|observed-label-missing|Linux (WSL2), the author's host, October 2026, versions
 check_research_structure|observed-label-missing|Linux, the Ubuntu lab install of 2026-10-11, CLI
 check_research_structure|observed-label-missing|Ubuntu 26.04.1 LTS arm64, CLI 2.1.310 linux-arm64 from

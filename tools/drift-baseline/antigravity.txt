@@ -67,15 +67,7 @@ check_parser_research|row-text-undocumented|children:
 check_parser_research|row-text-undocumented|directory rules:
 check_parser_research|row-text-undocumented|ephemeral:
 check_parser_research|row-text-undocumented|notify user:
-check_research_structure|bare-doc-reference|, shared by the CLI and the app (binary changelog, live names, observed 232 KB on macOS and 320 KB on Linux):,,,,,,,,,,,,,,,,,.
 check_research_structure|bare-doc-reference|/,,,, also appear (binary), consistent with the dir (live, observed; empty) used as the plugin "marketplace cache... staging directories" (str changelog).
-check_research_structure|bare-doc-reference|: workspace to project map (binary changelog).
-check_research_structure|bare-doc-reference|File fallback when the keyring is "bypassed or unreachable" (binary changelog) is (live, 1,670 B; the whole literal is not in the strings, so the name is assembled at runtime).
-check_research_structure|bare-doc-reference|The embedded changelog's newest heading is ( ; oldest at 311213).
-check_research_structure|bare-doc-reference|The embedded changelog's newest heading is.
-check_research_structure|bare-doc-reference|The executable's version resource (, the version Windows shows in the file's properties) is empty; the embedded changelog's newest heading is, with to present.
-check_research_structure|bare-doc-reference|with in (binary changelog; docs/cli/install); the key is env-only.
-check_research_structure|bare-doc-reference|workspace customizations (, binary changelog; damadorPL ), (binary), (binary), legacy (binary, removed in favour of ).
 check_research_structure|observed-label-missing|**Linux, CLI** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83), [issue 89](https://github.com/seanthegeek/doubleagent/issues/89) and [issue
 check_research_structure|observed-label-missing|**Linux, desktop app** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83) and [issue 91](https://github.com/seanthegeek/doubleagent/issues/91)):
 check_research_structure|observed-label-missing|**Windows, CLI** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83), [issue 89](https://github.com/seanthegeek/doubleagent/issues/89) and [issue

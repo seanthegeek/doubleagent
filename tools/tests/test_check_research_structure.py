@@ -227,6 +227,36 @@ def test_latest_version_present_passes(tmp_path, capsys):
     assert (status, kinds(output)) == (0, []), output
 
 
+def test_earlier_builds_malformed(tmp_path, capsys):
+    cases = (
+        GOOD_OBSERVED + " Earlier builds observed: 1.2.2 (September 2026).",
+        GOOD_OBSERVED + " Earlier builds observed: 1.2.2 (2026-09-01). Then a listing.",
+    )
+    for observed in cases:
+        write_document(tmp_path, document(observed=observed))
+        status, output = run(tmp_path, capsys)
+        assert status == 1, observed
+        assert kinds(output) == ["earlier-builds-malformed"], observed
+        assert "earlier-builds-malformed [alpha]: macOS CLI - " in output, observed
+
+
+def test_earlier_builds_placed_forms():
+    accepted = (
+        "**macOS CLI**: 1.2.3. Earlier builds observed: 1.2.2 (2026-09-01).",
+        "**macOS CLI**: 1.2.3. Earlier builds observed: 1.2.2 (2026-09-01), 1.2.1\n(2026-08-01).",
+        "**macOS CLI**: 1.2.3, no earlier build.",
+    )
+    for bullet in accepted:
+        assert checker.earlier_builds_placed(bullet), bullet
+    rejected = (
+        "**macOS CLI**: 1.2.3. Earlier builds observed: 1.2.2.",
+        "**macOS CLI**: Earlier builds observed: 1.2.2 (2026-09-01). Then 1.2.3.",
+        "**macOS CLI**: 1.2.3. Earlier builds observed: 1.2.2 (2026-09-01)",
+    )
+    for bullet in rejected:
+        assert not checker.earlier_builds_placed(bullet), bullet
+
+
 def test_version_without_change(tmp_path, capsys):
     write_document(tmp_path, document(schema="The `id` key is written since 2.1.309."))
     status, output = run(tmp_path, capsys)
@@ -368,9 +398,8 @@ def test_before_reports_a_lost_key_table_row(tmp_path, capsys):
 def test_observed_label_forms():
     accepted = {
         "**macOS CLI**: x": "macOS CLI",
-        "**Windows desktop app**. x": "Windows desktop app",
+        "**Windows desktop app**: x": "Windows desktop app",
         "**Linux lab container:** x": "Linux lab container",
-        "**macOS VS Code extension.** x": "macOS VS Code extension",
         "**FreeBSD CLI**:": "FreeBSD CLI",
     }
     for text, label in accepted.items():
@@ -379,6 +408,8 @@ def test_observed_label_forms():
         "**Windows, CLI** (issue 83): x",
         "**macOS CLI** x",
         "**macOS CLI:**: x",
+        "**Windows desktop app**. x",
+        "**macOS VS Code extension.** x",
         "**Ubuntu CLI**: x",
         "**macOS**: x",
         "macOS CLI: x",
@@ -474,10 +505,29 @@ def test_documentation_reference_forms():
         "the Changelogs list": "Changelogs",
         "its release notes for": "release notes",
         "the README names": "README",
+        "the kiro.dev documentation says so": "documentation",
+        "the paths come from the documentation, not from source": "documentation",
+        "Some official documentation was consulted.": "documentation",
     }
     for sentence, phrase in accepted.items():
         assert checker.documentation_reference(sentence) == phrase, sentence
-    rejected = ("the file `README.md` holds", "a readme file", "documented in", "docs/ folder")
+    rejected = (
+        "the file `README.md` holds",
+        "a readme file",
+        "documented in",
+        "docs/ folder",
+        "No vendor documentation names it.",
+        "it is not in the changelog",
+        "a build without release notes",
+        "a key (binary changelog; observed)",
+        "The embedded changelog's newest heading is `1.2`.",
+        "the bundled README lists it",
+        "the collector documentation names it as a manual step",
+        "the analyzer documentation and the project documentation",
+        "No official OpenAI desktop app and CLI documentation was found.",
+        "`.claude/cache` (the changelog and the model catalog), `.claude/x`",
+        "Levels are L1 (source) and L2 (kiro.dev documentation).",
+    )
     for sentence in rejected:
         assert checker.documentation_reference(sentence) is None, sentence
 

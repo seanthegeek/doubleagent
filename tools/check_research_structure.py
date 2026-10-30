@@ -13,6 +13,8 @@ Observed bullet opening "No real install." or "No real install:" is exempt from 
 - `observed-label-missing`: an Observed bullet not opening with a cell label (`observed_label`).
 - `observed-cell-duplicate`: two Observed bullets of one document with the same label.
 - `latest-version-missing`: an Observed bullet with no version token (`version_tokens`).
+- `earlier-builds-malformed`: an Observed bullet saying "Earlier builds observed" without a
+  sentence `earlier_builds` accepts at its end.
 - `version-without-change`: a version phrase (`version_phrases`) in Collection or Parsing outside
   Format versions, whose version Format versions does not name, with no link near (`link_near`).
 - `duplicate-fact`: one sentence key (`sentence_key`) holding the same code span in two `###`
@@ -21,12 +23,11 @@ Observed bullet opening "No real install." or "No real install:" is exempt from 
 
 `--before DIR` prints each URL, code span, fenced line, number, bold label, Observed label and
 key-table row (`key_table_rows`) of the earlier copy (`DIR/<name>`, else `DIR/collectors/<name>`
-and `DIR/analyzer/<name>`) that the document lacks, as `path: lost <kind>: <text>`.
+and `DIR/analyzer/<name>`) that the document lacks, as `path: lost <kind>: <text>`. A hard
+failure prints as `path[:line]: message`. Exit 1 on one, a new finding, or a stale or malformed
+baseline line, else 0; `--update-baseline` takes no FILE and keeps hard failures.
 
 Usage: tools/check_research_structure.py [--before DIR] [--width N] [--update-baseline] [FILE...]
-
-A hard failure prints as `path[:line]: message`. Exit 1 on one, a new finding, or a stale or
-malformed baseline line, else 0; `--update-baseline` takes no FILE and keeps hard failures.
 """
 
 from __future__ import annotations
@@ -97,7 +98,7 @@ CONFIDENCE_LEAD = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Confidence(?:\*\*)?\s*[.
 
 # The conventions' heuristics; each function below that uses one states its rule.
 PLATFORMS = ("macOS", "Windows", "Linux", "FreeBSD", "OpenBSD")
-LABEL_LEAD = re.compile(r"^\*\*(?P<label>[^*:]+?)(?P<inside>[:.])?\*\*(?P<outside>[:.])?(?=\s|$)")
+LABEL_LEAD = re.compile(r"^\*\*(?P<label>[^*:]+?)(?P<inside>:)?\*\*(?P<outside>:)?(?=\s|$)")
 LABEL_TEXT = re.compile(r"^(?:%s)(?: [^\s*:]+)+$" % "|".join(PLATFORMS))
 NO_INSTALL = re.compile(r"^No real install[.:](?:\s|$)")
 VERSION_TOKEN = re.compile(r"\d+\.\d+(?:\.\d+)?")
@@ -114,8 +115,18 @@ VERSION_PHRASE = re.compile(
 INLINE_LINK = re.compile(r"\[[^\]]*\]\([^)\s]+[^)]*\)")
 REFERENCE_LINK = re.compile(r"\[[^\]]+\]\[[^\]]*\]")
 LINK_TARGET = re.compile(r"\]\([^)]*\)")
-DOCUMENTATION = re.compile(r"\b(?:documentation|docs page|changelogs?|release notes)\b", re.I)
-README = re.compile(r"\bREADME\b")
+DOCUMENTATION = re.compile(
+    r"(?i:\b(?:documentation|docs page|changelogs?|release notes)\b)|\bREADME\b"
+)
+# Words that, among the three before a documentation phrase, say it is no page to link.
+NOT_A_PAGE_WORDS = frozenset({"no", "not", "without", "binary", "embedded", "bundled"})
+# This project's own documentation, which a research document names without a link.
+OWN_DOCUMENTATION = re.compile(r"\b(?:collector|analyzer|project) documentation\b", re.I)
+# A sentence saying no official documentation exists or was read.
+OFFICIAL_ABSENT = re.compile(r"\bno official\b.*\b(?:was|were) (?:found|consulted)\b", re.I)
+# A code span, or an evidence-level label (`L2`), directly before an open parenthesis.
+GLOSSED = re.compile(r"(?:\x00|\bL\d) ?\($")
+WORD_TOKEN = re.compile(r"[A-Za-z']+")
 LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z`\[(*\"])")
 KEY_TABLE_HEADER = re.compile(
@@ -301,9 +312,9 @@ def observed_label(bullet: str) -> str | None:
     """Return the cell label an Observed bullet opens with, or None.
 
     A label is bold text naming a platform of `PLATFORMS` and one or more surface words
-    (`**macOS CLI**`, `**Windows desktop app**`, `**Linux lab container**`), with one colon or
-    period inside or right after the closing `**`. A comma after the platform, a missing colon
-    or period and any other first word reject it.
+    (`**macOS CLI**`, `**Windows desktop app**`, `**Linux lab container**`), with one colon
+    inside or right after the closing `**`. A comma after the platform, a period, a missing
+    colon and any other first word reject it.
     """
     match = LABEL_LEAD.match(bullet)
     if not match or bool(match.group("inside")) == bool(match.group("outside")):
@@ -325,6 +336,19 @@ def earlier_builds(bullet: str) -> list[tuple[str, str]] | None:
         (item.group("build"), item.group("date"))
         for item in EARLIER_BUILD_ITEM.finditer(match.group("items"))
     ]
+
+
+def earlier_builds_placed(bullet: str) -> bool:
+    """Return whether a bullet's earlier-builds sentence, if it has one, is well formed and last.
+
+    A bullet without the words "Earlier builds observed" passes; one with them passes only when
+    `earlier_builds` accepts the sentence and nothing but white space follows it.
+    """
+    text = " ".join(bullet.split())
+    if "Earlier builds observed" not in text:
+        return True
+    match = EARLIER_BUILDS.search(text)
+    return match is not None and not text[match.end() :].strip()
 
 
 def version_tokens(bullet: str) -> list[str]:
@@ -383,13 +407,36 @@ def sentence_key(sentence: str) -> str:
 def documentation_reference(sentence: str) -> str | None:
     """Return the documentation phrase a sentence names outside its code spans, or None.
 
-    The phrases are "documentation", "docs page", "changelog(s)" and "release notes" in any
-    case, and "README" in capitals; `README.md` in a code span and a lower-case "readme" do
-    not count.
+    A sentence names documentation when it holds "documentation", "docs page", "changelog(s)"
+    or "release notes" in any case, or "README" in capitals, outside a code span. It does not
+    when the phrase has "no", "not", "without", "binary", "embedded" or "bundled" among the
+    three words before it; is "collector", "analyzer" or "project documentation"; is in a
+    sentence saying "no official" one "was found" or "was consulted"; or sits in a
+    parenthesis right after a code span or an evidence-level label (`L2 (... documentation)`).
     """
-    text = CODE_SPAN.sub(" ", sentence)
-    match = DOCUMENTATION.search(text) or README.search(text)
-    return match.group(0) if match else None
+    text = CODE_SPAN.sub("\x00", sentence)
+    for match in DOCUMENTATION.finditer(text):
+        before = text[: match.start()]
+        words = [word.lower() for word in WORD_TOKEN.findall(before)[-3:]]
+        if NOT_A_PAGE_WORDS & set(words) or _own_documentation(text, match):
+            continue
+        if OFFICIAL_ABSENT.search(text) or _glossed(before):
+            continue
+        return match.group(0)
+    return None
+
+
+def _own_documentation(text: str, match: re.Match[str]) -> bool:
+    """Return whether a documentation match is the end of this project's own documentation."""
+    return any(own.end() == match.end() for own in OWN_DOCUMENTATION.finditer(text))
+
+
+def _glossed(before: str) -> bool:
+    """Return whether the open parenthesis enclosing the end of `before` follows a gloss mark."""
+    opening = before.rfind("(")
+    if opening < 0 or ")" in before[opening:]:
+        return False
+    return bool(GLOSSED.search(before[: opening + 1]))
 
 
 def key_table_rows(lines: list[str]) -> list[str]:
@@ -501,10 +548,13 @@ def observed_findings(lines: list[str], spans: list[Span]) -> list[tuple[str, st
     found: list[tuple[str, str, int, str]] = []
     seen: dict[str, int] = {}
     for number, bullet in observed_bullets(lines, span) if span else []:
-        if NO_INSTALL.match(bullet):
-            continue
         label = observed_label(bullet)
         opening = label or " ".join(bullet.split()[:8])
+        if not earlier_builds_placed(bullet):
+            message = "end the bullet with Earlier builds observed: <build> (<YYYY-MM-DD>), ..."
+            found.append(("earlier-builds-malformed", opening, number, message))
+        if NO_INSTALL.match(bullet):
+            continue
         if label is None:
             found.append(
                 ("observed-label-missing", opening, number, "open with **<Platform> <surface>**:")

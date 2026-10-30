@@ -23,7 +23,6 @@ check_parser_research|pattern-undocumented|^\.qwen/settings\.json$
 check_parser_research|pattern-undocumented|^\.qwen/tmp/[^/]+/logs\.json$
 check_parser_research|pattern-undocumented|^\.qwen/trustedFolders\.json$
 check_parser_research|pattern-undocumented|^\.qwen/usage_record\.jsonl$
-check_research_structure|bare-doc-reference|All claims are source-level ( file:line) unless marked (repo documentation, used for directories whose writer lives in code not grepped here).
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/arena
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/artifacts
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .qwen/bin

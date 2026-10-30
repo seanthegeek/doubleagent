@@ -23,7 +23,6 @@ check_parser_research|pattern-undocumented|^\.aws/amazonq/\.cli_bash_history$
 check_parser_research|pattern-undocumented|^\.kiro/sessions/
 check_parser_research|row-text-undocumented|compact: conversation history summarised
 check_parser_research|row-text-undocumented|shell history:
-check_research_structure|bare-doc-reference|Evidence levels below are L1 (source or shipped binary), L2 (kiro.dev documentation), L3 (vendor issue tracker) and L4 (community source).
 check_research_structure|bare-doc-reference|Nothing in the repository mentions,, or ; those catalog paths come from the closed binary's strings and the kiro.dev documentation, not from source, and their record shapes remain unverified.
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aws/amazonq/cli-checkouts
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aws/amazonq/knowledge_bases

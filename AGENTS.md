@@ -891,8 +891,9 @@ to save a catalog line.
 
 `tools/check_research_structure.py` enforces the outline, the split phrases
 and the placement of confidence paragraphs, and reports breaches of the
-Observed bullet, version, duplication and documentation-link rules below
-against its baseline ([Quality gates](#quality-gates)); with
+Observed bullet rules (label, build and earlier-builds sentence) and the
+version, duplication and documentation-link rules below against its
+baseline ([Quality gates](#quality-gates)); with
 `--before <dir>` holding the previous copies it lists every citation, code
 span, fenced line, number, label, Observed label and key-table row a
 rewrite dropped.
@@ -911,9 +912,10 @@ when the page has one.
    `### Source reviews`.
    - An Observed bullet is one cell, one platform and surface: build, date,
      the steps run and what each wrote, in one paragraph. It opens with its
-     cell label in bold, `**<Platform> <surface>**:`, where Platform is one
-     of macOS, Windows, Linux, FreeBSD or OpenBSD and surface names the
-     product's form (`**macOS CLI**:`, `**Windows desktop app**:`,
+     cell label in bold, `**<Platform> <surface>**:` (the colon inside or
+     after the bold), where Platform is one of macOS, Windows, Linux,
+     FreeBSD or OpenBSD and surface names the product's form
+     (`**macOS CLI**:`, `**Windows desktop app**:`,
      `**Linux lab container**:`); a document with no install has the one
      bullet `No real install.`.
    - Each cell has one bullet, which describes the latest round of its
