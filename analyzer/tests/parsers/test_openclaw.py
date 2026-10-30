@@ -14,6 +14,7 @@ from fixtures import (
     OPENCLAW_BACKUP_COMMIT,
     OPENCLAW_BACKUP_KEY,
     OPENCLAW_CHECKPOINT,
+    OPENCLAW_CHUNKED_SESSION,
     OPENCLAW_COLD_SESSION,
     OPENCLAW_DELETED,
     OPENCLAW_FTS_ONLY,
@@ -185,6 +186,19 @@ class OpenClawTests(ParserBase):
         cold = [row for row in rows if row.session_id == OPENCLAW_COLD_SESSION]
         self.assertEqual([row.turn_type for row in cold], ["system", "user"])
         self.assertEqual(cold[1].project_path, "/srv/proj")
+
+    def test_chunked_cold_archive_read_chunk_by_chunk(self):
+        """A chunked cold archive gives both chunks' entries, in chunk order, after one start."""
+        rows = self.rows_for(OpenClawParser(), OPENCLAW_AGENT + "/agent/openclaw-agent.sqlite")
+        chunked = [row for row in rows if row.session_id == OPENCLAW_CHUNKED_SESSION]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in chunked],
+            [
+                ("system", "session start: cold_archive=%s.jsonl.zst version=4" % ("d" * 64)),
+                ("user", "check disk space on the server"),
+            ],
+        )
+        self.assertEqual({row.project_path for row in chunked}, {"/srv/proj"})
 
     def test_legacy_jsonl(self):
         rows = self.rows_for(OpenClawParser(), self.LEGACY)
@@ -771,7 +785,7 @@ class OpenClawTests(ParserBase):
             [
                 "permission setting: elevatedLevel=on",
                 "permission setting: execHost=gateway",
-                'permission setting: toolOverrides={"mcpServers":"off"}',
+                'permission setting: toolOverrides={"mcpServers":{"github":false}}',
                 "permission setting: sendPolicy=allow",
             ],
         )
