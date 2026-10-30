@@ -22,4 +22,8 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Local/Ollama/updat
 check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/Ollama
 check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Ollama
 check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/Ollama
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 id_ed25519
+check_smoke_coverage|nosecrets-check-missing|smoke.sh id_ed25519
+check_smoke_coverage|secret-check-missing|smoke.ps1 id_ed25519
+check_smoke_coverage|secret-check-missing|smoke.sh id_ed25519
 check_tables_research|credential-unflagged|.ollama/config.json

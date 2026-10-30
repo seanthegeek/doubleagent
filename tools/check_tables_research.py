@@ -39,7 +39,16 @@ from typing import TYPE_CHECKING
 
 import check_research_structure
 import drift_common
-from drift_common import Finding, Section, TableLine
+from drift_common import (
+    Finding,
+    Section,
+    TableLine,
+    crossing_regex,
+    names_glob,
+    normalise_span,
+    segment_regex,
+    star_remainders,
+)
 
 if TYPE_CHECKING:
     from analyzer.doubleagent.catalog import Catalog
@@ -52,21 +61,6 @@ SHARED_AGENTS = ("shared", "project")
 # Agents the agents page lists no row for, since `project` is not an agent.
 ROWLESS_AGENTS = frozenset({"project"})
 WORDING_PHRASES = ("not flagged", "collected unflagged", "may embed", "can embed", "left unflagged")
-# Leading forms of a code span that name the home, and what they stand for under it.
-HOME_PREFIXES = (
-    ("~/", ""),
-    ("~\\", ""),
-    ("$HOME/", ""),
-    ("${HOME}/", ""),
-    ("%USERPROFILE%\\", ""),
-    ("%APPDATA%\\", "AppData/Roaming/"),
-    ("%LOCALAPPDATA%\\", "AppData/Local/"),
-    ("$XDG_CONFIG_HOME/", ".config/"),
-    ("$XDG_DATA_HOME/", ".local/share/"),
-    ("$XDG_STATE_HOME/", ".local/state/"),
-    ("$XDG_CACHE_HOME/", ".cache/"),
-    ("./", ""),
-)
 # Extensions that make a one-segment code span a file name rather than a key.
 FILE_EXTENSIONS = frozenset(
     {
@@ -103,76 +97,6 @@ PLATFORMS_COVERED = {"unix": {"linux", "macos"}}
 
 
 # --- Heuristics ------------------------------------------------------------------------------
-
-
-def normalise_span(text: str) -> str:
-    r"""Return a code span as a home-relative path, the form catalog globs take.
-
-    A leading home form of `HOME_PREFIXES` (`~/`, `$HOME/`, `./`) is dropped and a Windows or
-    XDG variable becomes the directory it names (`%APPDATA%\` is `AppData/Roaming/`);
-    backslashes become slashes and one trailing `/` is dropped.
-    """
-    for prefix, replacement in HOME_PREFIXES:
-        if text.startswith(prefix):
-            text = replacement + text[len(prefix) :]
-            break
-    text = text.replace("\\", "/")
-    return text[:-1] if text.endswith("/") and len(text) > 1 else text
-
-
-@functools.cache
-def segment_regex(glob: str) -> re.Pattern[str]:
-    """Return a regex for a catalog glob whose `*`, `?` and classes never cross `/`."""
-    catalog = drift_common.catalog_module()
-    parts = [catalog.glob_segment_to_regex(part).pattern for part in glob.split("/")]
-    return re.compile("/".join(parts))
-
-
-@functools.cache
-def crossing_regex(glob: str) -> re.Pattern[str]:
-    """Return a regex for an exclusion or secret glob, whose `*` and `?` cross `/` as in sh."""
-    out: list[str] = []
-    index = 0
-    while index < len(glob):
-        character = glob[index]
-        close = glob.find("]", index + 1) if character == "[" else -1
-        if character == "*":
-            out.append(".*")
-        elif character == "?":
-            out.append(".")
-        elif close > index + 1:
-            body = glob[index + 1 : close]
-            body = "^" + body[1:] if body.startswith("!") else body
-            out.append("[%s]" % body.replace("\\", "\\\\"))
-            index = close
-        else:
-            out.append(re.escape(character))
-        index += 1
-    return re.compile("".join(out))
-
-
-def names_glob(glob: str, spans: Iterable[str], deeper: bool = False) -> bool:
-    """Return whether a normalised code span names a glob.
-
-    A span names it when it equals the glob or is a concrete path the glob matches segment by
-    segment (`glob_segment_to_regex`), so `.claude-work/projects` names `.claude-*/projects`
-    and `a0_usr` names `*a0_usr`. A glob ending in `/*` is also named by its directory
-    (`mcp-tokens` names `mcp-tokens/*`). With `deeper`, a path below a match names it too
-    (`.local/share/claude/versions` names `.local/share/claude`); without, it does not.
-    """
-    spans = list(spans)
-    pattern = segment_regex(glob)
-    if any(span == glob or pattern.fullmatch(span) for span in spans):
-        return True
-    if glob.endswith("/*") and names_glob(glob[:-2], spans):
-        return True
-    if not deeper:
-        return False
-    depth = glob.count("/") + 1
-    return any(
-        span.count("/") >= depth and pattern.fullmatch("/".join(span.split("/")[:depth]))
-        for span in spans
-    )
 
 
 def base_remainders(glob: str, bases: Iterable[TableLine]) -> list[str]:
@@ -281,39 +205,13 @@ def secret_samples(glob: str) -> list[str]:
     )
 
 
-def star_remainders(glob: str, catalog: Catalog) -> list[tuple[str, str]]:
-    """Return (agent, remainder) for each home entry a glob starting with `*` reaches.
-
-    The leading star crosses `/`, so the glob reaches an entry when the entry's sample path,
-    alone or with a tail of the glob's segments appended, matches the whole glob; the entry
-    must match at least the glob's first segment after the star, and the shortest such tail is
-    the remainder below it: `*/Claude*/Cache` reaches `Library/Application Support/Claude` with
-    the remainder `Cache`, while `*/Other/Cache` does not reach it. A glob not starting with
-    `*` reaches none this way.
-    """
-    if not glob.startswith("*"):
-        return []
-    pattern = crossing_regex(glob)
-    parts = glob.split("/")
-    tails = [""] + ["/".join(parts[start:]) for start in range(len(parts) - 1, 1, -1)]
-    found: list[tuple[str, str]] = []
-    for entry in catalog.entries:
-        sample = drift_common.sample_path(entry.glob, empty_stars=True)
-        for tail in tails:
-            path = sample + "/" + drift_common.sample_path(tail, True) if tail else sample
-            if pattern.fullmatch(path):
-                found.append((entry.agent, tail))
-                break
-    return found
-
-
 def exclusion_reachable(glob: str, catalog: Catalog) -> bool:
     """Return whether some home entry reaches a path an exclusion glob matches.
 
-    A glob is reachable when `attribute_glob` names an agent, or, starting with `*`, when it
+    A glob is reachable when a home entry claims it (`home_claim`), or, opening `*/`, when it
     reaches a home entry (`star_remainders`).
     """
-    return drift_common.attribute_glob(glob, catalog) != "-" or bool(star_remainders(glob, catalog))
+    return bool(drift_common.home_claim(glob, catalog) or star_remainders(glob, catalog))
 
 
 def is_volume_section(section: Section) -> bool:
@@ -357,7 +255,7 @@ def volume_home_remainders(glob: str, mount: str) -> list[str]:
 
 def is_volume_relative(glob: str, catalog: Catalog) -> bool:
     """Return whether an exclusion is volume-relative: no home entry claims it, no `*/` leads it."""
-    return not glob.startswith("*/") and drift_common.attribute_glob(glob, catalog) == "-"
+    return not glob.startswith("*/") and not drift_common.home_claim(glob, catalog)
 
 
 def volume_twin(glob: str, remainders: Iterable[str], volume_exclusions: Iterable[str]) -> bool:
@@ -519,7 +417,8 @@ def load(root: pathlib.Path) -> Repository:
 
 def line_agent(repository: Repository, line: TableLine) -> str:
     """Return a table line's agent, `attribute_glob` for an exclusion or secret glob."""
-    return line.agent or drift_common.attribute_glob(line.glob, repository.tables.catalog)
+    catalog = repository.tables.catalog
+    return line.agent or drift_common.attribute_glob(line.glob, catalog, repository.root)
 
 
 # --- Rules -----------------------------------------------------------------------------------

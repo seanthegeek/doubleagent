@@ -20,9 +20,11 @@ check_research_structure|observed-label-missing|Windows 11 arm64 (10.0.26300), C
 check_research_structure|observed-label-missing|Worktree agents, any platform: not observed on any
 check_research_structure|observed-label-missing|macOS, Cursor Agent CLI 2026.10.19-6bbf2c4, 2026-10-20 ([issue 235](https://github.com/seanthegeek/doubleagent/issues/235)):
 check_research_structure|observed-label-missing|macOS, Cursor IDE, 2026-10-19 and 2026-10-20 ([issue 6](https://github.com/seanthegeek/doubleagent/issues/6)
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Cursor/User/globalStorage/state.vscdb.backup
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor/extensions
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor/plugins/marketplaces
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Cursor/User/globalStorage/state.vscdb.backup
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor/extensions
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor/plugins/marketplaces
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor/worktrees

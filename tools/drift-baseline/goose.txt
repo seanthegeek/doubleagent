@@ -20,6 +20,12 @@ check_parser_research|parser-message-undocumented|parser: not a SQLite database
 check_parser_research|row-text-undocumented|last user:
 check_parser_research|row-text-undocumented|llm error:
 check_research_structure|bare-doc-reference|Electron userData locations are Electron documentation level, not goose source.
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/blob_storage
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .config/goose/mcp-apps-cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/goose/model_catalog
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/goose/models
@@ -27,6 +33,12 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/state/goose/codex
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/Block/goose/data/codex
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/Block/goose/data/model_catalog
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/Block/goose/data/models
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/blob_storage
 check_smoke_coverage|exclusion-check-missing|smoke.sh .config/goose/mcp-apps-cache
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/goose/model_catalog
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/goose/models

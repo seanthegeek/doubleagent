@@ -68,6 +68,8 @@ check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/a
 check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/kiro-cli
 check_smoke_coverage|fixture-missing|smoke.sh project .kiro
 check_smoke_coverage|fixture-missing|smoke.sh project AmazonQ.md
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */amazon-q/data.sqlite3*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */kiro-cli/data.sqlite3*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aws/amazonq/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aws/sso/cache/*.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/agents/*.json
@@ -75,6 +77,8 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/powers/installed/*/
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/secrets.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/settings/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/web-session/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */amazon-q/data.sqlite3*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */kiro-cli/data.sqlite3*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .aws/amazonq/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .aws/sso/cache/*.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/agents/*.json
@@ -82,12 +86,16 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/powers/installed/*/m
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/secrets.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/settings/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .kiro/web-session/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 */amazon-q/data.sqlite3*
+check_smoke_coverage|secret-check-missing|smoke.ps1 */kiro-cli/data.sqlite3*
 check_smoke_coverage|secret-check-missing|smoke.ps1 .aws/amazonq/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .aws/sso/cache/*.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .kiro/agents/*.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .kiro/secrets.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .kiro/settings/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .kiro/web-session/*
+check_smoke_coverage|secret-check-missing|smoke.sh */amazon-q/data.sqlite3*
+check_smoke_coverage|secret-check-missing|smoke.sh */kiro-cli/data.sqlite3*
 check_smoke_coverage|secret-check-missing|smoke.sh .aws/amazonq/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.sh .aws/sso/cache/*.json
 check_smoke_coverage|secret-check-missing|smoke.sh .kiro/agents/*.json

@@ -12,6 +12,33 @@ check_parser_research|row-text-undocumented|external agent thread (no transcript
 check_parser_research|row-text-undocumented|thread start:
 check_parser_research|row-text-undocumented|unreadable:
 check_research_structure|bare-doc-reference|Flatpak sandbox paths are Flatpak documentation level.
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/build_timings
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/copilot
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/debug_adapters
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/devcontainer
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/embeddings
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/external_agents
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/hang_traces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/languages
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/node
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/prettier
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/remote_extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/remote_servers
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/server_state
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/build_timings
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/copilot
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/debug_adapters
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/devcontainer
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/embeddings
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/external_agents
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/hang_traces
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/languages
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/node
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/prettier
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/remote_extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/remote_servers
+check_smoke_coverage|exclusion-check-missing|smoke.sh */[Zz]ed/server_state
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/zed
 check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/zed
 check_smoke_coverage|fixture-missing|smoke.ps1 home .var/app/dev.zed.Zed/config/zed

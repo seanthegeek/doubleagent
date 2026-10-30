@@ -74,12 +74,26 @@ check_research_structure|observed-label-missing|**Windows, CLI** ([issue 83](htt
 check_research_structure|observed-label-missing|**Windows, desktop app** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83), [issue 84](https://github.com/seanthegeek/doubleagent/issues/84) and
 check_research_structure|observed-label-missing|**macOS, CLI** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83)): two builds on the
 check_research_structure|observed-label-missing|**macOS, desktop app** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83)): `/Applications/Antigravity.app`, `CFBundleShortVersionString` and
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Antigravity/CachedData
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Antigravity/Crashpad
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Antigravity/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Antigravity/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Antigravity/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Antigravity/Shared Dictionary
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Antigravity/blob_storage
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .antigravity/extensions
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .config/Antigravity/Cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/antigravity*/brain/*/.system_generated/worktrees
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/antigravity-backup/bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/antigravity-cli/bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/antigravity-ide/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Antigravity/CachedData
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Antigravity/Crashpad
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Antigravity/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Antigravity/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Antigravity/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Antigravity/Shared Dictionary
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Antigravity/blob_storage
 check_smoke_coverage|exclusion-check-missing|smoke.sh .antigravity/extensions
 check_smoke_coverage|exclusion-check-missing|smoke.sh .config/Antigravity/Cache
 check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/antigravity*/brain/*/.system_generated/worktrees

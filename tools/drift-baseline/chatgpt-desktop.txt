@@ -9,6 +9,27 @@ check_research_structure|observed-label-missing|Previous Windows package (`OpenA
 check_research_structure|observed-label-missing|Windows, 2026-10-15 ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113), [issue 114](https://github.com/seanthegeek/doubleagent/issues/114), [issue 115](https://github.com/seanthegeek/doubleagent/issues/115)
 check_research_structure|observed-label-missing|macOS, 2026-10-15 ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113) and [issue 121](https://github.com/seanthegeek/doubleagent/issues/121)): ChatGPT
 check_research_structure|observed-label-missing|macOS, 2026-10-18 ([issue 49](https://github.com/seanthegeek/doubleagent/issues/49), [issue 149](https://github.com/seanthegeek/doubleagent/issues/149) and [issue
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/ChatGPT/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/ChatGPT/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/ChatGPT/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/ChatGPT/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/ChatGPT/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/Extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/CacheStorage
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/ScriptCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/blob_storage
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Service Worker/CacheStorage
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Service Worker/ScriptCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/blob_storage
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Code Cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/DawnGraphiteCache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/DawnWebGPUCache
@@ -25,6 +46,27 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Suppo
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Service Worker/CacheStorage
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Service Worker/ScriptCache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/blob_storage
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/ChatGPT/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/ChatGPT/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/ChatGPT/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/ChatGPT/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/ChatGPT/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/Extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/CacheStorage
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/ScriptCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/blob_storage
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Service Worker/CacheStorage
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Service Worker/ScriptCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/blob_storage
 check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Code Cache
 check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/DawnGraphiteCache
 check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/DawnWebGPUCache
@@ -85,23 +127,54 @@ check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/Local/Packages/O
 check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/000003.log
 check_smoke_coverage|fixture-name-undocumented|smoke.sh Library/Application Support/Codex/Default/Local Storage/leveldb/000003.log
 check_smoke_coverage|fixture-name-undocumented|smoke.sh Library/Logs/com.openai.codex/2026/10/15/codex-desktop-x.log
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Roaming/ChatGPT/Local State
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Roaming/ChatGPT/Network/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Login Data*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Network/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/Network/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Local State
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Cookies*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Login Data*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Cookies*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Login Data*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/HTTPStorages/com.openai.codex.binarycookies
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Roaming/ChatGPT/Local State
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Roaming/ChatGPT/Network/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Login Data*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Network/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/Network/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Roaming/Codex/web/Codex/Local State
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Codex/Default/Cookies*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Codex/Default/Login Data*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Cookies*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Login Data*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/HTTPStorages/com.openai.codex.binarycookies
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_smoke_coverage|secret-check-missing|smoke.ps1 */Roaming/ChatGPT/Local State
+check_smoke_coverage|secret-check-missing|smoke.ps1 */Roaming/ChatGPT/Network/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.ps1 */Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Login Data*
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_smoke_coverage|secret-check-missing|smoke.sh */Roaming/ChatGPT/Local State
+check_smoke_coverage|secret-check-missing|smoke.sh */Roaming/ChatGPT/Network/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.sh */Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
 check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Login Data*
 check_smoke_coverage|secret-check-missing|smoke.sh Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
 check_tables_research|credential-wording|collected unflagged `Default`
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Cache
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Code Cache
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/DawnGraphiteCache
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/DawnWebGPUCache
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Extensions
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/GPUCache
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Network/Cookies*
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/CacheStorage
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/ScriptCache
+check_tables_research|line-unnamed|*/Roaming/Codex/web/Codex/Default/Partitions/*/blob_storage
 check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalState
 check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Local/Codex
 check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/.codex-tpp-local-executor-installation-id

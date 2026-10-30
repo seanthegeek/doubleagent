@@ -27,14 +27,17 @@ check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*
 check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/globalStorage/rjmacarthy.twinny/twinny-providers.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/node/identity.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/license
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/plugins/*/repos.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/plugins/*/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/globalStorage/rjmacarthy.twinny/twinny-providers.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/node/identity.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/license
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/plugins/*/repos.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/plugins/*/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 */User/globalStorage/rjmacarthy.twinny/twinny-providers.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/node/identity.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/server/license
 check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/server/plugins/*/settings.json

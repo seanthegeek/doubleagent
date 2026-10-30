@@ -79,6 +79,16 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/sandbox/skills
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/tmp
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/tools
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openclaw*/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 extensions/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 npm
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 npm-runtime
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 sandbox/skills-workspaces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.sh extensions/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh npm
+check_smoke_coverage|exclusion-check-missing|smoke.sh npm-runtime
+check_smoke_coverage|exclusion-check-missing|smoke.sh sandbox/skills-workspaces
+check_smoke_coverage|exclusion-check-missing|smoke.sh worktrees
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/systemd/user/clawdbot-*
 check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/OpenClaw
 check_smoke_coverage|fixture-missing|smoke.ps1 project .openclaw
@@ -116,6 +126,11 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/clawdbot.json*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/credentials/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/openclaw.json*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .openclaw*/service-env/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/agent/auth-profiles.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 clawdbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 moltbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 openclaw.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 service-env/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .clawdbot/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .clawdbot/clawdbot.json*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .clawdbot/credentials/*
@@ -131,6 +146,11 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/clawdbot.json*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/credentials/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/openclaw.json*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .openclaw*/service-env/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/agent/auth-profiles.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh clawdbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh moltbot.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh openclaw.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh service-env/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 .clawdbot/.env
 check_smoke_coverage|secret-check-missing|smoke.ps1 .clawdbot/clawdbot.json*
 check_smoke_coverage|secret-check-missing|smoke.ps1 .clawdbot/credentials/*
@@ -146,6 +166,16 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/clawdbot.json*
 check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/credentials/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/openclaw.json*
 check_smoke_coverage|secret-check-missing|smoke.ps1 .openclaw*/service-env/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/agent/auth-profiles.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 clawdbot.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 moltbot.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 openclaw.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 service-env/*
+check_smoke_coverage|secret-check-missing|smoke.sh agents/*/agent/auth-profiles.json*
+check_smoke_coverage|secret-check-missing|smoke.sh clawdbot.json*
+check_smoke_coverage|secret-check-missing|smoke.sh moltbot.json*
+check_smoke_coverage|secret-check-missing|smoke.sh openclaw.json*
+check_smoke_coverage|secret-check-missing|smoke.sh service-env/*
 check_tables_research|line-unnamed|.config/systemd/user/clawdbot-*
 check_tables_research|line-unnamed|.openclaw*/agents/*/agent/models.json
 check_tables_research|line-unnamed|.openclaw*/browser/*/user-data/*/Cache

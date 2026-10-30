@@ -429,7 +429,7 @@ def test_attribute_glob_most_specific_home_entry_or_dash(tmp_path):
         "tmp/playwright": "-",
     }
     for glob, agent in cases.items():
-        assert drift_common.attribute_glob(glob, catalog) == agent, glob
+        assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
 
 
 def test_attribute_glob_tries_empty_stars_before_x(tmp_path):
@@ -442,7 +442,83 @@ def test_attribute_glob_tries_empty_stars_before_x(tmp_path):
         ".delta-*": "delta",
     }
     for glob, agent in cases.items():
-        assert drift_common.attribute_glob(glob, catalog) == agent, glob
+        assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
+
+
+STAR_CATALOG = """\
+# home artifacts (agent|glob relative to home)
+editor|.config/Code/User
+editor|Library/Application Support/Code/User
+other|.config/Other/User
+plugin|.config/*/User/globalStorage/vendor.plugin
+desk|.config/Desk
+cli|Applications/Desk Helper.app
+# docker volumes (agent|volume name glob)
+gamma|*gamma_usr
+delta|*delta_data
+"""
+
+
+def test_attribute_glob_star_glob_goes_to_the_closest_entry_or_dash(tmp_path):
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", STAR_CATALOG)).catalog
+    cases = {
+        "*/User/globalStorage/vendor.plugin/cache": "plugin",
+        "*/Code/User/globalStorage/x": "editor",
+        "*/User/globalStorage/ms-*": "-",
+        "*/Desk*/Cache": "-",
+        "*/Nowhere/Cache": "-",
+    }
+    for glob, agent in cases.items():
+        assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
+
+
+def test_star_remainders_only_the_leading_star_crosses_a_slash(tmp_path):
+    text = "# home artifacts (agent|glob relative to home)\nalpha|.e/User/x/*/plugin\n"
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
+    assert drift_common.star_remainders("*/User/x/*/plugin/y", catalog) == [("alpha", "y")]
+    assert drift_common.star_remainders("*/User/x/*/y", catalog) == []
+    assert drift_common.star_remainders(".e/User/x", catalog) == []
+
+
+def test_closest_agent_forms():
+    assert drift_common.closest_agent([("a", "x/y"), ("b", "y")]) == "b"
+    assert drift_common.closest_agent([("a", ""), ("b", "y")]) == "a"
+    assert drift_common.closest_agent([("a", "y"), ("a", "z"), ("b", "x/y")]) == "a"
+    assert drift_common.closest_agent([("a", "y"), ("b", "z")]) == "-"
+    assert drift_common.closest_agent([]) == "-"
+
+
+def test_attribute_glob_volume_glob_goes_to_the_one_volume_document_naming_it(tmp_path):
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", STAR_CATALOG)).catalog
+    gamma = "# gamma\n\n## Collection\n\n`tmp/playwright` and `/a0/usr/models` and `both`.\n"
+    delta = "# delta\n\n## Collection\n\n`both` and `cache`.\n\n## Parsing\n\n`sessions`\n"
+    write(tmp_path / "research" / "gamma.md", gamma)
+    write(tmp_path / "research" / "delta.md", delta)
+    cases = {
+        "tmp/playwright": "gamma",
+        "cache/*": "delta",
+        "both": "-",
+        "sessions": "-",
+        "models": "-",
+        "unnamed/dir": "-",
+    }
+    for glob, agent in cases.items():
+        assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
+
+
+def test_home_claim_forms(tmp_path):
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG_TEXT)).catalog
+    assert drift_common.home_claim(".config/beta/sub/x", catalog) == "beta"
+    assert drift_common.home_claim(".alpha*/x", catalog) == "alpha"
+    assert drift_common.home_claim("tmp/playwright", catalog) == ""
+
+
+def test_document_names_glob_reads_only_the_collection_part(tmp_path):
+    document = write(tmp_path / "doc.md", "# a\n\n## Collection\n\n`~/x/y`\n\n## Parsing\n\n`z`\n")
+    assert drift_common.document_names_glob(document, "x/y")
+    assert drift_common.document_names_glob(document, "x/y/*")
+    assert not drift_common.document_names_glob(document, "z")
+    assert not drift_common.document_names_glob(tmp_path / "missing.md", "x/y")
 
 
 # --- Agents ---------------------------------------------------------------------------------

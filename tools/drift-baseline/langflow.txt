@@ -17,11 +17,15 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .langflow/data/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/langflow/langflow/Cache/*secret_key
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/com.LangflowDesktop/data/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Caches/langflow/*secret_key
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 cache_secret_key
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 secret_key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .cache/langflow/*secret_key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .langflow/data/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/langflow/langflow/Cache/*secret_key
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/com.LangflowDesktop/data/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Caches/langflow/*secret_key
+check_smoke_coverage|nosecrets-check-missing|smoke.sh cache_secret_key
+check_smoke_coverage|nosecrets-check-missing|smoke.sh secret_key
 check_smoke_coverage|secret-check-missing|smoke.ps1 .cache/langflow/*secret_key
 check_smoke_coverage|secret-check-missing|smoke.ps1 .langflow/data/.env
 check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/langflow/langflow/Cache/*secret_key

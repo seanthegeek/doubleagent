@@ -12,6 +12,11 @@ check_parser_research|pattern-undocumented|(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrai
 check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
 check_parser_research|pattern-undocumented|(?:^|/)User/settings\.json$
 check_parser_research|pattern-undocumented|(?:^|/)\.idea/cody_history\.xml$
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Cody-nodejs/Config/dist
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Cody-nodejs/Data/symf/symf-*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Cody-nodejs/dist
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Cody-nodejs/symf/symf-*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */globalStorage/sourcegraph.cody-ai/symf/symf-*
 check_smoke_coverage|fixture-missing|smoke.ps1 home .*-server*/data/User/globalStorage/sourcegraph.cody-ai
 check_smoke_coverage|fixture-missing|smoke.ps1 home .cody
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/JetBrains/*/options/cody*.xml
@@ -38,14 +43,20 @@ check_smoke_coverage|fixture-missing|smoke.sh home Library/Preferences/Cody-node
 check_smoke_coverage|fixture-missing|smoke.sh project .cody
 check_smoke_coverage|fixture-missing|smoke.sh project .sourcegraph
 check_smoke_coverage|fixture-missing|smoke.sh project .vscode/cody.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Cody-nodejs/Config/user-settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */Cody-nodejs/user-settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/JetBrains/*/options/cody.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/JetBrains/*/options/cody_accounts.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Cody-nodejs/Config/user-settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */Cody-nodejs/user-settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody_accounts.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody.xml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|secret-check-missing|smoke.ps1 */Cody-nodejs/Config/user-settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 */Cody-nodejs/user-settings.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .config/JetBrains/*/options/cody.xml
 check_smoke_coverage|secret-check-missing|smoke.ps1 .config/JetBrains/*/options/cody_accounts.xml
 check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody.xml
@@ -54,6 +65,12 @@ check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/JetBrains/*/o
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody_accounts.xml
 check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody.xml
 check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody_accounts.xml
+check_tables_research|line-unnamed|*/Cody-nodejs/Config/dist
+check_tables_research|line-unnamed|*/Cody-nodejs/Config/user-settings.json
+check_tables_research|line-unnamed|*/Cody-nodejs/Data/symf/symf-*
+check_tables_research|line-unnamed|*/Cody-nodejs/dist
+check_tables_research|line-unnamed|*/Cody-nodejs/symf/symf-*
+check_tables_research|line-unnamed|*/globalStorage/sourcegraph.cody-ai/symf/symf-*
 check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/sourcegraph.cody-ai
 check_tables_research|line-unnamed|.config/*/User/globalStorage/sourcegraph.cody-ai
 check_tables_research|line-unnamed|.config/JetBrains/*/options/cody*.xml

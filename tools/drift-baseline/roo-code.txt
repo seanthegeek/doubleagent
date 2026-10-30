@@ -33,12 +33,18 @@ check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscd
 check_parser_research|pattern-undocumented|(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb$
 check_parser_research|pattern-undocumented|^\.vscode-mock/workspace-storage/[^/]+/workspace-state\.json$
 check_parser_research|row-text-undocumented|checkpoint_created:
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/Roo-Code/MCP
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .roo-code/mcp
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .roo/worktrees
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .vscode-mock/global-storage/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .vscode-mock/global-storage/tasks/*/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/Roo-Code/MCP
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/rooveterinaryinc.roo-cline/cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/Roo-Code/MCP
 check_smoke_coverage|exclusion-check-missing|smoke.sh .roo-code/mcp
 check_smoke_coverage|exclusion-check-missing|smoke.sh .roo/worktrees
@@ -72,6 +78,9 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .vscode-mock/global-storag
 check_smoke_coverage|secret-check-missing|smoke.ps1 .vscode-mock/global-storage/secrets.json
 check_smoke_coverage|secret-check-missing|smoke.sh .vscode-mock/global-storage/secrets.json
 check_tables_research|credential-wording|can embed `.roo/mcp.json`
+check_tables_research|line-unnamed|*/User/globalStorage/rooveterinaryinc.roo-cline/cache
+check_tables_research|line-unnamed|*/User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+check_tables_research|line-unnamed|*/User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
 check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/rooveterinaryinc.roo-cline
 check_tables_research|line-unnamed|.config/*/User/globalStorage/rooveterinaryinc.roo-cline
 check_tables_research|line-unnamed|.vscode-mock/global-storage/settings/*mcp_settings.json

@@ -54,6 +54,14 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/chroma
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/mod-cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/tool_execution_dir
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .memgpt/chroma
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 chroma
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 mod-cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 tool_execution_dir
+check_smoke_coverage|exclusion-check-missing|smoke.sh bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh chroma
+check_smoke_coverage|exclusion-check-missing|smoke.sh mod-cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh tool_execution_dir
 check_smoke_coverage|fixture-missing|smoke.ps1 project .skills
 check_smoke_coverage|fixture-missing|smoke.sh project .skills
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/letta/settings.json
@@ -66,6 +74,8 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .letta/lc-local-backend/p
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .letta/pg_uri
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .letta/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .memgpt/credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 channels/whatsapp/auth/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 pg_uri
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/letta/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .letta/agents/*/memory/.git/config
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .letta/agents/*/memory/.git/letta-credential-helper.cmd
@@ -76,6 +86,8 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .letta/lc-local-backend/pr
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .letta/pg_uri
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .letta/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .memgpt/credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.sh channels/whatsapp/auth/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh pg_uri
 check_smoke_coverage|secret-check-missing|smoke.ps1 .config/letta/settings.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/agents/*/memory/.git/config
 check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/agents/*/memory/.git/letta-credential-helper.cmd
@@ -85,4 +97,8 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/credentials
 check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/lc-local-backend/providers/auth.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .letta/pg_uri
 check_smoke_coverage|secret-check-missing|smoke.ps1 .memgpt/credentials
+check_smoke_coverage|secret-check-missing|smoke.ps1 channels/whatsapp/auth/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 pg_uri
+check_smoke_coverage|secret-check-missing|smoke.sh channels/whatsapp/auth/*
+check_smoke_coverage|secret-check-missing|smoke.sh pg_uri
 check_tables_research|line-unnamed|.letta/agents/*/memory/.git/letta-credential-helper.cmd

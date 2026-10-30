@@ -69,6 +69,8 @@ check_parser_research|row-text-undocumented|synthetic:
 check_parser_research|row-text-undocumented|task:
 check_parser_research|row-text-undocumented|unreadable:
 check_research_structure|version-without-change|since 0.19.0
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/kilocode.kilo-code/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/kilocode.kilo-code/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .kilo/bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/repos
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/snapshot
@@ -76,6 +78,8 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/state/i
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/tool-output
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/worktree
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/state/kilo/indexing
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/kilocode.kilo-code/cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh */User/globalStorage/kilocode.kilo-code/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.sh .kilo/bin
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/repos
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/snapshot

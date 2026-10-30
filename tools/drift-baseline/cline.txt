@@ -14,6 +14,7 @@ check_parser_research|pattern-undocumented|^\.cline/data/cloud-pending-starts/\d
 check_parser_research|pattern-undocumented|^\.cline/data/sessions/([^/]+)/\1\.json$
 check_parser_research|pattern-undocumented|^\.cline/data/sessions/[^/]+/[^/]+\.messages\.json$
 check_parser_research|row-text-undocumented|checkpoint_created:
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/saoudrizwan.claude-dev/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/agent-plugins
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/checkpoint-scratch
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/workspaces/chat

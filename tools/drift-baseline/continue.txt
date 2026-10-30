@@ -37,6 +37,7 @@ check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/global
 check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/globalStorage/continue.continue
 check_smoke_coverage|fixture-missing|smoke.sh project .continue
 check_smoke_coverage|fixture-missing|smoke.sh project .continueignore
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */globalStorage/continue.continue/*.bin
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/.configs/*/config.js*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/auth*.json
@@ -45,6 +46,7 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/config.ts
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/config.yaml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/index/globalContext.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/mcpServers/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh */globalStorage/continue.continue/*.bin
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/.configs/*/config.js*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/auth*.json
@@ -53,6 +55,7 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/config.ts
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/config.yaml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/index/globalContext.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .continue/mcpServers/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 */globalStorage/continue.continue/*.bin
 check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/.configs/*/config.js*
 check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/.env
 check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/auth*.json
@@ -61,6 +64,7 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/config.ts
 check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/config.yaml
 check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/index/globalContext.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .continue/mcpServers/*
+check_smoke_coverage|secret-check-missing|smoke.sh */globalStorage/continue.continue/*.bin
 check_smoke_coverage|secret-check-missing|smoke.sh .continue/.configs/*/config.js*
 check_smoke_coverage|secret-check-missing|smoke.sh .continue/.env
 check_smoke_coverage|secret-check-missing|smoke.sh .continue/auth*.json

@@ -40,6 +40,10 @@ check_research_structure|bare-doc-reference|All claims from source except the Je
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/index
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/models
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .tabby/repositories
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 index
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 repositories
+check_smoke_coverage|exclusion-check-missing|smoke.sh index
+check_smoke_coverage|exclusion-check-missing|smoke.sh repositories
 check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
 check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
 check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml

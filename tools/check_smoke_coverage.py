@@ -2126,7 +2126,8 @@ def check_findings(context: _Context) -> Iterator[drift_common.Finding]:
         paths = _counted(context, wanted)
         for line in context.tables.table(table):
             if not _covered(subtree_glob_regex(line.glob, insensitive), paths):
-                agent = drift_common.attribute_glob(line.glob, context.tables.catalog)
+                catalog = context.tables.catalog
+                agent = drift_common.attribute_glob(line.glob, catalog, context.root)
                 text = "%s on a path this glob matches (catalog line %d)" % (message, line.line)
                 yield context.finding(agent, kind, line.glob, 0, text)
 

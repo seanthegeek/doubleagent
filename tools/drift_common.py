@@ -503,19 +503,191 @@ def _whole_segment(glob: str, index: int) -> bool:
     return before == "/" and after == "/"
 
 
-def attribute_glob(glob: str, catalog: Catalog | None = None) -> str:
-    """Return the agent whose home entry claims a sample path of the glob, or `-` when none does.
+# Leading forms of a code span that name the home, and what they stand for under it.
+HOME_PREFIXES = (
+    ("~/", ""),
+    ("~\\", ""),
+    ("$HOME/", ""),
+    ("${HOME}/", ""),
+    ("%USERPROFILE%\\", ""),
+    ("%APPDATA%\\", "AppData/Roaming/"),
+    ("%LOCALAPPDATA%\\", "AppData/Local/"),
+    ("$XDG_CONFIG_HOME/", ".config/"),
+    ("$XDG_DATA_HOME/", ".local/share/"),
+    ("$XDG_STATE_HOME/", ".local/state/"),
+    ("$XDG_CACHE_HOME/", ".cache/"),
+    ("./", ""),
+)
 
-    The sample with `empty_stars` is tried first, then the one with every `*` as `x`; the claim
-    is `Catalog.claims_home_path`, so the most specific home entry wins. `catalog` defaults to
-    the bundled one.
+
+def normalise_span(text: str) -> str:
+    r"""Return a code span as a home-relative path, the form catalog globs take.
+
+    A leading home form of `HOME_PREFIXES` (`~/`, `$HOME/`, `./`) is dropped and a Windows or
+    XDG variable becomes the directory it names (`%APPDATA%\` is `AppData/Roaming/`);
+    backslashes become slashes and one trailing `/` is dropped.
     """
-    catalog = catalog or _bundled_catalog()
+    for prefix, replacement in HOME_PREFIXES:
+        if text.startswith(prefix):
+            text = replacement + text[len(prefix) :]
+            break
+    text = text.replace("\\", "/")
+    return text[:-1] if text.endswith("/") and len(text) > 1 else text
+
+
+@functools.cache
+def segment_regex(glob: str) -> re.Pattern[str]:
+    """Return a regex for a catalog glob whose `*`, `?` and classes never cross `/`."""
+    catalog = catalog_module()
+    parts = [catalog.glob_segment_to_regex(part).pattern for part in glob.split("/")]
+    return re.compile("/".join(parts))
+
+
+@functools.cache
+def crossing_regex(glob: str) -> re.Pattern[str]:
+    """Return a regex for an exclusion or secret glob, whose `*` and `?` cross `/` as in sh."""
+    out: list[str] = []
+    index = 0
+    while index < len(glob):
+        character = glob[index]
+        close = glob.find("]", index + 1) if character == "[" else -1
+        if character == "*":
+            out.append(".*")
+        elif character == "?":
+            out.append(".")
+        elif close > index + 1:
+            body = glob[index + 1 : close]
+            body = "^" + body[1:] if body.startswith("!") else body
+            out.append("[%s]" % body.replace("\\", "\\\\"))
+            index = close
+        else:
+            out.append(re.escape(character))
+        index += 1
+    return re.compile("".join(out))
+
+
+def names_glob(glob: str, spans: Iterable[str], deeper: bool = False) -> bool:
+    """Return whether a normalised code span names a glob.
+
+    A span names it when it equals the glob or is a concrete path the glob matches segment by
+    segment (`glob_segment_to_regex`), so `.claude-work/projects` names `.claude-*/projects`
+    and `a0_usr` names `*a0_usr`. A glob ending in `/*` is also named by its directory
+    (`mcp-tokens` names `mcp-tokens/*`). With `deeper`, a path below a match names it too
+    (`.local/share/claude/versions` names `.local/share/claude`); without, it does not.
+    """
+    spans = list(spans)
+    pattern = segment_regex(glob)
+    if any(span == glob or pattern.fullmatch(span) for span in spans):
+        return True
+    if glob.endswith("/*") and names_glob(glob[:-2], spans):
+        return True
+    if not deeper:
+        return False
+    depth = glob.count("/") + 1
+    return any(
+        span.count("/") >= depth and pattern.fullmatch("/".join(span.split("/")[:depth]))
+        for span in spans
+    )
+
+
+def star_remainders(glob: str, catalog: Catalog) -> list[tuple[str, str]]:
+    """Return (agent, remainder) for each home entry a glob opening `*/` reaches.
+
+    Only the leading star crosses `/`: the glob reaches an entry when the entry's sample path,
+    alone or with a tail of the glob's segments appended, ends in segments the rest of the glob
+    matches one by one; the entry must match at least the glob's first segment after the star,
+    and the shortest such tail is the remainder below it: `*/Claude*/Cache` reaches
+    `Library/Application Support/Claude` with the remainder `Cache`, while `*/Other/Cache` does
+    not, nor does `*/User/x/*/y` reach `.e/User/x/a/b` by a middle star spanning `a/b`.
+    """
+    if not glob.startswith("*/"):
+        return []
+    pattern = re.compile("(?:.*/)?" + segment_regex(glob[2:]).pattern)
+    parts = glob.split("/")
+    tails = [""] + ["/".join(parts[start:]) for start in range(len(parts) - 1, 1, -1)]
+    found: list[tuple[str, str]] = []
+    for entry in catalog.entries:
+        sample = sample_path(entry.glob, empty_stars=True)
+        for tail in tails:
+            path = sample + "/" + sample_path(tail, True) if tail else sample
+            if pattern.fullmatch(path):
+                found.append((entry.agent, tail))
+                break
+    return found
+
+
+@functools.cache
+def collection_spans_by_depth(path: pathlib.Path) -> dict[int, tuple[str, ...]]:
+    """Return a document's normalised Collection code spans by their count of `/`, read once.
+
+    A missing document has none. A glob's segments never cross `/`, so only spans of its own
+    depth, or one less for a glob ending in `/*`, can name it (`names_glob`).
+    """
+    if not path.is_file():
+        return {}
+    found: dict[int, list[str]] = {}
+    for section in within(research_sections(path), "Collection"):
+        for span in section.code_spans:
+            text = normalise_span(span.text)
+            found.setdefault(text.count("/"), []).append(text)
+    return {depth: tuple(spans) for depth, spans in found.items()}
+
+
+def document_names_glob(path: pathlib.Path, glob: str) -> bool:
+    """Return whether a code span of a document's Collection part names a glob (`names_glob`)."""
+    by_depth = collection_spans_by_depth(path)
+    depth = glob.count("/")
+    return names_glob(glob, by_depth.get(depth, ()) + by_depth.get(depth - 1, ()))
+
+
+def home_claim(glob: str, catalog: Catalog) -> str:
+    """Return the agent of the home entry claiming a sample path of a glob, or "".
+
+    The claim is `Catalog.claims_home_path`, so the most specific entry wins; the sample with
+    `empty_stars` is tried before the one with every `*` as `x`.
+    """
     for sample in (sample_path(glob, empty_stars=True), sample_path(glob)):
         owner = catalog.claims_home_path(sample)
         if owner:
             return owner
-    return "-"
+    return ""
+
+
+def closest_agent(reached: list[tuple[str, str]]) -> str:
+    """Return the agent whose (agent, remainder) pair has the fewest remainder segments, or `-`.
+
+    An empty remainder has none; two agents tied for the fewest give `-`.
+    """
+    depths = [(rest.count("/") + 1 if rest else 0, agent) for agent, rest in reached]
+    fewest = min((depth for depth, _ in depths), default=-1)
+    closest = {agent for depth, agent in depths if depth == fewest}
+    return closest.pop() if len(closest) == 1 else "-"
+
+
+def attribute_glob(
+    glob: str, catalog: Catalog | None = None, root: pathlib.Path | None = None
+) -> str:
+    """Return the agent a table glob belongs to, by the first step that names one, or `-`.
+
+    1. The agent of the home entry that claims a sample path of the glob (`home_claim`).
+    2. For a glob opening `*/`, the agent of the most specific home entry it reaches, the one
+       with the fewest remainder segments (`star_remainders`), when no other agent's is as close.
+    3. For any other glob, which is volume-relative, the one `DOCKER_VOLUMES` agent whose
+       research document under `root` names it in a Collection code span (`document_names_glob`).
+    `catalog` defaults to the bundled one and `root` to this checkout.
+    """
+    catalog = catalog or _bundled_catalog()
+    owner = home_claim(glob, catalog)
+    if owner:
+        return owner
+    if glob.startswith("*/"):
+        return closest_agent(star_remainders(glob, catalog))
+    research = (ROOT if root is None else root) / "research"
+    volume_agents = dict.fromkeys(entry.agent for entry in catalog.docker_volumes)
+    naming = [
+        agent for agent in volume_agents if document_names_glob(research / ("%s.md" % agent), glob)
+    ]
+    return naming[0] if len(naming) == 1 else "-"
 
 
 # --- Agents ---------------------------------------------------------------------------------
