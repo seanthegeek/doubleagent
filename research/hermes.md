@@ -312,7 +312,7 @@ on Windows:
 | `webhook_subscriptions.json`, `teams_pipeline_store.json` | webhook shared secrets |
 | `mcp-tokens/` | MCP OAuth tokens |
 | `vault/` | `vault.key` beside `vault.json.enc`, or the `vault.keyref` pointer |
-| `browser-profile`, `browser_auth`, `bot-desktop`, `browser-profiles`, `browser_profiles`, `chrome-debug` | browser cookies and logins |
+| `browser-profile`, `browser_auth`, `bot-desktop/<file>`, `browser-profiles`, `browser_profiles`, `chrome-debug` | browser cookies and logins |
 | `webapp/session-token`, `webapp/native-sign-in-tokens.json`, `webapp/sign-in-registration.json` | the Webapp browser credential and sign-in tokens |
 | `pairing/`, `platforms/pairing/`, `feishu_comment_pairing.json` | gateway pairing stores |
 | `whatsapp/session/<file>`, `platforms/whatsapp/session/<file>`, `matrix/store/<file>`, `platforms/matrix/store/<file>` | messaging sessions |
@@ -324,7 +324,7 @@ on Windows:
 | `proxy/ca.key` beside `proxy/ca.crt`, and the proxy tokens | iron-proxy CA key and tokens |
 | `home/<file>` | the subprocess `HOME` in containers: gh, git, ssh and npm credentials |
 | `backups`, `state-snapshots` | copies of the stores above |
-| `.ssh/`, `.aws/`, `.gnupg/`, `.kube/`, `.docker/`, `.azure/`, `.config/gh/`, `.config/gcloud/`, `.envrc` | OS credential directories inside a profile home |
+| `.ssh/<file>`, `.aws/<file>`, `.gnupg/<file>`, `.kube/<file>`, `.docker/<file>`, `.azure/<file>`, `.config/gh/<file>`, `.config/gcloud/<file>`, `.envrc` | OS credential directories inside a profile home |
 
 The subprocess `HOME` is `home/` only in containers
 ([`hermes_constants.py:765-788`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_constants.py#L765-L788)), and the proxy's CA files are
@@ -333,7 +333,10 @@ The subprocess `HOME` is `home/` only in containers
 [`262`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/proxy_sources/iron_proxy.py#L262)); the Webapp's three files are named at
 [`gateway/webapp_listener.py:32`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/gateway/webapp_listener.py#L32),
 [`hermes_cli/webapp_sign_in.py:49`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/webapp_sign_in.py#L49) and
-[`hermes_cli/webapp_access.py:32`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/webapp_access.py#L32); the OS credential directories
+[`hermes_cli/webapp_access.py:32`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/webapp_access.py#L32); the Bot Mode desktop keeps
+`bot-desktop/lease.json` and `bot-desktop/sandbox.json` beside its browser profile
+([`tools/bot_desktop/lease.py:79`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/bot_desktop/lease.py#L79),
+[`tools/bot_desktop/sandbox_host.py:67`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/bot_desktop/sandbox_host.py#L67)); the OS credential directories
 come from
 [`agent/file_safety.py:210`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/agent/file_safety.py#L210)
 ([`hermes_cli/profiles.py:153-154`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/profiles.py#L153-L154)). Copies named `auth.json.*`

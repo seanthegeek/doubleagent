@@ -370,6 +370,34 @@ secret||.hermes/profiles/work/.env
 secret||.hermes_dev/auth.json
 secret||.hermes/hermes-agent/.env
 secret||AppData/Local/hermes/hermes-agent/.env
+secret||.hermes/config.yaml.bak-20261030t120000z
+secret||.hermes/bot-desktop/lease.json
+secret||.hermes/webapp/session-token
+secret||.hermes/feishu_comment_pairing.json
+secret||.hermes/workspace/meetings/node_token.json
+secret||.hermes/.ssh/id_ed25519
+secret||.hermes/.aws/credentials
+secret||.hermes/.gnupg/pubring.kbx
+secret||.hermes/.kube/config
+secret||.hermes/.docker/config.json
+secret||.hermes/.azure/msal_token_cache.json
+secret||.hermes/.config/gh/hosts.yml
+secret||.hermes/.config/gcloud/credentials.db
+secret||.hermes/.envrc
+secret||AppData/Local/hermes/config.yaml.bak-20261030t120000z
+secret||AppData/Local/hermes/bot-desktop/lease.json
+secret||AppData/Local/hermes/webapp/session-token
+secret||AppData/Local/hermes/feishu_comment_pairing.json
+secret||AppData/Local/hermes/workspace/meetings/node_token.json
+secret||AppData/Local/hermes/.ssh/id_ed25519
+secret||AppData/Local/hermes/.aws/credentials
+secret||AppData/Local/hermes/.gnupg/pubring.kbx
+secret||AppData/Local/hermes/.kube/config
+secret||AppData/Local/hermes/.docker/config.json
+secret||AppData/Local/hermes/.azure/msal_token_cache.json
+secret||AppData/Local/hermes/.config/gh/hosts.yml
+secret||AppData/Local/hermes/.config/gcloud/credentials.db
+secret||AppData/Local/hermes/.envrc
 agent|hermes|.hermes/state.db
 agent|hermes|.hermes/state.db-wal
 agent|hermes|.hermes/state.db-shm
@@ -486,6 +514,12 @@ foreach ($caseLine in $CasesCatalog) {
 }
 MakeFile 'Users/alice/.hermes/checkpoints/store/projects/0123456789abcdef.json' '{"workdir":"C:\\hermesproj","created_at":1759536000}'
 MakeFile 'hermesproj/.hermes.md' '# hermes'
+# 2026-10-30 hermes rebuild (#326)
+$hermesProjectFiles = @('HERMES.md', '.hermes/environment.json', 'trajectory_samples.jsonl', 'failed_trajectories.jsonl')
+MakeFile 'hermesproj/HERMES.md' '# hermes'
+MakeFile 'hermesproj/.hermes/environment.json' '{}'
+MakeFile 'hermesproj/trajectory_samples.jsonl' '{"conversations":[]}'
+MakeFile 'hermesproj/failed_trajectories.jsonl' '{"conversations":[]}'
 MakeFile 'Users/alice/.letta/sessions.jsonl' '{"type":"start","project":"C:\\lettaproj","agentId":"a1"}'
 MakeFile 'lettaproj/.letta/settings.json' '{"hooks":{}}'
 MakeFile 'Users/alice/.letta/lc-local-backend/conversations/c1/messages.jsonl' '{"type":"session","id":"c1","cwd":"C:\\lettaproj2"}'
@@ -1469,12 +1503,17 @@ Check 'pearai lowercase .config/pearai collected as pearai' { $pearaiRows.Count 
 Check 'cody nested globalStorage collected exactly once' { @($script:Rows | Where-Object { ($_.path -replace '\\', '/') -like '*sourcegraph.cody-ai/symf/indexroot/meta.json' }).Count -eq 1 }
 Check 'twinny nested globalStorage collected exactly once' { @($script:Rows | Where-Object { ($_.path -replace '\\', '/') -like '*globalStorage/rjmacarthy.twinny/twinny-providers.json' }).Count -eq 1 }
 Check 'little-coder history nested in .pi collected exactly once' { @($script:Rows | Where-Object { $_.path -like '*little-coder-prompt-history.json' }).Count -eq 1 }
-Check 'hermes installer checkout excluded but its .env kept' { (StatusOf 'alice/.hermes/hermes-agent/hermes_cli') -eq 'skipped_excluded' -and (StatusOf 'alice/.hermes/hermes-agent/.env') -eq 'collected' }
+Check 'hermes installer checkout excluded but its .env kept' { (StatusOf 'Users/alice/.hermes/hermes-agent/hermes_cli') -eq 'skipped_excluded' -and (StatusOf 'Users/alice/.hermes/hermes-agent/.env') -eq 'collected' }
 if ($clawLinkOk) {
   $row = Row 'home/bob/.clawdbot'
   Check 'openclaw .clawdbot rename symlink recorded' { $row -and $row.agent -eq 'openclaw' -and $row.type -eq 'symlink' -and $row.status -eq 'symlink' -and $row.target -like '*.openclaw' }
 }
 Check 'hermes checkpoint workdir discovers project' { (StatusOf 'hermesproj/.hermes.md') -eq 'collected' -and (Row 'hermesproj/.hermes.md').user -eq 'alice' }
+# 2026-10-30 hermes rebuild (#326)
+foreach ($hermesFile in $hermesProjectFiles) {
+  $row = Row "hermesproj/$hermesFile"
+  Check "#326 Hermes project file collected: $hermesFile" { $row -and $row.agent -eq 'hermes' -and $row.status -eq 'collected' }
+}
 Check 'letta sessions.jsonl project discovers project' { (StatusOf 'lettaproj/.letta/settings.json') -eq 'collected' }
 Check 'project .letta/settings.json flagged secret (accepted overmatch)' { (Row 'lettaproj/.letta/settings.json').secret -eq $true }
 Check 'letta local backend messages cwd discovers project' { (StatusOf 'lettaproj2/AGENTS.md') -eq 'collected' }
@@ -2088,7 +2127,7 @@ Check '#324 Hermes suffixed home collected as hermes' { (IsAgentRow 'Users/alice
 Check '#324 Hermes suffixed Windows home config.yaml flagged secret' { IsAgentRow 'Users/alice/AppData/Local/hermes-canary/config.yaml' 'hermes' $true }
 Check '#324 Hermes suffixed home installer checkout excluded, its .env kept' { (StatusOf 'Users/alice/.hermes-canary/hermes-agent/hermes_cli') -eq 'skipped_excluded' -and (StatusOf 'Users/alice/.hermes-canary/hermes-agent/.git') -eq 'skipped_excluded' -and (IsSecretRow 'Users/alice/.hermes-canary/hermes-agent/.env') }
 Check '#324 Hermes suffixed Windows home installer checkout excluded, its .env kept' { (StatusOf 'Users/alice/AppData/Local/hermes-canary/hermes-agent/hermes_cli') -eq 'skipped_excluded' -and (StatusOf 'Users/alice/AppData/Local/hermes-canary/hermes-agent/.git') -eq 'skipped_excluded' -and (IsSecretRow 'Users/alice/AppData/Local/hermes-canary/hermes-agent/.env') }
-Check '#324 Hermes updater cache excluded' { (StatusOf 'Users/alice/AppData/Local/hermes-updater') -eq 'skipped_excluded' -and (HasNoRow 'pending/hermes-setup.exe') }
+Check '#324 Hermes updater cache excluded' { (StatusOf 'Users/alice/AppData/Local/hermes-updater') -eq 'skipped_excluded' -and (StatusOf 'Users/alice/AppData/Local/hermes-updater/pending/hermes-setup.exe') -eq '' }
 foreach ($driftPath in $driftHermesDesktop) {
   Check "#324 Hermes suffixed desktop connections flagged: $driftPath" { IsAgentRow "Users/alice/$driftPath/connections.json" 'hermes' $true }
   foreach ($driftLeaf in $driftHermesCaches) {
@@ -2277,6 +2316,74 @@ MakeFile "$openhandsVolume/conversations/c1/acp/codex/auth.json" "{`"tokens`":{}
 MakeFile "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json" "{`"tokens`":{}}`n"
 MakeFile "$ollamaVolume/backup/codex/config.toml.1792800000" "model = `"x`"`n"
 MakeFile "$ollamaVolume/launch/muse-config/muse/settings.json" "{}`n"
+# 2026-10-30 hermes rebuild (#326)
+# One file under each volume-relative Hermes exclusion and secret glob, as kind|path below _data.
+$hermesVolume = 'var/lib/docker/volumes/hermes_home/_data'
+$hermesVolumeCases = @(
+  'secret|.env',
+  'secret|.env.bak1',
+  'secret|.op.env',
+  'secret|npmrc',
+  'secret|auth.json',
+  'secret|auth.json.1',
+  'secret|auth/google_oauth.json',
+  'secret|.anthropic_oauth.json',
+  'secret|.copilot_jwt.json',
+  'secret|google_token.json',
+  'secret|google_chat_user_tokens/u1.json',
+  'secret|slack_tokens.json',
+  'secret|honcho.json',
+  'secret|mem0.json',
+  'secret|webhook_subscriptions.json',
+  'secret|teams_pipeline_store.json',
+  'secret|mcp-tokens/t1.json',
+  'secret|vault/vault.key',
+  'secret|browser_auth/state.json',
+  'secret|bot-desktop/lease.json',
+  'secret|webapp/session-token',
+  'secret|webapp/native-sign-in-tokens.json',
+  'secret|webapp/sign-in-registration.json',
+  'secret|pairing/telegram-approved.json',
+  'secret|platforms/pairing/telegram-approved.json',
+  'secret|feishu_comment_pairing.json',
+  'secret|whatsapp/session/creds.json',
+  'secret|platforms/whatsapp/session/creds.json',
+  'secret|matrix/store/crypto.db',
+  'secret|platforms/matrix/store/crypto.db',
+  'secret|cache/bws_cache.json',
+  'secret|workspace/meetings/node_token.json',
+  'secret|weixin/accounts/a1.json',
+  'secret|runtime/photon-sidecar.json',
+  'secret|proxy/ca.key',
+  'secret|home/.gitconfig',
+  'secret|config.yaml.bak.1',
+  'secret|state-snapshots/20261001-120004/config.yaml',
+  'secret|state-snapshots/20261001-120004/feishu_comment_pairing.json',
+  'secret|state-snapshots/20261001-120004/platforms/pairing/telegram-approved.json',
+  'excl|hermes-agent/hermes_cli',
+  'excl|hermes-agent/.git',
+  'excl|models',
+  'excl|runtimes',
+  'excl|node',
+  'excl|installs',
+  'excl|tools',
+  'excl|sandboxes',
+  'excl|checkpoints/store/objects',
+  'excl|checkpoints/store/indexes',
+  'excl|checkpoints/legacy-1',
+  'excl|backups',
+  'excl|browser-profile',
+  'excl|browser-profiles',
+  'excl|browser_profiles',
+  'excl|chrome-debug',
+  'excl|bot-desktop/browser-profile',
+  'excl|plugins/p1/node_modules',
+  'excl|plugins/p1/.venv'
+)
+foreach ($caseLine in $hermesVolumeCases) {
+  $fields = @($caseLine -split '\|', 2)
+  if ($fields[0] -eq 'excl') { MakeFile "$hermesVolume/$($fields[1])/f" 'x' } else { MakeFile "$hermesVolume/$($fields[1])" 'x' }
+}
 $missing = Test-Made
 Check "#248 every frameworks-volume fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Run 'fwvolumes' @{}
@@ -2304,6 +2411,15 @@ Check 'dify sandbox workspace volume collected as dify' { $row -and $row.agent -
 # 2026-10-21 Hermes quick snapshots and desktop connections (#123, #208)
 $row = Row "$hermesVolumeSnapshot/state.db"
 Check '#123 Hermes volume quick snapshot collected, credentials flagged (volume-relative)' { $row -and $row.user -eq 'docker' -and $row.agent -eq 'hermes' -and $row.secret -eq $false -and $row.status -eq 'collected' -and (Row "$hermesVolumeSnapshot/.env").secret -eq $true -and (Row "$hermesVolumeSnapshot/auth.json").secret -eq $true -and (Row "$hermesVolumeSnapshot/pairing/telegram-approved.json").secret -eq $true }
+# 2026-10-30 hermes rebuild (#326)
+foreach ($caseLine in $hermesVolumeCases) {
+  $fields = @($caseLine -split '\|', 2)
+  if ($fields[0] -eq 'excl') {
+    Check "#326 Hermes volume excluded: $($fields[1])" { (StatusOf "$hermesVolume/$($fields[1])") -eq 'skipped_excluded' }
+  } else {
+    Check "#326 Hermes volume flagged: $($fields[1])" { IsAgentRow "$hermesVolume/$($fields[1])" 'hermes' $true }
+  }
+}
 # 2026-10-29 drift sweep credential gaps (#248)
 Check '#248 langflow-data volume _mcp_servers file flagged (volume-relative)' { IsAgentRow $langflowVolumeMcp 'langflow' $true }
 Check '#248 Hermes volume config.yaml flagged (volume-relative)' { IsAgentRow 'var/lib/docker/volumes/hermes_home/_data/config.yaml' 'hermes' $true }
@@ -2313,6 +2429,13 @@ Run 'fwvolumesnosecrets' @{ NoSecrets = $true }
 Check '#248 frameworks volumes no-secrets exit 0' { $script:ExitCode -eq 0 }
 Check '#248 langflow-data volume _mcp_servers file skipped without secrets (volume-relative)' { (StatusOf $langflowVolumeMcp) -eq 'skipped_secret' }
 Check '#248 Hermes volume config.yaml skipped without secrets (volume-relative)' { (StatusOf 'var/lib/docker/volumes/hermes_home/_data/config.yaml') -eq 'skipped_secret' }
+# 2026-10-30 hermes rebuild (#326)
+foreach ($caseLine in $hermesVolumeCases) {
+  $fields = @($caseLine -split '\|', 2)
+  if ($fields[0] -eq 'secret') {
+    Check "#326 Hermes volume skipped without secrets: $($fields[1])" { (StatusOf "$hermesVolume/$($fields[1])") -eq 'skipped_secret' }
+  }
+}
 Check '#248 OpenHands volume conversation acp/codex/auth.json skipped without secrets (volume-relative)' { (StatusOf "$openhandsVolume/conversations/c1/acp/codex/auth.json") -eq 'skipped_secret' -and (StatusOf "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json") -eq 'skipped_secret' }
 Check '#320 Ollama volume backup and Muse copy skipped without secrets (volume-relative)' { (StatusOf "$ollamaVolume/backup/codex/config.toml.1792800000") -eq 'skipped_secret' -and (StatusOf "$ollamaVolume/launch/muse-config/muse/settings.json") -eq 'skipped_secret' }
 foreach ($volume in @('n8n_data', 'n8n_n8n-data', 'langflow_langflow-data', 'docker_dify_agent_local_sandbox_home', 'docker_dify_agent_local_sandbox_workspace', 'hermes_home', 'openhands_state', 'ollama')) {

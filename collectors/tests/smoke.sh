@@ -369,6 +369,34 @@ secret||.hermes/profiles/work/.env
 secret||.hermes_dev/auth.json
 secret||.hermes/hermes-agent/.env
 secret||AppData/Local/hermes/hermes-agent/.env
+secret||.hermes/config.yaml.bak-20261030t120000z
+secret||.hermes/bot-desktop/lease.json
+secret||.hermes/webapp/session-token
+secret||.hermes/feishu_comment_pairing.json
+secret||.hermes/workspace/meetings/node_token.json
+secret||.hermes/.ssh/id_ed25519
+secret||.hermes/.aws/credentials
+secret||.hermes/.gnupg/pubring.kbx
+secret||.hermes/.kube/config
+secret||.hermes/.docker/config.json
+secret||.hermes/.azure/msal_token_cache.json
+secret||.hermes/.config/gh/hosts.yml
+secret||.hermes/.config/gcloud/credentials.db
+secret||.hermes/.envrc
+secret||AppData/Local/hermes/config.yaml.bak-20261030t120000z
+secret||AppData/Local/hermes/bot-desktop/lease.json
+secret||AppData/Local/hermes/webapp/session-token
+secret||AppData/Local/hermes/feishu_comment_pairing.json
+secret||AppData/Local/hermes/workspace/meetings/node_token.json
+secret||AppData/Local/hermes/.ssh/id_ed25519
+secret||AppData/Local/hermes/.aws/credentials
+secret||AppData/Local/hermes/.gnupg/pubring.kbx
+secret||AppData/Local/hermes/.kube/config
+secret||AppData/Local/hermes/.docker/config.json
+secret||AppData/Local/hermes/.azure/msal_token_cache.json
+secret||AppData/Local/hermes/.config/gh/hosts.yml
+secret||AppData/Local/hermes/.config/gcloud/credentials.db
+secret||AppData/Local/hermes/.envrc
 agent|hermes|.hermes/state.db
 agent|hermes|.hermes/state.db-wal
 agent|hermes|.hermes/state.db-shm
@@ -497,6 +525,12 @@ mkdir -p "$ALICE/.hermes/checkpoints/store/projects" "$ROOT/srv/hermesproj" "$AL
   "$ALICE/.twinny/embeddings/twinproj" "$ROOT/srv/twinproj/src"
 printf '{"workdir":"/srv/hermesproj","created_at":1759536000}\n' >"$ALICE/.hermes/checkpoints/store/projects/0123456789abcdef.json"
 printf '# hermes\n' >"$ROOT/srv/hermesproj/.hermes.md"
+# 2026-10-30 hermes rebuild (#326)
+mkdir -p "$ROOT/srv/hermesproj/.hermes"
+printf '# hermes\n' >"$ROOT/srv/hermesproj/HERMES.md"
+printf '{}\n' >"$ROOT/srv/hermesproj/.hermes/environment.json"
+printf '{"conversations":[]}\n' >"$ROOT/srv/hermesproj/trajectory_samples.jsonl"
+printf '{"conversations":[]}\n' >"$ROOT/srv/hermesproj/failed_trajectories.jsonl"
 printf '{"type":"start","project":"/srv/lettaproj","agentId":"a1"}\n' >"$ALICE/.letta/sessions.jsonl"
 printf '{"hooks":{}}\n' >"$ROOT/srv/lettaproj/.letta/settings.json"
 printf '{"type":"session","id":"c1","cwd":"/srv/lettaproj2"}\n' >"$ALICE/.letta/lc-local-backend/conversations/c1/messages.jsonl"
@@ -1459,6 +1493,10 @@ check "little-coder history nested in .pi collected exactly once" "[ \"\$(grep -
 check "hermes installer checkout excluded but its .env kept" "[ \"\$(status_of \"$ALICE/.hermes/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes/hermes-agent/.env\")\" = collected ]"
 check "openclaw .clawdbot rename symlink recorded" "row \"$BOB/.clawdbot\" | grep -q '\"agent\":\"openclaw\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\".openclaw\"'"
 check "hermes checkpoint workdir discovers project" "row \"$ROOT/srv/hermesproj/.hermes.md\" | grep -q '\"user\":\"alice\".*\"status\":\"collected\"'"
+# 2026-10-30 hermes rebuild (#326)
+for _hermes_file in HERMES.md .hermes/environment.json trajectory_samples.jsonl failed_trajectories.jsonl; do
+  check "#326 Hermes project file collected: $_hermes_file" "row \"$ROOT/srv/hermesproj/$_hermes_file\" | grep -q '\"agent\":\"hermes\".*\"status\":\"collected\"'"
+done
 check "letta sessions.jsonl project discovers project" "[ \"\$(status_of \"$ROOT/srv/lettaproj/.letta/settings.json\")\" = collected ]"
 check "project .letta/settings.json flagged secret (accepted overmatch)" "row \"$ROOT/srv/lettaproj/.letta/settings.json\" | grep -q '\"secret\":true'"
 check "letta local backend messages cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/lettaproj2/AGENTS.md\")\" = collected ]"
@@ -2059,6 +2097,77 @@ printf 'sqlite\n' >"$HERMES_VOLUME_SNAPSHOT/state.db"
 printf 'KEY=x\n' >"$HERMES_VOLUME_SNAPSHOT/.env"
 printf '{"providers":{}}\n' >"$HERMES_VOLUME_SNAPSHOT/auth.json"
 printf '{}\n' >"$HERMES_VOLUME_SNAPSHOT/pairing/telegram-approved.json"
+# 2026-10-30 hermes rebuild (#326)
+# One file under each volume-relative Hermes exclusion and secret glob, as kind|path below _data.
+HERMES_VOLUME="$VOLUMES/hermes_home/_data"
+HERMES_VOLUME_CASES="$WORK/hermes-volume-cases"
+cat >"$HERMES_VOLUME_CASES" <<'EOF_HERMES_VOLUME_CASES'
+secret|.env
+secret|.env.bak1
+secret|.op.env
+secret|npmrc
+secret|auth.json
+secret|auth.json.1
+secret|auth/google_oauth.json
+secret|.anthropic_oauth.json
+secret|.copilot_jwt.json
+secret|google_token.json
+secret|google_chat_user_tokens/u1.json
+secret|slack_tokens.json
+secret|honcho.json
+secret|mem0.json
+secret|webhook_subscriptions.json
+secret|teams_pipeline_store.json
+secret|mcp-tokens/t1.json
+secret|vault/vault.key
+secret|browser_auth/state.json
+secret|bot-desktop/lease.json
+secret|webapp/session-token
+secret|webapp/native-sign-in-tokens.json
+secret|webapp/sign-in-registration.json
+secret|pairing/telegram-approved.json
+secret|platforms/pairing/telegram-approved.json
+secret|feishu_comment_pairing.json
+secret|whatsapp/session/creds.json
+secret|platforms/whatsapp/session/creds.json
+secret|matrix/store/crypto.db
+secret|platforms/matrix/store/crypto.db
+secret|cache/bws_cache.json
+secret|workspace/meetings/node_token.json
+secret|weixin/accounts/a1.json
+secret|runtime/photon-sidecar.json
+secret|proxy/ca.key
+secret|home/.gitconfig
+secret|config.yaml.bak.1
+secret|state-snapshots/20261001-120004/config.yaml
+secret|state-snapshots/20261001-120004/feishu_comment_pairing.json
+secret|state-snapshots/20261001-120004/platforms/pairing/telegram-approved.json
+excl|hermes-agent/hermes_cli
+excl|hermes-agent/.git
+excl|models
+excl|runtimes
+excl|node
+excl|installs
+excl|tools
+excl|sandboxes
+excl|checkpoints/store/objects
+excl|checkpoints/store/indexes
+excl|checkpoints/legacy-1
+excl|backups
+excl|browser-profile
+excl|browser-profiles
+excl|browser_profiles
+excl|chrome-debug
+excl|bot-desktop/browser-profile
+excl|plugins/p1/node_modules
+excl|plugins/p1/.venv
+EOF_HERMES_VOLUME_CASES
+while IFS='|' read -r _hermes_kind _hermes_path; do
+  case "$_hermes_kind" in
+    excl) mkdir -p "$HERMES_VOLUME/$_hermes_path"; printf 'x\n' >"$HERMES_VOLUME/$_hermes_path/f" ;;
+    *) mkdir -p "$(dirname "$HERMES_VOLUME/$_hermes_path")"; printf 'x\n' >"$HERMES_VOLUME/$_hermes_path" ;;
+  esac
+done <"$HERMES_VOLUME_CASES"
 # 2026-10-29 drift sweep credential gaps (#248)
 LANGFLOW_VOLUME_MCP="$VOLUMES/langflow_langflow-data/_data/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json"
 OPENHANDS_VOLUME="$VOLUMES/openhands_state/_data"
@@ -2087,6 +2196,13 @@ check "dify sandbox home volume collected as dify" "row \"$VOLUMES/docker_dify_a
 check "dify sandbox workspace volume collected as dify" "row \"$VOLUMES/docker_dify_agent_local_sandbox_workspace/_data/out.txt\" | grep -q '\"agent\":\"dify\".*\"status\":\"collected\"'"
 # 2026-10-21 Hermes quick snapshots and desktop connections (#123, #208)
 check "#123 Hermes volume quick snapshot collected, credentials flagged (volume-relative)" "row \"$HERMES_VOLUME_SNAPSHOT/state.db\" | grep -q '\"user\":\"docker\".*\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/.env\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/auth.json\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/pairing/telegram-approved.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+# 2026-10-30 hermes rebuild (#326)
+while IFS='|' read -r _hermes_kind _hermes_path; do
+  case "$_hermes_kind" in
+    excl) check "#326 Hermes volume excluded: $_hermes_path" "[ \"\$(status_of \"$HERMES_VOLUME/$_hermes_path\")\" = skipped_excluded ]" ;;
+    *) check "#326 Hermes volume flagged: $_hermes_path" "row \"$HERMES_VOLUME/$_hermes_path\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'" ;;
+  esac
+done <"$HERMES_VOLUME_CASES"
 # 2026-10-29 drift sweep credential gaps (#248)
 check "#248 langflow-data volume _mcp_servers file flagged (volume-relative)" "row \"$LANGFLOW_VOLUME_MCP\" | grep -q '\"agent\":\"langflow\".*$SECRET_COLLECTED'"
 check "#248 Hermes volume config.yaml flagged (volume-relative)" "row \"$VOLUMES/hermes_home/_data/config.yaml\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
@@ -2095,6 +2211,12 @@ check "#320 Ollama volume backup and Muse copy flagged (volume-relative)" "row \
 run fwvolumesnosecrets --no-secrets; check "#248 frameworks volumes no-secrets exit 0" "[ $? -eq 0 ]"
 check "#248 langflow-data volume _mcp_servers file skipped without secrets (volume-relative)" "[ \"\$(status_of \"$LANGFLOW_VOLUME_MCP\")\" = skipped_secret ]"
 check "#248 Hermes volume config.yaml skipped without secrets (volume-relative)" "[ \"\$(status_of \"$VOLUMES/hermes_home/_data/config.yaml\")\" = skipped_secret ]"
+# 2026-10-30 hermes rebuild (#326)
+while IFS='|' read -r _hermes_kind _hermes_path; do
+  case "$_hermes_kind" in
+    secret) check "#326 Hermes volume skipped without secrets: $_hermes_path" "[ \"\$(status_of \"$HERMES_VOLUME/$_hermes_path\")\" = skipped_secret ]" ;;
+  esac
+done <"$HERMES_VOLUME_CASES"
 check "#248 OpenHands volume conversation acp/codex/auth.json skipped without secrets (volume-relative)" "[ \"\$(status_of \"$OPENHANDS_VOLUME/conversations/c1/acp/codex/auth.json\")\" = skipped_secret ] && [ \"\$(status_of \"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex/auth.json\")\" = skipped_secret ]"
 check "#320 Ollama volume backup and Muse copy skipped without secrets (volume-relative)" "[ \"\$(status_of \"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000\")\" = skipped_secret ] && [ \"\$(status_of \"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json\")\" = skipped_secret ]"
 rm -rf "$VOLUMES/n8n_data" "$VOLUMES/n8n_n8n-data" "$VOLUMES/langflow_langflow-data" "$VOLUMES/docker_dify_agent_local_sandbox_home" "$VOLUMES/docker_dify_agent_local_sandbox_workspace" "$VOLUMES/hermes_home" "$VOLUMES/openhands_state" "$VOLUMES/ollama"
