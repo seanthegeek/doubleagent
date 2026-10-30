@@ -923,9 +923,9 @@ when the page has one.
      after the bold), where Platform is one of macOS, Windows, Linux,
      FreeBSD or OpenBSD and surface names the product's form
      (`**macOS CLI**:`, `**Windows desktop app**:`,
-     `**Linux lab container**:`); a cell with no install is the one bullet
-     or line `No real install.`, a colon and the evidence that stands in
-     allowed in its place.
+     `**Linux lab container**:`); a document with no install has the one
+     bullet or paragraph opening `No real install.` or `No real install:`,
+     followed by the evidence that stands in.
    - Each cell has one bullet, which describes the latest round of its
      cell, names that build, and, when earlier builds were observed, ends
      with `Earlier builds observed: <build> (<YYYY-MM-DD>), <build> (<YYYY-MM-DD>).`;
