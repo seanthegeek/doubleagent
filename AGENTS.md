@@ -1002,8 +1002,9 @@ when the page has one.
      follow them. A list of what the parser does not read starts
      `Not read:` and names each file or key as a code span; a parenthesis
      inside it that says something is read is phrased
-     ``(`x` is read only for ...)``, and a `whose` clause after an item
-     describes that item and names nothing.
+     ``(`x` is read only for ...)``, and a clause opening `whose` (or
+     `its` or `their` after a comma) describes the item before it and
+     names nothing up to the next comma, semicolon, colon or full stop.
 4. `## Confidence`: one list for both halves, confidence per item and what
    could not be determined, holding no fact the body states and no item it
    has answered. A confidence paragraph elsewhere is a defect.

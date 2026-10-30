@@ -17,7 +17,7 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
    `file-unclaimed`: a file no catalog entry claims (`claiming_agent`).
 4. `enum-undocumented`: a value (`is_enum_value`) of a key in `ENUM_KEYS` not documented.
 5. `type-mismatch`: a value no key table row of its key (Record schema, Other stores) `accepts`;
-   a key in several tables is checked against the union of its rows: one table allowing it passes.
+   a key in several tables passes when any one of its rows accepts both its type and its value.
 6. `substitution-undeclared`: a project path (`project_path`) outside `/srv/proj` and the
    `declared_paths` of the agent's fixture modules.
 7. `cross-agent-builder`: a call to a function imported from another agent's fixture module

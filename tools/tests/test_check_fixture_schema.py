@@ -396,7 +396,7 @@ def table_line(text):
     return TWO_TABLES_DOCUMENT.split("\n").index(text) + 1
 
 
-def test_type_mismatch_checks_the_union_of_a_keys_tables(tmp_path):
+def test_type_mismatch_passes_when_one_row_accepts_the_value(tmp_path):
     records: list[object] = [{"type": "entry", "count": "three"}, {"type": "user", "count": 3}]
     assert two_table_findings(tmp_path, records) == set()
 
@@ -415,6 +415,15 @@ def test_type_mismatch_type_and_value_met_by_different_rows(tmp_path):
     found = two_table_findings(tmp_path, [{"type": "system"}], document)
     line = table_line("| `type` | string | `user`, `assistant` | 1.0 |")
     assert found == {("type=system", line)}
+
+
+def test_type_mismatch_met_by_no_row_gives_both_details(tmp_path):
+    document = TWO_TABLES_DOCUMENT.replace(
+        "| `type` | string | `user`, `assistant` |", "| `type` | number | `one` |"
+    ).replace("| `type` | string | `entry` |", "| `type` | boolean | `yes` |")
+    found = two_table_findings(tmp_path, [{"type": "system"}], document)
+    line = table_line("| `type` | string | `user`, `assistant` | 1.0 |")
+    assert found == {("type:string", line), ("type=system", line)}
 
 
 BLOB_DOCUMENT = """\
