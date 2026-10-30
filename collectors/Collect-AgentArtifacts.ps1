@@ -386,7 +386,10 @@ windsurf|.windsurf
 windsurf|.devin
 windsurf|.config/devin
 windsurf|.local/share/devin
-windsurf|AppData/Roaming/devin
+# On a case-insensitive disk AppData/Roaming/devin (the Devin CLI) is the same
+# directory as AppData/Roaming/Devin (the Devin IDE), so only the CLI files are named
+windsurf|AppData/Roaming/devin/mcp_config.json
+windsurf|AppData/Roaming/devin/credentials.toml
 windsurf|Library/Application Support/Windsurf/User
 windsurf|Library/Application Support/Windsurf/logs
 windsurf|.config/Windsurf/User
@@ -561,13 +564,18 @@ letta|.letta
 letta|.config/letta
 letta|.memgpt
 # Hermes Agent (Nous Research; AppData/Local/hermes on Windows, Electron app dir Hermes)
+# HERMES_DATA_DIR_SUFFIX is appended to the home and the Electron dir with no
+# separator (.hermes-channel-build-canary), so ?* takes any suffix
 hermes|.hermes
-hermes|.hermes_*
+hermes|.hermes?*
 hermes|AppData/Local/hermes
-hermes|AppData/Local/hermes_*
+hermes|AppData/Local/hermes?*
 hermes|.config/Hermes
+hermes|.config/Hermes?*
 hermes|Library/Application Support/Hermes
+hermes|Library/Application Support/Hermes?*
 hermes|AppData/Roaming/Hermes
+hermes|AppData/Roaming/Hermes?*
 # OpenClaw (formerly Clawdbot and Moltbot; profiles are ~/.openclaw-<profile>, ~/.clawdbot may be a symlink)
 openclaw|.openclaw
 openclaw|.openclaw-*
@@ -966,7 +974,6 @@ AppData/Local/com.github.githubapp/EBWebView/BrowserMetrics-spare.pma
 .codeium/ws-browser*
 .windsurf/extensions
 .devin/extensions
-AppData/Local/devin/bin
 */User/globalStorage/saoudrizwan.claude-dev/checkpoints
 */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
 */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
@@ -1067,10 +1074,6 @@ AppData/Roaming/Block/goose/data/codex
 .qwen/resources
 .qwen/startup-perf
 .qwen/worktrees
-.cache/amp/runner-desktop
-.cache/amp/desktop
-.cache/amp/bin
-.cache/amp/obelisk-runs
 .amp/bin
 .factory/updates
 .factory/cache/sounds
@@ -1078,7 +1081,7 @@ AppData/Roaming/Block/goose/data/codex
 .factory/tools
 .factory/software-factory/*/*/repos
 .factory/software-factory/*/*/worktrees
-.factory/temp
+.factory/temp/[!e]*
 .factory/worktrees
 .factory/snapshots
 .factory/generated-images
@@ -1160,10 +1163,10 @@ AppData/Local/open-interpreter/open-interpreter/models
 .letta/tool_execution_dir
 .letta/chroma
 .memgpt/chroma
-.hermes/hermes-agent/[!.]*
-.hermes/hermes-agent/.[!e]*
-AppData/Local/hermes/hermes-agent/[!.]*
-AppData/Local/hermes/hermes-agent/.[!e]*
+.hermes*/hermes-agent/[!.]*
+.hermes*/hermes-agent/.[!e]*
+AppData/Local/hermes*/hermes-agent/[!.]*
+AppData/Local/hermes*/hermes-agent/.[!e]*
 .hermes*/models
 .hermes*/runtimes
 .hermes*/node
@@ -1198,15 +1201,16 @@ AppData/Local/hermes*/chrome-debug
 AppData/Local/hermes*/bot-desktop/browser-profile
 AppData/Local/hermes*/plugins/*/node_modules
 AppData/Local/hermes*/plugins/*/.venv
-.config/Hermes/Cache
-.config/Hermes/Code Cache
-.config/Hermes/GPUCache
-Library/Application Support/Hermes/Cache
-Library/Application Support/Hermes/Code Cache
-Library/Application Support/Hermes/GPUCache
-AppData/Roaming/Hermes/Cache
-AppData/Roaming/Hermes/Code Cache
-AppData/Roaming/Hermes/GPUCache
+AppData/Local/hermes-updater
+.config/Hermes*/Cache
+.config/Hermes*/Code Cache
+.config/Hermes*/GPUCache
+Library/Application Support/Hermes*/Cache
+Library/Application Support/Hermes*/Code Cache
+Library/Application Support/Hermes*/GPUCache
+AppData/Roaming/Hermes*/Cache
+AppData/Roaming/Hermes*/Code Cache
+AppData/Roaming/Hermes*/GPUCache
 .openclaw*/dev
 .openclaw*/git
 .openclaw*/npm
@@ -1283,8 +1287,6 @@ AppData/Local/langflow/langflow/Cache/profile_pictures
 .local/state/pydantic-clai2/workspaces/clones
 .ollama/models/blobs
 AppData/Local/Ollama/updates
-Library/Caches/ollama
-Library/Caches/com.electron.ollama
 .git/worktrees/*/index
 .git/worktrees/*/modules
 .git/worktrees/*/index.lock
@@ -1361,6 +1363,9 @@ $SECRET_GLOBS = @'
 .claude/bridge-spawn/*/mcp.json
 .claude.json
 .claude.json.backup*
+.claude/settings.json
+.claude/settings.local.json
+.mcp.json
 .claude-*/.credentials.json
 .claude-*/hfi-auth.json
 .claude-*/.session_ingress_token
@@ -1408,10 +1413,12 @@ AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-sess
 *.gemini/mcp-oauth-tokens.json
 *.gemini/a2a-oauth-tokens.json
 *.gemini/.env
+*.gemini/settings.json
 *.gemini/extensions/*/.env
 *.gemini/tmp/*/bug-memory-*.heapsnapshot
 *.gemini/antigravity-cli/antigravity-oauth-token
 *.gemini/antigravity*/plugin_data/*/token.json
+.gemini/config/mcp_config.json
 .config/[Aa]ntigravity/plugin-secrets.json
 Library/Application Support/[Aa]ntigravity/plugin-secrets.json
 AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
@@ -1451,6 +1458,14 @@ AppData/Local/github-copilot/*.json
 .copilot/mcp-oauth-config*
 .copilot/mcp-config.json
 .copilot/run/*.token
+.copilot/settings.json
+.copilot/mcp-secrets/*
+.config/.copilot/config.json
+.config/.copilot/mcp-config*
+.config/.copilot/mcp-oauth-config*
+.github/copilot/settings.json
+.github/copilot/settings.local.json
+.github/mcp.json
 AppData/Local/com.github.githubapp/EBWebView/Default/Network/Cookies*
 AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
 AppData/Local/com.github.githubapp/EBWebView/Local State
@@ -1462,6 +1477,7 @@ AppData/Roaming/Cursor/auth.json
 .vscode*/cli/token*.json
 */User/mcp.json
 */User/profiles/*/mcp.json
+.vscode/mcp.json
 .codeium/config.json
 .codeium/mcp_config.json
 .codeium/windsurf/mcp_config.json
@@ -1476,11 +1492,15 @@ AppData/Roaming/devin/credentials.toml
 .cline/data/connectors/settings.json
 .cline/data/db/connectors.db*
 */User/globalStorage/saoudrizwan.claude-dev/cache/remote_config_*.json
+*/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
 .config/gh/hosts.yml
 AppData/Roaming/GitHub CLI/hosts.yml
 Documents/Cline/webhook_config.json
 .vscode-mock/global-storage/secrets.json
 .roo/cli-credentials.json
+*/User/globalStorage/rooveterinaryinc.roo-cline/settings/*mcp_settings.json
+.vscode-mock/global-storage/settings/*mcp_settings.json
+.roo/mcp.json
 .local/share/kilo/auth.json
 .local/share/kilo/mcp-auth.json
 .local/share/kilo/kilo*.db*
@@ -1507,6 +1527,7 @@ Documents/Cline/webhook_config.json
 .config/opencode/opencode.json*
 .config/opencode/config.json
 .opencode/opencode.json*
+opencode.json*
 .config/opencode/service*.json
 .local/state/opencode/service*.json
 .local/share/crush/crush.json
@@ -1514,6 +1535,10 @@ AppData/Local/crush/crush.json
 .config/crush/crush.json
 .config/crush/crushrc
 .crush/crush.json
+crush.json
+.crush.json
+crushrc
+.crushrc
 .config/goose/secrets.yaml
 .config/goose/config.yaml
 .config/goose/githubcopilot/*
@@ -1554,6 +1579,8 @@ AppData/Roaming/Zed/global_settings.json
 .local/share/amp/accounts.json
 .local/share/amp/accounts/*/secrets.json
 .amp/oauth/*
+.config/amp/settings.json*
+.amp/settings.json*
 .factory/auth.json
 .factory/auth.v2.*
 .factory/auth.encrypted
@@ -1561,6 +1588,9 @@ AppData/Roaming/Zed/global_settings.json
 .factory/temp/env/*
 .factory/prem-auth/*/credentials.*
 .factory/mcp-oauth*
+.factory/settings.json
+.factory/settings.local.json
+.factory/mcp.json
 .config/muse/auth.json
 .config/muse/settings.json
 .augment/session.json
@@ -1575,6 +1605,9 @@ AppData/Roaming/Zed/global_settings.json
 .kiro/agents/*.json
 .kiro/web-session/*
 .kiro/secrets.json
+.aws/amazonq/cli-agents/*.json
+.amazonq/cli-agents/*.json
+.amazonq/mcp.json
 .pearai/config.json
 .pearai/config.ts
 .pearai/.env
@@ -1625,6 +1658,7 @@ AppData/Local/Open Interpreter*/Open Interpreter*/config.yaml
 .openhands/mcp.json
 .openhands/.jwt_secret
 .openhands/.keys
+.openhands/*/acp/codex/auth.json
 Library/Application Support/OpenHands Agent Canvas/mars-credentials.json
 .config/OpenHands Agent Canvas/mars-credentials.json
 AppData/Roaming/OpenHands Agent Canvas/mars-credentials.json
@@ -1637,6 +1671,7 @@ AppData/Roaming/OpenHands Agent Canvas/mars-credentials.json
 .pi/mcp.json
 .config/little-coder/models.json
 .little-coder/config.json
+.little-coder/mcp.json
 .letta/settings.json
 .letta/pg_uri
 .letta/credentials
@@ -1677,6 +1712,7 @@ AppData/Roaming/OpenHands Agent Canvas/mars-credentials.json
 .hermes*/runtime/photon-sidecar.json
 .hermes*/proxy/*
 .hermes*/home/*
+.hermes*/config.yaml
 AppData/Local/hermes*/.env
 AppData/Local/hermes*/.env.bak*
 AppData/Local/hermes*/.op.env
@@ -1707,9 +1743,10 @@ AppData/Local/hermes*/weixin/accounts/*
 AppData/Local/hermes*/runtime/photon-sidecar.json
 AppData/Local/hermes*/proxy/*
 AppData/Local/hermes*/home/*
-.config/Hermes/connection*.json*
-Library/Application Support/Hermes/connection*.json*
-AppData/Roaming/Hermes/connection*.json*
+AppData/Local/hermes*/config.yaml
+.config/Hermes*/connection*.json*
+Library/Application Support/Hermes*/connection*.json*
+AppData/Roaming/Hermes*/connection*.json*
 .openclaw*/openclaw.json*
 .openclaw*/clawdbot.json*
 .openclaw*/.env
@@ -1781,6 +1818,9 @@ AppData/Local/difyctl/login-pending.yml
 .cache/langflow/*secret_key
 Library/Caches/langflow/*secret_key
 AppData/Local/langflow/langflow/Cache/*secret_key
+.cache/langflow/*/_mcp_servers_*.json
+Library/Caches/langflow/*/_mcp_servers_*.json
+AppData/Local/langflow/langflow/Cache/*/_mcp_servers_*.json
 .langflow/data/.env
 AppData/Roaming/com.LangflowDesktop/data/.env
 .metagpt/config2.yaml
@@ -1790,7 +1830,11 @@ AppData/Roaming/com.LangflowDesktop/data/.env
 .config/pydantic-clai2/credentials-*
 .config/pydantic-clai2/logfire/logfire_credentials.json
 .local/state/pydantic-clai2/workspaces/registry/*/token
+.config/pydantic-clai2/mcp.json
+.clai/mcp_servers.json
 .ollama/id_ed25519
+.ollama/backup/*
+.ollama/launch/muse-config/muse/settings.json
 .env
 secrets.env
 settings.json
@@ -1810,6 +1854,8 @@ tmp/settings.json
 tmp/whatsapp/session/*
 config.toml
 id_ed25519
+backup/*
+launch/muse-config/muse/settings.json
 .secret_key
 agent-canvas/secret-key.txt
 agent-canvas/api-key.txt
@@ -1822,6 +1868,8 @@ cloud/*
 mcp.json
 .jwt_secret
 .keys
+conversations/*/acp/codex/auth.json
+agent-canvas/*/acp/codex/auth.json
 pg_uri
 credentials
 lc-local-backend/providers/auth.json
@@ -1858,6 +1906,7 @@ weixin/accounts/*
 runtime/photon-sidecar.json
 proxy/*
 home/*
+config.yaml
 state-snapshots/*/.env
 state-snapshots/*/auth.json
 state-snapshots/*/pairing/*
@@ -1876,6 +1925,7 @@ whatsapp-auth/*
 matrix-store/*
 secret_key
 cache_secret_key
+[0-9a-f]*-*-*-*-*/_mcp_servers_*.json
 config
 ssh/*
 '@
@@ -3260,7 +3310,9 @@ function Find-CliSessionProjects([string]$homeDir) {
   Get-JsonValues 'workspaceDirectory' @((Join-PathSafe $homeDir '.continue/sessions/sessions.json'))
   Get-JsonValues 'working_dir' @(Expand-Glob $homeDir '.local/share/goose/sessions/*.jsonl')
   Get-JsonValues 'worktree' @(Expand-Glob $homeDir '.local/share/opencode/storage/project/*.json')
-  Get-JsonValues 'path' @((Join-PathSafe $homeDir '.local/share/crush/projects.json'))
+  $crushRegistries = @('.local/share/crush', 'AppData/Local/crush') |
+    ForEach-Object { Join-PathSafe $homeDir "$_/projects.json" }
+  Get-JsonValues 'path' @($crushRegistries)
   $a0Chats = @(@('agent-zero/usr', 'agent-zero/*/usr', 'Desktop/agent-zero/usr') |
     ForEach-Object { Expand-Glob $homeDir "$_/chats/*/chat.json" })
   Get-JsonValues 'acp_cwd' $a0Chats

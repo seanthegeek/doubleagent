@@ -1234,6 +1234,118 @@ for _claude_dir in "$ALICE/.claude" "$CLAUDE_WORK"; do
 done
 printf 'appended system prompt\n' >"$ALICE/.claude/$BRIDGE_SPAWN/append-system-prompt.txt"
 
+# 2026-10-29 drift sweep credential gaps (#248)
+# Settings and MCP files that can hold MCP env, headers or OAuth values, one
+# per secret glob, as path|agent lines relative to alice's home or to
+# /srv/proj, read from files so the check loops run in this shell.
+DRIFT_HOME_SECRETS="$WORK/drift-home-secrets"
+DRIFT_PROJECT_SECRETS="$WORK/drift-project-secrets"
+DRIFT_HERMES_DESKTOP="$WORK/drift-hermes-desktop"
+cat >"$DRIFT_HOME_SECRETS" <<'EOF_DRIFT_HOME_SECRETS'
+.claude/settings.json|claude-code
+.claude/settings.local.json|claude-code
+.gemini/settings.json|gemini-cli
+.gemini/config/mcp_config.json|antigravity
+.cursor/mcp.json|cursor
+.copilot/settings.json|copilot-cli
+.copilot/mcp-secrets/index.json|copilot-cli
+.config/.copilot/config.json|copilot-cli
+.config/.copilot/mcp-config.json|copilot-cli
+.config/.copilot/mcp-oauth-config.json|copilot-cli
+.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json|cline
+.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json|roo-code
+.vscode-mock/global-storage/settings/mcp_settings.json|roo-code
+.config/amp/settings.json|amp
+.config/amp/settings.jsonc|amp
+.factory/settings.json|factory-droid
+.factory/settings.local.json|factory-droid
+.factory/mcp.json|factory-droid
+.aws/amazonq/cli-agents/default.json|kiro
+.openhands/conversations/a3/acp/codex/auth.json|openhands
+.little-coder/mcp.json|little-coder
+.hermes/config.yaml|hermes
+.cache/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json|langflow
+Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json|langflow
+AppData/Local/langflow/langflow/Cache/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json|langflow
+.config/pydantic-clai2/mcp.json|pydantic-clai
+.ollama/id_ed25519|ollama
+.ollama/backup/codex/config.toml.1792800000|ollama
+.ollama/launch/muse-config/muse/settings.json|ollama
+EOF_DRIFT_HOME_SECRETS
+cat >"$DRIFT_PROJECT_SECRETS" <<'EOF_DRIFT_PROJECT_SECRETS'
+.claude/settings.json|claude-code
+.claude/settings.local.json|claude-code
+.mcp.json|project
+.gemini/settings.json|gemini-cli
+.vscode/mcp.json|vscode
+.github/copilot/settings.json|copilot-cli
+.github/copilot/settings.local.json|copilot-cli
+.github/mcp.json|copilot-cli
+opencode.json|opencode
+.roo/mcp.json|roo-code
+.amazonq/mcp.json|kiro
+.amazonq/cli-agents/default.json|kiro
+.factory/settings.json|factory-droid
+.clai/mcp_servers.json|pydantic-clai
+.amp/settings.json|amp
+EOF_DRIFT_PROJECT_SECRETS
+cat >"$DRIFT_HERMES_DESKTOP" <<'EOF_DRIFT_HERMES_DESKTOP'
+.config/Hermes-canary
+Library/Application Support/Hermes-canary
+AppData/Roaming/Hermes-canary
+EOF_DRIFT_HERMES_DESKTOP
+while IFS='|' read -r _drift_path _drift_agent; do
+  mkdir -p "$(dirname "$ALICE/$_drift_path")"
+  printf '{"mcpServers":{"x":{"env":{"TOKEN":"t"}}}}\n' >"$ALICE/$_drift_path"
+done <"$DRIFT_HOME_SECRETS"
+while IFS='|' read -r _drift_path _drift_agent; do
+  mkdir -p "$(dirname "$ROOT/srv/proj/$_drift_path")"
+  printf '{"mcpServers":{"x":{"headers":{"Authorization":"Bearer t"}}}}\n' >"$ROOT/srv/proj/$_drift_path"
+done <"$DRIFT_PROJECT_SECRETS"
+while IFS= read -r _drift_path; do
+  for _drift_leaf in Cache "Code Cache" GPUCache; do
+    mkdir -p "$ALICE/$_drift_path/$_drift_leaf"; printf 'cache\n' >"$ALICE/$_drift_path/$_drift_leaf/data_0"
+  done
+  printf '{"connections":[]}\n' >"$ALICE/$_drift_path/connections.json"
+done <"$DRIFT_HERMES_DESKTOP"
+FACTORY_ENV_DUMP="$ALICE/.factory/temp/env/droid-env-s1-1.sh"
+mkdir -p "$(dirname "$FACTORY_ENV_DUMP")" "$ALICE/.factory/temp/run1" "$ALICE/.cache/amp/runner-desktop/r1" \
+  "$ALICE/.hermes-canary/hermes-agent/hermes_cli" "$ALICE/.hermes-canary/hermes-agent/.git" \
+  "$ALICE/AppData/Local/hermes-canary/hermes-agent/hermes_cli" \
+  "$ALICE/AppData/Local/hermes-canary/hermes-agent/.git" "$ALICE/AppData/Local/hermes-updater/pending" \
+  "$ALICE/.cache/amp/desktop" "$ALICE/.cache/amp/bin" "$ALICE/.cache/amp/obelisk-runs" \
+  "$ALICE/AppData/Roaming/devin" "$ALICE/AppData/Roaming/Devin/Cache" "$ALICE/AppData/Roaming/Devin/User" \
+  "$ALICE/AppData/Local/devin/bin" "$ALICE/Library/Caches/ollama" "$ALICE/Library/Caches/com.electron.ollama" \
+  "$ALICE/AppData/Local/crush" "$ROOT/srv/crushwin"
+printf 'export TOKEN=t\n' >"$FACTORY_ENV_DUMP"
+printf 'out\n' >"$ALICE/.factory/temp/run1/out.txt"
+printf '{}\n' >"$ALICE/.cache/amp/runner-desktop/r1/state.json"
+printf 'mcp_servers: {}\n' >"$ALICE/.hermes-canary/config.yaml"
+printf 'sqlite\n' >"$ALICE/.hermes-canary/state.db"
+printf 'x\n' >"$ALICE/.hermes-canary/hermes-agent/hermes_cli/main.py"
+printf 'KEY=x\n' >"$ALICE/.hermes-canary/hermes-agent/.env"
+printf 'ref\n' >"$ALICE/.hermes-canary/hermes-agent/.git/HEAD"
+printf 'x\n' >"$ALICE/AppData/Local/hermes-canary/hermes-agent/hermes_cli/main.py"
+printf 'ref\n' >"$ALICE/AppData/Local/hermes-canary/hermes-agent/.git/HEAD"
+printf 'KEY=x\n' >"$ALICE/AppData/Local/hermes-canary/hermes-agent/.env"
+printf '{}\n' >"$ALICE/.cache/amp/desktop/state.json"
+printf 'ELF\n' >"$ALICE/.cache/amp/bin/amp"
+printf '{}\n' >"$ALICE/.cache/amp/obelisk-runs/run.json"
+printf 'mcp_servers: {}\n' >"$ALICE/AppData/Local/hermes-canary/config.yaml"
+printf 'MZ\n' >"$ALICE/AppData/Local/hermes-updater/pending/hermes-setup.exe"
+printf '{"mcpServers":{}}\n' >"$ALICE/AppData/Roaming/devin/mcp_config.json"
+printf 'windsurf_api_key = "k"\n' >"$ALICE/AppData/Roaming/devin/credentials.toml"
+printf 'cache\n' >"$ALICE/AppData/Roaming/Devin/Cache/data_0"
+printf '{}\n' >"$ALICE/AppData/Roaming/Devin/User/settings.json"
+printf 'MZ\n' >"$ALICE/AppData/Local/devin/bin/devin.exe"
+printf 'cache\n' >"$ALICE/Library/Caches/ollama/data_0"
+printf 'cache\n' >"$ALICE/Library/Caches/com.electron.ollama/data_0"
+printf '{"projects":[{"path":"/srv/crushwin","data_dir":"/srv/crushwin/.crush"}]}\n' \
+  >"$ALICE/AppData/Local/crush/projects.json"
+for _drift_path in crushrc .crushrc crush.json .crush.json; do
+  printf 'export KEY=k\n' >"$ROOT/srv/crushwin/$_drift_path"
+done
+
 run() { # run NAME ARGS...
   _name=$1; shift
   mkdir -p "$OUT/$_name"
@@ -1733,6 +1845,36 @@ check "#256 Claude Code URL handler bundle collected as claude-code" "row \"$URL
 check "#256 Claude Code IDE lock and bridge-spawn mcp.json flagged secret" "row \"$ALICE/.claude/ide/53256.lock\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/$BRIDGE_SPAWN/mcp.json\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/$BRIDGE_SPAWN/append-system-prompt.txt\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
 check "#256 relocated claude home IDE lock and bridge-spawn mcp.json flagged secret" "row \"$CLAUDE_WORK/ide/53256.lock\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/$BRIDGE_SPAWN/mcp.json\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
 
+# 2026-10-29 drift sweep credential gaps (#248)
+while IFS='|' read -r _drift_path _drift_agent; do
+  check "#248 home file flagged secret: $_drift_path" "row \"$ALICE/$_drift_path\" | grep -q '\"agent\":\"$_drift_agent\".*$SECRET_COLLECTED'"
+done <"$DRIFT_HOME_SECRETS"
+while IFS='|' read -r _drift_path _drift_agent; do
+  check "#248 project file flagged secret: $_drift_path" "row \"$ROOT/srv/proj/$_drift_path\" | grep -q '\"agent\":\"$_drift_agent\".*$SECRET_COLLECTED'"
+done <"$DRIFT_PROJECT_SECRETS"
+check "#322 Factory temp/env dump flagged secret" "row \"$FACTORY_ENV_DUMP\" | grep -q '\"agent\":\"factory-droid\".*$SECRET_COLLECTED'"
+check "#322 Factory temp entries not starting with e excluded" "[ \"\$(status_of \"$ALICE/.factory/temp/run1\")\" = skipped_excluded ] && ! grep -qF 'temp/run1/out.txt' \"\$MANIFEST\""
+check "#322 Amp cache outside the catalog not collected" "! grep -qE '\.cache/amp/(runner-desktop|desktop|bin|obelisk-runs)/' \"\$MANIFEST\""
+check "#322 Ollama Library/Caches outside the catalog not collected" "! grep -qF '/Library/Caches/ollama' \"\$MANIFEST\" && ! grep -qF '/Library/Caches/com.electron.ollama' \"\$MANIFEST\""
+check "#321 Windsurf AppData/Local/devin/bin outside the catalog not collected" "! grep -qiF 'AppData/Local/devin' \"\$MANIFEST\""
+check "#324 Hermes suffixed home collected as hermes" "row \"$ALICE/.hermes-canary/state.db\" | grep -q '\"agent\":\"hermes\".*\"status\":\"collected\"' && row \"$ALICE/.hermes-canary/config.yaml\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+check "#324 Hermes suffixed Windows home config.yaml flagged secret" "row \"$ALICE/AppData/Local/hermes-canary/config.yaml\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+check "#324 Hermes suffixed home installer checkout excluded, its .env kept" "[ \"\$(status_of \"$ALICE/.hermes-canary/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes-canary/hermes-agent/.git\")\" = skipped_excluded ] && row \"$ALICE/.hermes-canary/hermes-agent/.env\" | grep -q '$SECRET_COLLECTED'"
+check "#324 Hermes suffixed Windows home installer checkout excluded, its .env kept" "[ \"\$(status_of \"$ALICE/AppData/Local/hermes-canary/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/AppData/Local/hermes-canary/hermes-agent/.git\")\" = skipped_excluded ] && row \"$ALICE/AppData/Local/hermes-canary/hermes-agent/.env\" | grep -q '$SECRET_COLLECTED'"
+check "#324 Hermes updater cache excluded" "[ \"\$(status_of \"$ALICE/AppData/Local/hermes-updater\")\" = skipped_excluded ] && ! grep -qF 'hermes-setup.exe' \"\$MANIFEST\""
+while IFS= read -r _drift_path; do
+  check "#324 Hermes suffixed desktop connections flagged: $_drift_path" "row \"$ALICE/$_drift_path/connections.json\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+  for _drift_leaf in Cache "Code Cache" GPUCache; do
+    check "#324 Hermes suffixed desktop cache excluded: $_drift_path/$_drift_leaf" "[ \"\$(status_of \"$ALICE/$_drift_path/$_drift_leaf\")\" = skipped_excluded ]"
+  done
+done <"$DRIFT_HERMES_DESKTOP"
+check "#321 Devin CLI files collected as windsurf and flagged" "row \"$ALICE/AppData/Roaming/devin/mcp_config.json\" | grep -q '\"agent\":\"windsurf\".*$SECRET_COLLECTED' && row \"$ALICE/AppData/Roaming/devin/credentials.toml\" | grep -q '\"agent\":\"windsurf\".*$SECRET_COLLECTED'"
+check "#321 Devin IDE cache not collected, its User directory collected" "! grep -qiF 'Roaming/Devin/Cache' \"\$MANIFEST\" && row \"$ALICE/AppData/Roaming/Devin/User/settings.json\" | grep -q '\"agent\":\"windsurf\".*\"status\":\"collected\"'"
+check "#323 Crush Windows projects.json discovers project" "row \"$ROOT/srv/crushwin/crushrc\" | grep -q '\"agent\":\"crush\"'"
+for _drift_path in crushrc .crushrc crush.json .crush.json; do
+  check "#323 Crush project file flagged secret: $_drift_path" "row \"$ROOT/srv/crushwin/$_drift_path\" | grep -q '\"agent\":\"crush\".*$SECRET_COLLECTED'"
+done
+
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
 check "credentials skipped_secret" "[ \"\$(status_of \"$ROOT/home/alice/.claude/.credentials.json\")\" = skipped_secret ]"
@@ -1790,6 +1932,23 @@ check "#256 relocated claude home session key, daemon key and backup skipped wit
 
 # 2026-10-26 claude-code macOS round (#256)
 check "#256 Claude Code IDE lock and bridge-spawn mcp.json skipped without secrets" "[ \"\$(status_of \"$ALICE/.claude/ide/53256.lock\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/.claude/$BRIDGE_SPAWN/mcp.json\")\" = skipped_secret ] && [ \"\$(status_of \"$CLAUDE_WORK/ide/53256.lock\")\" = skipped_secret ] && [ \"\$(status_of \"$CLAUDE_WORK/$BRIDGE_SPAWN/mcp.json\")\" = skipped_secret ]"
+
+# 2026-10-29 drift sweep credential gaps (#248)
+while IFS='|' read -r _drift_path _drift_agent; do
+  check "#248 home file skipped without secrets: $_drift_path" "[ \"\$(status_of \"$ALICE/$_drift_path\")\" = skipped_secret ]"
+done <"$DRIFT_HOME_SECRETS"
+while IFS='|' read -r _drift_path _drift_agent; do
+  check "#248 project file skipped without secrets: $_drift_path" "[ \"\$(status_of \"$ROOT/srv/proj/$_drift_path\")\" = skipped_secret ]"
+done <"$DRIFT_PROJECT_SECRETS"
+check "#322 Factory temp/env dump skipped without secrets" "[ \"\$(status_of \"$FACTORY_ENV_DUMP\")\" = skipped_secret ]"
+check "#324 Hermes suffixed homes skipped without secrets" "[ \"\$(status_of \"$ALICE/.hermes-canary/config.yaml\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/AppData/Local/hermes-canary/config.yaml\")\" = skipped_secret ]"
+while IFS= read -r _drift_path; do
+  check "#324 Hermes suffixed desktop connections skipped without secrets: $_drift_path" "[ \"\$(status_of \"$ALICE/$_drift_path/connections.json\")\" = skipped_secret ]"
+done <"$DRIFT_HERMES_DESKTOP"
+check "#321 Devin CLI files skipped without secrets" "[ \"\$(status_of \"$ALICE/AppData/Roaming/devin/mcp_config.json\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/AppData/Roaming/devin/credentials.toml\")\" = skipped_secret ]"
+for _drift_path in crushrc .crushrc crush.json .crush.json; do
+  check "#323 Crush project file skipped without secrets: $_drift_path" "[ \"\$(status_of \"$ROOT/srv/crushwin/$_drift_path\")\" = skipped_secret ]"
+done
 
 # ---- --full ---------------------------------------------------------------
 run full --full; check "full exit 0" "[ $? -eq 0 ]"
@@ -1872,6 +2031,19 @@ printf 'sqlite\n' >"$HERMES_VOLUME_SNAPSHOT/state.db"
 printf 'KEY=x\n' >"$HERMES_VOLUME_SNAPSHOT/.env"
 printf '{"providers":{}}\n' >"$HERMES_VOLUME_SNAPSHOT/auth.json"
 printf '{}\n' >"$HERMES_VOLUME_SNAPSHOT/pairing/telegram-approved.json"
+# 2026-10-29 drift sweep credential gaps (#248)
+LANGFLOW_VOLUME_MCP="$VOLUMES/langflow_langflow-data/_data/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json"
+OPENHANDS_VOLUME="$VOLUMES/openhands_state/_data"
+OLLAMA_VOLUME="$VOLUMES/ollama/_data"
+mkdir -p "$(dirname "$LANGFLOW_VOLUME_MCP")" "$OPENHANDS_VOLUME/conversations/c1/acp/codex" \
+  "$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex" "$OLLAMA_VOLUME/backup/codex" \
+  "$OLLAMA_VOLUME/launch/muse-config/muse"
+printf '{"mcpServers":{}}\n' >"$LANGFLOW_VOLUME_MCP"
+printf 'mcp_servers: {}\n' >"$VOLUMES/hermes_home/_data/config.yaml"
+printf '{"tokens":{}}\n' >"$OPENHANDS_VOLUME/conversations/c1/acp/codex/auth.json"
+printf '{"tokens":{}}\n' >"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex/auth.json"
+printf 'model = "x"\n' >"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000"
+printf '{}\n' >"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json"
 run fwvolumes; check "frameworks volumes exit 0" "[ $? -eq 0 ]"
 check "n8n_data volume collected as n8n" "row \"$N8N_VOLUME/database.sqlite\" | grep -q '\"user\":\"docker\",\"home\":\"$N8N_VOLUME\",\"agent\":\"n8n\".*\"status\":\"collected\"'"
 check "n8n volume config flagged secret (volume-relative)" "row \"$N8N_VOLUME/config\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
@@ -1887,7 +2059,17 @@ check "dify sandbox home volume collected as dify" "row \"$VOLUMES/docker_dify_a
 check "dify sandbox workspace volume collected as dify" "row \"$VOLUMES/docker_dify_agent_local_sandbox_workspace/_data/out.txt\" | grep -q '\"agent\":\"dify\".*\"status\":\"collected\"'"
 # 2026-10-21 Hermes quick snapshots and desktop connections (#123, #208)
 check "#123 Hermes volume quick snapshot collected, credentials flagged (volume-relative)" "row \"$HERMES_VOLUME_SNAPSHOT/state.db\" | grep -q '\"user\":\"docker\".*\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/.env\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/auth.json\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/pairing/telegram-approved.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-rm -rf "$VOLUMES/n8n_data" "$VOLUMES/n8n_n8n-data" "$VOLUMES/langflow_langflow-data" "$VOLUMES/docker_dify_agent_local_sandbox_home" "$VOLUMES/docker_dify_agent_local_sandbox_workspace" "$VOLUMES/hermes_home"
+# 2026-10-29 drift sweep credential gaps (#248)
+check "#248 langflow-data volume _mcp_servers file flagged (volume-relative)" "row \"$LANGFLOW_VOLUME_MCP\" | grep -q '\"agent\":\"langflow\".*$SECRET_COLLECTED'"
+check "#248 Hermes volume config.yaml flagged (volume-relative)" "row \"$VOLUMES/hermes_home/_data/config.yaml\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+check "#248 OpenHands volume conversation acp/codex/auth.json flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/conversations/c1/acp/codex/auth.json\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED' && row \"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex/auth.json\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
+check "#320 Ollama volume backup and Muse copy flagged (volume-relative)" "row \"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000\" | grep -q '\"agent\":\"ollama\".*$SECRET_COLLECTED' && row \"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json\" | grep -q '\"agent\":\"ollama\".*$SECRET_COLLECTED'"
+run fwvolumesnosecrets --no-secrets; check "#248 frameworks volumes no-secrets exit 0" "[ $? -eq 0 ]"
+check "#248 langflow-data volume _mcp_servers file skipped without secrets (volume-relative)" "[ \"\$(status_of \"$LANGFLOW_VOLUME_MCP\")\" = skipped_secret ]"
+check "#248 Hermes volume config.yaml skipped without secrets (volume-relative)" "[ \"\$(status_of \"$VOLUMES/hermes_home/_data/config.yaml\")\" = skipped_secret ]"
+check "#248 OpenHands volume conversation acp/codex/auth.json skipped without secrets (volume-relative)" "[ \"\$(status_of \"$OPENHANDS_VOLUME/conversations/c1/acp/codex/auth.json\")\" = skipped_secret ] && [ \"\$(status_of \"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex/auth.json\")\" = skipped_secret ]"
+check "#320 Ollama volume backup and Muse copy skipped without secrets (volume-relative)" "[ \"\$(status_of \"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000\")\" = skipped_secret ] && [ \"\$(status_of \"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json\")\" = skipped_secret ]"
+rm -rf "$VOLUMES/n8n_data" "$VOLUMES/n8n_n8n-data" "$VOLUMES/langflow_langflow-data" "$VOLUMES/docker_dify_agent_local_sandbox_home" "$VOLUMES/docker_dify_agent_local_sandbox_workspace" "$VOLUMES/hermes_home" "$VOLUMES/openhands_state" "$VOLUMES/ollama"
 
 # ---- --inventory ----------------------------------------------------------
 # Stat-only fleet inventory: JSON Lines on stdout, nothing written anywhere.
