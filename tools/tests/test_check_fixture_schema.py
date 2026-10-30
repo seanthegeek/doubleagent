@@ -1,0 +1,590 @@
+"""Tests for tools/check_fixture_schema.py on a synthetic repository and fixtures package."""
+
+# A test function is named for what it proves, so needs no docstring, as under analyzer/tests.
+# ruff: noqa: D103
+
+from __future__ import annotations
+
+import contextlib
+import io
+import pathlib
+
+import check_fixture_schema as checker
+import drift_common
+
+CATALOG_TEXT = """\
+# home artifacts (agent|glob relative to home)
+alpha|.alpha
+beta|.beta
+gamma|.gamma
+# project artifacts (relative to each discovered project)
+alpha|.alpha
+project|AGENTS.md
+# excluded unless --full
+# credential files (flagged secret, skipped with --no-secrets)
+# docker volumes (agent|volume name glob)
+"""
+
+INIT = '''\
+"""Synthetic fixtures."""
+
+from .alpha import build_alpha
+from .beta import build_beta
+from .gamma import build_gamma
+
+
+def build_home(home, with_noise=True):
+    """Write every synthetic agent's state, a noise file and a project."""
+    build_alpha(home)
+    build_beta(home)
+    build_gamma(home)
+    (home / "Documents").mkdir(parents=True)
+    (home / "Documents/notes.txt").write_text("noise\\n")
+    (home / "dev/repo/.alpha").mkdir(parents=True)
+    (home / "dev/repo/.alpha/project.json").write_text('{"projectKey": 1}')
+    (home / "dev/repo/AGENTS.md").write_text("# instructions\\n")
+    return home
+'''
+
+COMMON = '''\
+"""Helpers the synthetic modules share."""
+
+import json
+
+
+def write_jsonl(path, records):
+    """Write one JSON line per record."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(json.dumps(record) + "\\n" for record in records))
+'''
+
+ALPHA = '''\
+"""Synthetic alpha state, its document not named."""
+
+import json
+import sqlite3
+
+import zstandard
+
+from .common import write_jsonl
+
+
+def alpha_records():
+    """Records with no provenance line."""
+    return [
+        {"type": "known", "documentedKey": 1, "cwd": "/srv/proj"},
+        {"type": "unknown", "strayKey": 2, "cwd": "/home/alice/other"},
+    ]
+
+
+def alpha_helper():
+    """Return a record another module borrows."""
+    return {"helperKey": 1}
+
+
+def build_alpha(home):
+    """Write the alpha store."""
+    base = home / ".alpha"
+    write_jsonl(base / "history.jsonl", alpha_records())
+    (base / "config.yaml").write_text("documentedKey: 1\\nyamlStray: 2\\n# commentKey: 3\\n")
+    (base / "config.toml").write_text("[tomlTable]\\ntomlStray = 1\\n")
+    data = json.dumps({"zstdStray": 1}).encode() + b"\\n"
+    (base / "log.jsonl.zst").write_bytes(zstandard.ZstdCompressor().compress(data))
+    connection = sqlite3.connect(base / "store.db")
+    connection.execute("CREATE TABLE sessions (id TEXT, strayColumn TEXT)")
+    row = ("s1", json.dumps({"columnKey": 1}))
+    connection.execute("INSERT INTO sessions VALUES (?, ?)", row)
+    connection.commit()
+    connection.close()
+'''
+
+BETA = '''\
+"""Synthetic beta state of research/beta.md.
+
+Paths: `/home/alice/declared`
+"""
+
+import json
+
+from .alpha import alpha_helper
+
+
+def beta_records():
+    """Records of the beta store.
+
+    Source: research/beta.md#record-schema; build 1.0
+    """
+    return [
+        {"count": 3, "mode": "fast", "cwd": "/home/alice/declared/sub", "collectionOnly": 1},
+        {"count": "three", "mode": "medium"},
+    ]
+
+
+def write_beta_extra(path):
+    """Write a file whose Source line names a missing anchor.
+
+    Source: research/beta.md#no-such-heading; build 1.0
+    """
+    path.write_text(json.dumps(alpha_helper()))
+
+
+def build_beta(home):
+    """Write the beta store."""
+    (home / ".beta").mkdir(parents=True)
+    (home / ".beta/state.json").write_text(json.dumps(beta_records()))
+'''
+
+GAMMA = '''\
+"""Synthetic gamma state of research/gamma.md.
+
+Lineage: alpha
+"""
+
+import json
+
+from .alpha import alpha_helper
+
+
+def build_gamma(home):
+    """Write the gamma store from alpha's helper."""
+    (home / ".gamma").mkdir(parents=True)
+    (home / ".gamma/state.json").write_text(json.dumps(alpha_helper()))
+'''
+
+ALPHA_DOCUMENT = """\
+# alpha
+
+Intro.
+
+## Parsing
+
+### Record schema
+
+Lines hold `documentedKey`, `type` (`known`), `cwd`, `helperKey` and `projectKey`; the store has
+`sessions` with `id`, and `config.yaml` and `config.toml` keys.
+
+```sql
+CREATE TABLE sessions (id TEXT, fencedColumn TEXT);
+```
+
+### Parser plan
+
+#### Fixtures
+
+```jsonl
+{"cwd": "/srv/proj", "documentedKey": 1, "type": "known"}
+{"documentedKey": 9, "strayKey": 1}
+```
+"""
+
+BETA_DOCUMENT = """\
+# beta
+
+## Collection
+
+`collectionOnly` is named here only, outside Parsing.
+
+## Parsing
+
+### Record schema
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `count` | number | | 1.0 |
+| `mode` | string | `fast`, `medium`, `slow` | 1.0 |
+| `cwd` | string | | 1.0 |
+
+### Parser plan
+
+#### Fixtures
+
+```json
+{"count": 4}
+```
+"""
+
+
+def write(path: pathlib.Path, text: str) -> None:
+    """Write `text` to `path`, creating its directory."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def make_repository(root: pathlib.Path) -> pathlib.Path:
+    """Write the synthetic catalog, documents and fixtures package under `root`."""
+    write(root / "analyzer/doubleagent/catalog.txt", CATALOG_TEXT)
+    fixtures = root / "analyzer/tests/fixtures"
+    for name, text in (
+        ("__init__", INIT),
+        ("common", COMMON),
+        ("alpha", ALPHA),
+        ("beta", BETA),
+        ("gamma", GAMMA),
+    ):
+        write(fixtures / ("%s.py" % name), text)
+    write(root / "research/alpha.md", ALPHA_DOCUMENT)
+    write(root / "research/beta.md", BETA_DOCUMENT)
+    return root
+
+
+def findings_of(root: pathlib.Path) -> set[tuple[str, str, str]]:
+    """Return (agent, kind, detail) of every finding on the synthetic repository."""
+    with contextlib.redirect_stderr(io.StringIO()):
+        return {
+            (finding.agent, finding.kind, finding.detail)
+            for finding in checker.run(make_repository(root))
+        }
+
+
+def run_main(root: pathlib.Path, arguments: list[str]) -> tuple[int, str]:
+    """Run the checker's main on `root`; return its status and stdout."""
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+        status = checker.main(arguments, root)
+    return status, output.getvalue()
+
+
+# --- Rules -----------------------------------------------------------------------------------
+
+
+def test_builder_provenance_missing(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("alpha", "builder-provenance-missing", "alpha_records") in found
+    assert ("beta", "builder-provenance-missing", "write_beta_extra") in found
+    assert ("beta", "builder-provenance-missing", "beta_records") not in found
+    assert ("alpha", "builder-provenance-missing", "alpha_helper") not in found
+    assert ("alpha", "builder-provenance-missing", "build_alpha") not in found
+
+
+def test_module_provenance_missing(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("alpha", "module-provenance-missing", "alpha") in found
+    assert ("beta", "module-provenance-missing", "beta") not in found
+    assert ("gamma", "module-provenance-missing", "gamma") not in found
+
+
+def test_key_undocumented(tmp_path):
+    found = findings_of(tmp_path)
+    for key in ("strayKey", "yamlStray", "tomlStray", "tomlTable", "zstdStray", "strayColumn"):
+        assert ("alpha", "key-undocumented", key) in found, key
+    for key in ("documentedKey", "type", "cwd", "sessions", "id", "projectKey", "commentKey"):
+        assert ("alpha", "key-undocumented", key) not in found, key
+    assert ("alpha", "key-undocumented", "columnKey") in found
+
+
+def test_key_documented_by_schema_fence_not_by_sample(tmp_path):
+    make_repository(tmp_path)
+    module = tmp_path / "analyzer/tests/fixtures/alpha.py"
+    module.write_text(module.read_text().replace("strayColumn", "fencedColumn"))
+    with contextlib.redirect_stderr(io.StringIO()):
+        found = {(item.kind, item.detail) for item in checker.run(tmp_path)}
+    assert ("key-undocumented", "fencedColumn") not in found
+    assert ("key-undocumented", "strayKey") in found
+
+
+def test_key_undocumented_reads_only_the_parsing_part(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("beta", "key-undocumented", "collectionOnly") in found
+    assert ("beta", "key-undocumented", "count") not in found
+    assert ("beta", "key-undocumented", "cwd") not in found
+    assert not any(agent == "gamma" for agent, kind, _ in found if kind == "key-undocumented")
+
+
+def test_file_unclaimed(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("-", "file-unclaimed", "Documents/notes.txt") in found
+    unclaimed = {detail for _, kind, detail in found if kind == "file-unclaimed"}
+    assert unclaimed == {"Documents/notes.txt"}
+
+
+def test_enum_undocumented(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("alpha", "enum-undocumented", "type=unknown") in found
+    assert ("alpha", "enum-undocumented", "type=known") not in found
+
+
+def test_type_mismatch(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("beta", "type-mismatch", "count:string") in found
+    assert ("beta", "type-mismatch", "count:number") not in found
+    assert ("beta", "type-mismatch", "mode=fast") not in found
+    assert ("beta", "type-mismatch", "mode=medium") not in found
+    assert not any(kind == "type-mismatch" for agent, kind, _ in found if agent == "alpha")
+
+
+def test_type_mismatch_value_outside_values_cell(tmp_path):
+    make_repository(tmp_path)
+    document = tmp_path / "research/beta.md"
+    document.write_text(document.read_text().replace("`medium`, ", ""), encoding="utf-8")
+    with contextlib.redirect_stderr(io.StringIO()):
+        found = {(item.kind, item.detail) for item in checker.run(tmp_path)}
+    assert ("type-mismatch", "mode=medium") in found
+    assert ("type-mismatch", "mode=fast") not in found
+
+
+def test_substitution_undeclared(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("alpha", "substitution-undeclared", "/home/alice/other") in found
+    assert ("alpha", "substitution-undeclared", "/srv/proj") not in found
+    assert ("beta", "substitution-undeclared", "/home/alice/declared/sub") not in found
+
+
+def test_cross_agent_builder(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("beta", "cross-agent-builder", "alpha_helper") in found
+    assert ("gamma", "cross-agent-builder", "alpha_helper") not in found
+
+
+def test_sample_equals_builder(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("alpha", "sample-equals-builder", ".alpha/history.jsonl") in found
+    assert not any(kind == "sample-equals-builder" for agent, kind, _ in found if agent == "beta")
+
+
+def test_findings_are_stable_details(tmp_path):
+    for agent, kind, detail in findings_of(tmp_path):
+        assert "\n" not in detail and not detail.isdigit(), (agent, kind, detail)
+
+
+# --- Baseline --------------------------------------------------------------------------------
+
+
+def test_stale_baseline_entry_fails(tmp_path):
+    make_repository(tmp_path)
+    assert run_main(tmp_path, ["--update-baseline"])[0] == 0
+    assert run_main(tmp_path, [])[0] == 0
+    stale = "check_fixture_schema|key-undocumented|goneKey"
+    path = tmp_path / "tools/drift-baseline/alpha.txt"
+    path.write_text(path.read_text() + stale + "\n", encoding="utf-8")
+    status, output = run_main(tmp_path, [])
+    assert status == 1
+    assert "stale: remove %s" % stale in output
+
+
+def test_update_baseline_removes_stale_entry(tmp_path):
+    make_repository(tmp_path)
+    stale = "check_fixture_schema|key-undocumented|goneKey"
+    write(tmp_path / "tools/drift-baseline/alpha.txt", stale + "\n")
+    assert run_main(tmp_path, ["--update-baseline"])[0] == 0
+    assert stale not in (tmp_path / "tools/drift-baseline/alpha.txt").read_text()
+    assert run_main(tmp_path, [])[0] == 0
+
+
+def test_new_finding_fails_without_baseline(tmp_path):
+    make_repository(tmp_path)
+    status, output = run_main(tmp_path, [])
+    assert status == 1
+    assert "key-undocumented [alpha]: strayKey" in output
+
+
+# --- Heuristics ------------------------------------------------------------------------------
+
+
+def test_is_public_builder_forms():
+    for name in ("alpha_records", "goose_records", "write_alpha_state", "claude_309_records"):
+        assert checker.is_public_builder(name), name
+    for name in ("_alpha_records", "build_alpha", "alpha_helper", "alpha_rows", "_write_x"):
+        assert not checker.is_public_builder(name), name
+
+
+def test_source_line_forms():
+    accepted = {
+        "Source: research/alpha.md#record-schema; build 2.1.310": (
+            "alpha",
+            "record-schema",
+            "2.1.310",
+        ),
+        "    Source: research/codex-cli.md#fixtures; source 1a2b3c4": (
+            "codex-cli",
+            "fixtures",
+            "1a2b3c4",
+        ),
+    }
+    for line, expected in accepted.items():
+        assert checker.source_line(line) == expected, line
+    for line in (
+        "Source: research/alpha.md#record-schema",
+        "Source: research/alpha.md; build 1.0",
+        "Source: research/alpha.md#x; version 1.0",
+        "Source: research/alpha.md#x; build ",
+        "Source: alpha.md#x; build 1.0",
+        "The source: research/alpha.md#x; build 1.0",
+    ):
+        assert checker.source_line(line) is None, line
+
+
+def test_module_agent_forms():
+    documents = {"continue", "codex-cli", "claude-code"}
+    assert checker.module_agent("codex_cli", "", documents) == "codex-cli"
+    assert checker.module_agent("continue_dev", "", documents) == "continue"
+    assert (
+        checker.module_agent("x", "State of research/claude-code.md.", documents) == "claude-code"
+    )
+    assert checker.module_agent("zed", "State of research/missing.md.", documents) == "zed"
+    assert checker.module_agent("kilo_code", "", documents) == "kilo-code"
+
+
+def test_declared_paths_forms():
+    docstring = "Intro.\n\nPaths: `/home/alice/proj`, `C:\\Users\\alice\\proj`\nPaths `/x`\n"
+    assert checker.declared_paths(docstring) == ["/home/alice/proj", "C:\\Users\\alice\\proj"]
+    assert checker.declared_paths("No paths: `/x` here.") == []
+
+
+def test_lineage_forms():
+    assert checker.lineage("Intro.\n\nLineage: codex-cli, opencode\n") == {"codex-cli", "opencode"}
+    assert checker.lineage("Lineage: roo-code") == {"roo-code"}
+    assert checker.lineage("Its lineage: roo-code") == set()
+
+
+def test_yaml_keys_forms():
+    accepted = {
+        "key: value": "key",
+        "key:": "key",
+        "  nested_key: 1": "nested_key",
+        "- item_key: x": "item_key",
+        '"quoted key": 1': "quoted key",
+        "'single': 1": "single",
+    }
+    for line, key in accepted.items():
+        assert checker.yaml_keys(line) == [key], line
+    for line in ("# comment: x", "- http://example.com", "key:value", "- plain item", ""):
+        assert checker.yaml_keys(line) == [], line
+
+
+def test_toml_keys_forms():
+    accepted = {
+        "key = 1": ["key"],
+        "a.b = 1": ["a", "b"],
+        '"quoted.key" = 1': ["quoted.key"],
+        "[table]": ["table"],
+        "[[array.of]]": ["array", "of"],
+        '[projects."/srv/proj"]': ["projects", "/srv/proj"],
+    }
+    for line, keys in accepted.items():
+        assert checker.toml_keys(line) == keys, line
+    for line in ("# key = 1", "= 1", "plain text", ""):
+        assert checker.toml_keys(line) == [], line
+
+
+def test_json_type_forms():
+    cases = [
+        (None, "null"),
+        (True, "boolean"),
+        (3, "number"),
+        (2.5, "number"),
+        ("x", "string"),
+        ({}, "object"),
+        ([], "array"),
+        (b"x", ""),
+    ]
+    for value, kind in cases:
+        assert checker.json_type(value) == kind, value
+
+
+def test_table_types_forms():
+    assert checker.table_types("string") == {"string"}
+    assert checker.table_types("string or null") == {"string", "null"}
+    assert checker.table_types("`number`, `boolean`") == {"number", "boolean"}
+    assert checker.table_types("object/array") == {"object", "array"}
+    assert checker.table_types("integer") == set()
+
+
+def test_key_tables_forms(tmp_path):
+    write(tmp_path / "doc.md", BETA_DOCUMENT)
+    sections = drift_common.within(drift_common.research_sections(tmp_path / "doc.md"), "Parsing")
+    rows, count = checker.key_tables(sections)
+    assert count == 1
+    assert rows["mode"].types == {"string"} and rows["mode"].values == {"fast", "medium", "slow"}
+    assert rows["count"].values == set()
+    other = BETA_DOCUMENT.replace("| Key | Type | Values | Builds |", "| Key | Type | Notes |")
+    write(tmp_path / "other.md", other)
+    sections = drift_common.within(drift_common.research_sections(tmp_path / "other.md"), "Parsing")
+    assert checker.key_tables(sections) == ({}, 0)
+    since = BETA_DOCUMENT.replace("| Builds |", "| Since |")
+    write(tmp_path / "since.md", since)
+    sections = drift_common.within(drift_common.research_sections(tmp_path / "since.md"), "Parsing")
+    assert checker.key_tables(sections)[1] == 1
+
+
+def test_is_enum_value_forms():
+    for value in ("user", "tool_use", "allow-once", "mcp.call", "a:b", "INFO"):
+        assert checker.is_enum_value(value), value
+    for value in ("two words", "/srv/proj", "https://x", "3", "0abc", "", 3, None, "x" * 65):
+        assert not checker.is_enum_value(value), value
+
+
+def test_project_path_forms():
+    accepted = {
+        ("cwd", "/srv/proj"): "/srv/proj",
+        ("workspaceRoots", "/home/alice/x"): "/home/alice/x",
+        ("project_path", "C:\\Users\\alice\\proj"): "C:\\Users\\alice\\proj",
+        ("folderUri", "file:///home/alice/my%20proj"): "/home/alice/my proj",
+        ("rootUri", "file:///C:/Users/alice/proj"): "C:/Users/alice/proj",
+    }
+    for (key, value), path in accepted.items():
+        assert checker.project_path(key, value) == path, (key, value)
+    for key, value in (
+        ("file_path", "/srv/other/x.py"),
+        ("cwd", "relative/dir"),
+        ("cwd", "//server/share"),
+        ("cwd", "/"),
+        ("cwd", 3),
+        ("command", "/bin/ls"),
+    ):
+        assert checker.project_path(key, value) == "", (key, value)
+
+
+def test_is_substitute_forms():
+    allowed = ["/srv/proj", "C:\\Users\\alice\\proj"]
+    for path in ("/srv/proj", "/srv/proj/sub", "C:/Users/alice/proj/x", "C:\\Users\\alice\\proj"):
+        assert checker.is_substitute(path, allowed), path
+    for path in ("/srv/proj2", "/srv", "/home/alice/proj"):
+        assert not checker.is_substitute(path, allowed), path
+
+
+def test_span_names_forms():
+    names = checker.span_names(["message.content[]", '{"type": "user"}', "a b", "x/y:z"])
+    for name in ("message.content", "message", "content", "type", "user", "a b", "x", "y", "z"):
+        assert checker.is_documented(name, names), name
+    for name in ("content[]", "mess", "a b c", "y:z"):
+        assert not checker.is_documented(name, names), name
+
+
+def test_is_field_name_forms():
+    for key in ("sessionId", "$set", "chat.tools.autoApprove", "x-api-key", "_meta", "@type"):
+        assert checker.is_field_name(key), key
+    for key in (
+        "",
+        "two words",
+        "/srv/proj",
+        "Sat, 03 Oct 2026 10:00:00 GMT",
+        "a=b",
+        "1abc",
+        "a1b2c3d4-0000-4000-8000-000000000001",
+        "deadbeefcafe",
+        "x" * 65,
+    ):
+        assert not checker.is_field_name(key), key
+
+
+def test_claiming_agent_forms():
+    catalog = drift_common.catalog_module().parse(CATALOG_TEXT)
+    assert checker.claiming_agent(".alpha/x.json", catalog) == "alpha"
+    assert checker.claiming_agent("dev/repo/.alpha/project.json", catalog) == "alpha"
+    assert checker.claiming_agent("dev/repo/AGENTS.md", catalog) == "project"
+    assert checker.claiming_agent("Documents/notes.txt", catalog) == ""
+
+
+def test_decode_text_forms():
+    assert checker.decode_text('{"a": 1}', whole=True) == [{"a": 1}]
+    assert checker.decode_text('{"a": 1}\nnot json\n[2]\n', whole=True) == [{"a": 1}, [2]]
+    assert checker.decode_text('{"a": 1}', whole=False) == [{"a": 1}]
+    assert checker.decode_text("plain text", whole=True) == []
+
+
+def test_run_reports_file_and_key_table_counts(tmp_path):
+    make_repository(tmp_path)
+    errors = io.StringIO()
+    with contextlib.redirect_stderr(errors):
+        list(checker.run(tmp_path))
+    assert "build_home wrote 10 file(s); 1 document(s) hold a key table" in errors.getvalue()
