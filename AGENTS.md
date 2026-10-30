@@ -1143,6 +1143,11 @@ into Format versions.
      records how the agent stores a call of its own web search or fetch
      tool and its results. A `curl` through the shell is a missed prompt,
      kept and repeated as the missed-prompt rule below says.
+   - A prompt likely to make the agent ask before acting (a task naming no
+     file, a request missing a detail it needs), so the round records how
+     the agent stores a turn in which it asks the user and waits; an agent
+     that acts without asking is a finding, and the repeat comes with a
+     sharper prompt as the missed-prompt rule below says.
    - A session with a tool call, a task that writes files, a scheduled or
      automated task, a plugin or MCP server, a resumed session, and a short
      and a long paste as prompts, each paste its own step.
