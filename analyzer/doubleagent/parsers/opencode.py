@@ -309,10 +309,9 @@ class OpenCodeParser(Parser):
     next_database = "opencode-next.db"
     data_dir = ".local/share/opencode"
     database_prefixes: tuple[str, ...] = ("opencode",)
-    # The terminal UI's state directory: `prompt-history.jsonl` (secondary),
-    # `prompt-stash.jsonl` and, for OpenCode, `session.json` (secondary).
+    # The terminal UI's state directory: `prompt-history.jsonl` and `session.json`
+    # (both secondary) and `prompt-stash.jsonl`.
     state_dir = ".local/state/opencode"
-    pinned_sessions = True
 
     def __init__(self) -> None:
         """Compile the path patterns from the class's data and state directories."""
@@ -320,9 +319,7 @@ class OpenCodeParser(Parser):
         state_dir = re.escape(self.state_dir)
         self.history_pattern = re.compile(r"^%s/prompt-history\.jsonl$" % state_dir)
         self.stash_pattern = re.compile(r"^%s/prompt-stash\.jsonl$" % state_dir)
-        self.pinned_pattern = re.compile(
-            r"^%s/session\.json$" % state_dir if self.pinned_sessions else r"(?!)"
-        )
+        self.pinned_pattern = re.compile(r"^%s/session\.json$" % state_dir)
         prefixes = "|".join(re.escape(prefix) for prefix in self.database_prefixes)
         self.database_pattern = re.compile(r"^%s/(?:%s)(?:-[^/]+)?\.db$" % (data_dir, prefixes))
         self.session_pattern = re.compile(r"^%s/storage/session/([^/]+)/([^/]+)\.json$" % data_dir)

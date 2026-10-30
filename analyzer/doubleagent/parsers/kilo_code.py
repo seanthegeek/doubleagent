@@ -3,17 +3,17 @@
 Kilo Code's CLI, TUI and server are an OpenCode fork with the same SQLite and JSON storage, so
 this parser is `OpenCodeParser` (see `opencode.py` for the tables, fields and row mapping)
 pointed at Kilo's paths: `.local/share/kilo/kilo.db`, `kilo-<channel>.db` and
-`opencode-<channel>.db`, the `storage/` JSON tree, and the terminal UI's
-`.local/state/kilo/prompt-history.jsonl` (secondary), `prompt-stash.jsonl` and the pinned ids
-of `session.json` (secondary). It also reads Kilo's own files:
+`opencode-<channel>.db`, the `storage/` and `project/<slug>/storage/` JSON trees, and the
+terminal UI's `.local/state/kilo/prompt-history.jsonl` and `session.json` (both secondary) and
+`prompt-stash.jsonl`. It also reads Kilo's own files:
 
 * `<VS Code user dir>/User/globalStorage/kilocode.kilo-code/tasks/<id>/
   api_conversation_history.json`, the pre-fork extension's tasks: a JSON array of Anthropic
   `MessageParam` records (`role`, `content` blocks `text`, `image`, `tool_use`, `tool_result`
-  with `is_error`, `thinking`; `ts`, `isSummary`, top-level `type: "reasoning"` with `summary`
-  or `reasoning_content`), with the task's `workspace`, `task`, `ts`, `mode` and
-  `parentTaskId` from `history_item.json`, else the `tasks/_index.json` `entries`. The session
-  id is the directory name.
+  with `is_error`, `thinking`, `reasoning`; `ts`, `isSummary`, top-level `type: "reasoning"`
+  with `summary` or `reasoning_content`), with the task's `workspace`, `task`, `ts`, `mode`,
+  `status` and `parentTaskId` from `history_item.json`, else the `tasks/_index.json` `entries`.
+  The session id is the directory name.
 * `.local/share/kilo/storage/session_share/<sessionID>.json` (`id`, `ingestPath`, `url`).
 * `.config/kilo/{kilo.jsonc,kilo.json,opencode.jsonc,opencode.json,config.json}`: the
   `permission` key, read as JSONC.
@@ -23,8 +23,7 @@ of `session.json` (secondary). It also reads Kilo's own files:
   `durationMs`, `cancelled`, `reclaimedBytes`): the last automatic deletion pass.
 * `.local/share/kilo/memory/<folder>/sessions/<file>.md`, project memory session digests, with
   the folder's `manifest.json` `canonical` as the project path.
-* `.local/share/kilo/log/<time>.log`: the four remote control lines (`REMOTE_PATTERN`) and
-  nothing else.
+* `.local/share/kilo/log/<time>.log`: the four remote control lines (`REMOTE_PATTERN`) only.
 
 Validated against source, Kilo-Org/kilocode at 0a9faef (7.8.25), with a synthetic fixture; no
 real install. See `research/kilo-code.md`.
