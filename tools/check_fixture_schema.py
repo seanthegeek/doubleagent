@@ -259,14 +259,13 @@ def span_names(spans: list[str]) -> set[str]:
 def is_field_name(key: str, container: str = "") -> bool:
     """Return whether a dict key or column is a field name, not data used as a map key.
 
-    Accepted: a letter, `_`, `$` or `@`, then letters, digits and `_$@.:-`, up to 64
-    characters (`sessionId`, `$set`, `chat.tools.autoApprove`, `x-api-key`). Rejected: "", a
-    key with a space, `/`, `=`, `,` or `:`, one beginning with a digit, a hex id of eight or
-    more digits, alone or in dashed groups, an environment variable name (`GITHUB_TOKEN`), one
-    opening `toolu_`, `msg_` or `call_`, and any key of a map held by a `MAP_CONTAINERS` key:
-    env, environment, headers, mcpServers, mcp_servers, servers, models, providers, profiles,
-    agents, channels, plugins, extensions, skills, tools, tasks, sessions, projects, workspaces,
-    worktrees, sidecars.
+    Accepted: a letter, `_`, `$` or `@`, then letters, digits and `_$@.-`, up to 64 characters
+    (`sessionId`, `x-api-key`). Rejected: "", a key with a space, `/`, `=`, `,` or `:`, one
+    beginning with a digit, a hex id of eight or more digits, alone or in dashed groups, an
+    environment variable name (`GITHUB_TOKEN`), one opening `toolu_`, `msg_` or `call_`, and any
+    key of a map a `MAP_CONTAINERS` key holds: env, environment, headers, mcpServers, mcp_servers,
+    servers, models, providers, profiles, agents, channels, plugins, extensions, skills, tools,
+    tasks, sessions, projects, workspaces, worktrees, sidecars.
     """
     if container in MAP_CONTAINERS or ":" in key or key.startswith(DATA_KEY_PREFIXES):
         return False

@@ -25,9 +25,8 @@ parser's effective set, that parser's agent document names it.
   supposes it, while the matching flag is False.
 - `not-read-contradicted`: a name the Parsing part says is not read is a key the parser reads
   or a file one of its file patterns matches.
-- `docstring-fact-undocumented`: a code span of the parser's module docstring that is a row
-  text, a pattern or a key is in no code span or fenced line of the document; one that is a
-  `key_value` needs its key and value both words of the Parsing part's.
+- `docstring-fact-undocumented`: a module docstring span that is a row text, pattern or key no
+  span or fenced line of the document holds, or a `key_value` whose key or value Parsing lacks.
 
 Usage: tools/check_parser_research.py [--update-baseline]
 """
