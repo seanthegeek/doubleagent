@@ -496,6 +496,28 @@ def test_match_group_reads_skip_a_name_rebound_to_a_record():
     assert lines == [], "a name bound once by a record or a loop is never a match's groups"
 
 
+def test_match_group_reads_cover_membership_and_stop_at_unpacking():
+    source = (
+        "import re\n"
+        "PATTERN = re.compile(r'(?P<sid>\\S+)')\n"
+        "def read(match, record):\n"
+        "    groups = match.groupdict()\n"
+        "    a = 'sid' in groups\n"
+        "    b = 'sid' not in match.groupdict()\n"
+        "    c = 'sid' in record\n"
+        "    return a, b, c\n"
+        "def unpack(match, record):\n"
+        "    groups = match.groupdict()\n"
+        "    groups, other = record, None\n"
+        "    return groups['sid']\n"
+    )
+    tree = ast.parse(source)
+    nodes = [node for node in ast.walk(tree) if isinstance(node, (ast.Compare, ast.Subscript))]
+    skipped = checker.match_group_reads(tree)
+    lines = sorted(node.lineno for node in nodes if id(node) in skipped)
+    assert lines == [5, 6], "membership tests on a match's groups are skipped, nothing else"
+
+
 def test_match_group_reads_forms():
     tree = ast.parse(
         textwrap.dedent(

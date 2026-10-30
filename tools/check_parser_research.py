@@ -1063,9 +1063,10 @@ def key_reads(index: ModuleIndex, effective: EffectiveSet) -> list[Literal]:
 def match_group_reads(root: ast.AST) -> set[int]:
     """Return the ids of the key reads under `root` whose object holds a regex match's groups.
 
-    The object is a `.groupdict()` or `.group(...)` call, or a name whose every binding in the
-    same function, or outside any function, is one: `fields.groupdict()["sid"]`,
-    `groups.get("sid")`; a name later rebound to a record is no match's groups.
+    The object of a subscript, a method call or a membership test is a `.groupdict()` or
+    `.group(...)` call, or a name whose every binding in the same function, or outside any
+    function, is one: `fields.groupdict()["sid"]`, `groups.get("sid")`, `"sid" in groups`; a
+    name later rebound to a record, by unpacking too, is no match's groups.
     """
     found: set[int] = set()
     scopes = dict.fromkeys(
@@ -1083,6 +1084,8 @@ def match_group_reads(root: ast.AST) -> set[int]:
                 holder = node.value
             elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 holder = node.func.value
+            elif _is_membership(node):
+                holder = node.comparators[0]
             else:
                 continue
             if _is_match_groups(holder) or (isinstance(holder, ast.Name) and holder.id in bound):
@@ -1090,18 +1093,36 @@ def match_group_reads(root: ast.AST) -> set[int]:
     return found
 
 
+def _is_membership(node: ast.AST) -> bool:
+    """Return whether `node` is a one-operator `in` or `not in` comparison."""
+    return (
+        isinstance(node, ast.Compare)
+        and len(node.ops) == 1
+        and isinstance(node.ops[0], (ast.In, ast.NotIn))
+    )
+
+
 def _bindings(node: ast.AST) -> list[tuple[str, bool]]:
     """Return the names a statement binds, each with whether its value is a match's groups.
 
-    An assignment, annotated assignment or walrus binds its plain-name targets to its value; a
-    `for` target, a `with ... as` name and a function parameter bind to something else.
+    An assignment, annotated assignment or walrus binds a plain-name target to its value; a
+    name inside an unpacking target (`groups, other = ...`), a `for` target, a `with ... as`
+    name and a function parameter bind to something else.
     """
     if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
         if node.value is None:
             return []
         targets = node.targets if isinstance(node, ast.Assign) else [node.target]
         from_match = _is_match_groups(node.value)
-        return [(target.id, from_match) for target in targets if isinstance(target, ast.Name)]
+        found: list[tuple[str, bool]] = []
+        for target in targets:
+            if isinstance(target, ast.Name):
+                found.append((target.id, from_match))
+            else:
+                found.extend(
+                    (name.id, False) for name in ast.walk(target) if isinstance(name, ast.Name)
+                )
+        return found
     if isinstance(node, (ast.For, ast.comprehension)):
         return [(name.id, False) for name in ast.walk(node.target) if isinstance(name, ast.Name)]
     if isinstance(node, ast.withitem) and isinstance(node.optional_vars, ast.Name):
