@@ -533,6 +533,13 @@ def test_exclusion_below_a_project_entry_is_reachable(tmp_path):
     assert checker.load(root).glob_agents[".alphaproj/big"] == "alpha"
 
 
+def test_exclusion_below_a_project_entry_has_the_project_agent(tmp_path):
+    catalog = CATALOG.replace("project|AGENTS.md", "project|AGENTS.md\nproject|.git/worktrees")
+    catalog = catalog.replace("models\n#", "models\n.git/worktrees/*/index\n#")
+    root = repository(tmp_path, catalog=catalog)
+    assert checker.load(root).glob_agents[".git/worktrees/*/index"] == "project"
+
+
 def test_exclusion_two_volume_documents_name_has_no_owner(tmp_path):
     catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
     alpha = ALPHA.replace("`cache` below `.alpha`.", "`cache` below `.alpha`, and `models`.")
@@ -542,16 +549,7 @@ def test_exclusion_two_volume_documents_name_has_no_owner(tmp_path):
     assert "the documents of beta, alpha all name it" in found[0].message
 
 
-def test_project_claim_forms(tmp_path):
-    text = "# project artifacts (relative to each discovered project)\nproject|.git/worktrees\n"
-    text += "pi|.pi\npi|.pi/approved-plan.md\n"
-    catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
-    assert checker.project_claim(".git/worktrees/*/index", catalog) == "project"
-    assert checker.project_claim(".pi*/x", catalog) == "pi"
-    assert checker.project_claim("tmp/playwright", catalog) == ""
-
-
-def test_glob_agent_forms(tmp_path):
+def test_attribute_glob_forms(tmp_path):
     text = (
         "# home artifacts (agent|glob relative to home)\nalpha|Library/Application Support/Claude\n"
     )
@@ -568,7 +566,7 @@ def test_glob_agent_forms(tmp_path):
         "nowhere": "-",
     }
     for glob, agent in cases.items():
-        assert checker.glob_agent(glob, catalog, tmp_path) == agent, glob
+        assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
 
 
 # --- Rule 5: volume-glob-unnamed -------------------------------------------------------------

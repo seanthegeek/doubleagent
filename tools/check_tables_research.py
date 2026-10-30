@@ -2,7 +2,7 @@
 """Check the catalog tables against the Collection part of the research documents.
 
 `research/<agent>.md` owns its agent's table lines and `research/shared.md` the `shared` and
-`project` ones; an exclusion or secret line's agent is `glob_agent` of its glob.
+`project` ones; an exclusion or secret line's agent is `attribute_glob` of its glob.
 
 - `line-unnamed`: a table line no Collection code span of its owners names (`names_glob`), by
   its glob or its remainder below an owner's entry (`base_remainders`, `star_remainders`);
@@ -208,34 +208,6 @@ def secret_samples(glob: str) -> list[str]:
     )
 
 
-def project_claim(glob: str, catalog: Catalog) -> str:
-    """Return the agent of the project entry claiming a sample path of a glob, or "".
-
-    The claim is `Catalog.project_agent_for`, so the most specific entry wins; the sample with
-    empty stars is tried before the one with every `*` as `x`: `.git/worktrees/*/index` is
-    `project`'s through the entry `.git/worktrees`, while `tmp/playwright` is no one's.
-    """
-    for sample in (drift_common.sample_path(glob, True), drift_common.sample_path(glob)):
-        owner = catalog.project_agent_for(sample)
-        if owner:
-            return owner
-    return ""
-
-
-def glob_agent(glob: str, catalog: Catalog, root: pathlib.Path) -> str:
-    """Return the agent an exclusion or secret glob belongs to, or `-`.
-
-    A home entry claims it or, for a glob opening `*/`, is the closest it reaches
-    (`attribute_glob`); otherwise a project entry claims it (`project_claim`); otherwise it is
-    volume-relative and the one docker-volume agent whose document names it owns it
-    (`attribute_glob`). A glob opening `*/` that reaches several agents' entries equally is `-`.
-    """
-    owner = drift_common.home_claim(glob, catalog)
-    if owner or glob.startswith("*/"):
-        return owner or drift_common.closest_agent(star_remainders(glob, catalog))
-    return project_claim(glob, catalog) or drift_common.attribute_glob(glob, catalog, root)
-
-
 def is_volume_section(section: Section) -> bool:
     """Return whether a section's heading or first paragraph holds the word "volume"."""
     lines = section.text.split("\n")
@@ -436,10 +408,10 @@ class Repository:
 
     @functools.cached_property
     def glob_agents(self) -> dict[str, str]:
-        """Return the agent of each exclusion and secret glob (`glob_agent`), computed once."""
+        """Return the agent of each exclusion and secret glob (`attribute_glob`), computed once."""
         catalog = self.tables.catalog
         return {
-            line.glob: glob_agent(line.glob, catalog, self.root)
+            line.glob: drift_common.attribute_glob(line.glob, catalog, self.root)
             for line in self.tables.exclude + self.tables.secret
         }
 
@@ -475,7 +447,7 @@ def load(root: pathlib.Path) -> Repository:
 
 
 def line_agent(repository: Repository, line: TableLine) -> str:
-    """Return a table line's agent, `glob_agent` for an exclusion or secret glob."""
+    """Return a table line's agent, `attribute_glob` for an exclusion or secret glob."""
     return line.agent or repository.glob_agents[line.glob]
 
 
@@ -637,7 +609,7 @@ def unreachable_globs(repository: Repository) -> Iterator[Finding]:
 def unnamed_volume_globs(repository: Repository) -> Iterator[Finding]:
     """Yield `volume-glob-unnamed` for each volume-relative glob its volume section never names.
 
-    The glob is one a docker-volume agent's document owns (`glob_agent`, neither a home nor a
+    The glob is one a docker-volume agent's document owns (`attribute_glob`, neither a home nor a
     project entry reaching it); its Per-user storage subsections about a volume
     (`is_volume_section`) must name it in a code span (`names_glob`).
     """
@@ -646,7 +618,7 @@ def unnamed_volume_globs(repository: Repository) -> Iterator[Finding]:
         agent = line_agent(repository, line)
         if agent == "-" or not is_volume_relative(line.glob, catalog):
             continue
-        if project_claim(line.glob, catalog):
+        if drift_common.project_claim(line.glob, catalog):
             continue
         sections = [
             section

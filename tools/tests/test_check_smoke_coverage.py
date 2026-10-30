@@ -150,6 +150,18 @@ def test_exclusion_check_missing(tmp_path):
     assert details(tmp_path, "exclusion-check-missing") == ["smoke.ps1 .alpha/cache"]
 
 
+def test_exclusion_below_a_project_entry_has_the_project_agent(tmp_path):
+    repository(tmp_path)
+    catalog = CATALOG_TEXT.replace("project|AGENTS.md", "project|AGENTS.md\nproject|.git/worktrees")
+    catalog = catalog.replace(".alpha/cache\n", ".alpha/cache\n.git/worktrees/*/index\n")
+    write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
+    found = [item for item in findings(tmp_path) if item.kind == "exclusion-check-missing"]
+    assert {item.detail: item.agent for item in found} == {
+        "smoke.sh .git/worktrees/*/index": "project",
+        "smoke.ps1 .git/worktrees/*/index": "project",
+    }
+
+
 def test_exclusion_check_in_a_full_run_does_not_count(tmp_path):
     full = SMOKE_SH.replace("run default", "run full --full")
     repository(tmp_path, full)

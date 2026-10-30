@@ -445,6 +445,21 @@ def test_attribute_glob_most_specific_home_entry_or_dash(tmp_path):
         assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
 
 
+def test_attribute_glob_project_entry_before_star_and_volume_steps(tmp_path):
+    text = "# home artifacts (agent|glob relative to home)\nalpha|.alpha\n"
+    text += "# project artifacts (relative to each discovered project)\nproject|.git/worktrees\n"
+    text += "alpha|.alpha\n# docker volumes (agent|volume name glob)\ngamma|*gamma_data\n"
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
+    write(tmp_path / "research/gamma.md", "# gamma\n\n## Collection\n\n`.git/worktrees/x/index`\n")
+    cases = {
+        ".git/worktrees/*/index": "project",
+        ".alpha/cache": "alpha",
+        "tmp/playwright": "-",
+    }
+    for glob, agent in cases.items():
+        assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
+
+
 def test_attribute_glob_tries_empty_stars_before_x(tmp_path):
     text = "delta|.delta\ndelta|.delta-*\nepsilon|.delta/eps\nzeta|.zeta-x\n"
     catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
@@ -517,6 +532,15 @@ def test_attribute_glob_volume_glob_goes_to_the_one_volume_document_naming_it(tm
     }
     for glob, agent in cases.items():
         assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
+
+
+def test_project_claim_forms(tmp_path):
+    text = "# project artifacts (relative to each discovered project)\nproject|.git/worktrees\n"
+    text += "pi|.pi\npi|.pi/approved-plan.md\n"
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
+    assert drift_common.project_claim(".git/worktrees/*/index", catalog) == "project"
+    assert drift_common.project_claim(".pi*/x", catalog) == "pi"
+    assert drift_common.project_claim("tmp/playwright", catalog) == ""
 
 
 def test_home_claim_forms(tmp_path):

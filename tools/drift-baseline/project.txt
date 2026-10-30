@@ -1,3 +1,7 @@
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .git/worktrees/*/index
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .git/worktrees/*/index.lock
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .git/worktrees/*/modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .git/worktrees/*/sharedindex.*
 check_smoke_coverage|fixture-missing|smoke.ps1 project .agents
 check_smoke_coverage|fixture-missing|smoke.ps1 project .github/copilot-instructions.md
 check_smoke_coverage|fixture-missing|smoke.ps1 project .github/git-commit-instructions.md

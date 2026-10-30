@@ -662,6 +662,20 @@ def home_claim(glob: str, catalog: Catalog) -> str:
     return ""
 
 
+def project_claim(glob: str, catalog: Catalog) -> str:
+    """Return the agent of the project entry claiming a sample path of a glob, or "".
+
+    The claim is `Catalog.project_agent_for`, so the most specific entry wins; the sample with
+    `empty_stars` is tried before the one with every `*` as `x`: `.git/worktrees/*/index` is
+    `project`'s through the entry `.git/worktrees`, while `tmp/playwright` is no one's.
+    """
+    for sample in (sample_path(glob, empty_stars=True), sample_path(glob)):
+        owner = catalog.project_agent_for(sample)
+        if owner:
+            return owner
+    return ""
+
+
 def closest_agents(reached: list[tuple[str, str]]) -> list[str]:
     """Return the agents whose (agent, remainder) pairs have the fewest remainder segments, sorted.
 
@@ -684,14 +698,15 @@ def attribute_glob(
     """Return the agent a table glob belongs to, by the first step that names one, or `-`.
 
     1. The agent of the home entry that claims a sample path of the glob (`home_claim`).
-    2. For a glob opening `*/`, the agent of the most specific home entry it reaches, the one
+    2. The agent of the project entry that claims a sample path of the glob (`project_claim`).
+    3. For a glob opening `*/`, the agent of the most specific home entry it reaches, the one
        with the fewest remainder segments (`star_remainders`), when no other agent's is as close.
-    3. For any other glob, which is volume-relative, the one `DOCKER_VOLUMES` agent whose
+    4. For any other glob, which is volume-relative, the one `DOCKER_VOLUMES` agent whose
        research document under `root` names it in a Collection code span (`volume_agents_naming`).
     `catalog` defaults to the bundled one and `root` to this checkout.
     """
     catalog = catalog or _bundled_catalog()
-    owner = home_claim(glob, catalog)
+    owner = home_claim(glob, catalog) or project_claim(glob, catalog)
     if owner:
         return owner
     if glob.startswith("*/"):

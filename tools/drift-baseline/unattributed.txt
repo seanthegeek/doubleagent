@@ -125,10 +125,6 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/workspaceStorage/*
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aider.tags.cache*
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor-server/bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor-server/extensions
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .git/worktrees/*/index
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .git/worktrees/*/index.lock
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .git/worktrees/*/modules
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .git/worktrees/*/sharedindex.*
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .time_travel
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/agy
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 bot-desktop/browser-profile
@@ -194,7 +190,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/profiles/*/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .pearai-agent/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/api-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/secret-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/agent/models.json
@@ -226,7 +221,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/profiles/*/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh */globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .pearai-agent/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/api-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/secret-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/agent/models.json
