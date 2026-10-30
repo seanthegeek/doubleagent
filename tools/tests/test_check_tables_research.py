@@ -828,6 +828,25 @@ def test_parsing_fact_under_collection(tmp_path):
     ]
 
 
+def test_file_stem_span_is_no_parsing_fact(tmp_path):
+    alpha = ALPHA.replace("holds the sessions,", "holds the sessions (`chatFeedback` events),")
+    schema = "`session_id`, `project_dir` and `message.content`."
+    events = schema + " Events go to `dev_data/0.2.0/chatFeedback.jsonl` with `chatFeedback`."
+    root = repository(tmp_path / "named", alpha=alpha.replace(schema, events))
+    assert findings(root, "parsing-fact-under-collection") == []
+    events = schema + " Events go to `dev_data/0.2.0/events.jsonl` as `chatFeedback`."
+    root = repository(tmp_path / "unnamed", alpha=alpha.replace(schema, events))
+    assert findings(root, "parsing-fact-under-collection") == [("alpha", "chatFeedback")]
+
+
+def test_path_names_forms():
+    names = checker.path_names(["dev_data/0.2.0/chatFeedback.jsonl", "~/.alpha/", "session_id"])
+    for name in ("dev_data", "0.2.0", "chatFeedback.jsonl", "chatFeedback", ".alpha"):
+        assert name in names, name
+    for name in ("session_id", "jsonl", "~", ""):
+        assert name not in names, name
+
+
 def test_is_row_text_forms():
     for span in ("permission decision:", "model: a -> b:", "session synced:"):
         assert checker.is_row_text(span), span

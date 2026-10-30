@@ -105,6 +105,5 @@ check_smoke_coverage|secret-check-missing|smoke.sh .codex/config.toml
 check_smoke_coverage|secret-check-missing|smoke.sh .codex/secrets/*
 check_tables_research|credential-wording|can embed `config.toml`
 check_tables_research|parsing-fact-under-collection|model_provider
-check_tables_research|parsing-fact-under-collection|node_repl
 check_tables_research|parsing-fact-under-collection|session_id
 check_tables_research|parsing-fact-under-collection|thread_spawn_edges

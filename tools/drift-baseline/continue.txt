@@ -78,6 +78,5 @@ check_tables_research|line-unnamed|home .*-server*/data/User/globalStorage/conti
 check_tables_research|line-unnamed|home .config/*/User/globalStorage/continue.continue
 check_tables_research|line-unnamed|home AppData/Roaming/*/User/globalStorage/continue.continue
 check_tables_research|line-unnamed|home Library/Application Support/*/User/globalStorage/continue.continue
-check_tables_research|parsing-fact-under-collection|chatFeedback
 check_tables_research|parsing-fact-under-collection|userId
 check_tables_research|parsing-fact-under-collection|workspaceDirectory

@@ -24,7 +24,8 @@
 - `agents-row-missing`, `agents-row-orphan`: a catalog agent, `project` aside, with no
   `docs/agents.md` row, and a row naming no catalog agent.
 - `parsing-fact-under-collection`: a Collection code span that is a row text (`is_row_text`)
-  or a key the Record schema also names (`is_key_span`), outside the project-path section.
+  or a key the Record schema also names (`is_key_span`) and no path names (`path_names`),
+  outside the project-path section.
 
 Usage: tools/check_tables_research.py [--update-baseline]
 """
@@ -367,6 +368,22 @@ def is_key_span(text: str) -> bool:
     if "." in text and text.rsplit(".", 1)[-1].lower() in FILE_EXTENSIONS:
         return False
     return "_" in text or "." in text or bool(re.search(r"[a-z][A-Z]", text))
+
+
+def path_names(spans: Iterable[str]) -> set[str]:
+    """Return each segment of the path spans (`is_path_span`) and each segment's stem.
+
+    `dev_data/0.2.0/chatFeedback.jsonl` gives `dev_data`, `0.2.0`, `chatFeedback.jsonl` and
+    `chatFeedback`; a key span (`session_id`) gives nothing. A span among them names a file or
+    directory, not a key.
+    """
+    names: set[str] = set()
+    for span in spans:
+        if not is_path_span(span):
+            continue
+        for segment in normalise_span(span).split("/"):
+            names.update(name for name in (segment, segment.rsplit(".", 1)[0]) if name)
+    return names
 
 
 def plain_spans(section: Section) -> list[tuple[str, int, int]]:
@@ -732,7 +749,8 @@ def parsing_facts(repository: Repository) -> Iterator[Finding]:
     """Yield `parsing-fact-under-collection` for each row text or schema key in the Collection.
 
     "Where the project path is recorded" names its file and key by rule, so its spans are not
-    checked for keys; link texts are left out (`plain_spans`).
+    checked for keys; nor is a span a path span of the document holds as a segment or a file's
+    stem (`path_names`); link texts are left out (`plain_spans`).
     """
     for agent in repository.agents.documents:
         document = repository.document(agent)
@@ -742,10 +760,14 @@ def parsing_facts(repository: Repository) -> Iterator[Finding]:
             for section in drift_common.within(sections, "Parsing", "Record schema")
             for span in section.code_spans
         }
+        file_names = path_names(
+            span.text for section in sections.values() for span in section.code_spans
+        )
         for section in drift_common.within(sections, "Collection"):
             project_path = section.titles[1:2] == ("Where the project path is recorded",)
             for text, start, _ in plain_spans(section):
                 is_key = not project_path and text in schema and is_key_span(text)
+                is_key = is_key and text not in file_names
                 if is_row_text(text) or is_key:
                     form = "row text" if is_row_text(text) else "Record schema key"
                     message = "a %s belongs in the Parsing part" % form
