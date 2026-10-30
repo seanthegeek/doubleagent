@@ -54,8 +54,8 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/chroma
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/mod-cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .letta/tool_execution_dir
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .memgpt/chroma
-check_smoke_coverage|fixture-missing|smoke.ps1 .skills
-check_smoke_coverage|fixture-missing|smoke.sh .skills
+check_smoke_coverage|fixture-missing|smoke.ps1 project .skills
+check_smoke_coverage|fixture-missing|smoke.sh project .skills
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/letta/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .letta/agents/*/memory/.git/config
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .letta/agents/*/memory/.git/letta-credential-helper.cmd

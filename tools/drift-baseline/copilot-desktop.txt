@@ -51,16 +51,16 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Local/com.github.g
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Local/com.github.githubapp/EBWebView/hyphen-data
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/com.github.githubapp/app-skills
 check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/com.github.githubapp/app-skills
-check_smoke_coverage|fixture-missing|smoke.ps1 .copilot/canvas-catalog-probe
-check_smoke_coverage|fixture-missing|smoke.ps1 .copilot/media-cache
-check_smoke_coverage|fixture-missing|smoke.ps1 .copilot/repo-metadata-cache.db*
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/com.github.githubapp
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/com.github.githubapp
-check_smoke_coverage|fixture-missing|smoke.sh .copilot/canvas-catalog-probe
-check_smoke_coverage|fixture-missing|smoke.sh .copilot/media-cache
-check_smoke_coverage|fixture-missing|smoke.sh .copilot/repo-metadata-cache.db*
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/com.github.githubapp
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/com.github.githubapp
+check_smoke_coverage|fixture-missing|smoke.ps1 home .copilot/canvas-catalog-probe
+check_smoke_coverage|fixture-missing|smoke.ps1 home .copilot/media-cache
+check_smoke_coverage|fixture-missing|smoke.ps1 home .copilot/repo-metadata-cache.db*
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/com.github.githubapp
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/com.github.githubapp
+check_smoke_coverage|fixture-missing|smoke.sh home .copilot/canvas-catalog-probe
+check_smoke_coverage|fixture-missing|smoke.sh home .copilot/media-cache
+check_smoke_coverage|fixture-missing|smoke.sh home .copilot/repo-metadata-cache.db*
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/com.github.githubapp
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/com.github.githubapp
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .copilot/chats/2026-10-16/x-5d404e14/.keep
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .copilot/chats/2026-10-16/x-5d404e14/.keep
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*

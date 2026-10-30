@@ -15,16 +15,16 @@ check_research_structure|version-without-change|since 4.3.5
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/embeddings/*/chunks.lance
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/server/plugins/*/repos/*/checkout
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/server/plugins/*/repos/*/index
-check_smoke_coverage|fixture-missing|smoke.ps1 .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/*/User/workspaceStorage/*/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.sh .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/node/identity.json

@@ -1,17 +1,17 @@
-check_smoke_coverage|fixture-missing|smoke.ps1 .agents
-check_smoke_coverage|fixture-missing|smoke.ps1 .github/copilot-instructions.md
-check_smoke_coverage|fixture-missing|smoke.ps1 .github/git-commit-instructions.md
-check_smoke_coverage|fixture-missing|smoke.ps1 .github/instructions
-check_smoke_coverage|fixture-missing|smoke.ps1 AGENT.md
-check_smoke_coverage|fixture-missing|smoke.ps1 AGENTS.override.md
-check_smoke_coverage|fixture-missing|smoke.ps1 USER.md
-check_smoke_coverage|fixture-missing|smoke.sh .agents
-check_smoke_coverage|fixture-missing|smoke.sh .github/copilot-instructions.md
-check_smoke_coverage|fixture-missing|smoke.sh .github/git-commit-instructions.md
-check_smoke_coverage|fixture-missing|smoke.sh .github/instructions
-check_smoke_coverage|fixture-missing|smoke.sh AGENT.md
-check_smoke_coverage|fixture-missing|smoke.sh AGENTS.override.md
-check_smoke_coverage|fixture-missing|smoke.sh USER.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project .agents
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/copilot-instructions.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/git-commit-instructions.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/instructions
+check_smoke_coverage|fixture-missing|smoke.ps1 project AGENT.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project AGENTS.override.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project USER.md
+check_smoke_coverage|fixture-missing|smoke.sh project .agents
+check_smoke_coverage|fixture-missing|smoke.sh project .github/copilot-instructions.md
+check_smoke_coverage|fixture-missing|smoke.sh project .github/git-commit-instructions.md
+check_smoke_coverage|fixture-missing|smoke.sh project .github/instructions
+check_smoke_coverage|fixture-missing|smoke.sh project AGENT.md
+check_smoke_coverage|fixture-missing|smoke.sh project AGENTS.override.md
+check_smoke_coverage|fixture-missing|smoke.sh project USER.md
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/FETCH_HEAD
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/HEAD
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/config

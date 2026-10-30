@@ -46,18 +46,18 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .copilot/installed-plugins
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Local/copilot/pkg
 check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Caches/copilot/marketplaces
 check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Caches/copilot/pkg
-check_smoke_coverage|fixture-missing|smoke.ps1 .cache/copilot
-check_smoke_coverage|fixture-missing|smoke.ps1 .github/agents
-check_smoke_coverage|fixture-missing|smoke.ps1 .github/hooks
-check_smoke_coverage|fixture-missing|smoke.ps1 .github/lsp.json
-check_smoke_coverage|fixture-missing|smoke.ps1 .github/skills
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/state/.copilot
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Caches/copilot
-check_smoke_coverage|fixture-missing|smoke.sh .cache/copilot
-check_smoke_coverage|fixture-missing|smoke.sh .github/agents
-check_smoke_coverage|fixture-missing|smoke.sh .github/hooks
-check_smoke_coverage|fixture-missing|smoke.sh .github/lsp.json
-check_smoke_coverage|fixture-missing|smoke.sh .github/skills
-check_smoke_coverage|fixture-missing|smoke.sh .local/state/.copilot
-check_smoke_coverage|fixture-missing|smoke.sh Library/Caches/copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/state/.copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Caches/copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/agents
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/hooks
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/lsp.json
+check_smoke_coverage|fixture-missing|smoke.ps1 project .github/skills
+check_smoke_coverage|fixture-missing|smoke.sh home .cache/copilot
+check_smoke_coverage|fixture-missing|smoke.sh home .local/state/.copilot
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Caches/copilot
+check_smoke_coverage|fixture-missing|smoke.sh project .github/agents
+check_smoke_coverage|fixture-missing|smoke.sh project .github/hooks
+check_smoke_coverage|fixture-missing|smoke.sh project .github/lsp.json
+check_smoke_coverage|fixture-missing|smoke.sh project .github/skills
 check_tables_research|credential-wording|can embed `mcp-config.json`

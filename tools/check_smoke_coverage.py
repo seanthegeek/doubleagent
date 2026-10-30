@@ -12,7 +12,8 @@ or a volume's `_data`. Every rule holds in each file; a finding's detail is `<fi
   asserting `skipped_secret` on a path the glob matches.
 - `exclusion-check-missing`: an `EXCLUDES` line with no check, in a run without `--full`,
   asserting `skipped_excluded` on a path the glob matches.
-- `fixture-missing`: a `CATALOG` or `PROJECT_CATALOG` line that matches no fixture path.
+- `fixture-missing`: a `CATALOG` or `PROJECT_CATALOG` line that matches no fixture path; its
+  subject is the table, `home` or `project`, then the glob, as one glob may be in both.
 - `fixture-name-undocumented`: a fixture file a table line claims, outside every exclusion,
   whose relative path no code span of the claiming agent's research document names.
 - `check-by-suffix`: a `smoke.ps1` check naming a row by a suffix: `-like '*...'` or `EndsWith`
@@ -2142,7 +2143,8 @@ def fixture_findings(context: _Context) -> Iterator[drift_common.Finding]:
             regexes = segment_regexes(line.glob, insensitive)
             if not any(entry_claims(regexes, relative) for relative in relatives[table]):
                 text = "no fixture path matches this %s line (catalog line %d)" % (table, line.line)
-                yield context.finding(line.agent, "fixture-missing", line.glob, 0, text)
+                subject = "%s %s" % (table, line.glob)
+                yield context.finding(line.agent, "fixture-missing", subject, 0, text)
 
 
 def _owner(context: _Context, base: Base) -> str:

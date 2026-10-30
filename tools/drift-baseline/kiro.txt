@@ -37,38 +37,38 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .kiro/cloud-cache
 check_smoke_coverage|exclusion-check-missing|smoke.sh .kiro/extensions
 check_smoke_coverage|exclusion-check-missing|smoke.sh .kiro/sandbox-curl
 check_smoke_coverage|exclusion-check-missing|smoke.sh .kiro/sandbox-state
-check_smoke_coverage|fixture-missing|smoke.ps1 .aws/sso/cache
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Kiro/User
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Kiro/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 .kiro
-check_smoke_coverage|fixture-missing|smoke.ps1 .kiro-server/data/User
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/amazon-q
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/kiro-cli
-check_smoke_coverage|fixture-missing|smoke.ps1 AmazonQ.md
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/amazon-q
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/kiro-cli
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Kiro/User
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Kiro/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Kiro/User
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Kiro/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/amazon-q
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/kiro-cli
-check_smoke_coverage|fixture-missing|smoke.sh .aws/sso/cache
-check_smoke_coverage|fixture-missing|smoke.sh .config/Kiro/User
-check_smoke_coverage|fixture-missing|smoke.sh .config/Kiro/logs
-check_smoke_coverage|fixture-missing|smoke.sh .kiro
-check_smoke_coverage|fixture-missing|smoke.sh .kiro-server/data/User
-check_smoke_coverage|fixture-missing|smoke.sh .local/share/amazon-q
-check_smoke_coverage|fixture-missing|smoke.sh .local/share/kiro-cli
-check_smoke_coverage|fixture-missing|smoke.sh AmazonQ.md
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/amazon-q
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/kiro-cli
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Kiro/User
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Kiro/logs
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Kiro/User
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Kiro/logs
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/amazon-q
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.ps1 home .aws/sso/cache
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .kiro-server/data/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/amazon-q
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/amazon-q
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/amazon-q
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.ps1 project .kiro
+check_smoke_coverage|fixture-missing|smoke.ps1 project AmazonQ.md
+check_smoke_coverage|fixture-missing|smoke.sh home .aws/sso/cache
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .kiro-server/data/User
+check_smoke_coverage|fixture-missing|smoke.sh home .local/share/amazon-q
+check_smoke_coverage|fixture-missing|smoke.sh home .local/share/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/amazon-q
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Kiro/User
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Kiro/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/amazon-q
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/kiro-cli
+check_smoke_coverage|fixture-missing|smoke.sh project .kiro
+check_smoke_coverage|fixture-missing|smoke.sh project AmazonQ.md
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aws/amazonq/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aws/sso/cache/*.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kiro/agents/*.json

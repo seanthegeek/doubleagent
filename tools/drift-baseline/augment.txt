@@ -10,14 +10,16 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .augment/plugins/marketpla
 check_smoke_coverage|exclusion-check-missing|smoke.sh .augment/uploads
 check_smoke_coverage|exclusion-check-missing|smoke.sh .augment/vfs
 check_smoke_coverage|exclusion-check-missing|smoke.sh .augment/worktrees
-check_smoke_coverage|fixture-missing|smoke.ps1 .augment
-check_smoke_coverage|fixture-missing|smoke.ps1 .augment-guidelines
-check_smoke_coverage|fixture-missing|smoke.ps1 .augment-plugin
-check_smoke_coverage|fixture-missing|smoke.ps1 .augmentignore
-check_smoke_coverage|fixture-missing|smoke.sh .augment
-check_smoke_coverage|fixture-missing|smoke.sh .augment-guidelines
-check_smoke_coverage|fixture-missing|smoke.sh .augment-plugin
-check_smoke_coverage|fixture-missing|smoke.sh .augmentignore
+check_smoke_coverage|fixture-missing|smoke.ps1 home .augment
+check_smoke_coverage|fixture-missing|smoke.ps1 project .augment
+check_smoke_coverage|fixture-missing|smoke.ps1 project .augment-guidelines
+check_smoke_coverage|fixture-missing|smoke.ps1 project .augment-plugin
+check_smoke_coverage|fixture-missing|smoke.ps1 project .augmentignore
+check_smoke_coverage|fixture-missing|smoke.sh home .augment
+check_smoke_coverage|fixture-missing|smoke.sh project .augment
+check_smoke_coverage|fixture-missing|smoke.sh project .augment-guidelines
+check_smoke_coverage|fixture-missing|smoke.sh project .augment-plugin
+check_smoke_coverage|fixture-missing|smoke.sh project .augmentignore
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .augment/session.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .augment/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .augment/settings.local.json

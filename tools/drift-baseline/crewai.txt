@@ -1,7 +1,7 @@
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/.crewai_user.json
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/flow_states.db*
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/.crewai_user.json
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/flow_states.db*
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/.crewai_user.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/flow_states.db*
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/.crewai_user.json
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/flow_states.db*
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .local/share/myproj/latest_kickoff_task_outputs.db-wal
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .local/share/myproj/latest_kickoff_task_outputs.db-wal
 check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 crewai

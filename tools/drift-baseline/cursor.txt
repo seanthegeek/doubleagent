@@ -26,24 +26,24 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor/worktrees
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor/extensions
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor/plugins/marketplaces
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor/worktrees
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Cursor/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Cursor/update-supervisor
-check_smoke_coverage|fixture-missing|smoke.ps1 .cursor
-check_smoke_coverage|fixture-missing|smoke.ps1 .cursor-server/data/User
-check_smoke_coverage|fixture-missing|smoke.ps1 .cursorignore
-check_smoke_coverage|fixture-missing|smoke.ps1 .cursorindexingignore
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Cursor/auth.json
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Cursor/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Cursor/logs
-check_smoke_coverage|fixture-missing|smoke.sh .config/Cursor/logs
-check_smoke_coverage|fixture-missing|smoke.sh .config/Cursor/update-supervisor
-check_smoke_coverage|fixture-missing|smoke.sh .cursor
-check_smoke_coverage|fixture-missing|smoke.sh .cursor-server/data/User
-check_smoke_coverage|fixture-missing|smoke.sh .cursorignore
-check_smoke_coverage|fixture-missing|smoke.sh .cursorindexingignore
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Cursor/auth.json
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Cursor/logs
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Cursor/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Cursor/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Cursor/update-supervisor
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cursor-server/data/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Cursor/auth.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Cursor/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Cursor/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 project .cursor
+check_smoke_coverage|fixture-missing|smoke.ps1 project .cursorignore
+check_smoke_coverage|fixture-missing|smoke.ps1 project .cursorindexingignore
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Cursor/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Cursor/update-supervisor
+check_smoke_coverage|fixture-missing|smoke.sh home .cursor-server/data/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Cursor/auth.json
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Cursor/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Cursor/logs
+check_smoke_coverage|fixture-missing|smoke.sh project .cursor
+check_smoke_coverage|fixture-missing|smoke.sh project .cursorignore
+check_smoke_coverage|fixture-missing|smoke.sh project .cursorindexingignore
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/cursor/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cursor/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cursor/projects/*/mcp-auth.json

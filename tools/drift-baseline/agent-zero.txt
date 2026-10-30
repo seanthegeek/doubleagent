@@ -48,10 +48,10 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/tmp/pl
 check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/usr/.time_travel
 check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/usr/workdir/*/.venv
 check_smoke_coverage|exclusion-check-missing|smoke.sh Desktop/agent-zero*/usr/workdir/*/node_modules
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Agent Zero Launcher
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Agent Zero Launcher
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Agent Zero Launcher
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Agent Zero Launcher
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Agent Zero Launcher
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Agent Zero Launcher
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Agent Zero Launcher
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Agent Zero Launcher
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .config/Agent Zero Launcher/Local State
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 agent-zero/main/usr/plugins/_desktop/profiles/d1/.gnupg/k1
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 agent-zero/main/usr/plugins/_desktop/profiles/d1/.ssh/id_ed25519

@@ -58,24 +58,24 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/plugins/cache
 check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/plugins/marketplaces
 check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/worktrees
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/claude/versions
-check_smoke_coverage|fixture-missing|smoke.ps1 .cache/claude-cli-nodejs
-check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/.session_ingress_token
-check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/daemon/pipe.key
-check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/file-history
-check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/hfi-auth.json
-check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/remote/.api_key
-check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/remote/.oauth_token
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/claude
-check_smoke_coverage|fixture-missing|smoke.ps1 CLAUDE.local.md
-check_smoke_coverage|fixture-missing|smoke.sh .cache/claude-cli-nodejs
-check_smoke_coverage|fixture-missing|smoke.sh .claude-*/.session_ingress_token
-check_smoke_coverage|fixture-missing|smoke.sh .claude-*/daemon/pipe.key
-check_smoke_coverage|fixture-missing|smoke.sh .claude-*/file-history
-check_smoke_coverage|fixture-missing|smoke.sh .claude-*/hfi-auth.json
-check_smoke_coverage|fixture-missing|smoke.sh .claude-*/remote/.api_key
-check_smoke_coverage|fixture-missing|smoke.sh .claude-*/remote/.oauth_token
-check_smoke_coverage|fixture-missing|smoke.sh .local/share/claude
-check_smoke_coverage|fixture-missing|smoke.sh CLAUDE.local.md
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/claude-cli-nodejs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .claude-*/.session_ingress_token
+check_smoke_coverage|fixture-missing|smoke.ps1 home .claude-*/daemon/pipe.key
+check_smoke_coverage|fixture-missing|smoke.ps1 home .claude-*/file-history
+check_smoke_coverage|fixture-missing|smoke.ps1 home .claude-*/hfi-auth.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home .claude-*/remote/.api_key
+check_smoke_coverage|fixture-missing|smoke.ps1 home .claude-*/remote/.oauth_token
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/claude
+check_smoke_coverage|fixture-missing|smoke.ps1 project CLAUDE.local.md
+check_smoke_coverage|fixture-missing|smoke.sh home .cache/claude-cli-nodejs
+check_smoke_coverage|fixture-missing|smoke.sh home .claude-*/.session_ingress_token
+check_smoke_coverage|fixture-missing|smoke.sh home .claude-*/daemon/pipe.key
+check_smoke_coverage|fixture-missing|smoke.sh home .claude-*/file-history
+check_smoke_coverage|fixture-missing|smoke.sh home .claude-*/hfi-auth.json
+check_smoke_coverage|fixture-missing|smoke.sh home .claude-*/remote/.api_key
+check_smoke_coverage|fixture-missing|smoke.sh home .claude-*/remote/.oauth_token
+check_smoke_coverage|fixture-missing|smoke.sh home .local/share/claude
+check_smoke_coverage|fixture-missing|smoke.sh project CLAUDE.local.md
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .cache/claude/staging/entry
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/Local/Temp/claude/C--proj/25625625-6256-4256-8256-256256256256/scratchpad/notes.txt
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .cache/claude/staging/entry

@@ -35,24 +35,24 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/index/lancedb
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/node_modules
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/out
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pearai/types
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/PearAI/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 .pearai-agent-ignore
-check_smoke_coverage|fixture-missing|smoke.ps1 .pearai-agent-modes
-check_smoke_coverage|fixture-missing|smoke.ps1 .pearai-server/data/User
-check_smoke_coverage|fixture-missing|smoke.ps1 .pearaiignore
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/PearAI/User
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/PearAI/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/PearAI/User
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/PearAI/logs
-check_smoke_coverage|fixture-missing|smoke.sh .config/PearAI/logs
-check_smoke_coverage|fixture-missing|smoke.sh .pearai-agent-ignore
-check_smoke_coverage|fixture-missing|smoke.sh .pearai-agent-modes
-check_smoke_coverage|fixture-missing|smoke.sh .pearai-server/data/User
-check_smoke_coverage|fixture-missing|smoke.sh .pearaiignore
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/PearAI/User
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/PearAI/logs
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/PearAI/User
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/PearAI/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/PearAI/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .pearai-server/data/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/PearAI/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/PearAI/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/PearAI/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/PearAI/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 project .pearai-agent-ignore
+check_smoke_coverage|fixture-missing|smoke.ps1 project .pearai-agent-modes
+check_smoke_coverage|fixture-missing|smoke.ps1 project .pearaiignore
+check_smoke_coverage|fixture-missing|smoke.sh home .config/PearAI/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .pearai-server/data/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/PearAI/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/PearAI/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/PearAI/User
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/PearAI/logs
+check_smoke_coverage|fixture-missing|smoke.sh project .pearai-agent-ignore
+check_smoke_coverage|fixture-missing|smoke.sh project .pearai-agent-modes
+check_smoke_coverage|fixture-missing|smoke.sh project .pearaiignore
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .config/PearAI/User/case29-upper.json
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .config/pearai/User/case29-lower.json
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .config/PearAI/User/case29-upper.json

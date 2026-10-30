@@ -93,30 +93,30 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .config/Antigravity/Cache
 check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/antigravity*/brain/*/.system_generated/worktrees
 check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/antigravity-backup/bin
 check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/antigravity-ide/bin
-check_smoke_coverage|fixture-missing|smoke.ps1 .antigravity
-check_smoke_coverage|fixture-missing|smoke.ps1 .cache/antigravity
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Antigravity
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Antigravity IDE/User
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Antigravity IDE/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/antigravity/plugin-secrets.json
-check_smoke_coverage|fixture-missing|smoke.ps1 .gemini/antigravity-backup
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Antigravity IDE/User
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Antigravity IDE/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Antigravity IDE/User
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Antigravity IDE/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/antigravity/plugin-secrets.json
-check_smoke_coverage|fixture-missing|smoke.sh .antigravity
-check_smoke_coverage|fixture-missing|smoke.sh .cache/antigravity
-check_smoke_coverage|fixture-missing|smoke.sh .config/Antigravity
-check_smoke_coverage|fixture-missing|smoke.sh .config/Antigravity IDE/User
-check_smoke_coverage|fixture-missing|smoke.sh .config/Antigravity IDE/logs
-check_smoke_coverage|fixture-missing|smoke.sh .gemini/antigravity-backup
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Antigravity IDE/User
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Antigravity IDE/logs
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/antigravity/plugin-secrets.json
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Antigravity IDE/User
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Antigravity IDE/logs
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/antigravity/plugin-secrets.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home .antigravity
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/antigravity
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Antigravity
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/antigravity/plugin-secrets.json
+check_smoke_coverage|fixture-missing|smoke.ps1 home .gemini/antigravity-backup
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/antigravity/plugin-secrets.json
+check_smoke_coverage|fixture-missing|smoke.sh home .antigravity
+check_smoke_coverage|fixture-missing|smoke.sh home .cache/antigravity
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Antigravity
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.sh home .gemini/antigravity-backup
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/antigravity/plugin-secrets.json
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/antigravity/plugin-secrets.json
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity-cli/dangling.log
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity-cli/jn
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity-cli/jn%TEMP%x

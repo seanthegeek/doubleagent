@@ -17,26 +17,26 @@ check_parser_research|pattern-undocumented|^(\.config/crush/crush\.json|\.local/
 check_parser_research|pattern-undocumented|^(\.config/crush/crushrc|\.?crushrc)$
 check_parser_research|pattern-undocumented|^(\.local/share/crush|AppData/Local/crush)/projects\.json$
 check_parser_research|row-text-undocumented|shell:
-check_smoke_coverage|fixture-missing|smoke.ps1 .cache/crush
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/crush
-check_smoke_coverage|fixture-missing|smoke.ps1 .crush
-check_smoke_coverage|fixture-missing|smoke.ps1 .crushignore
-check_smoke_coverage|fixture-missing|smoke.ps1 CRUSH.local.md
-check_smoke_coverage|fixture-missing|smoke.ps1 CRUSH.md
-check_smoke_coverage|fixture-missing|smoke.ps1 Crush.local.md
-check_smoke_coverage|fixture-missing|smoke.ps1 Crush.md
-check_smoke_coverage|fixture-missing|smoke.ps1 crush.local.md
-check_smoke_coverage|fixture-missing|smoke.ps1 crush.md
-check_smoke_coverage|fixture-missing|smoke.sh .cache/crush
-check_smoke_coverage|fixture-missing|smoke.sh .config/crush
-check_smoke_coverage|fixture-missing|smoke.sh .crush
-check_smoke_coverage|fixture-missing|smoke.sh .crushignore
-check_smoke_coverage|fixture-missing|smoke.sh CRUSH.local.md
-check_smoke_coverage|fixture-missing|smoke.sh CRUSH.md
-check_smoke_coverage|fixture-missing|smoke.sh Crush.local.md
-check_smoke_coverage|fixture-missing|smoke.sh Crush.md
-check_smoke_coverage|fixture-missing|smoke.sh crush.local.md
-check_smoke_coverage|fixture-missing|smoke.sh crush.md
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/crush
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/crush
+check_smoke_coverage|fixture-missing|smoke.ps1 home .crush
+check_smoke_coverage|fixture-missing|smoke.ps1 project .crushignore
+check_smoke_coverage|fixture-missing|smoke.ps1 project CRUSH.local.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project CRUSH.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project Crush.local.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project Crush.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project crush.local.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project crush.md
+check_smoke_coverage|fixture-missing|smoke.sh home .cache/crush
+check_smoke_coverage|fixture-missing|smoke.sh home .config/crush
+check_smoke_coverage|fixture-missing|smoke.sh home .crush
+check_smoke_coverage|fixture-missing|smoke.sh project .crushignore
+check_smoke_coverage|fixture-missing|smoke.sh project CRUSH.local.md
+check_smoke_coverage|fixture-missing|smoke.sh project CRUSH.md
+check_smoke_coverage|fixture-missing|smoke.sh project Crush.local.md
+check_smoke_coverage|fixture-missing|smoke.sh project Crush.md
+check_smoke_coverage|fixture-missing|smoke.sh project crush.local.md
+check_smoke_coverage|fixture-missing|smoke.sh project crush.md
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/crush/crush.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/crush/crushrc
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .crush/crush.json

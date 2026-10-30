@@ -24,14 +24,14 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/data/checkpoint-scr
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/data/workspaces/chat
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/plugins
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/worktrees
-check_smoke_coverage|fixture-missing|smoke.ps1 .cline
-check_smoke_coverage|fixture-missing|smoke.ps1 .clineignore
-check_smoke_coverage|fixture-missing|smoke.ps1 Cline/Rules
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
-check_smoke_coverage|fixture-missing|smoke.sh .cline
-check_smoke_coverage|fixture-missing|smoke.sh .clineignore
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/globalStorage/saoudrizwan.claude-dev
-check_smoke_coverage|fixture-missing|smoke.sh Cline/Rules
+check_smoke_coverage|fixture-missing|smoke.ps1 home Cline/Rules
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
+check_smoke_coverage|fixture-missing|smoke.ps1 project .cline
+check_smoke_coverage|fixture-missing|smoke.ps1 project .clineignore
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/globalStorage/saoudrizwan.claude-dev
+check_smoke_coverage|fixture-missing|smoke.sh home Cline/Rules
+check_smoke_coverage|fixture-missing|smoke.sh project .cline
+check_smoke_coverage|fixture-missing|smoke.sh project .clineignore
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/connectors/settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/db/connectors.db*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/secrets.json

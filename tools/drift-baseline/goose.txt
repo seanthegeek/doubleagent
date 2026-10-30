@@ -34,26 +34,28 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .local/state/goose/codex
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/Block/goose/data/codex
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/Block/goose/data/model_catalog
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/Block/goose/data/models
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Goose
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 .goose
-check_smoke_coverage|fixture-missing|smoke.ps1 .goosehints
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/state/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Block/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Goose
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Block/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Goose
-check_smoke_coverage|fixture-missing|smoke.sh .config/Goose
-check_smoke_coverage|fixture-missing|smoke.sh .config/goose
-check_smoke_coverage|fixture-missing|smoke.sh .goose
-check_smoke_coverage|fixture-missing|smoke.sh .goosehints
-check_smoke_coverage|fixture-missing|smoke.sh .local/share/goose
-check_smoke_coverage|fixture-missing|smoke.sh .local/state/goose
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Block/goose
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Goose
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Block/goose
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home .goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/state/goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Block/goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Block/goose
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Goose
+check_smoke_coverage|fixture-missing|smoke.ps1 project .goose
+check_smoke_coverage|fixture-missing|smoke.ps1 project .goosehints
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Goose
+check_smoke_coverage|fixture-missing|smoke.sh home .config/goose
+check_smoke_coverage|fixture-missing|smoke.sh home .goose
+check_smoke_coverage|fixture-missing|smoke.sh home .local/share/goose
+check_smoke_coverage|fixture-missing|smoke.sh home .local/state/goose
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Block/goose
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Goose
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Block/goose
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Goose
+check_smoke_coverage|fixture-missing|smoke.sh project .goose
+check_smoke_coverage|fixture-missing|smoke.sh project .goosehints
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/chatgpt_codex/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/config.yaml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/databricks/*

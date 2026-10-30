@@ -14,10 +14,10 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .factory/software-factory/
 check_smoke_coverage|exclusion-check-missing|smoke.sh .factory/tools
 check_smoke_coverage|exclusion-check-missing|smoke.sh .factory/updates
 check_smoke_coverage|exclusion-check-missing|smoke.sh .factory/worktrees
-check_smoke_coverage|fixture-missing|smoke.ps1 .droid.yaml
-check_smoke_coverage|fixture-missing|smoke.ps1 .factory-plugin
-check_smoke_coverage|fixture-missing|smoke.sh .droid.yaml
-check_smoke_coverage|fixture-missing|smoke.sh .factory-plugin
+check_smoke_coverage|fixture-missing|smoke.ps1 project .droid.yaml
+check_smoke_coverage|fixture-missing|smoke.ps1 project .factory-plugin
+check_smoke_coverage|fixture-missing|smoke.sh project .droid.yaml
+check_smoke_coverage|fixture-missing|smoke.sh project .factory-plugin
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .factory/auth.encrypted
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .factory/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .factory/auth.v2.*

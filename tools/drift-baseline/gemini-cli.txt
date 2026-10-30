@@ -40,10 +40,10 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/extensions/*/.git
 check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/extensions/*/node_modules
 check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/tmp/bin
 check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/whisper_models
-check_smoke_coverage|fixture-missing|smoke.ps1 .cache/.gemini
-check_smoke_coverage|fixture-missing|smoke.ps1 .geminiignore
-check_smoke_coverage|fixture-missing|smoke.sh .cache/.gemini
-check_smoke_coverage|fixture-missing|smoke.sh .geminiignore
+check_smoke_coverage|fixture-missing|smoke.ps1 home .cache/.gemini
+check_smoke_coverage|fixture-missing|smoke.ps1 project .geminiignore
+check_smoke_coverage|fixture-missing|smoke.sh home .cache/.gemini
+check_smoke_coverage|fixture-missing|smoke.sh project .geminiignore
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 *.gemini/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 *.gemini/a2a-oauth-tokens.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 *.gemini/extensions/*/.env

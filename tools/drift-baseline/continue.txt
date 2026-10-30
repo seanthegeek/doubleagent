@@ -25,18 +25,18 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/index/*.sqlite
 check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/node_modules
 check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/out
 check_smoke_coverage|exclusion-check-missing|smoke.sh .continue/types
-check_smoke_coverage|fixture-missing|smoke.ps1 .*-server*/data/User/globalStorage/continue.continue
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/*/User/globalStorage/continue.continue
-check_smoke_coverage|fixture-missing|smoke.ps1 .continue
-check_smoke_coverage|fixture-missing|smoke.ps1 .continueignore
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/*/User/globalStorage/continue.continue
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/globalStorage/continue.continue
-check_smoke_coverage|fixture-missing|smoke.sh .*-server*/data/User/globalStorage/continue.continue
-check_smoke_coverage|fixture-missing|smoke.sh .config/*/User/globalStorage/continue.continue
-check_smoke_coverage|fixture-missing|smoke.sh .continue
-check_smoke_coverage|fixture-missing|smoke.sh .continueignore
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/globalStorage/continue.continue
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 home .*-server*/data/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.ps1 project .continue
+check_smoke_coverage|fixture-missing|smoke.ps1 project .continueignore
+check_smoke_coverage|fixture-missing|smoke.sh home .*-server*/data/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.sh home .config/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/globalStorage/continue.continue
+check_smoke_coverage|fixture-missing|smoke.sh project .continue
+check_smoke_coverage|fixture-missing|smoke.sh project .continueignore
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/.configs/*/config.js*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .continue/auth*.json

@@ -1,9 +1,9 @@
-check_smoke_coverage|fixture-missing|smoke.ps1 .agents
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/AGENTS.md
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/agents
-check_smoke_coverage|fixture-missing|smoke.sh .agents
-check_smoke_coverage|fixture-missing|smoke.sh .config/AGENTS.md
-check_smoke_coverage|fixture-missing|smoke.sh .config/agents
+check_smoke_coverage|fixture-missing|smoke.ps1 home .agents
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/AGENTS.md
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/agents
+check_smoke_coverage|fixture-missing|smoke.sh home .agents
+check_smoke_coverage|fixture-missing|smoke.sh home .config/AGENTS.md
+check_smoke_coverage|fixture-missing|smoke.sh home .config/agents
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .config/gh/hosts.yml
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/Roaming/GitHub CLI/hosts.yml
 check_smoke_coverage|fixture-name-undocumented|smoke.sh .config/gh/hosts.yml

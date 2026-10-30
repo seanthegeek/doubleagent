@@ -46,10 +46,10 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/sandbox
 check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/scratch-workspaces
 check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/startup-perf
 check_smoke_coverage|exclusion-check-missing|smoke.sh .qwen/updates
-check_smoke_coverage|fixture-missing|smoke.ps1 .qwenignore
-check_smoke_coverage|fixture-missing|smoke.ps1 QWEN.md
-check_smoke_coverage|fixture-missing|smoke.sh .qwenignore
-check_smoke_coverage|fixture-missing|smoke.sh QWEN.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project .qwenignore
+check_smoke_coverage|fixture-missing|smoke.ps1 project QWEN.md
+check_smoke_coverage|fixture-missing|smoke.sh project .qwenignore
+check_smoke_coverage|fixture-missing|smoke.sh project QWEN.md
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/.env
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/extension-secrets-v1.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .qwen/extensions/*/.qwen-extension-git-credentials.json

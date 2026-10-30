@@ -159,12 +159,28 @@ def test_exclusion_check_in_a_full_run_does_not_count(tmp_path):
 def test_fixture_missing(tmp_path):
     repository(tmp_path, without(SMOKE_SH, ".config/beta/state.json"))
     found = [item for item in findings(tmp_path) if item.kind == "fixture-missing"]
-    assert [(item.agent, item.detail) for item in found] == [("beta", "smoke.sh .config/beta")]
+    assert [(item.agent, item.detail) for item in found] == [("beta", "smoke.sh home .config/beta")]
 
 
 def test_fixture_missing_for_a_project_line(tmp_path):
     repository(tmp_path, powershell=without(SMOKE_PS1, "proj/.alpha-project"))
-    assert details(tmp_path, "fixture-missing") == ["smoke.ps1 .alpha-project"]
+    assert details(tmp_path, "fixture-missing") == ["smoke.ps1 project .alpha-project"]
+
+
+def test_fixture_missing_keys_a_glob_in_both_tables_apart(tmp_path):
+    repository(tmp_path)
+    catalog = CATALOG_TEXT.replace("beta|.config/beta\n", "beta|.config/beta\nalpha|.gamma\n")
+    catalog = catalog.replace("project|AGENTS.md\n", "project|AGENTS.md\nalpha|.gamma\n")
+    write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
+    found = [item for item in findings(tmp_path) if item.kind == "fixture-missing"]
+    keys = {item.key(coverage.CHECKER) for item in found}
+    assert keys == {
+        "check_smoke_coverage|fixture-missing|smoke.sh home .gamma",
+        "check_smoke_coverage|fixture-missing|smoke.sh project .gamma",
+        "check_smoke_coverage|fixture-missing|smoke.ps1 home .gamma",
+        "check_smoke_coverage|fixture-missing|smoke.ps1 project .gamma",
+    }
+    assert len(found) == len(keys)
 
 
 def test_fixture_name_undocumented(tmp_path):

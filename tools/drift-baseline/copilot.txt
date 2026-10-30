@@ -2,10 +2,10 @@ check_fixture_schema|key-undocumented|github.com:Iv1.fake
 check_fixture_schema|key-undocumented|oauth_token
 check_fixture_schema|key-undocumented|user
 check_fixture_schema|module-provenance-missing|copilot
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/github-copilot
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/github-copilot
-check_smoke_coverage|fixture-missing|smoke.sh .config/github-copilot
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/github-copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/github-copilot
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/github-copilot
+check_smoke_coverage|fixture-missing|smoke.sh home .config/github-copilot
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/github-copilot
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/github-copilot/*.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/github-copilot/*.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/github-copilot/*.json

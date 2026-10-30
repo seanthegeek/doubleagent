@@ -19,7 +19,7 @@ check_research_structure|observed-label-missing|Desktop app, macOS and Windows: 
 check_research_structure|version-without-change|since v0.30.7
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/Ollama/updates
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Local/Ollama/updates
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Ollama
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Ollama
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Ollama
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/Ollama
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Ollama
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/Ollama
 check_tables_research|credential-unflagged|.ollama/config.json

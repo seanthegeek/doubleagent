@@ -116,24 +116,24 @@ check_research_structure|observed-label-missing|Windows, Chat/Cowork: the same i
 check_research_structure|observed-label-missing|Windows, Code tab: the MSIX package `Claude_pzs8sxrjxfjjc`, version
 check_research_structure|observed-label-missing|macOS, Chat/Cowork: the same install and day, on
 check_research_structure|observed-label-missing|macOS, Code tab: the author's install of the
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.ps1 Claude
-check_smoke_coverage|fixture-missing|smoke.ps1 Documents/Claude
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Claude
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Logs/Claude
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Logs/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.sh .config/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Claude
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.sh Claude
-check_smoke_coverage|fixture-missing|smoke.sh Documents/Claude
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Claude-3p
-check_smoke_coverage|fixture-missing|smoke.sh Library/Logs/Claude
-check_smoke_coverage|fixture-missing|smoke.sh Library/Logs/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 home Claude
+check_smoke_coverage|fixture-missing|smoke.ps1 home Documents/Claude
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Claude
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Logs/Claude
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Logs/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh home .config/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Claude
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh home Claude
+check_smoke_coverage|fixture-missing|smoke.sh home Documents/Claude
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Logs/Claude
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Logs/Claude-3p
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Claude*/Cookies*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Claude*/ccd-session-secrets/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Claude*/config.json

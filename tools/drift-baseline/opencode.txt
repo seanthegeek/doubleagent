@@ -55,9 +55,11 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/opencode/work
 check_smoke_coverage|exclusion-check-missing|smoke.sh .opencode/bin
 check_smoke_coverage|exclusion-check-missing|smoke.sh .opencode/node_modules
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/ai.opencode.desktop*/compile-cache
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/opencode
-check_smoke_coverage|fixture-missing|smoke.ps1 .opencode
-check_smoke_coverage|fixture-missing|smoke.sh .opencode
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/opencode
+check_smoke_coverage|fixture-missing|smoke.ps1 home .opencode
+check_smoke_coverage|fixture-missing|smoke.ps1 project .opencode
+check_smoke_coverage|fixture-missing|smoke.sh home .opencode
+check_smoke_coverage|fixture-missing|smoke.sh project .opencode
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/Local/Temp/opencode/notes.txt
 check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/Local/Temp/opencode/notes.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/opencode/config.json

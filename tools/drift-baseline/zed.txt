@@ -13,32 +13,32 @@ check_parser_research|row-text-undocumented|external agent thread (no transcript
 check_parser_research|row-text-undocumented|thread start:
 check_parser_research|row-text-undocumented|unreadable:
 check_research_structure|bare-doc-reference|Flatpak sandbox paths are Flatpak documentation level.
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/zed
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/zed
-check_smoke_coverage|fixture-missing|smoke.ps1 .rules
-check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.Zed/config/zed
-check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.Zed/data/zed
-check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.ZedNightly/config/zed
-check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.ZedNightly/data/zed
-check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.ZedPreview/config/zed
-check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.ZedPreview/data/zed
-check_smoke_coverage|fixture-missing|smoke.ps1 .zed
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Zed
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Zed
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Zed
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Logs/Zed
-check_smoke_coverage|fixture-missing|smoke.sh .local/share/zed
-check_smoke_coverage|fixture-missing|smoke.sh .rules
-check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.Zed/config/zed
-check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.Zed/data/zed
-check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.ZedNightly/config/zed
-check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.ZedNightly/data/zed
-check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.ZedPreview/config/zed
-check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.ZedPreview/data/zed
-check_smoke_coverage|fixture-missing|smoke.sh .zed
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Zed
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Zed
-check_smoke_coverage|fixture-missing|smoke.sh Library/Logs/Zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home .var/app/dev.zed.Zed/config/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home .var/app/dev.zed.Zed/data/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home .var/app/dev.zed.ZedNightly/config/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home .var/app/dev.zed.ZedNightly/data/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home .var/app/dev.zed.ZedPreview/config/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home .var/app/dev.zed.ZedPreview/data/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/Zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Zed
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Logs/Zed
+check_smoke_coverage|fixture-missing|smoke.ps1 project .rules
+check_smoke_coverage|fixture-missing|smoke.ps1 project .zed
+check_smoke_coverage|fixture-missing|smoke.sh home .local/share/zed
+check_smoke_coverage|fixture-missing|smoke.sh home .var/app/dev.zed.Zed/config/zed
+check_smoke_coverage|fixture-missing|smoke.sh home .var/app/dev.zed.Zed/data/zed
+check_smoke_coverage|fixture-missing|smoke.sh home .var/app/dev.zed.ZedNightly/config/zed
+check_smoke_coverage|fixture-missing|smoke.sh home .var/app/dev.zed.ZedNightly/data/zed
+check_smoke_coverage|fixture-missing|smoke.sh home .var/app/dev.zed.ZedPreview/config/zed
+check_smoke_coverage|fixture-missing|smoke.sh home .var/app/dev.zed.ZedPreview/data/zed
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/Zed
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Zed
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Logs/Zed
+check_smoke_coverage|fixture-missing|smoke.sh project .rules
+check_smoke_coverage|fixture-missing|smoke.sh project .zed
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/zed/development_credentials
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/zed/global_settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/zed/settings.json

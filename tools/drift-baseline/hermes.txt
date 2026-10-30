@@ -52,14 +52,14 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/hermes*/plu
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/hermes*/runtimes
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/hermes*/sandboxes
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/hermes*/tools
-check_smoke_coverage|fixture-missing|smoke.ps1 .hermes
-check_smoke_coverage|fixture-missing|smoke.ps1 HERMES.md
-check_smoke_coverage|fixture-missing|smoke.ps1 failed_trajectories.jsonl
-check_smoke_coverage|fixture-missing|smoke.ps1 trajectory_samples.jsonl
-check_smoke_coverage|fixture-missing|smoke.sh .hermes
-check_smoke_coverage|fixture-missing|smoke.sh HERMES.md
-check_smoke_coverage|fixture-missing|smoke.sh failed_trajectories.jsonl
-check_smoke_coverage|fixture-missing|smoke.sh trajectory_samples.jsonl
+check_smoke_coverage|fixture-missing|smoke.ps1 project .hermes
+check_smoke_coverage|fixture-missing|smoke.ps1 project HERMES.md
+check_smoke_coverage|fixture-missing|smoke.ps1 project failed_trajectories.jsonl
+check_smoke_coverage|fixture-missing|smoke.ps1 project trajectory_samples.jsonl
+check_smoke_coverage|fixture-missing|smoke.sh project .hermes
+check_smoke_coverage|fixture-missing|smoke.sh project HERMES.md
+check_smoke_coverage|fixture-missing|smoke.sh project failed_trajectories.jsonl
+check_smoke_coverage|fixture-missing|smoke.sh project trajectory_samples.jsonl
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .hermes/cache/terminal/out1.txt
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .hermes/hermes-agent/.env.example
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .hermes/home/.gitconfig

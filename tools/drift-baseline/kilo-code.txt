@@ -84,30 +84,34 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/state/in
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/tool-output
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/worktree
 check_smoke_coverage|exclusion-check-missing|smoke.sh .local/state/kilo/indexing
-check_smoke_coverage|fixture-missing|smoke.ps1 .*-server*/data/User/globalStorage/kilocode.kilo-code
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/*/User/globalStorage/kilocode.kilo-code
-check_smoke_coverage|fixture-missing|smoke.ps1 .config/kilo
-check_smoke_coverage|fixture-missing|smoke.ps1 .kilo
-check_smoke_coverage|fixture-missing|smoke.ps1 .kilocode
-check_smoke_coverage|fixture-missing|smoke.ps1 .kilocodeignore
-check_smoke_coverage|fixture-missing|smoke.ps1 .kilocodemodes
-check_smoke_coverage|fixture-missing|smoke.ps1 .kilocoderules
-check_smoke_coverage|fixture-missing|smoke.ps1 .local/state/kilo
-check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
-check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/globalStorage/kilocode.kilo-code
-check_smoke_coverage|fixture-missing|smoke.ps1 kilo.json*
-check_smoke_coverage|fixture-missing|smoke.sh .*-server*/data/User/globalStorage/kilocode.kilo-code
-check_smoke_coverage|fixture-missing|smoke.sh .config/*/User/globalStorage/kilocode.kilo-code
-check_smoke_coverage|fixture-missing|smoke.sh .config/kilo
-check_smoke_coverage|fixture-missing|smoke.sh .kilo
-check_smoke_coverage|fixture-missing|smoke.sh .kilocode
-check_smoke_coverage|fixture-missing|smoke.sh .kilocodeignore
-check_smoke_coverage|fixture-missing|smoke.sh .kilocodemodes
-check_smoke_coverage|fixture-missing|smoke.sh .kilocoderules
-check_smoke_coverage|fixture-missing|smoke.sh .local/state/kilo
-check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
-check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/User/globalStorage/kilocode.kilo-code
-check_smoke_coverage|fixture-missing|smoke.sh kilo.json*
+check_smoke_coverage|fixture-missing|smoke.ps1 home .*-server*/data/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 home .config/kilo
+check_smoke_coverage|fixture-missing|smoke.ps1 home .kilo
+check_smoke_coverage|fixture-missing|smoke.ps1 home .kilocode
+check_smoke_coverage|fixture-missing|smoke.ps1 home .kilocodemodes
+check_smoke_coverage|fixture-missing|smoke.ps1 home .local/state/kilo
+check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 project .kilocode
+check_smoke_coverage|fixture-missing|smoke.ps1 project .kilocodeignore
+check_smoke_coverage|fixture-missing|smoke.ps1 project .kilocodemodes
+check_smoke_coverage|fixture-missing|smoke.ps1 project .kilocoderules
+check_smoke_coverage|fixture-missing|smoke.ps1 project kilo.json*
+check_smoke_coverage|fixture-missing|smoke.sh home .*-server*/data/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.sh home .config/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.sh home .config/kilo
+check_smoke_coverage|fixture-missing|smoke.sh home .kilo
+check_smoke_coverage|fixture-missing|smoke.sh home .kilocode
+check_smoke_coverage|fixture-missing|smoke.sh home .kilocodemodes
+check_smoke_coverage|fixture-missing|smoke.sh home .local/state/kilo
+check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.sh project .kilocode
+check_smoke_coverage|fixture-missing|smoke.sh project .kilocodeignore
+check_smoke_coverage|fixture-missing|smoke.sh project .kilocodemodes
+check_smoke_coverage|fixture-missing|smoke.sh project .kilocoderules
+check_smoke_coverage|fixture-missing|smoke.sh project kilo.json*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/kilo/config.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/kilo/kilo.json*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/kilo/opencode.json*
