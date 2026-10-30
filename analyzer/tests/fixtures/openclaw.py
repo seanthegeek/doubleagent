@@ -532,7 +532,7 @@ def openclaw_chunked_cold_inserts():
             sum(len(blob) for _, _, blob in chunks),
         )
     ]
-    for index, raw, blob in chunks:
+    for index, raw, blob in reversed(chunks):
         inserts.append(
             "INSERT INTO session_transcript_cold_archive_chunks VALUES ('%s',%d,'%s.jsonl.zst',"
             "'%s',%d,%d,1,%d,%d,X'%s')"

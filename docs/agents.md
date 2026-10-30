@@ -949,8 +949,9 @@ Validated against: Source at [2767e5f](https://github.com/openinterpreter/openin
 Files read: `agents/<id>/agent/openclaw-agent.sqlite` (SQLite with WAL
 sidecars: `transcript_events`, zstd `event_zstd` rows need `zstandard`;
 every reset/deleted archive blob, published or not, and SQLite cold
-archives, whole or in `session_transcript_cold_archive_chunks`), legacy `agents/<id>/sessions/<id>.jsonl` and
-`sessions/*.jsonl`, `sessions/cold/*.jsonl.zst`, and, as secondary
+archives, whole or in `session_transcript_cold_archive_chunks`), legacy
+`agents/<id>/sessions/<id>.jsonl` and `sessions/*.jsonl`,
+`sessions/cold/*.jsonl.zst`, and, as secondary
 sources, the published reset and deleted archive files `*.jsonl.reset.*` /
 `*.jsonl.deleted.*` (optionally `.zst`), compaction checkpoints
 `*.checkpoint.<uuid>.jsonl` and pre-doctor repair backups

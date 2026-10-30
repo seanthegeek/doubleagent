@@ -1913,7 +1913,7 @@ check "#220 nanobot trigger queue not collected" "! grep -qF 'nanows/triggers/in
 # 2026-10-21 OpenClaw source review (#219)
 check "#219 OpenClaw exec-approvals.json flagged secret" "row \"$OPENCLAW/exec-approvals.json\" | grep -q '\"agent\":\"openclaw\".*$SECRET_COLLECTED'"
 check "#219 OpenClaw auth-profile secrets directory flagged secret" "row \"$ALICE/.openclaw-auth-profile-secrets/gateway.env\" | grep -q '\"agent\":\"openclaw\".*$SECRET_COLLECTED'"
-check "#219 OpenClaw Gateway clone excluded" "[ \"\$(status_of \"$OPENCLAW/projects/$OPENCLAW_CLONE_ID\")\" = skipped_excluded ] && ! grep -qF '$OPENCLAW_CLONE_ID/repo/README.md' \"\$MANIFEST\""
+check "#219 OpenClaw Gateway clone excluded" "[ \"\$(status_of \"$OPENCLAW/projects/$OPENCLAW_CLONE_ID\")\" = skipped_excluded ] && [ -z \"\$(row \"$OPENCLAW/projects/$OPENCLAW_CLONE_ID/repo/README.md\")\" ]"
 check "#219 OpenClaw projects entry that is no clone collected" "row \"$OPENCLAW/projects/notes/todo.md\" | grep -q '\"agent\":\"openclaw\".*\"status\":\"collected\"'"
 # 2026-10-30 openclaw rebuild (#326)
 check "openclaw JSON5 agent cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/clawcwd/TOOLS.md\")\" = collected ]"
