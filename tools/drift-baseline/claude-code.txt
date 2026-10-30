@@ -1,0 +1,143 @@
+check_fixture_schema|builder-provenance-missing|claude_295_records
+check_fixture_schema|builder-provenance-missing|claude_296_records
+check_fixture_schema|builder-provenance-missing|claude_309_history_records
+check_fixture_schema|builder-provenance-missing|claude_309_records
+check_fixture_schema|builder-provenance-missing|claude_310_records
+check_fixture_schema|builder-provenance-missing|claude_310_vscode_records
+check_fixture_schema|builder-provenance-missing|claude_fork_records
+check_fixture_schema|builder-provenance-missing|claude_history_records
+check_fixture_schema|builder-provenance-missing|claude_mac_cleared_records
+check_fixture_schema|builder-provenance-missing|claude_mac_history_records
+check_fixture_schema|builder-provenance-missing|claude_mac_records
+check_fixture_schema|builder-provenance-missing|claude_mac_spawn_records
+check_fixture_schema|builder-provenance-missing|claude_mac_teleport_records
+check_fixture_schema|builder-provenance-missing|claude_registry_records
+check_fixture_schema|builder-provenance-missing|claude_session_records
+check_fixture_schema|builder-provenance-missing|claude_subagent_records
+check_fixture_schema|builder-provenance-missing|claude_work_history_records
+check_fixture_schema|builder-provenance-missing|claude_work_records
+check_fixture_schema|enum-undocumented|level=suggestion
+check_fixture_schema|enum-undocumented|status=busy
+check_fixture_schema|key-undocumented|Authorization
+check_fixture_schema|key-undocumented|atis
+check_fixture_schema|key-undocumented|humanTurn
+check_fixture_schema|key-undocumented|isSnapshotUpdate
+check_fixture_schema|key-undocumented|toolu_95
+check_fixture_schema|key-undocumented|verdict
+check_fixture_schema|module-provenance-missing|claude_code
+check_fixture_schema|sample-equals-builder|.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl
+check_fixture_schema|substitution-undeclared|/srv/old
+check_fixture_schema|substitution-undeclared|/srv/proj2
+check_fixture_schema|substitution-undeclared|/srv/shared
+check_fixture_schema|substitution-undeclared|/tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad
+check_parser_research|not-read-contradicted|.claude.json
+check_parser_research|not-read-contradicted|model
+check_parser_research|not-read-contradicted|name
+check_research_structure|bare-doc-reference|Medium (vendor documentation only, not exercised): what deletes and leaves, and the sweep's rules for checkpoints, auto memory and Claude Desktop transcripts.
+check_research_structure|bare-doc-reference|Patterns are relative to the home: (git clones, 13.7 MB for the official marketplace on Windows 2.1.309; on macOS 2.1.310 a 13.8 MB download with no ),, (the 2.6 MB download of the plugin directory, excluded since this round),,,,, (the changelog and the model catalog), (flag cache, optional), (~245 MB per version, 282.7 MB for 2.1.309 win32-arm64, 274 MB for 2.1.310 darwin-arm64).
+check_research_structure|observed-label-missing|Linux (WSL2), the author's host, October 2026, versions
+check_research_structure|observed-label-missing|Linux, the Ubuntu lab install of 2026-10-11, CLI
+check_research_structure|observed-label-missing|Ubuntu 26.04.1 LTS arm64, CLI 2.1.310 linux-arm64 from
+check_research_structure|observed-label-missing|Windows 11 arm64 (build 10.0.26300), CLI 2.1.309 win32-arm64
+check_research_structure|observed-label-missing|macOS 26.6.2 arm64, CLI 2.1.310 darwin-arm64 from the
+check_research_structure|observed-label-missing|macOS, CLI 2.1.295 launched by the Claude Desktop
+check_research_structure|observed-label-missing|macOS, CLI 2.1.296, the author's install, 2026-10-13 ([issue
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .claude/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .claude/chrome
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .claude/image-cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .claude/local/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .claude/plugins/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .claude/plugins/marketplaces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .claude/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/claude/versions
+check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/checkpoints
+check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/chrome
+check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/local/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/plugins/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/plugins/cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/plugins/marketplaces
+check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/claude/versions
+check_smoke_coverage|fixture-missing|smoke.ps1 .cache/claude-cli-nodejs
+check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/.session_ingress_token
+check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/daemon/pipe.key
+check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/file-history
+check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/hfi-auth.json
+check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/remote/.api_key
+check_smoke_coverage|fixture-missing|smoke.ps1 .claude-*/remote/.oauth_token
+check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/claude
+check_smoke_coverage|fixture-missing|smoke.ps1 CLAUDE.local.md
+check_smoke_coverage|fixture-missing|smoke.sh .cache/claude-cli-nodejs
+check_smoke_coverage|fixture-missing|smoke.sh .claude-*/.session_ingress_token
+check_smoke_coverage|fixture-missing|smoke.sh .claude-*/daemon/pipe.key
+check_smoke_coverage|fixture-missing|smoke.sh .claude-*/file-history
+check_smoke_coverage|fixture-missing|smoke.sh .claude-*/hfi-auth.json
+check_smoke_coverage|fixture-missing|smoke.sh .claude-*/remote/.api_key
+check_smoke_coverage|fixture-missing|smoke.sh .claude-*/remote/.oauth_token
+check_smoke_coverage|fixture-missing|smoke.sh .local/share/claude
+check_smoke_coverage|fixture-missing|smoke.sh CLAUDE.local.md
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .cache/claude/staging/entry
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/Local/Temp/claude/C--proj/25625625-6256-4256-8256-256256256256/scratchpad/notes.txt
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .cache/claude/staging/entry
+check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/scratchpad/notes.txt
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude-*/.claude.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude-*/.credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude-*/.session_ingress_token
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude-*/daemon/pipe.key
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude-*/daemon/roster.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude-*/hfi-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude-*/remote/.api_key
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude-*/remote/.oauth_token
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude/.device-keys.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude/.session_ingress_token
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude/daemon/pipe.key
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude/hfi-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude/remote/.api_key
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .claude/remote/.oauth_token
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude-*/.claude.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude-*/.credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude-*/.session_ingress_token
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude-*/daemon/pipe.key
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude-*/daemon/roster.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude-*/hfi-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude-*/remote/.api_key
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude-*/remote/.oauth_token
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude/.device-keys.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude/.session_ingress_token
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude/daemon/pipe.key
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude/hfi-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude/remote/.api_key
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .claude/remote/.oauth_token
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/.claude.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/.claude.json.backup*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/.credentials.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/.session_ingress_token
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/backups/.claude.json.*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/daemon/control.key
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/daemon/pipe.key
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/daemon/roster.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/hfi-auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/remote/.api_key
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/remote/.oauth_token
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude/.session_ingress_token
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude/hfi-auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude/remote/.api_key
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude/remote/.oauth_token
+check_smoke_coverage|secret-check-missing|smoke.sh .claude-*/.session_ingress_token
+check_smoke_coverage|secret-check-missing|smoke.sh .claude-*/daemon/pipe.key
+check_smoke_coverage|secret-check-missing|smoke.sh .claude-*/hfi-auth.json
+check_smoke_coverage|secret-check-missing|smoke.sh .claude-*/remote/.api_key
+check_smoke_coverage|secret-check-missing|smoke.sh .claude-*/remote/.oauth_token
+check_smoke_coverage|secret-check-missing|smoke.sh .claude/.session_ingress_token
+check_smoke_coverage|secret-check-missing|smoke.sh .claude/hfi-auth.json
+check_smoke_coverage|secret-check-missing|smoke.sh .claude/remote/.api_key
+check_smoke_coverage|secret-check-missing|smoke.sh .claude/remote/.oauth_token
+check_tables_research|credential-wording|can embed `gh`
+check_tables_research|credential-wording|not flagged `<pid>.json`
+check_tables_research|line-unnamed|.claude-*/.claude.json.backup*
+check_tables_research|line-unnamed|.claude-*/bridge-spawn/*/mcp.json
+check_tables_research|line-unnamed|.claude-*/ide/*.lock
+check_tables_research|parsing-fact-under-collection|ToolSearch

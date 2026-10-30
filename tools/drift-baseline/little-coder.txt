@@ -1,0 +1,22 @@
+check_fixture_schema|builder-provenance-missing|little_coder_session_records
+check_fixture_schema|key-undocumented|file_path
+check_fixture_schema|key-undocumented|mcpServers
+check_fixture_schema|module-provenance-missing|little_coder
+check_fixture_schema|sample-equals-builder|.little-coder/sessions/daily/2026-09-20/session_101500_a1b2c3d4.json
+check_parser_research|parser-message-undocumented|parser: %s is not a JSON object
+check_parser_research|pattern-undocumented|.little-coder/input_history.txt
+check_parser_research|pattern-undocumented|.little-coder/sessions/history.json
+check_parser_research|pattern-undocumented|.little-coder/sessions/mr_sessions/session_latest.json
+check_parser_research|pattern-undocumented|^\.little-coder/checkpoints/([^/]+)/[^/]+$
+check_parser_research|pattern-undocumented|^\.little-coder/sessions/(?:[^/]+/)*[^/]+\.json$
+check_smoke_coverage|fixture-missing|smoke.ps1 .pi/approved-plan.md
+check_smoke_coverage|fixture-missing|smoke.sh .pi/approved-plan.md
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .cache/little-coder/log.txt
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .little-coder/state.json
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .cache/little-coder/log.txt
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .little-coder/state.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/little-coder/models.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/little-coder/models.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/little-coder/models.json
+check_tables_research|line-unnamed|.pi/agent/little-coder-prompt-history.json
+check_tables_research|parsing-fact-under-collection|permission_mode

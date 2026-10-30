@@ -1,0 +1,42 @@
+check_fixture_schema|builder-provenance-missing|muse_session_records
+check_fixture_schema|builder-provenance-missing|muse_subagent_records
+check_fixture_schema|enum-undocumented|kind=ineligible
+check_fixture_schema|enum-undocumented|kind=run_model
+check_fixture_schema|enum-undocumented|kind=session_end
+check_fixture_schema|enum-undocumented|kind=session_opened
+check_fixture_schema|enum-undocumented|source=startup
+check_fixture_schema|key-undocumented|delivery_policy
+check_fixture_schema|key-undocumented|generation_id
+check_fixture_schema|key-undocumented|wake_policy
+check_fixture_schema|module-provenance-missing|muse_code
+check_fixture_schema|sample-equals-builder|.local/share/muse/sessions/2026/10/01/01a0f000-0000-7000-8000-000000000001/session.jsonl
+check_fixture_schema|sample-equals-builder|.local/share/muse/sessions/2026/10/01/01a0f000-0000-7000-8000-000000000001/subagent/0f3c2b1a-5d6e-4f70-8a9b-0c1d2e3f4a5b/session.jsonl
+check_fixture_schema|sample-equals-builder|.local/share/muse/tui-history.jsonl
+check_parser_research|key-undocumented|type
+check_parser_research|parser-message-undocumented|parser: trust.json is not a JSON object
+check_parser_research|row-text-undocumented|subagent task:
+check_research_structure|bare-doc-reference|No official documentation was consulted.
+check_research_structure|latest-version-missing|Windows: no real install; the Windows claims rest
+check_research_structure|latest-version-missing|macOS: no real install; the Mac claims rest
+check_research_structure|observed-label-missing|Linux (WSL2), Muse Code 1.4.2-R4684.1 (`muse-bin-1.4.2-R4684.1`, the binary
+check_research_structure|observed-label-missing|Windows: no real install; the Windows claims rest
+check_research_structure|observed-label-missing|macOS: no real install; the Mac claims rest
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/muse/plugins/cache/builtin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/muse/plugins/marketplaces
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/muse/skills/bundled
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/Programs/muse/.muse-update.*.exe
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/Programs/muse/muse-bin-*.exe
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .local/share/muse/plugins/cache/local/p1/plugin.json
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .local/share/muse/plugins/cache/local/p1/plugin.json
+check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/muse/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/muse/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/muse/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/muse/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/muse/auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/muse/settings.json
+check_tables_research|parsing-fact-under-collection|auth.jsonstoragemcp_oauthmcp_oauth_client: mcp-oauth-v1mcp_oauth:
+check_tables_research|parsing-fact-under-collection|provider_id
+check_tables_research|parsing-fact-under-collection|schema_version
+check_tables_research|parsing-fact-under-collection|session.opened.observed

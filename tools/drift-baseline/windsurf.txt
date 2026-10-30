@@ -1,0 +1,88 @@
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codeium/*/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codeium/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codeium/windsurf/implicit
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codeium/ws-browser*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .devin/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .windsurf/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codeium/*/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codeium/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codeium/windsurf/implicit
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codeium/ws-browser*
+check_smoke_coverage|exclusion-check-missing|smoke.sh .devin/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh .windsurf/extensions
+check_smoke_coverage|fixture-missing|smoke.ps1 .codeium
+check_smoke_coverage|fixture-missing|smoke.ps1 .codeiumignore
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/Devin/User
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/Devin/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/Windsurf/User
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/Windsurf/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/devin
+check_smoke_coverage|fixture-missing|smoke.ps1 .devin
+check_smoke_coverage|fixture-missing|smoke.ps1 .devin-server/data/User
+check_smoke_coverage|fixture-missing|smoke.ps1 .devinignore
+check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/devin
+check_smoke_coverage|fixture-missing|smoke.ps1 .windsurf
+check_smoke_coverage|fixture-missing|smoke.ps1 .windsurf-server/data/User
+check_smoke_coverage|fixture-missing|smoke.ps1 .windsurfignore
+check_smoke_coverage|fixture-missing|smoke.ps1 .windsurfrules
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Devin/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Windsurf/User
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Windsurf/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Devin/User
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Devin/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Windsurf/User
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Windsurf/logs
+check_smoke_coverage|fixture-missing|smoke.sh .codeium
+check_smoke_coverage|fixture-missing|smoke.sh .codeiumignore
+check_smoke_coverage|fixture-missing|smoke.sh .config/Devin/User
+check_smoke_coverage|fixture-missing|smoke.sh .config/Devin/logs
+check_smoke_coverage|fixture-missing|smoke.sh .config/Windsurf/User
+check_smoke_coverage|fixture-missing|smoke.sh .config/Windsurf/logs
+check_smoke_coverage|fixture-missing|smoke.sh .config/devin
+check_smoke_coverage|fixture-missing|smoke.sh .devin
+check_smoke_coverage|fixture-missing|smoke.sh .devin-server/data/User
+check_smoke_coverage|fixture-missing|smoke.sh .devinignore
+check_smoke_coverage|fixture-missing|smoke.sh .local/share/devin
+check_smoke_coverage|fixture-missing|smoke.sh .windsurf
+check_smoke_coverage|fixture-missing|smoke.sh .windsurf-server/data/User
+check_smoke_coverage|fixture-missing|smoke.sh .windsurfignore
+check_smoke_coverage|fixture-missing|smoke.sh .windsurfrules
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Devin/logs
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Windsurf/User
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Windsurf/logs
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Devin/User
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Devin/logs
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Windsurf/User
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Windsurf/logs
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codeium/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codeium/mcp_config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codeium/windsurf/mcp_config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/devin/mcp_config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/devin/credentials.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codeium/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codeium/mcp_config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codeium/windsurf/mcp_config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/devin/mcp_config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/devin/credentials.toml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .codeium/config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .codeium/mcp_config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .codeium/windsurf/mcp_config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/devin/mcp_config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/devin/credentials.toml
+check_smoke_coverage|secret-check-missing|smoke.sh .codeium/config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .codeium/mcp_config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .codeium/windsurf/mcp_config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/devin/mcp_config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/devin/credentials.toml
+check_tables_research|line-unnamed|.config/Devin/User
+check_tables_research|line-unnamed|.config/Devin/logs
+check_tables_research|line-unnamed|.config/Windsurf/User
+check_tables_research|line-unnamed|.config/Windsurf/logs
+check_tables_research|line-unnamed|AppData/Roaming/Devin/User
+check_tables_research|line-unnamed|AppData/Roaming/Devin/logs
+check_tables_research|line-unnamed|AppData/Roaming/Windsurf/User
+check_tables_research|line-unnamed|AppData/Roaming/Windsurf/logs
+check_tables_research|line-unnamed|Library/Application Support/Devin/User
+check_tables_research|line-unnamed|Library/Application Support/Devin/logs
+check_tables_research|line-unnamed|Library/Application Support/Windsurf/User
+check_tables_research|line-unnamed|Library/Application Support/Windsurf/logs

@@ -1,0 +1,61 @@
+check_fixture_schema|builder-provenance-missing|crush_hyper_records
+check_fixture_schema|builder-provenance-missing|crush_permission_records
+check_fixture_schema|builder-provenance-missing|crush_records
+check_fixture_schema|key-undocumented|anthropic
+check_fixture_schema|key-undocumented|last_accessed
+check_fixture_schema|module-provenance-missing|crush
+check_parser_research|docstring-fact-undocumented|mcp_disabled_servers.name
+check_parser_research|docstring-fact-undocumented|mcp_enabled_servers.name
+check_parser_research|key-undocumented|size
+check_parser_research|parser-message-undocumented|parser: %s could not be read: %s
+check_parser_research|parser-message-undocumented|parser: SQLite error: %s
+check_parser_research|parser-message-undocumented|parser: not a SQLite database
+check_parser_research|parser-message-undocumented|parser: projects.json could not be read: %s
+check_parser_research|parser-message-undocumented|parser: projects.json did not parse: %s
+check_parser_research|pattern-undocumented|(^|/)\.crush/crush\.db$
+check_parser_research|pattern-undocumented|^(\.config/crush/crush\.json|\.local/share/crush/crush\.json|AppData/Local/crush/crush\.json|\.crush/crush\.json|\.?crush\.json)$
+check_parser_research|pattern-undocumented|^(\.config/crush/crushrc|\.?crushrc)$
+check_parser_research|pattern-undocumented|^(\.local/share/crush|AppData/Local/crush)/projects\.json$
+check_parser_research|row-text-undocumented|shell:
+check_smoke_coverage|fixture-missing|smoke.ps1 .cache/crush
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/crush
+check_smoke_coverage|fixture-missing|smoke.ps1 .crush
+check_smoke_coverage|fixture-missing|smoke.ps1 .crushignore
+check_smoke_coverage|fixture-missing|smoke.ps1 CRUSH.local.md
+check_smoke_coverage|fixture-missing|smoke.ps1 CRUSH.md
+check_smoke_coverage|fixture-missing|smoke.ps1 Crush.local.md
+check_smoke_coverage|fixture-missing|smoke.ps1 Crush.md
+check_smoke_coverage|fixture-missing|smoke.ps1 crush.local.md
+check_smoke_coverage|fixture-missing|smoke.ps1 crush.md
+check_smoke_coverage|fixture-missing|smoke.sh .cache/crush
+check_smoke_coverage|fixture-missing|smoke.sh .config/crush
+check_smoke_coverage|fixture-missing|smoke.sh .crush
+check_smoke_coverage|fixture-missing|smoke.sh .crushignore
+check_smoke_coverage|fixture-missing|smoke.sh CRUSH.local.md
+check_smoke_coverage|fixture-missing|smoke.sh CRUSH.md
+check_smoke_coverage|fixture-missing|smoke.sh Crush.local.md
+check_smoke_coverage|fixture-missing|smoke.sh Crush.md
+check_smoke_coverage|fixture-missing|smoke.sh crush.local.md
+check_smoke_coverage|fixture-missing|smoke.sh crush.md
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/crush/crush.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/crush/crushrc
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .crush/crush.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/crush/crush.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/crush/crush.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/crush/crush.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/crush/crushrc
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .crush/crush.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/crush/crush.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/crush/crush.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/crush/crush.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/crush/crushrc
+check_smoke_coverage|secret-check-missing|smoke.ps1 .crush/crush.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/crush/crush.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/crush/crush.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/crush/crush.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/crush/crushrc
+check_smoke_coverage|secret-check-missing|smoke.sh .crush/crush.json
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/crush/crush.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/crush/crush.json
+check_tables_research|credential-unflagged|.crush/crush.lock
+check_tables_research|credential-unflagged|AppData/Local/crush/crush.lock

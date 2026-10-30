@@ -1,0 +1,67 @@
+check_fixture_schema|builder-provenance-missing|pi_bug_report_records
+check_fixture_schema|builder-provenance-missing|pi_crash_records
+check_fixture_schema|builder-provenance-missing|pi_fork_records
+check_fixture_schema|builder-provenance-missing|pi_session_records
+check_fixture_schema|cross-agent-builder|little_coder_session_records
+check_fixture_schema|enum-undocumented|type=api_key
+check_fixture_schema|key-undocumented|anthropic
+check_fixture_schema|key-undocumented|defaultProvider
+check_fixture_schema|key-undocumented|key
+check_fixture_schema|key-undocumented|state
+check_fixture_schema|key-undocumented|total
+check_fixture_schema|module-provenance-missing|pi
+check_fixture_schema|sample-equals-builder|.pi/agent/sessions/--srv-proj--/2026-10-01T09-00-00-000Z_0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1b.jsonl
+check_parser_research|docstring-fact-undocumented|type: "session"
+check_parser_research|pattern-undocumented|.pi/agent/pi-debug.log
+check_parser_research|pattern-undocumented|^\.pi/agent/(?:sessions/[^/]+/)?[^/]+\.jsonl$
+check_parser_research|pattern-undocumented|^\.pi/agent/experimental/sessions/([^/]+)/meta\.json$
+check_parser_research|row-text-undocumented|compaction: tokensBefore=
+check_parser_research|row-text-undocumented|experimental durable session created: cwd=
+check_parser_research|row-text-undocumented|fork:
+check_parser_research|row-text-undocumented|session start: version=
+check_parser_research|row-text-undocumented|session_info: name=
+check_research_structure|bare-doc-reference|Medium: -role persistence on versions between 0.83.0 and HEAD (taken from the ai changelog's 0.86.0 note, not bisected).
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/git/*/.git
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/git/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/npm/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/tmp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/tools/fd*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/agent/tools/rg*
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/git/*/.git
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/git/*/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/npm/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .pi/server/*.sock
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .pi/agent/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .pi/agent/auth.json.*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .pi/agent/mcp-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .pi/agent/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .pi/agent/models.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .pi/agent/oauth.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .pi/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .pi/agent/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .pi/agent/auth.json.*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .pi/agent/mcp-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .pi/agent/mcp.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .pi/agent/models.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .pi/agent/oauth.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .pi/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .pi/agent/auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .pi/agent/auth.json.*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .pi/agent/mcp-auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .pi/agent/mcp.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .pi/agent/models.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .pi/agent/oauth.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .pi/mcp.json
+check_tables_research|line-unnamed|.pi/agent/bin
+check_tables_research|line-unnamed|.pi/agent/git/*/.git
+check_tables_research|line-unnamed|.pi/agent/git/*/node_modules
+check_tables_research|line-unnamed|.pi/agent/npm/node_modules
+check_tables_research|line-unnamed|.pi/agent/oauth.json*
+check_tables_research|line-unnamed|.pi/agent/tmp
+check_tables_research|line-unnamed|.pi/agent/tools/fd*
+check_tables_research|line-unnamed|.pi/agent/tools/rg*
+check_tables_research|line-unnamed|.pi/git/*/.git
+check_tables_research|line-unnamed|.pi/git/*/node_modules
+check_tables_research|line-unnamed|.pi/server/*.sock
+check_tables_research|parsing-fact-under-collection|fullOutputPath

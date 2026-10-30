@@ -1,0 +1,220 @@
+check_fixture_schema|builder-provenance-missing|claude_desktop_audit_records
+check_fixture_schema|builder-provenance-missing|claude_desktop_fallback_records
+check_fixture_schema|builder-provenance-missing|claude_desktop_transcript_records
+check_fixture_schema|cross-agent-builder|claude_session_records
+check_fixture_schema|enum-undocumented|kind=human
+check_fixture_schema|enum-undocumented|kind=task-notification
+check_fixture_schema|enum-undocumented|mode=normal
+check_fixture_schema|enum-undocumented|source=always_allow
+check_fixture_schema|enum-undocumented|type=addRules
+check_fixture_schema|enum-undocumented|type=ai-title
+check_fixture_schema|enum-undocumented|type=attachment
+check_fixture_schema|enum-undocumented|type=custom-title
+check_fixture_schema|enum-undocumented|type=direct
+check_fixture_schema|enum-undocumented|type=edited_text_file
+check_fixture_schema|enum-undocumented|type=file-history-snapshot
+check_fixture_schema|enum-undocumented|type=hook_system_message
+check_fixture_schema|enum-undocumented|type=pr-link
+check_fixture_schema|enum-undocumented|type=queue-operation
+check_fixture_schema|enum-undocumented|type=queued_command
+check_fixture_schema|enum-undocumented|type=relocated
+check_fixture_schema|enum-undocumented|type=tool_reference
+check_fixture_schema|enum-undocumented|type=total_tokens_reminder
+check_fixture_schema|key-undocumented|aiTitle
+check_fixture_schema|key-undocumented|apiErrorStatus
+check_fixture_schema|key-undocumented|appliedId
+check_fixture_schema|key-undocumented|attachment
+check_fixture_schema|key-undocumented|autoModeEnabled
+check_fixture_schema|key-undocumented|brave-otter
+check_fixture_schema|key-undocumented|caller
+check_fixture_schema|key-undocumented|chatTabEnabled
+check_fixture_schema|key-undocumented|clipboardRead
+check_fixture_schema|key-undocumented|command
+check_fixture_schema|key-undocumented|commandMode
+check_fixture_schema|key-undocumented|coworkEgressAllowedHosts
+check_fixture_schema|key-undocumented|customTitle
+check_fixture_schema|key-undocumented|delivery_id
+check_fixture_schema|key-undocumented|deploymentDisplayName
+check_fixture_schema|key-undocumented|disableDeploymentModeChooser
+check_fixture_schema|key-undocumented|disableEssentialTelemetry
+check_fixture_schema|key-undocumented|disableNonessentialTelemetry
+check_fixture_schema|key-undocumented|durationMs
+check_fixture_schema|key-undocumented|file_path
+check_fixture_schema|key-undocumented|filename
+check_fixture_schema|key-undocumented|gitBranch
+check_fixture_schema|key-undocumented|github:create_issue
+check_fixture_schema|key-undocumented|hookEvent
+check_fixture_schema|key-undocumented|hookName
+check_fixture_schema|key-undocumented|humanTurn
+check_fixture_schema|key-undocumented|inferenceGatewayApiKey
+check_fixture_schema|key-undocumented|inferenceGatewayAuthScheme
+check_fixture_schema|key-undocumented|inferenceGatewayBaseUrl
+check_fixture_schema|key-undocumented|inferenceProvider
+check_fixture_schema|key-undocumented|interrupted
+check_fixture_schema|key-undocumented|interruptedMessageId
+check_fixture_schema|key-undocumented|isApiErrorMessage
+check_fixture_schema|key-undocumented|isCompactSummary
+check_fixture_schema|key-undocumented|isMeta
+check_fixture_schema|key-undocumented|isSidechain
+check_fixture_schema|key-undocumented|isSnapshotUpdate
+check_fixture_schema|key-undocumented|kind
+check_fixture_schema|key-undocumented|maxRetries
+check_fixture_schema|key-undocumented|messageCount
+check_fixture_schema|key-undocumented|messageId
+check_fixture_schema|key-undocumented|note
+check_fixture_schema|key-undocumented|operation
+check_fixture_schema|key-undocumented|parentUuid
+check_fixture_schema|key-undocumented|prNumber
+check_fixture_schema|key-undocumented|prRepository
+check_fixture_schema|key-undocumented|prUrl
+check_fixture_schema|key-undocumented|prompt
+check_fixture_schema|key-undocumented|promptSource
+check_fixture_schema|key-undocumented|query
+check_fixture_schema|key-undocumented|relocatedCwd
+check_fixture_schema|key-undocumented|requestId
+check_fixture_schema|key-undocumented|retryAttempt
+check_fixture_schema|key-undocumented|retryInMs
+check_fixture_schema|key-undocumented|ruleContent
+check_fixture_schema|key-undocumented|signature
+check_fixture_schema|key-undocumented|snapshot
+check_fixture_schema|key-undocumented|snippet
+check_fixture_schema|key-undocumented|sourceToolAssistantUUID
+check_fixture_schema|key-undocumented|source_uuid
+check_fixture_schema|key-undocumented|stderr
+check_fixture_schema|key-undocumented|stdout
+check_fixture_schema|key-undocumented|suggestion
+check_fixture_schema|key-undocumented|toolName
+check_fixture_schema|key-undocumented|toolUseID
+check_fixture_schema|key-undocumented|toolUseResult
+check_fixture_schema|key-undocumented|toolu_01
+check_fixture_schema|key-undocumented|trackedFileBackups
+check_fixture_schema|key-undocumented|userType
+check_fixture_schema|key-undocumented|version
+check_fixture_schema|key-undocumented|wireIngestContext
+check_fixture_schema|module-provenance-missing|claude_desktop
+check_fixture_schema|sample-equals-builder|Library/Application Support/Claude/git-worktrees.json
+check_fixture_schema|sample-equals-builder|Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_c0c0c0c0-1111-4222-8333-444444444444/audit.jsonl
+check_fixture_schema|substitution-undeclared|/sessions/quiet-river-1234
+check_fixture_schema|substitution-undeclared|/srv/docs
+check_fixture_schema|substitution-undeclared|/srv/proj2
+check_parser_research|parser-message-undocumented|parser: session record is not a JSON object
+check_parser_research|parser-message-undocumented|parser: unreadable git-worktrees.json
+check_parser_research|parser-message-undocumented|parser: unreadable scheduled-tasks.json
+check_parser_research|pattern-undocumented|(?P<sess>^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/(?:local-agent-mode-sessions|claude-code-sessions)/[^/]+/[^/]+/(?:agent/)?[^/]+)/\.claude/projects/[^/]+/(?:[^/]+\.jsonl|[^/]+/subagents/(?:[^/]+/)*agent-[^/]+\.jsonl)$
+check_parser_research|pattern-undocumented|(?P<sess>^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/local-agent-mode-sessions/[^/]+/[^/]+/(?:agent/)?[^/]+)/audit\.jsonl$
+check_parser_research|pattern-undocumented|^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/(?:local-agent-mode-sessions|claude-code-sessions)/[^/]+/[^/]+/scheduled-tasks\.json$
+check_parser_research|pattern-undocumented|^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/(?P<tree>(?:local-agent-mode-sessions|claude-code-sessions)/[^/]+/[^/]+/)(?:agent/)?local_[0-9a-f-]{36}\.json$
+check_parser_research|pattern-undocumented|^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/claude-code-sessions/[^/]+/[^/]+/imported-staging/[^/]+\.jsonl$
+check_parser_research|pattern-undocumented|^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/git-worktrees\.json$
+check_parser_research|pattern-undocumented|^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/local-agent-mode-sessions/[^/]+/[^/]+/remote-session-spaces\.json$
+check_research_structure|latest-version-missing|Linux, Chat/Cowork: the same install and day. A
+check_research_structure|latest-version-missing|Windows, Chat/Cowork: the same install and day. One
+check_research_structure|latest-version-missing|macOS, Chat/Cowork: the same install and day, on
+check_research_structure|observed-label-missing|Linux, Chat/Cowork: the same install and day. A
+check_research_structure|observed-label-missing|Linux, Code tab: the official `claude-desktop` `.deb` (arm64)
+check_research_structure|observed-label-missing|Windows, Chat/Cowork: the same install and day. One
+check_research_structure|observed-label-missing|Windows, Code tab: the MSIX package `Claude_pzs8sxrjxfjjc`, version
+check_research_structure|observed-label-missing|macOS, Chat/Cowork: the same install and day, on
+check_research_structure|observed-label-missing|macOS, Code tab: the author's install of the
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 Claude
+check_smoke_coverage|fixture-missing|smoke.ps1 Documents/Claude
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Claude
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Logs/Claude
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Logs/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh .config/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Claude
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh Claude
+check_smoke_coverage|fixture-missing|smoke.sh Documents/Claude
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Claude-3p
+check_smoke_coverage|fixture-missing|smoke.sh Library/Logs/Claude
+check_smoke_coverage|fixture-missing|smoke.sh Library/Logs/Claude-3p
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Claude*/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Claude*/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Claude*/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/Claude*/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Claude*/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Claude*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Claude*/ccd-session-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Claude*/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/Claude*/config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Claude*/config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Claude*/config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.sh .config/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.sh .config/Claude*/config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Claude*/config.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Claude*/host-creds-*.json
+check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/Claude*/Cookies*
+check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/Claude*/ccd-session-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/Claude*/host-creds-*.json
+check_tables_research|credential-wording|can embed `mcpServers.*.env`
+check_tables_research|credential-wording|collected unflagged `spellcheck.dictionaries`
+check_tables_research|line-unnamed|AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude

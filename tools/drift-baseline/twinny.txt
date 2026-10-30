@@ -1,0 +1,52 @@
+check_fixture_schema|builder-provenance-missing|twinny_415_records
+check_fixture_schema|builder-provenance-missing|twinny_records
+check_fixture_schema|builder-provenance-missing|twinny_said_records
+check_fixture_schema|module-provenance-missing|twinny
+check_parser_research|docstring-fact-undocumented|reviewOwner
+check_parser_research|docstring-fact-undocumented|reviewRepo
+check_parser_research|pattern-undocumented|(?:^|/)User/(?:workspaceStorage/[^/]+|globalStorage)/rjmacarthy\.twinny/agent-changes/[^/]+\.json$
+check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?$
+check_parser_research|row-text-undocumented|conversation:
+check_parser_research|row-text-undocumented|secret shield withheld:
+check_research_structure|version-without-change|Since 4.3.5
+check_research_structure|version-without-change|since 4.3.5
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/embeddings/*/chunks.lance
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/server/plugins/*/repos/*/checkout
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .twinny/server/plugins/*/repos/*/index
+check_smoke_coverage|fixture-missing|smoke.ps1 .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh .*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/node/identity.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/license
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/plugins/*/repos.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .twinny/server/plugins/*/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/node/identity.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/license
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/plugins/*/repos.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .twinny/server/plugins/*/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/node/identity.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/server/license
+check_smoke_coverage|secret-check-missing|smoke.ps1 .twinny/server/plugins/*/settings.json
+check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|.*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|.config/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|.config/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|.twinny/server/license
+check_tables_research|line-unnamed|.twinny/server/plugins/*/repos.json
+check_tables_research|line-unnamed|.twinny/server/plugins/*/repos/*/index
+check_tables_research|line-unnamed|.twinny/server/plugins/*/settings.json
+check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
+check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+check_tables_research|line-unnamed|Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny

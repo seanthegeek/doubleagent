@@ -1,0 +1,65 @@
+check_fixture_schema|builder-provenance-missing|cline_api_records
+check_fixture_schema|builder-provenance-missing|cline_ui_records
+check_fixture_schema|key-undocumented|cron_jobs
+check_fixture_schema|key-undocumented|host_version
+check_fixture_schema|key-undocumented|os_arch
+check_fixture_schema|module-provenance-missing|cline
+check_parser_research|key-undocumented|answer
+check_parser_research|key-undocumented|coordinate
+check_parser_research|key-undocumented|currentUrl
+check_parser_research|key-undocumented|screenshot
+check_parser_research|key-undocumented|suggest
+check_parser_research|pattern-undocumented|^(?:.*/)?User/globalStorage/saoudrizwan\.claude-dev/cache/sync-queue\.json$
+check_parser_research|pattern-undocumented|^\.cline/data/cloud-pending-starts/\d+-[0-9a-f-]+\.json$
+check_parser_research|pattern-undocumented|^\.cline/data/sessions/([^/]+)/\1\.json$
+check_parser_research|pattern-undocumented|^\.cline/data/sessions/[^/]+/[^/]+\.messages\.json$
+check_parser_research|row-text-undocumented|checkpoint_created:
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/agent-plugins
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/checkpoint-scratch
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/workspaces/chat
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/plugins
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/data/agent-plugins
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/data/checkpoint-scratch
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/data/workspaces/chat
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/plugins
+check_smoke_coverage|exclusion-check-missing|smoke.sh .cline/worktrees
+check_smoke_coverage|fixture-missing|smoke.ps1 .cline
+check_smoke_coverage|fixture-missing|smoke.ps1 .clineignore
+check_smoke_coverage|fixture-missing|smoke.ps1 Cline/Rules
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
+check_smoke_coverage|fixture-missing|smoke.sh .cline
+check_smoke_coverage|fixture-missing|smoke.sh .clineignore
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/globalStorage/saoudrizwan.claude-dev
+check_smoke_coverage|fixture-missing|smoke.sh Cline/Rules
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/connectors/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/db/connectors.db*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/settings/cline_mcp_settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/settings/composio/*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .cline/data/settings/providers.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .cline/data/connectors/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .cline/data/db/connectors.db*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .cline/data/secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .cline/data/settings/cline_mcp_settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .cline/data/settings/composio/*.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .cline/data/settings/providers.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .cline/data/connectors/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .cline/data/db/connectors.db*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .cline/data/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .cline/data/settings/cline_mcp_settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .cline/data/settings/composio/*.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .cline/data/settings/providers.json
+check_smoke_coverage|secret-check-missing|smoke.sh .cline/data/connectors/settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh .cline/data/db/connectors.db*
+check_smoke_coverage|secret-check-missing|smoke.sh .cline/data/secrets.json
+check_smoke_coverage|secret-check-missing|smoke.sh .cline/data/settings/cline_mcp_settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh .cline/data/settings/composio/*.json
+check_tables_research|credential-wording|can embed `settings/composio/*.json`
+check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/saoudrizwan.claude-dev
+check_tables_research|line-unnamed|.cline/data/db/connectors.db*
+check_tables_research|line-unnamed|.cline/data/settings/cline_mcp_settings.json
+check_tables_research|line-unnamed|.cline/data/settings/composio/*.json
+check_tables_research|line-unnamed|.config/*/User/globalStorage/saoudrizwan.claude-dev
+check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/saoudrizwan.claude-dev
+check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev

@@ -1,0 +1,56 @@
+check_smoke_coverage|fixture-missing|smoke.ps1 .agents
+check_smoke_coverage|fixture-missing|smoke.ps1 .github/copilot-instructions.md
+check_smoke_coverage|fixture-missing|smoke.ps1 .github/git-commit-instructions.md
+check_smoke_coverage|fixture-missing|smoke.ps1 .github/instructions
+check_smoke_coverage|fixture-missing|smoke.ps1 AGENT.md
+check_smoke_coverage|fixture-missing|smoke.ps1 AGENTS.override.md
+check_smoke_coverage|fixture-missing|smoke.ps1 USER.md
+check_smoke_coverage|fixture-missing|smoke.sh .agents
+check_smoke_coverage|fixture-missing|smoke.sh .github/copilot-instructions.md
+check_smoke_coverage|fixture-missing|smoke.sh .github/git-commit-instructions.md
+check_smoke_coverage|fixture-missing|smoke.sh .github/instructions
+check_smoke_coverage|fixture-missing|smoke.sh AGENT.md
+check_smoke_coverage|fixture-missing|smoke.sh AGENTS.override.md
+check_smoke_coverage|fixture-missing|smoke.sh USER.md
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/FETCH_HEAD
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/HEAD
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/config
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/info/exclude
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/logs/HEAD
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/logs/refs/remotes/origin/main
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/packed-refs
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/refs/heads/main
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/refs/remotes/origin/main
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/worktrees/wt1/HEAD
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .git/worktrees/wt1/gitdir
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .mcp.json
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 SOUL.md
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/FETCH_HEAD
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/HEAD
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/config
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/info/exclude
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/logs/HEAD
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/logs/refs/remotes/origin/main
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/packed-refs
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/refs/heads/main
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/refs/remotes/origin/main
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/worktrees/wt1/HEAD
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .git/worktrees/wt1/gitdir
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .mcp.json
+check_smoke_coverage|fixture-name-undocumented|smoke.sh SOUL.md
+check_tables_research|line-unnamed|.git/FETCH_HEAD
+check_tables_research|line-unnamed|.git/HEAD
+check_tables_research|line-unnamed|.git/config
+check_tables_research|line-unnamed|.git/info/exclude
+check_tables_research|line-unnamed|.git/logs
+check_tables_research|line-unnamed|.git/packed-refs
+check_tables_research|line-unnamed|.git/refs
+check_tables_research|line-unnamed|.git/worktrees
+check_tables_research|line-unnamed|.github/copilot-instructions.md
+check_tables_research|line-unnamed|.github/git-commit-instructions.md
+check_tables_research|line-unnamed|.github/instructions
+check_tables_research|line-unnamed|.mcp.json
+check_tables_research|line-unnamed|AGENT.md
+check_tables_research|line-unnamed|AGENTS.override.md
+check_tables_research|line-unnamed|SOUL.md
+check_tables_research|line-unnamed|USER.md

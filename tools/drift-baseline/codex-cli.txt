@@ -1,0 +1,110 @@
+check_fixture_schema|builder-provenance-missing|codex_desktop_records
+check_fixture_schema|builder-provenance-missing|codex_fork_records
+check_fixture_schema|builder-provenance-missing|codex_guardian_records
+check_fixture_schema|builder-provenance-missing|codex_history_records
+check_fixture_schema|builder-provenance-missing|codex_legacy_records
+check_fixture_schema|builder-provenance-missing|codex_rollout_records
+check_fixture_schema|builder-provenance-missing|codex_subagent_records
+check_fixture_schema|builder-provenance-missing|write_codex_enrollment
+check_fixture_schema|builder-provenance-missing|write_codex_guardian_feedback
+check_fixture_schema|builder-provenance-missing|write_codex_logs
+check_fixture_schema|builder-provenance-missing|write_codex_state
+check_fixture_schema|builder-provenance-missing|write_thread_history
+check_fixture_schema|key-undocumented|display_title
+check_fixture_schema|key-undocumented|estimated_bytes
+check_fixture_schema|key-undocumented|final_agent_item_id
+check_fixture_schema|key-undocumented|first_user_item_id
+check_fixture_schema|key-undocumented|host_kind
+check_fixture_schema|key-undocumented|item_id
+check_fixture_schema|key-undocumented|missing_candidate
+check_fixture_schema|key-undocumented|module_path
+check_fixture_schema|key-undocumented|next_rollout_byte_offset
+check_fixture_schema|key-undocumented|next_rollout_ordinal
+check_fixture_schema|key-undocumented|observation_sequence
+check_fixture_schema|key-undocumented|pending_observed_title
+check_fixture_schema|key-undocumented|rollout_byte_offset
+check_fixture_schema|key-undocumented|rollout_end_byte_offset
+check_fixture_schema|key-undocumented|source_created_at
+check_fixture_schema|key-undocumented|source_detail
+check_fixture_schema|key-undocumented|source_recency_at
+check_fixture_schema|key-undocumented|thread_history_projection_state
+check_fixture_schema|key-undocumented|trial_conversation_type
+check_fixture_schema|key-undocumented|updated_at_ordinal
+check_fixture_schema|module-provenance-missing|codex_cli
+check_parser_research|docstring-fact-undocumented|internal_chat_message_metadata_passthrough.content_item_kinds
+check_parser_research|key-undocumented|agent_thread_id
+check_parser_research|key-undocumented|body
+check_parser_research|key-undocumented|content_items
+check_parser_research|key-undocumented|content_sha256
+check_parser_research|key-undocumented|imported_at
+check_parser_research|key-undocumented|imported_thread_id
+check_parser_research|key-undocumented|records
+check_parser_research|key-undocumented|saved_path
+check_parser_research|key-undocumented|source_modified_at
+check_parser_research|key-undocumented|source_path
+check_parser_research|key-undocumented|tool_name
+check_parser_research|parser-message-undocumented|parser: SQLite error: %s
+check_parser_research|parser-message-undocumented|parser: global state is not a JSON object
+check_parser_research|parser-message-undocumented|parser: import ledger has no records list
+check_parser_research|parser-message-undocumented|parser: not a SQLite database
+check_parser_research|parser-message-undocumented|parser: unreadable automation.toml: %s
+check_parser_research|parser-message-undocumented|parser: unreadable global state: %s
+check_parser_research|parser-message-undocumented|parser: unreadable import ledger: %s
+check_parser_research|parser-message-undocumented|parser: unreadable memory summary: %s
+check_parser_research|parser-message-undocumented|parser: unreadable rules file: %s
+check_parser_research|row-text-undocumented|session start:
+check_research_structure|observed-label-missing|Local: the real install on the development host,
+check_research_structure|observed-label-missing|Ubuntu, standalone CLI ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113) and [issue 118](https://github.com/seanthegeek/doubleagent/issues/118)):
+check_research_structure|observed-label-missing|Windows, Codex Desktop inside ChatGPT 26.1007.9446.0 ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113),
+check_research_structure|observed-label-missing|Windows, standalone CLI ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113) and [issue 120](https://github.com/seanthegeek/doubleagent/issues/120)):
+check_research_structure|observed-label-missing|macOS, Codex Desktop inside ChatGPT 26.1007.71326 and standalone
+check_research_structure|observed-label-missing|macOS, Codex Desktop inside ChatGPT 26.1013.40934 ([issue 49](https://github.com/seanthegeek/doubleagent/issues/49),
+check_research_structure|version-without-change|Since 26.1007
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.sandbox
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.sandbox-bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/.tmp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/plugins/.remote-plugin-install-staging
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/plugins/cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/skills/.system
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/tmp
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .codex/visualizations
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/.sandbox
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/.sandbox-bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/.tmp
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/packages
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/plugins/.remote-plugin-install-staging
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/plugins/cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/skills/.system
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/tmp
+check_smoke_coverage|exclusion-check-missing|smoke.sh .codex/visualizations
+check_smoke_coverage|fixture-missing|smoke.ps1 .codex
+check_smoke_coverage|fixture-missing|smoke.sh .codex
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/.credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/.sandbox-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .codex/secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/.credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/.sandbox-secrets/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/config.toml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .codex/secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/.credentials.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/.sandbox-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/config.toml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .codex/secrets/*
+check_smoke_coverage|secret-check-missing|smoke.sh .codex/.credentials.json
+check_smoke_coverage|secret-check-missing|smoke.sh .codex/.sandbox-secrets/*
+check_smoke_coverage|secret-check-missing|smoke.sh .codex/auth.json
+check_smoke_coverage|secret-check-missing|smoke.sh .codex/config.toml
+check_smoke_coverage|secret-check-missing|smoke.sh .codex/secrets/*
+check_tables_research|credential-wording|can embed `config.toml`
+check_tables_research|parsing-fact-under-collection|model_provider
+check_tables_research|parsing-fact-under-collection|node_repl
+check_tables_research|parsing-fact-under-collection|session_id
+check_tables_research|parsing-fact-under-collection|thread_spawn_edges

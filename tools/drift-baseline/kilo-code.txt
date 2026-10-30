@@ -1,0 +1,147 @@
+check_fixture_schema|builder-provenance-missing|kilo_task_records
+check_fixture_schema|cross-agent-builder|_oc_message
+check_fixture_schema|cross-agent-builder|_oc_part
+check_fixture_schema|cross-agent-builder|_oc_session
+check_fixture_schema|cross-agent-builder|opencode_assistant
+check_fixture_schema|enum-undocumented|mode=code
+check_fixture_schema|enum-undocumented|type=oauth
+check_fixture_schema|enum-undocumented|type=summary_text
+check_fixture_schema|key-undocumented|access
+check_fixture_schema|key-undocumented|account_id
+check_fixture_schema|key-undocumented|active
+check_fixture_schema|key-undocumented|entries
+check_fixture_schema|key-undocumented|icon_color
+check_fixture_schema|key-undocumented|icon_url
+check_fixture_schema|key-undocumented|is_error
+check_fixture_schema|key-undocumented|number
+check_fixture_schema|key-undocumented|provider_id
+check_fixture_schema|key-undocumented|summary_additions
+check_fixture_schema|key-undocumented|summary_deletions
+check_fixture_schema|key-undocumented|summary_diffs
+check_fixture_schema|key-undocumented|summary_files
+check_fixture_schema|key-undocumented|task
+check_fixture_schema|key-undocumented|time_initialized
+check_fixture_schema|key-undocumented|tokensIn
+check_fixture_schema|key-undocumented|tokensOut
+check_fixture_schema|key-undocumented|tokens_cache_read
+check_fixture_schema|key-undocumented|tokens_cache_write
+check_fixture_schema|key-undocumented|tokens_input
+check_fixture_schema|key-undocumented|tokens_output
+check_fixture_schema|key-undocumented|tokens_reasoning
+check_fixture_schema|key-undocumented|totalCost
+check_fixture_schema|key-undocumented|updatedAt
+check_fixture_schema|key-undocumented|workspace
+check_fixture_schema|module-provenance-missing|kilo_code
+check_parser_research|docstring-fact-undocumented|MessageParam
+check_parser_research|docstring-fact-undocumented|image
+check_parser_research|docstring-fact-undocumented|isSummary
+check_parser_research|docstring-fact-undocumented|parentTaskId
+check_parser_research|docstring-fact-undocumented|reasoning_content
+check_parser_research|docstring-fact-undocumented|type: "reasoning"
+check_parser_research|key-undocumented|attempt
+check_parser_research|key-undocumented|duration
+check_parser_research|key-undocumented|entries
+check_parser_research|key-undocumented|filename
+check_parser_research|key-undocumented|isSummary
+check_parser_research|key-undocumented|is_error
+check_parser_research|key-undocumented|parentTaskId
+check_parser_research|key-undocumented|reasoning_content
+check_parser_research|key-undocumented|sid
+check_parser_research|key-undocumented|task
+check_parser_research|key-undocumented|thinking
+check_parser_research|key-undocumented|workspace
+check_parser_research|parser-message-undocumented|parser: %s could not be decoded (%s)
+check_parser_research|parser-message-undocumented|parser: %s is not a JSON object
+check_parser_research|parser-message-undocumented|parser: %s is not true or false
+check_parser_research|parser-message-undocumented|parser: database could not be read: %s
+check_parser_research|parser-message-undocumented|parser: message file could not be decoded
+check_parser_research|parser-message-undocumented|parser: retention/state.json is not a JSON object
+check_parser_research|parser-message-undocumented|parser: session file could not be decoded
+check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/kilocode\.kilo-code/tasks/([^/]+)/api_conversation_history\.json$
+check_parser_research|pattern-undocumented|^\.config/kilo/(?:kilo\.jsonc|kilo\.json|opencode\.jsonc|opencode\.json|config\.json)$
+check_parser_research|pattern-undocumented|^\.local/state/kilo-sandbox-policy/[^/.][^/]*/[^/.][^/]*\.json$
+check_parser_research|pattern-undocumented|^\.local/state/kilo-sandbox-preference/[^/.][^/]*\.json$
+check_parser_research|row-text-undocumented|ignored:
+check_parser_research|row-text-undocumented|permission setting: permission=
+check_parser_research|row-text-undocumented|session start:
+check_parser_research|row-text-undocumented|summary:
+check_parser_research|row-text-undocumented|synthetic:
+check_parser_research|row-text-undocumented|task:
+check_parser_research|row-text-undocumented|unreadable:
+check_research_structure|bare-doc-reference|Outside the home, so no catalog line reaches it; the collector documentation names it as a manual step.
+check_research_structure|version-without-change|since 0.19.0
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .kilo/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/repos
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/snapshot
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/state/indexing
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/tool-output
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/kilo/worktree
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/state/kilo/indexing
+check_smoke_coverage|exclusion-check-missing|smoke.sh .kilo/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/repos
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/snapshot
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/state/indexing
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/tool-output
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/kilo/worktree
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/state/kilo/indexing
+check_smoke_coverage|fixture-missing|smoke.ps1 .*-server*/data/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/kilo
+check_smoke_coverage|fixture-missing|smoke.ps1 .kilo
+check_smoke_coverage|fixture-missing|smoke.ps1 .kilocode
+check_smoke_coverage|fixture-missing|smoke.ps1 .kilocodeignore
+check_smoke_coverage|fixture-missing|smoke.ps1 .kilocodemodes
+check_smoke_coverage|fixture-missing|smoke.ps1 .kilocoderules
+check_smoke_coverage|fixture-missing|smoke.ps1 .local/state/kilo
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.ps1 kilo.json*
+check_smoke_coverage|fixture-missing|smoke.sh .*-server*/data/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.sh .config/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.sh .config/kilo
+check_smoke_coverage|fixture-missing|smoke.sh .kilo
+check_smoke_coverage|fixture-missing|smoke.sh .kilocode
+check_smoke_coverage|fixture-missing|smoke.sh .kilocodeignore
+check_smoke_coverage|fixture-missing|smoke.sh .kilocodemodes
+check_smoke_coverage|fixture-missing|smoke.sh .kilocoderules
+check_smoke_coverage|fixture-missing|smoke.sh .local/state/kilo
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/User/globalStorage/kilocode.kilo-code
+check_smoke_coverage|fixture-missing|smoke.sh kilo.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/kilo/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/kilo/kilo.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/kilo/opencode.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .kilocode/cli/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/kilo/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/kilo/kilo*.db*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/kilo/mcp-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/kilo/opencode*.db*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/kilo/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/kilo/kilo.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/kilo/opencode.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .kilocode/cli/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/kilo/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/kilo/kilo*.db*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/kilo/mcp-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/kilo/opencode*.db*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/kilo/config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/kilo/kilo.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/kilo/opencode.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .kilocode/cli/config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/kilo/auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/kilo/kilo*.db*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/kilo/mcp-auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/kilo/opencode*.db*
+check_smoke_coverage|secret-check-missing|smoke.sh .config/kilo/config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/kilo/kilo.json*
+check_smoke_coverage|secret-check-missing|smoke.sh .config/kilo/opencode.json*
+check_smoke_coverage|secret-check-missing|smoke.sh .kilocode/cli/config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/kilo/auth.json
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/kilo/kilo*.db*
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/kilo/mcp-auth.json
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/kilo/opencode*.db*
+check_tables_research|credential-wording|can embed `config.json`
+check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/kilocode.kilo-code
+check_tables_research|line-unnamed|.config/*/User/globalStorage/kilocode.kilo-code
+check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
+check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/kilocode.kilo-code

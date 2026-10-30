@@ -1,0 +1,142 @@
+check_fixture_schema|builder-provenance-missing|chatgpt_desktop_records
+check_fixture_schema|module-provenance-missing|chatgpt_desktop
+check_research_structure|bare-doc-reference|No official OpenAI documentation of on-disk paths was found.
+check_research_structure|latest-version-missing|Former native macOS app (`com.openai.chat`): not observed; the
+check_research_structure|latest-version-missing|Linux: no official app.
+check_research_structure|latest-version-missing|Previous Windows package (`OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0`): not observed; the evidence
+check_research_structure|observed-label-missing|Former native macOS app (`com.openai.chat`): not observed; the
+check_research_structure|observed-label-missing|Linux: no official app.
+check_research_structure|observed-label-missing|Previous Windows package (`OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0`): not observed; the evidence
+check_research_structure|observed-label-missing|Windows, 2026-10-15 ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113), [issue 114](https://github.com/seanthegeek/doubleagent/issues/114), [issue 115](https://github.com/seanthegeek/doubleagent/issues/115)
+check_research_structure|observed-label-missing|macOS, 2026-10-15 ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113) and [issue 121](https://github.com/seanthegeek/doubleagent/issues/121)): ChatGPT
+check_research_structure|observed-label-missing|macOS, 2026-10-18 ([issue 49](https://github.com/seanthegeek/doubleagent/issues/49), [issue 149](https://github.com/seanthegeek/doubleagent/issues/149) and [issue
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Service Worker/CacheStorage
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Service Worker/ScriptCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/blob_storage
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Service Worker/CacheStorage
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Service Worker/ScriptCache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 Library/Application Support/Codex/Default/blob_storage
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Code Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/DawnGraphiteCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/DawnWebGPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/GPUCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Service Worker/CacheStorage
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Service Worker/ScriptCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/blob_storage
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Service Worker/CacheStorage
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/Service Worker/ScriptCache
+check_smoke_coverage|exclusion-check-missing|smoke.sh Library/Application Support/Codex/Default/blob_storage
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalCache/Roaming/ChatGPT
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalState
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/.codex-tpp-local-executor-installation-id
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Last Version
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/statsig-state.json
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Codex/.codex-tpp-local-executor-installation-id
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Codex/Last Version
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Codex/Local State
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Codex/artifact-sessions
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Codex/browser-sidebar-page-states.json
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Codex/statsig-state.json
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/com.openai.chat
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/com.openai.codex
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/com.openai.codex.installer
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/HTTPStorages/com.openai.codex
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/HTTPStorages/com.openai.sky.CUAService
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Preferences/com.openai.codex.installer.plist
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Preferences/com.openai.sky.CUAService.plist
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalCache/Roaming/ChatGPT
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalState
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/.codex-tpp-local-executor-installation-id
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Last Version
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/statsig-state.json
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Codex/.codex-tpp-local-executor-installation-id
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Codex/Last Version
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Codex/Local State
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Codex/artifact-sessions
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Codex/browser-sidebar-page-states.json
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Codex/statsig-state.json
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/com.openai.chat
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/com.openai.codex
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/com.openai.codex.installer
+check_smoke_coverage|fixture-missing|smoke.sh Library/HTTPStorages/com.openai.codex
+check_smoke_coverage|fixture-missing|smoke.sh Library/HTTPStorages/com.openai.sky.CUAService
+check_smoke_coverage|fixture-missing|smoke.sh Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_smoke_coverage|fixture-missing|smoke.sh Library/Preferences/com.openai.codex.installer.plist
+check_smoke_coverage|fixture-missing|smoke.sh Library/Preferences/com.openai.sky.CUAService.plist
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/10/15/codex-desktop-x.log
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/000003.log
+check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/10/15/codex-desktop-x.log
+check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/000003.log
+check_smoke_coverage|fixture-name-undocumented|smoke.sh Library/Application Support/Codex/Default/Local Storage/leveldb/000003.log
+check_smoke_coverage|fixture-name-undocumented|smoke.sh Library/Logs/com.openai.codex/2026/10/15/codex-desktop-x.log
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Login Data*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Login Data*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/HTTPStorages/com.openai.codex.binarycookies
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Codex/Default/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Codex/Default/Login Data*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Cookies*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Login Data*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/HTTPStorages/com.openai.codex.binarycookies
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/Codex/Default/Partitions/*/Login Data*
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/Codex/Default/Partitions/*/Login Data*
+check_smoke_coverage|secret-check-missing|smoke.sh Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_tables_research|credential-wording|collected unflagged `Default`
+check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalState
+check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Local/Codex
+check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/.codex-tpp-local-executor-installation-id
+check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Default
+check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Last Version
+check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Local State
+check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/statsig-state.json
+check_tables_research|line-unnamed|AppData/Local/Packages/OpenAI.Codex_*/Settings
+check_tables_research|line-unnamed|Library/Application Support/Codex/.codex-tpp-local-executor-installation-id
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Cache
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Code Cache
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Cookies*
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/DawnGraphiteCache
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/DawnWebGPUCache
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Extensions
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/GPUCache
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Login Data*
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Service Worker/CacheStorage
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/Service Worker/ScriptCache
+check_tables_research|line-unnamed|Library/Application Support/Codex/Default/Partitions/*/blob_storage
+check_tables_research|line-unnamed|Library/Application Support/Codex/Last Version
+check_tables_research|line-unnamed|Library/Application Support/Codex/Local State
+check_tables_research|line-unnamed|Library/Application Support/Codex/artifact-sessions
+check_tables_research|line-unnamed|Library/Application Support/Codex/browser-sidebar-page-states.json
+check_tables_research|line-unnamed|Library/Application Support/Codex/executor-plugins
+check_tables_research|line-unnamed|Library/Application Support/Codex/executor-plugins/*/server.mjs
+check_tables_research|line-unnamed|Library/Application Support/Codex/statsig-state.json
+check_tables_research|line-unnamed|Library/Application Support/com.openai.codex
+check_tables_research|line-unnamed|Library/Application Support/com.openai.codex.installer
+check_tables_research|line-unnamed|Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService
+check_tables_research|line-unnamed|Library/HTTPStorages/com.openai.codex
+check_tables_research|line-unnamed|Library/HTTPStorages/com.openai.sky.CUAService
+check_tables_research|line-unnamed|Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+check_tables_research|line-unnamed|Library/Logs/com.openai.codex
+check_tables_research|line-unnamed|Library/Preferences/com.openai.codex.installer.plist
+check_tables_research|line-unnamed|Library/Preferences/com.openai.codex.plist
+check_tables_research|line-unnamed|Library/Preferences/com.openai.sky.CUAService.plist

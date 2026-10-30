@@ -1,0 +1,148 @@
+check_fixture_schema|builder-provenance-missing|antigravity_app_brain_records
+check_fixture_schema|builder-provenance-missing|antigravity_brain_records
+check_fixture_schema|builder-provenance-missing|antigravity_orphan_brain_records
+check_fixture_schema|key-undocumented|AbsolutePath
+check_fixture_schema|key-undocumented|CommandLine
+check_fixture_schema|key-undocumented|Cwd
+check_fixture_schema|key-undocumented|builtin
+check_fixture_schema|key-undocumented|description
+check_fixture_schema|key-undocumented|display_name
+check_fixture_schema|key-undocumented|gdocs
+check_fixture_schema|key-undocumented|installedFrom
+check_fixture_schema|key-undocumented|isWorkspaceOnly
+check_fixture_schema|key-undocumented|marketplace
+check_fixture_schema|key-undocumented|restart_policy
+check_fixture_schema|key-undocumented|weekly-check
+check_fixture_schema|module-provenance-missing|antigravity
+check_fixture_schema|substitution-undeclared|/home/u/proj
+check_parser_research|key-undocumented|absolute_path_migrate_me_to_uri
+check_parser_research|key-undocumented|code_instruction
+check_parser_research|key-undocumented|combined
+check_parser_research|key-undocumented|command_id
+check_parser_research|key-undocumented|command_run
+check_parser_research|key-undocumented|conversation_title
+check_parser_research|key-undocumented|description
+check_parser_research|key-undocumented|directory_path_uri
+check_parser_research|key-undocumented|end_line
+check_parser_research|key-undocumented|full
+check_parser_research|key-undocumented|function_name
+check_parser_research|key-undocumented|input
+check_parser_research|key-undocumented|instruction
+check_parser_research|key-undocumented|is_queued_message
+check_parser_research|key-undocumented|memory_id
+check_parser_research|key-undocumented|modified_response
+check_parser_research|key-undocumented|notification_content
+check_parser_research|key-undocumented|output_string
+check_parser_research|key-undocumented|pattern
+check_parser_research|key-undocumented|prompt
+check_parser_research|key-undocumented|question
+check_parser_research|key-undocumented|questions
+check_parser_research|key-undocumented|resolved_url
+check_parser_research|key-undocumented|rule_file_uris
+check_parser_research|key-undocumented|search_directory
+check_parser_research|key-undocumented|search_path_uri
+check_parser_research|key-undocumented|selected_option_ids
+check_parser_research|key-undocumented|session_summary
+check_parser_research|key-undocumented|skipped
+check_parser_research|key-undocumented|start_line
+check_parser_research|key-undocumented|stderr
+check_parser_research|key-undocumented|stdout
+check_parser_research|key-undocumented|subagent_name
+check_parser_research|key-undocumented|task_name
+check_parser_research|key-undocumented|task_status
+check_parser_research|key-undocumented|task_summary
+check_parser_research|key-undocumented|terminate
+check_parser_research|key-undocumented|timed_out
+check_parser_research|key-undocumented|url
+check_parser_research|key-undocumented|user_intent
+check_parser_research|key-undocumented|write_in_response
+check_parser_research|parser-message-undocumented|parser: %d step(s) could not be decoded
+check_parser_research|parser-message-undocumented|parser: unreadable %s
+check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/brain/([^/]+)/\.system_generated/logs/(?:(transcript(?:_full)?)\.jsonl|chunks/(transcript(?:_full)?)/(\d+)\.jsonl)$
+check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/conversation_summaries\.db$
+check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/conversations/[^/]+\.db$
+check_parser_research|pattern-undocumented|^\.gemini/config/projects/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.gemini/config/sidecars/[^/]+/sidecar\.json$
+check_parser_research|row-text-undocumented|children:
+check_parser_research|row-text-undocumented|directory rules:
+check_parser_research|row-text-undocumented|ephemeral:
+check_parser_research|row-text-undocumented|notify user:
+check_research_structure|bare-doc-reference|, shared by the CLI and the app (binary changelog, live names, observed 232 KB on macOS and 320 KB on Linux):,,,,,,,,,,,,,,,,,.
+check_research_structure|bare-doc-reference|/,,,, also appear (binary), consistent with the dir (live, observed; empty) used as the plugin "marketplace cache... staging directories" (str changelog).
+check_research_structure|bare-doc-reference|: workspace to project map (binary changelog).
+check_research_structure|bare-doc-reference|File fallback when the keyring is "bypassed or unreachable" (binary changelog) is (live, 1,670 B; the whole literal is not in the strings, so the name is assembled at runtime).
+check_research_structure|bare-doc-reference|The embedded changelog's newest heading is ( ; oldest at 311213).
+check_research_structure|bare-doc-reference|The embedded changelog's newest heading is.
+check_research_structure|bare-doc-reference|The executable's version resource (, the version Windows shows in the file's properties) is empty; the embedded changelog's newest heading is, with to present.
+check_research_structure|bare-doc-reference|with in (binary changelog; docs/cli/install); the key is env-only.
+check_research_structure|bare-doc-reference|workspace customizations (, binary changelog; damadorPL ), (binary), (binary), legacy (binary, removed in favour of ).
+check_research_structure|observed-label-missing|**Linux, CLI** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83), [issue 89](https://github.com/seanthegeek/doubleagent/issues/89) and [issue
+check_research_structure|observed-label-missing|**Linux, desktop app** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83) and [issue 91](https://github.com/seanthegeek/doubleagent/issues/91)):
+check_research_structure|observed-label-missing|**Windows, CLI** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83), [issue 89](https://github.com/seanthegeek/doubleagent/issues/89) and [issue
+check_research_structure|observed-label-missing|**Windows, desktop app** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83), [issue 84](https://github.com/seanthegeek/doubleagent/issues/84) and
+check_research_structure|observed-label-missing|**macOS, CLI** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83)): two builds on the
+check_research_structure|observed-label-missing|**macOS, desktop app** ([issue 83](https://github.com/seanthegeek/doubleagent/issues/83)): `/Applications/Antigravity.app`, `CFBundleShortVersionString` and
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .antigravity/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .config/Antigravity/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/antigravity*/brain/*/.system_generated/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/antigravity-backup/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/antigravity-cli/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/antigravity-ide/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .antigravity/extensions
+check_smoke_coverage|exclusion-check-missing|smoke.sh .config/Antigravity/Cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/antigravity*/brain/*/.system_generated/worktrees
+check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/antigravity-backup/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .gemini/antigravity-ide/bin
+check_smoke_coverage|fixture-missing|smoke.ps1 .antigravity
+check_smoke_coverage|fixture-missing|smoke.ps1 .cache/antigravity
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/Antigravity
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/antigravity/plugin-secrets.json
+check_smoke_coverage|fixture-missing|smoke.ps1 .gemini/antigravity-backup
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/antigravity/plugin-secrets.json
+check_smoke_coverage|fixture-missing|smoke.sh .antigravity
+check_smoke_coverage|fixture-missing|smoke.sh .cache/antigravity
+check_smoke_coverage|fixture-missing|smoke.sh .config/Antigravity
+check_smoke_coverage|fixture-missing|smoke.sh .config/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.sh .config/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.sh .gemini/antigravity-backup
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/antigravity/plugin-secrets.json
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Antigravity IDE/User
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/Antigravity IDE/logs
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/antigravity/plugin-secrets.json
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity-cli/dangling.log
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity-cli/jn
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity-cli/jn%TEMP%x
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity-cli/log/real.log
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity-cli/out
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .gemini/antigravity/crashes/crash_1.log
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/Local/antigravity/staging/s1
+check_smoke_coverage|fixture-name-undocumented|smoke.sh .gemini/antigravity/crashes/crash_1.log
+check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/Local/antigravity/staging/s1
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 *.gemini/antigravity-cli/antigravity-oauth-token
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/[Aa]ntigravity/plugin-secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh *.gemini/antigravity-cli/antigravity-oauth-token
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 *.gemini/antigravity-cli/antigravity-oauth-token
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/[Aa]ntigravity/plugin-secrets.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+check_tables_research|credential-wording|can embed `~/.gemini/config/mcp_config.json`
+check_tables_research|credential-wording|collected unflagged `Local Storage/leveldb/`
+check_tables_research|credential-wording|collected unflagged `uninstall_metrics`
+check_tables_research|line-unnamed|.config/Antigravity IDE/logs
+check_tables_research|line-unnamed|.config/antigravity/plugin-secrets.json
+check_tables_research|line-unnamed|AppData/Roaming/Antigravity IDE/logs
+check_tables_research|line-unnamed|Library/Application Support/Antigravity IDE/User
+check_tables_research|line-unnamed|Library/Application Support/Antigravity IDE/logs
+check_tables_research|parsing-fact-under-collection|conversationId

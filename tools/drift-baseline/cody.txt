@@ -1,0 +1,75 @@
+check_fixture_schema|builder-provenance-missing|cody_deep_records
+check_fixture_schema|builder-provenance-missing|cody_records
+check_fixture_schema|key-undocumented|$mid
+check_fixture_schema|key-undocumented|cody.serverEndpoint
+check_fixture_schema|key-undocumented|path
+check_fixture_schema|key-undocumented|scheme
+check_fixture_schema|key-undocumented|source
+check_fixture_schema|module-provenance-missing|cody
+check_parser_research|parser-message-undocumented|parser: unreadable history file
+check_parser_research|pattern-undocumented|(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrains-globalState/cody-local-chatHistory-v2$
+check_parser_research|pattern-undocumented|(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrains-globalState/cody-model-preferences$
+check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)User/settings\.json$
+check_parser_research|pattern-undocumented|(?:^|/)\.idea/cody_history\.xml$
+check_smoke_coverage|fixture-missing|smoke.ps1 .*-server*/data/User/globalStorage/sourcegraph.cody-ai
+check_smoke_coverage|fixture-missing|smoke.ps1 .cody
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/JetBrains/*/options/cody*.xml
+check_smoke_coverage|fixture-missing|smoke.ps1 .local/state/Cody-nodejs
+check_smoke_coverage|fixture-missing|smoke.ps1 .sourcegraph
+check_smoke_coverage|fixture-missing|smoke.ps1 .vscode/cody.json
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Cody-nodejs
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/*/User/globalStorage/sourcegraph.cody-ai
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/*/User/globalStorage/sourcegraph.cody-ai
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody*.xml
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Logs/Cody-nodejs
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Preferences/Cody-nodejs
+check_smoke_coverage|fixture-missing|smoke.sh .*-server*/data/User/globalStorage/sourcegraph.cody-ai
+check_smoke_coverage|fixture-missing|smoke.sh .cody
+check_smoke_coverage|fixture-missing|smoke.sh .local/state/Cody-nodejs
+check_smoke_coverage|fixture-missing|smoke.sh .sourcegraph
+check_smoke_coverage|fixture-missing|smoke.sh .vscode/cody.json
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Cody-nodejs
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/*/User/globalStorage/sourcegraph.cody-ai
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody*.xml
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/*/User/globalStorage/sourcegraph.cody-ai
+check_smoke_coverage|fixture-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody*.xml
+check_smoke_coverage|fixture-missing|smoke.sh Library/Logs/Cody-nodejs
+check_smoke_coverage|fixture-missing|smoke.sh Library/Preferences/Cody-nodejs
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/JetBrains/*/options/cody.xml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody.xml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody.xml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody.xml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/JetBrains/*/options/cody.xml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody.xml
+check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Application Support/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody.xml
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody_accounts.xml
+check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody.xml
+check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody_accounts.xml
+check_tables_research|case-overlap|.vscode*/argv.json .vscode/cody.json
+check_tables_research|case-overlap|.vscode*/cli/token*.json .vscode/cody.json
+check_tables_research|case-overlap|.vscode*/extensions/extensions.json .vscode/cody.json
+check_tables_research|case-overlap|.vscode-mock .vscode/cody.json
+check_tables_research|case-overlap|.vscode-server*/data/User .vscode/cody.json
+check_tables_research|case-overlap|.vscode-server*/data/logs .vscode/cody.json
+check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/sourcegraph.cody-ai
+check_tables_research|line-unnamed|.config/*/User/globalStorage/sourcegraph.cody-ai
+check_tables_research|line-unnamed|.config/JetBrains/*/options/cody*.xml
+check_tables_research|line-unnamed|.config/JetBrains/*/options/cody.xml
+check_tables_research|line-unnamed|.config/JetBrains/*/options/cody_accounts.xml
+check_tables_research|line-unnamed|AppData/Roaming/*/User/globalStorage/sourcegraph.cody-ai
+check_tables_research|line-unnamed|AppData/Roaming/JetBrains/*/options/cody*.xml
+check_tables_research|line-unnamed|AppData/Roaming/JetBrains/*/options/cody.xml
+check_tables_research|line-unnamed|AppData/Roaming/JetBrains/*/options/cody_accounts.xml
+check_tables_research|line-unnamed|Library/Application Support/*/User/globalStorage/sourcegraph.cody-ai
+check_tables_research|line-unnamed|Library/Application Support/JetBrains/*/options/cody*.xml
+check_tables_research|line-unnamed|Library/Application Support/JetBrains/*/options/cody.xml
+check_tables_research|line-unnamed|Library/Application Support/JetBrains/*/options/cody_accounts.xml
+check_tables_research|parsing-fact-under-collection|cody.agentic.context.experimentalOptions
+check_tables_research|parsing-fact-under-collection|run_terminal_command

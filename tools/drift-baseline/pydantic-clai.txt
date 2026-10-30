@@ -1,0 +1,9 @@
+check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 pydantic-clai
+check_smoke_coverage|framework-nosecrets-missing|smoke.sh pydantic-clai
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/pydantic-clai2/credentials-*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/pydantic-clai2/logfire/logfire_credentials.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/pydantic-clai2/credentials-*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/pydantic-clai2/logfire/logfire_credentials.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/pydantic-clai2/credentials-*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/pydantic-clai2/logfire/logfire_credentials.json
+check_tables_research|credential-wording|can embed `headers`

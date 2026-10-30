@@ -1,0 +1,89 @@
+check_fixture_schema|key-undocumented|toolu_01
+check_fixture_schema|module-provenance-missing|zed
+check_fixture_schema|substitution-undeclared|/private/var/folders/xy/abc/T/zed-agent-terminal-Ab12Cd
+check_fixture_schema|substitution-undeclared|/srv/worktrees/fix-tests/proj
+check_parser_research|key-undocumented|_thread
+check_parser_research|key-undocumented|t
+check_parser_research|pattern-undocumented|^(?:\.config/zed|AppData/Roaming/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/config/zed)/(?:global_)?settings\.json$
+check_parser_research|pattern-undocumented|^(?:\.local/share/zed|Library/Application Support/Zed|AppData/Local/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/data/zed)/db/0-[^/]+/db\.sqlite$
+check_parser_research|pattern-undocumented|^(?:\.local/share/zed|Library/Application Support/Zed|AppData/Local/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/data/zed)/threads/threads\.db$
+check_parser_research|row-text-undocumented|compaction:
+check_parser_research|row-text-undocumented|compaction: provider native
+check_parser_research|row-text-undocumented|external agent thread (no transcript in threads.db): agent=
+check_parser_research|row-text-undocumented|thread start:
+check_parser_research|row-text-undocumented|unreadable:
+check_research_structure|bare-doc-reference|Flatpak sandbox paths are Flatpak documentation level.
+check_smoke_coverage|fixture-missing|smoke.ps1 .config/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 .rules
+check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.Zed/config/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.Zed/data/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.ZedNightly/config/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.ZedNightly/data/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.ZedPreview/config/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 .var/app/dev.zed.ZedPreview/data/zed
+check_smoke_coverage|fixture-missing|smoke.ps1 .zed
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Local/Zed
+check_smoke_coverage|fixture-missing|smoke.ps1 AppData/Roaming/Zed
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Application Support/Zed
+check_smoke_coverage|fixture-missing|smoke.ps1 Library/Logs/Zed
+check_smoke_coverage|fixture-missing|smoke.sh .local/share/zed
+check_smoke_coverage|fixture-missing|smoke.sh .rules
+check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.Zed/config/zed
+check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.Zed/data/zed
+check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.ZedNightly/config/zed
+check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.ZedNightly/data/zed
+check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.ZedPreview/config/zed
+check_smoke_coverage|fixture-missing|smoke.sh .var/app/dev.zed.ZedPreview/data/zed
+check_smoke_coverage|fixture-missing|smoke.sh .zed
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Local/Zed
+check_smoke_coverage|fixture-missing|smoke.sh AppData/Roaming/Zed
+check_smoke_coverage|fixture-missing|smoke.sh Library/Logs/Zed
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/zed/development_credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/zed/global_settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/zed/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/zed/settings_backup.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .var/app/dev.zed.Zed*/config/zed/development_credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .var/app/dev.zed.Zed*/config/zed/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Zed/development_credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Zed/global_settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Zed/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Zed/settings_backup.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/zed/development_credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/zed/global_settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/zed/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/zed/settings_backup.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .var/app/dev.zed.Zed*/config/zed/development_credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .var/app/dev.zed.Zed*/config/zed/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Zed/development_credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Zed/global_settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Zed/settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Zed/settings_backup.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/zed/development_credentials
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/zed/global_settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/zed/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/zed/settings_backup.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .var/app/dev.zed.Zed*/config/zed/development_credentials
+check_smoke_coverage|secret-check-missing|smoke.ps1 .var/app/dev.zed.Zed*/config/zed/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Zed/development_credentials
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Zed/global_settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Zed/settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Zed/settings_backup.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/zed/development_credentials
+check_smoke_coverage|secret-check-missing|smoke.sh .config/zed/global_settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/zed/settings_backup.json
+check_smoke_coverage|secret-check-missing|smoke.sh .var/app/dev.zed.Zed*/config/zed/development_credentials
+check_smoke_coverage|secret-check-missing|smoke.sh .var/app/dev.zed.Zed*/config/zed/settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Zed/development_credentials
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Zed/global_settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Zed/settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Zed/settings_backup.json
+check_tables_research|credential-wording|can embed `global_settings.json`
+check_tables_research|line-unnamed|.local/share/zed
+check_tables_research|line-unnamed|.var/app/dev.zed.Zed/config/zed
+check_tables_research|line-unnamed|.var/app/dev.zed.Zed/data/zed
+check_tables_research|line-unnamed|.var/app/dev.zed.ZedNightly/config/zed
+check_tables_research|line-unnamed|.var/app/dev.zed.ZedNightly/data/zed
+check_tables_research|line-unnamed|.var/app/dev.zed.ZedPreview/config/zed
+check_tables_research|line-unnamed|.var/app/dev.zed.ZedPreview/data/zed
+check_tables_research|parsing-fact-under-collection|folder_paths

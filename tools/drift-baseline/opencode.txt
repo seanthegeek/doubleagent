@@ -1,0 +1,85 @@
+check_fixture_schema|key-undocumented|$schema
+check_fixture_schema|key-undocumented|account_id
+check_fixture_schema|key-undocumented|active
+check_fixture_schema|key-undocumented|anthropic
+check_fixture_schema|key-undocumented|event_sequence
+check_fixture_schema|key-undocumented|filePath
+check_fixture_schema|key-undocumented|icon_color
+check_fixture_schema|key-undocumented|icon_url
+check_fixture_schema|key-undocumented|owner_id
+check_fixture_schema|key-undocumented|provider_id
+check_fixture_schema|key-undocumented|recent
+check_fixture_schema|key-undocumented|structured
+check_fixture_schema|key-undocumented|summary_additions
+check_fixture_schema|key-undocumented|summary_deletions
+check_fixture_schema|key-undocumented|summary_diffs
+check_fixture_schema|key-undocumented|summary_files
+check_fixture_schema|key-undocumented|time_initialized
+check_fixture_schema|key-undocumented|time_suspended
+check_fixture_schema|key-undocumented|tokens_cache_read
+check_fixture_schema|key-undocumented|tokens_cache_write
+check_fixture_schema|key-undocumented|tokens_input
+check_fixture_schema|key-undocumented|tokens_output
+check_fixture_schema|key-undocumented|tokens_reasoning
+check_fixture_schema|module-provenance-missing|opencode
+check_parser_research|key-undocumented|attempt
+check_parser_research|key-undocumented|filename
+check_parser_research|parser-message-undocumented|parser: %s is not a JSON object
+check_parser_research|parser-message-undocumented|parser: database could not be read: %s
+check_parser_research|parser-message-undocumented|parser: message file could not be decoded
+check_parser_research|parser-message-undocumented|parser: session file could not be decoded
+check_parser_research|row-text-undocumented|ignored:
+check_parser_research|row-text-undocumented|session start:
+check_parser_research|row-text-undocumented|synthetic:
+check_parser_research|row-text-undocumented|unreadable:
+check_research_structure|latest-version-missing|No real install has shown a `session_share` row
+check_research_structure|observed-label-missing|No real install has shown a `session_share` row
+check_research_structure|observed-label-missing|The 2.0 layout the parser reads since [issue
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .config/ai.opencode.desktop*/compile-cache
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .config/opencode/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/opencode/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/opencode/repos
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/opencode/snapshot
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/opencode/tool-output
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/opencode/worktree
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .opencode/bin
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .opencode/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/ai.opencode.desktop*/compile-cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh .config/ai.opencode.desktop*/compile-cache
+check_smoke_coverage|exclusion-check-missing|smoke.sh .config/opencode/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/opencode/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/opencode/repos
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/opencode/snapshot
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/opencode/tool-output
+check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/opencode/worktree
+check_smoke_coverage|exclusion-check-missing|smoke.sh .opencode/bin
+check_smoke_coverage|exclusion-check-missing|smoke.sh .opencode/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/ai.opencode.desktop*/compile-cache
+check_smoke_coverage|fixture-missing|smoke.ps1 .local/share/opencode
+check_smoke_coverage|fixture-missing|smoke.ps1 .opencode
+check_smoke_coverage|fixture-missing|smoke.sh .opencode
+check_smoke_coverage|fixture-name-undocumented|smoke.ps1 AppData/Local/Temp/opencode/notes.txt
+check_smoke_coverage|fixture-name-undocumented|smoke.sh AppData/Local/Temp/opencode/notes.txt
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/opencode/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/opencode/opencode.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/opencode/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/opencode/mcp-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/share/opencode/opencode*.db*
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .opencode/opencode.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/opencode/config.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/opencode/opencode.json*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/opencode/auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/opencode/mcp-auth.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/share/opencode/opencode*.db*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .opencode/opencode.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/opencode/config.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .config/opencode/opencode.json*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/opencode/auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/opencode/mcp-auth.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .local/share/opencode/opencode*.db*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .opencode/opencode.json*
+check_smoke_coverage|secret-check-missing|smoke.sh .config/opencode/config.json
+check_smoke_coverage|secret-check-missing|smoke.sh .config/opencode/opencode.json*
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/opencode/mcp-auth.json
+check_smoke_coverage|secret-check-missing|smoke.sh .local/share/opencode/opencode*.db*
+check_smoke_coverage|secret-check-missing|smoke.sh .opencode/opencode.json*

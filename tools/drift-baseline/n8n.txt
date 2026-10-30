@@ -1,0 +1,14 @@
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .n8n/custom/node_modules
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .n8n/n8n-sdk-templates
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .n8n/node-definitions
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .n8n/nodes/node_modules
+check_smoke_coverage|framework-nosecrets-missing|smoke.ps1 n8n
+check_smoke_coverage|framework-nosecrets-missing|smoke.sh n8n
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .n8n/config
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .n8n/ssh/*
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .n8n/config
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .n8n/ssh/*
+check_smoke_coverage|secret-check-missing|smoke.ps1 .n8n/config
+check_smoke_coverage|secret-check-missing|smoke.ps1 .n8n/ssh/*
+check_tables_research|credential-wording|collected unflagged `database.sqlite`
+check_tables_research|volume-twin-missing|.n8n/custom/node_modules

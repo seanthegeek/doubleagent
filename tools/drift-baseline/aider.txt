@@ -1,0 +1,35 @@
+check_fixture_schema|module-provenance-missing|aider
+check_parser_research|key-undocumented|kind
+check_parser_research|key-undocumented|lines
+check_parser_research|pattern-undocumented|^(?:.*/)?(\.aider\.(?:chat\.history\.md|input\.history|llm\.history))$
+check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aider/caches
+check_smoke_coverage|exclusion-check-missing|smoke.sh .aider/caches
+check_smoke_coverage|fixture-missing|smoke.ps1 .aider
+check_smoke_coverage|fixture-missing|smoke.ps1 .aider.chat.history.md
+check_smoke_coverage|fixture-missing|smoke.ps1 .aider.conf.yml
+check_smoke_coverage|fixture-missing|smoke.ps1 .aider.input.history
+check_smoke_coverage|fixture-missing|smoke.ps1 .aider.llm.history
+check_smoke_coverage|fixture-missing|smoke.ps1 .aider.model.metadata.json
+check_smoke_coverage|fixture-missing|smoke.ps1 .aider.model.settings.yml
+check_smoke_coverage|fixture-missing|smoke.ps1 .aiderignore
+check_smoke_coverage|fixture-missing|smoke.sh .aider
+check_smoke_coverage|fixture-missing|smoke.sh .aider.chat.history.md
+check_smoke_coverage|fixture-missing|smoke.sh .aider.conf.yml
+check_smoke_coverage|fixture-missing|smoke.sh .aider.input.history
+check_smoke_coverage|fixture-missing|smoke.sh .aider.llm.history
+check_smoke_coverage|fixture-missing|smoke.sh .aider.model.metadata.json
+check_smoke_coverage|fixture-missing|smoke.sh .aider.model.settings.yml
+check_smoke_coverage|fixture-missing|smoke.sh .aiderignore
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aider.conf.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aider.model.settings.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .aider/oauth-keys.env
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .aider.conf.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .aider.model.settings.yml
+check_smoke_coverage|nosecrets-check-missing|smoke.sh .aider/oauth-keys.env
+check_smoke_coverage|secret-check-missing|smoke.ps1 .aider.conf.yml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .aider.model.settings.yml
+check_smoke_coverage|secret-check-missing|smoke.ps1 .aider/oauth-keys.env
+check_smoke_coverage|secret-check-missing|smoke.sh .aider.conf.yml
+check_smoke_coverage|secret-check-missing|smoke.sh .aider.model.settings.yml
+check_smoke_coverage|secret-check-missing|smoke.sh .aider/oauth-keys.env
+check_tables_research|parsing-fact-under-collection|FileHistory
