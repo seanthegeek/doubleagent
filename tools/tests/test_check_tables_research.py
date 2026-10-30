@@ -323,6 +323,25 @@ def test_credential_sibling_on_one_platform_suffices(tmp_path):
     assert findings(root, "credential-unflagged") == []
 
 
+def test_credential_named_in_secrets_is_not_reported(tmp_path):
+    catalog = CATALOG.replace(".alpha/auth.json\n", "")
+    secrets = "### Secrets\n\n`~/.alpha/auth.json` holds `token`; redact it.\n\n"
+    alpha = ALPHA.replace("### Record schema", secrets + "### Record schema")
+    root = repository(tmp_path / "named", catalog=catalog, alpha=alpha)
+    assert findings(root, "credential-unflagged") == []
+    other = secrets.replace(".alpha/auth.json", ".alpha/other.json")
+    alpha = ALPHA.replace("### Record schema", other + "### Record schema")
+    root = repository(tmp_path / "other", catalog=catalog, alpha=alpha)
+    assert findings(root, "credential-unflagged") == [("alpha", ".alpha/auth.json")]
+
+
+def test_secrets_store_forms():
+    assert checker.secrets_store(".tabby/ee/db.sqlite", [".tabby/ee/db.sqlite"])
+    assert checker.secrets_store(".tabby/ee/db.backup-.sqlite", [".tabby/ee/db.backup-*.sqlite"])
+    assert not checker.secrets_store(".tabby/ee/db.sqlite", ["db.sqlite", "users.auth_token"])
+    assert not checker.secrets_store(".tabby/ee/db.sqlite", [])
+
+
 def test_is_path_span_forms():
     accepted = [
         ".alpha/auth.json",
@@ -526,6 +545,33 @@ def test_volume_twin_missing(tmp_path):
     assert findings(root, "volume-twin-missing") == [("beta", ".beta/models")]
 
 
+def test_volume_twin_as_a_suffix_of_the_home_exclusion(tmp_path):
+    catalog = CATALOG.replace(".beta/models\n", ".beta/cache/models\n")
+    assert findings(repository(tmp_path / "suffix", catalog=catalog), "volume-twin-missing") == []
+    catalog = catalog.replace("\nmodels\n", "\nweights\n")
+    root = repository(tmp_path / "none", catalog=catalog)
+    assert findings(root, "volume-twin-missing") == [("beta", ".beta/cache/models")]
+
+
+def test_volume_twin_forms():
+    home = "AppData/Local/langflow/langflow/Cache/profile_pictures"
+    remainders = checker.volume_home_remainders(home, "/app/langflow")
+    assert remainders == ["langflow/Cache/profile_pictures", "Cache/profile_pictures"]
+    assert checker.volume_twin(home, remainders, ["profile_pictures"])
+    assert checker.volume_twin(home, remainders, ["Cache/profile_pictures"])
+    assert checker.volume_twin(".ollama/models/blobs", ["models/blobs"], ["models"])
+    assert not checker.volume_twin(home, remainders, ["pictures"])
+    assert not checker.volume_twin(home, remainders, ["Cache/other"])
+    assert not checker.volume_twin(home, remainders, [])
+
+
+def test_is_volume_relative_forms(tmp_path):
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG)).catalog
+    assert checker.is_volume_relative("models", catalog)
+    assert not checker.is_volume_relative(".beta/models", catalog)
+    assert not checker.is_volume_relative("*/models", catalog)
+
+
 def test_mount_path_forms():
     assert checker.mount_path(["Ollama: ollama; mounted at /root/.ollama"]) == "/root/.ollama"
     assert checker.mount_path(["Langflow, mounted at", "/app/langflow, the config dir"]) == (
@@ -554,12 +600,28 @@ def test_volume_home_remainders_forms():
 
 def test_case_overlap(tmp_path):
     assert findings(repository(tmp_path / "clean"), "case-overlap") == []
-    catalog = CATALOG.replace("beta|.beta\n", "beta|.beta\nbeta|.config/Alpha\nbeta|.alpha-x\n")
+    catalog = CATALOG.replace("beta|.beta\n", "beta|.beta\nbeta|.config/Alpha\nbeta|.alpha*\n")
     root = repository(tmp_path / "drift", catalog=catalog)
     assert findings(root, "case-overlap") == [
         ("beta", ".config/alpha .config/Alpha"),
-        ("beta", ".alpha .alpha-x"),
+        ("beta", ".alpha .alpha*"),
     ]
+
+
+def test_disjoint_prefix_globs_do_not_overlap(tmp_path):
+    catalog = CATALOG.replace("beta|.beta\n", "beta|.beta\nbeta|.alpha-x\nbeta|.alpha*/argv.json\n")
+    catalog = catalog.replace("alpha|.alpha\n", "alpha|.alpha\nalpha|.alpha/cody.json\n", 1)
+    root = repository(tmp_path, catalog=catalog)
+    assert findings(root, "case-overlap") == []
+
+
+def test_common_path_forms():
+    assert checker.common_path(".hermes*", ".hermes_x")
+    assert checker.common_path(".alpha*", ".alpha")
+    assert checker.common_path(".Alpha", ".alpha")
+    assert not checker.common_path(".vscode", ".vscode-server*")
+    assert not checker.common_path(".vscode*/argv.json", ".vscode/cody.json")
+    assert not checker.common_path(".hermes*", ".hermes_x/sub")
 
 
 def test_nested_forms():
@@ -574,10 +636,15 @@ def test_nested_forms():
 def test_case_overlap_forms():
     accepted = [
         (".config/PearAI", ".config/pearai"),
-        (".vscode", ".vscode-server*"),
+        (".hermes*", ".hermes_x"),
+        (".Hermes*", ".hermes_x"),
         (".Alpha", ".alpha"),
     ]
     rejected = [
+        (".vscode", ".vscode-server*"),
+        (".vscode*/argv.json", ".vscode/cody.json"),
+        (".vscode-server*/data/User", ".vscode/cody.json"),
+        (".vscode-mock", ".vscode/cody.json"),
         ("AppData/Local/x", "AppData/LocalLow/y"),
         (".config/Code", ".config/Code - Insiders"),
         (".gemini", ".gemini/antigravity"),

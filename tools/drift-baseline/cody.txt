@@ -52,12 +52,6 @@ check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/JetBrains/*/o
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/JetBrains/*/options/cody_accounts.xml
 check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody.xml
 check_smoke_coverage|secret-check-missing|smoke.sh Library/Application Support/JetBrains/*/options/cody_accounts.xml
-check_tables_research|case-overlap|.vscode*/argv.json .vscode/cody.json
-check_tables_research|case-overlap|.vscode*/cli/token*.json .vscode/cody.json
-check_tables_research|case-overlap|.vscode*/extensions/extensions.json .vscode/cody.json
-check_tables_research|case-overlap|.vscode-mock .vscode/cody.json
-check_tables_research|case-overlap|.vscode-server*/data/User .vscode/cody.json
-check_tables_research|case-overlap|.vscode-server*/data/logs .vscode/cody.json
 check_tables_research|line-unnamed|.*-server*/data/User/globalStorage/sourcegraph.cody-ai
 check_tables_research|line-unnamed|.config/*/User/globalStorage/sourcegraph.cody-ai
 check_tables_research|line-unnamed|.config/JetBrains/*/options/cody*.xml

@@ -6,13 +6,15 @@
 - `line-unnamed`: a table line no Collection code span of its owner names (`names_glob`), by
   its glob or its remainder below an entry of its agent (`base_remainders`, `star_remainders`).
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
-  secret glob flags on its own base, or on any sibling base of one platform (`sibling_bases`).
+  secret glob flags on its own base, or on any sibling base of one platform (`sibling_bases`),
+  unless a code span of the Parsing part's Secrets section names the path (`secrets_store`).
 - `secret-under-exclusion`: a secret glob each of whose sample paths an exclusion prunes.
 - `exclusion-unreachable`: an exclusion no home entry reaches (`exclusion_reachable`) and no
   Per-user storage volume section names (`is_volume_section`).
 - `volume-twin-missing`: an exclusion below a directory a docker volume is `mounted at`
-  (`mount_path`, `volume_home_remainders`) whose volume-relative form no exclusion prunes.
-- `case-overlap`: two agents' home entries that overlap by case or prefix (`case_overlap`).
+  (`mount_path`, `volume_home_remainders`) with no volume-relative twin (`volume_twin`).
+- `case-overlap`: two agents' home entries that differ only by case, or whose first segments
+  differ and can match a common path (`case_overlap`).
 - `credential-wording`: a `WORDING_PHRASES` phrase in a Credentials section.
 - `document-missing`: a catalog agent with no research document.
 - `catalog-missing`: a research document whose agent has no table line.
@@ -352,6 +354,27 @@ def volume_home_remainders(glob: str, mount: str) -> list[str]:
     ]
 
 
+def is_volume_relative(glob: str, catalog: Catalog) -> bool:
+    """Return whether an exclusion is volume-relative: no home entry claims it, no `*/` leads it."""
+    return not glob.startswith("*/") and drift_common.attribute_glob(glob, catalog) == "-"
+
+
+def volume_twin(glob: str, remainders: Iterable[str], volume_exclusions: Iterable[str]) -> bool:
+    """Return whether a volume-relative exclusion is the twin of a home exclusion.
+
+    A twin prunes one of the home exclusion's remainders below a mount directory
+    (`volume_home_remainders`), by equality or as its ancestor (`excluded`), or is a
+    segment-aligned suffix of the home exclusion: `profile_pictures` twins
+    `AppData/Local/langflow/langflow/Cache/profile_pictures`, `models` twins
+    `.ollama/models/blobs`; `pictures` and `Cache/other` twin neither.
+    """
+    volume_exclusions = list(volume_exclusions)
+    samples = [drift_common.sample_path(rest, empty_stars=True) for rest in remainders]
+    if any(excluded(sample, volume_exclusions) for sample in samples):
+        return True
+    return any(glob.endswith("/" + twin) for twin in volume_exclusions)
+
+
 def nested(outer: str, inner: str) -> bool:
     """Return whether one home glob lies inside the other's match, as a nested entry does.
 
@@ -372,10 +395,10 @@ def case_overlap(first: str, second: str) -> bool:
     """Return whether two home globs differ at a segment only by case, or by a prefix at the first.
 
     At the first segment that differs, an overlap is the two equal when case-folded
-    (`.config/PearAI`, `.config/pearai`); when that is the first segment, also one case-folded a
-    string prefix of the other (`.vscode`, `.vscode-server*`). No differing segment, a nested
-    entry relation either way (`nested`), and a prefix deeper down (`AppData/Local`,
-    `AppData/LocalLow`) are none.
+    (`.config/PearAI`, `.config/pearai`); when that is the first segment, also two globs that
+    can match a common path (`common_path`: `.hermes*`, `.hermes_x`). No differing segment, a
+    nested entry relation either way (`nested`), a prefix deeper down (`AppData/Local`,
+    `AppData/LocalLow`) and disjoint globs (`.vscode*/argv.json`, `.vscode/cody.json`) are none.
     """
     if nested(first, second) or nested(second, first):
         return False
@@ -383,9 +406,25 @@ def case_overlap(first: str, second: str) -> bool:
     for depth, (left, right) in enumerate(pairs):
         if left == right:
             continue
-        left, right = left.casefold(), right.casefold()
-        prefix = depth == 0 and (left.startswith(right) or right.startswith(left))
-        return left == right or prefix
+        if left.casefold() == right.casefold():
+            return True
+        return depth == 0 and common_path(first, second)
+    return False
+
+
+def common_path(first: str, second: str) -> bool:
+    """Return whether two home globs can match one path, compared case-folded.
+
+    They can when a sample path of one (`sample_path`, both star forms) is matched whole by the
+    other's segment regexes, either way round, so globs of different depths never can:
+    `.hermes*` and `.hermes_x` can, as `.alpha` and `.alpha*`; `.vscode` and `.vscode-server*`
+    cannot, nor `.vscode*/argv.json` and `.vscode/cody.json`.
+    """
+    for one, other in ((first, second), (second, first)):
+        pattern = segment_regex(other.casefold())
+        for sample in (drift_common.sample_path(one, True), drift_common.sample_path(one)):
+            if pattern.fullmatch(sample.casefold()):
+                return True
     return False
 
 
@@ -517,11 +556,27 @@ def unnamed_lines(repository: Repository) -> Iterator[Finding]:
         yield Finding(agent, "line-unnamed", line.glob, CATALOG_PATH, line.line, message)
 
 
+def secrets_store(path: str, secrets_spans: Iterable[str]) -> bool:
+    """Return whether a credential path names a store the Secrets section lists for redaction.
+
+    A store mixing credentials with evidence is collected unflagged by design, its credential
+    fields named in the Parsing part's Secrets section: a normalised Secrets span whose sample
+    path (`sample_path` with empty stars) equals the path exempts it.
+    """
+    return any(drift_common.sample_path(text, empty_stars=True) == path for text in secrets_spans)
+
+
 def unflagged_credentials(repository: Repository) -> Iterator[Finding]:
     """Yield `credential-unflagged` for each credential file no secret glob flags on a platform."""
     secrets = [crossing_regex(line.glob) for line in repository.tables.secret]
     for agent, path in repository.agents.documents.items():
         entries = repository.entries(agent)
+        sections = repository.sections[repository.document(agent)]
+        secrets_spans = [
+            normalise_span(span.text)
+            for section in drift_common.within(sections, "Parsing", "Secrets")
+            for span in section.code_spans
+        ]
         named = [
             normalise_span(span.text)
             for section in repository.collection(agent, "Per-user storage")
@@ -532,6 +587,8 @@ def unflagged_credentials(repository: Repository) -> Iterator[Finding]:
             for span in section.code_spans:
                 for group in credential_paths(normalise_span(span.text), entries, named):
                     if any(secret.fullmatch(tested) for tested in group for secret in secrets):
+                        continue
+                    if any(secrets_store(tested, secrets_spans) for tested in group):
                         continue
                     message = "no secret glob flags %s" % " or ".join(group)
                     yield Finding(
@@ -604,7 +661,10 @@ def unreachable_exclusions(repository: Repository) -> Iterator[Finding]:
 
 def missing_volume_twins(repository: Repository) -> Iterator[Finding]:
     """Yield `volume-twin-missing` for each home exclusion of a mounted volume with no twin."""
-    exclusions = [line.glob for line in repository.tables.exclude]
+    catalog = repository.tables.catalog
+    volume_exclusions = [
+        line.glob for line in repository.tables.exclude if is_volume_relative(line.glob, catalog)
+    ]
     mounts = {
         (line.agent, mount_path(line.comment))
         for line in repository.tables.docker
@@ -615,8 +675,7 @@ def missing_volume_twins(repository: Repository) -> Iterator[Finding]:
             if line_agent(repository, line) != agent:
                 continue
             remainders = volume_home_remainders(line.glob, mount)
-            samples = [drift_common.sample_path(rest, empty_stars=True) for rest in remainders]
-            if not remainders or any(excluded(sample, exclusions) for sample in samples):
+            if not remainders or volume_twin(line.glob, remainders, volume_exclusions):
                 continue
             message = "the volume mounted at %s has no exclusion %s" % (mount, remainders[-1])
             yield Finding(agent, "volume-twin-missing", line.glob, CATALOG_PATH, line.line, message)

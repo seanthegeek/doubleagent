@@ -30,4 +30,3 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 Library/Caches/langflow/*sec
 check_tables_research|credential-unflagged|Library/Application Support/com.LangflowDesktop/data/.env
 check_tables_research|credential-wording|may embed `<user_id>/_mcp_servers_*.json`
 check_tables_research|volume-twin-missing|.langflow/knowledge_bases
-check_tables_research|volume-twin-missing|AppData/Local/langflow/langflow/Cache/profile_pictures
