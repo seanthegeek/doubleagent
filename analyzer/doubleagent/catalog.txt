@@ -1056,26 +1056,46 @@ Library/Application Support/Hermes*/GPUCache
 AppData/Roaming/Hermes*/Cache
 AppData/Roaming/Hermes*/Code Cache
 AppData/Roaming/Hermes*/GPUCache
-.openclaw*/dev
-.openclaw*/git
-.openclaw*/npm
-.openclaw*/npm-runtime
-.openclaw*/tmp
-.openclaw*/tools
-.openclaw*/worktrees
-.openclaw*/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
-.openclaw*/plugin-skills
-.openclaw*/extensions/*/node_modules
-.openclaw*/sandbox/skills-workspaces
-.openclaw*/cache/control-ui-assets
-.openclaw*/agents/*/agent/tmp
-.openclaw*/agents/*/agent/.tmp
-.openclaw*/agents/*/agent/*/tmp
-.openclaw*/agents/*/agent/*/.tmp
-.openclaw*/browser/*/user-data/*/Cache
-.openclaw*/browser/*/user-data/*/Code Cache
-.openclaw*/browser/*/user-data/*/GPUCache
-.openclaw*/browser/*/user-data/*/Service Worker
+.openclaw/dev
+.openclaw/git
+.openclaw/npm
+.openclaw/npm-runtime
+.openclaw/tmp
+.openclaw/tools
+.openclaw/worktrees
+.openclaw/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+.openclaw/plugin-skills
+.openclaw/extensions/*/node_modules
+.openclaw/sandbox/skills-workspaces
+.openclaw/cache/control-ui-assets
+.openclaw/agents/*/agent/tmp
+.openclaw/agents/*/agent/.tmp
+.openclaw/agents/*/agent/*/tmp
+.openclaw/agents/*/agent/*/.tmp
+.openclaw/browser/*/user-data/*/Cache
+.openclaw/browser/*/user-data/*/Code Cache
+.openclaw/browser/*/user-data/*/GPUCache
+.openclaw/browser/*/user-data/*/Service Worker
+.openclaw-*/dev
+.openclaw-*/git
+.openclaw-*/npm
+.openclaw-*/npm-runtime
+.openclaw-*/tmp
+.openclaw-*/tools
+.openclaw-*/worktrees
+.openclaw-*/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+.openclaw-*/plugin-skills
+.openclaw-*/extensions/*/node_modules
+.openclaw-*/sandbox/skills-workspaces
+.openclaw-*/cache/control-ui-assets
+.openclaw-*/agents/*/agent/tmp
+.openclaw-*/agents/*/agent/.tmp
+.openclaw-*/agents/*/agent/*/tmp
+.openclaw-*/agents/*/agent/*/.tmp
+.openclaw-*/browser/*/user-data/*/Cache
+.openclaw-*/browser/*/user-data/*/Code Cache
+.openclaw-*/browser/*/user-data/*/GPUCache
+.openclaw-*/browser/*/user-data/*/Service Worker
 .clawdbot/dev
 .clawdbot/git
 .clawdbot/npm
