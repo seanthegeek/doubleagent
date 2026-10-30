@@ -40,6 +40,7 @@ import re
 import sys
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
+from typing import TypeGuard
 
 import drift_common
 
@@ -1093,7 +1094,7 @@ def match_group_reads(root: ast.AST) -> set[int]:
     return found
 
 
-def _is_membership(node: ast.AST) -> bool:
+def _is_membership(node: ast.AST) -> TypeGuard[ast.Compare]:
     """Return whether `node` is a one-operator `in` or `not in` comparison."""
     return (
         isinstance(node, ast.Compare)
