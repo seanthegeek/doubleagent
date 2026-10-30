@@ -19,6 +19,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - OpenClaw's exclusions and secret globs apply under the legacy `.clawdbot` and `.moltbot` state directories as under `.openclaw`, and `cache/control-ui-assets` and the agent temporary trees deeper in `agents/*/agent/` are excluded ([#326]).
 - A Docker or Podman volume named `*openclaw_home`, the container home OpenClaw's Docker setup keeps in `OPENCLAW_HOME_VOLUME`, is collected as `claude-code`: it holds a Claude Code install made in the container, `.claude/` and `.claude.json` among it ([#326]).
 - Project discovery reads OpenClaw's `cwd` key beside `workspace` and `agentDir`, and the legacy configs `.clawdbot/openclaw.json`, `.clawdbot/moltbot.json` and `.moltbot/moltbot.json` ([#326]).
+- Kilo Code's JetBrains plugin: the `kilo` folder in each JetBrains IDE's system directory (`Library/Caches/JetBrains/*/kilo`, `AppData/Local/JetBrains/*/kilo`, `.cache/JetBrains/*/kilo`) and its `kiloLogSettings.xml` and `kiloAutocompleteSettings.xml` settings in the IDE's `options/` directory are collected as `kilo-code`; the plugin's downloaded CLI binaries in `kilo/cli` and `kilo/repo-cli` are excluded ([#326]).
+- Kilo Code's `.local/state/kilo/daemon.json` (the background server's password and token) and the pre-fork VS Code extension's `settings/mcp_settings.json` (glob `*/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`) are flagged `secret: true` ([#326]).
+- Project discovery reads Kilo Code's legacy JSON project store (`.local/share/kilo/storage/project/*.json`, key `worktree`) and its project memory manifests (`.local/share/kilo/memory/*/manifest.json`, key `canonical`) ([#326]).
 
 ### Changed
 
