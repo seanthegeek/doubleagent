@@ -16,6 +16,7 @@ check_fixture_schema|module-provenance-missing|kiro
 check_fixture_schema|substitution-undeclared|/home/alice/.aws/amazonq/cli-checkouts/9e8d7c6b-5a49-4382-9170-6f5e4d3c2b1a
 check_parser_research|parser-message-undocumented|parser: truncated conversation, %d history entries recovered: %s
 check_parser_research|parser-message-undocumented|parser: unparseable conversation: %s
+check_parser_research|pattern-undocumented|^(?:\.aws/amazonq|\.amazonq)/cli-agents/[^/]+\.json$
 check_parser_research|pattern-undocumented|^(?:\.local/share|Library/Application Support|AppData/Local)/(?:amazon-q|kiro-cli)/data\.sqlite3$
 check_parser_research|pattern-undocumented|^\.kiro/sessions/
 check_parser_research|row-text-undocumented|compact: conversation history summarised

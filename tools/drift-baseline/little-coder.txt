@@ -7,6 +7,7 @@ check_parser_research|parser-message-undocumented|parser: %s is not a JSON objec
 check_parser_research|pattern-undocumented|.little-coder/input_history.txt
 check_parser_research|pattern-undocumented|.little-coder/sessions/history.json
 check_parser_research|pattern-undocumented|.little-coder/sessions/mr_sessions/session_latest.json
+check_parser_research|pattern-undocumented|^\.little-coder/sessions/(?:[^/]+/)*[^/]+\.json$
 check_smoke_coverage|fixture-missing|smoke.ps1 project .pi/approved-plan.md
 check_smoke_coverage|fixture-missing|smoke.sh project .pi/approved-plan.md
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .cache/little-coder/log.txt

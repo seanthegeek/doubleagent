@@ -267,22 +267,85 @@ def test_pattern_undocumented_and_documented_unescaped(tmp_path):
 
 
 def test_pattern_documented_by_a_path_or_glob_it_matches(tmp_path):
-    for span in ("`.alpha/logs/*.jsonl`", "`~/.alpha/logs/x.jsonl`", "`$HOME/.alpha/logs/?.jsonl`"):
+    documenting = (
+        "`.alpha/logs/*.jsonl`",
+        "`$HOME/.alpha/logs/?.jsonl`",
+        "`~/.alpha/logs/<session>.jsonl`",
+    )
+    for span in documenting:
         root = repository(tmp_path, text=document(plan="Globs (home-relative): %s." % span))
         assert details(root, "pattern-undocumented") == [], span
-    for span in ("`.alpha/logs/*.json`", "`.alpha/logs`", "`.alpha/logs/a/x.jsonl`"):
+    others = (
+        "`.alpha/logs/*.json`",
+        "`.alpha/logs`",
+        "`.alpha/logs/a/x.jsonl`",
+        "`~/.alpha/logs/x.jsonl`",
+        "`.alpha/*/*.jsonl`",
+    )
+    for span in others:
         root = repository(tmp_path, text=document(plan="Globs (home-relative): %s." % span))
         found = details(root, "pattern-undocumented")
         assert found == [r"^\.alpha/logs/[^/]+\.jsonl$"], span
 
 
+def test_pattern_span_under_fixtures_documents_nothing(tmp_path):
+    fixtures = "None.\n\n#### Fixtures\n\nSample: `.alpha/logs/*.jsonl`."
+    root = repository(tmp_path, text=document(plan="Globs below.", bad=fixtures))
+    assert details(root, "pattern-undocumented") == [r"^\.alpha/logs/[^/]+\.jsonl$"]
+    planned = document(plan="Globs: `.alpha/logs/*.jsonl`.", bad=fixtures)
+    assert details(repository(tmp_path, text=planned), "pattern-undocumented") == []
+
+
 def test_corpus_documents_pattern_by_span_path():
-    spans = [".qwen/trustedFolders.json", "trustedFolders", r"^\.other\.json$"]
-    corpus = checker.corpus_of(spans, spans)
-    assert corpus.documents_pattern(r"^\.qwen/trustedFolders\.json$")
-    assert not corpus.documents_pattern(r"^\.qwen/trusted\.json$")
-    assert not corpus.documents_pattern(r"^[a-zA-Z]+$")
-    assert not corpus.documents_pattern("(")
+    cases = (
+        (r"^\.pi/.*$", ".pi/probe/x.jsonl", False),
+        (r"^\.pi/.*$", ".pi/*", True),
+        (r"^\.qwen/trustedFolders\.json$", ".qwen/trustedFolders.json", True),
+        (r"^\.qwen/trustedFolders\.json$", ".qwen/*.json", False),
+        (r"^\.qwen/trusted\.json$", ".qwen/trustedFolders.json", False),
+        (cline_pattern(), ".cline/data/sessions/*/*.messages.json", True),
+        (cline_pattern(), ".cline/data/sessions/abc/def.messages.json", False),
+        (cline_pattern(), ".cline/data/sessions/*.messages.json", False),
+        (r"^\.a/(?:x|y)\.json$", ".a/*.json", True),
+        (r"^\.a/sessions?/[0-9]+\.json$", ".a/session/<id>.json", False),
+        (r"^\.a/sessions?/[0-9]+\.json$", ".a/session*/<id>.json", True),
+        (r"^(?:\.a/b/c\.json|\.d\.json)$", ".d.json", True),
+        (r"^(?:\.a/b/c\.json|\.d\.json)$", ".a/b/c.json", True),
+        (r"^\.a/b\.json$|^\.d\.json$", ".d.json", True),
+        (r"^(?:\.a/b/c\.json|\.d\.json)$", ".a/*/c.json", False),
+        (r"^[a-zA-Z]+$", "trustedFolders", False),
+        ("(", ".x/y", False),
+    )
+    for pattern, span, expected in cases:
+        corpus = checker.corpus_of([span], [span])
+        assert corpus.documents_pattern(pattern) is expected, (pattern, span)
+
+
+def cline_pattern() -> str:
+    """Return the Cline messages pattern, the form of a two-placeholder path."""
+    return r"^\.cline/data/sessions/[^/]+/[^/]+\.messages\.json$"
+
+
+def test_segment_form_forms():
+    cases = (
+        (r"\.qwen", (".qwen", False)),
+        (r"[^/]+\.jsonl", ("*.jsonl", True)),
+        (r"local_[0-9a-f-]{36}\.json", ("local_*.json", True)),
+        (r".*", ("*", True)),
+        ("history.jsonl", ("history.jsonl", False)),
+        (r"\d+\.log", ("*.log", True)),
+        (r"(?:chats|sessions)", ("*", True)),
+        ("logs?", ("log*", True)),
+    )
+    for segment, expected in cases:
+        assert checker.segment_form(segment) == expected, segment
+
+
+def test_top_level_branches_forms():
+    assert checker.top_level_branches(r"^(?:a/b|c)$") == ["a/b", "c"]
+    assert checker.top_level_branches(r"^a$|^b/c$") == ["a", "b/c"]
+    assert checker.top_level_branches(r"^a/(?:b|c)$") == ["a/(?:b|c)"]
+    assert checker.top_level_branches(r"^a/[|]$") == ["a/[|]"]
 
 
 def test_selectors_are_what_wants_and_secondary_use(tmp_path):

@@ -14,6 +14,9 @@ check_parser_research|key-undocumented|screenshot
 check_parser_research|key-undocumented|suggest
 check_parser_research|parser-message-undocumented|parser: unreadable session file
 check_parser_research|parser-message-undocumented|parser: unreadable session file: %s
+check_parser_research|pattern-undocumented|^(?:.*/)?User/globalStorage/state\.vscdb$
+check_parser_research|pattern-undocumented|^(?:.*/)?\.pearai/dev_data/(chat|tokens_generated)\.jsonl$
+check_parser_research|pattern-undocumented|^(?:.*/)?\.pearai/sessions/([^/]+)\.json$
 check_parser_research|pattern-undocumented|^(?:.*/)?logs/[^/]+/window\d+/exthost/output_logging_[^/]+/\d+-PearAI\.log$
 check_parser_research|row-text-undocumented|checkpoint_created:
 check_parser_research|row-text-undocumented|session start:

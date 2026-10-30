@@ -24,7 +24,6 @@ check_parser_research|key-undocumented|path
 check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)?conversations|conversations)/([0-9a-fA-F]{32})/base_state\.json$
 check_parser_research|pattern-undocumented|^\.openhands/(?:agent-canvas/(?:dev_)?conversations|conversations)/([0-9a-fA-F]{32})/events/event-(\d{5,})-[0-9a-fA-F-]{8,}\.json$
 check_parser_research|pattern-undocumented|^\.openhands/(?:sessions|users/[^/]+/conversations)/([^/]+)/events/(\d+)\.json$
-check_parser_research|pattern-undocumented|^\.openhands/projects/([0-9a-f]{64})/prompt_history\.json$
 check_parser_research|row-text-undocumented|state update:
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openhands/agent-canvas/tmux
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .openhands/agent-canvas/workspaces

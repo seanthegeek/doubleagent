@@ -9,7 +9,6 @@ check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application S
 check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:workspaceStorage/[^/]+/chatSessions/[^/]+\.jsonl?|globalStorage/emptyWindowChatSessions/[^/]+\.jsonl?|globalStorage/transferredChatSessions/[^/]+\.json)$
 check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?P<scope>globalStorage|profiles/(?:builtin/)?[^/]+/globalStorage|workspaceStorage/[^/]+)/state\.vscdb$
 check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/globalStorage/github\.copilot-chat/cloudSessions\.json$
-check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/workspaceStorage/[^/]+/chatEditingSessions/(?P<key>[^/]+)/state\.json$
 check_parser_research|row-text-undocumented|error:
 check_parser_research|row-text-undocumented|session start:
 check_parser_research|row-text-undocumented|system initiated:

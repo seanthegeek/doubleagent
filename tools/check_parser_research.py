@@ -2,31 +2,31 @@
 """Check the parsers against the Parsing part of their research documents.
 
 Each `parsers.ALL` class is read with `ast` and compared with its own agent's document. Its
-literals are its effective set's: its module and each base's in `parsers/`, whole, and what
-those import from another parsers module (`from .x import name`, `x.name`, in functions too)
-with the top-level names that uses; never `base.py`. "Documented" means found in the code spans
-and fenced lines of the part named. For rules 1 to 4, a literal is documented when the parser's
-own document names it or, when the module defining it is not the parser's own and is in another
-parser's effective set, that parser's agent document names it.
+literals are its effective set's: its module and each base's in `parsers/`, whole, and what those
+import from another parsers module (`from .x import name`, `x.name`, in functions too) with the
+top-level names that uses; never `base.py`. "Documented" means in the code spans and fenced lines
+of the part named; for rules 1 to 4, of the parser's own document or, for a module not the parser's
+own in another parser's effective set, of that parser's agent document.
 
-- `row-text-undocumented`: a row text's constant prefix is in no code span or fenced line of
-  the Parsing part.
-- `parser-message-undocumented`: a literal beginning `parser: ` has its constant pieces, in
-  order, in no code span or fenced line of the Parsing part.
-- `pattern-undocumented`: a file pattern the parser selects files with equals no Parsing part
-  span or fenced line, both unescaped, and fully matches no path or glob span (`span_paths`).
-- `key-undocumented`: a key the parser reads from a record, or a column or table a `select`
-  names, is no word of the Parsing part's code spans and fenced lines.
+- `row-text-undocumented`: a row text's constant prefix is in no Parsing part span or fenced line.
+- `parser-message-undocumented`: a `parser: ` literal's constant pieces, in order, are in no
+  Parsing part span or fenced line.
+- `pattern-undocumented`: a file pattern of the parser equals no Parsing part span or fenced line,
+  both unescaped, and no path or glob span outside Fixtures has its count of segments, each
+  matching the pattern's there (`regex_components`): one with a quantifier, class, group or `.*`
+  by one with `*`, `?` or `<...>`, a fixed one by its literal; a top-level alternation by a branch.
+- `key-undocumented`: a key the parser reads from a record, or a column or table a `select` names,
+  is no word of the Parsing part's code spans and fenced lines.
 - `flag-undocumented`: `records_sync`, `records_relay` or `records_origin` is True while Sync,
-  relay and origin rows says "The agent records none." or "Not stated.", or `has_secondary` is
-  True while Past-use rows and secondary sources says so.
-- `flag-unset`: that subsection names a `session synced:`, `session relayed:` or
-  `session origin:` row, or a secondary source, in a sentence that neither denies nor only
-  supposes it, while the matching flag is False.
-- `not-read-contradicted`: a name the Parsing part says is not read is a key the parser reads
-  or a file one of its file patterns matches.
-- `docstring-fact-undocumented`: a module docstring span that is a row text, pattern or key no
-  span or fenced line of the document holds, or a `key_value` whose key or value Parsing lacks.
+  relay and origin rows says "The agent records none." or "Not stated.", or `has_secondary` is True
+  while Past-use rows and secondary sources says so.
+- `flag-unset`: that subsection names a `session synced:`, `session relayed:` or `session origin:`
+  row or a secondary source in a sentence neither denying nor only supposing it, its flag False.
+- `not-read-contradicted`: a name the Parsing part says is not read is a key the parser reads or a
+  file one of its file patterns matches.
+- `docstring-fact-undocumented`: a module docstring span is a row text or key in no span or fenced
+  line of the document, a pattern it does not document (rule 3), or a `key_value` with a key or
+  value Parsing lacks.
 
 Usage: tools/check_parser_research.py [--update-baseline]
 """
@@ -46,6 +46,7 @@ import drift_common
 CHECKER = "check_parser_research"
 PARSING = ("Parsing",)
 PARSER_PLAN = ("Parsing", "Parser plan")
+FIXTURES = (*PARSER_PLAN, "Fixtures")
 SYNC_SECTION = "Sync, relay and origin rows"
 PAST_USE_SECTION = "Past-use rows and secondary sources"
 PARSER_PREFIX = "parser: "
@@ -84,6 +85,10 @@ CLAUSE_END = re.compile(r"[;:]|\.(?:\s|$)")
 READ_EXCEPTION = re.compile(r"\((?=[^()]*\bread\b)(?![^()]*\bnot read\b)[^()]*\)")
 SENTENCE_END = re.compile(r"(?<=\.)\s+(?=[A-Z`(\[])")
 CODE_SPAN = re.compile(r"(`+)(.+?)\1", re.DOTALL)
+# A regex quantifier, lazy or not, that makes the piece before it variable.
+QUANTIFIER = re.compile(r"(?:[*+?]|\{\d*(?:,\d*)?\})\??")
+# What a path or glob span segment holds in place of a variable piece.
+SPAN_WILDCARD = re.compile(r"<[^>]*>|[*?]")
 # Words that make a sentence deny or only suppose a row.
 NEGATION = re.compile(r"\b(?:no|not|never|none|neither|nor|without|would|could)\b", re.IGNORECASE)
 SECONDARY_NAMED = re.compile(r"\b(?:is|are|as)\s+(?:a\s+|the\s+)?secondary\b", re.IGNORECASE)
@@ -451,6 +456,123 @@ def regex_components(pattern: str) -> list[str]:
     return [body[low + 1 : high] for low, high in itertools.pairwise(cuts)]
 
 
+def _group_end(text: str, index: int) -> int:
+    """Return the offset after the group opening at `index`, skipping escapes and classes."""
+    depth = 0
+    in_class = False
+    while index < len(text):
+        character = text[index]
+        if character == "\\":
+            index += 2
+            continue
+        if in_class:
+            in_class = character != "]"
+        elif character == "[":
+            in_class = True
+        elif character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+        index += 1
+    return len(text)
+
+
+def _class_end(text: str, index: int) -> int:
+    """Return the offset after the class opening at `index`; a `]` first in it is a member."""
+    start = index + 2 if text[index + 1 : index + 2] == "^" else index + 1
+    close = text.find("]", start + 1)
+    return close + 1 if close > 0 else len(text)
+
+
+def segment_form(segment: str) -> tuple[str, bool]:
+    r"""Return a regex segment as a glob, each variable piece as `*`, and whether it has one.
+
+    A piece is variable when it is a class (`[^/]`, `\d`), a group, or carries a quantifier; a
+    lone `.` and an escaped punctuation character read as themselves. `[^/]+\.jsonl` gives
+    `*.jsonl`, `local_[0-9a-f-]{36}\.json` gives `local_*.json` and `\.qwen` gives `.qwen`.
+    """
+    out: list[str] = []
+    variable = False
+    index = 0
+    while index < len(segment):
+        character = segment[index]
+        text, varies, end = character, False, index + 1
+        if character == "\\" and index + 1 < len(segment):
+            text, end = segment[index + 1], index + 2
+            varies = text.isalnum()
+        elif character == "[":
+            varies, end = True, _class_end(segment, index)
+        elif character == "(":
+            varies, end = True, _group_end(segment, index)
+        quantifier = QUANTIFIER.match(segment, end)
+        if quantifier:
+            varies, end = True, quantifier.end()
+        out.append("*" if varies else text)
+        variable = variable or varies
+        index = end
+    return re.sub(r"\*+", "*", "".join(out)), variable
+
+
+def top_level_branches(pattern: str) -> list[str]:
+    """Return the branches of a pattern's top-level alternation, or the pattern alone.
+
+    The alternation is a `|` outside every group, or one inside a group spanning the whole
+    pattern less its anchors: `^(?:a/b|c)$` gives `a/b` and `c`, whose segment counts differ,
+    so `pattern-undocumented` compares each branch with a span on its own.
+    """
+    body = pattern.removeprefix("^").removesuffix("$")
+    if body.startswith("(") and _group_end(body, 0) == len(body):
+        inner = body[3:-1] if body.startswith("(?:") else body[1:-1]
+        if not inner.startswith("?"):
+            branches = _split_top_level(inner)
+            if len(branches) > 1:
+                return branches
+    branches = _split_top_level(pattern)
+    return [item.removeprefix("^").removesuffix("$") for item in branches]
+
+
+def _split_top_level(text: str) -> list[str]:
+    """Return `text` split at each `|` outside a group or class."""
+    pieces: list[str] = []
+    start = 0
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if character == "\\":
+            index += 2
+            continue
+        if character == "[":
+            index = _class_end(text, index)
+            continue
+        if character == "(":
+            index = _group_end(text, index)
+            continue
+        if character == "|":
+            pieces.append(text[start:index])
+            start = index + 1
+        index += 1
+    pieces.append(text[start:])
+    return pieces
+
+
+def span_segment_documents(span_segment: str, form: str, variable: bool) -> bool:
+    """Return whether a path or glob span segment documents a pattern segment's `segment_form`.
+
+    A fixed segment is documented by its literal text. A variable one is documented by a span
+    segment holding `*`, `?` or `<...>`, read with each of those as `*`, that the form matches
+    when each `*` of the form stands for any text: `<id>.json` documents `*.json`, `a.json` not.
+    """
+    if not variable:
+        return span_segment == form
+    if not SPAN_WILDCARD.search(span_segment):
+        return False
+    glob = re.sub(r"\*+", "*", SPAN_WILDCARD.sub("*", span_segment))
+    regex = ".*".join(re.escape(piece) for piece in form.split("*"))
+    return re.fullmatch(regex, glob) is not None
+
+
 def selector_matches_name(selector: Selector, name: str) -> bool:
     r"""Return whether a file pattern matches a file or directory a document names.
 
@@ -633,18 +755,25 @@ class Corpus:
         return any(holds_pieces(text, pieces) for text in self.texts)
 
     def documents_pattern(self, pattern: str) -> bool:
-        r"""Return whether a code span or fenced line equals the pattern, both unescaped.
+        r"""Return whether the corpus documents a file pattern, as `pattern-undocumented` says.
 
-        A code span naming a path or glob the pattern fully matches documents it too, in the
-        form `span_paths` gives: `^\.qwen/trustedFolders\.json$` by `.qwen/trustedFolders.json`.
+        `^\.qwen/trustedFolders\.json$` is documented by `.qwen/trustedFolders.json` and
+        `^\.pi/.*$` by `.pi/*`, never by `.pi/probe/x.jsonl`.
         """
         if unescape_pattern(pattern) in self.patterns:
             return True
-        try:
-            compiled = re.compile(pattern)
-        except re.error:
-            return False
-        return any(compiled.fullmatch(path) for path in self.paths)
+        branches = top_level_branches(pattern)
+        if len(branches) > 1:
+            return any(self.documents_pattern(branch) for branch in branches)
+        forms = [segment_form(segment) for segment in regex_components(pattern)]
+        for path in self.paths:
+            segments = path.split("/")
+            if len(segments) == len(forms) and all(
+                span_segment_documents(segment, form, variable)
+                for segment, (form, variable) in zip(segments, forms, strict=True)
+            ):
+                return True
+        return False
 
     def documents_key(self, key: str) -> bool:
         """Return whether a key is a word of the code spans and fenced lines.
@@ -661,7 +790,11 @@ class Corpus:
 
 
 def corpus(sections: list[drift_common.Section]) -> Corpus:
-    """Return the corpus of the code spans and fenced lines of `sections`."""
+    """Return the corpus of the code spans and fenced lines of `sections`.
+
+    The code spans of the Parser plan's Fixtures subsection name sample files, so they are no
+    path or glob span (`span_paths`).
+    """
     texts: list[str] = []
     for section in sections:
         texts.extend(span.text for span in section.code_spans)
@@ -669,11 +802,22 @@ def corpus(sections: list[drift_common.Section]) -> Corpus:
             drift_common.collapse(line) for fence in section.fences for _, line in fence.lines
         )
     spans = [span.text for section in sections for span in section.code_spans]
-    return corpus_of(texts, spans)
+    outside = [
+        span.text
+        for section in sections
+        if section.titles[: len(FIXTURES)] != FIXTURES
+        for span in section.code_spans
+    ]
+    return corpus_of(texts, spans, outside)
 
 
-def corpus_of(texts: Iterable[str], spans: Iterable[str]) -> Corpus:
-    """Return the corpus of code span and fenced line texts, `spans` the code spans among them."""
+def corpus_of(
+    texts: Iterable[str], spans: Iterable[str], path_spans: Iterable[str] | None = None
+) -> Corpus:
+    """Return the corpus of code span and fenced line texts, `spans` the code spans among them.
+
+    `path_spans` are the spans that may name a path or glob, by default all of `spans`.
+    """
     kept = tuple(text for text in texts if text)
     joined = "\n".join(kept)
     spans = frozenset(spans)
@@ -683,19 +827,19 @@ def corpus_of(texts: Iterable[str], spans: Iterable[str]) -> Corpus:
         joined,
         frozenset(WORD.findall(joined)),
         frozenset(unescape_pattern(text) for text in kept),
-        span_paths(spans),
+        span_paths(spans if path_spans is None else path_spans),
     )
 
 
 def span_paths(spans: Iterable[str]) -> frozenset[str]:
-    """Return the home-relative sample path of each code span naming a path or glob.
+    """Return each code span naming a path or glob, as a home-relative path.
 
     A span names one when it holds a `/` or a dot and is no regex (`looks_like_pattern`); it is
-    read as `normalise_span` reads it, then each `*` and `?` becomes `x` (`sample_path`), so
-    `~/.qwen/projects/*/chats/*.jsonl` gives `.qwen/projects/x/chats/x.jsonl`.
+    read as `normalise_span` reads it, so `~/.qwen/projects/*/chats/*.jsonl` gives
+    `.qwen/projects/*/chats/*.jsonl`.
     """
     return frozenset(
-        drift_common.sample_path(drift_common.normalise_span(span))
+        drift_common.normalise_span(span)
         for span in spans
         if ("/" in span or "." in span) and not looks_like_pattern(span)
     )
@@ -1131,7 +1275,7 @@ def docstring_findings(context: Context) -> Iterator[drift_common.Finding]:
             documented = whole.documents_key(span)
         if not documented:
             literal = Literal(span, context.parser.module, start + docstring.count("\n", 0, offset))
-            message = "no code span or fenced line of %s holds it" % document
+            message = "%s does not document it" % document
             yield context.finding("docstring-fact-undocumented", span, literal, message)
 
 

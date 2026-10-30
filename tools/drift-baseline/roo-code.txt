@@ -17,6 +17,8 @@ check_parser_research|key-undocumented|coordinate
 check_parser_research|key-undocumented|currentUrl
 check_parser_research|key-undocumented|screenshot
 check_parser_research|key-undocumented|suggest
+check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb$
 check_parser_research|row-text-undocumented|checkpoint_created:
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints

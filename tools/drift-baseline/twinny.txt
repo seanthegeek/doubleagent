@@ -4,7 +4,10 @@ check_fixture_schema|builder-provenance-missing|twinny_said_records
 check_fixture_schema|module-provenance-missing|twinny
 check_parser_research|docstring-fact-undocumented|reviewOwner
 check_parser_research|docstring-fact-undocumented|reviewRepo
+check_parser_research|pattern-undocumented|(?:^|/)User/(?:workspaceStorage/[^/]+|globalStorage)/rjmacarthy\.twinny/agent-changes/[^/]+\.json$
 check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb$
+check_parser_research|pattern-undocumented|(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?$
 check_parser_research|row-text-undocumented|conversation:
 check_parser_research|row-text-undocumented|secret shield withheld:
 check_research_structure|version-without-change|#### Since 4.3.5

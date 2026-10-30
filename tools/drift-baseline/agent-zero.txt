@@ -13,6 +13,7 @@ check_parser_research|parser-message-undocumented|parser: chat.json did not pars
 check_parser_research|parser-message-undocumented|parser: history of agent %s did not parse (%s)
 check_parser_research|parser-message-undocumented|parser: state.json %s
 check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?(?:usr|tmp)/)?scheduler/tasks\.json$
+check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/(?P<plugin>_infection_check|_orchestrator)/\.toggle-(?P<state>[01])$
 check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/(?P<plugin>_tool_access|_orchestrator)/config\.json$
 check_parser_research|pattern-undocumented|^(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?usr/)?plugins/_telegram_integration/state\.json$
 check_research_structure|bare-doc-reference|tmp/ is beside usr/ only in a native run or a whole-/a0 mount; the installer, the launcher and the README volume mount usr alone, so tmp/ stays inside the container.

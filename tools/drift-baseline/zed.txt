@@ -4,7 +4,6 @@ check_fixture_schema|substitution-undeclared|/srv/worktrees/fix-tests/proj
 check_parser_research|key-undocumented|_thread
 check_parser_research|pattern-undocumented|^(?:\.config/zed|AppData/Roaming/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/config/zed)/(?:global_)?settings\.json$
 check_parser_research|pattern-undocumented|^(?:\.local/share/zed|Library/Application Support/Zed|AppData/Local/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/data/zed)/db/0-[^/]+/db\.sqlite$
-check_parser_research|pattern-undocumented|^(?:\.local/share/zed|Library/Application Support/Zed|AppData/Local/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/data/zed)/threads/threads\.db$
 check_parser_research|row-text-undocumented|compaction:
 check_parser_research|row-text-undocumented|compaction: provider native
 check_parser_research|row-text-undocumented|external agent thread (no transcript in threads.db): agent=
