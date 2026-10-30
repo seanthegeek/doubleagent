@@ -62,6 +62,11 @@ Home resolution: context override, then `HERMES_HOME`, then the platform default
 `~/.hermes` on Linux and macOS, `%LOCALAPPDATA%\hermes` (fallback `~/AppData/Local/hermes`) on
 Windows, each with an optional `HERMES_DATA_DIR_SUFFIX` appended
 ([`hermes_constants.py:51-58`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/hermes_constants.py#L51-L58)).
+The suffix is appended with no separator: a channel build's `-channel-build-canary` gives
+`~/.hermes-channel-build-canary`
+([`hermes_constants.py:53-57`](https://github.com/NousResearch/hermes-agent/blob/86fa9e6ca1de7ee71132d2be0103f3e37d1fa872/hermes_constants.py#L53-L57),
+[`environment-variables.md:894`](https://github.com/NousResearch/hermes-agent/blob/86fa9e6ca1de7ee71132d2be0103f3e37d1fa872/website/docs/reference/environment-variables.md#L894)),
+so a suffixed home is `.hermes<suffix>` or `AppData/Local/hermes<suffix>`.
 The Windows desktop app keeps using a legacy `~/.hermes` when `%LOCALAPPDATA%\hermes` does not exist
 ([`apps/desktop/electron/data-paths.mjs:26-33`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/apps/desktop/electron/data-paths.mjs#L26-L33),[`56-65`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/apps/desktop/electron/data-paths.mjs#L56-L65)),
 so both forms occur on Windows. No XDG paths. Every path the catalog names is unchanged at the
@@ -176,8 +181,17 @@ approvals bypassed; the plugin's permission settings are in
 Electron `productName` is `Hermes`
 ([`apps/desktop/package.json:3`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/apps/desktop/package.json#L3)),
 so its `userData` is the Electron default `Hermes` directory, overridable by
-`HERMES_DESKTOP_USER_DATA_DIR`
-([`data-paths.mjs:35-39`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/apps/desktop/electron/data-paths.mjs#L35-L39)).
+`HERMES_DESKTOP_USER_DATA_DIR` and otherwise suffixed with `HERMES_DATA_DIR_SUFFIX` like the
+home (`Hermes<suffix>`,
+[`data-paths.mjs:35-39`](https://github.com/NousResearch/hermes-agent/blob/86fa9e6ca1de7ee71132d2be0103f3e37d1fa872/apps/desktop/electron/data-paths.mjs#L35-L39)).
+The app depends on `electron-updater`
+([`apps/desktop/package.json:123`](https://github.com/NousResearch/hermes-agent/blob/86fa9e6ca1de7ee71132d2be0103f3e37d1fa872/apps/desktop/package.json#L123)),
+whose download cache is named after the package name `hermes` plus `-updater`
+([`package.json:2`](https://github.com/NousResearch/hermes-agent/blob/86fa9e6ca1de7ee71132d2be0103f3e37d1fa872/apps/desktop/package.json#L2);
+[`appInfo.ts:159-161`](https://github.com/electron-userland/electron-builder/blob/39db76fc9034061769aaf87b02d020d60b00a254/packages/app-builder-lib/src/appInfo.ts#L159-L161))
+and placed in `%LOCALAPPDATA%` on Windows
+([`AppAdapter.ts:60-72`](https://github.com/electron-userland/electron-builder/blob/39db76fc9034061769aaf87b02d020d60b00a254/packages/electron-updater/src/AppAdapter.ts#L60-L72)):
+`AppData/Local/hermes-updater`, beside the home, holding downloaded installers.
 It holds `connection.json`, `connections.json`, `active-profile.json` and window state
 ([`apps/desktop/electron/main.ts:1222`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/apps/desktop/electron/main.ts#L1222),[`1331-1341`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/apps/desktop/electron/main.ts#L1331-L1341));
 conversations stay in `state.db`. `connections.json` is the registry of the backends the app
@@ -216,9 +230,13 @@ which the setup message tells the user to put in `.env`; `.env` is already flagg
 The installer checkout's own `hermes-agent/.env` is loaded as a fallback
 ([`cli.py:337-338`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/cli.py#L337-L338),
 [`hermes_cli/env_loader.py:455-462`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/hermes_cli/env_loader.py#L455-L462)),
-so it can hold keys inside an otherwise excluded tree. `config.yaml` is for non-secret settings and
-`.env` is required for secrets
-([`configuration.md:62-63`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/website/docs/user-guide/configuration.md#L62-L63)).
+so it can hold keys inside an otherwise excluded tree. The documentation puts non-secret settings
+in `config.yaml` and secrets in `.env`
+([`configuration.md:62-63`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/website/docs/user-guide/configuration.md#L62-L63)),
+but an `mcp_servers` entry in `config.yaml` takes `env` values and `headers` such as
+`Authorization: "Bearer ..."`
+([`mcp.md:318-340`](https://github.com/NousResearch/hermes-agent/blob/86fa9e6ca1de7ee71132d2be0103f3e37d1fa872/website/docs/user-guide/features/mcp.md#L318-L340)),
+so `config.yaml` is flagged in every home, profile and volume.
 No OS keychain for Hermes' own secrets; secret managers (1Password, command sources) are pluggable.
 
 The desktop app's `connection.json` and `connections.json` hold each remote gateway's token (and
@@ -258,7 +276,10 @@ hundreds of GB",
 `checkpoints` (shadow git), live Chromium profiles, `node_modules`, `.venv`, `site-packages`,
 `sandboxes`
 ([`tools/environments/base.py:191`](https://github.com/NousResearch/hermes-agent/blob/8b66a51036c1e20920a17cdd049fdf55c968d683/tools/environments/base.py#L191)).
-Keep `checkpoints/store/projects/*.json` for discovery.
+Keep `checkpoints/store/projects/*.json` for discovery. The desktop app's `Cache`, `Code Cache`
+and `GPUCache` are excluded in its `Hermes` user-data directory and the suffixed ones, and the
+updater cache `AppData/Local/hermes-updater` ([Desktop app](#desktop-app)), which the
+suffixed-home line `AppData/Local/hermes?*` reaches, is excluded.
 
 `state-snapshots/` and `backups/` hold older copies of `state.db`, so they may be the only record of
 a deleted or pruned session ([What survives a delete](#what-survives-a-delete)). The catalog

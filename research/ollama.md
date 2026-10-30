@@ -239,8 +239,18 @@ The desktop app's code is under `app/`.
   [`cmd/cmd.go:1012-1026`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/cmd/cmd.go#L1012-L1026));
   no token file is written. `id_ed25519.pub` identifies the device.
 - No keychain use anywhere in the tree (grep `keychain|Keychain` in cmd, auth, server, app: none).
-- `~/.ollama/config.json`, `server.json`, `~/.ollama/backup/*` can contain copies of other tools'
-  settings files (which may embed API keys) but hold no Ollama secret themselves.
+- `~/.ollama/config.json` and `server.json` hold no Ollama secret. `~/.ollama/backup/*` holds
+  copies of other tools' settings files, which can hold API keys, and
+  `launch/muse-config/muse/settings.json` is a copy of Muse's flagged `settings.json`
+  ([Launch state](#launch-state)); both are flagged (`.ollama/backup/*`,
+  `.ollama/launch/muse-config/muse/settings.json`). The Docker image starts the server
+  ([`Dockerfile:341-342`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/Dockerfile#L341-L342))
+  but ships the CLI, which the documentation runs with `docker exec`
+  ([`docs/docker.mdx:89`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/docs/docker.mdx#L89)),
+  and `ollama launch` offers to install a missing integration
+  ([`cmd/launch/muse.go:69`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/cmd/launch/muse.go#L69)),
+  so both copies can land in `/root/.ollama`, the volume; the volume-relative `backup/*` and
+  `launch/muse-config/muse/settings.json` flag them there.
 - `db.sqlite` holds the account's identity and user-uploaded files; the columns are in
   [Secrets](#secrets).
 - `ollama launch chatgpt` creates `~/.codex/auth.json` when none exists, holding the fixed sentinel
@@ -259,8 +269,9 @@ The desktop app's code is under `app/`.
   `manifests-v2/` since [`6787222`](https://github.com/ollama/ollama/commit/678722224b3d8c2a024a4fa5f530d83ce34db120)), small JSON files whose names and pre-copy times are an
   inventory of the pulled models and when each tag was pulled, and `metadata/*.json`, one small
   file per blob ([Per-user storage](#per-user-storage)).
-- `AppData/Local/Ollama/updates`, `Library/Caches/ollama`, `Library/Caches/com.electron.ollama`.
-  `Library/WebKit/com.electron.ollama` is outside every catalog line, so it needs no exclusion.
+- `AppData/Local/Ollama/updates`. `Library/Caches/ollama`, `Library/Caches/com.electron.ollama`
+  and `Library/WebKit/com.electron.ollama` are outside every catalog line, so they are not
+  collected and need no exclusion.
 - Docker volumes: the volume-relative exclusion is `models`, whole, so a Docker Ollama volume's
   `models/manifests` is not collected
   ([`collectors/docs/coverage.md`](../collectors/docs/coverage.md)).

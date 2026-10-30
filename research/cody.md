@@ -223,8 +223,8 @@ The project-level files are in [Project-local files](#project-local-files).
   ([`vscode/src/chat/chat-view/tools/MCPManager.ts:31-43`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/chat/chat-view/tools/MCPManager.ts#L31-L43)).
   The JetBrains `options/cody.xml`, `~/.sourcegraph/cody_settings.json` and a project's
   `.idea/.sourcegraph/cody_settings.json` are therefore secret globs, like `cody_accounts.xml`;
-  the editor's `settings.json` is shared with the editor's own state and stays a key-level
-  redaction entry.
+  the editor's `settings.json` is shared with the editor's own state and is redacted by key
+  ([Secrets](#secrets)).
 
 ### Exclusions
 
@@ -528,7 +528,9 @@ The access token is not in the history; it is in SecretStorage. Do not treat
 `SOURCEGRAPH_CODY_ENDPOINT` as a secret: it is a URL, and the extension refuses to save a token
 there
 ([`LocalStorageProvider.ts:92-100`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/services/LocalStorageProvider.ts#L92-L100)).
-`contextFiles[].content` and `tool_result.content` carry file and command output.
+`contextFiles[].content` and `tool_result.content` carry file and command output. In the
+editor's `User/settings.json`, redact the `headers` and `env` values of each
+`cody.mcpServers.<server>` entry.
 
 ### Parser plan
 

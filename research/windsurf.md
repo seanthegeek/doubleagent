@@ -94,7 +94,9 @@ Central Codeium dir `~/.codeium/` on every OS (FAQ: "not changing in this releas
 Devin CLI / local agent: `~/.config/devin/mcp_config.json` (`$XDG_CONFIG_HOME/devin/`),
 `%APPDATA%\devin\mcp_config.json` (docs cascade/mcp); `~/.local/share/devin/credentials.toml`
 (`$XDG_DATA_HOME/devin/`), `%APPDATA%\devin\credentials.toml` (cli/reference/commands; codenotch
-`:23-26`). Its session store was not found in docs.
+`:23-26`). Its session store was not found in docs. On a case-insensitive disk `%APPDATA%\devin`
+is the same directory as the Devin IDE's `%APPDATA%\Devin`, so the catalog names the CLI's
+`mcp_config.json` and `credentials.toml` there rather than the directory.
 
 #### System-level files
 
@@ -125,8 +127,9 @@ Env: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `WINDSURF_API_KEY` (docs).
 `.codeium/windsurf/bin`, `.codeium/bin`, `.codeium/*/bin` (binaries, FAQ), `.codeium/ws-browser`,
 `.codeium/ws-browser-profile` (embedded Chromium, AgentSweep 1078-1085),
 `.codeium/windsurf/implicit` (an earlier finding: a multi-GB embedding cache; AgentSweep lists it
-unclassified), `.windsurf/extensions`, `.devin/extensions`, `AppData/Local/devin/bin`. The
-top-level `.codeium/implicit`, which AgentSweep also lists, is not excluded and is collected with
+unclassified), `.windsurf/extensions`, `.devin/extensions`. `AppData/Local/devin/bin` is outside
+every catalog line, so it is not collected and needs no exclusion. The top-level
+`.codeium/implicit`, which AgentSweep also lists, is not excluded and is collected with
 `.codeium`. Keep `database`, `code_tracker`, `codemaps`, `brain`, `memories`, `cascade`.
 
 ### Project-local files

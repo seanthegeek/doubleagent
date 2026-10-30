@@ -126,15 +126,21 @@ Env relocation: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `AMP_HOME`
 - `~/.amp/oauth/*-client.json`: OAuth client info; `clientSecret` is stripped to secret storage
   before writing (`let{clientSecret:t,...r}=e`). (B)
 - `~/.local/share/amp/ide/*` IDE connection records include `authToken`. (B)
-- `settings.json` can embed MCP server `env`/headers (`amp.mcpServers`, `customize_mcp.md:244-245`).
+- `settings.json` can embed MCP server `env`/headers (`amp.mcpServers`, `customize_mcp.md:244-245`),
+  so `settings.json` and its `settings.jsonc` fallback are flagged (`.config/amp/settings.json*`).
+  A project's `.amp/settings.json` is the workspace scope of the same `amp.mcpServers` setting,
+  whose servers need approval before they run (D
+  [Amp MCP documentation](https://ampcode.com/docs/markdown/customize/mcp#mcp-loading-order), fetched 2026-10-29,
+  `customize/mcp.md:333,341`), so `.amp/settings.json*` flags it too.
   `AMP_API_KEY` env var.
 - No `secrets.json` under `.config/amp` occurs anywhere in the binary; the file fallback is the
   data directory's.
 
 ### Exclusions
 
-`.cache/amp/runner-desktop`, `.cache/amp/desktop`, `.cache/amp/bin`, `.cache/amp/obelisk-runs`,
-`.cache/amp/pids`, `.amp/bin`, `AppData/Local/amp/bin`.
+`.amp/bin`. The catalog reaches only `logs` and `terminal` under `.cache/amp` and only `logs`
+under `AppData/Local/amp`, so `.cache/amp/runner-desktop`, `desktop`, `bin`, `obelisk-runs` and
+`pids`, and `AppData/Local/amp/bin`, are not collected and need no exclusion.
 
 ### Project-local files
 

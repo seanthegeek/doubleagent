@@ -250,7 +250,8 @@ System-wide managed config, outside home: `/Library/Application Support/opencode
 - `opencode*.db*`: table `credential` with JSON `value` column
   ([`packages/core/src/credential/sql.ts:5-14`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/core/src/credential/sql.ts#L5-L14)),
   so the transcript database is also a secret store.
-- `opencode.json(c)` / `config.json` in both config dirs can carry `provider.<id>.options.apiKey`
+- `opencode.json(c)` / `config.json` in both config dirs, and a project's `opencode.json(c)` at
+  its root and in `.opencode/`, are flagged: they can carry `provider.<id>.options.apiKey`
   ([`packages/opencode/src/provider/provider.ts:229`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/provider/provider.ts#L229),[`352`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/provider/provider.ts#L352)).
 - No keychain use found.
 - On the 2.0 line, `~/.config/opencode/service.json` (or `service-<channel>.json`), written mode

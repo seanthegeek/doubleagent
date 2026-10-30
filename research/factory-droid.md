@@ -93,15 +93,18 @@ All under `~/.factory/` (B, class `Ne`, `IH()` maps list `Uf` onto `join(home,".
   fallback file").
 - `settings.json`/`settings.local.json`/`config.json`: `customModels[].apiKey` may be literal or
   `${VAR}` (D `byok.md:20-46`); `mcp.json` headers/`oauth.clientSecret` (D `harness_mcp.md:180`).
-  `FACTORY_API_KEY` env var.
-- `temp/env/*.sh` dumps process environment (may include keys).
+  `settings.json`, `settings.local.json`, `config.json` and `mcp.json` are flagged, in
+  `~/.factory/` and in a project's `.factory/`. `FACTORY_API_KEY` env var.
+- `temp/env/*.sh` dumps process environment (may include keys); flagged by `.factory/temp/env/*`,
+  which the narrower `temp` exclusion of [Exclusions](#exclusions) leaves reachable.
 
 ### Exclusions
 
 `.factory/updates`, `.factory/bin`, `.factory/tools`, `.factory/snapshots`, `.factory/worktrees`,
 `.factory/generated-images`, `.factory/cache/sounds`, `.factory/software-factory/*/*/repos`,
-`.factory/software-factory/*/*/worktrees`, `.factory/temp` (see [Credentials](#credentials) on
-`temp/env`).
+`.factory/software-factory/*/*/worktrees`, and every entry of `.factory/temp` whose name does not
+start with `e` (`.factory/temp/[!e]*`), so `temp/env` is collected and flagged
+([Credentials](#credentials)).
 
 ### Project-local files
 

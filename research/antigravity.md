@@ -893,7 +893,8 @@ unknown.
 - `GEMINI_API_KEY` with `modelProvider: "gemini"` in `settings.json`
   (binary changelog; docs/cli/install); the key is env-only.
 - `~/.gemini/config/mcp_config.json` can embed MCP `env` and `headers`
-  (binary `McpStdioTransport.EnvEntry`, `McpHttpTransport.HeadersEntry`).
+  (binary `McpStdioTransport.EnvEntry`, `McpHttpTransport.HeadersEntry`), so
+  `.gemini/config/mcp_config.json` flags it.
 - The Electron user-data directory's `Cookies` (SQLite, 0 rows on the
   macOS install, 20,480 B on Linux and Windows, where it is
   `Network\Cookies`), `Trust Tokens` (Chromium's store for

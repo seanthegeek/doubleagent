@@ -416,7 +416,16 @@ The bundle
   `GITHUB_PERSONAL_ACCESS_TOKEN`, a 33-character GitHub personal access token in plain text, written
   when the user added the server from Copilot Desktop's settings; `.copilot/mcp-config.json` is a
   secret glob. `settings.json`
-  `sandbox.userPolicy.network.proxy.password`.
+  `sandbox.userPolicy.network.proxy.password`; `.copilot/settings.json` is flagged.
+- `mcp-secrets/`, the local fallback store for MCP secret placeholders
+  ([Inside `~/.copilot`](#inside-copilot)), is flagged
+  (`.copilot/mcp-secrets/*`).
+- The pre-migration copies under `~/.config/.copilot` of `config.json`, `mcp-config` and
+  `mcp-oauth-config` are flagged like the `~/.copilot` ones (`.config/.copilot/config.json`,
+  `.config/.copilot/mcp-config*`, `.config/.copilot/mcp-oauth-config*`).
+- A project's `.github/copilot/settings.json`, `.github/copilot/settings.local.json`,
+  `.github/mcp.json` and `.mcp.json` ([Project-local files](#project-local-files)) can hold
+  MCP server `env` and `headers` values and are flagged.
 - The CLI does not use `~/.config/github-copilot/{hosts,apps}.json` (no hit in app.js, native or
   runtime).
 

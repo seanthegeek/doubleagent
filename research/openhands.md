@@ -292,14 +292,16 @@ in Canvas-in-Docker, everything except `~/.openhands` and `PROJECTS_PATH`.
   at
   [`0403f1a`](https://github.com/OpenHands/OpenHands-CLI/commit/0403f1a79a9fc62a6c7be21c17d7b51f64245ad2)),
   flagged by the `.openhands/cloud/*` secret glob;
-  `mcp.json` holds MCP server definitions, which may embed keys.
+  `mcp.json` holds MCP server definitions, which may embed keys; it is flagged.
 - Legacy: `.jwt_secret` and `.keys` in the root
   ([`openhands/app_server/utils/encryption_key.py:51-57`](https://github.com/OpenHands/OpenHands/blob/11ca68ab2e15dcd85c21e4d7d3409e7a259369ac/openhands/app_server/utils/encryption_key.py#L51-L57);
   [`openhands/core/config/utils.py:35`](https://github.com/OpenHands/OpenHands/blob/7fbb48c40679afd674970966b96185657d92a487/openhands/core/config/utils.py#L35)).
 - A conversation driving Codex through ACP reads `~/.codex/auth.json`
   ([`openhands-sdk/openhands/sdk/agent/acp_file_credentials.py:32`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-sdk/openhands/sdk/agent/acp_file_credentials.py#L32),[`65-68`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-sdk/openhands/sdk/agent/acp_file_credentials.py#L65-L68));
   older conversations may hold `acp/codex/auth.json` in their own directory
-  ([`event_service.py:338-339`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-agent-server/openhands/agent_server/event_service.py#L338-L339)).
+  ([`event_service.py:338-339`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-agent-server/openhands/agent_server/event_service.py#L338-L339)),
+  flagged by `.openhands/*/acp/codex/auth.json` and, in a volume,
+  `conversations/*/acp/codex/auth.json` and `agent-canvas/*/acp/codex/auth.json`.
 - Agent Canvas Electron app: `<user data directory>/mars-credentials.json`, the
   DigitalOcean connections (`connections[]` with `kind` `oauth` or `pat`, `label`, `teamName`,
   `expiresAt` and the token, and a `deviceId`); only the token is encrypted, with Electron

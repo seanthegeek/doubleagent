@@ -652,7 +652,7 @@ agent state that can be read with grep, and from every `-p` directory.
 | Continue | Sessions. |
 | Copilot CLI | Session workspaces (`workspace.yaml` `cwd`) of sessions that have an `events.jsonl`. |
 | Copilot Desktop | None of its own: its sessions are Copilot CLI session workspaces, and a `cwd` under the home's `.copilot/` (the app's chat directories and worktrees) is skipped there, as is the `cwd` of a session directory with no `events.jsonl` (a pool or probe session the app pre-created and never prompted, whose `cwd` on Windows is the app's install directory; from collector 1.13.0); the repositories it manages are in `data.db`, left to the analyzer. |
-| Crush | Project list. |
+| Crush | Project list, `.local/share/crush/projects.json` and, from collector 1.20.0, the Windows `AppData/Local/crush/projects.json`, whose `C:\` paths only the PowerShell collector maps into the image; the sh collector uses the `/` paths it holds. |
 | Cursor CLI | Chat and ACP session metadata. |
 | Factory Droid | Sessions. |
 | Gemini CLI | Project registry, trusted folders and project root markers. |
@@ -1016,7 +1016,16 @@ the full pattern list.
 - **Config files that commonly embed API keys or MCP server environments:**
   Continue's `config.yaml`, Zed's `settings.json`, Crush's `crush.json`,
   Claude Code's `.claude.json`, Claude Desktop's
-  `claude_desktop_config.json`, Kiro powers' `mcp.json`.
+  `claude_desktop_config.json`, Kiro powers' `mcp.json`; from collector
+  1.20.0 also Claude Code's and Gemini CLI's `settings.json` in the home and
+  in a project, a project's `.mcp.json`, `.vscode/mcp.json` and root
+  `opencode.json`, Hermes' `config.yaml` in a home, profile or volume, the
+  MCP settings files of Antigravity, Cline and little-coder in the home and
+  Langflow's in the home and in a volume, those of Amp, Roo Code, Factory
+  Droid, Kiro, Copilot CLI and CLAI in the home and in a project, a
+  project's Crush `crushrc`, `.crushrc`, `crush.json` and `.crush.json`, and
+  Ollama's copies of other agents' settings files (`backup/` and the Muse
+  `settings.json` copy) in the home and in a volume.
 - **Electron `Local State` files** that hold the key for encrypted token
   caches.
 - **Desktop connection files:** the Hermes desktop app's `connection.json`
@@ -1106,6 +1115,10 @@ row of an editor's `User/workspaceStorage/<hash>/state.vscdb` and the CLI's
 unflagged; the key to redact is `roo.retryQueue[].options.headers.Authorization`,
 a bearer token. The same releases' CLI saved its cloud token in
 `~/.roo/cli-credentials.json`, which is flagged.
+The VS Code family's `User/settings.json` holds every editor setting, so it
+is collected unflagged; the keys to redact are `twinny.githubToken`, the
+`env` values of `twinny.chatToolsMcpServers` entries and the `headers` and
+`env` values of `cody.mcpServers` entries.
 A project's `.git/config` is collected unflagged and can hold a token
 inside a remote URL; see [Git metadata](#git-metadata).
 

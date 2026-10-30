@@ -186,8 +186,12 @@ and `AUTO_LOGIN` (signing in without a password) now defaults to `False` in rele
   OS's location and at the root of a `*langflow-data` volume: flagged.
 - The Desktop `data/.env` (macOS `.langflow/data/.env`, Windows
   `AppData/Roaming/com.LangflowDesktop/data/.env`): flagged.
-- `_mcp_servers_*.json` may embed environment values for MCP servers; not
-  flagged.
+- `<user_id>/_mcp_servers_*.json` may embed environment values for MCP
+  servers: flagged in the platformdirs cache directory that serves as the
+  config directory on each OS and, as `[0-9a-f]*-*-*-*-*/_mcp_servers_*.json`,
+  in a volume: the user id that names the
+  directory is a UUID
+  ([user/model.py:29](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/backend/base/langflow/services/database/models/user/model.py#L29)).
 
 ### Exclusions
 

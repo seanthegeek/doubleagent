@@ -178,6 +178,10 @@ history) is in [What survives a delete](#what-survives-a-delete).
 - `~/.little-coder/config.json` of the v0.0.x Python releases holds a GitHub token, a Telegram bot
   token and provider API keys ([Secrets](#secrets) names the keys); secret glob
   `.little-coder/config.json` from collector 1.14.0.
+- `~/.little-coder/mcp.json` of the same releases takes MCP servers in Claude Code's `.mcp.json`
+  format, an SSE server with `headers` such as `Authorization: Bearer`
+  ([mcp/config.py:1-21](https://github.com/itayinbarr/little-coder/blob/424f7a4b9f9214a36a6bcb69e1f3435ca3e68d03/mcp/config.py#L1-L21)); flagged
+  (`.little-coder/mcp.json`).
 - No keychain use.
 
 ### Exclusions

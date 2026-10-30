@@ -530,7 +530,8 @@ The same `rjmacarthy.twinny` JSON holds `twinny.inference-providers` and the
 Redact `apiKey` wherever it appears in the value. `twinny.chatgpt-plan.profile` names the signed-in
 OpenAI account (`email`, `subject`, `name`) and is an identity value to redact; the parser never
 reads it. Gateway tokens and P2P seeds are separate encrypted `secret://`
-rows.
+rows. In the editor's `User/settings.json`, redact `twinny.githubToken` and the `env` values of
+each `twinny.chatToolsMcpServers` entry.
 
 ### Parser plan
 
