@@ -11,7 +11,7 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
 1. `builder-provenance-missing`: a public builder (`is_public_builder`) whose docstring has no
    line `source_line` accepts, naming an agent document and one of its heading anchors.
 2. `module-provenance-missing`: a fixture module whose docstring does not name
-   `research/<agent>.md` for its own agent.
+   `research/<agent>.md` for its own agent as a whole path token (`names_document`).
 3. `key-undocumented`: a dict key, SQLite table or column name, or YAML or TOML key that is
    a field name (`is_field_name`) in a file of an agent and is not documented;
    `file-unclaimed`: a file no catalog entry claims (`claiming_agent`).
@@ -72,6 +72,8 @@ SOURCE_LINE = re.compile(
     r"^Source: research/(?P<agent>[a-z0-9][a-z0-9._-]*)\.md#(?P<anchor>[^\s;]+); "
     r"(?:build|source) (?P<token>\S+)$"
 )
+# A character a path holds, so one beside `research/<agent>.md` makes it part of a longer path.
+PATH_CHARACTER = r"[A-Za-z0-9_/\\-]"
 RESEARCH_DOCUMENT = re.compile(r"research/([a-z0-9][a-z0-9._-]*)\.md")
 CODE_SPAN = re.compile(r"`([^`]+)`")
 # A docstring line opening with a label of its own, such as `Source:` or `Lineage:`.
@@ -136,6 +138,19 @@ def module_agent(stem: str, docstring: str, documents: set[str]) -> str:
     if hyphenated not in documents and shorter in documents:
         return shorter
     return hyphenated
+
+
+def names_document(docstring: str, agent: str) -> bool:
+    """Return whether a docstring names `research/<agent>.md` as a whole path token.
+
+    The token is bounded by characters no path holds (`PATH_CHARACTER`): no `.` before it, and
+    one after it only when no path character follows, so `research/foo-bar.md` and
+    `old-research/bar.md` do not name `bar`'s document, while `(research/bar.md).` does.
+    """
+    token = re.escape("research/%s.md" % agent)
+    path = PATH_CHARACTER
+    bounded = r"(?<!%s)(?<!\.)%s(?!%s|\.%s)" % (path, token, path, path)
+    return re.search(bounded, docstring) is not None
 
 
 def declared_paths(docstring: str) -> list[str]:
@@ -329,7 +344,7 @@ def provenance_findings(
 ) -> Iterator[drift_common.Finding]:
     """Yield the module's `module-provenance-missing` and `builder-provenance-missing` findings."""
     relative = module.path.relative_to(root).as_posix()
-    if "research/%s.md" % module.agent not in module.docstring:
+    if not names_document(module.docstring, module.agent):
         yield drift_common.Finding(
             module.agent, "module-provenance-missing", module.stem, relative, 1
         )

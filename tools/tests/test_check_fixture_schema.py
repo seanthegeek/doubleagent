@@ -260,6 +260,17 @@ def test_module_provenance_missing(tmp_path):
     assert ("gamma", "module-provenance-missing", "gamma") not in found
 
 
+def test_module_provenance_needs_the_whole_document_path(tmp_path):
+    for named, expected in (("research/alpha.md.", False), ("old-research/alpha.md.", True)):
+        root = make_repository(tmp_path / named)
+        module = root / "analyzer/tests/fixtures/alpha.py"
+        text = module.read_text(encoding="utf-8")
+        module.write_text(text.replace("its document not named.", named), encoding="utf-8")
+        with contextlib.redirect_stderr(io.StringIO()):
+            found = {(finding.agent, finding.kind) for finding in checker.run(root)}
+        assert (("alpha", "module-provenance-missing") in found) is expected, named
+
+
 def test_key_undocumented(tmp_path):
     found = findings_of(tmp_path)
     for key in ("strayKey", "yamlStray", "tomlStray", "tomlTable", "zstdStray", "strayColumn"):
@@ -445,6 +456,28 @@ def test_module_agent_forms():
     )
     assert checker.module_agent("zed", "State of research/missing.md.", documents) == "zed"
     assert checker.module_agent("kilo_code", "", documents) == "kilo-code"
+
+
+def test_names_document_forms():
+    named = (
+        ("Built from research/bar.md.", "bar"),
+        ("See `research/bar.md#record-schema`.", "bar"),
+        ("(research/bar.md)", "bar"),
+        ("Built from research/foo-bar.md.", "foo-bar"),
+    )
+    unnamed = (
+        ("Built from research/foo-bar.md.", "bar"),
+        ("Built from research/foo-bar.md.", "foo"),
+        ("Built from old-research/bar.md.", "bar"),
+        ("Built from .research/bar.md.", "bar"),
+        ("Built from research/bar.mdx.", "bar"),
+        ("Built from research/bar.md.bak.", "bar"),
+        ("Built from research/bar.md/notes.", "bar"),
+    )
+    for docstring, agent in named:
+        assert checker.names_document(docstring, agent), (docstring, agent)
+    for docstring, agent in unnamed:
+        assert not checker.names_document(docstring, agent), (docstring, agent)
 
 
 def test_declared_paths_forms():
