@@ -41,6 +41,9 @@ ignore = [
 [lint.per-file-ignores]
 # Test methods and functions are named for what they prove, so need no docstring.
 "analyzer/tests/*.py" = ["D102", "D103", "D105", "D107"]
+# The fixtures package re-exports every agent module's builders and values so
+# the tests import them from one name; an __all__ would repeat the list.
+"analyzer/tests/fixtures/__init__.py" = ["F401"]
 # These parsers define a small row-building closure inside the record loop
 # and call it only within the iteration that defined it (the row is built
 # before the generator yields), so late binding of the loop variables

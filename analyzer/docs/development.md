@@ -42,7 +42,7 @@ and the Continue builders in `continue_dev.py`, since `continue` is a
 Python keyword; the helpers they share are in `tests/fixtures/common.py`.
 `tests/fixtures/__init__.py` imports and re-exports every builder and
 value, so a test imports them with `from fixtures import ...` and a new
-name is added to its import list and `__all__`; it also holds `build_home`,
+name is added to its import list; it also holds `build_home`,
 which runs the per-agent builders listed in `HOME_BUILDERS`, in order, to
 write one user's home.
 
@@ -226,7 +226,7 @@ version bump and the lists to update, is "Adding a parser" in
    read a file the catalog attributes to another agent sets `reads_agents`.
 4. Add fixture records to `tests/fixtures/<agent>.py`, with the home
    builder in `HOME_BUILDERS` of `tests/fixtures/__init__.py` and each new
-   name in that file's imports and `__all__`, and a test class to
+   name in that file's imports, and a test class to
    `tests/parsers/test_<parser>.py`. Then change the agent's row in the
    [agents page](../../docs/agents.md) to `parsed`, and move
    its subsection to [Parsed agents](../../docs/agents.md#parsed-agents) with the
