@@ -278,7 +278,8 @@ A host that never ran doctor after upgrading keeps its state in `~/.clawdbot`, w
 tool ignores. `~/.moltbot` and `moltbot.json` detection was removed
 ([`CHANGELOG/2026.2.13.md:119`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/CHANGELOG/2026.2.13.md#L119),
 [`CHANGELOG/2026.3.22.md:13`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/CHANGELOG/2026.3.22.md#L13)),
-so a `~/.moltbot` on an old host is orphaned state. `CLAWDBOT_*` and `MOLTBOT_*` environment
+so a `~/.moltbot` on an old host is orphaned state; both legacy directories can hold a `.env`
+([Credentials](#credentials)). `CLAWDBOT_*` and `MOLTBOT_*` environment
 variables only draw a warning
 ([`gateway/server-runtime-config.ts:45-47`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/gateway/server-runtime-config.ts#L45-L47)).
 
@@ -355,6 +356,18 @@ state directory form, `.openclaw-<profile>` and the legacy `.clawdbot` included.
   and the browser relay secret `.openclaw/credentials/browser-extension-relay.secret`
   ([`relay-auth.ts:21`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/extensions/browser/src/browser/extension-relay/relay-auth.ts#L21),
   [`:44`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/extensions/browser/src/browser/extension-relay/relay-auth.ts#L44)).
+- Legacy state directories keep the credential files of the build that wrote them. Clawdbot
+  builds read `.clawdbot/.env`, the state directory's env file, and keep their config in
+  `.clawdbot/clawdbot.json`
+  ([`src/utils.ts:214-221` at `2026.1.24`](https://github.com/openclaw/openclaw/blob/bcedeb4e1f620a50b6e99f1e2b25cc692f0d7bab/src/utils.ts#L214-L221);
+  [`src/infra/dotenv.ts:14-16` at `2026.1.24`](https://github.com/openclaw/openclaw/blob/bcedeb4e1f620a50b6e99f1e2b25cc692f0d7bab/src/infra/dotenv.ts#L14-L16)).
+  Moltbot builds read `.moltbot/.env` when `~/.moltbot` exists and `~/.clawdbot` does not, else
+  `.clawdbot/.env`, and keep their config in `.moltbot/moltbot.json` or `.clawdbot/moltbot.json`
+  ([`src/utils.ts:214-230` at `2026.1.29` Moltbot](https://github.com/openclaw/openclaw/blob/cb4b3f74b54227e5d7d2d4700d5a7a3c0a8a5e8f/src/utils.ts#L214-L230);
+  [`src/infra/dotenv.ts:14-16`](https://github.com/openclaw/openclaw/blob/cb4b3f74b54227e5d7d2d4700d5a7a3c0a8a5e8f/src/infra/dotenv.ts#L14-L16);
+  [`src/config/paths.ts:19-29`](https://github.com/openclaw/openclaw/blob/cb4b3f74b54227e5d7d2d4700d5a7a3c0a8a5e8f/src/config/paths.ts#L19-L29),
+  [`:75-83`](https://github.com/openclaw/openclaw/blob/cb4b3f74b54227e5d7d2d4700d5a7a3c0a8a5e8f/src/config/paths.ts#L75-L83)).
+  Each holds what its `.openclaw` counterpart holds.
 - `.openclaw/.env`, and `.config/openclaw/gateway.env` when the state directory is the default
   ([`infra/dotenv-global-core.ts:168-185`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/infra/dotenv-global-core.ts#L168-L185);
   [`docs/help/environment.md:27`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/help/environment.md#L27)).
