@@ -6,7 +6,6 @@ check_fixture_schema|enum-undocumented|source=always_allow
 check_fixture_schema|enum-undocumented|type=addRules
 check_fixture_schema|key-undocumented|appliedId
 check_fixture_schema|key-undocumented|autoModeEnabled
-check_fixture_schema|key-undocumented|brave-otter
 check_fixture_schema|key-undocumented|chatTabEnabled
 check_fixture_schema|key-undocumented|clipboardRead
 check_fixture_schema|key-undocumented|coworkEgressAllowedHosts
@@ -14,7 +13,6 @@ check_fixture_schema|key-undocumented|deploymentDisplayName
 check_fixture_schema|key-undocumented|disableDeploymentModeChooser
 check_fixture_schema|key-undocumented|disableEssentialTelemetry
 check_fixture_schema|key-undocumented|disableNonessentialTelemetry
-check_fixture_schema|key-undocumented|github:create_issue
 check_fixture_schema|key-undocumented|humanTurn
 check_fixture_schema|key-undocumented|inferenceGatewayApiKey
 check_fixture_schema|key-undocumented|inferenceGatewayAuthScheme

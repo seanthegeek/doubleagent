@@ -11,7 +11,6 @@ check_fixture_schema|enum-undocumented|type=image_url
 check_fixture_schema|key-undocumented|access_token
 check_fixture_schema|key-undocumented|api_call_count
 check_fixture_schema|key-undocumented|image_url
-check_fixture_schema|key-undocumented|nous
 check_fixture_schema|key-undocumented|providers
 check_fixture_schema|module-provenance-missing|hermes
 check_parser_research|key-undocumented|key

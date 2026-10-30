@@ -7,12 +7,10 @@ check_fixture_schema|key-undocumented|Cwd
 check_fixture_schema|key-undocumented|builtin
 check_fixture_schema|key-undocumented|description
 check_fixture_schema|key-undocumented|display_name
-check_fixture_schema|key-undocumented|gdocs
 check_fixture_schema|key-undocumented|installedFrom
 check_fixture_schema|key-undocumented|isWorkspaceOnly
 check_fixture_schema|key-undocumented|marketplace
 check_fixture_schema|key-undocumented|restart_policy
-check_fixture_schema|key-undocumented|weekly-check
 check_fixture_schema|module-provenance-missing|antigravity
 check_fixture_schema|substitution-undeclared|/home/u/proj
 check_parser_research|key-undocumented|absolute_path_migrate_me_to_uri

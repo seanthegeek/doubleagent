@@ -12,7 +12,6 @@ check_fixture_schema|key-undocumented|messageId
 check_fixture_schema|key-undocumented|output
 check_fixture_schema|key-undocumented|promptTokenCount
 check_fixture_schema|key-undocumented|started_at
-check_fixture_schema|key-undocumented|telegram:-1001234
 check_fixture_schema|key-undocumented|titleSource
 check_fixture_schema|key-undocumented|totalTokenCount
 check_fixture_schema|module-provenance-missing|qwen_code

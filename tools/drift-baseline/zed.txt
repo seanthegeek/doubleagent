@@ -1,4 +1,3 @@
-check_fixture_schema|key-undocumented|toolu_01
 check_fixture_schema|module-provenance-missing|zed
 check_fixture_schema|substitution-undeclared|/private/var/folders/xy/abc/T/zed-agent-terminal-Ab12Cd
 check_fixture_schema|substitution-undeclared|/srv/worktrees/fix-tests/proj

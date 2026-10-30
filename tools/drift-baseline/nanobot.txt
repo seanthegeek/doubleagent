@@ -5,9 +5,7 @@ check_fixture_schema|key-undocumented|ABCD-EFGH
 check_fixture_schema|key-undocumented|apiKey
 check_fixture_schema|key-undocumented|enabled
 check_fixture_schema|key-undocumented|opaque
-check_fixture_schema|key-undocumented|openai
 check_fixture_schema|key-undocumented|prompt_ref
-check_fixture_schema|key-undocumented|sendProgress
 check_fixture_schema|key-undocumented|timeout
 check_fixture_schema|key-undocumented|token
 check_fixture_schema|key-undocumented|turn_count

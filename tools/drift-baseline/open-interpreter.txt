@@ -4,7 +4,6 @@ check_fixture_schema|cross-agent-builder|codex_log_rows
 check_fixture_schema|cross-agent-builder|write_codex_logs
 check_fixture_schema|cross-agent-builder|write_codex_state
 check_fixture_schema|cross-agent-builder|write_thread_history
-check_fixture_schema|key-undocumented|OPENAI_API_KEY
 check_fixture_schema|key-undocumented|estimated_bytes
 check_fixture_schema|key-undocumented|final_agent_item_id
 check_fixture_schema|key-undocumented|first_user_item_id

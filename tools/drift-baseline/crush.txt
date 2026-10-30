@@ -1,7 +1,6 @@
 check_fixture_schema|builder-provenance-missing|crush_hyper_records
 check_fixture_schema|builder-provenance-missing|crush_permission_records
 check_fixture_schema|builder-provenance-missing|crush_records
-check_fixture_schema|key-undocumented|anthropic
 check_fixture_schema|key-undocumented|last_accessed
 check_fixture_schema|module-provenance-missing|crush
 check_parser_research|docstring-fact-undocumented|mcp_disabled_servers.name

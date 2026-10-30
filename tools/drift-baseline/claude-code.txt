@@ -18,11 +18,9 @@ check_fixture_schema|builder-provenance-missing|claude_work_history_records
 check_fixture_schema|builder-provenance-missing|claude_work_records
 check_fixture_schema|enum-undocumented|level=suggestion
 check_fixture_schema|enum-undocumented|status=busy
-check_fixture_schema|key-undocumented|Authorization
 check_fixture_schema|key-undocumented|atis
 check_fixture_schema|key-undocumented|humanTurn
 check_fixture_schema|key-undocumented|isSnapshotUpdate
-check_fixture_schema|key-undocumented|toolu_95
 check_fixture_schema|key-undocumented|verdict
 check_fixture_schema|module-provenance-missing|claude_code
 check_fixture_schema|sample-equals-builder|.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl

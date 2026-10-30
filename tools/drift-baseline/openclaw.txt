@@ -11,8 +11,6 @@ check_fixture_schema|enum-undocumented|type=oauth
 check_fixture_schema|enum-undocumented|type=trace
 check_fixture_schema|key-undocumented|access
 check_fixture_schema|key-undocumented|addedAt
-check_fixture_schema|key-undocumented|agent:main:telegram:default:direct:123456789
-check_fixture_schema|key-undocumented|anthropic:default
 check_fixture_schema|key-undocumented|archive_bytes
 check_fixture_schema|key-undocumented|archive_sha256
 check_fixture_schema|key-undocumented|c1

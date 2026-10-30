@@ -5,8 +5,6 @@ check_fixture_schema|builder-provenance-missing|goose_llm_request_records
 check_fixture_schema|builder-provenance-missing|goose_permission_records
 check_fixture_schema|builder-provenance-missing|goose_records
 check_fixture_schema|builder-provenance-missing|goose_streamed_llm_records
-check_fixture_schema|key-undocumented|ANTHROPIC_API_KEY
-check_fixture_schema|key-undocumented|GOOSE_PROVIDER
 check_fixture_schema|key-undocumented|command
 check_fixture_schema|module-provenance-missing|goose
 check_fixture_schema|sample-equals-builder|.local/share/goose/sessions/20260301_090000.jsonl

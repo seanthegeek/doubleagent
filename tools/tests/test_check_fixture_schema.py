@@ -590,6 +590,36 @@ def test_is_field_name_forms():
         assert not checker.is_field_name(key), key
 
 
+def test_is_field_name_data_key_forms():
+    for key in ("GITHUB_TOKEN", "ANTHROPIC_API_KEY", "github:create_issue", "toolu_01"):
+        assert not checker.is_field_name(key), key
+    for key in ("msg_01abc", "call_x"):
+        assert not checker.is_field_name(key), key
+    for container in ("env", "headers", "mcpServers", "sessions", "worktrees", "sidecars"):
+        assert not checker.is_field_name("brave-otter", container), container
+        assert not checker.is_field_name("weekly-check", container), container
+    for key, container in (("command", "github"), ("Id", ""), ("ID", ""), ("message", "")):
+        assert checker.is_field_name(key, container), (key, container)
+    assert checker.is_field_name("sessionId", "session")
+
+
+def test_walk_names_the_container_of_each_key():
+    record = {
+        "mcpServers": {"github": {"command": "x", "env": {"GITHUB_TOKEN": "y"}}},
+        "items": [{"type": "a"}],
+    }
+    found = [(key, container) for key, _, in_list, container in checker.walk(record) if not in_list]
+    assert found == [
+        ("mcpServers", ""),
+        ("github", "mcpServers"),
+        ("command", "github"),
+        ("env", "github"),
+        ("GITHUB_TOKEN", "env"),
+        ("items", ""),
+        ("type", ""),
+    ]
+
+
 def test_claiming_agent_forms():
     catalog = drift_common.catalog_module().parse(CATALOG_TEXT)
     assert checker.claiming_agent(".alpha/x.json", catalog) == "alpha"

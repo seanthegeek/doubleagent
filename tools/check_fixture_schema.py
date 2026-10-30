@@ -85,6 +85,16 @@ TOML_PART = re.compile(r""""([^"]*)"|'([^']*)'|([A-Za-z0-9_-]+)""")
 SPAN_TOKEN = re.compile(r"[A-Za-z0-9_$@.:/-]+")
 FIELD_NAME = re.compile(r"^[A-Za-z_$@][A-Za-z0-9_$@.:-]{0,63}$")
 HEX_ID = re.compile(r"^[0-9a-fA-F]{8,}(?:-[0-9a-fA-F]{4,})*$")
+ENVIRONMENT = re.compile(r"^[A-Z][A-Z0-9_]{2,}$")
+DATA_KEY_PREFIXES = ("toolu_", "msg_", "call_")
+# Keys whose value maps names the user or the agent chose (servers, variables, sessions) to data.
+MAP_CONTAINERS = frozenset(
+    {
+        *("env", "environment", "headers", "mcpServers", "mcp_servers", "servers", "models"),
+        *("providers", "profiles", "agents", "channels", "plugins", "extensions", "skills"),
+        *("tools", "tasks", "sessions", "projects", "workspaces", "worktrees", "sidecars"),
+    }
+)
 ENUM_VALUE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,63}$")
 KEY_TABLE_HEADER = re.compile(r"^\|\s*Key\s*\|\s*Type\s*\|\s*Values\s*\|\s*(?:Since|Builds)\s*\|")
 TYPE_SEPARATOR = re.compile(r"\s+or\s+|[,/]")
@@ -246,15 +256,21 @@ def span_names(spans: list[str]) -> set[str]:
     return names
 
 
-def is_field_name(key: str) -> bool:
+def is_field_name(key: str, container: str = "") -> bool:
     """Return whether a dict key or column is a field name, not data used as a map key.
 
     Accepted: a letter, `_`, `$` or `@`, then letters, digits and `_$@.:-`, up to 64
     characters (`sessionId`, `$set`, `chat.tools.autoApprove`, `x-api-key`). Rejected: "", a
-    key with a space, `/`, `=` or `,` (dates, paths, base64), one beginning with a digit, and a
-    hex id of eight or more digits, alone or in dashed groups (`a1b2c3d4-0000-4000-...`).
+    key with a space, `/`, `=`, `,` or `:`, one beginning with a digit, a hex id of eight or
+    more digits, alone or in dashed groups, an environment variable name (`GITHUB_TOKEN`), one
+    opening `toolu_`, `msg_` or `call_`, and any key of a map held by a `MAP_CONTAINERS` key:
+    env, environment, headers, mcpServers, mcp_servers, servers, models, providers, profiles,
+    agents, channels, plugins, extensions, skills, tools, tasks, sessions, projects, workspaces,
+    worktrees, sidecars.
     """
-    return bool(FIELD_NAME.match(key)) and not HEX_ID.match(key)
+    if container in MAP_CONTAINERS or ":" in key or key.startswith(DATA_KEY_PREFIXES):
+        return False
+    return bool(FIELD_NAME.match(key)) and not HEX_ID.match(key) and not ENVIRONMENT.match(key)
 
 
 def is_documented(name: str, names: set[str]) -> bool:
@@ -566,17 +582,23 @@ def built_files(root: pathlib.Path, catalog: Catalog) -> list[BuiltFile]:
     return found
 
 
-def walk(value: object, key: str = "") -> Iterator[tuple[str, object, bool]]:
-    """Yield (key, value, in a list) for every dict item and every list item under a key."""
+def walk(
+    value: object, key: str = "", container: str = ""
+) -> Iterator[tuple[str, object, bool, str]]:
+    """Yield (key, value, in a list, container) for every dict item and list item under a key.
+
+    The container is the key whose value is the dict holding the item: "" at the top and for a
+    dict that is a list's item, whose keys are its own fields.
+    """
     if isinstance(value, dict):
         for name, item in value.items():
-            yield str(name), item, False
-            yield from walk(item, str(name))
+            yield str(name), item, False, container
+            yield from walk(item, str(name), str(name))
     elif isinstance(value, list):
         for item in value:
             if key and not isinstance(item, (dict, list)):
-                yield key, item, True
-            yield from walk(item, key)
+                yield key, item, True, ""
+            yield from walk(item, key, "")
 
 
 def canonical(value: object) -> str:
@@ -686,8 +708,9 @@ def file_findings(
         if is_field_name(name) and not is_documented(name, document.names):
             yield from report("key-undocumented", name)
     for record in [*built.records, *built.rows]:
-        for key, value, in_list in walk(record):
-            if not in_list and is_field_name(key) and not is_documented(key, document.names):
+        for key, value, in_list, container in walk(record):
+            field_name = is_field_name(key, container)
+            if not in_list and field_name and not is_documented(key, document.names):
                 yield from report("key-undocumented", key)
             enum = key in ENUM_KEYS and is_enum_value(value)
             if enum and not is_documented(str(value), document.names):

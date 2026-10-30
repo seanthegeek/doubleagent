@@ -4,7 +4,6 @@ check_fixture_schema|builder-provenance-missing|letta_sessions_records
 check_fixture_schema|builder-provenance-missing|letta_transcript_records
 check_fixture_schema|builder-provenance-missing|letta_twin_transcript_records
 check_fixture_schema|enum-undocumented|type=hosted
-check_fixture_schema|key-undocumented|LETTA_API_KEY
 check_fixture_schema|key-undocumented|api_ms
 check_fixture_schema|key-undocumented|cacheRead
 check_fixture_schema|key-undocumented|cacheWrite
