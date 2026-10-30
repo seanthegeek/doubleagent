@@ -412,38 +412,135 @@ excl||.openclaw/npm-runtime
 excl||.openclaw/tmp
 excl||.openclaw/tools
 excl||.openclaw/worktrees
+excl||.openclaw/projects/0123456789abcdef
 excl||.openclaw/plugin-skills
 excl||.openclaw/extensions/e1/node_modules
 excl||.openclaw/sandbox/skills-workspaces
+excl||.openclaw/cache/control-ui-assets
 excl||.openclaw/agents/main/agent/tmp
 excl||.openclaw/agents/main/agent/.tmp
+excl||.openclaw/agents/main/agent/runs/tmp
+excl||.openclaw/agents/main/agent/runs/.tmp
 excl||.openclaw/browser/b1/user-data/Default/Cache
 excl||.openclaw/browser/b1/user-data/Default/Code Cache
 excl||.openclaw/browser/b1/user-data/Default/GPUCache
 excl||.openclaw/browser/b1/user-data/Default/Service Worker
+excl||.openclaw-work/dev
+excl||.openclaw-work/git
+excl||.openclaw-work/npm
+excl||.openclaw-work/npm-runtime
+excl||.openclaw-work/tmp
 excl||.openclaw-work/tools
-excl||.clawdbot/tools
+excl||.openclaw-work/worktrees
+excl||.openclaw-work/projects/0123456789abcdef
+excl||.openclaw-work/plugin-skills
+excl||.openclaw-work/extensions/e1/node_modules
+excl||.openclaw-work/sandbox/skills-workspaces
+excl||.openclaw-work/cache/control-ui-assets
+excl||.openclaw-work/agents/main/agent/tmp
+excl||.openclaw-work/agents/main/agent/.tmp
+excl||.openclaw-work/agents/main/agent/runs/tmp
+excl||.openclaw-work/agents/main/agent/runs/.tmp
+excl||.openclaw-work/browser/b1/user-data/Default/Cache
+excl||.openclaw-work/browser/b1/user-data/Default/Code Cache
+excl||.openclaw-work/browser/b1/user-data/Default/GPUCache
+excl||.openclaw-work/browser/b1/user-data/Default/Service Worker
+excl||.clawdbot/dev
+excl||.clawdbot/git
 excl||.clawdbot/npm
+excl||.clawdbot/npm-runtime
+excl||.clawdbot/tmp
+excl||.clawdbot/tools
+excl||.clawdbot/worktrees
+excl||.clawdbot/projects/0123456789abcdef
+excl||.clawdbot/plugin-skills
+excl||.clawdbot/extensions/e1/node_modules
+excl||.clawdbot/sandbox/skills-workspaces
+excl||.clawdbot/cache/control-ui-assets
+excl||.clawdbot/agents/main/agent/tmp
+excl||.clawdbot/agents/main/agent/.tmp
+excl||.clawdbot/agents/main/agent/runs/tmp
+excl||.clawdbot/agents/main/agent/runs/.tmp
+excl||.clawdbot/browser/b1/user-data/Default/Cache
+excl||.clawdbot/browser/b1/user-data/Default/Code Cache
+excl||.clawdbot/browser/b1/user-data/Default/GPUCache
+excl||.clawdbot/browser/b1/user-data/Default/Service Worker
+excl||.moltbot/dev
+excl||.moltbot/git
+excl||.moltbot/npm
+excl||.moltbot/npm-runtime
+excl||.moltbot/tmp
+excl||.moltbot/tools
+excl||.moltbot/worktrees
+excl||.moltbot/projects/0123456789abcdef
+excl||.moltbot/plugin-skills
+excl||.moltbot/extensions/e1/node_modules
+excl||.moltbot/sandbox/skills-workspaces
+excl||.moltbot/cache/control-ui-assets
+excl||.moltbot/agents/main/agent/tmp
+excl||.moltbot/agents/main/agent/.tmp
+excl||.moltbot/agents/main/agent/runs/tmp
+excl||.moltbot/agents/main/agent/runs/.tmp
+excl||.moltbot/browser/b1/user-data/Default/Cache
+excl||.moltbot/browser/b1/user-data/Default/Code Cache
+excl||.moltbot/browser/b1/user-data/Default/GPUCache
+excl||.moltbot/browser/b1/user-data/Default/Service Worker
 secret||.openclaw/openclaw.json
-secret||.openclaw/clawdbot.json.bak
-secret||.openclaw-work/.env
-secret||.openclaw/credentials/c1.json
+secret||.openclaw/clawdbot.json
+secret||.openclaw/moltbot.json
+secret||.openclaw/.env
+secret||.openclaw/credentials/oauth.json
 secret||.openclaw/service-env/gateway.env
+secret||.openclaw/client/credentials.sqlite
+secret||.openclaw/identity/device.json
+secret||.openclaw/exec-approvals.json
 secret||.openclaw/agents/main/agent/auth-profiles.json
+secret||.openclaw/agents/main/agent/auth-state.json
+secret||.openclaw/agents/main/agent/auth.json
 secret||.openclaw/agents/main/agent/models.json
 secret||.openclaw/browser/b1/user-data/Default/Cookies
+secret||.clawdbot/openclaw.json
 secret||.clawdbot/clawdbot.json
+secret||.clawdbot/moltbot.json
 secret||.clawdbot/.env
-secret||.clawdbot/credentials/c1
+secret||.clawdbot/credentials/oauth.json
+secret||.clawdbot/service-env/gateway.env
+secret||.clawdbot/client/credentials.sqlite
+secret||.clawdbot/identity/device.json
+secret||.clawdbot/exec-approvals.json
+secret||.clawdbot/agents/main/agent/auth-profiles.json
+secret||.clawdbot/agents/main/agent/auth-state.json
+secret||.clawdbot/agents/main/agent/auth.json
+secret||.clawdbot/agents/main/agent/models.json
+secret||.clawdbot/browser/b1/user-data/Default/Cookies
+secret||.moltbot/openclaw.json
+secret||.moltbot/clawdbot.json
 secret||.moltbot/moltbot.json
 secret||.moltbot/.env
-secret||.moltbot/credentials/c1
+secret||.moltbot/credentials/oauth.json
+secret||.moltbot/service-env/gateway.env
+secret||.moltbot/client/credentials.sqlite
+secret||.moltbot/identity/device.json
+secret||.moltbot/exec-approvals.json
+secret||.moltbot/agents/main/agent/auth-profiles.json
+secret||.moltbot/agents/main/agent/auth-state.json
+secret||.moltbot/agents/main/agent/auth.json
+secret||.moltbot/agents/main/agent/models.json
+secret||.moltbot/browser/b1/user-data/Default/Cookies
+secret||.openclaw-work/.env
+secret||.openclaw/identity/share-device-auth.json
+secret||.openclaw/exec-approvals.json.migrated.0123456789abcdef.a1
+secret||.openclaw-auth-profile-secrets/gateway.env
 secret||.config/openclaw/gateway.env
 agent|openclaw|.openclaw/agents/main/agent/openclaw-agent.sqlite
 agent|openclaw|.openclaw/agents/main/agent/openclaw-agent.sqlite-wal
+agent|openclaw|.openclaw/workspace/tmp/AGENTS.md
+agent|openclaw|.openclaw/workspace/tools/TOOLS.md
 agent|openclaw|.openclaw-work/openclaw.json
 agent|openclaw|.config/systemd/user/openclaw-gateway.service
+agent|openclaw|.config/systemd/user/clawdbot-gateway.service
 agent|openclaw|Library/LaunchAgents/ai.openclaw.gateway.plist
+agent|openclaw|Library/Application Support/OpenClaw/databases/gateway-cache.sqlite
 excl||.nanobot/bin
 excl||.nanobot/run
 excl||.nanobot-work/cache
@@ -1142,20 +1239,21 @@ printf '{"id":"d2"}\n' >"$NANOBOT_WORKSPACE/triggers/inbox/d2.json"
 # 2026-10-21 OpenClaw source review (#219)
 OPENCLAW="$ALICE/.openclaw"
 OPENCLAW_CLONE_ID=0123456789abcdef
-OPENCLAW_VOLUME="$VOLUMES/a0_usr/_data"
-mkdir -p "$OPENCLAW/projects/$OPENCLAW_CLONE_ID/repo" "$OPENCLAW/projects/notes" "$ALICE/.openclaw-auth-profile-secrets" \
-  "$OPENCLAW_VOLUME/projects/$OPENCLAW_CLONE_ID/repo" "$OPENCLAW_VOLUME/projects/p219" "$OPENCLAW_VOLUME/plugin-skills" \
-  "$OPENCLAW_VOLUME/agents/main/agent/tmp" "$OPENCLAW_VOLUME/agents/main/agent/.tmp"
+mkdir -p "$OPENCLAW/projects/$OPENCLAW_CLONE_ID/repo" "$OPENCLAW/projects/notes" "$ALICE/.openclaw-auth-profile-secrets"
 printf '{"socket":{"token":"x"}}\n' >"$OPENCLAW/exec-approvals.json"
 printf 'OPENAI_API_KEY=x\n' >"$ALICE/.openclaw-auth-profile-secrets/gateway.env"
 printf 'clone\n' >"$OPENCLAW/projects/$OPENCLAW_CLONE_ID/repo/README.md"
 printf 'notes\n' >"$OPENCLAW/projects/notes/todo.md"
-printf '{"socket":{"token":"x"}}\n' >"$OPENCLAW_VOLUME/exec-approvals.json"
-printf 'clone\n' >"$OPENCLAW_VOLUME/projects/$OPENCLAW_CLONE_ID/repo/README.md"
-printf 'project\n' >"$OPENCLAW_VOLUME/projects/p219/notes.md"
-printf 'link\n' >"$OPENCLAW_VOLUME/plugin-skills/s"
-printf 'tmp\n' >"$OPENCLAW_VOLUME/agents/main/agent/tmp/t"
-printf 'tmp\n' >"$OPENCLAW_VOLUME/agents/main/agent/.tmp/t"
+# 2026-10-30 openclaw rebuild (#326)
+mkdir -p "$ROOT/srv/clawcwd" "$ROOT/srv/clawold" "$ROOT/srv/moltws/.openclaw" "$ROOT/srv/moltold"
+printf '{agents:{defaults:{workspace:"/srv/clawprofile"},entries:{ops:{cwd:"/srv/clawcwd"}}}}\n' >"$ALICE/.openclaw-work/openclaw.json"
+printf '{"agents":{"defaults":{"workspace":"/srv/clawold"}}}\n' >"$ALICE/.clawdbot/openclaw.json"
+printf '{"agents":{"defaults":{"workspace":"/srv/moltws"}}}\n' >"$ALICE/.moltbot/moltbot.json"
+printf '{"agents":{"defaults":{"workspace":"/srv/moltold"}}}\n' >"$ALICE/.clawdbot/moltbot.json"
+printf '# tools\n' >"$ROOT/srv/clawcwd/TOOLS.md"
+printf '# bootstrap\n' >"$ROOT/srv/clawold/BOOTSTRAP.md"
+printf '#!/bin/sh\n' >"$ROOT/srv/moltws/.openclaw/worktree-setup.sh"
+printf '# soul\n' >"$ROOT/srv/moltold/SOUL.md"
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 OPENCODE_DESKTOP="$BOB/Library/Application Support/ai.opencode.desktop"
@@ -1815,11 +1913,13 @@ check "#220 nanobot trigger queue not collected" "! grep -qF 'nanows/triggers/in
 # 2026-10-21 OpenClaw source review (#219)
 check "#219 OpenClaw exec-approvals.json flagged secret" "row \"$OPENCLAW/exec-approvals.json\" | grep -q '\"agent\":\"openclaw\".*$SECRET_COLLECTED'"
 check "#219 OpenClaw auth-profile secrets directory flagged secret" "row \"$ALICE/.openclaw-auth-profile-secrets/gateway.env\" | grep -q '\"agent\":\"openclaw\".*$SECRET_COLLECTED'"
-check "#219 OpenClaw volume exec-approvals.json flagged secret" "row \"$OPENCLAW_VOLUME/exec-approvals.json\" | grep -q '\"user\":\"docker\".*$SECRET_COLLECTED'"
 check "#219 OpenClaw Gateway clone excluded" "[ \"\$(status_of \"$OPENCLAW/projects/$OPENCLAW_CLONE_ID\")\" = skipped_excluded ] && ! grep -qF '$OPENCLAW_CLONE_ID/repo/README.md' \"\$MANIFEST\""
 check "#219 OpenClaw projects entry that is no clone collected" "row \"$OPENCLAW/projects/notes/todo.md\" | grep -q '\"agent\":\"openclaw\".*\"status\":\"collected\"'"
-check "#219 OpenClaw volume clone, plugin-skills and agent tmp excluded" "[ \"\$(status_of \"$OPENCLAW_VOLUME/projects/$OPENCLAW_CLONE_ID\")\" = skipped_excluded ] && [ \"\$(status_of \"$OPENCLAW_VOLUME/plugin-skills\")\" = skipped_excluded ] && [ \"\$(status_of \"$OPENCLAW_VOLUME/agents/main/agent/tmp\")\" = skipped_excluded ] && [ \"\$(status_of \"$OPENCLAW_VOLUME/agents/main/agent/.tmp\")\" = skipped_excluded ]"
-check "#219 volume projects entry that is no clone collected" "row \"$OPENCLAW_VOLUME/projects/p219/notes.md\" | grep -q '\"user\":\"docker\".*\"status\":\"collected\"'"
+# 2026-10-30 openclaw rebuild (#326)
+check "openclaw JSON5 agent cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/clawcwd/TOOLS.md\")\" = collected ]"
+check "openclaw legacy .clawdbot/openclaw.json discovers project" "[ \"\$(status_of \"$ROOT/srv/clawold/BOOTSTRAP.md\")\" = collected ]"
+check "openclaw Moltbot .moltbot/moltbot.json discovers project" "[ \"\$(status_of \"$ROOT/srv/moltws/.openclaw/worktree-setup.sh\")\" = collected ]"
+check "openclaw Moltbot .clawdbot/moltbot.json discovers project" "[ \"\$(status_of \"$ROOT/srv/moltold/SOUL.md\")\" = collected ]"
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 check "#213 OpenCode service.json flagged secret" "row \"$ALICE/.config/opencode/service.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED' && row \"$ALICE/.local/state/opencode/service-local.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
@@ -1956,7 +2056,7 @@ check "#123 Hermes quick snapshot credentials skipped without secrets" "[ \"\$(s
 check "#208 Hermes desktop connection files skipped without secrets" "[ \"\$(status_of \"$ALICE/.config/Hermes/connections.json\")\" = skipped_secret ]"
 
 # 2026-10-21 OpenClaw source review (#219)
-check "#219 OpenClaw credentials skipped without secrets" "[ \"\$(status_of \"$OPENCLAW/exec-approvals.json\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/.openclaw-auth-profile-secrets/gateway.env\")\" = skipped_secret ] && [ \"\$(status_of \"$OPENCLAW_VOLUME/exec-approvals.json\")\" = skipped_secret ]"
+check "#219 OpenClaw credentials skipped without secrets" "[ \"\$(status_of \"$OPENCLAW/exec-approvals.json\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/.openclaw-auth-profile-secrets/gateway.env\")\" = skipped_secret ]"
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 check "#213 OpenCode service.json skipped without secrets" "[ \"\$(status_of \"$ALICE/.config/opencode/service.json\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/.local/state/opencode/service-local.json\")\" = skipped_secret ]"
