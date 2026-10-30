@@ -1754,7 +1754,7 @@ chunk boundary ([Transcript stores](#transcript-stores)).
 
 #### Fixtures
 
-`analyzer/tests/fixtures.py` builds the CLI data directory
+`analyzer/tests/fixtures/antigravity.py` builds the CLI data directory
 (`build_antigravity`, with the step shapes of `antigravity_steps`), the
 app's (`build_antigravity_app`, `antigravity_app_steps`, source 1 and
 `app_data_dir` `antigravity`), the brain mirror (`build_antigravity_brain`:
