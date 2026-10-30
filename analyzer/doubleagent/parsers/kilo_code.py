@@ -14,8 +14,7 @@ pointed at Kilo's paths: `.local/share/kilo/kilo.db`, `kilo-<channel>.db` and
   or `reasoning_content`), with the task's `workspace`, `task`, `ts`, `mode` and
   `parentTaskId` from `history_item.json`, else the `tasks/_index.json` `entries`. The session
   id is the directory name.
-* `.local/share/kilo/storage/session_share/<sessionID>.json` (`id`, `ingestPath`, `url`): a
-  sync row.
+* `.local/share/kilo/storage/session_share/<sessionID>.json` (`id`, `ingestPath`, `url`).
 * `.config/kilo/{kilo.jsonc,kilo.json,opencode.jsonc,opencode.json,config.json}`: the
   `permission` key, read as JSONC.
 * `.local/state/kilo-sandbox-policy/<hash>/<hash>.json` and
