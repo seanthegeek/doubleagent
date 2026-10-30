@@ -460,6 +460,23 @@ def test_attribute_glob_project_entry_before_star_and_volume_steps(tmp_path):
         assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
 
 
+def test_attribute_glob_star_glob_claimed_by_project_before_reached_home_entry(tmp_path):
+    text = "# home artifacts (agent|glob relative to home)\nhomey|.config/.projx\n"
+    text += "homey|.config/.homey\nhomez|*/.both\n"
+    text += "# project artifacts (relative to each discovered project)\n"
+    text += "projx|*/.projx\nprojz|*/.both\n"
+    catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
+    assert drift_common.star_remainders("*/.projx/cache", catalog) == [("homey", "cache")]
+    cases = {
+        "*/.projx/cache": "projx",
+        "*/.homey/cache": "homey",
+        "*/.both/cache": "homez",
+    }
+    for glob, agent in cases.items():
+        assert drift_common.attribute_glob(glob, catalog, tmp_path) == agent, glob
+    assert drift_common.project_claim("*/.homey/cache", catalog) == ""
+
+
 def test_attribute_glob_tries_empty_stars_before_x(tmp_path):
     text = "delta|.delta\ndelta|.delta-*\nepsilon|.delta/eps\nzeta|.zeta-x\n"
     catalog = drift_common.tables(write(tmp_path / "catalog.txt", text)).catalog
