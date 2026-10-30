@@ -266,7 +266,9 @@ Portable installs
   [`386`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/cli/src/auth.rs#L386),
   [`416-417`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/cli/src/auth.rs#L416-L417)).
 - Files that can embed API keys: `User/settings.json`, `User/mcp.json`, `User/profiles/*/mcp.json`,
-  project `.vscode/mcp.json`.
+  project `.vscode/mcp.json`. Each `mcp.json` form is flagged; `User/settings.json`
+  holds every other editor setting too, so it is collected unflagged and redacted by key
+  ([Secrets](#secrets)).
 - Copilot's own token store `~/.config/github-copilot` belongs to the `copilot` agent
   ([Credentials in `copilot.md`](copilot.md#credentials)).
 
@@ -814,7 +816,10 @@ are the same, with only line numbers moved, and the session object gained `sessi
 `variableData.variables[].value` and `usedContext` may hold attached file contents;
 `toolSpecificData.rawInput` and `commandLine` may hold command-line secrets. `state.vscdb` stores
 extension auth material under other keys (out of scope here; see the Cursor and Windsurf notes in
-[`collectors/docs/coverage.md`](../collectors/docs/coverage.md#credentials)).
+[`collectors/docs/coverage.md`](../collectors/docs/coverage.md#credentials)). In
+`User/settings.json`, an extension's own settings can hold a token, such as an MCP server's
+`env` or `headers` values; the keys are in that extension's document
+([Secrets in `twinny.md`](twinny.md#secrets), [Secrets in `cody.md`](cody.md#secrets)).
 
 Session sync uses no credential file of its own: each request goes to the `api` endpoint named in
 the Copilot token, the short-lived token the extension exchanges for the user's GitHub sign-in

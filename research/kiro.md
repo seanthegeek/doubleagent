@@ -166,7 +166,10 @@ recording, docs reference/settings), `KIRO_TEST_SESSIONS_DIR`, `KIRO_TEST_SETTIN
   documented.
 - Files that embed keys: `~/.kiro/settings/mcp.json`, `.kiro/settings/mcp.json`,
   `~/.kiro/powers/installed/*/mcp.json`, agent JSON `mcpServers` blocks (docs mcp/configuration,
-  permissions). `~/.kiro/web-session/` by name holds browser session state (docs permissions).
+  permissions), the legacy `~/.aws/amazonq/mcp.json` and project `.amazonq/mcp.json`. All are
+  flagged, the agent files as `.kiro/agents/*.json`, `.aws/amazonq/cli-agents/*.json` and a
+  project's `.amazonq/cli-agents/*.json`. `~/.kiro/web-session/` by name holds browser session
+  state (docs permissions).
   Binary string `secrets.json` in `owner_only_sweep.rs` suggests an owner-only
   `~/.kiro/secrets.json`; unverified.
 

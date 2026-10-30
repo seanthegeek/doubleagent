@@ -906,7 +906,11 @@ install):
   Claude Code's files; on macOS that store is a plaintext `hosts.yml` or a keychain item depending
   on how `gh` was launched ([Source-host integration](#source-host-integration)).
 - Config files that can embed keys: `settings.json` / `settings.local.json`, `.mcp.json`,
-  `managed-mcp.json` (the fields are in [Secrets](#secrets)). Env: `ANTHROPIC_API_KEY`,
+  `managed-mcp.json` (the fields are in [Secrets](#secrets)). `.claude/settings.json` and
+  `.claude/settings.local.json`, in the home and in a project, and a project's `.mcp.json` are
+  flagged. A relocated `~/.claude-<name>` home's `settings.json` is not collected, so it needs no
+  glob; `managed-mcp.json` lives in the system directory outside every home ([Managed
+  policy](#managed-policy)). Env: `ANTHROPIC_API_KEY`,
   `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN` (docs /iam precedence list). Anthropic profiles
   live outside: `~/.config/anthropic` / `%APPDATA%\Anthropic` (docs /iam).
 

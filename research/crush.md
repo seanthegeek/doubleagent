@@ -148,7 +148,9 @@ working directory, so none of these can be mistaken for a project
   ([`load.go:109`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/load.go#L109)).
 - `~/.config/crush/crush.json` can hold the same `api_key` fields literally or as `$ENV` references.
 - `~/.config/crush/crushrc` and project `crushrc`/`.crushrc` are shell scripts that typically export
-  keys.
+  keys; each is flagged.
+- A project's `crush.json` and `.crush.json` are config scopes with the same `api_key` fields
+  ([Project-local files](#project-local-files)); both are flagged.
 - Project `.crush/crush.json` is the workspace scope and `SetProviderAPIKey` can target it
   ([`store.go:333-337`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/store.go#L333-L337)).
 - Crush also reads `~/.config/github-copilot/apps.json` (`%LOCALAPPDATA%\github-copilot\apps.json`)

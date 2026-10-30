@@ -1178,6 +1178,97 @@ try {
   $socket = $null
   Write-Output "note: no Unix domain socket could be created ($($_.Exception.Message)); socket checks skipped"
 }
+
+# 2026-10-29 drift sweep credential gaps (#248)
+# Settings and MCP files that can hold MCP env, headers or OAuth values, one
+# per secret glob, as path|agent entries relative to alice's home or to C:\proj.
+$driftHomeSecrets = @(
+  '.claude/settings.json|claude-code'
+  '.claude/settings.local.json|claude-code'
+  '.gemini/settings.json|gemini-cli'
+  '.gemini/config/mcp_config.json|antigravity'
+  '.cursor/mcp.json|cursor'
+  '.copilot/settings.json|copilot-cli'
+  '.copilot/mcp-secrets/index.json|copilot-cli'
+  '.config/.copilot/config.json|copilot-cli'
+  '.config/.copilot/mcp-config.json|copilot-cli'
+  '.config/.copilot/mcp-oauth-config.json|copilot-cli'
+  '.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json|cline'
+  '.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json|roo-code'
+  '.vscode-mock/global-storage/settings/mcp_settings.json|roo-code'
+  '.config/amp/settings.json|amp'
+  '.config/amp/settings.jsonc|amp'
+  '.factory/settings.json|factory-droid'
+  '.factory/settings.local.json|factory-droid'
+  '.factory/mcp.json|factory-droid'
+  '.aws/amazonq/cli-agents/default.json|kiro'
+  '.openhands/conversations/a3/acp/codex/auth.json|openhands'
+  '.little-coder/mcp.json|little-coder'
+  '.hermes/config.yaml|hermes'
+  '.cache/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json|langflow'
+  'Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json|langflow'
+  'AppData/Local/langflow/langflow/Cache/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json|langflow'
+  '.config/pydantic-clai2/mcp.json|pydantic-clai'
+  '.ollama/id_ed25519|ollama'
+  '.ollama/backup/codex/config.toml.1792800000|ollama'
+  '.ollama/launch/muse-config/muse/settings.json|ollama'
+)
+$driftProjectSecrets = @(
+  '.claude/settings.json|claude-code'
+  '.claude/settings.local.json|claude-code'
+  '.mcp.json|project'
+  '.gemini/settings.json|gemini-cli'
+  '.vscode/mcp.json|vscode'
+  '.github/copilot/settings.json|copilot-cli'
+  '.github/copilot/settings.local.json|copilot-cli'
+  '.github/mcp.json|copilot-cli'
+  'opencode.json|opencode'
+  '.roo/mcp.json|roo-code'
+  '.amazonq/mcp.json|kiro'
+  '.amazonq/cli-agents/default.json|kiro'
+  '.factory/settings.json|factory-droid'
+  '.clai/mcp_servers.json|pydantic-clai'
+  '.amp/settings.json|amp'
+)
+$driftHermesDesktop = @('.config/Hermes-canary', 'Library/Application Support/Hermes-canary', 'AppData/Roaming/Hermes-canary')
+$driftHermesCaches = @('Cache', 'Code Cache', 'GPUCache')
+$driftCrushFiles = @('crushrc', '.crushrc', 'crush.json', '.crush.json')
+foreach ($driftEntry in $driftHomeSecrets) {
+  MakeFile "Users/alice/$(($driftEntry -split '\|')[0])" "{`"mcpServers`":{`"x`":{`"env`":{`"TOKEN`":`"t`"}}}}`n"
+}
+foreach ($driftEntry in $driftProjectSecrets) {
+  MakeFile "proj/$(($driftEntry -split '\|')[0])" "{`"mcpServers`":{`"x`":{`"headers`":{`"Authorization`":`"Bearer t`"}}}}`n"
+}
+foreach ($driftPath in $driftHermesDesktop) {
+  MakeFile "Users/alice/$driftPath/connections.json" "{`"connections`":[]}`n"
+  foreach ($driftLeaf in $driftHermesCaches) { MakeFile "Users/alice/$driftPath/$driftLeaf/data_0" "cache`n" }
+}
+$factoryEnvDump = 'Users/alice/.factory/temp/env/droid-env-s1-1.sh'
+MakeFile $factoryEnvDump "export TOKEN=t`n"
+MakeFile 'Users/alice/.factory/temp/run1/out.txt' "out`n"
+MakeFile 'Users/alice/.cache/amp/runner-desktop/r1/state.json' "{}`n"
+MakeFile 'Users/alice/.hermes-canary/config.yaml' "mcp_servers: {}`n"
+MakeFile 'Users/alice/.hermes-canary/state.db' "sqlite`n"
+MakeFile 'Users/alice/.hermes-canary/hermes-agent/hermes_cli/main.py' "x`n"
+MakeFile 'Users/alice/.hermes-canary/hermes-agent/.env' "KEY=x`n"
+MakeFile 'Users/alice/.hermes-canary/hermes-agent/.git/HEAD' "ref`n"
+MakeFile 'Users/alice/AppData/Local/hermes-canary/hermes-agent/hermes_cli/main.py' "x`n"
+MakeFile 'Users/alice/AppData/Local/hermes-canary/hermes-agent/.git/HEAD' "ref`n"
+MakeFile 'Users/alice/AppData/Local/hermes-canary/hermes-agent/.env' "KEY=x`n"
+MakeFile 'Users/alice/.cache/amp/desktop/state.json' "{}`n"
+MakeFile 'Users/alice/.cache/amp/bin/amp' "ELF`n"
+MakeFile 'Users/alice/.cache/amp/obelisk-runs/run.json' "{}`n"
+MakeFile 'Users/alice/AppData/Local/hermes-canary/config.yaml' "mcp_servers: {}`n"
+MakeFile 'Users/alice/AppData/Local/hermes-updater/pending/hermes-setup.exe' "MZ`n"
+MakeFile 'Users/alice/AppData/Roaming/devin/mcp_config.json' "{`"mcpServers`":{}}`n"
+MakeFile 'Users/alice/AppData/Roaming/devin/credentials.toml' "windsurf_api_key = `"k`"`n"
+MakeFile 'Users/alice/AppData/Roaming/Devin/Cache/data_0' "cache`n"
+MakeFile 'Users/alice/AppData/Roaming/Devin/User/settings.json' "{}`n"
+MakeFile 'Users/alice/AppData/Local/devin/bin/devin.exe' "MZ`n"
+MakeFile 'Users/alice/Library/Caches/ollama/data_0' "cache`n"
+MakeFile 'Users/alice/Library/Caches/com.electron.ollama/data_0' "cache`n"
+MakeFile 'Users/alice/AppData/Local/crush/projects.json' '{"projects":[{"path":"C:\\crushwin","data_dir":"C:\\crushwin\\.crush"}]}'
+foreach ($driftPath in $driftCrushFiles) { MakeFile "crushwin/$driftPath" "export KEY=k`n" }
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -1979,6 +2070,38 @@ Check '#72 forced zip: archived bytes match the manifest' {
 }
 Check '#77 forced zip stores the deep transcript' { $deepZipRow = Row $DeepTranscript; $deepZipRow -and $deepZipRow.status -eq 'collected' -and @($ZipEntries | Where-Object { $_ -eq $deepZipRow.archive_path }).Count -eq 1 }
 
+# 2026-10-29 drift sweep credential gaps (#248)
+foreach ($driftEntry in $driftHomeSecrets) {
+  $driftPath, $driftAgent = $driftEntry -split '\|'
+  Check "#248 home file flagged secret: $driftPath" { IsAgentRow "Users/alice/$driftPath" $driftAgent $true }
+}
+foreach ($driftEntry in $driftProjectSecrets) {
+  $driftPath, $driftAgent = $driftEntry -split '\|'
+  Check "#248 project file flagged secret: $driftPath" { IsAgentRow "proj/$driftPath" $driftAgent $true }
+}
+Check '#322 Factory temp/env dump flagged secret' { IsAgentRow $factoryEnvDump 'factory-droid' $true }
+Check '#322 Factory temp entries not starting with e excluded' { (StatusOf 'Users/alice/.factory/temp/run1') -eq 'skipped_excluded' -and (HasNoRow '.factory/temp/run1/out.txt') }
+Check '#322 Amp cache outside the catalog not collected' { (HasNoRow '.cache/amp/runner-desktop/r1/state.json') -and (HasNoRow '.cache/amp/desktop/state.json') -and (HasNoRow '.cache/amp/bin/amp') -and (HasNoRow '.cache/amp/obelisk-runs/run.json') }
+Check '#322 Ollama Library/Caches outside the catalog not collected' { (HasNoRow 'Library/Caches/ollama/data_0') -and (HasNoRow 'Library/Caches/com.electron.ollama/data_0') }
+Check '#321 Windsurf AppData/Local/devin/bin outside the catalog not collected' { HasNoRow 'AppData/Local/devin/bin/devin.exe' }
+Check '#324 Hermes suffixed home collected as hermes' { (IsAgentRow 'Users/alice/.hermes-canary/state.db' 'hermes' $false) -and (IsAgentRow 'Users/alice/.hermes-canary/config.yaml' 'hermes' $true) }
+Check '#324 Hermes suffixed Windows home config.yaml flagged secret' { IsAgentRow 'Users/alice/AppData/Local/hermes-canary/config.yaml' 'hermes' $true }
+Check '#324 Hermes suffixed home installer checkout excluded, its .env kept' { (StatusOf 'Users/alice/.hermes-canary/hermes-agent/hermes_cli') -eq 'skipped_excluded' -and (StatusOf 'Users/alice/.hermes-canary/hermes-agent/.git') -eq 'skipped_excluded' -and (IsSecretRow 'Users/alice/.hermes-canary/hermes-agent/.env') }
+Check '#324 Hermes suffixed Windows home installer checkout excluded, its .env kept' { (StatusOf 'Users/alice/AppData/Local/hermes-canary/hermes-agent/hermes_cli') -eq 'skipped_excluded' -and (StatusOf 'Users/alice/AppData/Local/hermes-canary/hermes-agent/.git') -eq 'skipped_excluded' -and (IsSecretRow 'Users/alice/AppData/Local/hermes-canary/hermes-agent/.env') }
+Check '#324 Hermes updater cache excluded' { (StatusOf 'Users/alice/AppData/Local/hermes-updater') -eq 'skipped_excluded' -and (HasNoRow 'pending/hermes-setup.exe') }
+foreach ($driftPath in $driftHermesDesktop) {
+  Check "#324 Hermes suffixed desktop connections flagged: $driftPath" { IsAgentRow "Users/alice/$driftPath/connections.json" 'hermes' $true }
+  foreach ($driftLeaf in $driftHermesCaches) {
+    Check "#324 Hermes suffixed desktop cache excluded: $driftPath/$driftLeaf" { (StatusOf "Users/alice/$driftPath/$driftLeaf") -eq 'skipped_excluded' }
+  }
+}
+Check '#321 Devin CLI files collected as windsurf and flagged' { (IsAgentRow 'Users/alice/AppData/Roaming/devin/mcp_config.json' 'windsurf' $true) -and (IsAgentRow 'Users/alice/AppData/Roaming/devin/credentials.toml' 'windsurf' $true) }
+Check '#321 Devin IDE cache not collected, its User directory collected' { (HasNoRow 'Devin/Cache/data_0') -and (HasNoRow 'Devin/Cache') -and (IsAgentRow 'Users/alice/AppData/Roaming/Devin/User/settings.json' 'windsurf' $false) }
+Check '#323 Crush Windows projects.json discovers project' { (Row 'crushwin/crushrc').agent -eq 'crush' }
+foreach ($driftPath in $driftCrushFiles) {
+  Check "#323 Crush project file flagged secret: $driftPath" { IsAgentRow "crushwin/$driftPath" 'crush' $true }
+}
+
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
 Check 'NoSecrets exit 0' { $script:ExitCode -eq 0 }
@@ -2037,6 +2160,25 @@ Check '#256 relocated claude home session key, daemon key and backup skipped wit
 
 # 2026-10-26 claude-code macOS round (#256)
 Check '#256 Claude Code IDE lock and bridge-spawn mcp.json skipped without secrets' { (StatusOf 'Users/alice/.claude/ide/53256.lock') -eq 'skipped_secret' -and (StatusOf "Users/alice/.claude/$bridgeSpawn/mcp.json") -eq 'skipped_secret' -and (StatusOf 'Users/alice/.claude-work/ide/53256.lock') -eq 'skipped_secret' -and (StatusOf "Users/alice/.claude-work/$bridgeSpawn/mcp.json") -eq 'skipped_secret' }
+
+# 2026-10-29 drift sweep credential gaps (#248)
+foreach ($driftEntry in $driftHomeSecrets) {
+  $driftPath = ($driftEntry -split '\|')[0]
+  Check "#248 home file skipped without secrets: $driftPath" { (StatusOf "Users/alice/$driftPath") -eq 'skipped_secret' }
+}
+foreach ($driftEntry in $driftProjectSecrets) {
+  $driftPath = ($driftEntry -split '\|')[0]
+  Check "#248 project file skipped without secrets: $driftPath" { (StatusOf "proj/$driftPath") -eq 'skipped_secret' }
+}
+Check '#322 Factory temp/env dump skipped without secrets' { (StatusOf $factoryEnvDump) -eq 'skipped_secret' }
+Check '#324 Hermes suffixed homes skipped without secrets' { (StatusOf 'Users/alice/.hermes-canary/config.yaml') -eq 'skipped_secret' -and (StatusOf 'Users/alice/AppData/Local/hermes-canary/config.yaml') -eq 'skipped_secret' }
+foreach ($driftPath in $driftHermesDesktop) {
+  Check "#324 Hermes suffixed desktop connections skipped without secrets: $driftPath" { (StatusOf "Users/alice/$driftPath/connections.json") -eq 'skipped_secret' }
+}
+Check '#321 Devin CLI files skipped without secrets' { (StatusOf 'Users/alice/AppData/Roaming/devin/mcp_config.json') -eq 'skipped_secret' -and (StatusOf 'Users/alice/AppData/Roaming/devin/credentials.toml') -eq 'skipped_secret' }
+foreach ($driftPath in $driftCrushFiles) {
+  Check "#323 Crush project file skipped without secrets: $driftPath" { (StatusOf "crushwin/$driftPath") -eq 'skipped_secret' }
+}
 
 # ---- -Full ----------------------------------------------------------------
 Run 'full' @{ Full = $true }
@@ -2102,6 +2244,19 @@ MakeFile "$hermesVolumeSnapshot/state.db" 'sqlite'
 MakeFile "$hermesVolumeSnapshot/.env" 'KEY=x'
 MakeFile "$hermesVolumeSnapshot/auth.json" '{"providers":{}}'
 MakeFile "$hermesVolumeSnapshot/pairing/telegram-approved.json" '{}'
+# 2026-10-29 drift sweep credential gaps (#248)
+$script:Made.Clear()
+$langflowVolumeMcp = 'var/lib/docker/volumes/langflow_langflow-data/_data/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json'
+$openhandsVolume = 'var/lib/docker/volumes/openhands_state/_data'
+$ollamaVolume = 'var/lib/docker/volumes/ollama/_data'
+MakeFile $langflowVolumeMcp "{`"mcpServers`":{}}`n"
+MakeFile 'var/lib/docker/volumes/hermes_home/_data/config.yaml' "mcp_servers: {}`n"
+MakeFile "$openhandsVolume/conversations/c1/acp/codex/auth.json" "{`"tokens`":{}}`n"
+MakeFile "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json" "{`"tokens`":{}}`n"
+MakeFile "$ollamaVolume/backup/codex/config.toml.1792800000" "model = `"x`"`n"
+MakeFile "$ollamaVolume/launch/muse-config/muse/settings.json" "{}`n"
+$missing = Test-Made
+Check "#248 every frameworks-volume fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Run 'fwvolumes' @{}
 Check 'frameworks volumes exit 0' { $script:ExitCode -eq 0 }
 $row = Row "$n8nVolume/database.sqlite"
@@ -2127,7 +2282,18 @@ Check 'dify sandbox workspace volume collected as dify' { $row -and $row.agent -
 # 2026-10-21 Hermes quick snapshots and desktop connections (#123, #208)
 $row = Row "$hermesVolumeSnapshot/state.db"
 Check '#123 Hermes volume quick snapshot collected, credentials flagged (volume-relative)' { $row -and $row.user -eq 'docker' -and $row.agent -eq 'hermes' -and $row.secret -eq $false -and $row.status -eq 'collected' -and (Row "$hermesVolumeSnapshot/.env").secret -eq $true -and (Row "$hermesVolumeSnapshot/auth.json").secret -eq $true -and (Row "$hermesVolumeSnapshot/pairing/telegram-approved.json").secret -eq $true }
-foreach ($volume in @('n8n_data', 'n8n_n8n-data', 'langflow_langflow-data', 'docker_dify_agent_local_sandbox_home', 'docker_dify_agent_local_sandbox_workspace', 'hermes_home')) {
+# 2026-10-29 drift sweep credential gaps (#248)
+Check '#248 langflow-data volume _mcp_servers file flagged (volume-relative)' { IsAgentRow $langflowVolumeMcp 'langflow' $true }
+Check '#248 Hermes volume config.yaml flagged (volume-relative)' { IsAgentRow 'var/lib/docker/volumes/hermes_home/_data/config.yaml' 'hermes' $true }
+Check '#248 OpenHands volume conversation acp/codex/auth.json flagged (volume-relative)' { (IsAgentRow "$openhandsVolume/conversations/c1/acp/codex/auth.json" 'openhands' $true) -and (IsAgentRow "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json" 'openhands' $true) }
+Check '#320 Ollama volume backup and Muse copy flagged (volume-relative)' { (IsAgentRow "$ollamaVolume/backup/codex/config.toml.1792800000" 'ollama' $true) -and (IsAgentRow "$ollamaVolume/launch/muse-config/muse/settings.json" 'ollama' $true) }
+Run 'fwvolumesnosecrets' @{ NoSecrets = $true }
+Check '#248 frameworks volumes no-secrets exit 0' { $script:ExitCode -eq 0 }
+Check '#248 langflow-data volume _mcp_servers file skipped without secrets (volume-relative)' { (StatusOf $langflowVolumeMcp) -eq 'skipped_secret' }
+Check '#248 Hermes volume config.yaml skipped without secrets (volume-relative)' { (StatusOf 'var/lib/docker/volumes/hermes_home/_data/config.yaml') -eq 'skipped_secret' }
+Check '#248 OpenHands volume conversation acp/codex/auth.json skipped without secrets (volume-relative)' { (StatusOf "$openhandsVolume/conversations/c1/acp/codex/auth.json") -eq 'skipped_secret' -and (StatusOf "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json") -eq 'skipped_secret' }
+Check '#320 Ollama volume backup and Muse copy skipped without secrets (volume-relative)' { (StatusOf "$ollamaVolume/backup/codex/config.toml.1792800000") -eq 'skipped_secret' -and (StatusOf "$ollamaVolume/launch/muse-config/muse/settings.json") -eq 'skipped_secret' }
+foreach ($volume in @('n8n_data', 'n8n_n8n-data', 'langflow_langflow-data', 'docker_dify_agent_local_sandbox_home', 'docker_dify_agent_local_sandbox_workspace', 'hermes_home', 'openhands_state', 'ollama')) {
   Remove-Item -LiteralPath (ImagePath "var/lib/docker/volumes/$volume") -Recurse -Force
 }
 

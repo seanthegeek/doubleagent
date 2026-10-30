@@ -159,7 +159,9 @@ None.
   their `.lock` sidecars): flagged. Without a keyring the `.json` form is
   plaintext; with one, the `.enc` form needs the keyring's Fernet key.
 - `.config/pydantic-clai2/logfire/logfire_credentials.json`: flagged.
-- `mcp.json` is collected unflagged although its headers may embed tokens.
+- `.config/pydantic-clai2/mcp.json` and a project's `.clai/mcp_servers.json` (the same server
+  model, [Project-local files](#project-local-files)) give stdio servers `env` and HTTP servers
+  `headers`, which can embed tokens; both are flagged.
 - `.local/state/pydantic-clai2/workspaces/registry/<id>/token`
   is the access token of a running workspace's local `clai2 --web`
   server, plaintext, owner-only ([State directory](#state-directory)):

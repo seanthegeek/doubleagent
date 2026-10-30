@@ -10,6 +10,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-10-29
+
+### Added
+
+- Claude Code's `.claude/settings.json` and `.claude/settings.local.json`, in the home and in a project, and a project's `.mcp.json` are flagged `secret: true`: they can hold MCP server `env` and `headers` values, `env.ANTHROPIC_API_KEY` and `apiKeyHelper` ([#248]).
+- Gemini CLI's `settings.json`, whose `mcpServers` entries take `env` and `headers` values, is flagged `secret: true` in `.gemini`, `.cache/.gemini` and a project's `.gemini` (glob `*.gemini/settings.json`) ([#317]).
+- Antigravity's shared `.gemini/config/mcp_config.json` is flagged `secret: true` ([#248]).
+- Copilot CLI's `.copilot/settings.json` (a sandbox proxy password), the MCP secret store `.copilot/mcp-secrets/`, the pre-migration `.config/.copilot/config.json`, `mcp-config*` and `mcp-oauth-config*`, and a project's `.github/copilot/settings.json`, `.github/copilot/settings.local.json` and `.github/mcp.json` are flagged `secret: true` ([#248]).
+- A project's `.vscode/mcp.json` is flagged `secret: true`, like the editor's `User/mcp.json` ([#248]).
+- Cline's legacy MCP settings file in the editor's extension storage, `*/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`, is flagged `secret: true` ([#248]).
+- Roo Code's MCP settings file (`settings/mcp_settings.json` and its pre-migration name `cline_mcp_settings.json`) in the extension's storage and in the CLI's `.vscode-mock/global-storage/settings/`, and a project's `.roo/mcp.json`, are flagged `secret: true` ([#248]).
+- A project's root `opencode.json` and `opencode.jsonc` are flagged `secret: true`, like the `.opencode/` copies ([#248]).
+- Amp's `.config/amp/settings.json` and its `settings.jsonc` fallback, and a project's `.amp/settings.json` and `.amp/settings.jsonc`, are flagged `secret: true`: their `amp.mcpServers` entries take `env` and `headers` values ([#248]).
+- Factory Droid's `.factory/settings.json`, `.factory/settings.local.json` and `.factory/mcp.json`, in the home and in a project, are flagged `secret: true` ([#248]).
+- Kiro's agent files `.aws/amazonq/cli-agents/*.json` and a project's `.amazonq/cli-agents/*.json`, and a project's legacy `.amazonq/mcp.json`, are flagged `secret: true` ([#248]).
+- OpenHands' per-conversation `acp/codex/auth.json` is flagged `secret: true` under `.openhands/` and, volume-relative, under `conversations/` and `agent-canvas/` of an OpenHands volume ([#248]).
+- little-coder's `.little-coder/mcp.json` of the v0.0.x releases is flagged `secret: true` ([#248]).
+- Hermes' `config.yaml`, whose `mcp_servers` entries take `env` and `headers` values, is flagged `secret: true` in every home and profile (`.hermes*/config.yaml`, `AppData/Local/hermes*/config.yaml`) and at a Hermes volume's root ([#248]).
+- Langflow's per-user `_mcp_servers_<id>.json` is flagged `secret: true` in the platformdirs cache directory Langflow uses as its config directory (`.cache/langflow`, `Library/Caches/langflow`, `AppData/Local/langflow/langflow/Cache`) and, as `[0-9a-f]*-*-*-*-*/_mcp_servers_*.json`, in a Langflow volume ([#248]).
+- CLAI's `.config/pydantic-clai2/mcp.json` and a project's `.clai/mcp_servers.json` are flagged `secret: true` ([#248]).
+- Ollama's copies of other agents' settings files, `.ollama/backup/*` and `.ollama/launch/muse-config/muse/settings.json`, are flagged `secret: true`, and so are their volume-relative forms `backup/*` and `launch/muse-config/muse/settings.json` in an Ollama volume, where `ollama launch` run through `docker exec` writes them ([#320]).
+- A project's Crush configuration files `crushrc`, `.crushrc`, `crush.json` and `.crush.json` are flagged `secret: true` ([#323]).
+- Project discovery reads Crush's Windows project list, `AppData/Local/crush/projects.json`, beside `.local/share/crush/projects.json`; the PowerShell collector maps its `C:\` paths into the image, the sh collector uses only the `/` paths it holds ([#323]).
+
+### Changed
+
+- Hermes' Electron caches are excluded in suffixed user-data directories too (`.config/Hermes*/Cache` and the `Code Cache` and `GPUCache` forms, on every OS), and so is the desktop updater's download cache `AppData/Local/hermes-updater`, which the suffixed-home line reaches ([#324]).
+- Hermes' installer checkout is excluded in suffixed homes and profiles too (`.hermes*/hermes-agent/[!.]*`, `.hermes*/hermes-agent/.[!e]*` and the `AppData/Local/hermes*/hermes-agent/` forms), keeping the checkout's `.env` ([#324]).
+
+### Fixed
+
+- Hermes homes and desktop user-data directories with a `HERMES_DATA_DIR_SUFFIX` are collected: the suffix is appended with no separator (`.hermes-channel-build-canary`), so the catalog lines are `.hermes?*`, `AppData/Local/hermes?*` and `Hermes?*` user-data directories instead of `.hermes_*` and `AppData/Local/hermes_*`, and the desktop connection files are flagged in each ([#324]).
+- `windsurf|AppData/Roaming/devin` is replaced by the Devin CLI's `AppData/Roaming/devin/mcp_config.json` and `AppData/Roaming/devin/credentials.toml`, so on a case-insensitive disk, where that directory is the Devin IDE's `AppData/Roaming/Devin`, the whole IDE user-data directory is no longer collected under this line, and on a case-sensitive disk only those two CLI files are ([#321]).
+- Factory Droid's environment dumps `.factory/temp/env/*` are collected and flagged `secret: true`: the `.factory/temp` exclusion, which hid them, is narrowed to `.factory/temp/[!e]*` ([#322]).
+
+### Removed
+
+- The exclusions no catalog line reaches: Amp's `.cache/amp/runner-desktop`, `.cache/amp/desktop`, `.cache/amp/bin` and `.cache/amp/obelisk-runs`, Ollama's `Library/Caches/ollama` and `Library/Caches/com.electron.ollama`, and Windsurf's `AppData/Local/devin/bin` ([#322], [#321]).
+
 ## [1.19.0] - 2026-10-28
 
 ### Added
@@ -1131,7 +1170,8 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
   overridden by `--full`; credential files collected and flagged
   `secret: true` by default.
 
-[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.19.0...HEAD
+[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.20.0...HEAD
+[1.20.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.19.0...collector-v1.20.0
 [1.19.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.18.0...collector-v1.19.0
 [1.18.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.17.0...collector-v1.18.0
 [1.17.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.16.0...collector-v1.17.0
@@ -1157,9 +1197,16 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#324]: https://github.com/seanthegeek/doubleagent/issues/324
+[#323]: https://github.com/seanthegeek/doubleagent/issues/323
+[#322]: https://github.com/seanthegeek/doubleagent/issues/322
+[#321]: https://github.com/seanthegeek/doubleagent/issues/321
+[#320]: https://github.com/seanthegeek/doubleagent/issues/320
+[#317]: https://github.com/seanthegeek/doubleagent/issues/317
 [#277]: https://github.com/seanthegeek/doubleagent/issues/277
 [#256]: https://github.com/seanthegeek/doubleagent/issues/256
 [#253]: https://github.com/seanthegeek/doubleagent/issues/253
+[#248]: https://github.com/seanthegeek/doubleagent/issues/248
 [#242]: https://github.com/seanthegeek/doubleagent/issues/242
 [#236]: https://github.com/seanthegeek/doubleagent/issues/236
 [#231]: https://github.com/seanthegeek/doubleagent/issues/231

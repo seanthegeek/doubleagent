@@ -181,7 +181,8 @@ no home-relative binary dir. Hub daemon runs as `cline --cline-hub-daemon`
 - `~/.cline/data/connectors/settings.json`, `db/connectors.db` (connector credentials,
   [`paths.ts:248-258`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L248-L258)).
 - `settings/cline_mcp_settings.json` and `settings/composio/*.json` can embed `headers`/`env` and
-  connected-account ids
+  connected-account ids; `cline_mcp_settings.json` is flagged under `~/.cline/data` and in the
+  extension's `globalStorage/saoudrizwan.claude-dev/settings/`
   ([`apps/vscode/src/services/mcp/schemas.ts:42-143`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/services/mcp/schemas.ts#L42-L143)).
 - `<globalStorage>/saoudrizwan.claude-dev/cache/remote_config_<organization id>.json`,
   the cached organisation remote config, holds the prompt upload bucket's

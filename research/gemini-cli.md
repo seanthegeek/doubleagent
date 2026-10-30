@@ -216,8 +216,10 @@ the `--worktree` checkout inside the project, covered in
   carrying `GEMINI_API_KEY`/`GOOGLE_API_KEY`
   ([`cli/src/config/auth.ts:22`](https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/cli/src/config/auth.ts#L22),[`36`](https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/cli/src/config/auth.ts#L36)).
 - `settings.json` `mcpServers.*.env` and `.headers` embed secrets
-  ([`cli/src/config/settingsSchema.ts:3053`](https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/cli/src/config/settingsSchema.ts#L3053),[`3071`](https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/cli/src/config/settingsSchema.ts#L3071)).
-  Extension `.env` holds non-sensitive settings; `sensitive` ones go to keychain
+  ([`cli/src/config/settingsSchema.ts:3053`](https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/cli/src/config/settingsSchema.ts#L3053),[`3071`](https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/cli/src/config/settingsSchema.ts#L3071)),
+  so `*.gemini/settings.json` flags the user file, the `~/.cache/.gemini` one and a
+  project's `.gemini/settings.json`. Extension `.env` holds non-sensitive settings; `sensitive`
+  ones go to keychain
   ([`docs/extensions/reference.md:204`](https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/docs/extensions/reference.md#L204)).
 - `tmp/<slug>/bug-memory-<epoch ms>.heapsnapshot`, the V8 heap snapshot
   `/bug-memory` writes, is a dump of the CLI process's memory and so

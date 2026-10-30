@@ -167,7 +167,9 @@ process collects the temp directory by hand.
   [`packages/cloud/src/WebAuthService.ts:113-115`](https://github.com/RooCodeInc/Roo-Code/blob/44f6bba250235a98a21403df8b2ff64dfb5421c0/packages/cloud/src/WebAuthService.ts#L113-L115),
   [`215`](https://github.com/RooCodeInc/Roo-Code/blob/44f6bba250235a98a21403df8b2ff64dfb5421c0/packages/cloud/src/WebAuthService.ts#L215)).
 - `settings/mcp_settings.json` and project `.roo/mcp.json` can embed `env`
-  and headers. No keychain use.
+  and headers. Both are flagged, the first (and its pre-migration name
+  `cline_mcp_settings.json`) in the extension's `globalStorage` and in
+  `.vscode-mock/global-storage/settings/`. No keychain use.
 
 ### Exclusions
 
