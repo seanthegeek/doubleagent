@@ -24,8 +24,10 @@ Fields the parser depends on:
 * Legacy and request-log lines: `id`, `role`, `created`, `content`, `metadata`,
   `model_config.model_name`, `input.messages`, `data`, `error`.
 
-Validated against source, block/goose at 591edd4 and aaif-goose/goose at fb9e3c8 and bfcc6ee,
-with a synthetic fixture; no real install. See `research/goose.md`.
+Validated against source, aaif-goose/goose at b23d21c (1.57.0), with a synthetic fixture; no real
+install. The older shapes it still reads (the legacy JSONL sessions, a bare content array in
+`toolResult.value`, the `toolConfirmationRequest` block) are under Format versions and Record
+schema of `research/goose.md`, which this module follows.
 """
 
 from __future__ import annotations
@@ -76,7 +78,7 @@ def epoch(value) -> str:
     """Return a `created_timestamp` as UTC.
 
     The value is in seconds, but some clients write milliseconds: Goose divides anything above 1e10
-    by 1000 (session_manager.rs:729-741).
+    by 1000 (session_manager.rs:851-864 at aaif-goose/goose b23d21c).
     """
     if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 10_000_000_000:
         value = value / 1000.0
@@ -189,7 +191,7 @@ def permission_entries(path, errors: list) -> Iterator[tuple[int, str, str, str]
 
     `serde_yaml` writes a map from category (`user`, `smart_approve`) to `always_allow`,
     `ask_before` and `never_allow`, each a block list of tool names or `[]`
-    (config/permission.rs:13-44, 260-262 at aaif-goose/goose fb9e3c8). Only that nesting is read:
+    (config/permission.rs:18-44, 257-275 at aaif-goose/goose b23d21c). Only that nesting is read:
     any other line is appended to `errors` as (line, message, raw), as `iter_jsonl` does.
     """
     category = level = ""
@@ -233,7 +235,7 @@ def merge_delta(blocks: list, new: list) -> None:
     """Append one streamed chunk's content blocks to the message assembled so far.
 
     As `Conversation::push` does for chunks with the same message id
-    (goose-provider-types/src/conversation.rs:75-119 at aaif-goose/goose fb9e3c8): a one-block text
+    (goose-provider-types/src/conversation.rs:75-119 at aaif-goose/goose b23d21c): a one-block text
     chunk extends a last text block of the same audience, a one-block thinking chunk extends a last
     thinking block that is unsigned or has its signature, and anything else is appended.
     """
@@ -259,7 +261,7 @@ def merge_delta(blocks: list, new: list) -> None:
 def schedule_text(job: dict, rel: str) -> str:
     """Return the `scheduled task:` text of one `schedule.json` job.
 
-    The job is a `ScheduledJob` (scheduler/common.rs:167-187 at aaif-goose/goose fb9e3c8); `-`
+    The job is a `ScheduledJob` (scheduler/common.rs:166-187 at aaif-goose/goose b23d21c); `-`
     stands for an absent value, and `parameters` is added only when the job has any.
     """
 
@@ -476,7 +478,7 @@ class GooseParser(Parser):
         """Return the text of an `actionRequired` block, setting `row`'s tool join.
 
         A tool confirmation is a `permission request:` and its answer a `permission decision:`
-        (message.rs:194-219 at aaif-goose/goose fb9e3c8); an elicitation keeps the generic `action
+        (message.rs:194-220 at aaif-goose/goose b23d21c); an elicitation keeps the generic `action
         required:` row.
         """
         kind = data.get("actionType") if isinstance(data, dict) else None
@@ -511,6 +513,7 @@ class GooseParser(Parser):
                     return
                 sessions: dict[str, dict] = {}
                 seen_model: dict[str, str] = {}
+                session_models: dict[str, str] = {}
                 seen_mode: dict[str, str] = {}
                 if "sessions" in tables:
                     for session in connection.execute(
@@ -531,15 +534,17 @@ class GooseParser(Parser):
                         model_name = str(
                             (config.get("model_name") if isinstance(config, dict) else "") or ""
                         )
-                        session["_model"] = _model(session.get("provider_name") or "", model_name)
                         session_id = str(session.get("id") or "")
+                        session_models[session_id] = _model(
+                            session.get("provider_name") or "", model_name
+                        )
                         sessions[session_id] = session
                         row = self._row(
                             artifact,
                             session["_rowid"],
                             session_id,
                             session.get("working_dir") or "",
-                            session["_model"],
+                            session_models[session_id],
                             to_utc(session.get("created_at")),
                         )
                         row.turn_type = "system"
@@ -612,7 +617,7 @@ class GooseParser(Parser):
                     model = _model(
                         inference.get("provider") or "",
                         inference.get("resolvedModel") or inference.get("requestedModel") or "",
-                    ) or session.get("_model", "")
+                    ) or session_models.get(session_id, "")
                     base = self._row(
                         artifact,
                         record,

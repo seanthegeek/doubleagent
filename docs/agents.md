@@ -53,7 +53,7 @@ agent name in each row links to its subsection.
 | [`factory-droid`](#factory-droid) | backlog | Shipped binary strings, docs | [research](../research/factory-droid.md); [issue 54](https://github.com/seanthegeek/doubleagent/issues/54); JSONL session transcripts under `.factory/sessions` and a prompt history |
 | [`flowise`](#flowise) | backlog | Source | [research](../research/flowise.md); [issue 68](https://github.com/seanthegeek/doubleagent/issues/68); `database.sqlite` with `chat_message` (tool use and agent reasoning) and `execution` |
 | [`gemini-cli`](#gemini-cli) | parsed | source; fixture only | [research](../research/gemini-cli.md) |
-| [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md) |
+| [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md); [issue 368](https://github.com/seanthegeek/doubleagent/issues/368); the desktop app's local-storage prompt history is not parsed |
 | [`hermes`](#hermes) | parsed | source; fixture only | [research](../research/hermes.md); [issue 208](https://github.com/seanthegeek/doubleagent/issues/208); the nested `config.yaml` `approvals` settings are not parsed |
 | [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); [issue 221](https://github.com/seanthegeek/doubleagent/issues/221); the session pull request links are not parsed yet |
 | [`kiro`](#kiro) | parsed | source; fixture only | [research](../research/kiro.md); [issue 212](https://github.com/seanthegeek/doubleagent/issues/212); Kiro CLI's own sessions and permission files wait for a real install |
@@ -749,9 +749,9 @@ and `AppData/Roaming/Block/goose/config` equivalents. A `sessions.db` session
 whose `session_type` is `gateway` was relayed through the gateway's
 Telegram bot, so the parser records relay state and `sessions.jsonl`
 `relayed` reads `yes` or `no`; `config.yaml` `gateway_pairings` is not
-read.
+read, nor the desktop app's prompt history in its local storage.
 
-Validated against: Source at [591edd4](https://github.com/block/goose/commit/591edd47cf2cfea4957d720c607cf2a4def8673d), synthetic fixture; the tool confirmation and `goose.executable` rows, `permission.yaml`, `roaming_trust.json`, `schedule.json` and the request logs as a secondary source from source at [fb9e3c8](https://github.com/aaif-goose/goose/commit/fb9e3c89b2b4670a0eded99e7567e578ac6e502c), synthetic fixture.
+Validated against: source at [b23d21c](https://github.com/aaif-goose/goose/commit/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc) (1.57.0), synthetic fixture; the `sessions.db` fixture keeps the schema 16 columns of [591edd4](https://github.com/block/goose/commit/591edd47cf2cfea4957d720c607cf2a4def8673d). No real install.
 
 ### `hermes`
 
