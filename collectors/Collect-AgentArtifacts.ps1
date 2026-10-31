@@ -1643,7 +1643,7 @@ AppData/Roaming/Block/goose/config/xai_oauth/tokens.json
 AppData/Roaming/Block/goose/config/roaming_node_key
 AppData/Roaming/Block/goose/config/tls/server.key
 AppData/Roaming/Block/goose/data/claude-code/mcp-config-*.json
-.config/Goose/settings.json
+.config/[Gg]oose/settings.json
 Library/Application Support/Goose/settings.json
 AppData/Roaming/Goose/settings.json
 diagnostics_*.json

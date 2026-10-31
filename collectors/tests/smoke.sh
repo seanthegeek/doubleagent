@@ -663,6 +663,65 @@ secret||.local/state/opencode/service.json.pty-handoff.u1.tmp
 secret||.opencode/opencode.json
 agent|opencode|.local/state/opencode/prompt-history.jsonl
 agent|opencode|.local/share/opencode/shell/p1/sh_1.out
+excl||.local/share/goose/models
+excl||.local/share/goose/model_catalog
+excl||.local/state/goose/codex
+excl||.config/goose/mcp-apps-cache
+excl||AppData/Roaming/Block/goose/data/models
+excl||AppData/Roaming/Block/goose/data/model_catalog
+excl||AppData/Roaming/Block/goose/data/codex
+excl||AppData/Roaming/Block/goose/config/mcp-apps-cache
+excl||Library/Application Support/Goose/Cache
+excl||Library/Application Support/Goose/Code Cache
+excl||Library/Application Support/Goose/GPUCache
+excl||Library/Application Support/Goose/DawnGraphiteCache
+excl||Library/Application Support/Goose/DawnWebGPUCache
+excl||Library/Application Support/Goose/blob_storage
+secret||.config/goose/secrets.yaml
+secret||.config/goose/config.yaml
+secret||.config/goose/config.tmp
+secret||.config/goose/githubcopilot/info.json
+secret||.config/goose/githubcopilot/u1/info.json
+secret||.config/goose/chatgpt_codex/tokens.json
+secret||.config/goose/gemini_oauth/tokens.json
+secret||.config/goose/kimicode/token.json
+secret||.config/goose/muse_code/token.json
+secret||.config/goose/huggingface/oauth/tokens.json
+secret||.config/goose/databricks/oauth/h1.json
+secret||.config/goose/xai_oauth/tokens.json
+secret||.config/goose/roaming_node_key
+secret||.config/goose/tls/server.key
+secret||.local/state/goose/claude-code/mcp-config-20261030_ab12cd.json
+secret||AppData/Roaming/Block/goose/config/secrets.yaml
+secret||AppData/Roaming/Block/goose/config/config.yaml
+secret||AppData/Roaming/Block/goose/config/config.tmp
+secret||AppData/Roaming/Block/goose/config/githubcopilot/info.json
+secret||AppData/Roaming/Block/goose/config/githubcopilot/u1/info.json
+secret||AppData/Roaming/Block/goose/config/chatgpt_codex/tokens.json
+secret||AppData/Roaming/Block/goose/config/gemini_oauth/tokens.json
+secret||AppData/Roaming/Block/goose/config/kimicode/token.json
+secret||AppData/Roaming/Block/goose/config/muse_code/token.json
+secret||AppData/Roaming/Block/goose/config/huggingface/oauth/tokens.json
+secret||AppData/Roaming/Block/goose/config/databricks/oauth/h1.json
+secret||AppData/Roaming/Block/goose/config/xai_oauth/tokens.json
+secret||AppData/Roaming/Block/goose/config/roaming_node_key
+secret||AppData/Roaming/Block/goose/config/tls/server.key
+secret||AppData/Roaming/Block/goose/data/claude-code/mcp-config-20261030_ab12cd.json
+secret||.config/Goose/settings.json
+secret||Library/Application Support/Goose/settings.json
+secret||AppData/Roaming/Goose/settings.json
+agent|goose|.config/goose/permission.yaml
+agent|goose|.local/share/goose/sessions/sessions.db
+agent|goose|.local/state/goose/history.txt
+agent|goose|.cache/goose/computer_controller/shot_20261030_120000.png
+agent|goose|.config/Goose/recent-dirs.json
+agent|goose|Library/Application Support/Goose/recent-dirs.json
+agent|goose|AppData/Roaming/Block/goose/config/permission.yaml
+agent|goose|AppData/Roaming/Block/goose/data/sessions/sessions.db
+agent|goose|AppData/Local/Block/goose/cache/computer_controller/shot_20261030_120000.png
+agent|goose|Library/Application Support/Block/goose/sessions/sessions.db
+agent|goose|AppData/Roaming/Goose/recent-dirs.json
+agent|goose|.goose/memory/dev.txt
 '
 ALICE="$ROOT/home/alice"; BOB="$ROOT/Users/bob"
 printf '%s\n' "$CASES_CATALOG" | while IFS='|' read -r _kind _agent _relpath; do
@@ -683,6 +742,17 @@ mkdir -p "$ALICE/.hermes/checkpoints/store/projects" "$ROOT/srv/hermesproj" "$AL
   "$ALICE/.twinny/embeddings/twinproj" "$ROOT/srv/twinproj/src"
 printf '{"workdir":"/srv/hermesproj","created_at":1759536000}\n' >"$ALICE/.hermes/checkpoints/store/projects/0123456789abcdef.json"
 printf '# hermes\n' >"$ROOT/srv/hermesproj/.hermes.md"
+# 2026-10-31 goose rebuild (#326)
+mkdir -p "$ALICE/.local/share/goose/projects" "$ALICE/AppData/Roaming/Block/goose/data/sessions" \
+  "$ROOT/srv/gooseproj/.goose/memory" "$ROOT/srv/gooserecipes" "$ROOT/srv/goosewin"
+printf '%s\n' '---' 'name: demo' "description: ''" 'workingDirs:' '- /srv/gooseproj' '---' >"$ALICE/.local/share/goose/projects/demo.md"
+printf '[\n  {\n    "id": "weekly",\n    "recipe_base_dir": "/srv/gooserecipes"\n  }\n]\n' >"$ALICE/.local/share/goose/schedule.json"
+printf '{"description":"d","working_dir":"/srv/goosewin"}\n' >"$ALICE/AppData/Roaming/Block/goose/data/sessions/20250611_093000.jsonl"
+printf 'hints\n' >"$ROOT/srv/gooseproj/.goosehints"
+printf 'memory\n' >"$ROOT/srv/gooseproj/.goose/memory/dev.txt"
+printf '{"config":{"configYaml":"x"}}\n' >"$ROOT/srv/gooseproj/diagnostics_20261030_2.json"
+printf 'hints\n' >"$ROOT/srv/gooserecipes/.goosehints"
+printf 'hints\n' >"$ROOT/srv/goosewin/.goosehints"
 # 2026-10-30 hermes rebuild (#326)
 mkdir -p "$ROOT/srv/hermesproj/.hermes"
 printf '# hermes\n' >"$ROOT/srv/hermesproj/HERMES.md"
@@ -1680,6 +1750,12 @@ check "little-coder history nested in .pi collected exactly once" "[ \"\$(grep -
 check "hermes installer checkout excluded but its .env kept" "[ \"\$(status_of \"$ALICE/.hermes/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes/hermes-agent/.env\")\" = collected ]"
 check "openclaw .clawdbot rename symlink recorded" "row \"$BOB/.clawdbot\" | grep -q '\"agent\":\"openclaw\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\".openclaw\"'"
 check "hermes checkpoint workdir discovers project" "row \"$ROOT/srv/hermesproj/.hermes.md\" | grep -q '\"user\":\"alice\".*\"status\":\"collected\"'"
+# 2026-10-31 goose rebuild (#326)
+check "#326 goose projects/<slug>.md workingDirs discovers project" "row \"$ROOT/srv/gooseproj/.goosehints\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
+check "#326 goose project memory file collected" "row \"$ROOT/srv/gooseproj/.goose/memory/dev.txt\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
+check "#326 goose project diagnostics export flagged secret" "row \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\" | grep -q '\"agent\":\"goose\".*\"secret\":true,\"status\":\"collected\"'"
+check "#326 goose schedule.json recipe_base_dir discovers project" "[ \"\$(status_of \"$ROOT/srv/gooserecipes/.goosehints\")\" = collected ]"
+check "#326 goose Windows legacy session working_dir discovers project" "[ \"\$(status_of \"$ROOT/srv/goosewin/.goosehints\")\" = collected ]"
 # 2026-10-30 hermes rebuild (#326)
 for _hermes_file in HERMES.md .hermes/environment.json trajectory_samples.jsonl failed_trajectories.jsonl; do
   check "#326 Hermes project file collected: $_hermes_file" "row \"$ROOT/srv/hermesproj/$_hermes_file\" | grep -q '\"agent\":\"hermes\".*\"status\":\"collected\"'"
@@ -2202,6 +2278,8 @@ done
 for _opencode_path in .opencode/opencode.json opencode.jsonc; do
   check "#326 OpenCode project config skipped without secrets: $_opencode_path" "[ \"\$(status_of \"$ROOT/srv/ocproj/$_opencode_path\")\" = skipped_secret ]"
 done
+# 2026-10-31 goose rebuild (#326)
+check "#326 goose project diagnostics export skipped without secrets" "[ \"\$(status_of \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\")\" = skipped_secret ]"
 # 2026-10-04 catalog cases
 printf '%s\n' "$CASES_CATALOG" >"$WORK/nosecrets14"
 while IFS='|' read -r _kind _agent _relpath; do
