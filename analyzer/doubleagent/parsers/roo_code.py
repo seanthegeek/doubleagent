@@ -39,7 +39,13 @@ from pathlib import Path
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
-from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_items, shown_problem
+from ..vscode_state import (
+    EDITOR_AGENTS,
+    STATE_DATABASE_PATTERN,
+    VALUE_PROBLEM,
+    read_items,
+    shown_problem,
+)
 from .base import Options, error_rows, file_mtime, setting_value, text_of
 from .cline_legacy import (
     API_FILES,
@@ -425,9 +431,14 @@ class RooCodeParser(LegacyTaskParser):
                 yield from self._retry_queue_rows(artifact, state, source)
             else:
                 yield from self._global_state_rows(artifact, state, source)
-        # Whole-file rows, so no file time; never echo the value: the workspace
-        # state's retry queue holds a bearer token.
-        yield from error_rows(self, artifact, [(0, shown_problem(problem)) for problem in problems])
+        for problem in problems:
+            # Never echo the value: the workspace state's retry queue holds a
+            # bearer token. A value row keeps the file time; a whole-file
+            # problem (the database could not be read) carries none.
+            if problem.startswith(VALUE_PROBLEM):
+                yield self._bad_file(artifact, shown_problem(problem))
+            else:
+                yield from error_rows(self, artifact, [(0, problem)])
 
     # ---- Roo Code Cloud retry queue -------------------------------------------
 

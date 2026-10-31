@@ -1523,9 +1523,10 @@ line cut off mid-write, is reported as its own `system` row whose
 decoder's message and `<line>` is the whole line as read (decoded as
 UTF-8 with undecodable bytes replaced, less its line terminator), with
 nothing repaired, extracted or shortened. The rest of the file is still
-read. A file that exists but cannot be opened or read (a permission
-denied, an I/O error), a SQLite database's `-wal`, `-shm` or `-journal`
-sidecar included, is one whole-file `system` row naming the file and the
+read. A file that exists but cannot be opened (a permission denied), a
+SQLite database's `-wal`, `-shm` or `-journal` sidecar included, or that
+the shared JSONL reader cannot read through (an I/O error), is one
+whole-file `system` row naming the file and the
 operating system's message, `parser: <file> could not be read (<reason>)`
 from the shared JSONL and SQLite readers (a parser's own reader words it
 as its research document states), with the file's known session id and
