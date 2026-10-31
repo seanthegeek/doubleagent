@@ -28,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `kilo-code` parser reads the pinned session ids of the Kilo Code TUI's `.local/state/kilo/session.json`, as it does OpenCode's, giving one `session pinned:` row per id; it had skipped the file, assuming Kilo's TUI kept none ([#326]).
 - A Kilo Code remote control log or pre-fork extension task file that cannot be read is now one `parser: <file> could not be read (<reason>)` row, as is an unreadable memory digest, instead of a `problem:` line ([#326]).
 - An OpenCode 1.x session file whose project file (`storage/project/<projectID>.json`) exists but does not decode is now one `parser: project file <projectID>.json could not be read (<reason>)` row instead of a session with no project path and no row saying why; the `kilo-code` parser reads Kilo Code's 1.x JSON trees through the same reader and gives the same row ([#326]).
+- The `cursor` parser strips a `.git` suffix from a cloud agent's `repoUrl` repository in the `source host:` row, and a test covers a user-info URL, a port and look-alike hosts ([#238]).
 
 ## [0.21.0] - 2026-10-28
 
@@ -2161,6 +2162,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [#269]: https://github.com/seanthegeek/doubleagent/issues/269
 [#256]: https://github.com/seanthegeek/doubleagent/issues/256
 [#253]: https://github.com/seanthegeek/doubleagent/issues/253
+[#238]: https://github.com/seanthegeek/doubleagent/issues/238
 [#237]: https://github.com/seanthegeek/doubleagent/issues/237
 [#236]: https://github.com/seanthegeek/doubleagent/issues/236
 [#231]: https://github.com/seanthegeek/doubleagent/issues/231
