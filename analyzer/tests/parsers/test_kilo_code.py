@@ -1,14 +1,22 @@
 """Tests of the Kilo Code parser."""
 
+import contextlib
+import io
 import json
+import unittest
 
+from test_errors import CAN_DENY, DENY_REASON
+
+from doubleagent import cli
 from doubleagent.inputs import open_input
-from doubleagent.parsers.kilo_code import KiloCodeParser
+from doubleagent.parsers.kilo_code import KiloCodeParser, is_task_file
 from doubleagent.parsers.kilo_code import iter_json_array as kilo_iter_json_array
 from doubleagent.parsers.opencode import OpenCodeParser
 from doubleagent.timeutil import to_utc
 from fixtures import (
+    KILO_DIGEST_REL,
     KILO_LOG_NAME,
+    KILO_PINNED_GONE,
     KILO_SANDBOX_DIR_HASH,
     KILO_SANDBOX_SESSION_HASH,
     KILO_SESSION,
@@ -20,7 +28,7 @@ from fixtures import (
     write_bad_line,
 )
 
-from .base import ParserBase
+from .base import ParserBase, read_jsonl
 
 
 class KiloCodeTests(ParserBase):
@@ -115,6 +123,13 @@ class KiloCodeTests(ParserBase):
         )
         self.assertEqual((result.tool_use_id, result.text), ("toolu_01A", "3 passed"))
         self.assertEqual((final.text, final.source_line), ("All three tests pass.", 5))
+
+    def test_task_file_under_any_user_directory(self):
+        rel = "User/globalStorage/kilocode.kilo-code/tasks/t1/api_conversation_history.json"
+        self.assertTrue(is_task_file(rel))
+        self.assertTrue(is_task_file(".config/VSCodium/" + rel))
+        self.assertFalse(is_task_file(".config/Code/X" + rel))
+        self.assertFalse(is_task_file(rel.replace("api_conversation_history", "ui_messages")))
 
     def test_thinking_opt_in(self):
         rows = self.rows_for(KiloCodeParser(), self.TASK, include_thinking=True)
@@ -426,9 +441,176 @@ class KiloCodeTests(ParserBase):
             ],
         )
 
+    def test_memory_digest_row(self):
+        self.with_state()
+        rows = self.rows_for(KiloCodeParser(), KILO_DIGEST_REL)
+        self.assertEqual(
+            [
+                (
+                    row.turn_type,
+                    row.session_id,
+                    row.project_path,
+                    row.timestamp_utc,
+                    row.source_line,
+                    row.text,
+                )
+                for row in rows
+            ],
+            [
+                (
+                    "system",
+                    KILO_SESSION,
+                    "/srv/proj",
+                    "2026-10-03T10:30:00.000Z",
+                    8,
+                    "memory digest: test fixes: Ran the suite; three tests pass. "
+                    "(from %s, Updated)" % KILO_DIGEST_REL,
+                )
+            ],
+        )
+        self.assertFalse(KiloCodeParser().secondary(self.artifact(KILO_DIGEST_REL)))
+
+    def test_memory_digest_keeps_every_summary_line(self):
+        self.with_state()
+        path = self.home / KILO_DIGEST_REL
+        path.write_bytes(
+            b"# Session s2\r\nUpdated: 2026-10-03T11:00:00.000Z\r\n\r\n## Summary\r\n"
+            b"first line\r\nsecond line\r\n"
+        )
+        rows = self.rows_for(KiloCodeParser(), KILO_DIGEST_REL)
+        self.assertEqual(
+            [(row.session_id, row.timestamp_utc, row.text) for row in rows],
+            [
+                (
+                    "s2",
+                    "2026-10-03T11:00:00.000Z",
+                    "memory digest: -: first line\nsecond line (from %s, Updated)"
+                    % KILO_DIGEST_REL,
+                )
+            ],
+        )
+
+    def test_memory_digest_problems(self):
+        self.with_state()
+        path = self.home / KILO_DIGEST_REL
+        manifest = path.parent.parent / "manifest.json"
+        path.write_text("# Session s3\nUpdated: 2026-10-03T11:00:00.000Z\n", encoding="utf-8")
+        rows = self.rows_for(KiloCodeParser(), KILO_DIGEST_REL)
+        self.assertEqual(
+            [(row.session_id, row.project_path, row.text) for row in rows],
+            [
+                (
+                    "s3",
+                    "/srv/proj",
+                    "parser: %s is not a memory digest (no ## Summary line)" % KILO_DIGEST_REL,
+                )
+            ],
+        )
+        path.write_text("# Session s3\n## Summary\ndone\n", encoding="utf-8")
+        manifest.write_text("[1]", encoding="utf-8")
+        rows = self.rows_for(KiloCodeParser(), KILO_DIGEST_REL)
+        self.assertEqual(
+            [(row.project_path, row.text) for row in rows],
+            [
+                ("", "memory digest: -: done (from %s, Updated)" % KILO_DIGEST_REL),
+                ("", "parser: memory manifest.json is not a JSON object"),
+            ],
+        )
+        # A manifest written without the project's identity has no `canonical`, and says nothing.
+        manifest.write_text('{"kind": "kilo-memory"}', encoding="utf-8")
+        rows = self.rows_for(KiloCodeParser(), KILO_DIGEST_REL)
+        self.assertEqual([(row.project_path, row.turn_type) for row in rows], [("", "system")])
+        manifest.unlink()
+        rows = self.rows_for(KiloCodeParser(), KILO_DIGEST_REL)
+        self.assertEqual(len(rows), 1)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_files_are_whole_file_rows(self):
+        # A digest, log or task file that is there but cannot be read is one `parser:` row
+        # carrying what is known of it, never a problem line.
+        self.with_state()
+        cases = (
+            (KILO_DIGEST_REL, "", "/srv/proj"),
+            (self.LOG, "", ""),
+            (self.TASK, KILO_TASK, "/srv/proj"),
+        )
+        for rel, session_id, project in cases:
+            path = self.home / rel
+            path.chmod(0)
+            try:
+                rows = self.rows_for(KiloCodeParser(), rel)
+            finally:
+                path.chmod(0o600)
+            problems = [row for row in rows if row.text.startswith("parser:")]
+            self.assertEqual(len(problems), 1, rel)
+            self.assertTrue(
+                problems[0].text.startswith("parser: %s could not be read (" % rel), rel
+            )
+            self.assertEqual(
+                (problems[0].session_id, problems[0].project_path, problems[0].timestamp_utc),
+                (session_id, project, ""),
+                rel,
+            )
+
+    def test_memory_notes_not_wanted(self):
+        self.with_state()
+        folder = (self.home / KILO_DIGEST_REL).parent.parent
+        for name in ("project.md", "manifest.json", "state.json"):
+            (folder / name).write_text("{}", encoding="utf-8")
+        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+        for name in ("project.md", "manifest.json", "state.json"):
+            rel = ".local/share/kilo/memory/%s/%s" % (folder.name, name)
+            self.assertFalse(KiloCodeParser().wants(self.artifact(rel)), rel)
+
+    def test_pinned_sessions(self):
+        self.with_state()
+        rel = ".local/state/kilo/session.json"
+        parser = KiloCodeParser()
+        self.assertTrue(parser.wants(self.artifact(rel)))
+        self.assertTrue(parser.secondary(self.artifact(rel)))
+        rows = self.rows_for(parser, rel)
+        self.assertEqual(
+            [(row.turn_type, row.session_id, row.timestamp_utc, row.text) for row in rows],
+            [
+                (
+                    "system",
+                    session_id,
+                    to_utc(KILO_SHARE_MTIME),
+                    "session pinned: %s (from %s pinned, file mtime)" % (session_id, rel),
+                )
+                for session_id in (KILO_SESSION, KILO_PINNED_GONE)
+            ],
+        )
+        (self.home / rel).write_text('{"pinned": [', encoding="utf-8")
+        rows = self.rows_for(parser, rel)
+        self.assertEqual([row.text for row in rows], ["parser: %s is not a JSON object" % rel])
+
+    def test_pinned_sessions_kept_through_the_timeline(self):
+        self.with_state()
+        out = self.tmp / "out"
+        with contextlib.redirect_stdout(io.StringIO()):
+            cli.main(["timeline", str(self.tmp / "home"), "-o", str(out), "--agent", "kilo-code"])
+        pinned = [
+            (row["session_id"], row["recovered"])
+            for row in read_jsonl(out / "timeline.jsonl")
+            if row["text"].startswith("session pinned:")
+        ]
+        # As OpenCode's: system rows of a secondary source are kept, not marked recovered, and
+        # the pinned id of a session the database no longer holds is a session of its own.
+        self.assertEqual(pinned, [(KILO_SESSION, ""), (KILO_PINNED_GONE, "")])
+        sessions = {row["session_id"] for row in read_jsonl(out / "sessions.jsonl")}
+        self.assertIn(KILO_PINNED_GONE, sessions)
+
     def test_state_files_wanted_by_kilo_only(self):
         self.with_state()
-        for rel in (self.LOG, self.CONFIG, self.POLICY, self.PREFERENCE, self.RETENTION):
+        for rel in (
+            self.LOG,
+            self.CONFIG,
+            self.POLICY,
+            self.PREFERENCE,
+            self.RETENTION,
+            KILO_DIGEST_REL,
+        ):
             artifact = self.artifact(rel)
             self.assertEqual(artifact.agent, "kilo-code", rel)
             self.assertTrue(KiloCodeParser().wants(artifact), rel)

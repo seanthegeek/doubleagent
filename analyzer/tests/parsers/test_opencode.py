@@ -857,8 +857,8 @@ class OpenCodeTests(ParserBase):
         parser = OpenCodeParser()
         for name in ("kv.json", "service.json"):
             self.assertFalse(parser.wants(self.artifact(self.STATE + name)), name)
-        # Kilo Code's TUI has no pinned-session file.
-        self.assertFalse(
+        # Kilo Code's TUI keeps OpenCode's pinned-session file under its own state directory.
+        self.assertTrue(
             KiloCodeParser().pinned_pattern.match(".local/state/kilo/session.json"), "kilo pinned"
         )
 

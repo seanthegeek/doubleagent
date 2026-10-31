@@ -376,6 +376,13 @@ kilo-code|.local/share/kilo
 kilo-code|.local/state/kilo
 kilo-code|.local/state/kilo-sandbox-policy
 kilo-code|.local/state/kilo-sandbox-preference
+# Kilo Code JetBrains plugin: its kilo folder in the IDE system directory, its settings files
+kilo-code|Library/Caches/JetBrains/*/kilo
+kilo-code|AppData/Local/JetBrains/*/kilo
+kilo-code|.cache/JetBrains/*/kilo
+kilo-code|Library/Application Support/JetBrains/*/options/kilo*.xml
+kilo-code|AppData/Roaming/JetBrains/*/options/kilo*.xml
+kilo-code|.config/JetBrains/*/options/kilo*.xml
 # Continue
 continue|.continue
 # Aider (history files live in the repo; these are the home-level ones)
@@ -974,6 +981,12 @@ AppData/Roaming/Roo-Code/MCP
 .local/share/kilo/state/indexing
 .kilo/worktrees
 .kilo/bin
+Library/Caches/JetBrains/*/kilo/cli
+Library/Caches/JetBrains/*/kilo/repo-cli
+AppData/Local/JetBrains/*/kilo/cli
+AppData/Local/JetBrains/*/kilo/repo-cli
+.cache/JetBrains/*/kilo/cli
+.cache/JetBrains/*/kilo/repo-cli
 .continue/index/lancedb
 .continue/index/*.sqlite
 .continue/.utils
@@ -1514,6 +1527,13 @@ Documents/Cline/webhook_config.json
 .config/kilo/opencode.json*
 .config/kilo/config.json
 .kilocode/cli/config.json
+.local/state/kilo/daemon.json
+*/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json
+kilo.json*
+.kilo/kilo.json*
+.kilo/opencode.json*
+.kilocode/kilo.json*
+.kilocode/opencode.json*
 .continue/auth*.json
 .continue/.env
 .continue/config.yaml
@@ -3117,7 +3137,9 @@ find_cli_session_projects() {
   json_vals workspace_root "$1"/.cline/data/sessions/*/*.json
   json_vals workspaceDirectory "$1/.continue/sessions/sessions.json"
   json_vals working_dir "$1"/.local/share/goose/sessions/*.jsonl
-  json_vals worktree "$1"/.local/share/opencode/storage/project/*.json
+  json_vals worktree "$1"/.local/share/opencode/storage/project/*.json \
+    "$1"/.local/share/kilo/storage/project/*.json
+  json_vals canonical "$1"/.local/share/kilo/memory/*/manifest.json
   json_vals path "$1/.local/share/crush/projects.json" "$1/AppData/Local/crush/projects.json"
   set -- "$1"/agent-zero/usr/chats/*/chat.json "$1"/agent-zero/*/usr/chats/*/chat.json \
     "$1"/Desktop/agent-zero/usr/chats/*/chat.json

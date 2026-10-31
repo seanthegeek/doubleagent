@@ -599,6 +599,42 @@ secret||Library/Application Support/local-deep-research/.secret_key
 secret||AppData/Local/local-deep-research/local-deep-research/.secret_key
 agent|local-deep-research|.local/share/local-deep-research/encrypted_databases/u1.db
 agent|local-deep-research|Documents/LocalDeepResearch/report.md
+excl||.config/Code/User/globalStorage/kilocode.kilo-code/checkpoints
+excl||.config/Code/User/globalStorage/kilocode.kilo-code/cache
+excl||.local/share/kilo/snapshot
+excl||.local/share/kilo/repos
+excl||.local/share/kilo/tool-output
+excl||.local/share/kilo/worktree
+excl||.local/state/kilo/indexing
+excl||.local/share/kilo/state/indexing
+excl||.kilo/bin
+excl||Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/cli
+excl||Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/repo-cli
+excl||AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/cli
+excl||AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/repo-cli
+excl||.cache/JetBrains/IntelliJIdea2026.2/kilo/cli
+excl||.cache/JetBrains/IntelliJIdea2026.2/kilo/repo-cli
+secret||.local/share/kilo/auth.json
+secret||.local/share/kilo/mcp-auth.json
+secret||.local/share/kilo/kilo.db
+secret||.local/share/kilo/opencode-beta.db
+secret||.config/kilo/kilo.jsonc
+secret||.config/kilo/opencode.json
+secret||.config/kilo/config.json
+secret||.kilocode/cli/config.json
+secret||.local/state/kilo/daemon.json
+secret||.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json
+agent|kilo-code|.kilocodemodes
+agent|kilo-code|.local/state/kilo/prompt-history.jsonl
+agent|kilo-code|Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json
+agent|kilo-code|AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json
+agent|kilo-code|.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks/_index.json
+agent|kilo-code|Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/machine-id
+agent|kilo-code|AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/machine-id
+agent|kilo-code|.cache/JetBrains/IntelliJIdea2026.2/kilo/machine-id
+agent|kilo-code|Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+agent|kilo-code|AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml
+agent|kilo-code|.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
 '@
 $CasesCatalog = @($CasesCatalog -split "`r?`n" | Where-Object { $_ -ne '' })
 foreach ($caseLine in $CasesCatalog) {
@@ -1401,6 +1437,18 @@ MakeFile 'Users/alice/Library/Caches/ollama/data_0' "cache`n"
 MakeFile 'Users/alice/Library/Caches/com.electron.ollama/data_0' "cache`n"
 MakeFile 'Users/alice/AppData/Local/crush/projects.json' '{"projects":[{"path":"C:\\crushwin","data_dir":"C:\\crushwin\\.crush"}]}'
 foreach ($driftPath in $driftCrushFiles) { MakeFile "crushwin/$driftPath" "export KEY=k`n" }
+# 2026-10-30 kilo-code rebuild (#326)
+# Projects named by a project memory manifest and by the legacy JSON project store.
+$kiloMemory = 'Users/alice/.local/share/kilo/memory/kilomem-0123456789ab'
+MakeFile "$kiloMemory/manifest.json" "{`n  `"kind`": `"kilo-memory`",`n  `"canonical`": `"C:\\kilomem`"`n}`n"
+MakeFile 'Users/alice/.local/share/kilo/storage/project/p1.json' '{"id":"p1","worktree":"C:\\kilolegacy"}'
+MakeFile 'kilomem/.kilocode/rules/style.md' "rule`n"
+MakeFile 'kilomem/.kilocodemodes' "{}`n"
+MakeFile 'kilomem/.kilocodeignore' "dist`n"
+MakeFile 'kilolegacy/.kilocoderules' "rule`n"
+# The project config files `kilo mcp add` writes MCP servers into, one per secret glob.
+$kiloProjectConfigs = @('kilo.json', '.kilo/kilo.jsonc', '.kilo/opencode.json', '.kilocode/kilo.json', '.kilocode/opencode.jsonc')
+foreach ($kiloPath in $kiloProjectConfigs) { MakeFile "kilolegacy/$kiloPath" "{`"mcp`":{`"x`":{`"type`":`"local`",`"environment`":{`"TOKEN`":`"t`"}}}}`n" }
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2242,6 +2290,16 @@ Check '#323 Crush Windows projects.json discovers project' { (Row 'crushwin/crus
 foreach ($driftPath in $driftCrushFiles) {
   Check "#323 Crush project file flagged secret: $driftPath" { IsAgentRow "crushwin/$driftPath" 'crush' $true }
 }
+# 2026-10-30 kilo-code rebuild (#326)
+Check '#326 Kilo memory manifest discovers project' { IsAgentRow 'kilomem/.kilocodeignore' 'kilo-code' $false }
+Check '#326 Kilo legacy project store discovers project' { IsAgentRow 'kilolegacy/.kilocoderules' 'kilo-code' $false }
+foreach ($kiloPath in @('kilomem/.kilocode/rules/style.md', 'kilomem/.kilocodemodes')) {
+  Check "#326 Kilo project file collected: $kiloPath" { IsAgentRow $kiloPath 'kilo-code' $false }
+}
+foreach ($kiloPath in $kiloProjectConfigs) {
+  Check "#326 Kilo project config flagged secret: $kiloPath" { IsAgentRow "kilolegacy/$kiloPath" 'kilo-code' $true }
+}
+Check '#326 Kilo memory manifest collected' { IsAgentRow "$kiloMemory/manifest.json" 'kilo-code' $false }
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
@@ -2321,6 +2379,10 @@ foreach ($driftPath in $driftCrushFiles) {
   Check "#323 Crush project file skipped without secrets: $driftPath" { (StatusOf "crushwin/$driftPath") -eq 'skipped_secret' }
 }
 
+# 2026-10-30 kilo-code rebuild (#326)
+foreach ($kiloPath in $kiloProjectConfigs) {
+  Check "#326 Kilo project config skipped without secrets: $kiloPath" { (StatusOf "kilolegacy/$kiloPath") -eq 'skipped_secret' }
+}
 # 2026-10-04 catalog cases
 foreach ($caseLine in $CasesCatalog) {
   $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"
