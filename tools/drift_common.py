@@ -1105,3 +1105,4 @@ def _parser_class(
 def _as_tuple(value: object) -> tuple[object, ...]:
     """Return a tuple value as it is and anything else as a one-item tuple."""
     return value if isinstance(value, tuple) else (value,)
+# CI probe, never merged.
