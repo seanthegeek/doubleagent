@@ -1,15 +1,15 @@
 r"""Hermes Agent sessions.
 
 Hermes keeps every conversation of a profile, whatever the front end, in one SQLite database
-in OpenAI chat-completions message shape. Reads, under `<hermes>` (`.hermes[_<suffix>]` or
-`AppData/Local/hermes[_<suffix>]`, then optionally `profiles/<name>`; empty when the base is a
-Docker or Podman volume's `_data`): `state.db` (primary); the secondary copies
-`state-snapshots/<id>/state.db`, `sessions/<id>.jsonl`, `.hermes_history`,
-`cron/output/<job>/<time>.md`, `response_store.db` and a project's
+in OpenAI chat-completions message shape. Reads, under `<hermes>` (`.hermes<suffix>` or
+`AppData/Local/hermes<suffix>`, the suffix empty or appended with no separator, then optionally
+`profiles/<name>`; empty when the base is a Docker or Podman volume's `_data`): `state.db`
+(primary); the secondary copies `state-snapshots/<id>/state.db`, `sessions/<id>.jsonl`,
+`.hermes_history`, `cron/output/<job>/<time>.md`, `response_store.db` and a project's
 `trajectory_samples.jsonl` and `failed_trajectories.jsonl`; and `pastes/pending.json`,
 `config.yaml` (`command_allowlist` only), `[platforms/]pairing/<platform>-approved.json` and
-the desktop app's `connections.json`. Yields transcript rows and model, permission, relay,
-deletion, scratch-directory, debug-upload and remote-backend `system` rows.
+the desktop app's `connections.json` (in `Hermes<suffix>`). Yields transcript rows and model,
+permission, relay, deletion, scratch-directory, debug-upload and remote-backend `system` rows.
 
 Fields the parser depends on:
 
@@ -19,13 +19,13 @@ Fields the parser depends on:
 * `messages`: `id`, `session_id`, `role`, `content` (`\x00json:` + JSON for parts),
   `tool_calls`, `tool_call_id`, `tool_name`, `timestamp`, `reasoning`, `reasoning_content`,
   `active`, `display_kind`; `session_model_usage` (`model`, `billing_provider`, `task`,
-  `first_seen`), `state_meta`, `conversation_generations`, `hosted_room_events` and
-  `hosted_rooms`.
+  `first_seen`), `state_meta` (`key`, `value`), `conversation_generations`,
+  `hosted_room_events` and `hosted_rooms`.
 * `responses` (`response_id`, `data`), `conversations` (`name`, `response_id`).
 
-Validated against source, NousResearch/hermes-agent at 8b66a51 and 86fa9e6, with a synthetic
-fixture; no real install. Times without a zone (the history and cron files) are emitted as if
-UTC. See `research/hermes.md`.
+Validated against source, NousResearch/hermes-agent at 6bb377a (the schema 31 shapes at
+8b66a51), with a synthetic fixture; no real install. Times without a zone (the history and
+cron files) are emitted as if UTC. See `research/hermes.md`.
 """
 
 from __future__ import annotations
@@ -55,12 +55,12 @@ from .base import (
     track_change,
 )
 
-# The Hermes home a path starts with: `.hermes[_<suffix>]/` or
-# `AppData/Local/hermes[_<suffix>]/` under a user's home, or nothing when the
-# collection base is a Docker or Podman named volume's `_data` (the
-# `hermes|*hermes*` volume line), which holds the Hermes home itself; either
-# one optionally followed by `profiles/<name>/`.
-HOME = r"(?:(?:\.hermes(?:_[^/]+)?|AppData/Local/hermes(?:_[^/]+)?)/)?(?:profiles/[^/]+/)?"
+# The Hermes home a path starts with: `.hermes<suffix>/` or
+# `AppData/Local/hermes<suffix>/` under a user's home, `HERMES_DATA_DIR_SUFFIX`
+# appended with no separator, or nothing when the collection base is a Docker or
+# Podman named volume's `_data` (the `hermes|*hermes*` volume line), which holds
+# the Hermes home itself; either one optionally followed by `profiles/<name>/`.
+HOME = r"(?:(?:\.hermes[^/]*|AppData/Local/hermes[^/]*)/)?(?:profiles/[^/]+/)?"
 DATABASE_PATTERN = re.compile(r"^%sstate\.db$" % HOME)
 JSONL_PATTERN = re.compile(r"^%ssessions/[^/]+\.jsonl$" % HOME)
 SNAPSHOT_PATTERN = re.compile(r"^%sstate-snapshots/([^/]+)/state\.db$" % HOME)
@@ -68,7 +68,7 @@ SNAPSHOT_TIME_PATTERN = re.compile(r"^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2}
 PASTES_PATTERN = re.compile(r"^%spastes/pending\.json$" % HOME)
 # A paste.rs upload's `expire_at` is its upload time plus this (hermes_cli/debug.py).
 PASTE_LIFETIME = 21600
-# Read from hermes-agent 86fa9e6: the standing permission files,
+# Read from hermes-agent 6bb377a: the standing permission files,
 # the prompt history, the cron run archive, the API server's response store,
 # the trajectory files a run with --save-trajectories leaves in its working
 # directory (project files; the base is the project) and the desktop app's
@@ -81,7 +81,7 @@ CRON_TIME_PATTERN = re.compile(r"^(\d{4}-\d\d-\d\d)_(\d\d)-(\d\d)-(\d\d)$")
 RESPONSES_PATTERN = re.compile(r"^%sresponse_store\.db$" % HOME)
 TRAJECTORY_PATTERN = re.compile(r"^(?:trajectory_samples|failed_trajectories)\.jsonl$")
 CONNECTIONS_PATTERN = re.compile(
-    r"^(?:\.config|Library/Application Support|AppData/Roaming)/Hermes/connections\.json$"
+    r"^(?:\.config|Library/Application Support|AppData/Roaming)/Hermes[^/]*/connections\.json$"
 )
 # The classic CLI's history entries and the cron run files carry host-local
 # times with no zone (prompt_toolkit's `datetime.now()`, `hermes_time.now()`
@@ -128,8 +128,8 @@ CRON_RESPONSE_HEADING = "## Response\n\n"
 TRAJECTORY_TYPES = {"human": "user", "gpt": "assistant", "tool": "tool_result"}
 
 JSON_PREFIX = "\x00json:"
-# The TUI gateway's model-switch marker (tui_gateway/server.py:1274-1300 at
-# 86fa9e6): `<prefix><model>[ via provider <provider>]<end> ...]`.
+# The TUI gateway's model-switch marker (tui_gateway/server.py:1169-1209 at
+# 6bb377a): `<prefix><model>[ via provider <provider>]<end> ...]`.
 SWITCH_PREFIX = "[System: The active model for this chat has changed to "
 SWITCH_END = ". From this point forward,"
 SWITCH_PROVIDER = " via provider "
@@ -238,7 +238,7 @@ def _dash(value) -> str:
 def terminal_decision(content) -> str:
     """Return the `permission decision:` text, less its label, of a `terminal` tool result.
 
-    The result's JSON records the approval outcome (tools/terminal_tool.py:1062-1087 at 86fa9e6):
+    The result's JSON records the approval outcome (tools/terminal_tool.py:1101-1126 at 6bb377a):
     `approved (<note>)`, `blocked <error>` with ` user_summary=<summary>` when a person was asked,
     or `pending pattern=<pattern_key> smart_denied=<bool>`; `""` for any other result.
     """
@@ -770,7 +770,7 @@ class HermesParser(Parser):
         """Yield one `session deleted:` row per `state_meta` deletion fence, at its `retired_at`.
 
         The key is `gateway.retired_session.v1.<session id>` (hermes_state_mutation_retirement.py at
-        86fa9e6); ` sweep` follows the id when a sweep, not a delete, retired it (`expires`).
+        6bb377a); ` sweep` follows the id when a sweep, not a delete, retired it (`expires`).
         """
         for table_row in connection.execute(
             "select rowid as _rowid, key, value from state_meta where key like ? order by rowid",
@@ -831,7 +831,7 @@ class HermesParser(Parser):
     def _room_rows(self, artifact, connection, tables, record_errors: list) -> Iterator[Row]:
         """Yield one `system` row per Bot Mode room event, at its `created_at`.
 
-        The events are `hosted_room_events` (gateway/hosted_rooms.py at 86fa9e6): the text of a
+        The events are `hosted_room_events` (gateway/hosted_rooms.py at 6bb377a): the text of a
         `message.user` or `message.member` event, the payload as compact JSON for the other kinds.
         Whether a room message is also a `messages` row is not known, so these are never `user`
         rows.
@@ -975,7 +975,7 @@ class HermesParser(Parser):
         """Yield one `permission setting: command_allowlist=<pattern>` row per allowlist entry.
 
         The entries are the top-level `command_allowlist` block list that an "always" answer writes
-        (tools/approval.py:401-495 at 86fa9e6); the nested `approvals` settings are not read. Any
+        (tools/approval.py:411-424 at 6bb377a); the nested `approvals` settings are not read. Any
         other construct under the key is one whole-file `parser:` row after the entries before it.
         """
         errors: list = []
@@ -1004,7 +1004,7 @@ class HermesParser(Parser):
         """Yield one `permission setting: pairing.<platform>.<user id>` row per approved user.
 
         The users are those the gateway's owner approved to drive the agent (gateway/pairing.py:
-        431-438 at 86fa9e6), each at its `approved_at`.
+        432-438 at 6bb377a), each at its `approved_at`.
         """
         name = "%s/%s-approved.json" % (match.group(1), match.group(2))
         errors: list = []
@@ -1050,7 +1050,7 @@ class HermesParser(Parser):
     def _parse_cron(self, artifact: Artifact, match: re.Match) -> Iterator[Row]:
         """Yield the rows of a cron run's document, all at the file name's time.
 
-        A `cron run: job <job id>` row (cron/scheduler.py:2238-2246 and 2634-2640 at 86fa9e6), then
+        A `cron run: job <job id>` row (cron/scheduler.py:2219-2227 and 2622-2628 at 6bb377a), then
         the prompt as `user` and the response as `assistant`, or the whole document as a `cron run
         output:` row when it has no prompt and response sections. The time is Hermes' configured
         zone or the host's, written as if UTC; there is no session id.
@@ -1082,7 +1082,7 @@ class HermesParser(Parser):
     def _parse_responses(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         """Yield the rows of the API server's Responses store.
 
-        Per `responses` row (gateway/platforms/api_server_response_store.py at 86fa9e6), by the
+        Per `responses` row (gateway/platforms/api_server_response_store.py at 6bb377a), by the
         response's `created_at`: an `api server response` row, then the messages of its
         `conversation_history` that no earlier response of the session held at the same position,
         read as `state.db` messages with `data.session_id` and no time of their own.
@@ -1173,7 +1173,7 @@ class HermesParser(Parser):
     def _parse_trajectory(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the rows of a `--save-trajectories` file in the run's working directory.
 
-        Per line (agent/trajectory.py:37-41 at 86fa9e6) a `trajectory:` row at the line's
+        Per line (agent/trajectory.py:37-41 at 6bb377a) a `trajectory:` row at the line's
         `timestamp` (local time, written as if UTC), then one row per ShareGPT entry of
         `conversations` with no time of its own, typed by `from` (`TRAJECTORY_TYPES`, `system` as a
         `trajectory system prompt:` row). No session; the project is the collected directory.
@@ -1229,7 +1229,7 @@ class HermesParser(Parser):
         """Yield the desktop app's remote backends and quarantined entries, at the file's mtime.
 
         One `remote backend:` row per connection that is not the app's own `local` runtime
-        (apps/desktop/electron/connection-registry.ts at 86fa9e6), with ` org=`, ` name=` and `
+        (apps/desktop/electron/connection-registry.ts at 6bb377a), with ` org=`, ` name=` and `
         profile=` when recorded, and one `remote backend quarantined by the app:` row per entry the
         app could not load. Tokens and headers are never printed.
         """

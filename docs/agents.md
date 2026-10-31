@@ -766,16 +766,17 @@ written when `state.db` was replaced under a running process, the prompt
 history `.hermes_history`, the cron run files `cron/output/<job>/<time>.md`,
 the API server's `response_store.db`, and the `trajectory_samples.jsonl`
 and `failed_trajectories.jsonl` files a run leaves in its project; all
-under `.hermes`, `.hermes_<suffix>`, `AppData/Local/hermes` and their
-`profiles/<name>/` homes, or at the root of a `*hermes*` Docker or Podman
-volume, the trajectory files excepted. Also `pastes/pending.json`, the
+under `.hermes`, `.hermes<suffix>`, `AppData/Local/hermes`,
+`AppData/Local/hermes<suffix>` and their `profiles/<name>/` homes, or at
+the root of a `*hermes*` Docker or Podman volume, the trajectory files
+excepted. Also `pastes/pending.json`, the
 paste.rs links of recent `hermes debug share` uploads; the standing
 approvals in `config.yaml` (`command_allowlist`) and in the pairing
 stores `pairing/<platform>-approved.json` and
 `platforms/pairing/<platform>-approved.json`; and the desktop app's
-`connections.json` in its `Hermes` userData directory.
+`connections.json` in its `Hermes` or `Hermes<suffix>` userData directory.
 
-Validated against: Source at [8b66a51](https://github.com/NousResearch/hermes-agent/commit/8b66a51036c1e20920a17cdd049fdf55c968d683), synthetic fixture; the relay, permission, deletion, past-use, origin and worktree rows from source at [86fa9e6](https://github.com/NousResearch/hermes-agent/commit/86fa9e6ca1de7ee71132d2be0103f3e37d1fa872), synthetic fixture.
+Validated against: source; fixture only. Source at [6bb377a](https://github.com/NousResearch/hermes-agent/commit/6bb377a51d5c8e279a7a5e34d717d653d421d064) (after release `v2026.9.24`), the schema 31 shapes at [8b66a51](https://github.com/NousResearch/hermes-agent/commit/8b66a51036c1e20920a17cdd049fdf55c968d683); no real install.
 
 ### `kilo-code`
 
