@@ -585,8 +585,20 @@ Every record has `time.created` and may have `metadata`. By type:
 - `idle`: `outcome` and `error`, marking the end of a turn
   ([`session-message.ts:291-302`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/session-message.ts#L291-L302)).
 
-An `error` is `{type, message, status?, response?, retryAfterMs?}`
-([`packages/schema/src/session-error.ts:6-14`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/session-error.ts#L6-L14)).
+An `error`, on a record or a tool `state`
+([`packages/schema/src/session-error.ts:6-14`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/session-error.ts#L6-L14)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `type` | string | | |
+| `message` | string | | |
+| `status` | number | | |
+| `response` | object | | |
+| `retryAfterMs` | number | | |
+
+`type` is any string: `aborted` for a declined call ([Permission records](#permission-records)),
+`permission.rejected`, `tool.execution`, `provider.auth` and others
+([`packages/core/src/session/to-session-error.ts:71-100`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/to-session-error.ts#L71-L100)).
 
 #### Assistant content items
 
@@ -667,6 +679,153 @@ deprecated `project_directory`, whose `type` is `main`, `root` or `git_worktree`
 | `strategy` | string or null | | |
 | `type` | string or null | `main`, `root`, `git_worktree` | |
 | `time_created` | number | | |
+
+#### 1.x sessions, messages and parts
+
+The 1.x `session` table, as the 2.x upgrade reads it
+([`v1-migration.bun.ts:674-685`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/v1-migration.bun.ts#L674-L685)),
+has the `session_v2` columns `id`, `project_id`, `workspace_id`, `parent_id`, `slug`, `directory`,
+`path`, `title`, `version`, `share_url`, the `summary_*`, `metadata`, `cost`, the `tokens_*`,
+`revert`, `permission`, `agent`, `model`, `time_created`, `time_updated`, `time_compacting` and
+`time_archived`; its `permission` rules were `{permission, pattern, action}`. `message` and `part`
+([`20260127222353_familiar_lady_ursula.ts:23-41`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260127222353_familiar_lady_ursula.ts#L23-L41)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | string | | |
+| `message_id` | string | | |
+| `session_id` | string | | |
+| `time_created` | number | | |
+| `time_updated` | number | | |
+| `data` | string | | |
+
+`message.id` starts `msg_` and `part.id` `prt_`; `message.data` is the 1.x message less `id` and
+`sessionID`, `part.data` the part less `id`, `messageID` and `sessionID`
+([`v1-migration.bun.ts:227-260`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/v1-migration.bun.ts#L227-L260)).
+The 1.x message ([`packages/schema/src/v1/session.ts:332-356`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L332-L356),
+[`:453-485`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L453-L485)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `role` | string | `user`, `assistant` | |
+| `time` | object | | |
+| `agent` | string | | |
+| `model` | object | | |
+| `format` | object | | |
+| `summary` | object or boolean | | |
+| `system` | string | | |
+| `tools` | object | | |
+| `parentID` | string | | |
+| `modelID` | string | | |
+| `providerID` | string | | |
+| `mode` | string | | |
+| `path` | object | | |
+| `cost` | number | | |
+| `tokens` | object | | |
+| `error` | object | | |
+| `structured` | object | | |
+| `variant` | string | | |
+| `finish` | string | | |
+
+A user message has `model.{providerID, modelID, variant?}`; an assistant message `parentID` (its
+user message), `modelID`, `providerID`, `path.{cwd, root}`, `tokens` and `error`. The token counts
+of an assistant message and a `step-finish` part
+([`v1/session.ts:244-255`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L244-L255)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `total` | number | | |
+| `input` | number | | |
+| `output` | number | | |
+| `reasoning` | number | | |
+| `cache` | object | | |
+| `read` | number | | |
+| `write` | number | | |
+
+`cache` holds `read` and `write`. An assistant message's `error` and a `retry` part's `error` are
+`{name, data}`, `name` the error's kind (`APIError`, `MessageAbortedError` and others) and `data`
+its fields, a `message` among them
+([`v1/session.ts:29-60`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L29-L60),
+[`:460`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L460)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `name` | string | | |
+| `data` | object | | |
+
+The 1.x part
+([`v1/session.ts:87-330`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L87-L330),
+[`:357-370`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L357-L370)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `type` | string | `text`, `subtask`, `reasoning`, `file`, `tool`, `step-start`, `step-finish`, `snapshot`, `patch`, `agent`, `retry`, `compaction` | |
+| `text` | string | | |
+| `synthetic` | boolean | | |
+| `ignored` | boolean | | |
+| `time` | object | | |
+| `metadata` | object | | |
+| `callID` | string | | |
+| `tool` | string | | |
+| `state` | object | | |
+| `snapshot` | string | | |
+| `reason` | string | | |
+| `cost` | number | | |
+| `tokens` | object | | |
+| `prompt` | string | | |
+| `description` | string | | |
+| `agent` | string | | |
+| `mime` | string | | |
+| `filename` | string | | |
+| `url` | string | | |
+| `source` | object | | |
+| `hash` | string | | |
+| `files` | array | | |
+| `name` | string | | |
+| `auto` | boolean | | |
+| `overflow` | boolean | | |
+| `attempt` | number | | |
+| `error` | object | | |
+| `model` | object | | |
+| `command` | string | | |
+
+By type ([`v1/session.ts:87-256`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L87-L256)):
+`file` has `mime`, `url` and an optional `filename` and `source`; `patch` `hash` and `files`;
+`agent` `name`; `compaction` `auto` and an optional `overflow`; `subtask` `prompt`, `description`,
+`agent` and an optional `model` and `command`; `retry` `attempt`, `error` and `time.created`;
+`snapshot` `snapshot`; `step-start` an optional `snapshot`; `step-finish` `reason`, `cost`,
+`tokens` and an optional `snapshot`. A `tool` part's `state`
+([`v1/session.ts:259-302`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L259-L302)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `status` | string | `pending`, `running`, `completed`, `error` | |
+| `input` | object | | |
+| `output` | string | | |
+| `title` | string | | |
+| `metadata` | object | | |
+| `time` | object | | |
+| `error` | string | | |
+
+Every state has `input`; `completed` adds `output`, `title`, `metadata` and `time.{start, end}`,
+and `error` adds `error` and `time.{start, end}`. The call and its result are one part, mutated in
+place. `text` and `reasoning` parts have `time.{start, end?}`. 1.x
+joins: `session.project_id` to `project.id`, `message.session_id` to `session.id`,
+`part.message_id` to `message.id`; parts order by `part.id` or `time_created`; an assistant message
+names its user message in `parentID`.
+
+The 1.x refusal texts in a tool part's `state.error`
+([`packages/core/src/v1/permission.ts:7-25`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/core/src/v1/permission.ts#L7-L25)):
+"The user rejected permission to use this specific tool call.", the same followed by " with the
+following feedback: " and the user's text, or "The user has specified a rule which prevents you
+from using this specific tool call." for a `deny` rule. The 1.x CLI kept `always` answers in
+memory only
+([`packages/opencode/src/permission/index.ts:143-150`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/permission/index.ts#L143-L150)).
+
+`session_message` in a 1.x database was a supplementary projection with the types
+`agent-switched`, `model-switched`, `user`, `synthetic`, `system`, `shell`, `assistant` and
+`compaction`; a 2.0 migration emptied it with `session_input` and `event`
+([`packages/core/src/database/migration/20260622170816_reset_v2_session_state.ts:8-12`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260622170816_reset_v2_session_state.ts#L8-L12)).
 
 ### Joins and timestamps
 
@@ -842,7 +1001,7 @@ inline user files and tool `data:` files are moved into `blob` (`hash`, `mime`, 
 
 #### Event log
 
-`event` (`id`, `aggregate_id`, `seq`, `created`, `type`, `data`) and `event_sequence`
+`event` and `event_sequence`
 ([`packages/core/src/database/schema.gen.ts:53-70`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/schema.gen.ts#L53-L70))
 keep durable event payloads only when the bus is configured to, which the hosted (workerd) server
 does and the CLI's server does not
@@ -851,6 +1010,29 @@ does and the CLI's server does not
 [`packages/server/src/workerd.ts:71`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/server/src/workerd.ts#L71)); the first 2.x start
 on a 1.x database deletes every `event` row
 ([`v1-migration.bun.ts:556-575`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/v1-migration.bun.ts#L556-L575)).
+`event`:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | string | | |
+| `aggregate_id` | string | | |
+| `seq` | number | | |
+| `created` | number | | |
+| `type` | string | | |
+| `data` | string | | |
+
+`aggregate_id` is the session id and `type` the event's name with its version, such as
+`session.updated.1`; `data` is the JSON payload. A 1.x `event` table has no `created` column,
+which the 2.0 upgrade adds
+([`packages/core/src/database/migration/20260804233008_loose_psylocke.ts:126`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260804233008_loose_psylocke.ts#L126)).
+`event_sequence`, one row per aggregate
+([`packages/core/src/database/migration/20260504145000_add_sync_owner.ts:8`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260504145000_add_sync_owner.ts#L8)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `aggregate_id` | string | | |
+| `seq` | number | | |
+| `owner_id` | string or null | | |
 
 #### Background server files
 
@@ -879,6 +1061,37 @@ The registration `~/.local/state/opencode/service.json`
 | `pid` | number | | |
 | `password` | string | | |
 
+#### 1.x share records
+
+A 1.x session published to OpenCode's web share service had one `session_share` row
+([`20260127222353_familiar_lady_ursula.ts:89-97`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260127222353_familiar_lady_ursula.ts#L89-L97)),
+removed with its session by `ON DELETE CASCADE`:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `session_id` | string | | |
+| `id` | string | | |
+| `secret` | string | | |
+| `url` | string | | |
+| `time_created` | number | | |
+| `time_updated` | number | | |
+
+`id` is the share id, which the hosted service makes the last eight characters of the session id
+([`packages/enterprise/src/core/share.ts:117-122`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/enterprise/src/core/share.ts#L117-L122));
+`secret` is a random UUID the service returns and the client sends back with every sync and delete.
+`ShareNext` (the 1.x share client module) wrote the row once the service answered, as an upsert
+on a second share, and deleted it after the service accepted a delete
+([`packages/opencode/src/share/share-next.ts:310-359`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/share/share-next.ts#L310-L359));
+the same URL went into `session.share_url`, which `/unshare` set back to NULL
+([`packages/opencode/src/share/session.ts:26-37`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/share/session.ts#L26-L37)).
+Each change was also a durable `session.updated.1` event in `event`, whose `data.info.share.url`
+held the URL and `data.info.time.updated` the time
+([`packages/opencode/src/session/session.ts:734-746`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/session.ts#L734-L746);
+[`packages/core/src/event.ts:336-348`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/core/src/event.ts#L336-L348)), so `event`
+still held the URL after an unshare. The 1.x `event` rows have `aggregate_id` the session id and
+`type` such as `message.updated.1` and `message.part.updated.1`
+([`packages/schema/src/event.ts:94-96`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/schema/src/event.ts#L94-L96)).
+
 ### Format versions
 
 How the store changed, newest first. A host may run any of these builds; the parser reads each.
@@ -892,6 +1105,10 @@ How the store changed, newest first. A host may run any of these builds; the par
   the `system` and `idle` message types and the `native` and `rawFinish` keys appear in the
   schema. Blobs are added in 2.2.0 and schedules in 2.2.1
   ([`CHANGELOG.md:381`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/CHANGELOG.md#L381), [`:288`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/CHANGELOG.md#L288)).
+- At 2.0.32 ([`cb07c55`](https://github.com/anomalyco/opencode/commit/cb07c555d4d1ca34430b7857b52f104c3d95e09e)) a running or completed `compaction` record also had `recent`, a
+  string, and a completed one `providerContext`
+  ([`packages/schema/src/session-message.ts:247-267`](https://github.com/anomalyco/opencode/blob/cb07c555d4d1ca34430b7857b52f104c3d95e09e/packages/schema/src/session-message.ts#L247-L267));
+  2.2.5 writes neither.
 - 2.1.0 renamed provider replay data to `native`: text and reasoning items' `state`, assistant and
   compaction `providerState`, and tool results' `resultState`; rows stored earlier keep the old
   keys and are decoded on read with no migration
@@ -956,131 +1173,6 @@ How the store changed, newest first. A host may run any of these builds; the par
   and `opencode import` loads exported JSON into `message` and `part`
   ([`packages/opencode/src/cli/cmd/import.ts:196-225`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/cli/cmd/import.ts#L196-L225)).
 
-#### 1.x sessions, messages and parts
-
-The 1.x `session` table, as the 2.x upgrade reads it
-([`v1-migration.bun.ts:674-685`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/v1-migration.bun.ts#L674-L685)),
-has the `session_v2` columns `id`, `project_id`, `workspace_id`, `parent_id`, `slug`, `directory`,
-`path`, `title`, `version`, `share_url`, the `summary_*`, `metadata`, `cost`, the `tokens_*`,
-`revert`, `permission`, `agent`, `model`, `time_created`, `time_updated`, `time_compacting` and
-`time_archived`; its `permission` rules were `{permission, pattern, action}`. `message` and `part`
-([`20260127222353_familiar_lady_ursula.ts:23-41`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260127222353_familiar_lady_ursula.ts#L23-L41)):
-
-| Key | Type | Values | Since |
-| --- | --- | --- | --- |
-| `id` | string | | |
-| `message_id` | string | | |
-| `session_id` | string | | |
-| `time_created` | number | | |
-| `time_updated` | number | | |
-| `data` | string | | |
-
-`message.id` starts `msg_` and `part.id` `prt_`; `message.data` is the 1.x message less `id` and
-`sessionID`, `part.data` the part less `id`, `messageID` and `sessionID`
-([`v1-migration.bun.ts:227-260`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/v1-migration.bun.ts#L227-L260)).
-The 1.x message ([`packages/schema/src/v1/session.ts:332-356`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L332-L356),
-[`:453-485`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L453-L485)):
-
-| Key | Type | Values | Since |
-| --- | --- | --- | --- |
-| `role` | string | `user`, `assistant` | |
-| `time` | object | | |
-| `agent` | string | | |
-| `model` | object | | |
-| `format` | object | | |
-| `summary` | object or boolean | | |
-| `system` | string | | |
-| `tools` | object | | |
-| `parentID` | string | | |
-| `modelID` | string | | |
-| `providerID` | string | | |
-| `mode` | string | | |
-| `path` | object | | |
-| `cost` | number | | |
-| `tokens` | object | | |
-| `error` | object | | |
-| `structured` | object | | |
-| `variant` | string | | |
-| `finish` | string | | |
-
-A user message has `model.{providerID, modelID, variant?}`; an assistant message `parentID` (its
-user message), `modelID`, `providerID`, `path.{cwd, root}`, `tokens.{total?, input, output,
-reasoning, cache.{read, write}}` and `error` (`{name, data}`). The 1.x part
-([`v1/session.ts:87-330`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L87-L330),
-[`:357-370`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L357-L370)):
-
-| Key | Type | Values | Since |
-| --- | --- | --- | --- |
-| `type` | string | `text`, `subtask`, `reasoning`, `file`, `tool`, `step-start`, `step-finish`, `snapshot`, `patch`, `agent`, `retry`, `compaction` | |
-| `text` | string | | |
-| `synthetic` | boolean | | |
-| `ignored` | boolean | | |
-| `time` | object | | |
-| `metadata` | object | | |
-| `callID` | string | | |
-| `tool` | string | | |
-| `state` | object | | |
-| `snapshot` | string | | |
-| `reason` | string | | |
-| `cost` | number | | |
-| `tokens` | object | | |
-| `prompt` | string | | |
-| `description` | string | | |
-| `agent` | string | | |
-
-A `tool` part's `state.status` is `pending`, `running`, `completed` or `error`; every state has
-`input`, `completed` adds `output`, `title`, `metadata` and `time.{start, end}`, and `error` adds
-`error` (a string) and `time.{start, end}`
-([`v1/session.ts:259-302`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/v1/session.ts#L259-L302)); the call and its
-result are one part, mutated in place. `text` and `reasoning` parts have `time.{start, end?}`. 1.x
-joins: `session.project_id` to `project.id`, `message.session_id` to `session.id`,
-`part.message_id` to `message.id`; parts order by `part.id` or `time_created`; an assistant message
-names its user message in `parentID`.
-
-The 1.x refusal texts in a tool part's `state.error`
-([`packages/core/src/v1/permission.ts:7-25`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/core/src/v1/permission.ts#L7-L25)):
-"The user rejected permission to use this specific tool call.", the same followed by " with the
-following feedback: " and the user's text, or "The user has specified a rule which prevents you
-from using this specific tool call." for a `deny` rule. The 1.x CLI kept `always` answers in
-memory only
-([`packages/opencode/src/permission/index.ts:143-150`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/permission/index.ts#L143-L150)).
-
-`session_message` in a 1.x database was a supplementary projection with the types
-`agent-switched`, `model-switched`, `user`, `synthetic`, `system`, `shell`, `assistant` and
-`compaction`; a 2.0 migration emptied it with `session_input` and `event`
-([`packages/core/src/database/migration/20260622170816_reset_v2_session_state.ts:8-12`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260622170816_reset_v2_session_state.ts#L8-L12)).
-
-#### 1.x share records
-
-A 1.x session published to OpenCode's web share service had one `session_share` row
-([`20260127222353_familiar_lady_ursula.ts:89-97`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260127222353_familiar_lady_ursula.ts#L89-L97)),
-removed with its session by `ON DELETE CASCADE`:
-
-| Key | Type | Values | Since |
-| --- | --- | --- | --- |
-| `session_id` | string | | |
-| `id` | string | | |
-| `secret` | string | | |
-| `url` | string | | |
-| `time_created` | number | | |
-| `time_updated` | number | | |
-
-`id` is the share id, which the hosted service makes the last eight characters of the session id
-([`packages/enterprise/src/core/share.ts:117-122`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/enterprise/src/core/share.ts#L117-L122));
-`secret` is a random UUID the service returns and the client sends back with every sync and delete.
-`ShareNext` (the 1.x share client module) wrote the row once the service answered, as an upsert
-on a second share, and deleted it after the service accepted a delete
-([`packages/opencode/src/share/share-next.ts:310-359`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/share/share-next.ts#L310-L359));
-the same URL went into `session.share_url`, which `/unshare` set back to NULL
-([`packages/opencode/src/share/session.ts:26-37`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/share/session.ts#L26-L37)).
-Each change was also a durable `session.updated.1` event in `event`, whose `data.info.share.url`
-held the URL and `data.info.time.updated` the time
-([`packages/opencode/src/session/session.ts:734-746`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/session.ts#L734-L746);
-[`packages/core/src/event.ts:336-348`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/core/src/event.ts#L336-L348)), so `event`
-still held the URL after an unshare. The 1.x `event` rows have `aggregate_id` the session id and
-`type` such as `message.updated.1` and `message.part.updated.1`
-([`packages/schema/src/event.ts:94-96`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/schema/src/event.ts#L94-L96)).
-
 #### Older TUI state shapes
 
 At [`907b3bc`](https://github.com/sst/opencode/commit/907b3bc518fa48e90e8ec24dd327d13eee71c36c), a `prompt-history.jsonl` line was `{input, mode?, parts}`
@@ -1143,14 +1235,25 @@ item; in a 1.x database, one per `part`, plus a `user` row per user message.
 | tool_name, tool_use_id | 2.x tool item `name`, `id`; 1.x `data.tool`, `data.callID` |
 | text | text, input JSON, output or error |
 
-Session headers and `directory` come from `session_v2`, else `session`. The session-start row adds
-`fork=<fork_session_id>`, and a session a 2.x database holds only in the 1.x `session` table ends
-`(only in the 1.x session table)`. In a database with `session_v2`, the 1.x `message` and `part`
-rows are read only for a session `session_message` does not hold. Planned: read an assistant
-message's items from `session_part` when its `content` is empty and part rows exist, and the
-`system` record's `text`. Not read: `blob`, `blob_ref`, `schedule`, `job`, `session_inbox`,
-`instruction_entry`, `instruction_state`, `instruction_blob`, `kv`, `event_sequence`, `account`,
-`control_account`, `credential`, `todo`, `frecency.jsonl`, `model.json`, `cli.json`,
+Session headers and `directory` come from `session_v2`, else `session`, one `system` row per
+session at its `time_created`, each part present only when set; a session a 2.x database holds
+only in the 1.x `session` table ends `(only in the 1.x session table)`:
+
+```text
+session start: <title> slug=<slug> version=<version> agent=<agent> parent=<parent_id> fork=<fork_session_id> directory=<directory>
+```
+
+In a database with `session_v2`, the 1.x `message` and `part` rows are read only for a session
+`session_message` does not hold. An assistant message with `session_part` rows takes its items
+from them in `ordinal` order, the row's `type` filling an item without one, as OpenCode's reader
+does ([`history.ts:94-122`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L94-L122),
+[`:132-133`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L132-L133)). A
+`tool_use` row's text is the first non-empty of the input's `command`, `filePath`, `file_path`,
+`pattern` (followed by ` | <path>` when `path` is set), `path`, `url`, `query`, `description` and
+`prompt`, else the input as JSON. Not read: `blob`, `blob_ref`, `schedule`, `job`,
+`session_inbox`, `instruction_entry`, `instruction_state`, `instruction_blob`, `kv`,
+`event_sequence`, `account`, `control_account`, `credential`, `todo`, `frecency.jsonl`,
+`model.json`, `cli.json`, `opencode.json` and `opencode.jsonc` (their `$schema` and settings),
 `drafts.sqlite`, `shell/` and `log/opencode.log`.
 
 The 2.x record rows: a `shell` record is a `tool_use` row and a `tool_result` row starting
@@ -1161,12 +1264,33 @@ message. The texts:
 
 ```text
 location switched: <previous directory> -> <directory> workspace=<id> subpath=<path>
+synthetic: <text>
+system: <text>
 skill <name>: <text>
-idle: <outcome>
+compaction <reason> <status> <summary> <error>
+idle: <outcome> <error>
+error: <error>
 [error] aborted The user declined this tool call
+<type>: <record JSON less time>
 ```
 
-`workspace=` and `subpath=` appear only when set.
+`workspace=` and `subpath=` appear only when set; `error:` follows an assistant record with an
+`error`; the last form stands for a record type the parser does not know. A 1.x part gives these
+`system` rows, a `text` part flagged `synthetic` or `ignored` its text after that word, and a
+`step-start` or `snapshot` part none:
+
+```text
+synthetic: <text>
+ignored: <text>
+step-finish reason=<reason> cost=<cost> tokens_in=<tokens.input> tokens_out=<tokens.output>
+subtask agent=<agent> <description>: <prompt>
+compaction auto
+file: <filename> <url>
+agent: <name>
+retry attempt=<attempt> <error name> <error message>
+patch: <files>
+error: <error name> <error message>
+```
 
 #### Permission rows
 
@@ -1305,18 +1429,27 @@ session archived (from <database> <table>, time_archived)
 
 #### Bad-line rows
 
-Each `message`, `part`, `session_message` or `event` row whose `data` is not a JSON object is its
-own row carrying the stored value in full, with its row's session and project, an empty timestamp
-and `source_line` the rowid; each part file of the JSON trees that does not decode is its own row,
-`source_file` the part file; a message or session file that does not decode stays one whole-file
-`parser:` row; each line of `prompt-history.jsonl` and `prompt-stash.jsonl` that does not decode
+Each `message`, `part`, `session_message`, `session_part` or `event` row whose `data` is not a
+JSON object, and each session's `permission` value that is not a JSON array, is its own row
+carrying the stored value in full, with its row's session and project, an empty timestamp and
+`source_line` the rowid; each part file of the JSON trees that does not decode or cannot be read
+is its own row, `source_file` the part file; a message or session file that does not decode stays
+one whole-file `parser:` row, and a session file's project file that exists but does not decode
+gives one more; each line of `prompt-history.jsonl` and `prompt-stash.jsonl` that does not decode
 is its own row, read before OpenCode's next start drops it; a `session.json` that is not a JSON
-object is one `parser:` row:
+object is one `parser:` row, and a database SQLite cannot read is one:
 
 ```text
 parser: unparseable record <rowid> (<table>.data: <reason>): <data>
+parser: unparseable record <rowid> (<table>.permission: not a JSON array): <value>
 parser: unparseable part <partID> (<reason>): <file text>
+parser: unparseable part <partID> (unreadable: <reason>)
 parser: unparseable line (<reason>): <line>
+parser: session file could not be decoded
+parser: message file could not be decoded
+parser: project file <projectID>.json could not be read (<reason>)
+parser: <file> is not a JSON object
+parser: database could not be read: <error>
 ```
 
 #### Fixtures
