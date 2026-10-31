@@ -13,7 +13,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- The Antigravity, Kiro, OpenCode and Kilo Code database readers, the OpenClaw agent database reader and the VS Code state readers of `vscode`, `cody`, `roo-code`, `tabby`, `twinny` and `pearai` report a database file that is not SQLite as one `parser: not a SQLite database` row (`parser: state.vscdb is not a SQLite database` for the editor state) where they were silent. A 0-byte file counts as an empty database, as SQLite opens it ([#378]).
+- The Antigravity, Kiro, OpenCode and Kilo Code database readers and the OpenClaw agent database reader report a database file that is not SQLite as one `parser: not a SQLite database` row, and the VS Code state readers of `vscode`, `cody`, `roo-code`, `tabby`, `twinny` and `pearai` as `parser: state.vscdb is not a SQLite database`, where they were silent ([#378]).
+- Every SQLite reader treats a 0-byte database file as an empty database, as SQLite opens one, and reads it: the readers that reported one as `parser: not a SQLite database` (Codex CLI and Open Interpreter, Goose, Crush, Hermes, Zed, Cline, Ollama, Copilot CLI and Desktop, Cursor, Tabby, the ChatGPT app and Nanobot) now give no row for it, or their row for a database without the expected table ([#378]).
 
 ### Fixed
 

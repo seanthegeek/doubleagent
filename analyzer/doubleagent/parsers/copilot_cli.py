@@ -802,7 +802,7 @@ class CopilotCliParser(Parser):
     def _parse_store(self, artifact: Artifact) -> Iterator[Row]:
         problem = sqlite_problem(artifact.disk_path)
         if problem:
-            yield self._problem(artifact, "parser: " + problem)
+            yield self._row(artifact, 0, "system", "parser: " + problem)
             return
         try:
             with open_copy(artifact.disk_path) as connection:

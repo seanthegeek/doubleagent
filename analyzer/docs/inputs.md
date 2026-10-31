@@ -65,7 +65,7 @@ command carries on:
 | --- | --- |
 | `<directory>: <reason>` | A directory in a loose tree that cannot be listed, while homes are discovered or files under a catalog match are walked. Reported once per directory; nothing under it is attributed. |
 | `<original path>: missing from the collection` | A manifest row with status `collected` and type `file` whose `archive_path` is not a regular file in the extracted collection, for example in a truncated or edited archive. The row is not attributed. Any other reason the file cannot be stat'ed is printed instead. |
-| `<original path>: <reason>` | `timeline` only: a parser let the error of a file it could not read escape. A parser that reads the file itself, through the shared JSONL and SQLite readers among others, reports it instead as a `parser: <file> could not be read (<reason>)` row in the timeline (see [Output](output.md)). |
+| `<original path>: <reason>` | `timeline` only: a parser let the error of a file it could not read escape. A parser that reads the file itself, through the shared JSONL and SQLite readers among others, reports it instead as a `parser:` row in the timeline naming the file and the reason (the shared readers write `<file> could not be read (<reason>)`; see [Output](output.md)). |
 
 `detect` prints them after the notes, and `timeline` before its `window:`
 line. Symlinks are never followed, so a dangling symlink in a loose tree is

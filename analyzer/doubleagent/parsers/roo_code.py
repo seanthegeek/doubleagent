@@ -425,10 +425,9 @@ class RooCodeParser(LegacyTaskParser):
                 yield from self._retry_queue_rows(artifact, state, source)
             else:
                 yield from self._global_state_rows(artifact, state, source)
-        for problem in problems:
-            # never echo the value: the workspace state's retry queue holds a
-            # bearer token
-            yield self._bad_file(artifact, shown_problem(problem))
+        # Whole-file rows, so no file time; never echo the value: the workspace
+        # state's retry queue holds a bearer token.
+        yield from error_rows(self, artifact, [(0, shown_problem(problem)) for problem in problems])
 
     # ---- Roo Code Cloud retry queue -------------------------------------------
 
