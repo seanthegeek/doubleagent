@@ -769,14 +769,13 @@ survives is in [What survives a delete](#what-survives-a-delete).
 
 Implemented ([issue 168](https://github.com/seanthegeek/doubleagent/issues/168)). The parser reads
 no file line by line; its bad records are whole files, `threads` rows and items
-inside a thread blob. A file that is not SQLite is one `parser: not a
-SQLite database` row, and a SQLite error while reading one `parser:
-SQLite error: <error>` row. A `data` blob that does not decode to a
-JSON object is `parser: unparseable record <rowid> (<reason>):
-<stored value>`, the stored value being a `json` row's text or a
-`zstd` row's compressed bytes as lowercase hex (a truncated frame can
-decompress to nothing), the reason then ending `stored zstd blob as
-hex`.
+inside a thread blob. A database file that cannot be read, or whose `-wal`, `-shm` or `-journal`
+sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
+file that failed; one that is not a SQLite database is `parser: not a SQLite database`, and a SQLite
+error while reading one `parser: SQLite error: <error>` row. A `data` blob that does not decode to a
+JSON object is `parser: unparseable record <rowid> (<reason>): <stored value>`, the stored value
+being a `json` row's text or a `zstd` row's compressed bytes as lowercase hex (a truncated frame can
+decompress to nothing), the reason then ending `stored zstd blob as hex`.
 
 A `messages[]` item of no known variant, a `Compaction` with
 neither `Summary` nor `ProviderNative`, an `Agent` content item of no

@@ -661,6 +661,10 @@ is kept as written, as rustyline keeps it. An agent configuration or delegate re
 JSON object is one row, `parser: agent configuration is not a JSON object` or `parser: delegate
 record is not a JSON object`.
 
+A `data.sqlite3` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
+row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
+that is not a SQLite database is `parser: not a SQLite database`.
+
 #### Fixtures
 
 Fixture, a `data.sqlite3` with one conversation row:

@@ -16,6 +16,11 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from .errors import unreadable_message
+
+SQLITE_HEADER = b"SQLite format 3\x00"
+NOT_SQLITE = "not a SQLite database"
+
 
 @contextmanager
 def open_copy(path: Path) -> Iterator[sqlite3.Connection]:
@@ -53,6 +58,35 @@ def is_sqlite(path: Path) -> bool:
     """Return whether the file starts with the SQLite header."""
     try:
         with open(path, "rb") as handle:
-            return handle.read(16) == b"SQLite format 3\x00"
+            return handle.read(16) == SQLITE_HEADER
     except OSError:
         return False
+
+
+def sqlite_problem(path: Path) -> str:
+    """Return why `open_copy` cannot open the database at `path`, or "" when it can.
+
+    The answer is `NOT_SQLITE` for a readable file without the SQLite header,
+    and the `unreadable_message` of the file, or of the first `-wal`, `-shm`
+    or `-journal` sidecar beside it that cannot be opened: `open_copy` copies
+    every sidecar it finds, so an unreadable one would fail the copy. Nothing
+    raises.
+    """
+    path = Path(path)
+    try:
+        with open(path, "rb") as handle:
+            header = handle.read(16)
+    except OSError as error:
+        return unreadable_message(path, error)
+    if header != SQLITE_HEADER:
+        return NOT_SQLITE
+    for suffix in ("-wal", "-shm", "-journal"):
+        sidecar = Path(str(path) + suffix)
+        if not sidecar.is_file():
+            continue
+        try:
+            with open(sidecar, "rb"):
+                pass
+        except OSError as error:
+            return unreadable_message(sidecar, error)
+    return ""

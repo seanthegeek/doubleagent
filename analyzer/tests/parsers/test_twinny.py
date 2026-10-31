@@ -171,7 +171,13 @@ class TwinnyTests(ParserBase):
         self.assertEqual(art.agent, "twinny")
         self.assertFalse(TwinnyParser().wants(art))
         self.assertEqual(
-            self.rows_for(TwinnyParser(), ".config/Code/User/globalStorage/state.vscdb"), []
+            [
+                row.text
+                for row in self.rows_for(
+                    TwinnyParser(), ".config/Code/User/globalStorage/state.vscdb"
+                )
+            ],
+            ["parser: state.vscdb is not a SQLite database"],
         )
         self.assertEqual(self.rows_for(TwinnyParser(), CODY_VSCDB_REL), [])
 

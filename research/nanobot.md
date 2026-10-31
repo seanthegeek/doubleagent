@@ -963,6 +963,11 @@ Every JSONL file and the CLI history report each bad line (`iter_jsonl` and
 not decode a `parser: unparseable session metadata (<reason>): <metadata>` row (the sources
 table under [Past use and secondary sources](#past-use-rows-and-secondary-sources)).
 
+A `sessions.sqlite3` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
+one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed;
+one that is not a SQLite database is `parser: not a SQLite database`, each with the workspace's
+project path.
+
 #### Fixtures
 
 Fixture, file `.nanobot/sessions/0123456789abcdef0123456789abcdef/dGVsZWdyYW06MTIzNDU2Nzg5.jsonl`,

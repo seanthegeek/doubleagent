@@ -38,7 +38,7 @@ from collections.abc import Iterator
 from ..dedup import TOLERANCE_SECONDS
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..textlines import SPACE_OR_TAB, split_lines
 from ..timeutil import to_utc
 from .aider import read_input_history
@@ -610,8 +610,9 @@ class HermesParser(Parser):
 
     # -- state.db ------------------------------------------------------------------------
     def _parse_database(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
-            yield self._system(artifact, 0, {}, "parser: not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield self._system(artifact, 0, {}, "parser: " + problem)
             return
         try:
             with open_copy(artifact.disk_path) as connection:
@@ -1097,8 +1098,9 @@ class HermesParser(Parser):
         `conversation_history` that no earlier response of the session held at the same position,
         read as `state.db` messages with `data.session_id` and no time of their own.
         """
-        if not is_sqlite(artifact.disk_path):
-            yield self._system(artifact, 0, {}, "parser: not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield self._system(artifact, 0, {}, "parser: " + problem)
             return
         record_errors: list = []
         try:

@@ -9,6 +9,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-31
+
+### Fixed
+
+- A SQLite database a parser cannot read, or an unreadable `-wal`, `-shm` or `-journal` sidecar beside one, is one `system` row `parser: <file> could not be read (<reason>)` from the parser that reads it, with the operating system's reason, and the rest of the input is still parsed. Before, an unreadable database was reported as `parser: not a SQLite database` or not at all, and an unreadable sidecar was a `problem:` line that lost every row of the database ([#378]).
+
 ## [0.22.0] - 2026-10-31
 
 ### Added
@@ -2128,7 +2134,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--summary-length` (default 400), `--include-thinking` and `--agent`;
   `detect --json` and `--files`; `catalog --agents`.
 
-[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.22.0...HEAD
+[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.23.0...HEAD
+[0.23.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.22.0...analyzer-v0.23.0
 [0.22.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.21.0...analyzer-v0.22.0
 [0.21.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.20.1...analyzer-v0.21.0
 [0.20.1]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.20.0...analyzer-v0.20.1
@@ -2156,6 +2163,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
 [#380]: https://github.com/seanthegeek/doubleagent/issues/380
+[#378]: https://github.com/seanthegeek/doubleagent/issues/378
 [#360]: https://github.com/seanthegeek/doubleagent/issues/360
 [#333]: https://github.com/seanthegeek/doubleagent/issues/333
 [#326]: https://github.com/seanthegeek/doubleagent/issues/326

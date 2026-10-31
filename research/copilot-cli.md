@@ -1123,6 +1123,10 @@ the analyzer rebuilds from it is in [What survives a delete](#what-survives-a-de
 `system` row, `parser: unparseable line (<reason>): <line>` with the line
 in full ([issue 136](https://github.com/seanthegeek/doubleagent/issues/136)), and reading continues.
 
+A `session-store.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
+one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed;
+one that is not a SQLite database is `parser: not a SQLite database`.
+
 #### Fixtures
 
 Sample fixture

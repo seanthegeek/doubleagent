@@ -675,9 +675,11 @@ None: the table records no deletion. What a delete leaves of the row is in
 
 #### Bad-line rows
 
-A file that is not SQLite is one `parser: not a SQLite database` row, a
-SQLite error one `parser: SQLite error: <message>` row, and a database
-without the table one `parser: no local_thread_catalog table` row.
+A database that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
+`parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
+is not a SQLite database is `parser: not a SQLite database`, a SQLite error one
+`parser: SQLite error: <message>` row, and a database without the table one
+`parser: no local_thread_catalog table` row.
 
 #### Fixtures
 

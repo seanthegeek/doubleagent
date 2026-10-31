@@ -1013,6 +1013,12 @@ history rows and the upload queue rows is under
 [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources) and
 [Sync, relay and origin](#sync-relay-and-origin-rows).
 
+A `sessions.db` or `session-search.db` that cannot be read, or whose `-wal`, `-shm` or `-journal`
+sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
+file that failed; one that is not a SQLite database is
+`parser: sessions.db is not a SQLite database` or
+`parser: session-search.db is not a SQLite database`.
+
 #### Fixtures
 
 Fixtures (invented content, real field names):

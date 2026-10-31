@@ -665,6 +665,13 @@ version, one that does not parse one row `parser: config.toml is not valid TOML 
 an IntelliJ history that does not parse one row
 `parser: not a readable XML document (<reason>)`, none carrying the file's text.
 
+A `db.sqlite` or a backup copy beside it that cannot be read, or whose `-wal`, `-shm` or `-journal`
+sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
+file that failed; one that is not a SQLite database is `parser: not a SQLite database`. A
+`state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
+`parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
+is not a SQLite database is `parser: state.vscdb is not a SQLite database`.
+
 #### Fixtures
 
 ```sql

@@ -6,7 +6,6 @@ check_fixture_schema|module-provenance-missing|ollama
 check_fixture_schema|sample-equals-builder|.ollama/config.json
 check_parser_research|parser-message-undocumented|parser: %s is not readable JSON (%s)
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s
-check_parser_research|parser-message-undocumented|parser: not a SQLite database
 check_parser_research|pattern-undocumented|^(?:Library/Application Support/Ollama|AppData/Local/Ollama)/db\.sqlite$
 check_parser_research|pattern-undocumented|^(?:Library/Application Support|AppData/Local)/Claude-3p/configLibrary/00000000-0000-4000-8000-000000000114\.json$
 check_research_structure|latest-version-missing|CLI and server, macOS and Windows: no real

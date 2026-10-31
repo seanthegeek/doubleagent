@@ -573,14 +573,20 @@ class VsCodeSyncTests(ParserBase):
             self.assertTrue(rows[0].text.startswith(want), rows[0].text)
 
     def test_state_without_copilot_key_yields_nothing(self):
-        # Cody's and Twinny's databases, and the plain-text placeholder.
+        # Cody's and Twinny's databases.
         for rel in (
             ".config/VSCodium/User/globalStorage/state.vscdb",
             ".vscode-server/data/User/globalStorage/state.vscdb",
-            ".config/Code/User/globalStorage/state.vscdb",
         ):
             self.assertTrue(VsCodeParser().wants(self.artifact(rel)), rel)
             self.assertEqual(self.rows_for(VsCodeParser(), rel), [], rel)
+
+    def test_state_that_is_not_sqlite_is_one_row(self):
+        rel = ".config/Code/User/globalStorage/state.vscdb"
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in self.rows_for(VsCodeParser(), rel)],
+            [("system", "parser: state.vscdb is not a SQLite database")],
+        )
 
     def test_damaged_state_is_one_row(self):
         path = self.home / VSCODE_STATE_REL

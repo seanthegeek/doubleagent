@@ -18,7 +18,6 @@ check_parser_research|parser-message-undocumented|parser: %s is not a JSON objec
 check_parser_research|parser-message-undocumented|parser: .webui_session_index.json has no sessions list
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s
 check_parser_research|parser-message-undocumented|parser: no %s table in the session database
-check_parser_research|parser-message-undocumented|parser: not a SQLite database
 check_parser_research|parser-message-undocumented|parser: unreadable %s: %s
 check_parser_research|pattern-undocumented|^(?:\.nanobot(?:-[^/]+)?/(?P<ws>.+/)?)?(?P<kind>cron|triggers)/runs/[^/]+\.json$
 check_parser_research|pattern-undocumented|^\.nanobot(?:-[^/]+)?/(?:.+/)?memory/history\.jsonl$

@@ -223,8 +223,11 @@ class AgentsSummaryTests(unittest.TestCase):
 
     def test_parser_found_no_rows(self):
         # The agent is detected and has a parser, but its files hold nothing:
-        # an empty summaries database and an empty conversations directory.
-        self.write(".gemini/antigravity-cli/conversation_summaries.db", "")
+        # a summaries database with no tables and an empty conversations directory.
+        database = self.home / ".gemini/antigravity-cli/conversation_summaries.db"
+        database.parent.mkdir(parents=True)
+        sqlite3.connect(str(database)).execute("pragma user_version = 1").connection.close()
+        self.assertEqual(database.read_bytes()[:16], b"SQLite format 3\x00")
         (self.home / ".gemini/antigravity-cli/conversations").mkdir()
         self.windsurf_state()
         exit_code, out = run_timeline(self.tmp / "home", self.tmp / "out")

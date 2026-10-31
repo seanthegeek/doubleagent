@@ -39,7 +39,7 @@ from collections.abc import Iterator
 
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
 from .base import Options, Parser, compact_json, error_rows, file_mtime, setting_value
 
@@ -339,8 +339,9 @@ class CrushParser(Parser):
     # -- .crush/crush.db ---------------------------------------------------------------
     def _parse_database(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         project_path = project_of(artifact.original)
-        if not is_sqlite(artifact.disk_path):
-            row = self._system(artifact, "parser: not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            row = self._system(artifact, "parser: " + problem)
             row.project_path = project_path
             yield row
             return

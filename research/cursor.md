@@ -2398,14 +2398,15 @@ deletion row is yielded for it.
 The transcript JSONL is read with `iter_jsonl`, and each bad line becomes its own `system` row
 through `error_rows`. A `cursorDiskKV` or `ItemTable` value that is not JSON (when it should be)
 is appended to the errors list with its rowid and key, and a header entry with no bubble row has
-its own row (table above). A database that is not SQLite is one `parser: not a SQLite database`
-row, a SQLite error one `parser: SQLite error: <message>` row. `cli-config.json` or
-`permissions.json` that is not JSON is one `parser:` row, and so is an
-`mcp-oauth-attempts/<uuid>.json` file that is not JSON (`parser: unreadable <rel>: <reason>`) or
-not a JSON object (`parser: <rel> is not a JSON object`). For the CLI parser, a `meta.json`,
-`prompt_history.json` or `.workspace-trusted` that is not JSON, or a `meta.0` value that is not
-hex-encoded JSON, is one `parser:` row for that file, and a blob that is neither JSON nor
-protobuf is appended to the errors list with its `id`.
+its own row (table above). A database that cannot be read, or whose `-wal`, `-shm` or `-journal`
+sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
+file that failed; one that is not a SQLite database is `parser: not a SQLite database`, a SQLite
+error one `parser: SQLite error: <message>` row. `cli-config.json` or `permissions.json` that is not
+JSON is one `parser:` row, and so is an `mcp-oauth-attempts/<uuid>.json` file that is not JSON
+(`parser: unreadable <rel>: <reason>`) or not a JSON object (`parser: <rel> is not a JSON object`).
+For the CLI parser, a `meta.json`, `prompt_history.json` or `.workspace-trusted` that is not JSON,
+or a `meta.0` value that is not hex-encoded JSON, is one `parser:` row for that file, and a blob
+that is neither JSON nor protobuf is appended to the errors list with its `id`.
 
 #### Fixtures
 

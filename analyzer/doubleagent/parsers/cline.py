@@ -40,7 +40,7 @@ from pathlib import Path
 
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import NOT_SQLITE, open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
 from .base import (
     Options,
@@ -444,8 +444,11 @@ class ClineParser(LegacyTaskParser):
         yield from error_rows(self, artifact, errors, session_id, project)
 
     def _parse_sessions_database(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
-            yield from error_rows(self, artifact, [(0, "sessions.db is not a SQLite database", "")])
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            if problem == NOT_SQLITE:
+                problem = "sessions.db is not a SQLite database"
+            yield from error_rows(self, artifact, [(0, problem, "")])
             return
         sessions_dir = artifact.disk_path.parent.parent / "sessions"
         try:
@@ -710,12 +713,12 @@ class ClineParser(LegacyTaskParser):
     # -- session-search.db
 
     def _parse_search_database(self, artifact: Artifact) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
-            yield from error_rows(
-                self, artifact, [(0, "session-search.db is not a SQLite database", "")]
-            )
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            if problem == NOT_SQLITE:
+                problem = "session-search.db is not a SQLite database"
+            yield from error_rows(self, artifact, [(0, problem, "")])
             return
-        problem = ""
         try:
             with open_copy(artifact.disk_path) as connection:
                 tables = table_names(connection)

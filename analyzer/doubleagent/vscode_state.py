@@ -10,9 +10,10 @@ SecretStorage rows have keys starting `secret://` and hold encrypted
 credentials; they are never read here, whatever key a caller asks for.
 
 The database is opened through `sqlite_util.open_copy`, so the `-wal`
-sidecar is applied and the evidence copy is never opened. A file that is
-not SQLite at all yields nothing; a damaged SQLite file or a value that is
-not JSON is reported in the returned problem list.
+sidecar is applied and the evidence copy is never opened. A file that
+cannot be read, or whose sidecar cannot, a file that is not SQLite, a
+damaged SQLite file and a value that is not JSON are each reported in the
+returned problem list.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ STATE_DATABASE_PATTERN = re.compile(r"(?:^|/)User/globalStorage/state\.vscdb$")
 # extensions list all of these in `reads_agents`.
 EDITOR_AGENTS = ("vscode", "cursor", "windsurf", "pearai", "kiro", "antigravity")
 SECRET_PREFIX = "secret://"
+VALUE_PROBLEM = "ItemTable value for "
 
 
 def _text(value) -> str:
@@ -46,7 +48,9 @@ def read_items(path: Path, keys: Iterable[str]) -> tuple[dict[str, object], list
     """Return the decoded JSON values of the requested `ItemTable` keys.
 
     A value that is not JSON is returned as its text and noted in the
-    problems. `secret://` keys are never read.
+    problems, and so is a database `sqlite_util.sqlite_problem` rejects,
+    under its own file name. An absent file gives nothing. `secret://` keys
+    are never read.
 
     Returns:
         The values of the keys present and the problems.
@@ -55,8 +59,13 @@ def read_items(path: Path, keys: Iterable[str]) -> tuple[dict[str, object], list
     path = Path(path)
     out: dict[str, object] = {}
     problems: list[str] = []
-    if not wanted or path.is_symlink() or not sqlite_util.is_sqlite(path):
+    if not wanted or path.is_symlink() or not path.is_file():
         return out, problems
+    problem = sqlite_util.sqlite_problem(path)
+    if problem == sqlite_util.NOT_SQLITE:
+        return out, ["%s is not a SQLite database" % path.name]
+    if problem:
+        return out, [problem]
     try:
         with sqlite_util.open_copy(path) as connection:
             if "ItemTable" not in sqlite_util.table_names(connection):
@@ -73,8 +82,15 @@ def read_items(path: Path, keys: Iterable[str]) -> tuple[dict[str, object], list
             out[key] = json.loads(text)
         except ValueError as error:
             out[key] = text
-            problems.append("ItemTable value for %s is not valid JSON (%s)" % (key, error))
+            problems.append("%s%s is not valid JSON (%s)" % (VALUE_PROBLEM, key, error))
     return out, problems
+
+
+def shown_problem(problem: str) -> str:
+    """Return the problem a row shows, without a JSON decoder detail that may quote the value."""
+    if problem.startswith(VALUE_PROBLEM):
+        return problem.split(" (", 1)[0]
+    return problem
 
 
 def read_item(path: Path, key: str) -> tuple[object, list[str]]:
@@ -83,4 +99,4 @@ def read_item(path: Path, key: str) -> tuple[object, list[str]]:
     return values.get(key), problems
 
 
-__all__ = ["SECRET_PREFIX", "STATE_DATABASE_PATTERN", "read_item", "read_items"]
+__all__ = ["SECRET_PREFIX", "STATE_DATABASE_PATTERN", "read_item", "read_items", "shown_problem"]

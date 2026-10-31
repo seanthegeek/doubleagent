@@ -7,7 +7,6 @@ check_parser_research|docstring-fact-undocumented|mcp_disabled_servers.name
 check_parser_research|docstring-fact-undocumented|mcp_enabled_servers.name
 check_parser_research|key-undocumented|size
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s
-check_parser_research|parser-message-undocumented|parser: not a SQLite database
 check_parser_research|parser-message-undocumented|parser: projects.json could not be read: %s
 check_parser_research|parser-message-undocumented|parser: projects.json did not parse: %s
 check_parser_research|pattern-undocumented|(^|/)\.crush/crush\.db$

@@ -40,9 +40,9 @@ from urllib.parse import urlparse
 
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
-from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_item
+from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_item, shown_problem
 from .base import Options, Parser, compact_json, error_rows, file_mtime, iter_jsonl
 from .codex import flat_toml, load_toml
 
@@ -317,8 +317,9 @@ class TabbyParser(Parser):
 
     # -- db.sqlite and its backups -------------------------------------------------------
     def _parse_database(self, artifact: Artifact, opts: Options, backup: bool) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
-            yield self._row(artifact, 0, text="parser: not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield self._row(artifact, 0, text="parser: " + problem)
             return
         if backup:
             yield self._row(
@@ -699,7 +700,7 @@ class TabbyParser(Parser):
             problems = problems or ["%s value is not a JSON object" % VSCODE_ITEM_KEY]
         for problem in problems:
             # Never echo the value: the same row holds the endpoint tokens.
-            yield self._row(artifact, 0, opts=opts, text="parser: " + problem.split(" (", 1)[0])
+            yield self._row(artifact, 0, opts=opts, text="parser: " + shown_problem(problem))
 
     # -- events/YYYY-MM-DD.json ----------------------------------------------------------
     def _parse_events(self, artifact: Artifact, opts: Options) -> Iterator[Row]:

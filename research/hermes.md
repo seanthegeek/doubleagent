@@ -1674,10 +1674,12 @@ fences are not read.
 
 #### Bad-line rows
 
-A `state.db`, a snapshot or a `response_store.db` that is not an SQLite file is one row
-`parser: not a SQLite database`, one SQLite cannot read is `parser: SQLite error: <message>`, and
-a `response_store.db` with no `responses` table is `parser: no responses table`; a `state.db`
-with no `messages` table gives no rows.
+A `state.db`, a snapshot or a `response_store.db` that cannot be read, or whose `-wal`, `-shm` or
+`-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the
+name of the file that failed; one that is not a SQLite database is `parser: not a SQLite database`,
+one SQLite cannot read is `parser: SQLite error: <message>`, and a `response_store.db` with no
+`responses` table is `parser: no responses table`; a `state.db` with no `messages` table gives no
+rows.
 
 `sessions/<id>.jsonl` goes through `iter_jsonl` and `error_rows`. In `pastes/pending.json` a file
 that does not parse or is not a JSON list is one `parser:` row, and an entry that is not an object

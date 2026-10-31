@@ -306,10 +306,13 @@ class RooCodeTests(ParserBase):
         rows = self.rows_for(parser, ROO_VSCDB_REL)
         source = "%s ItemTable RooVeterinaryInc.roo-cline" % ROO_VSCDB_REL
         self.assertEqual([row.text for row in rows], self._expected_state(source))
-        # The fake state.vscdb beside the extension's tasks is not SQLite.
+        # The fake state.vscdb beside the extension's tasks is not SQLite: one row.
         self.assertEqual(
-            self.rows_for(parser, ".config/Code/User/globalStorage/state.vscdb"),
-            [],
+            [
+                row.text
+                for row in self.rows_for(parser, ".config/Code/User/globalStorage/state.vscdb")
+            ],
+            ["parser: state.vscdb is not a SQLite database"],
         )
 
     def test_cli_settings_rows(self):

@@ -43,7 +43,7 @@ from urllib.parse import unquote, urlparse
 
 from ..inputs import Artifact, error_reason
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import format_utc, to_utc
 from .base import (
     Options,
@@ -434,10 +434,10 @@ def _state_index(path: Path) -> tuple[dict[str, tuple[str, str]], dict[str, str]
         return _PROJECT_CACHE[cache_key]
     found: dict[str, tuple[str, str]] = {}
     models: dict[str, str] = {}
-    if is_sqlite(path):
+    # A pre-scan: the file's own parse reports why it cannot be read, and its errors.
+    if not sqlite_problem(path):
         try:
             with open_copy(path) as connection:
-                # A pre-scan: the file's own parse reports its errors.
                 found = {
                     composer_id: composer.project
                     for composer_id, composer in read_composers(connection).items()
@@ -481,10 +481,10 @@ def cloud_cached_ids(state: Path) -> set[str]:
     """Return the ids of the `cloud-cache` rows of the `conversation-search.db` beside `state`.
 
     The parse of that database yields their origin rows. The set is empty when it is missing or
-    unreadable.
+    unreadable; that parse reports why.
     """
     path = state.parent / "conversation-search.db"
-    if not is_sqlite(path):
+    if sqlite_problem(path):
         return set()
     try:
         with open_copy(path) as connection:
@@ -558,8 +558,9 @@ class CursorParser(Parser):
         return row
 
     def _database(self, artifact: Artifact, reader, opts: Options) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
-            yield self._row(artifact, "system", "parser: not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield self._row(artifact, "system", "parser: " + problem)
             return
         try:
             with open_copy(artifact.disk_path) as connection:

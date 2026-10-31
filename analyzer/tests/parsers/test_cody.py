@@ -163,9 +163,15 @@ class CodyTests(ParserBase):
         ):
             art = next(artifact for artifact in self.col.artifacts if artifact.rel == rel)
             self.assertFalse(CodyParser().wants(art), rel)
-        # A state.vscdb that is not SQLite (or has no Cody row) yields nothing.
+        # A state.vscdb that is not SQLite is one row; one with no Cody row yields nothing.
         self.assertEqual(
-            self.rows_for(CodyParser(), ".config/Code/User/globalStorage/state.vscdb"), []
+            [
+                row.text
+                for row in self.rows_for(
+                    CodyParser(), ".config/Code/User/globalStorage/state.vscdb"
+                )
+            ],
+            ["parser: state.vscdb is not a SQLite database"],
         )
         self.assertEqual(self.rows_for(CodyParser(), TWINNY_VSCDB_REL), [])
 

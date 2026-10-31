@@ -34,7 +34,7 @@ from collections.abc import Iterator
 
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
 from .base import Options, Parser, compact_json, file_mtime
 
@@ -75,8 +75,9 @@ class CopilotDesktopParser(Parser):
         if ref:
             yield self._ref_row(artifact, ref)
             return
-        if not is_sqlite(artifact.disk_path):
-            yield self._row(artifact, "parser: not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield self._row(artifact, "parser: " + problem)
             return
         try:
             with open_copy(artifact.disk_path) as connection:

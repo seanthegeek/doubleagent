@@ -582,7 +582,7 @@ class VsCodeParser(Parser):
         `secret://` rows never match the pattern. A database `read_items`
         could not open gives nothing here, since it reported it.
         """
-        if path.is_symlink() or not sqlite_util.is_sqlite(path):
+        if path.is_symlink() or sqlite_util.sqlite_problem(path):
             return [], []
         try:
             with sqlite_util.open_copy(path) as connection:

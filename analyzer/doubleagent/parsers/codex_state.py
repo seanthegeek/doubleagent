@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING
 
 from ..inputs import Artifact, error_reason
 from ..model import GIT_REMOTE_PREFIX, SCRATCH_PREFIX, Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import epoch_ms, to_utc
 from .base import Options, error_rows, file_mtime, setting_value
 from .codex import guardian_text, guardian_verdict, item_rows
@@ -188,8 +188,9 @@ def parse_state(parser: RolloutParser, artifact: Artifact, opts: Options) -> Ite
     A thread record and the first prompt per thread come first, then a `remote control:` row per
     enrollment, then a `permission decision:` row per guardian review feedback record.
     """
-    if not is_sqlite(artifact.disk_path):
-        yield _problem(parser, artifact, "parser: not a SQLite database")
+    problem = sqlite_problem(artifact.disk_path)
+    if problem:
+        yield _problem(parser, artifact, "parser: " + problem)
         return
     try:
         with open_copy(artifact.disk_path) as connection:
@@ -350,10 +351,11 @@ def _thread_rows(parser: RolloutParser, artifact: Artifact, threads: list[dict])
 def _sibling_threads(artifact: Artifact) -> dict[str, dict]:
     """Return the `threads` rows of the `state_5.sqlite` beside `artifact`, by id.
 
-    The result is {} when there is no such database or it cannot be read.
+    The result is {} when there is no such database or it cannot be read; the parse of that
+    database reports why.
     """
     path = artifact.disk_path.parent / STATE_DATABASE
-    if not is_sqlite(path):
+    if sqlite_problem(path):
         return {}
     try:
         with open_copy(path) as connection:
@@ -485,8 +487,9 @@ def _decode_item(
 
 def parse_thread_history(parser: RolloutParser, artifact: Artifact, opts: Options) -> Iterator[Row]:
     """Rows of `thread_history_1.sqlite`: turns and their items."""
-    if not is_sqlite(artifact.disk_path):
-        yield _problem(parser, artifact, "parser: not a SQLite database")
+    problem = sqlite_problem(artifact.disk_path)
+    if problem:
+        yield _problem(parser, artifact, "parser: " + problem)
         return
     try:
         with open_copy(artifact.disk_path) as connection:
@@ -649,7 +652,8 @@ def guardian_calls(home: Path, parent: str, start: str, end: str) -> list[str]:
         return []
     calls: list[str] = []
     for path in sorted(home.glob("logs_*.sqlite")):
-        if not is_sqlite(path):
+        # The parse of each log database reports why it cannot be read.
+        if sqlite_problem(path):
             continue
         try:
             with open_copy(path) as connection:
@@ -781,8 +785,9 @@ def _feedback_text(record: dict, name: str) -> tuple[str, str]:
 
 def parse_logs(parser: RolloutParser, artifact: Artifact) -> Iterator[Row]:
     """Yield the rows of `logs_<N>.sqlite`: sent `/feedback` reports and approval decisions."""
-    if not is_sqlite(artifact.disk_path):
-        yield _problem(parser, artifact, "parser: not a SQLite database")
+    problem = sqlite_problem(artifact.disk_path)
+    if problem:
+        yield _problem(parser, artifact, "parser: " + problem)
         return
     try:
         with open_copy(artifact.disk_path) as connection:

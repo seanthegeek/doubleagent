@@ -2377,6 +2377,13 @@ row with an unreadable `item_json` gave one summary row
 row per record with the value in full, as the table above gives (fixture only, no real install has
 shown a corrupt row).
 
+A `state_5.sqlite` (or its copy under `db-backups/`), `thread_history_1.sqlite` or `logs_<N>.sqlite`
+that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
+`parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
+is not a SQLite database is `parser: not a SQLite database`. The rollout parse, which reads
+`state_5.sqlite` and the log databases beside it for thread records and guardian review calls, gives
+no row of its own for such a database: the database's own parse reports it.
+
 #### Fixtures
 
 Expected rows from the sample below: `system` session start, `system`
