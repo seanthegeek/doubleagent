@@ -474,7 +474,7 @@ class GooseTests(ParserBase):
                     "",
                     "",
                     'action required: {"actionType":"elicitation","id":"el_1",'
-                    '"message":"Pick one","requestedSchema":{}}',
+                    '"message":"Pick one","requested_schema":{}}',
                 ),
             ],
         )
@@ -707,3 +707,28 @@ class GooseTests(ParserBase):
         )
         self.assertEqual((rows[1].text, rows[2].text), ("hi", "after the cut"))
         self.assertEqual(rows[-1].text, bad_line_text())
+
+    def test_request_log_error_line_is_a_system_row(self):
+        with open(self.home / self.LOG, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"error": "rate limited"}) + "\n")
+        rows = self.rows_for(GooseParser(), self.LOG)
+        self.assertEqual(
+            [(row.source_line, row.turn_type, row.text) for row in rows],
+            [
+                (1, "system", "llm request | 1 messages | last user: hello"),
+                (2, "assistant", "hi"),
+                (3, "system", "llm error: rate limited"),
+            ],
+        )
+
+    def test_session_database_that_is_not_sqlite_is_one_row(self):
+        rel = ".local/share/goose/sessions/sessions.db"
+        for sidecar in ("-wal", "-shm"):
+            (self.home / (rel + sidecar)).unlink(missing_ok=True)
+        (self.home / rel).write_text("not a database\n", encoding="utf-8")
+        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+        rows = self.rows_for(GooseParser(), rel)
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in rows],
+            [("system", "parser: not a SQLite database")],
+        )

@@ -684,6 +684,10 @@ a `toolResult` value rmcp's result
 a `toolResult.value` may also be a bare content array, the older form, which the reader still
 accepts
 ([`tool_result_serde.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/conversation/tool_result_serde.rs#L134-L170)).
+`arguments` is the tool's own parameter object: the developer extension's `shell` tool, which
+the model calls as `developer__shell`, takes `command` and an optional `timeout_secs`
+([`platform_extensions/developer/shell.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/agents/platform_extensions/developer/shell.rs#L182-L189);
+[`developer/mod.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/agents/platform_extensions/developer/mod.rs#L150)).
 The result's `content` items are rmcp content blocks tagged on `type` in snake case: `text`,
 `image`, `audio`, `resource` or `resource_link`
 ([`rmcp/src/model/content.rs`](https://github.com/modelcontextprotocol/rust-sdk/blob/9427a929959e665e0d12e9395f674026baf4bd48/crates/rmcp/src/model/content.rs#L252-L264)).
@@ -876,6 +880,51 @@ transcript into the database
 ([`import_formats/mod.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/session/import_formats/mod.rs#L1-L13);
 [`goose-cli/src/cli.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-cli/src/cli.rs#L582-L587)).
 
+#### Request log lines
+
+Each provider call writes a log whose first line is `{model_config, input}`, `input` being the
+provider's own request body, then one `{data, usage}` line per message the provider yields and an
+`{error}` line on failure
+([`goose-provider-types/src/request_log.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/request_log.rs#L66-L133)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `model_config` | object | | |
+| `input` | object | | |
+| `data` | object | | |
+| `usage` | object or null | | |
+| `error` | string | | |
+
+`input` has the provider's request format. In the OpenAI chat format it is `{model, messages}`,
+the system message first, and each message's `content` is a string when the message holds only
+text, an array of parts when it holds anything else, and null beside tool calls
+([`goose-provider-types/src/formats/openai.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/formats/openai.rs#L203-L213),
+[`486-505`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/formats/openai.rs#L486-L505),
+[`1772-1794`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/formats/openai.rs#L1772-L1794)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `model` | string | | |
+| `messages` | array | | |
+| `role` | string | | |
+| `content` | string or array or null | | |
+
+`usage` is the provider usage
+([`goose-provider-types/src/conversation/token_usage.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/conversation/token_usage.rs#L102-L110)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `input_tokens` | number or null | | |
+| `output_tokens` | number or null | | |
+| `total_tokens` | number or null | | |
+| `cache_read_input_tokens` | number or null | | |
+| `cache_write_input_tokens` | number or null | | |
+
+A `data` line is a message in the legacy message shape above. A streaming provider yields one
+partial message per chunk, built with `Message::assistant()`, so each line carries the message's
+`id`, `role` `assistant`, its own `created` and the chunk's content blocks
+([`goose-provider-types/src/formats/anthropic.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/formats/anthropic.rs#L1155-L1160)).
+
 ### Joins and timestamps
 
 `messages.session_id` and `usage_ledger.session_id` equal `sessions.id`. A tool call pairs on
@@ -985,38 +1034,11 @@ gateway_pairings:
 
 #### Request logs
 
-Request logs join `sessions.db` on text and tool call id. Each provider call writes a log whose
-first line is `{model_config, input}`, `input` being the provider's own request body, then one
-`{data, usage}` line per message the provider yields and an `{error}` line on failure
-([`goose-provider-types/src/request_log.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/request_log.rs#L66-L133)):
-
-| Key | Type | Values | Since |
-| --- | --- | --- | --- |
-| `model_config` | object | | |
-| `input` | object | | |
-| `data` | object | | |
-| `usage` | object or null | | |
-| `error` | string | | |
-
-`usage` is the provider usage
-([`goose-provider-types/src/conversation/token_usage.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/conversation/token_usage.rs#L102-L110)):
-
-| Key | Type | Values | Since |
-| --- | --- | --- | --- |
-| `input_tokens` | number or null | | |
-| `output_tokens` | number or null | | |
-| `total_tokens` | number or null | | |
-| `cache_read_input_tokens` | number or null | | |
-| `cache_write_input_tokens` | number or null | | |
-
-A `data` line is a message in the legacy message shape above. A streaming provider yields one
-partial message per chunk, built with `Message::assistant()`, so each line carries the message's
-`id`, `role` `assistant`, its own `created` and the chunk's content blocks
-([`goose-provider-types/src/formats/anthropic.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/formats/anthropic.rs#L1155-L1160)).
-`Conversation::push` assembles consecutive messages with the same `id` into one: a one-block
-text chunk extends a last text block of the same audience, a one-block thinking chunk extends a
-last thinking block that is unsigned or has its signature, and anything else is appended; the
-message keeps its first chunk's `created`
+Request logs join `sessions.db` on text and tool call id; their lines are under
+[Request log lines](#request-log-lines). `Conversation::push` assembles consecutive messages
+with the same `id` into one: a one-block text chunk extends a last text block of the same
+audience, a one-block thinking chunk extends a last thinking block that is unsigned or has its
+signature, and anything else is appended; the message keeps its first chunk's `created`
 ([`goose-provider-types/src/conversation.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/conversation.rs#L75-L119)).
 The stored message's `created_timestamp` is never earlier than the log's and can be later by as
 long as the tool calls before it ran ([Joins and timestamps](#joins-and-timestamps)). The log
