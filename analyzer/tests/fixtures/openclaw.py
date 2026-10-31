@@ -1,4 +1,7 @@
-"""Synthetic OpenClaw state for the analyzer tests."""
+"""Synthetic OpenClaw state for the analyzer tests, from research/openclaw.md.
+
+Paths: `/srv/scratch`
+"""
 
 from __future__ import annotations
 
@@ -9,11 +12,12 @@ import zstandard
 
 from .common import PROJECT_REMOTE, _jsonl, _wal_database
 
-# -- OpenClaw (openclaw/openclaw at 3b16db7) ---------------------------------------
+# -- OpenClaw (openclaw/openclaw at fc3490a, older shapes at 3b16db7 and 146284a) ---------
 OPENCLAW_SESSION = "7d0c2a8e-1111-4000-8000-000000000001"
 OPENCLAW_KEY = "agent:main:telegram:default:direct:123456789"
 OPENCLAW_RESET_SESSION = "7d0c2a8e-1111-4000-8000-000000000002"
 OPENCLAW_COLD_SESSION = "7d0c2a8e-1111-4000-8000-000000000003"
+OPENCLAW_CHUNKED_SESSION = "7d0c2a8e-1111-4000-8000-000000000004"
 OPENCLAW_LEGACY = "7d0c2a8e-1111-4000-8000-0000000000aa"
 OPENCLAW_DELETED = "7d0c2a8e-1111-4000-8000-0000000000dd"
 OPENCLAW_TOKEN = "sk-ant-oat01-FIXTURE-OPENCLAW-TOKEN-0f9e8d"
@@ -40,13 +44,21 @@ CREATE TABLE session_transcript_cold_archives (session_id TEXT NOT NULL PRIMARY 
   archive_name TEXT NOT NULL UNIQUE, archive_sha256 TEXT NOT NULL, event_count INTEGER NOT NULL,
   raw_bytes INTEGER NOT NULL, archive_bytes INTEGER NOT NULL, last_seq INTEGER NOT NULL,
   archived_at INTEGER NOT NULL, storage TEXT NOT NULL, archive_blob BLOB);
+CREATE TABLE session_transcript_cold_archive_chunks (session_id TEXT NOT NULL,
+  chunk_index INTEGER NOT NULL, archive_name TEXT NOT NULL UNIQUE, archive_sha256 TEXT NOT NULL,
+  first_seq INTEGER NOT NULL, last_seq INTEGER NOT NULL, event_count INTEGER NOT NULL,
+  raw_bytes INTEGER NOT NULL, archive_bytes INTEGER NOT NULL, archive_blob BLOB,
+  PRIMARY KEY (session_id, chunk_index)) WITHOUT ROWID;
 CREATE TABLE auth_profile_store (store_key TEXT NOT NULL PRIMARY KEY, store_json TEXT NOT NULL,
   updated_at INTEGER NOT NULL);
 """
 
 
 def openclaw_records(session_id=OPENCLAW_SESSION, cwd="/srv/proj"):
-    """The research document's sample entries (Parser plan), cwd moved to /srv/proj."""
+    """A session's header and entries in the writer's entry shapes, cwd /srv/proj.
+
+    Source: research/openclaw.md#entries; source fc3490a
+    """
     return [
         {
             "type": "session",
@@ -128,6 +140,10 @@ def openclaw_records(session_id=OPENCLAW_SESSION, cwd="/srv/proj"):
 
 
 def openclaw_legacy_records(session_id=OPENCLAW_LEGACY):
+    """A legacy version 3 transcript: runtime context, a `!` command, a compaction, an error.
+
+    Source: research/openclaw.md#message-roles; source fc3490a
+    """
     return [
         {
             "type": "session",
@@ -372,7 +388,7 @@ def openclaw_node_inserts():
         "modelOverrideSource": "user",
         "elevatedLevel": "on",
         "execHost": "gateway",
-        "toolOverrides": {"mcpServers": "off"},
+        "toolOverrides": {"mcpServers": {"github": False}},
         "sendPolicy": "allow",
     }
     # Archived from the session list (types.ts:300-305); its delivery is the
@@ -479,6 +495,62 @@ def _openclaw_jsonl(records) -> bytes:
     return "".join(json.dumps(record) + "\n" for record in records).encode("utf-8")
 
 
+def openclaw_chunked_cold_inserts():
+    """A `sqlite`-stored cold archive split into two chunks, each with its own header.
+
+    The parent row keeps no blob; each chunk holds one entry of the generation.
+    """
+    records = openclaw_records(OPENCLAW_CHUNKED_SESSION)[:2]
+    chunks = []
+    for index, record in enumerate(records):
+        lines = [
+            {
+                "kind": "header",
+                "version": 1,
+                "sessionId": OPENCLAW_CHUNKED_SESSION,
+                "generation": "g5",
+            },
+            {
+                "kind": "event",
+                "row": {
+                    "seq": index,
+                    "event_json": json.dumps(record),
+                    "created_at": 1790846000000,
+                },
+            },
+        ]
+        raw = _openclaw_jsonl(lines)
+        chunks.append((index, raw, _openclaw_zstd(raw)))
+    inserts = [
+        "INSERT INTO session_transcript_cold_archives VALUES ('%s','g5','%s.jsonl.zst','%s',2,%d,"
+        "%d,1,1790851000000,'sqlite',NULL)"
+        % (
+            OPENCLAW_CHUNKED_SESSION,
+            "d" * 64,
+            "d" * 64,
+            sum(len(raw) for _, raw, _ in chunks),
+            sum(len(blob) for _, _, blob in chunks),
+        )
+    ]
+    for index, raw, blob in reversed(chunks):
+        inserts.append(
+            "INSERT INTO session_transcript_cold_archive_chunks VALUES ('%s',%d,'%s.jsonl.zst',"
+            "'%s',%d,%d,1,%d,%d,X'%s')"
+            % (
+                OPENCLAW_CHUNKED_SESSION,
+                index,
+                str(index + 5) * 64,
+                str(index + 5) * 64,
+                index,
+                index,
+                len(raw),
+                len(blob),
+                blob.hex(),
+            )
+        )
+    return inserts
+
+
 def build_openclaw(home: Path) -> None:
     agent = home / OPENCLAW_AGENT
     inserts = [
@@ -487,7 +559,18 @@ def build_openclaw(home: Path) -> None:
         "NULL)" % (OPENCLAW_SESSION, OPENCLAW_KEY),
         "INSERT INTO auth_profile_store VALUES ('anthropic:default','%s',1790845200000)"
         % json.dumps(
-            {"type": "oauth", "access": OPENCLAW_TOKEN, "refresh": OPENCLAW_TOKEN + "-refresh"}
+            {
+                "version": 1,
+                "profiles": {
+                    "anthropic:default": {
+                        "type": "oauth",
+                        "provider": "anthropic",
+                        "access": OPENCLAW_TOKEN,
+                        "refresh": OPENCLAW_TOKEN + "-refresh",
+                        "expires": 1790931600000,
+                    }
+                },
+            }
         ),
     ]
     for seq, record in enumerate(openclaw_records()):
@@ -544,7 +627,19 @@ def build_openclaw(home: Path) -> None:
                 "row": {"seq": seq, "event_json": json.dumps(record), "created_at": 1790845200000},
             }
         )
-        cold.append({"kind": "identity", "row": {"event_id": record["id"], "seq": seq}})
+        cold.append(
+            {
+                "kind": "identity",
+                "row": {
+                    "event_id": record["id"],
+                    "seq": seq,
+                    "event_type": record["type"],
+                    "parent_id": record.get("parentId"),
+                    "message_idempotency_key": None,
+                    "created_at": 1790845200000,
+                },
+            }
+        )
     cold_raw = _openclaw_jsonl(cold)
     cold_blob = _openclaw_zstd(cold_raw)
     inserts.append(
@@ -559,6 +654,7 @@ def build_openclaw(home: Path) -> None:
             cold_blob.hex(),
         )
     )
+    inserts += openclaw_chunked_cold_inserts()
     _wal_database(
         agent / "agent/openclaw-agent.sqlite",
         OPENCLAW_SCHEMA + OPENCLAW_NODES_SCHEMA + OPENCLAW_PAST_USE_SCHEMA,
@@ -596,7 +692,10 @@ def build_openclaw(home: Path) -> None:
     )
     # Noise the parser must skip: a trajectory (another schema) and a
     # `.migrated` file (not confirmed as a transcript).
-    _jsonl(sessions / (OPENCLAW_LEGACY + ".trajectory.jsonl"), [{"type": "trace"}])
+    _jsonl(
+        sessions / (OPENCLAW_LEGACY + ".trajectory.jsonl"),
+        [{"traceSchema": "openclaw-trajectory", "schemaVersion": 1}],
+    )
     _jsonl(sessions / (OPENCLAW_LEGACY + ".jsonl.migrated"), openclaw_legacy_records())
     (agent / "agent/auth-profiles.json").write_text(
         json.dumps({"anthropic:default": {"key": OPENCLAW_TOKEN}}), encoding="utf-8"

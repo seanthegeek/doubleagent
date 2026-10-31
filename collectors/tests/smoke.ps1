@@ -413,38 +413,131 @@ excl||.openclaw/npm-runtime
 excl||.openclaw/tmp
 excl||.openclaw/tools
 excl||.openclaw/worktrees
+excl||.openclaw/projects/0123456789abcdef
 excl||.openclaw/plugin-skills
 excl||.openclaw/extensions/e1/node_modules
 excl||.openclaw/sandbox/skills-workspaces
+excl||.openclaw/cache/control-ui-assets
 excl||.openclaw/agents/main/agent/tmp
 excl||.openclaw/agents/main/agent/.tmp
+excl||.openclaw/agents/main/agent/runs/tmp
+excl||.openclaw/agents/main/agent/runs/.tmp
 excl||.openclaw/browser/b1/user-data/Default/Cache
 excl||.openclaw/browser/b1/user-data/Default/Code Cache
 excl||.openclaw/browser/b1/user-data/Default/GPUCache
 excl||.openclaw/browser/b1/user-data/Default/Service Worker
-excl||.openclaw-work/tools
-excl||.clawdbot/tools
+excl||.openclaw-work/projects/0123456789abcdef
+excl||.openclaw-work/plugin-skills
+excl||.openclaw-work/extensions/e1/node_modules
+excl||.openclaw-work/sandbox/skills-workspaces
+excl||.openclaw-work/cache/control-ui-assets
+excl||.openclaw-work/agents/main/agent/tmp
+excl||.openclaw-work/agents/main/agent/.tmp
+excl||.openclaw-work/agents/main/agent/runs/tmp
+excl||.openclaw-work/agents/main/agent/runs/.tmp
+excl||.openclaw-work/browser/b1/user-data/Default/Cache
+excl||.openclaw-work/browser/b1/user-data/Default/Code Cache
+excl||.openclaw-work/browser/b1/user-data/Default/GPUCache
+excl||.openclaw-work/browser/b1/user-data/Default/Service Worker
+excl||.clawdbot/dev
+excl||.clawdbot/git
 excl||.clawdbot/npm
+excl||.clawdbot/npm-runtime
+excl||.clawdbot/tmp
+excl||.clawdbot/tools
+excl||.clawdbot/worktrees
+excl||.clawdbot/projects/0123456789abcdef
+excl||.clawdbot/plugin-skills
+excl||.clawdbot/extensions/e1/node_modules
+excl||.clawdbot/sandbox/skills-workspaces
+excl||.clawdbot/cache/control-ui-assets
+excl||.clawdbot/agents/main/agent/tmp
+excl||.clawdbot/agents/main/agent/.tmp
+excl||.clawdbot/agents/main/agent/runs/tmp
+excl||.clawdbot/agents/main/agent/runs/.tmp
+excl||.clawdbot/browser/b1/user-data/Default/Cache
+excl||.clawdbot/browser/b1/user-data/Default/Code Cache
+excl||.clawdbot/browser/b1/user-data/Default/GPUCache
+excl||.clawdbot/browser/b1/user-data/Default/Service Worker
+excl||.moltbot/dev
+excl||.moltbot/git
+excl||.moltbot/npm
+excl||.moltbot/npm-runtime
+excl||.moltbot/tmp
+excl||.moltbot/tools
+excl||.moltbot/worktrees
+excl||.moltbot/projects/0123456789abcdef
+excl||.moltbot/plugin-skills
+excl||.moltbot/extensions/e1/node_modules
+excl||.moltbot/sandbox/skills-workspaces
+excl||.moltbot/cache/control-ui-assets
+excl||.moltbot/agents/main/agent/tmp
+excl||.moltbot/agents/main/agent/.tmp
+excl||.moltbot/agents/main/agent/runs/tmp
+excl||.moltbot/agents/main/agent/runs/.tmp
+excl||.moltbot/browser/b1/user-data/Default/Cache
+excl||.moltbot/browser/b1/user-data/Default/Code Cache
+excl||.moltbot/browser/b1/user-data/Default/GPUCache
+excl||.moltbot/browser/b1/user-data/Default/Service Worker
 secret||.openclaw/openclaw.json
-secret||.openclaw/clawdbot.json.bak
-secret||.openclaw-work/.env
-secret||.openclaw/credentials/c1.json
+secret||.openclaw/clawdbot.json
+secret||.openclaw/moltbot.json
+secret||.openclaw/.env
+secret||.openclaw/credentials/oauth.json
 secret||.openclaw/service-env/gateway.env
+secret||.openclaw/client/credentials.sqlite
+secret||.openclaw/identity/device.json
+secret||.openclaw/exec-approvals.json
 secret||.openclaw/agents/main/agent/auth-profiles.json
+secret||.openclaw/agents/main/agent/auth-state.json
+secret||.openclaw/agents/main/agent/auth.json
 secret||.openclaw/agents/main/agent/models.json
 secret||.openclaw/browser/b1/user-data/Default/Cookies
+secret||.clawdbot/openclaw.json
 secret||.clawdbot/clawdbot.json
+secret||.clawdbot/moltbot.json
 secret||.clawdbot/.env
-secret||.clawdbot/credentials/c1
+secret||.clawdbot/credentials/oauth.json
+secret||.clawdbot/service-env/gateway.env
+secret||.clawdbot/client/credentials.sqlite
+secret||.clawdbot/identity/device.json
+secret||.clawdbot/exec-approvals.json
+secret||.clawdbot/agents/main/agent/auth-profiles.json
+secret||.clawdbot/agents/main/agent/auth-state.json
+secret||.clawdbot/agents/main/agent/auth.json
+secret||.clawdbot/agents/main/agent/models.json
+secret||.clawdbot/browser/b1/user-data/Default/Cookies
+secret||.moltbot/openclaw.json
+secret||.moltbot/clawdbot.json
 secret||.moltbot/moltbot.json
 secret||.moltbot/.env
-secret||.moltbot/credentials/c1
+secret||.moltbot/credentials/oauth.json
+secret||.moltbot/service-env/gateway.env
+secret||.moltbot/client/credentials.sqlite
+secret||.moltbot/identity/device.json
+secret||.moltbot/exec-approvals.json
+secret||.moltbot/agents/main/agent/auth-profiles.json
+secret||.moltbot/agents/main/agent/auth-state.json
+secret||.moltbot/agents/main/agent/auth.json
+secret||.moltbot/agents/main/agent/models.json
+secret||.moltbot/browser/b1/user-data/Default/Cookies
+secret||.openclaw-work/.env
+secret||.openclaw/identity/share-device-auth.json
+secret||.openclaw/exec-approvals.json.migrated.0123456789abcdef.a1
+secret||.openclaw-auth-profile-secrets/gateway.env
 secret||.config/openclaw/gateway.env
 agent|openclaw|.openclaw/agents/main/agent/openclaw-agent.sqlite
 agent|openclaw|.openclaw/agents/main/agent/openclaw-agent.sqlite-wal
+agent|openclaw|.openclaw/workspace/tmp/AGENTS.md
+agent|openclaw|.openclaw/workspace/tools/TOOLS.md
+agent|openclaw|.openclaw-work/workspace/tools/TOOLS.md
+agent|openclaw|.openclaw-work/workspace/tmp/AGENTS.md
+agent|openclaw|.openclaw-work/tools/TOOLS.md
 agent|openclaw|.openclaw-work/openclaw.json
 agent|openclaw|.config/systemd/user/openclaw-gateway.service
+agent|openclaw|.config/systemd/user/clawdbot-gateway.service
 agent|openclaw|Library/LaunchAgents/ai.openclaw.gateway.plist
+agent|openclaw|Library/Application Support/OpenClaw/databases/gateway-cache.sqlite
 excl||.nanobot/bin
 excl||.nanobot/run
 excl||.nanobot-work/cache
@@ -1057,17 +1150,22 @@ MakeFile 'nanows/triggers/inbox/d2.json' "{`"id`":`"d2`"}`n"
 # 2026-10-21 OpenClaw source review (#219)
 $openclaw = 'Users/alice/.openclaw'
 $openclawCloneId = '0123456789abcdef'
-$openclawVolume = 'var/lib/docker/volumes/a0_usr/_data'
 MakeFile "$openclaw/exec-approvals.json" "{`"socket`":{`"token`":`"x`"}}`n"
 MakeFile 'Users/alice/.openclaw-auth-profile-secrets/gateway.env' "OPENAI_API_KEY=x`n"
 MakeFile "$openclaw/projects/$openclawCloneId/repo/README.md" "clone`n"
 MakeFile "$openclaw/projects/notes/todo.md" "notes`n"
-MakeFile "$openclawVolume/exec-approvals.json" "{`"socket`":{`"token`":`"x`"}}`n"
-MakeFile "$openclawVolume/projects/$openclawCloneId/repo/README.md" "clone`n"
-MakeFile "$openclawVolume/projects/p219/notes.md" "project`n"
-MakeFile "$openclawVolume/plugin-skills/s" "link`n"
-MakeFile "$openclawVolume/agents/main/agent/tmp/t" "tmp`n"
-MakeFile "$openclawVolume/agents/main/agent/.tmp/t" "tmp`n"
+# 2026-10-30 openclaw rebuild (#326)
+MakeFile 'Users/alice/.openclaw-work/openclaw.json' '{agents:{defaults:{workspace:"C:\\clawprofile"},entries:{ops:{cwd:"C:\\clawcwd"}}}}'
+MakeFile 'Users/alice/.clawdbot/openclaw.json' '{"agents":{"defaults":{"workspace":"C:\\clawold"}}}'
+MakeFile 'Users/alice/.moltbot/moltbot.json' '{"agents":{"defaults":{"workspace":"C:\\moltws"}}}'
+MakeFile 'Users/alice/.clawdbot/moltbot.json' '{"agents":{"defaults":{"workspace":"C:\\moltold"}}}'
+MakeFile 'clawcwd/TOOLS.md' '# tools'
+MakeFile 'clawold/BOOTSTRAP.md' '# bootstrap'
+MakeFile 'moltws/.openclaw/worktree-setup.sh' "#!/bin/sh`n"
+MakeFile 'moltold/SOUL.md' '# soul'
+$openclawHomeVolume = 'var/lib/docker/volumes/openclaw_home/_data'
+MakeFile "$openclawHomeVolume/.claude.json" '{"oauthAccount":{}}'
+MakeFile "$openclawHomeVolume/.claude/history.jsonl" '{"display":"hi"}'
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 $opencodeDesktop = 'Users/alice/Library/Application Support/ai.opencode.desktop'
@@ -1600,9 +1698,9 @@ Check 'summary counts match manifest' { $sum.counts.collected -eq @($script:Rows
 Check 'manifest rows all parsed as JSON' { $script:Rows.Count -eq @(Get-Content -LiteralPath $script:Manifest.FullName).Count }
 Check 'archive layout for a docker volume file is fs/<path relative to root>' { @($entries | Where-Object { $_ -match '(^|\./)fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat\.json$' }).Count -eq 1 }
 Check 'summary counts skipped_unmatched_volume' { $sum.counts.skipped_unmatched_volume -eq 1 }
-Check 'summary docker counts' { $sum.docker.volumes_found -eq 3 -and $sum.docker.volumes_collected -eq 2 -and $sum.docker.unreadable -eq 0 -and $sum.docker.docker_desktop -eq $false }
+Check 'summary docker counts' { $sum.docker.volumes_found -eq 4 -and $sum.docker.volumes_collected -eq 3 -and $sum.docker.unreadable -eq 0 -and $sum.docker.docker_desktop -eq $false }
 Check 'summary no_docker option false and notes empty' { $sum.options.no_docker -eq $false -and @($sum.notes).Count -eq 0 }
-Check 'stdout docker line' { $script:stdout -match '(?m)^docker:     3 volumes found, 2 collected, 0 unreadable\s*$' }
+Check 'stdout docker line' { $script:stdout -match '(?m)^docker:     4 volumes found, 3 collected, 0 unreadable\s*$' }
 Check 'profile without artifacts still listed in users' { @($sum.users) -contains 'dave' }
 Check 'profile without artifacts not in users_with_artifacts' { @($sum.users_with_artifacts).Count -gt 0 -and -not (@($sum.users_with_artifacts) -contains 'dave') }
 Check 'stdout users counts users_with_artifacts' { $script:stdout -match "(?m)^users:      $(@($sum.users_with_artifacts).Count)\s*$" }
@@ -1854,11 +1952,15 @@ Check '#220 nanobot trigger queue not collected' { @($script:Rows | Where-Object
 # 2026-10-21 OpenClaw source review (#219)
 Check '#219 OpenClaw exec-approvals.json flagged secret' { IsAgentRow "$openclaw/exec-approvals.json" 'openclaw' $true }
 Check '#219 OpenClaw auth-profile secrets directory flagged secret' { IsAgentRow 'Users/alice/.openclaw-auth-profile-secrets/gateway.env' 'openclaw' $true }
-Check '#219 OpenClaw volume exec-approvals.json flagged secret' { $row = Row "$openclawVolume/exec-approvals.json"; $row -and $row.user -eq 'docker' -and $row.secret -eq $true -and $row.status -eq 'collected' }
-Check '#219 OpenClaw Gateway clone excluded' { (StatusOf "$openclaw/projects/$openclawCloneId") -eq 'skipped_excluded' -and (HasNoRow "$openclawCloneId/repo/README.md") }
+Check '#219 OpenClaw Gateway clone excluded' { (StatusOf "$openclaw/projects/$openclawCloneId") -eq 'skipped_excluded' -and (-not (Row "$openclaw/projects/$openclawCloneId/repo/README.md")) }
 Check '#219 OpenClaw projects entry that is no clone collected' { IsAgentRow "$openclaw/projects/notes/todo.md" 'openclaw' $false }
-Check '#219 OpenClaw volume clone, plugin-skills and agent tmp excluded' { (StatusOf "$openclawVolume/projects/$openclawCloneId") -eq 'skipped_excluded' -and (StatusOf "$openclawVolume/plugin-skills") -eq 'skipped_excluded' -and (StatusOf "$openclawVolume/agents/main/agent/tmp") -eq 'skipped_excluded' -and (StatusOf "$openclawVolume/agents/main/agent/.tmp") -eq 'skipped_excluded' }
-Check '#219 volume projects entry that is no clone collected' { $row = Row "$openclawVolume/projects/p219/notes.md"; $row -and $row.user -eq 'docker' -and $row.status -eq 'collected' }
+# 2026-10-30 openclaw rebuild (#326)
+Check 'openclaw JSON5 agent cwd discovers project' { (StatusOf 'clawcwd/TOOLS.md') -eq 'collected' }
+Check 'openclaw legacy .clawdbot/openclaw.json discovers project' { (StatusOf 'clawold/BOOTSTRAP.md') -eq 'collected' }
+Check 'openclaw Moltbot .moltbot/moltbot.json discovers project' { (StatusOf 'moltws/.openclaw/worktree-setup.sh') -eq 'collected' }
+Check 'openclaw Moltbot .clawdbot/moltbot.json discovers project' { (StatusOf 'moltold/SOUL.md') -eq 'collected' }
+Check 'openclaw_home volume .claude.json flagged secret as claude-code' { $row = Row "$openclawHomeVolume/.claude.json"; $row -and $row.user -eq 'docker' -and $row.agent -eq 'claude-code' -and $row.secret -eq $true -and $row.status -eq 'collected' }
+Check 'openclaw_home volume .claude file collected as claude-code' { $row = Row "$openclawHomeVolume/.claude/history.jsonl"; $row -and $row.user -eq 'docker' -and $row.agent -eq 'claude-code' -and $row.secret -eq $false -and $row.status -eq 'collected' }
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 Check '#213 OpenCode service.json flagged secret' { (IsAgentRow 'Users/alice/.config/opencode/service.json' 'opencode' $true) -and (IsAgentRow 'Users/alice/.local/state/opencode/service-local.json' 'opencode' $true) }
@@ -2185,7 +2287,7 @@ Check '#123 Hermes quick snapshot credentials skipped without secrets' { (Status
 Check '#208 Hermes desktop connection files skipped without secrets' { (StatusOf 'Users/alice/.config/Hermes/connections.json') -eq 'skipped_secret' }
 
 # 2026-10-21 OpenClaw source review (#219)
-Check '#219 OpenClaw credentials skipped without secrets' { (StatusOf "$openclaw/exec-approvals.json") -eq 'skipped_secret' -and (StatusOf 'Users/alice/.openclaw-auth-profile-secrets/gateway.env') -eq 'skipped_secret' -and (StatusOf "$openclawVolume/exec-approvals.json") -eq 'skipped_secret' }
+Check '#219 OpenClaw credentials skipped without secrets' { (StatusOf "$openclaw/exec-approvals.json") -eq 'skipped_secret' -and (StatusOf 'Users/alice/.openclaw-auth-profile-secrets/gateway.env') -eq 'skipped_secret' }
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
 Check '#213 OpenCode service.json skipped without secrets' { (StatusOf 'Users/alice/.config/opencode/service.json') -eq 'skipped_secret' -and (StatusOf 'Users/alice/.local/state/opencode/service-local.json') -eq 'skipped_secret' }
@@ -2280,7 +2382,7 @@ Run 'desktop' @{}
 Check 'Docker Desktop exit 0' { $script:ExitCode -eq 0 }
 $sum = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 Check 'Docker Desktop noted in collection.json' { $sum.docker.docker_desktop -eq $true -and @($sum.notes | Where-Object { $_ -like 'docker: Docker Desktop data at *' }).Count -eq 1 }
-Check 'Docker Desktop noted in stdout' { $script:stdout -match '(?m)^docker:     3 volumes found, 2 collected, 0 unreadable; Docker Desktop VM disk not collected\s*$' }
+Check 'Docker Desktop noted in stdout' { $script:stdout -match '(?m)^docker:     4 volumes found, 3 collected, 0 unreadable; Docker Desktop VM disk not collected\s*$' }
 Remove-Item -LiteralPath (ImagePath 'Users/alice/AppData/Local/Docker') -Recurse -Force
 
 # 2026-10-06 frameworks sweep (#64)
@@ -2546,7 +2648,7 @@ Pop-Location
 Check 'Inventory exit 0' { $script:ExitCode -eq 0 }
 Check 'Inventory writes nothing in the current directory' { @(Get-ChildItem -LiteralPath $inventoryCwd -Force).Count -eq 0 }
 Check 'Inventory first line is the host line, keys in order' { $script:Inventory[0].type -eq 'host' -and (@($script:Inventory[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq $hostKeys -and $script:Inventory[0].mode -eq 'image' -and $script:InventoryLines[0] -match '"at":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"' }
-Check 'Inventory host line counts' { $script:Inventory[0].users_unreadable -eq 0 -and $script:Inventory[0].docker_volumes -eq 3 -and $script:Inventory[0].users_scanned -ge 2 }
+Check 'Inventory host line counts' { $script:Inventory[0].users_unreadable -eq 0 -and $script:Inventory[0].docker_volumes -eq 4 -and $script:Inventory[0].users_scanned -ge 2 }
 Check 'Inventory every later line is an agent line, keys in order' { $script:Inventory.Count -gt 10 -and @($script:Inventory | Select-Object -Skip 1 | Where-Object { $_.type -ne 'agent' -or (@($_.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -ne $agentKeys }).Count -eq 0 }
 $row = InventoryAgent 'bob' 'ollama'
 Check 'Inventory ollama line: history and manifest, excluded blobs not counted' { $row -and $row.files -eq 2 -and $row.bytes -eq 23 -and (InventoryLine 'bob' 'ollama').Contains('"first":"2026-09-14T00:00:00Z","last":"2026-09-15T01:02:03Z"') -and $row.evidence -eq '.ollama' }
@@ -2563,7 +2665,7 @@ $museFiles = -1
 $row = InventoryAgent 'alice' 'muse-code'
 if ($row) { $museFiles = $row.files }
 $row = InventoryAgent 'docker' 'agent-zero'
-Check 'Inventory docker volume line' { $row -and $row.files -eq 7 -and $row.bytes -eq 122 -and $row.projects -eq 0 -and $row.evidence -eq '*a0_usr' }
+Check 'Inventory docker volume line' { $row -and $row.files -eq 5 -and $row.bytes -eq 89 -and $row.projects -eq 0 -and $row.evidence -eq '*a0_usr' }
 $row = InventoryAgent 'docker' 'tabby'
 Check 'Inventory rootless docker volume line' { $row -and $row.files -eq 1 -and $row.bytes -eq 22 -and $row.evidence -eq '*tabby*' }
 Check 'Inventory shared not inventoried' { -not ($script:Inventory | Where-Object { $_.type -eq 'agent' } | Where-Object { @('shared', 'project', 'live') -contains $_.agent }) }

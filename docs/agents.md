@@ -949,8 +949,9 @@ Validated against: Source at [2767e5f](https://github.com/openinterpreter/openin
 Files read: `agents/<id>/agent/openclaw-agent.sqlite` (SQLite with WAL
 sidecars: `transcript_events`, zstd `event_zstd` rows need `zstandard`;
 every reset/deleted archive blob, published or not, and SQLite cold
-archives), legacy `agents/<id>/sessions/<id>.jsonl` and
-`sessions/*.jsonl`, `sessions/cold/*.jsonl.zst`, and, as secondary
+archives, whole or in `session_transcript_cold_archive_chunks`), legacy
+`agents/<id>/sessions/<id>.jsonl` and `sessions/*.jsonl`,
+`sessions/cold/*.jsonl.zst`, and, as secondary
 sources, the published reset and deleted archive files `*.jsonl.reset.*` /
 `*.jsonl.deleted.*` (optionally `.zst`), compaction checkpoints
 `*.checkpoint.<uuid>.jsonl` and pre-doctor repair backups
@@ -975,8 +976,9 @@ table `session_transcript_fts_content` the entries the transcript lost,
 `channel_ingress_events` and the three GitHub publication request tables.
 A PostgreSQL engine anchor in place of either database is one row.
 
-Validated against: Source at [3b16db7](https://github.com/openclaw/openclaw/commit/3b16db73c0b5209aad2ee7c3fb5ddfb12fb208f9) (the checkpoint and backup writers,
-since removed, at [6814525](https://github.com/openclaw/openclaw/commit/68145258676f1401a2e42cbaffe6564c2a6213c6) and [6559e3f](https://github.com/openclaw/openclaw/commit/6559e3f3b94c54e2b1aa06d1fca712c5360455ff)), synthetic fixture; the relay, permission, model-override, past-use, deletion, PostgreSQL-anchor and GitHub publication rows from source at [146284a](https://github.com/openclaw/openclaw/commit/146284a289f98a2cf3babbc55cc3bd16c28e604b) (version 2026.10.5), synthetic fixture.
+Validated against: Source at [fc3490a](https://github.com/openclaw/openclaw/commit/fc3490aa24e624f0182ae5e29482611fee5736fb) (version 2026.10.9 on
+`main`), with the older shapes at [146284a](https://github.com/openclaw/openclaw/commit/146284a289f98a2cf3babbc55cc3bd16c28e604b) and [3b16db7](https://github.com/openclaw/openclaw/commit/3b16db73c0b5209aad2ee7c3fb5ddfb12fb208f9) and the checkpoint and
+backup writers, since removed, at [6814525](https://github.com/openclaw/openclaw/commit/68145258676f1401a2e42cbaffe6564c2a6213c6) and [6559e3f](https://github.com/openclaw/openclaw/commit/6559e3f3b94c54e2b1aa06d1fca712c5360455ff); fixture only.
 
 ### `opencode`
 

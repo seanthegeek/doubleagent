@@ -1,16 +1,16 @@
 """Parse OpenClaw (formerly Clawdbot and Moltbot) agent transcripts and Gateway state.
 
 Follows `research/openclaw.md`. Validated against source, openclaw/openclaw at
-3b16db7 and 146284a (relay, permission, model-override, past-use, deletion,
-source-host and PostgreSQL anchor rows), with a synthetic fixture; no real
-install. The state directory is `.openclaw`, `.openclaw-<profile>`, `.clawdbot`
-or `.moltbot` (`STATE`). Files read:
+fc3490a (state schema 36, agent schema 38), with the older shapes of 3b16db7 and
+146284a, and a synthetic fixture; no real install. The state directory is
+`.openclaw`, `.openclaw-<profile>`, `.clawdbot` or `.moltbot` (`STATE`). Files read:
 
 - `agents/<id>/agent/openclaw-agent.sqlite`, through `sqlite_util`: the
   entries of `transcript_events` (`event_json`, or a zstd frame in
   `event_zstd`), the generations of `session_windows`, the reset and deleted
   generations of `session_transcript_archives` and the `sqlite`-stored
-  `session_transcript_cold_archives`, and `session_nodes.entry_json`
+  `session_transcript_cold_archives` (or their
+  `session_transcript_cold_archive_chunks`), and `session_nodes.entry_json`
   (`publicShare`, `delivery`, `modelOverride`, `SESSION_PERMISSION_KEYS`,
   `archivedAt`). Also `session_conversations` with `conversations`,
   `session_pending_inputs` and the `session_transcript_fts_content` index
@@ -49,7 +49,7 @@ AGENT_DATABASE_PATTERN = re.compile(r"^" + STATE + r"/agents/[^/]+/agent/opencla
 STATE_DATABASE_PATTERN = re.compile(r"^" + STATE + r"/state/openclaw\.sqlite$")
 SESSIONS = r"^" + STATE + r"/(?:agents/[^/]+/)?sessions/"
 ARCHIVE_SUFFIX = r"\.jsonl\.(reset|deleted)\.\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d(?:\.\d{3})?Z(?:\.[0-9a-f]{32})?(?:\.zst)?"
-# A pre-compaction checkpoint and a pre-doctor repair backup (`artifacts.ts:13-17`).
+# A pre-compaction checkpoint and a pre-doctor repair backup.
 COPY_SUFFIX = (
     r"\.checkpoint\.[0-9a-fA-F-]{36}\.jsonl"
     r"|\.jsonl\.pre-doctor-(?:branch|openai-codex)-repair-"
@@ -67,10 +67,9 @@ COLD_PATTERN = re.compile(SESSIONS + r"cold/[0-9a-f]{64}\.jsonl\.zst$")
 SKIP_NAME_PATTERN = re.compile(r"\.trajectory$")
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 # Channels that are not a messaging platform: the Control UI and the
-# internal wake sources (`src/utils/message-channel-constants.ts:3`, `14-20`).
+# internal wake sources.
 NOT_PLATFORMS = frozenset(("webchat", "heartbeat", "cron", "webhook", "voice", "sessions_send"))
-# Per-session permission state in `session_nodes.entry_json`
-# (`src/config/sessions/types.ts:481-500`, `532`).
+# Per-session permission state in `session_nodes.entry_json`.
 SESSION_PERMISSION_KEYS = (
     "elevatedLevel",
     "execHost",
@@ -886,7 +885,10 @@ class OpenClawParser(Parser):
                     artifact, connection, windows, database_state, opts
                 )
             if "session_transcript_cold_archives" in tables:
-                yield from self._database_cold(artifact, connection, windows, database_state, opts)
+                chunked = "session_transcript_cold_archive_chunks" in tables
+                yield from self._database_cold(
+                    artifact, connection, windows, database_state, opts, chunked
+                )
             if "session_pending_inputs" in tables:
                 yield from self._database_pending(artifact, connection, database_state, errors)
             if "session_transcript_fts_content" in tables:
@@ -1622,7 +1624,15 @@ class OpenClawParser(Parser):
         windows: dict[str, dict],
         database_state: _DatabaseState,
         opts: Options,
+        chunked: bool = False,
     ) -> Iterator[Row]:
+        """Yield the rows of each `sqlite`-stored cold archive, chunk by chunk when chunked.
+
+        A chunked archive keeps its bytes in `session_transcript_cold_archive_chunks`, a table
+        without row ids, so its rows carry the parent archive's rowid as `source_line`. A
+        `sqlite`-stored archive or chunk whose blob is NULL has lost its bytes, so it is one
+        `parser:` row.
+        """
         for row in connection.execute(
             "select rowid as _rowid, session_id, archive_name, archived_at, archive_blob "
             "from session_transcript_cold_archives where storage = 'sqlite' order by archived_at"
@@ -1636,24 +1646,47 @@ class OpenClawParser(Parser):
                 extra="cold_archive=%s" % (row.get("archive_name") or ""),
             )
             line = row["_rowid"]
-            data, error = _maybe_zstd(row.get("archive_blob") or b"")
-            if data is None:
-                yield self._bad(
-                    artifact,
-                    session,
-                    line,
-                    "cold archive %s could not be decompressed (%s)"
-                    % (row.get("archive_name") or session_id, error),
-                    opts,
-                    to_utc(row.get("archived_at")),
+            blobs = [(row.get("archive_name") or session_id, row.get("archive_blob"))]
+            if chunked:
+                chunks = [
+                    (chunk["archive_name"] or session_id, chunk["archive_blob"])
+                    for chunk in connection.execute(
+                        "select archive_name, archive_blob from"
+                        " session_transcript_cold_archive_chunks where session_id = ?"
+                        " order by chunk_index",
+                        (session_id,),
+                    )
+                ]
+                blobs = chunks or blobs
+            for name, blob in blobs:
+                if blob is None:
+                    yield self._bad(
+                        artifact,
+                        session,
+                        line,
+                        "cold archive %s has no stored bytes" % name,
+                        opts,
+                        to_utc(row.get("archived_at")),
+                    )
+                    continue
+                data, error = _maybe_zstd(blob)
+                if data is None:
+                    yield self._bad(
+                        artifact,
+                        session,
+                        line,
+                        "cold archive %s could not be decompressed (%s)" % (name, error),
+                        opts,
+                        to_utc(row.get("archived_at")),
+                    )
+                    continue
+                errors: list = []
+                yield from self._records(
+                    artifact, session, _iter_lines(data, errors), opts, fixed_line=line
                 )
-                continue
-            errors: list = []
-            yield from self._records(
-                artifact, session, _iter_lines(data, errors), opts, fixed_line=line
-            )
-            label = "cold archive %s" % (row.get("archive_name") or session_id)
-            yield from self._blob_errors(artifact, session, line, label, errors)
+                yield from self._blob_errors(
+                    artifact, session, line, "cold archive " + name, errors
+                )
 
 
 __all__ = ["OpenClawParser", "tool_args_text"]

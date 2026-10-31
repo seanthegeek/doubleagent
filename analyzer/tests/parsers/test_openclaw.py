@@ -14,6 +14,7 @@ from fixtures import (
     OPENCLAW_BACKUP_COMMIT,
     OPENCLAW_BACKUP_KEY,
     OPENCLAW_CHECKPOINT,
+    OPENCLAW_CHUNKED_SESSION,
     OPENCLAW_COLD_SESSION,
     OPENCLAW_DELETED,
     OPENCLAW_FTS_ONLY,
@@ -185,6 +186,19 @@ class OpenClawTests(ParserBase):
         cold = [row for row in rows if row.session_id == OPENCLAW_COLD_SESSION]
         self.assertEqual([row.turn_type for row in cold], ["system", "user"])
         self.assertEqual(cold[1].project_path, "/srv/proj")
+
+    def test_chunked_cold_archive_read_chunk_by_chunk(self):
+        """A chunked cold archive gives both chunks' entries, in chunk order, after one start."""
+        rows = self.rows_for(OpenClawParser(), OPENCLAW_AGENT + "/agent/openclaw-agent.sqlite")
+        chunked = [row for row in rows if row.session_id == OPENCLAW_CHUNKED_SESSION]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in chunked],
+            [
+                ("system", "session start: cold_archive=%s.jsonl.zst version=4" % ("d" * 64)),
+                ("user", "check disk space on the server"),
+            ],
+        )
+        self.assertEqual({row.project_path for row in chunked}, {"/srv/proj"})
 
     def test_legacy_jsonl(self):
         rows = self.rows_for(OpenClawParser(), self.LEGACY)
@@ -436,6 +450,67 @@ class OpenClawTests(ParserBase):
             (rows[-1].turn_type, rows[-1].timestamp_utc), ("system", "2026-10-01T09:01:40.000Z")
         )
         self.assertIn("event seq 9 unreadable", rows[-1].text)
+
+    def test_cold_archive_without_bytes_is_reported(self):
+        connection = sqlite3.connect(str(self.home / self.DATABASE))
+        connection.execute(
+            "INSERT INTO session_transcript_cold_archives VALUES "
+            "(?,'g9',?,?,1,1,1,0,1790852000000,'sqlite',NULL)",
+            ("lost-cold", "e" * 64 + ".jsonl.zst", "e" * 64),
+        )
+        connection.commit()
+        connection.close()
+        rows = self.rows_for(OpenClawParser(), self.DATABASE)
+        lost = [row for row in rows if row.session_id == "lost-cold"]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in lost],
+            [("system", "parser: cold archive %s.jsonl.zst has no stored bytes" % ("e" * 64))],
+        )
+        self.assertEqual(lost[0].timestamp_utc, "2026-10-01T10:53:20.000Z")
+
+    def test_cold_archive_without_chunks_table(self):
+        """An agent database without the chunks table still reads a whole-blob cold archive."""
+        # The release tag v2026.10.9 writes agent schema 25, which has no chunks table.
+        connection = sqlite3.connect(str(self.home / self.DATABASE))
+        connection.execute("DROP TABLE session_transcript_cold_archive_chunks")
+        connection.commit()
+        connection.close()
+        rows = self.rows_for(OpenClawParser(), self.DATABASE)
+        cold = [row for row in rows if row.session_id == OPENCLAW_COLD_SESSION]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in cold],
+            [
+                ("system", "session start: cold_archive=%s.jsonl.zst version=4" % ("c" * 64)),
+                ("user", "check disk space on the server"),
+            ],
+        )
+        chunked = [row for row in rows if row.session_id == OPENCLAW_CHUNKED_SESSION]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in chunked],
+            [("system", "parser: cold archive %s.jsonl.zst has no stored bytes" % ("d" * 64))],
+        )
+
+    def test_cold_archive_chunk_without_bytes_is_reported(self):
+        """A chunk with a NULL blob is a parser: row, and the next chunk is still read."""
+        connection = sqlite3.connect(str(self.home / self.DATABASE))
+        connection.execute(
+            "UPDATE session_transcript_cold_archive_chunks SET archive_blob = NULL"
+            " WHERE session_id = ? AND chunk_index = 0",
+            (OPENCLAW_CHUNKED_SESSION,),
+        )
+        connection.commit()
+        connection.close()
+        rows = self.rows_for(OpenClawParser(), self.DATABASE)
+        chunked = [row for row in rows if row.session_id == OPENCLAW_CHUNKED_SESSION]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in chunked],
+            [
+                ("system", "parser: cold archive %s.jsonl.zst has no stored bytes" % ("5" * 64)),
+                ("system", "session start: cold_archive=%s.jsonl.zst" % ("d" * 64)),
+                ("user", "check disk space on the server"),
+            ],
+        )
+        self.assertEqual(chunked[0].timestamp_utc, "2026-10-01T10:36:40.000Z")
 
     def test_null_event_row_is_reported_not_fatal(self):
         # A row whose event_json is valid JSON but not an object (here
@@ -771,7 +846,7 @@ class OpenClawTests(ParserBase):
             [
                 "permission setting: elevatedLevel=on",
                 "permission setting: execHost=gateway",
-                'permission setting: toolOverrides={"mcpServers":"off"}',
+                'permission setting: toolOverrides={"mcpServers":{"github":false}}',
                 "permission setting: sendPolicy=allow",
             ],
         )

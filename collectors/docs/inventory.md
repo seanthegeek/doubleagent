@@ -30,7 +30,8 @@ that matches a `DOCKER_VOLUMES` line is walked like a home.
 Project discovery runs, so the project count is available, but
 `PROJECT_CATALOG` files are not walked. Credential files are never opened:
 discovery sources that match `SECRET_GLOBS` (`.claude.json`,
-`.openclaw*/openclaw.json`, `.clawdbot/clawdbot.json`,
+`.openclaw*/openclaw.json`, `.clawdbot/openclaw.json`,
+`.clawdbot/clawdbot.json`, `.clawdbot/moltbot.json`, `.moltbot/moltbot.json`,
 `.nanobot*/config.json`, `.tabby/config.toml`) are skipped in this mode, so
 the project count can be lower than the number of projects a collection
 takes from. The other discovery sources are read as in a collection, which
