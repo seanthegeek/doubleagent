@@ -24,6 +24,14 @@ from .base import ParserBase
 class PearAiTests(ParserBase):
     """Test the PearAI parser."""
 
+    def test_settings_header_splits_at_lf_only(self):
+        path = self.home / PEARAI_LOG_REL
+        model = "m1%sx" % chr(0x2028)
+        path.write_text(pearai_log_settings(model, "<user>\nfirst\n\n"), encoding="utf-8")
+        rows = self.rows_for(PearAiParser(), PEARAI_LOG_REL)
+        self.assertEqual(rows[0].text, "model: " + model)
+        self.assertEqual(rows[0].model, model)
+
     SESSION = ".pearai/sessions/%s.json" % PEARAI_SESSION
     API = PEARAI_ROO + "tasks/%s/api_conversation_history.json" % PEARAI_TASK
     UI_API = PEARAI_ROO + "tasks/%s/api_conversation_history.json" % PEARAI_UI_TASK

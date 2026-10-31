@@ -38,6 +38,16 @@ from .base import ParserBase, read_jsonl, rel_only
 class NanobotTests(ParserBase):
     """Test the nanobot parser."""
 
+    def test_cron_run_id_start_takes_ascii_digits_only(self):
+        path = self.home / NANOBOT_SWEEP_RELS["cron"]
+        record = json.loads(path.read_text(encoding="utf-8"))
+        digits = "".join(chr(0x0660 + int(digit)) for digit in "1791187200000")
+        record["run_id"] = "job1:%s:ab12cd34" % digits
+        path.write_text(json.dumps(record), encoding="utf-8")
+        rows = self.rows_for(NanobotParser(), NANOBOT_SWEEP_RELS["cron"])
+        # Not an ASCII epoch: the prompt takes the run's end, not a start read from the id.
+        self.assertEqual(rows[0].timestamp_utc, "2026-10-05T08:00:05.000Z")
+
     def test_rows(self):
         rows = self.rows_for(NanobotParser(), NANOBOT_REL)
         self.assertEqual(

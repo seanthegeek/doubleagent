@@ -102,7 +102,7 @@ def micros_to_utc(value) -> str:
         return ""
     if isinstance(value, (int, float)):
         return to_utc(value / 1_000_000)
-    if isinstance(value, str) and value.isdigit():
+    if isinstance(value, str) and value.isascii() and value.isdigit():
         return to_utc(int(value) / 1_000_000)
     return ""
 

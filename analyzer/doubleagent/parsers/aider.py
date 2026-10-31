@@ -33,6 +33,7 @@ from pathlib import Path
 
 from ..inputs import Artifact
 from ..model import Row, compact
+from ..textlines import ASCII_SPACE
 from ..timeutil import to_utc
 from .base import Options, Parser, error_rows, line_text
 
@@ -40,9 +41,16 @@ CHAT = ".aider.chat.history.md"
 INPUT = ".aider.input.history"
 LLM = ".aider.llm.history"
 FILE_PATTERN = re.compile(r"^(?:.*/)?(\.aider\.(?:chat\.history\.md|input\.history|llm\.history))$")
-HEADER_PATTERN = re.compile(r"^# aider chat started at (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\s*$")
-INPUT_TIMESTAMP_PATTERN = re.compile(r"^# (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)?)\s*$")
-LLM_PATTERN = re.compile(r"^(TO LLM|LLM RESPONSE) (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)\s*$")
+# The marker lines' digits are ASCII and their padding spaces and tabs.
+HEADER_PATTERN = re.compile(
+    r"^# aider chat started at (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)[ \t]*$", re.ASCII
+)
+INPUT_TIMESTAMP_PATTERN = re.compile(
+    r"^# (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)?)[ \t]*$", re.ASCII
+)
+LLM_PATTERN = re.compile(
+    r"^(TO LLM|LLM RESPONSE) (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)[ \t]*$", re.ASCII
+)
 ROLE_TURN = {"USER": "user", "ASSISTANT": "assistant", "SYSTEM": "system"}
 # Announcement lines (`base_coder.py` `get_announcements`): the main model with
 # its edit format and options, the editor model in architect mode, the weak
@@ -98,7 +106,7 @@ def read_input_history(path: Path, errors: list | None = None) -> list[tuple[int
             if not out:
                 out.append([line_number, "", []])
             out[-1][2].append(line[1:])
-        elif line.strip() and errors is not None:
+        elif line.strip(ASCII_SPACE) and errors is not None:
             errors.append((line_number, "unparseable line (not a FileHistory line)", line))
     return [(entry[0], entry[1], "\n".join(entry[2])) for entry in out]
 
@@ -403,7 +411,7 @@ class AiderParser(Parser):
                 }
             elif block is not None:
                 block["lines"].append(line)
-            elif line.strip():
+            elif line.strip(ASCII_SPACE):
                 errors.append(
                     (
                         line_number,

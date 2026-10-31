@@ -453,5 +453,23 @@ class ProjectGitTests(unittest.TestCase):
         )
 
 
+def test_header_and_key_separators_are_space_or_tab_only():
+    # git allows only space and tab around a section name, between it and its
+    # subsection and between a key and `=`; another space makes a bad line.
+    for space in ("\u00a0", "\u2028", "\u0085", "\u3000"):
+        for text in (
+            '[%sremote "origin"]\n\turl = https://h/r.git\n' % space,
+            '[remote%s"origin"]\n\turl = https://h/r.git\n' % space,
+            '[remote "origin"%s]\n\turl = https://h/r.git\n' % space,
+            '[remote "origin"]\n\turl%s= https://h/r.git\n' % space,
+        ):
+            assert gitmeta.parse_remotes(text) == [], repr(text)
+    for space in (" ", "\t", " \t"):
+        text = '[%sremote%s"origin"%s]\n\turl%s= https://h/r.git\n' % ((space,) * 4)
+        assert gitmeta.parse_remotes(text) == [
+            {"name": "origin", "urls": ["https://h/r.git"], "pushurls": []}
+        ], repr(text)
+
+
 if __name__ == "__main__":
     unittest.main()

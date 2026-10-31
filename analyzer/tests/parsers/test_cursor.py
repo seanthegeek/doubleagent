@@ -9,6 +9,8 @@ from doubleagent import cli
 from doubleagent.model import summarise
 from doubleagent.parsers import Options
 from doubleagent.parsers.cursor import (
+    TAG_PATTERN,
+    WRAPPER_PATTERN,
     CursorParser,
     github_repository,
     run_mode,
@@ -49,6 +51,20 @@ class CursorTests(ParserBase):
 
     The shapes follow the Parser plan of research/cursor.md.
     """
+
+    def test_timestamp_wrapper_takes_ascii_whitespace_only(self):
+        wrapper = "<timestamp>t</timestamp>%s<user_query>q</user_query>"
+        self.assertTrue(WRAPPER_PATTERN.match(wrapper % "\n"))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            self.assertIsNone(WRAPPER_PATTERN.match(wrapper % space), repr(space))
+
+    def test_tag_takes_intl_spaces_before_the_meridiem(self):
+        # The tag is JavaScript `Intl` en-US output, which since ICU 72 puts a
+        # NARROW NO-BREAK SPACE before AM or PM; a NO-BREAK SPACE is read too.
+        tag = "Thursday, Oct 1, 2026, 6:00%sAM (UTC-4)"
+        for space in (" ", chr(0x202F), chr(0x00A0)):
+            self.assertTrue(TAG_PATTERN.match(tag % space), repr(space))
+            self.assertEqual(tag_time(tag % space), "2026-10-01T10:00:00.000Z", repr(space))
 
     COMPOSER = "(from state.vscdb composerState, file mtime, written late by the app)"
     REASON = "reason=Not in allowlist: curl, head"

@@ -77,7 +77,7 @@ SEARCH_COLUMNS = (
 )
 BLOB_UPLOAD_KEY = "enterprise.blobUpload"
 SEARCH_KEYS = ("title", "workspace_root", "prompt", "document_count", "indexed_at")
-MESSAGES_KEY_PATTERN = re.compile(r'"messages"\s*:\s*(?=\[)')
+MESSAGES_KEY_PATTERN = re.compile(r'"messages"[ \t\n\r]*:[ \t\n\r]*(?=\[)')
 HOOKS_REL = ".cline/data/logs/hooks.jsonl"
 # A tool_call or tool_result line is written when the call starts or ends,
 # the transcript's message when the whole turn is persisted, which can be a

@@ -2,7 +2,13 @@
 
 from typing import ClassVar
 
-from doubleagent.parsers.little_coder import LittleCoderParser
+from doubleagent.parsers.little_coder import (
+    MESSAGES_KEY_PATTERN,
+    SAVED_AT_PATTERN,
+    SESSION_ID_PATTERN,
+    SESSIONS_KEY_PATTERN,
+    LittleCoderParser,
+)
 from doubleagent.parsers.pi import PiParser
 from fixtures import (
     LC_FILE,
@@ -25,6 +31,19 @@ from .base import ParserBase
 
 class LittleCoderTests(ParserBase):
     """Test the little-coder parser."""
+
+    def test_recovered_keys_take_json_whitespace_only(self):
+        patterns = (
+            (SESSIONS_KEY_PATTERN, '"sessions"%s:%s['),
+            (MESSAGES_KEY_PATTERN, '"messages"%s:%s['),
+            (SESSION_ID_PATTERN, '"session_id"%s:%s"s1"'),
+            (SAVED_AT_PATTERN, '"saved_at"%s:%s"t"'),
+        )
+        for pattern, template in patterns:
+            self.assertTrue(pattern.search(template % (" \r\n", "\t")), template)
+            for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+                text = template % (space, "")
+                self.assertIsNone(pattern.search(text), repr(text))
 
     HISTORY = ".pi/agent/little-coder-prompt-history.json"
     CHECKPOINTS = ".little-coder/checkpoints/%s/" % LC_FILE

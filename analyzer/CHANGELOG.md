@@ -33,6 +33,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A Tabby `config.toml` that cannot be read is now one `parser: config.toml could not be read: <reason>` row on every Python version; on 3.11 and later the read error had escaped the parser as a `problem:` line, and on 3.10 the parser had never opened the file ([#298]).
 - A Kilo Code global config, sandbox file, cloud session marker or `retention/state.json` that cannot be read is now one `parser: <file> could not be read (<reason>)` row instead of `is not a JSON object`; an unreadable memory `manifest.json`, task `history_item.json` or `tasks/_index.json` is a `parser:` row beside the digest's or task's rows, where before it was misreported or silent ([#360]).
 - The `cursor` parser strips a `.git` suffix from a cloud agent's `repoUrl` repository in the `source host:` row, and a test covers a user-info URL, a port and look-alike hosts ([#238]).
+- Readers of specified formats take only the whitespace and digits those formats allow: a `.git/config` header or key, JSON recovered from a damaged session file (`agent-zero`, `cline`, `cody`, `continue`, `gemini-cli`, `kiro`, `little-coder`, `roo-code`), Copilot CLI JSONC trailing commas, Hermes YAML comments after a tab, Hermes and Continue YAML mapping values after a tab, the collection's `manifest.jsonl` and `.sha256` sidecar, the bundled catalog, ISO 8601 and epoch timestamps, and the marker, log and timestamp lines of `aider`, `claude-code`, `codex`, `continue`, `copilot-cli`, `crush`, `cursor`, `hermes`, `kilo-code`, `muse-code`, `nanobot`, `openhands`, `pearai` and `twinny` no longer match a Unicode space, line separator or non-ASCII digit. A line of only Unicode space in the Aider input history or the pi debug log is now a `parser: unparseable line` row rather than skipped, and an Ollama history prompt keeps a leading or trailing U+00A0. Codex log fields are separated by a space or tab only, so a Unicode space stays inside a field's bare value. Copilot CLI JSONC no longer loses a `,` before `]` or `}` inside a string ([#299], [#380]).
 
 ## [0.21.0] - 2026-10-28
 
@@ -2154,11 +2155,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#380]: https://github.com/seanthegeek/doubleagent/issues/380
 [#360]: https://github.com/seanthegeek/doubleagent/issues/360
 [#333]: https://github.com/seanthegeek/doubleagent/issues/333
 [#326]: https://github.com/seanthegeek/doubleagent/issues/326
 [#324]: https://github.com/seanthegeek/doubleagent/issues/324
 [#321]: https://github.com/seanthegeek/doubleagent/issues/321
+[#299]: https://github.com/seanthegeek/doubleagent/issues/299
 [#298]: https://github.com/seanthegeek/doubleagent/issues/298
 [#285]: https://github.com/seanthegeek/doubleagent/issues/285
 [#283]: https://github.com/seanthegeek/doubleagent/issues/283

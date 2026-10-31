@@ -33,6 +33,7 @@ from pathlib import Path, PurePosixPath
 
 from .catalog import Catalog
 from .errors import InputError
+from .textlines import JSON_SPACE
 
 PARSE_STATUSES = ("collected",)
 
@@ -210,10 +211,12 @@ def _open_archive(path: Path, work_dir: Path | None) -> Collection:
 
 def _verify_sidecar(archive: Path, sidecar: Path) -> str:
     try:
-        expected = sidecar.read_text(encoding="utf-8", errors="replace").split()
+        text = sidecar.read_text(encoding="utf-8", errors="replace")
     except OSError as error:
         return "WARNING archive sha256 not checked: %s" % describe_error(sidecar, error)
-    expected = expected[0].lower() if expected else ""
+    # `<hash>  <name>`: the hash is the first run of characters up to ASCII whitespace.
+    fields = re.findall(r"[^ \t\r\n\f\v]+", text)
+    expected = fields[0].lower() if fields else ""
     digest = hashlib.sha256()
     with open(archive, "rb") as handle:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
@@ -288,9 +291,10 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
         collection.host = str(collection.summary.get("hostname") or "")
     rows: list[dict] = []
     bad = 0
-    with open(root / "manifest.jsonl", encoding="utf-8", errors="replace") as handle:
+    # JSONL lines end at LF; only JSON whitespace pads a record.
+    with open(root / "manifest.jsonl", encoding="utf-8", errors="replace", newline="\n") as handle:
         for line in handle:
-            line = line.strip()
+            line = line.strip(JSON_SPACE)
             if not line:
                 continue
             try:

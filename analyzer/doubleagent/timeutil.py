@@ -9,8 +9,10 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 
+from .textlines import ASCII_WHITESPACE
+
 OUT_FMT = "%Y-%m-%dT%H:%M:%S.%f"
-_FRACTION_PATTERN = re.compile(r"\.(\d+)")
+_FRACTION_PATTERN = re.compile(r"\.([0-9]+)")
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
@@ -28,7 +30,10 @@ def to_utc(value: object) -> str:
             return ""
         if isinstance(value, (int, float)):
             return _from_epoch(float(value))
-        text = str(value).strip()
+        # ISO 8601 and an epoch number are ASCII, padded only by ASCII whitespace.
+        text = str(value).strip(ASCII_WHITESPACE)
+        if not text.isascii():
+            return ""
         if text.replace(".", "", 1).isdigit():
             return _from_epoch(float(text))
         if text.endswith("Z") or text.endswith("z"):

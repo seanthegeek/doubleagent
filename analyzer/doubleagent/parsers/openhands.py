@@ -41,6 +41,7 @@ from pathlib import Path
 
 from ..inputs import Artifact, error_reason
 from ..model import Row, compact
+from ..textlines import ASCII_WHITESPACE
 from ..timeutil import to_utc
 from .base import (
     Options,
@@ -146,7 +147,9 @@ def _naive(value) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
     try:
-        parsed = datetime.fromisoformat(re.sub(r"(\.\d{6})\d+", r"\1", value.strip()))
+        parsed = datetime.fromisoformat(
+            re.sub(r"(\.[0-9]{6})[0-9]+", r"\1", value.strip(ASCII_WHITESPACE))
+        )
     except ValueError:
         return None
     return parsed if parsed.tzinfo is None else None

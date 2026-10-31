@@ -75,7 +75,7 @@ LOG_SIZE = 1000
 TOOL_TYPES = ("tool", "mcp", "code_exe", "browser", "subagent")
 ARG_KEYS = ("code", "command", "url", "query", "path")
 ICON_PATTERN = re.compile(r"icon://\S+\s*")
-LOGS_PATTERN = re.compile(r'"logs"\s*:\s*\[')
+LOGS_PATTERN = re.compile(r'"logs"[ \t\n\r]*:[ \t\n\r]*\[')
 # The `data` keys of a Telegram chat, in row order (`telegram_bot_cfg` is never read).
 TELEGRAM_KEYS = ("telegram_bot", "telegram_chat_id", "telegram_user_id", "telegram_username")
 # The policy keys of `_tool_access` (plugins/_tool_access/default_config.yaml:1-5).

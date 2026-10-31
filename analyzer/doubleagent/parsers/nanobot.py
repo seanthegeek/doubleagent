@@ -887,7 +887,11 @@ class NanobotParser(Parser):
                 prompt = str(record.get("rendered_prompt") or "")
             # `run_id` is `<job id>:<epoch ms at the run's start>:<hex>`.
             parts = str(record.get("run_id") or "").rsplit(":", 2)
-            start = to_utc(int(parts[1])) if len(parts) == 3 and parts[1].isdigit() else end
+            start = (
+                to_utc(int(parts[1]))
+                if len(parts) == 3 and parts[1].isascii() and parts[1].isdigit()
+                else end
+            )
             status = "cron run: job %s (%s) run %s status=%s" % (
                 record.get("job_name") or "",
                 record.get("job_id") or "",

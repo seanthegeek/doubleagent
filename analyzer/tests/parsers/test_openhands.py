@@ -3,7 +3,7 @@
 import json
 
 from doubleagent.parsers import Options
-from doubleagent.parsers.openhands import OpenHandsParser
+from doubleagent.parsers.openhands import OpenHandsParser, _naive
 from fixtures import (
     OPENHANDS_CLI_CONV,
     OPENHANDS_CONV,
@@ -19,6 +19,12 @@ from .base import ParserBase
 
 class OpenHandsTests(ParserBase):
     """Test the OpenHands parser."""
+
+    def test_naive_timestamp_takes_ascii_only(self):
+        self.assertIsNotNone(_naive(" 2026-10-01T08:00:00.1234567\t"))
+        self.assertIsNone(_naive("2026-10-01T08:00:00.123456" + chr(0x0663)))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            self.assertIsNone(_naive("2026-10-01T08:00:00" + space), repr(space))
 
     CANVAS = ".openhands/agent-canvas/dev_conversations/%s/events/" % OPENHANDS_CONV
     CLI = ".openhands/conversations/%s/events/" % OPENHANDS_CLI_CONV

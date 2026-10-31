@@ -29,6 +29,7 @@ from fixtures import (
     _json,
     _jsonl,
     bad_line_text,
+    pi_debug_log_text,
     pi_session_records,
     write_bad_line,
 )
@@ -39,6 +40,16 @@ from .base import ParserBase, read_jsonl, rel_only
 
 class PiTests(ParserBase):
     """Test the Pi parser."""
+
+    def test_debug_log_line_of_unicode_space_is_a_bad_line(self):
+        path = self.home / PI_DEBUG_LOG
+        clean = self.rows_for(PiParser(), PI_DEBUG_LOG)
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            path.write_text(pi_debug_log_text() + " \t\n" + space + "\n", encoding="utf-8")
+            rows = self.rows_for(PiParser(), PI_DEBUG_LOG)
+            self.assertEqual(len(rows), len(clean) + 1, repr(space))
+            self.assertTrue(rows[-1].text.startswith("parser: unparseable line ("), rows[-1].text)
+            self.assertEqual(rows[-1].source_line, len(pi_debug_log_text().split("\n")) + 1)
 
     REL = PI_DIR + PI_FILE
     FORK = PI_DIR + PI_FORK_FILE

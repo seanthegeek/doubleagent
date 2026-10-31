@@ -20,6 +20,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .textlines import ASCII_SPACE, split_lines
+
 CATALOG_FILE = Path(__file__).with_name("catalog.txt")
 
 # The headings `print_catalog` (collect-agent-artifacts.sh) and
@@ -231,9 +233,8 @@ def parse(text: str) -> Catalog:
     """Parse the text of `collect-agent-artifacts.sh --list` into its tables."""
     catalog = Catalog(text=text)
     section = "home"
-    for raw in text.splitlines():
-        line = raw.rstrip("\n")
-        if not line.strip():
+    for line in split_lines(text):
+        if not line.strip(ASCII_SPACE):
             continue
         if line.startswith("#"):
             section = SECTION_HEADINGS.get(line.removeprefix("# "), section)

@@ -74,10 +74,15 @@ MCP_KEY = "cody.mcpServers"
 MCP_FIELDS = ("disabled", "disabledTools")
 REJECTED = "Command rejected"
 
+# JSON whitespace is space, tab, LF and CR; `_COLON` is a key's colon with it.
+_SPACE = r"[ \t\n\r]*"
+_COLON = _SPACE + ":" + _SPACE
 _DATE_KEY = (
-    r'"((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT)"\s*:\s*\{'
+    r'(?a)"((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT)"'
+    + _COLON
+    + r"\{"
 )
-_ACCOUNT_KEY = r'"([^"\\]+)"\s*:\s*\{\s*"chat"\s*:\s*\{'
+_ACCOUNT_KEY = r'"([^"\\]+)"' + _COLON + r"\{" + _SPACE + '"chat"' + _COLON + r"\{"
 
 
 def chat_time(chat_id: str, fallback) -> str:
@@ -115,7 +120,7 @@ def recover_history(text: str) -> tuple[dict, str, list]:
             account = name
             continue
         end = marks[i + 1][0] if i + 1 < len(marks) else len(text)
-        match = re.compile(r'"interactions"\s*:\s*').search(text, pos, end)
+        match = re.compile(r'"interactions"' + _COLON).search(text, pos, end)
         interactions = []
         if match:
             errors: list = []
@@ -125,7 +130,7 @@ def recover_history(text: str) -> tuple[dict, str, list]:
                 if isinstance(value, dict)
             ]
             found_errors.extend((account, name, entry) for entry in errors)
-        title = re.compile(r'"chatTitle"\s*:\s*("(?:[^"\\]|\\.)*")').search(text, pos, end)
+        title = re.compile(r'"chatTitle"' + _COLON + r'("(?:[^"\\]|\\.)*")').search(text, pos, end)
         chat = {"id": name, "interactions": interactions}
         if title:
             try:

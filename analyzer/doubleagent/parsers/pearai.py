@@ -37,6 +37,7 @@ from pathlib import Path
 
 from ..inputs import Artifact
 from ..model import Row, compact
+from ..textlines import ASCII_WHITESPACE, split_lines
 from ..timeutil import to_utc
 from ..vscode_state import read_item
 from .base import (
@@ -525,7 +526,7 @@ class PearAiParser(LegacyTaskParser):
         starts = [match.end() for match in LOG_SEPARATOR_PATTERN.finditer(raw)]
         # Two lines of 74 `=` and their newlines before every write.
         preamble = raw[: starts[0] - 2 * 75] if starts else raw
-        if preamble.strip():
+        if preamble.strip(ASCII_WHITESPACE):
             errors.append(
                 (1, "unparseable record (before the first separator)", preamble.rstrip("\n"))
             )
@@ -551,7 +552,7 @@ class PearAiParser(LegacyTaskParser):
                     continue
                 settings = dict(
                     header_line.split(": ", 1)
-                    for header_line in header.splitlines()[1:]
+                    for header_line in split_lines(header)[1:]
                     if ": " in header_line
                 )
                 model = settings.get("model", "")

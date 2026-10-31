@@ -76,7 +76,7 @@ HOOKS_PATTERN = re.compile(r"^\.gemini/trusted_hooks\.json$")
 AGENTS_ACK_PATTERN = re.compile(r"^\.gemini/acknowledgments/agents\.json$")
 # The start of a `/chat save` checkpoint as `JSON.stringify({history, authType})`
 # writes it, for reading the history array of a file cut mid-write.
-HISTORY_OBJECT_PATTERN = re.compile(r'\s*\{\s*"history"\s*:\s*')
+HISTORY_OBJECT_PATTERN = re.compile(r'[ \t\n\r]*\{[ \t\n\r]*"history"[ \t\n\r]*:[ \t\n\r]*')
 
 # `settings.json` keys that hold standing permission or sandbox state
 # (`settingsSchema.ts`): one row per list entry, one row per scalar.

@@ -71,7 +71,7 @@ SANDBOX_POLICY_PATTERN = re.compile(
 SANDBOX_PREFERENCE_PATTERN = re.compile(r"^\.local/state/kilo-sandbox-preference/[^/.][^/]*\.json$")
 # A log line: `<LEVEL> <UTC time to the second> +<n>ms <key>=<value>... <message>`.
 LOG_HEAD_PATTERN = re.compile(
-    r"^(?:DEBUG|INFO|WARN|ERROR)\s+(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d) \+\d+ms "
+    r"^(?:DEBUG|INFO|WARN|ERROR)[ \t]+(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d) \+\d+ms ", re.ASCII
 )
 REMOTE_MESSAGES = (
     "remote connection enabled",
@@ -89,7 +89,7 @@ REMOTE_PATTERN = {
         r"(?: directory=(?P<directory>.+?))? remote session started$"
     ),
     "remote session ended": re.compile(
-        r" sessionID=(?P<sid>\S+) startedAt=(?P<started>\S+) durationMs=(?P<duration>\d+)"
+        r" sessionID=(?P<sid>\S+) startedAt=(?P<started>\S+) durationMs=(?P<duration>[0-9]+)"
         r" reason=(?P<reason>\S+) remote session ended$"
     ),
 }

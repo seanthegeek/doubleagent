@@ -63,7 +63,7 @@ WORKSPACE_STATE_PATTERN = re.compile(
     r"^\.vscode-mock/workspace-storage/[^/]+/workspace-state\.json$"
 )
 WORKSPACE_DATABASE_PATTERN = re.compile(r"(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb$")
-ENTRIES_KEY_PATTERN = re.compile(r'"entries"\s*:\s*(?=\[)')
+ENTRIES_KEY_PATTERN = re.compile(r'"entries"[ \t\n\r]*:[ \t\n\r]*(?=\[)')
 ITEM_FILE = "history_item.json"
 
 # The extension's global and workspace state is one `ItemTable` row keyed

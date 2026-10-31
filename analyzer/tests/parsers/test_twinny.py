@@ -7,7 +7,7 @@ import sqlite3
 from doubleagent import cli, vscode_state
 from doubleagent.inputs import open_input
 from doubleagent.parsers import Options
-from doubleagent.parsers.twinny import TwinnyParser
+from doubleagent.parsers.twinny import LOG_HEADER_PATTERN, TwinnyParser
 from fixtures import (
     BAD_LINE,
     CODY_TOKEN,
@@ -40,6 +40,11 @@ from .base import ParserBase
 
 class TwinnyTests(ParserBase):
     """Test the Twinny parser."""
+
+    def test_log_header_takes_ascii_digits_only(self):
+        line = "2026-10-01 08:00:00.123 [info] x"
+        self.assertTrue(LOG_HEADER_PATTERN.match(line))
+        self.assertIsNone(LOG_HEADER_PATTERN.match(line.replace("3", chr(0x0663))))
 
     def test_rows(self):
         # The rows live only in the -wal sidecar: read through sqlite_util.
