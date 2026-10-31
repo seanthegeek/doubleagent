@@ -1053,7 +1053,8 @@ the full pattern list.
   `settings.json` copy) in the home and in a volume; Goose's `config.yaml`,
   and from collector 1.21.0 its `config.tmp` save copy, the
   `mcp-config-*.json` files of its Claude Code provider and the
-  `diagnostics_*.json` export in a project, which holds `config.yaml` whole.
+  `diagnostics_<YYYYMMDD>_<n>.json` export in a project, which holds
+  `config.yaml` up to 256 KiB.
 - **Desktop backend secrets:** the Goose desktop app's `settings.json`,
   which holds the shared secret of an external backend server (from
   collector 1.21.0).

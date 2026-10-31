@@ -760,7 +760,7 @@ crush|Crush.md
 crush|Crush.local.md
 goose|.goosehints
 goose|.goose
-goose|diagnostics_*.json
+goose|diagnostics_[0-9]*_*.json
 zed|.zed
 zed|.rules
 project|.github/copilot-instructions.md
@@ -1666,7 +1666,7 @@ AppData/Roaming/Block/goose/data/claude-code/mcp-config-*.json
 .config/[Gg]oose/settings.json
 Library/Application Support/Goose/settings.json
 AppData/Roaming/Goose/settings.json
-diagnostics_*.json
+diagnostics_[0-9]*_*.json
 .config/zed/development_credentials
 .config/zed/settings.json
 .config/zed/settings_backup.json

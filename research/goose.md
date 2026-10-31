@@ -408,7 +408,7 @@ external backend server
 `.config/Goose/settings.json`, `Library/Application Support/Goose/settings.json` and
 `AppData/Roaming/Goose/settings.json`.
 
-The project-local `diagnostics_<session_id>.json` ([Project-local files](#project-local-files))
+The project-local `diagnostics_<YYYYMMDD>_<n>.json` ([Project-local files](#project-local-files))
 is a credential file: its `config.configYaml` holds `config.yaml` as read, up to 256 KiB
 ([`session/diagnostics.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/session/diagnostics.rs#L35-L41),
 [`315-328`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/session/diagnostics.rs#L315-L328)).
@@ -449,10 +449,12 @@ neither is a copy.
   ([`plugins/mod.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/plugins/mod.rs#L39-L41)).
 - `.agents/checks/*.md` and `.agents/REVIEW.md`, read by `goose review`
   ([`goose-cli/src/commands/review/mod.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-cli/src/commands/review/mod.rs#L3)).
-- `diagnostics_<session_id>.json`, written by `goose session diagnostics` in the current directory
-  unless `-o` names a file: the session with its conversation, the configuration, logs and the
-  schedule
-  ([`goose-cli/src/commands/session.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-cli/src/commands/session.rs#L400-L424);
+- `diagnostics_<session_id>.json`, that is `diagnostics_<YYYYMMDD>_<n>.json` with the session id
+  form of [Joins and timestamps](#joins-and-timestamps) (`diagnostics_[0-9]*_*.json`), written
+  by `goose session diagnostics` in the current directory unless `-o` names a file: the session
+  with its conversation, the configuration, logs and the schedule
+  ([`goose-cli/src/commands/session.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-cli/src/commands/session.rs#L400-L424),
+  [`419-423`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-cli/src/commands/session.rs#L419-L423);
   [`session/diagnostics.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/session/diagnostics.rs#L87-L100)).
 
 No per-project database. `.gooseignore` has no reader in `crates/` or `ui/desktop/src`.
