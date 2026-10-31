@@ -8,7 +8,7 @@ from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import vscode_state
 from doubleagent.errors import unreadable_message
-from doubleagent.sqlite_util import NOT_SQLITE, sqlite_problem
+from doubleagent.sqlite_util import NOT_SQLITE, open_copy, sqlite_problem, table_names
 
 SIDECARS = ("-wal", "-shm", "-journal")
 DENIED = "could not be read (Permission denied)"
@@ -44,10 +44,17 @@ def test_readable_sidecars_are_no_problem(tmp_path):
 
 
 def test_file_without_the_header_is_not_sqlite(tmp_path):
-    for name, data in (("text.db", b"not a database\n"), ("empty.db", b"")):
-        path = tmp_path / name
-        path.write_bytes(data)
-        assert sqlite_problem(path) == NOT_SQLITE == "not a SQLite database", name
+    path = tmp_path / "text.db"
+    path.write_bytes(b"not a database\n")
+    assert sqlite_problem(path) == NOT_SQLITE == "not a SQLite database"
+
+
+def test_empty_file_is_an_empty_database(tmp_path):
+    path = tmp_path / "empty.db"
+    path.write_bytes(b"")
+    assert sqlite_problem(path) == ""
+    with open_copy(path) as connection:
+        assert table_names(connection) == set()
 
 
 def test_unreadable_database_names_the_file_and_reason(tmp_path):

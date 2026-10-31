@@ -604,7 +604,8 @@ were produced:
 | `inventory.json` | What was detected and what was parsed: the input's kind, notes and problems; per home the files, bytes and whether a parser exists for each agent; row and session counts per project and outside any project, whether each project directory was collected and the files each agent left in it; and the lists of agents parsed and not parsed. | [inventory.json](#inventoryjson) |
 
 On stdout it prints the input, host and notes, one `problem:` line per
-directory or file that could not be read (see
+directory that could not be read and per file whose read error no parser
+reported as a row (see
 [Unreadable inputs](inputs.md#unreadable-inputs)), and, when the timeline
 is filtered, a `window:` line with the resolved UTC bounds, a `match:`
 line with the patterns, and a `filtered:` line counting the rows dropped
@@ -1524,10 +1525,13 @@ UTF-8 with undecodable bytes replaced, less its line terminator), with
 nothing repaired, extracted or shortened. The rest of the file is still
 read. A file that exists but cannot be opened or read (a permission
 denied, an I/O error), a SQLite database's `-wal`, `-shm` or `-journal`
-sidecar included, is one whole-file `system` row
-`parser: <file> could not be read (<reason>)`, `<reason>` the operating
-system's message, with the file's known session id and project path and
-`source_line` 0; the parser's other files are still read (since 0.23.0).
+sidecar included, is one whole-file `system` row naming the file and the
+operating system's message, `parser: <file> could not be read (<reason>)`
+from the shared JSONL and SQLite readers (a parser's own reader words it
+as its research document states), with the file's known session id and
+project path and `source_line` 0 when the file could not be opened, else
+the last line read; the parser's other files are still read (since
+0.23.0).
 A line that is valid JSON but not an object, in a format whose
 lines are objects, is reported the same way as `parser: unparseable line
 (not a JSON object): <line>` (since 0.19.0). A database row or an array

@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.23.0] - 2026-10-31
 
+### Changed
+
+- The Antigravity, Kiro, OpenCode and Kilo Code database readers, the OpenClaw agent database reader and the VS Code state readers of `vscode`, `cody`, `roo-code`, `tabby`, `twinny` and `pearai` report a database file that is not SQLite as one `parser: not a SQLite database` row (`parser: state.vscdb is not a SQLite database` for the editor state) where they were silent. A 0-byte file counts as an empty database, as SQLite opens it ([#378]).
+
 ### Fixed
 
 - A SQLite database a parser cannot read, or an unreadable `-wal`, `-shm` or `-journal` sidecar beside one, is one `system` row `parser: <file> could not be read (<reason>)` from the parser that reads it, with the operating system's reason, and the rest of the input is still parsed. Before, an unreadable database was reported as `parser: not a SQLite database` or not at all, and an unreadable sidecar was a `problem:` line that lost every row of the database ([#378]).

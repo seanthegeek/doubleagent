@@ -1,7 +1,8 @@
 """Inputs that cannot be read.
 
 The reason is printed, the exit code is 2 for the input itself, and anything unreadable inside an
-input is a problem line, never a traceback and never silence.
+input is a `parser:` row from the parser that reads it, or a problem line where no parser does,
+never a traceback and never silence.
 """
 
 import ast

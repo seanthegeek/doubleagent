@@ -90,6 +90,8 @@ def _session_header(home: Path, name: str) -> tuple[dict | None, list]:
             and session_path.is_file()
         ):
             session = read_session(session_path)
+            # A two-tuple is a whole-file entry (the file could not be read); a bad
+            # line is a three-tuple the pi parser reports itself.
             failure = [entry for entry in session.errors if len(entry) == 2]
             return session.header or None, failure
     return None, []

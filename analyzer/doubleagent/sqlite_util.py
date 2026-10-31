@@ -64,11 +64,12 @@ def is_sqlite(path: Path) -> bool:
 
 
 def sqlite_problem(path: Path) -> str:
-    """Return why `open_copy` cannot open the database at `path`, or "" when it can.
+    """Return why `open_copy` cannot open or start reading the database at `path`, or "".
 
-    The answer is `NOT_SQLITE` for a readable file without the SQLite header,
-    and the `unreadable_message` of the file, or of the first `-wal`, `-shm`
-    or `-journal` sidecar beside it that cannot be opened: `open_copy` copies
+    The answer is `NOT_SQLITE` for a readable file without the SQLite header
+    (a 0-byte file is an empty database, which SQLite opens as one), and the
+    `unreadable_message` of the file, or of the first `-wal`, `-shm` or
+    `-journal` sidecar beside it that cannot be opened: `open_copy` copies
     every sidecar it finds, so an unreadable one would fail the copy. Nothing
     raises.
     """
@@ -78,7 +79,7 @@ def sqlite_problem(path: Path) -> str:
             header = handle.read(16)
     except OSError as error:
         return unreadable_message(path, error)
-    if header != SQLITE_HEADER:
+    if header and header != SQLITE_HEADER:
         return NOT_SQLITE
     for suffix in ("-wal", "-shm", "-journal"):
         sidecar = Path(str(path) + suffix)
