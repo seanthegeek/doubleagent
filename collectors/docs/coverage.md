@@ -664,7 +664,7 @@ agent state that can be read with grep, and from every `-p` directory.
 | Muse Code | Trusted projects (`.config/muse/trust.json`) and session logs (`workspace_root`). |
 | nanobot | Workspace markers and config. |
 | Open Interpreter | Rollouts in `sessions` and `archived_sessions`; a `cwd` under the home's `.openinterpreter/worktrees` is skipped from collector 1.18.0. |
-| OpenClaw | Workspace and agent directories from its JSON5 config. |
+| OpenClaw | Workspace, working and agent directories (`workspace`, `cwd`, `agentDir`) from its JSON5 config and the legacy Clawdbot and Moltbot configs; `cwd` also names an MCP server's working directory. |
 | OpenCode | Legacy project store. |
 | OpenHands | Workspaces and conversation metadata. |
 | PearAI | Sessions. |
@@ -721,8 +721,8 @@ only inside the project, so a project deleted before collection leaves
 nothing under the home to recover those sessions from. The other agents in
 [Secondary sources](../../analyzer/docs/output.md#secondary-sources) keep
 their transcript store and its second copy under the home, or together in
-the agent's Docker or Podman volume (Hermes, Letta, nanobot, OpenClaw and
-Tabby have `DOCKER_VOLUMES` lines), where both survive the project.
+the agent's Docker or Podman volume (Hermes, Letta, nanobot and Tabby have
+`DOCKER_VOLUMES` lines), where both survive the project.
 
 ### Git metadata
 
@@ -983,20 +983,26 @@ text. `.claude/plugins/plugin-directory-cache*`, a downloaded copy of the
 plugin directory (2.6 MB on the Windows install observed in October
 2026), is excluded from 1.19.0.
 
-OpenClaw's exclusions under its state directory, `.openclaw*/dev`, `git`,
-`npm`, `tmp` and `tools` (managed checkouts, packages, temporary files and
-downloaded runtimes, the directories `openclaw backup` also skips), match a
-directory of that name at any depth below `~/.openclaw` or a profile's
-`~/.openclaw-<profile>`, since `*` crosses `/`. Besides the top-level
-directories and each agent's `agents/<id>/agent/tmp`, they prune a `tmp`,
-`tools`, `git`, `dev` or `npm` directory inside an agent workspace
-(`workspace/`, `workspace-<agentId>/`) or a skill, which then has only the
-directory's `skipped_excluded` row; pass `--full` (`-Full`) to collect it.
-The Gateway's clones of repositories added from a remote URL,
-`projects/<16 hex>/<name>`, are excluded by the clone directory's name
-alone, so anything else under `projects/` is collected; which repository
-each clone is stays in the `projects` table of the collected
-`state/openclaw.sqlite`.
+OpenClaw's exclusions name the top-level directories of `~/.openclaw` and
+the legacy `~/.clawdbot` and `~/.moltbot`: `dev`, `git`, `npm`,
+`npm-runtime`, `tmp` and `tools` (managed checkouts, packages, temporary
+files and downloaded runtimes, the directories `openclaw backup` also
+skips), `worktrees`, `plugin-skills`, `sandbox/skills-workspaces` and
+`cache/control-ui-assets`. Each matches only the top-level directory, so a
+`tmp` or `tools` directory inside an agent workspace (`workspace/`,
+`workspace-<agentId>/`) or a skill is collected. A profile's
+`~/.openclaw-<profile>` has no `dev`, `git`, `npm`, `npm-runtime`, `tmp`,
+`tools` or `worktrees` exclusion, because the `*` of `.openclaw-*` crosses
+`/` and such a line would also prune those names inside the profile's
+workspace: they are collected, however large. Its other exclusions (the
+clones, `plugin-skills`, `sandbox/skills-workspaces`,
+`cache/control-ui-assets`, `extensions/*/node_modules`, the agent temporary
+trees and the Chromium caches) still match at any depth below the profile
+directory. The Gateway's clones of repositories
+added from a remote URL, `projects/<16 hex>/<name>`, are excluded by the
+clone directory's name alone, so anything else under `projects/` is
+collected; which repository each clone is stays in the `projects` table of
+the collected `state/openclaw.sqlite`.
 
 ## Credentials
 

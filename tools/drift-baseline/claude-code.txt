@@ -118,7 +118,7 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/daemon/roster.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/hfi-auth.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/remote/.api_key
 check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/remote/.oauth_token
-check_smoke_coverage|secret-check-missing|smoke.ps1 .claude.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 .claude-*/sessions/*.key
 check_smoke_coverage|secret-check-missing|smoke.ps1 .claude/.session_ingress_token
 check_smoke_coverage|secret-check-missing|smoke.ps1 .claude/hfi-auth.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 .claude/remote/.api_key
@@ -140,3 +140,4 @@ check_tables_research|line-unnamed|secret .claude-*/.claude.json.backup*
 check_tables_research|line-unnamed|secret .claude-*/bridge-spawn/*/mcp.json
 check_tables_research|line-unnamed|secret .claude-*/ide/*.lock
 check_tables_research|parsing-fact-under-collection|ToolSearch
+check_tables_research|volume-glob-unnamed|secret .claude-*/sessions/*.key

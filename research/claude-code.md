@@ -218,6 +218,11 @@ executed. Each claim names its evidence level, best first:
 
 ### Source reviews
 
+- 2026-10-30: openclaw/openclaw at
+  [`fc3490a`](https://github.com/openclaw/openclaw/commit/fc3490aa24e624f0182ae5e29482611fee5736fb),
+  its Docker setup script and storage guide:
+  [Docker volume of OpenClaw's setup](#docker-volume-of-openclaws-setup) is new and names the
+  Claude Code files OpenClaw's `openclaw_home` volume holds.
 - 2026-10-26: three of Anthropic's Claude Code documentation pages,
   [Explore the .claude directory](https://code.claude.com/docs/en/claude-directory.md#cleaned-up-automatically),
   [Settings reference, `cleanupPeriodDays`](https://code.claude.com/docs/en/settings-reference#cleanupperioddays)
@@ -821,6 +826,16 @@ Not collected from a relocated home: `settings.json`, `settings.local.json`, the
 registry files of `sessions/` (its `*.key` files are), `todos/`, `plans/`, `tasks/`,
 `session-env/`, `shell-snapshots/`, `debug/` and the other subdirectories, and any config home
 outside the home directory or not named `.claude-<name>`.
+
+#### Docker volume of OpenClaw's setup
+
+OpenClaw's Docker setup can keep the container user's home, `/home/node`, in a named volume chosen
+with `OPENCLAW_HOME_VOLUME`, `openclaw_home` in OpenClaw's guide, so that a Claude Code install
+made inside the container survives image upgrades; the volume then holds that install's
+`.local/bin/claude`, `.local/share/claude`, `.claude/` and `.claude.json` at its root
+([`scripts/docker/setup.sh:597-603`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/scripts/docker/setup.sh#L597-L603);
+[`docs/install/docker/networking-and-storage.md:44-52`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/install/docker/networking-and-storage.md#L44-L52),
+[`:100`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/install/docker/networking-and-storage.md#L100)).
 
 #### Used by other agents
 
