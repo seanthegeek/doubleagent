@@ -787,13 +787,17 @@ the cloud session markers
 `.local/share/kilo/storage/session_share/<sessionID>.json` (one
 `session synced:` row each), and pre-migration VS Code tasks
 `<globalStorage>/kilocode.kilo-code/tasks/<id>/api_conversation_history.json`;
-the terminal UI's `.local/state/kilo/prompt-history.jsonl` (secondary) and
+the terminal UI's `.local/state/kilo/prompt-history.jsonl` and `session.json`
+(pinned sessions, one `session pinned:` row each; both secondary) and
 `prompt-stash.jsonl`; the `permission` key of the global config files in
 `.config/kilo`; the sandbox files under `.local/state/kilo-sandbox-policy`
 and `.local/state/kilo-sandbox-preference`; `.local/share/kilo/retention/state.json`;
+the project memory session digests
+`.local/share/kilo/memory/<folder>/sessions/<file>.md` (one `memory digest:`
+row each, with the folder's `manifest.json` as the project);
 and the remote control lines of `.local/share/kilo/log/*.log`.
 
-Validated against: Source at [76bcfd4](https://github.com/Kilo-Org/kilocode/commit/76bcfd40be616a72f4697b3041565f322245b462), synthetic fixture; the permission, past-use, remote control, scratch directory and retention rows from source at [87cc35c](https://github.com/Kilo-Org/kilocode/commit/87cc35ce6904465a0eed507a8c75c79185863a22), synthetic fixture; no real install.
+Validated against: Source at [0a9faef](https://github.com/Kilo-Org/kilocode/commit/0a9faeff69fff8712da184ee5188bb7985c6f057) (7.8.25), synthetic fixture; no real install. Earlier source reviews: [76bcfd4](https://github.com/Kilo-Org/kilocode/commit/76bcfd40be616a72f4697b3041565f322245b462) (7.8.3) and [87cc35c](https://github.com/Kilo-Org/kilocode/commit/87cc35ce6904465a0eed507a8c75c79185863a22) (7.8.14).
 
 ### `kiro`
 

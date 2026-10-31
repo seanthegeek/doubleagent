@@ -36,6 +36,15 @@ inside them goes to the extension's agent.
   `.idea/.sourcegraph`, flagged secret for the same reason, and the
   plugin's pre-agent chat history in the project's
   `.idea/cody_history.xml`, are collected as `cody` too.
+- **Kilo Code's JetBrains plugin** keeps a `kilo/` folder in each
+  JetBrains IDE's system directory (`Library/Caches/JetBrains/<IDE>`,
+  `AppData/Local/JetBrains/<IDE>` or `.cache/JetBrains/<IDE>`): from
+  collector 1.21.0 it is collected as `kilo-code`, its `machine-id` among
+  it, and the plugin's downloaded CLI binaries in `kilo/cli` and
+  `kilo/repo-cli` are excluded. Its settings, `kiloLogSettings.xml` and
+  `kiloAutocompleteSettings.xml` in the IDE's `options/` directory, are
+  collected as `kilo-code` too
+  ([JetBrains plugin in `research/kilo-code.md`](../../research/kilo-code.md#jetbrains-plugin)).
 - **GitHub Copilot Desktop** shares `~/.copilot` with Copilot CLI: its
   sessions, written there by a bundled Copilot CLI, are collected as
   `copilot-cli`, and nested catalog entries attribute the app's own store,
@@ -658,7 +667,7 @@ agent state that can be read with grep, and from every `-p` directory.
 | Gemini CLI | Project registry, trusted folders and project root markers. |
 | Goose | Legacy session files and the desktop app's recent directories. |
 | Hermes | Checkpoint project records. |
-| Kilo Code | Task indexes. |
+| Kilo Code | Task indexes and, from collector 1.21.0, the legacy JSON project store (`storage/project/*.json` `worktree`) and the project memory manifests (`memory/*/manifest.json` `canonical`) under `.local/share/kilo`. |
 | Kiro CLI | Sessions and workspace roots. |
 | Letta | Session index and local-backend transcripts. |
 | Muse Code | Trusted projects (`.config/muse/trust.json`) and session logs (`workspace_root`). |
@@ -826,11 +835,13 @@ their state must be copied by hand.
   `.beta`, `.dev`) under `Library/Application Support`, `AppData/Roaming`
   or `.config`; it is collected, and its V8 `compile-cache` is excluded
   ([OpenCode desktop app in `research/opencode.md`](../../research/opencode.md#opencode-desktop-app)).
-- **Kilo Code** writes files that Kilo Cloud sends over remote control to
-  `kilo/remote-attachments/<session>/` in the system temp directory and
-  removes them when the session's remote handling ends; no catalog line
-  reaches it on any platform, so copy it by hand while a remote session is
-  live
+- **Kilo Code** uses `kilo/` in the system temp directory as the
+  temporary directory of every command its sandbox confines, and writes
+  files that Kilo Cloud sends over remote control to
+  `kilo/remote-attachments/<session>/` there, removing them when the
+  session's remote handling ends; no catalog line reaches it on any
+  platform, so copy it by hand, while a remote session is live for the
+  attachments
   ([Scratch directories in `research/kilo-code.md`](../../research/kilo-code.md#scratch-directories)).
 - **Muse Code** keeps its launcher state beside the launcher; see below.
 - **Cursor** writes its agent worker's logs and copies of the user's zsh
