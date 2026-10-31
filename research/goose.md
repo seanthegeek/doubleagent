@@ -287,7 +287,6 @@ whose local storage holds the prompt history of
 [Desktop prompt history](#desktop-prompt-history). The app runs the same Rust backend over ACP,
 which writes the directories above.
 
-Of the paths [issue 23](https://github.com/seanthegeek/doubleagent/issues/23) questioned,
 `.config/Goose` is this Electron directory on Linux, derived from `productName` rather than
 written as a literal, and `~/.goose` holds `agents/` and `recipes/`, which Goose reads and its
 source editor may write ([Shared cross-agent directories](#shared-cross-agent-directories)).
@@ -371,8 +370,11 @@ macOS, and
 `AppData/Roaming/Block/goose/config/gemini_oauth/.tmp??????`,
 `AppData/Roaming/Block/goose/config/muse_code/.tmp??????`,
 `AppData/Roaming/Block/goose/config/databricks/oauth/.tmp??????` and
-`AppData/Roaming/Block/goose/config/xai_oauth/.tmp??????` on Windows. The Kimi Code and Hugging Face
-caches are written in place
+`AppData/Roaming/Block/goose/config/xai_oauth/.tmp??????` on Windows. `permission.yaml` is
+written through a tempfile of the same default name in the config directory
+([`config/permission.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/permission.rs#L259-L275)), so a
+`.config/goose/.tmp??????` (Windows `AppData/Roaming/Block/goose/config/.tmp??????`) left
+behind may also be a copy of it. The Kimi Code and Hugging Face caches are written in place
 ([`kimicode.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/kimicode.rs#L124-L128);
 [`huggingface_auth.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/huggingface_auth.rs#L204-L210)).
 
@@ -1004,8 +1006,7 @@ partial message per chunk, built with `Message::assistant()`, so each line carri
 
 #### CLI history
 
-CLI history (`history.txt`) joins `sessions.db` on text alone
-([issue 122](https://github.com/seanthegeek/doubleagent/issues/122)). The CLI adds every input
+CLI history (`history.txt`) joins `sessions.db` on text alone. The CLI adds every input
 line that is not blank to the rustyline history, slash commands included, before it decides what
 the line is, and sends a prompt as the line with surrounding whitespace trimmed
 ([`goose-cli/src/session/input.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-cli/src/session/input.rs#L192-L208));
@@ -1309,7 +1310,7 @@ carrying `archived=` for `archived_at` and `schedule=` for `schedule_id`.
 | project_path | `sessions.working_dir` |
 | git_branch | empty |
 | turn_type | role `user` → user; `assistant` text → assistant; `toolRequest` → tool_use; `toolResponse` → tool_result; `thinking`/`redactedThinking` → thinking; `systemNotification`/`error`/`actionRequired` → system |
-| model | `metadata_json.inference.requestedModel`, else `model_config_json.model_name` prefixed with `provider_name/` |
+| model | `metadata_json.inference.resolvedModel`, else `requestedModel`, prefixed with `inference.provider/`; else `model_config_json.model_name` prefixed with `provider_name/` |
 | tool_name | `toolCall.value.name` (responses look the name up by id) |
 | tool_use_id | `toolRequest.id` / `toolResponse.id` |
 | text | text, `arguments` JSON, result text |
@@ -1322,10 +1323,7 @@ Not read: `usage_ledger`, `provider_inventory_entries`, `provider_inventory_mode
 #### Permission rows
 
 All `system`, from `sessions.db`
-([issue 96](https://github.com/seanthegeek/doubleagent/issues/96),
-[issue 97](https://github.com/seanthegeek/doubleagent/issues/97),
-[issue 209](https://github.com/seanthegeek/doubleagent/issues/209);
-[Tool confirmations and permission mode](#tool-confirmations-and-permission-mode)):
+([Tool confirmations and permission mode](#tool-confirmations-and-permission-mode)):
 
 - `permission mode: <goose_mode>` after each session's start row; `goose_mode` is one value per
   session row (default `auto`), so there is no change row.
@@ -1357,9 +1355,7 @@ Standing ([Permission files](#permission-files)), at the file's modification tim
 
 #### Model rows
 
-All `system`, from `sessions.db`
-([issue 96](https://github.com/seanthegeek/doubleagent/issues/96) and
-[issue 97](https://github.com/seanthegeek/doubleagent/issues/97)):
+All `system`, from `sessions.db`:
 
 - `model: <model_config_json.model_name> provider=<provider_name>` after each session's start
   row, at `created_at`.
@@ -1372,10 +1368,8 @@ All `system`, from `sessions.db`
 
 #### Past-use rows and secondary sources
 
-`sessions.db` is the primary store, and the legacy JSONL sessions are read as primary records
-([issue 122](https://github.com/seanthegeek/doubleagent/issues/122)). The `llm_request` logs
-are a secondary source
-([issue 126](https://github.com/seanthegeek/doubleagent/issues/126)): their response messages
+`sessions.db` is the primary store, and the legacy JSONL sessions are read as primary records.
+The `llm_request` logs are a secondary source: their response messages
 repeat the database's assistant messages, so `secondary()` is True for them and
 `secondary_tolerance()` is 600 seconds, because the database stamps a message up to the tool
 calls' run time later than the log ([Request logs](#request-logs)). The parser assembles a
@@ -1403,7 +1397,8 @@ row.
 
 The desktop prompt history ([Desktop prompt history](#desktop-prompt-history)) repeats the
 desktop app's user prompts with millisecond times and would be a secondary source; it lives in
-the Electron local storage database, which no parser reads, so it is not parsed.
+the Electron local storage database, which no parser reads, so it is not parsed
+([issue 368](https://github.com/seanthegeek/doubleagent/issues/368)).
 
 #### Sync, relay and origin rows
 
@@ -1488,8 +1483,7 @@ level or a list item is one row,
 and after it are still yielded; a `roaming_trust.json` or `schedule.json` that cannot be read,
 is not JSON or is not the type Goose writes (an object, a list) is one `parser: <message>` row,
 and a `schedule.json` job that is not an object is
-`parser: unparseable record <N> (not a JSON object): <record>`. In `sessions.db`
-([issue 183](https://github.com/seanthegeek/doubleagent/issues/183)) a `content_json`,
+`parser: unparseable record <N> (not a JSON object): <record>`. In `sessions.db` a `content_json`,
 `metadata_json` or `model_config_json` that does not decode, or decodes to another type than
 Goose writes (an array for `content_json`, an object for the other two), is one `system` row
 through `error_rows`:

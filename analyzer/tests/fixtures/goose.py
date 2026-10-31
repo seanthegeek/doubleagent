@@ -49,7 +49,7 @@ def goose_records(cwd="/srv/proj"):
 
     The reply carries a thinking block and a model the session did not start with.
 
-    Source: research/goose.md#sessions-database; source b23d21c
+    Source: research/goose.md#format-versions; source 591edd4
     """
     return [
         "INSERT INTO schema_version(version) VALUES (16)",

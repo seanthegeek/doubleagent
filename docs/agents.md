@@ -53,7 +53,7 @@ agent name in each row links to its subsection.
 | [`factory-droid`](#factory-droid) | backlog | Shipped binary strings, docs | [research](../research/factory-droid.md); [issue 54](https://github.com/seanthegeek/doubleagent/issues/54); JSONL session transcripts under `.factory/sessions` and a prompt history |
 | [`flowise`](#flowise) | backlog | Source | [research](../research/flowise.md); [issue 68](https://github.com/seanthegeek/doubleagent/issues/68); `database.sqlite` with `chat_message` (tool use and agent reasoning) and `execution` |
 | [`gemini-cli`](#gemini-cli) | parsed | source; fixture only | [research](../research/gemini-cli.md) |
-| [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md) |
+| [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md); [issue 368](https://github.com/seanthegeek/doubleagent/issues/368); the desktop app's local-storage prompt history is not parsed |
 | [`hermes`](#hermes) | parsed | source; fixture only | [research](../research/hermes.md); [issue 208](https://github.com/seanthegeek/doubleagent/issues/208); the nested `config.yaml` `approvals` settings are not parsed |
 | [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); [issue 221](https://github.com/seanthegeek/doubleagent/issues/221); the session pull request links are not parsed yet |
 | [`kiro`](#kiro) | parsed | source; fixture only | [research](../research/kiro.md); [issue 212](https://github.com/seanthegeek/doubleagent/issues/212); Kiro CLI's own sessions and permission files wait for a real install |
