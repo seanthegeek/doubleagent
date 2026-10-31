@@ -751,6 +751,16 @@ def test_volume_twin_as_a_suffix_of_the_home_exclusion(tmp_path):
     assert findings(root, "volume-twin-missing") == [("beta", ".beta/cache/models")]
 
 
+def test_volume_relative_exclusion_needs_no_twin(tmp_path):
+    """A volume-relative exclusion below the mount's last segment is not a home exclusion."""
+    catalog = CATALOG.replace("# /root/.beta", "# /data").replace(
+        "\nmodels\n", "\nmodels\ndata/cache\n"
+    )
+    beta = BETA.replace("is excluded.", "is excluded, and so is `data/cache`.")
+    root = repository(tmp_path / "volume", catalog=catalog, beta=beta)
+    assert findings(root, "volume-twin-missing") == []
+
+
 def test_volume_twin_forms():
     home = "AppData/Local/langflow/langflow/Cache/profile_pictures"
     remainders = checker.volume_home_remainders(home, "/app/langflow")

@@ -692,7 +692,7 @@ def missing_volume_twins(repository: Repository) -> Iterator[Finding]:
     }
     for agent, mount in sorted(mounts):
         for line in repository.tables.exclude:
-            if line_agent(repository, line) != agent:
+            if is_volume_relative(line.glob, catalog) or line_agent(repository, line) != agent:
                 continue
             remainders = volume_home_remainders(line.glob, mount)
             if not remainders or volume_twin(line.glob, remainders, volume_exclusions):
