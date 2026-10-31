@@ -1594,7 +1594,7 @@ kilo.json*
 opencode.json*
 .config/opencode/service*.json*
 .config/opencode/cli.json*
-.local/state/opencode/service*.json
+.local/state/opencode/service*.json*
 .local/state/opencode/pty/*/service.json
 .local/share/crush/crush.json
 AppData/Local/crush/crush.json

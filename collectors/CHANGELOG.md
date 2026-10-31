@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- OpenCode's secret glob `.config/opencode/service*.json` becomes `.config/opencode/service*.json*`, so the `service.json.<pid>.tmp` file the background server's settings are written through is flagged `secret: true` too ([#213], [#326]).
+- OpenCode's secret globs `.config/opencode/service*.json` and `.local/state/opencode/service*.json` become `service*.json*`, so the `service.json.<pid>.tmp` file the background server's settings are written through, the `service.json.<id>.tmp` file its registration is written through, and the persistent terminal handoff `service.json.pty-handoff` (a short-lived ticket) with its `service.json.pty-handoff.<uuid>.tmp` are flagged `secret: true` too ([#213], [#326]).
 - OpenClaw's runtime-root exclusions (`dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools`, `worktrees` and the others) match only the top level of `~/.openclaw`, `~/.clawdbot` and `~/.moltbot`, so a workspace's own `tmp` or `tools` is collected; a profile directory `~/.openclaw-<profile>` no longer has the `dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools` and `worktrees` exclusions, which matched at any depth below it, so those directories are collected there ([#252]).
 
 ### Fixed

@@ -840,9 +840,10 @@ class OpenCodeParser(Parser):
         """Return the `session_part` items of each message id, in `ordinal` order.
 
         OpenCode reads an assistant message's items from these rows when it
-        has any, in place of its `content`. A row's `type` column fills an
-        item without one; a row whose `data` does not decode is appended to
-        `errors` as (rowid, message, raw, session id).
+        has any, in place of its `content`, and a row's `type` column
+        overrides the item's own (`decodePartRowSync` in `history.ts`). A row
+        whose `data` does not decode is appended to `errors` as (rowid,
+        message, raw, session id).
         """
         items: dict[str, list[dict]] = {}
         if "session_part" not in tables:
@@ -859,7 +860,7 @@ class OpenCodeParser(Parser):
                 label = "unparseable record %d (session_part.data: %s)" % (record["_rowid"], reason)
                 errors.append((record["_rowid"], label, raw, session_id))
                 continue
-            if record["type"] and "type" not in data:
+            if record["type"]:
                 data["type"] = record["type"]
             items.setdefault(str(record["message_id"] or ""), []).append(data)
         return items
@@ -1332,6 +1333,12 @@ class OpenCodeParser(Parser):
     def _session_context(
         self, root: Path, session_id: str, old: bool, message: dict
     ) -> tuple[_Context, dict]:
+        """Return a message file's session context and its session record.
+
+        A project file that exists but does not decode is reported by the
+        session file's own pass (`_parse_session_file`), not here, so it gives
+        one row rather than one per message file.
+        """
         session: dict | None = None
         if old:
             session = _read_json(root / "info" / (session_id + ".json"))

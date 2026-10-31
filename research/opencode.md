@@ -27,17 +27,17 @@ Open source, MIT. [anomalyco/opencode](https://github.com/anomalyco/opencode) (t
 2026-10-31, whose packages all give version 2.2.5
 ([`packages/cli/package.json:4`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/package.json#L4),
 [`packages/core/package.json:3`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/package.json#L3)). The latest release tag,
-`v2.2.5` of 2026-10-30, points at the release commit `9bbb8ce` on a release branch; its database
-schema, migrations and session schemas are the same as at `bf544cd`, so what a released 2.2.5 build
+`v2.2.5` of 2026-10-30, points at the release commit [`9bbb8ce`](https://github.com/anomalyco/opencode/commit/9bbb8ce18c80f099e0e448775f59d965ead40a21) on a release branch; its database
+schema, migrations and session schemas are the same as at [`bf544cd`](https://github.com/anomalyco/opencode/commit/bf544cd419c5f17535c0d5af929f7ecd41188320), so what a released 2.2.5 build
 writes is what this document describes. The latest 1.x release tag is `v1.19.5` (commit
-`810c0eb`, 2026-10-28). Paths cited are relative to the repository root: the database and session
+[`810c0eb`](https://github.com/anomalyco/opencode/commit/810c0eba1a7348036f8bdf61e6632d0c36c6876c), 2026-10-28). Paths cited are relative to the repository root: the database and session
 code is in `packages/core`, the record schemas in `packages/schema`, the CLI and background server
 in `packages/cli` and `packages/server`, the TUI in `packages/tui`, the shared paths in
-`packages/util` and the desktop app in `packages/desktop`. Every claim is from source at `bf544cd`
+`packages/util` and the desktop app in `packages/desktop`. Every claim is from source at [`bf544cd`](https://github.com/anomalyco/opencode/commit/bf544cd419c5f17535c0d5af929f7ecd41188320)
 unless it names an older commit or the vendor's documentation, which the repository holds under
 [`packages/web/src/content/docs`](https://github.com/anomalyco/opencode/tree/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/web/src/content/docs)
 and which is linked at its claim. Two older commits are cited in
-[Format versions](#format-versions) for shapes `bf544cd` no longer writes:
+[Format versions](#format-versions) for shapes [`bf544cd`](https://github.com/anomalyco/opencode/commit/bf544cd419c5f17535c0d5af929f7ecd41188320) no longer writes:
 [`cb07c55`](https://github.com/anomalyco/opencode/commit/cb07c555d4d1ca34430b7857b52f104c3d95e09e) (2.0.32) and [`907b3bc`](https://github.com/sst/opencode/commit/907b3bc518fa48e90e8ec24dd327d13eee71c36c) (the 1.x line).
 
 ### Observed
@@ -312,12 +312,21 @@ No keychain is used; every credential is in a file or the database.
   [`:94-100`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L94-L100),
   [`:170-192`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L170-L192)).
   The secret glob `.config/opencode/service*.json*` flags each of these names and the temporary
-  file, and `.local/state/opencode/service*.json` flags the registration below.
+  file, and `.local/state/opencode/service*.json*` flags the registration below and its copies.
 - `.local/state/opencode/service.json` (or `service-<channel>.json`), the registration, carries the
   same `password`, written mode 0600
   ([`packages/client/src/effect/service.ts:14-20`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/client/src/effect/service.ts#L14-L20),
   [`:142-148`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/client/src/effect/service.ts#L142-L148);
   [`service-config.ts:91`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L91)).
+  The server writes it through `service.json.<id>.tmp`, `<id>` the server's id, renamed over it
+  ([`packages/cli/src/services/service-registration.ts:22-40`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-registration.ts#L22-L40)).
+  Before a replacement server takes over, a client writes `service.json.pty-handoff` beside it, mode
+  0600, through `service.json.pty-handoff.<uuid>.tmp`: the persistent terminals' handoff `ticket`,
+  valid for about 30 seconds
+  ([`packages/client/src/pty-handoff.ts:55-66`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/client/src/pty-handoff.ts#L55-L66);
+  [`packages/schema/src/persistent-pty.ts:19-24`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/persistent-pty.ts#L19-L24)).
+  The secret glob `.local/state/opencode/service*.json*` flags the registration, its temporary
+  file and both handoff files.
 - `.local/state/opencode/pty/<instance id>/service.json` holds the `token` that authorises a client
   to the persistent terminal daemon's socket
   ([`packages/core/src/persistent-pty/daemon.ts:35-42`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/persistent-pty/daemon.ts#L35-L42)),
@@ -1140,7 +1149,7 @@ How the store changed, newest first. A host may run any of these builds; the par
   ([`packages/opencode/src/session/instruction.ts:65-67`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/instruction.ts#L65-L67)),
   and the TUI's prompt files changed shape (below).
 - 1.x (at [`907b3bc`](https://github.com/sst/opencode/commit/907b3bc518fa48e90e8ec24dd327d13eee71c36c), still the layout of 1.19.5): one database, `opencode.db`, with these
-  tables, whose first shapes the earliest migration at `bf544cd` still creates
+  tables, whose first shapes the earliest migration at [`bf544cd`](https://github.com/anomalyco/opencode/commit/bf544cd419c5f17535c0d5af929f7ecd41188320) still creates
   ([`packages/core/src/database/migration/20260127222353_familiar_lady_ursula.ts:9-97`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260127222353_familiar_lady_ursula.ts#L9-L97)):
   `session`, `message`, `part`, `project`, `permission(project_id, data)` (dropped later,
   [`20260601202201_amazing_prowler.ts:8`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/migration/20260601202201_amazing_prowler.ts#L8)),
@@ -1167,7 +1176,7 @@ How the store changed, newest first. A host may run any of these builds; the par
   [`:139`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/storage/storage.ts#L139),
   [`:150`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/storage/storage.ts#L150),
   [`:165`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/storage/storage.ts#L165)). JSON records carry `id`,
-  `sessionID` and `messageID` inline, which the database `data` column strips. At `907b3bc` no
+  `sessionID` and `messageID` inline, which the database `data` column strips. At [`907b3bc`](https://github.com/sst/opencode/commit/907b3bc518fa48e90e8ec24dd327d13eee71c36c) no
   code imports `storage/` into SQLite, `storage/` is still written for `session_diff`
   ([`packages/opencode/src/session/revert.ts:77`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/revert.ts#L77)),
   and `opencode import` loads exported JSON into `message` and `part`
@@ -1245,9 +1254,12 @@ session start: <title> slug=<slug> version=<version> agent=<agent> parent=<paren
 
 In a database with `session_v2`, the 1.x `message` and `part` rows are read only for a session
 `session_message` does not hold. An assistant message with `session_part` rows takes its items
-from them in `ordinal` order, the row's `type` filling an item without one, as OpenCode's reader
-does ([`history.ts:94-122`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L94-L122),
-[`:132-133`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L132-L133)). A
+from them in `ordinal` order, as OpenCode's reader does
+([`history.ts:94-122`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L94-L122)), and the row's
+`type` column overrides the item's own, as OpenCode's part decoder does
+([`:132-133`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L132-L133)); the writer stores the
+same `type` in both
+([`projector.ts:280`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/projector.ts#L280)). A
 `tool_use` row's text is the first non-empty of the input's `command`, `filePath`, `file_path`,
 `pattern` (followed by ` | <path>` when `path` is set), `path`, `url`, `query`, `description` and
 `prompt`, else the input as JSON. Not read: `blob`, `blob_ref`, `schedule`, `job`,
@@ -1512,8 +1524,8 @@ workstation is that workflow file. Since no file records a login, the parser yie
 ## Confidence
 
 - High: the paths, table columns, record keys, enum values and timestamp units, read from source
-  at `bf544cd`; the desktop app's use of the shared database, from its server start code.
-- Medium: the 1.x shapes cited at `907b3bc` hold for 1.19.5, which this review did not read.
+  at [`bf544cd`](https://github.com/anomalyco/opencode/commit/bf544cd419c5f17535c0d5af929f7ecd41188320); the desktop app's use of the shared database, from its server start code.
+- Medium: the 1.x shapes cited at [`907b3bc`](https://github.com/sst/opencode/commit/907b3bc518fa48e90e8ec24dd327d13eee71c36c) hold for 1.19.5, which this review did not read.
 - Claims for a real-install round: what a 2.2.5 session writes to `session_message` for each record
   type, and whether any `session_part` row appears; what the desktop app's `drafts.sqlite`
   `document` and `state` rows hold; where the OpenTunnel library keeps its identity; whether a

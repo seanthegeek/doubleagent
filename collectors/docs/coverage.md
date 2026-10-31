@@ -1029,8 +1029,9 @@ the full pattern list.
   `~/.cline/data/settings/providers.json`,
   `~/.local/share/opencode/auth.json`, OpenCode's `service.json` (the
   background server's password) in `~/.config/opencode` and
-  `~/.local/state/opencode`, from collector 1.21.0 also its temporary
-  `service.json.<pid>.tmp`, the terminal daemon's
+  `~/.local/state/opencode`, from collector 1.21.0 also their temporary
+  `service.json.<pid>.tmp` and `service.json.<id>.tmp` copies, the terminal
+  handoff `service.json.pty-handoff` and its temporary copy, the terminal daemon's
   `~/.local/state/opencode/pty/<instance id>/service.json` (a socket token),
   `~/.config/goose/secrets.yaml`,
   `~/.factory/auth.v2.*`, ...

@@ -18,8 +18,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The bundled catalog copy gains the OpenClaw lines of collector 1.21.0: the new secret globs and exclusions under `.openclaw`, `.clawdbot` and `.moltbot`, no `openclaw` volume lines, and a `claude-code` line for OpenClaw's `*openclaw_home` volume ([#326]).
 - The `kilo-code` parser reads Kilo Code's project memory session digests, `.local/share/kilo/memory/<folder>/sessions/*.md`: one `system` row `memory digest: <topic>: <summary> (from <file>, Updated)` per digest, at its `Updated:` time, with the session id of its heading and the `canonical` project root of the folder's `manifest.json`; a digest without a `## Summary` line, or a `manifest.json` that is not a JSON object, is a `parser:` row ([#326]).
 - The bundled catalog copy gains collector 1.21.0's Kilo Code project config secret globs and JetBrains plugin lines, so its `kilo` folder and `options/kilo*.xml` settings are detected as `kilo-code` ([#326]).
-- The `opencode` parser reads an assistant message's content items from the `session_part` rows OpenCode 2.2 can keep them in, in `ordinal` order and in place of the message's inline `content`, as OpenCode's own reader does; a `session_part` row whose `data` does not decode is one `parser: unparseable record <rowid> (session_part.data: <reason>): <data>` row ([#194], [#326]).
-- The bundled catalog copy gains collector 1.21.0's OpenCode lines: the `pty/*/service.json`, `cli.json*` and `service*.json*` secret globs and the desktop app's `cli/` exclusions ([#326]).
+- The `opencode` parser reads an assistant message's content items from its `session_part` rows, which OpenCode 2.2.5 updates but only a newer release creates, in `ordinal` order and in place of the message's inline `content`, as OpenCode's own reader does; a `session_part` row whose `data` does not decode is one `parser: unparseable record <rowid> (session_part.data: <reason>): <data>` row ([#194], [#326]).
+- The bundled catalog copy gains collector 1.21.0's OpenCode lines: the `pty/*/service.json` and `cli.json*` secret globs, the `service*.json*` globs of the config and state directories and the desktop app's `cli/` exclusions ([#326]).
 
 ### Fixed
 
@@ -27,7 +27,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `openclaw` parser reads a cold archive stored in the database in chunks (`session_transcript_cold_archive_chunks`, agent schema 37), chunk by chunk; such generations gave no rows before. A database-stored cold archive or chunk with no bytes is a `parser: cold archive <name> has no stored bytes` row, not silence ([#206], [#326]).
 - The `kilo-code` parser reads the pinned session ids of the Kilo Code TUI's `.local/state/kilo/session.json`, as it does OpenCode's, giving one `session pinned:` row per id; it had skipped the file, assuming Kilo's TUI kept none ([#326]).
 - A Kilo Code remote control log or pre-fork extension task file that cannot be read is now one `parser: <file> could not be read (<reason>)` row, as is an unreadable memory digest, instead of a `problem:` line ([#326]).
-- An OpenCode 1.x session file whose project file (`storage/project/<projectID>.json`) exists but does not decode is now one `parser: project file <projectID>.json could not be read (<reason>)` row instead of a session with no project path and no row saying why ([#326]).
+- An OpenCode 1.x session file whose project file (`storage/project/<projectID>.json`) exists but does not decode is now one `parser: project file <projectID>.json could not be read (<reason>)` row instead of a session with no project path and no row saying why; the `kilo-code` parser reads Kilo Code's 1.x JSON trees through the same reader and gives the same row ([#326]).
 
 ## [0.21.0] - 2026-10-28
 

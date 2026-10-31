@@ -657,6 +657,9 @@ secret||.config/opencode/config.json
 secret||.config/opencode/service.json.4242.tmp
 secret||.config/opencode/cli.json
 secret||.local/state/opencode/pty/i1/service.json
+secret||.local/state/opencode/service.json.svc1.tmp
+secret||.local/state/opencode/service.json.pty-handoff
+secret||.local/state/opencode/service.json.pty-handoff.u1.tmp
 secret||.opencode/opencode.json
 agent|opencode|.local/state/opencode/prompt-history.jsonl
 agent|opencode|.local/share/opencode/shell/p1/sh_1.out

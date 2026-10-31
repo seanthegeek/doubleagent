@@ -643,7 +643,7 @@ class OpenCodeTests(ParserBase):
                 (message_id, OPENCODE_V2_ONLY, seq, created, created, json.dumps(data)),
             )
         parts = [
-            ("msg_p2", 0, "text", None, {"type": "text", "text": "second one"}),
+            ("msg_p2", 0, "text", None, {"type": "reasoning", "text": "second one"}),
             (
                 "msg_p1",
                 1,
@@ -672,8 +672,8 @@ class OpenCodeTests(ParserBase):
 
     def test_session_part_items_replace_inline_content(self):
         # Each message takes its own part rows, in ordinal order, never the
-        # inline items or another message's parts; the tool item has no `type`
-        # in its data, so the row's `type` column gives it.
+        # inline items or another message's parts. The row's `type` column
+        # gives the tool item its type and overrides the second item's own.
         self.add_session_parts([{"type": "text", "text": "inline, superseded"}])
         rows = self.rows_for(OpenCodeParser(), self.V2_DATABASE)
         texts = [row.text for row in rows]
