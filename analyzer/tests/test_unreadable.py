@@ -9,6 +9,10 @@ gap not listed fails, and so does a listed line the parser no longer gives, so t
 as parsers are fixed. The kinds are `escaped` (the OSError left the parser, so the timeline gets
 a `problem:` line and loses the rest of that artifact), `no-reason` (a row names the file but
 without the reason, such as the not-a-JSON-object row) and `silent` (no row names the file).
+
+Each run uses a new parser object and clears the module-level caches of the parsers
+(`MODULE_CACHES`): parsers keep side files they have read in caches, so a parser reused from the
+unlocked run would answer from its cache and never reopen the locked file.
 """
 
 import os
@@ -25,12 +29,14 @@ from test_errors import CAN_DENY, DENY_REASON
 from doubleagent import catalog
 from doubleagent.cli import parsers_for
 from doubleagent.inputs import open_input
-from doubleagent.parsers import ALL, Options, by_agent
+from doubleagent.parsers import ALL, Options, by_agent, cursor
 from fixtures import build_home
 
 BASELINE = Path(__file__).with_name("unreadable_baseline.txt")
 SQLITE_SIDECARS = ("-wal", "-shm", "-journal")
 REASON = "permission denied"
+# Caches a parser module keeps across parser objects, emptied before each run.
+MODULE_CACHES = (cursor._PROJECT_CACHE,)
 
 # The paths opened while `_OPENED` is a set; an audit hook cannot be removed, so it stays
 # installed for the session and does nothing while `_OPENED` is None.
@@ -44,10 +50,14 @@ def _audit(event, arguments):
 
 
 def _parse_all(parser, artifacts) -> tuple[list, BaseException | None]:
+    """Parse `artifacts` with a new object of the parser's class and no cached state."""
+    for cache in MODULE_CACHES:
+        cache.clear()
+    fresh = type(parser)()
     rows: list = []
     try:
         for artifact in artifacts:
-            rows.extend(parser.parse(artifact, Options(include_thinking=True)))
+            rows.extend(fresh.parse(artifact, Options(include_thinking=True)))
     except OSError as error:
         return rows, error
     return rows, None

@@ -79,7 +79,6 @@ continue escaped .continue/dev_data/0.2.0/chatInteraction.jsonl
 continue escaped .continue/dev_data/0.2.0/editInteraction.jsonl
 continue escaped .continue/dev_data/0.2.0/editOutcome.jsonl
 continue escaped .continue/dev_data/0.2.0/toolUsage.jsonl
-continue silent .continue/sessions/sessions.json
 copilot-cli escaped .copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/events.jsonl
 copilot-cli escaped .copilot/session-store.db-shm
 copilot-cli escaped .copilot/session-store.db-wal
@@ -196,11 +195,6 @@ opencode silent .local/share/opencode/opencode-local.db
 opencode silent .local/share/opencode/opencode-next.db
 opencode silent .local/share/opencode/opencode.db
 openhands no-reason .openhands/projects/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/prompt_history.json
-openhands silent .openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000001/base_state.json
-openhands silent .openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000001/meta.json
-openhands silent .openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000003/base_state.json
-openhands silent .openhands/agent-canvas/dev_conversations/0f0e0d0c111140008000000000000003/meta.json
-openhands silent .openhands/conversations/0f0e0d0c111140008000000000000002/base_state.json
 openhands silent .openhands/sessions/legacy-sid-1/events/0.json
 pearai escaped .pearai/dev_data/chat.jsonl
 pearai escaped .pearai/dev_data/tokens_generated.jsonl
@@ -212,7 +206,6 @@ pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks
 pearai no-reason .pearai/sessions/9b1c2d3e-0000-4000-8000-000000000001.json
 pearai no-reason .pearai/sessions/9b1c2d3e-0000-4000-8000-000000000002.json
 pearai silent .config/PearAI/User/globalStorage/state.vscdb
-pearai silent .pearai/sessions/sessions.json
 pi escaped .pi/agent/experimental/sessions/exp-session-1/meta.json
 pi escaped .pi/agent/pi-debug.log
 pi escaped .pi/agent/sessions/--srv-proj--/2026-10-01T09-00-00-000Z_0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1b.jsonl
