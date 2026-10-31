@@ -1698,9 +1698,9 @@ Check 'summary counts match manifest' { $sum.counts.collected -eq @($script:Rows
 Check 'manifest rows all parsed as JSON' { $script:Rows.Count -eq @(Get-Content -LiteralPath $script:Manifest.FullName).Count }
 Check 'archive layout for a docker volume file is fs/<path relative to root>' { @($entries | Where-Object { $_ -match '(^|\./)fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat\.json$' }).Count -eq 1 }
 Check 'summary counts skipped_unmatched_volume' { $sum.counts.skipped_unmatched_volume -eq 1 }
-Check 'summary docker counts' { $sum.docker.volumes_found -eq 3 -and $sum.docker.volumes_collected -eq 2 -and $sum.docker.unreadable -eq 0 -and $sum.docker.docker_desktop -eq $false }
+Check 'summary docker counts' { $sum.docker.volumes_found -eq 4 -and $sum.docker.volumes_collected -eq 3 -and $sum.docker.unreadable -eq 0 -and $sum.docker.docker_desktop -eq $false }
 Check 'summary no_docker option false and notes empty' { $sum.options.no_docker -eq $false -and @($sum.notes).Count -eq 0 }
-Check 'stdout docker line' { $script:stdout -match '(?m)^docker:     3 volumes found, 2 collected, 0 unreadable\s*$' }
+Check 'stdout docker line' { $script:stdout -match '(?m)^docker:     4 volumes found, 3 collected, 0 unreadable\s*$' }
 Check 'profile without artifacts still listed in users' { @($sum.users) -contains 'dave' }
 Check 'profile without artifacts not in users_with_artifacts' { @($sum.users_with_artifacts).Count -gt 0 -and -not (@($sum.users_with_artifacts) -contains 'dave') }
 Check 'stdout users counts users_with_artifacts' { $script:stdout -match "(?m)^users:      $(@($sum.users_with_artifacts).Count)\s*$" }
@@ -2382,7 +2382,7 @@ Run 'desktop' @{}
 Check 'Docker Desktop exit 0' { $script:ExitCode -eq 0 }
 $sum = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 Check 'Docker Desktop noted in collection.json' { $sum.docker.docker_desktop -eq $true -and @($sum.notes | Where-Object { $_ -like 'docker: Docker Desktop data at *' }).Count -eq 1 }
-Check 'Docker Desktop noted in stdout' { $script:stdout -match '(?m)^docker:     3 volumes found, 2 collected, 0 unreadable; Docker Desktop VM disk not collected\s*$' }
+Check 'Docker Desktop noted in stdout' { $script:stdout -match '(?m)^docker:     4 volumes found, 3 collected, 0 unreadable; Docker Desktop VM disk not collected\s*$' }
 Remove-Item -LiteralPath (ImagePath 'Users/alice/AppData/Local/Docker') -Recurse -Force
 
 # 2026-10-06 frameworks sweep (#64)
@@ -2648,7 +2648,7 @@ Pop-Location
 Check 'Inventory exit 0' { $script:ExitCode -eq 0 }
 Check 'Inventory writes nothing in the current directory' { @(Get-ChildItem -LiteralPath $inventoryCwd -Force).Count -eq 0 }
 Check 'Inventory first line is the host line, keys in order' { $script:Inventory[0].type -eq 'host' -and (@($script:Inventory[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq $hostKeys -and $script:Inventory[0].mode -eq 'image' -and $script:InventoryLines[0] -match '"at":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"' }
-Check 'Inventory host line counts' { $script:Inventory[0].users_unreadable -eq 0 -and $script:Inventory[0].docker_volumes -eq 3 -and $script:Inventory[0].users_scanned -ge 2 }
+Check 'Inventory host line counts' { $script:Inventory[0].users_unreadable -eq 0 -and $script:Inventory[0].docker_volumes -eq 4 -and $script:Inventory[0].users_scanned -ge 2 }
 Check 'Inventory every later line is an agent line, keys in order' { $script:Inventory.Count -gt 10 -and @($script:Inventory | Select-Object -Skip 1 | Where-Object { $_.type -ne 'agent' -or (@($_.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -ne $agentKeys }).Count -eq 0 }
 $row = InventoryAgent 'bob' 'ollama'
 Check 'Inventory ollama line: history and manifest, excluded blobs not counted' { $row -and $row.files -eq 2 -and $row.bytes -eq 23 -and (InventoryLine 'bob' 'ollama').Contains('"first":"2026-09-14T00:00:00Z","last":"2026-09-15T01:02:03Z"') -and $row.evidence -eq '.ollama' }
@@ -2665,7 +2665,7 @@ $museFiles = -1
 $row = InventoryAgent 'alice' 'muse-code'
 if ($row) { $museFiles = $row.files }
 $row = InventoryAgent 'docker' 'agent-zero'
-Check 'Inventory docker volume line' { $row -and $row.files -eq 7 -and $row.bytes -eq 122 -and $row.projects -eq 0 -and $row.evidence -eq '*a0_usr' }
+Check 'Inventory docker volume line' { $row -and $row.files -eq 5 -and $row.bytes -eq 89 -and $row.projects -eq 0 -and $row.evidence -eq '*a0_usr' }
 $row = InventoryAgent 'docker' 'tabby'
 Check 'Inventory rootless docker volume line' { $row -and $row.files -eq 1 -and $row.bytes -eq 22 -and $row.evidence -eq '*tabby*' }
 Check 'Inventory shared not inventoried' { -not ($script:Inventory | Where-Object { $_.type -eq 'agent' } | Where-Object { @('shared', 'project', 'live') -contains $_.agent }) }
