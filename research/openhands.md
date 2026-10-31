@@ -179,6 +179,12 @@ Directly under `~/.openhands`
 ([`openhands-sdk/openhands/sdk/skills/fetch.py:20`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-sdk/openhands/sdk/skills/fetch.py#L20);
 [`openhands-sdk/openhands/sdk/plugin/fetch.py:20`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-sdk/openhands/sdk/plugin/fetch.py#L20)).
 
+#### Docker and Podman volume
+
+In a Docker or Podman volume the catalog's `openhands|*openhands*` line matches, the LLM profiles
+`profiles/<name>.json` are flagged by the volume-relative glob `profiles/*.json`
+([`openhands-sdk/openhands/sdk/llm/llm_profile_store.py:28`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-sdk/openhands/sdk/llm/llm_profile_store.py#L28)).
+
 #### Docker runtime
 
 The Docker runtime (`OH_CONVERSATION_RUNTIME=docker`, one container per conversation,

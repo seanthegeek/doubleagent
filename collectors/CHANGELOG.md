@@ -14,6 +14,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Hermes' remaining credential stores are flagged `secret: true` in every home and profile (`.hermes*/` and `AppData/Local/hermes*/`): the config writers' `config.yaml.*` copies, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json` and the OS credential directories `.ssh/*`, `.aws/*`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*` and `.envrc`; in a Hermes volume, whose `_data` is the container user's home, the volume-relative `config.yaml.*`, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json`, `.ssh/*`, `.aws/credentials`, `.aws/config`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*`, `.envrc` and the quick snapshots' `state-snapshots/*/config.yaml` and `state-snapshots/*/feishu_comment_pairing.json` ([#326]).
 
+### Fixed
+
+- The volume-relative secret glob `profiles/*` of OpenHands' LLM profiles is narrowed to `profiles/*.json`: it applied in every volume, so in a Hermes volume it flagged every file of every named profile, `state.db` and transcripts included, and `--no-secrets` skipped them; a profile's JSON credential files, such as `profiles/<name>/auth.json`, stay flagged ([#326]).
+
 ## [1.20.0] - 2026-10-29
 
 ### Added

@@ -1888,7 +1888,7 @@ launch/muse-config/muse/settings.json
 agent-canvas/secret-key.txt
 agent-canvas/api-key.txt
 secrets.json
-profiles/*
+profiles/*.json
 provider-connections/*
 runtime-control/*
 agent_settings.json
