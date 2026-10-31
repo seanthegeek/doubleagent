@@ -479,6 +479,17 @@ class CursorTests(ParserBase):
         self.assertEqual(github_repository("example.net/github.com/owner/demo"), "")
         self.assertEqual(github_repository("https://example.net/?u=github.com/owner/demo"), "")
         self.assertEqual(github_repository(""), "")
+        cases = {
+            "github.com/o/r": "o/r",
+            "https://github.com/o/r.git": "o/r",
+            "https://user:pw@github.com/o/r": "o/r",
+            "https://github.com:443/o/r": "o/r",
+            "github.com.evil.example/o/r": "",
+            "notgithub.com/o/r": "",
+            "https://github.com@evil.example/o/r": "",
+        }
+        for url, expected in cases.items():
+            self.assertEqual(github_repository(url), expected, url)
 
     def test_deduplication_and_recovery(self):
         rows, _, problems, dropped = cli.collect_rows(self.col, Options(), ["cursor"])

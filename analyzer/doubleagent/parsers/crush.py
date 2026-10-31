@@ -265,8 +265,19 @@ class CrushParser(Parser):
         """
         timestamp = file_mtime(artifact)
         try:
-            document = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            raw = artifact.disk_path.read_bytes()
+        except OSError as error:
+            reason = error.strerror or error
+            row = self._system(
+                artifact, "parser: %s could not be read: %s" % (artifact.rel, reason), 1
+            )
+            row.timestamp_utc = timestamp
+            row.project_path = self._config_project(artifact)
+            yield row
+            return
+        try:
+            document = json.loads(raw.decode("utf-8", errors="replace"))
+        except ValueError:
             document = None
         if not isinstance(document, dict):
             row = self._system(artifact, "parser: %s is not a JSON object" % artifact.rel, 1)

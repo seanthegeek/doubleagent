@@ -1273,7 +1273,7 @@ def fts_bodies(connection: sqlite3.Connection) -> dict:
 
 
 def github_repository(url: str) -> str:
-    """Return `<owner>/<repo>` when the host of `url` is `github.com`, else "".
+    """Return `<owner>/<repo>`, less a `.git` suffix, when the host of `url` is `github.com`, else "".
 
     Cursor writes `repoUrl` without a scheme, so a scheme-less value is parsed as a network path;
     the host is compared after parsing, so a path or a longer host that merely contains
@@ -1282,7 +1282,8 @@ def github_repository(url: str) -> str:
     parsed = urlparse(url if "://" in url else "//" + url)
     if parsed.hostname != "github.com":
         return ""
-    return parsed.path.strip("/")
+    path = parsed.path.strip("/")
+    return path[: -len(".git")] if path.endswith(".git") else path
 
 
 def cloud_text(agent: dict) -> str:

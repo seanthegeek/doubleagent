@@ -239,11 +239,13 @@ def term_problems(text: str, link_text: list[tuple[int, int]]) -> list[tuple[int
     headings = "\n".join(line for line in text.splitlines() if ATX.match(line))
     out: list[tuple[int, str]] = []
     for pattern, name in TERMS:
-        term_pattern = re.compile(r"\b%s\b" % pattern, re.I)
+        # Markdown renders one line break inside a phrase as a space; a blank line ends it.
+        gap = r"(?:[ \t]+|[ \t]*\n[ \t]*)"
+        term_pattern = re.compile(r"\b%s\b" % pattern.replace(" ", gap), re.I)
         if term_pattern.search(headings):
             continue
         for match in term_pattern.finditer(text):
-            lead = text[max(0, match.start() - 16) : match.end()].lower()
+            lead = " ".join(text[max(0, match.start() - 16) : match.end()].lower().split())
             if any(lead.endswith(phrase) for phrase in TERM_PLAIN.get(name, ())):
                 continue
             if any(start <= match.start() and match.end() <= end for start, end in link_text):

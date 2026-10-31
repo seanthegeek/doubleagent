@@ -634,6 +634,114 @@ agent|kilo-code|.cache/JetBrains/IntelliJIdea2026.2/kilo/machine-id
 agent|kilo-code|Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
 agent|kilo-code|AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml
 agent|kilo-code|.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+excl||.local/share/opencode/bin
+excl||.local/share/opencode/snapshot
+excl||.local/share/opencode/worktree
+excl||.local/share/opencode/repos
+excl||.local/share/opencode/tool-output
+excl||.config/opencode/node_modules
+excl||.opencode/bin
+excl||.opencode/node_modules
+excl||Library/Application Support/ai.opencode.desktop/compile-cache
+excl||AppData/Roaming/ai.opencode.desktop/compile-cache
+excl||.config/ai.opencode.desktop/compile-cache
+excl||Library/Application Support/ai.opencode.desktop/cli
+excl||AppData/Roaming/ai.opencode.desktop/cli
+excl||.config/ai.opencode.desktop/cli
+secret||.local/share/opencode/auth.json
+secret||.local/share/opencode/mcp-auth.json
+secret||.local/share/opencode/opencode.db
+secret||.local/share/opencode/opencode-next.db
+secret||.config/opencode/opencode.jsonc
+secret||.config/opencode/config.json
+secret||.config/opencode/service.json.4242.tmp
+secret||.config/opencode/cli.json
+secret||.local/state/opencode/pty/i1/service.json
+secret||.local/state/opencode/service.json.svc1.tmp
+secret||.local/state/opencode/service.json.pty-handoff
+secret||.local/state/opencode/service.json.pty-handoff.u1.tmp
+secret||.opencode/opencode.json
+agent|opencode|.local/state/opencode/prompt-history.jsonl
+agent|opencode|.local/share/opencode/shell/p1/sh_1.out
+excl||.local/share/goose/models
+excl||.local/share/goose/model_catalog
+excl||.local/state/goose/codex
+excl||.config/goose/mcp-apps-cache
+excl||AppData/Roaming/Block/goose/data/models
+excl||AppData/Roaming/Block/goose/data/model_catalog
+excl||AppData/Roaming/Block/goose/data/codex
+excl||AppData/Roaming/Block/goose/config/mcp-apps-cache
+excl||Library/Application Support/Goose/Cache
+excl||Library/Application Support/Goose/Code Cache
+excl||Library/Application Support/Goose/GPUCache
+excl||Library/Application Support/Goose/DawnGraphiteCache
+excl||Library/Application Support/Goose/DawnWebGPUCache
+excl||Library/Application Support/Goose/blob_storage
+secret||.config/goose/secrets.yaml
+secret||.config/goose/config.yaml
+secret||.config/goose/config.tmp
+secret||.config/goose/githubcopilot/info.json
+secret||.config/goose/githubcopilot/u1/info.json
+secret||.config/goose/chatgpt_codex/tokens.json
+secret||.config/goose/gemini_oauth/tokens.json
+secret||.config/goose/kimicode/token.json
+secret||.config/goose/muse_code/token.json
+secret||.config/goose/huggingface/oauth/tokens.json
+secret||.config/goose/databricks/oauth/h1.json
+secret||.config/goose/xai_oauth/tokens.json
+secret||.config/goose/.tmpAb12Cd
+secret||.config/goose/githubcopilot/.tmpAb12Cd
+secret||.config/goose/githubcopilot/u1/.tmpAb12Cd
+secret||.config/goose/chatgpt_codex/.tmpAb12Cd
+secret||.config/goose/gemini_oauth/.tmpAb12Cd
+secret||.config/goose/muse_code/.tmpAb12Cd
+secret||.config/goose/databricks/oauth/.tmpAb12Cd
+secret||.config/goose/xai_oauth/.tmpAb12Cd
+secret||.config/goose/custom_providers/custom_acme.json
+secret||.config/goose/custom_providers/.tmpAb12Cd
+secret||.config/goose/roaming_node_key
+secret||.config/goose/tls/server.key
+secret||.local/state/goose/claude-code/mcp-config-20261030_ab12cd.json
+secret||AppData/Roaming/Block/goose/config/secrets.yaml
+secret||AppData/Roaming/Block/goose/config/config.yaml
+secret||AppData/Roaming/Block/goose/config/config.tmp
+secret||AppData/Roaming/Block/goose/config/githubcopilot/info.json
+secret||AppData/Roaming/Block/goose/config/githubcopilot/u1/info.json
+secret||AppData/Roaming/Block/goose/config/chatgpt_codex/tokens.json
+secret||AppData/Roaming/Block/goose/config/gemini_oauth/tokens.json
+secret||AppData/Roaming/Block/goose/config/kimicode/token.json
+secret||AppData/Roaming/Block/goose/config/muse_code/token.json
+secret||AppData/Roaming/Block/goose/config/huggingface/oauth/tokens.json
+secret||AppData/Roaming/Block/goose/config/databricks/oauth/h1.json
+secret||AppData/Roaming/Block/goose/config/xai_oauth/tokens.json
+secret||AppData/Roaming/Block/goose/config/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/githubcopilot/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/githubcopilot/u1/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/chatgpt_codex/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/gemini_oauth/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/muse_code/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/databricks/oauth/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/xai_oauth/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/custom_providers/custom_acme.json
+secret||AppData/Roaming/Block/goose/config/custom_providers/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/roaming_node_key
+secret||AppData/Roaming/Block/goose/config/tls/server.key
+secret||AppData/Roaming/Block/goose/data/claude-code/mcp-config-20261030_ab12cd.json
+secret||.config/Goose/settings.json
+secret||Library/Application Support/Goose/settings.json
+secret||AppData/Roaming/Goose/settings.json
+agent|goose|.config/goose/permission.yaml
+agent|goose|.local/share/goose/sessions/sessions.db
+agent|goose|.local/state/goose/history.txt
+agent|goose|.cache/goose/computer_controller/shot_20261030_120000.png
+agent|goose|.config/Goose/recent-dirs.json
+agent|goose|Library/Application Support/Goose/recent-dirs.json
+agent|goose|AppData/Roaming/Block/goose/config/permission.yaml
+agent|goose|AppData/Roaming/Block/goose/data/sessions/sessions.db
+agent|goose|AppData/Local/Block/goose/cache/computer_controller/shot_20261030_120000.png
+agent|goose|Library/Application Support/Block/goose/sessions/sessions.db
+agent|goose|AppData/Roaming/Goose/recent-dirs.json
+agent|goose|.goose/memory/dev.txt
 '
 ALICE="$ROOT/home/alice"; BOB="$ROOT/Users/bob"
 printf '%s\n' "$CASES_CATALOG" | while IFS='|' read -r _kind _agent _relpath; do
@@ -654,6 +762,20 @@ mkdir -p "$ALICE/.hermes/checkpoints/store/projects" "$ROOT/srv/hermesproj" "$AL
   "$ALICE/.twinny/embeddings/twinproj" "$ROOT/srv/twinproj/src"
 printf '{"workdir":"/srv/hermesproj","created_at":1759536000}\n' >"$ALICE/.hermes/checkpoints/store/projects/0123456789abcdef.json"
 printf '# hermes\n' >"$ROOT/srv/hermesproj/.hermes.md"
+# 2026-10-31 goose rebuild (#326)
+mkdir -p "$ALICE/.local/share/goose/projects" "$ALICE/AppData/Roaming/Block/goose/data/sessions" \
+  "$ROOT/srv/gooseproj/.goose/memory" "$ROOT/srv/gooserecipes" "$ROOT/srv/goosewin"
+printf '%s\n' '---' 'name: demo' "description: ''" 'workingDirs:' '- /srv/gooseproj' '---' >"$ALICE/.local/share/goose/projects/demo.md"
+printf '[\n  {\n    "id": "weekly",\n    "recipe_base_dir": "/srv/gooserecipes"\n  }\n]\n' >"$ALICE/.local/share/goose/schedule.json"
+printf '{"description":"d","working_dir":"/srv/goosewin"}\n' >"$ALICE/AppData/Roaming/Block/goose/data/sessions/20250611_093000.jsonl"
+printf 'hints\n' >"$ROOT/srv/gooseproj/.goosehints"
+printf 'memory\n' >"$ROOT/srv/gooseproj/.goose/memory/dev.txt"
+printf '{"config":{"configYaml":"x"}}\n' >"$ROOT/srv/gooseproj/diagnostics_20261030_2.json"
+printf 'hints\n' >"$ROOT/srv/gooserecipes/.goosehints"
+printf 'hints\n' >"$ROOT/srv/goosewin/.goosehints"
+mkdir -p "$ALICE/AppData/Roaming/Block/goose/data/projects" "$ROOT/srv/goosequoted"
+printf '%s\n' '---' 'name: quoted' 'workingDirs:' '- ' "- '/srv/goosequoted'" '---' >"$ALICE/AppData/Roaming/Block/goose/data/projects/quoted.md"
+printf 'hints\n' >"$ROOT/srv/goosequoted/.goosehints"
 # 2026-10-30 hermes rebuild (#326)
 mkdir -p "$ROOT/srv/hermesproj/.hermes"
 printf '# hermes\n' >"$ROOT/srv/hermesproj/HERMES.md"
@@ -1296,14 +1418,14 @@ OPENCODE_DESKTOP="$BOB/Library/Application Support/ai.opencode.desktop"
 KILO_SANDBOX_POLICY="$ALICE/.local/state/kilo-sandbox-policy/aa"
 mkdir -p "$ALICE/.config/opencode" "$ALICE/.local/state/opencode" "$OPENCODE_DESKTOP/compile-cache" \
   "$ALICE/.config/ai.opencode.desktop.beta" "$BOB/AppData/Roaming/ai.opencode.desktop" \
-  "$BOB/AppData/Local/Temp/opencode" "$KILO_SANDBOX_POLICY" "$ALICE/.local/state/kilo-sandbox-preference"
+  "$BOB/AppData/Local/Temp/opencode/uploads/u1" "$KILO_SANDBOX_POLICY" "$ALICE/.local/state/kilo-sandbox-preference"
 printf '{"password":"x"}\n' >"$ALICE/.config/opencode/service.json"
 printf '{"password":"x"}\n' >"$ALICE/.local/state/opencode/service-local.json"
 printf 'sqlite\n' >"$OPENCODE_DESKTOP/drafts.sqlite"
 printf 'v8\n' >"$OPENCODE_DESKTOP/compile-cache/x"
 printf 'sqlite\n' >"$ALICE/.config/ai.opencode.desktop.beta/drafts.sqlite"
 printf 'sqlite\n' >"$BOB/AppData/Roaming/ai.opencode.desktop/drafts.sqlite"
-printf 'tmp\n' >"$BOB/AppData/Local/Temp/opencode/notes.txt"
+printf 'tmp\n' >"$BOB/AppData/Local/Temp/opencode/uploads/u1/notes.txt"
 printf '{"enabled":true,"mode":"deny","version":1}\n' >"$KILO_SANDBOX_POLICY/bb.json"
 printf 'false\n' >"$ALICE/.local/state/kilo-sandbox-preference/bb.json"
 
@@ -1529,6 +1651,14 @@ printf 'rule\n' >"$ROOT/srv/kilolegacy/.kilocoderules"
 for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.json .kilocode/opencode.jsonc; do
   printf '{"mcp":{"x":{"type":"local","environment":{"TOKEN":"t"}}}}\n' >"$ROOT/srv/kilolegacy/$_kilo_path"
 done
+# 2026-10-31 opencode rebuild (#326)
+# A project named by the 1.x JSON project store, with the config files that can hold MCP
+# environment values, one per project table line.
+mkdir -p "$ALICE/.local/share/opencode/storage/project" "$ROOT/srv/ocproj/.opencode"
+printf '{"id":"p1","worktree":"/srv/ocproj","vcs":"git"}\n' >"$ALICE/.local/share/opencode/storage/project/p1.json"
+for _opencode_path in .opencode/opencode.json opencode.jsonc; do
+  printf '{"mcp":{"x":{"type":"local","environment":{"TOKEN":"t"}}}}\n' >"$ROOT/srv/ocproj/$_opencode_path"
+done
 
 run() { # run NAME ARGS...
   _name=$1; shift
@@ -1643,6 +1773,13 @@ check "little-coder history nested in .pi collected exactly once" "[ \"\$(grep -
 check "hermes installer checkout excluded but its .env kept" "[ \"\$(status_of \"$ALICE/.hermes/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes/hermes-agent/.env\")\" = collected ]"
 check "openclaw .clawdbot rename symlink recorded" "row \"$BOB/.clawdbot\" | grep -q '\"agent\":\"openclaw\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\".openclaw\"'"
 check "hermes checkpoint workdir discovers project" "row \"$ROOT/srv/hermesproj/.hermes.md\" | grep -q '\"user\":\"alice\".*\"status\":\"collected\"'"
+# 2026-10-31 goose rebuild (#326)
+check "#326 goose projects/<slug>.md workingDirs discovers project" "row \"$ROOT/srv/gooseproj/.goosehints\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
+check "#326 goose project memory file collected" "row \"$ROOT/srv/gooseproj/.goose/memory/dev.txt\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
+check "#326 goose project diagnostics export flagged secret" "row \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\" | grep -q '\"agent\":\"goose\".*\"secret\":true,\"status\":\"collected\"'"
+check "#326 goose schedule.json recipe_base_dir discovers project" "[ \"\$(status_of \"$ROOT/srv/gooserecipes/.goosehints\")\" = collected ]"
+check "#326 goose Windows legacy session working_dir discovers project" "[ \"\$(status_of \"$ROOT/srv/goosewin/.goosehints\")\" = collected ]"
+check "#326 goose quoted projects/<slug>.md workingDirs item discovers project" "[ \"\$(status_of \"$ROOT/srv/goosequoted/.goosehints\")\" = collected ]"
 # 2026-10-30 hermes rebuild (#326)
 for _hermes_file in HERMES.md .hermes/environment.json trajectory_samples.jsonl failed_trajectories.jsonl; do
   check "#326 Hermes project file collected: $_hermes_file" "row \"$ROOT/srv/hermesproj/$_hermes_file\" | grep -q '\"agent\":\"hermes\".*\"status\":\"collected\"'"
@@ -1979,7 +2116,7 @@ check "openclaw_home volume .claude file collected as claude-code" "row \"$OPENC
 check "#213 OpenCode service.json flagged secret" "row \"$ALICE/.config/opencode/service.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED' && row \"$ALICE/.local/state/opencode/service-local.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
 check "#213 OpenCode desktop data collected" "row \"$OPENCODE_DESKTOP/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"' && row \"$ALICE/.config/ai.opencode.desktop.beta/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"' && row \"$BOB/AppData/Roaming/ai.opencode.desktop/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
 check "#213 OpenCode desktop compile-cache excluded" "[ \"\$(status_of \"$OPENCODE_DESKTOP/compile-cache\")\" = skipped_excluded ] && ! grep -qF 'compile-cache/x' \"\$MANIFEST\""
-check "#213 OpenCode Windows temp root collected" "row \"$BOB/AppData/Local/Temp/opencode/notes.txt\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
+check "#213 OpenCode Windows temp root collected" "row \"$BOB/AppData/Local/Temp/opencode/uploads/u1/notes.txt\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
 check "#221 Kilo sandbox policy and preference collected" "row \"$KILO_SANDBOX_POLICY/bb.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"' && row \"$ALICE/.local/state/kilo-sandbox-preference/bb.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
 
 # 2026-10-21 Qwen Code session registry (#230)
@@ -2076,6 +2213,11 @@ for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.
   check "#326 Kilo project config flagged secret: $_kilo_path" "row \"$ROOT/srv/kilolegacy/$_kilo_path\" | grep -q '\"agent\":\"kilo-code\".*$SECRET_COLLECTED'"
 done
 check "#326 Kilo memory manifest collected" "row \"$KILO_MEMORY/manifest.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
+# 2026-10-31 opencode rebuild (#326)
+check "#326 OpenCode legacy project store discovers project" "row \"$ROOT/srv/ocproj/opencode.jsonc\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
+for _opencode_path in .opencode/opencode.json opencode.jsonc; do
+  check "#326 OpenCode project config flagged secret: $_opencode_path" "row \"$ROOT/srv/ocproj/$_opencode_path\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
+done
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
@@ -2156,6 +2298,12 @@ done
 for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.json .kilocode/opencode.jsonc; do
   check "#326 Kilo project config skipped without secrets: $_kilo_path" "[ \"\$(status_of \"$ROOT/srv/kilolegacy/$_kilo_path\")\" = skipped_secret ]"
 done
+# 2026-10-31 opencode rebuild (#326)
+for _opencode_path in .opencode/opencode.json opencode.jsonc; do
+  check "#326 OpenCode project config skipped without secrets: $_opencode_path" "[ \"\$(status_of \"$ROOT/srv/ocproj/$_opencode_path\")\" = skipped_secret ]"
+done
+# 2026-10-31 goose rebuild (#326)
+check "#326 goose project diagnostics export skipped without secrets" "[ \"\$(status_of \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\")\" = skipped_secret ]"
 # 2026-10-04 catalog cases
 printf '%s\n' "$CASES_CATALOG" >"$WORK/nosecrets14"
 while IFS='|' read -r _kind _agent _relpath; do

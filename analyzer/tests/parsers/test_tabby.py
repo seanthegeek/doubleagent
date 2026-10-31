@@ -2,6 +2,9 @@
 
 import io
 import sys
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
@@ -396,6 +399,20 @@ class TabbyTests(ParserBase):
                 " endpoint=https://api.openai.com/v1 supported_models=gpt-4o,gpt-4o-mini"
                 " (from config.toml [model.chat.http], file mtime)",
             ],
+        )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_config_unreadable_is_reported_on_every_python(self):
+        path = self.home / TABBY_CONFIG_REL
+        mtime = to_utc(path.stat().st_mtime)
+        path.chmod(0)
+        try:
+            rows = self.rows_for(TabbyParser(), TABBY_CONFIG_REL)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [(row.turn_type, row.timestamp_utc, row.text, row.source_line) for row in rows],
+            [("system", mtime, "parser: config.toml could not be read: Permission denied", 0)],
         )
 
     def test_bad_config_is_reported_not_fatal(self):

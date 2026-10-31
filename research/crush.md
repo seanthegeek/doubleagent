@@ -4,9 +4,9 @@ Crush (catalog agent `crush`) is Charm's terminal coding agent. It began as an O
 ([`opencode.md`](opencode.md)) but no longer shares any storage code with it: Crush is Go, with sqlc
 and goose migrations, and keeps one database per project where OpenCode keeps one per user
 ([OpenCode's data directory](opencode.md#data-directory)); it has no share service
-([OpenCode's share records](opencode.md#share-records)), no permission JSON on the session
+([OpenCode's share records](opencode.md#1x-share-records)), no permission JSON on the session
 ([OpenCode's permission records](opencode.md#permission-records)), no agent or mode recorded per
-message ([OpenCode's messages](opencode.md#message-and-part)), and file history in a `files` table
+message ([OpenCode's messages](opencode.md#session-messages)), and file history in a `files` table
 instead of git snapshots. Hyper is Charm's hosted model gateway, and its Prism router picks a model
 per request. The analyzer parses the per-project `crush.db`, every `crush.json` scope and the
 `crushrc` shell configs, from source and fixtures only.
@@ -699,8 +699,9 @@ into shell words (an unclosed quote) is one row `parser: unparseable line (<reas
 `source_line` its line number, and the file's other lines are still read; other lines are not
 records and are skipped. `projects.json` that does not parse or cannot be read is one whole-file
 `parser:` row, as is a `crush.json` that is not a JSON object
-(`parser: <file> is not a JSON object`); a `messages.parts` value that does not decode (not JSON,
-or JSON that is not an array) is one `system` row
+(`parser: <file> is not a JSON object`) or cannot be read
+(`parser: <file> could not be read: <reason>`); a `messages.parts` value that does not decode
+(not JSON, or JSON that is not an array) is one `system` row
 `parser: unparseable record <rowid> (message <id> parts: <reason>): <parts>`, carrying the stored
 value in full, with the message's session and project, an empty timestamp and `source_line` set to
 the rowid; the session's other messages are still yielded

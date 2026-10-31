@@ -941,7 +941,9 @@ mid-write keeps its complete leading items and adds `parser: unparseable record 
 <text from the cut item to the end>` or `parser: array cut off after record <N>`; an item that is
 not an object is `parser: unparseable record <N> (not a JSON object): <item>`, and a file that is
 neither form is one `parser: not a chat history: ...` row. The standing files each yield one
-`parser:` row when they cannot be read ([Permission rows](#permission-rows)).
+`parser:` row when they cannot be read ([Permission rows](#permission-rows)): `settings.json`,
+`trusted_hooks.json` and `trustedFolders.json` give `parser: unreadable <file>: <reason>`, distinct
+from the `parser: <file> is not a JSON object` of a file that reads but decodes to something else.
 
 #### Fixtures
 

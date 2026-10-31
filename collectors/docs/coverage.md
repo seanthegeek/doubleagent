@@ -665,7 +665,7 @@ agent state that can be read with grep, and from every `-p` directory.
 | Cursor CLI | Chat and ACP session metadata. |
 | Factory Droid | Sessions. |
 | Gemini CLI | Project registry, trusted folders and project root markers. |
-| Goose | Legacy session files and the desktop app's recent directories. |
+| Goose | Legacy session files, scheduled jobs' recipe directories, project files' working directories and the desktop app's recent directories. |
 | Hermes | Checkpoint project records. |
 | Kilo Code | Task indexes and, from collector 1.21.0, the legacy JSON project store (`storage/project/*.json` `worktree`) and the project memory manifests (`memory/*/manifest.json` `canonical`) under `.local/share/kilo`. |
 | Kiro CLI | Sessions and workspace roots. |
@@ -674,7 +674,7 @@ agent state that can be read with grep, and from every `-p` directory.
 | nanobot | Workspace markers and config. |
 | Open Interpreter | Rollouts in `sessions` and `archived_sessions`; a `cwd` under the home's `.openinterpreter/worktrees` is skipped from collector 1.18.0. |
 | OpenClaw | Workspace, working and agent directories (`workspace`, `cwd`, `agentDir`) from its JSON5 config and the legacy Clawdbot and Moltbot configs; `cwd` also names an MCP server's working directory. |
-| OpenCode | Legacy project store. |
+| OpenCode | The 1.x JSON project store (`.local/share/opencode/storage/project/*.json`, key `worktree`). |
 | OpenHands | Workspaces and conversation metadata. |
 | PearAI | Sessions. |
 | pi | Session headers, trusted folders, crash log and experimental session metadata (which also cover little-coder). |
@@ -833,7 +833,8 @@ their state must be copied by hand.
   ([Scratch directories in `research/opencode.md`](../../research/opencode.md#scratch-directories)).
   The OpenCode desktop app keeps its data in `ai.opencode.desktop` (or
   `.beta`, `.dev`) under `Library/Application Support`, `AppData/Roaming`
-  or `.config`; it is collected, and its V8 `compile-cache` is excluded
+  or `.config`; it is collected, and its V8 `compile-cache` and, from
+  collector 1.21.0, its `cli` copies of the OpenCode executable are excluded
   ([OpenCode desktop app in `research/opencode.md`](../../research/opencode.md#opencode-desktop-app)).
 - **Kilo Code** uses `kilo/` in the system temp directory as the
   temporary directory of every command its sandbox confines, and writes
@@ -1028,7 +1029,11 @@ the full pattern list.
   `~/.cline/data/settings/providers.json`,
   `~/.local/share/opencode/auth.json`, OpenCode's `service.json` (the
   background server's password) in `~/.config/opencode` and
-  `~/.local/state/opencode`, `~/.config/goose/secrets.yaml`,
+  `~/.local/state/opencode`, from collector 1.21.0 also their temporary
+  `service.json.<pid>.tmp` and `service.json.<id>.tmp` copies, the terminal
+  handoff `service.json.pty-handoff` and its temporary copy, the terminal daemon's
+  `~/.local/state/opencode/pty/<instance id>/service.json` (a socket token),
+  `~/.config/goose/secrets.yaml`,
   `~/.factory/auth.v2.*`, ...
 - **Config files that commonly embed API keys or MCP server environments:**
   Continue's `config.yaml`, Zed's `settings.json`, Crush's `crush.json`,
@@ -1042,7 +1047,17 @@ the full pattern list.
   Droid, Kiro, Copilot CLI and CLAI in the home and in a project, a
   project's Crush `crushrc`, `.crushrc`, `crush.json` and `.crush.json`, and
   Ollama's copies of other agents' settings files (`backup/` and the Muse
-  `settings.json` copy) in the home and in a volume.
+  `settings.json` copy) in the home and in a volume; from collector 1.21.0
+  also OpenCode's `~/.config/opencode/cli.json`, whose terminal UI plugin
+  options can hold a key.
+  `settings.json` copy) in the home and in a volume; Goose's `config.yaml`,
+  and from collector 1.21.0 its `config.tmp` save copy, the
+  `mcp-config-*.json` files of its Claude Code provider and the
+  `diagnostics_<YYYYMMDD>_<n>.json` export in a project, which holds
+  `config.yaml` up to 256 KiB.
+- **Desktop backend secrets:** the Goose desktop app's `settings.json`,
+  which holds the shared secret of an external backend server (from
+  collector 1.21.0).
 - **Electron `Local State` files** that hold the key for encrypted token
   caches.
 - **Desktop connection files:** the Hermes desktop app's `connection.json`

@@ -568,6 +568,48 @@ class KiloCodeTests(ParserBase):
                 rel,
             )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_json_files_are_not_misread_as_wrong_shape(self):
+        # Each JSON file that is there but cannot be read gives its own `could not be read` row,
+        # never the `is not a JSON object` row of a file that decodes to something else.
+        self.with_state()
+        manifest = str(KILO_DIGEST_REL).split("/sessions/")[0] + "/manifest.json"
+        index = self.TASK.rsplit("/", 2)[0] + "/_index.json"
+        cases = (
+            (manifest, KILO_DIGEST_REL, "parser: memory manifest.json could not be read ("),
+            (self.RETENTION, self.RETENTION, "parser: retention/state.json could not be read ("),
+            (self.POLICY, self.POLICY, "parser: %s could not be read (" % self.POLICY),
+            (self.PREFERENCE, self.PREFERENCE, "parser: %s could not be read (" % self.PREFERENCE),
+            (self.CONFIG, self.CONFIG, "parser: %s could not be read (" % self.CONFIG),
+            (
+                KILO_SHARE_REL,
+                KILO_SHARE_REL,
+                "parser: %s could not be read (" % KILO_SHARE_REL.split("kilo/", 1)[1],
+            ),
+            (index, self.TASK, "parser: tasks/_index.json could not be read ("),
+        )
+        for locked, parsed, expected in cases:
+            path = self.home / locked
+            path.chmod(0)
+            try:
+                rows = self.rows_for(KiloCodeParser(), parsed)
+            finally:
+                path.chmod(0o600)
+            problems = [row.text for row in rows if row.text.startswith("parser:")]
+            self.assertEqual(len(problems), 1, (locked, problems))
+            self.assertTrue(problems[0].startswith(expected), (locked, problems))
+            self.assertIn("Permission denied", problems[0], locked)
+            self.assertNotIn("is not", problems[0], locked)
+        # The digest and the task keep their own rows beside the side file's.
+        for locked, parsed in ((manifest, KILO_DIGEST_REL), (index, self.TASK)):
+            path = self.home / locked
+            path.chmod(0)
+            try:
+                rows = self.rows_for(KiloCodeParser(), parsed)
+            finally:
+                path.chmod(0o600)
+            self.assertTrue(any(not row.text.startswith("parser:") for row in rows), locked)
+
     def test_memory_notes_not_wanted(self):
         self.with_state()
         folder = (self.home / KILO_DIGEST_REL).parent.parent

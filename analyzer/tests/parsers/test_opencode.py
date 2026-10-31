@@ -2,6 +2,11 @@
 
 import io
 import json
+import os
+import sqlite3
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
@@ -611,6 +616,160 @@ class OpenCodeTests(ParserBase):
             [row.text for row in rows if row.text.startswith("parser:")],
             ["parser: unparseable record %d (message.data: not a JSON object): [1]" % rowid],
         )
+
+    def add_session_parts(self, content: list) -> None:
+        """Give the 2.x-only session an assistant message whose items are `session_part` rows.
+
+        Two messages, each with its own parts, interleaved by `ordinal`; the second keeps an
+        inline `content` that the part rows replace, as OpenCode's reader does.
+        """
+        connection = sqlite3.connect(str(self.home / self.V2_DATABASE))
+        connection.execute(
+            "CREATE TABLE session_part (message_id text NOT NULL, session_id text NOT NULL,"
+            " ordinal integer NOT NULL, type text NOT NULL, call_id text,"
+            " time_created integer NOT NULL, time_updated integer NOT NULL, data text NOT NULL,"
+            " PRIMARY KEY (message_id, ordinal))"
+        )
+        messages = [("msg_p1", 30, 1791025300000, content), ("msg_p2", 31, 1791025310000, [])]
+        for message_id, seq, created, inline in messages:
+            data = {
+                "time": {"created": created},
+                "agent": "build",
+                "model": {"id": "gpt-5", "providerID": "openai"},
+                "content": inline,
+            }
+            connection.execute(
+                "INSERT INTO session_message VALUES (?,?,'assistant',?,?,?,?)",
+                (message_id, OPENCODE_V2_ONLY, seq, created, created, json.dumps(data)),
+            )
+        parts = [
+            ("msg_p2", 0, "text", None, {"type": "reasoning", "text": "second one"}),
+            (
+                "msg_p1",
+                1,
+                "tool",
+                "call_p1",
+                {
+                    "id": "call_p1",
+                    "name": "bash",
+                    "state": {
+                        "status": "completed",
+                        "input": {"command": "make"},
+                        "content": [{"type": "text", "text": "built"}],
+                    },
+                    "time": {"created": 1791025301000, "completed": 1791025302000},
+                },
+            ),
+            ("msg_p1", 0, "text", None, {"type": "text", "text": "from the part rows"}),
+        ]
+        for message_id, ordinal, part_type, call_id, data in parts:
+            connection.execute(
+                "INSERT INTO session_part VALUES (?,?,?,?,?,1791025300000,1791025300000,?)",
+                (message_id, OPENCODE_V2_ONLY, ordinal, part_type, call_id, json.dumps(data)),
+            )
+        connection.commit()
+        connection.close()
+
+    def test_session_part_items_replace_inline_content(self):
+        # Each message takes its own part rows, in ordinal order, never the
+        # inline items or another message's parts. The row's `type` column
+        # gives the tool item its type and overrides the second item's own.
+        self.add_session_parts([{"type": "text", "text": "inline, superseded"}])
+        rows = self.rows_for(OpenCodeParser(), self.V2_DATABASE)
+        texts = [row.text for row in rows]
+        self.assertNotIn("inline, superseded", texts)
+        by_line: dict[int, list[tuple[str, str, str]]] = {}
+        for row in rows:
+            if row.session_id == OPENCODE_V2_ONLY and row.turn_type != "system":
+                got = (row.turn_type, row.text, row.tool_use_id)
+                by_line.setdefault(row.source_line, []).append(got)
+        self.assertIn(
+            [
+                ("assistant", "from the part rows", ""),
+                ("tool_use", "make", "call_p1"),
+                ("tool_result", "built", "call_p1"),
+            ],
+            by_line.values(),
+        )
+        self.assertIn([("assistant", "second one", "")], by_line.values())
+
+    def test_inline_content_without_part_rows(self):
+        # A message no part row names keeps its inline items.
+        self.add_session_parts([{"type": "text", "text": "inline, superseded"}])
+        rows = self.rows_for(OpenCodeParser(), self.V2_DATABASE)
+        self.assertIn("Starting it.", [row.text for row in rows])
+
+    def test_bad_session_part_record(self):
+        # The record is carried in full under its session, and the items
+        # around it are still read.
+        self.add_session_parts([])
+        connection = sqlite3.connect(str(self.home / self.V2_DATABASE))
+        rowid = connection.execute(
+            "INSERT INTO session_part VALUES ('msg_p1',?,2,'text',NULL,1,1,'{\"type\":')",
+            (OPENCODE_V2_ONLY,),
+        ).lastrowid
+        connection.commit()
+        connection.close()
+        rows = self.rows_for(OpenCodeParser(), self.V2_DATABASE)
+        texts = [row.text for row in rows]
+        self.assertIn("from the part rows", texts)
+        self.assertIn("second one", texts)
+        bad = [row for row in rows if row.text.startswith("parser:")]
+        self.assertEqual(
+            [(row.text, row.session_id, row.timestamp_utc, row.source_line) for row in bad],
+            [
+                (
+                    'parser: unparseable record %d (session_part.data: %s): {"type":'
+                    % (rowid, json_reason('{"type":')),
+                    OPENCODE_V2_ONLY,
+                    "",
+                    rowid,
+                )
+            ],
+        )
+
+    def test_bad_project_file_is_reported(self):
+        # A session file without a directory takes its project's worktree; a
+        # project file that does not decode is a row, an absent one is silent.
+        session_rel = self.STORAGE + "session/proj_a1/%s.json" % OPENCODE_LEGACY_SESSION
+        path = self.home / session_rel
+        session = json.loads(path.read_text(encoding="utf-8"))
+        del session["directory"]
+        path.write_text(json.dumps(session), encoding="utf-8")
+        rows = self.rows_for(OpenCodeParser(), session_rel)
+        self.assertEqual(
+            [(row.turn_type, row.project_path) for row in rows], [("system", "/srv/proj")]
+        )
+        project = self.home / self.STORAGE / "project/proj_a1.json"
+        write_bad_line(project)
+        rows = self.rows_for(OpenCodeParser(), session_rel)
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(rows[0].text.startswith("session start: Old session"))
+        self.assertTrue(
+            rows[1].text.startswith("parser: project file proj_a1.json could not be read ("),
+            rows[1].text,
+        )
+        self.assertEqual((rows[1].session_id, rows[1].timestamp_utc), (OPENCODE_LEGACY_SESSION, ""))
+        project.unlink()
+        rows = self.rows_for(OpenCodeParser(), session_rel)
+        self.assertEqual([row.project_path for row in rows], [""])
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_part_file(self):
+        part = self.home / self.STORAGE / "part/msg_b/prt_b2.json"
+        os.chmod(part, 0)
+        try:
+            rows = self.rows_for(
+                OpenCodeParser(), self.STORAGE + "message/%s/msg_b.json" % OPENCODE_LEGACY_SESSION
+            )
+        finally:
+            os.chmod(part, 0o644)
+        self.assertEqual(rows[0].tool_use_id, "call_r1")
+        bad = rows[-1]
+        self.assertTrue(
+            bad.text.startswith("parser: unparseable part prt_b2 (unreadable: "), bad.text
+        )
+        self.assertEqual(bad.source_file, "/alice/" + self.STORAGE + "part/msg_b/prt_b2.json")
 
     # -- standing state, past use, scratch directories --------------------------------
     STATE = ".local/state/opencode/"

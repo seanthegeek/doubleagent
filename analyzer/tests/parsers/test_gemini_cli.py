@@ -317,6 +317,19 @@ class GeminiCliTests(ParserBase):
         )
         self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 18)
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_standing_files_are_not_misread_as_wrong_shape(self):
+        self.sources()
+        for rel in (
+            ".gemini/settings.json",
+            ".gemini/trustedFolders.json",
+            ".gemini/trusted_hooks.json",
+        ):
+            rows = self._rows_with_unreadable(rel)
+            problems = [row.text for row in rows if row.source_file.endswith(rel)]
+            self.assertEqual(problems, ["parser: unreadable %s: Permission denied" % rel], rel)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 18)
+
     def test_project_fallbacks(self):
         base = self.home / ".gemini"
         self.assertEqual(resolve_project(base, "proj"), "/srv/proj")  # .project_root

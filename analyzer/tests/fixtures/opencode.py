@@ -1,4 +1,13 @@
-"""Synthetic OpenCode state for the analyzer tests."""
+"""Synthetic OpenCode state for the analyzer tests.
+
+The shapes follow `research/opencode.md` (anomalyco/opencode at bf544cd, 2.2.5; cb07c55, 2.0.32;
+sst/opencode at 907b3bc, 1.x): a 1.x database with a `session_message` projection, a channel
+database with the 1.x share records, a 1.x database upgraded by 2.x, the pre-release 2.0
+database, the 1.x JSON tree, and the standing state and terminal UI files.
+
+Paths: `/srv/proj/web`
+       `/home/alice/.local/share/opencode/worktree/proj_a/brave-otter`
+"""
 
 from __future__ import annotations
 
@@ -24,8 +33,10 @@ CREATE TABLE project (id text PRIMARY KEY, worktree text NOT NULL, vcs text, nam
   time_created integer NOT NULL, time_updated integer NOT NULL, time_initialized integer, sandboxes text NOT NULL);
 CREATE TABLE session (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, parent_id text, slug text NOT NULL,
   directory text NOT NULL, path text, title text NOT NULL, version text NOT NULL, share_url text, summary_additions integer,
-  summary_deletions integer, summary_files integer, summary_diffs text, metadata text, cost real, tokens_input integer,
-  tokens_output integer, tokens_reasoning integer, tokens_cache_read integer, tokens_cache_write integer, revert text,
+  summary_deletions integer, summary_files integer, summary_diffs text, metadata text, cost real NOT NULL DEFAULT 0,
+  tokens_input integer NOT NULL DEFAULT 0, tokens_output integer NOT NULL DEFAULT 0,
+  tokens_reasoning integer NOT NULL DEFAULT 0, tokens_cache_read integer NOT NULL DEFAULT 0,
+  tokens_cache_write integer NOT NULL DEFAULT 0, revert text,
   permission text, agent text, model text, time_created integer NOT NULL, time_updated integer NOT NULL,
   time_compacting integer, time_archived integer);
 CREATE TABLE message (id text PRIMARY KEY, session_id text NOT NULL, time_created integer NOT NULL,
@@ -35,8 +46,8 @@ CREATE TABLE part (id text PRIMARY KEY, message_id text NOT NULL, session_id tex
 CREATE INDEX part_message_id_id_idx ON part (message_id, id);
 CREATE TABLE session_message (id text PRIMARY KEY, session_id text NOT NULL, type text NOT NULL, seq integer NOT NULL,
   time_created integer NOT NULL, time_updated integer NOT NULL, data text NOT NULL);
-CREATE TABLE credential (id text PRIMARY KEY, provider_id text, type text, name text, value text NOT NULL, account_id text,
-  workspace_id text, active integer, time_created integer NOT NULL, time_updated integer NOT NULL);
+CREATE TABLE credential (id text PRIMARY KEY, integration_id text, label text NOT NULL, value text NOT NULL,
+  connector_id text, method_id text, active integer, time_created integer NOT NULL, time_updated integer NOT NULL);
 """
 
 
@@ -280,13 +291,12 @@ def build_opencode_database(database: Path, start: int = OPENCODE_T0) -> None:
         ),
     )
     connection.execute(
-        "INSERT INTO credential (id, provider_id, type, name, value, active, time_created, time_updated) "
-        "VALUES (?,?,?,?,?,?,?,?)",
+        "INSERT INTO credential (id, integration_id, label, value, active, time_created, time_updated) "
+        "VALUES (?,?,?,?,?,?,?)",
         (
             "cred_01",
             "anthropic",
-            "key",
-            "my key",
+            "API key",
             '{"type":"key","key":"sk-ant-REDACT"}',
             1,
             start,
@@ -381,7 +391,8 @@ def build_opencode(home: Path) -> None:
     build_opencode_database(data / "opencode.db")
     build_opencode_storage(data / "storage")
     (data / "auth.json").write_text(
-        '{"anthropic":{"type":"api","key":"sk-ant-REDACT"}}', encoding="utf-8"
+        '{"github-copilot":{"type":"oauth","refresh":"REDACT","access":"REDACT","expires":0}}',
+        encoding="utf-8",
     )
     _json_file(
         home / ".config/opencode/opencode.json", {"$schema": "https://opencode.ai/config.json"}
@@ -836,7 +847,7 @@ def build_opencode_state_database(database: Path, start: int = OPENCODE_STATE_T0
     )
     connection.execute(
         "INSERT INTO permission VALUES (?,?,?,?,?,?)",
-        ("per_01", "proj_a", "bash", "npm test", start + 3000, start + 3000),
+        ("psv_01", "proj_a", "bash", "npm test", start + 3000, start + 3000),
     )
     connection.execute(
         "INSERT INTO worktree VALUES (?,?,?,?)", ("proj_a", OPENCODE_WORKTREE, "git", start + 4000)

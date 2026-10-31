@@ -327,9 +327,12 @@ def trusted_folder_rows(parser: Parser, artifact: Artifact) -> Iterator[Row]:
     `parse_jsonc`, so a byte-order mark and trailing commas, which Qwen Code accepts, decode.
     """
     timestamp = file_mtime(artifact)
+    unreadable = ""
     try:
         document = parse_jsonc(artifact.disk_path.read_bytes())
-    except (OSError, ValueError):
+    except OSError as error:
+        document, unreadable = None, error.strerror or str(error)
+    except ValueError:
         document = None
 
     def row(text: str, project: str = "") -> Row:
@@ -341,6 +344,9 @@ def trusted_folder_rows(parser: Parser, artifact: Artifact) -> Iterator[Row]:
         new_row.text = compact(text)
         return new_row
 
+    if unreadable:
+        yield row("parser: unreadable %s: %s" % (artifact.rel, unreadable))
+        return
     if not isinstance(document, dict):
         yield row("parser: %s is not a JSON object" % artifact.rel)
         return
@@ -486,13 +492,17 @@ class GeminiCliParser(Parser):
         return row
 
     def _json_object(self, artifact: Artifact, jsonc: bool) -> tuple[dict | None, Row | None]:
-        """The file's JSON object, or None and the row saying it is not one."""
+        """The file's JSON object, or None and the row saying it cannot be read or is not one."""
         try:
             raw = artifact.disk_path.read_bytes()
+        except OSError as error:
+            text = "parser: unreadable %s: %s" % (artifact.rel, error.strerror or error)
+            return None, self._standing(artifact, file_mtime(artifact), "", text)
+        try:
             document = (
                 parse_jsonc(raw) if jsonc else json.loads(raw.decode("utf-8", errors="replace"))
             )
-        except (OSError, ValueError):
+        except ValueError:
             document = None
         if isinstance(document, dict):
             return document, None

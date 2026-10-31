@@ -15,9 +15,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The bundled catalog copy gains the catalog lines of collector 1.20.0, so detection follows them: a Hermes home or desktop user-data directory with any `HERMES_DATA_DIR_SUFFIX` (`.hermes?*`, `AppData/Local/hermes?*` and `Hermes?*` under each OS's application data directory, replacing `.hermes_*` and `AppData/Local/hermes_*`) is detected as `hermes` ([#324]); and in `AppData/Roaming/devin` only the Devin CLI's `mcp_config.json` and `credentials.toml` are attributed to `windsurf`, not the Devin IDE's files beside them ([#321]).
 - The bundled catalog copy gains the collector's new Hermes secret globs; the secret globs change as in the collector's Unreleased entry ([#326]).
+- The bundled catalog copy gains the Goose lines of collector 1.21.0: the cache directory, the Windows config and data directories in place of `AppData/Roaming/Block/goose`, the project `diagnostics_[0-9]*_*.json` export, the new Goose secret globs (the custom provider files and the temporary `.tmp??????` copies of its credential files among them) and exclusion, and no secret glob on the request logs ([#326], [#333]).
 - The bundled catalog copy gains the OpenClaw lines of collector 1.21.0: the new secret globs and exclusions under `.openclaw`, `.clawdbot` and `.moltbot`, no `openclaw` volume lines, and a `claude-code` line for OpenClaw's `*openclaw_home` volume ([#326]).
 - The `kilo-code` parser reads Kilo Code's project memory session digests, `.local/share/kilo/memory/<folder>/sessions/*.md`: one `system` row `memory digest: <topic>: <summary> (from <file>, Updated)` per digest, at its `Updated:` time, with the session id of its heading and the `canonical` project root of the folder's `manifest.json`; a digest without a `## Summary` line, or a `manifest.json` that is not a JSON object, is a `parser:` row ([#326]).
 - The bundled catalog copy gains collector 1.21.0's Kilo Code project config secret globs and JetBrains plugin lines, so its `kilo` folder and `options/kilo*.xml` settings are detected as `kilo-code` ([#326]).
+- The `opencode` parser reads an assistant message's content items from its `session_part` rows, which OpenCode 2.2.5 updates but only a newer release creates, in `ordinal` order and in place of the message's inline `content`, as OpenCode's own reader does; a `session_part` row whose `data` does not decode is one `parser: unparseable record <rowid> (session_part.data: <reason>): <data>` row ([#194], [#326]).
+- The bundled catalog copy gains collector 1.21.0's OpenCode lines: the `pty/*/service.json` and `cli.json*` secret globs, the `service*.json*` globs of the config and state directories and the desktop app's `cli/` exclusions ([#326]).
 
 ### Fixed
 
@@ -25,6 +28,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `openclaw` parser reads a cold archive stored in the database in chunks (`session_transcript_cold_archive_chunks`, agent schema 37), chunk by chunk; such generations gave no rows before. A database-stored cold archive or chunk with no bytes is a `parser: cold archive <name> has no stored bytes` row, not silence ([#206], [#326]).
 - The `kilo-code` parser reads the pinned session ids of the Kilo Code TUI's `.local/state/kilo/session.json`, as it does OpenCode's, giving one `session pinned:` row per id; it had skipped the file, assuming Kilo's TUI kept none ([#326]).
 - A Kilo Code remote control log or pre-fork extension task file that cannot be read is now one `parser: <file> could not be read (<reason>)` row, as is an unreadable memory digest, instead of a `problem:` line ([#326]).
+- An OpenCode 1.x session file whose project file (`storage/project/<projectID>.json`) exists but does not decode is now one `parser: project file <projectID>.json could not be read (<reason>)` row instead of a session with no project path and no row saying why; the `kilo-code` parser reads Kilo Code's 1.x JSON trees through the same reader and gives the same row ([#326]).
+- A Crush `crush.json` or `.crush.json` config that cannot be read is now one `parser: <file> could not be read: <reason>` row, and a Gemini CLI `settings.json`, `trusted_hooks.json` or `trustedFolders.json`, or a Qwen Code `settings.json` or `trustedFolders.json`, that cannot be read one `parser: unreadable <file>: <reason>` row, instead of the `parser: <file> is not a JSON object` row of a file that decodes to something else ([#298]).
+- A Tabby `config.toml` that cannot be read is now one `parser: config.toml could not be read: <reason>` row on every Python version; on 3.11 and later the read error had escaped the parser as a `problem:` line, and on 3.10 the parser had never opened the file ([#298]).
+- A Kilo Code global config, sandbox file, cloud session marker or `retention/state.json` that cannot be read is now one `parser: <file> could not be read (<reason>)` row instead of `is not a JSON object`; an unreadable memory `manifest.json`, task `history_item.json` or `tasks/_index.json` is a `parser:` row beside the digest's or task's rows, where before it was misreported or silent ([#360]).
+- The `cursor` parser strips a `.git` suffix from a cloud agent's `repoUrl` repository in the `source host:` row, and a test covers a user-info URL, a port and look-alike hosts ([#238]).
 - Readers of specified formats take only the whitespace and digits those formats allow: a `.git/config` header or key, JSON recovered from a damaged session file (`agent-zero`, `cline`, `cody`, `continue`, `gemini-cli`, `kiro`, `little-coder`, `roo-code`), Copilot CLI JSONC trailing commas, Hermes YAML comments after a tab, Hermes and Continue YAML mapping values after a tab, the collection's `manifest.jsonl` and `.sha256` sidecar, the bundled catalog, ISO 8601 and epoch timestamps, and the marker, log and timestamp lines of `aider`, `claude-code`, `codex`, `continue`, `copilot-cli`, `crush`, `cursor`, `hermes`, `kilo-code`, `muse-code`, `nanobot`, `openhands`, `pearai` and `twinny` no longer match a Unicode space, line separator or non-ASCII digit. A line of only Unicode space in the Aider input history or the pi debug log is now a `parser: unparseable line` row rather than skipped, and an Ollama history prompt keeps a leading or trailing U+00A0. Codex log fields are separated by a space or tab only, so a Unicode space stays inside a field's bare value. Copilot CLI JSONC no longer loses a `,` before `]` or `}` inside a string ([#299], [#380]).
 
 ## [0.21.0] - 2026-10-28
@@ -2148,10 +2156,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
 [#380]: https://github.com/seanthegeek/doubleagent/issues/380
+[#360]: https://github.com/seanthegeek/doubleagent/issues/360
+[#333]: https://github.com/seanthegeek/doubleagent/issues/333
 [#326]: https://github.com/seanthegeek/doubleagent/issues/326
 [#324]: https://github.com/seanthegeek/doubleagent/issues/324
 [#321]: https://github.com/seanthegeek/doubleagent/issues/321
 [#299]: https://github.com/seanthegeek/doubleagent/issues/299
+[#298]: https://github.com/seanthegeek/doubleagent/issues/298
 [#285]: https://github.com/seanthegeek/doubleagent/issues/285
 [#283]: https://github.com/seanthegeek/doubleagent/issues/283
 [#282]: https://github.com/seanthegeek/doubleagent/issues/282
@@ -2161,6 +2172,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [#269]: https://github.com/seanthegeek/doubleagent/issues/269
 [#256]: https://github.com/seanthegeek/doubleagent/issues/256
 [#253]: https://github.com/seanthegeek/doubleagent/issues/253
+[#238]: https://github.com/seanthegeek/doubleagent/issues/238
 [#237]: https://github.com/seanthegeek/doubleagent/issues/237
 [#236]: https://github.com/seanthegeek/doubleagent/issues/236
 [#231]: https://github.com/seanthegeek/doubleagent/issues/231

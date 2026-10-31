@@ -157,13 +157,20 @@ def _read_bytes(artifact: Artifact, errors: list) -> bytes | None:
         return None
 
 
-def _read_json(path: Path):
-    """Return the decoded JSON of a file, or None when it cannot be read or decoded."""
+def _read_json(path: Path) -> tuple[object, str]:
+    """Return a file's decoded JSON and "", or None and the reason it could not be read.
+
+    A file that reads but does not decode is (None, "").
+    """
     try:
         with open(path, "rb") as handle:
-            return json.loads(handle.read().decode("utf-8", errors="replace"))
-    except (OSError, ValueError):
-        return None
+            data = handle.read()
+    except OSError as error:
+        return None, str(error.strerror or error)
+    try:
+        return json.loads(data.decode("utf-8", errors="replace")), ""
+    except ValueError:
+        return None, ""
 
 
 def _manifest_root(path: Path, errors: list) -> str:
@@ -175,7 +182,10 @@ def _manifest_root(path: Path, errors: list) -> str:
     """
     if not path.is_file() or path.is_symlink():
         return ""
-    document = _read_json(path)
+    document, unreadable = _read_json(path)
+    if unreadable:
+        errors.append((0, "memory manifest.json could not be read (%s)" % unreadable))
+        return ""
     if not isinstance(document, dict):
         errors.append((0, "memory manifest.json is not a JSON object"))
         return ""
@@ -263,8 +273,17 @@ class KiloCodeParser(OpenCodeParser):
         """
         timestamp = file_mtime(artifact)
         try:
-            document = gemini_cli.parse_jsonc(artifact.disk_path.read_bytes())
-        except (OSError, ValueError) as error:
+            raw = artifact.disk_path.read_bytes()
+        except OSError as error:
+            yield self._setting_row(
+                artifact,
+                timestamp,
+                "parser: %s could not be read (%s)" % (artifact.rel, error.strerror or error),
+            )
+            return
+        try:
+            document = gemini_cli.parse_jsonc(raw)
+        except ValueError as error:
             yield self._setting_row(
                 artifact, timestamp, "parser: %s could not be decoded (%s)" % (artifact.rel, error)
             )
@@ -311,7 +330,14 @@ class KiloCodeParser(OpenCodeParser):
         """
         timestamp = file_mtime(artifact)
         source = "(from %s, file mtime)" % artifact.rel
-        document = _read_json(artifact.disk_path)
+        document, unreadable = _read_json(artifact.disk_path)
+        if unreadable:
+            yield self._setting_row(
+                artifact,
+                timestamp,
+                "parser: %s could not be read (%s)" % (artifact.rel, unreadable),
+            )
+            return
         if SANDBOX_PREFERENCE_PATTERN.match(artifact.rel):
             if isinstance(document, bool):
                 yield self._setting_row(
@@ -344,7 +370,11 @@ class KiloCodeParser(OpenCodeParser):
         and ` reclaimedBytes=` when present and no `session_id`. A file that is not a JSON object is
         one `parser:` row.
         """
-        document = _read_json(artifact.disk_path)
+        document, unreadable = _read_json(artifact.disk_path)
+        if unreadable:
+            text = "parser: retention/state.json could not be read (%s)" % unreadable
+            yield self._setting_row(artifact, file_mtime(artifact), text)
+            return
         if not isinstance(document, dict):
             yield self._setting_row(
                 artifact, file_mtime(artifact), "parser: retention/state.json is not a JSON object"
@@ -479,11 +509,15 @@ class KiloCodeParser(OpenCodeParser):
 
         A file that is not a JSON object gives one `parser:` row instead.
         """
-        document = _read_json(artifact.disk_path)
+        document, unreadable = _read_json(artifact.disk_path)
         row = self.base_row(artifact)
         row.session_id, row.source_line, row.turn_type = session_id, 1, "system"
         row.timestamp_utc = file_mtime(artifact)
         rel = "storage/session_share/%s.json" % session_id
+        if unreadable:
+            row.text = "parser: %s could not be read (%s)" % (rel, unreadable)
+            yield row
+            return
         if not isinstance(document, dict):
             row.text = "parser: %s is not a JSON object" % rel
             yield row
@@ -501,19 +535,24 @@ class KiloCodeParser(OpenCodeParser):
 
     # -- legacy Roo-style tasks -----------------------------------------------------
     @staticmethod
-    def _history_item(task_dir: Path, task_id: str) -> dict:
-        """Return a legacy task's `HistoryItem`, from `history_item.json` or `tasks/_index.json`."""
+    def _history_item(task_dir: Path, task_id: str, errors: list) -> dict:
+        """Return a legacy task's `HistoryItem`, from `history_item.json` or `tasks/_index.json`.
+
+        Either file that is there but cannot be read appends (0, message) to `errors`.
+        """
         item = None
         item_path = task_dir / "history_item.json"
         if item_path.is_file() and not item_path.is_symlink():
-            item = _read_json(item_path)
+            item, unreadable = _read_json(item_path)
+            if unreadable:
+                errors.append((0, "history_item.json could not be read (%s)" % unreadable))
         if not isinstance(item, dict):
             index_path = task_dir.parent / "_index.json"
-            data = (
-                _read_json(index_path)
-                if index_path.is_file() and not index_path.is_symlink()
-                else None
-            )
+            data = None
+            if index_path.is_file() and not index_path.is_symlink():
+                data, unreadable = _read_json(index_path)
+                if unreadable:
+                    errors.append((0, "tasks/_index.json could not be read (%s)" % unreadable))
             entries = data.get("entries") if isinstance(data, dict) else None
             for entry in entries if isinstance(entries, list) else []:
                 if isinstance(entry, dict) and entry.get("id") == task_id:
@@ -530,7 +569,8 @@ class KiloCodeParser(OpenCodeParser):
         """
         task_dir = artifact.disk_path.parent
         task_id = task_dir.name
-        item = self._history_item(task_dir, task_id)
+        errors: list = []
+        item = self._history_item(task_dir, task_id, errors)
         project = str(item.get("workspace") or "")
         task_time = to_utc(item.get("ts"))
         if not task_time and task_id.isdigit():
@@ -562,7 +602,6 @@ class KiloCodeParser(OpenCodeParser):
             )
             yield row
 
-        errors: list = []
         data = _read_bytes(artifact, errors)
         if data is None:
             yield from error_rows(self, artifact, errors, task_id, project)
