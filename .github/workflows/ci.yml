@@ -22,19 +22,23 @@ env:
   PSSA_VERSION: "1.25.0"
 
 jobs:
-  # A change that touches only Markdown and the markdownlint configuration
-  # needs markdownlint, the document checks and the drift checkers, nothing
-  # else: the released scripts and package are unchanged (AGENTS.md,
-  # "Validation and testing"). This job classifies the push or pull request,
-  # and every other job except the Markdown, document, drift and code style
-  # steps of lint is skipped when it is documentation only. A push whose
-  # "before" commit is unknown (a new branch, a force push) counts as a code
-  # change.
+  # Each job runs only when a file it reads changed: .github/classify-changes.sh
+  # maps the changed paths to the categories below, and AGENTS.md ("Validation
+  # and testing") gives the rule. A pull request is diffed from its merge base;
+  # a push to main, a push whose "before" commit is unknown (a new branch, a
+  # force push), a change to the workflow or the classifier, and a path no
+  # category names run everything. The Markdown, document, drift and code
+  # style steps of lint run on every change, since they read every part.
   changes:
     name: Classify the change
     runs-on: ubuntu-latest
     outputs:
-      docs-only: ${{ steps.classify.outputs.docs-only }}
+      sh: ${{ steps.classify.outputs.sh }}
+      sh-lint: ${{ steps.classify.outputs.sh-lint }}
+      powershell: ${{ steps.classify.outputs.powershell }}
+      python: ${{ steps.classify.outputs.python }}
+      catalog: ${{ steps.classify.outputs.catalog }}
+      all: ${{ steps.classify.outputs.all }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -43,24 +47,31 @@ jobs:
         id: classify
         env:
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
-          docs=false
+          scope=all
           changed=""
-          if [ -n "$BASE" ] && ! printf '%s' "$BASE" | grep -q '^0*$' && git cat-file -e "$BASE" 2>/dev/null; then
+          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
+            scope=all
+          elif [ -n "$BASE" ] && ! printf '%s' "$BASE" | grep -q '^0*$' && git cat-file -e "$BASE" 2>/dev/null; then
+            scope=diff
             changed=$(git diff --name-only "$(git merge-base "$BASE" "$GITHUB_SHA")" "$GITHUB_SHA")
-            other=$(printf '%s\n' "$changed" | grep -vE '\.md$|^\.markdownlint-cli2\.jsonc$' || true)
-            if [ -n "$changed" ] && [ -z "$other" ]; then
-              docs=true
-            fi
           fi
-          echo "docs-only=$docs" >> "$GITHUB_OUTPUT"
-          printf 'docs-only=%s\nchanged files:\n%s\n' "$docs" "$changed"
+          if [ "$scope" = all ]; then
+            categories=$(sh .github/classify-changes.sh all < /dev/null)
+          else
+            categories=$(printf '%s\n' "$changed" | sh .github/classify-changes.sh)
+          fi
+          printf '%s\n' "$categories" >> "$GITHUB_OUTPUT"
+          printf '%s\nchanged files:\n%s\n' "$categories" "$changed"
 
+  # Compares the tables of both collectors and the analyzer's copy.
   catalog-sync:
     name: Catalog tables in sync (sh, PowerShell, analyzer copy)
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.docs-only != 'true'
+    if: needs.changes.outputs.catalog == 'true'
     steps:
       - uses: actions/checkout@v7
       - name: Drift test
@@ -82,7 +93,7 @@ jobs:
     name: sh collector (smoke under ${{ matrix.name }})
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.docs-only != 'true'
+    if: needs.changes.outputs.sh == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -130,7 +141,7 @@ jobs:
     name: sh collector (smoke under dash on macOS, BSD tools)
     runs-on: macos-latest
     needs: changes
-    if: needs.changes.outputs.docs-only != 'true'
+    if: needs.changes.outputs.sh == 'true'
     steps:
       - uses: actions/checkout@v7
       - name: Drift test
@@ -142,7 +153,7 @@ jobs:
     name: sh collector (shellcheck)
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.docs-only != 'true'
+    if: needs.changes.outputs.sh == 'true'
     steps:
       - uses: actions/checkout@v7
       - name: Install shellcheck
@@ -154,7 +165,7 @@ jobs:
     name: PowerShell collector (smoke under PowerShell 7 on Linux)
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.docs-only != 'true'
+    if: needs.changes.outputs.powershell == 'true'
     steps:
       - uses: actions/checkout@v7
       - name: smoke
@@ -165,18 +176,20 @@ jobs:
     name: PowerShell collector (smoke under Windows PowerShell 5.1)
     runs-on: windows-latest
     needs: changes
-    if: needs.changes.outputs.docs-only != 'true'
+    if: needs.changes.outputs.powershell == 'true'
     steps:
       - uses: actions/checkout@v7
       - name: smoke
         shell: powershell
         run: .\collectors\tests\smoke.ps1
 
+  # The analyzer tests also read the sh collector and the catalog copy, so a
+  # catalog change runs them as well as a Python one.
   analyzer:
     name: Analyzer tests
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.docs-only != 'true'
+    if: needs.changes.outputs.python == 'true' || needs.changes.outputs.catalog == 'true'
     strategy:
       matrix:
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
@@ -208,17 +221,18 @@ jobs:
           python-version: "3.10"
       - name: Install analyzer dependencies
         run: pip install -r analyzer/requirements.txt
+      # Each linter below runs when a file of its language changed.
       - name: Install Python linters
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.python == 'true'
         run: pip install "ruff==$RUFF_VERSION" "pyright==$PYRIGHT_VERSION"
       - name: ruff check
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.python == 'true'
         run: ruff check .
       - name: ruff format --check
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.python == 'true'
         run: ruff format --check .
       - name: pyright (Python 3.10)
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.python == 'true'
         run: pyright
       - name: markdownlint
         run: npx -y "markdownlint-cli2@$MARKDOWNLINT_CLI2_VERSION" "**/*.md"
@@ -241,7 +255,7 @@ jobs:
       - name: code style
         run: python3 tools/check_code_style.py
       - name: Install sh linters
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.sh-lint == 'true'
         run: |
           mkdir -p "$HOME/bin"
           curl -sfL "https://github.com/koalaman/shellcheck/releases/download/v$SHELLCHECK_VERSION/shellcheck-v$SHELLCHECK_VERSION.linux.x86_64.tar.xz" | tar xJ -C /tmp
@@ -255,20 +269,20 @@ jobs:
           chmod +x "$HOME/bin/shfmt" "$HOME/bin/checkbashisms"
           echo "$HOME/bin" >> "$GITHUB_PATH"
       - name: shfmt POSIX parse (no reformatting)
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.sh-lint == 'true'
         run: shfmt -ln posix $(shfmt -f .) > /dev/null
       - name: shellcheck (all sh files, .shellcheckrc)
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.sh-lint == 'true'
         run: shellcheck -s sh $(shfmt -f .)
       - name: checkbashisms
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.sh-lint == 'true'
         run: checkbashisms -p $(shfmt -f .)
       # The GitHub release carries the same nupkg the PowerShell Gallery
       # serves (identical sha256), and Install-Module stops at the Gallery's
       # intermittent v2 API failures with "Source Location ... is not valid".
       # Unzipped into the user module path, the package is the module.
       - name: Install PSScriptAnalyzer
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.powershell == 'true'
         run: |
           nupkg="/tmp/PSScriptAnalyzer.$PSSA_VERSION.nupkg"
           curl -sfL -o "$nupkg" "https://github.com/PowerShell/PSScriptAnalyzer/releases/download/$PSSA_VERSION/PSScriptAnalyzer.$PSSA_VERSION.nupkg"
@@ -278,7 +292,7 @@ jobs:
           mkdir -p "$module_dir"
           unzip -q "$nupkg" -d "$module_dir"
       - name: PSScriptAnalyzer
-        if: needs.changes.outputs.docs-only != 'true'
+        if: needs.changes.outputs.powershell == 'true'
         shell: pwsh
         run: |
           Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
@@ -288,8 +302,8 @@ jobs:
 
   # The one status check the ruleset on main requires. A matrix job that
   # the classification skips reports under its unexpanded name ("Analyzer
-  # tests", not "Analyzer tests (3.10)"), so a documentation-only pull
-  # request can never satisfy a list of per-job required checks. This job
+  # tests", not "Analyzer tests (3.10)"), so a pull request that skips
+  # it can never satisfy a list of per-job required checks. This job
   # depends on every other job, runs whatever they did, and fails when any
   # of them failed or was cancelled; a skipped job counts as passed.
   result:

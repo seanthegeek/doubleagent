@@ -2,13 +2,13 @@
 
 A change to the analyzer is checked by the test suite under `tests/`,
 which builds a fake image of synthetic agent state and runs every parser
-over it, and by ruff and pyright at the versions CI pins; both run locally
-before a push, since CI runs them on every pull request. A parser is
-written from the agent's research document and checked against a real
-install, whose files are read with a tool that prints their shape and
-never a value, so nothing from the install leaves the machine. Several
-agents keep their stores as protobuf or SQLite, and the parsers share one
-decoder and one opener for them.
+over it, and by ruff and pyright at the versions CI pins; both run
+locally before a push, since CI runs them on every pull request that
+changes Python. A parser is written from the agent's research document
+and checked against a real install, whose files are read with a tool
+that prints their shape and never a value, so nothing from the install
+leaves the machine. Several agents keep their stores as protobuf or
+SQLite, and the parsers share one decoder and one opener for them.
 
 ## Testing
 
