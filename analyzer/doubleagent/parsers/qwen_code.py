@@ -267,8 +267,14 @@ class QwenCodeParser(Parser):
         timestamp = file_mtime(artifact)
         project = artifact.home.original if artifact.home.project else ""
         try:
-            doc = parse_jsonc(artifact.disk_path.read_bytes())
-        except (OSError, ValueError):
+            raw = artifact.disk_path.read_bytes()
+        except OSError as error:
+            text = "parser: unreadable %s: %s" % (artifact.rel, error.strerror or error)
+            yield self._settings_row(artifact, timestamp, project, text)
+            return
+        try:
+            doc = parse_jsonc(raw)
+        except ValueError:
             doc = None
         if not isinstance(doc, dict):
             text = "parser: %s is not a JSON object" % artifact.rel

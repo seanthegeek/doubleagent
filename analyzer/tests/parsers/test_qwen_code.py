@@ -2,6 +2,9 @@
 
 import json
 import os
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.inputs import open_input
 from doubleagent.parsers.qwen_code import QwenCodeParser, args_summary, injected_origin
@@ -392,6 +395,21 @@ class QwenCodeTests(ParserBase):
         # The fixture home's empty settings file yields nothing.
         (self.home / rel).write_text("{}", encoding="utf-8")
         self.assertEqual(self.rows_for(QwenCodeParser(), rel), [])
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_standing_files_are_not_misread_as_wrong_shape(self):
+        for rel in (".qwen/settings.json", ".qwen/trustedFolders.json"):
+            path = self.home / rel
+            path.chmod(0)
+            try:
+                rows = self.rows_for(QwenCodeParser(), rel)
+            finally:
+                path.chmod(0o600)
+            self.assertEqual(
+                [(row.turn_type, row.text) for row in rows],
+                [("system", "parser: unreadable %s: Permission denied" % rel)],
+                rel,
+            )
 
     def test_usage_record(self):
         # usage_record.jsonl is a secondary source that keeps a deleted

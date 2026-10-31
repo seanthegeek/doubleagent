@@ -699,8 +699,9 @@ into shell words (an unclosed quote) is one row `parser: unparseable line (<reas
 `source_line` its line number, and the file's other lines are still read; other lines are not
 records and are skipped. `projects.json` that does not parse or cannot be read is one whole-file
 `parser:` row, as is a `crush.json` that is not a JSON object
-(`parser: <file> is not a JSON object`); a `messages.parts` value that does not decode (not JSON,
-or JSON that is not an array) is one `system` row
+(`parser: <file> is not a JSON object`) or cannot be read
+(`parser: <file> could not be read: <reason>`); a `messages.parts` value that does not decode
+(not JSON, or JSON that is not an array) is one `system` row
 `parser: unparseable record <rowid> (message <id> parts: <reason>): <parts>`, carrying the stored
 value in full, with the message's session and project, an empty timestamp and `source_line` set to
 the rowid; the session's other messages are still yielded
