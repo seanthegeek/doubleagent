@@ -634,6 +634,32 @@ agent|kilo-code|.cache/JetBrains/IntelliJIdea2026.2/kilo/machine-id
 agent|kilo-code|Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
 agent|kilo-code|AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml
 agent|kilo-code|.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+excl||.local/share/opencode/bin
+excl||.local/share/opencode/snapshot
+excl||.local/share/opencode/worktree
+excl||.local/share/opencode/repos
+excl||.local/share/opencode/tool-output
+excl||.config/opencode/node_modules
+excl||.opencode/bin
+excl||.opencode/node_modules
+excl||Library/Application Support/ai.opencode.desktop/compile-cache
+excl||AppData/Roaming/ai.opencode.desktop/compile-cache
+excl||.config/ai.opencode.desktop/compile-cache
+excl||Library/Application Support/ai.opencode.desktop/cli
+excl||AppData/Roaming/ai.opencode.desktop/cli
+excl||.config/ai.opencode.desktop/cli
+secret||.local/share/opencode/auth.json
+secret||.local/share/opencode/mcp-auth.json
+secret||.local/share/opencode/opencode.db
+secret||.local/share/opencode/opencode-next.db
+secret||.config/opencode/opencode.jsonc
+secret||.config/opencode/config.json
+secret||.config/opencode/service.json.4242.tmp
+secret||.config/opencode/cli.json
+secret||.local/state/opencode/pty/i1/service.json
+secret||.opencode/opencode.json
+agent|opencode|.local/state/opencode/prompt-history.jsonl
+agent|opencode|.local/share/opencode/shell/p1/sh_1.out
 '
 ALICE="$ROOT/home/alice"; BOB="$ROOT/Users/bob"
 printf '%s\n' "$CASES_CATALOG" | while IFS='|' read -r _kind _agent _relpath; do
@@ -1296,14 +1322,14 @@ OPENCODE_DESKTOP="$BOB/Library/Application Support/ai.opencode.desktop"
 KILO_SANDBOX_POLICY="$ALICE/.local/state/kilo-sandbox-policy/aa"
 mkdir -p "$ALICE/.config/opencode" "$ALICE/.local/state/opencode" "$OPENCODE_DESKTOP/compile-cache" \
   "$ALICE/.config/ai.opencode.desktop.beta" "$BOB/AppData/Roaming/ai.opencode.desktop" \
-  "$BOB/AppData/Local/Temp/opencode" "$KILO_SANDBOX_POLICY" "$ALICE/.local/state/kilo-sandbox-preference"
+  "$BOB/AppData/Local/Temp/opencode/uploads/u1" "$KILO_SANDBOX_POLICY" "$ALICE/.local/state/kilo-sandbox-preference"
 printf '{"password":"x"}\n' >"$ALICE/.config/opencode/service.json"
 printf '{"password":"x"}\n' >"$ALICE/.local/state/opencode/service-local.json"
 printf 'sqlite\n' >"$OPENCODE_DESKTOP/drafts.sqlite"
 printf 'v8\n' >"$OPENCODE_DESKTOP/compile-cache/x"
 printf 'sqlite\n' >"$ALICE/.config/ai.opencode.desktop.beta/drafts.sqlite"
 printf 'sqlite\n' >"$BOB/AppData/Roaming/ai.opencode.desktop/drafts.sqlite"
-printf 'tmp\n' >"$BOB/AppData/Local/Temp/opencode/notes.txt"
+printf 'tmp\n' >"$BOB/AppData/Local/Temp/opencode/uploads/u1/notes.txt"
 printf '{"enabled":true,"mode":"deny","version":1}\n' >"$KILO_SANDBOX_POLICY/bb.json"
 printf 'false\n' >"$ALICE/.local/state/kilo-sandbox-preference/bb.json"
 
@@ -1528,6 +1554,14 @@ printf 'rule\n' >"$ROOT/srv/kilolegacy/.kilocoderules"
 # The project config files `kilo mcp add` writes MCP servers into, one per secret glob.
 for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.json .kilocode/opencode.jsonc; do
   printf '{"mcp":{"x":{"type":"local","environment":{"TOKEN":"t"}}}}\n' >"$ROOT/srv/kilolegacy/$_kilo_path"
+done
+# 2026-10-31 opencode rebuild (#326)
+# A project named by the 1.x JSON project store, with the config files that can hold MCP
+# environment values, one per project table line.
+mkdir -p "$ALICE/.local/share/opencode/storage/project" "$ROOT/srv/ocproj/.opencode"
+printf '{"id":"p1","worktree":"/srv/ocproj","vcs":"git"}\n' >"$ALICE/.local/share/opencode/storage/project/p1.json"
+for _opencode_path in .opencode/opencode.json opencode.jsonc; do
+  printf '{"mcp":{"x":{"type":"local","environment":{"TOKEN":"t"}}}}\n' >"$ROOT/srv/ocproj/$_opencode_path"
 done
 
 run() { # run NAME ARGS...
@@ -1979,7 +2013,7 @@ check "openclaw_home volume .claude file collected as claude-code" "row \"$OPENC
 check "#213 OpenCode service.json flagged secret" "row \"$ALICE/.config/opencode/service.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED' && row \"$ALICE/.local/state/opencode/service-local.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
 check "#213 OpenCode desktop data collected" "row \"$OPENCODE_DESKTOP/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"' && row \"$ALICE/.config/ai.opencode.desktop.beta/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"' && row \"$BOB/AppData/Roaming/ai.opencode.desktop/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
 check "#213 OpenCode desktop compile-cache excluded" "[ \"\$(status_of \"$OPENCODE_DESKTOP/compile-cache\")\" = skipped_excluded ] && ! grep -qF 'compile-cache/x' \"\$MANIFEST\""
-check "#213 OpenCode Windows temp root collected" "row \"$BOB/AppData/Local/Temp/opencode/notes.txt\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
+check "#213 OpenCode Windows temp root collected" "row \"$BOB/AppData/Local/Temp/opencode/uploads/u1/notes.txt\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
 check "#221 Kilo sandbox policy and preference collected" "row \"$KILO_SANDBOX_POLICY/bb.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"' && row \"$ALICE/.local/state/kilo-sandbox-preference/bb.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
 
 # 2026-10-21 Qwen Code session registry (#230)
@@ -2076,6 +2110,11 @@ for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.
   check "#326 Kilo project config flagged secret: $_kilo_path" "row \"$ROOT/srv/kilolegacy/$_kilo_path\" | grep -q '\"agent\":\"kilo-code\".*$SECRET_COLLECTED'"
 done
 check "#326 Kilo memory manifest collected" "row \"$KILO_MEMORY/manifest.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
+# 2026-10-31 opencode rebuild (#326)
+check "#326 OpenCode legacy project store discovers project" "row \"$ROOT/srv/ocproj/opencode.jsonc\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
+for _opencode_path in .opencode/opencode.json opencode.jsonc; do
+  check "#326 OpenCode project config flagged secret: $_opencode_path" "row \"$ROOT/srv/ocproj/$_opencode_path\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
+done
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
@@ -2155,6 +2194,10 @@ done
 # 2026-10-30 kilo-code rebuild (#326)
 for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.json .kilocode/opencode.jsonc; do
   check "#326 Kilo project config skipped without secrets: $_kilo_path" "[ \"\$(status_of \"$ROOT/srv/kilolegacy/$_kilo_path\")\" = skipped_secret ]"
+done
+# 2026-10-31 opencode rebuild (#326)
+for _opencode_path in .opencode/opencode.json opencode.jsonc; do
+  check "#326 OpenCode project config skipped without secrets: $_opencode_path" "[ \"\$(status_of \"$ROOT/srv/ocproj/$_opencode_path\")\" = skipped_secret ]"
 done
 # 2026-10-04 catalog cases
 printf '%s\n' "$CASES_CATALOG" >"$WORK/nosecrets14"
