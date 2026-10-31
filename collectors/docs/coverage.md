@@ -665,7 +665,7 @@ agent state that can be read with grep, and from every `-p` directory.
 | Cursor CLI | Chat and ACP session metadata. |
 | Factory Droid | Sessions. |
 | Gemini CLI | Project registry, trusted folders and project root markers. |
-| Goose | Legacy session files and the desktop app's recent directories. |
+| Goose | Legacy session files, scheduled jobs' recipe directories, project files' working directories and the desktop app's recent directories. |
 | Hermes | Checkpoint project records. |
 | Kilo Code | Task indexes and, from collector 1.21.0, the legacy JSON project store (`storage/project/*.json` `worktree`) and the project memory manifests (`memory/*/manifest.json` `canonical`) under `.local/share/kilo`. |
 | Kiro CLI | Sessions and workspace roots. |
@@ -1050,6 +1050,13 @@ the full pattern list.
   `settings.json` copy) in the home and in a volume; from collector 1.21.0
   also OpenCode's `~/.config/opencode/cli.json`, whose terminal UI plugin
   options can hold a key.
+  `settings.json` copy) in the home and in a volume; Goose's `config.yaml`,
+  and from collector 1.21.0 its `config.tmp` save copy, the
+  `mcp-config-*.json` files of its Claude Code provider and the
+  `diagnostics_*.json` export in a project, which holds `config.yaml` whole.
+- **Desktop backend secrets:** the Goose desktop app's `settings.json`,
+  which holds the shared secret of an external backend server (from
+  collector 1.21.0).
 - **Electron `Local State` files** that hold the key for encrypted token
   caches.
 - **Desktop connection files:** the Hermes desktop app's `connection.json`
