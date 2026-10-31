@@ -8,7 +8,13 @@ from doubleagent import cli
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import open_input
 from doubleagent.parsers import Options
-from doubleagent.parsers.hermes import HermesParser, decode_content
+from doubleagent.parsers.hermes import (
+    CRON_PROMPT_FRAME_PATTERN,
+    HermesParser,
+    decode_content,
+    read_flat_list,
+    yaml_scalar,
+)
 from fixtures import (
     BAD_LINE,
     HERMES_CHILD,
@@ -31,6 +37,19 @@ from .base import ParserBase, model_or_permission_row, rel_only
 
 class HermesTests(ParserBase):
     """Test the Hermes parser."""
+
+    def test_yaml_comment_and_mapping_after_a_tab(self):
+        self.assertEqual(yaml_scalar("a\t# note"), "a")
+        self.assertIsNone(yaml_scalar("a:\tb"))
+        self.assertEqual(read_flat_list(["key:\t# note", "  - x\t# note"], "key"), ([(2, "x")], ""))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            self.assertEqual(yaml_scalar("a%s# b" % space), "a%s# b" % space, repr(space))
+            self.assertEqual(yaml_scalar("a:%sb" % space), "a:%sb" % space, repr(space))
+
+    def test_cron_frame_takes_ascii_digits_only(self):
+        frame = "**Prompt Characters:** %s\n## Prompt\n\n"
+        self.assertTrue(CRON_PROMPT_FRAME_PATTERN.search(frame % "3"))
+        self.assertIsNone(CRON_PROMPT_FRAME_PATTERN.search(frame % chr(0x0663)))
 
     REL = ".hermes/state.db"
 

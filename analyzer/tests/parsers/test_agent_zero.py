@@ -37,6 +37,14 @@ from .base import ParserBase, rel_only
 class AgentZeroTests(ParserBase):
     """Test the Agent Zero parser."""
 
+    def test_recover_logs_takes_json_whitespace_only(self):
+        for space in (" ", "\t", "\n", "\r\n"):
+            text = '{"logs"%s:%s[{"a": 1}' % (space, space)
+            self.assertEqual(recover_logs(text), [{"a": 1}], repr(space))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            text = '{"logs"%s: [{"a": 1}' % space
+            self.assertEqual(recover_logs(text), [], repr(space))
+
     REL = AGENT_ZERO_REL
 
     def test_rows(self):

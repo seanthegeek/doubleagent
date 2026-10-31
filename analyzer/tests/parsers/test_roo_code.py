@@ -7,7 +7,7 @@ from doubleagent.inputs import Artifact, Home
 from doubleagent.parsers import Options
 from doubleagent.parsers.antigravity import file_mtime
 from doubleagent.parsers.cline import ClineParser
-from doubleagent.parsers.roo_code import RooCodeParser
+from doubleagent.parsers.roo_code import ENTRIES_KEY_PATTERN, RooCodeParser
 from fixtures import (
     ROO_CLI_TASK,
     ROO_CLOUD_TOKEN,
@@ -26,6 +26,12 @@ ROO_GS = ".config/Code/User/globalStorage/rooveterinaryinc.roo-cline/"
 
 class RooCodeTests(ParserBase):
     """Test the Roo Code parser."""
+
+    def test_entries_key_takes_json_whitespace_only(self):
+        self.assertTrue(ENTRIES_KEY_PATTERN.search('{"entries" \r\n:\t['))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            text = '{"entries"%s: [' % space
+            self.assertIsNone(ENTRIES_KEY_PATTERN.search(text), repr(text))
 
     UI_MESSAGES = ROO_GS + "tasks/%s/ui_messages.json" % ROO_TASK
     CLI_API = ".vscode-mock/global-storage/tasks/%s/api_conversation_history.json" % ROO_CLI_TASK

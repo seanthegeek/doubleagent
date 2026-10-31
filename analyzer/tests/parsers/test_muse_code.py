@@ -34,6 +34,10 @@ from .base import ParserBase
 class MuseCodeTests(ParserBase):
     """Test the Muse Code parser."""
 
+    def test_recorded_at_text_takes_ascii_digits_only(self):
+        self.assertEqual(micros_to_utc("1000000"), "1970-01-01T00:00:01.000Z")
+        self.assertEqual(micros_to_utc(chr(0x0661) + "000000"), "")
+
     def test_secondary(self):
         # The history file is a secondary source, the transcript is not.
         parser = MuseCodeParser()

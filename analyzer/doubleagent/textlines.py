@@ -13,6 +13,12 @@ from __future__ import annotations
 # The whitespace a line-level trim takes once the terminator is gone.
 ASCII_SPACE = " \t\r\f\v"
 
+# Python's ASCII whitespace, the padding a value such as a timestamp may carry.
+ASCII_WHITESPACE = " \t\n\r\f\v"
+
+# The whitespace JSON allows between tokens.
+JSON_SPACE = " \t\n\r"
+
 # The whitespace of TOML and of YAML: space and tab only.
 SPACE_OR_TAB = " \t"
 

@@ -1,5 +1,6 @@
 """Tests of input detection: loose trees, disk images, collections and archives."""
 
+import hashlib
 import json
 import os
 import shutil
@@ -9,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from doubleagent import catalog, cli, model
+from doubleagent import catalog, cli, inputs, model
 from doubleagent.inputs import open_input
 from fixtures import (
     PROJECT_GIT_CONFIG,
@@ -495,6 +496,30 @@ class ArchiveTests(unittest.TestCase):
             (project["remotes"], project["head"], project["recorded_remotes"]),
             (PROJECT_GIT_REMOTES, "main", [PROJECT_REMOTE]),
         )
+
+
+def test_manifest_lines_take_json_whitespace_only(tmp_path):
+    root = tmp_path / "collection"
+    (root / "fs").mkdir(parents=True)
+    record = json.dumps({"path": "/x", "status": "collected", "type": "file"})
+    for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+        (root / "manifest.jsonl").write_text(
+            " %s\t\r\n%s%s\n" % (record, space, record), encoding="utf-8", newline=""
+        )
+        collection = open_input(root, catalog.load())
+        assert "1 manifest rows did not parse" in collection.notes, (repr(space), collection.notes)
+
+
+def test_sidecar_hash_ends_at_ascii_whitespace(tmp_path):
+    archive = tmp_path / "c.tar.gz"
+    archive.write_bytes(b"archive")
+    digest = hashlib.sha256(b"archive").hexdigest()
+    sidecar = tmp_path / "c.tar.gz.sha256"
+    sidecar.write_text("%s  c.tar.gz\r\n" % digest.upper(), encoding="utf-8")
+    assert inputs._verify_sidecar(archive, sidecar).startswith("archive sha256 verified")
+    for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+        sidecar.write_text("%s%sc.tar.gz\n" % (digest, space), encoding="utf-8")
+        assert inputs._verify_sidecar(archive, sidecar).startswith("WARNING"), repr(space)
 
 
 if __name__ == "__main__":

@@ -42,7 +42,7 @@ from pathlib import Path
 from ..inputs import Artifact
 from ..model import SCRATCH_PREFIX, Row, compact
 from ..sqlite_util import is_sqlite, open_copy, table_names
-from ..textlines import SPACE_OR_TAB, split_lines
+from ..textlines import JSON_SPACE, SPACE_OR_TAB, split_lines
 from ..timeutil import to_utc
 from .base import (
     Options,
@@ -111,7 +111,7 @@ CHECKPOINT_COLUMNS = (
 )
 SIGNED_IN_PATTERN = re.compile(r"Signed in to (\S+) as (.+?)\.?[ \t]*$")
 WORKSPACE_LINE_PATTERN = re.compile(r"Workspace initialized: ([0-9a-f-]{36})")
-LOG_TIME_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2}T[0-9:.]+Z)[ \t]")
+LOG_TIME_PATTERN = re.compile(r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z)[ \t]")
 
 
 def _dict(value) -> dict:
@@ -193,13 +193,23 @@ def decision_text(data: dict) -> str:
 def strip_jsonc(text: str) -> str:
     """Return JSON with `//` and `/* */` comments and trailing commas as plain JSON.
 
-    Strings are copied untouched, so a URL's `//` survives.
+    Strings are copied untouched, so a URL's `//` and a `,]` inside one
+    survive. A trailing comma is one followed by JSON whitespace (space, tab,
+    LF, CR) and comments only, then `}` or `]`.
     """
     out: list[str] = []
     i, length = 0, len(text)
     while i < length:
         character = text[i]
-        if character == '"':
+        if character in "}]":
+            last = len(out) - 1
+            while last >= 0 and out[last] in JSON_SPACE:
+                last -= 1
+            if last >= 0 and out[last] == ",":
+                del out[last]
+            out.append(character)
+            i += 1
+        elif character == '"':
             j = i + 1
             while j < length and text[j] != '"':
                 j += 2 if text[j] == "\\" else 1
@@ -214,7 +224,7 @@ def strip_jsonc(text: str) -> str:
         else:
             out.append(character)
             i += 1
-    return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
+    return "".join(out)
 
 
 def read_flat_yaml(path: Path) -> dict[str, str | None]:

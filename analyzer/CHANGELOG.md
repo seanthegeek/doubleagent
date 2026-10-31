@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `openclaw` parser reads a cold archive stored in the database in chunks (`session_transcript_cold_archive_chunks`, agent schema 37), chunk by chunk; such generations gave no rows before. A database-stored cold archive or chunk with no bytes is a `parser: cold archive <name> has no stored bytes` row, not silence ([#206], [#326]).
 - The `kilo-code` parser reads the pinned session ids of the Kilo Code TUI's `.local/state/kilo/session.json`, as it does OpenCode's, giving one `session pinned:` row per id; it had skipped the file, assuming Kilo's TUI kept none ([#326]).
 - A Kilo Code remote control log or pre-fork extension task file that cannot be read is now one `parser: <file> could not be read (<reason>)` row, as is an unreadable memory digest, instead of a `problem:` line ([#326]).
+- Readers of specified formats take only the whitespace and digits those formats allow: a `.git/config` header or key, JSON recovered from a damaged session file (`agent-zero`, `cline`, `cody`, `continue`, `gemini-cli`, `kiro`, `little-coder`, `roo-code`), Copilot CLI JSONC trailing commas, Hermes YAML comments after a tab, Hermes and Continue YAML mapping values after a tab, the collection's `manifest.jsonl` and `.sha256` sidecar, the bundled catalog, ISO 8601 and epoch timestamps, and the marker, log and timestamp lines of `aider`, `claude-code`, `codex`, `continue`, `copilot-cli`, `crush`, `cursor`, `hermes`, `kilo-code`, `muse-code`, `nanobot`, `openhands`, `pearai` and `twinny` no longer match a Unicode space, line separator or non-ASCII digit. A line of only Unicode space in the Aider input history or the pi debug log is now a `parser: unparseable line` row rather than skipped, and an Ollama history prompt keeps a leading or trailing U+00A0. Codex log fields are separated by a space or tab only, so a Unicode space stays inside a field's bare value. Copilot CLI JSONC no longer loses a `,` before `]` or `}` inside a string ([#299], [#380]).
 
 ## [0.21.0] - 2026-10-28
 
@@ -2146,9 +2147,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#380]: https://github.com/seanthegeek/doubleagent/issues/380
 [#326]: https://github.com/seanthegeek/doubleagent/issues/326
 [#324]: https://github.com/seanthegeek/doubleagent/issues/324
 [#321]: https://github.com/seanthegeek/doubleagent/issues/321
+[#299]: https://github.com/seanthegeek/doubleagent/issues/299
 [#285]: https://github.com/seanthegeek/doubleagent/issues/285
 [#283]: https://github.com/seanthegeek/doubleagent/issues/283
 [#282]: https://github.com/seanthegeek/doubleagent/issues/282

@@ -55,7 +55,7 @@ CONFIG_PATTERN = re.compile(
 # The global shell config beside crush.json, and a project's crushrc or .crushrc.
 CRUSHRC_PATTERN = re.compile(r"^(\.config/crush/crushrc|\.?crushrc)$")
 CONFIG_ORIGINAL_PATTERN = re.compile(r"^(.*)[\\/]\.crush[\\/]crush\.json$")
-CHANNEL_PATTERN = re.compile(r"^<channel\s([^>]*)>")
+CHANNEL_PATTERN = re.compile(r"^<channel[ \t\r\n]([^>]*)>")
 ATTRIBUTE_PATTERN = re.compile(r'([A-Za-z_][\w.-]*)="([^"]*)"')
 DENIED = "User denied permission"
 HOOK_PREFIXES = (("Tool call blocked by hook.", "deny"), ("Turn halted by hook.", "halt"))

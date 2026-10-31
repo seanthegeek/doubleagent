@@ -8,7 +8,12 @@ from doubleagent import cli
 from doubleagent.inputs import open_input
 from doubleagent.parsers import Options
 from doubleagent.parsers.antigravity import file_mtime
-from doubleagent.parsers.copilot_cli import CopilotCliParser, request_target, strip_jsonc
+from doubleagent.parsers.copilot_cli import (
+    LOG_TIME_PATTERN,
+    CopilotCliParser,
+    request_target,
+    strip_jsonc,
+)
 from doubleagent.parsers.copilot_cli import result_text as copilot_result_text
 from fixtures import (
     BAD_LINE,
@@ -36,6 +41,23 @@ from .base import ParserBase, rel_only
 
 class CopilotCliTests(ParserBase):
     """Test the Copilot CLI parser."""
+
+    def test_strip_jsonc_trailing_comma_takes_json_whitespace_only(self):
+        # A comma before another space is no trailing comma, and one inside a
+        # string is the string's.
+        for space in (" ", "\t", "\n", "\r\n", " // c\n", " /* c */ "):
+            text = '{"a": [1,%s],%s}' % (space, space)
+            self.assertEqual(json.loads(strip_jsonc(text)), {"a": [1]}, repr(text))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            text = "[1,%s]" % space
+            self.assertEqual(strip_jsonc(text), text, repr(text))
+        text = '{"x": "a, ]", "y": "b,}"}'
+        self.assertEqual(strip_jsonc(text), text)
+
+    def test_log_time_takes_ascii_digits_only(self):
+        line = "2026-10-01T08:59:59.400Z [INFO] x"
+        self.assertTrue(LOG_TIME_PATTERN.match(line))
+        self.assertIsNone(LOG_TIME_PATTERN.match(line.replace("1", chr(0x0661), 1)))
 
     # (source_line, turn_type, text) for every row of the fixture log
     # without thinking (research/copilot-cli.md, Parser plan, expected rows).

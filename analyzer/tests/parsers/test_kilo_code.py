@@ -9,7 +9,12 @@ from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
-from doubleagent.parsers.kilo_code import KiloCodeParser, is_task_file
+from doubleagent.parsers.kilo_code import (
+    LOG_HEAD_PATTERN,
+    REMOTE_PATTERN,
+    KiloCodeParser,
+    is_task_file,
+)
 from doubleagent.parsers.kilo_code import iter_json_array as kilo_iter_json_array
 from doubleagent.parsers.opencode import OpenCodeParser
 from doubleagent.timeutil import to_utc
@@ -33,6 +38,17 @@ from .base import ParserBase, read_jsonl
 
 class KiloCodeTests(ParserBase):
     """Test the Kilo Code parser."""
+
+    def test_log_head_takes_ascii_digits_and_space_or_tab(self):
+        head = "INFO%s2026-10-01T08:00:00 +3ms "
+        self.assertTrue(LOG_HEAD_PATTERN.match(head % " \t"))
+        self.assertIsNone(LOG_HEAD_PATTERN.match((head % " ").replace("3", chr(0x0663))))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            self.assertIsNone(LOG_HEAD_PATTERN.match(head % space), repr(space))
+        ended = REMOTE_PATTERN["remote session ended"]
+        tail = " sessionID=s startedAt=t durationMs=%s reason=r remote session ended"
+        self.assertTrue(ended.search(tail % "3"))
+        self.assertIsNone(ended.search(tail % chr(0x0663)))
 
     DATABASE = ".local/share/kilo/kilo.db"
     TASK = (

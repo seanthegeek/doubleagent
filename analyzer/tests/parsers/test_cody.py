@@ -6,7 +6,7 @@ from doubleagent import cli
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import Artifact, Home, open_input
 from doubleagent.parsers import Options, by_agent
-from doubleagent.parsers.cody import CodyParser, chat_time
+from doubleagent.parsers.cody import CodyParser, chat_time, recover_history
 from doubleagent.timeutil import to_utc
 from fixtures import (
     CODY_ACCOUNT,
@@ -27,6 +27,19 @@ from .base import ParserBase
 
 class CodyTests(ParserBase):
     """Test the Cody parser."""
+
+    def test_recovered_keys_take_json_whitespace_and_ascii_digits_only(self):
+        date = "Wed, 01 Oct 2026 08:00:00 GMT"
+        template = '{"acct": {"chat": {"%s"%s:%s{"interactions": [], "chatTitle": "t"}, '
+        chats, _, _ = recover_history(template % (date, " \n", "\t"))
+        self.assertEqual(list(chats["acct"]["chat"]), [date])
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            chats, _, _ = recover_history(template % (date, space, ""))
+            self.assertEqual(chats, {}, repr(space))
+        chats, _, _ = recover_history(
+            template % (date.replace("01 Oct", "0%s Oct" % chr(0x0661)), "", "")
+        )
+        self.assertEqual(chats, {})
 
     def test_rows(self):
         rows = self.rows_for(CodyParser(), CODY_JB_REL)

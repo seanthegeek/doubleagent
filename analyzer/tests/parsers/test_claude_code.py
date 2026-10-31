@@ -13,6 +13,8 @@ from doubleagent.inputs import Artifact, Home, open_input
 from doubleagent.model import Row, summarise
 from doubleagent.parsers import Options, by_agent
 from doubleagent.parsers.claude_code import (
+    PASTE_PATTERN,
+    PASTE_WRAPPER_PATTERN,
     ClaudeCodeParser,
     match_form,
     match_tolerance,
@@ -65,6 +67,15 @@ from .base import ParserBase
 
 class ClaudeCodeTests(ParserBase):
     """Test the Claude Code parser on the fixture transcript and history."""
+
+    def test_paste_markup_takes_ascii_digits_and_whitespace(self):
+        self.assertTrue(PASTE_PATTERN.fullmatch("[Pasted text #3 +12 lines]"))
+        self.assertIsNone(PASTE_PATTERN.fullmatch("[Pasted text #%s]" % chr(0x0663)))
+        self.assertIsNone(PASTE_PATTERN.fullmatch("[Pasted text #3 +1%s lines]" % chr(0x0663)))
+        self.assertTrue(PASTE_WRAPPER_PATTERN.fullmatch('<pasted_content\tid="ab12">'))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            tag = '<pasted_content%sid="ab12">' % space
+            self.assertIsNone(PASTE_WRAPPER_PATTERN.fullmatch(tag), repr(tag))
 
     REL = ".claude/projects/-srv-proj/%s.jsonl" % CLAUDE_SESSION
     SUB = ".claude/projects/-srv-proj/%s/subagents/agent-abc.jsonl" % CLAUDE_SESSION

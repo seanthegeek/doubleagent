@@ -11,7 +11,7 @@ from test_errors import CAN_DENY, DENY_REASON
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import Artifact, Home, open_input
 from doubleagent.parsers import Options
-from doubleagent.parsers.gemini_cli import GeminiCliParser, resolve_project
+from doubleagent.parsers.gemini_cli import HISTORY_OBJECT_PATTERN, GeminiCliParser, resolve_project
 from doubleagent.timeutil import to_utc
 from fixtures import (
     GEMINI_BUG_MS,
@@ -36,6 +36,12 @@ from .base import ParserBase
 
 class GeminiCliTests(ParserBase):
     """Test the Gemini CLI parser."""
+
+    def test_history_object_takes_json_whitespace_only(self):
+        self.assertTrue(HISTORY_OBJECT_PATTERN.match(' \r\n{\t"history" : '))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            for text in (space + '{"history": ', '{"history"%s: ' % space):
+                self.assertIsNone(HISTORY_OBJECT_PATTERN.match(text), repr(text))
 
     REL = GEMINI_REL
     LEGACY = ".gemini/tmp/%s/chats/session-2026-09-30T08-00-b2c3d4e5.json" % GEMINI_HASH

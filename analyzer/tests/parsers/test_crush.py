@@ -8,7 +8,7 @@ from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.inputs import open_input
 from doubleagent.parsers import Options
-from doubleagent.parsers.crush import CrushParser, project_of
+from doubleagent.parsers.crush import CHANNEL_PATTERN, CrushParser, project_of
 from fixtures import CRUSH_SESSION
 
 from .base import ParserBase
@@ -16,6 +16,12 @@ from .base import ParserBase
 
 class CrushTests(ParserBase):
     """Test the Crush parser."""
+
+    def test_channel_tag_takes_xml_whitespace_only(self):
+        for space in (" ", "\t", "\n"):
+            self.assertTrue(CHANNEL_PATTERN.match('<channel%ssource="x">' % space), repr(space))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            self.assertIsNone(CHANNEL_PATTERN.match('<channel%ssource="x">' % space), repr(space))
 
     REL = ".crush/crush.db"
 

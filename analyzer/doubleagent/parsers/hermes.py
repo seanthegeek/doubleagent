@@ -64,6 +64,9 @@ HOME = r"(?:(?:\.hermes[^/]*|AppData/Local/hermes[^/]*)/)?(?:profiles/[^/]+/)?"
 DATABASE_PATTERN = re.compile(r"^%sstate\.db$" % HOME)
 JSONL_PATTERN = re.compile(r"^%ssessions/[^/]+\.jsonl$" % HOME)
 SNAPSHOT_PATTERN = re.compile(r"^%sstate-snapshots/([^/]+)/state\.db$" % HOME)
+# A YAML comment starts at `#` after a space or tab, a mapping value at `:` before one.
+YAML_COMMENT_PATTERN = re.compile(r"[ \t]#")
+YAML_MAPPING_PATTERN = re.compile(r":[ \t]")
 SNAPSHOT_TIME_PATTERN = re.compile(r"^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:-|$)")
 PASTES_PATTERN = re.compile(r"^%spastes/pending\.json$" % HOME)
 # A paste.rs upload's `expire_at` is its upload time plus this (hermes_cli/debug.py).
@@ -120,8 +123,8 @@ RETIRED_PREFIX = "gateway.retired_session.v1."
 WORKTREE_PATTERN = re.compile(r"^(.*)[/\\]\.worktrees[/\\][^/\\]+[/\\]?$")
 WORKTREE_BRANCHES = ("hermes/", "hermes-subagent/")
 # The cron run document's length frames (cron/scheduler_prompt.py).
-CRON_PROMPT_FRAME_PATTERN = re.compile(r"(?m)^\*\*Prompt Characters:\*\* (\d+)\n## Prompt\n\n")
-CRON_RESPONSE_FRAME_PATTERN = re.compile(r"\*\*Response Characters:\*\* (\d+)\n## Response\n\n")
+CRON_PROMPT_FRAME_PATTERN = re.compile(r"(?m)^\*\*Prompt Characters:\*\* ([0-9]+)\n## Prompt\n\n")
+CRON_RESPONSE_FRAME_PATTERN = re.compile(r"\*\*Response Characters:\*\* ([0-9]+)\n## Response\n\n")
 CRON_PROMPT_HEADING = "## Prompt\n\n"
 CRON_RESPONSE_HEADING = "## Response\n\n"
 # ShareGPT `from` values of a trajectory entry (agent/agent_runtime_helpers.py).
@@ -294,8 +297,13 @@ def yaml_scalar(value: str) -> str | None:
         except ValueError:
             return None
         return out if isinstance(out, str) else None
-    plain = value.split(" #", 1)[0].rstrip(SPACE_OR_TAB)
-    if not plain or plain[0] in "[]{}&*!|>%@`#," or ": " in plain or plain.endswith(":"):
+    plain = YAML_COMMENT_PATTERN.split(value, maxsplit=1)[0].rstrip(SPACE_OR_TAB)
+    if (
+        not plain
+        or plain[0] in "[]{}&*!|>%@`#,"
+        or YAML_MAPPING_PATTERN.search(plain)
+        or plain.endswith(":")
+    ):
         return None
     return plain
 
@@ -312,7 +320,9 @@ def read_flat_list(lines: list[str], key: str) -> tuple[list[tuple[int, str]], s
     for line_number, line in enumerate(lines, 1):
         if line.startswith(key + ":"):
             start = line_number
-            rest = line[len(key) + 1 :].split(" #", 1)[0].strip(SPACE_OR_TAB)
+            rest = YAML_COMMENT_PATTERN.split(line[len(key) + 1 :], maxsplit=1)[0].strip(
+                SPACE_OR_TAB
+            )
             if rest not in ("", "[]", "null", "~"):
                 return [], "line %d: %s is not a block list" % (line_number, key)
             break

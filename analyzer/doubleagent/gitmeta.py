@@ -37,8 +37,9 @@ from .textlines import ASCII_SPACE, split_lines
 CONFIG_REL = ".git/config"
 HEAD_REL = ".git/HEAD"
 
-_HEADER_PATTERN = re.compile(r'\[\s*([A-Za-z0-9.-]+)(?:\s+"((?:[^"\\]|\\.)*)")?\s*\]')
-_KEY_PATTERN = re.compile(r"([A-Za-z][A-Za-z0-9-]*)\s*(?:=(.*))?$")
+# git allows only space and tab around a section name and before a key's `=`.
+_HEADER_PATTERN = re.compile(r'\[[ \t]*([A-Za-z0-9.-]+)(?:[ \t]+"((?:[^"\\]|\\.)*)")?[ \t]*\]')
+_KEY_PATTERN = re.compile(r"([A-Za-z][A-Za-z0-9-]*)[ \t]*(?:=(.*))?$")
 _ESCAPES = {"\\": "\\", '"': '"', "n": "\n", "t": "\t", "b": "\b"}
 
 

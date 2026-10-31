@@ -24,6 +24,16 @@ from .base import ParserBase, model_or_permission_row, read_jsonl, rel_only
 class OllamaTests(ParserBase):
     """Test the Ollama parser."""
 
+    def test_history_trims_ascii_whitespace_only(self):
+        path = self.home / self.HISTORY_REL
+        space = chr(0x00A0)
+        path.write_bytes(("why%s \t\r\n%s\n \n" % (space, chr(0x2028))).encode("utf-8"))
+        rows = self.rows_for(OllamaParser(), self.HISTORY_REL)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.source_line) for row in rows],
+            [("user", "why" + space, 1), ("user", chr(0x2028), 2)],
+        )
+
     HISTORY_REL = ".ollama/history"
     CONFIG_REL = ".ollama/config.json"
     CALL_ID = OLLAMA_CHAT + ":1"

@@ -110,7 +110,9 @@ TURN_ITEM_KEYS = {
 }
 SKIPPED_ITEMS = ("hookPrompt", "contextCompaction")
 # `key=value` in a tracing body: a bare value or a quoted string.
-LOG_FIELD_PATTERN = re.compile(r'(?:^|\s)([A-Za-z_][A-Za-z0-9_.]*)=("(?:[^"\\]|\\.)*"|\S+)')
+LOG_FIELD_PATTERN = re.compile(
+    r'(?:^|[ \t])([A-Za-z_][A-Za-z0-9_.]*)=("(?:[^"\\]|\\.)*"|[^ \t\r\n]+)'
+)
 
 
 def _select(connection: sqlite3.Connection, table: str, wanted: tuple[str, ...]) -> list[dict]:

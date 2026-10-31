@@ -140,7 +140,7 @@ PLUGINS_SOURCE = "(from state.vscdb cursor.plugins.installedIds, file mtime)"
 # `<timestamp>Thursday, Oct 1, <year>, 6:00 AM (UTC-4)</timestamp>` LF
 # `<user_query>Q</user_query>`, the worker's wrapper of a user text block.
 WRAPPER_PATTERN = re.compile(
-    r"^<timestamp>([^<]*)</timestamp>\s*<user_query>(.*)</user_query>\s*$", re.DOTALL
+    r"^<timestamp>([^<]*)</timestamp>\s*<user_query>(.*)</user_query>\s*$", re.DOTALL | re.ASCII
 )
 TAG_PATTERN = re.compile(
     r"^\s*[A-Za-z]+,\s+([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}):(\d{2})"

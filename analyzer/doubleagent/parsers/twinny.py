@@ -71,7 +71,8 @@ CHANGES_PATTERN = re.compile(
 )
 LOG_PATTERN = re.compile(r"(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?$")
 LOG_HEADER_PATTERN = re.compile(
-    r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}) \[(trace|debug|info|warning|error)\] (.*)$"
+    r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}) \[(trace|debug|info|warning|error)\] (.*)$",
+    re.ASCII,
 )
 
 

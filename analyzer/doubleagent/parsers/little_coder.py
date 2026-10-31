@@ -55,10 +55,10 @@ LEGACY_INPUT_REL = ".little-coder/input_history.txt"
 LEGACY_CONFIG_REL = ".little-coder/config.json"
 LEGACY_SNAPSHOTS_PATTERN = re.compile(r"^\.little-coder/checkpoints/([^/]+)/snapshots\.json$")
 LEGACY_DENIED = "Denied: user rejected this operation"
-SESSIONS_KEY_PATTERN = re.compile(r'"sessions"\s*:\s*')
-MESSAGES_KEY_PATTERN = re.compile(r'"messages"\s*:\s*')
-SESSION_ID_PATTERN = re.compile(r'"session_id"\s*:\s*"([^"\\]*)"')
-SAVED_AT_PATTERN = re.compile(r'"saved_at"\s*:\s*"([^"\\]*)"')
+SESSIONS_KEY_PATTERN = re.compile(r'"sessions"[ \t\n\r]*:[ \t\n\r]*')
+MESSAGES_KEY_PATTERN = re.compile(r'"messages"[ \t\n\r]*:[ \t\n\r]*')
+SESSION_ID_PATTERN = re.compile(r'"session_id"[ \t\n\r]*:[ \t\n\r]*"([^"\\]*)"')
+SAVED_AT_PATTERN = re.compile(r'"saved_at"[ \t\n\r]*:[ \t\n\r]*"([^"\\]*)"')
 
 
 def _regular_files(directory: Path) -> list[os.DirEntry]:

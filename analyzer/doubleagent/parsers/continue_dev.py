@@ -84,7 +84,8 @@ POLICY_ADDED_PATTERN = re.compile(r"^Added policy rule to permissions\.yaml: (.*
 YAML_KEY_PATTERN = re.compile(r"^(allow|ask|exclude):[ \t]*(\[[ \t]*\]|null|~)?[ \t]*(?:#.*)?$")
 YAML_ITEM_PATTERN = re.compile(r"^[ \t]*-[ \t]+(.*?)[ \t]*$")
 LOG_LINE_PATTERN = re.compile(
-    r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[([0-9a-fA-F]{8})\] \[[A-Za-z]+\]: (.*)$"
+    r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[([0-9a-fA-F]{8})\] \[[A-Za-z]+\]: (.*)$",
+    re.ASCII,
 )
 METADATA_POST_PATTERN = re.compile(r"^\[metadata\] POST (\S+)(?: (\{.*\}))?$")
 # `[metadata]` result lines (extensions/cli/src/util/metadata.ts:144-180):
@@ -161,7 +162,8 @@ def yaml_scalar(text: str) -> str | None:
     if not text or text[0] in "[]{}&*!|>%@`-?:,#":
         return None
     value = re.sub(r"[ \t]+#.*$", "", text)
-    return None if ": " in value or value.endswith(":") else value
+    # A mapping value starts at `:` before a space or tab.
+    return None if re.search(r":[ \t]", value) or value.endswith(":") else value
 
 
 def read_permissions(text: str) -> tuple[list[tuple[int, str, str]], str]:
@@ -262,14 +264,14 @@ def load_session(text: str) -> tuple[dict, str]:
             pass
     out: dict = {}
     for key in HEADER_KEYS:
-        match = re.search(r'"%s"\s*:\s*("(?:[^"\\]|\\.)*")' % key, text)
+        match = re.search(r'"%s"[ \t\n\r]*:[ \t\n\r]*("(?:[^"\\]|\\.)*")' % key, text)
         if match:
             try:
                 out[key] = json.loads(match.group(1))
             except ValueError:
                 pass
     history: list[dict] = []
-    match = re.search(r'"history"\s*:\s*\[', text)
+    match = re.search(r'"history"[ \t\n\r]*:[ \t\n\r]*\[', text)
     if match:
         position = match.end()
         while True:

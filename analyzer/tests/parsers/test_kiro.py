@@ -22,6 +22,14 @@ from .base import ParserBase, model_or_permission_row
 class KiroTests(ParserBase):
     """Test the Kiro parser."""
 
+    def test_salvage_takes_json_whitespace_only(self):
+        template = '{"conversation_id"%s:%s"c1", "history"%s:%s[{"a": 1}, {"b'
+        state, _ = salvage(template % (" ", "\n", "\r\n", "\t"))
+        self.assertEqual(state and state.get("conversation_id"), "c1")
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            state, _ = salvage(template % (space, "", space, ""))
+            self.assertIsNone(state and state.get("conversation_id"), repr(space))
+
     DATABASE = ".local/share/amazon-q/data.sqlite3"
     EXPORT = ".aws/amazonq/exports/issue-chat.json"
 

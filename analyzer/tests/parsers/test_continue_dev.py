@@ -4,7 +4,12 @@ import json
 
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import open_input
-from doubleagent.parsers.continue_dev import ContinueParser, load_session
+from doubleagent.parsers.continue_dev import (
+    LOG_LINE_PATTERN,
+    ContinueParser,
+    load_session,
+    yaml_scalar,
+)
 from doubleagent.timeutil import to_utc
 from fixtures import (
     CONTINUE_SESSION,
@@ -19,6 +24,23 @@ from .base import ParserBase
 
 class ContinueTests(ParserBase):
     """Test the Continue parser."""
+
+    def test_session_recovery_takes_json_whitespace_only(self):
+        template = '{"sessionId"%s:%s"s1", "history"%s:%s[{"a": 1}, {"b'
+        session, _ = load_session(template % (" ", "\n", "\r\n", "\t"))
+        self.assertEqual((session.get("sessionId"), session["history"]), ("s1", [{"a": 1}]))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            session, _ = load_session(template % (space, "", space, ""))
+            self.assertEqual(session, {"history": []}, repr(space))
+
+    def test_yaml_mapping_value_after_a_tab_is_no_scalar(self):
+        self.assertIsNone(yaml_scalar("Bash:\tls"))
+        self.assertEqual(yaml_scalar("Bash(ls:%s)" % chr(0x00A0)), "Bash(ls:%s)" % chr(0x00A0))
+
+    def test_log_line_takes_ascii_digits_only(self):
+        line = "2026-10-01 08:00:00.123 [0123abcd] [info]: x"
+        self.assertTrue(LOG_LINE_PATTERN.match(line))
+        self.assertIsNone(LOG_LINE_PATTERN.match(line.replace("3", chr(0x0663), 1)))
 
     REL = ".continue/sessions/%s.json" % CONTINUE_SESSION
 

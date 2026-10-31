@@ -35,6 +35,7 @@ from collections.abc import Iterator
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..textlines import ASCII_WHITESPACE
 from ..timeutil import to_utc
 from .base import (
     Options,
@@ -245,7 +246,7 @@ class OllamaParser(Parser):
                 if not raw.strip():
                     continue
                 try:
-                    line = raw.decode("utf-8").strip()
+                    line = raw.decode("utf-8").strip(ASCII_WHITESPACE)
                 except UnicodeDecodeError as error:
                     errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
                     continue

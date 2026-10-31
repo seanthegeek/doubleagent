@@ -7,7 +7,7 @@ from doubleagent.dedup import deduplicate
 from doubleagent.inputs import open_input
 from doubleagent.model import summarise
 from doubleagent.parsers import Options
-from doubleagent.parsers.cline import ClineParser
+from doubleagent.parsers.cline import MESSAGES_KEY_PATTERN, ClineParser
 from doubleagent.parsers.cline_legacy import iter_json_array
 from doubleagent.parsers.roo_code import RooCodeParser
 from fixtures import (
@@ -50,6 +50,12 @@ CLINE_GS = ".config/Code/User/globalStorage/saoudrizwan.claude-dev/"
 
 class ClineTests(ParserBase):
     """Test the Cline parser."""
+
+    def test_messages_key_takes_json_whitespace_only(self):
+        self.assertTrue(MESSAGES_KEY_PATTERN.search('{"messages" \r\n:\t['))
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            text = '{"messages"%s: [' % space
+            self.assertIsNone(MESSAGES_KEY_PATTERN.search(text), repr(text))
 
     UI_MESSAGES = CLINE_GS + "tasks/%s/ui_messages.json" % CLINE_TASK
     SDK = ".cline/data/sessions/%s/%s" % (CLINE_SESSION, CLINE_SESSION)

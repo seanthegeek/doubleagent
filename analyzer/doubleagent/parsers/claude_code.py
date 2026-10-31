@@ -87,7 +87,7 @@ CLOUD_ENV_KEY = "hasRemoteEnvironment"
 MODEL_KEY = "model"
 # A history line's paste placeholder, `[Pasted text #<n> +<m> lines]` or
 # `[Pasted text #<n>]`, and the `paste-cache/<contentHash>.txt` name.
-PASTE_PATTERN = re.compile(r"\[Pasted text #(\d+)(?: \+\d+ lines)?\]")
+PASTE_PATTERN = re.compile(r"\[Pasted text #([0-9]+)(?: \+[0-9]+ lines)?\]")
 PASTE_HASH_PATTERN = re.compile(r"^[0-9A-Za-z]+$")
 # The parts of a slash command's tag form in a transcript record.
 COMMAND_NAME_PATTERN = re.compile(r"<command-name>(.*?)</command-name>", re.S)
@@ -95,7 +95,7 @@ COMMAND_ARGS_PATTERN = re.compile(r"<command-args>(.*?)</command-args>", re.S)
 ASCII_SPACE_PATTERN = re.compile(r"[ \t\r\n\f\v]+")
 # The wrapper 2.1.310 puts around a paste in the transcript's prompt,
 # `<pasted_content id="<4 hex>">` ... `</pasted_content>`.
-PASTE_WRAPPER_PATTERN = re.compile(r"</?pasted_content(?:\s[^>]*)?>")
+PASTE_WRAPPER_PATTERN = re.compile(r"</?pasted_content(?:[ \t\r\n][^>]*)?>")
 # A history line that is a slash command as typed (`/model`, `/rename x`).
 HISTORY_COMMAND_PATTERN = re.compile(r"^/[A-Za-z][A-Za-z0-9:_-]*(?:[ \t]|$)")
 # How far a history command line may be from its transcript record: a

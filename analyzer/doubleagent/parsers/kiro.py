@@ -73,8 +73,8 @@ DENY_RULE_PATTERN = re.compile(
 DEFAULT_AGENT_NAME = "q_cli_default"
 SNIFF_BYTES = 4096
 
-_CONVERSATION_ID_PATTERN = re.compile(r'"conversation_id"\s*:\s*"((?:[^"\\]|\\.)*)"')
-_HISTORY_PATTERN = re.compile(r'"history"\s*:\s*\[')
+_CONVERSATION_ID_PATTERN = re.compile(r'"conversation_id"[ \t\n\r]*:[ \t\n\r]*"((?:[^"\\]|\\.)*)"')
+_HISTORY_PATTERN = re.compile(r'"history"[ \t\n\r]*:[ \t\n\r]*\[')
 
 
 def _sniff_export(path) -> bool:

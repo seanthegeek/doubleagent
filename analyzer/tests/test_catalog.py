@@ -70,6 +70,21 @@ class CatalogTests(unittest.TestCase):
         )
 
 
+def test_lines_end_at_lf_or_crlf_only():
+    # A glob holding a Unicode line break stays one line; ASCII space alone is blank.
+    for separator in map(chr, (0x2028, 0x0085, 0x000C)):
+        text = "first-agent|.first%sx\r\n \t\nsecond-agent|.second\n" % separator
+        parsed = catalog.parse(text)
+        globs = [entry.glob for entry in parsed.entries]
+        assert globs == [".first%sx" % separator, ".second"], repr(separator)
+    # A line of NO-BREAK SPACE is not blank: it is read as any other line
+    # lacking `|` is, never skipped.
+    for line in ("no-separator", chr(0x00A0)):
+        parsed = catalog.parse("first-agent|.first\n%s\n" % line)
+        assert len(parsed.entries) == 2, repr(line)
+        assert parsed.entries[1].agent == line, repr(line)
+
+
 if __name__ == "__main__":
     unittest.main()
 

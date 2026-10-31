@@ -3,7 +3,13 @@
 from doubleagent import cli
 from doubleagent.inputs import open_input
 from doubleagent.parsers import Options
-from doubleagent.parsers.aider import AiderParser
+from doubleagent.parsers.aider import (
+    HEADER_PATTERN,
+    INPUT_TIMESTAMP_PATTERN,
+    LLM_PATTERN,
+    AiderParser,
+    read_input_history,
+)
 from fixtures import build_aider, write_bad_line
 
 from .base import ParserBase
@@ -11,6 +17,29 @@ from .base import ParserBase
 
 class AiderTests(ParserBase):
     """Test the Aider parser."""
+
+    def test_marker_lines_take_ascii_digits_and_space_or_tab(self):
+        lines = (
+            (HEADER_PATTERN, "# aider chat started at 2026-10-01 08:00:00"),
+            (INPUT_TIMESTAMP_PATTERN, "# 2026-10-01 08:00:00.123456"),
+            (LLM_PATTERN, "TO LLM 2026-10-01T08:00:00"),
+        )
+        for pattern, line in lines:
+            self.assertTrue(pattern.match(line + " \t"), line)
+            for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+                self.assertIsNone(pattern.match(line + space), repr(line + space))
+            self.assertIsNone(pattern.match(line.replace("0", chr(0x0660))), line)
+            self.assertIsNone(pattern.match(line.replace("1", chr(0x0661))), line)
+
+    def test_input_history_line_of_unicode_space_is_reported(self):
+        path = self.tmp / "input.history"
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            path.write_text("# 2026-10-01 08:00:00\n+hi\n%s\n \t\n" % space, encoding="utf-8")
+            errors: list = []
+            self.assertEqual(read_input_history(path, errors), [(1, "2026-10-01 08:00:00", "hi")])
+            self.assertEqual(
+                errors, [(3, "unparseable line (not a FileHistory line)", space)], repr(space)
+            )
 
     CHAT = ".aider.chat.history.md"
     SESSION1 = "/alice/.aider.chat.history.md#2026-10-02 12:00:00"

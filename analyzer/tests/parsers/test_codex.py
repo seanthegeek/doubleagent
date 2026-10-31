@@ -12,6 +12,7 @@ from doubleagent.inputs import open_input
 from doubleagent.model import summarise
 from doubleagent.parsers import Options
 from doubleagent.parsers.codex import CodexParser, flat_toml
+from doubleagent.parsers.codex_state import LOG_FIELD_PATTERN
 from doubleagent.parsers.open_interpreter import OpenInterpreterParser
 from doubleagent.timeutil import epoch_ms, to_utc
 from fixtures import (
@@ -1166,6 +1167,18 @@ class CodexDesktopTests(ParserBase):
     Settings events, turn triggers, approval decisions, the guardian review, remote
     control and `.codex-global-state.json`.
     """
+
+    def test_log_fields_are_separated_by_space_or_tab_only(self):
+        self.assertEqual(
+            LOG_FIELD_PATTERN.findall("a=1 b=2\tc=3"), [("a", "1"), ("b", "2"), ("c", "3")]
+        )
+        for space in map(chr, (0x00A0, 0x2028, 0x0085)):
+            # Only a space or tab ends a bare value, so the rest is its.
+            self.assertEqual(
+                LOG_FIELD_PATTERN.findall("a=1%sb=2 c=x" % space),
+                [("a", "1%sb=2" % space), ("c", "x")],
+                repr(space),
+            )
 
     DESKTOP = CODEX_DESKTOP_ROLLOUT % CODEX_DESKTOP
     GUARDIAN = CODEX_DESKTOP_ROLLOUT % CODEX_GUARDIAN

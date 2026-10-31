@@ -39,6 +39,7 @@ from pathlib import Path
 
 from ..inputs import Artifact
 from ..model import Row, compact
+from ..textlines import JSON_SPACE
 from ..timeutil import to_utc
 from .base import (
     Options,
@@ -577,7 +578,7 @@ class PiParser(Parser):
                 if not in_messages:
                     in_messages = line == DEBUG_MARKER
                     continue
-                if not line.strip():
+                if not line.strip(JSON_SPACE):
                     continue
                 try:
                     message = json.loads(line)
