@@ -312,7 +312,7 @@ No keychain is used; every credential is in a file or the database.
   [`:94-100`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L94-L100),
   [`:170-192`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L170-L192)).
   The secret glob `.config/opencode/service*.json*` flags each of these names and the temporary
-  file, and `.local/state/opencode/service*.json*` flags the registration below and its copies.
+  file.
 - `.local/state/opencode/service.json` (or `service-<channel>.json`), the registration, carries the
   same `password`, written mode 0600
   ([`packages/client/src/effect/service.ts:14-20`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/client/src/effect/service.ts#L14-L20),
@@ -321,8 +321,8 @@ No keychain is used; every credential is in a file or the database.
   The server writes it through `service.json.<id>.tmp`, `<id>` the server's id, renamed over it
   ([`packages/cli/src/services/service-registration.ts:22-40`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-registration.ts#L22-L40)).
   Before a replacement server takes over, a client writes `service.json.pty-handoff` beside it, mode
-  0600, through `service.json.pty-handoff.<uuid>.tmp`: the persistent terminals' handoff `ticket`,
-  valid for about 30 seconds
+  0600, through `service.json.pty-handoff.<uuid>.tmp`: the persistent terminals' handoff `ticket`
+  when one exists, with its expiry (the file's own expiry is 30 seconds when there is no handoff)
   ([`packages/client/src/pty-handoff.ts:55-66`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/client/src/pty-handoff.ts#L55-L66);
   [`packages/schema/src/persistent-pty.ts:19-24`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/schema/src/persistent-pty.ts#L19-L24)).
   The secret glob `.local/state/opencode/service*.json*` flags the registration, its temporary
