@@ -177,6 +177,26 @@ transcripts in a home. The credential copies inside a snapshot are flagged by
 `state-snapshots/*/.env`, `state-snapshots/*/auth.json`, `state-snapshots/*/config.yaml`,
 `state-snapshots/*/feishu_comment_pairing.json`, `state-snapshots/*/pairing/*` and
 `state-snapshots/*/platforms/pairing/*`.
+A named profile in a volume, `profiles/<name>/`, is a whole Hermes home with its own quick snapshots
+([`hermes_cli/backup.py:1127-1129`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/backup.py#L1127-L1129)),
+so each credential glob above has a profile form, whose `*` also crosses into the profile's
+`state-snapshots/<id>/`: `profiles/*/.env`, `profiles/*/.env.bak*`, `profiles/*/.op.env`,
+`profiles/*/npmrc`, `profiles/*/auth.json`, `profiles/*/auth.json.*`, `profiles/*/auth/*`,
+`profiles/*/.anthropic_oauth.json`, `profiles/*/.copilot_jwt.json`, `profiles/*/google_*.json`,
+`profiles/*/google_chat_user_tokens/*`, `profiles/*/slack_tokens.json`, `profiles/*/honcho.json`,
+`profiles/*/mem0.json`, `profiles/*/webhook_subscriptions.json`,
+`profiles/*/teams_pipeline_store.json`, `profiles/*/mcp-tokens/*`, `profiles/*/vault/*`,
+`profiles/*/browser_auth/*`, `profiles/*/pairing/*`, `profiles/*/platforms/pairing/*`,
+`profiles/*/whatsapp/session/*`, `profiles/*/platforms/whatsapp/session/*`,
+`profiles/*/matrix/store/*`, `profiles/*/platforms/matrix/store/*`,
+`profiles/*/cache/bws_cache*.json`, `profiles/*/weixin/accounts/*`,
+`profiles/*/runtime/photon-sidecar.json`, `profiles/*/proxy/*`, `profiles/*/home/*`,
+`profiles/*/config.yaml`, `profiles/*/config.yaml.*`, `profiles/*/bot-desktop/*`,
+`profiles/*/webapp/*`, `profiles/*/feishu_comment_pairing.json`,
+`profiles/*/workspace/meetings/node_token.json`, `profiles/*/.ssh/*`, `profiles/*/.aws/credentials`,
+`profiles/*/.aws/config`, `profiles/*/.gnupg/*`, `profiles/*/.kube/*`, `profiles/*/.docker/*`,
+`profiles/*/.azure/*`, `profiles/*/.config/gh/*`, `profiles/*/.config/gcloud/*` and
+`profiles/*/.envrc`.
 
 #### Contents of the home
 
