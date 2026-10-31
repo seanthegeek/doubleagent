@@ -760,7 +760,7 @@ MakeFile 'gooseproj/.goose/memory/dev.txt' 'memory'
 MakeFile 'gooseproj/diagnostics_20261030_2.json' '{"config":{"configYaml":"x"}}'
 MakeFile 'gooserecipes/.goosehints' 'hints'
 MakeFile 'goosewin/.goosehints' 'hints'
-MakeFile 'Users/alice/AppData/Roaming/Block/goose/data/projects/quoted.md' "---`nname: quoted`nworkingDirs:`n- 'C:\goosequoted'`n---`n"
+MakeFile 'Users/alice/AppData/Roaming/Block/goose/data/projects/quoted.md' "---`nname: quoted`nworkingDirs:`n- `n- 'C:\goosequoted'`n---`n"
 MakeFile 'goosequoted/.goosehints' 'hints'
 # 2026-10-30 hermes rebuild (#326)
 $hermesProjectFiles = @('HERMES.md', '.hermes/environment.json', 'trajectory_samples.jsonl', 'failed_trajectories.jsonl')

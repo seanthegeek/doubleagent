@@ -3565,7 +3565,7 @@ function Find-GeminiProjects([string]$homeDir) {
 # Part of group 4 of the internals.md discovery table: Goose's desktop recent
 # directories, scheduled jobs' recipe directories and the workingDirs block list
 # of each project file, one pair of surrounding quotes and trailing blanks
-# removed.
+# removed and an empty item skipped.
 function Find-GooseProjects([string]$homeDir) {
   Get-PathStrings @(
     Join-PathSafe $homeDir '.config/Goose/recent-dirs.json'
@@ -3580,16 +3580,16 @@ function Find-GooseProjects([string]$homeDir) {
     Expand-Glob $homeDir '.local/share/goose/projects/*.md'
     Expand-Glob $homeDir 'AppData/Roaming/Block/goose/data/projects/*.md'
   )
-  $listRegex = '(?m)^workingDirs:[ \t]*\r?\n((?:- [^\r\n]*(?:\r?\n|$))+)'
+  $listRegex = '(?m)^workingDirs:[ \t]*\r?\n((?:-(?: [^\r\n]*)?(?:\r?\n|$))+)'
   foreach ($list in (Get-RegexCaptures $listRegex $projectFiles)) {
-    foreach ($match in [regex]::Matches($list, '(?m)^- (.*?)[ \t]*\r?$')) {
+    foreach ($match in [regex]::Matches($list, '(?m)^-(?: (.*?))?[ \t]*\r?$')) {
       $item = $match.Groups[1].Value
       $last = $item.Length - 1
       if ($last -ge 1 -and ($item[0] -eq [char]'"' -or $item[0] -eq [char]"'") -and
         $item[$last] -eq $item[0]) {
         $item = $item.Substring(1, $last - 1)
       }
-      $item
+      if ($item -ne '') { $item }
     }
   }
 }

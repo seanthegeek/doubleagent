@@ -774,7 +774,7 @@ printf '{"config":{"configYaml":"x"}}\n' >"$ROOT/srv/gooseproj/diagnostics_20261
 printf 'hints\n' >"$ROOT/srv/gooserecipes/.goosehints"
 printf 'hints\n' >"$ROOT/srv/goosewin/.goosehints"
 mkdir -p "$ALICE/AppData/Roaming/Block/goose/data/projects" "$ROOT/srv/goosequoted"
-printf '%s\n' '---' 'name: quoted' 'workingDirs:' "- '/srv/goosequoted'" '---' >"$ALICE/AppData/Roaming/Block/goose/data/projects/quoted.md"
+printf '%s\n' '---' 'name: quoted' 'workingDirs:' '- ' "- '/srv/goosequoted'" '---' >"$ALICE/AppData/Roaming/Block/goose/data/projects/quoted.md"
 printf 'hints\n' >"$ROOT/srv/goosequoted/.goosehints"
 # 2026-10-30 hermes rebuild (#326)
 mkdir -p "$ROOT/srv/hermesproj/.hermes"

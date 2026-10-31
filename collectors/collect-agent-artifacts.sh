@@ -3200,8 +3200,9 @@ find_gemini_projects() {
 }
 # find_goose_projects HOME: Goose's desktop recent directories, scheduled jobs'
 # recipe directories and the workingDirs block list of each project file, one
-# pair of surrounding quotes and trailing blanks removed (part of group 4 of the
-# internals.md discovery table). Temporaries: _fgp_.
+# pair of surrounding quotes and trailing blanks removed and an empty item
+# skipped (part of group 4 of the internals.md discovery table). Temporaries:
+# _fgp_.
 find_goose_projects() {
   abs_strings "$1/.config/Goose/recent-dirs.json" \
     "$1/Library/Application Support/Goose/recent-dirs.json" \
@@ -3212,10 +3213,10 @@ find_goose_projects() {
     "$1"/AppData/Roaming/Block/goose/data/projects/*.md; do
     [ -f "$_fgp_project" ] && awk -v quote="'" '{ sub(/[ \t\r]+$/, "") }
       $0 == "workingDirs:" { listed = 1; next }
-      listed && /^- / { item = substr($0, 3)
+      listed && ($0 == "-" || /^- /) { item = substr($0, 3)
         if (length(item) >= 2 && (item ~ /^".*"$/ || item ~ ("^" quote ".*" quote "$")))
           item = substr(item, 2, length(item) - 2)
-        print item; next }
+        if (item != "") print item; next }
       { listed = 0 }' "$_fgp_project"
   done
 }
