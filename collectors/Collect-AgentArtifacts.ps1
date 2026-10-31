@@ -438,7 +438,7 @@ aider|.aider.model.metadata.json
 aider|.aider.chat.history.md
 aider|.aider.input.history
 aider|.aider.llm.history
-# OpenCode (xdg-basedir: same paths on macOS and Windows)
+# OpenCode (XDG roots with no platform branch: same paths on macOS and Windows)
 opencode|.config/opencode
 opencode|.opencode
 opencode|.local/share/opencode
@@ -1048,6 +1048,9 @@ AppData/Local/JetBrains/*/kilo/repo-cli
 Library/Application Support/ai.opencode.desktop*/compile-cache
 AppData/Roaming/ai.opencode.desktop*/compile-cache
 .config/ai.opencode.desktop*/compile-cache
+Library/Application Support/ai.opencode.desktop*/cli
+AppData/Roaming/ai.opencode.desktop*/cli
+.config/ai.opencode.desktop*/cli
 .local/share/goose/models
 .local/share/goose/model_catalog
 .local/state/goose/codex
@@ -1589,8 +1592,10 @@ kilo.json*
 .config/opencode/config.json
 .opencode/opencode.json*
 opencode.json*
-.config/opencode/service*.json
+.config/opencode/service*.json*
+.config/opencode/cli.json*
 .local/state/opencode/service*.json
+.local/state/opencode/pty/*/service.json
 .local/share/crush/crush.json
 AppData/Local/crush/crush.json
 .config/crush/crush.json

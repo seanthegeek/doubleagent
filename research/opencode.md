@@ -157,7 +157,7 @@ Windows. `opencode debug paths` prints the roots and the database path
   [`:116-120`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/config/discovery.ts#L116-L120)), which can hold provider
   keys, MCP server `environment` values and remote MCP server `headers`
   ([Credentials](#credentials)).
-- `cli.json`, the TUI's settings (theme, keybindings, display choices)
+- `cli.json`, the TUI's settings (theme, keybindings, display choices, plugins and their options)
   ([`packages/cli/src/config/config.ts:31`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/config/config.ts#L31)), written
   once from the 1.x `tui.json` here and `kv.json` in the state directory, both left in place
   ([`packages/cli/src/config/migrate.ts:100-112`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/config/migrate.ts#L100-L112)).
@@ -311,8 +311,8 @@ No keychain is used; every credential is in a file or the database.
   [`:62-65`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L62-L65),
   [`:94-100`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L94-L100),
   [`:170-192`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L170-L192)).
-  Both are flagged by the secret globs `.config/opencode/service*.json` and
-  `.local/state/opencode/service*.json`.
+  The secret glob `.config/opencode/service*.json*` flags each of these names and the temporary
+  file, and `.local/state/opencode/service*.json` flags the registration below.
 - `.local/state/opencode/service.json` (or `service-<channel>.json`), the registration, carries the
   same `password`, written mode 0600
   ([`packages/client/src/effect/service.ts:14-20`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/client/src/effect/service.ts#L14-L20),
@@ -320,7 +320,8 @@ No keychain is used; every credential is in a file or the database.
   [`service-config.ts:91`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/service-config.ts#L91)).
 - `.local/state/opencode/pty/<instance id>/service.json` holds the `token` that authorises a client
   to the persistent terminal daemon's socket
-  ([`packages/core/src/persistent-pty/daemon.ts:35-42`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/persistent-pty/daemon.ts#L35-L42)).
+  ([`packages/core/src/persistent-pty/daemon.ts:35-42`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/persistent-pty/daemon.ts#L35-L42)),
+  flagged by the secret glob `.local/state/opencode/pty/*/service.json`.
 - Remote access exposes the server through an OpenTunnel tunnel (a third-party tunnelling client
   library, `@opentunnel/client`) at `https://<route>.<tunnel hostname>`, turned on with
   `opencode service set remote true` or `opencode pair --remote`; the tunnel identity is kept by
@@ -328,21 +329,33 @@ No keychain is used; every credential is in a file or the database.
   ([`packages/cli/src/services/remote-tunnel.ts:29`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/remote-tunnel.ts#L29),
   [`:68-72`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/services/remote-tunnel.ts#L68-L72)), at a path this repository
   does not name.
-- `.config/opencode/cli.json`, `.local/state/opencode/kv.json` and `.local/state/opencode/model.json`
-  are not credential files: they hold display settings and model choices only.
+- `.config/opencode/cli.json` is a credential file: a TUI plugin's entry in `plugins` carries an
+  `options` object of any keys, handed to the plugin as its options
+  ([`packages/tui/src/config/index.tsx:47-54`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/tui/src/config/index.tsx#L47-L54),
+  [`:79`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/tui/src/config/index.tsx#L79);
+  [`packages/tui/src/plugin/api.tsx:153`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/tui/src/plugin/api.tsx#L153)),
+  so it can hold a plugin's key. It is written mode 0600 through `cli.json.tmp`
+  ([`packages/cli/src/config/config.ts:42-47`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/config/config.ts#L42-L47)),
+  and the secret glob `.config/opencode/cli.json*` flags both names.
+- `.local/state/opencode/kv.json` holds no credentials. It keeps the 1.x TUI's display toggles and
+  dismissed notices ([Format versions](#format-versions)).
+- `.local/state/opencode/model.json` holds no credentials. It keeps model choices only.
 
 ### Exclusions
 
 Relative to the home: `.local/share/opencode/snapshot`, `.local/share/opencode/worktree`,
 `.local/share/opencode/repos`, `.local/share/opencode/tool-output`, `.config/opencode/node_modules`,
-`.opencode/node_modules`, `.opencode/bin`, `.cache/opencode` (binaries, package installs and skill
-clones) and `.local/share/opencode/bin`, which no reviewed commit writes. The desktop app's V8
-compile cache is excluded as `Library/Application Support/ai.opencode.desktop*/compile-cache`,
+`.opencode/node_modules`, `.opencode/bin` and `.local/share/opencode/bin`, which no reviewed
+commit writes. The desktop app's V8 compile cache is excluded as
+`Library/Application Support/ai.opencode.desktop*/compile-cache`,
 `AppData/Roaming/ai.opencode.desktop*/compile-cache` and
-`.config/ai.opencode.desktop*/compile-cache`. The desktop app's `cli/` directory holds copies of
-the CLI executable ([OpenCode desktop app](#opencode-desktop-app)), a downloaded binary of the kind
-an exclusion covers. `.local/share/opencode/shell` and `.local/share/opencode/artifacts` hold what
-the agent ran and published, not copies, and are not excluded.
+`.config/ai.opencode.desktop*/compile-cache`, and its copies of the CLI executable
+([OpenCode desktop app](#opencode-desktop-app)) as
+`Library/Application Support/ai.opencode.desktop*/cli`, `AppData/Roaming/ai.opencode.desktop*/cli`
+and `.config/ai.opencode.desktop*/cli`.
+`.local/share/opencode/shell` and `.local/share/opencode/artifacts` hold what the agent ran and
+published, not copies, and are not excluded. `.cache/opencode` (binaries, package installs and
+skill clones) has no catalog line, so it is not collected.
 
 ### Project-local files
 
@@ -372,6 +385,9 @@ All in `opencode.db` ([Record schema](#record-schema)):
   [`project/sql.ts:31-47`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/project/sql.ts#L31-L47)).
 - `permission.project_id`, which ties a standing grant to a project.
 - In a database upgraded from 1.x, the legacy `session.directory`.
+
+Outside SQLite, the 1.x JSON tree's `storage/project/<projectID>.json` records `worktree`
+([Format versions](#format-versions)), which project discovery reads.
 
 Outside SQLite, `~/.local/state/opencode/frecency.jsonl` lists absolute paths of files attached to
 prompts ([TUI state files](#tui-state-files)): file paths whose directories point at projects, not
