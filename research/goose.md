@@ -656,6 +656,17 @@ By block: `text` holds `text` and optional `annotations` and `_meta`; `image` ho
 `kind` and `message`
 ([`242-287`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/conversation/message.rs#L242-L287)).
 
+A text block's `annotations` is rmcp's `Annotations`, whose `audience` lists the roles the block
+is meant for, `user` or `assistant`
+([`rmcp/src/model/annotated.rs`](https://github.com/modelcontextprotocol/rust-sdk/blob/9427a929959e665e0d12e9395f674026baf4bd48/crates/rmcp/src/model/annotated.rs#L17-L24);
+[`model.rs`](https://github.com/modelcontextprotocol/rust-sdk/blob/9427a929959e665e0d12e9395f674026baf4bd48/crates/rmcp/src/model.rs#L2619-L2624)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `audience` | array | | |
+| `priority` | number | | |
+| `lastModified` | string | | |
+
 `toolCall` and `toolResult` are a result wrapper: `{"status":"success","value":...}` or
 `{"status":"error","error":"..."}`
 ([`goose-provider-types/src/conversation/tool_result_serde.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/conversation/tool_result_serde.rs#L7-L26)).
@@ -670,7 +681,7 @@ A `toolCall` value is rmcp's call
 ([`rmcp/src/model.rs`](https://github.com/modelcontextprotocol/rust-sdk/blob/9427a929959e665e0d12e9395f674026baf4bd48/crates/rmcp/src/model.rs#L4138-L4150)),
 a `toolResult` value rmcp's result
 ([`model.rs`](https://github.com/modelcontextprotocol/rust-sdk/blob/9427a929959e665e0d12e9395f674026baf4bd48/crates/rmcp/src/model.rs#L3868-L3897));
-a `toolResult` value may also be a bare content array, the older form, which the reader still
+a `toolResult.value` may also be a bare content array, the older form, which the reader still
 accepts
 ([`tool_result_serde.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/conversation/tool_result_serde.rs#L134-L170)).
 The result's `content` items are rmcp content blocks tagged on `type` in snake case: `text`,
@@ -808,7 +819,8 @@ present and `operationLogs` only when not empty.
 `sessions.model_config_json` is `ModelConfig`
 ([`goose-provider-types/src/model.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-provider-types/src/model.rs#L40-L60));
 `context_limit` and `request_headers` are not serialised. The same object is the
-`model_config` of a request log's first line.
+`model_config` of a request log's first line, so `model_config.model_name` names the model of
+that request.
 
 | Key | Type | Values | Since |
 | --- | --- | --- | --- |
@@ -1305,10 +1317,15 @@ repeat the database's assistant messages, so `secondary()` is True for them and
 calls' run time later than the log ([Request logs](#request-logs)). The parser assembles a
 streamed reply's chunks by message id before it makes rows, so the assembled text matches the
 database row, and a tool call matches on its id; the `llm request` row, which no database row
-repeats, is always kept. Both `history.txt` files are secondary sources: one `user` row per
-entry, with an empty `timestamp_utc`, `session_id` and `project_path`, which
-`dedup.deduplicate` drops when a database `user` row of the same user has the same text and
-keeps otherwise (a removed session's prompt, a slash command). See [CLI history](#cli-history).
+repeats, is always kept. A log's first line gives one `system` row
+`llm request | <N> messages | last user: <text>`, `<N>` the length of `input.messages` and
+`<text>` the last `user` message's text, with the model from `model_config.model_name` (else
+`input.model`) and the time of the first response line; each assembled response message gives
+the rows of its content blocks, and an `{error}` line one `system` row `llm error: <error>`.
+Both `history.txt` files are secondary sources: one `user` row per entry, with an empty
+`timestamp_utc`, `session_id` and `project_path`, which `dedup.deduplicate` drops when a database
+`user` row of the same user has the same text and keeps otherwise (a removed session's prompt, a
+slash command). See [CLI history](#cli-history).
 
 One `system` row per `schedule.json` job
 ([Scheduler and project files](#scheduler-and-project-files)), a configuration record, neither
@@ -1398,7 +1415,9 @@ the session start row (`archived=`).
 
 #### Bad-line rows
 
-The legacy JSONL and the request logs go through `iter_jsonl` and `error_rows`; `history.txt`
+A `sessions.db` that is not a SQLite database is one row `parser: not a SQLite database`, and a
+SQLite error while reading it one row `parser: SQLite error: <message>`. The legacy JSONL and the
+request logs go through `iter_jsonl` and `error_rows`; `history.txt`
 cannot fail to decode (each line is a row). A `permission.yaml` line that is not a category, a
 level or a list item is one row,
 `parser: unparseable line (not a category, level or list item): <line>`, and the entries before
