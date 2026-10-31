@@ -422,6 +422,21 @@ class CrushTests(ParserBase):
             [("system", "parser: .config/crush/crush.json is not a JSON object", "")],
         )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_config_unreadable_is_not_misread_as_wrong_shape(self):
+        for rel in (".config/crush/crush.json", ".crush/crush.json"):
+            path = self.home / rel
+            path.chmod(0)
+            try:
+                rows = self.rows_for(CrushParser(), rel)
+            finally:
+                path.chmod(0o600)
+            self.assertEqual(
+                [(row.turn_type, row.text) for row in rows],
+                [("system", "parser: %s could not be read: Permission denied" % rel)],
+                rel,
+            )
+
     def test_crushrc_standing_rows(self):
         from fixtures import CRUSHRC
 
