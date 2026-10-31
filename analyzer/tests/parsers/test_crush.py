@@ -432,8 +432,8 @@ class CrushTests(ParserBase):
             finally:
                 path.chmod(0o600)
             self.assertEqual(
-                [(row.turn_type, row.text) for row in rows],
-                [("system", "parser: %s could not be read: Permission denied" % rel)],
+                [(row.turn_type, row.text, row.source_line) for row in rows],
+                [("system", "parser: %s could not be read: Permission denied" % rel, 1)],
                 rel,
             )
 

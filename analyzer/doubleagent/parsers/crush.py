@@ -269,7 +269,7 @@ class CrushParser(Parser):
         except OSError as error:
             reason = error.strerror or error
             row = self._system(
-                artifact, "parser: %s could not be read: %s" % (artifact.rel, reason)
+                artifact, "parser: %s could not be read: %s" % (artifact.rel, reason), 1
             )
             row.timestamp_utc = timestamp
             row.project_path = self._config_project(artifact)
