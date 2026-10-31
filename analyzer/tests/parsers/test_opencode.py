@@ -6,6 +6,8 @@ import os
 import sqlite3
 import unittest
 
+from test_errors import CAN_DENY, DENY_REASON
+
 from doubleagent import cli
 from doubleagent.inputs import open_input
 from doubleagent.parsers.kilo_code import KiloCodeParser
@@ -38,8 +40,6 @@ from fixtures import (
     build_opencode_state,
     write_bad_line,
 )
-
-from test_errors import CAN_DENY, DENY_REASON
 
 from .base import ParserBase, read_jsonl
 

@@ -18,18 +18,16 @@ subclasses this one with its own paths. Files read:
   session it lacks; in a 1.x one the reverse.
 - `opencode-next.db`, a pre-release 2.0 database, a secondary source (a file
   repeating events the main database holds).
-- The legacy `storage/` and per-project `project/<slug>/storage/session/`
-  JSON trees of session, message and part files, with `storage/project/` for
-  a session's `worktree`.
-- `.local/state/opencode`: `prompt-history.jsonl` (secondary),
-  `prompt-stash.jsonl` and `session.json` (pinned ids, secondary).
+- The legacy `storage/` and per-project `project/<slug>/storage/session/` JSON trees of
+  session, message and part files, with `storage/project/` for a session's `worktree`.
+- `.local/state/opencode`: `prompt-history.jsonl` (secondary), `prompt-stash.jsonl` and
+  `session.json` (pinned ids, secondary).
 
-Model and agent (an OpenCode agent is a mode with its own permission rules)
-are tracked per session as `model:` and `permission mode:` rows. Shares give
-`session synced:` rows, so `records_sync` is set. `project_path` is the
-session's `directory`, else the project `worktree` unless `/`, else the
-message's `path.cwd`; no git branch is recorded. `source_line` is the SQLite
-`rowid`, or 1 for a JSON file.
+Model and agent (an OpenCode agent is a mode with its own permission rules) are tracked per
+session as `model:` and `permission mode:` rows. Shares give `session synced:` rows, so
+`records_sync` is set. `project_path` is the session's `directory`, else the project
+`worktree` unless `/`, else the message's `path.cwd`; no git branch is recorded.
+`source_line` is the SQLite `rowid`, or 1 for a JSON file.
 """
 
 from __future__ import annotations
@@ -824,7 +822,7 @@ class OpenCodeParser(Parser):
                 continue
             items = parts.get(str(message_row["id"] or ""))
             if items and message_row["type"] == "assistant" and "content" in data:
-                data = dict(data, content=items)
+                data["content"] = items
             yield from self._v2_rows(
                 artifact,
                 context_for(session_id),
