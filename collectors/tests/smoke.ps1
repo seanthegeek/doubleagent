@@ -1,4 +1,4 @@
-# Copyright 2026 Sean Whalen
+# Copyright 2026 Sean Whalen 
 # SPDX-License-Identifier: Apache-2.0
 #
 # Smoke test for Collect-AgentArtifacts.ps1: build a fake disk image, run the
