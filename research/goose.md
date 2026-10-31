@@ -348,6 +348,34 @@ On Windows the same files are under `AppData/Roaming/Block/goose/config`:
 `.config/goose/kimicode/device_id` is not a credential: it holds a random device identifier
 ([`kimicode.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/kimicode.rs#L197-L206)).
 
+`secrets.yaml` and the token caches of GitHub Copilot, ChatGPT Codex, Gemini, Muse Code,
+Databricks and xAI are written through `write_private_file`, which writes the whole content to a
+temporary file in the target's directory and renames it over the target
+([`providers/private_file.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/private_file.rs#L150-L152),
+[`240-257`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/private_file.rs#L240-L257);
+[`config/base.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/base.rs#L21-L23)). The temporary name is
+tempfile's default, `.tmp` and six random letters or digits (tempfile 3.27.0,
+[`Cargo.lock`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/Cargo.lock#L10195-L10196), at
+[Stebalien/tempfile `5c8fa12`](https://github.com/Stebalien/tempfile/commit/5c8fa12eb584931b4f1bccfde87eb72fbfa7dc61):
+[`src/lib.rs`](https://github.com/Stebalien/tempfile/blob/5c8fa12eb584931b4f1bccfde87eb72fbfa7dc61/src/lib.rs#L227-L236), [`195`](https://github.com/Stebalien/tempfile/blob/5c8fa12eb584931b4f1bccfde87eb72fbfa7dc61/src/lib.rs#L195);
+[`src/util.rs`](https://github.com/Stebalien/tempfile/blob/5c8fa12eb584931b4f1bccfde87eb72fbfa7dc61/src/util.rs#L7-L19)), so a write cut short leaves a copy of the credential:
+`.config/goose/.tmp??????`, `.config/goose/githubcopilot/.tmp??????`,
+`.config/goose/githubcopilot/*/.tmp??????`, `.config/goose/chatgpt_codex/.tmp??????`,
+`.config/goose/gemini_oauth/.tmp??????`, `.config/goose/muse_code/.tmp??????`,
+`.config/goose/databricks/oauth/.tmp??????` and `.config/goose/xai_oauth/.tmp??????` on Linux and
+macOS, and
+`AppData/Roaming/Block/goose/config/.tmp??????`,
+`AppData/Roaming/Block/goose/config/githubcopilot/.tmp??????`,
+`AppData/Roaming/Block/goose/config/githubcopilot/*/.tmp??????`,
+`AppData/Roaming/Block/goose/config/chatgpt_codex/.tmp??????`,
+`AppData/Roaming/Block/goose/config/gemini_oauth/.tmp??????`,
+`AppData/Roaming/Block/goose/config/muse_code/.tmp??????`,
+`AppData/Roaming/Block/goose/config/databricks/oauth/.tmp??????` and
+`AppData/Roaming/Block/goose/config/xai_oauth/.tmp??????` on Windows. The Kimi Code and Hugging Face
+caches are written in place
+([`kimicode.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/kimicode.rs#L124-L128);
+[`huggingface_auth.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/huggingface_auth.rs#L204-L210)).
+
 Private keys: `.config/goose/roaming_node_key` and
 `AppData/Roaming/Block/goose/config/roaming_node_key`, the roaming node's ed25519 key
 ([`goose-roaming/src/lib.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-roaming/src/lib.rs#L10-L11)), and
