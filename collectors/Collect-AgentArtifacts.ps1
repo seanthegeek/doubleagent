@@ -3562,6 +3562,38 @@ function Find-GeminiProjects([string]$homeDir) {
   )
 }
 
+# Part of group 4 of the internals.md discovery table: Goose's desktop recent
+# directories, scheduled jobs' recipe directories and the workingDirs block list
+# of each project file, one pair of surrounding quotes and trailing blanks
+# removed.
+function Find-GooseProjects([string]$homeDir) {
+  Get-PathStrings @(
+    Join-PathSafe $homeDir '.config/Goose/recent-dirs.json'
+    Join-PathSafe $homeDir 'Library/Application Support/Goose/recent-dirs.json'
+    Join-PathSafe $homeDir 'AppData/Roaming/Goose/recent-dirs.json'
+  )
+  Get-JsonValues 'recipe_base_dir' @(
+    Join-PathSafe $homeDir '.local/share/goose/schedule.json'
+    Join-PathSafe $homeDir 'AppData/Roaming/Block/goose/data/schedule.json'
+  )
+  $projectFiles = @(
+    Expand-Glob $homeDir '.local/share/goose/projects/*.md'
+    Expand-Glob $homeDir 'AppData/Roaming/Block/goose/data/projects/*.md'
+  )
+  $listRegex = '(?m)^workingDirs:[ \t]*\r?\n((?:- [^\r\n]*(?:\r?\n|$))+)'
+  foreach ($list in (Get-RegexCaptures $listRegex $projectFiles)) {
+    foreach ($match in [regex]::Matches($list, '(?m)^- (.*?)[ \t]*\r?$')) {
+      $item = $match.Groups[1].Value
+      $last = $item.Length - 1
+      if ($last -ge 1 -and ($item[0] -eq [char]'"' -or $item[0] -eq [char]"'") -and
+        $item[$last] -eq $item[0]) {
+        $item = $item.Substring(1, $last - 1)
+      }
+      $item
+    }
+  }
+}
+
 # Group 4 of the internals.md discovery table: the other agents' session and
 # state files.
 function Find-AgentSessionProjects([string]$homeDir) {
@@ -3575,24 +3607,8 @@ function Find-AgentSessionProjects([string]$homeDir) {
   Get-JsonValues 'root' @(Expand-Glob $homeDir '.kiro/workspace-roots/*/.trust-migration.json')
   Get-PathStrings @(
     Expand-Glob $homeDir '.kiro/sessions/*/sess_*/session.json'
-    Join-PathSafe $homeDir '.config/Goose/recent-dirs.json'
-    Join-PathSafe $homeDir 'Library/Application Support/Goose/recent-dirs.json'
-    Join-PathSafe $homeDir 'AppData/Roaming/Goose/recent-dirs.json'
   )
-  Get-JsonValues 'recipe_base_dir' @(
-    Join-PathSafe $homeDir '.local/share/goose/schedule.json'
-    Join-PathSafe $homeDir 'AppData/Roaming/Block/goose/data/schedule.json'
-  )
-  # Goose project files: the block list under the front matter key workingDirs
-  $gooseProjects = @(
-    Expand-Glob $homeDir '.local/share/goose/projects/*.md'
-    Expand-Glob $homeDir 'AppData/Roaming/Block/goose/data/projects/*.md'
-  )
-  $listRegex = '(?m)^workingDirs:[ \t]*\r?\n((?:- [^\r\n]*(?:\r?\n|$))+)'
-  $itemRegex = '(?m)^- ["'']?([^"''\r\n]+?)["'']?[ \t]*\r?$'
-  foreach ($list in (Get-RegexCaptures $listRegex $gooseProjects)) {
-    foreach ($match in [regex]::Matches($list, $itemRegex)) { $match.Groups[1].Value }
-  }
+  Find-GooseProjects $homeDir
   # A cwd under .copilot (Copilot Desktop chats and worktrees) is not a project, nor is that
   # of a session without events.jsonl, which Copilot Desktop pre-created and never prompted.
   $copilotDir = (Join-PathSafe $homeDir '.copilot') + $script:Sep

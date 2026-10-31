@@ -3198,6 +3198,27 @@ find_gemini_projects() {
   abs_strings "$1/.gemini/antigravity-cli/settings.json" \
     "$1/.gemini/antigravity-cli/cache/projects.json" "$1"/.gemini/config/projects/*.json
 }
+# find_goose_projects HOME: Goose's desktop recent directories, scheduled jobs'
+# recipe directories and the workingDirs block list of each project file, one
+# pair of surrounding quotes and trailing blanks removed (part of group 4 of the
+# internals.md discovery table). Temporaries: _fgp_.
+find_goose_projects() {
+  abs_strings "$1/.config/Goose/recent-dirs.json" \
+    "$1/Library/Application Support/Goose/recent-dirs.json" \
+    "$1/AppData/Roaming/Goose/recent-dirs.json"
+  json_vals recipe_base_dir "$1/.local/share/goose/schedule.json" \
+    "$1/AppData/Roaming/Block/goose/data/schedule.json"
+  for _fgp_project in "$1"/.local/share/goose/projects/*.md \
+    "$1"/AppData/Roaming/Block/goose/data/projects/*.md; do
+    [ -f "$_fgp_project" ] && awk -v quote="'" '{ sub(/[ \t\r]+$/, "") }
+      $0 == "workingDirs:" { listed = 1; next }
+      listed && /^- / { item = substr($0, 3)
+        if (length(item) >= 2 && (item ~ /^".*"$/ || item ~ ("^" quote ".*" quote "$")))
+          item = substr(item, 2, length(item) - 2)
+        print item; next }
+      { listed = 0 }' "$_fgp_project"
+  done
+}
 # find_agent_session_projects HOME: projects of the other agents' session and
 # state files (group 4 of the internals.md discovery table). Temporaries: _fasp_.
 find_agent_session_projects() {
@@ -3205,17 +3226,8 @@ find_agent_session_projects() {
     "$1"/.factory/sessions/*.jsonl "$1"/.kiro/sessions/cli/*.json \
     "$1"/.cursor/acp-sessions/*/meta.json
   json_vals root "$1"/.kiro/workspace-roots/*/.trust-migration.json
-  abs_strings "$1"/.kiro/sessions/*/sess_*/session.json "$1/.config/Goose/recent-dirs.json" \
-    "$1/Library/Application Support/Goose/recent-dirs.json" \
-    "$1/AppData/Roaming/Goose/recent-dirs.json"
-  json_vals recipe_base_dir "$1/.local/share/goose/schedule.json" \
-    "$1/AppData/Roaming/Block/goose/data/schedule.json"
-  # Goose project files: the block list under the front matter key workingDirs
-  for _fasp_project in "$1"/.local/share/goose/projects/*.md \
-    "$1"/AppData/Roaming/Block/goose/data/projects/*.md; do
-    [ -f "$_fasp_project" ] && awk '/^workingDirs:/ { listed = 1; next }
-      listed && /^- / { sub(/^- /, ""); print; next } { listed = 0 }' "$_fasp_project"
-  done | sed "s/^[\"']//; s/[\"']\$//"
+  abs_strings "$1"/.kiro/sessions/*/sess_*/session.json
+  find_goose_projects "$1"
   # A cwd under .copilot (Copilot Desktop chats and worktrees) is not a project, nor is that
   # of a session without events.jsonl, which Copilot Desktop pre-created and never prompted.
   for _fasp_events in "$1"/.copilot/session-state/*/events.jsonl; do

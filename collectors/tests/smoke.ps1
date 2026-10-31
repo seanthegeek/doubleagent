@@ -760,6 +760,8 @@ MakeFile 'gooseproj/.goose/memory/dev.txt' 'memory'
 MakeFile 'gooseproj/diagnostics_20261030_2.json' '{"config":{"configYaml":"x"}}'
 MakeFile 'gooserecipes/.goosehints' 'hints'
 MakeFile 'goosewin/.goosehints' 'hints'
+MakeFile 'Users/alice/AppData/Roaming/Block/goose/data/projects/quoted.md' "---`nname: quoted`nworkingDirs:`n- 'C:\goosequoted'`n---`n"
+MakeFile 'goosequoted/.goosehints' 'hints'
 # 2026-10-30 hermes rebuild (#326)
 $hermesProjectFiles = @('HERMES.md', '.hermes/environment.json', 'trajectory_samples.jsonl', 'failed_trajectories.jsonl')
 MakeFile 'hermesproj/HERMES.md' '# hermes'
@@ -1787,6 +1789,7 @@ $row = Row 'gooseproj/diagnostics_20261030_2.json'
 Check '#326 goose project diagnostics export flagged secret' { $row -and $row.agent -eq 'goose' -and $row.secret -eq $true -and $row.status -eq 'collected' }
 Check '#326 goose schedule.json recipe_base_dir discovers project' { (StatusOf 'gooserecipes/.goosehints') -eq 'collected' }
 Check '#326 goose Windows legacy session working_dir discovers project' { (StatusOf 'goosewin/.goosehints') -eq 'collected' }
+Check '#326 goose quoted projects/<slug>.md workingDirs item discovers project' { (StatusOf 'goosequoted/.goosehints') -eq 'collected' }
 # 2026-10-30 hermes rebuild (#326)
 foreach ($hermesFile in $hermesProjectFiles) {
   $row = Row "hermesproj/$hermesFile"

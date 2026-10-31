@@ -521,6 +521,7 @@ PowerShell functions that do their job.
 | Discovery group 2, Codex through Agent Zero | `find_cli_session_projects` | `Find-CliSessionProjects` |
 | Discovery group 3, Gemini CLI and Antigravity | `find_gemini_projects` | `Find-GeminiProjects` |
 | Discovery group 4, Amp through PearAI | `find_agent_session_projects` | `Find-AgentSessionProjects` |
+| Discovery group 4, Goose's recent directories, scheduled jobs and project files | `find_goose_projects` | `Find-GooseProjects` |
 | Discovery group 5, configuration files | `find_config_file_projects` | `Find-ConfigFileProjects` |
 | Discovery group 6, editor `User` directories | `find_editor_projects` | `Find-EditorProjects` |
 | Discover every project | `discover_projects` | `Find-Projects` |

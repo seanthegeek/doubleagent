@@ -773,6 +773,9 @@ printf 'memory\n' >"$ROOT/srv/gooseproj/.goose/memory/dev.txt"
 printf '{"config":{"configYaml":"x"}}\n' >"$ROOT/srv/gooseproj/diagnostics_20261030_2.json"
 printf 'hints\n' >"$ROOT/srv/gooserecipes/.goosehints"
 printf 'hints\n' >"$ROOT/srv/goosewin/.goosehints"
+mkdir -p "$ALICE/AppData/Roaming/Block/goose/data/projects" "$ROOT/srv/goosequoted"
+printf '%s\n' '---' 'name: quoted' 'workingDirs:' "- '/srv/goosequoted'" '---' >"$ALICE/AppData/Roaming/Block/goose/data/projects/quoted.md"
+printf 'hints\n' >"$ROOT/srv/goosequoted/.goosehints"
 # 2026-10-30 hermes rebuild (#326)
 mkdir -p "$ROOT/srv/hermesproj/.hermes"
 printf '# hermes\n' >"$ROOT/srv/hermesproj/HERMES.md"
@@ -1776,6 +1779,7 @@ check "#326 goose project memory file collected" "row \"$ROOT/srv/gooseproj/.goo
 check "#326 goose project diagnostics export flagged secret" "row \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\" | grep -q '\"agent\":\"goose\".*\"secret\":true,\"status\":\"collected\"'"
 check "#326 goose schedule.json recipe_base_dir discovers project" "[ \"\$(status_of \"$ROOT/srv/gooserecipes/.goosehints\")\" = collected ]"
 check "#326 goose Windows legacy session working_dir discovers project" "[ \"\$(status_of \"$ROOT/srv/goosewin/.goosehints\")\" = collected ]"
+check "#326 goose quoted projects/<slug>.md workingDirs item discovers project" "[ \"\$(status_of \"$ROOT/srv/goosequoted/.goosehints\")\" = collected ]"
 # 2026-10-30 hermes rebuild (#326)
 for _hermes_file in HERMES.md .hermes/environment.json trajectory_samples.jsonl failed_trajectories.jsonl; do
   check "#326 Hermes project file collected: $_hermes_file" "row \"$ROOT/srv/hermesproj/$_hermes_file\" | grep -q '\"agent\":\"hermes\".*\"status\":\"collected\"'"
