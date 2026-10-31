@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 from ..dedup import TOLERANCE_SECONDS
+from ..errors import unreadable_message
 from ..inputs import Artifact
 from ..model import Row
 from ..timeutil import to_utc
@@ -98,22 +99,31 @@ def iter_jsonl(path, errors: list) -> Iterator[tuple[int, dict]]:
     A bad line, one that does not decode or decodes to something other than
     an object, is appended to `errors` as (line_number, message, raw_text)
     and skipped, so a transcript cut mid-write keeps its earlier turns.
-    `raw_text` is the line as read less its terminator (`line_text`).
+    `raw_text` is the line as read less its terminator (`line_text`). A file
+    that cannot be opened, or fails while being read, is one whole-file entry
+    (line_number, `unreadable_message`): 0 when it could not be opened, else
+    the last line read; nothing raises.
     """
-    with open(path, "rb") as handle:
-        for line_number, raw in enumerate(handle, 1):
-            stripped = raw.strip()
-            if not stripped:
-                continue
-            try:
-                record = json.loads(stripped.decode("utf-8", errors="replace"))
-            except ValueError as error:
-                errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
-                continue
-            if not isinstance(record, dict):
-                errors.append((line_number, "unparseable line (not a JSON object)", line_text(raw)))
-                continue
-            yield line_number, record
+    line_number = 0
+    try:
+        with open(path, "rb") as handle:
+            for raw in handle:
+                line_number += 1
+                stripped = raw.strip()
+                if not stripped:
+                    continue
+                try:
+                    record = json.loads(stripped.decode("utf-8", errors="replace"))
+                except ValueError as error:
+                    errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
+                    continue
+                if not isinstance(record, dict):
+                    message = "unparseable line (not a JSON object)"
+                    errors.append((line_number, message, line_text(raw)))
+                    continue
+                yield line_number, record
+    except OSError as error:
+        errors.append((line_number, unreadable_message(path, error)))
 
 
 def line_text(raw: bytes) -> str:

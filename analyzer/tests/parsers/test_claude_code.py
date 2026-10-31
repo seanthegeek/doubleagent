@@ -270,6 +270,25 @@ class ClaudeCodeTests(ParserBase):
             ],
         )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_history_is_one_row_and_sessions_still_parse(self):
+        history = self.home / ".claude/history.jsonl"
+        history.chmod(0)
+        try:
+            parser = ClaudeCodeParser()
+            rows = self.rows_for(parser, ".claude/history.jsonl")
+            session_rows = self.rows_for(parser, self.REL)
+        finally:
+            history.chmod(0o600)
+        self.assertEqual(
+            [(row.turn_type, row.source_line, row.timestamp_utc, row.text) for row in rows],
+            [("system", 0, "", "parser: history.jsonl could not be read (Permission denied)")],
+        )
+        self.assertEqual(
+            [(row.source_line, row.turn_type, row.text) for row in session_rows][:3],
+            self.EXPECTED[:3],
+        )
+
     def test_subagent_file(self):
         rows = self.rows_for(ClaudeCodeParser(), self.SUB)
         self.assertEqual(

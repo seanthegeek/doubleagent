@@ -659,7 +659,9 @@ in a backup; the backups are already read. See [What survives a delete](#what-su
 #### Bad-line rows
 
 The event log, the one line-oriented source, is read through `iter_jsonl` and its bad lines are
-reported through `error_rows`; the SQLite stores have no lines to lose. A `config.toml` that
+reported through `error_rows`, a log that cannot be read giving one whole-file row
+`parser: <file> could not be read (<reason>)`, `<file>` its name; the SQLite stores have no lines
+to lose. A `config.toml` that
 cannot be read gives one row `parser: config.toml could not be read: <reason>` on every Python
 version, one that does not parse one row `parser: config.toml is not valid TOML (<reason>)` and
 an IntelliJ history that does not parse one row

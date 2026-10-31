@@ -15,8 +15,10 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from doubleagent import cli
+from doubleagent.parsers.claude_code import ClaudeCodeParser
 from fixtures import CLAUDE_SESSION, build_home
 
 CAN_DENY = os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() != 0
@@ -207,10 +209,25 @@ class PermissionTests(ErrorTestBase):
         self.assertEqual(exit_code, 0, out + error)
         self.assertIn("problem:   %s: permission denied\n" % locked_agent, out)
 
-    def test_unreadable_file_problem_names_path_once(self):
+    def test_unreadable_transcript_is_a_parser_row(self):
         col = build_collected(self.tmp)
         self.lock(col / "fs/home/alice" / SESSION_REL)
         exit_code, out, error = run_cli(["timeline", str(col), "-o", str(self.tmp / "tl")])
+        self.assertEqual(exit_code, 0, out + error)
+        self.assertNotIn("problem:", out)
+        lines = (self.tmp / "tl" / "timeline.jsonl").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(
+            [json.loads(line)["text"] for line in lines],
+            ["parser: %s could not be read (Permission denied)" % Path(SESSION_REL).name],
+        )
+
+    def test_unreadable_file_problem_names_path_once(self):
+        # A reader that lets the OSError leave the parser loses the artifact
+        # to one problem line naming its path.
+        col = build_collected(self.tmp)
+        denied = PermissionError(13, "Permission denied")
+        with mock.patch.object(ClaudeCodeParser, "parse", side_effect=denied):
+            exit_code, out, error = run_cli(["timeline", str(col), "-o", str(self.tmp / "tl")])
         self.assertEqual(exit_code, 1, out + error)  # the only transcript could not be read
         self.assertNotIn("Traceback", out + error)
         self.assertIn("problem:   /home/alice/%s: permission denied\n" % SESSION_REL, out)
@@ -298,3 +315,40 @@ class IterJsonlTests(unittest.TestCase):
             ["unparseable line (not a JSON object)"] * 4,
         )
         self.assertTrue(errors[4][1].startswith("unparseable line (Expecting"))
+
+
+def test_iter_jsonl_unreadable_file_is_one_entry(tmp_path):
+    if not CAN_DENY:
+        raise unittest.SkipTest(DENY_REASON)
+    from doubleagent.parsers.base import iter_jsonl
+
+    path = tmp_path / "t.jsonl"
+    path.write_bytes(b'{"a": 1}\n')
+    path.chmod(0)
+    errors: list = []
+    try:
+        records = list(iter_jsonl(path, errors))
+    finally:
+        path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    assert records == []
+    assert errors == [(0, "t.jsonl could not be read (Permission denied)")]
+
+
+class _FailingHandle(io.BytesIO):
+    """A file whose second line fails to read as a disk read error does."""
+
+    def __next__(self):
+        if self.tell():
+            raise OSError(5, "Input/output error")
+        return super().__next__()
+
+
+def test_iter_jsonl_read_error_keeps_earlier_lines(tmp_path):
+    from doubleagent.parsers.base import iter_jsonl
+
+    handle = _FailingHandle(b'{"a": 1}\n{"b": 2}\n')
+    errors: list = []
+    with mock.patch("doubleagent.parsers.base.open", create=True, return_value=handle):
+        records = list(iter_jsonl(tmp_path / "t.jsonl", errors))
+    assert records == [(1, {"a": 1})]
+    assert errors == [(1, "t.jsonl could not be read (Input/output error)")]

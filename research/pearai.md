@@ -675,6 +675,9 @@ which yields rows for what it loses, with the texts of
 [Bad-line rows in `continue.md`](continue.md#bad-line-rows); an unreadable index leaves the sessions
 without their `dateCreated` time.
 
+A `dev_data/chat.jsonl` or `dev_data/tokens_generated.jsonl` that cannot be read is one whole-file
+row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+
 #### Fixtures
 
 Fixture `.pearai/sessions/9b1c2d3e-0000-4000-8000-000000000001.json`:

@@ -2384,6 +2384,9 @@ is not a SQLite database is `parser: not a SQLite database`. The rollout parse, 
 `state_5.sqlite` and the log databases beside it for thread records and guardian review calls, gives
 no row of its own for such a database: the database's own parse reports it.
 
+An uncompressed `rollout-*.jsonl` or a `history.jsonl` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+
 #### Fixtures
 
 Expected rows from the sample below: `system` session start, `system`

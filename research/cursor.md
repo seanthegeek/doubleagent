@@ -2408,6 +2408,9 @@ For the CLI parser, a `meta.json`, `prompt_history.json` or `.workspace-trusted`
 or a `meta.0` value that is not hex-encoded JSON, is one `parser:` row for that file, and a blob
 that is neither JSON nor protobuf is appended to the errors list with its `id`.
 
+A transcript JSONL that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+
 #### Fixtures
 
 Synthetic records in the shapes above, invented values. `state.vscdb`, `cursorDiskKV`:

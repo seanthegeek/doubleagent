@@ -761,7 +761,9 @@ it (`input_history.json`, `dev_data`,
 #### Bad-line rows
 
 `chatInteraction.jsonl`, `toolUsage.jsonl`, `editInteraction.jsonl`, `editOutcome.jsonl` and
-`chatFeedback.jsonl` go through `iter_jsonl` and `error_rows`. `input_history.json` is read as a
+`chatFeedback.jsonl` go through `iter_jsonl` and `error_rows`, a file that cannot be read giving one
+whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its name.
+`input_history.json` is read as a
 JSON array: an element cut mid-write is `parser: unparseable record <N> (<reason>): <the text from
 that element to the end of the file>`, the entries before it kept; an element that is not an
 object with a string `text` is `parser: unparseable record <N> (not an object with a text): <the

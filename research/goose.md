@@ -1478,7 +1478,9 @@ A `sessions.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidec
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
 that is not a SQLite database is `parser: not a SQLite database`, and a SQLite error while reading
 it one row `parser: SQLite error: <message>`. The legacy JSONL and the request logs go through
-`iter_jsonl` and `error_rows`; `history.txt` cannot fail to decode (each line is a row). A
+`iter_jsonl` and `error_rows`, a file that cannot be read giving one whole-file row
+`parser: <file> could not be read (<reason>)`, `<file>` its name; `history.txt` cannot fail to
+decode (each line is a row). A
 `permission.yaml` line that is not a category, a level or a list item is one row,
 `parser: unparseable line (not a category, level or list item): <line>`, and the entries before and
 after it are still yielded; a `roaming_trust.json` or `schedule.json` that cannot be read, is not

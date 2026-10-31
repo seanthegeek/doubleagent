@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - A SQLite database a parser cannot read, or an unreadable `-wal`, `-shm` or `-journal` sidecar beside one, is one `system` row `parser: <file> could not be read (<reason>)` from the parser that reads it, with the operating system's reason, and the rest of the input is still parsed. Before, an unreadable database was reported as `parser: not a SQLite database` or not at all, and an unreadable sidecar was a `problem:` line that lost every row of the database ([#378]).
+- A JSONL file a parser cannot open or read is one whole-file `system` row `parser: <file> could not be read (<reason>)` with the file's known session id and project path, and the parser's other files are still parsed. Before, the error left the parser as a `problem:` line and the timeline had no row for the file ([#379]).
 
 ## [0.22.0] - 2026-10-31
 
@@ -2163,6 +2164,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
 [#380]: https://github.com/seanthegeek/doubleagent/issues/380
+[#379]: https://github.com/seanthegeek/doubleagent/issues/379
 [#378]: https://github.com/seanthegeek/doubleagent/issues/378
 [#360]: https://github.com/seanthegeek/doubleagent/issues/360
 [#333]: https://github.com/seanthegeek/doubleagent/issues/333

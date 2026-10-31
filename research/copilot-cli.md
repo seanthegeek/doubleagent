@@ -1127,6 +1127,9 @@ A `session-store.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` 
 one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed;
 one that is not a SQLite database is `parser: not a SQLite database`.
 
+An `events.jsonl` that cannot be read is one whole-file row
+`parser: events.jsonl could not be read (<reason>)` through `error_rows`.
+
 #### Fixtures
 
 Sample fixture

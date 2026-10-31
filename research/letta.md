@@ -819,6 +819,10 @@ Covered for the files read: each undecodable line of `transcript.jsonl`, `messag
 `sessions.jsonl` and `runs/*.jsonl` is its own `parser:` row, and a settings, routing, `crons.json`
 or interrupted-turn file that is not JSON is one row for the file.
 
+A `transcript.jsonl`, `messages.jsonl`, `sessions.jsonl` or `runs/*.jsonl` file that cannot be read
+is one whole-file row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>`
+its name.
+
 #### Fixtures
 
 - `.letta/transcripts/agent-1a2b/conv-9f/transcript.jsonl`:

@@ -1757,6 +1757,9 @@ A `conversation_summaries.db` or `conversations/<id>.db` that cannot be read, or
 `<file>` the name of the file that failed; one that is not a SQLite database is
 `parser: not a SQLite database`, a conversation database's row carrying the id its file name gives.
 
+A `history.jsonl` that cannot be read is one whole-file row
+`parser: history.jsonl could not be read (<reason>)` through `error_rows`.
+
 #### Fixtures
 
 `analyzer/tests/fixtures/antigravity.py` builds the CLI data directory

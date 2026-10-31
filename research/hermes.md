@@ -1681,7 +1681,9 @@ one SQLite cannot read is `parser: SQLite error: <message>`, and a `response_sto
 `responses` table is `parser: no responses table`; a `state.db` with no `messages` table gives no
 rows.
 
-`sessions/<id>.jsonl` goes through `iter_jsonl` and `error_rows`. In `pastes/pending.json` a file
+`sessions/<id>.jsonl` goes through `iter_jsonl` and `error_rows`; one that cannot be read is one
+whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its name. In
+`pastes/pending.json` a file
 that does not parse or is not a JSON list is one `parser:` row, and an entry that is not an object
 with a `url` is its own `parser: unparseable record <N>` row carrying the entry.
 
