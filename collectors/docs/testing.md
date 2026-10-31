@@ -165,4 +165,7 @@ and the sh smoke test under dash on macOS, where the tools are the BSD
 ones, a lint job that also runs the table coverage checks, the
 PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell 5.1
 on Windows, and the analyzer tests, then a `CI result` job that fails when
-any of them failed, on every push to `main` and every pull request.
+any of them failed. Every push to `main` runs all of them; a pull request
+runs only the jobs that read a file it changed, as
+[Validation and testing in `AGENTS.md`](../../AGENTS.md#validation-and-testing)
+lists.

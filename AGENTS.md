@@ -113,8 +113,9 @@ LICENSE                        Apache 2.0
 ruff.toml, pyrightconfig.json, .markdownlint-cli2.jsonc, .shellcheckrc
                                linter configuration; see "Quality gates"
 .githooks/pre-commit           the catalog drift check
-.github/                       CI workflow, the Pages workflow (workflows/pages.yml,
-                               publishes the site) and Dependabot configuration
+.github/                       CI workflow, its change classifier (classify-changes.sh),
+                               the Pages workflow (workflows/pages.yml, publishes the
+                               site) and Dependabot configuration
 ```
 
 Nothing in `collectors/` may depend on `analyzer/`. Paths in this file are
@@ -1284,15 +1285,38 @@ PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell
 of them failed or was cancelled. `CI result` is the one status check the
 ruleset on `main` requires.
 
-A change touching only Markdown files and `.markdownlint-cli2.jsonc` is
-documentation only: CI skips every other job and the lint job runs only
-markdownlint, `tools/check_doc_links.py`,
-`tools/check_research_structure.py`, the drift checkers and
-`tools/check_code_style.py`. Locally such a change needs markdownlint,
+CI runs a job only for the parts a change touches:
+[`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
+a pull request changed since its merge base into these categories, and a
+job or lint step runs when one of its categories is set.
+
+- **sh collector** (`collectors/collect-agent-artifacts.sh`,
+  `collectors/tests/smoke.sh`, `collectors/tests/catalog-sync.sh`,
+  `.shellcheckrc`): the sh smoke matrix, the macOS job, the collector's
+  shellcheck job and the lint job's sh linters.
+- **sh files** (any `.sh` file, `.githooks/*`): the lint job's shfmt,
+  shellcheck and checkbashisms steps.
+- **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
+  `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`):
+  both PowerShell smoke jobs and PSScriptAnalyzer.
+- **Python** (everything under `analyzer/` and `tools/` except Markdown and
+  `tools/drift-baseline/`, and `analyzer/docs/output.md`, `docs/agents.md`,
+  `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`): the analyzer tests,
+  ruff and pyright.
+- **Catalog** (either collector, `analyzer/doubleagent/catalog.txt`,
+  `collectors/tests/catalog-sync.sh`): the catalog drift job and the
+  analyzer tests.
+
+Markdownlint, the document checks, the drift checkers and code style run on
+every change. Everything runs for a push to `main`, a change to the
+workflow, the classifier or `.gitattributes`, and a file the classifier
+does not list; a commit that makes a job read another file adds that file
+to the job's category. A push whose previous commit GitHub cannot name (a
+new branch, a force push) counts as a change to everything. A change whose
+files set no category is documentation only; locally it needs markdownlint,
 `tools/check_doc_links.py`, `tools/check_research_structure.py` and the
-drift checkers, since the code style check reads no Markdown. A push whose
-previous commit GitHub cannot name (a new branch, a force push) counts as a
-code change. Before committing a collector change, run:
+drift checkers, since the code style check reads no Markdown. Before
+committing a collector change, run:
 
 ```sh
 cd collectors
