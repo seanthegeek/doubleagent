@@ -249,7 +249,6 @@ shellgpt escaped AppData/Local/Temp/shell_gpt/cache/0cc175b9c0f1b6a831c399e26977
 shellgpt escaped AppData/Local/Temp/shell_gpt/cache/900150983cd24fb0d6963f7d28e17f72
 shellgpt escaped AppData/Local/Temp/shell_gpt/cache/d41d8cd98f00b204e9800998ecf8427e
 shellgpt escaped AppData/Local/Temp/shell_gpt/chat_cache/old-functions
-tabby escaped .tabby/config.toml
 tabby escaped .tabby/ee/db.sqlite-shm
 tabby escaped .tabby/ee/db.sqlite-wal
 tabby escaped .tabby/events/2025-10-01.json

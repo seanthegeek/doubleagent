@@ -590,6 +590,19 @@ class TabbyParser(Parser):
         never reaches a row.
         """
         timestamp = file_mtime(artifact)
+        # The file is read before the interpreter check, so an unreadable one is reported
+        # the same on every Python version.
+        try:
+            text = artifact.disk_path.read_text(encoding="utf-8", errors="replace")
+        except OSError as error:
+            yield self._row(
+                artifact,
+                0,
+                timestamp=timestamp,
+                opts=opts,
+                text="parser: config.toml could not be read: %s" % (error.strerror or error),
+            )
+            return
         if load_toml is flat_toml:
             # flat_toml reads only the top-level keys; the model tables need tomllib.
             yield self._row(
@@ -601,7 +614,7 @@ class TabbyParser(Parser):
             )
             return
         try:
-            data = load_toml(artifact.disk_path.read_text(encoding="utf-8", errors="replace"))
+            data = load_toml(text)
         except ValueError as error:
             # tomllib's message names a line and column, never the value.
             yield self._row(
