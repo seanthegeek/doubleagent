@@ -2120,7 +2120,11 @@ CHECK_RULES = (
 
 
 def check_findings(context: _Context) -> Iterator[drift_common.Finding]:
-    """Yield the secret, no-secrets and exclusion findings: one per table line no check covers."""
+    """Yield the secret, no-secrets and exclusion findings: one per table line no check covers.
+
+    Each goes to the glob's agent (`attribute_glob`): a volume-relative glob several agents share
+    is reported once, to the first of its owners by name.
+    """
     insensitive = context.smoke.case_insensitive
     for table, kind, wanted, message in CHECK_RULES:
         paths = _counted(context, wanted)

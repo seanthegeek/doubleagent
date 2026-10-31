@@ -162,6 +162,21 @@ def test_exclusion_below_a_project_entry_has_the_project_agent(tmp_path):
     }
 
 
+def test_shared_volume_glob_check_missing_goes_to_the_first_owner_once(tmp_path):
+    repository(tmp_path)
+    catalog = CATALOG_TEXT.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
+    catalog = catalog.replace(".alpha/auth.json\n", ".alpha/auth.json\n.env\n")
+    write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
+    for agent, text in (("alpha", DOCUMENTS["alpha"]), ("beta", DOCUMENTS["beta"])):
+        volume = "\n### Per-user storage\n\n#### Docker volume\n\nThe volume holds `.env`.\n"
+        write(tmp_path / "research" / ("%s.md" % agent), text + volume)
+    found = [item for item in findings(tmp_path) if item.kind == "secret-check-missing"]
+    assert [(item.agent, item.detail) for item in found] == [
+        ("alpha", "smoke.sh .env"),
+        ("alpha", "smoke.ps1 .env"),
+    ]
+
+
 def test_exclusion_check_in_a_full_run_does_not_count(tmp_path):
     full = SMOKE_SH.replace("run default", "run full --full")
     repository(tmp_path, full)
