@@ -18,7 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- The volume-relative secret glob `profiles/*` of OpenHands' LLM profiles is narrowed to `profiles/*.json`: it applied in every volume, so in a Hermes volume it flagged every file of every named profile, `state.db` and transcripts included, and `--no-secrets` skipped them; a Hermes volume profile's credentials are flagged by profile-scoped globs instead, one `profiles/*/<glob>` per Hermes volume secret glob (`profiles/*/.env`, `profiles/*/auth.json`, `profiles/*/config.yaml` and the rest, with the AWS SSO and CLI caches `profiles/*/.aws/sso/cache/*.json` and `profiles/*/.aws/cli/cache/*.json`), which also reach the profile's quick snapshots ([#326]).
+- The volume-relative secret glob `profiles/*` of OpenHands' LLM profiles is narrowed to `profiles/*.json`, with `profiles/tmp*.tmp` for the temporary file an interrupted profile save leaves: it applied in every volume, so in a Hermes volume it flagged every file of every named profile, `state.db` and transcripts included, and `--no-secrets` skipped them; a Hermes volume profile's credentials are flagged by profile-scoped globs instead, one `profiles/*/<glob>` per Hermes volume secret glob (`profiles/*/.env`, `profiles/*/auth.json`, `profiles/*/config.yaml` and the rest, with the AWS SSO and CLI caches `profiles/*/.aws/sso/cache/*.json` and `profiles/*/.aws/cli/cache/*.json`), which also reach the profile's quick snapshots ([#326]).
 
 ## [1.20.0] - 2026-10-29
 

@@ -2316,6 +2316,8 @@ MakeFile "$openhandsVolume/conversations/c1/acp/codex/auth.json" "{`"tokens`":{}
 MakeFile "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json" "{`"tokens`":{}}`n"
 # 2026-10-30 hermes rebuild (#326)
 MakeFile "$openhandsVolume/profiles/p1.json" "{`"model`":`"x`",`"api_key`":`"k`"}`n"
+MakeFile "$openhandsVolume/profiles/tmpabc123.tmp" "{`"model`":`"x`",`"api_key`":`"k`"}`n"
+MakeFile 'var/lib/docker/volumes/hermes_home/_data/profiles/work/pastes/pending.json' "[]`n"
 MakeFile "$ollamaVolume/backup/codex/config.toml.1792800000" "model = `"x`"`n"
 MakeFile "$ollamaVolume/launch/muse-config/muse/settings.json" "{}`n"
 # 2026-10-30 hermes rebuild (#326)
@@ -2495,6 +2497,8 @@ Check '#248 Hermes volume config.yaml flagged (volume-relative)' { IsAgentRow 'v
 Check '#248 OpenHands volume conversation acp/codex/auth.json flagged (volume-relative)' { (IsAgentRow "$openhandsVolume/conversations/c1/acp/codex/auth.json" 'openhands' $true) -and (IsAgentRow "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json" 'openhands' $true) }
 # 2026-10-30 hermes rebuild (#326)
 Check '#326 OpenHands volume LLM profile flagged (volume-relative)' { IsAgentRow "$openhandsVolume/profiles/p1.json" 'openhands' $true }
+Check '#326 OpenHands volume interrupted profile save flagged (volume-relative)' { IsAgentRow "$openhandsVolume/profiles/tmpabc123.tmp" 'openhands' $true }
+Check '#326 Hermes volume profile pastes/pending.json flagged by profiles/*.json (accepted overmatch)' { IsAgentRow 'var/lib/docker/volumes/hermes_home/_data/profiles/work/pastes/pending.json' 'hermes' $true }
 Check '#320 Ollama volume backup and Muse copy flagged (volume-relative)' { (IsAgentRow "$ollamaVolume/backup/codex/config.toml.1792800000" 'ollama' $true) -and (IsAgentRow "$ollamaVolume/launch/muse-config/muse/settings.json" 'ollama' $true) }
 Run 'fwvolumesnosecrets' @{ NoSecrets = $true }
 Check '#248 frameworks volumes no-secrets exit 0' { $script:ExitCode -eq 0 }
@@ -2510,6 +2514,7 @@ foreach ($caseLine in $hermesVolumeCases) {
 Check '#248 OpenHands volume conversation acp/codex/auth.json skipped without secrets (volume-relative)' { (StatusOf "$openhandsVolume/conversations/c1/acp/codex/auth.json") -eq 'skipped_secret' -and (StatusOf "$openhandsVolume/agent-canvas/conversations/c2/acp/codex/auth.json") -eq 'skipped_secret' }
 # 2026-10-30 hermes rebuild (#326)
 Check '#326 OpenHands volume LLM profile skipped without secrets (volume-relative)' { (StatusOf "$openhandsVolume/profiles/p1.json") -eq 'skipped_secret' }
+Check '#326 OpenHands volume interrupted profile save skipped without secrets (volume-relative)' { (StatusOf "$openhandsVolume/profiles/tmpabc123.tmp") -eq 'skipped_secret' }
 Check '#320 Ollama volume backup and Muse copy skipped without secrets (volume-relative)' { (StatusOf "$ollamaVolume/backup/codex/config.toml.1792800000") -eq 'skipped_secret' -and (StatusOf "$ollamaVolume/launch/muse-config/muse/settings.json") -eq 'skipped_secret' }
 foreach ($volume in @('n8n_data', 'n8n_n8n-data', 'langflow_langflow-data', 'docker_dify_agent_local_sandbox_home', 'docker_dify_agent_local_sandbox_workspace', 'hermes_home', 'openhands_state', 'ollama')) {
   Remove-Item -LiteralPath (ImagePath "var/lib/docker/volumes/$volume") -Recurse -Force

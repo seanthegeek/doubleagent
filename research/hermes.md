@@ -203,7 +203,9 @@ so each credential glob above has a profile form, whose `*` also crosses into th
 `profiles/*/.aws/config`, `profiles/*/.aws/sso/cache/*.json`, `profiles/*/.aws/cli/cache/*.json`,
 `profiles/*/.gnupg/*`, `profiles/*/.kube/*`, `profiles/*/.docker/*`,
 `profiles/*/.azure/*`, `profiles/*/.config/gh/*`, `profiles/*/.config/gcloud/*` and
-`profiles/*/.envrc`.
+`profiles/*/.envrc`. OpenHands' volume-relative `profiles/*.json` also flags a named profile's
+`.json` files, such as `profiles/<name>/pastes/pending.json`, since its `*` crosses `/`, so
+`--no-secrets` skips them; `state.db` and the `sessions/<id>.jsonl` transcripts are unaffected.
 
 #### Contents of the home
 

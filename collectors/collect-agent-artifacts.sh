@@ -1853,6 +1853,7 @@ agent-canvas/secret-key.txt
 agent-canvas/api-key.txt
 secrets.json
 profiles/*.json
+profiles/tmp*.tmp
 provider-connections/*
 runtime-control/*
 agent_settings.json

@@ -2247,6 +2247,9 @@ printf '{"tokens":{}}\n' >"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/c
 # 2026-10-30 hermes rebuild (#326)
 mkdir -p "$OPENHANDS_VOLUME/profiles"
 printf '{"model":"x","api_key":"k"}\n' >"$OPENHANDS_VOLUME/profiles/p1.json"
+printf '{"model":"x","api_key":"k"}\n' >"$OPENHANDS_VOLUME/profiles/tmpabc123.tmp"
+mkdir -p "$VOLUMES/hermes_home/_data/profiles/work/pastes"
+printf '[]\n' >"$VOLUMES/hermes_home/_data/profiles/work/pastes/pending.json"
 printf 'model = "x"\n' >"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000"
 printf '{}\n' >"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json"
 run fwvolumes; check "frameworks volumes exit 0" "[ $? -eq 0 ]"
@@ -2278,6 +2281,8 @@ check "#248 Hermes volume config.yaml flagged (volume-relative)" "row \"$VOLUMES
 check "#248 OpenHands volume conversation acp/codex/auth.json flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/conversations/c1/acp/codex/auth.json\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED' && row \"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex/auth.json\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
 # 2026-10-30 hermes rebuild (#326)
 check "#326 OpenHands volume LLM profile flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/profiles/p1.json\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
+check "#326 OpenHands volume interrupted profile save flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/profiles/tmpabc123.tmp\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
+check "#326 Hermes volume profile pastes/pending.json flagged by profiles/*.json (accepted overmatch)" "row \"$VOLUMES/hermes_home/_data/profiles/work/pastes/pending.json\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
 check "#320 Ollama volume backup and Muse copy flagged (volume-relative)" "row \"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000\" | grep -q '\"agent\":\"ollama\".*$SECRET_COLLECTED' && row \"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json\" | grep -q '\"agent\":\"ollama\".*$SECRET_COLLECTED'"
 run fwvolumesnosecrets --no-secrets; check "#248 frameworks volumes no-secrets exit 0" "[ $? -eq 0 ]"
 check "#248 langflow-data volume _mcp_servers file skipped without secrets (volume-relative)" "[ \"\$(status_of \"$LANGFLOW_VOLUME_MCP\")\" = skipped_secret ]"
@@ -2291,6 +2296,7 @@ done <"$HERMES_VOLUME_CASES"
 check "#248 OpenHands volume conversation acp/codex/auth.json skipped without secrets (volume-relative)" "[ \"\$(status_of \"$OPENHANDS_VOLUME/conversations/c1/acp/codex/auth.json\")\" = skipped_secret ] && [ \"\$(status_of \"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex/auth.json\")\" = skipped_secret ]"
 # 2026-10-30 hermes rebuild (#326)
 check "#326 OpenHands volume LLM profile skipped without secrets (volume-relative)" "[ \"\$(status_of \"$OPENHANDS_VOLUME/profiles/p1.json\")\" = skipped_secret ]"
+check "#326 OpenHands volume interrupted profile save skipped without secrets (volume-relative)" "[ \"\$(status_of \"$OPENHANDS_VOLUME/profiles/tmpabc123.tmp\")\" = skipped_secret ]"
 check "#320 Ollama volume backup and Muse copy skipped without secrets (volume-relative)" "[ \"\$(status_of \"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000\")\" = skipped_secret ] && [ \"\$(status_of \"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json\")\" = skipped_secret ]"
 rm -rf "$VOLUMES/n8n_data" "$VOLUMES/n8n_n8n-data" "$VOLUMES/langflow_langflow-data" "$VOLUMES/docker_dify_agent_local_sandbox_home" "$VOLUMES/docker_dify_agent_local_sandbox_workspace" "$VOLUMES/hermes_home" "$VOLUMES/openhands_state" "$VOLUMES/ollama"
 
