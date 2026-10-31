@@ -1943,6 +1943,7 @@ workspace/meetings/node_token.json
 .ssh/*
 .aws/credentials
 .aws/config
+.aws/cli/cache/*.json
 .gnupg/*
 .kube/*
 .docker/*
@@ -1995,6 +1996,8 @@ profiles/*/workspace/meetings/node_token.json
 profiles/*/.ssh/*
 profiles/*/.aws/credentials
 profiles/*/.aws/config
+profiles/*/.aws/sso/cache/*.json
+profiles/*/.aws/cli/cache/*.json
 profiles/*/.gnupg/*
 profiles/*/.kube/*
 profiles/*/.docker/*

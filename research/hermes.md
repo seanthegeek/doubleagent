@@ -172,8 +172,14 @@ files ([Credentials](#credentials)) in a volume are flagged by `.env`, `.env.bak
 `workspace/meetings/node_token.json`, `weixin/accounts/*`, `runtime/photon-sidecar.json`,
 `proxy/*`, `home/*`, `config.yaml`, `config.yaml.*`, `.ssh/*`, `.aws/credentials`, `.aws/config`,
 `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*` and `.envrc`; the
-AWS twin names its two files, since a bare `.aws/*` would also flag Kiro's `.aws/amazonq/`
-transcripts in a home. The credential copies inside a snapshot are flagged by
+AWS twin names its credential files instead, `.aws/credentials`, `.aws/config` and the AWS
+CLI's assumed-role credential cache `.aws/cli/cache/*.json`
+([Using an IAM role in the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-role.html#cli-configure-role-cache)),
+since a bare `.aws/*` would also flag Kiro's `.aws/amazonq/` transcripts in a home; the SSO
+token cache `.aws/sso/cache/*.json`
+([Configuring IAM Identity Center authentication with the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html#cli-configure-sso-login))
+is flagged by Kiro's line of the same form, and a file such as `.aws/amazonq/<file>` stays
+unflagged. The credential copies inside a snapshot are flagged by
 `state-snapshots/*/.env`, `state-snapshots/*/auth.json`, `state-snapshots/*/config.yaml`,
 `state-snapshots/*/feishu_comment_pairing.json`, `state-snapshots/*/pairing/*` and
 `state-snapshots/*/platforms/pairing/*`.
@@ -194,7 +200,8 @@ so each credential glob above has a profile form, whose `*` also crosses into th
 `profiles/*/config.yaml`, `profiles/*/config.yaml.*`, `profiles/*/bot-desktop/*`,
 `profiles/*/webapp/*`, `profiles/*/feishu_comment_pairing.json`,
 `profiles/*/workspace/meetings/node_token.json`, `profiles/*/.ssh/*`, `profiles/*/.aws/credentials`,
-`profiles/*/.aws/config`, `profiles/*/.gnupg/*`, `profiles/*/.kube/*`, `profiles/*/.docker/*`,
+`profiles/*/.aws/config`, `profiles/*/.aws/sso/cache/*.json`, `profiles/*/.aws/cli/cache/*.json`,
+`profiles/*/.gnupg/*`, `profiles/*/.kube/*`, `profiles/*/.docker/*`,
 `profiles/*/.azure/*`, `profiles/*/.config/gh/*`, `profiles/*/.config/gcloud/*` and
 `profiles/*/.envrc`.
 

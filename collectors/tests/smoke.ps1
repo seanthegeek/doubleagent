@@ -2441,6 +2441,10 @@ $hermesVolumeCases = @(
   'secret|profiles/work/.config/gcloud/credentials.db',
   'secret|profiles/work/.envrc',
   'secret|profiles/work/config.yaml',
+  'secret|.aws/cli/cache/x.json',
+  'secret|profiles/work/.aws/sso/cache/x.json',
+  'secret|profiles/work/.aws/cli/cache/x.json',
+  'plain|.aws/amazonq/history/x.json',
   'plain|profiles/work/state.db'
 )
 foreach ($caseLine in $hermesVolumeCases) {
