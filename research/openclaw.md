@@ -259,12 +259,11 @@ matches the profile-directory form `.openclaw-*`; its contents are credentials
 The setup script can also persist the container's whole home, `/home/node`, in a named Docker
 volume chosen with `OPENCLAW_HOME_VOLUME` (the guide's example name is `openclaw_home`), with the
 three bind mounts above laid over it
-([`scripts/docker/setup.sh:592-602`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/scripts/docker/setup.sh#L592-L602);
-[`docs/install/docker/networking-and-storage.md:46-62`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/install/docker/networking-and-storage.md#L46-L62)).
-The volume therefore holds no OpenClaw state: it keeps a Claude Code install made inside the
-container, `.local/bin/claude`, `.local/share/claude`, `.claude/` and `.claude.json`
-([`networking-and-storage.md:100`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/install/docker/networking-and-storage.md#L100)),
-which are another agent's files.
+([`scripts/docker/setup.sh:597-603`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/scripts/docker/setup.sh#L597-L603);
+[`docs/install/docker/networking-and-storage.md:44-52`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/docs/install/docker/networking-and-storage.md#L44-L52)).
+The volume therefore holds no OpenClaw state, only another agent's files: a Claude Code install
+made inside the container, described in
+[Docker volume of OpenClaw's setup in `research/claude-code.md`](claude-code.md#docker-volume-of-openclaws-setup).
 
 #### Legacy names
 
