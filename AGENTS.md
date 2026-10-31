@@ -510,8 +510,12 @@ The analyzer runs on the analyst's workstation, never on the host.
 The research is done for every agent in the parser backlog; do not redo
 it. Start from the Parsing part of `research/<agent>.md`, whose Parser plan
 maps records to timeline columns and whose Fixtures subsection holds the
-sample records. Check the record shape at the cited commit, not the default
-branch, and note any drift in the module docstring.
+sample records. Recheck the record shape against each source the document cites, as
+step 4 of
+[Validating catalog entries from source](#validating-catalog-entries-from-source)
+says, a source file at its cited commit rather than the default branch,
+and note any drift in the module docstring. Rechecking a citation is not
+redoing the research.
 
 A per-step round (an install in a clean VM with a listing after every user
 action; [Real-install rounds](#real-install-rounds)) comes first for an
@@ -831,6 +835,19 @@ before any install.
    agent gets a round; closed-source agents are queued first, by
    popularity, and an open-source agent is added from source with its round
    filed as an issue.
+
+   A change written from a research document (table lines, discovery, a
+   parser, a fixture, a smoke check) rechecks each claim it builds on
+   against every source the document cites for it (a real install's
+   Observed bullet, source code, a page, a bundle, a forum thread), one
+   source at a time in the evidence order above; where they disagree, the
+   document is corrected in the same commit, a real install settling it,
+   then the shipped package. Before review, the change's review report (the
+   subagent's report, or the commit body) lists each claim with the sources checked and the result, and answers
+   each bullet of step 3 of [Adding a parser](#adding-a-parser) and each
+   step of [Adding an agent to the catalog](#adding-an-agent-to-the-catalog)
+   the change touches, with the file and line that satisfies it or the
+   reason it does not apply.
 
    A question about the product's surface (where a menu item lives, how a
    chat is deleted) or its behaviour (when a retention sweep runs) is
