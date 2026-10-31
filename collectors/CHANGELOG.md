@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-10-30
+
 ### Added
 
 - Hermes' remaining credential stores are flagged `secret: true` in every home and profile (`.hermes*/` and `AppData/Local/hermes*/`): the config writers' `config.yaml.*` copies, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json` and the OS credential directories `.ssh/*`, `.aws/*`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*` and `.envrc`; in a Hermes volume, whose `_data` is the container user's home, the volume-relative `config.yaml.*`, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json`, `.ssh/*`, `.aws/credentials`, `.aws/config`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*`, `.envrc` and the quick snapshots' `state-snapshots/*/config.yaml` and `state-snapshots/*/feishu_comment_pairing.json` ([#326]).
@@ -1178,7 +1180,8 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
   overridden by `--full`; credential files collected and flagged
   `secret: true` by default.
 
-[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.20.0...HEAD
+[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.21.0...HEAD
+[1.21.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.20.0...collector-v1.21.0
 [1.20.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.19.0...collector-v1.20.0
 [1.19.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.18.0...collector-v1.19.0
 [1.18.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.17.0...collector-v1.18.0

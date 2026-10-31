@@ -9,6 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-30
+
 ### Added
 
 - The bundled catalog copy gains the catalog lines of collector 1.20.0, so detection follows them: a Hermes home or desktop user-data directory with any `HERMES_DATA_DIR_SUFFIX` (`.hermes?*`, `AppData/Local/hermes?*` and `Hermes?*` under each OS's application data directory, replacing `.hermes_*` and `AppData/Local/hermes_*`) is detected as `hermes` ([#324]); and in `AppData/Roaming/devin` only the Devin CLI's `mcp_config.json` and `credentials.toml` are attributed to `windsurf`, not the Devin IDE's files beside them ([#321]).
@@ -2111,7 +2113,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--summary-length` (default 400), `--include-thinking` and `--agent`;
   `detect --json` and `--files`; `catalog --agents`.
 
-[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.21.0...HEAD
+[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.22.0...HEAD
+[0.22.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.21.0...analyzer-v0.22.0
 [0.21.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.20.1...analyzer-v0.21.0
 [0.20.1]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.20.0...analyzer-v0.20.1
 [0.20.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.19.0...analyzer-v0.20.0
