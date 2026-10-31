@@ -4,9 +4,9 @@ Crush (catalog agent `crush`) is Charm's terminal coding agent. It began as an O
 ([`opencode.md`](opencode.md)) but no longer shares any storage code with it: Crush is Go, with sqlc
 and goose migrations, and keeps one database per project where OpenCode keeps one per user
 ([OpenCode's data directory](opencode.md#data-directory)); it has no share service
-([OpenCode's share records](opencode.md#share-records)), no permission JSON on the session
+([OpenCode's share records](opencode.md#1x-share-records)), no permission JSON on the session
 ([OpenCode's permission records](opencode.md#permission-records)), no agent or mode recorded per
-message ([OpenCode's messages](opencode.md#message-and-part)), and file history in a `files` table
+message ([OpenCode's messages](opencode.md#session-messages)), and file history in a `files` table
 instead of git snapshots. Hyper is Charm's hosted model gateway, and its Prism router picks a model
 per request. The analyzer parses the per-project `crush.db`, every `crush.json` scope and the
 `crushrc` shell configs, from source and fixtures only.

@@ -1379,7 +1379,10 @@ the array is one `parser: not a JSON array`,
 Through the OpenCode reader a database that cannot be opened is
 `parser: database could not be read: <reason>`, a legacy session or message file that does not
 decode is `parser: session file could not be decoded` or
-`parser: message file could not be decoded`, and each undecodable database record or part file
+`parser: message file could not be decoded`, a legacy session file's project file
+(`storage/project/<projectID>.json`) that exists but does not decode is
+`parser: project file <projectID>.json could not be read (<reason>)`, and each undecodable
+database record or part file
 is its own `parser: unparseable record <rowid> (<table>.data: <reason>): <data>` or
 `parser: unparseable part <partID> (<reason>): <text>` row carrying it in full, the reason of a
 part file that cannot be read being `unreadable: <reason>`

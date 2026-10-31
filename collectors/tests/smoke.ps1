@@ -635,6 +635,35 @@ agent|kilo-code|.cache/JetBrains/IntelliJIdea2026.2/kilo/machine-id
 agent|kilo-code|Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
 agent|kilo-code|AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml
 agent|kilo-code|.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+excl||.local/share/opencode/bin
+excl||.local/share/opencode/snapshot
+excl||.local/share/opencode/worktree
+excl||.local/share/opencode/repos
+excl||.local/share/opencode/tool-output
+excl||.config/opencode/node_modules
+excl||.opencode/bin
+excl||.opencode/node_modules
+excl||Library/Application Support/ai.opencode.desktop/compile-cache
+excl||AppData/Roaming/ai.opencode.desktop/compile-cache
+excl||.config/ai.opencode.desktop/compile-cache
+excl||Library/Application Support/ai.opencode.desktop/cli
+excl||AppData/Roaming/ai.opencode.desktop/cli
+excl||.config/ai.opencode.desktop/cli
+secret||.local/share/opencode/auth.json
+secret||.local/share/opencode/mcp-auth.json
+secret||.local/share/opencode/opencode.db
+secret||.local/share/opencode/opencode-next.db
+secret||.config/opencode/opencode.jsonc
+secret||.config/opencode/config.json
+secret||.config/opencode/service.json.4242.tmp
+secret||.config/opencode/cli.json
+secret||.local/state/opencode/pty/i1/service.json
+secret||.local/state/opencode/service.json.svc1.tmp
+secret||.local/state/opencode/service.json.pty-handoff
+secret||.local/state/opencode/service.json.pty-handoff.u1.tmp
+secret||.opencode/opencode.json
+agent|opencode|.local/state/opencode/prompt-history.jsonl
+agent|opencode|.local/share/opencode/shell/p1/sh_1.out
 '@
 $CasesCatalog = @($CasesCatalog -split "`r?`n" | Where-Object { $_ -ne '' })
 foreach ($caseLine in $CasesCatalog) {
@@ -1212,7 +1241,7 @@ MakeFile "$opencodeDesktop/drafts.sqlite" "sqlite`n"
 MakeFile "$opencodeDesktop/compile-cache/x" "v8`n"
 MakeFile 'Users/alice/.config/ai.opencode.desktop.beta/drafts.sqlite' "sqlite`n"
 MakeFile 'Users/alice/AppData/Roaming/ai.opencode.desktop/drafts.sqlite' "sqlite`n"
-MakeFile 'Users/alice/AppData/Local/Temp/opencode/notes.txt' "tmp`n"
+MakeFile 'Users/alice/AppData/Local/Temp/opencode/uploads/u1/notes.txt' "tmp`n"
 MakeFile "$kiloSandboxPolicy/bb.json" "{`"enabled`":true,`"mode`":`"deny`",`"version`":1}`n"
 MakeFile 'Users/alice/.local/state/kilo-sandbox-preference/bb.json' "false`n"
 
@@ -1449,6 +1478,12 @@ MakeFile 'kilolegacy/.kilocoderules' "rule`n"
 # The project config files `kilo mcp add` writes MCP servers into, one per secret glob.
 $kiloProjectConfigs = @('kilo.json', '.kilo/kilo.jsonc', '.kilo/opencode.json', '.kilocode/kilo.json', '.kilocode/opencode.jsonc')
 foreach ($kiloPath in $kiloProjectConfigs) { MakeFile "kilolegacy/$kiloPath" "{`"mcp`":{`"x`":{`"type`":`"local`",`"environment`":{`"TOKEN`":`"t`"}}}}`n" }
+# 2026-10-31 opencode rebuild (#326)
+# A project named by the 1.x JSON project store, with the config files that can hold MCP
+# environment values, one per project table line.
+MakeFile 'Users/alice/.local/share/opencode/storage/project/p1.json' '{"id":"p1","worktree":"C:\\ocproj","vcs":"git"}'
+$opencodeProjectConfigs = @('.opencode/opencode.json', 'opencode.jsonc')
+foreach ($opencodePath in $opencodeProjectConfigs) { MakeFile "ocproj/$opencodePath" "{`"mcp`":{`"x`":{`"type`":`"local`",`"environment`":{`"TOKEN`":`"t`"}}}}`n" }
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2014,7 +2049,7 @@ Check 'openclaw_home volume .claude file collected as claude-code' { $row = Row 
 Check '#213 OpenCode service.json flagged secret' { (IsAgentRow 'Users/alice/.config/opencode/service.json' 'opencode' $true) -and (IsAgentRow 'Users/alice/.local/state/opencode/service-local.json' 'opencode' $true) }
 Check '#213 OpenCode desktop data collected' { (IsAgentRow "$opencodeDesktop/drafts.sqlite" 'opencode' $false) -and (IsAgentRow 'Users/alice/.config/ai.opencode.desktop.beta/drafts.sqlite' 'opencode' $false) -and (IsAgentRow 'Users/alice/AppData/Roaming/ai.opencode.desktop/drafts.sqlite' 'opencode' $false) }
 Check '#213 OpenCode desktop compile-cache excluded' { (StatusOf "$opencodeDesktop/compile-cache") -eq 'skipped_excluded' -and (HasNoRow 'compile-cache/x') }
-Check '#213 OpenCode Windows temp root collected' { IsAgentRow 'Users/alice/AppData/Local/Temp/opencode/notes.txt' 'opencode' $false }
+Check '#213 OpenCode Windows temp root collected' { IsAgentRow 'Users/alice/AppData/Local/Temp/opencode/uploads/u1/notes.txt' 'opencode' $false }
 Check '#221 Kilo sandbox policy and preference collected' { (IsAgentRow "$kiloSandboxPolicy/bb.json" 'kilo-code' $false) -and (IsAgentRow 'Users/alice/.local/state/kilo-sandbox-preference/bb.json' 'kilo-code' $false) }
 
 # 2026-10-21 Qwen Code session registry (#230)
@@ -2300,6 +2335,11 @@ foreach ($kiloPath in $kiloProjectConfigs) {
   Check "#326 Kilo project config flagged secret: $kiloPath" { IsAgentRow "kilolegacy/$kiloPath" 'kilo-code' $true }
 }
 Check '#326 Kilo memory manifest collected' { IsAgentRow "$kiloMemory/manifest.json" 'kilo-code' $false }
+# 2026-10-31 opencode rebuild (#326)
+Check '#326 OpenCode legacy project store discovers project' { IsAgentRow 'ocproj/opencode.jsonc' 'opencode' $true }
+foreach ($opencodePath in $opencodeProjectConfigs) {
+  Check "#326 OpenCode project config flagged secret: $opencodePath" { IsAgentRow "ocproj/$opencodePath" 'opencode' $true }
+}
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
@@ -2382,6 +2422,10 @@ foreach ($driftPath in $driftCrushFiles) {
 # 2026-10-30 kilo-code rebuild (#326)
 foreach ($kiloPath in $kiloProjectConfigs) {
   Check "#326 Kilo project config skipped without secrets: $kiloPath" { (StatusOf "kilolegacy/$kiloPath") -eq 'skipped_secret' }
+}
+# 2026-10-31 opencode rebuild (#326)
+foreach ($opencodePath in $opencodeProjectConfigs) {
+  Check "#326 OpenCode project config skipped without secrets: $opencodePath" { (StatusOf "ocproj/$opencodePath") -eq 'skipped_secret' }
 }
 # 2026-10-04 catalog cases
 foreach ($caseLine in $CasesCatalog) {

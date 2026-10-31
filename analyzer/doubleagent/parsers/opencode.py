@@ -1,33 +1,33 @@
 """Parse OpenCode sessions from its database, its JSON trees and its terminal UI state.
 
-Follows `research/opencode.md`. Validated against source, sst/opencode at 907b3bc
-(1.x) and anomalyco/opencode at cb07c55 (CLI 2.0.32: the 2.0 tables, refusals,
-archives, permission rules, worktrees and the terminal UI state), with a
-synthetic fixture; no real install. Kilo Code's CLI is an OpenCode fork, so
-`KiloCodeParser` subclasses this one with its own paths. Files read:
+Follows `research/opencode.md`. Validated against source, anomalyco/opencode at bf544cd
+(2.2.5: the 2.x tables, `session_part`, refusals, archives, permission rules, worktrees and
+the terminal UI state), cb07c55 (2.0.32) and sst/opencode at 907b3bc (1.x), with a synthetic
+fixture; no real install. Kilo Code's CLI is an OpenCode fork, so `KiloCodeParser`
+subclasses this one with its own paths. Files read:
 
 - `.local/share/opencode/opencode[-<channel>].db`, through
   `sqlite_util.open_copy`: `session_v2` and `session` (`id`, `project_id`,
-  `parent_id`, `directory`, `title`, `agent`, `permission`, `time_*`),
-  `project(id, worktree)`, the V1 `message` and `part` tables and the V2
-  `session_message` (`data` JSON with a `type`), `session_share` (never its
+  `parent_id`, `fork_session_id`, `directory`, `title`, `slug`, `version`, `agent`,
+  `permission`, `time_*`), `project(id, worktree)`, the 1.x `message` and `part`
+  tables, `session_message` (`data` JSON, its `type` a column) with the
+  `session_part` items of an assistant message, `session_share` (never its
   `secret`), `session.updated.1` rows of `event`, `worktree` or
-  `project_directory`, and `permission`. In a 2.0 database `session_message`
+  `project_directory`, and `permission`. In a 2.x database `session_message`
   is the transcript and the 1.x rows are read, marked recovered, only for a
   session it lacks; in a 1.x one the reverse.
 - `opencode-next.db`, a pre-release 2.0 database, a secondary source (a file
   repeating events the main database holds).
-- The legacy `storage/` and per-project `project/<slug>/storage/session/`
-  JSON trees of session, message and part files.
-- `.local/state/opencode`: `prompt-history.jsonl` (secondary),
-  `prompt-stash.jsonl` and `session.json` (pinned ids, secondary).
+- The legacy `storage/` and per-project `project/<slug>/storage/session/` JSON trees of
+  session, message and part files, with `storage/project/` for a session's `worktree`.
+- `.local/state/opencode`: `prompt-history.jsonl` (secondary), `prompt-stash.jsonl` and
+  `session.json` (pinned ids, secondary).
 
-Model and agent (an OpenCode agent is a mode with its own permission rules)
-are tracked per session as `model:` and `permission mode:` rows. Shares give
-`session synced:` rows, so `records_sync` is set. `project_path` is the
-session's `directory`, else the project `worktree` unless `/`, else the
-message's `path.cwd`; no git branch is recorded. `source_line` is the SQLite
-`rowid`, or 1 for a JSON file.
+Model and agent (an OpenCode agent is a mode with its own permission rules) are tracked per
+session as `model:` and `permission mode:` rows. Shares give `session synced:` rows, so
+`records_sync` is set. `project_path` is the session's `directory`, else the project
+`worktree` unless `/`, else the message's `path.cwd`; no git branch is recorded.
+`source_line` is the SQLite `rowid`, or 1 for a JSON file.
 """
 
 from __future__ import annotations
@@ -198,6 +198,18 @@ def _read_json(path: Path) -> dict | None:
             return _loads(handle.read())
     except OSError:
         return None
+
+
+def _read_side(path: Path) -> tuple[dict | None, str]:
+    """Return (record, reason) of a JSON file the parser reads beside the one it parses.
+
+    The reason is "" when the file is absent or decodes to an object, else why it
+    could not be used, so only an absent file is silent.
+    """
+    if not path.is_file() or path.is_symlink():
+        return None, ""
+    data, reason, _ = _read_part(path)
+    return data, reason
 
 
 def _join(*parts) -> str:
@@ -792,8 +804,9 @@ class OpenCodeParser(Parser):
         """
         if "session_message" not in tables:
             return
+        parts = self._session_parts(connection, tables, skip, errors)
         for message_row in connection.execute(
-            "select rowid as _rowid, session_id, type, seq, time_created, data "
+            "select rowid as _rowid, id, session_id, type, seq, time_created, data "
             "from session_message order by session_id, seq, time_created"
         ).fetchall():
             session_id = str(message_row["session_id"] or "")
@@ -807,6 +820,9 @@ class OpenCodeParser(Parser):
                 )
                 errors.append((message_row["_rowid"], label, raw, session_id))
                 continue
+            items = parts.get(str(message_row["id"] or ""))
+            if items and message_row["type"] == "assistant" and "content" in data:
+                data["content"] = items
             yield from self._v2_rows(
                 artifact,
                 context_for(session_id),
@@ -816,6 +832,38 @@ class OpenCodeParser(Parser):
                 message_row["time_created"],
                 opts,
             )
+
+    @staticmethod
+    def _session_parts(
+        connection: sqlite3.Connection, tables: set, skip: set[str], errors: list
+    ) -> dict[str, list[dict]]:
+        """Return the `session_part` items of each message id, in `ordinal` order.
+
+        OpenCode reads an assistant message's items from these rows when it
+        has any, in place of its `content`, and a row's `type` column
+        overrides the item's own (`decodePartRowSync` in `history.ts`). A row
+        whose `data` does not decode is appended to `errors` as (rowid,
+        message, raw, session id).
+        """
+        items: dict[str, list[dict]] = {}
+        if "session_part" not in tables:
+            return items
+        for record in connection.execute(
+            "select rowid as _rowid, message_id, session_id, type, data from session_part "
+            "order by message_id, ordinal"
+        ).fetchall():
+            session_id = str(record["session_id"] or "")
+            if session_id in skip:
+                continue
+            data, reason, raw = _decode(record["data"])
+            if data is None:
+                label = "unparseable record %d (session_part.data: %s)" % (record["_rowid"], reason)
+                errors.append((record["_rowid"], label, raw, session_id))
+                continue
+            if record["type"]:
+                data["type"] = record["type"]
+            items.setdefault(str(record["message_id"] or ""), []).append(data)
+        return items
 
     def _share_rows(
         self,
@@ -1285,6 +1333,12 @@ class OpenCodeParser(Parser):
     def _session_context(
         self, root: Path, session_id: str, old: bool, message: dict
     ) -> tuple[_Context, dict]:
+        """Return a message file's session context and its session record.
+
+        A project file that exists but does not decode is reported by the
+        session file's own pass (`_parse_session_file`), not here, so it gives
+        one row rather than one per message file.
+        """
         session: dict | None = None
         if old:
             session = _read_json(root / "info" / (session_id + ".json"))
@@ -1326,22 +1380,23 @@ class OpenCodeParser(Parser):
             yield row
             return
         path = session.get("directory") or ""
+        errors: list[tuple[int, str]] = []
         if (
             not path
             and session.get("projectID")
             and not self.old_session_pattern.match(artifact.rel)
         ):
-            project_file = (
-                artifact.disk_path.parent.parent.parent
-                / "project"
-                / (str(session["projectID"]) + ".json")
-            )
-            worktree = (_read_json(project_file) or {}).get("worktree") or ""
+            name = str(session["projectID"]) + ".json"
+            project, reason = _read_side(artifact.disk_path.parent.parent.parent / "project" / name)
+            if reason:
+                errors.append((1, "project file %s could not be read (%s)" % (name, reason)))
+            worktree = (project or {}).get("worktree") or ""
             path = worktree if worktree != "/" else ""
         context = _Context(str(session.get("id") or artifact.disk_path.stem), str(path))
         yield self._session_row(
             artifact, context, session, _dict_or_empty(session.get("time")).get("created"), 1, opts
         )
+        yield from error_rows(self, artifact, errors, context.session_id, context.project_path)
 
     def _parse_message_file(self, artifact: Artifact, opts: Options, old: bool) -> Iterator[Row]:
         # new: storage/message/<ses>/<msg>.json, root is storage/
