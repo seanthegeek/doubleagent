@@ -528,7 +528,7 @@ def openclaw_chunked_cold_inserts():
             OPENCLAW_CHUNKED_SESSION,
             "d" * 64,
             "d" * 64,
-            sum(len(raw) for _, raw, _ in chunks) + 1,
+            sum(len(raw) for _, raw, _ in chunks),
             sum(len(blob) for _, _, blob in chunks),
         )
     ]

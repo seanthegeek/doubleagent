@@ -468,6 +468,50 @@ class OpenClawTests(ParserBase):
         )
         self.assertEqual(lost[0].timestamp_utc, "2026-10-01T10:53:20.000Z")
 
+    def test_cold_archive_without_chunks_table(self):
+        """An agent database without the chunks table still reads a whole-blob cold archive."""
+        # The release tag v2026.10.9 writes agent schema 25, which has no chunks table.
+        connection = sqlite3.connect(str(self.home / self.DATABASE))
+        connection.execute("DROP TABLE session_transcript_cold_archive_chunks")
+        connection.commit()
+        connection.close()
+        rows = self.rows_for(OpenClawParser(), self.DATABASE)
+        cold = [row for row in rows if row.session_id == OPENCLAW_COLD_SESSION]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in cold],
+            [
+                ("system", "session start: cold_archive=%s.jsonl.zst version=4" % ("c" * 64)),
+                ("user", "check disk space on the server"),
+            ],
+        )
+        chunked = [row for row in rows if row.session_id == OPENCLAW_CHUNKED_SESSION]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in chunked],
+            [("system", "parser: cold archive %s.jsonl.zst has no stored bytes" % ("d" * 64))],
+        )
+
+    def test_cold_archive_chunk_without_bytes_is_reported(self):
+        """A chunk with a NULL blob is a parser: row, and the next chunk is still read."""
+        connection = sqlite3.connect(str(self.home / self.DATABASE))
+        connection.execute(
+            "UPDATE session_transcript_cold_archive_chunks SET archive_blob = NULL"
+            " WHERE session_id = ? AND chunk_index = 0",
+            (OPENCLAW_CHUNKED_SESSION,),
+        )
+        connection.commit()
+        connection.close()
+        rows = self.rows_for(OpenClawParser(), self.DATABASE)
+        chunked = [row for row in rows if row.session_id == OPENCLAW_CHUNKED_SESSION]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in chunked],
+            [
+                ("system", "parser: cold archive %s.jsonl.zst has no stored bytes" % ("5" * 64)),
+                ("system", "session start: cold_archive=%s.jsonl.zst" % ("d" * 64)),
+                ("user", "check disk space on the server"),
+            ],
+        )
+        self.assertEqual(chunked[0].timestamp_utc, "2026-10-01T10:36:40.000Z")
+
     def test_null_event_row_is_reported_not_fatal(self):
         # A row whose event_json is valid JSON but not an object (here
         # `null`) is reported as "not a JSON object".
