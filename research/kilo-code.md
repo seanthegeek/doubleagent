@@ -305,9 +305,9 @@ properties under `kilo.session.*`, `kilo.integrations.github` and `kilo.worktree
 them `kilo.session.autoApprove` and `kilo.session.agent`, kept through the IDE's
 `PropertiesComponent`
 ([`KiloPluginSettings.kt:9-20`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/plugin/KiloPluginSettings.kt#L9-L20),
-[`:30`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/plugin/KiloPluginSettings.kt#L30)); the IntelliJ platform keeps application properties in the `options/other.xml` that every
-plugin shares, a convention this repository does not show. No catalog line names that file, so it
-is not collected.
+[`:30`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-jetbrains/frontend/src/main/kotlin/ai/kilocode/client/plugin/KiloPluginSettings.kt#L30)).
+This repository does not show which file under the IDE's configuration directory holds those
+properties, and no catalog line names a file under its `options/`, so they are not collected.
 
 ### Credentials
 
@@ -1371,10 +1371,10 @@ it decodes to something else; a sandbox policy file or a cloud session marker
 when it is not a JSON object `parser: memory manifest.json is not a JSON object` beside the
 digest's row. A memory digest, a log file or a pre-migration task file that cannot be read is one
 `parser: <file> could not be read (<reason>)` row. A pre-migration `api_conversation_history.json`
-is read record by record: a record
-that does not decode is `parser: unparseable record <N> (<reason>): <text from that record on>`,
-with every earlier record's rows kept, and a file that is not an array, an array cut off after a
-record or data after the array is one `parser: not a JSON array`,
+is read record by record: a record that does not decode is
+`parser: unparseable record <N> (<reason>): <text from that record on>`, with every earlier
+record's rows kept, and a file that is not an array, an array cut off after a record or data after
+the array is one `parser: not a JSON array`,
 `parser: array cut off after record <n>` or `parser: unexpected data after the array` row.
 Through the OpenCode reader a database that cannot be opened is
 `parser: database could not be read: <reason>`, a legacy session or message file that does not
