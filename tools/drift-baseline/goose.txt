@@ -1,188 +1,26 @@
-check_fixture_schema|builder-provenance-missing|goose_bad_json_records
-check_fixture_schema|builder-provenance-missing|goose_gateway_records
-check_fixture_schema|builder-provenance-missing|goose_legacy_records
-check_fixture_schema|builder-provenance-missing|goose_llm_request_records
-check_fixture_schema|builder-provenance-missing|goose_permission_records
-check_fixture_schema|builder-provenance-missing|goose_records
-check_fixture_schema|builder-provenance-missing|goose_streamed_llm_records
-check_fixture_schema|key-undocumented|command
-check_fixture_schema|module-provenance-missing|goose
-check_fixture_schema|sample-equals-builder|.local/share/goose/sessions/20260301_090000.jsonl
-check_fixture_schema|sample-equals-builder|.local/state/goose/logs/llm_request.0.jsonl
-check_fixture_schema|substitution-undeclared|/srv/old
-check_parser_research|docstring-fact-undocumented|model_config.model_name
-check_parser_research|key-undocumented|_model
-check_parser_research|key-undocumented|audience
-check_parser_research|parser-message-undocumented|parser: SQLite error: %s
-check_parser_research|parser-message-undocumented|parser: not a SQLite database
-check_parser_research|row-text-undocumented|last user:
-check_parser_research|row-text-undocumented|llm error:
-check_research_structure|bare-doc-reference|Electron userData locations are Electron documentation level, not goose source.
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/Cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/Code Cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/DawnGraphiteCache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/DawnWebGPUCache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/GPUCache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 */Goose/blob_storage
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .config/goose/mcp-apps-cache
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/goose/model_catalog
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/goose/models
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/state/goose/codex
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/Block/goose/data/codex
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/Block/goose/data/model_catalog
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Roaming/Block/goose/data/models
-check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/Cache
-check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/Code Cache
-check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/DawnGraphiteCache
-check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/DawnWebGPUCache
-check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/GPUCache
-check_smoke_coverage|exclusion-check-missing|smoke.sh */Goose/blob_storage
-check_smoke_coverage|exclusion-check-missing|smoke.sh .config/goose/mcp-apps-cache
-check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/goose/model_catalog
-check_smoke_coverage|exclusion-check-missing|smoke.sh .local/share/goose/models
-check_smoke_coverage|exclusion-check-missing|smoke.sh .local/state/goose/codex
-check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/Block/goose/data/codex
-check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/Block/goose/data/model_catalog
-check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Roaming/Block/goose/data/models
-check_smoke_coverage|fixture-missing|smoke.ps1 home .config/Goose
-check_smoke_coverage|fixture-missing|smoke.ps1 home .config/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 home .goose
-check_smoke_coverage|fixture-missing|smoke.ps1 home .local/share/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 home .local/state/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Block/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Goose
-check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Block/goose
-check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Goose
-check_smoke_coverage|fixture-missing|smoke.ps1 project .goose
-check_smoke_coverage|fixture-missing|smoke.ps1 project .goosehints
-check_smoke_coverage|fixture-missing|smoke.sh home .config/Goose
-check_smoke_coverage|fixture-missing|smoke.sh home .config/goose
-check_smoke_coverage|fixture-missing|smoke.sh home .goose
-check_smoke_coverage|fixture-missing|smoke.sh home .local/share/goose
-check_smoke_coverage|fixture-missing|smoke.sh home .local/state/goose
-check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Block/goose
-check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Goose
-check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Block/goose
-check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Goose
-check_smoke_coverage|fixture-missing|smoke.sh project .goose
-check_smoke_coverage|fixture-missing|smoke.sh project .goosehints
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/chatgpt_codex/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/databricks/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/gemini_oauth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/githubcopilot/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/huggingface/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/kimicode/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/muse_code/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/roaming_node_key
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/secrets.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/tls/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .config/goose/xai_oauth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 .local/state/goose/logs/llm_request.*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/chatgpt_codex/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/databricks/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/gemini_oauth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/githubcopilot/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/huggingface/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/kimicode/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/muse_code/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/roaming_node_key
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/secrets.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/tls/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/xai_oauth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 AppData/Roaming/Block/goose/data/logs/llm_request.*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/chatgpt_codex/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/databricks/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/gemini_oauth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/githubcopilot/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/huggingface/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/kimicode/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/muse_code/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/roaming_node_key
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/secrets.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/tls/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .config/goose/xai_oauth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh .local/state/goose/logs/llm_request.*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/chatgpt_codex/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/config.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/databricks/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/gemini_oauth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/githubcopilot/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/huggingface/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/kimicode/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/muse_code/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/roaming_node_key
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/secrets.yaml
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/tls/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/config/xai_oauth/*
-check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Roaming/Block/goose/data/logs/llm_request.*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/chatgpt_codex/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/config.yaml
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/databricks/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/gemini_oauth/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/githubcopilot/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/huggingface/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/kimicode/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/muse_code/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/roaming_node_key
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/secrets.yaml
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/tls/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .config/goose/xai_oauth/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 .local/state/goose/logs/llm_request.*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/chatgpt_codex/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/config.yaml
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/databricks/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/gemini_oauth/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/githubcopilot/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/huggingface/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/kimicode/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/muse_code/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/roaming_node_key
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/secrets.yaml
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/tls/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/config/xai_oauth/*
-check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Block/goose/data/logs/llm_request.*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/chatgpt_codex/*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/config.yaml
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/databricks/*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/gemini_oauth/*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/githubcopilot/*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/huggingface/*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/kimicode/*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/muse_code/*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/roaming_node_key
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/secrets.yaml
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/tls/*
-check_smoke_coverage|secret-check-missing|smoke.sh .config/goose/xai_oauth/*
-check_smoke_coverage|secret-check-missing|smoke.sh .local/state/goose/logs/llm_request.*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/chatgpt_codex/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/config.yaml
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/databricks/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/gemini_oauth/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/githubcopilot/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/huggingface/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/kimicode/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/muse_code/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/roaming_node_key
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/secrets.yaml
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/tls/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/config/xai_oauth/*
-check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Block/goose/data/logs/llm_request.*
-check_tables_research|credential-unflagged|AppData/Roaming/Block/goose/secrets.yaml
+check_tables_research|credential-unflagged|.goose/settings.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/chatgpt_codex/tokens.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/config.yaml
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/databricks/oauth/.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/gemini_oauth/tokens.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/githubcopilot/info.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/githubcopilot/x/info.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/huggingface/oauth/tokens.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/kimicode/token.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/muse_code/token.json
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/secrets.yaml
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/tls/server.key
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/xai_oauth/tokens.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/chatgpt_codex/tokens.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/claude-code/mcp-config-.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/config.yaml
+check_tables_research|credential-unflagged|Library/Application Support/Goose/databricks/oauth/.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/gemini_oauth/tokens.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/githubcopilot/info.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/githubcopilot/x/info.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/huggingface/oauth/tokens.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/kimicode/token.json
+check_tables_research|credential-unflagged|Library/Application Support/Goose/muse_code/token.json
 check_tables_research|credential-unflagged|Library/Application Support/Goose/secrets.yaml
-check_tables_research|line-unnamed|secret .config/goose/huggingface/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/chatgpt_codex/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/config.yaml
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/databricks/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/gemini_oauth/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/githubcopilot/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/huggingface/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/kimicode/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/muse_code/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/roaming_node_key
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/secrets.yaml
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/tls/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/config/xai_oauth/*
-check_tables_research|line-unnamed|secret AppData/Roaming/Block/goose/data/logs/llm_request.*
+check_tables_research|credential-unflagged|Library/Application Support/Goose/tls/server.key
+check_tables_research|credential-unflagged|Library/Application Support/Goose/xai_oauth/tokens.json
