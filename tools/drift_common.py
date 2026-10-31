@@ -634,28 +634,67 @@ def star_remainders(glob: str, catalog: Catalog) -> list[tuple[str, str]]:
     return found
 
 
+def is_volume_section(section: Section) -> bool:
+    """Return whether a section's heading or first paragraph holds the word "volume"."""
+    lines = section.text.split("\n")
+    paragraph: list[str] = []
+    for line in lines[1:]:
+        if line.strip():
+            paragraph.append(line)
+        elif paragraph:
+            break
+    return "volume" in (lines[0] + " " + " ".join(paragraph)).lower()
+
+
 @functools.cache
-def collection_spans_by_depth(path: pathlib.Path) -> dict[int, tuple[str, ...]]:
+def collection_spans_by_depth(
+    path: pathlib.Path, volume_only: bool = False
+) -> dict[int, tuple[str, ...]]:
     """Return a document's normalised Collection code spans by their count of `/`, read once.
 
-    A missing document has none. A glob's segments never cross `/`, so only spans of its own
-    depth, or one less for a glob ending in `/*`, can name it (`names_glob`).
+    With `volume_only`, only the spans of its Per-user storage volume subsections
+    (`is_volume_section`). A missing document has none. A glob's segments never cross `/`, so
+    only spans of its own depth, or one less for a glob ending in `/*`, can name it
+    (`names_glob`).
     """
     if not path.is_file():
         return {}
+    sections = research_sections(path)
+    if volume_only:
+        chosen = [
+            section
+            for section in within(sections, "Collection", "Per-user storage")
+            if is_volume_section(section)
+        ]
+    else:
+        chosen = within(sections, "Collection")
     found: dict[int, list[str]] = {}
-    for section in within(research_sections(path), "Collection"):
+    for section in chosen:
         for span in section.code_spans:
             text = normalise_span(span.text)
             found.setdefault(text.count("/"), []).append(text)
     return {depth: tuple(spans) for depth, spans in found.items()}
 
 
-def document_names_glob(path: pathlib.Path, glob: str) -> bool:
-    """Return whether a code span of a document's Collection part names a glob (`names_glob`)."""
-    by_depth = collection_spans_by_depth(path)
+def document_names_glob(path: pathlib.Path, glob: str, volume_only: bool = False) -> bool:
+    """Return whether a code span of a document's Collection part names a glob (`names_glob`).
+
+    With `volume_only`, only a span of a Per-user storage volume subsection counts.
+    """
+    by_depth = collection_spans_by_depth(path, volume_only)
     depth = glob.count("/")
     return names_glob(glob, by_depth.get(depth, ()) + by_depth.get(depth - 1, ()))
+
+
+def volume_section_names_glob(path: pathlib.Path, glob: str) -> bool:
+    """Return whether a document's Per-user storage volume subsections name a volume glob.
+
+    The one test both volume ownership (`glob_owners`) and `volume-glob-unnamed` use. It is the
+    strict form, `names_glob` without `deeper`: a span describing an agent's own layout below
+    a path (`profiles/<name>/...`) does not name the bare glob above it (`profiles/*`), so it
+    never makes that agent an owner of another agent's glob.
+    """
+    return document_names_glob(path, glob, volume_only=True)
 
 
 def home_claim(glob: str, catalog: Catalog) -> str:
@@ -701,40 +740,61 @@ def closest_agent(reached: list[tuple[str, str]]) -> str:
     return closest[0] if len(closest) == 1 else "-"
 
 
-def attribute_glob(
+def glob_owners(
     glob: str, catalog: Catalog | None = None, root: pathlib.Path | None = None
-) -> str:
-    """Return the agent a table glob belongs to, by the first step that names one, or `-`.
+) -> list[str]:
+    """Return the agents owning a table glob, by the first step that names any, or none.
 
-    1. The agent of the home entry that claims a sample path of the glob (`home_claim`).
-    2. The agent of the project entry that claims a sample path of the glob (`project_claim`).
-    3. For a glob opening `*/`, the agent of the most specific home entry it reaches, the one
-       with the fewest remainder segments (`star_remainders`), when no other agent's is as close.
-    4. For any other glob, which is volume-relative, the one `DOCKER_VOLUMES` agent whose
-       research document under `root` names it in a Collection code span (`volume_agents_naming`).
-    `catalog` defaults to the bundled one and `root` to this checkout.
+    1. The home, then the project entry claiming a sample path (`home_claim`, `project_claim`).
+    2. For a glob opening `*/`, the agent of the closest home entry it reaches
+       (`star_remainders`), when no other agent's is as close.
+    3. For any other glob, volume-relative and so applied in every volume, each `DOCKER_VOLUMES`
+       agent whose volume subsections name it (`volume_section_names_glob`), sorted by name;
+       when none's do, the one agent whose Collection part names it (`volume_agents_naming`),
+       and no owner when several do. `catalog` defaults to the bundled one, `root` to this checkout.
     """
     catalog = catalog or _bundled_catalog()
     owner = home_claim(glob, catalog) or project_claim(glob, catalog)
     if owner:
-        return owner
+        return [owner]
     if glob.startswith("*/"):
-        return closest_agent(star_remainders(glob, catalog))
+        closest = closest_agent(star_remainders(glob, catalog))
+        return [] if closest == "-" else [closest]
+    in_volume = volume_agents_naming(glob, catalog, root, volume_only=True)
+    if in_volume:
+        return sorted(in_volume)
     naming = volume_agents_naming(glob, catalog, root)
-    return naming[0] if len(naming) == 1 else "-"
+    return naming if len(naming) == 1 else []
+
+
+def attribute_glob(
+    glob: str, catalog: Catalog | None = None, root: pathlib.Path | None = None
+) -> str:
+    """Return the agent a finding about a table glob goes to: its first owner, or `-`.
+
+    The owners are `glob_owners`; a volume-relative glob several agents share goes to the
+    first of them by name, so its finding lands in one baseline file.
+    """
+    owners = glob_owners(glob, catalog, root)
+    return owners[0] if owners else "-"
 
 
 def volume_agents_naming(
-    glob: str, catalog: Catalog, root: pathlib.Path | None = None
+    glob: str, catalog: Catalog, root: pathlib.Path | None = None, volume_only: bool = False
 ) -> list[str]:
     """Return the `DOCKER_VOLUMES` agents whose documents under `root` name a glob, in order.
 
-    A document names it when a code span of its Collection part does (`document_names_glob`).
+    A document names it when a code span of its Collection part does (`document_names_glob`),
+    with `volume_only` one of its Per-user storage volume subsections.
     """
     research = (ROOT if root is None else root) / "research"
     volume_agents = dict.fromkeys(entry.agent for entry in catalog.docker_volumes)
     return [
-        agent for agent in volume_agents if document_names_glob(research / ("%s.md" % agent), glob)
+        agent
+        for agent in volume_agents
+        if (volume_section_names_glob if volume_only else document_names_glob)(
+            research / ("%s.md" % agent), glob
+        )
     ]
 
 

@@ -589,13 +589,78 @@ def test_exclusion_below_a_project_entry_has_the_project_agent(tmp_path):
     assert checker.load(root).glob_agents[".git/worktrees/*/index"] == "project"
 
 
-def test_exclusion_two_volume_documents_name_has_no_owner(tmp_path):
+def test_volume_glob_owned_by_the_volume_subsection_not_an_incidental_mention(tmp_path):
     catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
     alpha = ALPHA.replace("`cache` below `.alpha`.", "`cache` below `.alpha`, and `models`.")
     root = repository(tmp_path, catalog=catalog, alpha=alpha)
+    assert findings(root, "exclusion-unreachable") == []
+    assert findings(root, "volume-glob-unnamed") == []
+    repo = checker.load(root)
+    assert repo.glob_owners["models"] == ["beta"]
+    assert repo.glob_agents["models"] == "beta"
+
+
+def test_volume_glob_named_in_two_volume_subsections_is_owned_by_both(tmp_path):
+    catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
+    alpha = ALPHA.replace(
+        "### Credentials",
+        "#### Docker volume\n\nThe `alpha_data` volume holds `models`.\n\n### Credentials",
+    )
+    root = repository(tmp_path, catalog=catalog, alpha=alpha)
+    assert findings(root, "exclusion-unreachable") == []
+    assert findings(root, "volume-glob-unnamed") == []
+    repo = checker.load(root)
+    assert repo.glob_owners["models"] == ["alpha", "beta"]
+    assert repo.glob_agents["models"] == "alpha"
+
+
+def test_volume_layout_below_a_path_does_not_own_the_bare_glob(tmp_path):
+    catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
+    catalog = catalog.replace("token.json\n#", "token.json\nprofiles/*\n#")
+    alpha = ALPHA.replace(
+        "### Credentials",
+        "#### Docker volume\n\nThe `alpha_data` volume keeps `profiles/<name>/...`.\n\n"
+        "### Credentials",
+    )
+    beta = BETA.replace("`models` there is excluded", "`models` there is excluded; `profiles/*`")
+    root = repository(tmp_path, catalog=catalog, alpha=alpha, beta=beta)
+    assert checker.load(root).glob_owners["profiles/*"] == ["beta"]
+    assert findings(root, "volume-glob-unnamed") == []
+    assert findings(root, "secret-unreachable") == []
+
+
+def test_volume_glob_named_in_no_volume_subsection_falls_back_to_the_collection(tmp_path):
+    catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
+    alpha = ALPHA.replace("`cache` below `.alpha`.", "`cache` below `.alpha`, and `models`.")
+    beta = BETA.replace(", and `models` there is excluded", "")
+    root = repository(tmp_path, catalog=catalog, alpha=alpha, beta=beta)
+    assert findings(root, "exclusion-unreachable") == []
+    assert checker.load(root).glob_owners["models"] == ["alpha"]
+    assert findings(root, "volume-glob-unnamed") == [("alpha", "exclude models")]
+
+
+def test_volume_glob_several_collections_name_outside_any_volume_subsection_has_no_owner(tmp_path):
+    catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
+    alpha = ALPHA.replace("`cache` below `.alpha`.", "`cache` below `.alpha`, and `models`.")
+    beta = BETA.replace(", and `models` there is excluded", "").replace(
+        "`.beta/models`.", "`.beta/models` and `models`."
+    )
+    root = repository(tmp_path, catalog=catalog, alpha=alpha, beta=beta)
+    assert checker.load(root).glob_owners["models"] == []
     found = [finding for finding in checker.run(root) if finding.kind == "exclusion-unreachable"]
     assert [(finding.agent, finding.detail) for finding in found] == [("-", "models")]
-    assert "the documents of beta, alpha all name it" in found[0].message
+    assert "the documents of beta, alpha all name it, so none owns it" in found[0].message
+    assert findings(root, "volume-glob-unnamed") == []
+
+
+def test_volume_glob_no_document_names_is_unreachable(tmp_path):
+    catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
+    beta = BETA.replace(", and `models` there is excluded", "")
+    root = repository(tmp_path, catalog=catalog, beta=beta)
+    found = [finding for finding in checker.run(root) if finding.kind == "exclusion-unreachable"]
+    assert [(finding.agent, finding.detail) for finding in found] == [("-", "models")]
+    assert "no docker-volume agent's document names it" in found[0].message
+    assert checker.load(root).glob_owners["models"] == []
 
 
 def test_attribute_glob_forms(tmp_path):
