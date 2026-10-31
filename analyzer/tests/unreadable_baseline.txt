@@ -227,7 +227,6 @@ qwen-code escaped .qwen/projects/-srv-proj/chats/e5f6a7b8-4444-4000-8000-0000000
 qwen-code escaped .qwen/tmp/3f0a9c0000000000000000000000000000000000000000000000000000000000/logs.json
 qwen-code no-reason .qwen/channels/daemon/9c1d000000000000/routes.json
 qwen-code no-reason .qwen/channels/sessions.json
-qwen-code no-reason .qwen/settings.json
 roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json
 roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/_index.json
 roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/8f1c2b7e-0000-4000-8000-000000000001/api_conversation_history.json
