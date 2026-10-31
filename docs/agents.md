@@ -68,7 +68,7 @@ agent name in each row links to its subsection.
 | [`ollama`](#ollama) | parsed | source; fixture only | [research](../research/ollama.md) |
 | [`open-interpreter`](#open-interpreter) | parsed | source; fixture only | [research](../research/open-interpreter.md); [issue 70](https://github.com/seanthegeek/doubleagent/issues/70); the legacy Python tool's `conversations/*.json` files are collected but not parsed yet |
 | [`openclaw`](#openclaw) | parsed | source; fixture only | [research](../research/openclaw.md) |
-| [`opencode`](#opencode) | parsed | source; fixture only | [research](../research/opencode.md); [issue 139](https://github.com/seanthegeek/doubleagent/issues/139); [issue 194](https://github.com/seanthegeek/doubleagent/issues/194); [issue 213](https://github.com/seanthegeek/doubleagent/issues/213); the desktop app's `drafts.sqlite` is not parsed yet |
+| [`opencode`](#opencode) | parsed | source; fixture only | [research](../research/opencode.md); [issue 194](https://github.com/seanthegeek/doubleagent/issues/194); [issue 213](https://github.com/seanthegeek/doubleagent/issues/213); the desktop app's `drafts.sqlite` and the `shell/` command output are not parsed yet |
 | [`openhands`](#openhands) | parsed | source; fixture only | [research](../research/openhands.md); [issue 205](https://github.com/seanthegeek/doubleagent/issues/205); Agent Canvas browser storage (cloud origin, archive) needs a LevelDB reader |
 | [`pearai`](#pearai) | parsed | source; fixture only | [research](../research/pearai.md) |
 | [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md) |
@@ -988,20 +988,23 @@ backup writers, since removed, at [6814525](https://github.com/openclaw/openclaw
 
 Files read: `.local/share/opencode/opencode*.db` (SQLite with JSON
 columns, WAL sidecars; in a 1.x database V1 `message`/`part`, V2
-`session_message` for sessions without V1 rows; in a 2.0 database
-`session_v2` and `session_message`, the 1.x tables for sessions that
+`session_message` for sessions without V1 rows; in a 2.x database
+`session_v2` and `session_message`, with an assistant message's
+`session_part` items, and the 1.x tables for sessions that
 `session_message` does not hold; `session_share` and the
 `session.updated.1` rows of `event` for `session synced:` rows, never
 the share `secret`), with `opencode-next.db`, the pre-release 2.0
 database, read as a secondary source; legacy JSON
 `storage/session/*/*.json` and `storage/message/*/*.json` with their
-`part/` files, and the older `project/<slug>/storage/session/` tree. In
-each database also the `permission`, `worktree` and `project_directory`
-tables and the session's `permission` and `time_archived` columns; and the
-terminal UI's `.local/state/opencode/prompt-history.jsonl` and
-`session.json` (both secondary) and `prompt-stash.jsonl`.
+`part/` files and the `storage/project/` file of a session's project, and
+the older `project/<slug>/storage/session/` tree. In each database also
+the `permission`, `worktree` and `project_directory` tables and the
+session's `permission` and `time_archived` columns; and the terminal UI's
+`.local/state/opencode/prompt-history.jsonl` and `session.json` (both
+secondary) and `prompt-stash.jsonl`. The desktop app writes its sessions
+to the same database.
 
-Validated against: Source at [907b3bc](https://github.com/sst/opencode/commit/907b3bc518fa48e90e8ec24dd327d13eee71c36c) for 1.x and at [cb07c55](https://github.com/anomalyco/opencode/commit/cb07c555d4d1ca34430b7857b52f104c3d95e09e) (CLI 2.0.32) for 2.0, synthetic fixture; the permission, past-use, scratch directory and archive rows from source at the same two commits (source review of 2026-10-21), synthetic fixture; no real install of either.
+Validated against: Source at [bf544cd](https://github.com/anomalyco/opencode/commit/bf544cd419c5f17535c0d5af929f7ecd41188320) (2.2.5), synthetic fixture; no real install. Earlier source reviews: [cb07c55](https://github.com/anomalyco/opencode/commit/cb07c555d4d1ca34430b7857b52f104c3d95e09e) (2.0.32) and [907b3bc](https://github.com/sst/opencode/commit/907b3bc518fa48e90e8ec24dd327d13eee71c36c) (1.x).
 
 ### `openhands`
 

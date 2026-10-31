@@ -23,9 +23,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Kilo Code's `.local/state/kilo/daemon.json` (the background server's password and token) and the pre-fork VS Code extension's `settings/mcp_settings.json` (glob `*/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json`) are flagged `secret: true` ([#326]).
 - A project's Kilo Code config files, `kilo.json` and `kilo.jsonc` at its root and `kilo.json*` and `opencode.json*` in its `.kilo/` and `.kilocode/` (and the same names in `~/.kilo` and `~/.kilocode`), are flagged `secret: true`: `kilo mcp add` writes MCP servers there, whose `environment` and `headers` values can hold credentials ([#326]).
 - Project discovery reads Kilo Code's legacy JSON project store (`.local/share/kilo/storage/project/*.json`, key `worktree`) and its project memory manifests (`.local/share/kilo/memory/*/manifest.json`, key `canonical`) ([#326]).
+- OpenCode's persistent terminal daemon registration `.local/state/opencode/pty/*/service.json` (a socket token) and the terminal UI settings `.config/opencode/cli.json*`, whose plugin options can hold a key, are flagged `secret: true` ([#213], [#326]).
+- The OpenCode desktop app's copies of the OpenCode executable, `cli/` in its `ai.opencode.desktop*` data directory under `Library/Application Support`, `AppData/Roaming` and `.config`, are excluded ([#326]).
 
 ### Changed
 
+- OpenCode's secret glob `.config/opencode/service*.json` becomes `.config/opencode/service*.json*`, so the `service.json.<pid>.tmp` file the background server's settings are written through is flagged `secret: true` too ([#213], [#326]).
 - OpenClaw's runtime-root exclusions (`dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools`, `worktrees` and the others) match only the top level of `~/.openclaw`, `~/.clawdbot` and `~/.moltbot`, so a workspace's own `tmp` or `tools` is collected; a profile directory `~/.openclaw-<profile>` no longer has the `dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools` and `worktrees` exclusions, which matched at any depth below it, so those directories are collected there ([#252]).
 
 ### Fixed
