@@ -14,6 +14,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Goose's `config.tmp` save copy of `config.yaml` in `.config/goose` and `AppData/Roaming/Block/goose/config`, the Claude Code provider's `claude-code/mcp-config-*.json` in `.local/state/goose` and `AppData/Roaming/Block/goose/data`, the desktop app's `settings.json` in `.config/Goose`, `Library/Application Support/Goose` and `AppData/Roaming/Goose`, and a project's `diagnostics_<YYYYMMDD>_<n>.json` export (glob `diagnostics_[0-9]*_*.json`), which is collected as `goose`, are flagged `secret: true` ([#326], [#333]).
+- Goose's custom provider files `custom_providers/*.json`, which can hold HTTP headers the user supplied, and their temporary `.tmp??????` copies are flagged `secret: true` in `.config/goose` and `AppData/Roaming/Block/goose/config` ([#326], [#333]).
+- The temporary copies Goose writes before renaming over `secrets.yaml` and the GitHub Copilot, ChatGPT Codex, Gemini, Muse Code, Databricks and xAI token caches, `.tmp` and six random letters or digits in the same directory, are flagged `secret: true` in `.config/goose` and `AppData/Roaming/Block/goose/config` ([#326], [#333]).
+- Goose's cache directory, `.cache/goose` and `AppData/Local/Block/goose/cache`, which holds the computer controller's screenshots, is collected as `goose`, and `AppData/Roaming/Block/goose/config/mcp-apps-cache` is excluded ([#326]).
+- Project discovery reads Goose's Windows legacy session files, the `recipe_base_dir` of each `schedule.json` job and the `workingDirs` list of each `projects/*.md` file ([#326]).
 - Hermes' remaining credential stores are flagged `secret: true` in every home and profile (`.hermes*/` and `AppData/Local/hermes*/`): the config writers' `config.yaml.*` copies, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json` and the OS credential directories `.ssh/*`, `.aws/*`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*` and `.envrc`; in a Hermes volume, whose `_data` is the container user's home, the volume-relative `config.yaml.*`, `bot-desktop/*`, `webapp/*`, `feishu_comment_pairing.json`, `workspace/meetings/node_token.json`, `.ssh/*`, `.aws/credentials`, `.aws/config`, the AWS CLI credential cache `.aws/cli/cache/*.json`, `.gnupg/*`, `.kube/*`, `.docker/*`, `.azure/*`, `.config/gh/*`, `.config/gcloud/*`, `.envrc` and the quick snapshots' `state-snapshots/*/config.yaml` and `state-snapshots/*/feishu_comment_pairing.json` ([#326]).
 - OpenClaw's local client credential store `client/credentials.sqlite`, the legacy device identity files `identity/*`, the legacy auth sources `agents/*/agent/auth-state.json` and `auth.json` with their archives, the `exec-approvals.json` archives and the Moltbot config `.clawdbot/moltbot.json` are flagged `secret: true`, under `.openclaw`, a profile's `.openclaw-<profile>` and the legacy `.clawdbot` and `.moltbot` alike ([#219], [#326]).
 - OpenClaw's exclusions and secret globs apply under the legacy `.clawdbot` and `.moltbot` state directories as under `.openclaw`, and `cache/control-ui-assets` and the agent temporary trees deeper in `agents/*/agent/` are excluded ([#326]).
@@ -29,6 +34,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - OpenCode's secret globs `.config/opencode/service*.json` and `.local/state/opencode/service*.json` become `service*.json*`, so the `service.json.<pid>.tmp` file the background server's settings are written through, the `service.json.<id>.tmp` file its registration is written through, and the persistent terminal handoff `service.json.pty-handoff` (a short-lived ticket) with its `service.json.pty-handoff.<uuid>.tmp` are flagged `secret: true` too ([#213], [#326]).
+- Goose's token caches are flagged by file, not by directory, so `kimicode/device_id` and `tls/server.pem`, which hold no credential, are no longer flagged `secret: true`; on Windows Goose is collected from `AppData/Roaming/Block/goose/config` and `AppData/Roaming/Block/goose/data`, the only directories it writes under `AppData/Roaming/Block/goose` ([#326]).
+- Goose's token caches and TLS key are flagged by file, not by directory (`githubcopilot/info.json`, `githubcopilot/*/info.json`, `chatgpt_codex/tokens.json`, `gemini_oauth/tokens.json`, `kimicode/token.json`, `muse_code/token.json`, `huggingface/oauth/tokens.json`, `databricks/oauth/*.json`, `xai_oauth/tokens.json` and `tls/server.key`), so `kimicode/device_id` and `tls/server.pem`, which hold no credential, are no longer flagged `secret: true`; on Windows Goose is collected from `AppData/Roaming/Block/goose/config` and `AppData/Roaming/Block/goose/data`, the only directories it writes under `AppData/Roaming/Block/goose` ([#326]).
 - OpenClaw's runtime-root exclusions (`dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools`, `worktrees` and the others) match only the top level of `~/.openclaw`, `~/.clawdbot` and `~/.moltbot`, so a workspace's own `tmp` or `tools` is collected; a profile directory `~/.openclaw-<profile>` no longer has the `dev`, `git`, `npm`, `npm-runtime`, `tmp`, `tools` and `worktrees` exclusions, which matched at any depth below it, so those directories are collected there ([#252]).
 
 ### Fixed
@@ -37,6 +44,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- The secret globs of Goose's request logs, `.local/state/goose/logs/llm_request.*` and `AppData/Roaming/Block/goose/data/logs/llm_request.*`: the logs hold the provider requests and replies, which the analyzer reads as evidence, and no credential, so a `--no-secrets` collection keeps them ([#326]).
 - The `openclaw` `DOCKER_VOLUMES` lines (`*openclaw*`, `*clawdbot*`) and OpenClaw's volume-relative exclusions and secret globs: OpenClaw keeps no state in a named volume ([#326]).
 
 ## [1.20.0] - 2026-10-29
@@ -1227,6 +1235,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#333]: https://github.com/seanthegeek/doubleagent/issues/333
 [#326]: https://github.com/seanthegeek/doubleagent/issues/326
 [#324]: https://github.com/seanthegeek/doubleagent/issues/324
 [#323]: https://github.com/seanthegeek/doubleagent/issues/323

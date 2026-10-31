@@ -1,4 +1,11 @@
-"""Synthetic Goose state for the analyzer tests."""
+"""Synthetic Goose state for the analyzer tests.
+
+The records follow the Record schema and Other stores of research/goose.md, from
+aaif-goose/goose at b23d21c (1.57.0); `sessions.db` keeps the schema 16 columns of block/goose
+591edd4, an older shape the parser still reads (Format versions).
+
+Paths: `/srv/old`, `/srv/bad`
+"""
 
 from __future__ import annotations
 
@@ -10,7 +17,8 @@ from .common import _jsonl, _wal_database
 
 GOOSE_SESSION = "20260301_1"
 
-# session_manager.rs at goose 591edd4, schema version 16 (research/goose.md, Record schema).
+# session_manager.rs at block/goose 591edd4, schema version 16, which lacks the three columns
+# migration 17 adds (research/goose.md, Format versions).
 GOOSE_SCHEMA = """
 CREATE TABLE schema_version (version INTEGER PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE sessions (
@@ -37,10 +45,11 @@ CREATE TABLE usage_ledger (
 
 
 def goose_records(cwd="/srv/proj"):
-    """The INSERT statements of research/goose.md, Parser plan.
+    """Return one session's rows: a prompt, a tool call and its result, and a reply.
 
-    The INSERT statements of research/goose.md, Parser plan, with the working directory moved to the
-    shared project path.
+    The reply carries a thinking block and a model the session did not start with.
+
+    Source: research/goose.md#format-versions; source 591edd4
     """
     return [
         "INSERT INTO schema_version(version) VALUES (16)",
@@ -59,15 +68,19 @@ def goose_records(cwd="/srv/proj"):
     ]
 
 
-# Session sync: a gateway session, created when a Telegram user
-# pairs (crates/goose/src/gateway/handler.rs:304-326 at aaif-goose/goose
-# bfcc6ee): name `<platform>/<display name or user id>`, working_dir
+# Session relay: a gateway session, created when a Telegram user
+# pairs (crates/goose/src/gateway/handler.rs:303-362 at aaif-goose/goose
+# b23d21c): name `<platform>/<display name or user id>`, working_dir
 # `<config>/gateway/<platform>/<user_id>`. Kept out of build_home so the
 # shared session's row order stays as the other tests expect.
 GOOSE_GATEWAY_SESSION = "20261017_4"
 
 
 def goose_gateway_records(display="alice"):
+    """Return a gateway session and its one relayed prompt.
+
+    Source: research/goose.md#gateway-pairings; source b23d21c
+    """
     return [
         "INSERT INTO sessions(id,name,session_type,working_dir,created_at,updated_at) VALUES "
         "('%s','telegram/%s','gateway','/home/alice/.config/goose/gateway/telegram/123456789',"
@@ -79,6 +92,10 @@ def goose_gateway_records(display="alice"):
 
 
 def goose_legacy_records():
+    """Return a legacy session file's metadata line and one message.
+
+    Source: research/goose.md#legacy-sessions; source b23d21c
+    """
     return [
         {
             "description": "old chat",
@@ -98,6 +115,10 @@ def goose_legacy_records():
 
 
 def goose_llm_request_records():
+    """Return a request log of one unstreamed reply, in the OpenAI request format.
+
+    Source: research/goose.md#request-logs; source b23d21c
+    """
     return [
         {
             "model_config": {"model_name": "gpt-4.1"},
@@ -134,7 +155,7 @@ def build_goose(home: Path) -> None:
 
 
 # Bad stored JSON in sessions.db. Column shapes from
-# session_manager.rs at block/goose 591edd4 (research/goose.md, Record schema):
+# session_manager.rs at aaif-goose/goose b23d21c (research/goose.md, Record schema):
 # content_json is a JSON array, metadata_json and model_config_json JSON
 # objects. Kept out of build_home, as the gateway session is, so the shared
 # session's rows stay as the other tests expect.
@@ -149,6 +170,8 @@ def goose_bad_json_records():
 
     A good one, one with a cut-off metadata_json, one with a cut-off content_json, and a good one
     after it.
+
+    Source: research/goose.md#bad-line-rows; source b23d21c
     """
 
     def quote(text: str) -> str:
@@ -207,7 +230,7 @@ def goose_bad_json_records():
     ]
 
 
-# Tool confirmations, shapes from aaif-goose/goose fb9e3c8
+# Tool confirmations, shapes from aaif-goose/goose b23d21c
 # (research/goose.md, Tool confirmations and permission mode): the question
 # is an `assistant` message holding an `actionRequired` block of
 # `actionType` `toolConfirmation`, the answer a `user` message holding one
@@ -221,6 +244,11 @@ GOOSE_PERMISSION_SESSION = "20261021_6"
 
 
 def goose_permission_records():
+    """Return a session with an answered confirmation, a refused call and an elicitation.
+
+    Source: research/goose.md#tool-confirmations-and-permission-mode; source b23d21c
+    """
+
     def message_row(
         number, role, content, timestamp, meta='{"userVisible":true,"agentVisible":true}'
     ):
@@ -321,7 +349,7 @@ def goose_permission_records():
                         "actionType": "elicitation",
                         "id": "el_1",
                         "message": "Pick one",
-                        "requestedSchema": {},
+                        "requested_schema": {},
                     }
                 )
             ],
@@ -338,10 +366,10 @@ def goose_permission_records():
 
 
 # Standing permission and scheduler files, shapes from
-# aaif-goose/goose fb9e3c8: permission.yaml as serde_yaml writes the map of
-# `PermissionConfig` (config/permission.rs:13-44, 260-262), roaming_trust.json
+# aaif-goose/goose b23d21c: permission.yaml as serde_yaml writes the map of
+# `PermissionConfig` (config/permission.rs:18-44, 257-275), roaming_trust.json
 # the `TrustBook` (goose-roaming/src/trust.rs:19-26) and schedule.json a list
-# of `ScheduledJob` (scheduler/common.rs:167-187). The peer keys and ids are
+# of `ScheduledJob` (scheduler/common.rs:166-187). The peer keys and ids are
 # invented. Kept out of build_home so the shared timeline stays as the CLI
 # tests expect.
 GOOSE_STANDING_MTIME = 1792656000  # 22 October 08:00:00 UTC
@@ -408,9 +436,14 @@ def build_goose_standing(home: Path) -> None:
 # message (`id` msg_s1) as the providers log them, two text deltas and a
 # tool request, which `Conversation::push` assembles into the message
 # sessions.db stores (goose-provider-types/src/conversation.rs:75-119 at
-# aaif-goose/goose fb9e3c8). The assembled text and the tool call repeat
+# aaif-goose/goose b23d21c). The assembled text and the tool call repeat
 # the shared session's database rows.
 def goose_streamed_llm_records():
+    """Return a request log whose reply is streamed in chunks of one message id.
+
+    Source: research/goose.md#request-logs; source b23d21c
+    """
+
     def chunk(content, created):
         return {
             "data": {"id": "msg_s1", "role": "assistant", "created": created, "content": content},

@@ -15,6 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The bundled catalog copy gains the catalog lines of collector 1.20.0, so detection follows them: a Hermes home or desktop user-data directory with any `HERMES_DATA_DIR_SUFFIX` (`.hermes?*`, `AppData/Local/hermes?*` and `Hermes?*` under each OS's application data directory, replacing `.hermes_*` and `AppData/Local/hermes_*`) is detected as `hermes` ([#324]); and in `AppData/Roaming/devin` only the Devin CLI's `mcp_config.json` and `credentials.toml` are attributed to `windsurf`, not the Devin IDE's files beside them ([#321]).
 - The bundled catalog copy gains the collector's new Hermes secret globs; the secret globs change as in the collector's Unreleased entry ([#326]).
+- The bundled catalog copy gains the Goose lines of collector 1.21.0: the cache directory, the Windows config and data directories in place of `AppData/Roaming/Block/goose`, the project `diagnostics_[0-9]*_*.json` export, the new Goose secret globs (the custom provider files and the temporary `.tmp??????` copies of its credential files among them) and exclusion, and no secret glob on the request logs ([#326], [#333]).
 - The bundled catalog copy gains the OpenClaw lines of collector 1.21.0: the new secret globs and exclusions under `.openclaw`, `.clawdbot` and `.moltbot`, no `openclaw` volume lines, and a `claude-code` line for OpenClaw's `*openclaw_home` volume ([#326]).
 - The `kilo-code` parser reads Kilo Code's project memory session digests, `.local/share/kilo/memory/<folder>/sessions/*.md`: one `system` row `memory digest: <topic>: <summary> (from <file>, Updated)` per digest, at its `Updated:` time, with the session id of its heading and the `canonical` project root of the folder's `manifest.json`; a digest without a `## Summary` line, or a `manifest.json` that is not a JSON object, is a `parser:` row ([#326]).
 - The bundled catalog copy gains collector 1.21.0's Kilo Code project config secret globs and JetBrains plugin lines, so its `kilo` folder and `options/kilo*.xml` settings are detected as `kilo-code` ([#326]).
@@ -31,6 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A Crush `crush.json` or `.crush.json` config that cannot be read is now one `parser: <file> could not be read: <reason>` row, and a Gemini CLI `settings.json`, `trusted_hooks.json` or `trustedFolders.json`, or a Qwen Code `settings.json` or `trustedFolders.json`, that cannot be read one `parser: unreadable <file>: <reason>` row, instead of the `parser: <file> is not a JSON object` row of a file that decodes to something else ([#298]).
 - A Tabby `config.toml` that cannot be read is now one `parser: config.toml could not be read: <reason>` row on every Python version; on 3.11 and later the read error had escaped the parser as a `problem:` line, and on 3.10 the parser had never opened the file ([#298]).
 - A Kilo Code global config, sandbox file, cloud session marker or `retention/state.json` that cannot be read is now one `parser: <file> could not be read (<reason>)` row instead of `is not a JSON object`; an unreadable memory `manifest.json`, task `history_item.json` or `tasks/_index.json` is a `parser:` row beside the digest's or task's rows, where before it was misreported or silent ([#360]).
+- The `cursor` parser strips a `.git` suffix from a cloud agent's `repoUrl` repository in the `source host:` row, and a test covers a user-info URL, a port and look-alike hosts ([#238]).
 
 ## [0.21.0] - 2026-10-28
 
@@ -2153,6 +2155,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
 [#360]: https://github.com/seanthegeek/doubleagent/issues/360
+[#333]: https://github.com/seanthegeek/doubleagent/issues/333
 [#326]: https://github.com/seanthegeek/doubleagent/issues/326
 [#324]: https://github.com/seanthegeek/doubleagent/issues/324
 [#321]: https://github.com/seanthegeek/doubleagent/issues/321
@@ -2166,6 +2169,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [#269]: https://github.com/seanthegeek/doubleagent/issues/269
 [#256]: https://github.com/seanthegeek/doubleagent/issues/256
 [#253]: https://github.com/seanthegeek/doubleagent/issues/253
+[#238]: https://github.com/seanthegeek/doubleagent/issues/238
 [#237]: https://github.com/seanthegeek/doubleagent/issues/237
 [#236]: https://github.com/seanthegeek/doubleagent/issues/236
 [#231]: https://github.com/seanthegeek/doubleagent/issues/231
