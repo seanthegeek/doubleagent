@@ -1,6 +1,7 @@
 check_tables_research|credential-unflagged|.goose/settings.json
 check_tables_research|credential-unflagged|AppData/Roaming/Goose/chatgpt_codex/tokens.json
 check_tables_research|credential-unflagged|AppData/Roaming/Goose/config.yaml
+check_tables_research|credential-unflagged|AppData/Roaming/Goose/custom_providers/<id>.json
 check_tables_research|credential-unflagged|AppData/Roaming/Goose/databricks/oauth/.json
 check_tables_research|credential-unflagged|AppData/Roaming/Goose/gemini_oauth/tokens.json
 check_tables_research|credential-unflagged|AppData/Roaming/Goose/githubcopilot/info.json
@@ -14,6 +15,7 @@ check_tables_research|credential-unflagged|AppData/Roaming/Goose/xai_oauth/token
 check_tables_research|credential-unflagged|Library/Application Support/Goose/chatgpt_codex/tokens.json
 check_tables_research|credential-unflagged|Library/Application Support/Goose/claude-code/mcp-config-.json
 check_tables_research|credential-unflagged|Library/Application Support/Goose/config.yaml
+check_tables_research|credential-unflagged|Library/Application Support/Goose/custom_providers/<id>.json
 check_tables_research|credential-unflagged|Library/Application Support/Goose/databricks/oauth/.json
 check_tables_research|credential-unflagged|Library/Application Support/Goose/gemini_oauth/tokens.json
 check_tables_research|credential-unflagged|Library/Application Support/Goose/githubcopilot/info.json

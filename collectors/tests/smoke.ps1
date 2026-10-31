@@ -698,6 +698,8 @@ secret||.config/goose/gemini_oauth/.tmpAb12Cd
 secret||.config/goose/muse_code/.tmpAb12Cd
 secret||.config/goose/databricks/oauth/.tmpAb12Cd
 secret||.config/goose/xai_oauth/.tmpAb12Cd
+secret||.config/goose/custom_providers/custom_acme.json
+secret||.config/goose/custom_providers/.tmpAb12Cd
 secret||.config/goose/roaming_node_key
 secret||.config/goose/tls/server.key
 secret||.local/state/goose/claude-code/mcp-config-20261030_ab12cd.json
@@ -721,6 +723,8 @@ secret||AppData/Roaming/Block/goose/config/gemini_oauth/.tmpAb12Cd
 secret||AppData/Roaming/Block/goose/config/muse_code/.tmpAb12Cd
 secret||AppData/Roaming/Block/goose/config/databricks/oauth/.tmpAb12Cd
 secret||AppData/Roaming/Block/goose/config/xai_oauth/.tmpAb12Cd
+secret||AppData/Roaming/Block/goose/config/custom_providers/custom_acme.json
+secret||AppData/Roaming/Block/goose/config/custom_providers/.tmpAb12Cd
 secret||AppData/Roaming/Block/goose/config/roaming_node_key
 secret||AppData/Roaming/Block/goose/config/tls/server.key
 secret||AppData/Roaming/Block/goose/data/claude-code/mcp-config-20261030_ab12cd.json

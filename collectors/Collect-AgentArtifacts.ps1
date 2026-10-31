@@ -1633,6 +1633,8 @@ crushrc
 .config/goose/muse_code/.tmp??????
 .config/goose/databricks/oauth/.tmp??????
 .config/goose/xai_oauth/.tmp??????
+.config/goose/custom_providers/*.json
+.config/goose/custom_providers/.tmp??????
 .config/goose/roaming_node_key
 .config/goose/tls/server.key
 .local/state/goose/claude-code/mcp-config-*.json
@@ -1656,6 +1658,8 @@ AppData/Roaming/Block/goose/config/gemini_oauth/.tmp??????
 AppData/Roaming/Block/goose/config/muse_code/.tmp??????
 AppData/Roaming/Block/goose/config/databricks/oauth/.tmp??????
 AppData/Roaming/Block/goose/config/xai_oauth/.tmp??????
+AppData/Roaming/Block/goose/config/custom_providers/*.json
+AppData/Roaming/Block/goose/config/custom_providers/.tmp??????
 AppData/Roaming/Block/goose/config/roaming_node_key
 AppData/Roaming/Block/goose/config/tls/server.key
 AppData/Roaming/Block/goose/data/claude-code/mcp-config-*.json

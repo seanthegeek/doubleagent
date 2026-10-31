@@ -376,6 +376,18 @@ caches are written in place
 ([`kimicode.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/kimicode.rs#L124-L128);
 [`huggingface_auth.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/providers/huggingface_auth.rs#L204-L210)).
 
+A custom provider's file, `.config/goose/custom_providers/<id>.json` (Windows
+`AppData/Roaming/Block/goose/config/custom_providers/<id>.json`), is a credential file: it is a
+`DeclarativeProviderConfig` whose `headers` is a free map of HTTP headers the user supplied
+([`goose-providers/src/declarative.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-providers/src/declarative.rs#L155-L177),
+[`164`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-providers/src/declarative.rs#L164)), copied from the request when the
+provider is created and kept or replaced when it is updated
+([`config/declarative_providers.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/declarative_providers.rs#L226), [`344-347`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/declarative_providers.rs#L344-L347)); only the API key
+goes to the secret store, under the name in `api_key_env` ([`195-207`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/declarative_providers.rs#L195-L207)). The file
+is written through `write_private_file` ([`22-24`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/declarative_providers.rs#L22-L24), [`131-136`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/declarative_providers.rs#L131-L136)), so
+its temporary copy is `.config/goose/custom_providers/.tmp??????` (Windows
+`AppData/Roaming/Block/goose/config/custom_providers/.tmp??????`).
+
 Private keys: `.config/goose/roaming_node_key` and
 `AppData/Roaming/Block/goose/config/roaming_node_key`, the roaming node's ed25519 key
 ([`goose-roaming/src/lib.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-roaming/src/lib.rs#L10-L11)), and
