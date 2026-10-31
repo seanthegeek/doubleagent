@@ -277,3 +277,4 @@ What the table shows:
   delete command in Gemini CLI (30 days by default) and Kilo Code (an
   opt-in pass); in each a prompt history outlives what retention
   removed ([claude-code.md](claude-code.md#what-survives-a-delete)).
+
