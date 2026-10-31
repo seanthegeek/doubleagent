@@ -453,13 +453,19 @@ crush|.local/share/crush
 crush|AppData/Local/crush
 crush|.crush
 crush|.cache/crush
-# Goose (XDG on macOS too; Electron app dir is separate)
+# Goose (XDG on macOS too; Electron app dir is separate). On Windows Goose
+# writes only the config, data and cache directories under Block/goose. The
+# cache entry names the children of cache/: the PowerShell exclusion match
+# ignores case, so */Goose/Cache would prune Block/goose/cache itself
 goose|.config/goose
 goose|.local/share/goose
 goose|.local/state/goose
+goose|.cache/goose
 goose|.config/Goose
 goose|Library/Application Support/Goose
-goose|AppData/Roaming/Block/goose
+goose|AppData/Roaming/Block/goose/config
+goose|AppData/Roaming/Block/goose/data
+goose|AppData/Local/Block/goose/cache/*
 goose|Library/Application Support/Block/goose
 goose|AppData/Roaming/Goose
 goose|.goose
@@ -754,6 +760,7 @@ crush|Crush.md
 crush|Crush.local.md
 goose|.goosehints
 goose|.goose
+goose|diagnostics_*.json
 zed|.zed
 zed|.rules
 project|.github/copilot-instructions.md
@@ -1058,6 +1065,7 @@ AppData/Roaming/ai.opencode.desktop*/cli
 AppData/Roaming/Block/goose/data/models
 AppData/Roaming/Block/goose/data/model_catalog
 AppData/Roaming/Block/goose/data/codex
+AppData/Roaming/Block/goose/config/mcp-apps-cache
 */Goose/Cache
 */Goose/Code Cache
 */Goose/GPUCache
@@ -1607,30 +1615,38 @@ crushrc
 .crushrc
 .config/goose/secrets.yaml
 .config/goose/config.yaml
-.config/goose/githubcopilot/*
-.config/goose/chatgpt_codex/*
-.config/goose/gemini_oauth/*
-.config/goose/kimicode/*
-.config/goose/muse_code/*
-.config/goose/huggingface/*
-.config/goose/databricks/*
-.config/goose/xai_oauth/*
+.config/goose/config.tmp
+.config/goose/githubcopilot/info.json
+.config/goose/githubcopilot/*/info.json
+.config/goose/chatgpt_codex/tokens.json
+.config/goose/gemini_oauth/tokens.json
+.config/goose/kimicode/token.json
+.config/goose/muse_code/token.json
+.config/goose/huggingface/oauth/tokens.json
+.config/goose/databricks/oauth/*.json
+.config/goose/xai_oauth/tokens.json
 .config/goose/roaming_node_key
-.config/goose/tls/*
+.config/goose/tls/server.key
+.local/state/goose/claude-code/mcp-config-*.json
 AppData/Roaming/Block/goose/config/secrets.yaml
 AppData/Roaming/Block/goose/config/config.yaml
-AppData/Roaming/Block/goose/config/githubcopilot/*
-AppData/Roaming/Block/goose/config/chatgpt_codex/*
-AppData/Roaming/Block/goose/config/gemini_oauth/*
-AppData/Roaming/Block/goose/config/kimicode/*
-AppData/Roaming/Block/goose/config/muse_code/*
-AppData/Roaming/Block/goose/config/huggingface/*
-AppData/Roaming/Block/goose/config/databricks/*
-AppData/Roaming/Block/goose/config/xai_oauth/*
+AppData/Roaming/Block/goose/config/config.tmp
+AppData/Roaming/Block/goose/config/githubcopilot/info.json
+AppData/Roaming/Block/goose/config/githubcopilot/*/info.json
+AppData/Roaming/Block/goose/config/chatgpt_codex/tokens.json
+AppData/Roaming/Block/goose/config/gemini_oauth/tokens.json
+AppData/Roaming/Block/goose/config/kimicode/token.json
+AppData/Roaming/Block/goose/config/muse_code/token.json
+AppData/Roaming/Block/goose/config/huggingface/oauth/tokens.json
+AppData/Roaming/Block/goose/config/databricks/oauth/*.json
+AppData/Roaming/Block/goose/config/xai_oauth/tokens.json
 AppData/Roaming/Block/goose/config/roaming_node_key
-AppData/Roaming/Block/goose/config/tls/*
-.local/state/goose/logs/llm_request.*
-AppData/Roaming/Block/goose/data/logs/llm_request.*
+AppData/Roaming/Block/goose/config/tls/server.key
+AppData/Roaming/Block/goose/data/claude-code/mcp-config-*.json
+.config/Goose/settings.json
+Library/Application Support/Goose/settings.json
+AppData/Roaming/Goose/settings.json
+diagnostics_*.json
 .config/zed/development_credentials
 .config/zed/settings.json
 .config/zed/settings_backup.json
@@ -3488,7 +3504,10 @@ function Find-CliSessionProjects([string]$homeDir) {
   Get-JsonValues 'workspace_root' @(Expand-Glob $homeDir '.cline/data/sessions/*/*.json')
   Get-JsonValues 'cwd' @(Expand-Glob $homeDir '.cursor/chats/*/*/meta.json')
   Get-JsonValues 'workspaceDirectory' @((Join-PathSafe $homeDir '.continue/sessions/sessions.json'))
-  Get-JsonValues 'working_dir' @(Expand-Glob $homeDir '.local/share/goose/sessions/*.jsonl')
+  Get-JsonValues 'working_dir' @(
+    Expand-Glob $homeDir '.local/share/goose/sessions/*.jsonl'
+    Expand-Glob $homeDir 'AppData/Roaming/Block/goose/data/sessions/*.jsonl'
+  )
   Get-JsonValues 'worktree' @(
     Expand-Glob $homeDir '.local/share/opencode/storage/project/*.json'
     Expand-Glob $homeDir '.local/share/kilo/storage/project/*.json'
@@ -3540,6 +3559,20 @@ function Find-AgentSessionProjects([string]$homeDir) {
     Join-PathSafe $homeDir 'Library/Application Support/Goose/recent-dirs.json'
     Join-PathSafe $homeDir 'AppData/Roaming/Goose/recent-dirs.json'
   )
+  Get-JsonValues 'recipe_base_dir' @(
+    Join-PathSafe $homeDir '.local/share/goose/schedule.json'
+    Join-PathSafe $homeDir 'AppData/Roaming/Block/goose/data/schedule.json'
+  )
+  # Goose project files: the block list under the front matter key workingDirs
+  $gooseProjects = @(
+    Expand-Glob $homeDir '.local/share/goose/projects/*.md'
+    Expand-Glob $homeDir 'AppData/Roaming/Block/goose/data/projects/*.md'
+  )
+  $listRegex = '(?m)^workingDirs:[ \t]*\r?\n((?:- [^\r\n]*(?:\r?\n|$))+)'
+  $itemRegex = '(?m)^- ["'']?([^"''\r\n]+?)["'']?[ \t]*\r?$'
+  foreach ($list in (Get-RegexCaptures $listRegex $gooseProjects)) {
+    foreach ($match in [regex]::Matches($list, $itemRegex)) { $match.Groups[1].Value }
+  }
   # A cwd under .copilot (Copilot Desktop chats and worktrees) is not a project, nor is that
   # of a session without events.jsonl, which Copilot Desktop pre-created and never prompted.
   $copilotDir = (Join-PathSafe $homeDir '.copilot') + $script:Sep

@@ -408,13 +408,19 @@ crush|.local/share/crush
 crush|AppData/Local/crush
 crush|.crush
 crush|.cache/crush
-# Goose (XDG on macOS too; Electron app dir is separate)
+# Goose (XDG on macOS too; Electron app dir is separate). On Windows Goose
+# writes only the config, data and cache directories under Block/goose. The
+# cache entry names the children of cache/: the PowerShell exclusion match
+# ignores case, so */Goose/Cache would prune Block/goose/cache itself
 goose|.config/goose
 goose|.local/share/goose
 goose|.local/state/goose
+goose|.cache/goose
 goose|.config/Goose
 goose|Library/Application Support/Goose
-goose|AppData/Roaming/Block/goose
+goose|AppData/Roaming/Block/goose/config
+goose|AppData/Roaming/Block/goose/data
+goose|AppData/Local/Block/goose/cache/*
 goose|Library/Application Support/Block/goose
 goose|AppData/Roaming/Goose
 goose|.goose
@@ -710,6 +716,7 @@ crush|Crush.md
 crush|Crush.local.md
 goose|.goosehints
 goose|.goose
+goose|diagnostics_*.json
 zed|.zed
 zed|.rules
 project|.github/copilot-instructions.md
@@ -1019,6 +1026,7 @@ AppData/Roaming/ai.opencode.desktop*/cli
 AppData/Roaming/Block/goose/data/models
 AppData/Roaming/Block/goose/data/model_catalog
 AppData/Roaming/Block/goose/data/codex
+AppData/Roaming/Block/goose/config/mcp-apps-cache
 */Goose/Cache
 */Goose/Code Cache
 */Goose/GPUCache
@@ -1571,30 +1579,38 @@ crushrc
 .crushrc
 .config/goose/secrets.yaml
 .config/goose/config.yaml
-.config/goose/githubcopilot/*
-.config/goose/chatgpt_codex/*
-.config/goose/gemini_oauth/*
-.config/goose/kimicode/*
-.config/goose/muse_code/*
-.config/goose/huggingface/*
-.config/goose/databricks/*
-.config/goose/xai_oauth/*
+.config/goose/config.tmp
+.config/goose/githubcopilot/info.json
+.config/goose/githubcopilot/*/info.json
+.config/goose/chatgpt_codex/tokens.json
+.config/goose/gemini_oauth/tokens.json
+.config/goose/kimicode/token.json
+.config/goose/muse_code/token.json
+.config/goose/huggingface/oauth/tokens.json
+.config/goose/databricks/oauth/*.json
+.config/goose/xai_oauth/tokens.json
 .config/goose/roaming_node_key
-.config/goose/tls/*
+.config/goose/tls/server.key
+.local/state/goose/claude-code/mcp-config-*.json
 AppData/Roaming/Block/goose/config/secrets.yaml
 AppData/Roaming/Block/goose/config/config.yaml
-AppData/Roaming/Block/goose/config/githubcopilot/*
-AppData/Roaming/Block/goose/config/chatgpt_codex/*
-AppData/Roaming/Block/goose/config/gemini_oauth/*
-AppData/Roaming/Block/goose/config/kimicode/*
-AppData/Roaming/Block/goose/config/muse_code/*
-AppData/Roaming/Block/goose/config/huggingface/*
-AppData/Roaming/Block/goose/config/databricks/*
-AppData/Roaming/Block/goose/config/xai_oauth/*
+AppData/Roaming/Block/goose/config/config.tmp
+AppData/Roaming/Block/goose/config/githubcopilot/info.json
+AppData/Roaming/Block/goose/config/githubcopilot/*/info.json
+AppData/Roaming/Block/goose/config/chatgpt_codex/tokens.json
+AppData/Roaming/Block/goose/config/gemini_oauth/tokens.json
+AppData/Roaming/Block/goose/config/kimicode/token.json
+AppData/Roaming/Block/goose/config/muse_code/token.json
+AppData/Roaming/Block/goose/config/huggingface/oauth/tokens.json
+AppData/Roaming/Block/goose/config/databricks/oauth/*.json
+AppData/Roaming/Block/goose/config/xai_oauth/tokens.json
 AppData/Roaming/Block/goose/config/roaming_node_key
-AppData/Roaming/Block/goose/config/tls/*
-.local/state/goose/logs/llm_request.*
-AppData/Roaming/Block/goose/data/logs/llm_request.*
+AppData/Roaming/Block/goose/config/tls/server.key
+AppData/Roaming/Block/goose/data/claude-code/mcp-config-*.json
+.config/Goose/settings.json
+Library/Application Support/Goose/settings.json
+AppData/Roaming/Goose/settings.json
+diagnostics_*.json
 .config/zed/development_credentials
 .config/zed/settings.json
 .config/zed/settings_backup.json
@@ -3141,7 +3157,8 @@ find_cli_session_projects() {
     "$1"/.cursor/chats/*/*/meta.json
   json_vals workspace_root "$1"/.cline/data/sessions/*/*.json
   json_vals workspaceDirectory "$1/.continue/sessions/sessions.json"
-  json_vals working_dir "$1"/.local/share/goose/sessions/*.jsonl
+  json_vals working_dir "$1"/.local/share/goose/sessions/*.jsonl \
+    "$1"/AppData/Roaming/Block/goose/data/sessions/*.jsonl
   json_vals worktree "$1"/.local/share/opencode/storage/project/*.json \
     "$1"/.local/share/kilo/storage/project/*.json
   json_vals canonical "$1"/.local/share/kilo/memory/*/manifest.json
@@ -3171,6 +3188,14 @@ find_agent_session_projects() {
   abs_strings "$1"/.kiro/sessions/*/sess_*/session.json "$1/.config/Goose/recent-dirs.json" \
     "$1/Library/Application Support/Goose/recent-dirs.json" \
     "$1/AppData/Roaming/Goose/recent-dirs.json"
+  json_vals recipe_base_dir "$1/.local/share/goose/schedule.json" \
+    "$1/AppData/Roaming/Block/goose/data/schedule.json"
+  # Goose project files: the block list under the front matter key workingDirs
+  for _fasp_project in "$1"/.local/share/goose/projects/*.md \
+    "$1"/AppData/Roaming/Block/goose/data/projects/*.md; do
+    [ -f "$_fasp_project" ] && awk '/^workingDirs:/ { listed = 1; next }
+      listed && /^- / { sub(/^- /, ""); print; next } { listed = 0 }' "$_fasp_project"
+  done | sed "s/^[\"']//; s/[\"']\$//"
   # A cwd under .copilot (Copilot Desktop chats and worktrees) is not a project, nor is that
   # of a session without events.jsonl, which Copilot Desktop pre-created and never prompted.
   for _fasp_events in "$1"/.copilot/session-state/*/events.jsonl; do

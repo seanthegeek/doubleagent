@@ -368,6 +368,11 @@ external backend server
 `.config/Goose/settings.json`, `Library/Application Support/Goose/settings.json` and
 `AppData/Roaming/Goose/settings.json`.
 
+The project-local `diagnostics_<session_id>.json` ([Project-local files](#project-local-files))
+is a credential file: its `config.configYaml` holds `config.yaml` as read, up to 256 KiB
+([`session/diagnostics.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/session/diagnostics.rs#L35-L41),
+[`315-328`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/session/diagnostics.rs#L315-L328)).
+
 Recipes and the stored recipe of a session can carry extension entries with `envs` and are
 listed in [Secrets](#secrets) as stores that mix credentials with evidence.
 
