@@ -1161,7 +1161,7 @@ CODEX_DENY_VERDICT = {
 }
 
 
-def uuid7(milliseconds: int, tail: int) -> str:
+def _uuid7(milliseconds: int, tail: int) -> str:
     """A UUIDv7 string whose first 48 bits are the epoch milliseconds `ms`."""
     hexes = "%012x7000%016x" % (milliseconds, 0x8000000000000000 | tail)
     return "%s-%s-%s-%s-%s" % (hexes[:8], hexes[8:12], hexes[12:16], hexes[16:20], hexes[20:])
@@ -1190,9 +1190,9 @@ def codex_guardian_feedback():
     timed_out = dict(denied, status="timed_out", decision=None, target_item_id=None)
     timed_out["action"] = "rm -rf build"
     return [
-        (uuid7(1792358847000, 1), CODEX_DESKTOP, json.dumps(denied).encode()),
-        (uuid7(1792358900000, 2), CODEX_DESKTOP, json.dumps(timed_out).encode()),
-        (uuid7(1792358950000, 3), CODEX_DESKTOP, b'{"reviewed_thread_id": "0d0d'),
+        (_uuid7(1792358847000, 1), CODEX_DESKTOP, json.dumps(denied).encode()),
+        (_uuid7(1792358900000, 2), CODEX_DESKTOP, json.dumps(timed_out).encode()),
+        (_uuid7(1792358950000, 3), CODEX_DESKTOP, b'{"reviewed_thread_id": "0d0d'),
     ]
 
 

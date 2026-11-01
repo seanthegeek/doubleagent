@@ -641,8 +641,8 @@ plan, and the parser is written from them.
      sample verbatim, so the sample stays independent evidence.
      `tools/check_fixture_schema.py` checks the records `build_home`
      writes and reports one equal to a Fixtures sample, so every builder a
-     test uses is reached through `HOME_BUILDERS`. Each public builder (a
-     function ending in `records` or starting `write_`) has a docstring
+     test uses is reached through `HOME_BUILDERS`. Each public function of
+     a fixture module other than its home builder has a docstring
      line `Source: research/<agent>.md#<anchor>; build <version>` (or
      `; source <short hash>`), the anchor a heading of that document. The
      module docstring names `research/<agent>.md`, has a `Paths:` line

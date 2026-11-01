@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_goose_standing
 check_tables_research|credential-unflagged|Library/Application Support/Block/goose/chatgpt_codex/tokens.json
 check_tables_research|credential-unflagged|Library/Application Support/Block/goose/claude-code/mcp-config-.json
 check_tables_research|credential-unflagged|Library/Application Support/Block/goose/config.yaml

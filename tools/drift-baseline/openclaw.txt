@@ -1,1 +1,6 @@
+check_fixture_schema|builder-provenance-missing|openclaw_backup_runs
+check_fixture_schema|builder-provenance-missing|openclaw_chunked_cold_inserts
+check_fixture_schema|builder-provenance-missing|openclaw_node_inserts
+check_fixture_schema|builder-provenance-missing|openclaw_past_use_inserts
+check_fixture_schema|builder-provenance-missing|openclaw_state_inserts
 check_fixture_schema|type-mismatch|kind=external

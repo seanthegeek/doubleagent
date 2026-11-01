@@ -1,5 +1,8 @@
+check_fixture_schema|builder-provenance-missing|build_qwen_injected
+check_fixture_schema|builder-provenance-missing|build_qwen_permissions
 check_fixture_schema|builder-provenance-missing|qwen_bare_event_records
 check_fixture_schema|builder-provenance-missing|qwen_injected_records
+check_fixture_schema|builder-provenance-missing|qwen_logs_entries
 check_fixture_schema|builder-provenance-missing|qwen_permission_records
 check_fixture_schema|builder-provenance-missing|qwen_session_records
 check_fixture_schema|builder-provenance-missing|qwen_usage_records

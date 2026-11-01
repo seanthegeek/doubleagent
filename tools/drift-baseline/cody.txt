@@ -1,5 +1,9 @@
+check_fixture_schema|builder-provenance-missing|build_cody_deep
+check_fixture_schema|builder-provenance-missing|build_cody_settings
 check_fixture_schema|builder-provenance-missing|cody_deep_records
+check_fixture_schema|builder-provenance-missing|cody_model_preferences
 check_fixture_schema|builder-provenance-missing|cody_records
+check_fixture_schema|builder-provenance-missing|cody_vscode_state
 check_fixture_schema|key-undocumented|$mid
 check_fixture_schema|key-undocumented|cody.serverEndpoint
 check_fixture_schema|key-undocumented|path

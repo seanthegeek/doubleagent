@@ -1,3 +1,12 @@
+check_fixture_schema|builder-provenance-missing|agent_zero_acp_chat
+check_fixture_schema|builder-provenance-missing|agent_zero_chat
+check_fixture_schema|builder-provenance-missing|agent_zero_history
+check_fixture_schema|builder-provenance-missing|agent_zero_legacy_chat
+check_fixture_schema|builder-provenance-missing|agent_zero_logs
+check_fixture_schema|builder-provenance-missing|agent_zero_relayed_chat
+check_fixture_schema|builder-provenance-missing|agent_zero_tasks
+check_fixture_schema|builder-provenance-missing|build_agent_zero_extras
+check_fixture_schema|builder-provenance-missing|build_agent_zero_volume
 check_fixture_schema|key-undocumented|chat_model_provider
 check_fixture_schema|key-undocumented|day
 check_fixture_schema|key-undocumented|hour

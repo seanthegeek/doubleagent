@@ -1,6 +1,8 @@
 check_fixture_schema|builder-provenance-missing|antigravity_app_brain_records
+check_fixture_schema|builder-provenance-missing|antigravity_app_steps
 check_fixture_schema|builder-provenance-missing|antigravity_brain_records
 check_fixture_schema|builder-provenance-missing|antigravity_orphan_brain_records
+check_fixture_schema|builder-provenance-missing|antigravity_steps
 check_fixture_schema|key-undocumented|AbsolutePath
 check_fixture_schema|key-undocumented|CommandLine
 check_fixture_schema|key-undocumented|Cwd

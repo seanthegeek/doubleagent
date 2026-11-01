@@ -1,3 +1,8 @@
+check_fixture_schema|builder-provenance-missing|build_nanobot_sqlite
+check_fixture_schema|builder-provenance-missing|build_nanobot_sweep
+check_fixture_schema|builder-provenance-missing|nanobot_config
+check_fixture_schema|builder-provenance-missing|nanobot_database_insert_message
+check_fixture_schema|builder-provenance-missing|nanobot_database_messages
 check_fixture_schema|builder-provenance-missing|nanobot_records
 check_fixture_schema|builder-provenance-missing|nanobot_webui_records
 check_fixture_schema|enum-undocumented|status=done

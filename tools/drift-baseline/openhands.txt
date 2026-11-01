@@ -1,3 +1,10 @@
+check_fixture_schema|builder-provenance-missing|openhands_base_state
+check_fixture_schema|builder-provenance-missing|openhands_events
+check_fixture_schema|builder-provenance-missing|openhands_meta
+check_fixture_schema|builder-provenance-missing|openhands_prompt_history
+check_fixture_schema|builder-provenance-missing|openhands_wt_base_state
+check_fixture_schema|builder-provenance-missing|openhands_wt_events
+check_fixture_schema|builder-provenance-missing|openhands_wt_meta
 check_fixture_schema|enum-undocumented|kind=FileEditorAction
 check_fixture_schema|enum-undocumented|kind=FileEditorTool
 check_fixture_schema|enum-undocumented|kind=LocalWorkspace

@@ -1,8 +1,10 @@
+check_fixture_schema|builder-provenance-missing|build_tabby_volume
 check_fixture_schema|builder-provenance-missing|tabby_backup2_records
 check_fixture_schema|builder-provenance-missing|tabby_backup_records
 check_fixture_schema|builder-provenance-missing|tabby_event_records
 check_fixture_schema|builder-provenance-missing|tabby_records
 check_fixture_schema|builder-provenance-missing|tabby_secret_records
+check_fixture_schema|builder-provenance-missing|tabby_vscode_state
 check_fixture_schema|key-undocumented|auth_method
 check_fixture_schema|key-undocumented|avatar
 check_fixture_schema|key-undocumented|base_dn

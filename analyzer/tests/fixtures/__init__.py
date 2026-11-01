@@ -272,7 +272,6 @@ from .codex_cli import (
     codex_subagent_records,
     codex_thread_history,
     codex_thread_rows,
-    uuid7,
     write_codex_enrollment,
     write_codex_guardian_feedback,
     write_codex_logs,

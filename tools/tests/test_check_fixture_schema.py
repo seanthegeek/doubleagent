@@ -27,15 +27,20 @@ INIT = '''\
 """Synthetic fixtures."""
 
 from .alpha import build_alpha
-from .beta import build_beta
+from .beta import build_beta as beta_home
 from .gamma import build_gamma
+
+HOME_BUILDERS = (
+    (build_alpha, ""),
+    (beta_home, ""),
+    (build_gamma, ""),
+)
 
 
 def build_home(home, with_noise=True):
     """Write every synthetic agent's state, a noise file and a project."""
-    build_alpha(home)
-    build_beta(home)
-    build_gamma(home)
+    for builder, directory in HOME_BUILDERS:
+        builder(home / directory)
     (home / "Documents").mkdir(parents=True)
     (home / "Documents/notes.txt").write_text("noise\\n")
     (home / "dev/repo/.alpha").mkdir(parents=True)
@@ -250,8 +255,21 @@ def test_builder_provenance_missing(tmp_path):
     assert ("alpha", "builder-provenance-missing", "alpha_records") in found
     assert ("beta", "builder-provenance-missing", "write_beta_extra") in found
     assert ("beta", "builder-provenance-missing", "beta_records") not in found
-    assert ("alpha", "builder-provenance-missing", "alpha_helper") not in found
-    assert ("alpha", "builder-provenance-missing", "build_alpha") not in found
+
+
+def test_builder_provenance_reaches_every_unregistered_public_function(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("alpha", "builder-provenance-missing", "alpha_helper") in found
+    for name in ("build_alpha", "build_beta", "build_gamma"):
+        agent = name.split("_")[1]
+        assert (agent, "builder-provenance-missing", name) not in found, name
+
+
+def test_registered_builders_follow_import_aliases(tmp_path):
+    root = make_repository(tmp_path)
+    expected = {"build_alpha", "build_beta", "build_gamma"}
+    assert checker.registered_builders(root) == expected
+    assert checker.registered_builders(tmp_path / "empty") == frozenset()
 
 
 def test_module_provenance_missing(tmp_path):
@@ -638,10 +656,12 @@ def test_new_finding_fails_without_baseline(tmp_path):
 
 
 def test_is_public_builder_forms():
-    for name in ("alpha_records", "goose_records", "write_alpha_state", "claude_309_records"):
-        assert checker.is_public_builder(name), name
-    for name in ("_alpha_records", "build_alpha", "alpha_helper", "alpha_rows", "_write_x"):
-        assert not checker.is_public_builder(name), name
+    registered = frozenset({"build_alpha"})
+    builders = ("alpha_records", "write_alpha_state", "build_alpha_extra", "alpha_rows")
+    for name in (*builders, "alpha_header", "claude_309_records"):
+        assert checker.is_public_builder(name, registered), name
+    for name in ("build_alpha", "_alpha_records", "_write_x", "_uuid7"):
+        assert not checker.is_public_builder(name, registered), name
 
 
 def test_source_line_forms():
