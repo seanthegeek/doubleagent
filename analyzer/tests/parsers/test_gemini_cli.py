@@ -16,6 +16,7 @@ from doubleagent.parsers.gemini_cli import (
     HISTORY_OBJECT_PATTERN,
     TOOL_CHECKPOINT_PATTERN,
     GeminiCliParser,
+    name_time,
     resolve_project,
 )
 from doubleagent.timeutil import to_utc
@@ -1162,6 +1163,22 @@ class GeminiCliTests(ParserBase):
             [(row.source_line, row.text[:17]) for row in rows[1:]],
             [(1, "list files in src"), (2, "<session_context>")],
         )
+
+    def test_error_report_context_item_that_is_no_object_is_one_bad_record(self):
+        report = gemini_error_report()
+        report["context"].insert(2, "stray")
+        (self.home / GEMINI_ERROR_REPORT_REL).write_text(json.dumps(report), "utf-8")
+        rows = self.rows_for(GeminiCliParser(), GEMINI_ERROR_REPORT_REL)
+        bad = [row for row in rows if row.text.startswith("parser: ")]
+        self.assertEqual(
+            [(row.source_line, row.text) for row in bad],
+            [(3, 'parser: unparseable record 3 (not a JSON object): "stray"')],
+        )
+        self.assertIn("why did the request fail?", [row.text for row in rows])
+
+    def test_name_time_of_a_malformed_name_is_empty(self):
+        self.assertEqual(name_time("not-a-time"), "")
+        self.assertEqual(name_time(""), "")
 
     def test_tool_checkpoint_rows(self):
         rows = self.rows_for(GeminiCliParser(), GEMINI_TOOL_CHECKPOINT_REL)

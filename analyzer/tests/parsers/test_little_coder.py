@@ -76,6 +76,13 @@ class LittleCoderTests(ParserBase):
         self.assertIn("2 pre-edit file(s)", row.text)
         self.assertIn("_srv_proj_src_new.ts (did not exist)", row.text)
 
+    def test_stray_file_in_the_sessions_directory_is_skipped(self):
+        (self.home / ".pi/agent/sessions/stray.txt").write_text("not a project", encoding="utf-8")
+        rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        self.assertEqual(len(rows), 1)
+        self.assertIn("pi session %s" % LC_FILE, rows[0].text)
+        self.assertEqual(rows[0].session_id, LC_SESSION)
+
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_session_file_is_one_row_after_the_checkpoint_row(self):
         session_file = self.home / PI_DIR / LC_FILE

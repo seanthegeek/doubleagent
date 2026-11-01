@@ -998,6 +998,30 @@ class PiTests(ParserBase):
         self.assertIn(" transcript=false summary=false messages=- entries=- ", rows[0].text)
         self.assertEqual((rows[0].session_id, rows[0].project_path), (PI_BUG_SESSION, ""))
 
+    def test_bug_zip_non_object_diagnostics_items_are_skipped(self):
+        members = pi_bug_zip_members()
+        diagnostics = json.loads(members["diagnostics.json"])
+        diagnostics["crashes"].insert(0, "stray")
+        diagnostics["assistant"].insert(0, 7)
+        members["diagnostics.json"] = json.dumps(diagnostics)
+        (self.project() / PI_BUG_ZIP_FILE).write_bytes(pi_zip_bytes(members))
+        rows = self.export_rows(PI_BUG_ZIP_FILE)
+        self.assertEqual(len([row for row in rows if row.text.startswith("crash: ")]), 1)
+        report = rows[0].text
+        self.assertEqual(report.count("\nfailed assistant turn "), 1, report)
+
+    def test_bug_zip_session_without_a_header_gives_no_copy_rows(self):
+        members = pi_bug_zip_members()
+        members["session.jsonl"] = BAD_LINE
+        (self.project() / PI_BUG_ZIP_FILE).write_bytes(pi_zip_bytes(members))
+        rows = self.export_rows(PI_BUG_ZIP_FILE)
+        self.assertNotIn("the build hangs", [row.text for row in rows])
+        self.assertEqual(
+            [row.turn_type for row in rows if not row.text.startswith(("bug ", "crash: "))],
+            ["system"],
+        )
+        self.assertEqual(len([row for row in rows if row.text.startswith("parser: ")]), 1)
+
     def test_bug_zip_failures_name_the_file_and_member(self):
         path = self.project() / PI_BUG_ZIP_FILE
         path.write_bytes(b"not a zip")
@@ -1081,6 +1105,17 @@ class PiTests(ParserBase):
             ],
         )
         self.assertEqual((rows[0].session_id, rows[0].project_path), ("", ""))
+
+    def test_tui_crash_blank_edges_are_not_bad_lines(self):
+        path = self.home / PI_TUI_CRASH
+        path.write_text("\n  \n" + pi_tui_crash_text() + "\n  \n\n", encoding="utf-8")
+        rows = self.rows_for(PiParser(), PI_TUI_CRASH)
+        self.assertEqual(len(rows), 1, [row.text for row in rows])
+        self.assertTrue(rows[0].text.startswith("tui crash: "), rows[0].text)
+        self.assertTrue(
+            rows[0].text.endswith("a status line from an extension that ran past the edge"),
+            rows[0].text,
+        )
 
     def test_tui_crash_bad_lines_keep_the_record(self):
         path = self.home / PI_TUI_CRASH
