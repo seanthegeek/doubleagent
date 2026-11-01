@@ -4,6 +4,12 @@
 # are UTF-8 without a byte-order mark and end lines with LF, as on the
 # other platforms.
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCommands', '',
+    Justification = 'The compatibility profiles list cmdlets; git is a program.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCmdlets', '',
+    Justification = 'The compatibility profiles list cmdlets; git is a program.')]
+param()
+
 $ErrorActionPreference = 'Stop'
 $project = Join-Path $env:USERPROFILE 'lab\proj'
 $remote = 'https://github.com/infosecdemo42/logsleuth.git'

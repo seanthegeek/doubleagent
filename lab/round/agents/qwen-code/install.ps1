@@ -7,6 +7,10 @@
     Justification = 'The vendor command is copied as the README prints it.')]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '',
     Justification = 'The vendor installer is run the way the README runs it.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCommands', '',
+    Justification = 'The compatibility profiles list cmdlets; the installer may run programs.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCmdlets', '',
+    Justification = 'The compatibility profiles list cmdlets; the installer may run programs.')]
 param()
 
 $ErrorActionPreference = 'Stop'

@@ -11,6 +11,10 @@
 # tui-test has no Windows ARM64 build, so the x86-64 binary runs under
 # Windows 11's emulation, and the agent runs in a Windows PowerShell 5.1
 # started by it.
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCommands', '',
+    Justification = 'The compatibility profiles list cmdlets; tui-test is a program.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCmdlets', '',
+    Justification = 'The compatibility profiles list cmdlets; tui-test is a program.')]
 param(
     [Parameter(Mandatory = $true)][string]$Session,
     [Parameter(Mandatory = $true)][string]$Verb,

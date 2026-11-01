@@ -4,6 +4,12 @@
 # PowerShell 5.1; npm's global prefix on Windows is the user's
 # %APPDATA%\npm, so no elevation is needed.
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCommands', '',
+    Justification = 'The compatibility profiles list cmdlets; node and npm are programs.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCmdlets', '',
+    Justification = 'The compatibility profiles list cmdlets; node and npm are programs.')]
+param()
+
 $ErrorActionPreference = 'Stop'
 $sourcePage = 'https://github.com/google-gemini/gemini-cli/blob/main/README.md#install-globally-with-npm'
 $sourceFetched = '2026-11-01'

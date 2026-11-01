@@ -15,6 +15,12 @@
 # are listed with their target and never followed. Nothing is read from a
 # file but its directory entry.
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCommands', '',
+    Justification = 'The compatibility profiles list cmdlets; cmdkey is a program.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCmdlets', '',
+    Justification = 'The compatibility profiles list cmdlets; cmdkey is a program.')]
+param()
+
 $ErrorActionPreference = 'SilentlyContinue'
 $userProfile = $env:USERPROFILE
 $tempDir = $env:TEMP.TrimEnd('\')

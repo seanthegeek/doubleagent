@@ -2,6 +2,12 @@
 # vendor's README gives under "On Windows", then print the `source:`, `bin:`
 # and `version:` lines round.sh records. Windows PowerShell 5.1.
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCommands', '',
+    Justification = 'The compatibility profiles list cmdlets; powershell is a program.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseCompatibleCmdlets', '',
+    Justification = 'The compatibility profiles list cmdlets; powershell is a program.')]
+param()
+
 $ErrorActionPreference = 'Stop'
 $sourcePage = 'https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md#getting-started'
 $sourceFetched = '2026-11-01'
