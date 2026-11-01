@@ -74,9 +74,13 @@ before the collection.
   before it kept.
 - alice's Aider history files in her home, and an Amp settings file:
   Amp has no parser, so it is under `detected but not parsed`.
-- bob's Gemini CLI and Ollama files. A Gemini CLI chat the manifest
-  lists as collected is missing from `fs/`, which gives a `problem:`
-  line, and the manifest row of an Ollama model manifest is cut short,
+- bob's Gemini CLI and Ollama files. The Gemini CLI home also holds the
+  past-use stores beside its chats (the activity log, a tool checkpoint,
+  `memory/` files, a clipboard image and a copied error report), whose
+  rows are `system` rows or secondary copies of the chat's turns. A
+  Gemini CLI chat the manifest lists as collected is missing from `fs/`,
+  which gives a `problem:` line, and the manifest row of an Ollama model
+  manifest is cut short,
   which gives the `manifest rows did not parse` note. The Ollama prompt
   history records no times, so its `user` and `slash command:` rows have
   an empty `timestamp_utc`.
@@ -211,7 +215,7 @@ alice          /home/alice                      codex-cli                 8     
 alice          /home/alice                      cursor                   11       100667  yes
 alice          /home/alice                      aider                     4         1379  yes
 alice          /home/alice                      amp                       1           96  detect only
-bob            /home/bob                        gemini-cli                9         4598  yes
+bob            /home/bob                        gemini-cli               17        11701  yes
 bob            /home/bob                        ollama                    6          300  yes
 
 project                                  users          agent                 files        bytes  parser
@@ -297,8 +301,8 @@ example is the output of `detect --json` on
       "agents": [
         {
           "agent": "gemini-cli",
-          "files": 9,
-          "bytes": 4598,
+          "files": 17,
+          "bytes": 11701,
           "parser": true
         },
         {
@@ -523,9 +527,9 @@ input:     /cases/wsdev14/wsdev14 (collected)
 host:      wsdev14
 note:      1 manifest rows did not parse
 problem:   /home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection
-dropped:   20 duplicate rows from secondary sources (aider 2, claude-code 2, codex-cli 12, cursor 3, gemini-cli 1)
+dropped:   25 duplicate rows from secondary sources (aider 2, claude-code 2, codex-cli 12, cursor 3, gemini-cli 6)
 agents:    parsed: aider, claude-code, codex-cli, cursor, gemini-cli, ollama; detected but not parsed: amp
-rows:      295 in out/timeline.jsonl
+rows:      313 in out/timeline.jsonl
            aider          assistant    2
            aider          system       11
            aider          tool_result  5
@@ -545,11 +549,11 @@ rows:      295 in out/timeline.jsonl
            cursor         tool_result  4
            cursor         tool_use     5
            cursor         user         6
-           gemini-cli     assistant    2
-           gemini-cli     system       10
+           gemini-cli     assistant    3
+           gemini-cli     system       26
            gemini-cli     tool_result  3
            gemini-cli     tool_use     3
-           gemini-cli     user         6
+           gemini-cli     user         7
            ollama         system       3
            ollama         user         1
 sessions:  22 in out/sessions.jsonl (7 synced, 4 remote, 7 recovered)
@@ -595,7 +599,7 @@ rather than as projects:
   "problems": [
     "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection"
   ],
-  "rows": 295,
+  "rows": 313,
   "sessions": 22,
   "parsed": [
     "aider",
@@ -674,8 +678,8 @@ rather than as projects:
       "agents": [
         {
           "agent": "gemini-cli",
-          "files": 9,
-          "bytes": 4598,
+          "files": 17,
+          "bytes": 11701,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -773,7 +777,7 @@ rather than as projects:
     },
     "/srv/proj": {
       "status": "collected",
-      "rows": 212,
+      "rows": 228,
       "sessions": 16,
       "agents": {
         "claude-code": {
@@ -816,11 +820,11 @@ rather than as projects:
           "bytes": 0
         },
         "gemini-cli": {
-          "rows": 23,
+          "rows": 39,
           "sessions": 3,
           "turn_types": {
-            "assistant": 2,
-            "system": 9,
+            "assistant": 3,
+            "system": 24,
             "tool_result": 3,
             "tool_use": 3,
             "user": 6
@@ -957,7 +961,7 @@ rather than as projects:
     }
   },
   "outside_projects": {
-    "rows": 40,
+    "rows": 42,
     "sessions": 1,
     "agents": {
       "claude-code": {
@@ -981,6 +985,14 @@ rather than as projects:
           "system": 24
         }
       },
+      "gemini-cli": {
+        "rows": 2,
+        "sessions": 0,
+        "turn_types": {
+          "system": 1,
+          "user": 1
+        }
+      },
       "ollama": {
         "rows": 4,
         "sessions": 0,
@@ -1000,7 +1012,7 @@ rather than as projects:
     "claude-code": 2,
     "codex-cli": 12,
     "cursor": 3,
-    "gemini-cli": 1
+    "gemini-cli": 6
   },
   "collected_only": [],
   "synced_sessions": 7,
@@ -3229,7 +3241,7 @@ have no `session_id`, so they belong to no session:
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99999999-0000-4000-8000-000000000000","project_path":"/srv/old","first_timestamp_utc":"2026-09-30T10:00:00.000Z","last_timestamp_utc":"2026-09-30T10:00:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/history.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
 {"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000003-0000-4000-8000-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T01:30:00.000Z","last_timestamp_utc":"2026-10-01T13:00:00.000Z","models":["grok-4.6"],"user_turns":2,"assistant_turns":1,"tool_calls":0,"source_file":"/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
 {"host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T08:00:00.000Z","last_timestamp_utc":"2026-10-01T08:00:10.000Z","models":[],"user_turns":1,"assistant_turns":1,"tool_calls":1,"source_file":"/home/alice/.codex/thread_history_1.sqlite","synced":"no","relayed":"","origin":"","recovered":"yes"}
-{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:00.000Z","last_timestamp_utc":"2026-10-01T09:00:24.000Z","models":["gemini-2.5-pro","gemini-2.5-flash"],"user_turns":3,"assistant_turns":2,"tool_calls":3,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"partial"}
+{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:00.000Z","last_timestamp_utc":"2026-10-01T09:00:24.000Z","models":["gemini-2.5-pro","gemini-2.5-flash"],"user_turns":3,"assistant_turns":3,"tool_calls":3,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"partial"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"c3d4e5f6-0000-4000-8000-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:30.000Z","last_timestamp_utc":"2026-10-01T09:00:30.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-0000000000ff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:01:00.000Z","last_timestamp_utc":"2026-10-01T09:01:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:59:00.000Z","last_timestamp_utc":"2026-10-01T10:05:00.000Z","models":["grok-4.6","grok-4.7"],"user_turns":2,"assistant_turns":1,"tool_calls":5,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"partial"}
