@@ -5,8 +5,8 @@ Reads, under `~/.gemini` or the macOS sandbox base `~/.cache/.gemini`: the sessi
 resume migrated one, so their turns appear twice); and as secondary sources with no time of
 their own except `logs.json`, `tmp/<slug>/logs.json`, `shell_history`, `checkpoint-<tag>.json`
 and `bug-report-history-<ms>.json`. Standing grants: `trustedFolders.json`, `settings.json`
-(`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`), `policies/*.toml` (Python 3.11
-or later), `trusted_hooks.json` and `acknowledgments/agents.json`.
+(`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`), `policies/*.toml` and
+`sandbox.toml` (Python 3.11 or later), `trusted_hooks.json` and `acknowledgments/agents.json`.
 
 Fields the parser depends on:
 
@@ -18,14 +18,15 @@ Fields the parser depends on:
   `functionResponse`, `inlineData`, `fileData`), `model`, `thoughts[]` (`subject`,
   `description`, `timestamp`), `toolCalls[]` (`id`, `name`, `args`, `result`, `status`,
   `timestamp`, `displayName`);
-- `logs.json`: `sessionId`, `timestamp`, `message`; a history copy's `Content[]` `role`, `parts`.
+- `logs.json`: `sessionId`, `timestamp`, `message`; a history copy's `Content[]` `role`, `parts`;
+- `sandbox.toml`: the `modes` and `commands` tables.
 
 Each message keeps the `sessionId` in force when it was first written. Rewind, summary and
 removal rows carry no timestamp of their own and inherit the latest one seen before them.
 `project_path` is `tmp/<slug>/.project_root`, else the `projects.json` key mapping to the slug,
 else the key whose sha256 is the legacy hash directory or `projectHash`, else `projectHash`.
-Validated against google-gemini/gemini-cli source at fb972b2 with a synthetic fixture; the
-standing files and history copies rest on source at 3be3d44 alone. See
+Validated against google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020; the
+v0.66.0 release writes the same shapes) with a synthetic fixture; no real install. See
 `research/gemini-cli.md`.
 """
 
@@ -59,13 +60,13 @@ from .base import (
 )
 from .codex import load_toml
 
-SESSION_PATTERN = re.compile(
-    r"^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/chats/(?:.*/)?[^/]+\.jsonl?$"
-)
-LOGS_PATTERN = re.compile(r"^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/logs\.json$")
-TRUSTED_PATTERN = re.compile(r"^(?:\.cache/)?\.gemini/trustedFolders\.json$")
-# Past use beside the session files, in the per-project temp directory.
-TEMP_BASE = r"^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/"
+# The runtime directory: `.gemini`, or `.cache/.gemini` under the macOS sandbox.
+BASE = r"^(?P<base>(?:\.cache/)?\.gemini)/"
+# The per-project directory `tmp/<slug>`, which holds the sessions and their past-use copies.
+TEMP_BASE = BASE + r"tmp/(?P<slug>[^/]+)/"
+SESSION_PATTERN = re.compile(TEMP_BASE + r"chats/(?:.*/)?[^/]+\.jsonl?$")
+LOGS_PATTERN = re.compile(TEMP_BASE + r"logs\.json$")
+TRUSTED_PATTERN = re.compile(BASE + r"trustedFolders\.json$")
 SHELL_PATTERN = re.compile(TEMP_BASE + r"shell_history$")
 CHECKPOINT_PATTERN = re.compile(TEMP_BASE + r"checkpoint-(?P<tag>[^/]+)\.json$")
 BUG_PATTERN = re.compile(TEMP_BASE + r"bug-report-history-(?P<ms>[0-9]+)\.json$")
@@ -75,6 +76,10 @@ SETTINGS_PATTERN = re.compile(r"^\.gemini/settings\.json$")
 POLICY_PATTERN = re.compile(r"^\.gemini/policies/[^/]+\.toml(?:\.bak)?$")
 HOOKS_PATTERN = re.compile(r"^\.gemini/trusted_hooks\.json$")
 AGENTS_ACK_PATTERN = re.compile(r"^\.gemini/acknowledgments/agents\.json$")
+# The sandbox's standing grants, a policy file of the home only.
+SANDBOX_POLICY = ".gemini/policies/sandbox.toml"
+# A `--worktree` checkout inside a project, which a session's project path names.
+WORKTREE_PATTERN = re.compile(r"^.*[/\\]\.gemini[/\\]worktrees[/\\](?P<name>[^/\\]+)$")
 # The start of a `/chat save` checkpoint as `JSON.stringify({history, authType})`
 # writes it, for reading the history array of a file cut mid-write.
 HISTORY_OBJECT_PATTERN = re.compile(r'[ \t\n\r]*\{[ \t\n\r]*"history"[ \t\n\r]*:[ \t\n\r]*')
@@ -379,6 +384,41 @@ def _dotted(document: dict, key: str):
     return value
 
 
+def _rule_text(rule: dict, source: str) -> str:
+    """Return the row text of one `[[rule]]` table: decision, tool, then its other keys."""
+    fields = [
+        "permission setting: policy",
+        setting_value(rule.get("decision", "-")),
+        setting_value(rule.get("toolName", "-")),
+    ]
+    fields += [
+        "%s=%s" % (key, setting_value(value))
+        for key, value in rule.items()
+        if key not in ("decision", "toolName")
+    ]
+    fields.append(source)
+    return " ".join(fields)
+
+
+def _sandbox_texts(document: dict, source: str) -> list[str]:
+    """Return the row texts of `sandbox.toml`: one per `modes` table, one per `commands` grant.
+
+    Each table's keys follow in file order, as `SandboxPolicyManager.saveConfig` wrote them.
+    """
+    out = []
+    for label, table in (("mode", document.get("modes")), ("command", document.get("commands"))):
+        if not isinstance(table, dict):
+            continue
+        for name, grant in table.items():
+            if not isinstance(grant, dict):
+                continue
+            fields = ["permission setting: sandbox %s" % label, str(name)]
+            fields += ["%s=%s" % (key, setting_value(value)) for key, value in grant.items()]
+            fields.append(source)
+            out.append(" ".join(fields))
+    return out
+
+
 def shell_history_entries(raw: bytes, errors: list) -> list[tuple[int, str]]:
     """Return (first line, command) for each command of a `shell_history` file.
 
@@ -560,7 +600,7 @@ class GeminiCliParser(Parser):
         project = artifact.home.original if artifact.home.project else ""
         if sys.version_info < (3, 11):
             # flat_toml, the 3.10 stand-in, reads top-level keys only and a
-            # policy file holds nothing but [[rule]] tables.
+            # policy file holds nothing but tables.
             text = "parser: %s not read: its [[rule]] tables need Python 3.11 or later (tomllib)"
             yield self._standing(artifact, timestamp, project, text % artifact.rel)
             return
@@ -575,30 +615,19 @@ class GeminiCliParser(Parser):
             text = "parser: unreadable %s: %s" % (artifact.rel, error)
             yield self._standing(artifact, timestamp, project, text)
             return
+        source = "(from %s, file mtime)" % artifact.rel
         rules = document.get("rule")
-        if rules is None:
-            return
-        if not isinstance(rules, list):
+        if isinstance(rules, list):
+            for rule in rules:
+                if isinstance(rule, dict):
+                    yield self._standing(artifact, timestamp, project, _rule_text(rule, source))
+        elif rules is not None:
             yield self._standing(
                 artifact, timestamp, project, "parser: %s rule is not an array" % artifact.rel
             )
-            return
-        source = "(from %s, file mtime)" % artifact.rel
-        for rule in rules:
-            if not isinstance(rule, dict):
-                continue
-            fields = [
-                "permission setting: policy",
-                setting_value(rule.get("decision", "-")),
-                setting_value(rule.get("toolName", "-")),
-            ]
-            fields += [
-                "%s=%s" % (key, setting_value(value))
-                for key, value in rule.items()
-                if key not in ("decision", "toolName")
-            ]
-            fields.append(source)
-            yield self._standing(artifact, timestamp, project, " ".join(fields))
+        if artifact.rel == SANDBOX_POLICY and not artifact.home.project:
+            for text in _sandbox_texts(document, source):
+                yield self._standing(artifact, timestamp, project, text)
 
     def _parse_project_grants(self, artifact: Artifact) -> Iterator[Row]:
         # Both files are written with JSON.stringify and read with JSON.parse.
@@ -903,6 +932,14 @@ class GeminiCliParser(Parser):
         # Session start, then the surviving messages in replay order, then
         # summaries, rewinds and removals.
         for line, timestamp, record_session_id, text in starts:
+            yield self._system(artifact, line, timestamp, record_session_id, project, text, opts)
+        worktree = WORKTREE_PATTERN.match(project)
+        if worktree and starts:
+            line, timestamp, record_session_id, _ = starts[0]
+            text = "scratch directory: %s (gemini --worktree %s)" % (
+                project,
+                worktree.group("name"),
+            )
             yield self._system(artifact, line, timestamp, record_session_id, project, text, opts)
         models: dict = {}  # session id -> model in force, for the model rows
         for message, line, record_session_id in messages.values():

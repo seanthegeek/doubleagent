@@ -442,9 +442,7 @@ window when the file sets one.
 loaded ([`cli/src/utils/worktreeSetup.ts:21-42`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/worktreeSetup.ts#L21-L42);
 [`gemini.tsx:497-506`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/gemini.tsx#L497-L506)), so the session's
 `.project_root` and slug are the worktree's
-([`core/src/config/config.ts:1323`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/config.ts#L1323)). That path lies
-under a project, not under a home catalog entry, so the analyzer's catalog rule does not class it
-as a scratch directory.
+([`core/src/config/config.ts:1323`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/config.ts#L1323)).
 
 #### Driven from Zed
 
@@ -533,6 +531,29 @@ enriched at [`chatRecordingService.ts:1172-1181`](https://github.com/google-gemi
 
 `status` is a `CoreToolCallStatus`
 ([`core/src/scheduler/types.ts:26-34`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/scheduler/types.ts#L26-L34)).
+`args` holds the tool's parameters, named by the tool, such as `file_path` and `dir_path`
+([`core/src/tools/definitions/base-declarations.ts:16-17`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/tools/definitions/base-declarations.ts#L16-L17)).
+A `result` is the `Part[]` that `convertToFunctionResponse` builds: one `functionResponse` part
+(`id`, `name`, `response`), followed by the `fileData` parts (`fileUri`, `mimeType`) and
+`inlineData` parts (`data`, `mimeType`) the tool returned, which a model that takes media inside
+a function response gets nested as the `functionResponse`'s own `parts` instead
+([`core/src/utils/generateContentResponseUtilities.ts:23-35`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/generateContentResponseUtilities.ts#L23-L35),
+[`49-182`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/generateContentResponseUtilities.ts#L49-L182);
+[`core/src/agent/content-utils.ts:80-89`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agent/content-utils.ts#L80-L89)).
+The same parts can sit in a `user` message's `content`, which records every part of the prompt
+([`geminiChat.ts:545-567`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L545-L567)),
+an image or PDF read for it as an `inlineData` part
+([`core/src/utils/fileUtils.ts:752-768`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/fileUtils.ts#L752-L768)).
+The `response` object of a tool's `functionResponse` part
+([`core/src/scheduler/tool-executor.ts:446-454`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/scheduler/tool-executor.ts#L446-L454)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `output` | string | | |
+| `error` | string | | |
+
+`output` is the tool's text for the model, absent when the tool returned only media; `error`
+replaces it for a failed or cancelled call.
 An object `resultDisplay` is one of the tool display shapes, among them a file diff (`fileDiff`,
 `fileName`, `filePath`, `originalContent`, `newContent`) and a directory listing (`summary`,
 `files`)
@@ -809,7 +830,7 @@ through a write copy `projects.json.<uuid>.tmp`
 
 #### Standing permission files
 
-Every file here except `sandbox.toml` is parsed ([Permission rows](#permission-rows)).
+Every file here is parsed ([Permission rows](#permission-rows)).
 
 `policies/auto-saved.toml`, in `~/.gemini/policies/` for a grant the user saved for every project
 and in `<project>/.gemini/policies/` for one saved for the workspace
@@ -981,7 +1002,12 @@ No file carries a version field. The shapes changed in these ways:
 
 ### Secrets
 
-The credential files are in [Credentials](#credentials). Inside the stores, tool checkpoints
+The credential files are in [Credentials](#credentials). `oauth_creds.json` is a Google
+`Credentials` object whose `access_token`, `refresh_token`, `scope`, `token_type` and
+`expiry_date` the migration moves into the keychain
+([`oauth-credential-storage.ts:64-90`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/oauth-credential-storage.ts#L64-L90),
+[`117-153`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/oauth-credential-storage.ts#L117-L153)).
+Inside the stores, tool checkpoints
 (`clientHistory`), `toolCalls[].result`, the `/chat save` checkpoints, the `/bug` exports and the
 activity log's `network` payloads (request `headers` included) hold full tool output and request
 bodies, which can include secrets the agent read; `google_accounts.json` and Clearcut's account
@@ -989,19 +1015,30 @@ email are identities.
 
 ### Parser plan
 
-Globs (home-relative; each `tmp` glob also under `.cache/.gemini`):
-`.gemini/tmp/*/chats/**/*.jsonl`, `.gemini/tmp/*/chats/**/*.json`, `.gemini/tmp/*/logs.json`,
-`.gemini/tmp/*/shell_history`, `.gemini/tmp/*/checkpoint-*.json`,
-`.gemini/tmp/*/bug-report-history-*.json`, `.gemini/trustedFolders.json`,
-`.gemini/settings.json` and `.gemini/policies/*.toml` (also `auto-saved.toml.bak`, in the home
-and in a project), `.gemini/trusted_hooks.json` and `.gemini/acknowledgments/agents.json` (home
-only).
+Globs, home-relative, `<base>` the runtime directory (`.gemini`, or `.cache/.gemini` under the
+macOS sandbox): `<base>/tmp/<slug>/chats/<path>.jsonl` and `<base>/tmp/<slug>/chats/<path>.json`,
+`<path>` a session file name or `<parent session id>/<session id>`;
+`<base>/tmp/<slug>/logs.json`, `<base>/tmp/<slug>/shell_history`,
+`<base>/tmp/<slug>/checkpoint-<tag>.json`, `<base>/tmp/<slug>/bug-report-history-<ms>.json` and
+`<base>/trustedFolders.json`. In the home and in a project: `.gemini/settings.json` and
+`.gemini/policies/*.toml` (also `auto-saved.toml.bak`). In the home only:
+`.gemini/trusted_hooks.json` and `.gemini/acknowledgments/agents.json`.
 
-Rows: one per `user`, `info`, `error` or `warning` message; one `assistant` row per `gemini`
-message plus one `thinking` row per `thoughts[]` entry; one `tool_use` per `toolCalls[]` element
-and one `tool_result` when `result` is non-null, sharing the `tool_use_id`; `logs.json` entries as
-`user` rows when no session file covers that `sessionId`; the secondary sources and standing files
-as in the subsections below.
+Rows: one `system` row per metadata line,
+`session start: kind=<kind> projectHash=<projectHash>`, with ` directories=<JSON array>` added
+for a subagent session; one `user` row per `user` message, one `system` row
+`info: <text>`, `error: <text>` or `warning: <text>` per message of those types; one `assistant`
+row per `gemini` message plus one `thinking` row per `thoughts[]` entry, a `gemini` message with
+neither text nor tool calls still giving an empty `assistant` row; one `tool_use` per
+`toolCalls[]` element and one `tool_result` when `result` is non-null or `status` is `error` or
+`cancelled`, sharing the `tool_use_id`, the result text prefixed `[error]` or `[cancelled]` then;
+`logs.json` entries as `user` rows when no session file covers that `sessionId`; the secondary
+sources and standing files as in the subsections below. A `$set` with a `summary` is a `system`
+row `summary: <summary>` at its `lastUpdated`; a `$rewindTo` is
+`rewind to <message id>: <n> message(s) dropped` and a `$patch` with `removeIds`
+`patch removed <n> message(s)`, each at the latest time seen before it. In a text, an
+`inlineData` part reads `[inlineData <mimeType>]` and a `fileData` part `[fileData <fileUri>]`,
+and a `functionResponse` part its `response`'s `output` or `error`.
 
 | Column | Source |
 | --- | --- |
@@ -1046,10 +1083,14 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   Python 3.10, which lacks it, each policy file is one row
   `parser: <file> not read: its [[rule]] tables need Python 3.11 or later (tomllib)`; a file
   `tomllib` cannot read (the corrupt one a `.bak` preserves) is one
-  `parser: unreadable <file>: <reason>` row. `safety_checker` tables are not read.
-  `sandbox.toml` matches the glob and yields no row, since it has no `rule` table; its
-  `commands` grants would each be a row
-  `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)`.
+  `parser: unreadable <file>: <reason>` row, and a `rule` key that is not an array one
+  `parser: <file> rule is not an array` row. `safety_checker` tables are not read.
+- `~/.gemini/policies/sandbox.toml`, which has no `rule` table: one row
+  `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per
+  `modes` table and one row
+  `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)`
+  per `commands` grant, the keys in file order. A project's `sandbox.toml` is an ordinary policy
+  file.
 - `settings.json`, in the home and in a project: one
   `permission setting: <key>=<value> (from <file>, file mtime)` row per entry of
   `tools.sandboxAllowedPaths`, `tools.core`, `tools.allowed`, `tools.confirmationRequired`,
@@ -1179,8 +1220,9 @@ remote id, share URL or synced flag:
 
 #### Scratch directory rows
 
-A session whose `.project_root` lies under `<project>/.gemini/worktrees/` should yield
-`scratch directory: <path> (gemini --worktree <name>)`
+A session whose project path (its `.project_root`) is `<project>/.gemini/worktrees/<name>` gets
+one `system` row `scratch directory: <path> (gemini --worktree <name>)` after its
+`session start:` row, at the same time, `project_path` the worktree
 ([Worktree sessions](#worktree-sessions)).
 
 #### Deletion rows
@@ -1195,17 +1237,22 @@ file's modification time. No row means the defaults: retention on, 30 days
 #### Bad-line rows
 
 A session JSONL line that does not decode is a `parser: unparseable line (<reason>): <line>` row,
-and the lines around it are kept. A `logs.json` or legacy JSON session file that does not parse
-is one whole-file `parser:` row. In `shell_history` a line that is not valid UTF-8 is a row
-`parser: unparseable line (not valid UTF-8): <line>`, the line decoded with replacement
-characters, and the commands around it are kept. A `/chat save` checkpoint or `/bug` export cut
-mid-write keeps its complete leading items and adds
+and the lines around it are kept. A `logs.json` that does not parse is one whole-file row
+`parser: unparseable logs.json: <reason>`, and one that parses to something else
+`parser: logs.json is not a JSON array`. A legacy JSON session file that does not parse is one
+row `parser: unparseable session file: <reason>`, and one that is not an object with a string
+`sessionId` `parser: not a ConversationRecord`. In `shell_history` a line that is not valid
+UTF-8 is a row `parser: unparseable line (not valid UTF-8): <line>`, the line decoded with
+replacement characters, and the commands around it are kept. A `/chat save` checkpoint or `/bug`
+export cut mid-write keeps its complete leading items and adds
 `parser: unparseable record <N> (<reason>): <text from the cut item to the end>` or
 `parser: array cut off after record <N>`; an item that is not an object is
-`parser: unparseable record <N> (not a JSON object): <item>`, and a file that is neither form is
-one `parser: not a chat history: ...` row. A standing file ([Permission rows](#permission-rows))
-that reads but decodes to something else is one `parser: <file> is not a JSON object` row, at the
-file's modification time.
+`parser: unparseable record <N> (not a JSON object): <item>`. A file that does not decode and
+starts as neither form is one `parser: unparseable chat history (<reason>)` row, and one that
+decodes to neither form one
+`parser: not a chat history: neither a JSON array nor an object with history` row. A standing
+file ([Permission rows](#permission-rows)) that reads but decodes to something else is one
+`parser: <file> is not a JSON object` row, at the file's modification time.
 
 A session file (JSONL or legacy JSON), `logs.json`, `shell_history`, `/chat save` checkpoint,
 `/bug` export, policy file or standing file (`settings.json`, `trusted_hooks.json`,
