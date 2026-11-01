@@ -29,7 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - pi: a `.pi/agent/settings.json` that is not a JSON object gives one `parser: .pi/agent/settings.json is not a JSON object` row where it was silent; an experimental session's `meta.json` that is not a JSON object gives `parser: <path> is not a JSON object`, in place of the decoder's message for one that is not JSON and of an `experimental durable session created:` row with an empty cwd for valid JSON that is not an object (an array); an empty `settings.json`, which pi reads as no settings, still gives no row; and the `trust.json` row of that form carries no time and `source_line` 0, as other whole-file rows do. A leading byte-order mark is dropped from `trust.json` and `settings.json`, as pi drops it ([#201], [#326]).
 - pi: a session file whose first record is not a header reports its unparseable lines even when entries follow, and a `crashes.json` element that is not an object gives `parser: unparseable record <N> (not a JSON object): <element>` where it was skipped ([#201], [#326]).
-- A little-coder checkpoint directory whose pi sessions directory (`.pi/agent/sessions`) cannot be listed keeps its checkpoint row and gives one `parser: sessions could not be read (<reason>)` row, where the parser raised and the command printed a `problem:` line ([#389]).
+- A little-coder checkpoint directory whose pi sessions directory (`.pi/agent/sessions`) cannot be read, listed or searched, or whose project directory under it cannot be searched, keeps its checkpoint row and gives one `parser: <directory> could not be read (<reason>)` row, where the parser raised or claimed the session file was not collected ([#389]).
 
 ## [0.23.0] - 2026-10-31
 
