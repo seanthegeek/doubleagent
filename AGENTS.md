@@ -94,7 +94,9 @@ tools/check_tables_research.py  compares the catalog tables with the Collection 
 tools/check_smoke_coverage.py  verifies both smoke tests check every table line, naming
                                each row by full path
 tools/check_parser_research.py  compares each parser's row texts, file patterns and keys
-                               with the Parsing part of its research document
+                               with the Parsing part of its research document, and its
+                               secondary sources with its survival table row in
+                               research/README.md
 tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines, files,
                                keys and values with the research documents
 tools/tests/                   pytest suite of the drift checkers, on synthetic inputs

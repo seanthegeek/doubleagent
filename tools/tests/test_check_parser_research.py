@@ -1060,7 +1060,9 @@ SECONDARY_ALPHA = ALPHA.replace(
 )
 
 
-def survival_index(second_copy: str, agent: str = "alpha") -> str:
+def survival_index(
+    second_copy: str, agent: str = "alpha", transcripts: str = "home `.alpha/logs/`"
+) -> str:
     """Return a research index whose survival table has one row, its last cell `second_copy`."""
     return "\n".join(
         [
@@ -1069,7 +1071,7 @@ def survival_index(second_copy: str, agent: str = "alpha") -> str:
             "| Agent | Transcripts live in | Survives project deletion | Per-prompt history file"
             " | Working directory recorded | Second copy |",
             "| --- | --- | --- | --- | --- | --- |",
-            "| `%s` | home `.alpha/logs/` | yes | none | none | %s |" % (agent, second_copy),
+            "| `%s` | %s | yes | none | none | %s |" % (agent, transcripts, second_copy),
             "",
         ]
     )
@@ -1089,6 +1091,24 @@ def test_secondary_listed_by_a_code_span_or_by_its_file_name(tmp_path):
     for cell in ("`~/.alpha/history.jsonl`, secondary", "the history.jsonl file, secondary"):
         root = repository(tmp_path, SECONDARY_ALPHA, index=survival_index(cell))
         assert details(root, "secondary-unlisted") == [], cell
+
+
+def test_secondary_listed_by_a_code_span_alone(tmp_path):
+    alpha = SECONDARY_ALPHA.replace("HISTORY_PATTERN.match", "LOG_PATTERN.match")
+    root = repository(tmp_path, alpha, index=survival_index("`logs/<id>.jsonl`, secondary"))
+    assert details(root, "secondary-unlisted") == []
+
+
+def test_secondary_unlisted_by_the_transcript_cell_or_a_parent_directory(tmp_path):
+    alpha = SECONDARY_ALPHA.replace("HISTORY_PATTERN.match", "LOG_PATTERN.match")
+    pattern = r"^\.alpha/logs/[^/]+\.jsonl$"
+    cases = [
+        survival_index("none", transcripts="home `~/.alpha/logs/<id>.jsonl`"),
+        survival_index("`~/.alpha/logs/`, secondary"),
+    ]
+    for index in cases:
+        root = repository(tmp_path, alpha, index=index)
+        assert details(root, "secondary-unlisted") == [pattern], index
 
 
 def test_survival_row_missing_only_for_a_parser_with_a_secondary_pattern(tmp_path):

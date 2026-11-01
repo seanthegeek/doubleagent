@@ -101,8 +101,20 @@ SECONDARY_NAMED = re.compile(r"\b(?:is|are|as)\s+(?:a\s+|the\s+)?secondary\b", r
 # A word of a survival table row that may be a file name: dots kept, a trailing one dropped.
 FILE_WORD = re.compile(r"[A-Za-z0-9_$@.-]*[A-Za-z0-9_$@-]")
 # What a survival row name's placeholder is filled with, each tried in turn: a word, a number,
-# a hex hash and a UUID, the forms a file pattern's variable pieces take.
-PLACEHOLDER_FILLS = ("x", "0", "0" * 32, "00000000-0000-0000-0000-000000000000")
+# a hex hash, a UUID and file-name timestamps with and without milliseconds, the forms a file
+# pattern's variable pieces take.
+PLACEHOLDER_FILLS = (
+    "x",
+    "0",
+    "0" * 32,
+    "00000000-0000-0000-0000-000000000000",
+    "2026-01-01T00-00-00Z",
+    "2026-01-01T00-00-00.000Z",
+    "2026-01-01T00-00-00-000Z",
+)
+# The survival row's cells from the third on are searched: the agent and the transcript store
+# cells name no secondary source.
+SURVIVAL_SEARCHED_CELLS = 2
 # A run of letters of a name, which `names_selector_tail` replaces to test that it matters.
 LETTER_RUN = re.compile(r"[A-Za-z]+")
 # Last dotted segments that make a code span a file name rather than a key.
@@ -1548,11 +1560,11 @@ def docstring_findings(context: Context) -> Iterator[drift_common.Finding]:
 def secondary_findings(context: Context) -> Iterator[drift_common.Finding]:
     """Yield `secondary-unlisted` per `secondary` pattern the survival row names no file of.
 
-    The row is the agent's in the survival table of `research/README.md`, its cells but the
-    first read. A pattern is named by a code span there that `selector_matches_name` or
-    `names_selector_tail` accepts, or by a word of the row equal to one of its
-    `selector_basenames`. A parser with such a pattern and no row yields one
-    `survival-row-missing` instead.
+    The row is the agent's in the survival table of `research/README.md`, read from its third
+    cell (`SURVIVAL_SEARCHED_CELLS`). A pattern is named by a code span there that
+    `selector_matches_name` or `names_selector_tail` accepts, never one ending in `/`, since a
+    parent directory names no file; or by a word equal to one of its `selector_basenames`. A
+    parser with such a pattern and no row yields one `survival-row-missing` instead.
     """
     patterns = [item for item in context.selectors if "secondary" in item.methods]
     index = drift_common.RESEARCH_INDEX.as_posix()
@@ -1566,8 +1578,12 @@ def secondary_findings(context: Context) -> Iterator[drift_common.Finding]:
         return
     if row is None:
         return
-    text = " | ".join(row.cells[1:])
-    spans = [drift_common.collapse(match.group(2)) for match in CODE_SPAN.finditer(text)]
+    text = " | ".join(row.cells[SURVIVAL_SEARCHED_CELLS:])
+    spans = [
+        span
+        for span in (drift_common.collapse(match.group(2)) for match in CODE_SPAN.finditer(text))
+        if not span.endswith("/")
+    ]
     words = set(FILE_WORD.findall(text))
     for selector in patterns:
         names = selector_basenames(selector)
