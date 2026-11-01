@@ -1,4 +1,11 @@
-"""Synthetic Qwen Code state for the analyzer tests."""
+"""Synthetic Qwen Code state for the analyzer tests.
+
+The records follow the Record schema and Other stores of research/qwen-code.md, from
+QwenLM/qwen-code at 835b080 (0.26.4); the session and permission records keep the `version` of
+the 0.24.7 and 0.25.3 builds whose shapes are unchanged (Format versions).
+
+Paths: `/srv/proj/.qwen/worktrees/fix-tests`, `/srv`, `/srv/a,]`, `/srv/b`
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,10 @@ QWEN_TRUST_MTIME = 1790856000  # 1 October 12:00:00 UTC, trustedFolders.json's m
 
 
 def qwen_session_records(cwd="/srv/proj", branch="main"):
-    """Qwen Code ChatRecords, shapes from research/qwen-code.md, Parser plan."""
+    """Return a session's ChatRecords: a model binding, a turn with two tool calls and a cancel.
+
+    Source: research/qwen-code.md#chatrecord; source 835b080
+    """
     common = dict(sessionId=QWEN_SESSION, cwd=cwd, version="0.24.7", gitBranch=branch)
     return [
         dict(
@@ -63,7 +73,7 @@ def qwen_session_records(cwd="/srv/proj", branch="main"):
                         "functionCall": {
                             "id": "call_def456",
                             "name": "read_file",
-                            "args": {"absolute_path": "/srv/proj/.env"},
+                            "args": {"file_path": "/srv/proj/.env"},
                         }
                     },
                 ],
@@ -98,7 +108,6 @@ def qwen_session_records(cwd="/srv/proj", branch="main"):
                 "callId": "call_abc123",
                 "status": "success",
                 "resultDisplay": "12 passing",
-                "errorType": None,
             },
         ),
         dict(
@@ -193,7 +202,10 @@ def qwen_session_records(cwd="/srv/proj", branch="main"):
 
 
 def qwen_logs_entries():
-    """Gemini-legacy LogEntry array; model_switch carries a JSON string."""
+    """Return `logs.json` entries: a prompt and a `model_switch` whose message is a JSON string.
+
+    Source: research/qwen-code.md#logsjson; source 835b080
+    """
     return [
         {
             "sessionId": QWEN_SESSION,
@@ -218,7 +230,29 @@ def qwen_logs_entries():
     ]
 
 
+QWEN_WORKTREE = "/srv/proj/.qwen/worktrees/fix-tests"
+
+
+def qwen_worktree_sidecar():
+    """Return the `.worktree.json` sidecar of a session in an `enter_worktree` checkout.
+
+    Source: research/qwen-code.md#worktree-sidecar; source 835b080
+    """
+    return {
+        "slug": "fix-tests",
+        "worktreePath": QWEN_WORKTREE,
+        "worktreeBranch": "worktree-fix-tests",
+        "originalCwd": "/srv/proj",
+        "originalBranch": "main",
+        "originalHeadCommit": "",
+    }
+
+
 def build_qwen(home: Path) -> None:
+    """Write a session, an archived session, their sidecars, the prompt log and settings.
+
+    Source: research/qwen-code.md#transcript-stores; source 835b080
+    """
     chats = home / ".qwen/projects/-srv-proj/chats"
     _jsonl(chats / (QWEN_SESSION + ".jsonl"), qwen_session_records())
     _jsonl(
@@ -226,6 +260,8 @@ def build_qwen(home: Path) -> None:
         [dict(record, sessionId=QWEN_ARCHIVED) for record in qwen_session_records()[1:2]],
     )
     _jsonl(chats / (QWEN_SESSION + ".ledger.jsonl"), [{"promptId": "p1", "text": "run the tests"}])
+    # The session works in an enter_worktree checkout; the archived session has no sidecar.
+    _json_file(chats / (QWEN_SESSION + ".worktree.json"), qwen_worktree_sidecar())
     (chats / (QWEN_SESSION + ".runtime.json")).write_text(
         '{"session_id": "x", "started_at": 1790848800}', encoding="utf-8"
     )
@@ -245,8 +281,6 @@ def build_qwen(home: Path) -> None:
     os.utime(trust, (QWEN_TRUST_MTIME, QWEN_TRUST_MTIME))
 
 
-# Channel routes, the `PersistedEntry` shape of
-# packages/channels/base/src/SessionRouter.ts:25-36 at 2c591ecc:
 # QWEN_SESSION was driven from a Telegram chat; QWEN_DAEMON_SESSION by the
 # daemon from a GitHub thread, with no `startedAt`.
 QWEN_DAEMON_SESSION = "e5f6a7b8-4444-4000-8000-000000000033"
@@ -255,6 +289,10 @@ QWEN_ROUTES_MTIME = 1791367200  # 7 October 10:00:00 UTC
 
 
 def build_qwen_channels(home: Path) -> None:
+    """Write the foreground service's and the daemon's channel route files.
+
+    Source: research/qwen-code.md#channel-routes; source 835b080
+    """
     channels = home / ".qwen/channels"
     _json_file(
         channels / "sessions.json",
@@ -291,21 +329,18 @@ def build_qwen_channels(home: Path) -> None:
     (channels / "1791367200000-4242-ab12.tmp").write_text("{", encoding="utf-8")
 
 
-# Injected `type: "user"` records, shapes from QwenLM/qwen-code at
-# 5dcf7c7cb162e825d95d531081f67ee60da3c0e1 (0.25.3): createNotificationRecord
-# (cron, notification; provenance "system") and recordExternalAgentRecordStrict
-# (agent_mention, agent_message; provenance "external_agent", or "real_user"
-# for the user's own mention) in
-# packages/core/src/services/chatRecordingService.ts:2541-2585 and 2655-2690,
-# payloads in packages/core/src/agents/session-agents/contract.ts. Not wired
-# into build_home, so the shared fixture's session counts stay as they are;
-# the tests that need it call build_qwen_injected.
+# Injected `type: "user"` records. Not wired into build_home, so the shared
+# fixture's session counts stay as they are; the tests that need it call
+# build_qwen_injected.
 QWEN_INJECTED_SESSION = "e5f6a7b8-4444-4000-8000-000000000044"
 QWEN_INJECTED_REL = ".qwen/projects/-srv-proj/chats/%s.jsonl" % QWEN_INJECTED_SESSION
 
 
 def qwen_injected_records():
-    """Cron, notification, a user's and an agent's mention, an agent's reply."""
+    """Return cron, notification, a user's and an agent's mention, and an agent's reply.
+
+    Source: research/qwen-code.md#system-payloads; source 835b080
+    """
     common = dict(
         sessionId=QWEN_INJECTED_SESSION,
         cwd="/srv/proj",
@@ -388,31 +423,31 @@ def qwen_injected_records():
 
 
 def build_qwen_injected(home: Path) -> None:
+    """Write the injected-records session.
+
+    Source: research/qwen-code.md#system-payloads; source 835b080
+    """
     _jsonl(home / QWEN_INJECTED_REL, qwen_injected_records())
 
 
-# Permission, approval-mode and usage records, shapes from
-# QwenLM/qwen-code at 5dcf7c7cb162e825d95d531081f67ee60da3c0e1 (0.25.3):
-# ChatRecord.executionContext (chatRecordingService.ts:475-479),
-# SessionApprovalModeRecordPayload (749-754), the `ui_telemetry` record of
-# logToolCall (telemetry/loggers.ts:317-331, event name
-# telemetry/constants.ts:11), settings.json `permissions` and
-# `tools.approvalMode` (cli/src/config/settingsSchema.ts) and
-# UsageSummaryRecord (services/usageHistoryService.ts:37-77). Built only by
-# the tests that need it, as build_qwen_injected is.
+# Permission, approval-mode and usage records, built only by the tests that
+# need them, as build_qwen_injected is.
 QWEN_PERM_SESSION = "e5f6a7b8-4444-4000-8000-000000000044"
 QWEN_DELETED_SESSION = "e5f6a7b8-4444-4000-8000-000000000055"
 QWEN_PERM_REL = ".qwen/projects/-srv-proj/chats/%s.jsonl" % QWEN_PERM_SESSION
 QWEN_USAGE_REL = ".qwen/usage_record.jsonl"
 # A session whose ui_telemetry tool-call event carries the ToolCallEvent
-# class's bare default name `tool_call` (telemetry/types.ts:214) instead of
-# the `qwen-code.tool_call` that logToolCall records at 5dcf7c7.
+# class's bare default name `tool_call` instead of `qwen-code.tool_call`.
 QWEN_BARE_SESSION = "e5f6a7b8-4444-4000-8000-000000000066"
 QWEN_BARE_REL = ".qwen/projects/-srv-proj/chats/%s.jsonl" % QWEN_BARE_SESSION
 QWEN_SETTINGS_MTIME = 1790863200  # 1 October 14:00:00 UTC
 
 
 def qwen_permission_records():
+    """Return prompts with `executionContext`, a tool-call decision and an approval-mode change.
+
+    Source: research/qwen-code.md#permission-records; source 835b080
+    """
     common = dict(sessionId=QWEN_PERM_SESSION, cwd="/srv/proj", version="0.25.3", gitBranch="main")
     context = {"modelId": "qwen3-coder-plus", "authType": "qwen-oauth", "approvalMode": "default"}
     return [
@@ -489,6 +524,10 @@ def qwen_permission_records():
 
 
 def qwen_usage_records():
+    """Return one `usage_record.jsonl` summary, of a session no transcript holds.
+
+    Source: research/qwen-code.md#usage_recordjsonl; source 835b080
+    """
     return [
         {
             "version": 1,
@@ -522,6 +561,10 @@ def qwen_usage_records():
 
 
 def qwen_bare_event_records():
+    """Return a tool call whose telemetry event has the bare `tool_call` name.
+
+    Source: research/qwen-code.md#format-versions; source 835b080
+    """
     common = dict(sessionId=QWEN_BARE_SESSION, cwd="/srv/proj", version="0.25.3")
     return [
         dict(
@@ -567,6 +610,10 @@ def qwen_bare_event_records():
 
 
 def build_qwen_permissions(home: Path) -> None:
+    """Write the permission, bare-event and usage records and a settings.json with rules.
+
+    Source: research/qwen-code.md#permission-lists-and-trusted-folders; source 835b080
+    """
     _jsonl(home / QWEN_PERM_REL, qwen_permission_records())
     _jsonl(home / QWEN_BARE_REL, qwen_bare_event_records())
     _jsonl(home / QWEN_USAGE_REL, qwen_usage_records())
@@ -576,7 +623,7 @@ def build_qwen_permissions(home: Path) -> None:
         '  "permissions": {"allow": ["Bash(git *)", "ReadFileTool"], "deny": ["Bash(rm *)"],\n'
         '                  "autoMode": {"hints": []}},\n'
         '  "tools": {"approvalMode": "auto-edit"},\n'
-        '  "modelProviders": [{"apiKey": "secret"}]\n}\n',
+        '  "security": {"auth": {"apiKey": "secret"}}\n}\n',
         encoding="utf-8",
     )
     os.utime(settings, (QWEN_SETTINGS_MTIME, QWEN_SETTINGS_MTIME))
@@ -584,9 +631,7 @@ def build_qwen_permissions(home: Path) -> None:
 
 # A trustedFolders.json that Qwen Code's `parseJsoncObject` accepts and
 # `json.loads` does not: a byte-order mark, a comment and trailing
-# commas (QwenLM/qwen-code at 5dcf7c7cb162e825d95d531081f67ee60da3c0e1,
-# packages/cli/src/utils/jsonc-editor.ts lines 24 and 92-107). The comma
-# inside the string value must survive.
+# commas. The comma inside the string value must survive.
 TRUST_JSONC = (
     b"\xef\xbb\xbf{\n  // trust dialog\n"
     b'  "/srv/a,]": "TRUST_FOLDER",\n'

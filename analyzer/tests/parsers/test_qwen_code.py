@@ -53,9 +53,10 @@ class QwenCodeTests(ParserBase):
                 "tool_use",
                 "tool_result",
                 "system",
+                "system",
             ],
         )
-        for row in rows:
+        for row in rows[:13]:
             self.assertEqual((row.host, row.user, row.agent), ("h1", "alice", "qwen-code"))
             self.assertEqual(
                 (row.session_id, row.project_path, row.git_branch),
@@ -90,11 +91,13 @@ class QwenCodeTests(ParserBase):
         )
         self.assertEqual(slash.text, "slash_command: invocation /compress")
         self.assertEqual(title.text, "custom_title: Run tests")
-        self.assertEqual([row.source_line for row in rows], [1, 2, 3, 3, 3, 4, 5, 6, 7, 8, 8, 9, 9])
+        self.assertEqual(
+            [row.source_line for row in rows], [1, 2, 3, 3, 3, 4, 5, 6, 7, 8, 8, 9, 9, 1]
+        )
 
     def test_model_change_and_decision_rows(self):
         rows = self.rows_for(QwenCodeParser(), self.REL)
-        change, use, result, decision = rows[9:]
+        change, use, result, decision = rows[9:13]
         self.assertEqual(
             (change.turn_type, change.text, change.model, change.timestamp_utc),
             (
@@ -223,7 +226,7 @@ class QwenCodeTests(ParserBase):
         from fixtures import qwen_session_records
 
         before = self.rows_for(QwenCodeParser(), self.REL)
-        self.assertEqual(len(before), 13)
+        self.assertEqual(len(before), 14)
         write_bad_line(self.home / self.REL)
         after: dict = dict(
             qwen_session_records()[1],
@@ -234,18 +237,87 @@ class QwenCodeTests(ParserBase):
         with open(self.home / self.REL, "a", encoding="utf-8") as handle:
             handle.write("\n" + json.dumps(after) + "\n")
         rows = self.rows_for(QwenCodeParser(), self.REL)
-        self.assertEqual(len(rows), 15)
+        self.assertEqual(len(rows), 16)
         self.assertEqual(
             [(row.source_line, row.turn_type, row.text) for row in rows[:13]],
-            [(row.source_line, row.turn_type, row.text) for row in before],
+            [(row.source_line, row.turn_type, row.text) for row in before[:13]],
         )
         self.assertEqual(
             [(row.source_line, row.turn_type, row.session_id, row.text) for row in rows[13:]],
             [
                 (11, "user", QWEN_SESSION, "after the cut"),
+                (1, "system", QWEN_SESSION, before[13].text),
                 (10, "system", QWEN_SESSION, bad_line_text()),
             ],
         )
+
+    def test_worktree_sidecar_row(self):
+        # The session with a .worktree.json sidecar names its worktree once, at
+        # its first record; the archived session, without one, names none.
+        from fixtures import QWEN_WORKTREE
+
+        rows = self.rows_for(QwenCodeParser(), self.REL)
+        scratch = [row for row in rows if row.text.startswith("scratch directory:")]
+        self.assertEqual(
+            [
+                (
+                    row.turn_type,
+                    row.text,
+                    row.session_id,
+                    row.project_path,
+                    row.timestamp_utc,
+                    row.source_line,
+                )
+                for row in scratch
+            ],
+            [
+                (
+                    "system",
+                    "scratch directory: %s (enter_worktree fix-tests)" % QWEN_WORKTREE,
+                    QWEN_SESSION,
+                    QWEN_WORKTREE,
+                    "2026-10-01T09:59:59.000Z",
+                    1,
+                )
+            ],
+        )
+        archived = ".qwen/projects/-srv-proj/chats/archive/%s.jsonl" % QWEN_ARCHIVED
+        self.assertFalse(
+            [
+                row
+                for row in self.rows_for(QwenCodeParser(), archived)
+                if row.text.startswith("scratch directory:") or row.text.startswith("parser:")
+            ]
+        )
+
+    def test_worktree_sidecar_not_an_object(self):
+        sidecar = "%s.worktree.json" % QWEN_SESSION
+        (self.home / self.REL).with_name(sidecar).write_text("[1]", encoding="utf-8")
+        rows = self.rows_for(QwenCodeParser(), self.REL)
+        self.assertFalse([row for row in rows if row.text.startswith("scratch directory:")])
+        self.assertEqual(
+            [
+                (row.source_line, row.session_id, row.project_path, row.timestamp_utc, row.text)
+                for row in rows
+                if row.text.startswith("parser:")
+            ],
+            [(0, QWEN_SESSION, "/srv/proj", "", "parser: %s is not a JSON object" % sidecar)],
+        )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_worktree_sidecar_unreadable(self):
+        sidecar = "%s.worktree.json" % QWEN_SESSION
+        path = (self.home / self.REL).with_name(sidecar)
+        path.chmod(0)
+        try:
+            rows = self.rows_for(QwenCodeParser(), self.REL)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [(row.source_line, row.session_id, row.text) for row in rows if "parser:" in row.text],
+            [(0, QWEN_SESSION, "parser: %s could not be read (Permission denied)" % sidecar)],
+        )
+        self.assertEqual(len(rows), 14)  # every transcript row is still yielded
 
     def test_truncated_logs_keep_earlier_entries(self):
         # The broken element is carried from where its decode started to
@@ -387,10 +459,14 @@ class QwenCodeTests(ParserBase):
         self.assertEqual({row.timestamp_utc for row in rows}, {to_utc(QWEN_SETTINGS_MTIME)})
         self.assertFalse([row for row in rows if "secret" in row.text])
         self.assertFalse(QwenCodeParser().secondary(self.artifact(rel)))
+        # A whole-file row: no line and no time of its own.
         (self.home / rel).write_text("[1]", encoding="utf-8")
         self.assertEqual(
-            [row.text for row in self.rows_for(QwenCodeParser(), rel)],
-            ["parser: .qwen/settings.json is not a JSON object"],
+            [
+                (row.source_line, row.timestamp_utc, row.text)
+                for row in self.rows_for(QwenCodeParser(), rel)
+            ],
+            [(0, "", "parser: .qwen/settings.json is not a JSON object")],
         )
         # The fixture home's empty settings file yields nothing.
         (self.home / rel).write_text("{}", encoding="utf-8")

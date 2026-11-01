@@ -76,7 +76,7 @@ param(
 
 Set-StrictMode -Version 2
 $ErrorActionPreference = 'Continue'
-$ToolVersion = '1.21.0'
+$ToolVersion = '1.22.0'
 $TOOL = 'collect-agent-artifacts'
 
 # ===========================================================================
@@ -1092,12 +1092,28 @@ AppData/Roaming/Block/goose/config/mcp-apps-cache
 .qwen/bin
 .qwen/sandbox
 .qwen/scratch-workspaces
+.qwen/managed-local/workspaces
 .qwen/locales
 .qwen/arena
 .qwen/artifacts
 .qwen/resources
 .qwen/startup-perf
+.qwen/session-start-perf
+.qwen/cpu-profiles
+.qwen/memory-snapshots
 .qwen/worktrees
+.qwen/managed-local/worker-home/updates
+.qwen/managed-local/worker-home/extension-store
+.qwen/managed-local/worker-home/extensions/*/node_modules
+.qwen/managed-local/worker-home/bin
+.qwen/managed-local/worker-home/sandbox
+.qwen/managed-local/worker-home/scratch-workspaces
+.qwen/managed-local/worker-home/locales
+.qwen/managed-local/worker-home/arena
+.qwen/managed-local/worker-home/artifacts
+.qwen/managed-local/worker-home/resources
+.qwen/managed-local/worker-home/session-start-perf
+.qwen/managed-local/worker-home/worktrees
 .amp/bin
 .factory/updates
 .factory/cache/sounds
@@ -1492,10 +1508,21 @@ AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
 .qwen/extension-secrets-v1.json
 .qwen/.env
 .qwen/settings.json
-.qwen/extensions/*/.qwen-extension-git-credentials.json
+.qwen/settings.json.corrupted
+.qwen/settings.json.write-*/settings.json.orig
 .qwen/channels/*-credentials.json
 .qwen/channels/weixin/account.json
 .qwen/sessions/*.json
+.qwen/agent-hosts/*.json
+.qwen/managed-local/state.json
+.qwen/managed-local/worker-home/oauth_creds.json
+.qwen/managed-local/worker-home/mcp-oauth-tokens*.json
+.qwen/managed-local/worker-home/extension-secrets-v1.json
+.qwen/managed-local/worker-home/.env
+.qwen/managed-local/worker-home/settings.json
+.qwen/managed-local/worker-home/settings.json.write-*/settings.json.orig
+.qwen/managed-local/worker-home/settings.json.corrupted
+.qwen/managed-local/worker-home/sessions/*.json
 .codex/auth.json
 .codex/.credentials.json
 .codex/secrets/*

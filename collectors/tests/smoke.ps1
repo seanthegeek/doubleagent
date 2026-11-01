@@ -743,6 +743,53 @@ agent|goose|AppData/Local/Block/goose/cache/computer_controller/shot_20261030_12
 agent|goose|Library/Application Support/Block/goose/sessions/sessions.db
 agent|goose|AppData/Roaming/Goose/recent-dirs.json
 agent|goose|.goose/memory/dev.txt
+excl||.qwen/updates
+excl||.qwen/extension-store
+excl||.qwen/extensions/e1/node_modules
+excl||.qwen/bin
+excl||.qwen/sandbox
+excl||.qwen/scratch-workspaces
+excl||.qwen/managed-local/workspaces
+excl||.qwen/locales
+excl||.qwen/arena
+excl||.qwen/artifacts
+excl||.qwen/resources
+excl||.qwen/startup-perf
+excl||.qwen/session-start-perf
+excl||.qwen/cpu-profiles
+excl||.qwen/memory-snapshots
+excl||.qwen/worktrees
+secret||.qwen/oauth_creds.json
+secret||.qwen/mcp-oauth-tokens.json
+secret||.qwen/mcp-oauth-tokens-v2.json
+secret||.qwen/extension-secrets-v1.json
+secret||.qwen/.env
+secret||.qwen/settings.json
+secret||.qwen/settings.json.write-a1b2c3/settings.json.orig
+secret||.qwen/agent-hosts/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.json
+secret||.qwen/managed-local/state.json
+secret||.qwen/managed-local/worker-home/oauth_creds.json
+secret||.qwen/managed-local/worker-home/mcp-oauth-tokens.json
+secret||.qwen/managed-local/worker-home/extension-secrets-v1.json
+secret||.qwen/managed-local/worker-home/.env
+secret||.qwen/managed-local/worker-home/settings.json
+secret||.qwen/managed-local/worker-home/sessions/4242.json
+secret||.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json
+secret||.qwen/managed-local/worker-home/settings.json.write-d4e5f6/settings.json.orig
+secret||.qwen/managed-local/worker-home/settings.json.corrupted
+excl||.qwen/managed-local/worker-home/updates
+excl||.qwen/managed-local/worker-home/extension-store
+excl||.qwen/managed-local/worker-home/extensions/e1/node_modules
+excl||.qwen/managed-local/worker-home/bin
+excl||.qwen/managed-local/worker-home/sandbox
+excl||.qwen/managed-local/worker-home/scratch-workspaces
+excl||.qwen/managed-local/worker-home/locales
+excl||.qwen/managed-local/worker-home/arena
+excl||.qwen/managed-local/worker-home/artifacts
+excl||.qwen/managed-local/worker-home/resources
+excl||.qwen/managed-local/worker-home/session-start-perf
+excl||.qwen/managed-local/worker-home/worktrees
+agent|qwen-code|.qwen/extensions/e1/.qwen-extension-git-credentials.json
 '@
 $CasesCatalog = @($CasesCatalog -split "`r?`n" | Where-Object { $_ -ne '' })
 foreach ($caseLine in $CasesCatalog) {
@@ -768,6 +815,12 @@ MakeFile 'hermesproj/HERMES.md' '# hermes'
 MakeFile 'hermesproj/.hermes/environment.json' '{}'
 MakeFile 'hermesproj/trajectory_samples.jsonl' '{"conversations":[]}'
 MakeFile 'hermesproj/failed_trajectories.jsonl' '{"conversations":[]}'
+# 2026-11-01 qwen-code rebuild (#326)
+MakeFile 'Users/alice/.qwen/projects/c--qwenproj/chats/5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d.jsonl' '{"sessionId":"5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d","type":"user","cwd":"C:\\qwenproj"}'
+MakeFile 'qwenproj/QWEN.md' '# qwen'
+MakeFile 'qwenproj/.qwenignore' 'dist'
+MakeFile 'qwenproj/.qwen/settings.json' '{"security":{"auth":{"apiKey":"x"}}}'
+MakeFile 'qwenproj/.qwen/settings.json.corrupted' '{"env":{"KEY":"x"}}'
 MakeFile 'Users/alice/.letta/sessions.jsonl' '{"type":"start","project":"C:\\lettaproj","agentId":"a1"}'
 MakeFile 'lettaproj/.letta/settings.json' '{"hooks":{}}'
 MakeFile 'Users/alice/.letta/lc-local-backend/conversations/c1/messages.jsonl' '{"type":"session","id":"c1","cwd":"C:\\lettaproj2"}'
@@ -1795,6 +1848,17 @@ foreach ($hermesFile in $hermesProjectFiles) {
   $row = Row "hermesproj/$hermesFile"
   Check "#326 Hermes project file collected: $hermesFile" { $row -and $row.agent -eq 'hermes' -and $row.status -eq 'collected' }
 }
+# 2026-11-01 qwen-code rebuild (#326)
+$row = Row 'qwenproj/QWEN.md'
+Check '#326 Qwen Code session cwd discovers project' { $row -and $row.agent -eq 'qwen-code' -and $row.secret -eq $false -and $row.status -eq 'collected' }
+$row = Row 'qwenproj/.qwenignore'
+Check '#326 Qwen Code project .qwenignore collected' { $row -and $row.agent -eq 'qwen-code' -and $row.status -eq 'collected' }
+$row = Row 'qwenproj/.qwen/settings.json'
+Check '#326 Qwen Code project settings flagged secret' { $row -and $row.agent -eq 'qwen-code' -and $row.secret -eq $true -and $row.status -eq 'collected' }
+$row = Row 'qwenproj/.qwen/settings.json.corrupted'
+Check '#326 Qwen Code project settings recovery copy flagged secret' { $row -and $row.agent -eq 'qwen-code' -and $row.secret -eq $true -and $row.status -eq 'collected' }
+$row = Row 'Users/alice/.qwen/extensions/e1/.qwen-extension-git-credentials.json'
+Check '#326 Qwen Code extension git-credential selector not flagged' { $row -and $row.secret -eq $false -and $row.status -eq 'collected' }
 Check 'letta sessions.jsonl project discovers project' { (StatusOf 'lettaproj/.letta/settings.json') -eq 'collected' }
 Check 'project .letta/settings.json flagged secret (accepted overmatch)' { (Row 'lettaproj/.letta/settings.json').secret -eq $true }
 Check 'letta local backend messages cwd discovers project' { (StatusOf 'lettaproj2/AGENTS.md') -eq 'collected' }
@@ -2445,7 +2509,7 @@ foreach ($opencodePath in $opencodeProjectConfigs) {
 Run 'nosecrets' @{ NoSecrets = $true }
 Check 'NoSecrets exit 0' { $script:ExitCode -eq 0 }
 Check 'credentials skipped_secret' { (StatusOf 'Users/alice/.claude/.credentials.json') -eq 'skipped_secret' }
-Check 'credentials absent from archive' { -not (ArchiveEntries | Where-Object { $_ -match 'credentials\.json$' }) }
+Check 'credentials absent from archive' { -not (ArchiveEntries | Where-Object { $_ -match '\.claude/\.credentials\.json$' }) }
 # 2026-10-11 Claude Desktop Linux deb and Claude Code 2.1.295 session keys (#73, #76)
 Check '#73 #76 NoSecrets skips link-key and the session key' { (StatusOf $linkKey) -eq 'skipped_secret' -and (StatusOf $sessionKey) -eq 'skipped_secret' }
 # 2026-10-13 Antigravity desktop app (#83, #84)
@@ -2529,6 +2593,8 @@ foreach ($opencodePath in $opencodeProjectConfigs) {
 }
 # 2026-10-31 goose rebuild (#326)
 Check '#326 goose project diagnostics export skipped without secrets' { (StatusOf 'gooseproj/diagnostics_20261030_2.json') -eq 'skipped_secret' }
+# 2026-11-01 qwen-code rebuild (#326)
+Check '#326 Qwen Code project settings and recovery copy skipped without secrets' { (StatusOf 'qwenproj/.qwen/settings.json') -eq 'skipped_secret' -and (StatusOf 'qwenproj/.qwen/settings.json.corrupted') -eq 'skipped_secret' }
 # 2026-10-04 catalog cases
 foreach ($caseLine in $CasesCatalog) {
   $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"

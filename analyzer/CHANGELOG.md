@@ -9,6 +9,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-01
+
+### Added
+
+- A Qwen Code session with a `chats/<sessionId>.worktree.json` sidecar gives one `system` row `scratch directory: <worktreePath> (enter_worktree <slug>)` at its first record, with `project_path` the worktree, so `inventory.json` lists the worktree under `scratch_directories`; a sidecar that cannot be read or is not a JSON object is a `parser:` row of the session ([#326]).
+- The bundled catalog copy gains the Qwen Code lines of collector 1.22.0, so detection follows them: the new secret globs (the default MCP token store, the agent host records, the managed local `state.json`, the settings recovery copies in the home, a project and the worker home) and exclusions (the profiles, the managed local workspaces and the worker-home subtrees), and no secret glob on the extension git-credential selector ([#326]).
+
+### Changed
+
+- The Qwen Code parser reads a `chats/` file only when its name is a session id, as Qwen Code's own session list does, so sidecars and other files there give no rows ([#326]).
+- A Qwen Code `settings.json` that is not a JSON object gives its `parser:` row with no line and no time, as every other whole-file row ([#326]).
+
 ## [0.23.0] - 2026-10-31
 
 ### Changed
@@ -2144,7 +2156,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--summary-length` (default 400), `--include-thinking` and `--agent`;
   `detect --json` and `--files`; `catalog --agents`.
 
-[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.23.0...HEAD
+[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.24.0...HEAD
+[0.24.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.23.0...analyzer-v0.24.0
 [0.23.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.22.0...analyzer-v0.23.0
 [0.22.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.21.0...analyzer-v0.22.0
 [0.21.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.20.1...analyzer-v0.21.0

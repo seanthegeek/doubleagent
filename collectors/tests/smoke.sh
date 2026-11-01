@@ -742,6 +742,53 @@ agent|goose|AppData/Local/Block/goose/cache/computer_controller/shot_20261030_12
 agent|goose|Library/Application Support/Block/goose/sessions/sessions.db
 agent|goose|AppData/Roaming/Goose/recent-dirs.json
 agent|goose|.goose/memory/dev.txt
+excl||.qwen/updates
+excl||.qwen/extension-store
+excl||.qwen/extensions/e1/node_modules
+excl||.qwen/bin
+excl||.qwen/sandbox
+excl||.qwen/scratch-workspaces
+excl||.qwen/managed-local/workspaces
+excl||.qwen/locales
+excl||.qwen/arena
+excl||.qwen/artifacts
+excl||.qwen/resources
+excl||.qwen/startup-perf
+excl||.qwen/session-start-perf
+excl||.qwen/cpu-profiles
+excl||.qwen/memory-snapshots
+excl||.qwen/worktrees
+secret||.qwen/oauth_creds.json
+secret||.qwen/mcp-oauth-tokens.json
+secret||.qwen/mcp-oauth-tokens-v2.json
+secret||.qwen/extension-secrets-v1.json
+secret||.qwen/.env
+secret||.qwen/settings.json
+secret||.qwen/settings.json.write-a1b2c3/settings.json.orig
+secret||.qwen/agent-hosts/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.json
+secret||.qwen/managed-local/state.json
+secret||.qwen/managed-local/worker-home/oauth_creds.json
+secret||.qwen/managed-local/worker-home/mcp-oauth-tokens.json
+secret||.qwen/managed-local/worker-home/extension-secrets-v1.json
+secret||.qwen/managed-local/worker-home/.env
+secret||.qwen/managed-local/worker-home/settings.json
+secret||.qwen/managed-local/worker-home/sessions/4242.json
+secret||.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json
+secret||.qwen/managed-local/worker-home/settings.json.write-d4e5f6/settings.json.orig
+secret||.qwen/managed-local/worker-home/settings.json.corrupted
+excl||.qwen/managed-local/worker-home/updates
+excl||.qwen/managed-local/worker-home/extension-store
+excl||.qwen/managed-local/worker-home/extensions/e1/node_modules
+excl||.qwen/managed-local/worker-home/bin
+excl||.qwen/managed-local/worker-home/sandbox
+excl||.qwen/managed-local/worker-home/scratch-workspaces
+excl||.qwen/managed-local/worker-home/locales
+excl||.qwen/managed-local/worker-home/arena
+excl||.qwen/managed-local/worker-home/artifacts
+excl||.qwen/managed-local/worker-home/resources
+excl||.qwen/managed-local/worker-home/session-start-perf
+excl||.qwen/managed-local/worker-home/worktrees
+agent|qwen-code|.qwen/extensions/e1/.qwen-extension-git-credentials.json
 '
 ALICE="$ROOT/home/alice"; BOB="$ROOT/Users/bob"
 printf '%s\n' "$CASES_CATALOG" | while IFS='|' read -r _kind _agent _relpath; do
@@ -782,6 +829,13 @@ printf '# hermes\n' >"$ROOT/srv/hermesproj/HERMES.md"
 printf '{}\n' >"$ROOT/srv/hermesproj/.hermes/environment.json"
 printf '{"conversations":[]}\n' >"$ROOT/srv/hermesproj/trajectory_samples.jsonl"
 printf '{"conversations":[]}\n' >"$ROOT/srv/hermesproj/failed_trajectories.jsonl"
+# 2026-11-01 qwen-code rebuild (#326)
+mkdir -p "$ALICE/.qwen/projects/-srv-qwenproj/chats" "$ROOT/srv/qwenproj/.qwen"
+printf '{"sessionId":"5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d","type":"user","cwd":"/srv/qwenproj"}\n' >"$ALICE/.qwen/projects/-srv-qwenproj/chats/5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d.jsonl"
+printf '# qwen\n' >"$ROOT/srv/qwenproj/QWEN.md"
+printf 'dist\n' >"$ROOT/srv/qwenproj/.qwenignore"
+printf '{"security":{"auth":{"apiKey":"x"}}}\n' >"$ROOT/srv/qwenproj/.qwen/settings.json"
+printf '{"env":{"KEY":"x"}}\n' >"$ROOT/srv/qwenproj/.qwen/settings.json.corrupted"
 printf '{"type":"start","project":"/srv/lettaproj","agentId":"a1"}\n' >"$ALICE/.letta/sessions.jsonl"
 printf '{"hooks":{}}\n' >"$ROOT/srv/lettaproj/.letta/settings.json"
 printf '{"type":"session","id":"c1","cwd":"/srv/lettaproj2"}\n' >"$ALICE/.letta/lc-local-backend/conversations/c1/messages.jsonl"
@@ -1784,6 +1838,12 @@ check "#326 goose quoted projects/<slug>.md workingDirs item discovers project" 
 for _hermes_file in HERMES.md .hermes/environment.json trajectory_samples.jsonl failed_trajectories.jsonl; do
   check "#326 Hermes project file collected: $_hermes_file" "row \"$ROOT/srv/hermesproj/$_hermes_file\" | grep -q '\"agent\":\"hermes\".*\"status\":\"collected\"'"
 done
+# 2026-11-01 qwen-code rebuild (#326)
+check "#326 Qwen Code session cwd discovers project" "row \"$ROOT/srv/qwenproj/QWEN.md\" | grep -q '\"agent\":\"qwen-code\".*\"secret\":false,\"status\":\"collected\"'"
+check "#326 Qwen Code project .qwenignore collected" "row \"$ROOT/srv/qwenproj/.qwenignore\" | grep -q '\"agent\":\"qwen-code\".*\"status\":\"collected\"'"
+check "#326 Qwen Code project settings flagged secret" "row \"$ROOT/srv/qwenproj/.qwen/settings.json\" | grep -q '\"agent\":\"qwen-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#326 Qwen Code project settings recovery copy flagged secret" "row \"$ROOT/srv/qwenproj/.qwen/settings.json.corrupted\" | grep -q '\"agent\":\"qwen-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#326 Qwen Code extension git-credential selector not flagged" "row \"$ALICE/.qwen/extensions/e1/.qwen-extension-git-credentials.json\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
 check "letta sessions.jsonl project discovers project" "[ \"\$(status_of \"$ROOT/srv/lettaproj/.letta/settings.json\")\" = collected ]"
 check "project .letta/settings.json flagged secret (accepted overmatch)" "row \"$ROOT/srv/lettaproj/.letta/settings.json\" | grep -q '\"secret\":true'"
 check "letta local backend messages cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/lettaproj2/AGENTS.md\")\" = collected ]"
@@ -2222,7 +2282,7 @@ done
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
 check "credentials skipped_secret" "[ \"\$(status_of \"$ROOT/home/alice/.claude/.credentials.json\")\" = skipped_secret ]"
-check "credentials absent from archive" "! tar -tzf \"\$ARCHIVE\" | grep -q credentials.json"
+check "credentials absent from archive" "! tar -tzf \"\$ARCHIVE\" | grep -q '\.claude/\.credentials\.json'"
 # 2026-10-11 Claude Desktop Linux deb and Claude Code 2.1.295 session keys (#73, #76)
 check "#73 #76 --no-secrets skips link-key and the session key" "[ \"\$(status_of \"$CLAUDE_LINUX_CONFIG/spaces-present/0a0a0a0a/0b0b0b0b/link-key\")\" = skipped_secret ] && [ \"\$(status_of \"$SESSION_KEY\")\" = skipped_secret ]"
 # 2026-10-13 Antigravity desktop app (#83, #84)
@@ -2304,6 +2364,8 @@ for _opencode_path in .opencode/opencode.json opencode.jsonc; do
 done
 # 2026-10-31 goose rebuild (#326)
 check "#326 goose project diagnostics export skipped without secrets" "[ \"\$(status_of \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\")\" = skipped_secret ]"
+# 2026-11-01 qwen-code rebuild (#326)
+check "#326 Qwen Code project settings and recovery copy skipped without secrets" "[ \"\$(status_of \"$ROOT/srv/qwenproj/.qwen/settings.json\")\" = skipped_secret ] && [ \"\$(status_of \"$ROOT/srv/qwenproj/.qwen/settings.json.corrupted\")\" = skipped_secret ]"
 # 2026-10-04 catalog cases
 printf '%s\n' "$CASES_CATALOG" >"$WORK/nosecrets14"
 while IFS='|' read -r _kind _agent _relpath; do

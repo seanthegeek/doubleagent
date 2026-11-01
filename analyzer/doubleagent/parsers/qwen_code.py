@@ -1,10 +1,9 @@
 """Parse Qwen Code sessions, prompt logs, settings, channel routes and usage records.
 
 Follows `research/qwen-code.md`. Validated against source, QwenLM/qwen-code at
-2c591ecc (0.24.7) and 5dcf7c7c (0.25.3: injected user records, settings, usage
-records, `executionContext`, approval modes and tool-call telemetry), with a
-synthetic fixture; no real install. Qwen Code forked Gemini CLI, but its
-sessions are a Claude-Code-style record stream. Files read:
+835b080 (0.26.4, beside release v0.26.5), with the shapes of 2c591ec (0.24.7)
+and 5dcf7c7 (0.25.3) still read, and a synthetic fixture; no real install. Qwen
+Code forked Gemini CLI, but its sessions are a flat record stream. Files read:
 
 - `.qwen/projects/<cwd>/chats/[archive/]<sessionId>.jsonl`, one `ChatRecord`
   per line: `sessionId`, `timestamp`, `type`, `subtype`, `cwd`, `gitBranch`,
@@ -12,13 +11,15 @@ sessions are a Claude-Code-style record stream. Files read:
   authType, approvalMode}`, `systemPayload` and `message.parts[]` (`text`,
   `thought`, `functionCall`, `functionResponse`), `toolCallResult {callId,
   status, resultDisplay, errorType}`. A `user` record the user did not type
-  (`injected_origin`) is a `system` row. `.ledger.jsonl` sidecars are skipped.
+  is a `system` row. A `<sessionId>.worktree.json` sidecar beside it
+  (`worktreePath`) gives one `scratch directory:` row; the `.ledger.jsonl`,
+  `.runtime.json` and `.pr.json` sidecars are not read.
 - `.qwen/tmp/<hash>/logs.json`, a JSON array of `{sessionId, messageId,
   timestamp, type, message}`, a secondary source (a file repeating the
   chats' events); `model_switch` entries give `model:` rows.
 - `.qwen/trustedFolders.json`, read by the Gemini CLI parser's
   `trusted_folder_rows`.
-- `.qwen/channels/sessions.json` and `channels/daemon/<hash>/routes.json`:
+- `.qwen/channels/sessions.json` and `.qwen/channels/daemon/<hash>/routes.json`:
   one `session relayed:` row per route, since the conversation also sits on
   the messaging platform.
 - `.qwen/settings.json` (home or project), read as JSONC: only
@@ -26,14 +27,15 @@ sessions are a Claude-Code-style record stream. Files read:
   holds provider keys and channel tokens.
 - `.qwen/usage_record.jsonl`, secondary: one `session usage:` row per line.
 
-Model and approval mode are tracked per `sessionId`. Not parsed:
-`checkpoint-<tag>.json` and `shell_history`.
+Model and approval mode are tracked per `sessionId`.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
+import stat
 from collections.abc import Iterator
 
 from ..inputs import Artifact
@@ -53,20 +55,32 @@ from .base import (
 )
 from .gemini_cli import parse_jsonc, trusted_folder_rows
 
-SESSION_PATTERN = re.compile(r"^\.qwen/projects/[^/]+/chats/(?:archive/)?[^/]+\.jsonl$")
+# The session list's own file name test, which leaves out the sidecars.
+SESSION_PATTERN = re.compile(
+    r"^\.qwen/projects/[^/]+/chats/(?:archive/)?[0-9a-fA-F-]{32,36}\.jsonl$"
+)
 LOGS_PATTERN = re.compile(r"^\.qwen/tmp/[^/]+/logs\.json$")
 TRUSTED_PATTERN = re.compile(r"^\.qwen/trustedFolders\.json$")
-CHANNELS_PATTERN = re.compile(r"^\.qwen/(channels/(?:sessions\.json|daemon/[^/]+/routes\.json))$")
+CHANNELS_PATTERN = re.compile(r"^\.qwen/channels/sessions\.json$")
+DAEMON_ROUTES_PATTERN = re.compile(r"^\.qwen/channels/daemon/[^/]+/routes\.json$")
 # `~/.qwen/settings.json`, or a project's `.qwen/settings.json` (a project
 # catalog file), for the standing permission rules.
 SETTINGS_PATTERN = re.compile(r"^\.qwen/settings\.json$")
 USAGE_PATTERN = re.compile(r"^\.qwen/usage_record\.jsonl$")
+PATTERNS = (
+    SESSION_PATTERN,
+    LOGS_PATTERN,
+    TRUSTED_PATTERN,
+    CHANNELS_PATTERN,
+    DAEMON_ROUTES_PATTERN,
+    SETTINGS_PATTERN,
+    USAGE_PATTERN,
+)
 PERMISSION_LISTS = ("allow", "ask", "deny")
 # `ToolCallEvent` as `logToolCall` records it in a `ui_telemetry` record,
 # and the class's own default name, which an older build may have written.
 TOOL_CALL_EVENTS = ("qwen-code.tool_call", "tool_call")
 DECISION_STATUSES = ("cancelled", "awaiting_approval")
-SIDECAR_SUFFIX = ".ledger.jsonl"
 # `type: user` subtypes that never hold a prompt the user typed.
 INJECTED_SUBTYPES = ("notification", "cron", "agent_message")
 
@@ -172,18 +186,8 @@ class QwenCodeParser(Parser):
     records_relay = True
 
     def wants(self, artifact: Artifact) -> bool:
-        """Return True for a chat file (not its ledger sidecar) or another read file."""
-        rel = artifact.rel
-        for pattern in (
-            LOGS_PATTERN,
-            TRUSTED_PATTERN,
-            CHANNELS_PATTERN,
-            SETTINGS_PATTERN,
-            USAGE_PATTERN,
-        ):
-            if pattern.match(rel):
-                return True
-        return bool(SESSION_PATTERN.match(rel)) and not rel.endswith(SIDECAR_SUFFIX)
+        """Return True for a chat file (not a sidecar) or another file the parser reads."""
+        return any(pattern.match(artifact.rel) for pattern in PATTERNS)
 
     def secondary(self, artifact: Artifact) -> bool:
         """Return True for a prompt log or the usage records."""
@@ -191,15 +195,15 @@ class QwenCodeParser(Parser):
 
     def parse(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         """Yield the rows of one Qwen Code file."""
-        channels = CHANNELS_PATTERN.match(artifact.rel)
         if TRUSTED_PATTERN.match(artifact.rel):
             yield from trusted_folder_rows(self, artifact)
         elif SETTINGS_PATTERN.match(artifact.rel):
             yield from self._parse_settings(artifact)
         elif USAGE_PATTERN.match(artifact.rel):
             yield from self._parse_usage(artifact)
-        elif channels:
-            yield from self._parse_channel_routes(artifact, channels.group(1))
+        elif CHANNELS_PATTERN.match(artifact.rel) or DAEMON_ROUTES_PATTERN.match(artifact.rel):
+            # Named without the leading `.qwen/`, as the row text names it.
+            yield from self._parse_channel_routes(artifact, artifact.rel.split("/", 1)[1])
         elif LOGS_PATTERN.match(artifact.rel):
             yield from self._parse_logs(artifact, opts)
         else:
@@ -281,8 +285,8 @@ class QwenCodeParser(Parser):
         except ValueError:
             doc = None
         if not isinstance(doc, dict):
-            text = "parser: %s is not a JSON object" % artifact.rel
-            yield self._settings_row(artifact, timestamp, project, text)
+            message = "%s is not a JSON object" % artifact.rel
+            yield from error_rows(self, artifact, [(0, message, "")], "", project)
             return
         settings: list = []
         permissions = doc.get("permissions")
@@ -364,8 +368,16 @@ class QwenCodeParser(Parser):
         session_id = project_path = ""
         models: dict = {}  # session id -> model in force, for the model rows
         modes: dict = {}  # session id -> approval mode in force
+        first: tuple = ()  # (line, timestamp, session id, cwd) of the first record
         for line_number, record in iter_jsonl(artifact.disk_path, errors):
             record_type = record.get("type")
+            if not first:
+                first = (
+                    line_number,
+                    to_utc(record.get("timestamp")),
+                    str(record.get("sessionId") or ""),
+                    str(record.get("cwd") or ""),
+                )
             if record.get("sessionId"):
                 session_id = str(record["sessionId"])
             if record.get("cwd"):
@@ -502,7 +514,50 @@ class QwenCodeParser(Parser):
                     decision_row.tool_name = str(event.get("function_name") or "")
                     decision_row.tool_use_id = str(event.get("call_id") or "")
                     yield decision_row
+        if first:
+            yield from self._worktree_rows(artifact, first, errors)
         yield from error_rows(self, artifact, errors, session_id, project_path)
+
+    def _worktree_rows(self, artifact: Artifact, first: tuple, errors: list) -> Iterator[Row]:
+        """Yield the `scratch directory:` row of a session's `.worktree.json` sidecar.
+
+        The sidecar marks a session working in an `enter_worktree` checkout. An
+        absent sidecar is silent; one that cannot be read or is not a JSON object
+        is appended to `errors`. The row takes the session's first record's
+        line, time and session id; its `project_path` is the worktree, which the
+        analyzer then lists as a scratch directory.
+        """
+        name = artifact.disk_path.name[: -len(".jsonl")] + ".worktree.json"
+        path = artifact.disk_path.with_name(name)
+        try:
+            present = stat.S_ISREG(os.lstat(path).st_mode)
+        except OSError:
+            present = False
+        if not present:
+            return
+        content = file_bytes(path, errors)
+        if content is None:
+            return
+        try:
+            doc = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError:
+            doc = None
+        if not isinstance(doc, dict):
+            errors.append((0, "%s is not a JSON object" % name, ""))
+            return
+        worktree_path = str(doc.get("worktreePath") or "")
+        if not worktree_path:
+            return
+        slug = re.split(r"[/\\]", worktree_path.rstrip("/\\"))[-1]
+        line, timestamp, session_id, _ = first
+        row = self.base_row(artifact)
+        row.source_line = line
+        row.turn_type = "system"
+        row.timestamp_utc = timestamp
+        row.session_id = session_id
+        row.project_path = worktree_path
+        row.text = "scratch directory: %s (enter_worktree %s)" % (worktree_path, slug)
+        yield row
 
     def _parse_logs(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         errors: list = []
