@@ -42,7 +42,11 @@ collected; and, when not run as root, a run into a read-only output directory,
 which must exit `2` before collecting. A run with `-o` under a file must exit
 `2` the same way. It works in a `cac-smoke.*` directory under `TMPDIR`
 (default `/tmp`). The directory is removed when every check passes and kept,
-with its path printed, when one fails. The exit status is `0` or `1`.
+with its path printed, when one fails. The exit status is `0` or `1`. With
+`SMOKE_IMAGE_ONLY=1` in the environment the test builds the main fake image
+and stops before the first collection run: it prints the work directory as
+its last line of stdout, runs no check, exits `0` and leaves the directory,
+whose `root/` is the image, for the caller to remove.
 
 `tests/smoke.ps1` takes `-Collector PATH` to test a copy of the script other
 than the one beside it, which is how the test runs under Windows PowerShell
@@ -148,6 +152,49 @@ The disagreements that existed when the checkers were written are
 recorded in `tools/drift-baseline/`, and only a finding missing from it
 fails; [Drift checkers in `analyzer/docs/development.md`](../../analyzer/docs/development.md#drift-checkers)
 describes the finding format and the baseline.
+
+## Smoke-row diff
+
+An `EXCLUDES` or `SECRET_GLOBS` glob matches relative to every collection
+base (each home, discovered project and volume `_data`), and its `*` matches
+across `/`, so it can reach paths its author did not mean.
+`tools/diff_smoke_rows.py` shows what a table change does to the fake image:
+run it from the repository root before committing a change to a table line,
+and attach its output to the change's review.
+
+```sh
+python3 tools/diff_smoke_rows.py origin/main            # the working tree's collector against main
+python3 tools/diff_smoke_rows.py origin/main HEAD       # two commits
+python3 tools/diff_smoke_rows.py --shell dash origin/main
+```
+
+It builds the image once from the working tree's `tests/smoke.sh` with
+`SMOKE_IMAGE_ONLY=1`, writes the collector of each commit with `git show`
+(the working tree's file when the second commit is left out), runs each over
+the image with the smoke test's own command line,
+`COLLECTOR_SH=SHELL SHELL SCRIPT -r ROOT -o OUT -q --max-file-size 1`
+(`SHELL` from `--shell`, default `/bin/sh`), and compares the two
+`manifest.jsonl` files. It removes the image and both outputs when it ends,
+and prints:
+
+| Part | What it holds |
+| --- | --- |
+| `table lines changed from BASE to HEAD:` | each line added (`+`) or removed (`-`) between the two `--list` outputs, with its table name (`CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`); `(none)` when there is none; a further line when the `DOCKER_VOLUMES` lines both scripts have changed order, since the first matching line wins |
+| `paths whose rows changed: N` | the count of image paths whose rows differ in `status`, `agent` or `secret`, or that only one manifest has |
+| one group per changed table line | the paths the line's glob matches, each as `PATH: BEFORE -> AFTER`, the path as it reads on the imaged host and each side `STATUS agent=AGENT secret=true` (or `secret=false`), or `(no row)` |
+| `unattributed` | the changed paths no changed line matches |
+| the closing note | that the image holds only the smoke test's fixtures, so a glob matching too much shows only where a fixture path exists to catch it |
+
+A path goes under every changed line that matches it: a `CATALOG` or
+`PROJECT_CATALOG` glob when it matches the leading segments of the path
+relative to its base, one segment at a time; an `EXCLUDES` glob when it
+matches that relative path or one of its parent directories; a
+`SECRET_GLOBS` glob when it matches the relative path itself; a
+`DOCKER_VOLUMES` glob when it matches the name of the volume holding the
+path. The collector decides the rows; the grouping only points at the line
+likely responsible. Read each group for paths the line was not meant to
+reach. The exit status is `0`; with `--fail` it is `1` when any row changed;
+it is `2` when a step (the image build, `git show`, a collector run) fails.
 
 ## Catalog drift check and CI
 

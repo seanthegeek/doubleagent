@@ -1738,6 +1738,13 @@ for _opencode_path in .opencode/opencode.json opencode.jsonc; do
   printf '{"mcp":{"x":{"type":"local","environment":{"TOKEN":"t"}}}}\n' >"$ROOT/srv/ocproj/$_opencode_path"
 done
 
+# The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
+# last stdout line is the work directory, which the caller removes.
+if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
+  printf '%s\n' "$WORK"
+  exit 0
+fi
+
 run() { # run NAME ARGS...
   _name=$1; shift
   mkdir -p "$OUT/$_name"
