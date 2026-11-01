@@ -514,7 +514,8 @@ The analyzer runs on the analyst's workstation, never on the host.
   `symlink_to` raises. Every branch on a parser line a change adds or
   modifies is taken both ways by the suite, which
   `tools/check_branch_coverage.py` checks; a branch no fixture can reach
-  carries `# pragma: no branch: <reason>`, never a bare pragma.
+  carries `# pragma: no branch: <reason>`, and a `no branch` or `no cover`
+  pragma without a reason is a finding.
 
 ## Adding a parser
 
@@ -1309,7 +1310,8 @@ CI (`.github/workflows/ci.yml`) runs the catalog drift test; shellcheck;
 the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
 drift test and sh smoke test under dash on macOS (BSD tools); the
 PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell
-5.1 on Windows; the analyzer tests on Python 3.10 to 3.14; the lint job of
+5.1 on Windows; the analyzer tests on Python 3.10 to 3.14, with the
+branch-coverage gate on the newest; the lint job of
 [Quality gates](#quality-gates); and a `CI result` job that fails when any
 of them failed or was cancelled. `CI result` is the one status check the
 ruleset on `main` requires.

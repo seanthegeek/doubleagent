@@ -184,3 +184,64 @@ def test_a_module_the_suite_never_imports_is_not_measured(tmp_path, capsys):
     assert gate.main(["--all"], root=tmp_path) == 1
     output = capsys.readouterr().out
     assert "analyzer/doubleagent/parsers/unused.py:1: not measured" in output, output
+
+
+def test_no_cover_pragma_needs_a_reason_too():
+    source = "\n".join(
+        [
+            "if a:  # pragma: no cover",
+            "if b:  # pragma: no cover: the platform never writes it",
+            "if c:  # pragma no cover",
+        ]
+    )
+    assert [str(finding) for finding in gate.pragma_findings("p.py", source, None)] == [
+        "p.py:1: pragma: no cover without a reason",
+        "p.py:3: pragma: no cover without a reason",
+    ]
+
+
+CONTINUED = """def f(a, b):
+    if (a
+            and b):
+        return 1
+    return 2
+"""
+
+
+def test_a_touched_continuation_line_checks_the_statement_first_line():
+    checked = gate.checked_lines(CONTINUED, {3})
+    assert checked == {2, 3}
+    findings = gate.branch_findings("p.py", [[2, 4]], checked, CONTINUED)
+    assert [str(finding) for finding in findings] == ["p.py:2: branch to 4 never taken"]
+
+
+def test_a_touched_body_line_does_not_check_the_if_above_it():
+    assert gate.checked_lines(CONTINUED, {4}) == {4}
+    assert gate.checked_lines(CONTINUED, None) is None
+
+
+def test_an_untracked_module_is_checked_on_every_line(tmp_path, capsys):
+    if not HAS_COVERAGE:
+        raise unittest.SkipTest("coverage.py is not installed")
+    write_toy_repository(tmp_path)
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", ".")
+    git(tmp_path, "commit", "-q", "-m", "toy")
+    (tmp_path / gate.PARSERS / "fresh.py").write_text(TOY, encoding="utf-8")
+    (tmp_path / "analyzer/tests/test_fresh.py").write_text(
+        TOY_TEST.replace("toy", "fresh"), encoding="utf-8"
+    )
+    status = gate.main(["--base", "HEAD"], root=tmp_path)
+    output = capsys.readouterr().out
+    assert status == 1, output
+    assert output.strip() == "analyzer/doubleagent/parsers/fresh.py:6: branch to 8 never taken"
+
+
+def test_a_failing_suite_exits_2(tmp_path, capsys):
+    if not HAS_COVERAGE:
+        raise unittest.SkipTest("coverage.py is not installed")
+    write_toy_repository(tmp_path)
+    failing = TOY_TEST.replace('== "set"', '== "other"')
+    (tmp_path / "analyzer/tests/test_toy.py").write_text(failing, encoding="utf-8")
+    assert gate.main(["--all"], root=tmp_path) == 2
+    assert "the analyzer suite failed" in capsys.readouterr().err

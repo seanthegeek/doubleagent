@@ -3,29 +3,34 @@
 
 AGENTS.md asks a parser's fixture for the present and the absent form of every key the parser
 branches on. This gate measures it with coverage.py in branch mode: it finds the parser modules
-(`analyzer/doubleagent/parsers/*.py`) changed since the merge base of `--base` and the working
-tree, runs the analyzer suite once from `analyzer/` under `coverage run --branch` restricted to
-those files, reads `coverage json`, and reports each branch the suite never took whose source
-line the change added or modified (with `--all`, every parser module and every line):
+(`analyzer/doubleagent/parsers/*.py`) that differ between the working tree and the merge base
+of `--base` with HEAD, untracked ones included, runs the analyzer suite once from `analyzer/`
+under `coverage run --branch` restricted to those files, reads `coverage json`, and reports each
+branch the suite never took from a statement whose header the change added or modified (every
+line of an untracked module; with `--all`, every parser module and every line):
 
     <file>:<line>: branch to <line> never taken
     <file>:<line>: branch to exit never taken
 
-`exit` is the branch that leaves the function. A line carrying `# pragma: no branch: <reason>`
-is exempt, as coverage.py itself skips it; a `# pragma: no branch` on a checked line without a
-reason after a colon is a finding, `pragma: no branch without a reason`, since AGENTS.md wants
-every suppression to give one. A changed module the suite never imports is one finding,
-`not measured: the suite never imports it`, at line 1.
+`exit` is the branch that leaves the function. coverage.py places a branch on the first line
+of its statement, so a touched continuation line of an `if` condition checks that first line. A
+line carrying `# pragma: no branch: <reason>` is exempt, as coverage.py itself skips it; a
+`# pragma: no branch` or `# pragma: no cover` on a checked line without a reason after a colon
+is a finding (`pragma: no branch without a reason`), since AGENTS.md wants every suppression to
+give one and `no cover` drops its whole block, branches included. A changed module the suite
+never imports is one finding, `not measured: the suite never imports it`, at line 1.
 
 Usage: tools/check_branch_coverage.py [--base REF] [--all]
 
 The exit status is 0 when no module changed or nothing is found, 1 on a finding, 2 when git,
-the suite or coverage.py fails. Findings go to stdout, the summary to stderr.
+the suite or coverage.py fails. Findings and the line saying no module changed go to stdout;
+the summary and the error of a failed step go to stderr.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import pathlib
 import re
@@ -42,9 +47,11 @@ DEFAULT_BASE = "origin/main"
 # The new side of a unified diff hunk header: `+start` or `+start,count`; a count of 0 is a
 # pure deletion, which touches no line of the new file.
 HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
-# coverage.py's default `partial_branches` pattern, which also matches a pragma with a reason.
-PRAGMA = re.compile(r"#\s*(?:pragma|PRAGMA)[:\s]?\s*(?:no|NO)\s*(?:branch|BRANCH)")
-PRAGMA_REASON = re.compile(r"#\s*pragma:\s*no\s+branch\s*:\s*\S", re.IGNORECASE)
+# coverage.py's default `partial_branches` and `exclude_lines` patterns in one, which also
+# match a pragma with a reason; group 1 is the pragma's kind.
+PRAGMA = re.compile(r"#\s*(?:pragma|PRAGMA)[:\s]?\s*(?:no|NO)\s*(branch|BRANCH|cover|COVER)")
+PRAGMA_REASON = re.compile(r"#\s*pragma:\s*no\s+(?:branch|cover)\s*:\s*\S", re.IGNORECASE)
+BRANCH_REASON = re.compile(r"#\s*pragma:\s*no\s+branch\s*:\s*\S", re.IGNORECASE)
 
 
 class GateError(RuntimeError):
@@ -84,15 +91,18 @@ def is_parser_module(path: str) -> bool:
     return parent == PARSERS and name.endswith(".py")
 
 
-def changed_modules(root: pathlib.Path, base: str) -> tuple[str, list[str]]:
-    """Return the merge base of `base` and HEAD, and the parser modules changed since it.
+def changed_modules(root: pathlib.Path, base: str) -> tuple[str, list[str], list[str]]:
+    """Return the merge base of `base` and HEAD, the modules changed since, and the untracked.
 
     The comparison is with the working tree, so uncommitted edits count; a deleted module is
-    left out, as there is nothing left to measure.
+    left out, as there is nothing left to measure, and an ignored file is no module.
     """
     merge_base = run_git(root, ["merge-base", base, "HEAD"]).strip()
     listing = run_git(root, ["diff", "--name-only", "--diff-filter=d", merge_base, "--", PARSERS])
-    return merge_base, sorted(path for path in listing.splitlines() if is_parser_module(path))
+    untracked = run_git(root, ["ls-files", "--others", "--exclude-standard", "--", PARSERS])
+    changed = sorted(path for path in listing.splitlines() if is_parser_module(path))
+    new = sorted(path for path in untracked.splitlines() if is_parser_module(path))
+    return merge_base, changed, new
 
 
 def all_modules(root: pathlib.Path) -> list[str]:
@@ -126,8 +136,42 @@ def diff_lines(root: pathlib.Path, merge_base: str, modules: Sequence[str]) -> d
     return touched_lines(diff)
 
 
+def statement_starts(source: str) -> dict[int, int]:
+    """Return the first line of the innermost statement header holding each line of `source`.
+
+    A compound statement's header runs to the line before its body, so a body line maps to its
+    own statement, never the `if` above it. Source that does not parse maps nothing.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return {}
+    starts: dict[int, int] = {}
+    # ast.walk visits outer nodes first, so an inner statement's lines overwrite its parent's.
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.stmt):
+            continue
+        end = node.end_lineno or node.lineno
+        body = getattr(node, "body", None)
+        if isinstance(node, ast.Match) and node.cases:
+            end = node.cases[0].pattern.lineno - 1
+        elif isinstance(body, list) and body and isinstance(body[0], ast.stmt):
+            end = max(node.lineno, body[0].lineno - 1)
+        for number in range(node.lineno, end + 1):
+            starts[number] = node.lineno
+    return starts
+
+
+def checked_lines(source: str, lines: set[int] | None) -> set[int] | None:
+    """Return `lines` with the first line of each touched statement header added; None stays."""
+    if lines is None:
+        return None
+    starts = statement_starts(source)
+    return lines | {starts[number] for number in lines if number in starts}
+
+
 def pragma_findings(path: str, source: str, lines: set[int] | None) -> list[Finding]:
-    """Return a finding per `# pragma: no branch` without a reason on a checked line.
+    """Return a finding per `no branch` or `no cover` pragma without a reason on a checked line.
 
     `lines` holds the checked line numbers; None checks every line.
     """
@@ -135,8 +179,10 @@ def pragma_findings(path: str, source: str, lines: set[int] | None) -> list[Find
     for number, text in enumerate(source.split("\n"), start=1):
         if lines is not None and number not in lines:
             continue
-        if PRAGMA.search(text) and not PRAGMA_REASON.search(text):
-            findings.append(Finding(path, number, "pragma: no branch without a reason"))
+        match = PRAGMA.search(text)
+        if match and not PRAGMA_REASON.search(text):
+            kind = match.group(1).lower()
+            findings.append(Finding(path, number, f"pragma: no {kind} without a reason"))
     return findings
 
 
@@ -154,7 +200,7 @@ def branch_findings(
         if lines is not None and start not in lines:
             continue
         text = source_lines[start - 1] if 0 < start <= len(source_lines) else ""
-        if PRAGMA_REASON.search(text):
+        if BRANCH_REASON.search(text):
             continue
         where = "exit" if target < 0 else str(target)
         findings.append(Finding(path, start, f"branch to {where} never taken"))
@@ -207,19 +253,22 @@ def measure(root: pathlib.Path, modules: Sequence[str]) -> dict:
 
 def check(root: pathlib.Path, base: str, every_line: bool) -> tuple[list[str], list[Finding]]:
     """Return the modules checked and the findings, sorted by file and line."""
+    lines: dict[str, set[int] | None]
     if every_line:
         modules = all_modules(root)
-        lines: dict[str, set[int]] | None = None
+        lines = dict.fromkeys(modules)
     else:
-        merge_base, modules = changed_modules(root, base)
-        lines = diff_lines(root, merge_base, modules) if modules else {}
+        merge_base, changed, untracked = changed_modules(root, base)
+        lines = dict(diff_lines(root, merge_base, changed)) if changed else {}
+        lines.update(dict.fromkeys(untracked))
+        modules = sorted({*changed, *untracked})
     if not modules:
         return [], []
     branches = missing_branches(measure(root, modules), root, root / ANALYZER)
     findings: list[Finding] = []
     for module in modules:
         source = (root / module).read_text(encoding="utf-8")
-        checked = None if lines is None else lines.get(module, set())
+        checked = checked_lines(source, lines.get(module, set()))
         findings += pragma_findings(module, source, checked)
         if module in branches:
             findings += branch_findings(module, branches[module], checked, source)

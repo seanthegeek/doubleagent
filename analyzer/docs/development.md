@@ -160,26 +160,31 @@ python3 tools/check_branch_coverage.py --all             # every parser module, 
 ```
 
 It finds the modules under `doubleagent/parsers/` that differ between the
-merge base of `--base` and HEAD and the working tree, so uncommitted edits
-count, and prints `no parser module changed against <ref>` and exits 0
-when there is none. Otherwise it runs the whole suite once from
-`analyzer/` under `coverage run --branch`, measuring only those modules,
-and prints one line per finding on a line the change added or modified:
+working tree and the merge base of `--base` with HEAD, so uncommitted
+edits count, and the untracked modules git does not ignore, each of whose
+lines counts as changed. When there is none it prints
+`no parser module changed against <ref>` on stdout and exits 0. Otherwise
+it runs the whole suite once from `analyzer/` under
+`coverage run --branch`, measuring only those modules, and prints one
+line per finding on stdout, for a line the change added or modified:
 
 | Line | Meaning |
 | --- | --- |
 | `<file>:<line>: branch to <line> never taken` | the suite never went from this line to that one |
 | `<file>:<line>: branch to exit never taken` | the suite never left the function from this line |
 | `<file>:<line>: pragma: no branch without a reason` | the line carries `# pragma: no branch` with no `: <reason>` after it |
+| `<file>:<line>: pragma: no cover without a reason` | the line carries `# pragma: no cover`, which drops its whole block from measurement, with no `: <reason>` after it |
 | `<file>:1: not measured: the suite never imports it` | no test imports the changed module |
 
 A branch is reported on the line where it starts, the first line of a
-statement that spans several. A branch no fixture can reach, such as a
-guard against a value the format never writes, carries
+statement that spans several, and a change to any line of a statement's
+header, such as the second line of an `if` condition, checks the branches
+of that first line. A branch no fixture can reach, such as a guard
+against a value the format never writes, carries
 `# pragma: no branch: <reason>` on that line, which coverage.py and the
 check both accept. The summary goes to stderr, and the exit status is 0
 with no finding, 1 with one, and 2 when git, the suite or coverage.py
-fails, the suite's own output printed above.
+fails, with the failing step's output.
 
 ## Regenerating the output examples
 
