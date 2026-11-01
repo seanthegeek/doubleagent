@@ -104,6 +104,96 @@ class LittleCoderTests(ParserBase):
             ),
         )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unlistable_sessions_directory_keeps_the_checkpoint_row(self):
+        sessions = self.home / ".pi/agent/sessions"
+        sessions.chmod(0)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            sessions.chmod(0o700)
+        self.assert_unreadable_directory_rows(rows, "sessions")
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unsearchable_project_directory_keeps_the_checkpoint_row(self):
+        project = self.home / PI_DIR
+        project.chmod(0)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            project.chmod(0o700)
+        self.assert_unreadable_directory_rows(rows, project.name)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unsearchable_sessions_directory_keeps_the_checkpoint_row(self):
+        """A sessions directory that lists but cannot be searched names itself in the row."""
+        sessions = self.home / ".pi/agent/sessions"
+        sessions.chmod(0o400)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            sessions.chmod(0o700)
+        self.assert_unreadable_directory_rows(rows, "sessions")
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unsearchable_agent_directory_keeps_the_checkpoint_row(self):
+        """An unsearchable `.pi/agent` above the sessions directory gives the sessions row."""
+        agent_dir = self.home / ".pi/agent"
+        agent_dir.chmod(0)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            agent_dir.chmod(0o700)
+        self.assert_unreadable_directory_rows(rows, "sessions")
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unsearchable_sibling_project_directory_does_not_hide_the_session(self):
+        """A denied project directory sorting first is passed over; a later one yields the header."""
+        sibling = self.home / ".pi/agent/sessions/--aaa--"
+        sibling.mkdir()
+        sibling.chmod(0)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            sibling.chmod(0o700)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].session_id, rows[0].project_path), (LC_SESSION, "/srv/proj"))
+        self.assertNotIn("session file not collected", rows[0].text)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unsearchable_sibling_project_directory_is_named_when_no_directory_holds_the_file(self):
+        sibling = self.home / ".pi/agent/sessions/--aaa--"
+        sibling.mkdir()
+        (self.home / PI_DIR / LC_FILE).unlink()
+        sibling.chmod(0)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            sibling.chmod(0o700)
+        self.assert_unreadable_directory_rows(rows, "--aaa--")
+
+    def assert_unreadable_directory_rows(self, rows, directory):
+        """Check the checkpoint row without the not-collected clause, then the directory row."""
+        self.assertEqual(len(rows), 2)
+        self.assertIn("little-coder checkpoints for", rows[0].text)
+        self.assertNotIn("session file not collected", rows[0].text)
+        self.assertEqual(
+            (
+                rows[1].turn_type,
+                rows[1].text,
+                rows[1].source_line,
+                rows[1].timestamp_utc,
+                rows[1].session_id,
+            ),
+            (
+                "system",
+                "parser: %s could not be read (Permission denied)" % directory,
+                0,
+                "",
+                LC_SESSION,
+            ),
+        )
+
     def test_bad_session_line_is_left_to_the_pi_parser(self):
         session_file = self.home / PI_DIR / LC_FILE
         original = session_file.read_bytes()
