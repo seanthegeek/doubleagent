@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - A Qwen Code session with a `chats/<sessionId>.worktree.json` sidecar gives one `system` row `scratch directory: <worktreePath> (enter_worktree <slug>)` at its first record, with `project_path` the worktree, so `inventory.json` lists the worktree under `scratch_directories`; a sidecar that cannot be read or is not a JSON object is a `parser:` row of the session ([#326]).
+- The bundled catalog copy gains the Qwen Code lines of collector 1.22.0, so detection follows them: the new secret globs (the default MCP token store, the agent host records, the managed local `state.json`, the settings recovery copies in the home, a project and the worker home) and exclusions (the profiles, the managed local workspaces and the worker-home subtrees), and no secret glob on the extension git-credential selector ([#326]).
 
 ### Changed
 
