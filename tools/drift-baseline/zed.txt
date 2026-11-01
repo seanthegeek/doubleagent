@@ -8,7 +8,6 @@ check_parser_research|row-text-undocumented|compaction:
 check_parser_research|row-text-undocumented|compaction: provider native
 check_parser_research|row-text-undocumented|external agent thread (no transcript in threads.db): agent=
 check_parser_research|row-text-undocumented|thread start:
-check_parser_research|row-text-undocumented|unreadable:
 check_research_structure|bare-doc-reference|Flatpak sandbox paths are Flatpak documentation level.
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/build_timings
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */[Zz]ed/copilot

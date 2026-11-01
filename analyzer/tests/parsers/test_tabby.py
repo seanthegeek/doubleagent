@@ -404,7 +404,6 @@ class TabbyTests(ParserBase):
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_config_unreadable_is_reported_on_every_python(self):
         path = self.home / TABBY_CONFIG_REL
-        mtime = to_utc(path.stat().st_mtime)
         path.chmod(0)
         try:
             rows = self.rows_for(TabbyParser(), TABBY_CONFIG_REL)
@@ -412,7 +411,7 @@ class TabbyTests(ParserBase):
             path.chmod(0o600)
         self.assertEqual(
             [(row.turn_type, row.timestamp_utc, row.text, row.source_line) for row in rows],
-            [("system", mtime, "parser: config.toml could not be read: Permission denied", 0)],
+            [("system", "", "parser: config.toml could not be read (Permission denied)", 0)],
         )
 
     def test_bad_config_is_reported_not_fatal(self):

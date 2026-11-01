@@ -3,7 +3,6 @@ check_fixture_schema|key-undocumented|completionOptions
 check_fixture_schema|key-undocumented|models
 check_fixture_schema|module-provenance-missing|continue_dev
 check_fixture_schema|sample-equals-builder|.continue/input_history.json
-check_parser_research|parser-message-undocumented|parser: unreadable session file: %s
 check_parser_research|pattern-undocumented|^(?:.*/)?\.continue/dev_data/(?:[^/]+/)?(chatInteraction|toolUsage|editInteraction|editOutcome|chatFeedback)\.jsonl$
 check_parser_research|pattern-undocumented|^(?:.*/)?\.continue/sessions/([^/]+)\.json$
 check_parser_research|pattern-undocumented|^\.continue/logs/cn[0-9]*\.log$

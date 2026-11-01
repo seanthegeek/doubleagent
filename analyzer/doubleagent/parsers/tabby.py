@@ -43,7 +43,7 @@ from ..model import Row, compact
 from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
 from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_item, shown_problem
-from .base import Options, Parser, compact_json, error_rows, file_mtime, iter_jsonl
+from .base import Options, Parser, compact_json, error_rows, file_bytes, file_mtime, iter_jsonl
 from .codex import flat_toml, load_toml
 
 # The server root a path starts with: `.tabby/` under a user's home, or
@@ -593,17 +593,12 @@ class TabbyParser(Parser):
         timestamp = file_mtime(artifact)
         # The file is read before the interpreter check, so an unreadable one is reported
         # the same on every Python version.
-        try:
-            text = artifact.disk_path.read_text(encoding="utf-8", errors="replace")
-        except OSError as error:
-            yield self._row(
-                artifact,
-                0,
-                timestamp=timestamp,
-                opts=opts,
-                text="parser: config.toml could not be read: %s" % (error.strerror or error),
-            )
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
             return
+        text = content.decode("utf-8", errors="replace")
         if load_toml is flat_toml:
             # flat_toml reads only the top-level keys; the model tables need tomllib.
             yield self._row(

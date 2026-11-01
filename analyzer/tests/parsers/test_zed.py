@@ -2,8 +2,10 @@
 
 import json
 import sqlite3
+import unittest
 
 import zstandard
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.parsers import Options
 from doubleagent.parsers.antigravity import file_mtime
@@ -258,6 +260,22 @@ class ZedTests(ParserBase):
                 (row.turn_type, row.session_id, row.project_path, row.timestamp_utc),
                 ("system", "", "", file_mtime(art)),
             )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_settings_unreadable_is_one_row(self):
+        rel = ".config/zed/settings.json"
+        path = self.home / rel
+        path.chmod(0)
+        try:
+            rows = self.rows_for(ZedParser(), rel)
+            other = self.rows_for(ZedParser(), self.REL)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+            [("system", "parser: settings.json could not be read (Permission denied)", 0, "")],
+        )
+        self.assertTrue(other)
 
     def test_settings_not_object_and_empty(self):
         rel = ".config/zed/settings.json"

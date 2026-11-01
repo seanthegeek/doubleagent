@@ -35,7 +35,7 @@ import json
 import re
 from collections.abc import Iterator
 
-from ..inputs import Artifact, error_reason
+from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
 from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_item, shown_problem
@@ -44,7 +44,9 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
+    iter_lines,
     line_text,
     setting_value,
     text_of,
@@ -230,12 +232,10 @@ class TwinnyParser(Parser):
 
     def _parse_changes(self, artifact: Artifact) -> Iterator[Row]:
         """`file changed:` rows of one agent-changes record."""
-        try:
-            raw = artifact.disk_path.read_bytes()
-        except OSError as error:
-            yield from error_rows(
-                self, artifact, [(0, "unreadable (%s)" % error_reason(error), "")]
-            )
+        errors: list = []
+        raw = file_bytes(artifact.disk_path, errors)
+        if raw is None:
+            yield from error_rows(self, artifact, errors)
             return
         try:
             record = json.loads(raw.decode("utf-8", errors="replace"))
@@ -264,26 +264,17 @@ class TwinnyParser(Parser):
         errors: list = []
         entries: list[tuple[int, str, str, str, list[str]]] = []
         more: list[str] | None = None  # the open entry's continuation lines
-        try:
-            with open(artifact.disk_path, "rb") as handle:
-                for line_number, raw in enumerate(handle, 1):
-                    line = line_text(raw)
-                    match = LOG_HEADER_PATTERN.match(line)
-                    if match:
-                        more = []
-                        entries.append(
-                            (line_number, match.group(1), match.group(2), match.group(3), more)
-                        )
-                    elif more is not None and (not line or line[0] in " \t"):
-                        more.append(line[4:] if line.startswith("    ") else line)
-                    elif line:
-                        errors.append((line_number, "unparseable line (no log line header)", line))
-                        more = None  # a continuation after a bad line has no entry
-        except OSError as error:
-            yield from error_rows(
-                self, artifact, [(0, "unreadable (%s)" % error_reason(error), "")]
-            )
-            return
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            line = line_text(raw)
+            match = LOG_HEADER_PATTERN.match(line)
+            if match:
+                more = []
+                entries.append((line_number, match.group(1), match.group(2), match.group(3), more))
+            elif more is not None and (not line or line[0] in " \t"):
+                more.append(line[4:] if line.startswith("    ") else line)
+            elif line:
+                errors.append((line_number, "unparseable line (no log line header)", line))
+                more = None  # a continuation after a bad line has no entry
         for line_number, when, level, message, lines in entries:
             head = "log %s: %s (from %s, log line time, host-local)" % (level, message, name)
             row = self._system_row(artifact, to_utc(when), "\n".join([head, *lines]))

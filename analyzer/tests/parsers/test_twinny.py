@@ -3,6 +3,9 @@
 import io
 import json
 import sqlite3
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli, vscode_state
 from doubleagent.inputs import open_input
@@ -253,6 +256,37 @@ class TwinnyTests(ParserBase):
         build_twinny_415(home)
         col = open_input(home, self.cat, host="h1")
         return home, {artifact.rel: artifact for artifact in col.artifacts}
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_changes_record_and_log_are_one_row_each(self):
+        home, arts = self._415()
+        parser = TwinnyParser()
+        for rel in (TWINNY_415_CHANGES_REL, TWINNY_415_LOG_REL):
+            path = home / rel
+            path.chmod(0)
+            try:
+                rows = list(parser.parse(arts[rel], Options()))
+                other = list(parser.parse(arts[TWINNY_415_REL], Options()))
+            finally:
+                path.chmod(0o600)
+            self.assertEqual(
+                [
+                    (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                    for row in rows
+                ],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % path.name,
+                        0,
+                        "",
+                        "",
+                    )
+                ],
+                rel,
+            )
+            self.assertTrue(other, rel)
+            self.assertFalse([row for row in other if row.text.startswith("parser:")], rel)
 
     def test_standing_grants_team_policy_and_changes(self):
         _, arts = self._415()

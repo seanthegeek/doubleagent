@@ -1,6 +1,9 @@
 """Tests of the Continue parser."""
 
 import json
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import open_input
@@ -653,6 +656,42 @@ class ContinueTests(ParserBase):
             ["user", "assistant"],
         )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_file_is_one_row_and_others_still_parse(self):
+        cases = (
+            (self.REL, "%s.json" % CONTINUE_SESSION, CONTINUE_SESSION),
+            (self.HISTORY, "input_history.json", ""),
+            (self.PERMS, "permissions.yaml", ""),
+            (".continue/logs/cn.log", "cn.log", ""),
+        )
+        parser = ContinueParser()
+        for rel, name, session_id in cases:
+            path = self.home / rel
+            other_rel = ".continue/dev_data/0.2.0/chatInteraction.jsonl"
+            path.chmod(0)
+            try:
+                rows = self.rows_for(parser, rel)
+                other = self.rows_for(parser, other_rel)
+            finally:
+                path.chmod(0o600)
+            self.assertEqual(
+                [
+                    (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                    for row in rows
+                ],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % name,
+                        0,
+                        "",
+                        session_id,
+                    )
+                ],
+                rel,
+            )
+            self.assertEqual([row.turn_type for row in other], ["user", "assistant"], rel)
+
     def test_index_unreadable_is_reported(self):
         path = self.home / self.INDEX
         path.chmod(0)
@@ -666,7 +705,7 @@ class ContinueTests(ParserBase):
             self.assertEqual(self._session_times(parser), {""})
             self.assertEqual(
                 [(row.source_line, row.text) for row in self.rows_for(parser, self.INDEX)],
-                [(0, "parser: unreadable session index: permission denied")],
+                [(0, "parser: sessions.json could not be read (Permission denied)")],
             )
         finally:
             path.chmod(0o644)

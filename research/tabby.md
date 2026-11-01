@@ -662,10 +662,10 @@ The event log, the one line-oriented source, is read through `iter_jsonl` and it
 reported through `error_rows`, a log that cannot be read giving one whole-file row
 `parser: <file> could not be read (<reason>)`, `<file>` its name; the SQLite stores have no lines
 to lose. A `config.toml` that
-cannot be read gives one row `parser: config.toml could not be read: <reason>` on every Python
-version, one that does not parse one row `parser: config.toml is not valid TOML (<reason>)` and
-an IntelliJ history that does not parse one row
-`parser: not a readable XML document (<reason>)`, none carrying the file's text.
+cannot be read gives one row `parser: <file> could not be read (<reason>)` with `<file>`
+`config.toml`, on every Python version and with an empty time, one that does not parse one row
+`parser: config.toml is not valid TOML (<reason>)` and an IntelliJ history that does not parse
+one row `parser: not a readable XML document (<reason>)`, none carrying the file's text.
 
 A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, or whose `-wal`,
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,

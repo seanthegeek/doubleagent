@@ -33,7 +33,8 @@ import json
 import re
 from collections.abc import Iterator
 
-from ..inputs import Artifact, error_reason
+from ..errors import unreadable_message
+from ..inputs import Artifact
 from ..model import Row, compact
 from ..textlines import SPACE_OR_TAB, split_lines
 from ..timeutil import to_utc
@@ -42,8 +43,10 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
+    iter_lines,
     line_text,
     setting_value,
     text_of,
@@ -114,11 +117,13 @@ def read_index(path) -> tuple[dict[str, dict], list]:
     try:
         if not path.is_file() or path.is_symlink():
             return out, errors
-        with open(path, "rb") as handle:
-            text = handle.read().decode("utf-8", errors="replace")
     except OSError as error:
-        errors.append((0, "unreadable session index: %s" % error_reason(error), ""))
+        errors.append((0, unreadable_message(path, error)))
         return out, errors
+    content = file_bytes(path, errors)
+    if content is None:
+        return out, errors
+    text = content.decode("utf-8", errors="replace")
     if text.startswith("\ufeff"):
         text = text[1:]
     end: list = []
@@ -381,19 +386,17 @@ class ContinueParser(Parser):
     # ---- session files --------------------------------------------------------
 
     def _parse_session(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        try:
-            raw = artifact.disk_path.read_text(encoding="utf-8", errors="replace")
-        except OSError as error:
-            row = self.base_row(artifact)
-            row.turn_type = "system"
-            row.text = "parser: unreadable session file: %s" % error_reason(error)
-            yield row
+        errors: list = []
+        match = SESSION_PATTERN.match(artifact.rel)
+        assert match is not None  # wants() accepted only matching paths
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, match.group(1))
             return
+        raw = content.decode("utf-8", errors="replace")
         session, problem = load_session(raw)
         session_id = session.get("sessionId")
         if not session_id:
-            match = SESSION_PATTERN.match(artifact.rel)
-            assert match is not None  # wants() accepted only matching paths
             session_id = match.group(1)
         session_id = str(session_id)
         entry = self._index(artifact.disk_path.parent).get(session_id, {})
@@ -699,12 +702,11 @@ class ContinueParser(Parser):
         `source_line` is the entry's 1-based position.
         """
         errors: list = []
-        try:
-            text = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError as error:
-            errors.append((0, "unreadable (%s)" % error_reason(error), ""))
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
             yield from error_rows(self, artifact, errors)
             return
+        text = content.decode("utf-8", errors="replace")
         if text.startswith("﻿"):
             text = text[1:]
         end: list = []
@@ -735,13 +737,12 @@ class ContinueParser(Parser):
 
         A file outside the shape `read_permissions` reads is one `parser:` row.
         """
-        try:
-            text = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError as error:
-            yield from error_rows(
-                self, artifact, [(0, "unreadable (%s)" % error_reason(error), "")]
-            )
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
             return
+        text = content.decode("utf-8", errors="replace")
         entries, problem = read_permissions(text)
         if problem:
             message = "%s (only allow, ask and exclude lists of strings are read)" % problem
@@ -819,48 +820,41 @@ class ContinueParser(Parser):
         posts: list[list] = []
         pending: list[list] = []
         rows: list[Row] = []
-        try:
-            with open(artifact.disk_path, "rb") as handle:
-                for line_number, raw in enumerate(handle, 1):
-                    match = LOG_LINE_PATTERN.match(line_text(raw))
-                    if not match:
-                        continue
-                    when, process_id, message = match.groups()
-                    if STORAGE_SKIPPED in message:
-                        text = "storage upload requested, skipped (from %s, log line time, %s)"
-                        rows.append(
-                            self._log_row(
-                                artifact, line_number, when, text % (source, "host-local")
-                            )
-                        )
-                        continue
-                    added = POLICY_ADDED_PATTERN.match(message)
-                    if added:
-                        text = "permission decision: allow always rule=%s (from %s, %s)" % (
-                            added.group(1),
-                            source,
-                            "log line time, host-local",
-                        )
-                        rows.append(self._log_row(artifact, line_number, when, text))
-                        continue
-                    post = METADATA_POST_PATTERN.match(message)
-                    if post:
-                        row = self._log_row(artifact, line_number, when, "")
-                        posts.append([process_id, post.group(1), post.group(2), "-", row])
-                        pending.append(posts[-1])
-                        rows.append(row)
-                        continue
-                    result = METADATA_RESULT_PATTERN.match(message)
-                    if result:
-                        self._settle(pending, process_id, result.group(2), result.group(1))
-        except OSError as error:
-            yield from error_rows(
-                self, artifact, [(0, "unreadable (%s)" % error_reason(error), "")]
-            )
-            return
+        errors: list = []
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            match = LOG_LINE_PATTERN.match(line_text(raw))
+            if not match:
+                continue
+            when, process_id, message = match.groups()
+            if STORAGE_SKIPPED in message:
+                text = "storage upload requested, skipped (from %s, log line time, %s)"
+                rows.append(
+                    self._log_row(artifact, line_number, when, text % (source, "host-local"))
+                )
+                continue
+            added = POLICY_ADDED_PATTERN.match(message)
+            if added:
+                text = "permission decision: allow always rule=%s (from %s, %s)" % (
+                    added.group(1),
+                    source,
+                    "log line time, host-local",
+                )
+                rows.append(self._log_row(artifact, line_number, when, text))
+                continue
+            post = METADATA_POST_PATTERN.match(message)
+            if post:
+                row = self._log_row(artifact, line_number, when, "")
+                posts.append([process_id, post.group(1), post.group(2), "-", row])
+                pending.append(posts[-1])
+                rows.append(row)
+                continue
+            result = METADATA_RESULT_PATTERN.match(message)
+            if result:
+                self._settle(pending, process_id, result.group(2), result.group(1))
         for _process_id, url, fields, status, row in posts:
             row.text = self._post_text(url, fields, status, source)
         yield from rows
+        yield from error_rows(self, artifact, errors)
 
     @staticmethod
     def _settle(pending: list[list], process_id: str, url: str, status: str) -> None:
