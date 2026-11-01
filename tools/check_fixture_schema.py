@@ -6,7 +6,7 @@ A fixture module is a file of `analyzer/tests/fixtures/` other than `__init__.py
 in a code span of the Parsing part or a fenced line outside Parser plan's Fixtures (a sample
 never documents a key), of the file's agent's document or of an agent whose fixture module that
 agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read only the files
-`build_home` leaves on disk, so a record a later builder overwrites is not checked.
+`build_home` and `EXAMPLE_BUILDERS` leave on disk: a record a later builder overwrites is unchecked.
 
 1. `builder-provenance-missing`: a public function of a fixture module (`is_public_builder`)
    whose docstring has no line `source_line` accepts, naming a document heading.
@@ -654,12 +654,18 @@ def read_built_file(path: pathlib.Path, built: BuiltFile) -> None:
 
 
 def built_files(root: pathlib.Path, catalog: Catalog) -> list[BuiltFile]:
-    """Build the fixture home under `root` in a temporary directory and read every file."""
+    """Build the fixture home under `root` in a temporary directory and read every file.
+
+    The home is `build_home`'s, then each `EXAMPLE_BUILDERS` entry run into it, so the builders
+    only the output examples run are checked too.
+    """
     package = load_fixtures(root)
     found: list[BuiltFile] = []
     with tempfile.TemporaryDirectory(prefix="drift-fixtures-") as scratch:
         home = pathlib.Path(scratch) / "home"
         package.build_home(home)
+        for builder, directory in getattr(package, "EXAMPLE_BUILDERS", ()):
+            builder(home / directory)
         for path in sorted(home.rglob("*")):
             if path.is_symlink() or not path.is_file():
                 continue

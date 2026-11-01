@@ -55,8 +55,9 @@ analyzer/
   tools/                       development tools: shape.py (shapes of a real install),
                                proto_descriptors.py (protobuf schemas of a binary),
                                example_collection.py (the docs/output.md examples'
-                               collection, from the fixture builders), regenerate_examples.py
-                               (rewrites those generated examples)
+                               collection, from the fixture builders),
+                               regenerate_examples.py (rewrites those generated
+                               examples)
   pyproject.toml               installable as the doubleagent command
   requirements.txt             third-party dependencies (python-dateutil;
                                zstandard, for compressed transcripts)
@@ -640,8 +641,10 @@ plan, and the parser is written from them.
      schema and the samples' shapes, never invents one and never copies a
      sample verbatim, so the sample stays independent evidence.
      `tools/check_fixture_schema.py` checks the records `build_home`
-     writes and reports one equal to a Fixtures sample, so every builder a
-     test uses is reached through `HOME_BUILDERS`. Each public function of
+     writes, and those the `EXAMPLE_BUILDERS` entries add after it, and
+     reports one equal to a Fixtures sample, so every builder a test or
+     the output examples use is reached through `HOME_BUILDERS` or
+     `EXAMPLE_BUILDERS`. Each public function of
      an agent's fixture module (`common.py` aside), its home builder
      included, has a docstring
      line `Source: research/<agent>.md#<anchor>; build <version>` (or

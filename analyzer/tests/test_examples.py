@@ -110,12 +110,30 @@ def test_generated_blocks_have_their_fence_and_jsonl_lines_parse():
             for line in lines[1:-2]:
                 assert isinstance(json.loads(line), dict), (name, line)
     stdout = blocks["timeline-stdout"]
+    counts = {}
     for label, name in (("rows", "timeline"), ("sessions", "sessions")):
         match = re.search(r"\n%s: +(\d+) in out/%s\.jsonl[ \n]" % (label, name), stdout)
         assert match, label
-        lines = blocks[name + "-jsonl"].split("\n")[1:-2]
-        assert int(match.group(1)) == len(lines), (label, match.group(1), len(lines))
+        counts[name] = (int(match.group(1)), len(blocks[name + "-jsonl"].split("\n")[1:-2]))
+    assert counts["sessions"][0] == counts["sessions"][1], counts
+    # The shown timeline.jsonl is the filtered run's, so it is shorter than the full run's.
+    assert 0 < counts["timeline"][1] < counts["timeline"][0], counts
     assert "\ninventory: out/inventory.json (" in stdout
+
+
+def test_shown_timeline_is_the_filtered_run():
+    agents = {
+        examples.TIMELINE_FILTERS[index + 1]
+        for index, flag in enumerate(examples.TIMELINE_FILTERS)
+        if flag == "--agent"
+    }
+    pattern = re.compile(examples.TIMELINE_FILTERS[examples.TIMELINE_FILTERS.index("--match") + 1])
+    rows = jsonl_block(examples.generate()["timeline-jsonl"])
+    matched = {row["tool_use_id"] for row in rows if pattern.search(row["text"])}
+    for row in rows:
+        assert row["agent"] in agents, row
+        kept = pattern.search(row["text"]) or row["tool_use_id"] in matched - {""}
+        assert kept, row
 
 
 def jsonl_block(block: str) -> list[dict]:

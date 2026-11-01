@@ -21,15 +21,17 @@ files with the analyzer's test fixtures, the same records the parser
 tests read, so the examples show what the parsers make of the record
 shapes the research documents describe, from real installs and the
 agents' source. The contents are invented. A fixture covers every
-platform its agent writes for, so a Linux home here also holds the
-macOS `Library/Application Support` and Windows `AppData` trees some
-agents use. The tool writes `collection.json`, `manifest.jsonl` and
-`collector.log` itself, in the shape
+platform its agent writes for, and a Linux home holds no macOS
+`Library` or Windows `AppData` tree, so the tool leaves those trees out,
+except Cursor's editor state, which it moves to its Linux place,
+`.config/Cursor`. The tool writes `collection.json`, `manifest.jsonl`
+and `collector.log` itself, in the shape
 [`collectors/docs/output.md`](../../collectors/docs/output.md) documents,
-as collector 1.19.0 would record `wsdev14`, a Linux workstation, in live
-mode on 2026-10-15, with the users `alice` and `bob` and the repository
-`/srv/proj`. A file whose fixture sets no modification time has
-15:56:10 UTC that day, an hour before the collection.
+as the collector of this repository, whose version they carry, would
+record `wsdev14`, a Linux workstation, in live mode on 2026-10-15, with
+the users `alice` and `bob` and the repository `/srv/proj`. A file whose
+fixture sets no modification time has 15:56:10 UTC that day, an hour
+before the collection.
 
 - alice's Claude Code files: transcripts of several builds whose tool
   calls are `tool_use` rows joined to their `tool_result` rows on
@@ -41,8 +43,8 @@ mode on 2026-10-15, with the users `alice` and `bob` and the repository
   [Row order and system rows](#row-order-and-system-rows)). A session
   bound to Remote Control gives `remote control: bridge session` and
   `session synced: remote control bridge` rows, and the registry file
-  of a process under `.claude/sessions/` that still runs one more
-  `session synced:` row. A session the
+  of another session's process under `.claude/sessions/`, still
+  running, one more `session synced:` row. A session the
   Remote Control server spawned gives
   `session origin: remote (Remote Control, entrypoint sdk-cli)`, its
   `ccr-tip.json` a `session synced: remote event` row, and the project's
@@ -77,9 +79,7 @@ mode on 2026-10-15, with the users `alice` and `bob` and the repository
   line, and the manifest row of an Ollama model manifest is cut short,
   which gives the `manifest rows did not parse` note. The Ollama prompt
   history records no times, so its `user` and `slash command:` rows have
-  an empty `timestamp_utc`. The Claude Desktop profile Ollama's launcher
-  writes is a `claude-desktop` file that gives no row, so
-  `claude-desktop` is under `parser found no rows`.
+  an empty `timestamp_utc`.
 - The files of `/srv/proj`: `.git/HEAD` and `.git/config`, which names
   the remotes `origin` and `upstream`, are shared files, and
   `.claude/settings.local.json` gives `permission setting:` rows with
@@ -87,6 +87,15 @@ mode on 2026-10-15, with the users `alice` and `bob` and the repository
 - Two excluded directories, alice's `.claude/cache` and bob's
   `.ollama/models/blobs`, are `skipped_excluded` rows of a used install's
   size.
+
+The [timeline.jsonl](#timelinejsonl) example is not the whole run's file
+but that of a second, filtered run, `timeline -o out --agent claude-code
+--agent codex-cli --agent cursor --match <regex>`, where the regular
+expression picks the row forms the examples point out, so the example
+stays short enough to read; the [timeline](#timeline) stdout,
+[inventory.json](#inventoryjson) and [sessions.jsonl](#sessionsjsonl)
+examples are the unfiltered run's. The regular expression is
+`TIMELINE_FILTERS` in `analyzer/tools/regenerate_examples.py`.
 
 To write the collection into an empty directory, here `example`, from
 the repository root:
@@ -201,9 +210,8 @@ alice          /home/alice                      codex-cli                 8     
 alice          /home/alice                      cursor                   11       100667  yes
 alice          /home/alice                      aider                     4         1379  yes
 alice          /home/alice                      amp                       1           96  detect only
-bob            /home/bob                        claude-desktop            2          550  yes
 bob            /home/bob                        gemini-cli                9         4598  yes
-bob            /home/bob                        ollama                   12       205548  yes
+bob            /home/bob                        ollama                    6          300  yes
 
 project                                  users          agent                 files        bytes  parser
 /srv/proj                                alice          claude-code               1           70  yes
@@ -230,10 +238,11 @@ last line, naming the `origin` and `upstream` remotes of `/srv/proj`.
 
 With `--json`, `detect` prints the same data as one JSON object,
 indented by two spaces, and exits `0` even when nothing was found. This
-example is the output of `detect --json --files` on
+example is the output of `detect --json` on
 [the example collection](#the-example-collection), the data of the
-[detect](#detect) example with each project's `remotes` and `head` and,
-since `--files` was given, the `files` key, one entry per attributed file:
+[detect](#detect) example with each project's `remotes` and `head`. With
+`--files` it also holds the `files` key, one entry per attributed file,
+which the key table below describes:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: detect-json -->
 ```json
@@ -288,12 +297,6 @@ since `--files` was given, the `files` key, one entry per attributed file:
       "inferred": false,
       "agents": [
         {
-          "agent": "claude-desktop",
-          "files": 2,
-          "bytes": 550,
-          "parser": true
-        },
-        {
           "agent": "gemini-cli",
           "files": 9,
           "bytes": 4598,
@@ -301,8 +304,8 @@ since `--files` was given, the `files` key, one entry per attributed file:
         },
         {
           "agent": "ollama",
-          "files": 12,
-          "bytes": 205548,
+          "files": 6,
+          "bytes": 300,
           "parser": true
         }
       ]
@@ -348,373 +351,6 @@ since `--files` was given, the `files` key, one entry per attributed file:
   ],
   "problems": [
     "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection"
-  ],
-  "files": [
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/history.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.meta.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/tool-results/b1c2d3e4f.txt"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/tool-results/k3j9x2m1q.txt"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001/ccr-tip.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/bridge-pointer.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/sessions/4242.abababababababababababababababababababababababababababababababab.key"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/sessions/4242.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/sessions/4343.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/settings.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude.json.backup.1790845200000"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude-work/history.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude-work/.claude.json"
-    },
-    {
-      "user": "alice",
-      "agent": "codex-cli",
-      "path": "/home/alice/.codex/automations/.run-jitter-salt"
-    },
-    {
-      "user": "alice",
-      "agent": "codex-cli",
-      "path": "/home/alice/.codex/automations/check-the-nightly-build/automation.toml"
-    },
-    {
-      "user": "alice",
-      "agent": "codex-cli",
-      "path": "/home/alice/.codex/config.toml"
-    },
-    {
-      "user": "alice",
-      "agent": "codex-cli",
-      "path": "/home/alice/.codex/history.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "codex-cli",
-      "path": "/home/alice/.codex/logs_2.sqlite"
-    },
-    {
-      "user": "alice",
-      "agent": "codex-cli",
-      "path": "/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "codex-cli",
-      "path": "/home/alice/.codex/state_5.sqlite"
-    },
-    {
-      "user": "alice",
-      "agent": "codex-cli",
-      "path": "/home/alice/.codex/thread_history_1.sqlite"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/.cursor/ai-tracking/ai-code-tracking.db"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/.cursor/cli-config.json"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/.cursor/mcp.json"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/.cursor/permissions.json"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000001-0000-4000-8000-000000000001/c0000001-0000-4000-8000-000000000001.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/.cursor/projects/srv-proj/mcps/cursor-ide-browser/SERVER_METADATA.json"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/.cursor/statsig-cache.json"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/Library/Application Support/Cursor/User/globalStorage/conversation-search.db"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/Library/Application Support/Cursor/User/globalStorage/mcp-oauth-attempts/0000.json"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb"
-    },
-    {
-      "user": "alice",
-      "agent": "aider",
-      "path": "/home/alice/.aider.conf.yml"
-    },
-    {
-      "user": "alice",
-      "agent": "aider",
-      "path": "/home/alice/.aider.chat.history.md"
-    },
-    {
-      "user": "alice",
-      "agent": "aider",
-      "path": "/home/alice/.aider.input.history"
-    },
-    {
-      "user": "alice",
-      "agent": "aider",
-      "path": "/home/alice/.aider.llm.history"
-    },
-    {
-      "user": "alice",
-      "agent": "amp",
-      "path": "/home/alice/.config/amp/settings.json"
-    },
-    {
-      "user": "bob",
-      "agent": "claude-desktop",
-      "path": "/home/bob/Library/Application Support/Claude-3p/configLibrary/00000000-0000-4000-8000-000000000114.json"
-    },
-    {
-      "user": "bob",
-      "agent": "claude-desktop",
-      "path": "/home/bob/Library/Application Support/Claude-3p/configLibrary/_meta.json"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/oauth_creds.json"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/projects.json"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/settings.json"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/tmp/proj/.project_root"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/tmp/proj/logs.json"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/tmp/proj/shell_history"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/trustedFolders.json"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/.ollama/backup/config.json.1772355600"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/.ollama/config.json"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/.ollama/history"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/.ollama/id_ed25519"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/.ollama/logs/server.log"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/.ollama/onboarding-v1.completed"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/Library/Application Support/Ollama/db.sqlite"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/Library/Application Support/Ollama/db.sqlite-shm"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/Library/Application Support/Ollama/db.sqlite-wal"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/AppData/Local/Ollama/db.sqlite"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/AppData/Local/Ollama/db.sqlite-shm"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/AppData/Local/Ollama/db.sqlite-wal"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/srv/proj/.claude/settings.local.json"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/HEAD"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/config"
-    }
   ]
 }
 ```
@@ -888,8 +524,8 @@ host:      wsdev14
 note:      1 manifest rows did not parse
 problem:   /home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection
 dropped:   20 duplicate rows from secondary sources (aider 2, claude-code 2, codex-cli 12, cursor 3, gemini-cli 1)
-agents:    parsed: aider, claude-code, codex-cli, cursor, gemini-cli, ollama; detected but not parsed: amp; parser found no rows: claude-desktop
-rows:      308 in out/timeline.jsonl
+agents:    parsed: aider, claude-code, codex-cli, cursor, gemini-cli, ollama; detected but not parsed: amp
+rows:      295 in out/timeline.jsonl
            aider          assistant    2
            aider          system       11
            aider          tool_result  5
@@ -914,12 +550,9 @@ rows:      308 in out/timeline.jsonl
            gemini-cli     tool_result  3
            gemini-cli     tool_use     3
            gemini-cli     user         6
-           ollama         assistant    2
-           ollama         system       8
-           ollama         tool_result  2
-           ollama         tool_use     2
-           ollama         user         3
-sessions:  23 in out/sessions.jsonl (7 synced, 4 remote, 7 recovered)
+           ollama         system       3
+           ollama         user         1
+sessions:  22 in out/sessions.jsonl (7 synced, 4 remote, 7 recovered)
 inventory: out/inventory.json (homes, projects, scratch directories, counts per agent, problems)
 ```
 <!-- end generated: timeline-stdout -->
@@ -962,8 +595,8 @@ rather than as projects:
   "problems": [
     "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection"
   ],
-  "rows": 308,
-  "sessions": 23,
+  "rows": 295,
+  "sessions": 22,
   "parsed": [
     "aider",
     "claude-code",
@@ -975,9 +608,7 @@ rather than as projects:
   "detected_not_parsed": [
     "amp"
   ],
-  "no_rows": [
-    "claude-desktop"
-  ],
+  "no_rows": [],
   "homes": [
     {
       "user": "alice",
@@ -1042,16 +673,6 @@ rather than as projects:
       "inferred": false,
       "agents": [
         {
-          "agent": "claude-desktop",
-          "files": 2,
-          "bytes": 550,
-          "parser": true,
-          "synced_sessions": 0,
-          "relayed_sessions": 0,
-          "remote_sessions": 0,
-          "recovered_sessions": 0
-        },
-        {
           "agent": "gemini-cli",
           "files": 9,
           "bytes": 4598,
@@ -1063,8 +684,8 @@ rather than as projects:
         },
         {
           "agent": "ollama",
-          "files": 12,
-          "bytes": 205548,
+          "files": 6,
+          "bytes": 300,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -1336,8 +957,8 @@ rather than as projects:
     }
   },
   "outside_projects": {
-    "rows": 53,
-    "sessions": 2,
+    "rows": 40,
+    "sessions": 1,
     "agents": {
       "claude-code": {
         "rows": 10,
@@ -1361,14 +982,11 @@ rather than as projects:
         }
       },
       "ollama": {
-        "rows": 17,
-        "sessions": 1,
+        "rows": 4,
+        "sessions": 0,
         "turn_types": {
-          "assistant": 2,
-          "system": 8,
-          "tool_result": 2,
-          "tool_use": 2,
-          "user": 3
+          "system": 3,
+          "user": 1
         }
       }
     },
@@ -1458,7 +1076,7 @@ log row, Cursor's editor-wide rows, and bob's Ollama rows.
 `scratch_directories` holds the scratchpads alice's sessions name,
 `referenced` because the collection holds no files from them.
 
-`no_rows` lists `claude-desktop`, `detected_not_parsed` lists `amp`, and
+`no_rows` is `[]`, `detected_not_parsed` lists `amp`, and
 `collected_only` is `[]` because no agent of the input is one whose files
 hold nothing to parse. `deduplicated` holds the counts of the `dropped:`
 line per agent. `synced_sessions`, `remote_sessions` and
@@ -1747,326 +1365,93 @@ The field names each parser relies on are listed in its module docstring
 under `doubleagent/parsers/`. Thinking and reasoning blocks are left out
 unless `--include-thinking` is passed.
 
-This is the `timeline.jsonl` that `timeline -o out` writes for
-[the example collection](#the-example-collection), the run shown under
-[timeline](#timeline). Rows worth following: a tool call and its result
-sharing one `tool_use_id`; a `permission decision:` row beside the call
-it decided; a `model: <old> -> <new>` row after alice's `/model`; the
+This is the `timeline.jsonl` of a filtered run on
+[the example collection](#the-example-collection): `timeline -o out`
+with `--agent claude-code --agent codex-cli --agent cursor` and a
+`--match` regular expression that keeps the row forms named here, a
+matched tool call keeping its result (see
+[The example collection](#the-example-collection)); the unfiltered run
+is the one shown under [timeline](#timeline). Rows worth following: a
+tool call and its result sharing one `tool_use_id`; a
+`permission decision:` row beside the call it decided; a
+`model: <old> -> <new>` row after alice's `/model`; the
 `session origin: remote` rows of the Remote Control and teleported
-sessions; the rows with `recovered` `yes`; and the
+sessions; the history prompt with `recovered` `yes`; and the
 `parser: unparseable line` row at the cut end of alice's Cursor agent
 transcript:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: timeline-jsonl -->
 ```json
-{"timestamp_utc":"2026-03-01T17:00:00.500Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"summarise https://example.invalid/notes\n[attachment: notes.txt, 5 bytes]","source_file":"/home/bob/AppData/Local/Ollama/db.sqlite","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:00.500Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"summarise https://example.invalid/notes\n[attachment: notes.txt, 5 bytes]","source_file":"/home/bob/Library/Application Support/Ollama/db.sqlite","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:01.250Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"tool_use","model":"gemma4:e4b","tool_name":"web_fetch","tool_use_id":"0190a000-0000-7000-8000-00000000c001:1","text":"https://example.invalid/notes","source_file":"/home/bob/AppData/Local/Ollama/db.sqlite","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:01.250Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"system","model":"gemma4:e4b","tool_name":"","tool_use_id":"","text":"model: gemma4:e4b","source_file":"/home/bob/AppData/Local/Ollama/db.sqlite","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:01.250Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"tool_use","model":"gemma4:e4b","tool_name":"web_fetch","tool_use_id":"0190a000-0000-7000-8000-00000000c001:1","text":"https://example.invalid/notes","source_file":"/home/bob/Library/Application Support/Ollama/db.sqlite","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:01.250Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"system","model":"gemma4:e4b","tool_name":"","tool_use_id":"","text":"model: gemma4:e4b","source_file":"/home/bob/Library/Application Support/Ollama/db.sqlite","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:03.000Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"tool_result","model":"","tool_name":"web_fetch","tool_use_id":"0190a000-0000-7000-8000-00000000c001:1","text":"Release 2.0 adds X.","source_file":"/home/bob/AppData/Local/Ollama/db.sqlite","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:03.000Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"tool_result","model":"","tool_name":"web_fetch","tool_use_id":"0190a000-0000-7000-8000-00000000c001:1","text":"Release 2.0 adds X.","source_file":"/home/bob/Library/Application Support/Ollama/db.sqlite","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:04.125Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"system","model":"qwen3:8b","tool_name":"","tool_use_id":"","text":"model: gemma4:e4b -> qwen3:8b","source_file":"/home/bob/AppData/Local/Ollama/db.sqlite","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:04.125Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"assistant","model":"qwen3:8b","tool_name":"","tool_use_id":"","text":"Release 2.0 adds X.","source_file":"/home/bob/AppData/Local/Ollama/db.sqlite","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:04.125Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"system","model":"qwen3:8b","tool_name":"","tool_use_id":"","text":"model: gemma4:e4b -> qwen3:8b","source_file":"/home/bob/Library/Application Support/Ollama/db.sqlite","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-03-01T17:00:04.125Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","git_branch":"","turn_type":"assistant","model":"qwen3:8b","tool_name":"","tool_use_id":"","text":"Release 2.0 adds X.","source_file":"/home/bob/Library/Application Support/Ollama/db.sqlite","source_line":4,"recovered":""}
 {"timestamp_utc":"2026-09-30T10:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99999999-0000-4000-8000-000000000000","project_path":"/srv/old","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"an older prompt whose session file is gone","source_file":"/home/alice/.claude/history.jsonl","source_line":2,"recovered":"yes"}
-{"timestamp_utc":"2026-10-01T01:30:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000003-0000-4000-8000-000000000003","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"c3 deleted question","source_file":"/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl","source_line":1,"recovered":"yes"}
-{"timestamp_utc":"2026-10-01T01:31:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000003-0000-4000-8000-000000000003","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.6","tool_name":"","tool_use_id":"","text":"ai code: /srv/proj/calc.py source=composer model=grok-4.6 request=r9","source_file":"/home/alice/.cursor/ai-tracking/ai-code-tracking.db","source_line":2,"recovered":""}
 {"timestamp_utc":"2026-10-01T08:00:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"thread record: aaaaaaaa-bbbb-4ccc-8ddd-000000000006 title=remove the old build artifacts rollout=/home/alice/.codex/sessions/2026/10/01/rollout-2026-10-01T08-00-00-aaaaaaaa-bbbb-4ccc-8ddd-000000000006.jsonl name=cleanup model=gpt-5-codex archived","source_file":"/home/alice/.codex/state_5.sqlite","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T08:00:01.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"task_started turn=t1","source_file":"/home/alice/.codex/thread_history_1.sqlite","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T08:00:02.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"remove the old build artifacts","source_file":"/home/alice/.codex/thread_history_1.sqlite","source_line":6,"recovered":"yes"}
-{"timestamp_utc":"2026-10-01T08:00:03.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"","tool_name":"apply_patch","tool_use_id":"call_9","text":"/srv/proj/build/out.o","source_file":"/home/alice/.codex/thread_history_1.sqlite","source_line":7,"recovered":"yes"}
-{"timestamp_utc":"2026-10-01T08:00:04.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"call_9","text":"completed","source_file":"/home/alice/.codex/thread_history_1.sqlite","source_line":7,"recovered":"yes"}
-{"timestamp_utc":"2026-10-01T08:00:09.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","git_branch":"","turn_type":"assistant","model":"","tool_name":"","tool_use_id":"","text":"Removed build/.","source_file":"/home/alice/.codex/thread_history_1.sqlite","source_line":8,"recovered":"yes"}
-{"timestamp_utc":"2026-10-01T08:00:10.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"task_complete turn=t1 duration_ms=9000","source_file":"/home/alice/.codex/thread_history_1.sqlite","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/work","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: allowedTools=Edit (from .claude-work/.claude.json, file mtime)","source_file":"/home/alice/.claude-work/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: allowedTools=Bash(git status) (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: hasTrustDialogAccepted=true (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: hasClaudeMdExternalIncludesApproved=false (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Bash(npm test:*) (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Read(~/notes/**) (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.deny=Bash(rm -rf:*) (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.ask=WebFetch (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.additionalDirectories=/srv/shared (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.defaultMode=acceptEdits (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.disableBypassPermissionsMode=disable (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"model setting: model=opus (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session start: kind=main projectHash=6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:05.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"list files in src","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:07.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"gemini-2.5-pro","tool_name":"","tool_use_id":"","text":"model: gemini-2.5-pro","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:07.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"assistant","model":"gemini-2.5-pro","tool_name":"","tool_use_id":"","text":"Listing now.","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:07.100Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"gemini-2.5-pro","tool_name":"list_directory","tool_use_id":"list_directory__list_directory_1759309207000_0","text":"ReadFolder: {\"dir_path\":\"/srv/proj/src\"}","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:07.100Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"gemini-2.5-pro","tool_name":"list_directory","tool_use_id":"list_directory__list_directory_1759309207000_0","text":"main.ts\nutil.ts","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:08.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"summary: List src files","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:10.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"delete everything in /srv/proj","source_file":"/home/bob/.gemini/tmp/proj/logs.json","source_line":2,"recovered":"yes"}
-{"timestamp_utc":"2026-10-01T09:00:11.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"rewind to msg-u2: 2 message(s) dropped","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:20.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"show util.ts","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:22.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"assistant","model":"gemini-2.5-pro","tool_name":"","tool_use_id":"","text":"Here is util.ts.","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:22.100Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"gemini-2.5-pro","tool_name":"read_file","tool_use_id":"read_file__read_file_1759309222000_0","text":"ReadFile: {\"file_path\":\"/srv/proj/src/util.ts\"}","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:22.100Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"gemini-2.5-pro","tool_name":"read_file","tool_use_id":"read_file__read_file_1759309222000_0","text":"export const x = 1","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:23.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"info: Request cancelled.","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:24.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"gemini-2.5-flash","tool_name":"","tool_use_id":"","text":"model: gemini-2.5-pro -> gemini-2.5-flash","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:24.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"gemini-2.5-flash","tool_name":"run_shell_command","tool_use_id":"run_shell_command__run_shell_command_1759309224000_0","text":"Shell: {\"command\":\"curl http://x\"}","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:24.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"gemini-2.5-flash","tool_name":"run_shell_command","tool_use_id":"run_shell_command__run_shell_command_1759309224000_0","text":"[cancelled]","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:24.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"gemini-2.5-flash","tool_name":"run_shell_command","tool_use_id":"run_shell_command__run_shell_command_1759309224000_0","text":"permission decision: cancelled","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:30.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"c3d4e5f6-0000-4000-8000-000000000003","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session start: kind=subagent projectHash=6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972","source_file":"/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:00:30.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"c3d4e5f6-0000-4000-8000-000000000003","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"investigate","source_file":"/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:01:00.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-0000000000ff","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"resume work","source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-01T09:59:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session name: Add subtract","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"delete the logs in /var/log please","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.6","tool_name":"","tool_use_id":"","text":"model: grok-4.6","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"grok-4.6","tool_name":"","tool_use_id":"","text":"Add a subtract function","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"subagent abc of 11111111-2222-4333-8444-555555555555","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"subagent task: Find where the logs are rotated.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_01","text":"cd /srv/proj && rm -rf /var/log/*.log","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"By logrotate.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"subagent fork1 of 11111111-2222-4333-8444-555555555555","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"delete the logs in /var/log please","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Agent","tool_use_id":"toolu_f1","text":"Check rotation | Check rotation","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_f1","text":"forked","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"subagent task: <fork-boilerplate>\nYou are a fork.\n</fork-boilerplate>\nCheck the rotation config.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.6","tool_name":"read_file_v2","tool_use_id":"tc1","text":"{\"path\": \"/srv/proj/calc.py\"}","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:02.500Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.6","tool_name":"read_file_v2","tool_use_id":"tc1","text":"{\"contents\": \"def add(a, b): ...\"}","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01","text":"removed 3 files","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:03.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.6","tool_name":"","tool_use_id":"","text":"ai code: /srv/proj/calc.py source=composer model=grok-4.6 request=r1","source_file":"/home/alice/.cursor/ai-tracking/ai-code-tracking.db","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:03.500Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt queued: delivered at line 8","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"also check /tmp","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"edited file: /srv/proj/notes.md","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"hook: PostToolUse:Bash: lint passed","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"Done. Three log files were removed.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:05.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"turn_duration: 4000 ms, 5 messages","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:05.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"assistant","model":"grok-4.6","tool_name":"","tool_use_id":"","text":"Added subtract().","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":5,"recovered":""}
 {"timestamp_utc":"2026-10-01T10:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: <command-name>/model</command-name>\n<command-message>model</command-message>\n<command-args></command-args>","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":14,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"command output: <local-command-stdout>Set model to Fable</local-command-stdout>","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:06.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.6","tool_name":"","tool_use_id":"","text":"conversation summary: Add subtract: Added subtract().","source_file":"/home/alice/.cursor/ai-tracking/ai-code-tracking.db","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:07.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"task notification: <task-notification>\n<task-id>b1</task-id>\n<status>completed</status>\n</task-notification>","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":16,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:07.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=system turnOrigin=-","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":16,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:08.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"ToolSearch","tool_use_id":"toolu_02","text":"select:WebFetch","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":17,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:09.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_02","text":"WebFetch","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":18,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Read","tool_use_id":"toolu_03","text":"/srv/proj/big.log","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":19,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:11.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_03","text":"line 1 of the full output\nline 2 of the full output","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":20,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:12.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Read","tool_use_id":"toolu_04","text":"/srv/proj/gone.log","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":21,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:13.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_04","text":"<persisted-output>\nOutput too large (32.8KB). Full output saved to: /home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/tool-results/f0e1d2c3b.txt\n\nPreview (first 2KB):\nline 1 of the full output\n</persisted-output>\n[persisted output not found: tool-results/f0e1d2c3b.txt]","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":22,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:14.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"api error: 429 rate_limit: API Error: rate limited","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":23,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:15.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"api_error: {\"level\":\"error\",\"maxRetries\":10,\"retryAttempt\":1,\"retryInMs\":500}","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":24,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:16.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"interrupted: [Request interrupted by user]","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":25,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:17.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"compaction summary: This session is being continued from a previous conversation. Summary: logs removed.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":26,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:17.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session title: Remove old logs","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":27,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:17.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session title: log cleanup","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":29,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:18.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"pr-link: https://github.com/x/y/pull/7","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":30,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:19.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj2","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"cwd changed: /srv/proj2","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":32,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:20.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj2","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"thanks","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":33,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:30.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:30.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"rotate the work logs","source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:30.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"model last used: grok-4.7 (from state.vscdb aiSettings.modelLastUsedAt, written late by the app)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:31.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:00:31.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"Rotated.","source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"model: grok-4.6 -> grok-4.7","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"Fetch the page with curl","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"permission decision: run outcome=success approval=user reason=Not in allowlist: curl, head","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"{\"output\": \"ok\"}","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"permission decision: skip outcome=rejected approval=user reason=Not in allowlist: curl, head","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"[rejected] {\"error\": \"skipped\"}","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"permission decision: allowlistCommands outcome=success approval=user reason=Not in allowlist: curl, head allowlisted=curl,head","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"{\"output\": \"ok\"}","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:01:30.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"file deleted by agent: old.py model=grok-4.7","source_file":"/home/alice/.cursor/ai-tracking/ai-code-tracking.db","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:05:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"conversation index: Add subtract source=local archived=0","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/conversation-search.db","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:05:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"cached conversation text (conversation-search.db, source=local): Add a subtract function","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/conversation-search.db","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:06:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scored commit: abc1234 branch=main +4 -0","source_file":"/home/alice/.cursor/ai-tracking/ai-code-tracking.db","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:06:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"source host: github account alice-gh scopes=repo,workflow,user:email,read:user (from state.vscdb key github-alice-gh)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:08:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"mcp oauth attempt: server=https://calendar.mcp.example.test/mcp client_id=client-0123456789abcdef workspace=empty-window (from mcp-oauth-attempts/0000.json)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/mcp-oauth-attempts/0000.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:08:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"mcp server: plugin-calendar-calendar url=https://calendar.mcp.example.test/mcp (from state.vscdb mcpOAuth.global, mcp_oauth_updated_at_ms) tokens=stored (ciphertext, not read)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":18,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:20:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session name: Read the README","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:20:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"model: grok-4.7","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:20:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"What does the README say?","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:20:02.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","git_branch":"","turn_type":"assistant","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"It describes calc.py.","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":14,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:21:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"And the LICENSE?","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-01T10:21:02.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","git_branch":"","turn_type":"assistant","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"There is none.","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":16,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt queued: delivered at line 4","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"claude-code process 4242 interactive status=idle entrypoint=claude-desktop bridge=none host_session=local_f4f4f4f4-9999-4aaa-8bbb-cccccccccccc","source_file":"/home/alice/.claude/sessions/4242.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:00.100Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"queue dequeue:","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: claude-desktop","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"model: grok-4.6 -> grok-4.7","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":6,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"permission decision: run outcome=success approval=user reason=Not in allowlist: curl, head","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"{\"output\": \"ok\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"permission decision: skip outcome=rejected approval=user reason=Not in allowlist: curl, head","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"[rejected] {\"error\": \"skipped\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"permission decision: allowlistCommands outcome=success approval=user reason=Not in allowlist: curl, head allowlisted=curl,head","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"{\"output\": \"ok\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:06:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"source host: github account alice-gh scopes=repo,workflow,user:email,read:user (from state.vscdb key github-alice-gh)","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":4,"recovered":""}
 {"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: auto","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"list the cron jobs","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=sdk turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":5,"recovered":""}
 {"timestamp_utc":"2026-10-01T11:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_95","text":"cd /srv/proj && crontab -l","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":5,"recovered":""}
 {"timestamp_utc":"2026-10-01T11:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_95","text":"0 3 * * * x","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":6,"recovered":""}
 {"timestamp_utc":"2026-10-01T11:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_95","text":"permission decision: allow source=auto_mode reason=classifier","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-01T11:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"stop_hook_summary: {\"hasOutput\":false,\"hookAdditionalContext\":[],\"hookCount\":1,\"hookErrors\":[],\"hookInfos\":[{\"command\":\"true\",\"durationMs\":5}],\"level\":\"suggestion\",\"preventedContinuation\":false,\"stopReason\":\"\",\"toolUseID\":\"toolu_95\"}","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt queued: delivered at line 3","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"queue dequeue:","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-888888888888","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"claude-code process 4343 interactive status=busy entrypoint=cli bridge=cse_0123456789abcdef host_session=none","source_file":"/home/alice/.claude/sessions/4343.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"conversation index: Read the README source=local archived=1","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/conversation-search.db","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"conversation archived","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:00.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: trustedFolders./srv/proj=TRUST_FOLDER (from .gemini/trustedFolders.json, file mtime)","source_file":"/home/bob/.gemini/trustedFolders.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:00.000Z","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"","project_path":"/srv/other","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: trustedFolders./srv/other=TRUST_PARENT (from .gemini/trustedFolders.json, file mtime)","source_file":"/home/bob/.gemini/trustedFolders.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: auto","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"plan the log cleanup","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: sdk-cli","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (Remote Control, entrypoint sdk-cli)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Run ls -la in this folder and tell me what files are here.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=sdk turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"Here is a plan.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":2,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: auto -> plan","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":4,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_r1","text":"ls -la","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":4,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_r1","text":"calc.py\nREADME.md","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":5,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_r1","text":"permission decision: accept source=config reason=subcommandResults","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:05.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"go on","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":5,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: <command-name>/model</command-name>\n<command-message>model</command-message>\n<command-args>opus</command-args>","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:07.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"command output: <local-command-stdout>Set model to `Opus 5.5` and saved as your default for new sessions</local-command-stdout>","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":7,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:08.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1 -> claude-opus-5-5 requested=opus","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:08.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"Switched.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":8,"recovered":""}
 {"timestamp_utc":"2026-10-01T12:00:09.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: plan -> acceptEdits","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:09.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"apply it","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:00:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"Applied.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:30:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"d0000001-0000-4000-8000-000000000001","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"unsent draft: draft not sent","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":18,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:46:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session synced: cursor cloud agent bc-e0000001-0000-4000-8000-000000000001 (vendor copy; from state.vscdb cloudAgentRepository.agents)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:46:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"model: grok-4.7","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:46:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"source host: github.com alice-gh/demo (cloud agent)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:47:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session origin: remote cursor cloud agent","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/conversation-search.db","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:47:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"conversation index: Describe the demo repository source=cloud-cache archived=1","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/conversation-search.db","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:47:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"cached conversation text (conversation-search.db, source=cloud-cache): Describe this repository, change nothing, open no pull request.\nThe repository holds calc.py, a small calculator module.\n  It has no tests.","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/conversation-search.db","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T12:48:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"cloud agent: Describe the demo repository repo=github.com/alice-gh/demo status=2 workflowStatus=2 archived=true killed=false vmStarted=true (from state.vscdb cloudAgentRepository.agents, rowUpdatedAtMs)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:46:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session synced: cursor cloud agent bc-e0000001-0000-4000-8000-000000000001 (vendor copy; from state.vscdb cloudAgentRepository.agents)","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":12,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:47:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session origin: remote cursor cloud agent","source_file":"/home/alice/.config/Cursor/User/globalStorage/conversation-search.db","source_line":10,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (teleport, cloud scratchpad /tmp/claude-0/-home-user-repo/22222222-3333-4444-8555-666666666666/scratchpad)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000003-0000-4000-8000-000000000003","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"conversation deleted (header kept; time is the header's lastUpdatedAt) (isArchived is set by the delete)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":3,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (teleport, remoteSourced)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":2,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: cloud session (teleported: remoteSourced records replayed from the vendor's copy)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":2,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Describe this repository in three sentences.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=sdk turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Run python calc.py 2 3","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":3,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scratch directory: /tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad (session scratchpad, from the environment attachment)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"model: claude-opus-5-5","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":3,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Read","tool_use_id":"toolu_t1","text":"/home/user/repo/README.md","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":3,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_t1","text":"# logsleuth","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":4,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_t1","text":"permission decision: accept source=config reason=rule {\"decision\":\"accept\",\"reasonType\":\"rule\",\"ruleSource\":\"cliArg\",\"source\":\"config\"}","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-sonnet-5-5","tool_name":"","tool_use_id":"","text":"model: claude-sonnet-5-5","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":9,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-sonnet-5-5","tool_name":"PowerShell","tool_use_id":"toolu_309a","text":"python calc.py 2 3","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"stop_hook_summary: {\"hasOutput\":false,\"hookAdditionalContext\":[],\"hookCount\":1,\"hookErrors\":[],\"hookInfos\":[],\"level\":\"info\",\"preventedContinuation\":false,\"stopReason\":\"\",\"toolUseID\":\"\"}","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":5,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_309a","text":"first line of the listing\nsecond line of the listing","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":10,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_309a","text":"permission decision: accept source=user_temporary reason=- {\"decision\":\"accept\",\"grantScope\":\"once\",\"reasonCode\":\"other\",\"source\":\"user_temporary\"}","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:05.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"informational: Session resumed","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":6,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:05.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-sonnet-5-5","tool_name":"PowerShell","tool_use_id":"toolu_309b","text":"python calc.py 5 7","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":11,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_309b","text":"The user doesn't want to proceed with this tool use.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":12,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_309b","text":"permission decision: reject source=user_reject reason=- {\"decision\":\"reject\",\"reasonCode\":\"other\",\"source\":\"user_reject\"} toolDenialKind=user-rejected userFeedback=use the test runner instead","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:07.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"bridge_status: /remote-control is active","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:07.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: bridge session cse_0a1b2c3d4e5f6a7b lastSequenceNum=1","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":14,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:07.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote control bridge cse_0a1b2c3d4e5f6a7b url https://claude.ai/code/session_0a1b2c3d4e5f6a7b","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":14,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:08.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Run python calc.py 3 4","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:08.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=queued turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:08.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: bridge session none lastSequenceNum=4","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":17,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:09.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Say tick in one word","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":18,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:09.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=- turnOrigin=scheduled","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":18,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/private/tmp/claude-501/-srv-proj/11111111-2222-4333-8444-000000000002/scratchpad","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scratch directory: /private/tmp/claude-501/-srv-proj/11111111-2222-4333-8444-000000000002/scratchpad (session scratchpad, from the environment attachment)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Add a subtract function to calc.py","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":19,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=suggestion_accepted turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":19,"recovered":""}
 {"timestamp_utc":"2026-10-01T13:00:11.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default -> auto","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:11.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"In one sentence, what did you do so far?","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:00:11.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session continued in: 11111111-2222-4333-8444-bbbbbbbbbbbb","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":20,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:03:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session origin: remote cursor cloud agent","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:03:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session synced: cursor cloud agent bc-e0000002-0000-4000-8000-000000000002 (vendor copy; from state.vscdb cloudAgentRepository.agents)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:03:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"model: grok-4.7 requested=default","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:03:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"source host: github.com alice-gh/web (cloud agent)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T13:05:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"cloud agent: Summarise the web repository repo=github.com/alice-gh/web status=1 workflowStatus=1 archived=false killed=false vmStarted=false (from state.vscdb cloudAgentRepository.agents, rowUpdatedAtMs)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: approvalMode=allowlist (from .cursor/cli-config.json, file mtime)","source_file":"/home/alice/.cursor/cli-config.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:03:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session origin: remote cursor cloud agent","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:03:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session synced: cursor cloud agent bc-e0000002-0000-4000-8000-000000000002 (vendor copy; from state.vscdb cloudAgentRepository.agents)","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
+{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"toolu_mcp_auth_01\nfc_mcp_auth_01","text":"permission decision: accepted mcp auth for cloud agent bc-e0000001-0000-4000-8000-000000000001 tool_call=toolu_mcp_auth_01\nfc_mcp_auth_01 (from state.vscdb cloudAgentRepository.mcpAuthResolution, file mtime)","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":29,"recovered":""}
 {"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Shell(ls) (from .cursor/cli-config.json, file mtime)","source_file":"/home/alice/.cursor/cli-config.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: sandbox.mode=disabled (from .cursor/cli-config.json, file mtime)","source_file":"/home/alice/.cursor/cli-config.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: allowlists.mcp=github:list_issues (from .cursor/permissions.json, file mtime)","source_file":"/home/alice/.cursor/permissions.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: allowlists.terminal=git status (from .cursor/permissions.json, file mtime)","source_file":"/home/alice/.cursor/permissions.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: approvalMode=allowlist (from .cursor/permissions.json, file mtime)","source_file":"/home/alice/.cursor/permissions.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: allowInstructions=read-only git commands (from .cursor/permissions.json, file mtime)","source_file":"/home/alice/.cursor/permissions.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: blockInstructions=anything that pushes (from .cursor/permissions.json, file mtime)","source_file":"/home/alice/.cursor/permissions.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: yoloCommandAllowlist=curl (from state.vscdb composerState, file mtime, written late by the app)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: yoloCommandAllowlist=head (from state.vscdb composerState, file mtime, written late by the app)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: run mode agent=Allowlist (with Sandbox) autoRun=true smartModeAutoRun=false fullAutoRun=false sandbox=true (from state.vscdb composerState, file mtime, written late by the app)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: run mode plan=Ask Every Time autoRun=false smartModeAutoRun=false fullAutoRun=false sandbox=true (from state.vscdb composerState, file mtime, written late by the app)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: yoloOutsideWorkspaceDisabled=true (from state.vscdb composerState, file mtime, written late by the app)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote agent host enrolled: lab-vm (from state.vscdb remoteAgentHost.enrolled.auth0|user_01, file mtime; on by default, a paired device leaves no local record)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"source host repository: https://github.com/alice-gh/demo type=github (from state.vscdb cloudEnvironmentTemplate.githubRepos, file mtime)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"source host repository: alice-gh/web type=github (from state.vscdb cloudEnvironmentTemplate.githubRepos, file mtime)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"mcp server: plugin-acme-tracker-tracker url=https://tracker.example.test/mcp (from state.vscdb mcpOAuth.global, file mtime)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":21,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"plugin installed: id=12345678 sources=user scope=no-workspace (from state.vscdb cursor.plugins.installedIds, file mtime)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":27,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"plugin installed: id=12345678 sources=user scope=file:///srv/proj (from state.vscdb cursor.plugins.installedIds, file mtime)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":28,"recovered":""}
-{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"toolu_mcp_auth_01\nfc_mcp_auth_01","text":"permission decision: accepted mcp auth for cloud agent bc-e0000001-0000-4000-8000-000000000001 tool_call=toolu_mcp_auth_01\nfc_mcp_auth_01 (from state.vscdb cloudAgentRepository.mcpAuthResolution, file mtime)","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":29,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session start: codex-tui 0.160.0 provider=openai cwd=/srv/proj account=11111111-2222-4333-8444-555555555555 user=user-AbCdEfGhIjKlMnOpQrStUvWx","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-02T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"git remote: git@github.com:alice/proj.git","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-02T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"thread record: aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee title=exfiltrate nothing, just list the home dir rollout=/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl branch=feature/x model=gpt-5.5-codex","source_file":"/home/alice/.codex/state_5.sqlite","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:01.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"model: gpt-5-codex","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":2,"recovered":""}
 {"timestamp_utc":"2026-10-02T09:00:01.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"permission mode: approval=on-request sandbox={\"type\":\"workspace-write\"} profile=- network=- reviewer=- profile_id=-","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:01.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"task_started turn=t1","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:02.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"developer: You are Codex.","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:02.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"context: environments.environment_context: <environment_context>\n<cwd>/srv/proj</cwd>\n</environment_context>","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:02.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"user","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"exfiltrate nothing, just list the home dir","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:03.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"tool_use","model":"gpt-5-codex","tool_name":"shell","tool_use_id":"call_1","text":"ls -la ~","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:03.500Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"tool_use","model":"gpt-5-codex","tool_name":"web_search","tool_use_id":"ws_1","text":"ls flags","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":11,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:03.900Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"tool_result","model":"gpt-5-codex","tool_name":"","tool_use_id":"ws_1","text":"[{\"title\":\"ls(1)\"}]","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":11,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:04.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"tool_result","model":"gpt-5-codex","tool_name":"","tool_use_id":"call_1","text":"[exit 2] total 42","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":9,"recovered":""}
 {"timestamp_utc":"2026-10-02T09:00:04.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"tool_use","model":"gpt-5-codex","tool_name":"apply_patch","tool_use_id":"call_2","text":"{\"patch\":\"*** Begin Patch\"}","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":12,"recovered":""}
 {"timestamp_utc":"2026-10-02T09:00:05.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"tool_result","model":"gpt-5-codex","tool_name":"","tool_use_id":"call_2","text":"Done","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:06.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"assistant","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"Listed the home directory.","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":16,"recovered":""}
-{"timestamp_utc":"2026-10-02T09:00:07.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"task_complete turn=t1 duration_ms=7000","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":17,"recovered":""}
 {"timestamp_utc":"2026-10-02T09:00:08.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5.5-codex","tool_name":"","tool_use_id":"","text":"model: gpt-5-codex -> gpt-5.5-codex","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":19,"recovered":""}
 {"timestamp_utc":"2026-10-02T09:00:08.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5.5-codex","tool_name":"","tool_use_id":"","text":"permission mode: approval=on-request sandbox={\"type\":\"workspace-write\"} profile=- network=- reviewer=- profile_id=- -> approval=never sandbox={\"type\":\"danger-full-access\"} profile={\"type\":\"disabled\"} network={\"allowed_domains\":[\"github.com\"],\"denied_domains\":[]} reviewer=- profile_id=-","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":19,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"aider chat started at 2026-10-02 12:00:00 (local time)","source_file":"/home/alice/.aider.chat.history.md","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"","text":"Aider v0.86.1\nMain model: anthropic/claude-sonnet-4-5 with diff edit format, prompt cache\nWeak model: anthropic/claude-haiku-4-5\nGit repo: .git with 3 files","source_file":"/home/alice/.aider.chat.history.md","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"anthropic/claude-sonnet-4-5","tool_name":"","tool_use_id":"","text":"model: anthropic/claude-sonnet-4-5","source_file":"/home/alice/.aider.chat.history.md","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:00.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"anthropic/claude-haiku-4-5","tool_name":"","tool_use_id":"","text":"model: anthropic/claude-haiku-4-5 (weak model)","source_file":"/home/alice/.aider.chat.history.md","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:05.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"TO LLM: 2 message(s) (SYSTEM 1, USER 1); last user message: rename foo to bar","source_file":"/home/alice/.aider.llm.history","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:05.123Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"rename foo to bar","source_file":"/home/alice/.aider.chat.history.md","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:05.123Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"assistant","model":"","tool_name":"","tool_use_id":"","text":"Here is the change:\n\na.py\n<<<<<<< SEARCH\nfoo\n=======\nbar\n>>>>>>> REPLACE","source_file":"/home/alice/.aider.chat.history.md","source_line":11,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:05.123Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"","text":"Applied edit to a.py\nCommit abc1234 refactor: rename foo to bar\npytest -q\nRun shell command? (Y)es/(N)o/(D)on't ask again [Yes]: n","source_file":"/home/alice/.aider.chat.history.md","source_line":20,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:05.123Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission decision: no (Run shell command?) answer=n default=Yes; may be automatic (--yes-always)","source_file":"/home/alice/.aider.chat.history.md","source_line":23,"recovered":""}
-{"timestamp_utc":"2026-10-02T12:00:09.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","git_branch":"","turn_type":"assistant","model":"","tool_name":"","tool_use_id":"","text":"Here is the change:\n\na.py","source_file":"/home/alice/.aider.llm.history","source_line":7,"recovered":"yes"}
-{"timestamp_utc":"2026-10-02T13:00:00.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"aider chat started at 2026-10-02 13:00:00 (local time)","source_file":"/home/alice/.aider.chat.history.md","source_line":25,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:00.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"","text":"Aider v0.86.1\nModel: gpt-4o with diff edit format\nGit repo: .git with 3 files","source_file":"/home/alice/.aider.chat.history.md","source_line":27,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:00.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"gpt-4o","tool_name":"","tool_use_id":"","text":"model: gpt-4o","source_file":"/home/alice/.aider.chat.history.md","source_line":28,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"/add b.py","source_file":"/home/alice/.aider.chat.history.md","source_line":31,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"","text":"Added b.py to the chat","source_file":"/home/alice/.aider.chat.history.md","source_line":32,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"<blank>","source_file":"/home/alice/.aider.chat.history.md","source_line":34,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"/model claude-opus-4-5","source_file":"/home/alice/.aider.chat.history.md","source_line":36,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"","text":"Aider v0.86.1\nMain model: claude-opus-4-5 with architect edit format\nEditor model: claude-sonnet-4-5 with editor-diff edit format\nWeak model: claude-haiku-4-5\nGit repo: .git with 3 files\nhttps://example.com/doc\nAdd URL to the chat? (Y)es/(N)o/(A)ll/(S)kip all/(D)on't ask again [Yes]: d","source_file":"/home/alice/.aider.chat.history.md","source_line":37,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"claude-opus-4-5","tool_name":"","tool_use_id":"","text":"model: gpt-4o -> claude-opus-4-5","source_file":"/home/alice/.aider.chat.history.md","source_line":38,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"claude-sonnet-4-5","tool_name":"","tool_use_id":"","text":"model: claude-sonnet-4-5 (editor model)","source_file":"/home/alice/.aider.chat.history.md","source_line":39,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"claude-haiku-4-5","tool_name":"","tool_use_id":"","text":"model: gpt-4o -> claude-haiku-4-5 (weak model)","source_file":"/home/alice/.aider.chat.history.md","source_line":40,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission decision: no, don't ask again (Add URL to the chat?) answer=d default=Yes","source_file":"/home/alice/.aider.chat.history.md","source_line":43,"recovered":""}
-{"timestamp_utc":"2026-10-02T13:05:00.000Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"delete the migrations folder","source_file":"/home/alice/.aider.input.history","source_line":8,"recovered":"yes"}
 {"timestamp_utc":"2026-10-07T10:00:00.250Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: feedback report uploaded to Sentry, attachments 2 failed false (from logs_2.sqlite logs, ts)","source_file":"/home/alice/.codex/logs_2.sqlite","source_line":3,"recovered":""}
 {"timestamp_utc":"2026-10-07T10:01:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: feedback report uploaded to Sentry, attachments 0 failed false (from logs_2.sqlite logs, ts)","source_file":"/home/alice/.codex/logs_2.sqlite","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-14T15:25:52.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scheduled task: check-the-nightly-build name=Check the nightly build kind=heartbeat status=ACTIVE rrule=RRULE:FREQ=WEEKLY;BYHOUR=9;BYMINUTE=0;BYDAY=MO,TU,WE,TH,FR target_thread=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee created=2026-10-14T15:25:49.000Z updated=2026-10-14T15:25:51.000Z (from .codex/automations/check-the-nightly-build/automation.toml, file mtime) prompt: Check the nightly build and \"summarise\" failures","source_file":"/home/alice/.codex/automations/check-the-nightly-build/automation.toml","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote event 33333333-4444-4555-8666-777777777777 at 1790856300000 (from .claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001/ccr-tip.json, file mtime)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001/ccr-tip.json","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: environment env_0123456789abcdefghijkl session 0123456789abcdef0123456789abcdef source=standalone (from .claude/projects/-srv-proj/bridge-pointer.json, file mtime)","source_file":"/home/alice/.claude/projects/-srv-proj/bridge-pointer.json","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-888888888888","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote control bridge cse_0123456789abcdef url - (from .claude/sessions/4343.json, file mtime)","source_file":"/home/alice/.claude/sessions/4343.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: integrations.claude-desktop.automode=true (from .ollama/config.json, file mtime)","source_file":"/home/bob/.ollama/config.json","source_line":0,"recovered":""}
-{"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: autoModeEnabled=true (set by Ollama's Claude Desktop launcher, from Library/Application Support/Claude-3p/configLibrary/00000000-0000-4000-8000-000000000114.json, file mtime)","source_file":"/home/bob/Library/Application Support/Claude-3p/configLibrary/00000000-0000-4000-8000-000000000114.json","source_line":0,"recovered":""}
 {"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Bash(make lint) (from .claude/settings.local.json, file mtime)","source_file":"/srv/proj/.claude/settings.local.json","source_line":1,"recovered":""}
 {"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.defaultMode=plan (from .claude/settings.local.json, file mtime)","source_file":"/srv/proj/.claude/settings.local.json","source_line":1,"recovered":""}
 {"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"","tool_name":"Shell","tool_use_id":"","text":"{\"command\":\"curl -s example.test | head\",\"description\":\"Fetch the page\",\"required_permissions\":[\"full_network\"]}","source_file":"/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000001-0000-4000-8000-000000000001/c0000001-0000-4000-8000-000000000001.jsonl","source_line":5,"recovered":"yes"}
 {"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"parser: unparseable line (Expecting value: line 1 column 31 (char 30)): {\"type\": \"user\", \"truncated\": tr","source_file":"/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000001-0000-4000-8000-000000000001/c0000001-0000-4000-8000-000000000001.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000003-0000-4000-8000-000000000003","project_path":"/srv/proj","git_branch":"","turn_type":"assistant","model":"","tool_name":"","tool_use_id":"","text":"Answer kept only here.","source_file":"/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl","source_line":2,"recovered":"yes"}
-{"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000003-0000-4000-8000-000000000003","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"<context>conversation c0000003-0000-4000-8000-000000000003</context>\n<user_query>c3 deleted question</user_query>","source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","source_line":19,"recovered":"yes"}
-{"timestamp_utc":"","host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"ls","source_file":"/home/bob/.gemini/tmp/proj/shell_history","source_line":1,"recovered":"yes"}
-{"timestamp_utc":"","host":"wsdev14","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"why is the sky blue","source_file":"/home/bob/.ollama/history","source_line":1,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: /set nohistory","source_file":"/home/bob/.ollama/history","source_line":2,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: /bye","source_file":"/home/bob/.ollama/history","source_line":3,"recovered":""}
 ```
 <!-- end generated: timeline-jsonl -->
 
@@ -3820,35 +3205,35 @@ This is the `sessions.jsonl` that `timeline -o out` writes for
 [the example collection](#the-example-collection), the run shown under
 [timeline](#timeline): one record per session of every parsed agent.
 The Remote Control spawn and the teleported session read `synced` `yes`
-and `origin` `remote`; the session bound to Remote Control reads
-`synced` `yes` but `origin` `local`, since it began on this host; the
-session known only from alice's prompt history reads `recovered` `yes`,
-and a session some of whose turns come from a secondary source reads
-`partial`. The settings rows have no `session_id`, so they belong to no
+and `origin` `remote`; the session bound to Remote Control and the one
+whose process the registry file names read `synced` `yes` but `origin`
+`local`, since they began on this host; the sessions whose every turn
+comes from a secondary source, among them the one known only from
+alice's prompt history, read `recovered` `yes`, and those some of whose
+turns do read `partial`. The settings rows have no `session_id`, so they belong to no
 session:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: sessions-jsonl -->
 ```json
-{"host":"wsdev14","user":"bob","agent":"ollama","session_id":"0190a000-0000-7000-8000-00000000c001","project_path":"","first_timestamp_utc":"2026-03-01T17:00:00.500Z","last_timestamp_utc":"2026-03-01T17:00:04.125Z","models":["gemma4:e4b","qwen3:8b"],"user_turns":2,"assistant_turns":2,"tool_calls":2,"source_file":"/home/bob/AppData/Local/Ollama/db.sqlite","synced":"","relayed":"","origin":"","recovered":""}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99999999-0000-4000-8000-000000000000","project_path":"/srv/old","first_timestamp_utc":"2026-09-30T10:00:00.000Z","last_timestamp_utc":"2026-09-30T10:00:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/history.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
 {"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000003-0000-4000-8000-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T01:30:00.000Z","last_timestamp_utc":"2026-10-01T13:00:00.000Z","models":["grok-4.6"],"user_turns":2,"assistant_turns":1,"tool_calls":0,"source_file":"/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
 {"host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T08:00:00.000Z","last_timestamp_utc":"2026-10-01T08:00:10.000Z","models":[],"user_turns":1,"assistant_turns":1,"tool_calls":1,"source_file":"/home/alice/.codex/thread_history_1.sqlite","synced":"no","relayed":"","origin":"","recovered":"yes"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:00.000Z","last_timestamp_utc":"2026-10-01T09:00:24.000Z","models":["gemini-2.5-pro","gemini-2.5-flash"],"user_turns":3,"assistant_turns":2,"tool_calls":3,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"partial"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"c3d4e5f6-0000-4000-8000-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:30.000Z","last_timestamp_utc":"2026-10-01T09:00:30.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-0000000000ff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:01:00.000Z","last_timestamp_utc":"2026-10-01T09:01:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
-{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:59:00.000Z","last_timestamp_utc":"2026-10-01T10:05:00.000Z","models":["grok-4.6","grok-4.7"],"user_turns":2,"assistant_turns":1,"tool_calls":5,"source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"partial"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:59:00.000Z","last_timestamp_utc":"2026-10-01T10:05:00.000Z","models":["grok-4.6","grok-4.7"],"user_turns":2,"assistant_turns":1,"tool_calls":5,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"partial"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:00.000Z","last_timestamp_utc":"2026-10-01T10:00:20.000Z","models":["claude-fable-5-1"],"user_turns":4,"assistant_turns":2,"tool_calls":5,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:30.000Z","last_timestamp_utc":"2026-10-01T10:00:31.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":1,"tool_calls":0,"source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
-{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:20:00.000Z","last_timestamp_utc":"2026-10-01T12:00:00.000Z","models":["grok-4.7"],"user_turns":2,"assistant_turns":2,"tool_calls":0,"source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:20:00.000Z","last_timestamp_utc":"2026-10-01T12:00:00.000Z","models":["grok-4.7"],"user_turns":2,"assistant_turns":2,"tool_calls":0,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:00.000Z","last_timestamp_utc":"2026-10-01T11:00:04.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-888888888888","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:00.000Z","last_timestamp_utc":"2026-10-15T15:56:10.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/sessions/4343.json","synced":"yes","relayed":"","origin":"local","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:00.000Z","last_timestamp_utc":"2026-10-15T15:56:10.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:01.000Z","last_timestamp_utc":"2026-10-01T12:00:10.000Z","models":["claude-fable-5-1","claude-opus-5-5"],"user_turns":3,"assistant_turns":3,"tool_calls":0,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
-{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"d0000001-0000-4000-8000-000000000001","project_path":"","first_timestamp_utc":"2026-10-01T12:30:00.000Z","last_timestamp_utc":"2026-10-01T12:30:00.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"no"}
-{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","first_timestamp_utc":"2026-10-01T12:46:40.000Z","last_timestamp_utc":"2026-10-01T14:00:00.000Z","models":["grok-4.7"],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"d0000001-0000-4000-8000-000000000001","project_path":"","first_timestamp_utc":"2026-10-01T12:30:00.000Z","last_timestamp_utc":"2026-10-01T12:30:00.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","first_timestamp_utc":"2026-10-01T12:46:40.000Z","last_timestamp_utc":"2026-10-01T14:00:00.000Z","models":["grok-4.7"],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T13:00:00.000Z","last_timestamp_utc":"2026-10-01T13:00:11.000Z","models":["claude-opus-5-5"],"user_turns":2,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T13:00:01.000Z","last_timestamp_utc":"2026-10-01T13:00:11.000Z","models":["claude-sonnet-5-5"],"user_turns":4,"assistant_turns":0,"tool_calls":2,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","synced":"yes","relayed":"","origin":"local","recovered":"no"}
-{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","first_timestamp_utc":"2026-10-01T13:03:20.000Z","last_timestamp_utc":"2026-10-01T13:05:20.000Z","models":["grok-4.7"],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/Library/Application Support/Cursor/User/globalStorage/state.vscdb","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","first_timestamp_utc":"2026-10-01T13:03:20.000Z","last_timestamp_utc":"2026-10-01T13:05:20.000Z","models":["grok-4.7"],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","first_timestamp_utc":"2026-10-02T09:00:00.000Z","last_timestamp_utc":"2026-10-14T15:25:52.000Z","models":["gpt-5-codex","gpt-5.5-codex"],"user_turns":1,"assistant_turns":1,"tool_calls":3,"source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","synced":"yes","relayed":"","origin":"","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","first_timestamp_utc":"2026-10-02T12:00:00.000Z","last_timestamp_utc":"2026-10-02T12:00:09.000Z","models":["anthropic/claude-sonnet-4-5","anthropic/claude-haiku-4-5"],"user_turns":1,"assistant_turns":2,"tool_calls":0,"source_file":"/home/alice/.aider.chat.history.md","synced":"","relayed":"","origin":"","recovered":"partial"}
 {"host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","first_timestamp_utc":"2026-10-02T13:00:00.000Z","last_timestamp_utc":"2026-10-02T13:05:00.000Z","models":["gpt-4o","claude-opus-4-5","claude-sonnet-4-5","claude-haiku-4-5"],"user_turns":4,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.aider.chat.history.md","synced":"","relayed":"","origin":"","recovered":"partial"}

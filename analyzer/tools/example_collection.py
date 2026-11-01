@@ -4,10 +4,12 @@
 The agent files are the analyzer's test fixtures: each user's home is written by the
 `HOME_BUILDERS` entries of `analyzer/tests/fixtures/`, then its `EXAMPLE_BUILDERS` entries, whose
 module is one of that user's fixture modules in `USER_AGENTS`, in their registry order, and
-`/srv/proj` by `build_git_repo` and `claude_project_local_settings`. A change to a builder
-therefore shows in the examples, and `tools/check_fixture_schema.py`, which runs `build_home`,
-covers the records of the `HOME_BUILDERS` entries. Amp has no parser and so no fixture; its one
-settings file is written here.
+`/srv/proj` by `build_git_repo` and `claude_project_local_settings`. A home keeps only its Linux
+trees (`LINUX_PLACES`, `OTHER_PLATFORM_TREES`), and the collector version is that of
+`collectors/collect-agent-artifacts.sh`. A change to a builder therefore shows in the examples,
+and `tools/check_fixture_schema.py`, which runs `build_home` and then the `EXAMPLE_BUILDERS`
+entries, covers their records. Amp has no parser and so no fixture; its one settings file is
+written here.
 
 The rest is this module's: the walk that turns the built trees into manifest rows the way the sh
 collector would (catalog entries in order, `EXCLUDES` as `skipped_excluded` rows, `SECRET_GLOBS`
@@ -30,6 +32,8 @@ import hashlib
 import importlib
 import json
 import os
+import re
+import shutil
 import sys
 import tempfile
 import time
@@ -52,7 +56,8 @@ from doubleagent import catalog as catalog_tables  # noqa: E402
 fixtures = importlib.import_module("fixtures")
 
 HOST = "wsdev14"
-COLLECTOR_VERSION = "1.19.0"
+# The collector of this repository, whose tables the walk applies through the bundled catalog.
+COLLECTOR = ANALYZER.parent / "collectors" / "collect-agent-artifacts.sh"
 UIDS = {"alice": 1000, "bob": 1001}
 # The developers' shared group that owns `/srv/proj`, so both users write to it.
 PROJECT_GID = 1002
@@ -99,6 +104,19 @@ SCANNED_HOMES = [
     ("bob", HOMES["bob"]),
 ]
 CATALOG = catalog_tables.load()
+# A Linux home holds no macOS `Library` or Windows `AppData` tree, which the fixtures write because
+# they cover every platform: a tree the agent also keeps on Linux moves to its Linux place, and the
+# rest are left out.
+LINUX_PLACES = {"Library/Application Support/Cursor": ".config/Cursor"}
+OTHER_PLATFORM_TREES = ("Library", "AppData")
+
+
+def collector_version() -> str:
+    """Return the `VERSION=` of the repository's sh collector, the one the tables come from."""
+    match = re.search(r'^VERSION="([^"]+)"$', COLLECTOR.read_text(encoding="utf-8"), re.M)
+    if match is None:
+        raise ValueError("%s has no VERSION= line" % COLLECTOR)
+    return match.group(1)
 
 
 def epoch(clock: str) -> int:
@@ -139,6 +157,12 @@ def build_trees(work: Path) -> dict[str, Path]:
         for builder, directory in fixtures.HOME_BUILDERS + fixtures.EXAMPLE_BUILDERS:
             if any(builder.__module__ == modules[name].__name__ for name in names):
                 builder(home / directory)
+        for source, target in LINUX_PLACES.items():
+            if (home / source).is_dir():
+                (home / target).parent.mkdir(parents=True, exist_ok=True)
+                os.rename(home / source, home / target)
+        for tree in OTHER_PLATFORM_TREES:
+            shutil.rmtree(home / tree, ignore_errors=True)
         bases[HOMES[user]] = home
     amp = work / "alice/.config/amp/settings.json"
     amp.parent.mkdir(parents=True, exist_ok=True)
@@ -218,7 +242,7 @@ def files(work: Path) -> tuple[list[FileEntry], list[str]]:
     rows: list[FileEntry] = []
     log = [
         "%s %s starting on %s (Linux 6.8.0-45-generic) mode=live root=/ uid=0"
-        % ("collect-agent-artifacts", COLLECTOR_VERSION, HOST),
+        % ("collect-agent-artifacts", collector_version(), HOST),
         "hash=sha256sum stat=gnu max_file_size=256MB full=0 no_secrets=0 no_docker=0"
         " worker_sh=dash",
     ]
@@ -295,7 +319,7 @@ def summary(rows: list[dict]) -> dict:
     users = [name for name, home in SCANNED_HOMES if any(row["home"] == home for row in rows)]
     return {
         "tool": "collect-agent-artifacts",
-        "version": COLLECTOR_VERSION,
+        "version": collector_version(),
         "hostname": HOST,
         "mode": "live",
         "root": "/",

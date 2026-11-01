@@ -1,4 +1,9 @@
-"""Synthetic Claude Code state for the analyzer tests."""
+"""Synthetic Claude Code state for the analyzer tests.
+
+Paths: `/tmp/claude-0/-home-user-repo/22222222-3333-4444-8555-666666666666/scratchpad`
+       `/private/tmp/claude-501/-srv-proj/11111111-2222-4333-8444-000000000002/scratchpad`
+       (the teleported session's cloud and local scratchpads).
+"""
 
 from __future__ import annotations
 
