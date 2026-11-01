@@ -54,8 +54,8 @@ analyzer/
   tests/                       pytest suite with synthetic fixtures; tests/run.sh
   tools/                       development tools: shape.py (shapes of a real install),
                                proto_descriptors.py (protobuf schemas of a binary),
-                               example_collection.py (the synthetic collection of
-                               the docs/output.md examples), regenerate_examples.py
+                               example_collection.py (the docs/output.md examples'
+                               collection, from the fixture builders), regenerate_examples.py
                                (rewrites those generated examples)
   pyproject.toml               installable as the doubleagent command
   requirements.txt             third-party dependencies (python-dateutil;

@@ -162,7 +162,7 @@ def test_example_collection_shows_every_documented_row_form():
         "a slash command": starts("slash command: "),
         "an empty timestamp": lambda row: row["timestamp_utc"] == "",
         "a multi-line text": lambda row: "\n" in row["text"],
-        "an Edit call": lambda row: row["tool_name"] == "Edit",
+        "a file edit call": lambda row: row["tool_name"] in ("Edit", "apply_patch"),
     }
     for case, test in row_cases.items():
         assert any(test(row) for row in rows), "no timeline row shows " + case
@@ -181,11 +181,6 @@ def test_example_collection_shows_every_documented_row_form():
     assert "\nnote:" in stdout and "\nproblem:" in stdout
     dropped = re.search(r"\ndropped: +(\d+) duplicate rows", stdout)
     assert dropped and int(dropped.group(1)) > 0, stdout
-
-
-def test_example_paste_is_long_enough_for_the_paste_cache():
-    """Claude Code keeps a paste's text in `paste-cache/` only above 1,024 characters."""
-    assert len(collection.CI_FAILURE) > 1024
 
 
 def test_example_collection_builds_on_disk(tmp_path):

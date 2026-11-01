@@ -159,13 +159,21 @@ by hand. `example_collection.py` and `regenerate_examples.py` under
 `example_collection.py` builds the synthetic collection that
 [The example collection](output.md#the-example-collection) describes:
 host `wsdev14`, the users `alice` and `bob` and the repository
-`/srv/proj`, with fixed times and ids. No collector gathered it: the
-module writes its `collection.json` and `manifest.jsonl` in the
-collector's documented shape, and every file's contents are invented,
-in the record shapes of the test fixtures and the research documents'
-samples, built from real installs (Claude Code 2.1.310 on Linux and
-macOS, Codex CLI 0.162.1 on Linux) and the agents' source.
-To write it to disk, give it an empty directory; it writes
+`/srv/proj`. No collector gathered it. The agents' files are written by
+the test fixtures under `tests/fixtures/`: for each user, the
+`HOME_BUILDERS` entries, then the `EXAMPLE_BUILDERS` entries, of the
+fixture modules `USER_AGENTS` names for that user, and the project's
+`.git/` files and settings, so a change to one of those builders shows
+in the examples. `tools/check_fixture_schema.py` checks the records of
+the `HOME_BUILDERS` entries, which `build_home` also runs, and not those
+of `EXAMPLE_BUILDERS`. The module itself walks the built trees
+in catalog order into manifest rows, with the `EXCLUDES` and
+`SECRET_GLOBS` lines of the bundled catalog, writes `collection.json`
+and `collector.log` in the collector's documented shape, and adds what
+the fixtures do not hold: an Amp settings file, two excluded directories
+with a used install's sizes, a cut manifest row and a file missing from
+`fs/`. A file whose builder sets no modification time is given a fixed
+one, so every run writes the same collection. To write it to disk, give it an empty directory; it writes
 `<directory>/wsdev14/` with `collection.json`, `manifest.jsonl`,
 `collector.log` and `fs/`. From the repository root:
 
@@ -203,8 +211,9 @@ so its target is rewritten.
 `tests/test_examples.py` fails on a stale block and on each of these
 errors. A change that shows in the collection's output leaves the suite
 failing until the script is run, such as a change to the rows of the
-`claude-code`, `codex-cli`, `aider`, `ollama`, `cursor` or `gemini-cli`
-parsers, to the lines `detect` or `timeline` prints, to the keys of
+`claude-code`, `claude-desktop`, `codex-cli`, `aider`, `ollama`,
+`cursor` or `gemini-cli` parsers or to their fixture builders, to the
+lines `detect` or `timeline` prints, to the keys of
 `detect --json` or `inventory.json`, to `example_collection.py` itself,
 or a `VERSION` bump, since `inventory.json` names the analyzer version.
 The prose around each example says what to notice in it, and is written
