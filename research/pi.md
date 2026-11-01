@@ -330,7 +330,7 @@ Copied, not made by pi, and large:
 - `.pi/server/*.sock`: the Unix sockets older builds' experimental server left in `~/.pi/server`,
   `<server id>.sock`, `control-<server id>.sock` and `server-<server id>-<nonce>.sock`
   ([packages/client/src/unix.ts:16](https://github.com/earendil-works/pi/blob/200387122ca450d6387f033949423114a270b96c/packages/client/src/unix.ts#L16);
-  [experimental/server.ts:582-584](https://github.com/earendil-works/pi/blob/200387122ca450d6387f033949423114a270b96c/packages/coding-agent/src/experimental/server.ts#L582-L584)),
+  [experimental/server.ts:582-585](https://github.com/earendil-works/pi/blob/200387122ca450d6387f033949423114a270b96c/packages/coding-agent/src/experimental/server.ts#L582-L585)),
   which cannot be copied.
 
 Session files stay whole: images
