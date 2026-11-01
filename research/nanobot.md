@@ -968,8 +968,11 @@ one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the 
 one that is not a SQLite database is `parser: not a SQLite database`, each with the workspace's
 project path.
 
-A JSONL file that cannot be read is one whole-file row `parser: <file> could not be read (<reason>)`
-through `error_rows`, `<file>` its name.
+A JSONL file, the CLI history, `config.json`, `pairing.json`, the WebUI index or a run record that
+cannot be read is one whole-file row `parser: <file> could not be read (<reason>)` through
+`error_rows`, `<file>` its name. A `.workspace` marker that exists but cannot be read gives the same
+row, naming `.workspace`, at the session JSONL, database or WebUI transcript that reads it, and that
+file's rows have no project path.
 
 #### Fixtures
 

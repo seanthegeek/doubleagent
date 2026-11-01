@@ -42,7 +42,9 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
+    iter_lines,
     line_text,
     setting_value,
     track_change,
@@ -242,33 +244,39 @@ class OllamaParser(Parser):
     def _parse_history(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one `user` or `slash command:` row per line of `.ollama/history`."""
         errors: list = []
-        with open(artifact.disk_path, "rb") as handle:
-            for line_number, raw in enumerate(handle, 1):
-                if not raw.strip():
-                    continue
-                try:
-                    line = raw.decode("utf-8").strip(ASCII_WHITESPACE)
-                except UnicodeDecodeError as error:
-                    errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
-                    continue
-                if not line:
-                    continue
-                row = self._row(artifact, line_number)
-                if line.startswith("/"):
-                    row.turn_type = "system"
-                    row.text = "slash command: " + line
-                else:
-                    row.turn_type = "user"
-                    row.text = line
-                yield row
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            if not raw.strip():
+                continue
+            try:
+                line = raw.decode("utf-8").strip(ASCII_WHITESPACE)
+            except UnicodeDecodeError as error:
+                errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
+                continue
+            if not line:
+                continue
+            row = self._row(artifact, line_number)
+            if line.startswith("/"):
+                row.turn_type = "system"
+                row.text = "slash command: " + line
+            else:
+                row.turn_type = "user"
+                row.text = line
+            yield row
         yield from error_rows(self, artifact, errors)
 
     # -- standing permissions -------------------------------------------------------------
     def _read_object(self, artifact: Artifact) -> tuple[dict | None, str]:
-        """Return (JSON object, problem) of a settings file, the problem a `parser:` text."""
+        """Return (JSON object, problem) of a settings file, the problem a `parser:` text.
+
+        The problem of a file that cannot be read is `unreadable_message`'s (`file_bytes`).
+        """
+        read_errors: list = []
+        content = file_bytes(artifact.disk_path, read_errors)
+        if content is None:
+            return None, "parser: %s" % read_errors[0][1]
         try:
-            document = json.loads(artifact.disk_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, ValueError) as error:
+            document = json.loads(content.decode("utf-8"))
+        except ValueError as error:
             return None, "parser: %s is not readable JSON (%s)" % (artifact.rel, error)
         if not isinstance(document, dict):
             return None, "parser: %s is not a JSON object" % artifact.rel

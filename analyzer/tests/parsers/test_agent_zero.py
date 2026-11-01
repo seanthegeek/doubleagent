@@ -2,6 +2,9 @@
 
 import json
 import os
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.inputs import open_input
 from doubleagent.parsers import Options
@@ -739,3 +742,39 @@ class AgentZeroTests(ParserBase):
         self.assertEqual(
             {(row.user, row.session_id) for row in rows}, {("docker", AGENT_ZERO_CHAT)}
         )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_message_file_is_a_row_of_the_chat(self):
+        parser = AgentZeroParser()
+        target = AGENT_ZERO_REL
+        others = [
+            artifact
+            for artifact in self.col.artifacts
+            if parser.wants(artifact) and artifact.rel != target
+        ]
+        locked = self.home / (AGENT_ZERO_REL.rsplit("/", 1)[0] + "/messages/1.txt")
+        locked.chmod(0)
+        try:
+            rows = self.rows_for(parser, target)
+            later = [row for artifact in others for row in parser.parse(artifact, Options())]
+        finally:
+            locked.chmod(0o600)
+        reported = [row for row in rows if row.text.startswith("parser:")]
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in reported
+            ],
+            [
+                (
+                    "system",
+                    "parser: %s could not be read (Permission denied)" % locked.name,
+                    0,
+                    "",
+                    AGENT_ZERO_CHAT,
+                )
+            ],
+        )
+        self.assertEqual(reported[0].project_path, "/a0/usr/projects/demo")
+        self.assertGreater(len(rows), 1)
+        self.assertTrue(any(not row.text.startswith("parser:") for row in later))

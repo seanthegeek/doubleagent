@@ -3,7 +3,10 @@
 import io
 import json
 import sqlite3
+import unittest
 from pathlib import Path
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.parsers import Options
@@ -1100,3 +1103,42 @@ class OpenClawTests(ParserBase):
             rows[-1].text.endswith("text withheld, it holds the approvals socket token)")
         )
         self.assertFalse([row for row in rows if OPENCLAW_SOCKET_TOKEN in row.text])
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_session_archive_is_one_row(self):
+        parser = OpenClawParser()
+        target = (
+            ".openclaw/agents/main/sessions/%s.jsonl.deleted.2026-10-02T08-00-00.000Z.zst"
+            % OPENCLAW_DELETED
+        )
+        others = [
+            artifact
+            for artifact in self.col.artifacts
+            if parser.wants(artifact) and artifact.rel != target
+        ]
+        locked = self.home / target
+        locked.chmod(0)
+        try:
+            rows = self.rows_for(parser, target)
+            later = [row for artifact in others for row in parser.parse(artifact, Options())]
+        finally:
+            locked.chmod(0o600)
+        reported = [row for row in rows if row.text.startswith("parser:")]
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in reported
+            ],
+            [
+                (
+                    "system",
+                    "parser: %s could not be read (Permission denied)" % locked.name,
+                    0,
+                    "",
+                    OPENCLAW_DELETED,
+                )
+            ],
+        )
+        self.assertEqual(reported[0].project_path, "")
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(any(not row.text.startswith("parser:") for row in later))

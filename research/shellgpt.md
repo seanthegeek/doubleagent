@@ -439,7 +439,9 @@ for the truncation. The parser yields no deletion rows.
 A truncated array yields the messages before the cut and one `system` row. A line of `.sgptrc`
 with no `=` yields `parser: unparseable line <n> (no "=" separator; not shown, the file holds the
 API key)`, the line itself left out because the file holds the key; the other lines are still
-read. The response cache is one text per file with nothing to cut.
+read. The response cache is one text per file with nothing to cut. A chat file, `.sgptrc` or
+response cache file that cannot be read is one row `parser: <file> could not be read (<reason>)`,
+`<file>` its name, the chat file's row carrying its session id.
 
 #### Fixtures
 

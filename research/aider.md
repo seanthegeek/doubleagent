@@ -466,6 +466,11 @@ A non-blank input-history or LLM-history line that fits neither format is its ow
 carrying the line in full (`error_rows`); the chat history's markdown has no line that fails to
 parse, since every line is a header, a prompt, a blockquote or assistant text.
 
+Each of the three files that cannot be read, or fails while being read, is one row
+`parser: <file> could not be read (<reason>)`, `<file>` its name, after the rows of the lines read
+before the failure. The chat history and input history read beside another file, for its session
+ids and prompt times, give no row there; their own rows report them.
+
 #### Fixtures
 
 Fixture `.aider.chat.history.md`:

@@ -47,8 +47,10 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
+    iter_lines,
     line_text,
     setting_value,
     text_of,
@@ -192,37 +194,37 @@ def permission_entries(path, errors: list) -> Iterator[tuple[int, str, str, str]
     `serde_yaml` writes a map from category (`user`, `smart_approve`) to `always_allow`,
     `ask_before` and `never_allow`, each a block list of tool names or `[]`
     (config/permission.rs:18-44, 257-275 at aaif-goose/goose b23d21c). Only that nesting is read:
-    any other line is appended to `errors` as (line, message, raw), as `iter_jsonl` does.
+    any other line is appended to `errors` as (line, message, raw), as `iter_jsonl` does, and a
+    file that cannot be read as its unreadable entry (`iter_lines`).
     """
     category = level = ""
-    with open(path, "rb") as handle:
-        for line_number, raw in enumerate(handle, 1):
-            text = without_terminator(raw.decode("utf-8", errors="replace"))
-            body = text.strip(SPACE_OR_TAB)
-            if not body or body.startswith("#") or body in ("---", "{}"):
+    for line_number, raw in iter_lines(path, errors):
+        text = without_terminator(raw.decode("utf-8", errors="replace"))
+        body = text.strip(SPACE_OR_TAB)
+        if not body or body.startswith("#") or body in ("---", "{}"):
+            continue
+        indent = len(text) - len(text.lstrip(" "))
+        if body.startswith("- ") or body == "-":
+            tool = _unquote(body[1:].strip(SPACE_OR_TAB))
+            if category and level and tool:
+                yield line_number, category, level, tool
                 continue
-            indent = len(text) - len(text.lstrip(" "))
-            if body.startswith("- ") or body == "-":
-                tool = _unquote(body[1:].strip(SPACE_OR_TAB))
-                if category and level and tool:
-                    yield line_number, category, level, tool
-                    continue
-            elif body.endswith(":") and indent == 0:
-                category, level = _unquote(body[:-1].strip(SPACE_OR_TAB)), ""
+        elif body.endswith(":") and indent == 0:
+            category, level = _unquote(body[:-1].strip(SPACE_OR_TAB)), ""
+            continue
+        elif indent > 0 and category:
+            key, separator, value = body.partition(":")
+            key = key.strip(SPACE_OR_TAB)
+            if separator and value.strip(SPACE_OR_TAB) in ("", "[]") and key:
+                level = _unquote(key)
                 continue
-            elif indent > 0 and category:
-                key, separator, value = body.partition(":")
-                key = key.strip(SPACE_OR_TAB)
-                if separator and value.strip(SPACE_OR_TAB) in ("", "[]") and key:
-                    level = _unquote(key)
-                    continue
-            errors.append(
-                (
-                    line_number,
-                    "unparseable line (not a category, level or list item)",
-                    line_text(raw),
-                )
+        errors.append(
+            (
+                line_number,
+                "unparseable line (not a category, level or list item)",
+                line_text(raw),
             )
+        )
 
 
 def _audience(block: dict):
@@ -836,12 +838,16 @@ class GooseParser(Parser):
         row.text = compact(text)
         return row
 
-    def _read_json_file(self, artifact: Artifact) -> tuple[object, str]:
-        """Return (document, error message) of a whole-file JSON store."""
-        try:
-            raw = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError as error:
-            return None, "unreadable %s (%s)" % (artifact.rel, error)
+    def _read_json_file(self, artifact: Artifact, errors: list) -> tuple[object, str]:
+        """Return (document, error message) of a whole-file JSON store.
+
+        A file that cannot be read is its unreadable entry in `errors` (`file_bytes`) and
+        gives (None, "").
+        """
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            return None, ""
+        raw = content.decode("utf-8", errors="replace")
         try:
             return json.loads(raw), ""
         except ValueError as error:
@@ -861,7 +867,11 @@ class GooseParser(Parser):
         yield from error_rows(self, artifact, errors)
 
     def _parse_roaming_trust(self, artifact: Artifact) -> Iterator[Row]:
-        document, message = self._read_json_file(artifact)
+        errors: list = []
+        document, message = self._read_json_file(artifact, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         timestamp = file_mtime(artifact)
         if not message and not isinstance(document, dict):
             message = "%s is not a JSON object" % artifact.rel
@@ -880,14 +890,17 @@ class GooseParser(Parser):
                 )
 
     def _parse_schedule(self, artifact: Artifact) -> Iterator[Row]:
-        document, message = self._read_json_file(artifact)
+        errors: list = []
+        document, message = self._read_json_file(artifact, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         timestamp = file_mtime(artifact)
         if not message and not isinstance(document, list):
             message = "%s is not a JSON array" % artifact.rel
         if message or not isinstance(document, list):
             yield self._standing_row(artifact, 0, timestamp, "parser: " + message)
             return
-        errors: list = []
         for i, job in enumerate(document, 1):
             if not isinstance(job, dict):
                 errors.append(
@@ -899,12 +912,13 @@ class GooseParser(Parser):
 
     # -- history.txt ------------------------------------------------------------------------
     def _parse_history(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        with open(artifact.disk_path, "rb") as handle:
-            for line_number, raw in enumerate(handle, 1):
-                line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
-                if not line or (line_number == 1 and line.startswith("#V")):
-                    continue
-                row = self._row(artifact, line_number)
-                row.turn_type = "user"
-                row.text = compact(unescape_history(line))
-                yield row
+        errors: list = []
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+            if not line or (line_number == 1 and line.startswith("#V")):
+                continue
+            row = self._row(artifact, line_number)
+            row.turn_type = "user"
+            row.text = compact(unescape_history(line))
+            yield row
+        yield from error_rows(self, artifact, errors)

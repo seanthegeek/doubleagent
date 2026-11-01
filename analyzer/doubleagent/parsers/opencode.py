@@ -47,6 +47,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     track_change,
@@ -183,32 +184,37 @@ def _decode(value) -> tuple[dict | None, str, str]:
     return decoded, "", text
 
 
-def _read_part(path: Path) -> tuple[dict | None, str, str]:
-    """Return `_decode` of a part file's bytes; an unreadable file gives the reason, no text."""
-    try:
-        with open(path, "rb") as handle:
-            return _decode(handle.read())
-    except OSError as error:
-        return None, "unreadable: %s" % (error.strerror or error), ""
+def _read_part(path: Path, errors: list) -> tuple[dict | None, str, str]:
+    """Return `_decode` of a part file's bytes.
+
+    A file that cannot be read is its unreadable entry in `errors` (`file_bytes`) and gives
+    (None, "", "").
+    """
+    content = file_bytes(path, errors)
+    if content is None:
+        return None, "", ""
+    return _decode(content)
 
 
-def _read_json(path: Path) -> dict | None:
-    try:
-        with open(path, "rb") as handle:
-            return _loads(handle.read())
-    except OSError:
-        return None
+def _read_json(path: Path, errors: list) -> dict | None:
+    """Return a JSON file's object, or None when it cannot be read or is not an object.
+
+    A file that cannot be read is its unreadable entry in `errors` (`file_bytes`).
+    """
+    content = file_bytes(path, errors)
+    return None if content is None else _loads(content)
 
 
-def _read_side(path: Path) -> tuple[dict | None, str]:
+def _read_side(path: Path, errors: list) -> tuple[dict | None, str]:
     """Return (record, reason) of a JSON file the parser reads beside the one it parses.
 
-    The reason is "" when the file is absent or decodes to an object, else why it
-    could not be used, so only an absent file is silent.
+    The reason is "" when the file is absent, cannot be read or decodes to an object, else
+    why it does not decode to one; a file that cannot be read is its unreadable entry in
+    `errors`, so only an absent file is silent.
     """
     if not path.is_file() or path.is_symlink():
         return None, ""
-    data, reason, _ = _read_part(path)
+    data, reason, _ = _read_part(path, errors)
     return data, reason
 
 
@@ -1276,7 +1282,11 @@ class OpenCodeParser(Parser):
         no other row is a trace of a deleted one. A file that is not a JSON
         object is one `parser:` row.
         """
-        doc = _read_json(artifact.disk_path)
+        errors: list = []
+        doc = _read_json(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         timestamp = file_mtime(artifact)
         if doc is None:
             row = self._row(artifact, _Context(), "", 1, timestamp)
@@ -1330,20 +1340,22 @@ class OpenCodeParser(Parser):
         if path.name not in names:
             return None
         position = names.index(path.name)
-        return _read_json(siblings[position - 1]) if position > 0 else None
+        # A pre-scan: this parser reports the sibling when it parses that message file.
+        return _read_json(siblings[position - 1], []) if position > 0 else None
 
     def _session_context(
         self, root: Path, session_id: str, old: bool, message: dict
     ) -> tuple[_Context, dict]:
         """Return a message file's session context and its session record.
 
-        A project file that exists but does not decode is reported by the
-        session file's own pass (`_parse_session_file`), not here, so it gives
-        one row rather than one per message file.
+        The session and project files are pre-scans: a session file is reported by its own
+        pass and a project file that exists but cannot be read or does not decode by the
+        session file's pass (`_parse_session_file`), not here, so each gives one row rather
+        than one per message file.
         """
         session: dict | None = None
         if old:
-            session = _read_json(root / "info" / (session_id + ".json"))
+            session = _read_json(root / "info" / (session_id + ".json"), [])
         else:
             session_dir = root / "session"
             try:
@@ -1356,14 +1368,14 @@ class OpenCodeParser(Parser):
                 candidates = []
             for candidate in candidates:
                 if candidate.is_file() and not candidate.is_symlink():
-                    session = _read_json(candidate)
+                    session = _read_json(candidate, [])
                     if session is not None:
                         break
         session = session or {}
         path = session.get("directory") or ""
         if not path and not old and session.get("projectID"):
             worktree = (
-                _read_json(root / "project" / (str(session["projectID"]) + ".json")) or {}
+                _read_json(root / "project" / (str(session["projectID"]) + ".json"), []) or {}
             ).get("worktree") or ""
             path = worktree if worktree != "/" else ""
         if not path:
@@ -1372,7 +1384,11 @@ class OpenCodeParser(Parser):
         return _Context(session_id, str(path)), session
 
     def _parse_session_file(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        session = _read_json(artifact.disk_path)
+        errors: list = []
+        session = _read_json(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors, artifact.disk_path.stem)
+            return
         if session is None:
             row = self.base_row(artifact)
             row.source_line = 1
@@ -1382,14 +1398,14 @@ class OpenCodeParser(Parser):
             yield row
             return
         path = session.get("directory") or ""
-        errors: list[tuple[int, str]] = []
         if (
             not path
             and session.get("projectID")
             and not self.old_session_pattern.match(artifact.rel)
         ):
             name = str(session["projectID"]) + ".json"
-            project, reason = _read_side(artifact.disk_path.parent.parent.parent / "project" / name)
+            project_file = artifact.disk_path.parent.parent.parent / "project" / name
+            project, reason = _read_side(project_file, errors)
             if reason:
                 errors.append((1, "project file %s could not be read (%s)" % (name, reason)))
             worktree = (project or {}).get("worktree") or ""
@@ -1405,9 +1421,15 @@ class OpenCodeParser(Parser):
         # old: project/<slug>/storage/session/message/<ses>/<msg>.json, root is storage/session/
         original_root, separator, root = self._orig_root(artifact, 3)
         session_id = artifact.disk_path.parent.name
-        message = _read_json(artifact.disk_path)
+        read_errors: list = []
+        message = _read_json(artifact.disk_path, read_errors)
         if message is None:
             context, _ = self._session_context(root, session_id, old, {})
+            if read_errors:
+                yield from error_rows(
+                    self, artifact, read_errors, context.session_id, context.project_path
+                )
+                return
             row = self._row(artifact, context, "", 1, "")
             row.turn_type = "system"
             row.text = "parser: message file could not be decoded"
@@ -1428,9 +1450,12 @@ class OpenCodeParser(Parser):
         parts = []
         errors: list[tuple[int, str, str, str]] = []
         for file in self._children(part_dir):
-            data, reason, raw = _read_part(file)
+            part_errors: list = []
+            data, reason, raw = _read_part(file, part_errors)
             source = original_root + separator + separator.join([*part_dir_parts, file.name])
-            if data is None:
+            if part_errors:
+                errors.extend((line, text, "", source) for line, text in part_errors)
+            elif data is None:
                 errors.append((1, "unparseable part %s (%s)" % (file.stem, reason), raw, source))
             else:
                 parts.append((data, source, 1, None))

@@ -1,5 +1,9 @@
 """Tests of the Aider parser."""
 
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
+
 from doubleagent import cli
 from doubleagent.inputs import open_input
 from doubleagent.parsers import Options
@@ -354,3 +358,41 @@ class AiderTests(ParserBase):
                 next(artifact for artifact in col.artifacts if artifact.rel == ".aider.conf.yml")
             )
         )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_input_history_is_one_row(self):
+        parser = AiderParser()
+        target = ".aider.input.history"
+        others = [
+            artifact
+            for artifact in self.col.artifacts
+            if parser.wants(artifact) and artifact.rel != target
+        ]
+        locked = self.home / target
+        locked.chmod(0)
+        try:
+            rows = self.rows_for(parser, target)
+            later = [row for artifact in others for row in parser.parse(artifact, Options())]
+        finally:
+            locked.chmod(0o600)
+        reported = [row for row in rows if row.text.startswith("parser:")]
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in reported
+            ],
+            [
+                (
+                    "system",
+                    "parser: %s could not be read (Permission denied)" % locked.name,
+                    0,
+                    "",
+                    "",
+                )
+            ],
+        )
+        self.assertEqual(
+            reported[0].project_path, str(self.artifact(target).original).rsplit("/", 1)[0]
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(any(not row.text.startswith("parser:") for row in later))

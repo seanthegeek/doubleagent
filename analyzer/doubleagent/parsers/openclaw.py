@@ -40,7 +40,7 @@ from ..inputs import Artifact
 from ..model import GIT_REMOTE_PREFIX, Row, compact
 from ..sqlite_util import NOT_SQLITE, open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
-from .base import Options, Parser, compact_json, error_rows, line_text, text_of
+from .base import Options, Parser, compact_json, error_rows, file_bytes, line_text, text_of
 from .pi import model_text, switch_text
 from .zed import decompress
 
@@ -819,8 +819,13 @@ class OpenClawParser(Parser):
         key_error = ""
         if match:
             session.key, key_error = self._legacy_key(artifact, session.session_id)
-        with open(artifact.disk_path, "rb") as handle:
-            raw = handle.read()
+        errors: list = []
+        raw = file_bytes(artifact.disk_path, errors)
+        if raw is None:
+            if key_error:
+                errors.append((0, key_error, ""))
+            yield from error_rows(self, artifact, errors, session.session_id, session.cwd)
+            return
         data, error = _maybe_zstd(raw)
         if data is None:
             yield self._bad(artifact, session, 1, "could not decompress (%s)" % error, opts)
@@ -829,7 +834,6 @@ class OpenClawParser(Parser):
                     self, artifact, [(0, key_error, "")], session.session_id, session.cwd
                 )
             return
-        errors: list = []
         yield from self._records(artifact, session, _iter_lines(data, errors), opts)
         if key_error:
             errors.append((0, key_error, ""))
@@ -841,18 +845,19 @@ class OpenClawParser(Parser):
 
         A missing file is no error; a file that cannot be read, does not
         decode or is not a JSON object returns the whole-file message
-        (`sessions.json unreadable (<reason>)`, `sessions.json unparseable
-        (<reason>)`, `sessions.json is not a JSON object`) for a `parser:` row
-        of the transcript that looked the key up.
+        (`unreadable_message`'s, `sessions.json unparseable (<reason>)`,
+        `sessions.json is not a JSON object`) for a `parser:` row of the
+        transcript that looked the key up.
         """
         store = artifact.disk_path.parent / "sessions.json"
         if store.is_symlink() or not store.is_file():
             return "", ""
+        read_errors: list = []
+        content = file_bytes(store, read_errors)
+        if content is None:
+            return "", read_errors[0][1]
         try:
-            with open(store, encoding="utf-8", errors="replace") as handle:
-                data = json.load(handle)
-        except OSError as error:
-            return "", "sessions.json unreadable (%s)" % error
+            data = json.loads(content.decode("utf-8", errors="replace"))
         except ValueError as error:
             return "", "sessions.json unparseable (%s)" % error
         if not isinstance(data, dict):
