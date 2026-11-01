@@ -451,7 +451,7 @@ class TabbyTests(ParserBase):
         path.chmod(0)
         try:
             rows = self.rows_for(TabbyParser(), TABBY_INTELLIJ_REL)
-            config = self.rows_for(TabbyParser(), TABBY_CONFIG_REL)
+            events = self.rows_for(TabbyParser(), TABBY_EVENTS_REL)
         finally:
             path.chmod(0o600)
         self.assertEqual(
@@ -461,7 +461,7 @@ class TabbyTests(ParserBase):
             ],
             [("system", "", "parser: %s could not be read (Permission denied)" % path.name, 0, "")],
         )
-        self.assertTrue(any(not row.text.startswith("parser:") for row in config))
+        self.assertTrue(any(not row.text.startswith("parser:") for row in events))
         readable = self.rows_for(TabbyParser(), TABBY_INTELLIJ_REL)
         self.assertEqual([row.turn_type for row in readable], ["system", "user", "user"])
 
