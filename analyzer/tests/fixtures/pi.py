@@ -1,4 +1,13 @@
-"""Synthetic pi state for the analyzer tests."""
+"""Synthetic pi state for the analyzer tests.
+
+The records follow the Record schema and Other stores of research/pi.md, from
+earendil-works/pi at 2c8d1fe (coding-agent 1.4.0). One session file is
+little-coder's, written into pi's directory as its Wrapper attribution
+subsection says.
+
+Paths: `/srv/untrusted`
+Lineage: little-coder
+"""
 
 from __future__ import annotations
 
@@ -24,6 +33,10 @@ PI_TRUST_MTIME = 1790852000  # 1 October 10:53:20 UTC
 
 
 def pi_session_records(cwd="/srv/proj"):
+    """Return a session's header and entries: two model changes, a tool call and a `!command`.
+
+    Source: research/pi.md#entries; source 2c8d1fe
+    """
     return [
         {
             "type": "session",
@@ -138,6 +151,10 @@ def pi_session_records(cwd="/srv/proj"):
 
 
 def pi_fork_records(parent_path):
+    """Return a fork of `pi_session_records` that copies its first three entries verbatim.
+
+    Source: research/pi.md#joins-and-timestamps; source 2c8d1fe
+    """
     parent = pi_session_records()
     return [
         {
@@ -167,6 +184,10 @@ def pi_fork_records(parent_path):
 
 
 def build_pi(home: Path) -> None:
+    """Write pi's session files, trust and settings, debug log, crash log and noise file.
+
+    Source: research/pi.md#per-user-storage; source 2c8d1fe
+    """
     _jsonl(home / PI_DIR / PI_FILE, pi_session_records())
     _jsonl(home / PI_DIR / PI_FORK_FILE, pi_fork_records("/home/alice/" + PI_DIR + PI_FILE))
     _jsonl(home / PI_DIR / LC_FILE, little_coder_session_records())
@@ -174,7 +195,8 @@ def build_pi(home: Path) -> None:
         home / ".pi/agent/experimental/sessions" / PI_EXPERIMENTAL / "meta.json",
         {"createdAt": 1790856000000, "cwd": "/srv/proj"},
     )
-    _json(home / ".pi/agent/auth.json", {"anthropic": {"type": "api_key", "key": "sk-not-real"}})
+    # A file the parser must not want: the MCP server log.
+    (home / PI_MCP_LOG).write_text("[2026-10-01T09:00:02.000Z] [fs] ready\n", encoding="utf-8")
     _json(
         home / PI_SETTINGS,
         {"defaultProvider": "anthropic", "defaultProjectTrust": "always"},
@@ -185,6 +207,7 @@ def build_pi(home: Path) -> None:
     _jsonl(home / PI_DIR / PI_BUG_FILE, pi_bug_report_records())
     (home / PI_DEBUG_LOG).write_text(pi_debug_log_text(), encoding="utf-8")
     _json(home / PI_CRASHES, pi_crash_records())
+    _jsonl(home / PI_DIR / PI_KINDS_FILE, pi_entry_kinds_records())
 
 
 # Secondary and past-use sources beside the sessions (research/pi.md, Debug log and crash log): the `/debug` snapshot of the
@@ -193,9 +216,14 @@ PI_SETTINGS = ".pi/agent/settings.json"
 PI_DEBUG_LOG = ".pi/agent/pi-debug.log"
 PI_CRASHES = ".pi/agent/crashes.json"
 PI_DELETED_PROMPT = "a prompt whose session file was deleted"
+PI_MCP_LOG = ".pi/agent/mcp.log"
 
 
 def pi_debug_log_text():
+    """Return a `/debug` snapshot holding three of the session's messages and one deleted prompt.
+
+    Source: research/pi.md#debug-log-and-crash-log; source 2c8d1fe
+    """
     messages = [
         # The PI_SESSION turn: the user prompt, the assistant's call (whose
         # own timestamp, the stream start, is before the entry's), its result.
@@ -243,6 +271,10 @@ def pi_debug_log_text():
 
 
 def pi_crash_records():
+    """Return `crashes.json` with one announced crash naming the session file.
+
+    Source: research/pi.md#debug-log-and-crash-log; source 2c8d1fe
+    """
     return [
         {
             "timestamp": "2026-10-01T09:05:00.000Z",
@@ -266,6 +298,11 @@ PI_BUG_ZIP = "0199a1b2-9999-7000-8000-00000000b002"
 
 
 def pi_bug_report_records(cwd="/srv/proj"):
+    """Return a session reported with `/bug` twice, uploaded then exported to a zip.
+
+    Source: research/pi.md#bug-report-entry; source 2c8d1fe
+    """
+
     def report(entry_id, parent, timestamp, data):
         return {
             "type": "custom",
@@ -324,6 +361,154 @@ def pi_bug_report_records(cwd="/srv/proj"):
             "parentId": "b1000003",
             "timestamp": "2026-10-01T13:01:30.000Z",
             "customType": "some-extension",
-            "data": {"state": 1},
+            "data": {},
         },
+    ]
+
+
+# Every other entry type and message role the parser gives a row, and the
+# skipped `usage` entry (research/pi.md, Entries and Message roles).
+PI_KINDS_SESSION = "0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0c4e"
+PI_KINDS_FILE = "2026-10-01T14-00-00-000Z_%s.jsonl" % PI_KINDS_SESSION
+
+
+def pi_entry_kinds_records(cwd="/srv/proj"):
+    """Return a session with each remaining entry type and role, both stop-reason forms.
+
+    Source: research/pi.md#message-roles; source 2c8d1fe
+    """
+
+    def entry(entry_id, parent, second, **fields):
+        return {
+            "type": fields.pop("type", "message"),
+            "id": entry_id,
+            "parentId": parent,
+            "timestamp": "2026-10-01T14:00:%02d.000Z" % second,
+            **fields,
+        }
+
+    def message(second, **fields):
+        return dict(fields, timestamp=1790863200000 + second * 1000)
+
+    return [
+        {
+            "type": "session",
+            "version": 3,
+            "id": PI_KINDS_SESSION,
+            "timestamp": "2026-10-01T14:00:00.000Z",
+            "cwd": cwd,
+        },
+        entry(
+            "c1000001",
+            None,
+            1,
+            message=message(1, role="system", content="You are pi."),
+        ),
+        entry("c1000002", "c1000001", 2, type="thinking_level_change", thinkingLevel="high"),
+        entry(
+            "c1000003",
+            "c1000002",
+            3,
+            message=message(
+                3,
+                role="assistant",
+                content=[
+                    {
+                        "type": "toolCall",
+                        "id": "call_ps1",
+                        "name": "powershell",
+                        "arguments": {"command": "Get-ChildItem", "timeout": 30},
+                    }
+                ],
+                api="openai-responses",
+                provider="openai",
+                model="gpt-5.1-codex",
+                stopReason="deferred",
+                durationMs=900,
+            ),
+        ),
+        entry(
+            "c1000004",
+            "c1000003",
+            4,
+            message=message(
+                4,
+                role="toolResult",
+                toolCallId="call_ps1",
+                toolName="powershell",
+                content=[{"type": "text", "text": "Tool execution was blocked"}],
+                isError=True,
+                durationMs=2,
+            ),
+        ),
+        entry(
+            "c1000005",
+            "c1000004",
+            5,
+            message=message(
+                5,
+                role="assistant",
+                content=[],
+                api="openai-responses",
+                provider="openai",
+                model="gpt-5.1-codex",
+                stopReason="error",
+                errorMessage="429 rate limited",
+            ),
+        ),
+        entry(
+            "c1000006",
+            "c1000005",
+            6,
+            type="compaction",
+            summary="earlier turns",
+            firstKeptEntryId="c1000004",
+            tokensBefore=51234,
+        ),
+        entry(
+            "c1000007",
+            "c1000006",
+            7,
+            type="branch_summary",
+            fromId="c1000003",
+            summary="the abandoned branch",
+        ),
+        entry(
+            "c1000008",
+            "c1000007",
+            8,
+            type="custom_message",
+            customType="notes",
+            content="remember the deadline",
+            display=True,
+        ),
+        entry(
+            "c1000009",
+            "c1000008",
+            9,
+            type="context_edit",
+            targetId="c1000004",
+            replacement={"content": "blocked"},
+        ),
+        entry(
+            "c100000a", "c1000009", 10, type="context_edit", targetId="c1000005", replacement=None
+        ),
+        entry(
+            "c100000b",
+            "c100000a",
+            11,
+            message=message(
+                11, role="custom", customType="hook", content="hook text", display=False
+            ),
+        ),
+        entry(
+            "c100000c",
+            "c100000b",
+            12,
+            type="usage",
+            kind="cache_warm",
+            provider="openai",
+            model="gpt-5.1-codex",
+            usage={"input": 10, "output": 0, "totalTokens": 10},
+        ),
     ]

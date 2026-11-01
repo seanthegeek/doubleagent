@@ -831,6 +831,9 @@ from .pi import (
     PI_FILE,
     PI_FORK,
     PI_FORK_FILE,
+    PI_KINDS_FILE,
+    PI_KINDS_SESSION,
+    PI_MCP_LOG,
     PI_SESSION,
     PI_SETTINGS,
     PI_TRUST,
@@ -839,6 +842,7 @@ from .pi import (
     pi_bug_report_records,
     pi_crash_records,
     pi_debug_log_text,
+    pi_entry_kinds_records,
     pi_fork_records,
     pi_session_records,
 )
