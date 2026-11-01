@@ -1,4 +1,7 @@
-"""Synthetic Claude Code state for the analyzer tests."""
+"""Synthetic Claude Code state for the analyzer tests.
+
+Paths: `/srv/work` (a project of the relocated `.claude-work` home).
+"""
 
 from __future__ import annotations
 

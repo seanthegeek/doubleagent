@@ -649,7 +649,12 @@ plan, and the parser is written from them.
      module docstring names `research/<agent>.md`, has a `Paths:` line
      with a code span for every project path other than `/srv/proj`, and a
      `Lineage: <agent>[, <agent>]` line when it calls another agent's
-     builder. `tools/check_fixture_schema.py` checks these.
+     builder. `tools/check_fixture_schema.py` checks these. A project path
+     is a value under a key naming a project directory (`cwd`, `workspace`)
+     or a dictionary key that is itself an absolute path, drive path or
+     `file://` URI (a trusted-folders map), in any JSON or JSONC file
+     `build_home` writes; a path below `/srv/proj` or a declared path needs
+     no span of its own.
 6. Add a `<Agent>Tests(ParserBase)` class to
    `tests/parsers/test_<parser>.py` with the existing cases: rows, thinking
    opt-in, history, not-wanted, truncated line. The truncated-line case

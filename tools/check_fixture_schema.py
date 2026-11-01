@@ -19,8 +19,8 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
 5. `type-mismatch`: a value no consulted row of its key (Record schema, Other stores) `accepts`:
    the rows of the sections naming its file (`names_file`) plus those naming no built file, or
    every row when none names it (`consulted_rows`); a key left no row is not checked.
-6. `substitution-undeclared`: a `project_path` outside `/srv/proj` and the agent's modules'
-   `declared_paths`.
+6. `substitution-undeclared`: a project path (a `project_path` value, or a key that is an
+   `absolute_path`) outside `/srv/proj` and the agent's modules' `declared_paths`.
 7. `cross-agent-builder`: a call to a function imported from another agent's fixture module
    whose agent `lineage` does not list.
 8. `sample-equals-builder`: a JSON value fenced under Fixtures equal, key-sorted, to a built record.
@@ -257,15 +257,23 @@ def is_enum_value(value: object) -> bool:
 
 
 def project_path(key: str, value: object) -> str:
-    r"""Return the path a value names when its key names a project directory, else "".
+    """Return the path a value names when its key names a project directory, else "".
 
     The key holds one of `PROJECT_KEY_WORDS`, case-folded (`cwd`, `workspaceRoots`,
-    `project_path`); the value is an absolute POSIX path, a drive path (`C:\x`, `C:/x`) or a
-    `file://` URI, given back decoded (`file:///C:/x` as `C:/x`). A relative path is none.
+    `project_path`); the value is a path `absolute_path` accepts.
     """
     folded = key.lower()
     if not isinstance(value, str) or not any(word in folded for word in PROJECT_KEY_WORDS):
         return ""
+    return absolute_path(value)
+
+
+def absolute_path(value: str) -> str:
+    r"""Return a text as a path when it is an absolute one, else "".
+
+    An absolute POSIX path, a drive path (`C:\x`, `C:/x`) or a `file://` URI, given back
+    decoded (`file:///C:/x` as `C:/x`); a relative path and `//host` are none.
+    """
     if value.startswith("file://"):
         value = urllib.parse.unquote(urllib.parse.urlsplit(value).path)
         value = value[1:] if WINDOWS_PATH.match(value[1:]) else value
@@ -537,6 +545,12 @@ def load_fixtures(root: pathlib.Path) -> ModuleType:
     return package
 
 
+def jsonc_module() -> ModuleType:
+    """Return the analyzer module holding `parse_jsonc`, the JSONC reader the parsers use."""
+    drift_common.catalog_module()
+    return importlib.import_module("doubleagent.parsers.gemini_cli")
+
+
 def sqlite_util_module() -> ModuleType:
     """Return `doubleagent.sqlite_util`, with `analyzer/` on the path as `drift_common` puts it."""
     drift_common.catalog_module()
@@ -579,14 +593,29 @@ def decode_text(text: str, whole: bool) -> list[object]:
 
 
 def decode_bytes(data: bytes, name: str) -> list[object]:
-    """Return the JSON values of a file's bytes, decompressing zstd first."""
+    """Return the JSON values of a file's bytes, decompressing zstd first.
+
+    A file that is not JSON Lines is read whole as JSON, then as JSONC (`parse_jsonc`: a
+    byte-order mark, comments and trailing commas, which several agents' settings files hold),
+    then line by line.
+    """
     if data.startswith(ZSTD_MAGIC):
         data = zstandard.ZstdDecompressor().decompressobj().decompress(data)
         name = name.removesuffix(".zst")
     text = data.decode("utf-8", errors="replace")
     if name.endswith((".jsonl", ".ndjson")):
         return decode_text(text, whole=False)
-    return decode_text(text, whole=True) if text.lstrip()[:1] in ("{", "[") else []
+    text = text.removeprefix("\ufeff")
+    if text.lstrip()[:1] not in ("{", "["):
+        return []
+    try:
+        return [json.loads(text)]
+    except ValueError:
+        pass
+    try:
+        return [jsonc_module().parse_jsonc(text.encode("utf-8"))]
+    except ValueError:
+        return decode_text(text, whole=False)
 
 
 def decode_column(value: object) -> list[object]:
@@ -881,9 +910,9 @@ def file_findings(
             enum = key in ENUM_KEYS and is_enum_value(value)
             if enum and not is_documented(str(value), document.names):
                 yield from report("enum-undocumented", "%s=%s" % (key, value))
-            path = project_path(key, value)
-            if path and not is_substitute(path, [SUBSTITUTE_PATH, *allowed]):
-                yield from report("substitution-undeclared", path)
+            for path in (project_path(key, value), "" if in_list else absolute_path(key)):
+                if path and not is_substitute(path, [SUBSTITUTE_PATH, *allowed]):
+                    yield from report("substitution-undeclared", path)
             rows = key_rows.get(key, [])
             if not rows or in_list or any(accepts(row, value) for row in rows):
                 continue
