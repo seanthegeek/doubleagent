@@ -19,6 +19,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `gemini-cli` parser reads Gemini CLI's sandbox grants, `~/.gemini/policies/sandbox.toml` (Python 3.11 or later): one `system` row `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per `modes` table and `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)` per command the user allowed and saved, at the file's modification time ([#186], [#326]).
 - A Gemini CLI session whose project is a `--worktree` checkout, `<project>/.gemini/worktrees/<name>`, gets a `system` row `scratch directory: <path> (gemini --worktree <name>)` after the file's `session start:` rows, at the first one's time and line, with the worktree as its `project_path` ([#216], [#326]).
 - The bundled catalog copy gains collector 1.22.0's Gemini CLI secret globs, `.gemini/integrity.key` and `*.gemini/.settings.json.*.tmp` ([#326]).
+- The bundled catalog copy gains collector 1.22.0's Qwen Live lines, so `detect` attributes `.qwen-live` to the new agent `qwen-live`, which `timeline` lists as detected but not parsed ([#156]).
+- The `gemini-cli` parser reads Gemini CLI's other past-use stores on every run: the tool checkpoints `tmp/<slug>/checkpoints/*.json` (a `tool checkpoint:` row naming the tool, file, shadow commit and prompt id, then the history sent) and an error report `gemini-client-error-<type>-<time>.json` copied into `.gemini` or `.cache/.gemini`, or the `tmp/<slug>` directory of either (an `error report:` row, then the history sent), both as copies of the session file's turns, each turn the session file also holds dropped from the timeline and the environment-context item the CLI sends first never a row; and, as stores of their own, the activity log `tmp/<slug>/logs/session-<id>.jsonl` (`console <type>: <content>`, `network request:`, `network response:` and `network error:` rows naming the method, the URL without its query string and the status, never a header value or a body; the conversation turns in its bodies are not read), each `tmp/<slug>/memory/` file as one `memory file:` row holding its text at its modification time and each clipboard image `tmp/<slug>/images/clipboard-<ms>.<ext>` as one `clipboard image: <name> <size> bytes` row at the time in its name ([#394]).
+- The `pi` parser reads the copies of past sessions pi leaves in a project directory as [secondary sources](docs/output.md#secondary-sources): an HTML export `pi-session-*.html` (every entry of every branch, from the page's base64 session data) and a JSONL export `session-<time>.jsonl` (one branch), each with a `session exported:` row, and a bug report zip `pi-bug-report-*.zip`, read in memory, giving a `bug report:` row from `report.json` and `diagnostics.json` with its failed assistant turns, a `crash:` row per carried crash, a `bug report summary:` row for `summary.md` or the rows of its `session.jsonl`. Rows a session file also holds are dropped; a deleted session's are kept and marked recovered, as are the entries an export of a fork copied from its parent. The copies give no `model:` rows; the session file gives them ([#395]).
+- The `pi` parser reads the terminal UI crash log `.pi/agent/pi-tui-crash.log` (`pi-crash.log` in older builds such as 0.83.0): one `tui crash:` row per crash at its `Crash at` time, the rendered screen lines as its text ([#395]).
+- The `qwen-code` parser reads Qwen Code's past-use stores on every run: the monthly token usage log (`token usage:` rows), the todo files (`todo:`), the Web Shell's `session-organization.v1.json` (`session organization:`), `.qwen/PROJECT_SUMMARY.md` (`project summary`), the pull-request sidecars `<sessionId>.pr.json` and the GitHub channel's publication audit (`source host:` rows), the channels' group history as a secondary source (`group message:` and `group history cleared:` rows; a message is dropped when a prompt within 2 seconds of the `clear` line of its chat gives the same `group message:` row, whitespace runs compared as one space, and one no `clear` follows is always kept), and the managed local mode's harness and worker transcripts under `.qwen/managed-local/` and the workers' `usage_record.jsonl`, read as the home's; its H2 database stays unread. A token usage record whose model is `unknown` leaves the `model` column empty ([#396]).
 
 ### Changed
 
@@ -30,6 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - pi: a `.pi/agent/settings.json` that is not a JSON object gives one `parser: .pi/agent/settings.json is not a JSON object` row where it was silent; an experimental session's `meta.json` that is not a JSON object gives `parser: <path> is not a JSON object`, in place of the decoder's message for one that is not JSON and of an `experimental durable session created:` row with an empty cwd for valid JSON that is not an object (an array); an empty `settings.json`, which pi reads as no settings, still gives no row; and the `trust.json` row of that form carries no time and `source_line` 0, as other whole-file rows do. A leading byte-order mark is dropped from `trust.json` and `settings.json`, as pi drops it ([#201], [#326]).
 - pi: a session file whose first record is not a header reports its unparseable lines even when entries follow, and a `crashes.json` element that is not an object gives `parser: unparseable record <N> (not a JSON object): <element>` where it was skipped ([#201], [#326]).
+- A little-coder checkpoint directory whose pi sessions directory (`.pi/agent/sessions`) cannot be read, listed or searched, or whose project directory under it cannot be searched, keeps its checkpoint row and gives one `parser: <directory> could not be read (<reason>)` row, where the parser raised or claimed the session file was not collected ([#389]).
 
 ## [0.23.0] - 2026-10-31
 
@@ -2195,6 +2201,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#396]: https://github.com/seanthegeek/doubleagent/issues/396
+[#395]: https://github.com/seanthegeek/doubleagent/issues/395
+[#394]: https://github.com/seanthegeek/doubleagent/issues/394
+[#389]: https://github.com/seanthegeek/doubleagent/issues/389
 [#388]: https://github.com/seanthegeek/doubleagent/issues/388
 [#386]: https://github.com/seanthegeek/doubleagent/issues/386
 [#384]: https://github.com/seanthegeek/doubleagent/issues/384
@@ -2289,6 +2299,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [#159]: https://github.com/seanthegeek/doubleagent/issues/159
 [#158]: https://github.com/seanthegeek/doubleagent/issues/158
 [#157]: https://github.com/seanthegeek/doubleagent/issues/157
+[#156]: https://github.com/seanthegeek/doubleagent/issues/156
 [#155]: https://github.com/seanthegeek/doubleagent/issues/155
 [#154]: https://github.com/seanthegeek/doubleagent/issues/154
 [#153]: https://github.com/seanthegeek/doubleagent/issues/153

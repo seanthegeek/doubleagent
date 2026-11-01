@@ -1436,7 +1436,9 @@ def test_names_selector_tail_forms():
         True,
     )
     archive_ms = selector(r"^sessions/[^/]+?\.jsonl\.reset\.%s\.\d{3}Z$" % stamp, True)
+    checkpoint = selector(r"^\.g/tmp/[^/]+/checkpoints/%s_\d{3}Z-[^/]+\.json$" % stamp, True)
     accepted = [
+        (checkpoint, "checkpoints/<time>-<file basename>-<tool>.json"),
         (archive, "<id>.jsonl.reset.<ts>"),
         (archive, "<id>.jsonl.pre-doctor-branch-repair-<ts>.bak"),
         (archive_ms, "sessions/<id>.jsonl.reset.<ts>"),

@@ -31,7 +31,7 @@ agent definitions adopted by Codex, Copilot CLI and others.
 
 | Path relative to home | Holds | Readers |
 | --- | --- | --- |
-| `.agents` | skills and agent definitions in the cross-tool "agents" layout (`skills/<name>/SKILL.md`) | Codex CLI, Copilot CLI, Amp, Zed, Crush, others |
+| `.agents` | skills and agent definitions in the cross-tool "agents" layout (`skills/<name>/SKILL.md`) | Codex CLI, Copilot CLI, Amp, Zed, Crush, Qwen Code, pi, others |
 | `.config/agents` | XDG variant of the same | Codex CLI, Copilot CLI, Amp, Crush, others |
 | `.config/AGENTS.md` | user-level instructions | Codex CLI, Amp, OpenCode |
 
@@ -49,6 +49,19 @@ at
 [`7f799fb`](https://github.com/charmbracelet/crush/commit/7f799fbc1fdaf0a931a4ff73e6539bafee59d3da);
 [Per-user storage in `research/crush.md`](crush.md#per-user-storage) and
 [Per-user storage in `research/claude-code.md`](claude-code.md#per-user-storage)).
+
+Qwen Code lists `~/.agents/skills` beside its own `~/.qwen/skills`
+([`packages/core/src/config/storage.ts:17`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/config/storage.ts#L17)
+and
+[`754-761`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/config/storage.ts#L754-L761)
+at
+[`835b080`](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b);
+[Per-user storage in `research/qwen-code.md`](qwen-code.md#per-user-storage)),
+and pi treats it as a trusted user skills directory
+([`packages/coding-agent/src/core/trust-manager.ts:194-195`](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L194-L195)
+at
+[`2c8d1fe`](https://github.com/earendil-works/pi/commit/2c8d1feb147f6b3d97e855da803bfe7b19f3c403);
+[Per-user storage in `research/pi.md`](pi.md#per-user-storage)).
 
 #### Scratch directories
 

@@ -12,8 +12,9 @@ Radius, a name that runs through this document, is Earendil Works' hosted model 
 This document rests on coding-agent 1.4.0 at commit
 [`2c8d1fe`](https://github.com/earendil-works/pi/commit/2c8d1feb147f6b3d97e855da803bfe7b19f3c403).
 Catalog agent: `pi`. Parsed: the pi parser reads the session files, `trust.json`, the
-`defaultProjectTrust` setting, the debug and crash logs and the older builds' experimental session
-metadata.
+`defaultProjectTrust` setting, the debug and crash logs, the terminal UI crash log, the HTML and
+JSONL exports and bug report zips in project directories, and the older builds' experimental
+session metadata.
 
 ## Source and evidence
 
@@ -58,6 +59,10 @@ read, not run; they are not in the repository.
 
 ### Source reviews
 
+- 2026-11-01: [earendil-works/pi](https://github.com/earendil-works/pi) at
+  [`2c8d1fe`](https://github.com/earendil-works/pi/commit/2c8d1feb147f6b3d97e855da803bfe7b19f3c403):
+  read the HTML export template, the JSONL export, the bug report archive and zip writer and both
+  terminal UI crash log writers; added their record shapes and the parser's rows for them.
 - 2026-11-01: [earendil-works/pi](https://github.com/earendil-works/pi) at
   [`2c8d1fe`](https://github.com/earendil-works/pi/commit/2c8d1feb147f6b3d97e855da803bfe7b19f3c403)
   (coding-agent 1.4.0, ahead of tag `v1.4.0`) and the pi.dev installers: every citation re-read at
@@ -154,7 +159,8 @@ Under `~/.pi/agent`:
   just before it stops: the time, the width and every rendered screen line, so it can hold
   transcript text
   ([tui-main-screen.ts:522-536](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/tui/src/tui-main-screen.ts#L522-L536);
-  the agent directory is its log directory,
+  the agent directory is its log directory, and a terminal UI given none writes the file to the
+  system temporary directory,
   [interactive-mode.ts:635](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/interactive-mode.ts#L635)).
   `pi-tui-debug.log` holds one `fullRender:` reason line per full redraw, only while
   `PI_TUI_DEBUG_REDRAW=1`
@@ -383,6 +389,10 @@ pi keeps no per-project database.
 - `trust.json`: every key is an absolute project path ([Project trust](#project-trust)).
 - `crashes.json`: `cwd` and `sessionFile` per record
   ([Debug log and crash log](#debug-log-and-crash-log)).
+- The project exports: the HTML export's embedded `header.cwd`, the JSONL export's header `cwd`
+  and a bug report zip's `report.json` `session.cwd` ([Other stores](#other-stores)); the
+  directory the file sits in is where pi ran when it wrote it, which can differ from `cwd` once
+  the project moves.
 - `experimental/sessions/*/meta.json` of older builds: `cwd`
   ([session-catalog.ts:6-13](https://github.com/earendil-works/pi/blob/200387122ca450d6387f033949423114a270b96c/packages/coding-agent/src/experimental/session-catalog.ts#L6-L13)).
 
@@ -431,10 +441,11 @@ What remains after a delete:
   ([Checkpoints in
   `little-coder.md`](little-coder.md#checkpoints-little-codercheckpointssession-file-name)).
 
-pi writes no deletion marker. The analyzer reads the session files, `trust.json`, `pi-debug.log`
-as a secondary source, whose messages it keeps when no session file holds them, and
-`crashes.json`, whose rows name a deleted session's file and directory (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+pi writes no deletion marker. The analyzer reads the session files, `trust.json`, and as
+secondary sources `pi-debug.log`, the two project exports and the bug report zip's `session.jsonl`,
+whose entries it keeps when no session file holds them; it also reads `crashes.json`, whose rows
+name a deleted session's file and directory, `pi-tui-crash.log`, and a zip's report, diagnostics
+and summary (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
 
 ### Record schema
 
@@ -808,10 +819,27 @@ A bug report that carried crashes deletes the file
 | `cwd` | string | | |
 | `notified` | boolean | | |
 
+#### Terminal UI crash log
+
+`pi-tui-crash.log` is rewritten at each crash, so it holds the last one: a line
+`Crash at <ISO time>`, then `Terminal width: <width>`, `Line <index> visible width: <width>`, an
+empty line, the marker `=== All rendered lines ===` and one line `[<index>] (w=<width>) <line>`
+per rendered screen line, terminal escape sequences included, then an empty line
+([tui-main-screen.ts:522-536](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/tui/src/tui-main-screen.ts#L522-L536)). Tag `v0.83.0` writes the same
+lines to `pi-crash.log`
+([tui.ts:1526-1538](https://github.com/earendil-works/pi/blob/845d6ff1f6643aba440341cce877ce1c43ebbc39/packages/tui/src/tui.ts#L1526-L1538)). The screen lines are what the terminal
+showed, prompts and replies among them; the file names no session.
+
 #### HTML export
 
-A `pi-session-*.html` export embeds the session as base64-encoded JSON with `header`, `entries`
-(every entry of every branch), `leafId`, `systemPrompt`, `tools` and `renderedTools`
+A `pi-session-*.html` export embeds the session in the element
+`<script id="session-data" type="application/json">`
+([template.html:42](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/template.html#L42)), as the base64 of its UTF-8 JSON
+([export-html/index.ts:160-161](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/index.ts#L160-L161),
+[173](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/index.ts#L173); the page's own reader,
+[template.js:8-15](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/template.js#L8-L15)), with `header` (the session file's
+header), `entries` (every entry of every branch), `leafId`, `systemPrompt`, `tools` and
+`renderedTools`
 ([export-html/index.ts:130-138](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/index.ts#L130-L138),
 [161](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/index.ts#L161),
 [265-272](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/index.ts#L265-L272)),
@@ -825,6 +853,95 @@ so it is a full copy of the session file's entries at export time.
 | `systemPrompt` | string | | |
 | `tools` | array | | |
 | `renderedTools` | object | | |
+
+`systemPrompt` and `tools` are absent from an export made with `pi --export`, which has no running
+session
+([export-html/index.ts:300-306](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/index.ts#L300-L306)). The page records no
+export time; the file's modification time is the export.
+
+#### JSONL export
+
+The `/export` JSONL file is the current branch as `serializeSessionBranch` writes it: a new header
+with `type` `session`, `version`, the session's `id` and `cwd` and `timestamp` the export time (no
+`parentSession`), then the branch's entries from the root to the leaf with their `id` and
+`timestamp` kept and `parentId` re-chained to the entry before
+([session-export.ts:9-29](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/session-export.ts#L9-L29),
+[32-45](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/session-export.ts#L32-L45); called without trailing entries,
+[agent-session.ts:4395-4397](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/agent-session.ts#L4395-L4397)). The `/share` upload writes
+the same shape with a trailing `custom` entry, `customType` `pi.share`, whose `data` holds
+`systemPrompt` and `tools`
+([session-share.ts:25-46](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/session-share.ts#L25-L46)).
+
+#### Bug report archive
+
+`pi-bug-report-<id>.zip` holds `report.json` and `diagnostics.json`, each JSON with two-space
+indent, and, when the user chose it, either `session.jsonl` or `summary.md`: `/bug` offers the
+summary only after the user declines the transcript, so no archive holds both
+([modes/interactive/bug-report.ts:120-131](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/bug-report.ts#L120-L131);
+[core/bug-report.ts:252-272](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L252-L272)), every member deflated by pi's own
+zip writer ([utils/zip.ts:17-67](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/utils/zip.ts#L17-L67)). `session.jsonl` is the current branch
+in the [JSONL export](#jsonl-export) shape with the trailing `pi.share` entry, and `summary.md` a
+report the session's model wrote from the transcript
+([modes/interactive/bug-report.ts:149-175](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/bug-report.ts#L149-L175);
+[core/bug-report.ts:329-375](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L329-L375)).
+
+`report.json`
+([core/bug-report.ts:154-180](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L154-L180)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `schemaVersion` | number | `1` | |
+| `id` | string | | |
+| `createdAt` | string | | |
+| `hint` | string or null | | |
+| `environment` | object | | |
+| `session` | object | | |
+| `model` | object or null | | |
+| `provider` | object or null | | |
+| `thinkingLevel` | string | | |
+| `extensions` | array | | |
+| `extensionErrors` | array | | |
+| `settings` | object | | |
+
+`environment` holds `version`, `userAgent`, `runtime`, `platform`, `arch`, `osRelease`,
+`osVersion`, `shell`, `terminal` and `piEnvironmentVariables`, the names of the `PI_` variables
+set ([66-91](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L66-L91)); `session` holds `id`, `included`,
+`summaryIncluded`, `messageCount` and, only when the transcript is included, `cwd`; `model` holds
+`provider`, `id`, `name`, `api`, `baseUrl` and the model's limits and header names
+([93-109](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L93-L109)); `settings` holds `global` and `project`, the two
+settings files less `deviceId` and `trackingId` and redacted ([Secrets](#secrets)).
+
+`diagnostics.json`
+([core/bug-report.ts:183-223](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L183-L223)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `schemaVersion` | number | `1` | |
+| `sessionId` | string | | |
+| `entryCount` | number | | |
+| `assistantMessageCount` | number | | |
+| `assistant` | array | | |
+| `crashes` | array | | |
+
+Each item of `assistant`:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `entryId` | string | | |
+| `timestamp` | string | | |
+| `provider` | string | | |
+| `model` | string | | |
+| `api` | string | | |
+| `stopReason` | string | | |
+| `rawStopReason` | string | | |
+| `errorMessage` | string | | |
+| `diagnostics` | array | | |
+
+Each `assistant` item is a failed assistant turn: one with
+diagnostics, an `error` or `aborted` stop reason or an error message. `crashes` are the
+[crash records](#debug-log-and-crash-log) less `notified`; a report that carries crashes deletes
+`crashes.json` ([modes/interactive/bug-report.ts:226](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/bug-report.ts#L226)), so
+the zip can be their only copy.
 
 #### Project trust
 
@@ -987,6 +1104,14 @@ version 3 keys are added without a bump; a parser must ignore unknown types and 
   ([core/bug-report.ts:61-64](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L61-L64)).
 - Session files hold no credential; credentials are in the files [Credentials](#credentials)
   names.
+- A bug report zip's `report.json` `settings` are copies of both settings files whose values under
+  a key naming an API key, secret, token, password, credential, authorization or cookie are
+  replaced by `<redacted>`, and whose URLs lose their user name, password and such query values;
+  model and provider headers appear by name only, and `PI_` environment variables by name
+  ([core/bug-report.ts:19-64](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L19-L64),
+  [86-89](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L86-L89),
+  [107](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L107), [119](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L119)). `hint` is the user's own
+  description, and `environment` names the OS release and shell.
 
 ### Parser plan
 
@@ -995,7 +1120,11 @@ that decodes as the header; a file whose first decoded record is not `type` `ses
 its bad-line rows ([Bad-line rows](#bad-line-rows)). Files in a custom session
 directory elsewhere on disk are not read; they would be recognised by that header shape. It also
 reads `.pi/agent/trust.json`, `.pi/agent/settings.json`, `.pi/agent/pi-debug.log`,
-`.pi/agent/crashes.json` and `.pi/agent/experimental/sessions/*/meta.json`.
+`.pi/agent/crashes.json`, `.pi/agent/pi*-crash.log` (`.pi/agent/pi-tui-crash.log` and the older
+`.pi/agent/pi-crash.log`),
+`.pi/agent/experimental/sessions/*/meta.json`, and, at the top of a project directory,
+`pi-session-*.html`, `session-[0-9][0-9][0-9][0-9]-*.jsonl` and `pi-bug-report-*.zip`
+([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)).
 
 | Column | Source |
 | --- | --- |
@@ -1033,9 +1162,8 @@ An error `toolResult` row's text starts `[error] `; a `bashExecution` result row
 command has no exit code). A `thinking` part with `redacted` true and an empty `thinking` gives
 the thinking row `[redacted]`.
 
-Not read: `mcp.log`, `mcp.log.1`, `pi-tui-crash.log`, `pi-tui-debug.log`, `models-store.json`,
-`keybindings.json`, the project exports `pi-session-*.html` and `session-*.jsonl`, and
-`pi-bug-report-*.zip`.
+Not read: `mcp.log`, `mcp.log.1`, `pi-tui-debug.log`, `models-store.json` and
+`keybindings.json`.
 
 #### Permission rows
 
@@ -1078,6 +1206,11 @@ user's own switch, so one that names the model already in force still yields the
 `model: <id> provider=<provider>` row; an assistant message that repeats the current model yields
 none.
 
+The project exports and a bug report zip's `session.jsonl` give no `model:` row: they are copies
+of a session file, which gives the rows, and a one-branch copy would place a `model:` row at
+another entry than the session file does, so the copy would survive the join as a second row.
+Their rows keep the `model` column.
+
 #### Past-use rows and secondary sources
 
 Both files of [Debug log and crash log](#debug-log-and-crash-log) are read on every run:
@@ -1094,11 +1227,55 @@ Both files of [Debug log and crash log](#debug-log-and-crash-log) are read on ev
   followed by the stack on the next lines, at the record's `timestamp`, with `project_path` the
   `cwd` and `session_id` the id in the `sessionFile` name; `-` for an absent value.
 
-pi keeps no prompt history file ([What survives a delete](#what-survives-a-delete)). The project
-exports and the bug-report zip are copies of past sessions that the parser does not read.
+The [Terminal UI crash log](#terminal-ui-crash-log), `.pi/agent/pi-tui-crash.log` or the older
+`.pi/agent/pi-crash.log`, is primary: one `system` row per `Crash at` line,
+`tui crash: <the Terminal width and Line lines, joined by "; "> (from <file>, Crash at line)`
+followed by the rendered screen lines as written, at the `Crash at` time, with an empty
+`session_id` and `project_path`, since the file names neither.
+
+The project exports and the bug report zip are copies of past sessions, read where the collector
+gathered them, at the top of a project directory, and secondary: their entries go through the
+session reader's row functions with the export's own `id` and `cwd`, so a row joins the session
+file's row on session id, text and time (the default two-second window; every entry keeps its
+`timestamp`) and is dropped when a session file in the collection holds it, while a deleted
+session's rows are kept and marked recovered. Two exports of one session join each other the same
+way. The project directory a file sits in is never the scope: the rows carry `cwd`, so an export
+in a moved project still joins.
+
+- `pi-session-*.html` ([HTML export](#html-export)): the `session-data` element decoded in memory;
+  one `system` row
+  `session exported: HTML /export of session <id>, <N> entries of every branch, leaf <leafId> (from <file>, file mtime)`
+  at the file's modification time, the header's `session start:` row at its `timestamp`, then
+  every entry of every branch, `source_line` the entry's 1-based position in `entries`.
+- `session-<time>.jsonl` ([JSONL export](#jsonl-export)): one `system` row
+  `session exported: JSONL /export of the current branch of session <id>, <N> entries (from <file>, header timestamp)`
+  at the header's `timestamp`, the export time, then the branch's entries; no `session start:`
+  row, since the header's time is not the session's.
+- `pi-bug-report-*.zip` ([Bug report archive](#bug-report-archive)), read from its bytes in
+  memory and never extracted: one `system` row
+  `bug report: <id> session=<session.id> transcript=<session.included> summary=<session.summaryIncluded> messages=<session.messageCount> entries=<entryCount> version=<environment.version> platform=<environment.platform>/<environment.arch> model=<model.provider>/<model.id> (from <file> report.json, createdAt)`
+  at `createdAt`, followed by one line per failed assistant turn,
+  `failed assistant turn <entryId> at <timestamp>: stopReason=<stopReason> <errorMessage>`; one
+  `crash:` row per `diagnostics.json` crash in the `crashes.json` form ending
+  `(from <file> diagnostics.json, record timestamp)`; then one row
+  `bug report summary: <id> (from <file> summary.md, report.json createdAt)` followed by the
+  summary's text, or the rows of `session.jsonl`, whose `pi.share` entry is skipped as every
+  other `custom` entry is. The rows carry `session.id` (else `sessionId`) and `session.cwd`, so a
+  summary-only report's rows have an empty `project_path`;
+  `hint`, `settings`, `extensions` and `provider` are not printed. `-` stands for an absent value.
+
+pi keeps no prompt history file ([What survives a delete](#what-survives-a-delete)).
 
 When a file's `parentSession` parent is also in the collection, child entries whose `id` and
 `timestamp` match a parent entry are dropped, so a fork does not double the timeline.
+
+An export or a zip transcript of a fork keeps the entries the fork copied from its parent. They
+carry the fork's id, the parent's rows carry the parent's, and the fork's session file drops them,
+so no session-file row matches them, and they are kept, marked recovered, beside the parent's
+rows. The parser does not drop them: the export lies in a project directory, the parent file in a
+home, and the JSONL export and `session.jsonl` name no parent at all, so dropping them would mean
+finding files across the collection by host path, which the parser does not do. The copy gives no
+`fork:` row.
 
 #### Sync, relay and origin rows
 
@@ -1196,6 +1373,31 @@ while an empty `trust.json` gives the not-an-object row, as pi rejects it
 ([trust-manager.ts:111-117](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L111-L117)).
 A `pi-debug.log` that cannot be opened gives no
 `debug snapshot` row, and a `meta.json` row carries the session id its directory names.
+
+`pi-tui-crash.log` reports a non-empty line before the first `Crash at` line as
+`parser: unparseable line (before the first Crash at line): <line>`, and one between a `Crash at`
+line and the marker that is neither a `Terminal width:` nor a `Line` line as
+`parser: unparseable line (not a crash header line): <line>`; the record keeps its row. A JSONL
+export or a zip's `session.jsonl` reports its bad lines as a session file does, the zip's with the
+member's line numbers. Each of the following is one whole-file row, `<file>` the export's name in
+its project directory, after the rows the file still gives:
+
+- an HTML export: `parser: <file> holds no session data` (no `session-data` element),
+  `parser: <file> session data has no closing tag`,
+  `parser: <file> session data is not base64 (<reason>)`,
+  `parser: <file> session data is not JSON (<reason>)`,
+  `parser: <file> session data is not a JSON object`,
+  `parser: <file> session data has no session header` (no `header` whose `type` is `session`),
+  each with no other row; `parser: <file> session data has no entries array`; and an element of
+  `entries` that is not an object,
+  `parser: unparseable record <N> (not a JSON object): <element>`;
+- a zip: `parser: <file> is not a zip archive (<reason>)`,
+  `parser: <file> has no member report.json` (or `diagnostics.json`),
+  `parser: <file> member <member> could not be read (<reason>)` and
+  `parser: <file> member <member> is not a JSON object`.
+
+An export, a zip or the crash log that cannot be opened is
+`parser: <file> could not be read (<reason>)`.
 
 #### Fixtures
 
@@ -1319,6 +1521,8 @@ no repository list and no repository-bound conversation.
 - Not determined: the experimental durable `record` JSON shape.
 - Not determined: whether a rebranded pi build (`piConfig.configDir`) is in use anywhere, which
   would need its own catalog line.
+- High: the shapes of the HTML and JSONL exports, the bug report archive and the terminal UI
+  crash log, read from their writers at one commit; not observed on any real install.
 - For a real-install round: that a session file appears only after the first prompt; the
   `pi-debug.log` and `crashes.json` contents; a `pi.bug-report` entry for an upload and a zip;
   `pi-tui-crash.log`; the managed install under `install/` and `bin/pi` on each platform;

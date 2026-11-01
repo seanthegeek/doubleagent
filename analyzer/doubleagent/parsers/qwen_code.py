@@ -1,33 +1,31 @@
-"""Parse Qwen Code sessions, prompt logs, settings, channel routes and usage records.
+"""Parse Qwen Code sessions, prompt logs, settings, channel files and past-use stores.
 
 Follows `research/qwen-code.md`. Validated against source, QwenLM/qwen-code at
 835b080 (0.26.4, beside release v0.26.5), with the shapes of 2c591ec (0.24.7)
-and 5dcf7c7 (0.25.3) still read, and a synthetic fixture; no real install. Qwen
-Code forked Gemini CLI, but its sessions are a flat record stream. Files read:
+and 5dcf7c7 (0.25.3) still read, and a synthetic fixture; no real install. The
+runtime-base stores are read under `.qwen/` and under the managed local mode's
+`.qwen/managed-local/harness/` and `.qwen/managed-local/worker-home/`. Files read:
 
-- `.qwen/projects/<cwd>/chats/[archive/]<sessionId>.jsonl`, one `ChatRecord`
-  per line: `sessionId`, `timestamp`, `type`, `subtype`, `cwd`, `gitBranch`,
-  `provenance`, `agentId`, `agentName`, `model`, `executionContext {modelId,
-  authType, approvalMode}`, `systemPayload` and `message.parts[]` (`text`,
-  `thought`, `functionCall`, `functionResponse`), `toolCallResult {callId,
-  status, resultDisplay, errorType}`. A `user` record the user did not type
-  is a `system` row. A `<sessionId>.worktree.json` sidecar beside it
-  (`worktreePath`) gives one `scratch directory:` row; the `.ledger.jsonl`,
-  `.runtime.json` and `.pr.json` sidecars are not read.
-- `.qwen/tmp/<hash>/logs.json`, a JSON array of `{sessionId, messageId,
-  timestamp, type, message}`, a secondary source (a file repeating the
-  chats' events); `model_switch` entries give `model:` rows.
-- `.qwen/trustedFolders.json`, read by the Gemini CLI parser's
-  `trusted_folder_rows`.
-- `.qwen/channels/sessions.json` and `.qwen/channels/daemon/<hash>/routes.json`:
-  one `session relayed:` row per route, since the conversation also sits on
-  the messaging platform.
-- `.qwen/settings.json` (home or project), read as JSONC: only
-  `permissions.{allow,ask,deny}` and `tools.approvalMode`, since the file
-  holds provider keys and channel tokens.
-- `.qwen/usage_record.jsonl`, secondary: one `session usage:` row per line.
+- `projects/<cwd>/chats/[archive/]<sessionId>.jsonl`, one `ChatRecord` per line:
+  `sessionId`, `timestamp`, `type`, `subtype`, `cwd`, `gitBranch`, `provenance`,
+  `agentId`, `agentName`, `model`, `executionContext`, `systemPayload`,
+  `message.parts[]` and `toolCallResult`; a channel prompt's quoted group
+  messages give `group message:` rows. Sidecars `<sessionId>.worktree.json`
+  (`worktreePath`) and `<sessionId>.pr.json` (`prs[]`); `.ledger.jsonl` and
+  `.runtime.json` are not read.
+- `tmp/<hash>/logs.json` and `usage_record.jsonl` (the home's and the workers'),
+  secondary sources.
+- `usage/token-usage-<YYYY-MM>.jsonl`, `todos/<sessionId>.json`,
+  `projects/<cwd>/session-organization.v1.json`, `.qwen/PROJECT_SUMMARY.md`.
+- `.qwen/trustedFolders.json`; `.qwen/settings.json` (only `permissions` and
+  `tools.approvalMode`, since the file holds provider keys and channel tokens).
+- `.qwen/channels/sessions.json`, `.qwen/channels/daemon/<hash>/routes.json`,
+  `<channel>-group-history.jsonl` (secondary) and the GitHub channel's
+  `<scope>/<channel>-<hash>-github-audit.jsonl`.
 
-Model and approval mode are tracked per `sessionId`.
+The managed local mode's H2 database `managed.mv.db` is not read: no standard
+library module decodes its MVStore format. Model and approval mode are tracked
+per `sessionId`.
 """
 
 from __future__ import annotations
@@ -37,10 +35,12 @@ import os
 import re
 import stat
 from collections.abc import Iterator
+from urllib.parse import urlsplit
 
+from ..dedup import MATCH_FORMS, MATCH_TIMES, NO_MATCH
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..timeutil import to_utc
+from ..timeutil import epoch_ms, to_utc
 from .base import (
     Options,
     Parser,
@@ -55,27 +55,63 @@ from .base import (
 )
 from .gemini_cli import parse_jsonc, trusted_folder_rows
 
+# Runtime-base stores are matched on the path below their root, with the
+# managed local mode's harness and worker roots read like `.qwen/`.
+RUNTIME_ROOTS = (".qwen/managed-local/harness/", ".qwen/managed-local/worker-home/")
+# The workers' `$QWEN_HOME`, a global directory of its own; the harness
+# moves only its runtime base.
+WORKER_HOME = ".qwen/managed-local/worker-home/"
 # The session list's own file name test, which leaves out the sidecars.
 SESSION_PATTERN = re.compile(
     r"^\.qwen/projects/[^/]+/chats/(?:archive/)?[0-9a-fA-F-]{32,36}\.jsonl$"
 )
 LOGS_PATTERN = re.compile(r"^\.qwen/tmp/[^/]+/logs\.json$")
+TOKEN_USAGE_PATTERN = re.compile(r"^\.qwen/usage/token-usage-[0-9]{4}-[0-9]{2}\.jsonl$")
+TODO_PATTERN = re.compile(r"^\.qwen/todos/[^/]+\.json$")
+ORGANIZATION_PATTERN = re.compile(r"^\.qwen/projects/[^/]+/session-organization\.v1\.json$")
+PULL_REQUESTS_PATTERN = re.compile(
+    r"^\.qwen/projects/[^/]+/chats/(?:archive/)?[0-9a-fA-F-]{32,36}\.pr\.json$"
+)
+RUNTIME_PATTERNS = (
+    SESSION_PATTERN,
+    LOGS_PATTERN,
+    TOKEN_USAGE_PATTERN,
+    TODO_PATTERN,
+    ORGANIZATION_PATTERN,
+    PULL_REQUESTS_PATTERN,
+)
 TRUSTED_PATTERN = re.compile(r"^\.qwen/trustedFolders\.json$")
 CHANNELS_PATTERN = re.compile(r"^\.qwen/channels/sessions\.json$")
 DAEMON_ROUTES_PATTERN = re.compile(r"^\.qwen/channels/daemon/[^/]+/routes\.json$")
+GROUP_HISTORY_PATTERN = re.compile(r"^\.qwen/channels/[^/]+-group-history\.jsonl$")
+AUDIT_PATTERN = re.compile(r"^\.qwen/channels/[^/]+/[^/]+-[0-9a-f]{16}-github-audit\.jsonl$")
 # `~/.qwen/settings.json`, or a project's `.qwen/settings.json` (a project
 # catalog file), for the standing permission rules.
 SETTINGS_PATTERN = re.compile(r"^\.qwen/settings\.json$")
 USAGE_PATTERN = re.compile(r"^\.qwen/usage_record\.jsonl$")
+SUMMARY_PATTERN = re.compile(r"^\.qwen/PROJECT_SUMMARY\.md$")
 PATTERNS = (
-    SESSION_PATTERN,
-    LOGS_PATTERN,
     TRUSTED_PATTERN,
     CHANNELS_PATTERN,
     DAEMON_ROUTES_PATTERN,
+    GROUP_HISTORY_PATTERN,
+    AUDIT_PATTERN,
     SETTINGS_PATTERN,
     USAGE_PATTERN,
+    SUMMARY_PATTERN,
 )
+# The markers `prependGroupHistoryContext` wraps a channel prompt's quoted
+# group messages in, one `- [<sender>] <text>` line each.
+GROUP_HISTORY_MARKER = "[Chat messages since your last reply - for context]"
+CURRENT_MESSAGE_MARKER = "[Current message - respond to this]"
+QUOTED_LINE = re.compile(r"^- \[([^\]\r\n]*)\] (.*)$")
+# The suffix a group history message row ends in: the `recordedAt` of the
+# next `clear` of its chat's key, the moment a prompt quoted it, or the
+# word that the `clear` recorded no time or that none follows.
+HISTORY_SUFFIX = re.compile(
+    r"^(group message: .*) \((?:cleared, time not recorded|cleared (\S+)|waiting)\)$", re.DOTALL
+)
+ASCII_SPACE_RUN = re.compile(r"[ \t\n\r\f\v]+")
 PERMISSION_LISTS = ("allow", "ask", "deny")
 # `ToolCallEvent` as `logToolCall` records it in a `ui_telemetry` record,
 # and the class's own default name, which an older build may have written.
@@ -177,6 +213,85 @@ def injected_origin(record: dict) -> str:
     return "%s (%s)" % (label, " ".join(keys)) if keys else label
 
 
+def _value(record: dict, key: str) -> str:
+    """Return a record's value as row text, `-` when absent or empty."""
+    field = record.get(key)
+    return str(field) if field not in (None, "") else "-"
+
+
+def runtime_rel(rel: str) -> str:
+    """Return `rel` with a managed local root replaced by `.qwen/`, the runtime base it mirrors."""
+    for root in RUNTIME_ROOTS:
+        if rel.startswith(root):
+            return ".qwen/" + rel[len(root) :]
+    return rel
+
+
+def quoted_group_messages(text: str) -> list[str]:
+    """Return the `group message: [<sender>] <text>` texts a channel prompt quotes, else [].
+
+    The quote is the block between `GROUP_HISTORY_MARKER` at the start of a
+    line and a blank line before `CURRENT_MESSAGE_MARKER`; a block with a line
+    of another form is not the channel's, and gives none.
+    """
+    start = text.find(GROUP_HISTORY_MARKER + "\n")
+    while start > 0 and text[start - 1] != "\n":
+        start = text.find(GROUP_HISTORY_MARKER + "\n", start + 1)
+    if start < 0:
+        return []
+    body = start + len(GROUP_HISTORY_MARKER) + 1
+    end = text.find("\n\n" + CURRENT_MESSAGE_MARKER, body)
+    if end < 0:
+        return []
+    out = []
+    for line in text[body:end].split("\n"):
+        match = QUOTED_LINE.match(line)
+        if not match:
+            return []
+        out.append("group message: [%s] %s" % (match.group(1), match.group(2)))
+    return out
+
+
+def worker_rel(rel: str) -> str:
+    """Return `rel` with the managed local workers' `$QWEN_HOME` replaced by `.qwen/`."""
+    return ".qwen/" + rel[len(WORKER_HOME) :] if rel.startswith(WORKER_HOME) else rel
+
+
+def _history_suffix(row: Row):
+    """Return the suffix match of a group history file's `group message:` row, else None."""
+    if row.turn_type != "system" or not row.source_file.endswith("-group-history.jsonl"):
+        return None
+    return HISTORY_SUFFIX.match(row.text)
+
+
+def match_form(row: Row) -> tuple[str, str]:
+    """Return the `(turn_type, text)` a row is deduplicated under (`dedup.MATCH_FORMS`).
+
+    A `group message:` row matches without the history row's suffix and with
+    each ASCII whitespace run collapsed to one space, since the channel quotes
+    a line break as a space. Every other row matches as it is.
+    """
+    suffix = _history_suffix(row)
+    text = suffix.group(1) if suffix else row.text
+    if text.startswith("group message: "):
+        return row.turn_type, ASCII_SPACE_RUN.sub(" ", text).strip(" ")
+    return row.turn_type, row.text
+
+
+def match_time(row: Row) -> int | None:
+    """Return the time a group history row is matched at (`dedup.MATCH_TIMES`), else None.
+
+    That is the next `clear` of its chat's key, written when a prompt quoted
+    it; a message no `clear` follows was never quoted, and one whose `clear`
+    recorded no time cannot be placed, so neither matches a transcript row.
+    """
+    suffix = _history_suffix(row)
+    if not suffix:
+        return None
+    cleared = epoch_ms(suffix.group(2)) if suffix.group(2) else None
+    return cleared if cleared is not None else NO_MATCH
+
+
 class QwenCodeParser(Parser):
     """Parse Qwen Code's chat files, prompt logs, settings, routes and usage records."""
 
@@ -186,28 +301,338 @@ class QwenCodeParser(Parser):
     records_relay = True
 
     def wants(self, artifact: Artifact) -> bool:
-        """Return True for a chat file (not a sidecar) or another file the parser reads."""
-        return any(pattern.match(artifact.rel) for pattern in PATTERNS)
+        """Return True for a chat file (not a ledger or runtime sidecar) or another file it reads."""
+        rel = runtime_rel(artifact.rel)
+        return (
+            any(pattern.match(rel) for pattern in RUNTIME_PATTERNS)
+            or any(pattern.match(artifact.rel) for pattern in PATTERNS)
+            or bool(USAGE_PATTERN.match(worker_rel(artifact.rel)))
+        )
 
     def secondary(self, artifact: Artifact) -> bool:
-        """Return True for a prompt log or the usage records."""
-        return bool(LOGS_PATTERN.match(artifact.rel) or USAGE_PATTERN.match(artifact.rel))
+        """Return True for a prompt log, the usage records or a channel's group history."""
+        return bool(
+            LOGS_PATTERN.match(runtime_rel(artifact.rel))
+            or USAGE_PATTERN.match(worker_rel(artifact.rel))
+            or GROUP_HISTORY_PATTERN.match(artifact.rel)
+        )
 
     def parse(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         """Yield the rows of one Qwen Code file."""
+        rel = runtime_rel(artifact.rel)
         if TRUSTED_PATTERN.match(artifact.rel):
             yield from trusted_folder_rows(self, artifact)
         elif SETTINGS_PATTERN.match(artifact.rel):
             yield from self._parse_settings(artifact)
-        elif USAGE_PATTERN.match(artifact.rel):
+        elif USAGE_PATTERN.match(worker_rel(artifact.rel)):
             yield from self._parse_usage(artifact)
         elif CHANNELS_PATTERN.match(artifact.rel) or DAEMON_ROUTES_PATTERN.match(artifact.rel):
             # Named without the leading `.qwen/`, as the row text names it.
             yield from self._parse_channel_routes(artifact, artifact.rel.split("/", 1)[1])
-        elif LOGS_PATTERN.match(artifact.rel):
+        elif GROUP_HISTORY_PATTERN.match(artifact.rel):
+            yield from self._parse_group_history(artifact)
+        elif AUDIT_PATTERN.match(artifact.rel):
+            yield from self._parse_audit(artifact)
+        elif SUMMARY_PATTERN.match(artifact.rel):
+            yield from self._parse_summary(artifact)
+        elif LOGS_PATTERN.match(rel):
             yield from self._parse_logs(artifact, opts)
+        elif TOKEN_USAGE_PATTERN.match(rel):
+            yield from self._parse_token_usage(artifact)
+        elif TODO_PATTERN.match(rel):
+            yield from self._parse_todos(artifact)
+        elif ORGANIZATION_PATTERN.match(rel):
+            yield from self._parse_organization(artifact)
+        elif PULL_REQUESTS_PATTERN.match(rel):
+            yield from self._parse_pull_requests(artifact)
         else:
             yield from self._parse_session(artifact, opts)
+
+    def _system_row(self, artifact: Artifact, line: int, timestamp: str, text: str) -> Row:
+        row = self.base_row(artifact)
+        row.source_line = line
+        row.turn_type = "system"
+        row.timestamp_utc = timestamp
+        row.text = compact(text)
+        return row
+
+    @staticmethod
+    def _read_object(artifact: Artifact, errors: list) -> dict | None:
+        """Return a JSON file's object, or None after appending its failure to `errors`.
+
+        The failure is the unreadable entry, or `<file> is not a JSON object`.
+        """
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            return None
+        try:
+            doc = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError:
+            doc = None
+        if not isinstance(doc, dict):
+            errors.append((0, "%s is not a JSON object" % artifact.disk_path.name, ""))
+            return None
+        return doc
+
+    def _parse_token_usage(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield one `token usage:` row per record of a monthly token usage log, at its time.
+
+        No delete touches the log, so it keeps every response of a deleted session.
+        """
+        errors: list = []
+        name = artifact.disk_path.name
+        for line_number, record in iter_jsonl(artifact.disk_path, errors):
+            counts = " ".join(
+                "%s %s" % (label, _value(record, key))
+                for label, key in (
+                    ("input", "inputTokens"),
+                    ("output", "outputTokens"),
+                    ("cached", "cachedTokens"),
+                    ("thoughts", "thoughtsTokens"),
+                    ("total", "totalTokens"),
+                )
+            )
+            duration = record.get("apiDurationMs")
+            text = "token usage: model %s auth %s source %s tokens %s api %s (from %s)" % (
+                _value(record, "model"),
+                _value(record, "authType"),
+                _value(record, "source"),
+                counts,
+                "%sms" % duration if duration not in (None, "") else "-",
+                name,
+            )
+            row = self._system_row(artifact, line_number, to_utc(record.get("timestamp")), text)
+            row.session_id = str(record.get("sessionId") or "")
+            # `unknown` is Qwen Code's placeholder for a response naming no model.
+            model = str(record.get("model") or "")
+            row.model = "" if model == "unknown" else model
+            yield row
+        yield from error_rows(self, artifact, errors)
+
+    def _parse_group_history(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield the rows of a channel's `<channel>-group-history.jsonl`, a secondary source.
+
+        A `message` record is `group message: [<sender>] <text> (cleared
+        <time>)` at the message's time, `<time>` the `recordedAt` of the next
+        `clear` of its key, written when a prompt quoted the chat's waiting
+        messages or the chat was cleared, `(cleared, time not recorded)` when
+        that `clear` has no `recordedAt`, and `(waiting)` when none follows; a
+        `clear` record is a `group history cleared:` row.
+        """
+        errors: list = []
+        name = artifact.disk_path.name
+        records = list(iter_jsonl(artifact.disk_path, errors))
+        next_clear: dict = {}  # key -> recordedAt of the nearest later clear
+        cleared_at: dict = {}  # line number -> that clear's time, for a message
+        for line_number, record in reversed(records):
+            key = compact_json(record.get("key"))
+            if record.get("type") == "clear":
+                next_clear[key] = to_utc(record.get("recordedAt"))
+            elif key in next_clear:
+                cleared_at[line_number] = next_clear[key]
+        for line_number, record in records:
+            record_type = record.get("type")
+            entry = record.get("entry")
+            if record_type == "message" and isinstance(entry, dict):
+                sender = entry.get("senderName") or entry.get("senderId") or ""
+                cleared = cleared_at.get(line_number)
+                if cleared is None:
+                    state = "waiting"
+                elif cleared:
+                    state = "cleared %s" % cleared
+                else:
+                    state = "cleared, time not recorded"
+                text = "group message: [%s] %s (%s)" % (
+                    sender,
+                    entry.get("text") or "",
+                    state,
+                )
+                timestamp = to_utc(entry.get("timestamp"))
+            elif record_type == "clear":
+                text = "group history cleared: %s (from %s, recordedAt)" % (
+                    record.get("key") or "-",
+                    name,
+                )
+                timestamp = to_utc(record.get("recordedAt"))
+            else:
+                message = "unparseable line (not a group history record)"
+                errors.append((line_number, message, compact_json(record)))
+                continue
+            yield self._system_row(artifact, line_number, timestamp, text)
+        # The reader's bad lines and the records of no known type, in line order.
+        errors.sort(key=lambda entry: entry[0])
+        yield from error_rows(self, artifact, errors)
+
+    def _parse_summary(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield the one `project summary` row of a `.qwen/PROJECT_SUMMARY.md`.
+
+        The row holds the whole file at its modification time, in the project
+        whose `.qwen/` holds it.
+        """
+        errors: list = []
+        project = artifact.home.original
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, "", project)
+            return
+        text = "project summary (from .qwen/PROJECT_SUMMARY.md, file mtime): " + content.decode(
+            "utf-8", errors="replace"
+        )
+        row = self._system_row(artifact, 1, file_mtime(artifact), text)
+        row.project_path = project
+        yield row
+
+    def _parse_todos(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield one `todo:` row per item of a session's todo file, at the file's time.
+
+        The session is the file's `sessionId`, else its name; `default`, the
+        file a process without a session id writes, names none.
+        """
+        errors: list = []
+        doc = self._read_object(artifact, errors)
+        stem = artifact.disk_path.stem
+        session_id = "" if stem == "default" else stem
+        if doc is None:
+            yield from error_rows(self, artifact, errors, session_id)
+            return
+        recorded = str(doc.get("sessionId") or stem)
+        session_id = "" if recorded == "default" else recorded
+        todos = doc.get("todos")
+        mtime = file_mtime(artifact)
+        name = "todos/" + artifact.disk_path.name
+        for index, item in enumerate(todos if isinstance(todos, list) else [], 1):
+            if not isinstance(item, dict):
+                errors.append((index, "todo %d is not a JSON object" % index, ""))
+                continue
+            blocked = item.get("blockedBy")
+            blocked_by = (
+                ",".join(str(each) for each in blocked) if isinstance(blocked, list) else ""
+            )
+            text = "todo: [%s] %s (id %s, blocked by %s, from %s, file mtime)" % (
+                _value(item, "status"),
+                item.get("content") or "",
+                _value(item, "id"),
+                blocked_by or "-",
+                name,
+            )
+            row = self._system_row(artifact, index, mtime, text)
+            row.session_id = session_id
+            yield row
+        yield from error_rows(self, artifact, errors, session_id)
+
+    def _parse_organization(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield one `session organization:` row per session of the Web Shell's grouping file.
+
+        Each row names the session's group (by name when the file lists it),
+        colour and pin time, at the entry's `updatedAt`.
+        """
+        errors: list = []
+        doc = self._read_object(artifact, errors)
+        if doc is None:
+            yield from error_rows(self, artifact, errors)
+            return
+        groups = doc.get("groups")
+        names = {
+            str(group["id"]): str(group.get("name") or group["id"])
+            for group in (groups if isinstance(groups, list) else [])
+            if isinstance(group, dict) and group.get("id")
+        }
+        sessions = doc.get("sessions")
+        sessions = sessions if isinstance(sessions, dict) else {}
+        for index, (session_id, entry) in enumerate(sessions.items(), 1):
+            if not isinstance(entry, dict):
+                errors.append((index, "session %s is not a JSON object" % session_id, ""))
+                continue
+            group_id = entry.get("groupId")
+            text = (
+                "session organization: group %s color %s pinned %s"
+                " (from session-organization.v1.json, updatedAt)"
+                % (
+                    names.get(str(group_id), str(group_id)) if group_id else "-",
+                    _value(entry, "color"),
+                    entry.get("pinnedAt") or "no",
+                )
+            )
+            row = self._system_row(artifact, index, to_utc(entry.get("updatedAt")), text)
+            row.session_id = str(session_id)
+            yield row
+        yield from error_rows(self, artifact, errors)
+
+    def _parse_pull_requests(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield one `source host:` row per pull request a session's `.pr.json` binds.
+
+        The host and repository come from the pull request's `url`; the row is
+        at its `createdAt`.
+        """
+        errors: list = []
+        name = artifact.disk_path.name
+        session_id = name[: -len(".pr.json")]
+        doc = self._read_object(artifact, errors)
+        prs = doc.get("prs") if doc is not None else None
+        for index, pull_request in enumerate(prs if isinstance(prs, list) else [], 1):
+            if not isinstance(pull_request, dict):
+                errors.append((index, "pull request %d is not a JSON object" % index, ""))
+                continue
+            url = str(pull_request.get("url") or "")
+            address = urlsplit(url)
+            segments = [segment for segment in address.path.split("/") if segment]
+            issues = pull_request.get("issues")
+            numbers = [
+                str(issue["number"])
+                for issue in (issues if isinstance(issues, list) else [])
+                if isinstance(issue, dict) and issue.get("number") is not None
+            ]
+            text = (
+                "source host: %s repository %s pull request %s state %s source %s issues %s"
+                " (from %s, createdAt)"
+                % (
+                    address.hostname or "-",
+                    "/".join(segments[:2]) if len(segments) >= 2 else "-",
+                    url or "-",
+                    _value(pull_request, "state"),
+                    _value(pull_request, "source"),
+                    ",".join(numbers) or "-",
+                    name,
+                )
+            )
+            row = self._system_row(artifact, index, to_utc(pull_request.get("createdAt")), text)
+            row.session_id = session_id
+            yield row
+        yield from error_rows(self, artifact, errors, session_id)
+
+    def _parse_audit(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield one `source host: github` row per publication record of the GitHub channel.
+
+        The actor is the GitHub login the reply answered, where recorded; the
+        reply's body is recorded only as its hash and length, left out.
+        """
+        errors: list = []
+        name = artifact.disk_path.name
+        for line_number, record in iter_jsonl(artifact.disk_path, errors):
+            failure = ""
+            if record.get("failurePhase") or record.get("failureError"):
+                failure = " failure %s: %s" % (
+                    _value(record, "failurePhase"),
+                    _value(record, "failureError"),
+                )
+            text = (
+                "source host: github repository %s actor %s publication %s trigger %s number %s"
+                " comment %s%s (from %s, at)"
+                % (
+                    _value(record, "repository"),
+                    _value(record, "actor"),
+                    _value(record, "outcome"),
+                    _value(record, "triggerKind"),
+                    _value(record, "number"),
+                    _value(record, "commentUrl"),
+                    failure,
+                    name,
+                )
+            )
+            row = self._system_row(artifact, line_number, to_utc(record.get("at")), text)
+            row.session_id = str(record.get("sessionId") or "")
+            yield row
+        yield from error_rows(self, artifact, errors)
 
     def _parse_channel_routes(self, artifact: Artifact, name: str) -> Iterator[Row]:
         """One `session relayed:` row per entry of a channel routes file."""
@@ -414,6 +839,8 @@ class QwenCodeParser(Parser):
                     yield base("system", "%s: %s" % (origin, text) if text else origin)
                 else:
                     yield base("user", text)
+                for quoted in quoted_group_messages(text):
+                    yield base("system", quoted)
             elif record_type == "assistant":
                 model = str(record.get("model") or "")
                 change = track_change("model", models, session_id, model)
@@ -643,3 +1070,7 @@ class QwenCodeParser(Parser):
                 offset = skip(offset + 1)
         if offset >= length:
             errors.append((index + 1, "unterminated JSON array", ""))
+
+
+MATCH_FORMS[QwenCodeParser.agent] = match_form
+MATCH_TIMES[QwenCodeParser.agent] = match_time
