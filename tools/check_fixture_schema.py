@@ -8,8 +8,8 @@ never documents a key), of the file's agent's document or of an agent whose fixt
 agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read only the files
 `build_home` leaves on disk, so a record a later builder overwrites is not checked.
 
-1. `builder-provenance-missing`: a public function of a fixture module but a home builder
-   (`is_public_builder`) with no docstring line `source_line` accepts naming a document heading.
+1. `builder-provenance-missing`: a public function of a fixture module, other than a home
+   builder (`is_public_builder`), whose docstring has no `source_line` naming a document heading.
 2. `module-provenance-missing`: a fixture module whose docstring does not name
    `research/<agent>.md` for its own agent as a whole path token (`names_document`).
 3. `key-undocumented`: a dict key, SQLite table or column name, or YAML or TOML key that is

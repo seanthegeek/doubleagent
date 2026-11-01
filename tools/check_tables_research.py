@@ -8,9 +8,9 @@
   its glob or its remainder below an owner's entry (`base_remainders`, `star_remainders`);
   its detail is `<table> <glob>`, as one glob may be in several tables.
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
-  secret glob flags on its own base, or on any sibling base of one platform (`sibling_bases`:
-  the same last segment, a leading `.` dropped and case kept), unless a code span of the Parsing part's Secrets section names the path (`secrets_store`),
-  or its sentence says it is not a credential (`denies_credential`).
+  secret glob flags on its own base or a sibling base of one platform (`sibling_bases`: the same
+  last segment, a leading `.` dropped, case kept), unless a Parsing-part Secrets code span names
+  the path (`secrets_store`) or its sentence says it is not a credential (`denies_credential`).
 - `secret-under-exclusion`: a secret glob each of whose sample paths an exclusion prunes.
 - `exclusion-unreachable`, `secret-unreachable`: an exclusion or secret glob with no owner
   (`Repository.owners`, `glob_owners`): no entry reaches it, no volume document claims it.

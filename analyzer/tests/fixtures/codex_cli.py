@@ -1162,7 +1162,7 @@ CODEX_DENY_VERDICT = {
 
 
 def _uuid7(milliseconds: int, tail: int) -> str:
-    """A UUIDv7 string whose first 48 bits are the epoch milliseconds `ms`."""
+    """A UUIDv7 string whose first 48 bits are the epoch `milliseconds`."""
     hexes = "%012x7000%016x" % (milliseconds, 0x8000000000000000 | tail)
     return "%s-%s-%s-%s-%s" % (hexes[:8], hexes[8:12], hexes[12:16], hexes[16:20], hexes[20:])
 
