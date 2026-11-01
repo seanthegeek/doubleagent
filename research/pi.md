@@ -239,7 +239,8 @@ MCP resources as `pi-mcp-*`
 and codemode output as `pi-codemode-*`
 ([codemode/execute.ts:395](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/extensions/codemode/execute.ts#L395),
 [424](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/extensions/codemode/execute.ts#L424));
-the session names such a file in `fullOutputPath`. A pasted clipboard image is saved as
+the session names such a file in the tool result ([Message roles](#message-roles)). A pasted
+clipboard image is saved as
 `pi-clipboard-<uuid>.<ext>` and left there
 ([interactive-mode.ts:3234-3240](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/interactive-mode.ts#L3234-L3240)).
 `/share` and the external editor use temporary directories they remove
@@ -310,6 +311,9 @@ they belong to those tools.
 Copied, not made by pi, and large:
 
 - `.pi/agent/bin`: downloaded `fd` and `rg` binaries and the managed `pi` launcher.
+- `.pi/agent/tools/fd*` and `.pi/agent/tools/rg*`: the same binaries (`fd`, `rg`, `fd.exe`,
+  `rg.exe`) where an older build left them in legacy `tools/` and no later start moved them
+  ([migrations.ts:177-200](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/migrations.ts#L177-L200)).
 - `.pi/agent/install`: the managed install, a full copy of pi per release.
 - `.pi/agent/npm/node_modules`: installed npm packages; the sources stay recorded in `settings.json`
   `packages` and `npm/package.json`
@@ -323,7 +327,13 @@ Copied, not made by pi, and large:
   ([package-manager.ts:2229-2230](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/package-manager.ts#L2229-L2230),
   [2310-2311](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/package-manager.ts#L2310-L2311)).
 
-The sockets older builds left in `~/.pi/server` cannot be copied. Session files stay whole: images
+- `.pi/server/*.sock`: the Unix sockets older builds' experimental server left in `~/.pi/server`,
+  `<server id>.sock`, `control-<server id>.sock` and `server-<server id>-<nonce>.sock`
+  ([packages/client/src/unix.ts:16](https://github.com/earendil-works/pi/blob/200387122ca450d6387f033949423114a270b96c/packages/client/src/unix.ts#L16);
+  [experimental/server.ts:582-584](https://github.com/earendil-works/pi/blob/200387122ca450d6387f033949423114a270b96c/packages/coding-agent/src/experimental/server.ts#L582-L584)),
+  which cannot be copied.
+
+Session files stay whole: images
 are inline base64 and can be large, but they are the transcript.
 
 ### Project-local files
@@ -353,7 +363,8 @@ Exports and reports land in the cwd by default:
 - `/export` HTML as `pi-session-<session file basename>.html`
   ([export-html/index.ts:276-279](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/export-html/index.ts#L276-L279)),
   holding the session in base64 ([HTML export](#html-export)).
-- `/export` JSONL as `session-<ISO time>.jsonl`
+- `/export` JSONL as `session-<ISO time>.jsonl`, the time's `:` and `.` replaced by `-`, so the
+  name matches `session-[0-9][0-9][0-9][0-9]-*.jsonl`
   ([session-export.ts:32-45](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/session-export.ts#L32-L45)).
 - A `/bug` report exported as `pi-bug-report-<id>.zip`, `<id>` the report id
   ([modes/interactive/bug-report.ts:202](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/bug-report.ts#L202);
