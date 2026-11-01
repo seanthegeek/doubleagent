@@ -2292,7 +2292,7 @@ done
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
 check "credentials skipped_secret" "[ \"\$(status_of \"$ROOT/home/alice/.claude/.credentials.json\")\" = skipped_secret ]"
-check "credentials absent from archive" "! tar -tzf \"\$ARCHIVE\" | grep -q credentials.json"
+check "credentials absent from archive" "! tar -tzf \"\$ARCHIVE\" | grep -q '\.claude/\.credentials\.json'"
 # 2026-10-11 Claude Desktop Linux deb and Claude Code 2.1.295 session keys (#73, #76)
 check "#73 #76 --no-secrets skips link-key and the session key" "[ \"\$(status_of \"$CLAUDE_LINUX_CONFIG/spaces-present/0a0a0a0a/0b0b0b0b/link-key\")\" = skipped_secret ] && [ \"\$(status_of \"$SESSION_KEY\")\" = skipped_secret ]"
 # 2026-10-13 Antigravity desktop app (#83, #84)
