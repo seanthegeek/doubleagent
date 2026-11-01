@@ -106,8 +106,11 @@ FILE_EXTENSIONS = frozenset(
 
 
 FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
-# The parameter, keyword and attribute that carry a row's text, and its place among `Row` fields.
+# The parameter, keyword and attribute that carry a row's text, the class of a timeline row, and
+# the place of `text` among the fields of `doubleagent.model.Row`, which
+# `test_row_text_position_is_the_model_row_field` keeps in step.
 TEXT_NAME = "text"
+ROW_CLASS = "Row"
 ROW_TEXT_POSITION = 11
 COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
 
@@ -252,62 +255,152 @@ def assigned_row_texts(index: ModuleIndex, effective: EffectiveSet) -> list[Lite
 
     A function's assignment of a string, an f-string or a conditional choosing between them to a
     plain name, in any branch, counts when that function, outside nested functions, passes the
-    name as `text=`, at a `text` parameter's place of a call of a function the effective set or
-    `base.py` defines (`self.` methods too), at `Row`'s `text` place, or stores it in `.text`.
-    Only that one assignment is followed; an f-string's values read `{}`.
+    name to a row maker (`row_maker_call`) as `text=` or at its `text` parameter's place, or
+    stores it in `.text`. Only a direct assignment to the name is followed, never a second hop
+    (`b = a`); an f-string's values read `{}`.
     """
-    parameters = _text_positions(index, effective)
+    base = index.package / "parsers" / "base.py"
+    roots: list[ast.AST] = [index.tree(base)] if base.is_file() else []
+    roots.extend(node for nodes in effective.nodes.values() for node in nodes)
+    classes = [node for root in roots for node in ast.walk(root) if isinstance(node, ast.ClassDef)]
+    makers: dict[str, list[ast.AST]] = {}
+    for root in roots:
+        for node in ast.walk(root):
+            if isinstance(node, FUNCTIONS[:2]) and is_row_maker(node):
+                makers.setdefault(node.name, []).append(node)
     found: list[Literal] = []
     for path, nodes in effective.nodes.items():
         for root in nodes:
-            for function in ast.walk(root):
-                if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    found.extend(_function_row_texts(path, function, parameters))
+            for function, enclosing in _functions_with_scopes(root, ()):
+                resolver = _Resolver(index, path, enclosing, classes, makers)
+                found.extend(_function_row_texts(path, function, resolver))
     return found
 
 
-def _text_positions(index: ModuleIndex, effective: EffectiveSet) -> dict[str, set[int]]:
-    """Return, per function name the effective set or `base.py` defines, its `text` places.
+def _functions_with_scopes(
+    node: ast.AST, enclosing: tuple[ast.AST, ...]
+) -> Iterator[tuple[ast.AST, tuple[ast.AST, ...]]]:
+    """Yield each function at or under `node` with its enclosing functions and classes.
 
-    A method's place counts `self` out, as a call through `self.` passes it implicitly.
+    The tuple ends with the function itself; `enclosing` holds the scopes around `node`.
     """
-    places: dict[str, set[int]] = {"Row": {ROW_TEXT_POSITION}}
-    paths = list(effective.nodes)
-    base = index.package / "parsers" / "base.py"
-    trees: list[ast.AST] = [index.tree(base)] if base.is_file() else []
-    trees.extend(node for path in paths for node in effective.nodes[path])
-    for tree in trees:
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            names = [argument.arg for argument in node.args.posonlyargs + node.args.args]
-            if names[:1] in (["self"], ["cls"]):
-                names = names[1:]
-            if TEXT_NAME in names:
-                places.setdefault(node.name, set()).add(names.index(TEXT_NAME))
-    return places
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        enclosing = (*enclosing, node)
+        if not isinstance(node, ast.ClassDef):
+            yield node, enclosing
+    for child in ast.iter_child_nodes(node):
+        yield from _functions_with_scopes(child, enclosing)
 
 
-def _callee_name(call: ast.Call) -> str:
-    """Return the name a call calls: `f` of `f(...)` and of `self.f(...)`, else ""."""
-    function = call.func
-    if isinstance(function, ast.Name):
-        return function.id
-    owner = function.value if isinstance(function, ast.Attribute) else None
-    if isinstance(owner, ast.Name) and owner.id == "self" and isinstance(function, ast.Attribute):
-        return function.attr
-    return ""
+def is_row_maker(function: ast.AST) -> bool:
+    """Return whether a function is annotated to return a `Row` (`Row`, `Iterator[Row]`, ...)."""
+    returns = getattr(function, "returns", None)
+    if returns is None:
+        return False
+    for node in ast.walk(returns):
+        if isinstance(node, ast.Name) and node.id == ROW_CLASS:
+            return True
+        quoted = node.value if isinstance(node, ast.Constant) else None
+        if isinstance(quoted, str) and re.search(r"\b%s\b" % ROW_CLASS, quoted):
+            return True
+    return False
 
 
-def _text_names(scope: ast.AST, parameters: dict[str, set[int]]) -> set[str]:
+def _text_place(function: ast.AST) -> int | None:
+    """Return the place of a function's `text` parameter in a call, `self` counted out."""
+    arguments = getattr(function, "args", None)
+    if arguments is None:
+        return None
+    names = [argument.arg for argument in arguments.posonlyargs + arguments.args]
+    if names[:1] in (["self"], ["cls"]):
+        names = names[1:]
+    return names.index(TEXT_NAME) if TEXT_NAME in names else None
+
+
+class _Resolver:
+    """Find the definition a call in one function names, scope by scope."""
+
+    def __init__(
+        self,
+        index: ModuleIndex,
+        path: pathlib.Path,
+        enclosing: tuple[ast.AST, ...],
+        classes: list[ast.ClassDef],
+        makers: dict[str, list[ast.AST]],
+    ) -> None:
+        """Remember the module, the enclosing scopes, every known class and row maker by name."""
+        self.index = index
+        self.path = path
+        self.enclosing = enclosing
+        self.classes = classes
+        self.makers = makers
+
+    def definition(self, call: ast.Call) -> ast.AST | None:
+        """Return the function or class a call calls, or None when it is not found.
+
+        A plain name is the nearest enclosing function's local definition, else the module's
+        binding (imports followed), else, for a row maker passed in as a parameter, the row
+        makers of that name when they all put `text` at one place; `self.f` is the enclosing
+        class's method, else the first method `f` of another class of the effective set or
+        `base.py`.
+        """
+        function = call.func
+        if isinstance(function, ast.Name):
+            for scope in reversed(self.enclosing):
+                if isinstance(scope, ast.ClassDef):
+                    continue
+                for node in _scope_nodes(scope):
+                    for child in ast.iter_child_nodes(node):
+                        if isinstance(child, FUNCTIONS[:2]) and child.name == function.id:
+                            return child
+            bound = self.index.bindings(self.path).get(function.id)
+            if bound:
+                return bound[1]
+            makers = self.makers.get(function.id, [])
+            places = {_text_place(maker) for maker in makers}
+            return makers[0] if len(places) == 1 else None
+        owner = function.value if isinstance(function, ast.Attribute) else None
+        if not (isinstance(owner, ast.Name) and owner.id == "self"):
+            return None
+        assert isinstance(function, ast.Attribute)
+        own = [scope for scope in self.enclosing if isinstance(scope, ast.ClassDef)]
+        for cls in own[-1:] + self.classes:
+            for statement in cls.body:
+                if isinstance(statement, FUNCTIONS[:2]) and statement.name == function.attr:
+                    return statement
+        return None
+
+
+def row_maker_call(call: ast.Call, resolver: _Resolver) -> ast.expr | None:
+    """Return the expression a call passes as a row's text, or None.
+
+    The call is of `Row` (its `text` keyword or field place) or of a row maker (`is_row_maker`)
+    found by `_Resolver.definition`, at its own `text` parameter; a `text=` keyword of any other
+    callee is not a row's text.
+    """
+    definition = resolver.definition(call)
+    if isinstance(definition, ast.ClassDef) and definition.name == ROW_CLASS:
+        place: int | None = ROW_TEXT_POSITION
+    elif isinstance(call.func, ast.Name) and call.func.id == ROW_CLASS and definition is None:
+        place = ROW_TEXT_POSITION
+    elif definition is not None and is_row_maker(definition):
+        place = _text_place(definition)
+    else:
+        return None
+    for keyword in call.keywords:
+        if keyword.arg == TEXT_NAME:
+            return keyword.value
+    return call.args[place] if place is not None and place < len(call.args) else None
+
+
+def _text_names(scope: ast.AST, resolver: _Resolver) -> set[str]:
     """Return the plain names a function passes or stores as a row's text."""
     names: set[str] = set()
     for node in _scope_nodes(scope):
         values: list[ast.expr] = []
         if isinstance(node, ast.Call):
-            values.extend(item.value for item in node.keywords if item.arg == TEXT_NAME)
-            places = parameters.get(_callee_name(node), set())
-            values.extend(node.args[place] for place in places if place < len(node.args))
+            value = row_maker_call(node, resolver)
+            values.extend([value] if value is not None else [])
         elif isinstance(node, ast.Assign):
             stores_text = any(
                 isinstance(target, ast.Attribute) and target.attr == TEXT_NAME
@@ -328,10 +421,10 @@ def _string_choices(path: pathlib.Path, value: ast.expr) -> list[Literal]:
 
 
 def _function_row_texts(
-    path: pathlib.Path, function: ast.AST, parameters: dict[str, set[int]]
+    path: pathlib.Path, function: ast.AST, resolver: _Resolver
 ) -> list[Literal]:
     """Return the strings one function assigns to a name it passes as a row's text."""
-    names = _text_names(function, parameters)
+    names = _text_names(function, resolver)
     found: list[Literal] = []
     for node in _scope_nodes(function) if names else ():
         assignment = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 import pathlib
 import textwrap
 
@@ -190,7 +191,7 @@ def test_row_text_outside_the_parsing_part_is_undocumented(tmp_path):
 
 
 ASSIGNED_ROW_TEXTS = """\
-    def emit(row, turn, text, tool_name=""):
+    def emit(row, turn, text, tool_name="") -> Row:
         row.text = text
         return row
 
@@ -203,21 +204,74 @@ ASSIGNED_ROW_TEXTS = """\
     yield Row(turn_type="system", text=summary)
     note = "[note]"
     row.text = note
+    choice = "[yes]" if record.get("type") else "[no]"
+    yield emit(row, "system", choice)
     other = "[not a row]"
     yield emit(row, other, "x")
     unused = "[unused]"
+    message = "parser: assigned %s"
+    yield emit(row, "system", message)
+    keyword = "[keyword only]"
+    log(text=keyword)
+    labelled = "[label only]"
+    yield emit(row, "system", label(labelled))
+    first = "[first hop]"
+    second = first
+    yield emit(row, "system", second)
+
+    def nested():
+        inner = "[nested]"
+        return inner
+
+    inner = nested()
+    yield emit(row, "system", inner)
+"""
+
+# A helper with a `text` parameter that makes no row, and two row makers of one name whose
+# `text` places differ.
+ROW_MAKER_HEADER = """\
+
+
+    def label(text: str) -> str:
+        return text
+
+
+    def log(text=""):
+        return text
+
+
+    def first_rows(row):
+        def make(text: str, project: str = "") -> Row:
+            return row
+
+        lone = "[lone]"
+        yield make(lone)
+
+
+    def second_rows(row):
+        def make(turn: str, text: str) -> Row:
+            return row
+
+        turn = "system"
+        body = "[second maker]"
+        yield make(turn, body)
 """
 
 
 def test_assigned_constant_reaching_a_row_text_is_a_row_text(tmp_path):
-    root = repository(tmp_path, alpha_with(ASSIGNED_ROW_TEXTS))
-    found = sorted(details(root, "row-text-undocumented"))
-    assert found == ["[note]", "[plain]", "[redacted]", "compacted"], found
-    text = document(schema="`type`; rows `[plain]`, `[redacted]`, `[note]`, `compacted <n> turns`")
-    assert (
-        details(repository(tmp_path, alpha_with(ASSIGNED_ROW_TEXTS), text), "row-text-undocumented")
-        == []
-    )
+    alpha = alpha_with(ASSIGNED_ROW_TEXTS, ROW_MAKER_HEADER)
+    found = sorted(details(repository(tmp_path, alpha), "row-text-undocumented"))
+    expected = ["[lone]", "[no]", "[note]", "[plain]", "[redacted]", "[second maker]", "[yes]"]
+    assert found == [*expected, "compacted"], found
+    spans = ", ".join("`%s`" % item for item in expected)
+    text = document(schema="`type`; rows %s, `compacted <n> turns`" % spans)
+    assert details(repository(tmp_path, alpha, text), "row-text-undocumented") == []
+
+
+def test_row_text_position_is_the_model_row_field():
+    drift_common.catalog_module()
+    columns = importlib.import_module("doubleagent.model").TIMELINE_COLUMNS
+    assert columns.index(checker.TEXT_NAME) == checker.ROW_TEXT_POSITION
 
 
 def test_is_row_text_forms():
