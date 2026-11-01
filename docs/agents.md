@@ -1405,10 +1405,8 @@ the voice model answered, tool calls, permission requests and decisions,
 backend events), `.qwen-live/memories/<id>/dialogue.db` with its WAL
 sidecars and `meta.json` (a memory library: the dialogue turns, the facts
 kept about the user and visual observations), and `config.json` with its
-temporary copies (the DashScope key and backend tokens). On Windows, the
-JSON of the debug recordings in `AppData/Local/Temp/qwen-live-monitor-debug`,
-their frames and audio excluded. The discovery record
-`.qwen/live/daemon.json` is collected under `qwen-code`.
+temporary copies (the DashScope key and backend tokens). The discovery
+record `.qwen/live/daemon.json` is collected under `qwen-code`.
 
 Validated against: Source.
 

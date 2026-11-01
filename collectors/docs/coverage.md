@@ -855,14 +855,15 @@ their state must be copied by hand.
   ([Per-user storage in `research/gemini-cli.md`](../../research/gemini-cli.md#per-user-storage)).
 - **Qwen Live**, run with `--debug`, records each request its visual
   monitors send to the model in `qwen-live-monitor-debug/` in the system
-  temp directory (`/tmp` or `$TMPDIR`, `%TEMP%` on Windows): the request
-  and response JSON, the screen or camera frames and the microphone
-  audio. On Windows the catalog collects
-  `AppData/Local/Temp/qwen-live-monitor-debug` with the frames
-  (`image-*.jpg`) and audio (`input.wav`) excluded; on Linux and macOS it
-  is outside every home, so copy it by hand. A `memory.dir` setting in
-  `~/.qwen-live/config.json` can move its memory libraries anywhere;
-  copy them from there by hand
+  temp directory (`$TMPDIR` on macOS, the only platform its Live Host app
+  runs on): the request and response JSON, the screen or camera frames
+  and the microphone audio. It is outside every home, so copy it by hand.
+  Its state also moves out of the catalog's reach with
+  `QWEN_LIVE_DATA_DIR` (the whole data directory), a `memory.dir` setting
+  in `~/.qwen-live/config.json` (the memory libraries), and
+  `QWEN_LIVE_DISCOVERY_DIR` or a `discoveryDir` setting (the discovery
+  record that otherwise sits in `~/.qwen/live`); copy those directories
+  by hand too
   ([Per-user storage in `research/qwen-live.md`](../../research/qwen-live.md#per-user-storage)).
 - **Muse Code** keeps its launcher state beside the launcher; see below.
 - **Cursor** writes its agent worker's logs and copies of the user's zsh

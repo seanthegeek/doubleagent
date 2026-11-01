@@ -239,15 +239,13 @@ class LooseDetectTests(unittest.TestCase):
 
     def test_qwen_live_detected_beside_qwen_code(self):
         # Qwen Live keeps its own data directory beside Qwen Code's and writes
-        # its discovery record into ~/.qwen, which stays Qwen Code's; on
-        # Windows its debug recordings sit in the profile's temp directory.
+        # its discovery record into ~/.qwen, which stays Qwen Code's.
         home = build_home(self.tmp / "home" / "alice")
         files = {
             QWEN_LIVE_LOG_REL: "qwen-live",
             QWEN_LIVE_LIBRARY_REL: "qwen-live",
             ".qwen-live/config.json": "qwen-live",
             ".qwen/live/daemon.json": "qwen-code",
-            "AppData/Local/Temp/qwen-live-monitor-debug/monitor-1-a/monitor.json": "qwen-live",
         }
         for rel in files:
             path = home / rel

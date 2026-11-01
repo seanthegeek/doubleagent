@@ -439,10 +439,8 @@ zed|.var/app/dev.zed.ZedNightly/config/zed
 zed|.var/app/dev.zed.ZedNightly/data/zed
 # Qwen Code
 qwen-code|.qwen
-# Qwen Live, the voice daemon of the Qwen Code repository (~/.qwen-live on every OS; its
-# debug recordings in the temp directory, which is under the home on Windows only)
+# Qwen Live, the voice daemon of the Qwen Code repository (~/.qwen-live on every OS)
 qwen-live|.qwen-live
-qwen-live|AppData/Local/Temp/qwen-live-monitor-debug
 # Amp (data dir is ~/.local/share/amp on every OS; threads are server-side)
 amp|.config/amp
 amp|.local/share/amp
@@ -1081,8 +1079,6 @@ AppData/Roaming/Block/goose/config/mcp-apps-cache
 .qwen/managed-local/worker-home/resources
 .qwen/managed-local/worker-home/session-start-perf
 .qwen/managed-local/worker-home/worktrees
-AppData/Local/Temp/qwen-live-monitor-debug/*/requests/*/image-*.jpg
-AppData/Local/Temp/qwen-live-monitor-debug/*/requests/*/input.wav
 .amp/bin
 .factory/updates
 .factory/cache/sounds

@@ -37,7 +37,17 @@ def qwen_live_call_records(call_id: str = QWEN_LIVE_CALL):
     """
     start = 1793520000000
     payloads = [
-        ("session.start", {"callId": call_id, "epoch": 2, "mode": "new", "backends": "gemini"}),
+        (
+            "session.start",
+            {
+                "callId": call_id,
+                "epoch": 2,
+                "mode": "new",
+                "backends": "gemini",
+                "model": "qwen3.5-omni-flash-realtime",
+                "voice": "Ethan",
+            },
+        ),
         ("session.start", {"phase": "realtime_ready"}),
         ("transcript.user", {"text": "have gemini list the open issues"}),
         ("tool.call", {"name": "handoff", "callId": "fc_77", "args": '{"task":"list issues"}'}),
@@ -52,7 +62,7 @@ def qwen_live_call_records(call_id: str = QWEN_LIVE_CALL):
 
 
 def build_qwen_live(home: Path) -> None:
-    """Qwen Live's call log and default memory library, holding the same call's turn.
+    """Write Qwen Live's call log and a default memory library holding the same call's turn.
 
     Source: research/qwen-live.md#memory-library; source 835b080
     """

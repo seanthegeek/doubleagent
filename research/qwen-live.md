@@ -7,10 +7,14 @@ Cloud's model API service; its realtime models, `qwen-omni`, take and return aud
 coding work the user asks for to other agents. It drives each backend agent either over ACP (the
 Agent Client Protocol, a JSON-RPC protocol over a child process's standard input and output) or
 over the REST API of `qwen serve`, Qwen Code's daemon; its surfaces are the daemon itself and Live
-Host, a macOS overlay app (the "orb") that carries the microphone, screen and camera to it. It
-shares its repository and lineage with Qwen Code ([`qwen-code.md`](qwen-code.md)), but keeps its
-own data directory, `~/.qwen-live`, and writes one record into Qwen Code's `~/.qwen`. Not parsed
-yet: the agent is in the parser backlog ([Parser plan](#parser-plan)).
+Host, a macOS overlay app (the "orb") that carries the microphone, screen and camera to it. Live
+Host is macOS only, and the package's README says Linux and Windows users cannot use the voice
+features until a Host exists for their platform
+([README.md:146-148](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/README.md#L146-L148)), so a call, and every record it writes, needs
+macOS; on Linux and Windows only `init` and the idle daemon run. It shares its repository and
+lineage with Qwen Code ([`qwen-code.md`](qwen-code.md)), but keeps its own data directory,
+`~/.qwen-live`, and writes one record into Qwen Code's `~/.qwen`. Not parsed yet: the agent is in
+the parser backlog ([Parser plan](#parser-plan)).
 
 ## Source and evidence
 
@@ -58,7 +62,7 @@ the setup wizard, `qwen-live init`, always writes `~/.qwen-live`
 | `config.json` | the configuration: the DashScope key, the realtime model and voice, the backends, the default working directory and the memory, visual input and Proactive (background monitor) settings ([Credentials](#credentials)) | [src/config.ts:864-922](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/config.ts#L864-L922) |
 | `config.json.tmp` | the wizard's temporary copy, renamed over `config.json` | [src/init.ts:386-391](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/init.ts#L386-L391) |
 | `config.json.<uuid>.tmp` | the temporary copy the daemon writes when it saves a language, display or memory setting, renamed over `config.json`, removed when the write fails | [src/language-preferences.ts:38-45](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/language-preferences.ts#L38-L45); [src/visual-preferences.ts:28-42](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/visual-preferences.ts#L28-L42); [src/memory/service.ts:51-85](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/service.ts#L51-L85) |
-| `sessions/live-<ms>-<nonce>.jsonl` | the call log of one daemon run, `<ms>` the start time in epoch milliseconds and `<nonce>` the first eight characters of the run's random UUID ([Call log](#call-log)) | [src/daemon.ts:93](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/daemon.ts#L93), [235-238](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/daemon.ts#L235-L238); [src/log/session-log.ts:67-71](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/log/session-log.ts#L67-L71) |
+| `sessions/live-<ms>-<nonce>.jsonl` | the call log of one daemon run, `<ms>` the start time in epoch milliseconds and `<nonce>` the first eight characters of the run's random UUID, the discovery record's `instanceNonce`, which joins the two files ([Call log](#call-log)) | [src/daemon.ts:93](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/daemon.ts#L93), [235-238](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/daemon.ts#L235-L238); [src/log/session-log.ts:67-71](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/log/session-log.ts#L67-L71) |
 | `sessions/live-<ms>-<nonce>.jsonl.<n>` | the earlier parts of a call log past 32 MiB, `<n>` counting from 1; nothing removes them | [src/log/session-log.ts:26](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/log/session-log.ts#L26), [136-147](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/log/session-log.ts#L136-L147) |
 | `memories/<id>/meta.json` | a memory library's id, display name and times; `<id>` is `default` or `lib_<8 hex>` | [src/memory/store.ts:159-187](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/store.ts#L159-L187), [189-211](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/store.ts#L189-L211) |
 | `memories/<id>/.meta.<uuid>.tmp` | the temporary copy of `meta.json` before its rename | [src/memory/store.ts:227-245](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/store.ts#L227-L245) |
@@ -71,14 +75,22 @@ directory and an absolute one may lie anywhere
 
 #### Discovery record in `~/.qwen`
 
-The daemon publishes `~/.qwen/live/daemon.json` (`live/daemon.json` under the home's `.qwen`,
-whatever `$QWEN_HOME` says) for Live Host to find it, writing it through a temporary
+The daemon publishes `live/daemon.json` for Live Host to find it, under the directory that
+`QWEN_LIVE_DISCOVERY_DIR` names, else the configuration's `discoveryDir`, else the home's `.qwen`
+whatever `$QWEN_HOME` says, the default giving `~/.qwen/live/daemon.json`
+([src/config.ts:912-915](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/config.ts#L912-L915); [src/daemon.ts:711-721](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/daemon.ts#L711-L721)), writing it through a temporary
 `.qwen/live/.daemon.<pid>.<uuid>.tmp` beside it under the lock `.qwen/live/.daemon.lock`, and
 removes it when it stops
 ([src/host/discovery.ts:16](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/host/discovery.ts#L16), [86-90](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/host/discovery.ts#L86-L90), [372](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/host/discovery.ts#L372), [505-545](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/host/discovery.ts#L505-L545)).
 `qwen serve`'s built-in Live module writes the same file
 ([cli/src/serve/live/discovery.ts:22](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/live/discovery.ts#L22), [92-94](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/live/discovery.ts#L92-L94)),
-so the file stays with the `qwen-code` entry that reaches it, and its secret globs are listed in
+and when Qwen Code's runtime base directory (`QWEN_RUNTIME_DIR` in
+[`qwen-code.md`](qwen-code.md)) differs from `~/.qwen`, it writes a second record under that
+directory's `live/` as well
+([cli/src/serve/run-qwen-serve.ts:2293-2294](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/run-qwen-serve.ts#L2293-L2294), [4848-4850](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/run-qwen-serve.ts#L4848-L4850), [9415](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/run-qwen-serve.ts#L9415), [9523-9528](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/run-qwen-serve.ts#L9523-L9528), [9577](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/run-qwen-serve.ts#L9577)).
+The default file stays with the `qwen-code` entry that reaches it; a record moved by the
+overrides is outside every catalog line, a manual step in
+[Agents outside dot directories in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#agents-outside-dot-directories), and its secret globs are listed in
 [Credentials](#credentials). The record's keys are `url`, `token`, `configPath`,
 `protocolVersion`, `pid` and `instanceNonce`
 ([src/host/discovery.ts:33-40](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/host/discovery.ts#L33-L40)).
@@ -100,10 +112,10 @@ directory ([src/proactive/monitor-debug-store.ts:21](https://github.com/QwenLM/q
 
 The ten most recently created monitor directories are kept, with no bound on the requests in one
 ([src/proactive/monitor-debug-store.ts:110](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/proactive/monitor-debug-store.ts#L110), [202](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/proactive/monitor-debug-store.ts#L202)).
-On Windows the temporary directory is `AppData/Local/Temp` under the home, which the catalog line
-`qwen-live|AppData/Local/Temp/qwen-live-monitor-debug` reaches; on Linux and macOS it is `/tmp`
-or `$TMPDIR`, outside every home, a manual step in
+A monitor runs only during a call, so the recordings are written on macOS, where `$TMPDIR` is
+outside every home and no catalog line reaches them: a manual step in
 [Agents outside dot directories in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#agents-outside-dot-directories).
+The frames and audio are raw captures ([Secrets](#secrets)).
 
 #### Live Host
 
@@ -133,7 +145,7 @@ None known.
 | Path | Holds |
 | --- | --- |
 | `.qwen-live/config.json`, `.qwen-live/config.json.tmp`, `.qwen-live/config.json.<uuid>.tmp` (the files `.qwen-live/config.json*`) | `realtimeApiKey`, the DashScope key; a `qwen-code` backend's `token` and the legacy `serveToken`, `qwen serve` bearer tokens; an ACP backend's `env` values ([src/config.ts:705-783](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/config.ts#L705-L783), [812-819](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/config.ts#L812-L819), [873-876](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/config.ts#L873-L876)) |
-| `.qwen/live/daemon.json`, `.qwen/live/.daemon.<pid>.<uuid>.tmp` | `token`, the bearer token of the running daemon's HTTP and WebSocket endpoints ([src/host/discovery.ts:33-40](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/host/discovery.ts#L33-L40)) |
+| `.qwen/live/daemon.json`, `.qwen/live/.daemon.<pid>.<uuid>.tmp` (or under `discoveryDir`, [Discovery record in `~/.qwen`](#discovery-record-in-qwen)) | `token`, the bearer token of the running daemon's HTTP and WebSocket endpoints ([src/host/discovery.ts:33-40](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/host/discovery.ts#L33-L40)) |
 
 The DashScope key may instead come from `DASHSCOPE_API_KEY` or `QWEN_LIVE_REALTIME_API_KEY`, and
 the memory updater's and observer's `apiKeyEnv` names an environment variable rather than holding
@@ -142,12 +154,8 @@ the connection credentials ([README.md:402](https://github.com/QwenLM/qwen-code/
 
 ### Exclusions
 
-`AppData/Local/Temp/qwen-live-monitor-debug/*/requests/*/image-*.jpg` and
-`AppData/Local/Temp/qwen-live-monitor-debug/*/requests/*/input.wav`: the screen or camera frames
-and microphone audio of the debug recordings, raw copies of what the user's screen, camera and
-microphone captured, unbounded in number. The JSON beside them is collected, so the requests,
-their frame hashes and the model's answers stay. `~/.qwen-live` itself is small: call logs grow by
-one line per event and a memory library by one row per turn.
+None. `~/.qwen-live` is small: call logs grow by one line per event and a memory library by one
+row per turn.
 
 ### Project-local files
 
@@ -161,7 +169,7 @@ creates, and an ACP backend's `cwd` ([src/config.ts:769](https://github.com/Qwen
 `session_create` call, `cwd` among them, as a JSON string
 ([src/tools/definitions.ts:74-105](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/tools/definitions.ts#L74-L105)). Project discovery reads
 neither: the configuration names one default for every session and is a credential file, and the
-key inside a JSON string is escaped. The analyzer reads them.
+key inside a JSON string is escaped. A parser would read them; none does yet.
 
 ## Parsing
 
@@ -185,7 +193,10 @@ search rows and marks it inactive while keeping its `turns`, has no caller at th
 leaves the call's dialogue in the `turns` table of `dialogue.db`, and the facts consolidated from
 it in `ltm_entries` and `stm_items`; a library removed by hand leaves the call logs. The backend
 agents' own transcripts hold the tasks handed to them and survive both. Expired short-term items
-are marked inactive, not deleted. Nothing is parsed yet; a parser would read the `turns` table as
+are marked inactive, not deleted, while a later consolidation can replace a field's
+`ltm_entries` rows or remove one
+([src/memory/updater.ts:181](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/updater.ts#L181), [193](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/updater.ts#L193)).
+Nothing is parsed yet; a parser would read the `turns` table as
 a secondary source
 ([Secondary sources in `analyzer/docs/output.md`](../analyzer/docs/output.md#secondary-sources)).
 
@@ -252,8 +263,12 @@ by type, from the writers in `src/orchestrator/live-session.ts`:
   `session.end` carries the connection's `reason`, and when the call itself ends, `callId` and
   any `error` ([1878](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1878), [3756-3759](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L3756-L3759)).
 - `transcript.user` and `transcript.assistant` carry `text`, the full final transcript of one
-  utterance; a turn the model answered without speech arrives with `direct: true`
-  ([1525](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1525), [1538](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1538), [1796-1799](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1796-L1799)).
+  utterance. A line with `direct: true` comes from a response the model gave itself
+  (`direct` authority) and did not delegate: its user and assistant text, the assistant's being
+  the spoken transcript where there is one and the text otherwise, written only when the
+  ordinary transcript callback had not already logged the same text
+  ([src/realtime/realtime-session.ts:1481-1505](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/realtime/realtime-session.ts#L1481-L1505);
+  [1769-1799](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1769-L1799); [1525](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1525), [1538](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1538), [1796-1799](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1796-L1799)).
 - `response.created`, `response.done` and `response.cancelled` carry `responseId` and the
   response's `authority` (who asked for it) and, on `response.done`, its `status`
   ([1656-1659](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1656-L1659), [1713-1717](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1713-L1717), [1744-1746](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/orchestrator/live-session.ts#L1744-L1746);
@@ -323,27 +338,59 @@ The library's calls, in `library_sessions`:
 | `deactivated_at` | string or null | | |
 | `deactivate_reason` | string or null | | |
 
-The facts the model kept (`wm_snapshots`, the working memory, one row per edit), the
-consolidated long-term profile (`ltm_entries`) and short-term items (`stm_items`), and the visual
-observations (`stm_env`):
+The working memory, `wm_snapshots`, one row per edit the model made
+([src/memory/schema.ts:91-100](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/schema.ts#L91-L100)):
 
 | Key | Type | Values | Since |
 | --- | --- | --- | --- |
+| `id` | number | | |
+| `session_id` | string | | |
 | `seq` | number | | |
 | `wm_json` | string | | |
 | `ops_json` | string | | |
 | `applied_json` | string | | |
 | `created_at` | string | | |
+
+The consolidated long-term profile, `ltm_entries`
+([102-110](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/schema.ts#L102-L110)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | number | | |
 | `field` | string | `name`, `occupation_or_role`, `long_term_goals`, `routines`, `appearance`, `preferences`, `interests`, `relationships` | |
 | `content` | string | | |
+| `created_at` | string | | |
 | `updated_at` | string | | |
 | `src_session` | string or null | | |
+
+The short-term items, `stm_items` ([112-124](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/schema.ts#L112-L124)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | number | | |
+| `content` | string | | |
+| `status` | string | `ongoing`, `upcoming` | |
+| `created_at` | string | | |
 | `created_ts` | number | | |
 | `event_date` | string or null | | |
 | `expires_at` | string or null | | |
+| `src_session` | string or null | | |
+| `active` | number | `0`, `1` | |
 | `expired_at` | string or null | | |
 
-`stm_items.status` is `ongoing` or `upcoming`. The rest are derived: `dialogue_segments` (runs of
+The visual observations, `stm_env` ([131-140](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/schema.ts#L131-L140)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | number | | |
+| `content` | string | | |
+| `created_at` | string | | |
+| `created_ts` | number | | |
+| `src_session` | string or null | | |
+| `active` | number | `0`, `1` | |
+| `expired_at` | string or null | | |
+
+The rest are derived: `dialogue_segments` (runs of
 turns joined into one `body` for search), the full-text search tables `dialogue_fts` and
 `env_fts`, `embeddings` (vectors as a blob), `preload_log` and `updater_log` (what was loaded into
 a call and what the consolidation model returned, with its `model`).
@@ -370,7 +417,9 @@ daemon wrote them. A call is the run of lines from a `session.start` with a `cal
 its result on `callId` (the realtime call id, distinct from the call's `callId`), a permission
 request its decision on `requestHandle`. A memory turn joins its call on `session_id` = `callId`
 and on the text: `user_text` and `asst_text` repeat the final `transcript.user` and
-`transcript.assistant` texts, the library storing only final user transcripts and ordinary replies
+`transcript.assistant` texts, `user_text` trimmed of surrounding whitespace
+([src/memory/recorder.ts:58-63](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/recorder.ts#L58-L63)), so the match compares
+trimmed text, the library storing only final user transcripts and ordinary replies
 ([README.md:464](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/README.md#L464)); its times are whole seconds. The backend sessions are known
 only by Live's own handles (`session`), so a backend's transcript joins a call only by time and
 by the `task` text of a `handoff`, which the backend receives as its prompt.
@@ -442,11 +491,13 @@ and not as a model row.
 `dialogue.db` `turns` is secondary to the call log: each row gives a `user` row of `user_text` at
 `user_epoch` and an `assistant` row of `asst_text` at `asst_epoch`, joined on `session_id` =
 `callId` and the text, so only the turns of a removed call log remain. Because its times are whole
-seconds taken when the turn was recorded, `secondary_tolerance()` widens the window by a second
-backwards plus the recorder's delay, which a round must measure. `wm_snapshots`, `ltm_entries`,
-`stm_items` and `stm_env` are primary: one `system` row per row (`memory edit:`,
-`memory fact: <field>:`, `memory item (<status>):`, `visual observation:` with the content) at
-its `created_at` or `updated_at`, with `src_session` as the session.
+seconds taken when the turn was recorded, `secondary_tolerance()` returns a symmetric window
+sized to the one-second floor plus the recorder's delay, which a round must measure.
+`wm_snapshots`, `ltm_entries`, `stm_items` and `stm_env` are primary: one `system` row per row
+(`memory edit:`, `memory fact: <field>:`, `memory item (<status>):`, `visual observation:` with
+the content) at its `created_at` or `updated_at`, with `session_id` as the session for
+`wm_snapshots` and `src_session` for the other three; `stm_items` and `stm_env` rows with `active`
+0 say so.
 
 #### Sync, relay and origin rows
 
@@ -475,7 +526,7 @@ its result, and a permission request answered by voice, derived from the writers
 [Call log](#call-log), not from an install:
 
 ```json
-{"ts":1793433600120,"seq":1,"type":"session.start","payload":{"callId":"call-7f3e","epoch":1,"mode":"voice","backends":"qwen","model":"qwen3.5-omni-plus-realtime","voice":"Tina"}}
+{"ts":1793433600120,"seq":1,"type":"session.start","payload":{"callId":"call-7f3e","epoch":1,"mode":"new","backends":"qwen","model":"qwen3.5-omni-plus-realtime","voice":"Tina"}}
 {"ts":1793433601004,"seq":2,"type":"session.start","payload":{"phase":"realtime_ready"}}
 {"ts":1793433606230,"seq":3,"type":"transcript.user","payload":{"text":"ask qwen to run the tests"}}
 {"ts":1793433606910,"seq":4,"type":"tool.call","payload":{"name":"handoff","callId":"fc_01","args":"{\"task\":\"run the tests\"}"}}
@@ -493,6 +544,8 @@ its result, and a permission request answered by voice, derived from the writers
 - Not determined: the name of Live Host's user data directory on a real install, whether Electron
   names it by the product name or the package name, and what else Electron keeps there; how large
   call logs and libraries grow in use.
-- For a real-install round: a call with a handoff to each backend kind, an approval, a denial and
-  an "allow always", a memory edit, a renamed and a new library, a debug run with a visual monitor,
-  and a call log removed by hand, with a listing diff after each.
+- For a real-install round, on macOS where Live Host runs: a new and a resumed call, a handoff to
+  each backend kind, an approval, a denial, an "allow always" and its expiry, a model changed
+  between calls, a memory edit, a renamed and a new library, a debug run with a visual monitor,
+  and a call log removed by hand, with a listing diff after each; on Linux and Windows, `init` and
+  the daemon started.
