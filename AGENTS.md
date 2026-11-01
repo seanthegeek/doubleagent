@@ -1482,7 +1482,8 @@ Every gate runs in CI, never in the pre-commit hook: branch coverage in the
 versions are pinned in the workflow's `env` block, coverage.py's in
 `analyzer/requirements-dev.txt`; change it and this table together. Run the
 commands from the repository root before pushing; a documentation-only
-change needs markdownlint and the rows from document links down.
+change needs markdownlint, the site build and the rows from document links
+down.
 
 | Gate | Version | Local command | Configuration |
 | --- | --- | --- | --- |
@@ -1490,6 +1491,7 @@ change needs markdownlint and the rows from document links down.
 | ruff format | 0.16.10 | `uvx ruff@0.16.10 format --check .` | `ruff.toml` (line length 100) |
 | pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
+| site build, strict | the versions `requirements-docs.txt` pins | `pip install -r requirements-docs.txt && mkdocs build --strict -f mkdocs/mkdocs.yml -d /tmp/site` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
 | shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f .) >/dev/null` | none; never pass `-w` |
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |

@@ -265,6 +265,13 @@ jobs:
         run: pyright
       - name: markdownlint
         run: npx -y "markdownlint-cli2@$MARKDOWNLINT_CLI2_VERSION" "**/*.md"
+      # The site is built strict on every change, as the Pages workflow builds
+      # it after a merge, so a page missing from the nav tree or a broken site
+      # link fails the pull request instead of the publish.
+      - name: Install the site's requirements
+        run: pip install -r requirements-docs.txt
+      - name: site build (strict)
+        run: mkdocs build --strict -f mkdocs/mkdocs.yml -d "$RUNNER_TEMP/site"
       - name: document links
         run: python3 tools/check_doc_links.py
       - name: research document structure
