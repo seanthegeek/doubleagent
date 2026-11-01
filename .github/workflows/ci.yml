@@ -209,7 +209,7 @@ jobs:
     if: needs.changes.outputs.python == 'true' || needs.changes.outputs.catalog == 'true'
     strategy:
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -247,7 +247,7 @@ jobs:
       # imports the analyzer's test fixtures.
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Install analyzer dependencies
         run: pip install -r analyzer/requirements.txt
       # Each linter below runs when a file of its language changed.
@@ -260,7 +260,7 @@ jobs:
       - name: ruff format --check
         if: needs.changes.outputs.python == 'true'
         run: ruff format --check .
-      - name: pyright (Python 3.10)
+      - name: pyright (Python 3.11)
         if: needs.changes.outputs.python == 'true'
         run: pyright
       - name: markdownlint
@@ -331,7 +331,7 @@ jobs:
 
   # The one status check the ruleset on main requires. A matrix job that
   # the classification skips reports under its unexpanded name ("Analyzer
-  # tests", not "Analyzer tests (3.10)"), so a pull request that skips
+  # tests", not "Analyzer tests (3.11)"), so a pull request that skips
   # it can never satisfy a list of per-job required checks. This job
   # depends on every other job, runs whatever they did, and fails when any
   # of them failed or was cancelled; a skipped job counts as passed.

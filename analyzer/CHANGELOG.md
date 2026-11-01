@@ -16,7 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A Qwen Code session with a `chats/<sessionId>.worktree.json` sidecar gives one `system` row `scratch directory: <worktreePath> (enter_worktree <slug>)` at its first record, with `project_path` the worktree, so `inventory.json` lists the worktree under `scratch_directories`; a sidecar that cannot be read or is not a JSON object is a `parser:` row of the session ([#326]).
 - The bundled catalog copy gains the Qwen Code lines of collector 1.22.0, so detection follows them: the new secret globs (the default MCP token store, the agent host records, the managed local `state.json`, the settings recovery copies in the home, a project and the worker home) and exclusions (the profiles, the managed local workspaces and the worker-home subtrees), and no secret glob on the extension git-credential selector ([#326]).
 - The bundled catalog copy gains the pi lines of the collector's 1.22.0 entry, so detection follows them: a project's `pi-bug-report-*.zip` and `session-[0-9][0-9][0-9][0-9]-*.jsonl` are detected as `pi`, `.pi/agent/install/releases` and `.pi/agent/install/staging` are excluded, the `git` checkout exclusions are written as `git/*/*/node_modules` and `git/*/*/.git`, and the `.pi/agent/auth.json.*` secret glob is gone ([#326]).
-- The `gemini-cli` parser reads Gemini CLI's sandbox grants, `~/.gemini/policies/sandbox.toml` (Python 3.11 or later): one `system` row `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per `modes` table and `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)` per command the user allowed and saved, at the file's modification time ([#186], [#326]).
+- The `gemini-cli` parser reads Gemini CLI's sandbox grants, `~/.gemini/policies/sandbox.toml`: one `system` row `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per `modes` table and `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)` per command the user allowed and saved, at the file's modification time ([#186], [#326]).
 - A Gemini CLI session whose project is a `--worktree` checkout, `<project>/.gemini/worktrees/<name>`, gets a `system` row `scratch directory: <path> (gemini --worktree <name>)` after the file's `session start:` rows, at the first one's time and line, with the worktree as its `project_path` ([#216], [#326]).
 - The bundled catalog copy gains collector 1.22.0's Gemini CLI secret globs, `.gemini/integrity.key` and `*.gemini/.settings.json.*.tmp` ([#326]).
 - The bundled catalog copy gains collector 1.22.0's Qwen Live lines, so `detect` attributes `.qwen-live` to the new agent `qwen-live`, which `timeline` lists as detected but not parsed ([#156]).
@@ -30,6 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Qwen Code parser reads a `chats/` file only when its name is a session id, as Qwen Code's own session list does, so sidecars and other files there give no rows ([#326]).
 - A Qwen Code `settings.json` that is not a JSON object gives its `parser:` row with no line and no time, as every other whole-file row ([#326]).
 - The generated examples of `docs/output.md` are built from the test fixtures: `tools/example_collection.py` writes each home with the fixture builders of the agents it shows, so the examples show the records the parsers are tested against; the `timeline.jsonl` example is a filtered run's, and `detect --json` is shown without `--files` ([#337]).
+- The analyzer needs Python 3.11 or later, since Python 3.10 has reached end of life: TOML files (Codex `config.toml` and automations, Gemini CLI policy files, Tabby `config.toml`) are always read with `tomllib`, and the `parser:` rows that said a file needs Python 3.11 or later are gone ([#421]).
 
 ### Fixed
 
@@ -2201,6 +2202,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#421]: https://github.com/seanthegeek/doubleagent/issues/421
 [#396]: https://github.com/seanthegeek/doubleagent/issues/396
 [#395]: https://github.com/seanthegeek/doubleagent/issues/395
 [#394]: https://github.com/seanthegeek/doubleagent/issues/394

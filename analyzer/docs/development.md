@@ -72,7 +72,7 @@ columns, the default file name, `-o`, the rollup and the empty-host row;
 with `sh` available it also runs the collector's `--inventory` on the fake
 image and reads that. Tests that need the collector script, `sh` and `tar`,
 or permission to create symlinks are skipped, with the reason, when it is
-missing. CI runs the suite on Python 3.10, 3.11, 3.12, 3.13 and 3.14 with
+missing. CI runs the suite on Python 3.11, 3.12, 3.13 and 3.14 with
 `requirements-dev.txt` installed.
 
 Lint, type and style checks, from the repository root, at the versions CI

@@ -2,7 +2,6 @@
 
 import json
 import os
-import sys
 import unittest
 from typing import ClassVar
 
@@ -549,15 +548,6 @@ class GeminiCliTests(ParserBase):
         rel = ".gemini/policies/auto-saved.toml"
         rows = self.rows_for(GeminiCliParser(), rel)
         source = " (from .gemini/policies/auto-saved.toml, file mtime)"
-        if sys.version_info < (3, 11):
-            self.assertEqual(
-                [row.text for row in rows],
-                [
-                    "parser: .gemini/policies/auto-saved.toml not read: its [[rule]] tables "
-                    "need Python 3.11 or later (tomllib)"
-                ],
-            )
-            return
         self.assertEqual(
             [row.text for row in rows],
             [
@@ -585,15 +575,6 @@ class GeminiCliTests(ParserBase):
         self.sources()
         rel = ".gemini/policies/sandbox.toml"
         rows = self.rows_for(GeminiCliParser(), rel)
-        if sys.version_info < (3, 11):
-            self.assertEqual(
-                [row.text for row in rows],
-                [
-                    "parser: .gemini/policies/sandbox.toml not read: its [[rule]] tables "
-                    "need Python 3.11 or later (tomllib)"
-                ],
-            )
-            return
         source = " (from .gemini/policies/sandbox.toml, file mtime)"
         self.assertEqual(
             [row.text for row in rows],
@@ -708,19 +689,18 @@ class GeminiCliTests(ParserBase):
                 )
             ],
         )
-        if sys.version_info >= (3, 11):
-            rel = ".gemini/policies/auto-saved.toml"
-            art = Artifact(project / rel, "/srv/proj/" + rel, rel, "gemini-cli", home)
-            self.assertEqual(
-                [(row.text, row.project_path) for row in parser.parse(art, Options())],
-                [
-                    (
-                        "permission setting: policy allow write_file priority=950 "
-                        "(from .gemini/policies/auto-saved.toml, file mtime)",
-                        "/srv/proj",
-                    )
-                ],
-            )
+        rel = ".gemini/policies/auto-saved.toml"
+        art = Artifact(project / rel, "/srv/proj/" + rel, rel, "gemini-cli", home)
+        self.assertEqual(
+            [(row.text, row.project_path) for row in parser.parse(art, Options())],
+            [
+                (
+                    "permission setting: policy allow write_file priority=950 "
+                    "(from .gemini/policies/auto-saved.toml, file mtime)",
+                    "/srv/proj",
+                )
+            ],
+        )
 
     def test_trusted_hooks_and_acknowledged_agents(self):
         self.sources()

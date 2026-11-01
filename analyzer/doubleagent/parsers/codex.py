@@ -44,7 +44,7 @@ from ..inputs import Artifact, error_reason
 from ..model import GIT_REMOTE_PREFIX, Row, compact
 from ..textlines import ASCII_SPACE, split_lines
 from ..timeutil import to_utc
-from ..toml_util import load_config_toml, load_toml
+from ..toml_util import load_toml
 from .base import (
     Options,
     Parser,
@@ -875,7 +875,7 @@ class RolloutParser(Parser):
             yield from error_rows(self, artifact, errors, "", base)
             return
         try:
-            document = load_config_toml(content.decode("utf-8", errors="replace"))
+            document = load_toml(content.decode("utf-8", errors="replace"))
         except ValueError as error:
             yield self._system(artifact, "parser: unreadable config.toml: %s" % error_reason(error))
             return

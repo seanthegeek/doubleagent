@@ -1,7 +1,6 @@
 """Tests of the Tabby parser."""
 
 import io
-import sys
 import unittest
 
 from test_errors import CAN_DENY, DENY_REASON
@@ -384,12 +383,6 @@ class TabbyTests(ParserBase):
         mtime = to_utc((self.home / TABBY_CONFIG_REL).stat().st_mtime)
         self.assertTrue(all(row.timestamp_utc == mtime for row in rows))
         self.assertTrue(all((row.turn_type, row.session_id) == ("system", "") for row in rows))
-        if sys.version_info < (3, 11):
-            self.assertEqual(
-                [row.text for row in rows],
-                ["parser: config.toml model tables not read: Python 3.11 or later needed"],
-            )
-            return
         self.assertEqual(
             [row.text for row in rows],
             [

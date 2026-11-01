@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from dateutil.parser import isoparse
 from dateutil.relativedelta import relativedelta
@@ -86,7 +86,7 @@ def parse_bound(text: str, end: bool = False, now: datetime | None = None) -> st
     """
     text_value = " ".join(text.split())
     lowered = text_value.lower()
-    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    now = (now or datetime.now(UTC)).astimezone(UTC)
     if lowered == "now":
         return format_utc(now)
     if lowered in ("today", "yesterday"):
@@ -126,8 +126,8 @@ def parse_bound(text: str, end: bool = False, now: datetime | None = None) -> st
         reason = " (%s)" % error if _RANGE_MESSAGE_PATTERN.search(str(error)) else ""
         raise BoundError("cannot read %r as a time%s" % (text, reason)) from None
     if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    moment = moment.astimezone(timezone.utc)
+        moment = moment.replace(tzinfo=UTC)
+    moment = moment.astimezone(UTC)
     time_match = _TIME_PATTERN.search(text_value)
     if time_match:
         _hour, minute, second, fraction = time_match.groups()

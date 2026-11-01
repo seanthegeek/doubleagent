@@ -38,7 +38,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Iterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -122,7 +122,7 @@ def collector_version() -> str:
 def epoch(clock: str) -> int:
     """Return `clock` (`HH:MM:SS`) on the example's day in epoch seconds."""
     moment = datetime.strptime("%s %s" % (DAY, clock), "%Y-%m-%d %H:%M:%S")
-    return int(moment.replace(tzinfo=timezone.utc).timestamp())
+    return int(moment.replace(tzinfo=UTC).timestamp())
 
 
 class FileEntry(NamedTuple):
