@@ -1084,7 +1084,7 @@ row per `permissions.allow`, `ask` and `deny` rule and one for
 row per session summary, a secondary source that outlives a deleted
 transcript.
 
-Validated against: Source at [2c591ec](https://github.com/QwenLM/qwen-code/commit/2c591ecc08a6fa080342f9b1b9f7f43215178cbb), synthetic fixture; the `executionContext`, `session_approval_mode` and `ui_telemetry` decision rows, `settings.json` and `usage_record.jsonl` from source at [5dcf7c7](https://github.com/QwenLM/qwen-code/commit/5dcf7c7cb162e825d95d531081f67ee60da3c0e1) (version 0.25.3), synthetic fixture.
+Validated against: Source at [835b080](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b) (version 0.26.4), synthetic fixture; the shapes of [2c591ec](https://github.com/QwenLM/qwen-code/commit/2c591ecc08a6fa080342f9b1b9f7f43215178cbb) (0.24.7) and [5dcf7c7](https://github.com/QwenLM/qwen-code/commit/5dcf7c7cb162e825d95d531081f67ee60da3c0e1) (0.25.3) still read.
 
 ### `roo-code`
 

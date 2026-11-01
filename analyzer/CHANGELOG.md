@@ -9,6 +9,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The Qwen Code parser reads a `chats/` file only when its name is a session id, as Qwen Code's own session list does, so sidecars and other files there give no rows ([#326]).
+- A Qwen Code `settings.json` that is not a JSON object gives its `parser:` row with no line and no time, as every other whole-file row ([#326]).
+
 ## [0.23.0] - 2026-10-31
 
 ### Changed

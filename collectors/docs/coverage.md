@@ -1064,6 +1064,15 @@ the full pattern list.
   and `connections.json`, which hold a remote gateway's token, encrypted
   with the operating system's key store or in plain text when that
   encryption is turned off.
+- **Qwen Code's daemon and managed local mode:** the Agent Host registration
+  `~/.qwen/agent-hosts/<sha256>.json` (a host id and secret), the managed
+  local mode's `~/.qwen/managed-local/state.json` (its service tokens and
+  signing keys) and the settings, token and session registry files its
+  worker processes write under `~/.qwen/managed-local/worker-home/`, and
+  the `settings.json.corrupted` and `settings.json.write-<random>/settings.json.orig`
+  copies Qwen Code leaves beside a settings file. A managed data directory
+  moved with `qwen serve --managed-data-dir` outside `~/.qwen` is not
+  collected.
 - **Running-session registries:** Qwen Code's `~/.qwen/sessions/<pid>.json`
   (or `<pid>-<8 hex>.json`), one per running session, whose `ipcToken`
   admits a connection to that session's socket; the file is deleted when
