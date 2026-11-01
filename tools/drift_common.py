@@ -32,7 +32,7 @@ import importlib
 import pathlib
 import re
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from types import ModuleType
 from typing import TYPE_CHECKING
@@ -50,6 +50,7 @@ BASELINE = pathlib.PurePosixPath("tools/drift-baseline")
 UNATTRIBUTED = "unattributed"
 CATALOG_TEXT = pathlib.PurePosixPath("analyzer/doubleagent/catalog.txt")
 AGENTS_PAGE = pathlib.PurePosixPath("docs/agents.md")
+RESEARCH_INDEX = pathlib.PurePosixPath("research/README.md")
 PARSERS = pathlib.PurePosixPath("analyzer/doubleagent/parsers")
 # Files under research/ that are not one catalog agent's document.
 NOT_AGENT_DOCUMENTS = frozenset({"README.md", "frameworks.md", "shared.md"})
@@ -70,6 +71,7 @@ KIND = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 AGENT_NAME = re.compile(r"^(?:-|[a-z0-9][a-z0-9._-]*)$")
 AGENTS_TABLE_HEADER = re.compile(r"^\|\s*Agent\s*\|\s*Status\s*\|")
 TABLE_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
+SURVIVAL_TABLE_HEADER = re.compile(r"^\|\s*Agent\s*\|\s*Transcripts live in\s*\|")
 FIRST_CODE_SPAN = re.compile(r"`([^`]+)`")
 # Characters a negated glob class may give a sample path, in order of preference.
 SAMPLE_CHARACTERS = "xabcdefghijklmnopqrstuvwyz0123456789"
@@ -878,6 +880,56 @@ def agents_page_rows(path: pathlib.Path) -> dict[str, AgentRow]:
         span = FIRST_CODE_SPAN.search(cells[0])
         agent = span.group(1) if span else cells[0]
         rows.setdefault(agent, AgentRow(agent, cells[1], cells[2], cells[3], number))
+    return rows
+
+
+def table_rows(text: str, header: re.Pattern[str]) -> Iterator[tuple[int, list[str]]]:
+    """Yield (line offset, cells) of each row of the tables `header` opens in `text`.
+
+    A line `header` matches, once stripped, yields (offset, []) and opens a table; each later
+    line starting `|` is a row, split at every `|`, its cells stripped, the separator row left
+    out; any other line closes the table.
+    """
+    in_table = False
+    for offset, line in enumerate(text.split("\n")):
+        stripped = line.strip()
+        if header.match(stripped):
+            in_table = True
+            yield offset, []
+            continue
+        if not in_table or not stripped.startswith("|"):
+            in_table = False
+            continue
+        if not TABLE_SEPARATOR.match(stripped):
+            yield offset, [cell.strip() for cell in stripped.strip("|").split("|")]
+
+
+@dataclass(frozen=True)
+class SurvivalRow:
+    """One row of the survival table of `research/README.md`: its agent, cells and line."""
+
+    agent: str
+    cells: tuple[str, ...]
+    line: int
+
+
+def survival_rows(root: pathlib.Path | None = None) -> dict[str, SurvivalRow]:
+    """Return the rows of the survival table, keyed by agent, the first row of an agent kept.
+
+    The table is the one whose header starts `| Agent | Transcripts live in |`; a row's agent
+    is its first cell's first code span, or the cell's text when it has none. An absent index
+    gives no rows.
+    """
+    path = (ROOT if root is None else root) / RESEARCH_INDEX
+    if not path.is_file():
+        return {}
+    rows: dict[str, SurvivalRow] = {}
+    for offset, cells in table_rows(path.read_text(encoding="utf-8"), SURVIVAL_TABLE_HEADER):
+        if not cells:
+            continue
+        span = FIRST_CODE_SPAN.search(cells[0])
+        agent = span.group(1) if span else cells[0]
+        rows.setdefault(agent, SurvivalRow(agent, tuple(cells), offset + 1))
     return rows
 
 

@@ -6,3 +6,4 @@ check_fixture_schema|builder-provenance-missing|openclaw_node_inserts
 check_fixture_schema|builder-provenance-missing|openclaw_past_use_inserts
 check_fixture_schema|builder-provenance-missing|openclaw_state_inserts
 check_fixture_schema|type-mismatch|kind=external
+check_parser_research|secondary-unlisted|^(?:\.openclaw(?:-[^/]+)?|\.clawdbot|\.moltbot)/(?:agents/[^/]+/)?sessions/(?P<name>[^/]+?)(?:(?P<archive>\.jsonl\.(reset|deleted)\.\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d(?:\.\d{3})?Z(?:\.[0-9a-f]{32})?(?:\.zst)?)|(?P<copy>\.checkpoint\.[0-9a-fA-F-]{36}\.jsonl|\.jsonl\.pre-doctor-(?:branch|openai-codex)-repair-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d-\d{3}Z\.bak)|\.jsonl)$

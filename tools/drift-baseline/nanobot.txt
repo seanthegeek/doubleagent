@@ -34,6 +34,7 @@ check_parser_research|row-text-undocumented|session start: key=
 check_parser_research|row-text-undocumented|summarised history:
 check_parser_research|row-text-undocumented|webui event:
 check_parser_research|row-text-undocumented|webui fork marker: the fork starts here
+check_parser_research|secondary-unlisted|.migration-conflicts/
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/systemd/user/nanobot-*
 check_smoke_coverage|fixture-missing|smoke.ps1 project .nanobot
 check_smoke_coverage|fixture-missing|smoke.ps1 project memory/HISTORY.md

@@ -743,18 +743,8 @@ def key_tables(sections: list[drift_common.Section]) -> tuple[dict[str, list[Key
 
 def _table_rows(section: drift_common.Section) -> Iterator[tuple[int, list[str]]]:
     """Yield (line offset, cells) of each key table row, and (offset, []) at each header row."""
-    in_table = False
-    for offset, line in enumerate(section.text.split("\n")):
-        text = line.strip()
-        if KEY_TABLE_HEADER.match(text):
-            in_table = True
-            yield offset, []
-            continue
-        if not in_table or not text.startswith("|"):
-            in_table = False
-            continue
-        cells = [cell.strip() for cell in text.strip("|").split("|")]
-        if len(cells) >= 3 and not drift_common.TABLE_SEPARATOR.match(text):
+    for offset, cells in drift_common.table_rows(section.text, KEY_TABLE_HEADER):
+        if not cells or len(cells) >= 3:
             yield offset, cells
 
 

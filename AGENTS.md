@@ -625,7 +625,9 @@ plan, and the parser is written from them.
      the one qualifier that matters, `parsed`, `secondary` or `not parsed`,
      and a link to the document's `#### What survives a delete`, which
      holds the facts; a fact the table holds that the document lacks goes
-     into the document first.
+     into the document first. The row names each file a pattern of the
+     parser's `secondary()` accepts, as a code span the pattern matches or
+     by its file name (`tools/check_parser_research.py` checks this).
 4. Open SQLite and decode protobuf as
    [Analyzer standards](#analyzer-standards) says; a new dependency goes in
    both `requirements.txt` and `pyproject.toml`.

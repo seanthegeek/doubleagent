@@ -646,6 +646,44 @@ def test_agents_page_rows(tmp_path):
     assert rows["beta"].notes == "lines `beta|.config/beta` and more"
 
 
+SURVIVAL_INDEX = """\
+# Research
+
+| Agent | Transcripts live in | Second copy |
+| --- | --- | --- |
+ | `alpha` | home `.alpha/` | `history.jsonl`; secondary |
+| beta | none | none |
+| `alpha` | twice | ignored |
+
+Prose closes the table.
+
+| Agent | Status |
+| --- | --- |
+| `gamma` | not the survival table |
+"""
+
+
+def test_table_rows_yield_the_header_and_each_row_until_a_non_table_line():
+    header = drift_common.SURVIVAL_TABLE_HEADER
+    rows = list(drift_common.table_rows(SURVIVAL_INDEX, header))
+    assert rows == [
+        (2, []),
+        (4, ["`alpha`", "home `.alpha/`", "`history.jsonl`; secondary"]),
+        (5, ["beta", "none", "none"]),
+        (6, ["`alpha`", "twice", "ignored"]),
+    ]
+
+
+def test_survival_rows_key_by_first_code_span_and_keep_the_first(tmp_path):
+    write(tmp_path / "research/README.md", SURVIVAL_INDEX)
+    rows = drift_common.survival_rows(tmp_path)
+    assert list(rows) == ["alpha", "beta"]
+    assert rows["alpha"] == drift_common.SurvivalRow(
+        "alpha", ("`alpha`", "home `.alpha/`", "`history.jsonl`; secondary"), 5
+    )
+    assert drift_common.survival_rows(tmp_path / "missing") == {}
+
+
 PARSERS = {
     "__init__.py": """\
         from .alpha import AlphaParser

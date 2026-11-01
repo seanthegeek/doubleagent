@@ -106,15 +106,16 @@ def repository(
     text: str | None = None,
     modules: dict[str, str] | None = None,
     registry: str = REGISTRY,
+    index: str = "# Research\n",
 ) -> pathlib.Path:
-    """Write a parsers package and `research/alpha.md` under `root`, and return `root`."""
+    """Write a parsers package, `research/alpha.md` and the index under `root`; return `root`."""
     write(root / PARSERS / "__init__.py", registry)
     write(root / PARSERS / "base.py", BASE)
     write(root / PARSERS / "alpha.py", alpha)
     for name, body in (modules or {}).items():
         write(root / PARSERS / name, body)
     write(root / "research/alpha.md", document() if text is None else text)
-    write(root / "research/README.md", "# Research\n")
+    write(root / "research/README.md", index)
     return root
 
 
@@ -1043,3 +1044,137 @@ def test_own_module_literal_is_checked_against_the_own_document_only(tmp_path):
     assert [(item.agent, item.detail, item.path) for item in found] == [
         ("alpha", "own", PARSERS + "/alpha.py")
     ]
+
+
+# --- Rule 8: the survival table ---------------------------------------------------------------
+
+SECONDARY_ALPHA = ALPHA.replace(
+    '    LOG_PATTERN = re.compile(r"^\\.alpha/logs/[^/]+\\.jsonl$")\n',
+    '    LOG_PATTERN = re.compile(r"^\\.alpha/logs/[^/]+\\.jsonl$")\n'
+    '    HISTORY_PATTERN = re.compile(r"^\\.alpha/history\\.jsonl$")\n',
+).replace(
+    "        def parse(self, artifact, record):\n",
+    "        def secondary(self, artifact):\n"
+    "            return bool(HISTORY_PATTERN.match(artifact.rel))\n\n"
+    "        def parse(self, artifact, record):\n",
+)
+
+
+def survival_index(second_copy: str, agent: str = "alpha") -> str:
+    """Return a research index whose survival table has one row, its last cell `second_copy`."""
+    return "\n".join(
+        [
+            "# Research",
+            "",
+            "| Agent | Transcripts live in | Survives project deletion | Per-prompt history file"
+            " | Working directory recorded | Second copy |",
+            "| --- | --- | --- | --- | --- | --- |",
+            "| `%s` | home `.alpha/logs/` | yes | none | none | %s |" % (agent, second_copy),
+            "",
+        ]
+    )
+
+
+def test_secondary_unlisted_when_the_row_names_another_file(tmp_path):
+    index = survival_index("The prompt log survives a delete; secondary.")
+    root = repository(tmp_path, SECONDARY_ALPHA, index=index)
+    found = findings(root, "secondary-unlisted")
+    assert [(item.detail, item.agent, item.path, item.line) for item in found] == [
+        (r"^\.alpha/history\.jsonl$", "alpha", "research/README.md", 5)
+    ]
+    assert "'history.jsonl'" in found[0].message
+
+
+def test_secondary_listed_by_a_code_span_or_by_its_file_name(tmp_path):
+    for cell in ("`~/.alpha/history.jsonl`, secondary", "the history.jsonl file, secondary"):
+        root = repository(tmp_path, SECONDARY_ALPHA, index=survival_index(cell))
+        assert details(root, "secondary-unlisted") == [], cell
+
+
+def test_survival_row_missing_only_for_a_parser_with_a_secondary_pattern(tmp_path):
+    index = survival_index("none", agent="beta")
+    root = repository(tmp_path, SECONDARY_ALPHA, index=index)
+    assert details(root, "survival-row-missing") == ["alpha"]
+    assert details(root, "secondary-unlisted") == []
+    assert details(repository(tmp_path, ALPHA, index=index), "survival-row-missing") == []
+
+
+def test_a_pattern_only_wants_uses_needs_no_survival_row_entry(tmp_path):
+    root = repository(tmp_path, SECONDARY_ALPHA, index=survival_index("`history.jsonl`"))
+    assert details(root, "secondary-unlisted") == []
+
+
+def test_selector_methods_record_wants_secondary_or_both(tmp_path):
+    alpha = """\
+        import re
+
+        from .base import Parser
+
+        LOG_PATTERN = re.compile(r"^\\.alpha/logs/[^/]+\\.jsonl$")
+        HISTORY_PATTERN = re.compile(r"^\\.alpha/history\\.jsonl$")
+        SHARED_PATTERN = re.compile(r"^\\.alpha/shared\\.json$")
+
+
+        class AlphaParser(Parser):
+            agent = "alpha"
+
+            def wants(self, artifact):
+                return bool(LOG_PATTERN.match(artifact.rel)) or self._shared(artifact)
+
+            def secondary(self, artifact):
+                return bool(HISTORY_PATTERN.match(artifact.rel)) or self._shared(artifact)
+
+            def _shared(self, artifact):
+                return bool(SHARED_PATTERN.match(artifact.rel))
+        """
+    root = repository(tmp_path, alpha, index=survival_index("`history.jsonl`"))
+    parser = drift_common.parser_classes(root / PARSERS)[0]
+    index = checker.ModuleIndex(root / "analyzer/doubleagent")
+    found = checker.selectors(index, parser, root / PARSERS)
+    assert sorted((item.literal.text, sorted(item.methods)) for item in found) == [
+        (r"^\.alpha/history\.jsonl$", ["secondary"]),
+        (r"^\.alpha/logs/[^/]+\.jsonl$", ["wants"]),
+        (r"^\.alpha/shared\.json$", ["secondary", "wants"]),
+    ]
+    assert details(root, "secondary-unlisted") == [r"^\.alpha/shared\.json$"]
+
+
+def test_selector_basenames_forms():
+    cases = [
+        (selector(r"^\.alpha/history\.jsonl$", True), ["history.jsonl"]),
+        (selector(r"^\.alpha/[^/]+\.jsonl$", True), []),
+        (selector(r"^(?:\.alpha/a\.json|\.beta/b\.json)$", True), ["a.json", "b.json"]),
+        (selector(r"^\.alpha/(", True), []),
+        (selector(".alpha/input.json", False), ["input.json"]),
+        (selector(".bak", False), [".bak"]),
+    ]
+    for item, expected in cases:
+        assert checker.selector_basenames(item) == expected, item.literal.text
+
+
+def test_names_selector_tail_forms():
+    brain = selector(
+        r"^\.g/brain/[^/]+/logs/(?:(transcript(?:_full)?)\.jsonl|chunks/\d+\.jsonl)$", True
+    )
+    aider = selector(r"^(?:.*/)?(\.aider\.(?:chat\.history\.md|input\.history))$", True)
+    record = selector(r"^\.c/(?P<tree>sessions/[^/]+/)local_[0-9a-f-]{36}\.json$", True)
+    shell = selector(r"(^|/)shell_gpt/cache/[0-9a-f]{32}$", True)
+    generic = selector(r"^\.alpha/[^/]+\.jsonl$", True)
+    accepted = [
+        (brain, "transcript_full.jsonl"),
+        (aider, "<repo>/.aider.input.history"),
+        (aider, ".aider.input.history"),
+        (record, "sessions/<acct>/local_<uuid>.json"),
+        (shell, "shell_gpt/cache/<md5>"),
+    ]
+    rejected = [
+        (generic, "history.jsonl"),
+        (generic, "*.jsonl"),
+        (brain, "other.jsonl"),
+        (record, "local.json"),
+        (selector(".alpha/history.jsonl", False), "history.jsonl"),
+    ]
+    for item, name in accepted:
+        assert checker.names_selector_tail(item, name), (item.literal.text, name)
+    for item, name in rejected:
+        assert not checker.names_selector_tail(item, name), (item.literal.text, name)
