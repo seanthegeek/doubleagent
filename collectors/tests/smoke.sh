@@ -775,6 +775,7 @@ secret||.qwen/managed-local/worker-home/settings.json
 secret||.qwen/managed-local/worker-home/sessions/4242.json
 secret||.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json
 secret||.qwen/managed-local/worker-home/settings.json.write-d4e5f6/settings.json.orig
+secret||.qwen/managed-local/worker-home/settings.json.corrupted
 excl||.qwen/managed-local/worker-home/updates
 excl||.qwen/managed-local/worker-home/extension-store
 excl||.qwen/managed-local/worker-home/extensions/e1/node_modules

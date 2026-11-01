@@ -1365,6 +1365,7 @@ AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
 .qwen/managed-local/worker-home/.env
 .qwen/managed-local/worker-home/settings.json
 .qwen/managed-local/worker-home/settings.json.write-*/settings.json.orig
+.qwen/managed-local/worker-home/settings.json.corrupted
 .qwen/managed-local/worker-home/sessions/*.json
 .codex/auth.json
 .codex/.credentials.json

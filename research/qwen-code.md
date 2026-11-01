@@ -238,13 +238,18 @@ Linux and macOS, under `%USERPROFILE%` on Windows), or under `$QWEN_HOME` when i
 | `.qwen/sessions/<pid>.json`, `.qwen/sessions/<pid>-<8 hex>.json` (the files `.qwen/sessions/*.json`) | the session registry, whose `ipcToken` admits a connection to a running session's socket ([Session registry](#session-registry)) |
 | `.qwen/agent-hosts/<sha256>.json` | the daemon's Agent Host `hostId` and `secret`, mode 0600 ([`cli/src/serve/agent-host-client.ts:94-100`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/agent-host-client.ts#L94-L100), [`189-194`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/agent-host-client.ts#L189-L194)) |
 | `.qwen/managed-local/state.json` | the managed local mode's `publicToken`, `signingKey`, `harnessToken`, `brokerToken`, `writerBindingKey` and `runtimeCredentialKey`, mode 0600 ([`cli/src/serve/managed-local-state.ts:24-37`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-state.ts#L24-L37), [`146-158`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-state.ts#L146-L158)) |
-| `.qwen/managed-local/worker-home/oauth_creds.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json`, `.qwen/managed-local/worker-home/extension-secrets-v1.json`, `.qwen/managed-local/worker-home/.env`, `.qwen/managed-local/worker-home/settings.json`, `.qwen/managed-local/worker-home/settings.json.write-<random>/settings.json.orig` and `.qwen/managed-local/worker-home/sessions/<pid>.json` (the files `.qwen/managed-local/worker-home/sessions/*.json`) | the same stores written by the managed local mode's worker processes, whose `$QWEN_HOME` is `worker-home/` ([`cli/src/serve/managed-local-serve.ts:103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)) |
+| `.qwen/managed-local/worker-home/oauth_creds.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json`, `.qwen/managed-local/worker-home/extension-secrets-v1.json`, `.qwen/managed-local/worker-home/.env`, `.qwen/managed-local/worker-home/settings.json`, `.qwen/managed-local/worker-home/settings.json.write-<random>/settings.json.orig`, `.qwen/managed-local/worker-home/settings.json.corrupted` and `.qwen/managed-local/worker-home/sessions/<pid>.json` (the files `.qwen/managed-local/worker-home/sessions/*.json`) | the same stores written by the managed local mode's worker processes, whose `$QWEN_HOME` is `worker-home/` ([`cli/src/serve/managed-local-serve.ts:103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)) |
 
 The same `settings.json` keys in a project's `.qwen/settings.json` make it a credential file too,
 and so does the copy Qwen Code saves of a project settings file it cannot parse,
 `.qwen/settings.json.corrupted` in the project
 ([`cli/src/config/settings.ts:1097`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/config/settings.ts#L1097),
 [`1244-1262`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/config/settings.ts#L1244-L1262)).
+The execution sandbox's settings reader saves an unparseable user `settings.json` as
+`settings.json.corrupted` beside it in the global directory, so `.qwen/settings.json.corrupted` and
+`.qwen/managed-local/worker-home/settings.json.corrupted` are credential files too
+([`cli/src/config/execution-sandbox-settings.ts:137`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/config/execution-sandbox-settings.ts#L137),
+[`160-166`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/config/execution-sandbox-settings.ts#L160-L166)).
 
 The MCP OAuth tokens and extension secrets go to the OS keychain under the service
 `qwen-code-oauth` only when `QWEN_CODE_FORCE_ENCRYPTED_FILE_STORAGE` is `true`; the hybrid store
@@ -291,7 +296,8 @@ channel may use the host's own `gh` login instead of a token in `settings.json`,
 - `.qwen/locales`: user locale overrides.
 - `.qwen/sandbox`: the execution sandbox's state.
 - The same subtrees under `.qwen/managed-local/worker-home/`, the worker processes' `$QWEN_HOME`
-  and, unless `$QWEN_RUNTIME_DIR` is inherited, their runtime base
+  and, unless `$QWEN_RUNTIME_DIR` or the worker's `advanced.runtimeOutputDir` setting moves it,
+  their runtime base
   ([`cli/src/serve/managed-local-serve.ts:41-48`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L41-L48),
   [`103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)):
   `.qwen/managed-local/worker-home/updates`, `.qwen/managed-local/worker-home/extension-store`,
@@ -432,9 +438,9 @@ on that platform; the daemon's `routes.json` stays on disk while the foreground 
 `channels/sessions.json` is deleted on a clean shutdown. No deletion marker is written: the
 surviving `usage_record.jsonl` entry, the token usage records and, after a daemon delete, the
 `logs.json` prompts are all that show a removed session. The analyzer reads the transcripts in
-`chats/` and `chats/archive/` and each session's `.worktree.json` sidecar, `logs.json` and
-`usage_record.jsonl` as secondary sources, and both channel route files; not `shell_history`, the
-checkpoints, the token usage log or the memory documents (see
+`chats/` and `chats/archive/`, each session's `.worktree.json` sidecar and both channel route
+files, and reads `logs.json` and `usage_record.jsonl` as secondary sources; it does not read
+`shell_history`, the checkpoints, the token usage log or the memory documents (see
 [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
 
 #### Scratch workspaces and worktrees
