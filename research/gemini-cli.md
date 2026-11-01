@@ -129,6 +129,7 @@ and the Gemma server's `litert-server.pid` and `litert-server.log`
 ([`199-201`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L199-L201)), but nothing at the reviewed
 commit calls that getter; ripgrep ships inside the package
 ([`core/src/tools/ripGrep.ts:64-69`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/tools/ripGrep.ts#L64-L69)).
+Older builds downloaded the ripgrep binary into `tmp/bin` ([Format versions](#format-versions)).
 
 The per-project directory is `tmp/<slug>/`
 ([`storage.ts:230-234`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L230-L234)). The slug comes from
@@ -258,9 +259,13 @@ one directory it creates for work is the `--worktree` checkout inside the projec
 - `.gemini/google_accounts.json` is not a credential: it names the signed-in Google account's
   email and holds no token
   ([`core/src/utils/userAccountManager.ts:19`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/userAccountManager.ts#L19)).
-- `.gemini/extensions/<name>/.env` is not a credential: an extension's settings marked
-  `sensitive` go to the keychain and only the others to that file
+- `.gemini/extensions/<name>/.env` holds an extension's settings not marked `sensitive`, which go
+  to the keychain instead
   ([Extension reference](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/docs/extensions/reference.md#L204)).
+  A setting that leaves `sensitive` unset counts as not sensitive, so an extension that names an
+  API key without the flag keeps it in that file
+  ([`cli/src/config/extensions/extensionSettings.ts:28-29`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/extensions/extensionSettings.ts#L28-L29),
+  [`114-126`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/extensions/extensionSettings.ts#L114-L126)).
 
 ### Exclusions
 
@@ -268,7 +273,7 @@ These subtrees are large or copies of something else; the patterns are home-rela
 `.gemini/worktrees` also project-relative:
 
 - `.gemini/whisper_models` (speech models), `.gemini/bin` (the Gemma server binary),
-  `.gemini/tmp/bin` (written by no code at the reviewed commit), `.gemini/cli-browser-profile`
+  `.gemini/tmp/bin` (the ripgrep binary older builds downloaded), `.gemini/cli-browser-profile`
   (a Chromium profile).
 - `.gemini/extensions/*/node_modules` and `.gemini/extensions/*/.git` (an extension's
   dependencies and clone).
@@ -958,6 +963,11 @@ No file carries a version field. The shapes changed in these ways:
   (2026-10-30), after `v0.66.0`; the `v0.66.0` build writes `.gitconfig` with the author and
   `gpgsign` settings only
   ([`gitService.ts` at `v0.66.0`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/core/src/services/gitService.ts#L138-L148)).
+- Before commit
+  [`5562023`](https://github.com/google-gemini/gemini-cli/commit/55620235c0c72c3e72c83b39efb02853a1bff494)
+  (2026-04-15), which bundled ripgrep into the package, the CLI downloaded the ripgrep binary
+  into `tmp/bin` on first use and ran it from there
+  ([`ripGrep.ts` at `366f9e4`](https://github.com/google-gemini/gemini-cli/blob/366f9e4766d732235ed729f80e4f26556bc8f7d2/packages/core/src/tools/ripGrep.ts#L46-L92)).
 - Between
   [`fb972b2`](https://github.com/google-gemini/gemini-cli/commit/fb972b2f87fe7d5b06d37eac711490162d98de2c)
   (0.64.0-nightly.20260929) and

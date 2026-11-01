@@ -1499,6 +1499,8 @@ AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-sess
 *.gemini/a2a-oauth-tokens.json
 *.gemini/.env
 *.gemini/settings.json
+*.gemini/.settings.json.*.tmp
+.gemini/integrity.key
 *.gemini/extensions/*/.env
 *.gemini/tmp/*/bug-memory-*.heapsnapshot
 *.gemini/antigravity-cli/antigravity-oauth-token
