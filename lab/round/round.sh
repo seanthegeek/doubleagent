@@ -306,7 +306,7 @@ run_step() {
     exit 3
   fi
   round_log "step $_rs_label ($STEP_KIND)"
-  _rs_status=done
+  _rs_status='done'
   _rs_note=
   STEP_NOTE=
   run_kind
@@ -342,7 +342,7 @@ run_steps() {
       return 0
     fi
   done
-  state_set next done
+  state_set next 'done'
   round_log "all steps done; run collect, then finish"
 }
 
@@ -547,14 +547,14 @@ resume_cell() {
     printf '%s\n%s\n' "--- after $STEP_NUMBER-$STEP_NAME" "$(capture_screen)" \
       >>"$CELL/screens/$STEP_NUMBER-$STEP_NAME.txt"
     take_listing "$STEP_NUMBER-$STEP_NAME"
-    log_step "$STEP_NUMBER-$STEP_NAME" pause done "$(state_get paused_at)" "$(utc_now)" \
+    log_step "$STEP_NUMBER-$STEP_NAME" pause 'done' "$(state_get paused_at)" "$(utc_now)" \
       'person step'
     state_set paused ''
     state_set paused_label ''
     state_set next "$(next_step_after "$STEP_NUMBER")"
   fi
   _rsm_next=$(state_get next)
-  [ "$_rsm_next" != done ] || {
+  [ "$_rsm_next" != 'done' ] || {
     round_log "every step has run; run collect, then finish"
     return 0
   }
@@ -570,13 +570,20 @@ finish_blocker() {
     printf 'step %s waits for the person\n' "$(state_get paused_label)"
   elif [ -z "$_fb_next" ]; then
     printf 'no step has run: start ended before the steps\n'
-  elif [ "$_fb_next" != done ]; then
+  elif [ "$_fb_next" != 'done' ]; then
     printf 'steps from %s on have not run\n' "$_fb_next"
   elif [ -z "$(state_get collected_at)" ]; then
     printf 'no collection was pulled\n'
-  elif expr "$(state_get collected_at)" \< "$(state_get last_step_started)" >/dev/null; then
+  elif is_earlier "$(state_get collected_at)" "$(state_get last_step_started)"; then
     printf 'the last collection is older than the last step\n'
   fi
+}
+
+# Succeed when the UTC time $1 is earlier than $2; both are ISO 8601 in one
+# form, so their byte order is their time order.
+is_earlier() {
+  [ "$1" != "$2" ] &&
+    [ "$(printf '%s\n%s\n' "$1" "$2" | LC_ALL=C sort | head -n 1)" = "$1" ]
 }
 
 # Refuse to go on past a blocker unless --force was given; a forced blocker
