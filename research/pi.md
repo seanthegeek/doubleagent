@@ -825,7 +825,11 @@ so it is a full copy of the session file's entries at export time.
 #### Project trust
 
 `~/.pi/agent/trust.json` is an object whose keys are absolute project paths and whose values are
-`true` or `false`; a `null` decision deletes the key
+`true` or `false`; pi drops a leading byte-order mark before parsing it, as it does for
+`settings.json`
+([trust-manager.ts:113](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L113);
+[settings-manager.ts:380](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/settings-manager.ts#L380)).
+A `null` decision deletes the key
 ([trust-manager.ts:28](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L28),
 [221-223](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L221-L223),
 [239-252](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L239-L252)).
@@ -998,7 +1002,29 @@ reads `.pi/agent/trust.json`, `.pi/agent/settings.json`, `.pi/agent/pi-debug.log
 | model | assistant `responseModel`, else `model`; `model_change.modelId` |
 | tool_name | `toolCall.name`, `toolResult.toolName`; `bash` for `bashExecution` |
 | tool_use_id | `toolCall.id` and `toolResult.toolCallId`; entry `id` for `bashExecution` |
-| text | text parts joined; tool_use: `command`, `path`, `pattern` or `code`, else the arguments as JSON; tool_result: text parts; compaction and branch summary: `summary` |
+| text | text parts joined; tool_use: `command`, `path`, `pattern`, `code` or `query`, else the arguments as JSON (the shared reader also tries `file_path` and `url`, which pi's own tools do not use); tool_result: text parts; compaction and branch summary: `summary` |
+
+The `system` rows other than those of the subsections below, `<...>` a record value:
+
+- the header, at its `timestamp`:
+  `session start: version=<version, 1 when absent> cwd=<cwd>`, ending ` parentSession=<path>`
+  for a fork or branch;
+- `fork: <N> entries copied from the parent session <path> omitted; they are in the parent's rows`,
+  after it, when entries were dropped (see
+  [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources));
+- `thinking_level_change: <thinkingLevel>`, `compaction: tokensBefore=<tokensBefore>: <summary>`,
+  `branch_summary from <fromId>: <summary>`, `custom_message <customType>: <content text>`,
+  `context_edit target=<targetId>: <replacement text>` (`omitted from context` for a null
+  replacement) and `session_info: name=<name>`;
+- `system prompt: <content text>`, `custom <customType>: <content text>`,
+  `branchSummary: <summary>` and `compactionSummary: <summary>` for those message roles;
+- `assistant stopReason=<stopReason>: <errorMessage>` after an assistant message whose
+  `stopReason` is `error` or `aborted`;
+- `experimental durable session created: cwd=<cwd> (transcript in session.sqlite, not parsed)`
+  per older-build `meta.json`, at its `createdAt`, with the session id its directory names.
+
+An error `toolResult` row's text starts `[error] `; a `bashExecution` result row ends with
+`[exit <exitCode>, cancelled, truncated]`, naming only what applies.
 
 Not read: `mcp.log`, `mcp.log.1`, `pi-tui-crash.log`, `pi-tui-debug.log`, `models-store.json`,
 `keybindings.json`, the project exports `pi-session-*.html` and `session-*.jsonl`, and
@@ -1152,8 +1178,12 @@ line-by-line reader reports bad lines.
 A session file, `crashes.json`, `pi-debug.log`, `trust.json`, `settings.json` or an experimental
 session's `meta.json` that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name. A
-`pi-debug.log` that cannot be opened gives no `debug snapshot` row, and the `meta.json` row carries
-the session id its directory names.
+`trust.json`, `settings.json` or `meta.json` that is not a JSON object, a leading byte-order mark
+dropped as pi drops it ([Project trust](#project-trust)), is one whole-file row
+`parser: <path> is not a JSON object`, `<path>` relative to the home. A `crashes.json` element
+that is not an object is `parser: unparseable record <N> (not a JSON object): <element>`, and a cut
+array `parser: unparseable record <N> (<reason>)`. A `pi-debug.log` that cannot be opened gives no
+`debug snapshot` row, and a `meta.json` row carries the session id its directory names.
 
 #### Fixtures
 
