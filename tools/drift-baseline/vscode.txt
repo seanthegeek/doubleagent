@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_vscode
 check_fixture_schema|builder-provenance-missing|build_vscode_agents_window
 check_fixture_schema|builder-provenance-missing|build_vscode_grants
 check_fixture_schema|builder-provenance-missing|build_vscode_sync

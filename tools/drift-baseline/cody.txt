@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_cody
 check_fixture_schema|builder-provenance-missing|build_cody_deep
 check_fixture_schema|builder-provenance-missing|build_cody_settings
 check_fixture_schema|builder-provenance-missing|cody_deep_records

@@ -1,3 +1,5 @@
+check_fixture_schema|builder-provenance-missing|build_roo_cli_history
+check_fixture_schema|builder-provenance-missing|build_roo_code
 check_fixture_schema|builder-provenance-missing|roo_api_records
 check_fixture_schema|builder-provenance-missing|roo_global_state
 check_fixture_schema|builder-provenance-missing|roo_history_item

@@ -8,8 +8,8 @@ never documents a key), of the file's agent's document or of an agent whose fixt
 agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read only the files
 `build_home` leaves on disk, so a record a later builder overwrites is not checked.
 
-1. `builder-provenance-missing`: a public function of a fixture module, other than a home
-   builder (`is_public_builder`), whose docstring has no `source_line` naming a document heading.
+1. `builder-provenance-missing`: a public function of a fixture module (`is_public_builder`)
+   whose docstring has no line `source_line` accepts, naming a document heading.
 2. `module-provenance-missing`: a fixture module whose docstring does not name
    `research/<agent>.md` for its own agent as a whole path token (`names_document`).
 3. `key-undocumented`: a dict key, SQLite table or column name, or YAML or TOML key that is
@@ -17,10 +17,10 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
    `file-unclaimed`: a file no catalog entry claims (`claiming_agent`).
 4. `enum-undocumented`: a value (`is_enum_value`) of a key in `ENUM_KEYS` not documented.
 5. `type-mismatch`: a value no consulted row of its key (Record schema, Other stores) `accepts`:
-   the rows of the sections naming its file (`names_file`) and of those naming no built file,
-   or every row when none names it (`consulted_rows`); one accepting row passes the value, and
-   a key left no consulted row is not checked.
-6. `substitution-undeclared`: a `project_path` outside `/srv/proj` and modules' `declared_paths`.
+   the rows of the sections naming its file (`names_file`) plus those naming no built file, or
+   every row when none names it (`consulted_rows`); a key left no row is not checked.
+6. `substitution-undeclared`: a `project_path` outside `/srv/proj` and the agent's modules'
+   `declared_paths`.
 7. `cross-agent-builder`: a call to a function imported from another agent's fixture module
    whose agent `lineage` does not list.
 8. `sample-equals-builder`: a JSON value fenced under Fixtures equal, key-sorted, to a built record.
@@ -117,13 +117,13 @@ WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 # --- Heuristics -----------------------------------------------------------------------------
 
 
-def is_public_builder(name: str, registered: frozenset[str]) -> bool:
+def is_public_builder(name: str) -> bool:
     """Return whether a fixture module's function is a builder needing a `Source:` line.
 
-    Every public function is one except the home builders `HOME_BUILDERS` registers
-    (`registered`), which assemble a whole home from many sections.
+    Every public function is one, the home builders `HOME_BUILDERS` registers included, since
+    each writes records a document section sources.
     """
-    return not name.startswith("_") and name not in registered
+    return not name.startswith("_")
 
 
 def source_line(line: str) -> tuple[str, str, str] | None:
@@ -331,12 +331,13 @@ def is_section_path(span: str) -> bool:
     r"""Return whether a code span has the form of a path, the spans `names_file` reads.
 
     A span ending in `/` or `\` is a directory path once anything other than placeholders
-    remains; any other span is a path when `is_path_span` says so of its home-relative form with
-    its placeholders filled.
+    remains; any other span is a path when `is_path_span` says so of its placeholders filled,
+    as written (`<data>/logs`) or in its home-relative form (`~/.beta`).
     """
     if span.endswith(("/", "\\")):
         return bool(PLACEHOLDER.sub("", span).strip("*/\\~."))
-    return check_tables_research.is_path_span(PLACEHOLDER.sub("x", home_relative(span)))
+    filled = (PLACEHOLDER.sub("x", text) for text in (span, home_relative(span)))
+    return any(check_tables_research.is_path_span(text) for text in filled)
 
 
 def names_file(span: str, relative: str) -> bool:
@@ -391,38 +392,6 @@ def fixture_modules(root: pathlib.Path, documents: set[str]) -> list[FixtureModu
     return modules
 
 
-def registered_builders(root: pathlib.Path) -> frozenset[tuple[str, str]]:
-    """Return (module stem, function name) of each home builder `HOME_BUILDERS` lists.
-
-    The tuple is read from the `__init__.py` syntax tree, each entry's first item a name bound
-    by a relative import (`from .x import build_x as y` gives `("x", "build_x")`); empty when
-    there is no such tuple.
-    """
-    path = root / FIXTURES / "__init__.py"
-    if not path.is_file():
-        return frozenset()
-    tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
-    imported = {
-        alias.asname or alias.name: (node.module or "", alias.name)
-        for node in tree.body
-        if isinstance(node, ast.ImportFrom) and node.level == 1
-        for alias in node.names
-    }
-    found: set[tuple[str, str]] = set()
-    for node in tree.body:
-        target = node.target if isinstance(node, ast.AnnAssign) else None
-        if isinstance(node, ast.Assign) and len(node.targets) == 1:
-            target = node.targets[0]
-        value = getattr(node, "value", None)
-        if not isinstance(target, ast.Name) or target.id != "HOME_BUILDERS":
-            continue
-        for entry in value.elts if isinstance(value, (ast.Tuple, ast.List)) else []:
-            first = entry.elts[0] if isinstance(entry, ast.Tuple) and entry.elts else None
-            if isinstance(first, ast.Name) and first.id in imported:
-                found.add(imported[first.id])
-    return frozenset(found)
-
-
 @functools.cache
 def _anchors(path: pathlib.Path) -> frozenset[str]:
     """Return the heading anchors of a document."""
@@ -433,20 +402,15 @@ def provenance_findings(
     root: pathlib.Path,
     module: FixtureModule,
     documents: dict[str, pathlib.Path],
-    registered: frozenset[tuple[str, str]] = frozenset(),
 ) -> Iterator[drift_common.Finding]:
-    """Yield the module's `module-provenance-missing` and `builder-provenance-missing` findings.
-
-    `registered` holds (module stem, name) of the home builders; only this module's exempt.
-    """
+    """Yield the module's `module-provenance-missing` and `builder-provenance-missing` findings."""
     relative = module.path.relative_to(root).as_posix()
-    home_builders = frozenset(name for stem, name in registered if stem == module.stem)
     if not names_document(module.docstring, module.agent):
         yield drift_common.Finding(
             module.agent, "module-provenance-missing", module.stem, relative, 1
         )
     for node in module.tree.body:
-        if not isinstance(node, ast.FunctionDef) or not is_public_builder(node.name, home_builders):
+        if not isinstance(node, ast.FunctionDef) or not is_public_builder(node.name):
             continue
         lines = (ast.get_docstring(node) or "").split("\n")
         sources = [found for found in map(source_line, lines) if found]
@@ -963,9 +927,8 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
         documents.update(shared=shared, project=shared)
     modules = fixture_modules(root, set(documents))
     agents = {module.stem: module.agent for module in modules}
-    registered = registered_builders(root)
     for module in modules:
-        yield from provenance_findings(root, module, documents, registered)
+        yield from provenance_findings(root, module, documents)
         yield from lineage_findings(root, module, agents)
     catalog = drift_common.tables(root / drift_common.CATALOG_TEXT).catalog
     files = built_files(root, catalog)

@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_cursor
 check_fixture_schema|builder-provenance-missing|cursor_attempt_record
 check_fixture_schema|builder-provenance-missing|cursor_cloud_agent
 check_fixture_schema|builder-provenance-missing|cursor_cloud_items

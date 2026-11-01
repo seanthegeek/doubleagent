@@ -1,5 +1,8 @@
+check_fixture_schema|builder-provenance-missing|build_codex_automation
+check_fixture_schema|builder-provenance-missing|build_codex_cli
 check_fixture_schema|builder-provenance-missing|build_codex_desktop
 check_fixture_schema|builder-provenance-missing|build_codex_standing
+check_fixture_schema|builder-provenance-missing|build_codex_stores
 check_fixture_schema|builder-provenance-missing|codex_desktop_log_rows
 check_fixture_schema|builder-provenance-missing|codex_desktop_records
 check_fixture_schema|builder-provenance-missing|codex_fork_records

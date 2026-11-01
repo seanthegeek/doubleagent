@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_muse_code
 check_fixture_schema|builder-provenance-missing|muse_session_records
 check_fixture_schema|builder-provenance-missing|muse_subagent_records
 check_fixture_schema|enum-undocumented|kind=ineligible

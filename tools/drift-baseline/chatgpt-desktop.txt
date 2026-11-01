@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_chatgpt_desktop
 check_fixture_schema|builder-provenance-missing|chatgpt_desktop_records
 check_fixture_schema|module-provenance-missing|chatgpt_desktop
 check_research_structure|latest-version-missing|Former native macOS app (`com.openai.chat`): not observed; the

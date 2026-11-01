@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_zed
 check_fixture_schema|builder-provenance-missing|build_zed_database_stores
 check_fixture_schema|builder-provenance-missing|zed_blob
 check_fixture_schema|builder-provenance-missing|zed_thread_record

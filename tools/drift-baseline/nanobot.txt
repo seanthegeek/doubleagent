@@ -1,5 +1,7 @@
+check_fixture_schema|builder-provenance-missing|build_nanobot
 check_fixture_schema|builder-provenance-missing|build_nanobot_sqlite
 check_fixture_schema|builder-provenance-missing|build_nanobot_sweep
+check_fixture_schema|builder-provenance-missing|build_nanobot_webui
 check_fixture_schema|builder-provenance-missing|nanobot_config
 check_fixture_schema|builder-provenance-missing|nanobot_database_insert_message
 check_fixture_schema|builder-provenance-missing|nanobot_database_messages

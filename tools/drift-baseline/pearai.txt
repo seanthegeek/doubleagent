@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_pearai
 check_fixture_schema|builder-provenance-missing|pearai_api_records
 check_fixture_schema|builder-provenance-missing|pearai_dev_chat
 check_fixture_schema|builder-provenance-missing|pearai_index

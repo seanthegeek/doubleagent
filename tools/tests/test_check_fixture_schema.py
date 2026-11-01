@@ -257,34 +257,12 @@ def test_builder_provenance_missing(tmp_path):
     assert ("beta", "builder-provenance-missing", "beta_records") not in found
 
 
-def test_builder_provenance_reaches_every_unregistered_public_function(tmp_path):
+def test_builder_provenance_reaches_every_public_function(tmp_path):
     found = findings_of(tmp_path)
     assert ("alpha", "builder-provenance-missing", "alpha_helper") in found
     for name in ("build_alpha", "build_beta", "build_gamma"):
         agent = name.split("_")[1]
-        assert (agent, "builder-provenance-missing", name) not in found, name
-
-
-def test_registered_builders_follow_import_aliases(tmp_path):
-    root = make_repository(tmp_path)
-    expected = {("alpha", "build_alpha"), ("beta", "build_beta"), ("gamma", "build_gamma")}
-    assert checker.registered_builders(root) == expected
-    assert checker.registered_builders(tmp_path / "empty") == frozenset()
-
-
-def test_registered_builders_exempt_only_their_own_module(tmp_path):
-    root = make_repository(tmp_path)
-    modules = checker.fixture_modules(root, {"alpha", "beta", "gamma"})
-    alpha = next(module for module in modules if module.stem == "alpha")
-    documents = {"alpha": root / "research/alpha.md", "beta": root / "research/beta.md"}
-    registered = frozenset({("beta", "alpha_records"), ("alpha", "alpha_helper")})
-    details = {
-        finding.detail
-        for finding in checker.provenance_findings(root, alpha, documents, registered)
-        if finding.kind == "builder-provenance-missing"
-    }
-    assert "alpha_records" in details
-    assert "alpha_helper" not in details
+        assert (agent, "builder-provenance-missing", name) in found, name
 
 
 def test_module_provenance_missing(tmp_path):
@@ -556,7 +534,7 @@ HOME_FORMS_DOCUMENT = """\
 #### Stores
 
 `C:\\Users\\<user>\\.beta\\history.jsonl`, `/home/<user>/.beta/b.jsonl`, `sessions/`,
-`${XDG_DATA_HOME}/beta/c.db` and `~/` hold the records of `type`.
+`${XDG_DATA_HOME}/beta/c.db`, `<data>/logs` and `~/` hold the records of `type`.
 
 | Key | Type | Values | Builds |
 | --- | --- | --- | --- |
@@ -574,6 +552,7 @@ def test_section_paths_take_home_prefixed_and_directory_spans(tmp_path):
             "/home/<user>/.beta/b.jsonl",
             "sessions/",
             "${XDG_DATA_HOME}/beta/c.db",
+            "<data>/logs",
         ]
     }
 
@@ -613,6 +592,7 @@ def test_names_file_forms():
         ("sessions/<id>/", ".beta/sessions/p/a1.jsonl", True),
         (".beta/sessions/", ".beta/sessions", True),
         ("~/.local/state/opencode", ".local/state/opencode/kv.json", True),
+        ("<data>/logs", ".beta/data/logs/a.log", True),
         ("%LOCALAPPDATA%\\OpenAI\\Codex", "AppData/Local/OpenAI/Codex/log.txt", True),
         ("state/opencode", ".local/state/opencode-two/kv.json", False),
         ("history.jsonl", ".beta/history.jsonl", True),
@@ -722,12 +702,11 @@ def test_new_finding_fails_without_baseline(tmp_path):
 
 
 def test_is_public_builder_forms():
-    registered = frozenset({"build_alpha"})
-    builders = ("alpha_records", "write_alpha_state", "build_alpha_extra", "alpha_rows")
+    builders = ("alpha_records", "write_alpha_state", "build_alpha", "alpha_rows")
     for name in (*builders, "alpha_header", "claude_309_records"):
-        assert checker.is_public_builder(name, registered), name
-    for name in ("build_alpha", "_alpha_records", "_write_x", "_uuid7"):
-        assert not checker.is_public_builder(name, registered), name
+        assert checker.is_public_builder(name), name
+    for name in ("_alpha_records", "_write_x", "_uuid7"):
+        assert not checker.is_public_builder(name), name
 
 
 def test_source_line_forms():

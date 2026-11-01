@@ -1,4 +1,6 @@
+check_fixture_schema|builder-provenance-missing|build_hermes
 check_fixture_schema|builder-provenance-missing|build_hermes_gateway
+check_fixture_schema|builder-provenance-missing|build_hermes_pastes
 check_fixture_schema|builder-provenance-missing|build_hermes_responses
 check_fixture_schema|builder-provenance-missing|build_hermes_switch
 check_fixture_schema|builder-provenance-missing|build_hermes_volume

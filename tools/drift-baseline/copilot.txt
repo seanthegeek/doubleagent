@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_copilot
 check_fixture_schema|key-undocumented|oauth_token
 check_fixture_schema|key-undocumented|user
 check_fixture_schema|module-provenance-missing|copilot

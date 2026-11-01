@@ -560,6 +560,7 @@ def test_case_distinguishes_forms():
         ([".config/goose", ".config/Goose"], True),
         ([".ollama", "AppData/Local/Ollama"], False),
         ([".config/zed", "Library/Application Support/Zed", "AppData/Local/Zed"], False),
+        (["Claude", "Documents/claude"], False),
         ([], False),
     ]
     for globs, expected in cases:

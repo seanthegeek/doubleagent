@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_letta
 check_fixture_schema|builder-provenance-missing|build_letta_stores
 check_fixture_schema|builder-provenance-missing|build_letta_sync
 check_fixture_schema|builder-provenance-missing|letta_cron_task

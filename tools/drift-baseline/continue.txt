@@ -1,3 +1,5 @@
+check_fixture_schema|builder-provenance-missing|build_continue
+check_fixture_schema|builder-provenance-missing|build_continue_log
 check_fixture_schema|builder-provenance-missing|continue_dev_data
 check_fixture_schema|builder-provenance-missing|continue_dev_data_more
 check_fixture_schema|builder-provenance-missing|continue_index

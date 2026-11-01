@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_opencode
 check_fixture_schema|builder-provenance-missing|build_opencode_database
 check_fixture_schema|builder-provenance-missing|build_opencode_next_database
 check_fixture_schema|builder-provenance-missing|build_opencode_share_database

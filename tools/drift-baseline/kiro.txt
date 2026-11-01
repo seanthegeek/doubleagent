@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_kiro
 check_fixture_schema|builder-provenance-missing|kiro_conversation_records
 check_fixture_schema|builder-provenance-missing|kiro_delegate_records
 check_fixture_schema|builder-provenance-missing|kiro_denial_records

@@ -185,8 +185,11 @@ def case_distinguishes(entries: Iterable[TableLine]) -> bool:
     """
     forms: dict[tuple[str, str], set[str]] = {}
     for entry in entries:
+        platform = base_form(entry.glob)[0]
+        if not platform:
+            continue
         segment = base_segment(entry.glob, True)
-        seen = forms.setdefault((base_form(entry.glob)[0], segment.casefold()), set())
+        seen = forms.setdefault((platform, segment.casefold()), set())
         seen.add(segment)
         if len(seen) > 1:
             return True

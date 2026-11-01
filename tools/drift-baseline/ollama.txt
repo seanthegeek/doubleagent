@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_ollama
 check_fixture_schema|builder-provenance-missing|ollama_records
 check_fixture_schema|builder-provenance-missing|write_ollama_database
 check_fixture_schema|key-undocumented|mediaType

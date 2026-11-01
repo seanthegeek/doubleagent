@@ -1,3 +1,5 @@
+check_fixture_schema|builder-provenance-missing|build_gemini_cli
+check_fixture_schema|builder-provenance-missing|build_gemini_cli_empty_settings
 check_fixture_schema|builder-provenance-missing|build_gemini_cli_sources
 check_fixture_schema|builder-provenance-missing|gemini_history_contents
 check_fixture_schema|builder-provenance-missing|gemini_legacy_record

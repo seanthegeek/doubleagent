@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_copilot_cli
 check_fixture_schema|builder-provenance-missing|copilot_snapshot_index
 check_fixture_schema|enum-undocumented|type=summary_text
 check_fixture_schema|key-undocumented|initialEffort
