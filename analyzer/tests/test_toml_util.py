@@ -1,22 +1,19 @@
-"""Tests of `toml_util`: the Python 3.10 stand-ins against `tomllib`."""
+"""Tests of `toml_util`: the TOML rules the parsers rely on `tomllib` for."""
 
-import sys
-
-from doubleagent.toml_util import flat_toml, scan_toml
+from doubleagent.toml_util import load_config_toml, load_toml
 from fixtures import CODEX_AUTOMATION_TOML, CODEX_SESSION
 
 
-def raises_value_error(text, match=""):
-    """Return True when `flat_toml(text)` raises a ValueError whose message contains `match`."""
+def raises_value_error(text):
+    """Return True when `load_toml(text)` raises a ValueError."""
     try:
-        flat_toml(text)
-    except ValueError as error:
-        return match in str(error)
+        load_toml(text)
+    except ValueError:
+        return True
     return False
 
 
-def test_flat_toml_matches_tomllib():
-    # The Python 3.10 stand-in reads what tomllib reads for these files.
+def test_load_toml_reads_automation_file():
     multi = CODEX_AUTOMATION_TOML.replace(
         'prompt = "Check the nightly build and \\"summarise\\" failures"',
         'prompt = """\nline one\\tand \\u00e9\nline two"""\nnote = \'C:\\path\' # x',
@@ -33,49 +30,46 @@ def test_flat_toml_matches_tomllib():
         "created_at": 1791991549000,
         "updated_at": 1791991551000,
     }
-    assert flat_toml(CODEX_AUTOMATION_TOML) == expected
-    got = flat_toml(multi)
+    assert load_toml(CODEX_AUTOMATION_TOML) == expected
+    got = load_toml(multi)
     assert got["prompt"] == "line one\tand \u00e9\nline two"
     assert got["note"] == "C:\\path"
-    if sys.version_info >= (3, 11):
-        import tomllib
-
-        assert tomllib.loads(CODEX_AUTOMATION_TOML) == expected
-        assert tomllib.loads(multi) == got
     assert raises_value_error('name = """never closed\n')
 
 
 def test_toml_line_ends_at_lf_or_crlf_only():
     # A U+2028 inside a string or a quoted key is part of it, not a line end.
-    assert flat_toml('prompt = "a\u2028b"\n') == {"prompt": "a\u2028b"}
-    assert scan_toml('[projects."/srv/a\u2028b"]\ntrust_level = "trusted"\n') == {
+    assert load_toml('prompt = "a\u2028b"\n') == {"prompt": "a\u2028b"}
+    assert load_config_toml('[projects."/srv/a\u2028b"]\ntrust_level = "trusted"\n') == {
         "projects": {"/srv/a\u2028b": {"trust_level": "trusted"}}
     }
     with_lf = 'id = "x"\nprompt = """a\nb"""\n[projects."/srv/proj"]\ntrust_level = "trusted"\n'
     with_crlf = with_lf.replace("\n", "\r\n")
-    assert flat_toml(with_crlf) == flat_toml(with_lf)
-    assert flat_toml(with_lf) == {"id": "x", "prompt": "a\nb"}
-    assert scan_toml(with_crlf) == scan_toml(with_lf)
+    assert load_toml(with_crlf) == load_toml(with_lf)
+    assert load_toml(with_lf) == {
+        "id": "x",
+        "prompt": "a\nb",
+        "projects": {"/srv/proj": {"trust_level": "trusted"}},
+    }
 
 
 def test_toml_trims_space_and_tab_only():
     # TOML whitespace is space and tab: a U+00A0 ending a multi-line string's first line
-    # is the string's, and one leading a line is no key.
-    text = 'prompt = """x\u00a0\nend"""\n'
-    assert flat_toml(text) == {"prompt": "x\u00a0\nend"}
-    if sys.version_info >= (3, 11):
-        import tomllib
-
-        assert tomllib.loads(text) == flat_toml(text)
-    assert scan_toml('[a]\n\u00a0trust_level = "trusted"\n') == {"a": {}}
-    assert raises_value_error("k\u00a0= 1\n", "not a key = value line")
-    assert raises_value_error("k = \u00a01\n")
-    assert raises_value_error("flag = true\u00a0\n")
+    # is the string's, and one beside a key or value is an error.
+    assert load_toml('prompt = """x\u00a0\nend"""\n') == {"prompt": "x\u00a0\nend"}
+    for text in (
+        "k\u00a0= 1\n",
+        "k = \u00a01\n",
+        "flag = true\u00a0\n",
+        '[a]\n\u00a0trust_level = "trusted"\n',
+        "[a\u00a0.b]\nk = 1\n",
+    ):
+        assert raises_value_error(text), text
     # A line of U+00A0, or a key line led by one, is no blank and no key.
     for text in ("\u00a0\nk = 1\n", "\u00a0# note\nk = 1\n", "\u00a0k = 1\n"):
         assert raises_value_error(text), text
     # An integer is ASCII digits with no leading zero and no padding but space and tab.
-    assert flat_toml("a = 1_000\nb = -5\nc = 0\nd = 7 \t# c\n") == {
+    assert load_toml("a = 1_000\nb = -5\nc = 0\nd = 7 \t# c\n") == {
         "a": 1000,
         "b": -5,
         "c": 0,
@@ -83,15 +77,8 @@ def test_toml_trims_space_and_tab_only():
     }
     for text in ("k = 1\u00a0\n", "k = 0012\n", "k = \u0661\n", "k = 1__0\n"):
         assert raises_value_error(text), text
-    assert scan_toml("[a]\nk = true\u00a0\n") == {"a": {}}
-    assert scan_toml("[a\u00a0.b]\nk = 1\n") == {}
     # Spaces before a multi-line string's first line end are the string's.
-    multi = 'p = """a  \nb"""\nq = """\t\nc"""\n'
-    assert flat_toml(multi) == {"p": "a  \nb", "q": "\t\nc"}
-    if sys.version_info >= (3, 11):
-        import tomllib
-
-        assert tomllib.loads(multi) == flat_toml(multi)
+    assert load_toml('p = """a  \nb"""\nq = """\t\nc"""\n') == {"p": "a  \nb", "q": "\t\nc"}
 
 
 def test_toml_line_ending_backslash():
@@ -106,10 +93,6 @@ def test_toml_line_ending_backslash():
     }
     # A backslash and a space, a tab or a CR with no line end after it is a bad escape.
     for text in ('p = "a\\ b"\n', 'p = "a\\\tb"\n', 'p = """a\\ b"""\n'):
-        assert raises_value_error(text, "bad escape"), text
+        assert raises_value_error(text), text
     for text, want in cases.items():
-        assert flat_toml(text) == {"p": want}, text
-        if sys.version_info >= (3, 11):
-            import tomllib
-
-            assert tomllib.loads(text) == {"p": want}, text
+        assert load_toml(text) == {"p": want}, text

@@ -36,7 +36,7 @@ import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from ..errors import unreadable_message
@@ -157,7 +157,7 @@ def _aware(value) -> datetime | None:
     timestamp = to_utc(value) if isinstance(value, str) else ""
     if not timestamp:
         return None
-    return datetime.fromisoformat(timestamp[:-1]).replace(tzinfo=timezone.utc)
+    return datetime.fromisoformat(timestamp[:-1]).replace(tzinfo=UTC)
 
 
 def _naive(value) -> datetime | None:
@@ -395,7 +395,7 @@ class OpenHandsParser(Parser):
         created = _aware(meta.get("created_at"))
         naive_first = _naive(first.get("timestamp"))
         if created is not None and naive_first is not None:
-            diff = (naive_first.replace(tzinfo=timezone.utc) - created).total_seconds()
+            diff = (naive_first.replace(tzinfo=UTC) - created).total_seconds()
             offset = int((diff + SKEW) // QUARTER) * QUARTER
             if abs(offset) <= MAX_OFFSET:
                 conversation.offset = offset

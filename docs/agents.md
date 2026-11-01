@@ -1148,8 +1148,7 @@ secret columns never read), the pre-migration backups
 `ee/db.backup-YYYYMMDD.sqlite` (may hold threads since deleted;
 secondary), the completion event log `.tabby/events/YYYY-MM-DD.json`
 (full prompt and generated text; secondary, pairs with `user_events`) and
-the configured models in `.tabby/config.toml` (`[model.*]`, with Python
-3.11 or later). The same files at the root of a Docker or Podman volume
+the configured models in `.tabby/config.toml` (`[model.*]`). The same files at the root of a Docker or Podman volume
 matching `*tabby*`, without the leading `.tabby/`. Client-side, the
 inline-edit command histories: the IntelliJ plugin's
 `JetBrains/<product>/options/intellij-tabby-command-history.xml` and the

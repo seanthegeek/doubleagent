@@ -7,13 +7,13 @@ a trailing Z, so rows from different agents sort together as plain strings.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from .textlines import ASCII_WHITESPACE
 
 OUT_FMT = "%Y-%m-%dT%H:%M:%S.%f"
 _FRACTION_PATTERN = re.compile(r"\.([0-9]+)")
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
 def to_utc(value: object) -> str:
@@ -48,8 +48,8 @@ def to_utc(value: object) -> str:
         )
         moment = datetime.fromisoformat(text)
         if moment.tzinfo is None:
-            moment = moment.replace(tzinfo=timezone.utc)
-        return format_utc(moment.astimezone(timezone.utc))
+            moment = moment.replace(tzinfo=UTC)
+        return format_utc(moment.astimezone(UTC))
     except (ValueError, OverflowError, OSError):
         return ""
 
@@ -57,7 +57,7 @@ def to_utc(value: object) -> str:
 def _from_epoch(epoch: float) -> str:
     if epoch > 1e11:
         epoch = epoch / 1000.0
-    return format_utc(datetime.fromtimestamp(epoch, tz=timezone.utc))
+    return format_utc(datetime.fromtimestamp(epoch, tz=UTC))
 
 
 def format_utc(moment: datetime) -> str:
@@ -80,7 +80,7 @@ def epoch_ms(value: str) -> int | None:
         moment = datetime.strptime(value, OUT_FMT + "Z")
     except ValueError:
         return None
-    return (moment.replace(tzinfo=timezone.utc) - _EPOCH) // timedelta(milliseconds=1)
+    return (moment.replace(tzinfo=UTC) - _EPOCH) // timedelta(milliseconds=1)
 
 
 def first_nonempty(*values: str | None) -> str:

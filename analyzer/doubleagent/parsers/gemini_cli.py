@@ -5,8 +5,8 @@ Reads, under `~/.gemini` or the macOS sandbox base `~/.cache/.gemini`: the sessi
 resume migrated one, so their turns appear twice); and as secondary sources with no time of
 their own except `logs.json`, `tmp/<slug>/logs.json`, `shell_history`, `checkpoint-<tag>.json`
 and `bug-report-history-<ms>.json`. Standing grants: `trustedFolders.json`, `settings.json`
-(`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`), `policies/*.toml` and
-`sandbox.toml` (Python 3.11 or later), `trusted_hooks.json` and `acknowledgments/agents.json`.
+(`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`), `policies/*.toml`,
+`sandbox.toml`, `trusted_hooks.json` and `acknowledgments/agents.json`.
 
 Fields the parser depends on:
 
@@ -36,7 +36,6 @@ import hashlib
 import json
 import os
 import re
-import sys
 from collections import OrderedDict
 from collections.abc import Iterator
 from pathlib import Path
@@ -598,12 +597,6 @@ class GeminiCliParser(Parser):
     def _parse_policy(self, artifact: Artifact) -> Iterator[Row]:
         timestamp = file_mtime(artifact)
         project = artifact.home.original if artifact.home.project else ""
-        if sys.version_info < (3, 11):
-            # flat_toml, the 3.10 stand-in, reads top-level keys only and a
-            # policy file holds nothing but tables.
-            text = "parser: %s not read: its [[rule]] tables need Python 3.11 or later (tomllib)"
-            yield self._standing(artifact, timestamp, project, text % artifact.rel)
-            return
         errors: list = []
         content = file_bytes(artifact.disk_path, errors)
         if content is None:

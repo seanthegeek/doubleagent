@@ -17,7 +17,7 @@ base is a Docker or Podman volume's `_data` (`ROOT`). Files read:
   secondary source: the server writes each event both here and to
   `user_events`.
 - `config.toml`: one `model configured:` row per `[model.<group>.<http|local>]`
-  table at the file's time; `api_key` is never read. Needs `tomllib` (3.11).
+  table at the file's time; `api_key` is never read.
 - The IntelliJ plugin's `options/intellij-tabby-command-history.xml` and the
   VS Code extension's `edit.recentlyCommand` in the editor's `state.vscdb`
   (`reads_agents`), secondary sources with no times.
@@ -42,7 +42,7 @@ from ..inputs import Artifact
 from ..model import Row, compact
 from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
-from ..toml_util import flat_toml, load_toml
+from ..toml_util import load_toml
 from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_item, shown_problem
 from .base import Options, Parser, compact_json, error_rows, file_bytes, file_mtime, iter_jsonl
 
@@ -591,24 +591,12 @@ class TabbyParser(Parser):
         never reaches a row.
         """
         timestamp = file_mtime(artifact)
-        # The file is read before the interpreter check, so an unreadable one is reported
-        # the same on every Python version.
         errors: list = []
         content = file_bytes(artifact.disk_path, errors)
         if content is None:
             yield from error_rows(self, artifact, errors)
             return
         text = content.decode("utf-8", errors="replace")
-        if load_toml is flat_toml:
-            # flat_toml reads only the top-level keys; the model tables need tomllib.
-            yield self._row(
-                artifact,
-                0,
-                timestamp=timestamp,
-                opts=opts,
-                text="parser: config.toml model tables not read: Python 3.11 or later needed",
-            )
-            return
         try:
             data = load_toml(text)
         except ValueError as error:

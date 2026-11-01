@@ -64,7 +64,7 @@ def _cursor_iso(offset_ms: int) -> str:
     ISO 8601 with milliseconds and a Z, as bubbles and header entries write `createdAt`, `offset_ms`
     after `CURSOR_T0`.
     """
-    moment = datetime.datetime.fromtimestamp((CURSOR_T0 + offset_ms) / 1000, datetime.timezone.utc)
+    moment = datetime.datetime.fromtimestamp((CURSOR_T0 + offset_ms) / 1000, datetime.UTC)
     return moment.strftime("%Y-%m-%dT%H:%M:%S.") + "%03dZ" % (moment.microsecond // 1000)
 
 

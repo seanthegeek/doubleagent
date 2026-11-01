@@ -365,9 +365,9 @@ with the `google` convention the docstring form
 
 The analyzer runs on the analyst's workstation, never on the host.
 
-- **Python 3.10 or later, standard library first.** A third-party package
+- **Python 3.11 or later, standard library first.** A third-party package
   only when a format needs it, listed in both `requirements.txt` and
-  `pyproject.toml`. No syntax newer than 3.10.
+  `pyproject.toml`. No syntax newer than 3.11.
 - **The catalog is shared, not copied by hand.** `doubleagent/catalog.txt`
   is generated from `collect-agent-artifacts.sh --list`; regenerate it after
   any catalog edit. `collectors/tests/catalog-sync.sh`, the analyzer tests,
@@ -1333,7 +1333,7 @@ CI (`.github/workflows/ci.yml`) runs the catalog drift test; shellcheck;
 the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
 drift test and sh smoke test under dash on macOS (BSD tools); the
 PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell
-5.1 on Windows; the analyzer tests on Python 3.10 to 3.14, with the
+5.1 on Windows; the analyzer tests on Python 3.11 to 3.14, with the
 branch-coverage gate on the newest; the lint job of
 [Quality gates](#quality-gates); and a `CI result` job that fails when any
 of them failed or was cancelled. `CI result` is the one status check the
@@ -1488,13 +1488,13 @@ change needs markdownlint and the rows from document links down.
 | --- | --- | --- | --- |
 | ruff lint | 0.16.10 | `uvx ruff@0.16.10 check .` | `ruff.toml`, pydocstyle rules (`D`, `google` convention) included; `analyzer/pyproject.toml` extends it |
 | ruff format | 0.16.10 | `uvx ruff@0.16.10 format --check .` | `ruff.toml` (line length 100) |
-| pyright, standard mode, Python 3.10 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
+| pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
 | shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f .) >/dev/null` | none; never pass `-w` |
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
-| branch coverage of changed parser lines | coverage.py 7.16.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
+| branch coverage of changed parser lines | coverage.py 7.17.0 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
 | code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
 | research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |

@@ -2129,16 +2129,15 @@ table above, source-derived; not observed on any real install. Each statement of
 file and each standing key of `config.toml` (the policy defaults, a project's `trust_level`, a
 tool's `approval_mode`) is one `permission setting:` row at the file's modification time, which is
 the time of the last grant, not of each; a project's own `.codex/config.toml` and `.codex/rules/`
-give the same rows with that project as `project_path`. On Python 3.10, which has no `tomllib`,
-`config.toml` is read for its single-line values under every table header, which holds every key
-these rows need. Each `PatchApproval` log line is a `permission decision: ... patch <item id>` row
-joined to the `apply_patch` call on the item id, like `ExecApproval`. Each
-`guardian_review_feedback` record is a `permission decision:` row at its capture time, joined to the
-governed call on `target_item_id`: a denied verdict reads exactly as the guardian review thread's
-row, so `dedup.deduplicate` keeps one of the two when both exist, and a review that failed, timed
-out or gave no readable verdict, which the review thread does not record as a verdict, is its own
-row naming the status and the reviewed action. `RequestPermissionsResponse` lines are not read:
-their `scope` is a debug print whose shape the source does not fix.
+give the same rows with that project as `project_path`. Each `PatchApproval` log line is a
+`permission decision: ... patch <item id>` row joined to the `apply_patch` call on the item id,
+like `ExecApproval`. Each `guardian_review_feedback` record is a `permission decision:` row at its
+capture time, joined to the governed call on `target_item_id`: a denied verdict reads exactly as
+the guardian review thread's row, so `dedup.deduplicate` keeps one of the two when both exist, and
+a review that failed, timed out or gave no readable verdict, which the review thread does not
+record as a verdict, is its own row naming the status and the reviewed action.
+`RequestPermissionsResponse` lines are not read: their `scope` is a debug print whose shape the
+source does not fix.
 
 #### Model rows
 

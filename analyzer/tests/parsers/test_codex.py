@@ -3,7 +3,6 @@
 import io
 import json
 import sqlite3
-import sys
 import unittest
 from typing import ClassVar, cast
 from unittest import mock
@@ -337,19 +336,6 @@ class CodexTests(ParserBase):
         )
         # The MCP server's environment, which can hold a token, is never shown.
         self.assertNotIn("ghp_", "\n".join(row.text for row in rows))
-
-    def test_config_scan_matches_tomllib(self):
-        # Python 3.10 reads config.toml with scan_toml; the settings agree.
-        from doubleagent.parsers.codex import config_settings
-        from doubleagent.toml_util import scan_toml
-        from fixtures import CODEX_CONFIG_TOML
-
-        got = config_settings(scan_toml(CODEX_CONFIG_TOML))
-        self.assertEqual(len(got), 9)
-        if sys.version_info >= (3, 11):
-            import tomllib
-
-            self.assertEqual(got, config_settings(tomllib.loads(CODEX_CONFIG_TOML)))
 
     def test_rules_permission_settings(self):
         self._standing()

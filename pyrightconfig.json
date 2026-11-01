@@ -1,7 +1,7 @@
 {
   "include": ["analyzer/doubleagent", "analyzer/tests", "analyzer/tools", "tools", "mkdocs"],
   "typeCheckingMode": "standard",
-  "pythonVersion": "3.10",
+  "pythonVersion": "3.11",
   "executionEnvironments": [
     {"root": "analyzer/tests", "extraPaths": ["analyzer"]},
     {"root": "analyzer"}

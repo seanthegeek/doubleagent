@@ -1,4 +1,4 @@
-# The analyzer is standard library first (Python 3.10+). Third-party packages
+# The analyzer is standard library first (Python 3.11+). Third-party packages
 # are listed here only when a format or option needs them; keep pyproject.toml
 # in step.
 

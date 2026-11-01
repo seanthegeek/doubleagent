@@ -2,7 +2,7 @@
 # analyzer/tools/, tools/, mkdocs/). analyzer/pyproject.toml extends this
 # file so running ruff from inside analyzer/ uses the same settings. A project
 # config takes precedence over any user-level ruff configuration.
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 # Only Python and the pyproject files; ruff must never rewrite the code blocks
 # in the Markdown research documents.
@@ -14,7 +14,7 @@ include = ["*.py", "*.pyi", "**/pyproject.toml"]
 # I        isort: one import order everywhere.
 # B        flake8-bugbear: mutable defaults, loop-variable closures, bare
 #          except and other patterns that hide bugs in parsers.
-# UP       pyupgrade, bounded by target-version so nothing newer than 3.10.
+# UP       pyupgrade, bounded by target-version so nothing newer than 3.11.
 # SIM      flake8-simplify.
 # RUF      ruff-specific checks (ambiguous unicode, mutable class defaults).
 # BLE      flake8-blind-except: a parser must catch specific errors so a

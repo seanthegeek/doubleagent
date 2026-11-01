@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "DoubleAgent: forensic analyzer of AI agent use on a system: detects agent state and builds a JSONL timeline from the agents' transcripts"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["zstandard", "python-dateutil"]
 
 [project.urls]

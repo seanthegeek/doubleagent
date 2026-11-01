@@ -1827,9 +1827,7 @@ trustedHooks=<name>:<command> (from <file>, file mtime)`; and from
 acknowledgedAgents.<agent>=<hash> (from <file>, file mtime)`. A
 project's file carries the project as `project_path`, and the last two
 files the project each entry names. Policy files are read with Python's
-`tomllib`, so under Python 3.10 each is one row `parser: <file> not
-read: its [[rule]] tables need Python 3.11 or later (tomllib)`. No
-`session retention:` row means the defaults: Gemini CLI deletes a
+`tomllib`. No `session retention:` row means the defaults: Gemini CLI deletes a
 project's sessions older than 30 days each time it starts there, so a
 session missing from `chats/` may have expired rather than been deleted,
 and its prompts remain in `logs.json`. Gemini CLI's `shell_history`
@@ -2312,10 +2310,8 @@ configured model, `model configured: <group> <model_name or model_id>
 via <http|local>[ kind=<kind>][ endpoint=<api_endpoint>][
 supported_models=<a,b>] (from config.toml [model.<group>.<http|local>],
 file mtime)`, `<group>` being `completion`, `chat` or `embedding`, at the
-file's modification time; under Python 3.10, which has no `tomllib`, the
-one row `parser: config.toml model tables not read: Python 3.11 or later
-needed` instead. From the database it writes `page start | title <title>
-| author <email (name)> | code_source <id>` for each AI-written page,
+file's modification time. From the database it writes `page start |
+title <title> | author <email (name)> | code_source <id>` for each AI-written page,
 with `session_id` `page:<id>`, followed by the page content and its
 sections as `assistant` rows; `source host: <host> integration
 <display_name> kind=<kind> api_base=<api_base> (account not recorded;

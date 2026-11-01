@@ -7,7 +7,7 @@ import re
 import shutil
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar
 
@@ -16,7 +16,7 @@ from doubleagent.filters import BoundError, RowFilter, parse_bound
 from doubleagent.model import Row
 from fixtures import build_home
 
-NOW = datetime(2026, 3, 31, 14, 5, 9, 123000, tzinfo=timezone.utc)
+NOW = datetime(2026, 3, 31, 14, 5, 9, 123000, tzinfo=UTC)
 
 
 class ParseBoundTests(unittest.TestCase):

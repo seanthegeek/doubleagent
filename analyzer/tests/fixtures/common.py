@@ -76,9 +76,7 @@ def bad_line_text(line: str = BAD_LINE) -> str:
 
 def _utc_text(epoch: int) -> str:
     """`YYYY-MM-DD HH:MM:SS` in UTC, the summaries database's time text."""
-    return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    return datetime.datetime.fromtimestamp(epoch, datetime.UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _wal_database(path: Path, script: str, inserts) -> None:

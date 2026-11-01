@@ -54,7 +54,7 @@ summary. The [agents page](docs/agents.md) lists every agent in the
 catalog with its status: parsed, a parser backlog, or collected with
 nothing to parse.
 Parsing never happens on the host, so the analyzer is free to carry its own
-requirements. It needs Python 3.10 or later; `pip install ./analyzer`
+requirements. It needs Python 3.11 or later; `pip install ./analyzer`
 installs the `doubleagent` command and the packages in
 `analyzer/requirements.txt`: `python-dateutil` and `zstandard`, the second
 for Zed threads, zstd-compressed Codex and Open Interpreter rollouts, and

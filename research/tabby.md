@@ -578,9 +578,8 @@ says which models the server could use, not which one answered:
 `model configured: <group> <model_name or model_id> via <http|local>[ kind=<kind>][
 endpoint=<api_endpoint>][ supported_models=<a,b>] (from config.toml [model.<group>.<http|local>],
 file mtime)`, `<group>` being `completion`, `chat` or `embedding`; `api_key` never reaches a row.
-The tables are read with Python's `tomllib`, so on Python 3.10 the parser yields one row
-`parser: config.toml model tables not read: Python 3.11 or later needed` instead. These rows are
-source-derived; not observed on any real install.
+The tables are read with Python's `tomllib`. These rows are source-derived; not observed on any
+real install.
 
 #### Past-use rows and secondary sources
 

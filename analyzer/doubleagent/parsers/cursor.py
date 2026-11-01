@@ -37,7 +37,7 @@ import json
 import re
 import sqlite3
 from collections.abc import Iterator
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -198,7 +198,7 @@ def tag_time(tag: str) -> str:
     offset = timedelta(hours=int(offset_hours or 0), minutes=int(offset_minutes or 0))
     if sign == "-":
         offset = -offset
-    return format_utc((local - offset).replace(tzinfo=timezone.utc))
+    return format_utc((local - offset).replace(tzinfo=UTC))
 
 
 def unwrap_query(text: str) -> tuple[str, str]:

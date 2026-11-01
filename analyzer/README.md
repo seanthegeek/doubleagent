@@ -10,7 +10,7 @@ directory where each keeps its state, bundled with the analyzer. It runs
 on the analyst's workstation, never on the host under investigation, so
 unlike the collectors it may carry dependencies.
 
-It needs Python 3.10 or later. `pip install .` in this directory installs
+It needs Python 3.11 or later. `pip install .` in this directory installs
 the `doubleagent` package and the `doubleagent` command with their two
 required dependencies: `python-dateutil`, which reads the `--since` and
 `--until` times, and `zstandard`, which decompresses Zed threads, Codex and

@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Qwen Code parser reads a `chats/` file only when its name is a session id, as Qwen Code's own session list does, so sidecars and other files there give no rows ([#326]).
 - A Qwen Code `settings.json` that is not a JSON object gives its `parser:` row with no line and no time, as every other whole-file row ([#326]).
 - The generated examples of `docs/output.md` are built from the test fixtures: `tools/example_collection.py` writes each home with the fixture builders of the agents it shows, so the examples show the records the parsers are tested against; the `timeline.jsonl` example is a filtered run's, and `detect --json` is shown without `--files` ([#337]).
+- The analyzer needs Python 3.11 or later, since Python 3.10 has reached end of life: TOML files (Codex `config.toml` and automations, Gemini CLI policy files, Tabby `config.toml`) are always read with `tomllib`, and the `parser:` rows that said a file needs Python 3.11 or later are gone ([#421]).
 
 ### Fixed
 
@@ -2195,6 +2196,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#421]: https://github.com/seanthegeek/doubleagent/issues/421
 [#388]: https://github.com/seanthegeek/doubleagent/issues/388
 [#386]: https://github.com/seanthegeek/doubleagent/issues/386
 [#384]: https://github.com/seanthegeek/doubleagent/issues/384

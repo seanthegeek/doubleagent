@@ -1081,9 +1081,7 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
 - `.gemini/policies/*.toml` and `auto-saved.toml.bak`, in the home and in a project:
   `permission setting: policy <decision> <toolName> <key>=<value> ... (from <file>, file mtime)`,
   one per `rule` table, its other keys in file order, values as recorded (an array as compact
-  JSON), `project_path` the project for a workspace file. Read with Python's `tomllib`, so on
-  Python 3.10, which lacks it, each policy file is one row
-  `parser: <file> not read: its [[rule]] tables need Python 3.11 or later (tomllib)`; a file
+  JSON), `project_path` the project for a workspace file. Read with Python's `tomllib`; a file
   `tomllib` cannot read (the corrupt one a `.bak` preserves) is one
   `parser: unreadable <file>: <reason>` row, and a `rule` key that is not an array one
   `parser: <file> rule is not an array` row. `safety_checker` tables are not read.
@@ -1091,9 +1089,8 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per
   `modes` table and one row
   `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)`
-  per `commands` grant, the keys in file order. On Python 3.10 it gives the same `not read` row
-  as the other policy files. A project's `sandbox.toml` is an
-  ordinary policy file.
+  per `commands` grant, the keys in file order. A project's `sandbox.toml` is an ordinary policy
+  file.
 - `settings.json`, in the home and in a project: one
   `permission setting: <key>=<value> (from <file>, file mtime)` row per entry of
   `tools.sandboxAllowedPaths`, `tools.core`, `tools.allowed`, `tools.confirmationRequired`,
