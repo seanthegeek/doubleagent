@@ -107,10 +107,10 @@ The webserver (and so the database) runs unless the hidden `--no-webserver` flag
 #### Docker volume
 
 A Docker or Podman volume whose name matches `*tabby*` is collected with its `_data` directory as
-the base, which is the server root ([Server root `~/.tabby`](#server-root-tabby)); the files
-arrive relative to the server root, as listed above. The volume name is inferred; the layout
-inside it is source-derived; not observed on any real install. The volume-relative exclusions are
-`index`, `models` and `repositories` ([Exclusions](#exclusions)).
+the base, which is the server root ([Server root `~/.tabby`](#server-root-tabby)). The volume name
+is inferred. The layout inside it is source-derived; not observed on any real install. The
+volume-relative exclusions are `index`, `models` and `repositories` ([Exclusions](#exclusions)).
+The volume-relative secret glob is `config.toml` ([Credentials](#credentials)).
 
 #### Client `~/.tabby-client/agent`
 

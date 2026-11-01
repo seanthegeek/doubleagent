@@ -59,16 +59,35 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh mod-cache
 check_smoke_coverage|exclusion-check-missing|smoke.sh tool_execution_dir
 check_smoke_coverage|fixture-missing|smoke.ps1 project .skills
 check_smoke_coverage|fixture-missing|smoke.sh project .skills
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/memory/.git/config
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 channels/*/accounts.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 channels/whatsapp/auth/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 lc-local-backend/providers/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 pg_uri
+check_smoke_coverage|nosecrets-check-missing|smoke.ps1 settings.json
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/memory/.git/config
+check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|nosecrets-check-missing|smoke.sh channels/*/accounts.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh channels/whatsapp/auth/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh credentials
+check_smoke_coverage|nosecrets-check-missing|smoke.sh lc-local-backend/providers/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh pg_uri
+check_smoke_coverage|nosecrets-check-missing|smoke.sh settings.json
+check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/memory/.git/config
+check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|secret-check-missing|smoke.ps1 channels/*/accounts.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 channels/whatsapp/auth/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 credentials
+check_smoke_coverage|secret-check-missing|smoke.ps1 lc-local-backend/providers/auth.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 pg_uri
+check_smoke_coverage|secret-check-missing|smoke.ps1 settings.json
+check_smoke_coverage|secret-check-missing|smoke.sh agents/*/memory/.git/config
+check_smoke_coverage|secret-check-missing|smoke.sh agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|secret-check-missing|smoke.sh channels/*/accounts.json
 check_smoke_coverage|secret-check-missing|smoke.sh channels/whatsapp/auth/*
 check_smoke_coverage|secret-check-missing|smoke.sh credentials
+check_smoke_coverage|secret-check-missing|smoke.sh lc-local-backend/providers/auth.json
 check_smoke_coverage|secret-check-missing|smoke.sh pg_uri
-check_tables_research|line-unnamed|secret .letta/agents/*/memory/.git/letta-credential-helper.cmd
+check_smoke_coverage|secret-check-missing|smoke.sh settings.json

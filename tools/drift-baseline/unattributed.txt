@@ -156,62 +156,42 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 */User/profiles/*/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/api-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agent-canvas/secret-key.txt
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/memory/.git/config
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/memory/.git/letta-credential-helper.cmd
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 channels/*/accounts.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 config
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 config.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 lc-local-backend/providers/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 projects/*/.a0proj/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 usr/plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh */User/profiles/*/mcp.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/api-key.txt
 check_smoke_coverage|nosecrets-check-missing|smoke.sh agent-canvas/secret-key.txt
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/memory/.git/config
-check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/memory/.git/letta-credential-helper.cmd
-check_smoke_coverage|nosecrets-check-missing|smoke.sh channels/*/accounts.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh config
 check_smoke_coverage|nosecrets-check-missing|smoke.sh config.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh lc-local-backend/providers/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh projects/*/.a0proj/secrets.env
-check_smoke_coverage|nosecrets-check-missing|smoke.sh settings.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh usr/plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 */User/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 */User/profiles/*/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 agent-canvas/api-key.txt
 check_smoke_coverage|secret-check-missing|smoke.ps1 agent-canvas/secret-key.txt
-check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/memory/.git/config
-check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/memory/.git/letta-credential-helper.cmd
-check_smoke_coverage|secret-check-missing|smoke.ps1 channels/*/accounts.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 config.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 lc-local-backend/providers/auth.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 projects/*/.a0proj/secrets.env
-check_smoke_coverage|secret-check-missing|smoke.ps1 settings.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 usr/plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 usr/plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|secret-check-missing|smoke.sh */User/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.sh */User/profiles/*/mcp.json
 check_smoke_coverage|secret-check-missing|smoke.sh agent-canvas/api-key.txt
 check_smoke_coverage|secret-check-missing|smoke.sh agent-canvas/secret-key.txt
-check_smoke_coverage|secret-check-missing|smoke.sh agents/*/memory/.git/config
-check_smoke_coverage|secret-check-missing|smoke.sh agents/*/memory/.git/letta-credential-helper.cmd
-check_smoke_coverage|secret-check-missing|smoke.sh channels/*/accounts.json
 check_smoke_coverage|secret-check-missing|smoke.sh config.json
-check_smoke_coverage|secret-check-missing|smoke.sh lc-local-backend/providers/auth.json
 check_smoke_coverage|secret-check-missing|smoke.sh plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|secret-check-missing|smoke.sh plugins/_desktop/profiles/*/.ssh/*
 check_smoke_coverage|secret-check-missing|smoke.sh projects/*/.a0proj/secrets.env
-check_smoke_coverage|secret-check-missing|smoke.sh settings.json
 check_smoke_coverage|secret-check-missing|smoke.sh usr/plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|secret-check-missing|smoke.sh usr/plugins/_desktop/profiles/*/.ssh/*
 check_tables_research|exclusion-unreachable|.aider.tags.cache*
@@ -242,15 +222,10 @@ check_tables_research|line-unnamed|secret */User/profiles/*/mcp.json
 check_tables_research|secret-unreachable|*/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
 check_tables_research|secret-unreachable|agent-canvas/api-key.txt
 check_tables_research|secret-unreachable|agent-canvas/secret-key.txt
-check_tables_research|secret-unreachable|agents/*/memory/.git/config
-check_tables_research|secret-unreachable|agents/*/memory/.git/letta-credential-helper.cmd
-check_tables_research|secret-unreachable|channels/*/accounts.json
 check_tables_research|secret-unreachable|config
 check_tables_research|secret-unreachable|config.json
-check_tables_research|secret-unreachable|lc-local-backend/providers/auth.json
 check_tables_research|secret-unreachable|plugins/_desktop/profiles/*/.gnupg/*
 check_tables_research|secret-unreachable|plugins/_desktop/profiles/*/.ssh/*
 check_tables_research|secret-unreachable|projects/*/.a0proj/secrets.env
-check_tables_research|secret-unreachable|settings.json
 check_tables_research|secret-unreachable|usr/plugins/_desktop/profiles/*/.gnupg/*
 check_tables_research|secret-unreachable|usr/plugins/_desktop/profiles/*/.ssh/*

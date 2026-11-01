@@ -206,9 +206,12 @@ What a delete removes and leaves is in
 
 A Docker or Podman volume whose name matches `*letta*` is collected with its `_data` directory as
 the base. The volume name is inferred; a volume mounted in place of `~/.letta` would hold the
-layout of [Letta Code](#letta-code) and [Letta V1 server](#letta-v1-server) at its base. The
-volume-relative exclusions are `bin`, `mod-cache` and `chroma`, and `tool_execution_dir` (Letta
-V1). The volume-relative secret globs are `pg_uri`, `credentials` and `channels/whatsapp/auth/*`
+layout of [Letta Code](#letta-code) and [Letta V1 server](#letta-v1-server) at its base.
+The volume-relative exclusions are `bin` and `mod-cache` (Letta Code), and `tool_execution_dir`
+and `chroma` (Letta V1). The volume-relative secret globs are `pg_uri`, `credentials`,
+`lc-local-backend/providers/auth.json`, `channels/*/accounts.json`,
+`channels/whatsapp/auth/*`, `agents/*/memory/.git/config` and
+`agents/*/memory/.git/letta-credential-helper.cmd`, and the shared `settings.json` glob applies
 ([Credentials](#credentials)). The layout inside the volume is source-derived; not observed on any
 real install.
 
