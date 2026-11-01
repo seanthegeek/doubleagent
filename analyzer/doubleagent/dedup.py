@@ -18,9 +18,11 @@ different `source_file`, and a `parser:` row is never dropped or taken.
 An agent can register a match form (`MATCH_FORMS`) when its secondary
 source writes an event in another form than its primary store, and a wider
 forward window for some rows (`MATCH_TOLERANCES`), bounded by the next
-secondary row of the same text (`_Bounds`), and a time a row is matched at
-in place of its own (`MATCH_TIMES`). Every secondary row kept that is
-not a `system` row is marked `recovered` "yes". The full rule is in
+secondary row of the same text (`_Bounds`). It can also register the time a
+row is matched at against the primary store in place of its own
+(`MATCH_TIMES`), or `NO_MATCH` for a row no primary row can take; among the
+secondary copies such a row matches at its own time. Every secondary row
+kept that is not a `system` row is marked `recovered` "yes". The full rule is in
 `analyzer/docs/output.md` under "Secondary sources".
 """
 
@@ -52,13 +54,15 @@ MATCH_FORMS: dict[str, Callable[[Row], tuple[str, str]]] = {}
 # typed before the picker it opens is closed and recorded).
 MATCH_TOLERANCES: dict[str, Callable[[Row], float | None]] = {}
 # The match time per agent: a function of a row that returns the epoch
-# milliseconds the row is matched at in place of its own time, `NO_MATCH`
-# for a row that pairs with no other, or None for its own time. A parser
-# registers one when its secondary source records the moment the primary
-# store copied an event apart from the event's own time (a Qwen Code group
-# message and the `clear` written when a prompt quoted it).
+# milliseconds the row is matched at against the primary store in place of
+# its own time, `NO_MATCH` for a row no primary row can take, or None for
+# its own time. A parser registers one when its secondary source records
+# the moment the primary store copied an event apart from the event's own
+# time (a Qwen Code group message and the `clear` written when a prompt
+# quoted it). Among secondary copies a `NO_MATCH` row keeps its own time.
 MATCH_TIMES: dict[str, Callable[[Row], int | None]] = {}
-NO_MATCH = -1
+# Below any time `epoch_ms` returns: year 1 is about -6.2e13 milliseconds.
+NO_MATCH = -(2**63)
 
 _Dated = list[tuple[int, int]]  # (epoch ms, row index), sorted
 _Upper = Callable[[int], int | None]  # a candidate's row index -> its bound (epoch ms)
@@ -81,11 +85,17 @@ def _has_id(row: Row) -> bool:
     return row.turn_type in _TOOL_TYPES and bool(row.tool_use_id)
 
 
-def _match_time(row: Row) -> int | None:
-    """Return the epoch milliseconds a row is matched at, `NO_MATCH`, or None when undated."""
+def _match_time(row: Row, against_primary: bool = True) -> int | None:
+    """Return the epoch milliseconds a row is matched at, `NO_MATCH`, or None when undated.
+
+    `NO_MATCH` is returned only `against_primary`; otherwise the row's own
+    time stands in.
+    """
     hook = MATCH_TIMES.get(row.agent)
     anchor = hook(row) if hook else None
-    return anchor if anchor is not None else epoch_ms(row.timestamp_utc)
+    if anchor is None or (anchor == NO_MATCH and not against_primary):
+        return epoch_ms(row.timestamp_utc)
+    return anchor
 
 
 def _by_text(row: Row) -> tuple[str, ...]:
@@ -200,11 +210,12 @@ def _pair(
     used: Container[int],
     upper: _Upper | None = None,
     forward: float | None = None,
+    against_primary: bool = True,
 ) -> int | None:
     """Return the unused candidate in `bucket` a secondary row pairs with under the time rule."""
-    if bucket is None or _match_time(row) == NO_MATCH:
+    time_ms = _match_time(row, against_primary)
+    if bucket is None or time_ms == NO_MATCH:
         return None
-    time_ms = _match_time(row)
     if time_ms is None:
         return _earliest(bucket, used)
     back_ms = int(tolerance * 1000)
@@ -223,7 +234,8 @@ def _processing_order(secondary: list[tuple[Row, float]], by_scope: bool) -> lis
     for index, (row, _) in enumerate(secondary):
         if _is_parser_row(row):
             continue
-        time_ms = _match_time(row)
+        # The primary join (`by_scope`) orders by match time, the copies by own time.
+        time_ms = _match_time(row, by_scope)
         if time_ms is None:
             undated.append(index)
         else:
@@ -279,10 +291,14 @@ def _find(
     upper: _Upper | None = None,
     forward: float | None = None,
 ) -> int | None:
-    """Return the candidate a row pairs with, trying its lookups in order, or None."""
+    """Return the candidate a row pairs with, trying its lookups in order, or None.
+
+    With `broaden` the row is matched among secondary copies, at its own
+    time when the primary join would give it none.
+    """
     for key, broad, idless in _lookups(row, broaden):
         unavailable.broad, unavailable.idless = broad, idless
-        index = _pair(buckets.get(key), row, tolerance, unavailable, upper, forward)
+        index = _pair(buckets.get(key), row, tolerance, unavailable, upper, forward, not broaden)
         if index is not None:
             return index
     return None
@@ -393,7 +409,7 @@ def _among_secondary(secondary: list[tuple[Row, float]], matched: set[int]) -> l
     rows = [row for row, _ in secondary]
     buckets: dict[tuple, _Bucket] = {}
     for index in sorted(matched):
-        _add(buckets, rows[index], index, _match_time(rows[index]))
+        _add(buckets, rows[index], index, _match_time(rows[index], False))
     used: set[int] = set()
     copies: list[int] = []
     for index in _processing_order(secondary, by_scope=False):
@@ -404,7 +420,7 @@ def _among_secondary(secondary: list[tuple[Row, float]], matched: set[int]) -> l
         if candidate_index is not None:
             used.add(candidate_index)
             copies.append(index)
-        _add(buckets, row, index, _match_time(row))
+        _add(buckets, row, index, _match_time(row, False))
     return copies
 
 

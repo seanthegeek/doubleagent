@@ -3176,8 +3176,11 @@ a `clear` line when a prompt quotes the chat's waiting messages, so a
 `group message:` row is matched at that `clear` line's time, within 2
 seconds, against the quoted line of the prompt, each run of whitespace
 collapsed to one space; a message no later `clear` of its own chat
-follows was never quoted and is always kept. A message whose text holds
-a `"`, `[` or `]`, which the channel blanks in the quote, is shown twice.
+follows was never quoted, and one whose `clear` recorded no time cannot
+be placed, so no transcript row takes either. Copies of one history file
+still show such a message once, matched at its own time. A message whose
+text holds a `"`, `[` or `]`, which the channel blanks in the quote, is
+shown twice.
 
 Several sources record no time for an event, and their rows match on
 text and scope alone: Muse Code's `tui-history.jsonl`, Goose's

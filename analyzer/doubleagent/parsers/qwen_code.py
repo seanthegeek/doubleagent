@@ -106,9 +106,11 @@ GROUP_HISTORY_MARKER = "[Chat messages since your last reply - for context]"
 CURRENT_MESSAGE_MARKER = "[Current message - respond to this]"
 QUOTED_LINE = re.compile(r"^- \[([^\]\r\n]*)\] (.*)$")
 # The suffix a group history message row ends in: the `recordedAt` of the
-# next `clear` of its chat's key, the moment a prompt quoted it, or
-# `waiting` when no `clear` follows and no prompt has quoted it.
-HISTORY_SUFFIX = re.compile(r"^(group message: .*) \((?:cleared (\S+)|waiting)\)$", re.DOTALL)
+# next `clear` of its chat's key, the moment a prompt quoted it, or the
+# word that the `clear` recorded no time or that none follows.
+HISTORY_SUFFIX = re.compile(
+    r"^(group message: .*) \((?:cleared, time not recorded|cleared (\S+)|waiting)\)$", re.DOTALL
+)
 ASCII_SPACE_RUN = re.compile(r"[ \t\n\r\f\v]+")
 PERMISSION_LISTS = ("allow", "ask", "deny")
 # `ToolCallEvent` as `logToolCall` records it in a `ui_telemetry` record,
@@ -280,7 +282,8 @@ def match_time(row: Row) -> int | None:
     """Return the time a group history row is matched at (`dedup.MATCH_TIMES`), else None.
 
     That is the next `clear` of its chat's key, written when a prompt quoted
-    it; a message no `clear` follows was never quoted and matches nothing.
+    it; a message no `clear` follows was never quoted, and one whose `clear`
+    recorded no time cannot be placed, so neither matches a transcript row.
     """
     suffix = _history_suffix(row)
     if not suffix:
@@ -412,9 +415,9 @@ class QwenCodeParser(Parser):
         A `message` record is `group message: [<sender>] <text> (cleared
         <time>)` at the message's time, `<time>` the `recordedAt` of the next
         `clear` of its key, written when a prompt quoted the chat's waiting
-        messages or the chat was cleared, and `(waiting)` when none follows; a
-        `clear` record is a `group history cleared:` row. One backward pass
-        finds each message's next `clear`.
+        messages or the chat was cleared, `(cleared, time not recorded)` when
+        that `clear` has no `recordedAt`, and `(waiting)` when none follows; a
+        `clear` record is a `group history cleared:` row.
         """
         errors: list = []
         name = artifact.disk_path.name
@@ -433,10 +436,16 @@ class QwenCodeParser(Parser):
             if record_type == "message" and isinstance(entry, dict):
                 sender = entry.get("senderName") or entry.get("senderId") or ""
                 cleared = cleared_at.get(line_number)
+                if cleared is None:
+                    state = "waiting"
+                elif cleared:
+                    state = "cleared %s" % cleared
+                else:
+                    state = "cleared, time not recorded"
                 text = "group message: [%s] %s (%s)" % (
                     sender,
                     entry.get("text") or "",
-                    "cleared %s" % cleared if cleared else "waiting",
+                    state,
                 )
                 timestamp = to_utc(entry.get("timestamp"))
             elif record_type == "clear":

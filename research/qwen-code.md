@@ -805,7 +805,8 @@ their rows take the file's modification time.
 No SQLite store; all stores the CLI writes are JSON or JSONL text. The managed local mode's H2
 database, `managed-local/database/managed.mv.db`, is the one binary store
 ([Managed local mode](#managed-local-mode)); it is not parsed, as it is written in H2's MVStore
-format, for which the Python standard library has no reader.
+format, for which the Python standard library has no reader
+([issue 411](https://github.com/seanthegeek/doubleagent/issues/411)).
 
 #### logs.json
 
@@ -1393,10 +1394,12 @@ The channels' group history ([Channel state files](#channel-state-files)) is par
 source, source-derived; not observed on any real install. A `message` record is the `system` row
 `group message: [<sender>] <text> (cleared <time>)` at the entry's `timestamp`, `<sender>` its
 `senderName` or else its `senderId` and `<time>` the `recordedAt` of the next `clear` record of
-the same `key`, or `group message: [<sender>] <text> (waiting)` when no later `clear` of its key
-follows; the row has no session id and no project, as the file records neither. A `clear` record
-is `group history cleared: <key> (from <file>, recordedAt)` at `recordedAt`. On the transcript's
-side, a `user` record whose text holds the channel's quote block is followed, after its own row,
+the same `key`; `group message: [<sender>] <text> (cleared, time not recorded)` when that
+`clear` has no `recordedAt`, and `group message: [<sender>] <text> (waiting)` when no later
+`clear` of its key follows; the row has no session id and no project, as the file records
+neither. A `clear` record is `group history cleared: <key> (from <file>, recordedAt)` at
+`recordedAt`. On the transcript's side, a `user` record whose text holds the channel's quote
+block is followed, after its own row,
 by one `system` row `group message: [<sender>] <text>` per quoted line, at the record's time, with
 its session and project.
 
@@ -1404,14 +1407,18 @@ The join is one predicate, derived per record from the store: the drain that quo
 messages appends the `clear` of that chat's key and sends the prompt at once, and a compaction
 drops a drained message together with its `clear`. So a message is matched at its next `clear`'s
 `recordedAt`, against a transcript `group message:` row of the same text within two seconds of it,
-before or after; a `(waiting)` message was never quoted and matches nothing. The text is compared
-without the history row's `(cleared ...)` or `(waiting)` suffix and with each run of ASCII
+before or after; a `(waiting)` message was never quoted and a `(cleared, time not recorded)` one
+cannot be placed, so neither matches a transcript row. The text is compared without the history
+row's `(cleared ...)` or `(waiting)` suffix and with each run of ASCII
 whitespace collapsed to one space, since the channel quotes a line break as a space. A `clear` can
 also come from clearing the chat, with no prompt; its messages then find no quote and are kept.
 The chat's key does not reach the transcript, so the history row matches under any scope, and two
 chats whose `clear` records fall within the same two seconds with the same message text cannot be
-told apart; a copy of the same key's file is matched as one event by the same rule, its waiting
-messages excepted, which match nothing and show once per copy. A message whose text or sender name
+told apart. The channel routes file `channels/sessions.json` maps a chat to its session, but a
+clean shutdown deletes it ([Channel routes](#channel-routes)), so the join does not rest on it:
+the scope it could add would be missing in the usual collection. Copies of the same key's file
+are matched among themselves as one event: a quoted message at its `clear`'s time, a waiting one
+at its own time. A message whose text or sender name
 the sanitiser changed otherwise (a `"`, `[`, `]` or control character, a name over 64 characters)
 is quoted in another form and keeps both rows, as the analyzer never blanks characters a member
 typed to make two texts match. What only the history file holds, a message still waiting, a
@@ -1450,7 +1457,8 @@ The managed local mode's transcripts under `managed-local/harness/projects/` and
 and organization files under those two roots.
 
 Not read: `shell_history`, `checkpoint-<tag>.json`, the managed auto-memory `memory/` and the
-managed local mode's database `managed.mv.db` ([Other stores](#other-stores)).
+managed local mode's database `managed.mv.db` ([Other stores](#other-stores);
+[issue 411](https://github.com/seanthegeek/doubleagent/issues/411)).
 
 #### Sync, relay and origin rows
 

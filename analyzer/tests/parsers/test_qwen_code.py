@@ -939,6 +939,19 @@ class QwenCodeTests(ParserBase):
         self.assertEqual(rows[6][4], bad_line_text())
         # The clear written after the cut still closes the waiting message.
         self.assertTrue(rows[3][4].endswith("(cleared 2026-10-03T08:06:00.000Z)"), rows[3][4])
+        # A later clear without a time still closes it, at no known time.
+        records = qwen_group_history_records()
+        records[2].pop("recordedAt")
+        _jsonl(path, records)
+        rows = self.rows_of(QWEN_GROUP_HISTORY_REL)
+        self.assertEqual(rows[0][4], BOB_DEPLOY + " (cleared, time not recorded)")
+        self.assertEqual(rows[3][4], self.WAITING[1])
+        self.assertEqual(rows[2][2], "")
+        self.write_group(history=records)
+        self.assertIn(
+            ("telegram-group-history.jsonl", BOB_DEPLOY + " (cleared, time not recorded)"),
+            self.group_dedup(),
+        )
 
     def test_quoted_group_messages(self):
         # The transcript's channel prompt gives one row per quoted line,
@@ -1065,9 +1078,9 @@ class QwenCodeTests(ParserBase):
         self.write_group(session=session)
         self.assertIn(self.WAITING, self.group_dedup())
 
-    def test_group_history_quote_in_another_session(self):
-        # The same text quoted by another chat's session at another time does
-        # not take the message; its own session's quote does.
+    def test_group_history_quote_long_after_the_clear(self):
+        # The same text quoted by another chat's session an hour after this
+        # chat's clear is out of the window; its own session's quote is in it.
         other = self.quote_at("2026-10-03T09:00:00.000Z", session_id=QWEN_OTHER_CHAT_SESSION)
         self.write_group(
             session=[],
@@ -1075,6 +1088,16 @@ class QwenCodeTests(ParserBase):
         )
         self.assertIn(self.DEPLOY, self.group_dedup())
         self.write_group(session=qwen_group_session_records())
+        self.assertNotIn(self.DEPLOY, self.group_dedup())
+
+    def test_group_history_any_scope_within_the_clear(self):
+        # The chat's key never reaches the transcript, so another chat's
+        # session quoting the same text within 2 seconds of this clear takes it.
+        other = self.quote_at("2026-10-03T08:06:01.000Z", session_id=QWEN_OTHER_CHAT_SESSION)
+        self.write_group(
+            session=[],
+            extra={".qwen/projects/-srv-proj/chats/%s.jsonl" % QWEN_OTHER_CHAT_SESSION: other},
+        )
         self.assertNotIn(self.DEPLOY, self.group_dedup())
 
     def test_group_history_earlier_and_later_claimants(self):
@@ -1095,7 +1118,7 @@ class QwenCodeTests(ParserBase):
         kept = self.group_dedup()
         self.assertNotIn(self.DEPLOY, kept)
         self.assertNotIn(later, kept)
-        # The later claimant missing: its quote is not taken by the earlier line.
+        # The later claimant missing: the earlier line still matches its own quote.
         self.write_group(history=history, session=quotes)
         self.assertNotIn(self.DEPLOY, self.group_dedup())
         # The earlier claimant missing: the repeat takes only its own quote.
@@ -1158,6 +1181,8 @@ class QwenCodeTests(ParserBase):
             [name for name, text in kept if text.startswith("group message: [43]")],
             ["qq-group-history.jsonl"],
         )
+        # The waiting line no prompt quoted is in both copies: one event, shown once.
+        self.assertEqual(len([entry for entry in kept if entry[1] == self.WAITING[1]]), 1)
 
     def test_todo_rows(self):
         rows = self.rows_for(QwenCodeParser(), QWEN_TODO_REL)
