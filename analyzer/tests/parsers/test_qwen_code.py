@@ -3,20 +3,44 @@
 import json
 import os
 import unittest
+from dataclasses import replace
 
 from test_errors import CAN_DENY, DENY_REASON
 
-from doubleagent.inputs import open_input
-from doubleagent.parsers.qwen_code import QwenCodeParser, args_summary, injected_origin
+from doubleagent.dedup import deduplicate
+from doubleagent.inputs import Artifact, open_input
+from doubleagent.parsers.qwen_code import (
+    QwenCodeParser,
+    args_summary,
+    injected_origin,
+    quoted_group_messages,
+)
 from doubleagent.timeutil import to_utc
 from fixtures import (
     QWEN_ARCHIVED,
+    QWEN_AUDIT_REL,
     QWEN_DAEMON_HASH,
     QWEN_DAEMON_SESSION,
+    QWEN_GROUP_HISTORY_REL,
+    QWEN_GROUP_REL,
+    QWEN_GROUP_SESSION,
+    QWEN_HARNESS_REL,
+    QWEN_HARNESS_SESSION,
+    QWEN_ORGANIZATION_REL,
+    QWEN_PAST_USE_MTIME,
+    QWEN_PR_REL,
     QWEN_SESSION,
+    QWEN_SUMMARY_REL,
     QWEN_TEMPORARY,
+    QWEN_TODO_DEFAULT_REL,
+    QWEN_TODO_REL,
+    QWEN_TOKEN_USAGE_REL,
     QWEN_TRUST_MTIME,
+    QWEN_WORKER_REL,
+    QWEN_WORKER_SESSION,
     bad_line_text,
+    qwen_group_history_records,
+    qwen_group_session_records,
     write_bad_line,
 )
 
@@ -217,8 +241,28 @@ class QwenCodeTests(ParserBase):
                 ".qwen/settings.json",
                 self.CHANNELS,
                 self.ROUTES,
+                QWEN_TOKEN_USAGE_REL,
+                QWEN_GROUP_HISTORY_REL,
+                QWEN_GROUP_REL,
+                QWEN_TODO_REL,
+                QWEN_TODO_DEFAULT_REL,
+                QWEN_ORGANIZATION_REL,
+                QWEN_PR_REL,
+                QWEN_AUDIT_REL,
+                QWEN_SUMMARY_REL,
+                QWEN_HARNESS_REL,
+                QWEN_WORKER_REL,
             },
         )
+        # The ledger and runtime sidecars, the GitHub queue beside the audit
+        # and the managed H2 database are left unread.
+        for rel in (
+            ".qwen/projects/-srv-proj/chats/%s.ledger.jsonl" % QWEN_SESSION,
+            ".qwen/projects/-srv-proj/chats/%s.runtime.json" % QWEN_SESSION,
+            QWEN_AUDIT_REL.replace("github-audit.jsonl", "github-inbound-tasks.json"),
+            ".qwen/managed-local/database/managed.mv.db",
+        ):
+            self.assertFalse(parser.wants(self.artifact(rel)), rel)
 
     def test_truncated_last_line_is_reported_not_fatal(self):
         # The bad line is its own row, in full; the rows before
@@ -777,6 +821,14 @@ class QwenCodeTests(ParserBase):
                 ".qwen/tmp/3f0a9c0000000000000000000000000000000000000000000000000000000000/logs.json",
                 "",
             ),
+            (QWEN_TOKEN_USAGE_REL, ""),
+            (QWEN_GROUP_HISTORY_REL, ""),
+            (QWEN_TODO_REL, QWEN_SESSION),
+            (QWEN_ORGANIZATION_REL, ""),
+            (QWEN_PR_REL, QWEN_SESSION),
+            (QWEN_AUDIT_REL, ""),
+            (QWEN_SUMMARY_REL, ""),
+            (QWEN_WORKER_REL, ""),
         ):
             rows = parse_with(self, QwenCodeParser, rel)
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
@@ -796,3 +848,460 @@ class QwenCodeTests(ParserBase):
             )
             # Every other file of the parser still gives its rows.
             self.assertEqual(kept_rows(rows, rel), kept_rows(unlocked, rel), rel)
+
+    def rows_of(self, rel):
+        """Return `(source_line, turn_type, timestamp_utc, session_id, text)` of a file's rows."""
+        return [
+            (row.source_line, row.turn_type, row.timestamp_utc, row.session_id, row.text)
+            for row in self.rows_for(QwenCodeParser(), rel)
+        ]
+
+    def test_token_usage_rows(self):
+        # One row per response, primary, with its session and model.
+        parser = QwenCodeParser()
+        self.assertFalse(parser.secondary(self.artifact(QWEN_TOKEN_USAGE_REL)))
+        rows = self.rows_for(parser, QWEN_TOKEN_USAGE_REL)
+        self.assertEqual(
+            [(row.source_line, row.timestamp_utc, row.session_id, row.model) for row in rows],
+            [
+                (1, "2026-10-01T10:00:03.000Z", QWEN_SESSION, "qwen3-coder-plus"),
+                (2, "2026-10-01T10:01:00.000Z", QWEN_SESSION, "unknown"),
+            ],
+        )
+        self.assertEqual(
+            rows[0].text,
+            "token usage: model qwen3-coder-plus auth qwen-oauth source main tokens input 200"
+            " output 30 cached 0 thoughts 12 total 242 api 2900ms (from token-usage-2026-10.jsonl)",
+        )
+        self.assertEqual({row.turn_type for row in rows}, {"system"})
+        self.assertFalse([row for row in rows if row.text.startswith("model:")])
+
+    def test_token_usage_truncated_line(self):
+        path = self.home / QWEN_TOKEN_USAGE_REL
+        write_bad_line(path)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write("\n" + json.dumps({"sessionId": "after-cut"}) + "\n")
+        rows = self.rows_of(QWEN_TOKEN_USAGE_REL)
+        self.assertEqual([row[0] for row in rows], [1, 2, 4, 3])
+        self.assertEqual(
+            rows[2][3:],
+            (
+                "after-cut",
+                "token usage: model - auth - source - tokens input - output - cached - thoughts -"
+                " total - api - (from token-usage-2026-10.jsonl)",
+            ),
+        )
+        self.assertEqual(rows[3][4], bad_line_text())
+
+    def test_group_history_rows(self):
+        # The history is a secondary source with no session or project.
+        parser = QwenCodeParser()
+        self.assertTrue(parser.secondary(self.artifact(QWEN_GROUP_HISTORY_REL)))
+        rows = self.rows_for(parser, QWEN_GROUP_HISTORY_REL)
+        self.assertEqual(
+            [(row.source_line, row.timestamp_utc, row.text) for row in rows],
+            [
+                (1, "2026-10-03T08:00:00.000Z", "group message: [Bob] the deploy is broken"),
+                (2, "2026-10-03T08:05:00.000Z", "group message: [43] rollback?"),
+                (
+                    3,
+                    "2026-10-03T08:06:00.000Z",
+                    'group history cleared: ["telegram", "-1001234", null]'
+                    " (from telegram-group-history.jsonl, recordedAt)",
+                ),
+                (4, "2026-10-03T08:20:00.000Z", "group message: [Bob] fixed now"),
+            ],
+        )
+        self.assertEqual({(row.session_id, row.project_path) for row in rows}, {("", "")})
+        self.assertEqual({row.turn_type for row in rows}, {"system"})
+
+    def test_group_history_bad_lines(self):
+        path = self.home / QWEN_GROUP_HISTORY_REL
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"type": "message", "key": "k"}) + "\n")
+        write_bad_line(path)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write("\n" + json.dumps(qwen_group_history_records()[2]) + "\n")
+        rows = self.rows_of(QWEN_GROUP_HISTORY_REL)
+        self.assertEqual([row[0] for row in rows], [1, 2, 3, 4, 7, 5, 6])
+        self.assertEqual(
+            rows[5][4],
+            'parser: unparseable line (not a group history record): {"key":"k","type":"message"}',
+        )
+        self.assertEqual(rows[6][4], bad_line_text())
+
+    def test_quoted_group_messages(self):
+        # The transcript's channel prompt gives one row per quoted line,
+        # after the prompt's own row and at its time.
+        rows = self.rows_of(QWEN_GROUP_REL)
+        self.assertEqual(
+            [(row[0], row[1], row[4]) for row in rows[1:]],
+            [
+                (2, "user", rows[1][4]),
+                (2, "system", "group message: [Bob] the deploy is broken"),
+                (2, "system", "group message: [43] rollback?"),
+            ],
+        )
+        self.assertEqual({row[2] for row in rows[1:]}, {"2026-10-03T08:06:00.500Z"})
+        self.assertEqual({row[3] for row in rows}, {QWEN_GROUP_SESSION})
+        self.assertEqual(
+            rows[0][1:], ("user", "2026-10-03T07:59:00.000Z", QWEN_GROUP_SESSION, "hello")
+        )
+        # A block missing its closing marker, or holding a line of another
+        # form, is not the channel's quote.
+        block = "[Chat messages since your last reply - for context]\n- [a] b\n"
+        self.assertEqual(quoted_group_messages(block + "\nhi"), [])
+        self.assertEqual(
+            quoted_group_messages(block + "x\n\n[Current message - respond to this]\nhi"), []
+        )
+        self.assertEqual(
+            quoted_group_messages("ctx\n\n" + block + "\n[Current message - respond to this]\nhi"),
+            ["group message: [a] b"],
+        )
+        self.assertEqual(
+            quoted_group_messages("> " + block + "\n[Current message - respond to this]\nhi"), []
+        )
+
+    def group_dedup(self):
+        """Return the texts of the group history rows deduplication keeps.
+
+        The transcript's rows are primary and the history files' secondary,
+        as the analyzer passes them.
+        """
+        parser = QwenCodeParser()
+        primary = (
+            self.rows_for(parser, QWEN_GROUP_REL) if (self.home / QWEN_GROUP_REL).exists() else []
+        )
+        secondary = []
+        for path in sorted((self.home / ".qwen/channels").glob("*-group-history.jsonl")):
+            artifact = self.artifact(path.relative_to(self.home).as_posix())
+            tolerance = parser.secondary_tolerance(artifact)
+            secondary += [(row, tolerance) for row in parser.parse(artifact, self.options())]
+        kept, _ = deduplicate(primary, secondary)
+        return [(row.source_file.rsplit("/", 1)[-1], row.text) for row in kept[len(primary) :]]
+
+    def options(self):
+        from doubleagent.parsers import Options
+
+        return Options()
+
+    def write_group(self, history=None, session=None, extra=None):
+        """Rewrite the group history and its channel session, and reopen the collection.
+
+        `extra` maps a further history file's name to its records.
+        """
+        from fixtures.common import _jsonl
+
+        if history is not None:
+            _jsonl(self.home / QWEN_GROUP_HISTORY_REL, history)
+        if session is not None:
+            _jsonl(self.home / QWEN_GROUP_REL, session)
+        for name, records in (extra or {}).items():
+            _jsonl(self.home / ".qwen/channels" / name, records)
+        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+
+    CLEARED = (
+        "telegram-group-history.jsonl",
+        'group history cleared: ["telegram", "-1001234", null]'
+        " (from telegram-group-history.jsonl, recordedAt)",
+    )
+    WAITING = ("telegram-group-history.jsonl", "group message: [Bob] fixed now")
+
+    def test_group_history_dedup_drops_only_quoted_messages(self):
+        # The two messages the prompt quotes are dropped; the waiting one and
+        # the clear row only the history holds are kept.
+        self.assertEqual(self.group_dedup(), [self.CLEARED, self.WAITING])
+
+    def test_group_history_kept_without_its_transcript(self):
+        (self.home / QWEN_GROUP_REL).unlink()
+        self.write_group()
+        self.assertEqual(len(self.group_dedup()), 4)
+
+    def test_group_history_never_takes_an_earlier_quote(self):
+        # A quote written before the message arrived is another message's.
+        session = qwen_group_session_records()
+        session[1]["timestamp"] = "2026-10-03T07:59:30.000Z"
+        self.write_group(session=session)
+        self.assertEqual(len(self.group_dedup()), 4)
+
+    def test_group_history_later_line_of_same_text_takes_the_quote(self):
+        # Bob repeats the first message before the prompt: the earlier line
+        # may not take a quote written after the repeat, so the repeat takes it.
+        history = qwen_group_history_records()
+        repeat = json.loads(json.dumps(history[0]))
+        repeat["entry"].update(messageId="m-2", timestamp=history[0]["entry"]["timestamp"] + 180000)
+        history.insert(1, repeat)
+        self.write_group(history=history)
+        kept = self.group_dedup()
+        self.assertIn(
+            ("telegram-group-history.jsonl", "group message: [Bob] the deploy is broken"), kept
+        )
+        self.assertEqual(len(kept), 3)
+        self.assertNotIn(("telegram-group-history.jsonl", "group message: [43] rollback?"), kept)
+
+    def test_group_history_sanitised_quote_keeps_both(self):
+        # The channel quotes `"` as a space; the analyzer never blanks what a
+        # member typed, so the history line and the quote both stay.
+        history = qwen_group_history_records()
+        history[0]["entry"]["text"] = 'the "deploy" is broken'
+        session = qwen_group_session_records()
+        part = session[1]["message"]["parts"][0]
+        part["text"] = part["text"].replace("the deploy is broken", "the  deploy  is broken")
+        self.write_group(history=history, session=session)
+        kept = self.group_dedup()
+        self.assertIn(
+            ("telegram-group-history.jsonl", 'group message: [Bob] the "deploy" is broken'), kept
+        )
+        self.assertEqual(len(kept), 3)
+
+    def test_group_history_copies_across_files(self):
+        # The waiting line at the same time in another file is one event shown
+        # once, the copy read first kept; a minute later it is another event.
+        records = qwen_group_history_records()
+        moved = json.loads(json.dumps(records[3]))
+        moved["entry"]["timestamp"] += 60000
+        self.write_group(extra={"qq-group-history.jsonl": [records[3], moved]})
+        copy = ("qq-group-history.jsonl", "group message: [Bob] fixed now")
+        self.assertEqual(self.group_dedup(), [copy, copy, self.CLEARED])
+
+    def test_todo_rows(self):
+        rows = self.rows_for(QwenCodeParser(), QWEN_TODO_REL)
+        self.assertEqual(
+            [(row.source_line, row.session_id, row.text) for row in rows],
+            [
+                (
+                    1,
+                    QWEN_SESSION,
+                    "todo: [completed] Run the test suite (id t1, blocked by -, from todos/%s.json,"
+                    " file mtime)" % QWEN_SESSION,
+                ),
+                (
+                    2,
+                    QWEN_SESSION,
+                    "todo: [in_progress] Fix the failing test (id t2, blocked by -, from"
+                    " todos/%s.json, file mtime)" % QWEN_SESSION,
+                ),
+                (
+                    3,
+                    QWEN_SESSION,
+                    "todo: [pending] Open a pull request (id t3, blocked by t2, from"
+                    " todos/%s.json, file mtime)" % QWEN_SESSION,
+                ),
+            ],
+        )
+        self.assertEqual({row.timestamp_utc for row in rows}, {to_utc(QWEN_PAST_USE_MTIME)})
+        self.assertEqual(self.rows_for(QwenCodeParser(), QWEN_TODO_DEFAULT_REL), [])
+
+    def test_todo_file_errors(self):
+        path = self.home / QWEN_TODO_REL
+        path.write_text(
+            json.dumps({"todos": ["x", {"content": "c"}], "sessionId": "default"}), encoding="utf-8"
+        )
+        self.assertEqual(
+            [(row[0], row[3], row[4]) for row in self.rows_of(QWEN_TODO_REL)],
+            [
+                (
+                    2,
+                    "",
+                    "todo: [-] c (id -, blocked by -, from todos/%s.json, file mtime)"
+                    % QWEN_SESSION,
+                ),
+                (1, "", "parser: todo 1 is not a JSON object"),
+            ],
+        )
+        path.write_text("[]", encoding="utf-8")
+        self.assertEqual(
+            [(row[0], row[3], row[4]) for row in self.rows_of(QWEN_TODO_REL)],
+            [(0, QWEN_SESSION, "parser: %s.json is not a JSON object" % QWEN_SESSION)],
+        )
+
+    def test_session_organization_rows(self):
+        rows = self.rows_of(QWEN_ORGANIZATION_REL)
+        self.assertEqual(
+            rows,
+            [
+                (
+                    1,
+                    "system",
+                    "2026-10-01T11:05:00.000Z",
+                    QWEN_SESSION,
+                    "session organization: group Release color green pinned"
+                    " 2026-10-01T11:05:00.000Z (from session-organization.v1.json, updatedAt)",
+                ),
+                (
+                    2,
+                    "system",
+                    "2026-10-01T11:06:00.000Z",
+                    QWEN_ARCHIVED,
+                    "session organization: group - color - pinned no"
+                    " (from session-organization.v1.json, updatedAt)",
+                ),
+            ],
+        )
+        path = self.home / QWEN_ORGANIZATION_REL
+        path.write_text(json.dumps({"groups": [], "sessions": {"s1": 3}}), encoding="utf-8")
+        self.assertEqual(
+            [(row[0], row[4]) for row in self.rows_of(QWEN_ORGANIZATION_REL)],
+            [(1, "parser: session s1 is not a JSON object")],
+        )
+        path.write_text("[]", encoding="utf-8")
+        self.assertEqual(
+            [(row[0], row[4]) for row in self.rows_of(QWEN_ORGANIZATION_REL)],
+            [(0, "parser: session-organization.v1.json is not a JSON object")],
+        )
+
+    def test_pull_request_rows(self):
+        name = "%s.pr.json" % QWEN_SESSION
+        rows = self.rows_of(QWEN_PR_REL)
+        self.assertEqual(
+            rows,
+            [
+                (
+                    1,
+                    "system",
+                    "2026-10-01T10:30:00.000Z",
+                    QWEN_SESSION,
+                    "source host: github.com repository alice/proj pull request"
+                    " https://github.com/alice/proj/pull/12 state merged source create issues 7"
+                    " (from %s, createdAt)" % name,
+                ),
+                (
+                    2,
+                    "system",
+                    "2026-10-01T10:40:00.000Z",
+                    QWEN_SESSION,
+                    "source host: github.com repository upstream/proj pull request"
+                    " https://github.com/upstream/proj/pull/3 state - source - issues -"
+                    " (from %s, createdAt)" % name,
+                ),
+            ],
+        )
+        path = self.home / QWEN_PR_REL
+        path.write_text(json.dumps({"prs": [1, {"url": "not a url"}]}), encoding="utf-8")
+        self.assertEqual(
+            [(row[0], row[3], row[4]) for row in self.rows_of(QWEN_PR_REL)],
+            [
+                (
+                    2,
+                    QWEN_SESSION,
+                    "source host: - repository - pull request not a url state - source - issues -"
+                    " (from %s, createdAt)" % name,
+                ),
+                (1, QWEN_SESSION, "parser: pull request 1 is not a JSON object"),
+            ],
+        )
+        path.write_text("{", encoding="utf-8")
+        self.assertEqual(
+            [(row[0], row[3], row[4]) for row in self.rows_of(QWEN_PR_REL)],
+            [(0, QWEN_SESSION, "parser: %s is not a JSON object" % name)],
+        )
+
+    def test_pull_requests_of_an_archived_session(self):
+        archived = ".qwen/projects/-srv-proj/chats/archive/%s.pr.json" % QWEN_ARCHIVED
+        path = self.home / archived
+        path.write_text(
+            json.dumps(
+                {"prs": [{"number": 1, "url": "https://gitlab.com/a/b/-/merge_requests/1"}]}
+            ),
+            encoding="utf-8",
+        )
+        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+        rows = self.rows_of(archived)
+        self.assertEqual(
+            [(row[2], row[3], row[4].split(" pull request")[0]) for row in rows],
+            [("", QWEN_ARCHIVED, "source host: gitlab.com repository a/b")],
+        )
+
+    def test_github_audit_rows(self):
+        name = QWEN_AUDIT_REL.rsplit("/", 1)[-1]
+        rows = self.rows_of(QWEN_AUDIT_REL)
+        self.assertEqual(
+            rows,
+            [
+                (
+                    1,
+                    "system",
+                    "2026-10-07T10:00:05.000Z",
+                    QWEN_DAEMON_SESSION,
+                    "source host: github repository alice/proj actor octocat publication posted"
+                    " trigger issue_comment number 7 comment"
+                    " https://github.com/alice/proj/issues/7#issuecomment-5001 (from %s, at)"
+                    % name,
+                ),
+                (
+                    2,
+                    "system",
+                    "2026-10-07T10:02:00.000Z",
+                    QWEN_DAEMON_SESSION,
+                    "source host: github repository alice/proj actor - publication failed"
+                    " trigger - number - comment - failure delivery: HTTP 403 (from %s, at)" % name,
+                ),
+            ],
+        )
+        self.assertFalse([row for row in rows if "0" * 64 in row[4]])
+        write_bad_line(self.home / QWEN_AUDIT_REL)
+        rows = self.rows_of(QWEN_AUDIT_REL)
+        self.assertEqual([(row[0], row[4]) for row in rows[2:]], [(3, bad_line_text())])
+        self.assertEqual(len(rows), 3)
+
+    def test_project_summary_row(self):
+        # The whole file, at its time, in the directory holding `.qwen/`.
+        rows = self.rows_for(QwenCodeParser(), QWEN_SUMMARY_REL)
+        artifact = self.artifact(QWEN_SUMMARY_REL)
+        self.assertEqual(
+            [
+                (row.source_line, row.timestamp_utc, row.session_id, row.project_path, row.text)
+                for row in rows
+            ],
+            [
+                (
+                    1,
+                    to_utc(QWEN_PAST_USE_MTIME),
+                    "",
+                    artifact.home.original,
+                    "project summary (from .qwen/PROJECT_SUMMARY.md, file mtime): # Project"
+                    " summary\n\n- tests fixed",
+                )
+            ],
+        )
+        project = Artifact(
+            disk_path=artifact.disk_path,
+            original="/srv/proj/.qwen/PROJECT_SUMMARY.md",
+            rel=QWEN_SUMMARY_REL,
+            agent="qwen-code",
+            home=replace(artifact.home, original="/srv/proj", project=True),
+        )
+        self.assertTrue(QwenCodeParser().wants(project))
+        self.assertEqual(
+            [row.project_path for row in QwenCodeParser().parse(project, self.options())],
+            ["/srv/proj"],
+        )
+
+    def test_managed_local_transcripts(self):
+        # The harness's and the workers' transcripts are read as the home's.
+        for rel, session_id in (
+            (QWEN_HARNESS_REL, QWEN_HARNESS_SESSION),
+            (QWEN_WORKER_REL, QWEN_WORKER_SESSION),
+        ):
+            self.assertEqual(
+                [
+                    (row.turn_type, row.session_id, row.project_path, row.text)
+                    for row in self.rows_for(QwenCodeParser(), rel)
+                ],
+                [("user", session_id, "/srv/proj", "summarise the repository")],
+                rel,
+            )
+            self.assertFalse(QwenCodeParser().secondary(self.artifact(rel)))
+        # Settings under the worker's home are not the home's settings file.
+        worker = ".qwen/managed-local/worker-home/"
+        from .base import rel_only
+
+        parser = QwenCodeParser()
+        self.assertTrue(parser.wants(rel_only(worker + "tmp/abc/logs.json")))
+        self.assertTrue(parser.secondary(rel_only(worker + "tmp/abc/logs.json")))
+        self.assertTrue(parser.wants(rel_only(worker + "todos/x.json")))
+        self.assertFalse(parser.wants(rel_only(worker + "settings.json")))
+        self.assertFalse(parser.wants(rel_only(worker + "channels/sessions.json")))
+        self.assertFalse(
+            parser.wants(rel_only(".qwen/managed-local/projects/a/chats/%s.jsonl" % QWEN_SESSION))
+        )

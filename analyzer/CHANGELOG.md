@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `gemini-cli` parser reads Gemini CLI's sandbox grants, `~/.gemini/policies/sandbox.toml` (Python 3.11 or later): one `system` row `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per `modes` table and `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)` per command the user allowed and saved, at the file's modification time ([#186], [#326]).
 - A Gemini CLI session whose project is a `--worktree` checkout, `<project>/.gemini/worktrees/<name>`, gets a `system` row `scratch directory: <path> (gemini --worktree <name>)` after the file's `session start:` rows, at the first one's time and line, with the worktree as its `project_path` ([#216], [#326]).
 - The bundled catalog copy gains collector 1.22.0's Gemini CLI secret globs, `.gemini/integrity.key` and `*.gemini/.settings.json.*.tmp` ([#326]).
+- The `qwen-code` parser reads Qwen Code's past-use stores on every run: the monthly token usage log (`token usage:` rows), the todo files (`todo:`), the Web Shell's `session-organization.v1.json` (`session organization:`), `.qwen/PROJECT_SUMMARY.md` (`project summary`), the pull-request sidecars `<sessionId>.pr.json` and the GitHub channel's publication audit (`source host:` rows), the channels' group history as a secondary source (`group message:` and `group history cleared:` rows, a quoted message dropped when the prompt that quoted it gives the same `group message:` row), and the managed local mode's harness and worker transcripts under `.qwen/managed-local/`, read as the home's; its H2 database stays unread ([#396]).
 
 ### Changed
 
@@ -2194,6 +2195,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#396]: https://github.com/seanthegeek/doubleagent/issues/396
 [#388]: https://github.com/seanthegeek/doubleagent/issues/388
 [#386]: https://github.com/seanthegeek/doubleagent/issues/386
 [#384]: https://github.com/seanthegeek/doubleagent/issues/384

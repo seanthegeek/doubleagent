@@ -73,7 +73,7 @@ agent name in each row links to its subsection.
 | [`pearai`](#pearai) | parsed | source; fixture only | [research](../research/pearai.md) |
 | [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md); [issue 395](https://github.com/seanthegeek/doubleagent/issues/395); the session exports, bug report zip and TUI crash log are not parsed |
 | [`pydantic-clai`](#pydantic-clai) | backlog | Source, PyPI wheel | [research](../research/pydantic-clai.md); [issue 66](https://github.com/seanthegeek/doubleagent/issues/66); CLAI 2.0 `sessions.db` conversations and the prompt histories |
-| [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); [issue 396](https://github.com/seanthegeek/doubleagent/issues/396); the usage log, channel histories, todo files, project summary and managed-local transcripts are not parsed |
+| [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); the managed local mode's H2 database is not parsed |
 | [`roo-code`](#roo-code) | parsed | source; fixture only | [research](../research/roo-code.md) |
 | [`shared`](#shared) | collected | Derived from the per-agent documents | [research](../research/shared.md); cross-agent instruction and skill directories with no transcripts |
 | [`shellgpt`](#shellgpt) | parsed | source; fixture only | [research](../research/shellgpt.md) |
@@ -1090,14 +1090,24 @@ row per `permissions.allow`, `ask` and `deny` rule and one for
 row per session summary, a secondary source that outlives a deleted
 transcript; a session's `chats/<session>.worktree.json` sidecar, one
 `scratch directory: <worktreePath> (enter_worktree <slug>)` row naming the
-worktree the session works in.
+worktree the session works in. The token usage log
+`usage/token-usage-<YYYY-MM>.jsonl`, one `token usage:` row per model
+response; the todo files `todos/<session>.json`, one `todo:` row per item;
+the Web Shell's `projects/<slug>/session-organization.v1.json`, one
+`session organization:` row per grouped or pinned session; the project
+summary `.qwen/PROJECT_SUMMARY.md`, one `project summary` row holding the
+file; a session's `chats/<session>.pr.json` sidecar and the GitHub channel's
+`channels/<scope>/<channel>-<hash>-github-audit.jsonl`, one `source host:`
+row per pull request and per publication; the channels'
+`<channel>-group-history.jsonl`, a secondary source, one `group message:`
+row per message kept as context, dropped when the prompt that quoted it is
+in a transcript; and the managed local mode's transcripts under
+`.qwen/managed-local/harness/projects/` and
+`.qwen/managed-local/worker-home/projects/`, read as the home's.
 
-Not read ([issue 396](https://github.com/seanthegeek/doubleagent/issues/396)):
-the token usage log `usage/token-usage-<YYYY-MM>.jsonl`, the channels'
-`<channel>-group-history.jsonl`, the todo files `todos/<session>.json`,
-the project summary `.qwen/PROJECT_SUMMARY.md` and the managed local mode's
-transcripts under `.qwen/managed-local/harness/projects/` and
-`.qwen/managed-local/worker-home/`.
+Not read: the managed local mode's H2 database
+`.qwen/managed-local/database/managed.mv.db`, which no standard library
+module decodes.
 
 Validated against: Source at [835b080](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b) (version 0.26.4), synthetic fixture; the shapes of [2c591ec](https://github.com/QwenLM/qwen-code/commit/2c591ecc08a6fa080342f9b1b9f7f43215178cbb) (0.24.7) and [5dcf7c7](https://github.com/QwenLM/qwen-code/commit/5dcf7c7cb162e825d95d531081f67ee60da3c0e1) (0.25.3) still read.
 
