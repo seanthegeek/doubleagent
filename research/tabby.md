@@ -659,11 +659,20 @@ in a backup; the backups are already read. See [What survives a delete](#what-su
 #### Bad-line rows
 
 The event log, the one line-oriented source, is read through `iter_jsonl` and its bad lines are
-reported through `error_rows`; the SQLite stores have no lines to lose. A `config.toml` that
+reported through `error_rows`, a log that cannot be read giving one whole-file row
+`parser: <file> could not be read (<reason>)`, `<file>` its name; the SQLite stores have no lines
+to lose. A `config.toml` that
 cannot be read gives one row `parser: config.toml could not be read: <reason>` on every Python
 version, one that does not parse one row `parser: config.toml is not valid TOML (<reason>)` and
 an IntelliJ history that does not parse one row
 `parser: not a readable XML document (<reason>)`, none carrying the file's text.
+
+A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, or whose `-wal`,
+`-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
+`<file>` the name of the file that failed; one that is not a SQLite database is
+`parser: not a SQLite database` for `db.sqlite` and its copies and
+`parser: state.vscdb is not a SQLite database` for the editor state, and a damaged editor state is
+`parser: state.vscdb unreadable: <message>`.
 
 #### Fixtures
 

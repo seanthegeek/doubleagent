@@ -72,11 +72,15 @@ def _regular_files(directory: Path) -> list[os.DirEntry]:
         return []
 
 
-def _session_header(home: Path, name: str) -> dict | None:
-    """Return the header of the pi session file `name` in the same home, or None."""
+def _session_header(home: Path, name: str) -> tuple[dict | None, list]:
+    """Return the header of the pi session file `name` in the same home, or None, and its failure.
+
+    The failure is the file's whole-file `errors` entries, one when it exists
+    but cannot be read; its bad lines are left to the pi parser.
+    """
     sessions = home / ".pi/agent/sessions"
     if sessions.is_symlink() or not sessions.is_dir():
-        return None
+        return None, []
     for directory in sorted(sessions.iterdir()):
         session_path = directory / name
         if (
@@ -85,8 +89,12 @@ def _session_header(home: Path, name: str) -> dict | None:
             and not session_path.is_symlink()
             and session_path.is_file()
         ):
-            return read_session(session_path).header or None
-    return None
+            session = read_session(session_path)
+            # A two-tuple is a whole-file entry (the file could not be read); a bad
+            # line is a three-tuple the pi parser reports itself.
+            failure = [entry for entry in session.errors if len(entry) == 2]
+            return session.header or None, failure
+    return None, []
 
 
 def _dash(value) -> str:
@@ -171,7 +179,9 @@ class LittleCoderParser(Parser):
         row.source_line = 0
         row.turn_type = "system"
         row.session_id = match.group(1) if match else ""
-        header = _session_header(artifact.home.disk_path, set_name) if match else None
+        header, failure = (
+            _session_header(artifact.home.disk_path, set_name) if match else (None, [])
+        )
         if header:
             row.session_id = str(header.get("id") or row.session_id)
             row.project_path = str(header.get("cwd") or "")
@@ -183,9 +193,15 @@ class LittleCoderParser(Parser):
         what = "pi session %s" % set_name if match else "no session file (%s)" % set_name
         row.text = compact(
             "little-coder checkpoints for %s: %d pre-edit file(s)%s: %s"
-            % (what, len(names), "" if header else ", session file not collected", listed),
+            % (
+                what,
+                len(names),
+                "" if header or failure else ", session file not collected",
+                listed,
+            ),
         )
         yield row
+        yield from error_rows(self, artifact, failure, row.session_id, row.project_path)
 
     # ---- the v0.0.x Python layout -------------------------------------------
 

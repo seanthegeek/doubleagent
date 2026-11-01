@@ -2811,6 +2811,11 @@ are kept. The session sample under [Fixtures](#fixtures) ends with a cut line fo
 unreadable `paste-cache/` file gives a row of its own
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)).
 
+A transcript, subagent file or `history.jsonl` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name,
+`source_line` 0 when it could not be opened and the last line read when the read failed;
+the other files still parse.
+
 #### Fixtures
 
 Sample records, `.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl` (state

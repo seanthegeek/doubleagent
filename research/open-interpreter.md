@@ -597,6 +597,14 @@ The shared reader's rows: a `thread_history_1.sqlite` row with a bad `item_json`
 record with the value in full
 ([Bad lines in `codex-cli.md`](codex-cli.md#bad-line-rows)).
 
+The shared reader's `state_5.sqlite`, `thread_history_1.sqlite` and `logs_<N>.sqlite` rows for a
+database that cannot be read or is not SQLite are those of
+[Bad lines in `codex-cli.md`](codex-cli.md#bad-line-rows).
+
+A rollout or `history.jsonl` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)`, as in
+[Bad lines in `codex-cli.md`](codex-cli.md#bad-line-rows).
+
 #### Fixtures
 
 - `.openinterpreter/sessions/2026/10/01/rollout-2026-10-01T12-00-00-0199a1b2-0000-7000-8000-000000000001.jsonl`:

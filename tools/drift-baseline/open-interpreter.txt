@@ -26,7 +26,6 @@ check_parser_research|key-undocumented|tool_name
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s
 check_parser_research|parser-message-undocumented|parser: global state is not a JSON object
 check_parser_research|parser-message-undocumented|parser: import ledger has no records list
-check_parser_research|parser-message-undocumented|parser: not a SQLite database
 check_parser_research|parser-message-undocumented|parser: unreadable automation.toml: %s
 check_parser_research|parser-message-undocumented|parser: unreadable global state: %s
 check_parser_research|parser-message-undocumented|parser: unreadable import ledger: %s

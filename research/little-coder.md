@@ -551,6 +551,10 @@ A v0.0.x session file or `history.json` cut mid-write yields the messages or ses
 cut and one `parser: unparseable record <N> (<reason>): <the rest>` row; a `snapshots.json` cut
 the same way does too, and a `config.json` that is not a JSON object is one `parser:` row.
 
+A pi session file a checkpoint directory names that cannot be read gives the checkpoint row without
+the `session file not collected` clause, followed by one row
+`parser: <file> could not be read (<reason>)`, `<file>` the session file's name.
+
 #### Fixtures
 
 Fixture:

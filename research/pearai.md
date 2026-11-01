@@ -665,12 +665,18 @@ Source-derived; not observed on any real install. Each line of `dev_data/chat.js
 starts with neither `Settings:` nor `Completion:`, or a `Settings:` write with no `#` rule (cut off
 mid-write), is `parser: unparseable record (<reason>): <record>` at its first line, and text before
 the first separator is one such row too; the records around it are still read. The API history read
-beside `ui_messages.json` reports its own bad records. A damaged `state.vscdb`, or an extension row
-that is not JSON, is one `parser:` row. The chat surface's `sessions.json` index is
-read through the Continue parser's index reader (`PearAIParser` keeps a `ContinueParser` for it),
+beside `ui_messages.json` reports its own bad records. A `state.vscdb` that cannot be read, or whose
+`-wal`, `-shm` or `-journal` sidecar cannot, is one row
+`parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
+is not a SQLite database is `parser: state.vscdb is not a SQLite database`. A damaged `state.vscdb`,
+or an extension row that is not JSON, is one `parser:` row. The chat surface's `sessions.json` index
+is read through the Continue parser's index reader (`PearAIParser` keeps a `ContinueParser` for it),
 which yields rows for what it loses, with the texts of
-[Bad-line rows in `continue.md`](continue.md#bad-line-rows); an unreadable index leaves the
-sessions without their `dateCreated` time.
+[Bad-line rows in `continue.md`](continue.md#bad-line-rows); an unreadable index leaves the sessions
+without their `dateCreated` time.
+
+A `dev_data/chat.jsonl` or `dev_data/tokens_generated.jsonl` that cannot be read is one whole-file
+row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
 
 #### Fixtures
 

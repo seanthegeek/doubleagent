@@ -1752,6 +1752,14 @@ step's other rows stand ([issue 92](https://github.com/seanthegeek/doubleagent/i
 line, and the lines around it are still read; a brain chunk can cut a line at a
 chunk boundary ([Transcript stores](#transcript-stores)).
 
+A `conversation_summaries.db` or `conversations/<id>.db` that cannot be read, or whose `-wal`,
+`-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
+`<file>` the name of the file that failed; one that is not a SQLite database is
+`parser: not a SQLite database`, a conversation database's row carrying the id its file name gives.
+
+A `history.jsonl` that cannot be read is one whole-file row
+`parser: history.jsonl could not be read (<reason>)` through `error_rows`.
+
 #### Fixtures
 
 `analyzer/tests/fixtures/antigravity.py` builds the CLI data directory

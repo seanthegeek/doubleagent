@@ -1024,6 +1024,9 @@ transcripts go through the claude-code reader and its bad-line rows
 is not a JSON object is one whole-file row ([Remote session folders](#remote-session-folders)). The
 fixture adds a truncated last line written with `write_bad_line` ([Fixtures](#fixtures)).
 
+A transcript or `audit.jsonl` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+
 #### Fixtures
 
 Synthetic fixture records:

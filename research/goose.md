@@ -1474,26 +1474,28 @@ the session start row (`archived=`).
 
 #### Bad-line rows
 
-A `sessions.db` that is not a SQLite database is one row `parser: not a SQLite database`, and a
-SQLite error while reading it one row `parser: SQLite error: <message>`. The legacy JSONL and the
-request logs go through `iter_jsonl` and `error_rows`; `history.txt`
-cannot fail to decode (each line is a row). A `permission.yaml` line that is not a category, a
-level or a list item is one row,
-`parser: unparseable line (not a category, level or list item): <line>`, and the entries before
-and after it are still yielded; a `roaming_trust.json` or `schedule.json` that cannot be read,
-is not JSON or is not the type Goose writes (an object, a list) is one `parser: <message>` row,
-and a `schedule.json` job that is not an object is
+A `sessions.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
+row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
+that is not a SQLite database is `parser: not a SQLite database`, and a SQLite error while reading
+it one row `parser: SQLite error: <message>`. The legacy JSONL and the request logs go through
+`iter_jsonl` and `error_rows`, a file that cannot be read giving one whole-file row
+`parser: <file> could not be read (<reason>)`, `<file>` its name; `history.txt` cannot fail to
+decode (each line is a row). A
+`permission.yaml` line that is not a category, a level or a list item is one row,
+`parser: unparseable line (not a category, level or list item): <line>`, and the entries before and
+after it are still yielded; a `roaming_trust.json` or `schedule.json` that cannot be read, is not
+JSON or is not the type Goose writes (an object, a list) is one `parser: <message>` row, and a
+`schedule.json` job that is not an object is
 `parser: unparseable record <N> (not a JSON object): <record>`. In `sessions.db` a `content_json`,
-`metadata_json` or `model_config_json` that does not decode, or decodes to another type than
-Goose writes (an array for `content_json`, an object for the other two), is one `system` row
-through `error_rows`:
-`parser: unparseable record <N> (<table>.<column>: <reason>): <stored value>`, the stored text in
-full, `<N>` the `messages.id` or the `sessions` rowid (also `source_line`), with the session's
-`session_id` and `working_dir` and an empty `timestamp_utc`. A NULL or empty `content_json` gives
-the row with reason `empty` and no value. The rest of the session is still yielded: a bad
-`model_config_json` row follows the session start row and the session has no `model:` row; a
-bad `metadata_json` row precedes the message's content rows, which keep the session's model and
-count as visible; a bad `content_json` row stands in for the message's rows.
+`metadata_json` or `model_config_json` that does not decode, or decodes to another type than Goose
+writes (an array for `content_json`, an object for the other two), is one `system` row through
+`error_rows`: `parser: unparseable record <N> (<table>.<column>: <reason>): <stored value>`, the
+stored text in full, `<N>` the `messages.id` or the `sessions` rowid (also `source_line`), with the
+session's `session_id` and `working_dir` and an empty `timestamp_utc`. A NULL or empty
+`content_json` gives the row with reason `empty` and no value. The rest of the session is still
+yielded: a bad `model_config_json` row follows the session start row and the session has no `model:`
+row; a bad `metadata_json` row precedes the message's content rows, which keep the session's model
+and count as visible; a bad `content_json` row stands in for the message's rows.
 
 #### Fixtures
 

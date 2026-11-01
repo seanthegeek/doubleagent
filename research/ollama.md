@@ -983,7 +983,9 @@ the parser decoded the file with `errors="replace"`, so such a line became a `us
 replacement characters and no `parser:` row. Such a line has not been seen on any real install:
 `Save` writes each entry with `fmt.Fprintln` and checks no encoding
 ([`history.go:125-150`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/readline/history.go#L125-L150)).
-A `db.sqlite` that is not a database becomes one `system` row ([Fixtures](#fixtures)).
+A `db.sqlite` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
+`parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
+is not a SQLite database is `parser: not a SQLite database` ([Fixtures](#fixtures)).
 
 #### Fixtures
 

@@ -1,6 +1,9 @@
 """Tests of the little-coder parser."""
 
+import unittest
 from typing import ClassVar
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.parsers.little_coder import (
     MESSAGES_KEY_PATTERN,
@@ -72,6 +75,45 @@ class LittleCoderTests(ParserBase):
         )
         self.assertIn("2 pre-edit file(s)", row.text)
         self.assertIn("_srv_proj_src_new.ts (did not exist)", row.text)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_session_file_is_one_row_after_the_checkpoint_row(self):
+        session_file = self.home / PI_DIR / LC_FILE
+        session_file.chmod(0)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            session_file.chmod(0o600)
+        self.assertEqual(len(rows), 2)
+        self.assertIn("pi session %s" % LC_FILE, rows[0].text)
+        self.assertNotIn("session file not collected", rows[0].text)
+        self.assertEqual(
+            (
+                rows[1].turn_type,
+                rows[1].text,
+                rows[1].source_line,
+                rows[1].timestamp_utc,
+                rows[1].session_id,
+            ),
+            (
+                "system",
+                "parser: %s could not be read (Permission denied)" % LC_FILE,
+                0,
+                "",
+                LC_SESSION,
+            ),
+        )
+
+    def test_bad_session_line_is_left_to_the_pi_parser(self):
+        session_file = self.home / PI_DIR / LC_FILE
+        original = session_file.read_bytes()
+        session_file.write_bytes(original + b"{not json\n")
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            session_file.write_bytes(original)
+        self.assertEqual([row.text[:30] for row in rows], ["little-coder checkpoints for p"])
+        self.assertNotIn("session file not collected", rows[0].text)
 
     def test_thinking_opt_in(self):
         # little-coder's own files hold no reasoning; its transcripts are pi's.

@@ -39,7 +39,7 @@ from collections.abc import Iterator
 
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..textlines import SPACE_OR_TAB, without_terminator
 from ..timeutil import to_utc
 from .base import (
@@ -500,10 +500,11 @@ class GooseParser(Parser):
 
     # -- sessions.db ---------------------------------------------------------------------
     def _parse_database(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
             row = self._row(artifact, 0)
             row.turn_type = "system"
-            row.text = "parser: not a SQLite database"
+            row.text = "parser: " + problem
             yield row
             return
         try:

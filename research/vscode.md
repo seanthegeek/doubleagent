@@ -1039,11 +1039,15 @@ row through `error_rows`, `parser: unparseable line (<reason>): <line>` or
 [Scratch directory rows](#scratch-directory-rows). A chat editing `state.json` that does not
 decode is `parser: file is not valid JSON (<reason>)` and one that is not a JSON object
 `parser: state.json is not a JSON object`, whole-file rows through `error_rows` with the folder's
-session id; a `settings.json` that is not a JSON object is `parser: User/<path>/settings.json is
-not a JSON object (<reason>)`; a damaged `state.vscdb` or a value that is not JSON is
-`parser: state.vscdb unreadable: <message>` or `parser: ItemTable value for <key> is not valid JSON
-(<reason>)`. When they are read, the transcript and debug-log readers go through `iter_jsonl` and
-`error_rows`, and `session-store.db` errors are whole-file `parser:` rows.
+session id; a `settings.json` that is not a JSON object is
+`parser: User/<path>/settings.json is not a JSON object (<reason>)`; a `state.vscdb` that cannot be
+read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
+`parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
+is not a SQLite database `parser: state.vscdb is not a SQLite database`, and a damaged `state.vscdb`
+or a value that is not JSON is `parser: state.vscdb unreadable: <message>` or
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`. When they are read, the transcript
+and debug-log readers go through `iter_jsonl` and `error_rows`, and `session-store.db` errors are
+whole-file `parser:` rows.
 
 #### Fixtures
 

@@ -697,6 +697,10 @@ XML is read incrementally, so the chats before a cut or damaged part are yielded
 `project_path`. A model preferences file that is not a JSON object is one `parser:
 cody-model-preferences is not a JSON object` row.
 
+A `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
+row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
+that is not a SQLite database is `parser: state.vscdb is not a SQLite database`.
+
 #### Fixtures
 
 Fixture (`JetBrains-globalState/cody-local-chatHistory-v2`):

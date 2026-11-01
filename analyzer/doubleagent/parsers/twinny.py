@@ -38,7 +38,7 @@ from collections.abc import Iterator
 from ..inputs import Artifact, error_reason
 from ..model import Row, compact
 from ..timeutil import to_utc
-from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_item
+from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_item, shown_problem
 from .base import (
     Options,
     Parser,
@@ -166,7 +166,7 @@ class TwinnyParser(Parser):
             row = self.base_row(artifact)
             row.turn_type = "system"
             # never echo the value itself: it holds provider apiKeys
-            row.text = "parser: " + problem.split(" (", 1)[0]
+            row.text = "parser: " + shown_problem(problem)
             yield row
 
     def _global_rows(self, artifact: Artifact, state: dict, opts: Options) -> Iterator[Row]:

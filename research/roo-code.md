@@ -644,8 +644,12 @@ the entries before the cut and one `system` row for the cut, `parser: unparseabl
 states. The API history read beside `ui_messages.json` for decisions reports its own bad records the
 same way. A `global-state.json`, `workspace-state.json`, `cli-settings.json`, `mcp_settings.json` or
 `mcp.json` that is not a JSON object is one `parser: <name> is not a JSON object` row; a
-`state.vscdb` that cannot be read, or whose extension row is not JSON, is one `parser:` row that
-never echoes the value.
+`state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
+`parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
+is not a SQLite database `parser: state.vscdb is not a SQLite database`, a damaged one
+`parser: state.vscdb unreadable: <message>`, each of these a whole-file row with no file time, and
+one whose extension row is not JSON one `parser:` row at the file time that never echoes the
+value.
 
 #### Fixtures
 

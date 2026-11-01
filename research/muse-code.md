@@ -956,6 +956,9 @@ reading continues. A `retained_frame` child whose `record_json` does not
 decode gets the same row with the reason prefixed
 `retained_frame child: ` and the child's `record_json` text as the line.
 
+A `session.jsonl` that cannot be read is one whole-file row
+`parser: session.jsonl could not be read (<reason>)` through `error_rows`.
+
 #### Fixtures
 
 Sample fixture (frame, metadata, branch, name, model, intent, user

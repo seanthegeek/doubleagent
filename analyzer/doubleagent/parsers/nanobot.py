@@ -40,7 +40,7 @@ from pathlib import Path
 
 from ..inputs import Artifact, error_reason
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
 from .aider import read_input_history
 from .base import (
@@ -483,8 +483,9 @@ class NanobotParser(Parser):
     def _parse_database(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         """Yield the rows of every session of a `sessions.sqlite3`, orphaned messages included."""
         project = _read_marker(artifact.disk_path.parent / ".workspace")
-        if not is_sqlite(artifact.disk_path):
-            yield self._file_row(artifact, project, "parser: not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield self._file_row(artifact, project, "parser: " + problem)
             return
         messages: dict[str, list[tuple[int, object, object]]] = {}
         try:

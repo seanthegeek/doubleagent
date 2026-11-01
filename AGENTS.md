@@ -403,9 +403,15 @@ The analyzer runs on the analyst's workstation, never on the host.
   the line as read less its terminator, unrepaired and unshortened; a JSON
   array reader writes `unparseable record <N> (<reason>)`. A whole-file
   error (unreadable, not a JSON array, cut inside an array) is one row
-  `parser: <message>`. The row carries the file's known `session_id` and
-  `project_path`, an empty `timestamp_utc` and `source_line` set to the
-  line. This covers every file a parser reads: history files, indexes and
+  `parser: <message>`; for a file that exists but cannot be opened, a
+  SQLite sidecar included, or that the shared JSONL reader cannot read
+  through, the row names the file (in its text or its `source_file`) and
+  the operating system's reason, never a wrong-type
+  message, silence or a `problem:` line; the shared readers write
+  `<file> could not be read (<reason>)`, the form a new reader uses. The
+  row carries the file's known `session_id` and `project_path`, an empty
+  `timestamp_utc` and `source_line` set to the line, 0 when there is none.
+  This covers every file a parser reads: history files, indexes and
   secondary sources (files that repeat the primary store's events; see
   [Secondary sources](analyzer/docs/output.md#secondary-sources)).
 - **Problems outside parsers.** A file the analyzer command reads itself (a

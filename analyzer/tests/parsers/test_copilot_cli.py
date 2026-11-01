@@ -536,8 +536,8 @@ class CopilotCliTests(ParserBase):
         (self.home / COPILOT_STORE_REL).write_text("not sqlite", encoding="utf-8")
         rows = self.rows_for(CopilotCliParser(), COPILOT_STORE_REL)
         self.assertEqual(
-            [(row.turn_type, row.text) for row in rows],
-            [("system", "parser: not a SQLite database")],
+            [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+            [("system", "parser: not a SQLite database", 0, "")],
         )
 
     def test_workspace_and_snapshot(self):

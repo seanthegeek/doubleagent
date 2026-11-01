@@ -41,7 +41,7 @@ from pathlib import Path
 
 from ..inputs import Artifact
 from ..model import SCRATCH_PREFIX, Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..textlines import JSON_SPACE, SPACE_OR_TAB, split_lines
 from ..timeutil import to_utc
 from .base import (
@@ -800,8 +800,9 @@ class CopilotCliParser(Parser):
     # -- session-store.db ---------------------------------------------------
 
     def _parse_store(self, artifact: Artifact) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
-            yield self._problem(artifact, "parser: not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield self._row(artifact, 0, "system", "parser: " + problem)
             return
         try:
             with open_copy(artifact.disk_path) as connection:

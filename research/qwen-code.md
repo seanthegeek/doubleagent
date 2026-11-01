@@ -879,6 +879,9 @@ one whole-file `parser:` row. A `settings.json` or `trustedFolders.json` that ca
 `parser: unreadable <file>: <reason>` row, distinct from the `parser: <file> is not a JSON object`
 of a file that reads but decodes to something else.
 
+A transcript or `usage_record.jsonl` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+
 #### Fixtures
 
 Fixture:

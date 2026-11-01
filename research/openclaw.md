@@ -1754,6 +1754,12 @@ the session key. A line that is valid JSON but not an object (an array, a string
 `parser: unparseable line (not a JSON object): <line>` (prefixed `archive <name> line <n>: ` inside
 a blob), and the lines around it are still yielded. Fixture only.
 
+An `openclaw-agent.sqlite` or `state/openclaw.sqlite` that cannot be read, or whose `-wal`, `-shm`
+or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the
+name of the file that failed; one that is not a SQLite database is `parser: not a SQLite database`
+for the agent database and `parser: state/openclaw.sqlite is not a SQLite database` for the state
+database.
+
 #### Fixtures
 
 Transcript entries as the writers at `fc3490a` produce them, JSONL form; the SQLite form stores

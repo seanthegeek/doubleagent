@@ -707,6 +707,10 @@ value in full, with the message's session and project, an empty timestamp and `s
 the rowid; the session's other messages are still yielded
 ([issue 166](https://github.com/seanthegeek/doubleagent/issues/166)).
 
+A `crush.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
+`parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
+is not a SQLite database is `parser: not a SQLite database`, each with the project path.
+
 #### Fixtures
 
 Fixture rows:

@@ -1,9 +1,13 @@
 """Tests of the Goose parser."""
 
 import json
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import open_input
+from doubleagent.parsers import Options
 from doubleagent.parsers.goose import GooseParser, unescape_history
 from doubleagent.timeutil import to_utc
 from fixtures import (
@@ -732,3 +736,41 @@ class GooseTests(ParserBase):
             [(row.turn_type, row.text) for row in rows],
             [("system", "parser: not a SQLite database")],
         )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_session_database_or_sidecar_is_one_row(self):
+        parser = GooseParser()
+        others = [
+            artifact
+            for artifact in self.col.artifacts
+            if parser.wants(artifact) and artifact.rel != self.REL
+        ]
+        self.assertEqual(len(others), 3)
+        database = self.home / self.REL
+        for locked in (database, database.with_name("sessions.db-wal")):
+            if not locked.exists():
+                locked.write_bytes(b"")
+            locked.chmod(0)
+            try:
+                rows = self.rows_for(parser, self.REL)
+                later = [list(parser.parse(artifact, Options())) for artifact in others]
+            finally:
+                locked.chmod(0o600)
+            self.assertEqual(
+                [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % locked.name,
+                        0,
+                        "",
+                    )
+                ],
+                locked.name,
+            )
+            # The other Goose files parse in full after it.
+            for artifact, other_rows in zip(others, later, strict=True):
+                self.assertTrue(other_rows, artifact.rel)
+                self.assertFalse(
+                    [row for row in other_rows if "could not be read" in row.text], artifact.rel
+                )

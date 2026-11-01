@@ -1382,20 +1382,21 @@ digest's rows, and a task's `history_item.json` or `tasks/_index.json` that cann
 record's rows kept, and a file that is not an array, an array cut off after a record or data after
 the array is one `parser: not a JSON array`,
 `parser: array cut off after record <n>` or `parser: unexpected data after the array` row.
-Through the OpenCode reader a database that cannot be opened is
-`parser: database could not be read: <reason>`, a legacy session or message file that does not
-decode is `parser: session file could not be decoded` or
+Through the OpenCode reader a database file that cannot be read, or whose `-wal`, `-shm` or
+`-journal` sidecar cannot, is `parser: <file> could not be read (<reason>)`, `<file>` the name of
+the file that failed, one that is not a SQLite database `parser: not a SQLite database` and one
+SQLite cannot read `parser: database could not be read: <reason>`, a legacy session or message file
+that does not decode is `parser: session file could not be decoded` or
 `parser: message file could not be decoded`, a legacy session file's project file
 (`storage/project/<projectID>.json`) that exists but does not decode is
-`parser: project file <projectID>.json could not be read (<reason>)`, and each undecodable
-database record or part file
-is its own `parser: unparseable record <rowid> (<table>.data: <reason>): <data>` or
-`parser: unparseable part <partID> (<reason>): <text>` row carrying it in full, the reason of a
+`parser: project file <projectID>.json could not be read (<reason>)`, and each undecodable database
+record or part file is its own `parser: unparseable record <rowid> (<table>.data: <reason>): <data>`
+or `parser: unparseable part <partID> (<reason>): <text>` row carrying it in full, the reason of a
 part file that cannot be read being `unreadable: <reason>`
 ([Bad-line rows of `opencode.md`](opencode.md#bad-line-rows);
-[issue 139](https://github.com/seanthegeek/doubleagent/issues/139)). A database with
-`session_v2` ([Format versions](#format-versions)) is read from it, its `session_message`
-transcript and the 1.x tables only for a session that `session_message` lacks
+[issue 139](https://github.com/seanthegeek/doubleagent/issues/139)). A database with `session_v2`
+([Format versions](#format-versions)) is read from it, its `session_message` transcript and the 1.x
+tables only for a session that `session_message` lacks
 ([issue 165](https://github.com/seanthegeek/doubleagent/issues/165)).
 
 #### Fixtures

@@ -38,7 +38,7 @@ from urllib.parse import unquote, urlparse
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..protobuf import Schema, decode
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
 from .base import (
     Options,
@@ -1052,7 +1052,9 @@ class AntigravityParser(Parser):
 
     # -- conversation_summaries.db ----------------------------------------------
     def _parse_summaries(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield from error_rows(self, artifact, [(0, problem)])
             return
         with open_copy(artifact.disk_path) as connection:
             if "conversation_summaries" not in table_names(connection):
@@ -1090,7 +1092,9 @@ class AntigravityParser(Parser):
 
     # -- conversations/<id>.db -----------------------------------------------------
     def _parse_conversation(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield from error_rows(self, artifact, [(0, problem)], artifact.disk_path.name[:-3])
             return
         with open_copy(artifact.disk_path) as connection:
             tables = table_names(connection)

@@ -9,29 +9,12 @@ aider escaped .aider.llm.history
 antigravity escaped .gemini/antigravity-cli/brain/0d1e2f3a-0000-4000-8000-0000000000b3/.system_generated/logs/chunks/transcript_full/00000000.jsonl
 antigravity escaped .gemini/antigravity-cli/brain/0d1e2f3a-0000-4000-8000-0000000000b3/.system_generated/logs/chunks/transcript_full/00000001.jsonl
 antigravity escaped .gemini/antigravity-cli/brain/799062d5-0000-4000-8000-000000000099/.system_generated/logs/transcript_full.jsonl
-antigravity escaped .gemini/antigravity-cli/history.jsonl
 antigravity escaped .gemini/antigravity/brain/a1b2c3d4-0000-4000-8000-0000000000a2/.system_generated/logs/transcript.jsonl
 antigravity no-reason .gemini/antigravity-cli/settings.json
 antigravity no-reason .gemini/config/config.json
 antigravity no-reason .gemini/config/projects/5e1d7c2a-0000-4000-8000-0000000000a1.json
 antigravity no-reason .gemini/config/projects/default-cli-project.json
 antigravity no-reason .gemini/config/sidecars/weekly-check/sidecar.json
-antigravity silent .gemini/antigravity-cli/conversation_summaries.db
-antigravity silent .gemini/antigravity-cli/conversations/799062d5-0000-4000-8000-000000000099.db
-antigravity silent .gemini/antigravity/conversation_summaries.db
-antigravity silent .gemini/antigravity/conversations/a1b2c3d4-0000-4000-8000-0000000000a2.db
-chatgpt-desktop escaped .codex/sqlite/codex-dev.db-shm
-chatgpt-desktop escaped .codex/sqlite/codex-dev.db-wal
-chatgpt-desktop no-reason .codex/sqlite/codex-dev.db
-claude-code escaped .claude-work/history.jsonl
-claude-code escaped .claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl
-claude-code escaped .claude/history.jsonl
-claude-code escaped .claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl
-claude-code escaped .claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-abc.jsonl
-claude-code escaped .claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/subagents/agent-fork1.jsonl
-claude-code escaped .claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl
-claude-code escaped .claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl
-claude-code escaped .claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl
 claude-code no-reason .claude-work/.claude.json
 claude-code no-reason .claude.json
 claude-code no-reason .claude/sessions/4242.json
@@ -39,18 +22,12 @@ claude-code no-reason .claude/sessions/4343.json
 claude-code no-reason .claude/settings.json
 claude-code silent .claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/tool-results/b1c2d3e4f.txt
 claude-code silent .claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/tool-results/k3j9x2m1q.txt
-claude-desktop escaped Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/f3f3f3f3/audit.jsonl
-claude-desktop escaped Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_c0c0c0c0-1111-4222-8333-444444444444/.claude/projects/session/d1d1d1d1-5555-4666-8777-888888888888.jsonl
-claude-desktop escaped Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_c0c0c0c0-1111-4222-8333-444444444444/audit.jsonl
 claude-desktop no-reason Library/Application Support/Claude/claude-code-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_e2e2e2e2-9999-4aaa-8bbb-cccccccccccc.json
 claude-desktop no-reason Library/Application Support/Claude/claude-code-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_e3e3e3e3-9999-4aaa-8bbb-cccccccccccc.json
 claude-desktop no-reason Library/Application Support/Claude/git-worktrees.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_c0c0c0c0-1111-4222-8333-444444444444.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/remote-session-spaces.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/scheduled-tasks.json
-cline escaped .cline/data/cache/user_input_history.jsonl
-cline no-reason .cline/data/db/session-search.db
-cline no-reason .cline/data/db/sessions.db
 cline no-reason .cline/data/sessions/1791021700000_k3x9q/1791021700000_k3x9q.json
 cline no-reason .cline/data/sessions/1791021700000_k3x9q/1791021700000_k3x9q.messages.json
 cline no-reason .cline/data/state/taskHistory.json
@@ -59,145 +36,53 @@ cline no-reason .config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/
 cline no-reason .config/Code/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json
 cline no-reason .config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/1791021600000/task_metadata.json
 cline no-reason .config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/1791021600000/ui_messages.json
-codex-cli escaped .codex/history.jsonl
-codex-cli escaped .codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl
-codex-cli no-reason .codex/logs_2.sqlite
-codex-cli no-reason .codex/state_5.sqlite
-codex-cli no-reason .codex/thread_history_1.sqlite
 cody no-reason .local/share/Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2
-cody silent .config/Code - Insiders/User/globalStorage/state.vscdb
-cody silent .config/Code - OSS/User/globalStorage/state.vscdb
-cody silent .config/Code/User/globalStorage/state.vscdb
 cody silent .config/Code/User/settings.json
-cody silent .config/PearAI/User/globalStorage/state.vscdb
-cody silent .config/VSCodium/User/globalStorage/state.vscdb
-cody silent .vscode-server/data/User/globalStorage/state.vscdb
-cody silent AppData/Roaming/Code/User/globalStorage/state.vscdb
-cody silent Library/Application Support/Cursor/User/globalStorage/state.vscdb
-continue escaped .continue/dev_data/0.2.0/chatFeedback.jsonl
-continue escaped .continue/dev_data/0.2.0/chatInteraction.jsonl
-continue escaped .continue/dev_data/0.2.0/editInteraction.jsonl
-continue escaped .continue/dev_data/0.2.0/editOutcome.jsonl
-continue escaped .continue/dev_data/0.2.0/toolUsage.jsonl
-copilot-cli escaped .copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/events.jsonl
-copilot-cli escaped .copilot/session-store.db-shm
-copilot-cli escaped .copilot/session-store.db-wal
 copilot-cli no-reason .copilot/command-history-state.json
 copilot-cli no-reason .copilot/permissions-config.json
 copilot-cli no-reason .copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/rewind-file-snapshots/index.json
-copilot-cli no-reason .copilot/session-store.db
 copilot-cli no-reason .copilot/settings.json
 copilot-cli silent .copilot/logs/process-1790845199000-4242.log
 copilot-cli silent .copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/workspace.yaml
 copilot-cli silent .copilot/sidebar-sessions-state/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972.json
-copilot-desktop escaped .copilot/data.db-shm
-copilot-desktop escaped .copilot/data.db-wal
-copilot-desktop no-reason .copilot/data.db
 copilot-desktop no-reason .copilot/repos/proj/.git/refs/copilot/checkpoints/5e55a0a1-0000-4000-8000-000000000001/00000000000000000001/e0000000-0000-4000-8000-000000000004
 copilot-desktop no-reason .copilot/repos/proj/.git/refs/copilot/checkpoints/5e55a0a1-0000-4000-8000-000000000001/00000000000000000002/e0000000-0000-4000-8000-000000000020
-crush escaped .crush/crush.db-shm
-crush escaped .crush/crush.db-wal
-crush no-reason .crush/crush.db
-cursor escaped .cursor/projects/srv-proj/agent-transcripts/c0000001-0000-4000-8000-000000000001/c0000001-0000-4000-8000-000000000001.jsonl
-cursor escaped .cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl
-cursor no-reason .cursor/ai-tracking/ai-code-tracking.db
-cursor no-reason Library/Application Support/Cursor/User/globalStorage/conversation-search.db
-cursor no-reason Library/Application Support/Cursor/User/globalStorage/state.vscdb
-gemini-cli escaped .gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl
-gemini-cli escaped .gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl
 gemini-cli silent .gemini/projects.json
 gemini-cli silent .gemini/tmp/proj/.project_root
-goose escaped .local/share/goose/sessions/20260301_090000.jsonl
-goose escaped .local/share/goose/sessions/sessions.db-shm
-goose escaped .local/share/goose/sessions/sessions.db-wal
 goose escaped .local/state/goose/history.txt
-goose escaped .local/state/goose/logs/llm_request.0.jsonl
-goose no-reason .local/share/goose/sessions/sessions.db
-hermes escaped .hermes/sessions/20261001_120000_a1b2c3d4.jsonl
-hermes escaped .hermes/sessions/20261001_130000_0badf00d.jsonl
-hermes escaped .hermes/state.db-shm
-hermes escaped .hermes/state.db-wal
-hermes no-reason .hermes/state-snapshots/20261001-110000/state.db
-hermes no-reason .hermes/state-snapshots/20261001-120004-pre-update/state.db
-hermes no-reason .hermes/state.db
-kilo-code silent .local/share/kilo/kilo.db
 kiro escaped .aws/amazonq/.cli_bash_history
 kiro escaped .aws/amazonq/exports/denials.json
 kiro escaped .aws/amazonq/exports/issue-chat-cut.json
 kiro escaped .aws/amazonq/exports/issue-chat.json
 kiro no-reason .aws/amazonq/cli-agents/broken.json
 kiro no-reason .aws/amazonq/cli-agents/dev.json
-kiro silent .local/share/amazon-q/data.sqlite3
-letta escaped .letta/lc-local-backend/conversations/Y29udmVyc2F0aW9uOmxvY2FsLWNvbnYtMQ/messages.jsonl
-letta escaped .letta/runs/a1b2c3d4.jsonl
-letta escaped .letta/sessions.jsonl
-letta escaped .letta/transcripts/agent-1a2b/conv-9f/transcript.jsonl
-letta escaped .letta/transcripts/agent-1a2b/local-conv-1/transcript.jsonl
-letta escaped .letta/transcripts/agent-local-77/local-conv-2/transcript.jsonl
 letta no-reason .config/letta/settings.json
 letta no-reason .letta/channels/telegram/routing.json
 letta no-reason .letta/crons.json
 letta no-reason .letta/listener-state/0123456789abcdef01234567/agent-1a2b_conv-9f.json
 letta no-reason .letta/settings.json
 little-coder escaped .little-coder/input_history.txt
-little-coder escaped .pi/agent/sessions/--srv-proj--/2026-10-01T11-00-00-000Z_0b9e2f4c-1111-4000-8000-000000000001.jsonl
 little-coder no-reason .little-coder/checkpoints/c0ffee12/snapshots.json
 little-coder no-reason .little-coder/config.json
 little-coder no-reason .little-coder/sessions/daily/2026-09-20/session_101500_a1b2c3d4.json
 little-coder no-reason .little-coder/sessions/history.json
 little-coder no-reason .little-coder/sessions/mr_sessions/session_latest.json
 little-coder no-reason .pi/agent/little-coder-prompt-history.json
-muse-code escaped .local/share/muse/sessions/2026/10/01/01a0f000-0000-7000-8000-000000000001/session.jsonl
-muse-code escaped .local/share/muse/sessions/2026/10/01/01a0f000-0000-7000-8000-000000000001/subagent/0f3c2b1a-5d6e-4f70-8a9b-0c1d2e3f4a5b/session.jsonl
 muse-code escaped .local/share/muse/tui-history.jsonl
 muse-code no-reason .config/muse/trust.json
 nanobot escaped .nanobot/history/cli_history
-nanobot escaped .nanobot/sessions/0123456789abcdef0123456789abcdef/d2Vic29ja2V0OmNoYXQtMQ.jsonl
-nanobot escaped .nanobot/sessions/0123456789abcdef0123456789abcdef/dGVsZWdyYW06MTIzNDU2Nzg5.jsonl
-nanobot escaped .nanobot/sessions/0123456789abcdef0123456789abcdef/dW5pZmllZDpkZWZhdWx0.jsonl
-nanobot escaped .nanobot/sessions/cli_direct.jsonl
-nanobot escaped .nanobot/sessions/fedcba9876543210fedcba9876543210/jsonl-backup/heartbeat.jsonl
-nanobot escaped .nanobot/sessions/fedcba9876543210fedcba9876543210/ZGlzY29yZDo1NTU.jsonl
-nanobot escaped .nanobot/webui/websocket_chat-1.jsonl
-nanobot escaped .nanobot/webui/websocket_chat-1.segments/000001.jsonl
-nanobot escaped .nanobot/workspace/memory/history.jsonl
-nanobot no-reason .nanobot/sessions/fedcba9876543210fedcba9876543210/sessions.sqlite3
 nanobot silent .nanobot/sessions/0123456789abcdef0123456789abcdef/.workspace
 nanobot silent .nanobot/sessions/fedcba9876543210fedcba9876543210/.workspace
 ollama escaped .ollama/history
-ollama escaped AppData/Local/Ollama/db.sqlite-shm
-ollama escaped AppData/Local/Ollama/db.sqlite-wal
-ollama escaped Library/Application Support/Ollama/db.sqlite-shm
-ollama escaped Library/Application Support/Ollama/db.sqlite-wal
-ollama no-reason AppData/Local/Ollama/db.sqlite
-ollama no-reason Library/Application Support/Ollama/db.sqlite
-open-interpreter escaped .openinterpreter/archived_sessions/2026/09/30/rollout-2026-09-30T08-00-00-0199a1b2-0000-7000-8000-000000000002.jsonl
-open-interpreter escaped .openinterpreter/history.jsonl
-open-interpreter escaped .openinterpreter/sessions/2026/10/01/rollout-2026-10-01T12-00-00-0199a1b2-0000-7000-8000-000000000001.jsonl
-open-interpreter no-reason .openinterpreter/logs_2.sqlite
-open-interpreter no-reason .openinterpreter/state_5.sqlite
-open-interpreter no-reason .openinterpreter/thread_history_1.sqlite
-openclaw escaped .openclaw/agents/main/agent/openclaw-agent.sqlite-shm
-openclaw escaped .openclaw/agents/main/agent/openclaw-agent.sqlite-wal
 openclaw escaped .openclaw/agents/main/sessions/7d0c2a8e-1111-4000-8000-0000000000aa.checkpoint.0b5e1c2d-3f4a-4b5c-8d6e-7f8091a2b3c4.jsonl
 openclaw escaped .openclaw/agents/main/sessions/7d0c2a8e-1111-4000-8000-0000000000aa.jsonl
 openclaw escaped .openclaw/agents/main/sessions/7d0c2a8e-1111-4000-8000-0000000000aa.jsonl.pre-doctor-branch-repair-2026-09-20T08-10-00-000Z.bak
 openclaw escaped .openclaw/agents/main/sessions/7d0c2a8e-1111-4000-8000-0000000000dd.jsonl.deleted.2026-10-02T08-00-00.000Z.zst
-openclaw escaped .openclaw/state/openclaw.sqlite-shm
-openclaw escaped .openclaw/state/openclaw.sqlite-wal
-openclaw no-reason .openclaw/state/openclaw.sqlite
-openclaw silent .openclaw/agents/main/agent/openclaw-agent.sqlite
 opencode no-reason .local/share/opencode/storage/message/ses_00LEGACY/msg_a.json
 opencode no-reason .local/share/opencode/storage/message/ses_00LEGACY/msg_b.json
 opencode no-reason .local/share/opencode/storage/session/proj_a1/ses_00LEGACY.json
-opencode silent .local/share/opencode/opencode-beta.db
-opencode silent .local/share/opencode/opencode-local.db
-opencode silent .local/share/opencode/opencode-next.db
-opencode silent .local/share/opencode/opencode.db
 openhands no-reason .openhands/projects/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/prompt_history.json
 openhands silent .openhands/sessions/legacy-sid-1/events/0.json
-pearai escaped .pearai/dev_data/chat.jsonl
-pearai escaped .pearai/dev_data/tokens_generated.jsonl
 pearai no-reason .config/PearAI/logs/20261003T130000/window1/exthost/output_logging_20261003T130001/1-PearAI.log
 pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks/1791036000000/api_conversation_history.json
 pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks/1791036000000/task_metadata.json
@@ -205,18 +90,11 @@ pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks
 pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks/1791039600000/ui_messages.json
 pearai no-reason .pearai/sessions/9b1c2d3e-0000-4000-8000-000000000001.json
 pearai no-reason .pearai/sessions/9b1c2d3e-0000-4000-8000-000000000002.json
-pearai silent .config/PearAI/User/globalStorage/state.vscdb
 pi escaped .pi/agent/experimental/sessions/exp-session-1/meta.json
 pi escaped .pi/agent/pi-debug.log
-pi escaped .pi/agent/sessions/--srv-proj--/2026-10-01T09-00-00-000Z_0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1b.jsonl
-pi escaped .pi/agent/sessions/--srv-proj--/2026-10-01T09-30-00-000Z_0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a2c.jsonl
-pi escaped .pi/agent/sessions/--srv-proj--/2026-10-01T11-00-00-000Z_0b9e2f4c-1111-4000-8000-000000000001.jsonl
-pi escaped .pi/agent/sessions/--srv-proj--/2026-10-01T13-00-00-000Z_0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0b3d.jsonl
 pi no-reason .pi/agent/crashes.json
 pi no-reason .pi/agent/trust.json
 pi silent .pi/agent/settings.json
-qwen-code escaped .qwen/projects/-srv-proj/chats/archive/0a0b0c0d-4444-4000-8000-000000000022.jsonl
-qwen-code escaped .qwen/projects/-srv-proj/chats/e5f6a7b8-4444-4000-8000-000000000011.jsonl
 qwen-code escaped .qwen/tmp/3f0a9c0000000000000000000000000000000000000000000000000000000000/logs.json
 qwen-code no-reason .qwen/channels/daemon/9c1d000000000000/routes.json
 qwen-code no-reason .qwen/channels/sessions.json
@@ -233,57 +111,13 @@ roo-code no-reason .vscode-mock/global-storage/global-state.json
 roo-code no-reason .vscode-mock/global-storage/tasks/8f1c2b7e-0000-4000-8000-000000000002/api_conversation_history.json
 roo-code no-reason .vscode-mock/global-storage/tasks/8f1c2b7e-0000-4000-8000-000000000002/history_item.json
 roo-code no-reason .vscode-mock/workspace-storage/5f3a2c1d/workspace-state.json
-roo-code silent .config/Code - Insiders/User/globalStorage/state.vscdb
-roo-code silent .config/Code - OSS/User/globalStorage/state.vscdb
-roo-code silent .config/Code - OSS/User/workspaceStorage/r00c0de/state.vscdb
-roo-code silent .config/Code/User/globalStorage/state.vscdb
-roo-code silent .config/Code/User/workspaceStorage/abc123/state.vscdb
-roo-code silent .config/PearAI/User/globalStorage/state.vscdb
-roo-code silent .config/VSCodium/User/globalStorage/state.vscdb
-roo-code silent .vscode-server/data/User/globalStorage/state.vscdb
-roo-code silent AppData/Roaming/Code/User/globalStorage/state.vscdb
-roo-code silent Library/Application Support/Cursor/User/globalStorage/state.vscdb
 shellgpt escaped .config/shell_gpt/.sgptrc
 shellgpt escaped AppData/Local/Temp/chat_cache/deploy-check
 shellgpt escaped AppData/Local/Temp/shell_gpt/cache/0cc175b9c0f1b6a831c399e269772661
 shellgpt escaped AppData/Local/Temp/shell_gpt/cache/900150983cd24fb0d6963f7d28e17f72
 shellgpt escaped AppData/Local/Temp/shell_gpt/cache/d41d8cd98f00b204e9800998ecf8427e
 shellgpt escaped AppData/Local/Temp/shell_gpt/chat_cache/old-functions
-tabby escaped .tabby/ee/db.sqlite-shm
-tabby escaped .tabby/ee/db.sqlite-wal
-tabby escaped .tabby/events/2025-10-01.json
-tabby no-reason .tabby/ee/db.backup-20260915.sqlite
-tabby no-reason .tabby/ee/db.backup-20261005.sqlite
-tabby no-reason .tabby/ee/db.sqlite
-tabby silent .config/Code - Insiders/User/globalStorage/state.vscdb
-tabby silent .config/Code - OSS/User/globalStorage/state.vscdb
-tabby silent .config/Code/User/globalStorage/state.vscdb
-tabby silent .config/PearAI/User/globalStorage/state.vscdb
-tabby silent .config/VSCodium/User/globalStorage/state.vscdb
-tabby silent .vscode-server/data/User/globalStorage/state.vscdb
-tabby silent AppData/Roaming/Code/User/globalStorage/state.vscdb
-tabby silent Library/Application Support/Cursor/User/globalStorage/state.vscdb
-twinny silent .config/Code - Insiders/User/globalStorage/state.vscdb
-twinny silent .config/Code - OSS/User/globalStorage/state.vscdb
-twinny silent .config/Code - OSS/User/workspaceStorage/r00c0de/state.vscdb
-twinny silent .config/Code/User/globalStorage/state.vscdb
-twinny silent .config/Code/User/workspaceStorage/abc123/state.vscdb
-twinny silent .config/PearAI/User/globalStorage/state.vscdb
-twinny silent .config/VSCodium/User/globalStorage/state.vscdb
-twinny silent .vscode-server/data/User/globalStorage/state.vscdb
-twinny silent AppData/Roaming/Code/User/globalStorage/state.vscdb
-twinny silent Library/Application Support/Cursor/User/globalStorage/state.vscdb
 vscode escaped .config/Code/User/globalStorage/github.copilot-chat/cloudSessions.json
 vscode escaped .config/Code/User/workspaceStorage/abc123/chatEditingSessions/9ab0c1d2-0000-4000-8000-00000000c0de/state.json
 vscode escaped .config/Code/User/workspaceStorage/abc123/chatSessions/9ab0c1d2-0000-4000-8000-00000000c0de.jsonl
 vscode escaped .vscode-server/data/User/globalStorage/emptyWindowChatSessions/9ab0c1d2-0000-4000-8000-0000000001d0.json
-vscode silent .config/Code - Insiders/User/globalStorage/state.vscdb
-vscode silent .config/Code - OSS/User/globalStorage/state.vscdb
-vscode silent .config/Code - OSS/User/workspaceStorage/r00c0de/state.vscdb
-vscode silent .config/Code/User/globalStorage/state.vscdb
-vscode silent .config/Code/User/workspaceStorage/abc123/state.vscdb
-vscode silent .config/VSCodium/User/globalStorage/state.vscdb
-vscode silent .vscode-server/data/User/globalStorage/state.vscdb
-vscode silent AppData/Roaming/Code/User/globalStorage/state.vscdb
-zed no-reason .local/share/zed/db/0-stable/db.sqlite
-zed no-reason .local/share/zed/threads/threads.db

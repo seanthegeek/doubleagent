@@ -945,6 +945,9 @@ neither form is one `parser: not a chat history: ...` row. The standing files ea
 `trusted_hooks.json` and `trustedFolders.json` give `parser: unreadable <file>: <reason>`, distinct
 from the `parser: <file> is not a JSON object` of a file that reads but decodes to something else.
 
+A JSONL session file that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+
 #### Fixtures
 
 Fixture (one JSON object per line):

@@ -40,7 +40,7 @@ from pathlib import Path
 
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
 from .base import (
     Options,
@@ -623,7 +623,9 @@ class OpenCodeParser(Parser):
 
     # -- SQLite ---------------------------------------------------------------------
     def _parse_database(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        if not is_sqlite(artifact.disk_path):
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield from error_rows(self, artifact, [(0, problem)])
             return
         rows: list[Row] = []
         try:

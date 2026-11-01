@@ -1464,6 +1464,10 @@ parser: <file> is not a JSON object
 parser: database could not be read: <error>
 ```
 
+A database file that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
+row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
+that is not a SQLite database is `parser: not a SQLite database`.
+
 #### Fixtures
 
 A 2.x session as the projector writes it

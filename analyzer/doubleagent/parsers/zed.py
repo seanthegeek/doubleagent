@@ -43,7 +43,7 @@ import zstandard
 
 from ..inputs import Artifact
 from ..model import GIT_REMOTE_PREFIX, Row, compact
-from ..sqlite_util import is_sqlite, open_copy, table_names
+from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
 from .base import Options, Parser, compact_json, error_rows, file_mtime, setting_value
 from .gemini_cli import parse_jsonc
@@ -249,8 +249,9 @@ class ZedParser(Parser):
         if SETTINGS_PATTERN.match(artifact.rel):
             yield from self._parse_settings(artifact)
             return
-        if not is_sqlite(artifact.disk_path):
-            yield self._file_error(artifact, "not a SQLite database")
+        problem = sqlite_problem(artifact.disk_path)
+        if problem:
+            yield self._file_error(artifact, problem)
             return
         try:
             if THREADS_PATTERN.match(artifact.rel):
