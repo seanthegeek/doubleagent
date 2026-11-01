@@ -49,8 +49,6 @@ check_parser_research|parser-message-undocumented|parser: import ledger has no r
 check_parser_research|parser-message-undocumented|parser: unreadable automation.toml: %s
 check_parser_research|parser-message-undocumented|parser: unreadable global state: %s
 check_parser_research|parser-message-undocumented|parser: unreadable import ledger: %s
-check_parser_research|parser-message-undocumented|parser: unreadable memory summary: %s
-check_parser_research|parser-message-undocumented|parser: unreadable rules file: %s
 check_parser_research|row-text-undocumented|session start:
 check_research_structure|observed-label-missing|Local: the real install on the development host,
 check_research_structure|observed-label-missing|Ubuntu, standalone CLI ([issue 113](https://github.com/seanthegeek/doubleagent/issues/113) and [issue 118](https://github.com/seanthegeek/doubleagent/issues/118)):

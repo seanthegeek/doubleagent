@@ -2408,8 +2408,11 @@ For the CLI parser, a `meta.json`, `prompt_history.json` or `.workspace-trusted`
 or a `meta.0` value that is not hex-encoded JSON, is one `parser:` row for that file, and a blob
 that is neither JSON nor protobuf is appended to the errors list with its `id`.
 
-A transcript JSONL that cannot be read is one whole-file row
-`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
+`mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with
+`source_line` 0 and an empty `timestamp_utc`; a project's `permissions.json` carries the project as
+`project_path`.
 
 #### Fixtures
 

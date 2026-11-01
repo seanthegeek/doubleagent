@@ -50,6 +50,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     line_text,
@@ -961,10 +962,14 @@ class RolloutParser(Parser):
         return row
 
     def _parse_ledger(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                data = json.loads(handle.read().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+            data = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             yield self._system(
                 artifact, "parser: unreadable import ledger: %s" % error_reason(error)
             )
@@ -990,10 +995,14 @@ class RolloutParser(Parser):
             yield row
 
     def _parse_automation(self, artifact: Artifact) -> Iterator[Row]:
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                document = load_toml(handle.read().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+            document = load_toml(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             yield self._system(
                 artifact, "parser: unreadable automation.toml: %s" % error_reason(error)
             )
@@ -1037,13 +1046,17 @@ class RolloutParser(Parser):
         A project's trust level carries the project as `project_path`, and a project's own
         `.codex/config.toml` the project.
         """
+        base = artifact.home.original if artifact.home.project else ""
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, "", base)
+            return
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                document = load_config_toml(handle.read().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+            document = load_config_toml(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             yield self._system(artifact, "parser: unreadable config.toml: %s" % error_reason(error))
             return
-        base = artifact.home.original if artifact.home.project else ""
         for parts, value in config_settings(document):
             project = parts[1] if parts[0] == "projects" else base
             text = "%s=%s" % (".".join(parts), setting_value(value))
@@ -1051,28 +1064,25 @@ class RolloutParser(Parser):
 
     def _parse_rules(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one `permission setting:` row per statement of a `rules/` exec policy file."""
-        try:
-            with open(artifact.disk_path, "rb") as handle:
-                text = handle.read().decode("utf-8", errors="replace")
-        except OSError as error:
-            yield self._system(artifact, "parser: unreadable rules file: %s" % error_reason(error))
-            return
         base = artifact.home.original if artifact.home.project else ""
         errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, "", base)
+            return
+        text = content.decode("utf-8", errors="replace")
         for line, statement in rule_statements(text, errors):
             yield self._setting(artifact, statement, line, base)
         yield from error_rows(self, artifact, errors, "", base)
 
     def _parse_memory_summary(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one `memory summary:` row for a thread's summary file, at its `updated_at`."""
-        try:
-            with open(artifact.disk_path, "rb") as handle:
-                text = handle.read().decode("utf-8", errors="replace")
-        except OSError as error:
-            yield self._system(
-                artifact, "parser: unreadable memory summary: %s" % error_reason(error)
-            )
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
             return
+        text = content.decode("utf-8", errors="replace")
         header, body = memory_summary(text)
         if not header.get("thread_id"):
             yield self._system(artifact, "parser: memory summary has no thread_id header")

@@ -3,9 +3,11 @@
 import json
 import sqlite3
 import sys
+import unittest
 from typing import ClassVar, cast
 
 import zstandard
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
@@ -1160,6 +1162,48 @@ class CodexTests(ParserBase):
             ],
         )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_whole_files_are_one_row(self):
+        """Give each whole-file read that cannot open its file one shared `parser:` row."""
+        self._standing()
+        ledger = ".openinterpreter/external_agent_session_imports.json"
+        cases = [
+            (CodexParser(), CODEX_AUTOMATION_REL),
+            (CodexParser(), ".codex/config.toml"),
+            (CodexParser(), ".codex/rules/default.rules"),
+            (CodexParser(), CODEX_MEMORY_SUMMARY_REL),
+            (OpenInterpreterParser(), ledger),
+        ]
+        for parser, rel in cases:
+            locked = self.home / rel
+            locked.chmod(0)
+            try:
+                rows = self.rows_for(parser, rel)
+                later = self.rows_for(CodexParser(), self.REL)
+            finally:
+                locked.chmod(0o600)
+            self.assertEqual(
+                [
+                    (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                    for row in rows
+                ],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % locked.name,
+                        0,
+                        "",
+                        "",
+                    )
+                ],
+                rel,
+            )
+            self.assertEqual(rows[0].project_path, "", rel)
+            self.assertTrue(any(not row.text.startswith("parser:") for row in later), rel)
+            self.assertTrue(
+                any(not row.text.startswith("parser:") for row in self.rows_for(parser, rel)), rel
+            )
+
 
 class CodexDesktopTests(ParserBase):
     """Test the Codex threads of the ChatGPT desktop app.
@@ -1607,6 +1651,39 @@ class CodexDesktopTests(ParserBase):
             rows = self.rows_for(CodexParser(), CODEX_GLOBAL_STATE_REL)
             self.assertEqual([row.turn_type for row in rows], ["system"])
             self.assertTrue(rows[0].text.startswith(text), rows[0].text)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_global_state_is_one_row(self):
+        locked = self.home / CODEX_GLOBAL_STATE_REL
+        locked.chmod(0)
+        try:
+            rows = self.rows_for(CodexParser(), CODEX_GLOBAL_STATE_REL)
+            later = self.rows_for(CodexParser(), self.DESKTOP)
+        finally:
+            locked.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in rows
+            ],
+            [
+                (
+                    "system",
+                    "parser: %s could not be read (Permission denied)" % locked.name,
+                    0,
+                    "",
+                    "",
+                )
+            ],
+        )
+        self.assertEqual(rows[0].project_path, "")
+        self.assertTrue(any(not row.text.startswith("parser:") for row in later))
+        self.assertTrue(
+            any(
+                not row.text.startswith("parser:")
+                for row in self.rows_for(CodexParser(), CODEX_GLOBAL_STATE_REL)
+            )
+        )
 
 
 class CodexArchiveAndZstdTests(ParserBase):

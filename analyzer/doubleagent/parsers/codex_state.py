@@ -43,7 +43,7 @@ from ..inputs import Artifact, error_reason
 from ..model import GIT_REMOTE_PREFIX, SCRATCH_PREFIX, Row, compact
 from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import epoch_ms, to_utc
-from .base import Options, error_rows, file_mtime, setting_value
+from .base import Options, error_rows, file_bytes, file_mtime, setting_value
 from .codex import guardian_text, guardian_verdict, item_rows
 
 if TYPE_CHECKING:
@@ -974,10 +974,14 @@ def parse_global_state(parser: RolloutParser, artifact: Artifact) -> Iterator[Ro
     The app's prompt history comes first, as `user` rows with no timestamp, then the `system` rows
     at the file's modification time.
     """
+    errors: list = []
+    content = file_bytes(artifact.disk_path, errors)
+    if content is None:
+        yield from error_rows(parser, artifact, errors)
+        return
     try:
-        with open(artifact.disk_path, "rb") as handle:
-            document = json.loads(handle.read().decode("utf-8", errors="replace"))
-    except (OSError, ValueError) as error:
+        document = json.loads(content.decode("utf-8", errors="replace"))
+    except ValueError as error:
         yield _problem(
             parser, artifact, "parser: unreadable global state: %s" % error_reason(error)
         )

@@ -50,6 +50,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     setting_value,
@@ -1159,10 +1160,14 @@ class CursorParser(Parser):
         client id is an identifier, not a secret.
         """
         rel = artifact.rel
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                document = json.loads(handle.read().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+            document = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             yield self._row(
                 artifact, "system", "parser: unreadable %s: %s" % (rel, error_reason(error))
             )
@@ -1187,10 +1192,15 @@ class CursorParser(Parser):
 
     def _settings_file(self, artifact: Artifact) -> Iterator[Row]:
         rel = artifact.rel
+        project = artifact.home.original if artifact.home.project else ""
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, "", project)
+            return
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                document = json.loads(handle.read().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+            document = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             yield self._row(
                 artifact, "system", "parser: unreadable %s: %s" % (rel, error_reason(error))
             )
@@ -1203,7 +1213,6 @@ class CursorParser(Parser):
         else:
             settings = permissions_settings(document)
         mtime = file_mtime(artifact)
-        project = artifact.home.original if artifact.home.project else ""
         for setting in settings:
             row = self._row(
                 artifact,
