@@ -617,7 +617,10 @@ plan, and the parser is written from them.
      parser uses appears as a code span or fenced line in the Parsing part
      of its research document; a literal inherited from another parser's
      module may be named in that parser's document instead
-     (`tools/check_parser_research.py` checks this). A commit that finds
+     (`tools/check_parser_research.py` checks this). A row text includes a
+     fixed string assigned to a name that the same function then passes as
+     a row's text (`[redacted]` for an empty redacted thinking block), not
+     only a `<label>: ` literal. A commit that finds
      the document wrong fixes the document in that commit.
    - **Survival table.** Update the agent's row in the
      [survival table of `research/README.md`](research/README.md#where-transcripts-live-and-what-survives)

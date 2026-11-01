@@ -2074,7 +2074,7 @@ emitting rows, so that an `item_completed` line can be checked against every
 | `response_item` `message` assistant / developer | `assistant` / `system` (`developer: ...`); empty text skipped |
 | `response_item` `function_call`, `custom_tool_call`, `local_shell_call`, `web_search_call`, `tool_search_call` | `tool_use` |
 | `response_item` `function_call_output`, `custom_tool_call_output`, `local_shell_call_output`, `tool_search_output` (tool names) | `tool_result` |
-| `response_item` `agent_message`, `inter_agent_communication` | `system` `agent message <author> -> <recipients>: ...` (`subagent task:` for a subagent's first prompt); an `inter_agent_communication` whose `id` a response item carries is skipped |
+| `response_item` `agent_message`, `inter_agent_communication` | `system` `agent message <author> -> <recipients>: ...` (`subagent task:` for a subagent's first prompt); an `inter_agent_communication` whose `id` a response item carries is skipped, and one with no plain `content` but an `encrypted_content` has the text `[encrypted]` |
 | `response_item` `image_generation_call` | `system` `image generation: <revised_prompt> status=...` |
 | `response_item` `reasoning` | `thinking` with `--include-thinking` when it has text, else skipped |
 | `response_item` `additional_tools`, `compaction`, `context_compaction`, `configuration_update` | skipped (no readable content) |

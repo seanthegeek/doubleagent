@@ -189,6 +189,37 @@ def test_row_text_outside_the_parsing_part_is_undocumented(tmp_path):
     assert details(repository(tmp_path, alpha, text), "row-text-undocumented") == ["session title:"]
 
 
+ASSIGNED_ROW_TEXTS = """\
+    def emit(row, turn, text, tool_name=""):
+        row.text = text
+        return row
+
+    text = "[plain]"
+    yield emit(row, "system", text)
+    if record.get("redacted"):
+        hidden = "[redacted]"
+        yield emit(row, "thinking", hidden)
+    summary = f"compacted {record.get('type')} turns"
+    yield Row(turn_type="system", text=summary)
+    note = "[note]"
+    row.text = note
+    other = "[not a row]"
+    yield emit(row, other, "x")
+    unused = "[unused]"
+"""
+
+
+def test_assigned_constant_reaching_a_row_text_is_a_row_text(tmp_path):
+    root = repository(tmp_path, alpha_with(ASSIGNED_ROW_TEXTS))
+    found = sorted(details(root, "row-text-undocumented"))
+    assert found == ["[note]", "[plain]", "[redacted]", "compacted"], found
+    text = document(schema="`type`; rows `[plain]`, `[redacted]`, `[note]`, `compacted <n> turns`")
+    assert (
+        details(repository(tmp_path, alpha_with(ASSIGNED_ROW_TEXTS), text), "row-text-undocumented")
+        == []
+    )
+
+
 def test_is_row_text_forms():
     accepted = [
         "model: %s",

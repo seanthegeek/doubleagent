@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Check the parsers against the Parsing part of their research documents.
 
-Each `parsers.ALL` class is read with `ast` and compared with its own agent's document. Its
-literals are its effective set's: its module and each base's in `parsers/`, whole, and what those
-import from another parsers module (`from .x import name`, `x.name`, in functions too) with the
-top-level names that uses; never `base.py`. "Documented" means in the code spans and fenced lines
-of the part named, in the parser's own document or, for a module of another parser's effective
-set, in that parser's agent document (rules 1 to 4).
+Each `parsers.ALL` class is read with `ast` and compared with its agent's document. Its literals
+are its effective set's: its module and each base's in `parsers/`, whole, and what those import
+from another parsers module (`from .x import name`, `x.name`, in functions too) with the top-level
+names that uses; never `base.py`. "Documented" means in the code spans and fenced lines of the
+part named, in the parser's own document or, for a module of another parser's effective set, in
+that parser's agent document (rules 1 to 4).
 
-- `row-text-undocumented`: a row text's constant prefix is in no Parsing part span or fenced line.
-- `parser-message-undocumented`: a `parser: ` literal's constant pieces, in order, are in no
-  Parsing part span or fenced line.
+- `row-text-undocumented`: a row text (`is_row_text`, `assigned_row_texts`) whose constant
+  prefix is in no Parsing part span or fenced line.
+- `parser-message-undocumented`: the same for a `parser: ` literal's constant pieces, in order.
 - `pattern-undocumented`: a file pattern of the parser equals no Parsing part span or fenced line,
   both unescaped, and no path or glob span outside Fixtures has its count of segments, each
   matched by the pattern's glob form there (`regex_components`, `*` any text): a segment with a
@@ -106,6 +106,9 @@ FILE_EXTENSIONS = frozenset(
 
 
 FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+# The parameter, keyword and attribute that carry a row's text, and its place among `Row` fields.
+TEXT_NAME = "text"
+ROW_TEXT_POSITION = 11
 COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
 
 
@@ -241,6 +244,103 @@ def string_literals(path: pathlib.Path, nodes: Iterable[ast.AST], skip: set[int]
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                 if id(node) not in skip and id(node) not in inside:
                     found.append(Literal(node.value, path, node.lineno))
+    return found
+
+
+def assigned_row_texts(index: ModuleIndex, effective: EffectiveSet) -> list[Literal]:
+    """Return the strings assigned to a name that the same function passes as a row's text.
+
+    A function's assignment of a string, an f-string or a conditional choosing between them to a
+    plain name, in any branch, counts when that function, outside nested functions, passes the
+    name as `text=`, at a `text` parameter's place of a call of a function the effective set or
+    `base.py` defines (`self.` methods too), at `Row`'s `text` place, or stores it in `.text`.
+    Only that one assignment is followed; an f-string's values read `{}`.
+    """
+    parameters = _text_positions(index, effective)
+    found: list[Literal] = []
+    for path, nodes in effective.nodes.items():
+        for root in nodes:
+            for function in ast.walk(root):
+                if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    found.extend(_function_row_texts(path, function, parameters))
+    return found
+
+
+def _text_positions(index: ModuleIndex, effective: EffectiveSet) -> dict[str, set[int]]:
+    """Return, per function name the effective set or `base.py` defines, its `text` places.
+
+    A method's place counts `self` out, as a call through `self.` passes it implicitly.
+    """
+    places: dict[str, set[int]] = {"Row": {ROW_TEXT_POSITION}}
+    paths = list(effective.nodes)
+    base = index.package / "parsers" / "base.py"
+    trees: list[ast.AST] = [index.tree(base)] if base.is_file() else []
+    trees.extend(node for path in paths for node in effective.nodes[path])
+    for tree in trees:
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            names = [argument.arg for argument in node.args.posonlyargs + node.args.args]
+            if names[:1] in (["self"], ["cls"]):
+                names = names[1:]
+            if TEXT_NAME in names:
+                places.setdefault(node.name, set()).add(names.index(TEXT_NAME))
+    return places
+
+
+def _callee_name(call: ast.Call) -> str:
+    """Return the name a call calls: `f` of `f(...)` and of `self.f(...)`, else ""."""
+    function = call.func
+    if isinstance(function, ast.Name):
+        return function.id
+    owner = function.value if isinstance(function, ast.Attribute) else None
+    if isinstance(owner, ast.Name) and owner.id == "self" and isinstance(function, ast.Attribute):
+        return function.attr
+    return ""
+
+
+def _text_names(scope: ast.AST, parameters: dict[str, set[int]]) -> set[str]:
+    """Return the plain names a function passes or stores as a row's text."""
+    names: set[str] = set()
+    for node in _scope_nodes(scope):
+        values: list[ast.expr] = []
+        if isinstance(node, ast.Call):
+            values.extend(item.value for item in node.keywords if item.arg == TEXT_NAME)
+            places = parameters.get(_callee_name(node), set())
+            values.extend(node.args[place] for place in places if place < len(node.args))
+        elif isinstance(node, ast.Assign):
+            stores_text = any(
+                isinstance(target, ast.Attribute) and target.attr == TEXT_NAME
+                for target in node.targets
+            )
+            values.extend([node.value] if stores_text else [])
+        names.update(value.id for value in values if isinstance(value, ast.Name))
+    return names
+
+
+def _string_choices(path: pathlib.Path, value: ast.expr) -> list[Literal]:
+    """Return the strings an assigned value is: a string, an f-string, or a choice of them."""
+    if isinstance(value, ast.IfExp):
+        return _string_choices(path, value.body) + _string_choices(path, value.orelse)
+    if isinstance(value, (ast.Constant, ast.JoinedStr)):
+        return [item for item in string_literals(path, [value], set()) if item.line]
+    return []
+
+
+def _function_row_texts(
+    path: pathlib.Path, function: ast.AST, parameters: dict[str, set[int]]
+) -> list[Literal]:
+    """Return the strings one function assigns to a name it passes as a row's text."""
+    names = _text_names(function, parameters)
+    found: list[Literal] = []
+    for node in _scope_nodes(function) if names else ():
+        assignment = None
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            assignment = (node.targets[0], node.value)
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            assignment = (node.target, node.value)
+        if assignment and isinstance(assignment[0], ast.Name) and assignment[0].id in names:
+            found.extend(_string_choices(path, assignment[1]))
     return found
 
 
@@ -1244,6 +1344,8 @@ class Context:
     parser: drift_common.ParserClass
     document: Document
     literals: list[Literal]
+    # The strings `assigned_row_texts` finds, row texts whatever their form.
+    assigned_texts: list[Literal]
     keys: list[Literal]
     selectors: list[Selector]
     code_names: frozenset[str]
@@ -1274,11 +1376,15 @@ class Context:
 
 
 def row_text_findings(context: Context) -> Iterator[drift_common.Finding]:
-    """Yield `row-text-undocumented` per row text whose prefix the Parsing part lacks."""
+    """Yield `row-text-undocumented` per row text whose prefix the Parsing part lacks.
+
+    A row text is an `is_row_text` literal or one of `Context.assigned_texts`; a `parser: `
+    message is rule 2's either way.
+    """
     document = context.relative(context.document.path)
-    for literal in context.literals:
-        if not is_row_text(literal.text):
-            continue
+    labelled = [literal for literal in context.literals if is_row_text(literal.text)]
+    assigned = [item for item in context.assigned_texts if not item.text.startswith(PARSER_PREFIX)]
+    for literal in labelled + assigned:
         prefix = constant_prefix(literal.text)
         documents = context.documents_for(literal)
         if prefix and not any(item.parsing.documents_prefix(prefix) for item in documents):
@@ -1515,6 +1621,7 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
             parser,
             read[parser.agent],
             effective[id(parser)].literals(index),
+            assigned_row_texts(index, effective[id(parser)]),
             key_reads(index, effective[id(parser)]),
             selectors(index, parser, parsers),
             names,
