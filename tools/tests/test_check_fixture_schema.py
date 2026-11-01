@@ -292,6 +292,29 @@ def test_key_undocumented(tmp_path):
     assert ("alpha", "key-undocumented", "columnKey") in found
 
 
+EXAMPLE_BUILDERS_INIT = '''
+
+def build_alpha_example(home):
+    """Write a file only the output examples' collection writes."""
+    (home / ".alpha/example.json").write_text('{"exampleOnlyKey": 1}')
+
+
+EXAMPLE_BUILDERS = ((build_alpha_example, ""),)
+'''
+
+
+def test_example_builders_are_checked_after_build_home(tmp_path):
+    found = {}
+    # Two repositories, since the checker caches a fixtures package by its directory.
+    for case, init in (("without", INIT), ("with", INIT + EXAMPLE_BUILDERS_INIT)):
+        root = make_repository(tmp_path / case)
+        write(root / "analyzer/tests/fixtures/__init__.py", init)
+        with contextlib.redirect_stderr(io.StringIO()):
+            found[case] = {(item.agent, item.kind, item.detail) for item in checker.run(root)}
+    assert ("alpha", "key-undocumented", "exampleOnlyKey") not in found["without"]
+    assert ("alpha", "key-undocumented", "exampleOnlyKey") in found["with"]
+
+
 def test_key_documented_by_schema_fence_not_by_sample(tmp_path):
     make_repository(tmp_path)
     module = tmp_path / "analyzer/tests/fixtures/alpha.py"
@@ -1001,4 +1024,4 @@ def test_run_reports_file_and_key_table_counts(tmp_path):
     errors = io.StringIO()
     with contextlib.redirect_stderr(errors):
         list(checker.run(tmp_path))
-    assert "build_home wrote 10 file(s); 1 document(s) hold a key table" in errors.getvalue()
+    assert "the fixture home holds 10 file(s); 1 document(s) hold a key table" in errors.getvalue()

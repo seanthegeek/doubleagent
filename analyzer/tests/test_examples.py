@@ -121,7 +121,7 @@ def test_generated_blocks_have_their_fence_and_jsonl_lines_parse():
     assert "\ninventory: out/inventory.json (" in stdout
 
 
-def test_shown_timeline_is_the_filtered_run():
+def test_shown_timeline_rows_pass_the_filters():
     agents = {
         examples.TIMELINE_FILTERS[index + 1]
         for index, flag in enumerate(examples.TIMELINE_FILTERS)

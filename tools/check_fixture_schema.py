@@ -919,7 +919,7 @@ def sample_findings(
         relative = written.get(text)
         if relative and relative not in reported:
             reported.add(relative)
-            message = "a Fixtures sample equals a record build_home wrote"
+            message = "a Fixtures sample equals a record of the fixture home"
             yield drift_common.Finding(
                 agent, "sample-equals-builder", relative, document.path, line, message
             )
@@ -942,7 +942,7 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
     for built in files:
         if not built.agent:
             location = (FIXTURES / "__init__.py").as_posix()
-            message = "build_home wrote a file no catalog entry claims"
+            message = "the fixture home holds a file no catalog entry claims"
             yield drift_common.Finding("-", "file-unclaimed", built.relative, location, 0, message)
         else:
             by_agent.setdefault(built.agent, []).append(built)
@@ -957,7 +957,7 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
             yield from agent_findings(agent, agent_files, document, modules)
     with_tables = len({item.path for item in parsed.values() if item.key_tables})
     print(
-        "%s: build_home wrote %d file(s); %d document(s) hold a key table"
+        "%s: the fixture home holds %d file(s); %d document(s) hold a key table"
         % (CHECKER, len(files), with_tables),
         file=sys.stderr,
     )
