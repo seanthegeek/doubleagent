@@ -40,12 +40,12 @@ pipeline itself needs from the host, the guests and the operator.
   runs on the host while the VM is still up.
 - **Commands**: `ssh`, `scp`, `perl` (every wait is bounded with its
   `alarm`, as macOS has no `timeout`), `curl` (the tui-test download),
-  `shasum`, `tar`, `unzip`, `awk` and `sed`, and a `python3` for the
+  `shasum`, `awk` and `sed`, and a `python3` for the
   pipeline's own standard-library tools.
-- **A Python with the analyzer's requirements** for the analysis step,
-  any interpreter with `analyzer/requirements.txt` installed, such as a
-  virtual environment of the operator's choosing, given as
-  `ROUND_PYTHON=<path to its python>`.
+- **A Python with the analyzer's requirements** for the analysis step and
+  the archive's safe extraction, any interpreter with
+  `analyzer/requirements.txt` installed, such as a virtual environment of
+  the operator's choosing, given as `ROUND_PYTHON=<path to its python>`.
 - **The lab key** at `~/.ssh/doubleagent_lab`, or wherever
   `ROUND_SSH_KEY` points, made as
   [SSH access in Lab VMs](../../docs/lab-vms.md#ssh-access) describes.
@@ -291,7 +291,7 @@ directories, as `top` lines, so a directory no root covers still shows.
 | `screens/NN-name.txt` | The rendered screen before and after the step; `NN-name.command.txt` for a `command` step's output. |
 | `casts/s<NN>.cast` | The asciicast of each terminal session. |
 | `install.log`, `tools/` | The install script's output, the tui-test download, its self-test and the sample project's commit. |
-| `collection/<label>/` | The collector's archive, manifest, summary, log and `.sha256`, its stdout, the sha256 check and the extracted archive. |
+| `collection/<label>/` | The collector's archive, manifest, summary, log and `.sha256`, its stdout, the sha256 check, and under `extract/` the archive's contents. The archive is built from directories the agent controls, so it is never unpacked with `tar` or `unzip`: `extract.py` opens it through the analyzer's safe reader (`extract_archive` in `analyzer/doubleagent/inputs.py`), which creates no link or device and nothing outside `extract/`. The shape tool and the report's manifest counts read that extraction. |
 | `analysis/<label>/`, `shapes/<label>.txt` | The analyzer's `timeline.jsonl`, `sessions.jsonl` and `inventory.json`, and the shape tool's output with `--enums`. |
 | `report.md` | Per step its status and diff counts, the missed and failed steps, and per collection the rows per status, the error rows, the `skipped_excluded` rows, the unflagged-key rows (collected, not `secret: true`, a file name holding key, token, secret, cred, cookie or auth), the analyzer's rows per numbered session and per row form, the forms an earlier collection lacked, and the `parser:` rows without the line they quote. |
 

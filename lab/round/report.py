@@ -134,8 +134,14 @@ def read_jsonl(path: pathlib.Path) -> list[dict[str, object]]:
 
 
 def manifest_lines(directory: pathlib.Path) -> list[str]:
-    """Return the report lines of one collection's manifest."""
-    manifests = sorted(directory.glob("*.manifest.jsonl"))
+    """Return the report lines of one collection's manifest.
+
+    The archive's own copy, from the safe extraction under `extract/`, comes first; the pulled
+    `<name>.manifest.jsonl` beside the archive stands in when extraction failed.
+    """
+    manifests = [directory / "extract" / "manifest.jsonl"]
+    manifests = [path for path in manifests if path.is_file()]
+    manifests += sorted(directory.glob("*.manifest.jsonl"))
     if not manifests:
         return ["No manifest in `%s`." % directory.name, ""]
     rows = read_jsonl(manifests[0])

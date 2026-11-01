@@ -1,6 +1,7 @@
 """Tests of input detection: loose trees, disk images, collections and archives."""
 
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -8,9 +9,11 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from doubleagent import catalog, cli, inputs, model
+from doubleagent.errors import InputError
 from doubleagent.inputs import open_input
 from fixtures import (
     PROJECT_GIT_CONFIG,
@@ -520,6 +523,77 @@ def test_sidecar_hash_ends_at_ascii_whitespace(tmp_path):
     for space in map(chr, (0x00A0, 0x2028, 0x0085)):
         sidecar.write_text("%s%sc.tar.gz\n" % (digest, space), encoding="utf-8")
         assert inputs._verify_sidecar(archive, sidecar).startswith("WARNING"), repr(space)
+
+
+def _tar_with(path: Path, members: list[tuple[tarfile.TarInfo, bytes]]) -> None:
+    with tarfile.open(path, "w:gz") as archive:
+        for info, data in members:
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data) if data else None)
+
+
+def test_extract_archive_writes_nothing_through_a_link(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = tarfile.TarInfo("./fs/home/user/.config/x")
+    link.type = tarfile.SYMTYPE
+    link.linkname = str(outside)
+    payload = tarfile.TarInfo("./fs/home/user/.config/x/authorized_keys")
+    archive = tmp_path / "c.tar.gz"
+    _tar_with(archive, [(link, b""), (payload, b"ssh-ed25519 planted")])
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    inputs.extract_archive(archive, dest)
+    assert list(outside.iterdir()) == []
+    written = dest / "fs" / "home" / "user" / ".config" / "x"
+    assert not written.is_symlink() and (written / "authorized_keys").is_file()
+
+
+def test_extract_archive_keeps_escaping_members_out(tmp_path):
+    # The data filter refuses `..` and strips an absolute path's leading `/`; the older
+    # fallback drops both. Either way nothing lands outside the destination.
+    cases = [
+        ("../escape.txt", tmp_path / "escape.txt"),
+        ("/abs-escape.txt", Path("/abs-escape.txt")),
+    ]
+    for number, (name, outside) in enumerate(cases):
+        archive = tmp_path / "c.tar.gz"
+        _tar_with(archive, [(tarfile.TarInfo(name), b"x")])
+        dest = tmp_path / ("dest-%d" % number)
+        dest.mkdir()
+        try:
+            inputs.extract_archive(archive, dest)
+        except InputError:
+            pass
+        assert not outside.exists(), name
+        for path in dest.rglob("*"):
+            assert path.resolve().is_relative_to(dest.resolve()), (name, path)
+
+
+def test_extract_archive_drops_escaping_zip_members(tmp_path):
+    archive = tmp_path / "c.zip"
+    with zipfile.ZipFile(archive, "w") as zip_file:
+        for name in ("../escape.txt", "/abs.txt", "C:/drive.txt", "fs/kept.txt"):
+            zip_file.writestr(name, b"x")
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    inputs.extract_archive(archive, dest)
+    assert sorted(path.relative_to(dest).as_posix() for path in dest.rglob("*")) == [
+        "fs",
+        "fs/kept.txt",
+    ]
+    assert not (tmp_path / "escape.txt").exists()
+
+
+def test_extract_archive_refuses_other_files(tmp_path):
+    other = tmp_path / "notes.txt"
+    other.write_text("not an archive", encoding="utf-8")
+    try:
+        inputs.extract_archive(other, tmp_path)
+    except InputError as error:
+        assert "neither a tar nor a zip archive" in str(error)
+    else:
+        raise AssertionError("no InputError")
 
 
 if __name__ == "__main__":

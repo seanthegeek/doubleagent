@@ -190,15 +190,7 @@ def _open_archive(path: Path, work_dir: Path | None) -> Collection:
         sidecar = Path(str(path) + ".sha256")
         if sidecar.is_file():
             collection.notes.append(_verify_sidecar(path, sidecar))
-        if zipfile.is_zipfile(path):
-            _extract_zip(path, dest)
-        elif tarfile.is_tarfile(path):
-            _extract_tar(path, dest)
-        else:
-            raise InputError("%s is neither a tar nor a zip archive" % path)
-    except (tarfile.TarError, zipfile.BadZipFile, EOFError) as error:
-        collection.cleanup()
-        raise InputError("%s: cannot extract: %s" % (path, error)) from None
+        extract_archive(path, dest)
     except BaseException:
         collection.cleanup()
         raise
@@ -207,6 +199,27 @@ def _open_archive(path: Path, work_dir: Path | None) -> Collection:
     if not ((dest / "manifest.jsonl").is_file() and (dest / "fs").is_dir()):
         collection.kind = "loose"
     return collection
+
+
+def extract_archive(path: Path, dest: Path) -> None:
+    """Extract a tar or zip archive into `dest` the way the analyzer opens an archive input.
+
+    No link or device member is created, and a member with an absolute path, a `..` component or a
+    drive letter is refused or dropped, so nothing is written outside `dest`.
+
+    Raises:
+        OSError: The archive cannot be read or a member cannot be written.
+        InputError: The file is neither a tar nor a zip archive, or cannot be extracted.
+    """
+    try:
+        if zipfile.is_zipfile(path):
+            _extract_zip(path, dest)
+        elif tarfile.is_tarfile(path):
+            _extract_tar(path, dest)
+        else:
+            raise InputError("%s is neither a tar nor a zip archive" % path)
+    except (tarfile.TarError, zipfile.BadZipFile, EOFError) as error:
+        raise InputError("%s: cannot extract: %s" % (path, error)) from None
 
 
 def _verify_sidecar(archive: Path, sidecar: Path) -> str:
