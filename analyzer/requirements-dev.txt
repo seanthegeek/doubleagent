@@ -6,4 +6,4 @@ pytest
 
 # Branch coverage for tools/check_branch_coverage.py, pinned because the gate's findings
 # follow its branch analysis; 7.16.2 is the newest release that still installs on Python 3.10.
-coverage==7.16.2
+coverage==7.17.0
