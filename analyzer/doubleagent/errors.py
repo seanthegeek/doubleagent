@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
@@ -13,7 +14,7 @@ class InputError(DoubleAgentError):
     """An input that is neither a file nor a directory, or an archive that cannot be extracted."""
 
 
-def unreadable_message(path, error: OSError) -> str:
+def unreadable_message(path: str | os.PathLike, error: OSError) -> str:
     """Return `<file name> could not be read (<reason>)` for the OSError that stopped a read.
 
     The reason is the system's own text (`Permission denied`), or the

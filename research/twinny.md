@@ -698,8 +698,9 @@ to join.
 
 A `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
-that is not a SQLite database is `parser: state.vscdb is not a SQLite database`; a value that is not
-JSON is one row that never echoes the value.
+that is not a SQLite database is `parser: state.vscdb is not a SQLite database`, a damaged one
+`parser: state.vscdb unreadable: <message>`; a value that is not JSON is one row that never echoes
+the value.
 
 #### Fixtures
 

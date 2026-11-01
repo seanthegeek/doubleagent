@@ -646,8 +646,10 @@ same way. A `global-state.json`, `workspace-state.json`, `cli-settings.json`, `m
 `mcp.json` that is not a JSON object is one `parser: <name> is not a JSON object` row; a
 `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
-is not a SQLite database `parser: state.vscdb is not a SQLite database`, and one whose extension row
-is not JSON one `parser:` row that never echoes the value.
+is not a SQLite database `parser: state.vscdb is not a SQLite database`, a damaged one
+`parser: state.vscdb unreadable: <message>`, each of these a whole-file row with no file time, and
+one whose extension row is not JSON one `parser:` row at the file time that never echoes the
+value.
 
 #### Fixtures
 

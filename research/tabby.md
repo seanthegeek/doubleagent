@@ -671,7 +671,8 @@ A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, o
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
 `<file>` the name of the file that failed; one that is not a SQLite database is
 `parser: not a SQLite database` for `db.sqlite` and its copies and
-`parser: state.vscdb is not a SQLite database` for the editor state.
+`parser: state.vscdb is not a SQLite database` for the editor state, and a damaged editor state is
+`parser: state.vscdb unreadable: <message>`.
 
 #### Fixtures
 
