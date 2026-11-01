@@ -662,6 +662,7 @@ QWEN_HARNESS_REL = ".qwen/managed-local/harness/projects/-srv-proj/chats/%s.json
 QWEN_WORKER_REL = ".qwen/managed-local/worker-home/projects/-srv-proj/chats/%s.jsonl" % (
     QWEN_WORKER_SESSION
 )
+QWEN_WORKER_USAGE_REL = ".qwen/managed-local/worker-home/usage_record.jsonl"
 QWEN_PAST_USE_MTIME = 1791453600  # 8 October 10:00:00 UTC
 # 3 October 08:00:00, 08:05:00 and 08:20:00 UTC in epoch milliseconds.
 QWEN_GROUP_TIMES = (1791014400000, 1791014700000, 1791015600000)
@@ -924,8 +925,9 @@ def qwen_managed_records(session_id):
 def build_qwen_past_use(home: Path) -> None:
     """Write the token usage log, group history, todos, grouping, pull requests and audit.
 
-    Also the project summary, the managed local transcripts, and files the
-    parser must not want: the managed H2 database and a GitHub queue.
+    Also the project summary, the managed local transcripts and the workers'
+    usage record, and files the parser must not want: the managed H2 database
+    and a GitHub queue.
 
     Source: research/qwen-code.md#other-stores; source 835b080
     """
@@ -942,6 +944,13 @@ def build_qwen_past_use(home: Path) -> None:
     (home / QWEN_SUMMARY_REL).write_text("# Project summary\n\n- tests fixed\n", encoding="utf-8")
     _jsonl(home / QWEN_HARNESS_REL, qwen_managed_records(QWEN_HARNESS_SESSION))
     _jsonl(home / QWEN_WORKER_REL, qwen_managed_records(QWEN_WORKER_SESSION))
+    worker_usage = dict(
+        qwen_usage_records()[0],
+        sessionId=QWEN_WORKER_SESSION,
+        startTime=1791104400000,
+        timestamp=1791104460000,
+    )
+    _jsonl(home / QWEN_WORKER_USAGE_REL, [worker_usage])
     database = home / ".qwen/managed-local/database/managed.mv.db"
     database.parent.mkdir(parents=True, exist_ok=True)
     database.write_bytes(b"H:2,block:2,blockSize:1000\n" + b"\0" * 32)

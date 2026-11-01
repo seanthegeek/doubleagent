@@ -882,6 +882,7 @@ from .qwen_code import (
     QWEN_USAGE_REL,
     QWEN_WORKER_REL,
     QWEN_WORKER_SESSION,
+    QWEN_WORKER_USAGE_REL,
     QWEN_WORKTREE,
     TRUST_JSONC,
     build_qwen,

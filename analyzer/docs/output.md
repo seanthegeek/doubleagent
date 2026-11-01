@@ -3171,6 +3171,14 @@ row carries the text the session stores for the turn, rebuilt from the
 record, and a trigger's content or reply longer than the 4,000
 characters nanobot keeps in its record is shown twice.
 
+Qwen Code's channel group history records a message when it arrives and
+a `clear` line when a prompt quotes the chat's waiting messages, so a
+`group message:` row is matched at that `clear` line's time, within 2
+seconds, against the quoted line of the prompt, each run of whitespace
+collapsed to one space; a message no later `clear` of its own chat
+follows was never quoted and is always kept. A message whose text holds
+a `"`, `[` or `]`, which the channel blanks in the quote, is shown twice.
+
 Several sources record no time for an event, and their rows match on
 text and scope alone: Muse Code's `tui-history.jsonl`, Goose's
 `history.txt`, Kiro's `.cli_bash_history` and Roo Code's

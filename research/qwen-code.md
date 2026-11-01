@@ -211,7 +211,10 @@ The harness runs with `QWEN_RUNTIME_DIR` set to `harness/` and the workers with 
 [`103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)),
 so each is a runtime base of its own: `.qwen/managed-local/harness/projects/*/chats/*.jsonl` and
 `.qwen/managed-local/worker-home/projects/*/chats/*.jsonl` are transcripts in the home's form, with
-`tmp/`, `todos/` and `usage/` beside them in the same layout.
+`tmp/`, `todos/` and `usage/` beside them in the same layout. `worker-home/` is also the workers'
+global directory, so it holds their `usage_record.jsonl` too
+([`core/src/services/usageHistoryService.ts:139-141`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/usageHistoryService.ts#L139-L141));
+the harness moves only its runtime base and keeps the home's.
 
 #### Qwen Code Desktop
 
@@ -443,9 +446,13 @@ the purge ([`cli/src/ui/hooks/useDeleteCommand.ts:50-69`](https://github.com/Qwe
 
 Untouched by any delete: `shell_history`, the `/chat save` checkpoints (`checkpoint-<tag>.json`),
 the managed auto-memory documents, the todo file `todos/<sessionId>.json`, the token usage log
-`usage/token-usage-<YYYY-MM>.jsonl`, the debug log `debug/<sessionId>.txt` and the session's
-`.qwen/PROJECT_SUMMARY.md` in the project. The tool checkpoints in `checkpoints/` are gone after
-the next start ([shell_history and checkpoints](#shell_history-and-checkpoints)).
+`usage/token-usage-<YYYY-MM>.jsonl`, the debug log `debug/<sessionId>.txt`, the session's
+`.qwen/PROJECT_SUMMARY.md` in the project, the GitHub channel's audit, whose records carry the
+`sessionId` ([GitHub audit and pull-request sidecars](#github-audit-and-pull-request-sidecars)),
+and the channels' group history, which keeps the messages a deleted session's prompts quoted until
+the next compaction ([Channel state files](#channel-state-files)). The tool checkpoints in
+`checkpoints/` are gone after the next start
+([shell_history and checkpoints](#shell_history-and-checkpoints)).
 `usage_record.jsonl` keeps a deleted session's summary but no text
 ([usage_record.jsonl](#usage_recordjsonl)). A session driven from a messaging platform also lives
 on that platform; the daemon's `routes.json` stays on disk while the foreground service's
@@ -1035,8 +1042,8 @@ this]` and the prompt itself, the sender `senderName` or else `senderId`
 [`7327-7334`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/ChannelBase.ts#L7327-L7334)).
 That prompt is the session's `user` record, so the transcript holds each drained message as a
 quoted line. The quote is sanitised: the sender name loses brackets, control and line characters
-and is cut to 64 characters, and the text has `"`, `[`, `]`, control and line characters replaced
-by spaces ([`channels/base/src/sanitize.ts:75-109`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/sanitize.ts#L75-L109)).
+and is cut to 64 characters, and the text has `"`, `[`, `]`, control and line characters, a line
+break among them, replaced by spaces ([`channels/base/src/sanitize.ts:75-109`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/sanitize.ts#L75-L109)).
 A `clear` record is also written when the chat is cleared, and `forget` drops a message that
 became a slash command. Drained messages stay in the file until the next compaction rewrites it
 with only the waiting ones, each with a new `recordedAt`
@@ -1271,8 +1278,9 @@ Globs (home-relative): `.qwen/projects/*/chats/*.jsonl`,
 `.qwen/projects/*/chats/archive/*.pr.json`, `.qwen/projects/*/session-organization.v1.json`,
 `.qwen/tmp/*/logs.json`, `.qwen/usage/token-usage-*.jsonl` and `.qwen/todos/*.json`, each also
 under `.qwen/managed-local/harness/` and `.qwen/managed-local/worker-home/` in place of `.qwen/`
-([Managed local mode](#managed-local-mode)); `.qwen/trustedFolders.json`, `.qwen/settings.json`
-(also a project's), `.qwen/usage_record.jsonl`, `.qwen/PROJECT_SUMMARY.md` (a project's, or one in
+([Managed local mode](#managed-local-mode)); `.qwen/usage_record.jsonl`, also the workers'
+`.qwen/managed-local/worker-home/usage_record.jsonl`; `.qwen/trustedFolders.json`,
+`.qwen/settings.json` (also a project's), `.qwen/PROJECT_SUMMARY.md` (a project's, or one in
 the home), `.qwen/channels/sessions.json`, `.qwen/channels/daemon/*/routes.json`,
 `.qwen/channels/*-group-history.jsonl` and `.qwen/channels/*/*-github-audit.jsonl`. Not read: the
 sidecars `*.runtime.json`, `*.ledger.jsonl` and `*.worktree.json` (`*.worktree.json` is read only
@@ -1383,28 +1391,40 @@ session it is the only row.
 
 The channels' group history ([Channel state files](#channel-state-files)) is parsed as a secondary
 source, source-derived; not observed on any real install. A `message` record is the `system` row
-`group message: [<sender>] <text>` at the entry's `timestamp`, `<sender>` its `senderName` or else
-its `senderId`, with no session id and no project, as the file records neither; a `clear` record is
-`group history cleared: <key> (from <file>, recordedAt)` at `recordedAt`. On the transcript's side,
-a `user` record whose text holds the channel's quote block is followed, after its own row, by one
-`system` row `group message: [<sender>] <text>` per quoted line, at the record's time, with its
-session and project. The join is one predicate: the same text, the history row matching under any
-scope (it has none), and the transcript row at most two seconds before or any time after the
-history row, up to the next history row of the same text, since the quote is written when the bot
-is next addressed in that chat; the window ends 366 days after the message, as the store keeps a
-message with no age limit. A message whose text or sender name the sanitiser changed (a `"`, `[`,
-`]`, control or line character, a name over 64 characters) is quoted in another form and keeps
-both rows, as the analyzer never blanks characters a member typed to make two texts match. What
-only the history file holds, a message still waiting, a drained one whose session was deleted, the
-`clear` rows, is kept.
+`group message: [<sender>] <text> (cleared <time>)` at the entry's `timestamp`, `<sender>` its
+`senderName` or else its `senderId` and `<time>` the `recordedAt` of the next `clear` record of
+the same `key`, or `group message: [<sender>] <text> (waiting)` when no later `clear` of its key
+follows; the row has no session id and no project, as the file records neither. A `clear` record
+is `group history cleared: <key> (from <file>, recordedAt)` at `recordedAt`. On the transcript's
+side, a `user` record whose text holds the channel's quote block is followed, after its own row,
+by one `system` row `group message: [<sender>] <text>` per quoted line, at the record's time, with
+its session and project.
+
+The join is one predicate, derived per record from the store: the drain that quotes a chat's
+messages appends the `clear` of that chat's key and sends the prompt at once, and a compaction
+drops a drained message together with its `clear`. So a message is matched at its next `clear`'s
+`recordedAt`, against a transcript `group message:` row of the same text within two seconds of it,
+before or after; a `(waiting)` message was never quoted and matches nothing. The text is compared
+without the history row's `(cleared ...)` or `(waiting)` suffix and with each run of ASCII
+whitespace collapsed to one space, since the channel quotes a line break as a space. A `clear` can
+also come from clearing the chat, with no prompt; its messages then find no quote and are kept.
+The chat's key does not reach the transcript, so the history row matches under any scope, and two
+chats whose `clear` records fall within the same two seconds with the same message text cannot be
+told apart; a copy of the same key's file is matched as one event by the same rule, its waiting
+messages excepted, which match nothing and show once per copy. A message whose text or sender name
+the sanitiser changed otherwise (a `"`, `[`, `]` or control character, a name over 64 characters)
+is quoted in another form and keeps both rows, as the analyzer never blanks characters a member
+typed to make two texts match. What only the history file holds, a message still waiting, a
+drained one whose session was deleted, the `clear` rows, is kept.
 
 The token usage log ([Token usage log](#token-usage-log)) is parsed as a primary source: no
 transcript row repeats a token count. Each record is one `system` row `token usage: model <model>
 auth <authType> source <source> tokens input <inputTokens> output <outputTokens> cached
 <cachedTokens> thoughts <thoughtsTokens> total <totalTokens> api <apiDurationMs>ms (from
 token-usage-<YYYY-MM>.jsonl)` at `timestamp`, with the record's `sessionId` and `model` and no
-project, `-` for a part not recorded. It survives every delete, so for a deleted session it gives
-the time of each response.
+project, `-` for a part not recorded; the `model` column stays empty when `model` is `unknown`,
+the placeholder for a response that named none, which the text keeps. It survives every delete,
+so for a deleted session it gives the time of each response.
 
 The todo files ([Todo files](#todo-files)) are parsed as a primary source: one `system` row per
 item, `todo: [<status>] <content> (id <id>, blocked by <id>,<id>, from todos/<file>, file mtime)`,

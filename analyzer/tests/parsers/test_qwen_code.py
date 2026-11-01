@@ -9,6 +9,7 @@ from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import Artifact, open_input
+from doubleagent.parsers import Options
 from doubleagent.parsers.qwen_code import (
     QwenCodeParser,
     args_summary,
@@ -24,6 +25,7 @@ from fixtures import (
     QWEN_GROUP_HISTORY_REL,
     QWEN_GROUP_REL,
     QWEN_GROUP_SESSION,
+    QWEN_GROUP_TIMES,
     QWEN_HARNESS_REL,
     QWEN_HARNESS_SESSION,
     QWEN_ORGANIZATION_REL,
@@ -38,13 +40,19 @@ from fixtures import (
     QWEN_TRUST_MTIME,
     QWEN_WORKER_REL,
     QWEN_WORKER_SESSION,
+    QWEN_WORKER_USAGE_REL,
     bad_line_text,
     qwen_group_history_records,
     qwen_group_session_records,
     write_bad_line,
 )
+from fixtures.common import _jsonl
 
-from .base import ParserBase, kept_rows, parse_with, unreadable_rows
+from .base import ParserBase, kept_rows, parse_with, rel_only, unreadable_rows
+
+BOB_DEPLOY = "group message: [Bob] the deploy is broken"
+# A session of another chat, quoting the same text at another time.
+QWEN_OTHER_CHAT_SESSION = "e5f6a7b8-4444-4000-8000-0000000000aa"
 
 
 class QwenCodeTests(ParserBase):
@@ -252,6 +260,7 @@ class QwenCodeTests(ParserBase):
                 QWEN_SUMMARY_REL,
                 QWEN_HARNESS_REL,
                 QWEN_WORKER_REL,
+                QWEN_WORKER_USAGE_REL,
             },
         )
         # The ledger and runtime sidecars, the GitHub queue beside the audit
@@ -865,9 +874,11 @@ class QwenCodeTests(ParserBase):
             [(row.source_line, row.timestamp_utc, row.session_id, row.model) for row in rows],
             [
                 (1, "2026-10-01T10:00:03.000Z", QWEN_SESSION, "qwen3-coder-plus"),
-                (2, "2026-10-01T10:01:00.000Z", QWEN_SESSION, "unknown"),
+                (2, "2026-10-01T10:01:00.000Z", QWEN_SESSION, ""),
             ],
         )
+        # `unknown`, a response naming no model, stays in the text only.
+        self.assertTrue(rows[1].text.startswith("token usage: model unknown auth unknown"))
         self.assertEqual(
             rows[0].text,
             "token usage: model qwen3-coder-plus auth qwen-oauth source main tokens input 200"
@@ -894,22 +905,19 @@ class QwenCodeTests(ParserBase):
         self.assertEqual(rows[3][4], bad_line_text())
 
     def test_group_history_rows(self):
-        # The history is a secondary source with no session or project.
+        # The history is a secondary source with no session or project; each
+        # message names the `clear` of its key that followed it, if any.
         parser = QwenCodeParser()
         self.assertTrue(parser.secondary(self.artifact(QWEN_GROUP_HISTORY_REL)))
         rows = self.rows_for(parser, QWEN_GROUP_HISTORY_REL)
+        cleared = " (cleared 2026-10-03T08:06:00.000Z)"
         self.assertEqual(
             [(row.source_line, row.timestamp_utc, row.text) for row in rows],
             [
-                (1, "2026-10-03T08:00:00.000Z", "group message: [Bob] the deploy is broken"),
-                (2, "2026-10-03T08:05:00.000Z", "group message: [43] rollback?"),
-                (
-                    3,
-                    "2026-10-03T08:06:00.000Z",
-                    'group history cleared: ["telegram", "-1001234", null]'
-                    " (from telegram-group-history.jsonl, recordedAt)",
-                ),
-                (4, "2026-10-03T08:20:00.000Z", "group message: [Bob] fixed now"),
+                (1, "2026-10-03T08:00:00.000Z", BOB_DEPLOY + cleared),
+                (2, "2026-10-03T08:05:00.000Z", "group message: [43] rollback?" + cleared),
+                (3, "2026-10-03T08:06:00.000Z", self.CLEARED[1]),
+                (4, "2026-10-03T08:20:00.000Z", self.WAITING[1]),
             ],
         )
         self.assertEqual({(row.session_id, row.project_path) for row in rows}, {("", "")})
@@ -929,6 +937,8 @@ class QwenCodeTests(ParserBase):
             'parser: unparseable line (not a group history record): {"key":"k","type":"message"}',
         )
         self.assertEqual(rows[6][4], bad_line_text())
+        # The clear written after the cut still closes the waiting message.
+        self.assertTrue(rows[3][4].endswith("(cleared 2026-10-03T08:06:00.000Z)"), rows[3][4])
 
     def test_quoted_group_messages(self):
         # The transcript's channel prompt gives one row per quoted line,
@@ -963,49 +973,63 @@ class QwenCodeTests(ParserBase):
         )
 
     def group_dedup(self):
-        """Return the texts of the group history rows deduplication keeps.
+        """Return `(file name, text)` of the group history rows deduplication keeps.
 
-        The transcript's rows are primary and the history files' secondary,
+        The transcripts' rows are primary and the history files' secondary,
         as the analyzer passes them.
         """
         parser = QwenCodeParser()
-        primary = (
-            self.rows_for(parser, QWEN_GROUP_REL) if (self.home / QWEN_GROUP_REL).exists() else []
-        )
+        primary = []
+        for path in sorted((self.home / ".qwen/projects/-srv-proj/chats").glob("*.jsonl")):
+            if not path.name.endswith(".ledger.jsonl"):
+                primary += self.rows_for(parser, path.relative_to(self.home).as_posix())
         secondary = []
         for path in sorted((self.home / ".qwen/channels").glob("*-group-history.jsonl")):
             artifact = self.artifact(path.relative_to(self.home).as_posix())
             tolerance = parser.secondary_tolerance(artifact)
-            secondary += [(row, tolerance) for row in parser.parse(artifact, self.options())]
+            secondary += [(row, tolerance) for row in parser.parse(artifact, Options())]
         kept, _ = deduplicate(primary, secondary)
         return [(row.source_file.rsplit("/", 1)[-1], row.text) for row in kept[len(primary) :]]
-
-    def options(self):
-        from doubleagent.parsers import Options
-
-        return Options()
 
     def write_group(self, history=None, session=None, extra=None):
         """Rewrite the group history and its channel session, and reopen the collection.
 
-        `extra` maps a further history file's name to its records.
+        `extra` maps a further file, relative to the home, to its records.
         """
-        from fixtures.common import _jsonl
-
         if history is not None:
             _jsonl(self.home / QWEN_GROUP_HISTORY_REL, history)
         if session is not None:
             _jsonl(self.home / QWEN_GROUP_REL, session)
-        for name, records in (extra or {}).items():
-            _jsonl(self.home / ".qwen/channels" / name, records)
+        for rel, records in (extra or {}).items():
+            _jsonl(self.home / rel, records)
         self.col = open_input(self.tmp / "home", self.cat, host="h1")
+
+    def quote_at(self, timestamp, lines=("- [Bob] the deploy is broken",), session_id=""):
+        """Return a channel session whose one prompt quotes `lines` at `timestamp`."""
+        record = qwen_group_session_records()[1]
+        record["timestamp"] = timestamp
+        if session_id:
+            record["sessionId"] = session_id
+        record["message"]["parts"][0]["text"] = (
+            "[Chat messages since your last reply - for context]\n%s\n\n"
+            "[Current message - respond to this]\n@bot ?" % "\n".join(lines)
+        )
+        return [record]
 
     CLEARED = (
         "telegram-group-history.jsonl",
         'group history cleared: ["telegram", "-1001234", null]'
         " (from telegram-group-history.jsonl, recordedAt)",
     )
-    WAITING = ("telegram-group-history.jsonl", "group message: [Bob] fixed now")
+    WAITING = ("telegram-group-history.jsonl", "group message: [Bob] fixed now (waiting)")
+    DEPLOY = (
+        "telegram-group-history.jsonl",
+        BOB_DEPLOY + " (cleared 2026-10-03T08:06:00.000Z)",
+    )
+    ROLLBACK = (
+        "telegram-group-history.jsonl",
+        "group message: [43] rollback? (cleared 2026-10-03T08:06:00.000Z)",
+    )
 
     def test_group_history_dedup_drops_only_quoted_messages(self):
         # The two messages the prompt quotes are dropped; the waiting one and
@@ -1015,29 +1039,82 @@ class QwenCodeTests(ParserBase):
     def test_group_history_kept_without_its_transcript(self):
         (self.home / QWEN_GROUP_REL).unlink()
         self.write_group()
-        self.assertEqual(len(self.group_dedup()), 4)
-
-    def test_group_history_never_takes_an_earlier_quote(self):
-        # A quote written before the message arrived is another message's.
-        session = qwen_group_session_records()
-        session[1]["timestamp"] = "2026-10-03T07:59:30.000Z"
-        self.write_group(session=session)
-        self.assertEqual(len(self.group_dedup()), 4)
-
-    def test_group_history_later_line_of_same_text_takes_the_quote(self):
-        # Bob repeats the first message before the prompt: the earlier line
-        # may not take a quote written after the repeat, so the repeat takes it.
-        history = qwen_group_history_records()
-        repeat = json.loads(json.dumps(history[0]))
-        repeat["entry"].update(messageId="m-2", timestamp=history[0]["entry"]["timestamp"] + 180000)
-        history.insert(1, repeat)
-        self.write_group(history=history)
-        kept = self.group_dedup()
-        self.assertIn(
-            ("telegram-group-history.jsonl", "group message: [Bob] the deploy is broken"), kept
+        self.assertEqual(
+            self.group_dedup(), [self.DEPLOY, self.ROLLBACK, self.CLEARED, self.WAITING]
         )
-        self.assertEqual(len(kept), 3)
-        self.assertNotIn(("telegram-group-history.jsonl", "group message: [43] rollback?"), kept)
+
+    def test_group_history_matched_at_its_clear(self):
+        # The quote matches within 2 seconds of the key's clear, before or
+        # after it, never at the message's own time.
+        for timestamp, matched in (
+            ("2026-10-03T08:05:59.000Z", True),
+            ("2026-10-03T08:05:57.000Z", False),
+            ("2026-10-03T08:06:01.500Z", True),
+            ("2026-10-03T08:06:03.000Z", False),
+            ("2026-10-03T08:00:00.000Z", False),
+        ):
+            self.write_group(session=self.quote_at(timestamp))
+            kept = self.group_dedup()
+            self.assertEqual(self.DEPLOY not in kept, matched, timestamp)
+            self.assertIn(self.ROLLBACK, kept, timestamp)
+
+    def test_group_history_waiting_message_matches_nothing(self):
+        # No clear follows the waiting message, so no prompt quoted it, even
+        # one with its text written after it.
+        session = self.quote_at("2026-10-03T08:20:00.500Z", ("- [Bob] fixed now",))
+        self.write_group(session=session)
+        self.assertIn(self.WAITING, self.group_dedup())
+
+    def test_group_history_quote_in_another_session(self):
+        # The same text quoted by another chat's session at another time does
+        # not take the message; its own session's quote does.
+        other = self.quote_at("2026-10-03T09:00:00.000Z", session_id=QWEN_OTHER_CHAT_SESSION)
+        self.write_group(
+            session=[],
+            extra={".qwen/projects/-srv-proj/chats/%s.jsonl" % QWEN_OTHER_CHAT_SESSION: other},
+        )
+        self.assertIn(self.DEPLOY, self.group_dedup())
+        self.write_group(session=qwen_group_session_records())
+        self.assertNotIn(self.DEPLOY, self.group_dedup())
+
+    def test_group_history_earlier_and_later_claimants(self):
+        # Bob says the same thing again after the first quote, and a second
+        # prompt quotes the repeat. Each line takes the quote at its own clear.
+        history = qwen_group_history_records()[:3]
+        repeat = json.loads(json.dumps(history[0]))
+        repeat["entry"].update(messageId="m-2", timestamp=QWEN_GROUP_TIMES[2])
+        clear = dict(history[2], recordedAt=QWEN_GROUP_TIMES[2] + 60000)
+        later = (
+            "telegram-group-history.jsonl",
+            BOB_DEPLOY + " (cleared 2026-10-03T08:21:00.000Z)",
+        )
+        quotes = self.quote_at("2026-10-03T08:06:00.500Z") + self.quote_at(
+            "2026-10-03T08:21:00.200Z"
+        )
+        self.write_group(history=[*history, repeat, clear], session=quotes)
+        kept = self.group_dedup()
+        self.assertNotIn(self.DEPLOY, kept)
+        self.assertNotIn(later, kept)
+        # The later claimant missing: its quote is not taken by the earlier line.
+        self.write_group(history=history, session=quotes)
+        self.assertNotIn(self.DEPLOY, self.group_dedup())
+        # The earlier claimant missing: the repeat takes only its own quote.
+        self.write_group(history=[repeat, clear], session=quotes[:1])
+        self.assertIn(later, self.group_dedup())
+
+    def test_group_history_multiline_message(self):
+        # The channel quotes a line break as a space; whitespace runs match as one.
+        history = qwen_group_history_records()
+        history[0]["entry"]["text"] = "the deploy\n\nis   broken"
+        self.write_group(history=history)
+        self.assertNotIn(
+            (
+                "telegram-group-history.jsonl",
+                "group message: [Bob] the deploy\n\nis   broken (cleared 2026-10-03T08:06:00.000Z)",
+            ),
+            self.group_dedup(),
+        )
+        self.assertEqual(len(self.group_dedup()), 2)
 
     def test_group_history_sanitised_quote_keeps_both(self):
         # The channel quotes `"` as a space; the analyzer never blanks what a
@@ -1050,19 +1127,37 @@ class QwenCodeTests(ParserBase):
         self.write_group(history=history, session=session)
         kept = self.group_dedup()
         self.assertIn(
-            ("telegram-group-history.jsonl", 'group message: [Bob] the "deploy" is broken'), kept
+            (
+                "telegram-group-history.jsonl",
+                'group message: [Bob] the "deploy" is broken (cleared 2026-10-03T08:06:00.000Z)',
+            ),
+            kept,
         )
         self.assertEqual(len(kept), 3)
 
-    def test_group_history_copies_across_files(self):
-        # The waiting line at the same time in another file is one event shown
-        # once, the copy read first kept; a minute later it is another event.
+    def test_group_history_same_key_and_another_key(self):
+        # A copy of the file holds the same key's lines: one event each. Another
+        # channel's file is another key, cleared at its own time: other events.
         records = qwen_group_history_records()
-        moved = json.loads(json.dumps(records[3]))
-        moved["entry"]["timestamp"] += 60000
-        self.write_group(extra={"qq-group-history.jsonl": [records[3], moved]})
-        copy = ("qq-group-history.jsonl", "group message: [Bob] fixed now")
-        self.assertEqual(self.group_dedup(), [copy, copy, self.CLEARED])
+        other = json.loads(json.dumps(records[:3]))
+        for record in other:
+            record["key"] = json.dumps(["qq", "-1001234", None])
+        other[2]["recordedAt"] += 3600000
+        self.write_group(
+            extra={
+                ".qwen/channels/telegram-copy-group-history.jsonl": records,
+                ".qwen/channels/qq-group-history.jsonl": other,
+            }
+        )
+        kept = self.group_dedup()
+        self.assertEqual(
+            [name for name, text in kept if text.startswith(BOB_DEPLOY)],
+            ["qq-group-history.jsonl"],
+        )
+        self.assertEqual(
+            [name for name, text in kept if text.startswith("group message: [43]")],
+            ["qq-group-history.jsonl"],
+        )
 
     def test_todo_rows(self):
         rows = self.rows_for(QwenCodeParser(), QWEN_TODO_REL)
@@ -1273,7 +1368,7 @@ class QwenCodeTests(ParserBase):
         )
         self.assertTrue(QwenCodeParser().wants(project))
         self.assertEqual(
-            [row.project_path for row in QwenCodeParser().parse(project, self.options())],
+            [row.project_path for row in QwenCodeParser().parse(project, Options())],
             ["/srv/proj"],
         )
 
@@ -1294,13 +1389,23 @@ class QwenCodeTests(ParserBase):
             self.assertFalse(QwenCodeParser().secondary(self.artifact(rel)))
         # Settings under the worker's home are not the home's settings file.
         worker = ".qwen/managed-local/worker-home/"
-        from .base import rel_only
-
         parser = QwenCodeParser()
         self.assertTrue(parser.wants(rel_only(worker + "tmp/abc/logs.json")))
         self.assertTrue(parser.secondary(rel_only(worker + "tmp/abc/logs.json")))
         self.assertTrue(parser.wants(rel_only(worker + "todos/x.json")))
         self.assertFalse(parser.wants(rel_only(worker + "settings.json")))
+        # The workers' `$QWEN_HOME` keeps its own usage records; the harness,
+        # which moves only its runtime base, has none.
+        self.assertTrue(parser.wants(rel_only(worker + "usage_record.jsonl")))
+        self.assertTrue(parser.secondary(rel_only(worker + "usage_record.jsonl")))
+        harness = ".qwen/managed-local/harness/usage_record.jsonl"
+        self.assertFalse(parser.wants(rel_only(harness)))
+        rows = self.rows_for(parser, QWEN_WORKER_USAGE_REL)
+        self.assertEqual(
+            [(row.session_id, row.project_path) for row in rows],
+            [(QWEN_WORKER_SESSION, "/srv/proj")],
+        )
+        self.assertTrue(rows[0].text.startswith("session usage: project /srv/proj"))
         self.assertFalse(parser.wants(rel_only(worker + "channels/sessions.json")))
         self.assertFalse(
             parser.wants(rel_only(".qwen/managed-local/projects/a/chats/%s.jsonl" % QWEN_SESSION))

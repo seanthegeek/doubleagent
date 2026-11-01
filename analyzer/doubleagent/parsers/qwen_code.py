@@ -13,7 +13,8 @@ runtime-base stores are read under `.qwen/` and under the managed local mode's
   messages give `group message:` rows. Sidecars `<sessionId>.worktree.json`
   (`worktreePath`) and `<sessionId>.pr.json` (`prs[]`); `.ledger.jsonl` and
   `.runtime.json` are not read.
-- `tmp/<hash>/logs.json` and `.qwen/usage_record.jsonl`, secondary sources.
+- `tmp/<hash>/logs.json` and `usage_record.jsonl` (the home's and the workers'),
+  secondary sources.
 - `usage/token-usage-<YYYY-MM>.jsonl`, `todos/<sessionId>.json`,
   `projects/<cwd>/session-organization.v1.json`, `.qwen/PROJECT_SUMMARY.md`.
 - `.qwen/trustedFolders.json`; `.qwen/settings.json` (only `permissions` and
@@ -36,10 +37,10 @@ import stat
 from collections.abc import Iterator
 from urllib.parse import urlsplit
 
-from ..dedup import MATCH_TOLERANCES
+from ..dedup import MATCH_FORMS, MATCH_TIMES, NO_MATCH
 from ..inputs import Artifact
 from ..model import Row, compact
-from ..timeutil import to_utc
+from ..timeutil import epoch_ms, to_utc
 from .base import (
     Options,
     Parser,
@@ -57,6 +58,9 @@ from .gemini_cli import parse_jsonc, trusted_folder_rows
 # Runtime-base stores are matched on the path below their root, with the
 # managed local mode's harness and worker roots read like `.qwen/`.
 RUNTIME_ROOTS = (".qwen/managed-local/harness/", ".qwen/managed-local/worker-home/")
+# The workers' `$QWEN_HOME`, a global directory of its own; the harness
+# moves only its runtime base.
+WORKER_HOME = ".qwen/managed-local/worker-home/"
 # The session list's own file name test, which leaves out the sidecars.
 SESSION_PATTERN = re.compile(
     r"^\.qwen/projects/[^/]+/chats/(?:archive/)?[0-9a-fA-F-]{32,36}\.jsonl$"
@@ -101,10 +105,11 @@ PATTERNS = (
 GROUP_HISTORY_MARKER = "[Chat messages since your last reply - for context]"
 CURRENT_MESSAGE_MARKER = "[Current message - respond to this]"
 QUOTED_LINE = re.compile(r"^- \[([^\]\r\n]*)\] (.*)$")
-# A group message waits in the history file, with no age limit, until the
-# bot is next addressed in that chat and the prompt quotes it, so its quote
-# is matched forward this far, bounded by the next line of the same text.
-GROUP_MESSAGE_WINDOW_SECONDS = 366 * 24 * 3600.0
+# The suffix a group history message row ends in: the `recordedAt` of the
+# next `clear` of its chat's key, the moment a prompt quoted it, or
+# `waiting` when no `clear` follows and no prompt has quoted it.
+HISTORY_SUFFIX = re.compile(r"^(group message: .*) \((?:cleared (\S+)|waiting)\)$", re.DOTALL)
+ASCII_SPACE_RUN = re.compile(r"[ \t\n\r\f\v]+")
 PERMISSION_LISTS = ("allow", "ask", "deny")
 # `ToolCallEvent` as `logToolCall` records it in a `ui_telemetry` record,
 # and the class's own default name, which an older build may have written.
@@ -245,15 +250,43 @@ def quoted_group_messages(text: str) -> list[str]:
     return out
 
 
-def match_tolerance(row: Row) -> float | None:
-    """Return the forward window of a group history row (`dedup.MATCH_TOLERANCES`), else None.
+def worker_rel(rel: str) -> str:
+    """Return `rel` with the managed local workers' `$QWEN_HOME` replaced by `.qwen/`."""
+    return ".qwen/" + rel[len(WORKER_HOME) :] if rel.startswith(WORKER_HOME) else rel
 
-    The prompt quoting a group message is written when the bot is next
-    addressed in that chat, any time after the message arrived.
+
+def _history_suffix(row: Row):
+    """Return the suffix match of a group history file's `group message:` row, else None."""
+    if row.turn_type != "system" or not row.source_file.endswith("-group-history.jsonl"):
+        return None
+    return HISTORY_SUFFIX.match(row.text)
+
+
+def match_form(row: Row) -> tuple[str, str]:
+    """Return the `(turn_type, text)` a row is deduplicated under (`dedup.MATCH_FORMS`).
+
+    A `group message:` row matches without the history row's suffix and with
+    each ASCII whitespace run collapsed to one space, since the channel quotes
+    a line break as a space. Every other row matches as it is.
     """
-    if row.turn_type == "system" and row.text.startswith("group message: "):
-        return GROUP_MESSAGE_WINDOW_SECONDS
-    return None
+    suffix = _history_suffix(row)
+    text = suffix.group(1) if suffix else row.text
+    if text.startswith("group message: "):
+        return row.turn_type, ASCII_SPACE_RUN.sub(" ", text).strip(" ")
+    return row.turn_type, row.text
+
+
+def match_time(row: Row) -> int | None:
+    """Return the time a group history row is matched at (`dedup.MATCH_TIMES`), else None.
+
+    That is the next `clear` of its chat's key, written when a prompt quoted
+    it; a message no `clear` follows was never quoted and matches nothing.
+    """
+    suffix = _history_suffix(row)
+    if not suffix:
+        return None
+    cleared = epoch_ms(suffix.group(2)) if suffix.group(2) else None
+    return cleared if cleared is not None else NO_MATCH
 
 
 class QwenCodeParser(Parser):
@@ -267,15 +300,17 @@ class QwenCodeParser(Parser):
     def wants(self, artifact: Artifact) -> bool:
         """Return True for a chat file (not a ledger or runtime sidecar) or another file it reads."""
         rel = runtime_rel(artifact.rel)
-        return any(pattern.match(rel) for pattern in RUNTIME_PATTERNS) or any(
-            pattern.match(artifact.rel) for pattern in PATTERNS
+        return (
+            any(pattern.match(rel) for pattern in RUNTIME_PATTERNS)
+            or any(pattern.match(artifact.rel) for pattern in PATTERNS)
+            or bool(USAGE_PATTERN.match(worker_rel(artifact.rel)))
         )
 
     def secondary(self, artifact: Artifact) -> bool:
         """Return True for a prompt log, the usage records or a channel's group history."""
         return bool(
             LOGS_PATTERN.match(runtime_rel(artifact.rel))
-            or USAGE_PATTERN.match(artifact.rel)
+            or USAGE_PATTERN.match(worker_rel(artifact.rel))
             or GROUP_HISTORY_PATTERN.match(artifact.rel)
         )
 
@@ -286,7 +321,7 @@ class QwenCodeParser(Parser):
             yield from trusted_folder_rows(self, artifact)
         elif SETTINGS_PATTERN.match(artifact.rel):
             yield from self._parse_settings(artifact)
-        elif USAGE_PATTERN.match(artifact.rel):
+        elif USAGE_PATTERN.match(worker_rel(artifact.rel)):
             yield from self._parse_usage(artifact)
         elif CHANNELS_PATTERN.match(artifact.rel) or DAEMON_ROUTES_PATTERN.match(artifact.rel):
             # Named without the leading `.qwen/`, as the row text names it.
@@ -365,26 +400,44 @@ class QwenCodeParser(Parser):
             )
             row = self._system_row(artifact, line_number, to_utc(record.get("timestamp")), text)
             row.session_id = str(record.get("sessionId") or "")
-            row.model = str(record.get("model") or "")
+            # `unknown` is Qwen Code's placeholder for a response naming no model.
+            model = str(record.get("model") or "")
+            row.model = "" if model == "unknown" else model
             yield row
         yield from error_rows(self, artifact, errors)
 
     def _parse_group_history(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the rows of a channel's `<channel>-group-history.jsonl`, a secondary source.
 
-        A `message` record is `group message: [<sender>] <text>` at the
-        message's time, the form a prompt quoting it gives; a `clear` record,
-        written when a prompt drains the chat's messages or the chat is
-        cleared, is a `group history cleared:` row.
+        A `message` record is `group message: [<sender>] <text> (cleared
+        <time>)` at the message's time, `<time>` the `recordedAt` of the next
+        `clear` of its key, written when a prompt quoted the chat's waiting
+        messages or the chat was cleared, and `(waiting)` when none follows; a
+        `clear` record is a `group history cleared:` row. One backward pass
+        finds each message's next `clear`.
         """
         errors: list = []
         name = artifact.disk_path.name
-        for line_number, record in iter_jsonl(artifact.disk_path, errors):
+        records = list(iter_jsonl(artifact.disk_path, errors))
+        next_clear: dict = {}  # key -> recordedAt of the nearest later clear
+        cleared_at: dict = {}  # line number -> that clear's time, for a message
+        for line_number, record in reversed(records):
+            key = compact_json(record.get("key"))
+            if record.get("type") == "clear":
+                next_clear[key] = to_utc(record.get("recordedAt"))
+            elif key in next_clear:
+                cleared_at[line_number] = next_clear[key]
+        for line_number, record in records:
             record_type = record.get("type")
             entry = record.get("entry")
             if record_type == "message" and isinstance(entry, dict):
                 sender = entry.get("senderName") or entry.get("senderId") or ""
-                text = "group message: [%s] %s" % (sender, entry.get("text") or "")
+                cleared = cleared_at.get(line_number)
+                text = "group message: [%s] %s (%s)" % (
+                    sender,
+                    entry.get("text") or "",
+                    "cleared %s" % cleared if cleared else "waiting",
+                )
                 timestamp = to_utc(entry.get("timestamp"))
             elif record_type == "clear":
                 text = "group history cleared: %s (from %s, recordedAt)" % (
@@ -397,6 +450,8 @@ class QwenCodeParser(Parser):
                 errors.append((line_number, message, compact_json(record)))
                 continue
             yield self._system_row(artifact, line_number, timestamp, text)
+        # The reader's bad lines and the records of no known type, in line order.
+        errors.sort(key=lambda entry: entry[0])
         yield from error_rows(self, artifact, errors)
 
     def _parse_summary(self, artifact: Artifact) -> Iterator[Row]:
@@ -1008,4 +1063,5 @@ class QwenCodeParser(Parser):
             errors.append((index + 1, "unterminated JSON array", ""))
 
 
-MATCH_TOLERANCES[QwenCodeParser.agent] = match_tolerance
+MATCH_FORMS[QwenCodeParser.agent] = match_form
+MATCH_TIMES[QwenCodeParser.agent] = match_time

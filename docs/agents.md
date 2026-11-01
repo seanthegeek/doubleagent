@@ -73,7 +73,7 @@ agent name in each row links to its subsection.
 | [`pearai`](#pearai) | parsed | source; fixture only | [research](../research/pearai.md) |
 | [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md); [issue 395](https://github.com/seanthegeek/doubleagent/issues/395); the session exports, bug report zip and TUI crash log are not parsed |
 | [`pydantic-clai`](#pydantic-clai) | backlog | Source, PyPI wheel | [research](../research/pydantic-clai.md); [issue 66](https://github.com/seanthegeek/doubleagent/issues/66); CLAI 2.0 `sessions.db` conversations and the prompt histories |
-| [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); the managed local mode's H2 database is not parsed |
+| [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); [issue 396](https://github.com/seanthegeek/doubleagent/issues/396); the managed local mode's H2 database is not parsed (issue to be filed) |
 | [`roo-code`](#roo-code) | parsed | source; fixture only | [research](../research/roo-code.md) |
 | [`shared`](#shared) | collected | Derived from the per-agent documents | [research](../research/shared.md); cross-agent instruction and skill directories with no transcripts |
 | [`shellgpt`](#shellgpt) | parsed | source; fixture only | [research](../research/shellgpt.md) |
@@ -1100,10 +1100,11 @@ file; a session's `chats/<session>.pr.json` sidecar and the GitHub channel's
 `channels/<scope>/<channel>-<hash>-github-audit.jsonl`, one `source host:`
 row per pull request and per publication; the channels'
 `<channel>-group-history.jsonl`, a secondary source, one `group message:`
-row per message kept as context, dropped when the prompt that quoted it is
-in a transcript; and the managed local mode's transcripts under
-`.qwen/managed-local/harness/projects/` and
-`.qwen/managed-local/worker-home/projects/`, read as the home's.
+row per message kept as context, dropped when the prompt that quoted it,
+written with the chat's `clear` line, is in a transcript; and the managed
+local mode's transcripts under `.qwen/managed-local/harness/projects/` and
+`.qwen/managed-local/worker-home/projects/` and the workers'
+`.qwen/managed-local/worker-home/usage_record.jsonl`, read as the home's.
 
 Not read: the managed local mode's H2 database
 `.qwen/managed-local/database/managed.mv.db`, which no standard library

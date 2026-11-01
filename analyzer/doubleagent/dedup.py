@@ -18,7 +18,8 @@ different `source_file`, and a `parser:` row is never dropped or taken.
 An agent can register a match form (`MATCH_FORMS`) when its secondary
 source writes an event in another form than its primary store, and a wider
 forward window for some rows (`MATCH_TOLERANCES`), bounded by the next
-secondary row of the same text (`_Bounds`). Every secondary row kept that is
+secondary row of the same text (`_Bounds`), and a time a row is matched at
+in place of its own (`MATCH_TIMES`). Every secondary row kept that is
 not a `system` row is marked `recovered` "yes". The full rule is in
 `analyzer/docs/output.md` under "Secondary sources".
 """
@@ -50,6 +51,14 @@ MATCH_FORMS: dict[str, Callable[[Row], tuple[str, str]]] = {}
 # much earlier than the primary store does (a Claude Code slash command
 # typed before the picker it opens is closed and recorded).
 MATCH_TOLERANCES: dict[str, Callable[[Row], float | None]] = {}
+# The match time per agent: a function of a row that returns the epoch
+# milliseconds the row is matched at in place of its own time, `NO_MATCH`
+# for a row that pairs with no other, or None for its own time. A parser
+# registers one when its secondary source records the moment the primary
+# store copied an event apart from the event's own time (a Qwen Code group
+# message and the `clear` written when a prompt quoted it).
+MATCH_TIMES: dict[str, Callable[[Row], int | None]] = {}
+NO_MATCH = -1
 
 _Dated = list[tuple[int, int]]  # (epoch ms, row index), sorted
 _Upper = Callable[[int], int | None]  # a candidate's row index -> its bound (epoch ms)
@@ -70,6 +79,13 @@ class _Bucket:
 def _has_id(row: Row) -> bool:
     """Return whether a row is a tool call or result with a `tool_use_id`."""
     return row.turn_type in _TOOL_TYPES and bool(row.tool_use_id)
+
+
+def _match_time(row: Row) -> int | None:
+    """Return the epoch milliseconds a row is matched at, `NO_MATCH`, or None when undated."""
+    hook = MATCH_TIMES.get(row.agent)
+    anchor = hook(row) if hook else None
+    return anchor if anchor is not None else epoch_ms(row.timestamp_utc)
 
 
 def _by_text(row: Row) -> tuple[str, ...]:
@@ -121,7 +137,12 @@ def _lookups(row: Row, broaden: bool) -> list[tuple[tuple, bool, bool]]:
 
 
 def _add(buckets: dict[tuple, _Bucket], row: Row, index: int, time_ms: int | None) -> None:
-    """File a candidate row under its text and id keys at every scope, keeping times sorted."""
+    """File a candidate row under its text and id keys at every scope, keeping times sorted.
+
+    A row at `NO_MATCH` is filed nowhere, so no row pairs with it.
+    """
+    if time_ms == NO_MATCH:
+        return
     identities = [_by_text(row), _by_id(row)] if _has_id(row) else [_by_text(row)]
     for identity in identities:
         for scope in (("session", row.session_id), ("project", row.project_path), ("any",)):
@@ -181,9 +202,9 @@ def _pair(
     forward: float | None = None,
 ) -> int | None:
     """Return the unused candidate in `bucket` a secondary row pairs with under the time rule."""
-    if bucket is None:
+    if bucket is None or _match_time(row) == NO_MATCH:
         return None
-    time_ms = epoch_ms(row.timestamp_utc)
+    time_ms = _match_time(row)
     if time_ms is None:
         return _earliest(bucket, used)
     back_ms = int(tolerance * 1000)
@@ -202,7 +223,7 @@ def _processing_order(secondary: list[tuple[Row, float]], by_scope: bool) -> lis
     for index, (row, _) in enumerate(secondary):
         if _is_parser_row(row):
             continue
-        time_ms = epoch_ms(row.timestamp_utc)
+        time_ms = _match_time(row)
         if time_ms is None:
             undated.append(index)
         else:
@@ -293,8 +314,8 @@ class _Bounds:
         self.by_project_free: dict[tuple, list[int]] = {}
         self.by_none: dict[tuple, list[int]] = {}
         for row, _ in secondary:
-            time_ms = epoch_ms(row.timestamp_utc)
-            if time_ms is None or _is_parser_row(row):
+            time_ms = _match_time(row)
+            if time_ms in (None, NO_MATCH) or _is_parser_row(row):
                 continue
             text = _by_text(row)
             if row.session_id:
@@ -326,7 +347,7 @@ class _Bounds:
 
 def _candidate_bound(bounds: _Bounds, primary: list[Row], row: Row) -> _Upper | None:
     """Return the bound function of a widened row by candidate index, or None when undated."""
-    time_ms = epoch_ms(row.timestamp_utc)
+    time_ms = _match_time(row)
     if time_ms is None:
         return None
     text = _by_text(row)
@@ -347,7 +368,7 @@ def _against_primary(
     buckets: dict[tuple, _Bucket] = {}
     for index, row in enumerate(primary):
         if not _is_parser_row(row):
-            _add(buckets, row, index, epoch_ms(row.timestamp_utc))
+            _add(buckets, row, index, _match_time(row))
     used: set[int] = set()
     matched: list[int] = []
     for secondary_index in _processing_order(secondary, by_scope=True):
@@ -372,7 +393,7 @@ def _among_secondary(secondary: list[tuple[Row, float]], matched: set[int]) -> l
     rows = [row for row, _ in secondary]
     buckets: dict[tuple, _Bucket] = {}
     for index in sorted(matched):
-        _add(buckets, rows[index], index, epoch_ms(rows[index].timestamp_utc))
+        _add(buckets, rows[index], index, _match_time(rows[index]))
     used: set[int] = set()
     copies: list[int] = []
     for index in _processing_order(secondary, by_scope=False):
@@ -383,7 +404,7 @@ def _among_secondary(secondary: list[tuple[Row, float]], matched: set[int]) -> l
         if candidate_index is not None:
             used.add(candidate_index)
             copies.append(index)
-        _add(buckets, row, index, epoch_ms(row.timestamp_utc))
+        _add(buckets, row, index, _match_time(row))
     return copies
 
 
