@@ -472,3 +472,171 @@ def build_gemini_cli_empty_settings(home: Path) -> None:
     Source: research/gemini-cli.md#standing-permission-files; source 6814e00
     """
     (home / ".gemini/settings.json").write_text("{}", encoding="utf-8")
+
+
+# The past-use stores beside the session files, in the shapes of google-gemini/gemini-cli at
+# 6814e00: cli/src/utils/activityLogger.ts (NetworkLog, setupFileLogging),
+# core/src/utils/checkpointUtils.ts (ToolCallData), the memory tool's directory,
+# cli/src/ui/utils/clipboardUtils.ts and core/src/utils/errorReporting.ts.
+GEMINI_ACTIVITY_REL = ".gemini/tmp/proj/logs/session-%s.jsonl" % GEMINI_SESSION
+GEMINI_TOOL_CHECKPOINT_REL = (
+    ".gemini/tmp/proj/checkpoints/2026-10-01T09-00-21_500Z-util.ts-replace.json"
+)
+GEMINI_CLIPBOARD_MS = 1790856300000  # 1 October 12:05:00 UTC, in the file name
+GEMINI_CLIPBOARD_REL = ".gemini/tmp/proj/images/clipboard-%d.png" % GEMINI_CLIPBOARD_MS
+GEMINI_ERROR_REPORT_REL = (
+    ".gemini/gemini-client-error-Turn.run-sendMessageStream-2026-10-01T09-00-30-000Z.json"
+)
+GEMINI_MEMORY_MTIME = 1790863200  # 1 October 14:00:00 UTC
+GEMINI_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+CODE_ASSIST_URL = "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse"
+GEMINI_API_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
+)
+
+
+def _activity_line(kind: str, payload: dict, written: int) -> dict:
+    return {"type": kind, "payload": payload, "sessionId": GEMINI_SESSION, "timestamp": written}
+
+
+def gemini_activity_records():
+    """Activity log lines: console, request, chunk, response and error records.
+
+    Two model requests whose bodies (the Code Assist form, then the Gemini API form) share their
+    first `contents` item, a token refresh whose form body is never decoded, and a request with
+    no body.
+
+    Source: research/gemini-cli.md#activity-log; source 6814e00
+    """
+    first, second = 1790845205000, 1790845207200
+    history = gemini_history_contents()
+    headers = {"authorization": "[REDACTED]", "content-type": "application/json"}
+    code_assist = {"model": "gemini-2.5-pro", "request": {"contents": history[:1]}}
+    gemini_api = {"contents": history[:3]}
+    chunk = {"index": 0, "data": "data: {}", "timestamp": first + 400}
+    response = {"status": 200, "headers": {}, "body": "data: {}", "durationMs": 1800}
+    return [
+        _activity_line("console", {"type": "warn", "content": "Slow response"}, first),
+        _activity_line(
+            "network",
+            {
+                "id": "k3x9q",
+                "timestamp": first,
+                "method": "POST",
+                "url": CODE_ASSIST_URL,
+                "headers": headers,
+                "body": json.dumps(code_assist),
+                "pending": True,
+            },
+            first,
+        ),
+        _activity_line("network", {"id": "k3x9q", "pending": True, "chunk": chunk}, first + 400),
+        _activity_line(
+            "network", {"id": "k3x9q", "pending": False, "response": response}, first + 1800
+        ),
+        _activity_line(
+            "network",
+            {
+                "id": "p7w2m",
+                "timestamp": second,
+                "method": "POST",
+                "url": GEMINI_API_URL,
+                "headers": headers,
+                "body": json.dumps(gemini_api),
+                "pending": True,
+            },
+            second,
+        ),
+        _activity_line(
+            "network",
+            {
+                "id": "t4r8z",
+                "timestamp": second + 10,
+                "method": "POST",
+                "url": "https://oauth2.googleapis.com/token?key=redacted",
+                "headers": {},
+                "body": "grant_type=refresh_token&refresh_token=redacted",
+                "pending": True,
+            },
+            second + 10,
+        ),
+        _activity_line(
+            "network", {"id": "t4r8z", "pending": False, "error": "socket hang up"}, second + 90
+        ),
+        _activity_line(
+            "network",
+            {
+                "id": "g1h2j",
+                "timestamp": second + 100,
+                "method": "GET",
+                "url": "https://play.googleapis.com/log",
+                "headers": {},
+                "pending": True,
+            },
+            second + 100,
+        ),
+    ]
+
+
+def gemini_tool_checkpoint():
+    """A tool checkpoint written before a `replace` call awaiting approval.
+
+    Source: research/gemini-cli.md#checkpoint-records; source 6814e00
+    """
+    return {
+        "history": [{"id": 1, "type": "user", "text": "list files in src"}],
+        "clientHistory": [
+            *gemini_history_contents()[:3],
+            {"role": "model", "parts": [{"text": "Editing util.ts."}]},
+        ],
+        "toolCall": {"name": "replace", "args": {"file_path": "/srv/proj/src/util.ts"}},
+        "commitHash": "4f1c2a9e0b7d6c5a4b3e2f1d0c9b8a7f6e5d4c3b",
+        "messageId": GEMINI_SESSION + "########1",
+    }
+
+
+def gemini_error_report():
+    """An error report from `Turn.run`: the curated history plus the failed request's prompt.
+
+    Source: research/gemini-cli.md#error-reports; source 6814e00
+    """
+    return {
+        "error": {"message": "fetch failed", "stack": "TypeError: fetch failed\n    at fetch"},
+        "context": [
+            *gemini_history_contents()[:1],
+            {"role": "user", "parts": [{"text": "why did the request fail?"}]},
+        ],
+    }
+
+
+def build_gemini_cli_past_use(base: Path) -> None:
+    """Write the activity log, a tool checkpoint, memory, a clipboard image and an error report.
+
+    Under the `.gemini` directory `base`, with noise the parser must not want.
+
+    Source: research/gemini-cli.md#other-stores; source 6814e00
+    """
+    slug = base / "tmp/proj"
+    _jsonl(base / GEMINI_ACTIVITY_REL[len(".gemini/") :], gemini_activity_records())
+    checkpoint = base / GEMINI_TOOL_CHECKPOINT_REL[len(".gemini/") :]
+    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint.write_text(json.dumps(gemini_tool_checkpoint(), indent=2), encoding="utf-8")
+    memory = slug / "memory"
+    (memory / "skills/lint").mkdir(parents=True, exist_ok=True)
+    (memory / ".inbox/private").mkdir(parents=True, exist_ok=True)
+    files = {
+        "MEMORY.md": "# Project memory\n\n- Tests run with `npm test`.\n",
+        "skills/lint/SKILL.md": "Run the linter before committing.\n",
+        ".inbox/private/extraction.patch": "--- a/MEMORY.md\n+++ b/MEMORY.md\n+- Use pnpm.\n",
+    }
+    for name, text in files.items():
+        (memory / name).write_text(text, encoding="utf-8")
+        os.utime(memory / name, (GEMINI_MEMORY_MTIME, GEMINI_MEMORY_MTIME))
+    clipboard = base / GEMINI_CLIPBOARD_REL[len(".gemini/") :]
+    clipboard.parent.mkdir(parents=True, exist_ok=True)
+    clipboard.write_bytes(GEMINI_PNG)
+    (base / GEMINI_ERROR_REPORT_REL[len(".gemini/") :]).write_text(
+        json.dumps(gemini_error_report(), indent=2), encoding="utf-8"
+    )
+    # Noise: a file in the images directory that is not a clipboard copy.
+    (slug / "images/notes.txt").write_text("not an image\n", encoding="utf-8")

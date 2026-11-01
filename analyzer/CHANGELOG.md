@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `gemini-cli` parser reads Gemini CLI's sandbox grants, `~/.gemini/policies/sandbox.toml` (Python 3.11 or later): one `system` row `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per `modes` table and `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)` per command the user allowed and saved, at the file's modification time ([#186], [#326]).
 - A Gemini CLI session whose project is a `--worktree` checkout, `<project>/.gemini/worktrees/<name>`, gets a `system` row `scratch directory: <path> (gemini --worktree <name>)` after the file's `session start:` rows, at the first one's time and line, with the worktree as its `project_path` ([#216], [#326]).
 - The bundled catalog copy gains collector 1.22.0's Gemini CLI secret globs, `.gemini/integrity.key` and `*.gemini/.settings.json.*.tmp` ([#326]).
+- The `gemini-cli` parser reads Gemini CLI's other past-use stores on every run: the activity log `tmp/<slug>/logs/session-<id>.jsonl` (`console <type>: <content>`, `network request:`, `network response:` and `network error:` rows naming the method, the URL without its query string and the status, never a header value or a non-model body, and the turns each model request sends that the previous one did not), the tool checkpoints `tmp/<slug>/checkpoints/*.json` (a `tool checkpoint:` row naming the tool, file, shadow commit and prompt id, then the history sent), and an error report `gemini-client-error-<type>-<time>.json` copied into `.gemini` or `.gemini/tmp/<slug>` (an `error report:` row, then the history sent), all three as copies of the session file's turns, each turn the session file also holds dropped from the timeline; and, as stores of their own, each `tmp/<slug>/memory/` file as one `memory file:` row holding its text at its modification time and each clipboard image `tmp/<slug>/images/clipboard-<ms>.<ext>` as one `clipboard image: <name> <size> bytes` row at the time in its name ([#394]).
 
 ### Changed
 
@@ -2194,6 +2195,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#394]: https://github.com/seanthegeek/doubleagent/issues/394
 [#388]: https://github.com/seanthegeek/doubleagent/issues/388
 [#386]: https://github.com/seanthegeek/doubleagent/issues/386
 [#384]: https://github.com/seanthegeek/doubleagent/issues/384
