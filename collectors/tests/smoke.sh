@@ -5,6 +5,8 @@
 # given shell, and check the manifest and archive. Usage:
 #   tests/smoke.sh [SHELL]     (SHELL defaults to sh; used for both the script
 #                               and the find -exec workers via COLLECTOR_SH)
+#   SMOKE_IMAGE_ONLY=1 tests/smoke.sh   builds the main image, prints its work
+#                               directory and exits 0 before the first run
 set -u
 SHELL_UNDER_TEST=${1:-sh}
 HERE=$(cd "$(dirname "$0")" && pwd)

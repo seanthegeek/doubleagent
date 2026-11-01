@@ -158,14 +158,17 @@ describes the finding format and the baseline.
 An `EXCLUDES` or `SECRET_GLOBS` glob matches relative to every collection
 base (each home, discovered project and volume `_data`), and its `*` matches
 across `/`, so it can reach paths its author did not mean.
-`tools/diff_smoke_rows.py` shows what a table change does to the fake image:
-run it from the repository root before committing a change to a table line,
-and attach its output to the change's review.
+`tools/diff_smoke_rows.py` shows what a table change does to the main fake
+image of the sh smoke test, the one its first collection run reads (the
+smaller images and the files later runs add are not in it): run it from the
+repository root before committing a change to a table line, and attach its
+output to the change's review. It runs the collector twice, so pick a fast
+shell where `/bin/sh` is a slow one (bash on macOS):
 
 ```sh
-python3 tools/diff_smoke_rows.py origin/main            # the working tree's collector against main
-python3 tools/diff_smoke_rows.py origin/main HEAD       # two commits
-python3 tools/diff_smoke_rows.py --shell dash origin/main
+python3 tools/diff_smoke_rows.py --shell dash origin/main   # the working tree's collector against main
+python3 tools/diff_smoke_rows.py --shell dash origin/main HEAD   # two commits
+python3 tools/diff_smoke_rows.py origin/main                # under /bin/sh
 ```
 
 It builds the image once from the working tree's `tests/smoke.sh` with
@@ -175,17 +178,21 @@ the image with the smoke test's own command line,
 `COLLECTOR_SH=SHELL SHELL SCRIPT -r ROOT -o OUT -q --max-file-size 1`
 (`SHELL` from `--shell`, default `/bin/sh`), and compares the two
 `manifest.jsonl` files. It removes the image and both outputs when it ends,
-and prints:
+a failed collector run included; only an image build that fails before
+printing its work directory leaves that `cac-smoke.*` directory under
+`TMPDIR`. It prints:
 
 | Part | What it holds |
 | --- | --- |
 | `table lines changed from BASE to HEAD:` | each line added (`+`) or removed (`-`) between the two `--list` outputs, with its table name (`CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`); `(none)` when there is none; a further line when the `DOCKER_VOLUMES` lines both scripts have changed order, since the first matching line wins |
 | `paths whose rows changed: N` | the count of image paths whose rows differ in `status`, `agent` or `secret`, or that only one manifest has |
-| one group per changed table line | the paths the line's glob matches, each as `PATH: BEFORE -> AFTER`, the path as it reads on the imaged host and each side `STATUS agent=AGENT secret=true` (or `secret=false`), or `(no row)` |
+| one group per changed table line | the paths the line's glob matches, each as `PATH: BEFORE -> AFTER`, the path as it reads on the imaged host and each side `STATUS agent=AGENT secret=true` (or `secret=false`), with `agent=-` for an empty agent and the rows of a path with several joined by `; `, or `(no row)` |
 | `unattributed` | the changed paths no changed line matches |
-| the closing note | that the image holds only the smoke test's fixtures, so a glob matching too much shows only where a fixture path exists to catch it |
+| the closing note | that the image holds only the main image's fixtures, so a glob matching too much shows only where a fixture path exists to catch it |
 
-A path goes under every changed line that matches it: a `CATALOG` or
+A path goes under every changed line that matches it relative to one of the
+bases its rows name in either manifest (a file inside a project inside a
+home has a row under each): a `CATALOG` or
 `PROJECT_CATALOG` glob when it matches the leading segments of the path
 relative to its base, one segment at a time; an `EXCLUDES` glob when it
 matches that relative path or one of its parent directories; a

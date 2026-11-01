@@ -3,9 +3,10 @@
 
 The exclusion and secret globs match relative to every collection base and their `*` crosses
 `/`, so their reach is easy to misjudge by reading them. This tool lets the collector itself
-decide: it builds the fake image of `collectors/tests/smoke.sh` once (`SMOKE_IMAGE_ONLY=1`),
-runs the collector of `BASE` and of `HEAD` over it in image mode with the command line the
-smoke test's `run` uses, and compares the two `manifest.jsonl` files.
+decide: it builds the main fake image of `collectors/tests/smoke.sh` once
+(`SMOKE_IMAGE_ONLY=1`), the image its first `run` collects, runs the collector of `BASE` and
+of `HEAD` over it in image mode with the command line the smoke test's `run` uses, and
+compares the two `manifest.jsonl` files. A path is matched against every base its rows name.
 
 It prints the table lines added and removed between the two scripts' `--list`, then every
 image path whose rows changed in `status`, `agent` or `secret`, or that only one manifest has,
@@ -14,7 +15,7 @@ A `CATALOG` or `PROJECT_CATALOG` glob matches the leading segments of the path r
 base, segment by segment; an `EXCLUDES` glob matches that relative path or one of its parent
 directories, a `SECRET_GLOBS` glob the relative path itself, both with `*` crossing `/`; a
 `DOCKER_VOLUMES` glob matches the name of the volume holding the base. The image holds only
-what the smoke fixtures write, so an overmatch shows only where a fixture path exists.
+the main image's fixtures, so an overmatch shows only where a fixture path exists.
 
 The image is built from the working tree's smoke test. `HEAD` defaults to the working tree's
 collector; a commit is read with `git show`. The run needs no tool beyond git and the shell.
@@ -51,7 +52,7 @@ TABLE_LABELS = {
     "docker": "DOCKER_VOLUMES",
 }
 NOTE = (
-    "note: the image holds only the smoke test fixtures, so a glob that matches more than it"
+    "note: the image holds only the main image's fixtures of the smoke test, so a glob that matches more than it"
     " should shows here only where a fixture path exists to catch it."
 )
 
@@ -96,10 +97,14 @@ class Row:
 
 @dataclass(frozen=True)
 class RowChange:
-    """One path whose rows differ between the manifests; an empty tuple means no row."""
+    """One path whose rows differ between the manifests, with every base its rows name.
+
+    A path can have rows under two bases, such as a home and a project inside it; an empty
+    `before` or `after` means that manifest has no row.
+    """
 
     path: str
-    home: str
+    homes: tuple[str, ...]
     before: tuple[tuple[str, str, bool], ...]
     after: tuple[tuple[str, str, bool], ...]
 
@@ -174,8 +179,9 @@ def diff_rows(before: Iterable[Row], after: Iterable[Row]) -> list[RowChange]:
         old_facts = tuple(sorted(row.facts() for row in old_rows.get(path, [])))
         new_facts = tuple(sorted(row.facts() for row in new_rows.get(path, [])))
         if old_facts != new_facts:
-            home = (new_rows.get(path) or old_rows[path])[0].home
-            changes.append(RowChange(path, home, old_facts, new_facts))
+            rows_of_path = old_rows.get(path, []) + new_rows.get(path, [])
+            homes = tuple(sorted({row.home for row in rows_of_path}))
+            changes.append(RowChange(path, homes, old_facts, new_facts))
     return changes
 
 
@@ -219,7 +225,9 @@ def line_matches(change: TableChange, path: str, home: str) -> bool:
 def attribute(
     table_changes: list[TableChange], row_changes: list[RowChange]
 ) -> list[tuple[TableChange | None, list[RowChange]]]:
-    """Group each changed path under every changed line matching it, `None` when none does.
+    """Group each changed path under every changed line matching it under one of its bases.
+
+    A path no changed line matches goes under `None`.
 
     The groups follow the order of `table_changes`, the unattributed group last; a group with
     no path is left out.
@@ -230,7 +238,7 @@ def attribute(
         matched = [
             change
             for change in table_changes
-            if line_matches(change, row_change.path, row_change.home)
+            if any(line_matches(change, row_change.path, home) for home in row_change.homes)
         ]
         for change in matched or [None]:
             groups[change].append(row_change)
@@ -334,13 +342,19 @@ def collect(shell: str, script: str, image_root: str, output: pathlib.Path) -> l
 
 
 def build_image(shell: str) -> pathlib.Path:
-    """Build the smoke image and return its work directory, the last line the test prints."""
+    """Build the smoke image and return its work directory, the last line the test prints.
+
+    A printed `cac-smoke.*` directory without the image's `root/` is removed before the error,
+    so a build without its image leaves nothing behind; any other printed path is never removed.
+    """
     environment, arguments = image_command(shell)
     printed = [line for line in run_process(arguments, environment).split("\n") if line.strip()]
     work = pathlib.Path(printed[-1]) if printed else None
-    if work is None or not (work / "root").is_dir() or not work.name.startswith("cac-smoke."):
-        raise DiffError(f"the smoke test printed no image work directory: {printed[-1:]}")
-    return work
+    if work is not None and work.name.startswith("cac-smoke.") and work.is_dir():
+        if (work / "root").is_dir():
+            return work
+        shutil.rmtree(work)
+    raise DiffError(f"the smoke test printed no image work directory: {printed[-1:]}")
 
 
 def compare(base: str, head: str | None, shell: str) -> tuple[str, int]:

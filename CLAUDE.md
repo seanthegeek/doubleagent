@@ -13,6 +13,9 @@ Notes for Claude Code on this workstation:
   the pre-commit hook does not.
 - Pass `-q` to the collector from a tool call; without it, every collected
   path is logged to stderr.
+- Run `tools/diff_smoke_rows.py` with `--shell dash`: it runs the collector
+  twice, and its default `/bin/sh` is the slow bash 3.2 here. Never run it
+  beside a VM or another smoke test.
 - A live collection here gathers the author's own agent credentials: write
   it under the scratchpad and delete it afterwards.
 - This Mac's `python3` is 3.14 without `zstandard` or `python-dateutil`, so

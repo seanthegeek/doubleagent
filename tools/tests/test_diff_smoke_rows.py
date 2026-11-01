@@ -52,7 +52,7 @@ def manifest_line(path: str, status: str, agent: str, secret: bool, home: str = 
 
 def change(path: str, home: str = HOME) -> RowChange:
     """Return a row change of `path`, collected before and absent after."""
-    return RowChange(path, home, (("collected", "x", False),), ())
+    return RowChange(path, (home,), (("collected", "x", False),), ())
 
 
 def test_parse_tables_keeps_each_table_in_order_without_comments():
@@ -195,7 +195,7 @@ def test_render_report_prints_the_diff_the_groups_and_the_note():
     exclusion = TableChange("+", "exclude", ".openclaw/*/tmp")
     moved = RowChange(
         f"{HOME}/.openclaw/a/tmp",
-        HOME,
+        (HOME,),
         (("collected", "openclaw", False),),
         (("skipped_excluded", "openclaw", False),),
     )
@@ -251,3 +251,71 @@ def test_image_command_sets_the_switch_and_passes_the_shell():
     environment, arguments = diff_smoke_rows.image_command("dash")
     assert environment == {"SMOKE_IMAGE_ONLY": "1"}
     assert arguments == ["dash", str(diff_smoke_rows.SMOKE_TEST), "dash"]
+
+
+def test_a_path_under_two_bases_is_matched_relative_to_the_second_base():
+    project = "/w/root/home/alice/proj"
+    path = f"{project}/tmp/x"
+    under_home = Row(path, HOME, "collected", "project", False)
+    under_project = Row(path, project, "collected", "project", False)
+    excluded = Row(path, project, "skipped_excluded", "project", False)
+    changes = diff_smoke_rows.diff_rows([under_home, under_project], [under_home, excluded])
+    assert [item.homes for item in changes] == [(HOME, project)]
+    exclusion = TableChange("+", "exclude", "tmp")
+    assert not diff_smoke_rows.line_matches(exclusion, path, HOME)
+    assert diff_smoke_rows.attribute([exclusion], changes) == [(exclusion, changes)]
+
+
+def fake_image(tmp_path, monkeypatch, after_rows):
+    """Stub the image build, the collector writes and runs; return the fake work directory.
+
+    The base collector's manifest has one row; the head's is `after_rows`.
+    """
+    work = tmp_path / "cac-smoke.test"
+    (work / "root").mkdir(parents=True)
+    before_rows = [Row("/w/root/a", HOME, "collected", "a", False)]
+    outputs = iter([before_rows, after_rows])
+    monkeypatch.setattr(diff_smoke_rows, "build_image", lambda shell: work)
+    monkeypatch.setattr(diff_smoke_rows, "write_collector", lambda revision, directory, name: name)
+    monkeypatch.setattr(diff_smoke_rows, "run_process", lambda arguments, extra: LISTING_BEFORE)
+    monkeypatch.setattr(diff_smoke_rows, "collect", lambda *arguments: next(outputs))
+    return work
+
+
+def test_main_exits_0_without_a_change_and_removes_the_image(tmp_path, monkeypatch):
+    work = fake_image(tmp_path, monkeypatch, [Row("/w/root/a", HOME, "collected", "a", False)])
+    assert diff_smoke_rows.main(["--fail", "main"]) == 0
+    assert not work.exists()
+
+
+def test_main_exits_1_with_fail_only_when_a_row_changed(tmp_path, monkeypatch):
+    changed = [Row("/w/root/a", HOME, "skipped_excluded", "a", False)]
+    work = fake_image(tmp_path, monkeypatch, changed)
+    assert diff_smoke_rows.main(["--fail", "main"]) == 1
+    assert not work.exists()
+    work = fake_image(tmp_path, monkeypatch, changed)
+    assert diff_smoke_rows.main(["main"]) == 0
+
+
+def test_main_exits_2_and_removes_the_image_when_a_collector_run_fails(tmp_path, monkeypatch):
+    work = fake_image(tmp_path, monkeypatch, [])
+
+    def failing_collect(*arguments):
+        raise DiffError("collector exited 2")
+
+    monkeypatch.setattr(diff_smoke_rows, "collect", failing_collect)
+    assert diff_smoke_rows.main(["main"]) == 2
+    assert not work.exists()
+
+
+def test_build_image_removes_a_printed_work_directory_without_its_image(tmp_path, monkeypatch):
+    work = tmp_path / "cac-smoke.empty"
+    work.mkdir()
+    monkeypatch.setattr(diff_smoke_rows, "run_process", lambda arguments, extra: f"{work}\n")
+    try:
+        diff_smoke_rows.build_image("dash")
+    except DiffError:
+        pass
+    else:
+        raise AssertionError("a work directory without root/ was accepted")
+    assert not work.exists()
