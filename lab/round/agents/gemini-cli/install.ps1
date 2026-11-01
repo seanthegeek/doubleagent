@@ -12,6 +12,10 @@ $sourceFetched = '2026-11-01'
 npm install -g @google/gemini-cli
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $prefix = (npm prefix -g).Trim()
+if (-not (Test-Path -LiteralPath "$prefix\gemini.cmd")) {
+    Write-Error "install.ps1: no $prefix\gemini.cmd after npm install"
+    exit 1
+}
 "bin: $prefix\gemini.cmd"
 # The version comes from npm's record, not `gemini --version`, which
 # already creates .gemini and belongs to the first-launch step.

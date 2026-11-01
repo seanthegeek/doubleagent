@@ -196,6 +196,47 @@ start_agent() {
     drive start "${TERMINAL_COLS:-120}" "${TERMINAL_ROWS:-40}" "$_sa_directory"
 }
 
+# Read every option of the open dialog: press Down, at most $1 times, saving
+# each settled screen, until the screen is the first one again (the cursor
+# wrapped) or the same as before (it stopped), then press Up back to the
+# first option. Sets STEP_NOTE to what was read.
+read_options() {
+  _rop_first=$(capture_screen)
+  _rop_previous=$_rop_first
+  _rop_moves=0
+  _rop_end=limit
+  while [ "$_rop_moves" -lt "$1" ]; do
+    drive keys Down </dev/null >/dev/null || return 1
+    wait_for quiet quiet >/dev/null
+    _rop_moves=$((_rop_moves + 1))
+    _rop_screen=$(capture_screen)
+    printf '%s\n' "$_rop_screen" >"$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_rop_moves.txt"
+    if [ "$_rop_screen" = "$_rop_first" ]; then
+      _rop_end=wrapped
+      break
+    fi
+    if [ "$_rop_screen" = "$_rop_previous" ]; then
+      _rop_end=stopped
+      break
+    fi
+    _rop_previous=$_rop_screen
+  done
+  # Back to the first option: none after a wrap, one Up per move that
+  # changed the screen otherwise.
+  _rop_back=$_rop_moves
+  case $_rop_end in
+    wrapped) _rop_back=0 ;;
+    stopped) _rop_back=$((_rop_moves - 1)) ;;
+  esac
+  _rop_keys=
+  while [ "$_rop_back" -gt 0 ]; do
+    _rop_keys=${_rop_keys:+$_rop_keys,}Up
+    _rop_back=$((_rop_back - 1))
+  done
+  if [ -n "$_rop_keys" ]; then drive keys "$_rop_keys" </dev/null >/dev/null || return 1; fi
+  STEP_NOTE="$_rop_moves presses of Down, the cursor $_rop_end"
+}
+
 # Run the kind-specific part of the loaded step; return 1 when a command
 # failed and 2 when the step's expectation was not met in time.
 run_kind() {
@@ -213,6 +254,7 @@ run_kind() {
       drive keys "$STEP_TEXT" </dev/null >/dev/null || return 1
       wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
       ;;
+    options) read_options "$STEP_TEXT" || return 1 ;;
     paste)
       _rk_file=${STEP_TEXT%% *}
       _rk_rest=${STEP_TEXT#"$_rk_file"}
@@ -266,9 +308,10 @@ run_step() {
   round_log "step $_rs_label ($STEP_KIND)"
   _rs_status=done
   _rs_note=
+  STEP_NOTE=
   run_kind
   case $? in
-    0) ;;
+    0) _rs_note=$STEP_NOTE ;;
     2)
       _rs_status=missed
       _rs_note="expectation not met within ${TURN_SECONDS:-300}s"
@@ -522,10 +565,13 @@ resume_cell() {
 # step has run, none waits for the person, and a collection was taken after
 # the last step began.
 finish_blocker() {
+  _fb_next=$(state_get next)
   if [ -n "$(state_get paused)" ]; then
     printf 'step %s waits for the person\n' "$(state_get paused_label)"
-  elif [ "$(state_get next)" != done ]; then
-    printf 'steps from %s on have not run\n' "$(state_get next)"
+  elif [ -z "$_fb_next" ]; then
+    printf 'no step has run: start ended before the steps\n'
+  elif [ "$_fb_next" != done ]; then
+    printf 'steps from %s on have not run\n' "$_fb_next"
   elif [ -z "$(state_get collected_at)" ]; then
     printf 'no collection was pulled\n'
   elif expr "$(state_get collected_at)" \< "$(state_get last_step_started)" >/dev/null; then
@@ -533,17 +579,25 @@ finish_blocker() {
   fi
 }
 
+# Refuse to go on past a blocker unless --force was given; a forced blocker
+# is logged and recorded as `forced` in the state, which report.md shows.
+force_past() {
+  [ "$FORCE" = --force ] ||
+    die "not finishing: $1; run collect or start the VM first, or finish --force to discard"
+  round_log "finish --force although $1"
+  _fp_earlier=$(state_get forced)
+  state_set forced "${_fp_earlier:+$_fp_earlier; }$1"
+}
+
 finish_cell() {
   [ -f "$CELL/state" ] || die "cell $CELL is not started"
   _fc_blocker=$(finish_blocker)
-  if [ -n "$_fc_blocker" ]; then
-    [ "$FORCE" = --force ] ||
-      die "not finishing: $_fc_blocker; run collect first, or finish --force to discard"
-    round_log "finish --force although $_fc_blocker"
-  fi
+  [ -z "$_fc_blocker" ] || force_past "$_fc_blocker"
   if [ "$(vm_status)" = running ] && vm_wait_ssh 6; then
     end_session
     take_listing "$(next_listing_number)-finish"
+  else
+    force_past "the last listing cannot be taken: $VM_NAME is not running or ssh does not answer"
   fi
   vm_stop
   vm_revert_clean

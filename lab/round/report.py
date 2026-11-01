@@ -252,7 +252,8 @@ def build_report(cell: pathlib.Path) -> str:
     lines = ["# Round cell %s on %s" % (state.get("agent", "?"), state.get("vm", "?")), ""]
     for key in ("version", "install_source", "tui_test", "tui_test_sha256", "started", "finished"):
         lines.append("- %s: %s" % (key.replace("_", " "), state.get(key) or "-"))
-    lines += ["- waiting for the person at: %s" % (state.get("paused_label") or "nothing"), ""]
+    lines.append("- waiting for the person at: %s" % (state.get("paused_label") or "nothing"))
+    lines += ["- finished with --force although: %s" % (state.get("forced") or "not forced"), ""]
     lines += steps_section(cell, steps)
     lines += collections_section(cell)
     return "\n".join(lines).rstrip("\n") + "\n"

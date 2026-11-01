@@ -40,7 +40,7 @@ says of pulled collections.
 | `start` | Refuses when another VM is running or the cell has started. Copies the agent's `steps.tsv` and `roots` into the cell, downloads the pinned tui-test release and checks its sha256, reverts the VM to its clean snapshot, starts it and waits for `ssh`, copies the survey and drive scripts and this checkout's collector into `~/lab` in the VM, makes the sample project `~/lab/proj`, takes listing `00-baseline`, runs the agent's install script, takes `01-install`, then runs the steps. |
 | `resume` | Refuses when another VM is running. Finishes the paused person step (its screen and listing), then runs the remaining steps. |
 | `collect` | Runs the collector in the VM as the lab user, pulls its archive, manifest, summary, log and hash file into the cell, deletes them in the VM, then runs the analyzer and the shape tool on the Mac and rewrites the report. The shape tool runs on the Mac over the pulled archive, never in the VM: the macOS VM has no `python3` outside the command-line tools, and installing them would change what the round records. |
-| `finish [--force]` | Refuses while a person step waits, while steps have not run, or when no collection was taken after the last step began, since the revert discards the VM; run `collect` first, or pass `--force` to discard it anyway. Then stops the agent's session, takes the last listing, stops the VM, reverts it to the clean snapshot, deletes the snapshots this cell took and only those, and prints what is left for the person. |
+| `finish [--force]` | Refuses while a person step waits, while steps have not run, when no collection was taken after the last step began, or when the last listing cannot be taken (the VM is not running or `ssh` does not answer), since the revert discards the VM; run `collect` or start the VM first, or pass `--force` to go on anyway, which the log and `report.md` record. Then stops the agent's session, takes the last listing, stops the VM, reverts it to the clean snapshot, deletes the snapshots this cell took and only those, and prints what is left for the person. |
 | `status` | Prints the cell's state and step log. |
 
 Exit status 3 means a person step is waiting; 1 is an error, with the
@@ -104,9 +104,20 @@ channel sessions are relays through a messaging platform); pi has no
 permission modes, no scheduled task, no synced session (`/share` is left
 out too) and no source-host integration. A resumed session after a
 relaunch is the same terminal program for all three, so the `/exit` and
-resume steps cover it. The ssh-driven steps all come before the sign-out
-and the sign-in from the desktop, which come just before the reboot; run
-`collect` after the last step, before `finish`.
+resume steps cover it. Every step that drives the agent over `ssh` comes
+before the sign-out and the sign-in from the desktop; the reboot follows
+them, and the idle period comes after the delete steps, as AGENTS.md lists
+them. Run `collect` after the last step, before `finish`.
+
+Every dialog is read before it is answered: an `options` step presses Down
+until the cursor wraps or stops, saving each screen, and puts the cursor
+back on the first option. Where the option to choose is not known before a
+first run (the allow-always grant), a `pause` step has the person move the
+cursor there through the monitor, so the next step's Enter answers with
+it. Where a dialog may or may not appear (a web tool's confirmation, pi's
+project trust), a `pause` has the person read and answer it if it is
+there, since a key sent to an absent dialog would type into the agent's
+input.
 `python3 -I lab/round/steps.py check lab/round/agents/<agent>` checks a
 table; `start` and `resume` refuse one that fails.
 
@@ -115,6 +126,7 @@ table; `start` and `resume` refuse one that fails.
 | `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's. |
 | `prompt` | the prompt | Types the text, presses Enter and waits. |
 | `type` | text | Types the text without Enter and waits. |
+| `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back on the first option; the step log says how many presses and whether the cursor wrapped or stopped. |
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
 | `command` | a shell command | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`. |
@@ -137,12 +149,14 @@ whose expectation is not met within `TURN_SECONDS` is recorded as
 agent, repeated under the next number with a sharper prompt.
 
 The state names steps by number, not by position. To repeat a missed
-step, stop the run (`ROUND_STOP_AFTER`, or a pause), copy the missed
-step's line in the cell's `steps.tsv` to just after it with a sharper
-text and a new name, keeping its number, and run
-`python3 -I lab/round/steps.py renumber <cell>/steps.tsv`: the copy and
-every line after it take the next numbers, the steps that ran keep
-theirs, and `resume` runs the copy next.
+step, stop the run (`ROUND_STOP_AFTER`, or a pause, which you resume
+first), copy the missed step's line in the cell's `steps.tsv` to just
+after it with a sharper text and a new name, keeping its number, and run
+`python3 -I lab/round/steps.py renumber <cell>`. It moves the copy after
+the last step that ran, gives it and every step not yet run the numbers
+after that one, leaves every step that ran as it was, points the cell's
+`next` at the copy, and refuses when the numbers would outgrow the
+table's width; `resume` then runs the copy.
 
 ## Agent and VM definitions
 

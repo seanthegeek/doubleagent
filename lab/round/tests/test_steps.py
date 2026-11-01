@@ -130,12 +130,78 @@ def test_one_number_width_per_table(tmp_path):
     ]
 
 
-def test_renumber_shifts_from_the_inserted_line():
-    text = "NN\tname\n# note\n" + line("02", "a", "idle", "1", "-", "c")
-    text += line("03", "ask", "prompt", "hi", "-", "c") + line(
-        "03", "ask-again", "prompt", "hi!", "-", "c"
+def simulated_cell(tmp_path: pathlib.Path) -> pathlib.Path:
+    """02 ran, 03 missed, 04 and 05 ran, 06 not yet; a repeat of 03 copied just after it."""
+    table = "NN\tname\tkind\ttext\texpect\tclaim\n" + line(
+        "02", "start", "agent", "gemini", "-", "c"
     )
-    text += line("04", "next", "idle", "1", "-", "c") + line("05", "last", "idle", "1", "-", "c")
-    numbers = [row.split("\t")[0] for row in steps.renumber(text).split("\n")[2:] if row]
-    assert numbers == ["02", "03", "04", "05", "06"]
-    assert steps.renumber(steps.renumber(text)) == steps.renumber(text)
+    table += line("03", "ask", "prompt", "hi", "-", "c")
+    table += line("03", "ask-again", "prompt", "hi, and say yes", "-", "c")
+    table += line("04", "next", "prompt", "go", "-", "c") + line(
+        "05", "more", "prompt", "on", "-", "c"
+    )
+    table += line("06", "later", "stop", "-", "-", "c")
+    (tmp_path / "steps.tsv").write_text(table, encoding="utf-8")
+    (tmp_path / "steps.log").write_text(
+        "02-start\tagent\tdone\n03-ask\tprompt\tmissed\n"
+        "04-next\tprompt\tdone\n05-more\tprompt\tdone\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "state").write_text("next=06\npaused=\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_renumber_puts_the_repeat_after_the_last_step_that_ran(tmp_path):
+    cell = simulated_cell(tmp_path)
+    assert steps.renumber_cell(cell) == "06"
+    rows = [row.split("\t")[:2] for row in (cell / "steps.tsv").read_text().split("\n")[1:] if row]
+    assert rows == [
+        ["02", "start"],
+        ["03", "ask"],
+        ["04", "next"],
+        ["05", "more"],
+        ["06", "ask-again"],
+        ["07", "later"],
+    ]
+    assert (cell / "state").read_text().split("\n")[-2] == "next=06"
+    parsed, problems = steps.parse_steps((cell / "steps.tsv").read_text())
+    assert problems == [] and steps.check_steps(parsed, []) == []
+
+
+def test_renumber_refusals(tmp_path):
+    cell = simulated_cell(tmp_path)
+    (cell / "state").write_text("paused=03\n", encoding="utf-8")
+    cases = [(cell, "waits for the person")]
+    for case, message in cases:
+        try:
+            steps.renumber_cell(case)
+        except steps.RenumberError as error:
+            assert message in str(error), error
+        else:
+            raise AssertionError("no refusal: %s" % message)
+    text = line("02", "a", "idle", "1", "-", "c") + line("03", "b", "idle", "1", "-", "c")
+    for ran, source, message in (
+        (set(), text, "no step has run"),
+        ({2}, text, "no repeat line"),
+        (
+            {98},
+            line("98", "a", "idle", "1", "-", "c")
+            + line("98", "b", "idle", "1", "-", "c")
+            + line("99", "c", "idle", "1", "-", "c"),
+            "outgrow",
+        ),
+    ):
+        try:
+            steps.renumber(source, ran)
+        except steps.RenumberError as error:
+            assert message in str(error), error
+        else:
+            raise AssertionError("no refusal: %s" % message)
+
+
+def test_options_kind(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c") + line(
+        "03", "read", "options", "12", "-", "c"
+    )
+    text += line("04", "bad", "options", "many", "-", "c")
+    assert problems_of(text, tmp_path) == ["options takes the most Down presses, 1 to 30"]

@@ -3,17 +3,17 @@
 
     python3 -I steps.py check [--steps CELL/steps.tsv] agents/<agent>
     python3 -I steps.py table agents/<agent>
-    python3 -I steps.py renumber CELL/steps.tsv
+    python3 -I steps.py renumber CELL
 
 An agent's directory holds `agent.conf`, `install.sh`, `roots` and `steps.tsv`; a step line is
 `NN<TAB>name<TAB>kind<TAB>text<TAB>expect<TAB>claim`, and lines starting with `#` and the header
 line (`NN` first) are skipped. `check` prints one `<file>:<line>: <problem>` per problem and exits
-1 when there is any; `table` prints the steps as a Markdown table; `renumber` rewrites a steps file
-so that a line inserted after a step, numbered like it, and every line after it rise by one. The
-rules are the ones round.sh relies on: every field present, numbers zero-padded to one width and
-rising from 02 (00 and 01 are the baseline and install listings), a known kind with the text it
-needs, a session open for every step that types into one, and an expectation grep -E, PowerShell
-and Python all read the same way.
+1 when there is any; `table` prints the steps as a Markdown table; `renumber` moves a cell's
+repeat lines (copies of a missed step, numbered like it) after the last step that ran and points
+the cell's `next` at them. The rules are the ones round.sh relies on: every field present, numbers
+zero-padded to one width and rising from 02 (00 and 01 are the baseline and install listings), a
+known kind with the text it needs, a session open for every step that types into one, and an
+expectation grep -E, PowerShell and Python all read the same way.
 
 Standard library only.
 """
@@ -32,6 +32,7 @@ KINDS = (
     "command",
     "idle",
     "keys",
+    "options",
     "paste",
     "pause",
     "prompt",
@@ -39,7 +40,7 @@ KINDS = (
     "stop",
     "type",
 )
-NEEDS_SESSION = {"keys", "paste", "prompt", "type"}
+NEEDS_SESSION = {"keys", "options", "paste", "prompt", "type"}
 NO_TEXT = {"collect", "reboot", "stop"}
 EXPECT_WORDS = {"-", "exit", "marker", "none", "quiet"}
 KEY_NAMES = (
@@ -108,6 +109,9 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
     if step.kind == "idle":
         if not step.text.isdigit() or not 0 < int(step.text) <= 86400:
             return "idle takes a number of seconds"
+    elif step.kind == "options":
+        if not step.text.isdigit() or not 0 < int(step.text) <= 30:
+            return "options takes the most Down presses, 1 to 30"
     elif step.kind == "keys":
         bad = [key for key in step.text.split(",") if not KEY_RE.fullmatch(key)]
         if bad:
@@ -197,29 +201,80 @@ def markdown_table(steps: list[Step]) -> str:
     return "\n".join(rows) + "\n"
 
 
-def renumber(source: str) -> str:
-    """Return a steps file's text renumbered from the first number that does not rise.
+class RenumberError(ValueError):
+    """A steps file that `renumber` refuses to rewrite."""
 
-    The numbers before that line keep theirs, so steps that have run keep their listing names;
-    from it on each step takes the previous number plus one, at the table's width.
+
+def ran_numbers(steps_log: str) -> set[int]:
+    """Return the numbers of the steps a cell's steps.log records, run or missed."""
+    numbers = set()
+    for line in steps_log.split("\n"):
+        number = line.split("-", 1)[0]
+        if number.isdigit():
+            numbers.add(int(number))
+    return numbers
+
+
+def renumber(source: str, ran: set[int]) -> tuple[str, str]:
+    """Return a cell's steps file with its repeat lines moved after the last step that ran.
+
+    A repeat line is one whose number does not rise above the line before it (a copy of a missed
+    step, numbered like it). Steps at or below the last number in `ran` keep their numbers; the
+    repeats, then every step not yet run, take the numbers after it. Comment lines move to the
+    top. Returns the text and the first repeat's number as written.
+
+    Raises:
+        RenumberError: no step has run, there is no repeat line, or a number outgrows the width.
     """
-    lines = source.split("\n")
+    if not ran:
+        raise RenumberError("no step has run yet, so there is nothing to repeat")
+    last_ran = max(ran)
+    kept_lines: list[str] = []
+    steps_kept: list[tuple[int, str]] = []
+    repeats: list[str] = []
     previous = 1
     width = 0
-    renumbering = False
-    for index, line in enumerate(lines):
-        if not line.strip() or line.startswith("#") or line.startswith("NN\t"):
-            continue
+    for line in source.split("\n"):
         number, separator, rest = line.partition("\t")
-        if not separator or not number.strip().isdigit():
+        if line.startswith("#") or line.startswith("NN\t") or not separator or not number.isdigit():
+            if line.strip():
+                kept_lines.append(line)
             continue
-        width = width or len(number.strip())
-        if renumbering or int(number) <= previous:
-            renumbering = True
-            number = "%0*d" % (width, previous + 1)
+        width = width or len(number)
+        if int(number) <= previous:
+            repeats.append(rest)
+            continue
         previous = int(number)
-        lines[index] = number + separator + rest
-    return "\n".join(lines)
+        steps_kept.append((int(number), rest))
+    if not repeats:
+        raise RenumberError("no repeat line: copy the missed step's line, keeping its number")
+    done = ["%0*d\t%s" % (width, number, rest) for number, rest in steps_kept if number <= last_ran]
+    later = repeats + [rest for number, rest in steps_kept if number > last_ran]
+    first = last_ran + 1
+    if first + len(later) - 1 >= 10**width:
+        raise RenumberError("the numbers would outgrow the table's width of %d digits" % width)
+    renumbered = ["%0*d\t%s" % (width, first + offset, rest) for offset, rest in enumerate(later)]
+    return "\n".join(kept_lines + done + renumbered) + "\n", "%0*d" % (width, first)
+
+
+def renumber_cell(cell: pathlib.Path) -> str:
+    """Rewrite a cell's steps.tsv with its repeat steps next, set `next` to the first; return it.
+
+    Raises:
+        RenumberError: the cell waits for a person step, or `renumber` refuses the file.
+    """
+    state = (cell / "state").read_text(encoding="utf-8") if (cell / "state").is_file() else ""
+    paused = [line[7:] for line in state.split("\n") if line.startswith("paused=")]
+    if paused and paused[-1]:
+        raise RenumberError("step %s waits for the person: resume first" % paused[-1])
+    log = cell / "steps.log"
+    ran = ran_numbers(log.read_text(encoding="utf-8")) if log.is_file() else set()
+    steps_file = cell / "steps.tsv"
+    text, label = renumber(steps_file.read_text(encoding="utf-8"), ran)
+    steps_file.write_text(text, encoding="utf-8")
+    with (cell / "state").open("a", encoding="utf-8") as handle:
+        handle.write("next=%s\n" % label)
+    return label
 
 
 def main(arguments: list[str] | None = None) -> int:
@@ -228,13 +283,16 @@ def main(arguments: list[str] | None = None) -> int:
     parser.add_argument("command", choices=("check", "table", "renumber"))
     parser.add_argument("--steps", type=pathlib.Path, help="a steps file other than the agent's")
     parser.add_argument(
-        "path", type=pathlib.Path, help="an agent directory, or for renumber a file"
+        "path", type=pathlib.Path, help="an agent directory, or for renumber a cell directory"
     )
     options = parser.parse_args(arguments)
     if options.command == "renumber":
-        options.path.write_text(
-            renumber(options.path.read_text(encoding="utf-8")), encoding="utf-8"
-        )
+        try:
+            label = renumber_cell(options.path)
+        except RenumberError as error:
+            print("renumber: %s" % error, file=sys.stderr)
+            return 1
+        print("renumber: the repeat is step %s; resume runs it next" % label)
         return 0
     steps, problems = load(options.path, options.steps)
     if options.command == "table":

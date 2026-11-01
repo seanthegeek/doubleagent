@@ -7,8 +7,16 @@ $sourcePage = 'https://github.com/earendil-works/pi/blob/main/packages/coding-ag
 $sourceFetched = '2026-11-01'
 "source: $sourcePage (fetched $sourceFetched)"
 powershell -c "irm https://pi.dev/install.ps1 | iex"
+if ($LASTEXITCODE -ne 0) { Write-Error "install.ps1: the installer exited $LASTEXITCODE"; exit 1 }
 $agentDir = Join-Path $env:USERPROFILE '.pi\agent'
+# The installer sets the user's PATH in the registry; read it back, since
+# this process started before it.
+$env:Path = [Environment]::GetEnvironmentVariable('Path', 'User') + ';' +
+    [Environment]::GetEnvironmentVariable('Path', 'Machine')
 $command = Get-Command pi -ErrorAction SilentlyContinue
-if ($command) { "bin: $($command.Source)" } else { "bin: $agentDir\bin\pi" }
+$launcher = @(Get-Item -Path "$agentDir\bin\pi*" -ErrorAction SilentlyContinue)
+if ($command) { "bin: $($command.Source)" }
+elseif ($launcher.Count -gt 0) { "bin: $($launcher[0].FullName)" }
+else { Write-Error 'install.ps1: no pi launcher after the installer'; exit 1 }
 $versionFile = Join-Path $agentDir 'install\current-version'
 if (Test-Path -LiteralPath $versionFile) { "version: $((Get-Content -LiteralPath $versionFile -Raw).Trim())" }

@@ -14,5 +14,10 @@ $sourcePage = 'https://github.com/QwenLM/qwen-code/blob/main/README.md#installat
 $sourceFetched = '2026-11-01'
 "source: $sourcePage (fetched $sourceFetched)"
 irm https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.ps1 | iex
+# The installer sets the user's PATH in the registry; read it back, since
+# this process started before it.
+$env:Path = [Environment]::GetEnvironmentVariable('Path', 'User') + ';' +
+    [Environment]::GetEnvironmentVariable('Path', 'Machine')
 $command = Get-Command qwen -ErrorAction SilentlyContinue
-if ($command) { "bin: $($command.Source)" }
+if (-not $command) { Write-Error 'install.ps1: no qwen on PATH after the installer'; exit 1 }
+"bin: $($command.Source)"
