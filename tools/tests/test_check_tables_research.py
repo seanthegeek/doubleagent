@@ -487,7 +487,7 @@ def test_sibling_bases_forms():
     entries = [
         line(".config/Claude"),
         line("Library/Application Support/Claude"),
-        line("AppData/Roaming/Claude"),
+        line("AppData/Roaming/claude"),
         line("Library/Logs/Claude"),
         line(".config/claude-two"),
         line("AppData/Local/Temp/claude"),
@@ -496,7 +496,7 @@ def test_sibling_bases_forms():
     ]
     named = [
         "Library/Application Support/Claude",
-        "AppData/Roaming/Claude",
+        "AppData/Roaming/claude",
         "Library/Logs/Claude",
         "AppData/Local/Temp/claude",
         "Claude",
@@ -504,7 +504,7 @@ def test_sibling_bases_forms():
     found = checker.sibling_bases(entries[0], entries, named)
     assert [entry.glob for entry in found] == [
         "Library/Application Support/Claude",
-        "AppData/Roaming/Claude",
+        "AppData/Roaming/claude",
     ]
     zed = [line(".config/zed"), line(".local/share/zed"), line(".var/app/z/config/zed")]
     found = checker.sibling_bases(zed[0], zed, [".local/share/zed", ".var/app/z/config/zed"])

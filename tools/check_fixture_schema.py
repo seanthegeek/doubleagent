@@ -328,7 +328,7 @@ def home_relative(span: str) -> str:
 
 
 def is_section_path(span: str) -> bool:
-    r"""Return whether a code span is a path `names_file` can read.
+    r"""Return whether a code span has the form of a path, the spans `names_file` reads.
 
     A span ending in `/` or `\` is a directory path once anything other than placeholders
     remains; any other span is a path when `is_path_span` says so of its home-relative form with
@@ -340,15 +340,14 @@ def is_section_path(span: str) -> bool:
 
 
 def names_file(span: str, relative: str) -> bool:
-    """Return whether a path span names a home-relative file: it matches the file path's end.
+    """Return whether a path span names a home-relative file: the file, or a directory above it.
 
     The span is read in its `home_relative` form; each `<...>` and `*` matches within one
     segment, so `sessions/<id>.json` and `*.jsonl` name `.beta/sessions/x.json` and
-    `.beta/x.jsonl`. The match starts at a segment boundary, so `ory.jsonl` does not name
-    `history.jsonl`; a span ending in `/` is a directory and names every file below it; a span
-    of placeholders alone names no file.
+    `.beta/x.jsonl`. It matches whole segments ending at the file or at a directory above it,
+    so `.local/state/opencode` names `.local/state/opencode/kv.json` and `ory.jsonl` does not
+    name `history.jsonl`; a span of placeholders alone names no file.
     """
-    below = span.endswith(("/", "\\"))
     path = home_relative(span)
     if not PLACEHOLDER.sub("", path).strip("*/"):
         return False
@@ -357,8 +356,7 @@ def names_file(span: str, relative: str) -> bool:
         "[^/]*" if part == "*" else "[^/]+" if PLACEHOLDER.fullmatch(part) else re.escape(part)
         for part in parts
     )
-    tail = "/.+$" if below else "$"
-    return re.search("(?:^|/)%s%s" % (pattern, tail), relative) is not None
+    return re.search("(?:^|/)%s(?:/.+)?$" % pattern, relative) is not None
 
 
 def is_documented(name: str, names: set[str]) -> bool:
