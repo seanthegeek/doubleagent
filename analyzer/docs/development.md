@@ -128,7 +128,9 @@ stale baseline line or a malformed one, `0` otherwise.
 The drift that existed when the checkers were written is recorded in the
 baseline, `tools/drift-baseline/<agent>.txt`, one file per agent
 (`unattributed.txt` for a finding that names none) holding one
-`<checker>|<kind>|<detail>` line per finding, sorted. A finding missing
+`<checker>|<kind>|<detail>` line per finding, sorted, each once; every
+checker fails on a line out of order (`unsorted:`) or repeated
+(`duplicate:`). A finding missing
 from the baseline is new and fails CI: fix the table, document, parser or
 fixture that disagrees. A baseline line that no finding produces any more
 is stale and fails too, printed as
@@ -136,7 +138,8 @@ is stale and fails too, printed as
 commit that fixes the drift also deletes its line; when an agent is
 rebuilt from fresh evidence, its file empties and is deleted.
 `--update-baseline` rewrites one checker's lines in every file from the
-current findings, drops a malformed line and names it on stderr, and
+current findings, sorts the file and drops a repeated line, drops a
+malformed line and names it on stderr, and
 exits `0` (`check_research_structure.py` still exits `1` on an outline
 breach). It may add lines only in the commit that adds
 or changes a checker's rule, recording the breaches the new rule finds,

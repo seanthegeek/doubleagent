@@ -11,10 +11,12 @@ fails, so new drift fails CI while the drift recorded in the baseline expires ag
 - A finding whose agent and key are not a baseline line is new, and fails.
 - A baseline line of the checker that no finding produced is stale, and fails with
   `stale: remove "<key>" from tools/drift-baseline/<agent>.txt`.
-- A baseline line with fewer than three fields belongs to no checker; every checker fails on it.
+- A baseline line with fewer than three fields belongs to no checker; every checker fails on it,
+  and on a line out of Python string order (`unsorted: `) or repeating one (`duplicate: `).
 - `--update-baseline` rewrites the checker's own lines of every agent file from the run's
-  findings, deletes a file left empty, keeps every other checker's lines, and exits 0; it drops
-  a malformed line with `<file>:<n>: dropped malformed baseline line: <text>` on stderr.
+  findings, deletes a file left empty, keeps every other checker's lines, sorted and once each,
+  and exits 0; it drops a line of fewer than three fields with
+  `<file>:<n>: dropped malformed baseline line: <text>` on stderr.
 
 A checker defines `run(root)`, yielding `Finding`s for the repository at `root`, and ends with
 `sys.exit(main_with_baseline("check_example", run))`; `tools/tests/example_checker.py` is the
@@ -135,7 +137,9 @@ class BaselineLines:
     """The baseline lines one checker owns, and the lines no checker owns.
 
     `own` maps (agent, key) to the line number of the key in `<agent>.txt`; `malformed` holds
-    one `<file>:<line>: malformed baseline line: <text>` per line with fewer than three fields.
+    one `<file>:<line>: malformed baseline line: <text>` per line with fewer than three fields,
+    `<file>:<line>: unsorted: <text> sorts before line <n>` per line sorting before a line
+    above it, and `<file>:<line>: duplicate: <text> repeats line <n>` per repeated line.
     """
 
     own: dict[tuple[str, str], int] = field(default_factory=dict)
@@ -165,16 +169,24 @@ def load_baseline(root: pathlib.Path, checker: str) -> BaselineLines:
     if not directory.is_dir():
         return found
     for path in sorted(directory.glob("*.txt")):
+        name = baseline_file(file_agent(path.stem))
+        seen: dict[str, int] = {}
+        previous = ("", 0)
         for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
             line = line.rstrip("\r")
             if not line:
                 continue
             owner = line_owner(line)
+            if line in seen:
+                message = "duplicate: %s repeats line %d" % (line, seen[line])
+                found.malformed.append("%s:%d: %s" % (name, number, message))
+            elif line < previous[0]:
+                message = "unsorted: %s sorts before line %d" % (line, previous[1])
+                found.malformed.append("%s:%d: %s" % (name, number, message))
+            seen.setdefault(line, number)
+            previous = max(previous, (line, number))
             if not owner:
-                agent = file_agent(path.stem)
-                found.malformed.append(
-                    "%s:%d: malformed baseline line: %s" % (baseline_file(agent), number, line)
-                )
+                found.malformed.append("%s:%d: malformed baseline line: %s" % (name, number, line))
             elif owner == checker:
                 found.own.setdefault((file_agent(path.stem), line), number)
     return found

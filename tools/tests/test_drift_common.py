@@ -150,6 +150,35 @@ def test_malformed_line_fails(tmp_path, capsys):
     ]
 
 
+def test_unsorted_line_fails_for_every_checker(tmp_path, capsys):
+    lines = "check_tables|line-unnamed|.alpha/x\ncheck_smoke|fixture-missing|.alpha\n"
+    write(tmp_path / "tools/drift-baseline/alpha.txt", lines)
+    assert drift_common.main_with_baseline("check_other", run_with([]), [], tmp_path) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "tools/drift-baseline/alpha.txt:2: unsorted: check_smoke|fixture-missing|.alpha"
+        " sorts before line 1"
+    ]
+
+
+def test_duplicate_line_fails(tmp_path, capsys):
+    key = "check_tables|line-unnamed|.alpha/x"
+    write(tmp_path / "tools/drift-baseline/alpha.txt", "%s\n%s\n" % (key, key))
+    assert drift_common.main_with_baseline("check_tables", run_with([ALPHA]), [], tmp_path) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "tools/drift-baseline/alpha.txt:2: duplicate: %s repeats line 1" % key
+    ]
+
+
+def test_update_sorts_and_deduplicates_every_line(tmp_path):
+    key = "check_tables|line-unnamed|.alpha/x"
+    other = "check_smoke|fixture-missing|.alpha"
+    write(tmp_path / "tools/drift-baseline/alpha.txt", "%s\n%s\n%s\n" % (key, other, other))
+    arguments = ["--update-baseline"]
+    drift_common.main_with_baseline("check_tables", run_with([ALPHA]), arguments, tmp_path)
+    assert baseline_text(tmp_path, "alpha") == "%s\n%s\n" % (other, key)
+    assert drift_common.main_with_baseline("check_tables", run_with([ALPHA]), [], tmp_path) == 0
+
+
 def test_update_writes_sorted_keys_per_agent_and_unattributed_file_for_no_agent(tmp_path):
     later = Finding("alpha", "credential-unflagged", ".alpha/auth.json", "research/alpha.md")
     findings = [ALPHA, later, ALPHA, NO_AGENT, BETA]
