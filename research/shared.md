@@ -50,6 +50,17 @@ at
 [Per-user storage in `research/crush.md`](crush.md#per-user-storage) and
 [Per-user storage in `research/claude-code.md`](claude-code.md#per-user-storage)).
 
+Qwen Code lists `~/.agents/skills` beside its own `~/.qwen/skills`
+([`packages/core/src/config/storage.ts:17`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/config/storage.ts#L17)
+and
+[`754-761`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/config/storage.ts#L754-L761)
+at
+[`835b080`](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b)),
+and pi treats it as a trusted user skills directory
+([`packages/coding-agent/src/core/trust-manager.ts:190-195`](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L190-L195)
+at
+[`2c8d1fe`](https://github.com/earendil-works/pi/commit/2c8d1feb147f6b3d97e855da803bfe7b19f3c403)).
+
 #### Scratch directories
 
 None known.

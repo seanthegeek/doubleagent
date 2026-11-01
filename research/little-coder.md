@@ -560,6 +560,10 @@ A pi session file a checkpoint directory names that cannot be read gives the che
 the `session file not collected` clause, followed by one row
 `parser: <file> could not be read (<reason>)`, `<file>` the session file's name.
 
+A pi sessions directory (`.pi/agent/sessions`) that cannot be listed, so the session file cannot be
+looked up, gives the checkpoint row without the `session file not collected` clause, followed by one
+row `parser: sessions could not be read (<reason>)`.
+
 #### Fixtures
 
 Fixture:

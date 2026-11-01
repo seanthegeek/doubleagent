@@ -36,6 +36,7 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
+from ..errors import unreadable_message
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
@@ -85,13 +86,18 @@ def _regular_files(directory: Path) -> list[os.DirEntry]:
 def _session_header(home: Path, name: str) -> tuple[dict | None, list]:
     """Return the header of the pi session file `name` in the same home, or None, and its failure.
 
-    The failure is the file's whole-file `errors` entries, one when it exists
-    but cannot be read; its bad lines are left to the pi parser.
+    The failure is the whole-file `errors` entries: one when the sessions
+    directory cannot be listed, or the file exists but cannot be read; its bad
+    lines are left to the pi parser.
     """
     sessions = home / ".pi/agent/sessions"
     if sessions.is_symlink() or not sessions.is_dir():
         return None, []
-    for directory in sorted(sessions.iterdir()):
+    try:
+        directories = sorted(sessions.iterdir())
+    except OSError as error:
+        return None, [(0, unreadable_message(sessions, error))]
+    for directory in directories:
         session_path = directory / name
         if (
             not directory.is_symlink()

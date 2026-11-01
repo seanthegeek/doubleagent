@@ -104,6 +104,21 @@ class LittleCoderTests(ParserBase):
             ),
         )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unlistable_sessions_directory_keeps_the_checkpoint_row(self):
+        sessions = self.home / ".pi/agent/sessions"
+        sessions.chmod(0)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            sessions.chmod(0o700)
+        self.assertEqual(len(rows), 2)
+        self.assertIn("little-coder checkpoints for", rows[0].text)
+        self.assertEqual(
+            (rows[1].turn_type, rows[1].text, rows[1].source_line, rows[1].timestamp_utc),
+            ("system", "parser: sessions could not be read (Permission denied)", 0, ""),
+        )
+
     def test_bad_session_line_is_left_to_the_pi_parser(self):
         session_file = self.home / PI_DIR / LC_FILE
         original = session_file.read_bytes()
