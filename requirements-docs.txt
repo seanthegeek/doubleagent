@@ -1,6 +1,6 @@
 # The documentation site's build (mkdocs/mkdocs.yml, .github/workflows/pages.yml).
 # Exact versions so a build is reproducible; Dependabot proposes updates.
 mkdocs==1.6.1
-mkdocs-material==9.7.7
+mkdocs-material==9.8.0
 pymdown-extensions==12.3
 markdown==3.11.2
