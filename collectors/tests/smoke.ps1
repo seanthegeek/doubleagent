@@ -774,6 +774,20 @@ secret||.qwen/managed-local/worker-home/extension-secrets-v1.json
 secret||.qwen/managed-local/worker-home/.env
 secret||.qwen/managed-local/worker-home/settings.json
 secret||.qwen/managed-local/worker-home/sessions/4242.json
+secret||.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json
+secret||.qwen/managed-local/worker-home/settings.json.write-d4e5f6/settings.json.orig
+excl||.qwen/managed-local/worker-home/updates
+excl||.qwen/managed-local/worker-home/extension-store
+excl||.qwen/managed-local/worker-home/extensions/e1/node_modules
+excl||.qwen/managed-local/worker-home/bin
+excl||.qwen/managed-local/worker-home/sandbox
+excl||.qwen/managed-local/worker-home/scratch-workspaces
+excl||.qwen/managed-local/worker-home/locales
+excl||.qwen/managed-local/worker-home/arena
+excl||.qwen/managed-local/worker-home/artifacts
+excl||.qwen/managed-local/worker-home/resources
+excl||.qwen/managed-local/worker-home/session-start-perf
+excl||.qwen/managed-local/worker-home/worktrees
 agent|qwen-code|.qwen/extensions/e1/.qwen-extension-git-credentials.json
 '@
 $CasesCatalog = @($CasesCatalog -split "`r?`n" | Where-Object { $_ -ne '' })

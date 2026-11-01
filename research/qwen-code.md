@@ -23,7 +23,7 @@ of 2026-11-01 (package version 0.26.4), beside the release tag `v0.26.5`. Parsed
 a Rust desktop shell and a Java managed-session service, commit
 [`835b080f8567d8612effa248e1fafa11af0e244b`](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b)
 (2026-11-01). The root `package.json` at that commit gives version 0.26.4
-([`package.json:3`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/package.json#L4));
+([`package.json:4`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/package.json#L4));
 the latest release tag, `v0.26.5` (commit
 [`db0e4e2`](https://github.com/QwenLM/qwen-code/commit/db0e4e24a0d89b211b2a15f4af2be22adac71dfc),
 published 2026-11-01), differs from it in `packages/core/src` and `packages/cli/src` only in the
@@ -128,7 +128,7 @@ Files and directories of the global directory (paths relative to it):
 | `batch/` | batch-task plans | [`cli/src/commands/batch-task.ts:286`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/commands/batch-task.ts#L286) |
 | `tip_history.json` | which startup tips were shown | [`cli/src/services/tips/tipHistory.ts:132`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/services/tips/tipHistory.ts#L132) |
 | `source.json` | the install source the usage-statistics logger reports | [`core/src/telemetry/qwen-logger/qwen-logger.ts:375-379`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/telemetry/qwen-logger/qwen-logger.ts#L375-L379) |
-| `startup-perf/`, `cpu-profiles/`, `memory-snapshots/` | startup profiles, CPU profiles and heap snapshots, written on request | [`cli/src/utils/startupProfiler.ts:339`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/utils/startupProfiler.ts#L339); [`cli/src/utils/cpuProfiler.ts:281-283`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/utils/cpuProfiler.ts#L281-L283); [`cli/src/utils/memoryDiagnostics.ts:138-140`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/utils/memoryDiagnostics.ts#L138-L140) |
+| `startup-perf/`, `cpu-profiles/`, `memory-snapshots/` | startup profiles, CPU profiles and heap snapshots, written on request; always under `~/.qwen`, as each path is built from the home directory, so `$QWEN_HOME` does not move them | [`cli/src/utils/startupProfiler.ts:339`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/utils/startupProfiler.ts#L339); [`cli/src/utils/cpuProfiler.ts:282`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/utils/cpuProfiler.ts#L282); [`cli/src/utils/memoryDiagnostics.ts:139`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/utils/memoryDiagnostics.ts#L139) |
 | `updates/npm/` | the managed npm self-update | [`cli/src/utils/managed-npm-update.ts:259`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/utils/managed-npm-update.ts#L259) |
 | `locales/` | user locale overrides (the bundled locales are in the install directory) | [`cli/src/i18n/index.ts:47-50`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/i18n/index.ts#L47-L50) |
 | `output-language.md` | the user's rule for the language of model output | [`cli/src/i18n/languageUtils.ts:19`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/i18n/languageUtils.ts#L19), [`95-100`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/i18n/languageUtils.ts#L95-L100) |
@@ -238,7 +238,7 @@ Linux and macOS, under `%USERPROFILE%` on Windows), or under `$QWEN_HOME` when i
 | `.qwen/sessions/<pid>.json`, `.qwen/sessions/<pid>-<8 hex>.json` (the files `.qwen/sessions/*.json`) | the session registry, whose `ipcToken` admits a connection to a running session's socket ([Session registry](#session-registry)) |
 | `.qwen/agent-hosts/<sha256>.json` | the daemon's Agent Host `hostId` and `secret`, mode 0600 ([`cli/src/serve/agent-host-client.ts:94-100`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/agent-host-client.ts#L94-L100), [`189-194`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/agent-host-client.ts#L189-L194)) |
 | `.qwen/managed-local/state.json` | the managed local mode's `publicToken`, `signingKey`, `harnessToken`, `brokerToken`, `writerBindingKey` and `runtimeCredentialKey`, mode 0600 ([`cli/src/serve/managed-local-state.ts:24-37`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-state.ts#L24-L37), [`146-158`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-state.ts#L146-L158)) |
-| `.qwen/managed-local/worker-home/oauth_creds.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json`, `.qwen/managed-local/worker-home/extension-secrets-v1.json`, `.qwen/managed-local/worker-home/.env`, `.qwen/managed-local/worker-home/settings.json` and `.qwen/managed-local/worker-home/sessions/<pid>.json` (the files `.qwen/managed-local/worker-home/sessions/*.json`) | the same stores written by the managed local mode's worker processes, whose `$QWEN_HOME` is `worker-home/` ([`cli/src/serve/managed-local-serve.ts:103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)) |
+| `.qwen/managed-local/worker-home/oauth_creds.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json`, `.qwen/managed-local/worker-home/extension-secrets-v1.json`, `.qwen/managed-local/worker-home/.env`, `.qwen/managed-local/worker-home/settings.json`, `.qwen/managed-local/worker-home/settings.json.write-<random>/settings.json.orig` and `.qwen/managed-local/worker-home/sessions/<pid>.json` (the files `.qwen/managed-local/worker-home/sessions/*.json`) | the same stores written by the managed local mode's worker processes, whose `$QWEN_HOME` is `worker-home/` ([`cli/src/serve/managed-local-serve.ts:103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)) |
 
 The same `settings.json` keys in a project's `.qwen/settings.json` make it a credential file too,
 and so does the copy Qwen Code saves of a project settings file it cannot parse,
@@ -290,6 +290,21 @@ channel may use the host's own `gh` login instead of a token in `settings.json`,
   `.qwen/memory-snapshots`: profiles and heap snapshots, large and holding no conversation.
 - `.qwen/locales`: user locale overrides.
 - `.qwen/sandbox`: the execution sandbox's state.
+- The same subtrees under `.qwen/managed-local/worker-home/`, the worker processes' `$QWEN_HOME`
+  and, unless `$QWEN_RUNTIME_DIR` is inherited, their runtime base
+  ([`cli/src/serve/managed-local-serve.ts:41-48`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L41-L48),
+  [`103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)):
+  `.qwen/managed-local/worker-home/updates`, `.qwen/managed-local/worker-home/extension-store`,
+  `.qwen/managed-local/worker-home/extensions/*/node_modules`,
+  `.qwen/managed-local/worker-home/bin`, `.qwen/managed-local/worker-home/sandbox`,
+  `.qwen/managed-local/worker-home/scratch-workspaces`,
+  `.qwen/managed-local/worker-home/locales`, `.qwen/managed-local/worker-home/arena`,
+  `.qwen/managed-local/worker-home/artifacts`, `.qwen/managed-local/worker-home/resources`,
+  `.qwen/managed-local/worker-home/session-start-perf` and
+  `.qwen/managed-local/worker-home/worktrees`. Each is built from the global or runtime directory
+  the worker runs the same CLI code against. The worker writes no `startup-perf/`, `cpu-profiles/`
+  or `memory-snapshots/` there, as those paths are built from the home directory
+  ([Per-user storage](#per-user-storage)).
 
 `file-history/` (pre-edit copies of changed files), `audits/`, `debug/`, `boards/`, `todos/`,
 `usage/`, `managed-local/database/`, `managed-local/harness/` and `managed-local/worker-home/` are
@@ -417,9 +432,10 @@ on that platform; the daemon's `routes.json` stays on disk while the foreground 
 `channels/sessions.json` is deleted on a clean shutdown. No deletion marker is written: the
 surviving `usage_record.jsonl` entry, the token usage records and, after a daemon delete, the
 `logs.json` prompts are all that show a removed session. The analyzer reads the transcripts in
-`chats/` and `chats/archive/`, `logs.json` and `usage_record.jsonl` as secondary sources and both
-channel route files, and not `shell_history`, the checkpoints, the token usage log or the memory
-documents (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+`chats/` and `chats/archive/` and each session's `.worktree.json` sidecar, `logs.json` and
+`usage_record.jsonl` as secondary sources, and both channel route files; not `shell_history`, the
+checkpoints, the token usage log or the memory documents (see
+[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
 
 #### Scratch workspaces and worktrees
 
@@ -717,6 +733,12 @@ and removed when it leaves it, so it marks a session still working in a worktree
 | `supersededBy` | string | | |
 | `supersedes` | string | | |
 
+`workspaceCwd`, `supersededBy` and `supersedes` are optional, and `originalHeadCommit` is `""` when
+the commit could not be captured
+([`worktreeSessionService.ts:58-79`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/worktreeSessionService.ts#L58-L79)).
+`supersededBy` marks a sidecar whose worktree a reset moved to another session; such a sidecar
+still gives its session's scratch directory row ([Scratch directory rows](#scratch-directory-rows)).
+
 #### Runtime sidecar
 
 `chats/<sessionId>.runtime.json`, the live process's snapshot, written with snake_case keys
@@ -1002,7 +1024,11 @@ strips a byte-order mark, and rewritten preserving the comments
 at the reviewed commit
 ([`managed-session-records.ts:31`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/managed-runtime/managed-session-records.ts#L31)).
 `logs.json` and `checkpoint-*.json` keep the shapes inherited from Gemini CLI
-([logs.json](#logsjson), [shell_history and checkpoints](#shell_history-and-checkpoints)).
+([logs.json](#logsjson), [shell_history and checkpoints](#shell_history-and-checkpoints)). The
+`ToolCallEvent` class's own `event.name` is the bare `tool_call`
+([`types.ts:189`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/telemetry/types.ts#L189)); every build reviewed records it as
+`qwen-code.tool_call`, and a build that recorded the event without the rename would have written
+the bare name.
 
 Changed between 0.25.3
 ([`5dcf7c7`](https://github.com/QwenLM/qwen-code/commit/5dcf7c7cb162e825d95d531081f67ee60da3c0e1))
@@ -1028,10 +1054,6 @@ and 0.25.3; none of this has been observed on a real install:
   from 0.25.3 it reads it with `parseJsoncObject`, which also allows trailing commas and strips a
   byte-order mark
   ([`cli/src/utils/jsonc-editor.ts:92-107` at 0.25.3](https://github.com/QwenLM/qwen-code/blob/5dcf7c7cb162e825d95d531081f67ee60da3c0e1/packages/cli/src/utils/jsonc-editor.ts#L92-L107)).
-- The `ToolCallEvent` class's own `event.name` is the bare `tool_call`
-  ([`types.ts:189`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/telemetry/types.ts#L189)); every build reviewed records it as
-  `qwen-code.tool_call`, and a build that recorded the event without the rename would have written
-  the bare name.
 
 ### Secrets
 
