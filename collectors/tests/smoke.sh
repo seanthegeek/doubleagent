@@ -218,20 +218,21 @@ secret||.openhands/.keys
 agent|openhands|.config/OpenHands Agent Canvas/config.json
 agent|openhands|.openhands/conversations/c1/events/event-00000-e1.json
 excl||.pi/agent/bin
+excl||.pi/agent/install
 excl||.pi/agent/tmp
 excl||.pi/agent/npm/node_modules
-excl||.pi/agent/git/g1/node_modules
-excl||.pi/agent/git/g1/.git
+excl||.pi/agent/git/github.com/o1/node_modules
+excl||.pi/agent/git/github.com/o1/.git
 excl||.pi/npm/node_modules
-excl||.pi/git/g1/node_modules
-excl||.pi/git/g1/.git
+excl||.pi/git/github.com/o1/node_modules
+excl||.pi/git/github.com/o1/.git
 exclf||.pi/agent/tools/fd
 exclf||.pi/agent/tools/rg.exe
 exclf||.pi/server/s1.sock
 secret||.pi/agent/auth.json
-secret||.pi/agent/auth.json.bak
 secret||.pi/agent/mcp-auth.json
 secret||.pi/agent/oauth.json
+secret||.pi/agent/oauth.json.migrated
 secret||.pi/agent/models.json
 secret||.pi/agent/mcp.json
 secret||.pi/mcp.json
@@ -850,6 +851,9 @@ printf '[{"cwd":"/srv/picrash","sessionFile":"x.jsonl"}]\n' >"$ALICE/.pi/agent/c
 printf '# pi\n' >"$ROOT/srv/picrash/AGENTS.md"
 printf '{"id":"s1","cwd":"/srv/piexp"}\n' >"$ALICE/.pi/agent/experimental/sessions/s1/meta.json"
 printf '# pi\n' >"$ROOT/srv/piexp/AGENTS.md"
+# 2026-11-01 pi rebuild (#326)
+printf 'PK\n' >"$ROOT/srv/pitrust/pi-bug-report-0199a1b2.zip"
+printf '{"type":"session","version":3,"id":"e1","cwd":"/srv/pitrust"}\n' >"$ROOT/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl"
 printf '{"type":"session_meta","payload":{"cwd":"/srv/oiproj"}}\n' >"$ALICE/.openinterpreter/sessions/2026/10/04/rollout-2026-10-04T00-00-00-u1.jsonl"
 printf 'rule\n' >"$ROOT/srv/oiproj/.openinterpreter/rules/r.md"
 printf '{"type":"session_meta","payload":{"cwd":"/srv/oiarch"}}\n' >"$ALICE/.openinterpreter/archived_sessions/2026/10/01/rollout-2026-10-01T00-00-00-u2.jsonl"
@@ -1852,6 +1856,9 @@ check "pi misplaced session cwd discovers project" "[ \"\$(status_of \"$ROOT/srv
 check "pi trust.json keys discover project" "[ \"\$(status_of \"$ROOT/srv/pitrust/pi-session-2026-10-04.html\")\" = collected ]"
 check "pi crashes.json cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/picrash/AGENTS.md\")\" = collected ]"
 check "pi experimental meta cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/piexp/AGENTS.md\")\" = collected ]"
+# 2026-11-01 pi rebuild (#326)
+check "#326 pi bug-report zip in a project collected" "row \"$ROOT/srv/pitrust/pi-bug-report-0199a1b2.zip\" | grep -q '\"agent\":\"pi\".*\"status\":\"collected\"'"
+check "#326 pi JSONL export in a project collected" "row \"$ROOT/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl\" | grep -q '\"agent\":\"pi\".*\"status\":\"collected\"'"
 check "open-interpreter rollout cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/oiproj/.openinterpreter/rules/r.md\")\" = collected ]"
 check "open-interpreter archived rollout cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/oiarch/.codewhale/notes.md\")\" = collected ]"
 check "openhands workspaces.json path discovers project" "[ \"\$(status_of \"$ROOT/srv/ohproj/.openhands/setup.sh\")\" = collected ]"

@@ -219,20 +219,21 @@ secret||.openhands/.keys
 agent|openhands|.config/OpenHands Agent Canvas/config.json
 agent|openhands|.openhands/conversations/c1/events/event-00000-e1.json
 excl||.pi/agent/bin
+excl||.pi/agent/install
 excl||.pi/agent/tmp
 excl||.pi/agent/npm/node_modules
-excl||.pi/agent/git/g1/node_modules
-excl||.pi/agent/git/g1/.git
+excl||.pi/agent/git/github.com/o1/node_modules
+excl||.pi/agent/git/github.com/o1/.git
 excl||.pi/npm/node_modules
-excl||.pi/git/g1/node_modules
-excl||.pi/git/g1/.git
+excl||.pi/git/github.com/o1/node_modules
+excl||.pi/git/github.com/o1/.git
 exclf||.pi/agent/tools/fd
 exclf||.pi/agent/tools/rg.exe
 exclf||.pi/server/s1.sock
 secret||.pi/agent/auth.json
-secret||.pi/agent/auth.json.bak
 secret||.pi/agent/mcp-auth.json
 secret||.pi/agent/oauth.json
+secret||.pi/agent/oauth.json.migrated
 secret||.pi/agent/models.json
 secret||.pi/agent/mcp.json
 secret||.pi/mcp.json
@@ -835,6 +836,9 @@ MakeFile 'Users/alice/.pi/agent/crashes.json' '[{"cwd":"C:\\picrash","sessionFil
 MakeFile 'picrash/AGENTS.md' '# pi'
 MakeFile 'Users/alice/.pi/agent/experimental/sessions/s1/meta.json' '{"id":"s1","cwd":"C:\\piexp"}'
 MakeFile 'piexp/AGENTS.md' '# pi'
+# 2026-11-01 pi rebuild (#326)
+MakeFile 'pitrust/pi-bug-report-0199a1b2.zip' 'PK'
+MakeFile 'pitrust/session-2026-10-04T00-00-00-000Z.jsonl' '{"type":"session","version":3,"id":"e1","cwd":"C:\\pitrust"}'
 MakeFile 'Users/alice/.openinterpreter/sessions/2026/10/04/rollout-2026-10-04T00-00-00-u1.jsonl' '{"type":"session_meta","payload":{"cwd":"C:\\oiproj"}}'
 MakeFile 'oiproj/.openinterpreter/rules/r.md' 'rule'
 MakeFile 'Users/alice/.openinterpreter/archived_sessions/rollout-2026-10-01T00-00-00-u2.jsonl' '{"type":"session_meta","payload":{"cwd":"C:\\oiarch"}}'
@@ -1867,6 +1871,11 @@ Check 'pi misplaced session cwd discovers project' { (StatusOf 'piproj2/AGENTS.m
 Check 'pi trust.json keys discover project' { (StatusOf 'pitrust/pi-session-2026-10-04.html') -eq 'collected' }
 Check 'pi crashes.json cwd discovers project' { (StatusOf 'picrash/AGENTS.md') -eq 'collected' }
 Check 'pi experimental meta cwd discovers project' { (StatusOf 'piexp/AGENTS.md') -eq 'collected' }
+# 2026-11-01 pi rebuild (#326)
+$row = Row 'pitrust/pi-bug-report-0199a1b2.zip'
+Check '#326 pi bug-report zip in a project collected' { $row -and $row.agent -eq 'pi' -and $row.status -eq 'collected' }
+$row = Row 'pitrust/session-2026-10-04T00-00-00-000Z.jsonl'
+Check '#326 pi JSONL export in a project collected' { $row -and $row.agent -eq 'pi' -and $row.status -eq 'collected' }
 Check 'open-interpreter rollout cwd discovers project' { (StatusOf 'oiproj/.openinterpreter/rules/r.md') -eq 'collected' }
 Check 'open-interpreter archived rollout cwd discovers project' { (StatusOf 'oiarch/.codewhale/notes.md') -eq 'collected' }
 Check 'openhands workspaces.json path discovers project' { (StatusOf 'ohproj/.openhands/setup.sh') -eq 'collected' }
