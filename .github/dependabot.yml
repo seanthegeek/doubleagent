@@ -7,6 +7,12 @@ updates:
     directory: /analyzer
     schedule:
       interval: weekly
+    # coverage 7.17.0 and later need Python 3.11; the analyzer supports and
+    # tests 3.10, so the branch-coverage gate pins the newest release that
+    # installs there. Lift this when Python 3.10 support ends.
+    ignore:
+      - dependency-name: coverage
+        versions: [">=7.17.0"]
   - package-ecosystem: pip
     directory: /
     schedule:
