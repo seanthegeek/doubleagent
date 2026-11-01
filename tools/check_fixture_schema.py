@@ -18,12 +18,12 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
 4. `enum-undocumented`: a value (`is_enum_value`) of a key in `ENUM_KEYS` not documented.
 5. `type-mismatch`: a value no consulted row of its key (Record schema, Other stores) `accepts`:
    the rows of the sections naming its file (`names_file`) and of those naming no built file,
-   or every row when none names it (`consulted_rows`); one accepting row passes the value.
-6. `substitution-undeclared`: a `project_path` outside `/srv/proj` and the agent's modules'
-   `declared_paths`.
+   or every row when none names it (`consulted_rows`); one accepting row passes the value, and
+   a key left no consulted row is not checked.
+6. `substitution-undeclared`: a `project_path` outside `/srv/proj` and modules' `declared_paths`.
 7. `cross-agent-builder`: a call to a function imported from another agent's fixture module
    whose agent `lineage` does not list.
-8. `sample-equals-builder`: a JSON value fenced under Fixtures equal, sorted, to a built record.
+8. `sample-equals-builder`: a JSON value fenced under Fixtures equal, key-sorted, to a built record.
 
 A key table's header row is `| Key | Type | Values | Since |` (or `Builds`): Key a code span,
 Type `TYPE_NAMES` joined by ` or `, `,` or `/`, Values code spans (empty for any).
@@ -108,6 +108,9 @@ PLACEHOLDER = re.compile(r"<[^<>/]*>")
 LEADING_PLACEHOLDERS = re.compile(r"^(?:<[^<>/]*>/)+")
 # An absolute home directory opening a path span, once backslashes are slashes.
 ABSOLUTE_HOME = re.compile(r"^(?:[A-Za-z]:/Users/[^/]+/|/(?:home|Users)/[^/]+/|/root/)")
+# A braced shell variable opening a path span (`${XDG_DATA_HOME}/`), written bare for
+# `normalise_span`.
+BRACED_VARIABLE = re.compile(r"^\$\{(\w+)\}")
 WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 
 
@@ -313,25 +316,40 @@ def is_field_name(key: str, container: str = "") -> bool:
     return bool(FIELD_NAME.match(key)) and not HEX_ID.match(key) and not ENVIRONMENT.match(key)
 
 
+def home_relative(span: str) -> str:
+    """Return a path span home-relative: variable, absolute and placeholder home prefixes dropped.
+
+    A braced variable (`BRACED_VARIABLE`) is written bare for `normalise_span`, which drops a
+    `~/` or variable home prefix; then an absolute home (`ABSOLUTE_HOME`) and leading
+    placeholder segments (`<home>/`) go.
+    """
+    path = drift_common.normalise_span(BRACED_VARIABLE.sub(r"$\1", span))
+    return LEADING_PLACEHOLDERS.sub("", ABSOLUTE_HOME.sub("", path))
+
+
 def is_section_path(span: str) -> bool:
-    """Return whether a code span, home prefix normalised and placeholders filled, is a path."""
-    path = drift_common.normalise_span(span)
-    return check_tables_research.is_path_span(PLACEHOLDER.sub("x", path))
+    r"""Return whether a code span is a path `names_file` can read.
+
+    A span ending in `/` or `\` is a directory path once anything other than placeholders
+    remains; any other span is a path when `is_path_span` says so of its home-relative form with
+    its placeholders filled.
+    """
+    if span.endswith(("/", "\\")):
+        return bool(PLACEHOLDER.sub("", span).strip("*/\\~."))
+    return check_tables_research.is_path_span(PLACEHOLDER.sub("x", home_relative(span)))
 
 
 def names_file(span: str, relative: str) -> bool:
     """Return whether a path span names a home-relative file: it matches the file path's end.
 
-    The span is read as `normalise_span` gives it (a `~/` or variable home prefix dropped) less
-    an absolute home (`ABSOLUTE_HOME`) and its leading placeholder segments (`<home>/`); each
-    other `<...>` and `*` matches within one segment, so `sessions/<id>.json` and `*.jsonl` name
-    `.beta/sessions/x.json` and `.beta/x.jsonl`. The match starts at a segment boundary, so
-    `ory.jsonl` does not name `history.jsonl`; a span ending in `/` is a directory and names
-    every file below it; a span of placeholders alone names no file.
+    The span is read in its `home_relative` form; each `<...>` and `*` matches within one
+    segment, so `sessions/<id>.json` and `*.jsonl` name `.beta/sessions/x.json` and
+    `.beta/x.jsonl`. The match starts at a segment boundary, so `ory.jsonl` does not name
+    `history.jsonl`; a span ending in `/` is a directory and names every file below it; a span
+    of placeholders alone names no file.
     """
     below = span.endswith(("/", "\\"))
-    path = ABSOLUTE_HOME.sub("", drift_common.normalise_span(span))
-    path = LEADING_PLACEHOLDERS.sub("", path)
+    path = home_relative(span)
     if not PLACEHOLDER.sub("", path).strip("*/"):
         return False
     parts = re.split(r"(%s|\*)" % PLACEHOLDER.pattern, path)

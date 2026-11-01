@@ -546,6 +546,38 @@ def test_type_mismatch_consults_sections_naming_no_built_file(tmp_path):
     assert found == {("count:string", scoped.split("\n").index(turn_count) + 1)}
 
 
+HOME_FORMS_DOCUMENT = """\
+# beta
+
+## Parsing
+
+### Record schema
+
+#### Stores
+
+`C:\\Users\\<user>\\.beta\\history.jsonl`, `/home/<user>/.beta/b.jsonl`, `sessions/`,
+`${XDG_DATA_HOME}/beta/c.db` and `~/` hold the records of `type`.
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | | 1.0 |
+"""
+
+
+def test_section_paths_take_home_prefixed_and_directory_spans(tmp_path):
+    write(tmp_path / "doc.md", HOME_FORMS_DOCUMENT)
+    sections = drift_common.research_sections(tmp_path / "doc.md")
+    paths = checker.section_paths(drift_common.within(sections, "Parsing"))
+    assert paths == {
+        "Parsing/Record schema/Stores": [
+            "C:\\Users\\<user>\\.beta\\history.jsonl",
+            "/home/<user>/.beta/b.jsonl",
+            "sessions/",
+            "${XDG_DATA_HOME}/beta/c.db",
+        ]
+    }
+
+
 def test_section_paths_skip_key_table_cells(tmp_path):
     write(tmp_path / "doc.md", SCOPED_DOCUMENT)
     sections = drift_common.research_sections(tmp_path / "doc.md")
@@ -575,6 +607,8 @@ def test_names_file_forms():
         ("/home/<user>/.beta/history.jsonl", ".beta/history.jsonl", True),
         ("/Users/alice/.beta/history.jsonl", ".beta/history.jsonl", True),
         ("$XDG_DATA_HOME/beta/state.db", ".local/share/beta/state.db", True),
+        ("${XDG_DATA_HOME}/beta/state.db", ".local/share/beta/state.db", True),
+        ("sessions/", ".beta/sessions/p/a1.jsonl", True),
         (".beta/sessions/", ".beta/sessions/p/a1.jsonl", True),
         ("sessions/<id>/", ".beta/sessions/p/a1.jsonl", True),
         (".beta/sessions/", ".beta/sessions", False),
