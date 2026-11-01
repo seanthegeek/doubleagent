@@ -9,6 +9,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- A Qwen Code session with a `chats/<sessionId>.worktree.json` sidecar gives one `system` row `scratch directory: <worktreePath> (enter_worktree <slug>)` at its first record, with `project_path` the worktree, so `inventory.json` lists the worktree under `scratch_directories`; a sidecar that cannot be read or is not a JSON object is a `parser:` row of the session ([#326]).
+
 ### Changed
 
 - The Qwen Code parser reads a `chats/` file only when its name is a session id, as Qwen Code's own session list does, so sidecars and other files there give no rows ([#326]).

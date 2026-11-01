@@ -11,8 +11,9 @@ Code forked Gemini CLI, but its sessions are a flat record stream. Files read:
   authType, approvalMode}`, `systemPayload` and `message.parts[]` (`text`,
   `thought`, `functionCall`, `functionResponse`), `toolCallResult {callId,
   status, resultDisplay, errorType}`. A `user` record the user did not type
-  is a `system` row. The `.ledger.jsonl`, `.runtime.json`, `.worktree.json`
-  and `.pr.json` sidecars are not read.
+  is a `system` row. A `<sessionId>.worktree.json` sidecar beside it
+  (`worktreePath`) gives one `scratch directory:` row; the `.ledger.jsonl`,
+  `.runtime.json` and `.pr.json` sidecars are not read.
 - `.qwen/tmp/<hash>/logs.json`, a JSON array of `{sessionId, messageId,
   timestamp, type, message}`, a secondary source (a file repeating the
   chats' events); `model_switch` entries give `model:` rows.
@@ -32,7 +33,9 @@ Model and approval mode are tracked per `sessionId`.
 from __future__ import annotations
 
 import json
+import os
 import re
+import stat
 from collections.abc import Iterator
 
 from ..inputs import Artifact
@@ -365,8 +368,16 @@ class QwenCodeParser(Parser):
         session_id = project_path = ""
         models: dict = {}  # session id -> model in force, for the model rows
         modes: dict = {}  # session id -> approval mode in force
+        first: tuple = ()  # (line, timestamp, session id, cwd) of the first record
         for line_number, record in iter_jsonl(artifact.disk_path, errors):
             record_type = record.get("type")
+            if not first:
+                first = (
+                    line_number,
+                    to_utc(record.get("timestamp")),
+                    str(record.get("sessionId") or ""),
+                    str(record.get("cwd") or ""),
+                )
             if record.get("sessionId"):
                 session_id = str(record["sessionId"])
             if record.get("cwd"):
@@ -503,7 +514,50 @@ class QwenCodeParser(Parser):
                     decision_row.tool_name = str(event.get("function_name") or "")
                     decision_row.tool_use_id = str(event.get("call_id") or "")
                     yield decision_row
+        if first:
+            yield from self._worktree_rows(artifact, first, errors)
         yield from error_rows(self, artifact, errors, session_id, project_path)
+
+    def _worktree_rows(self, artifact: Artifact, first: tuple, errors: list) -> Iterator[Row]:
+        """Yield the `scratch directory:` row of a session's `.worktree.json` sidecar.
+
+        The sidecar marks a session working in an `enter_worktree` checkout. An
+        absent sidecar is silent; one that cannot be read or is not a JSON object
+        is appended to `errors`. The row takes the session's first record's
+        line, time and session id; its `project_path` is the worktree, which the
+        analyzer then lists as a scratch directory.
+        """
+        name = artifact.disk_path.name[: -len(".jsonl")] + ".worktree.json"
+        path = artifact.disk_path.with_name(name)
+        try:
+            present = stat.S_ISREG(os.lstat(path).st_mode)
+        except OSError:
+            present = False
+        if not present:
+            return
+        content = file_bytes(path, errors)
+        if content is None:
+            return
+        try:
+            doc = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError:
+            doc = None
+        if not isinstance(doc, dict):
+            errors.append((0, "%s is not a JSON object" % name, ""))
+            return
+        worktree_path = str(doc.get("worktreePath") or "")
+        if not worktree_path:
+            return
+        slug = re.split(r"[/\\]", worktree_path.rstrip("/\\"))[-1]
+        line, timestamp, session_id, _ = first
+        row = self.base_row(artifact)
+        row.source_line = line
+        row.turn_type = "system"
+        row.timestamp_utc = timestamp
+        row.session_id = session_id
+        row.project_path = worktree_path
+        row.text = "scratch directory: %s (enter_worktree %s)" % (worktree_path, slug)
+        yield row
 
     def _parse_logs(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         errors: list = []

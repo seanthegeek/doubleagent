@@ -859,6 +859,7 @@ from .qwen_code import (
     QWEN_TEMPORARY,
     QWEN_TRUST_MTIME,
     QWEN_USAGE_REL,
+    QWEN_WORKTREE,
     TRUST_JSONC,
     build_qwen,
     build_qwen_channels,
@@ -870,6 +871,7 @@ from .qwen_code import (
     qwen_permission_records,
     qwen_session_records,
     qwen_usage_records,
+    qwen_worktree_sidecar,
 )
 from .roo_code import (
     ROO_CLI_HISTORY_ENTRIES,

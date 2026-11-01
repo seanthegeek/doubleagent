@@ -701,8 +701,9 @@ A transcript of the managed engine begins with a `system` record of subtype
 
 #### Worktree sidecar
 
-`chats/<sessionId>.worktree.json`
-([`core/src/services/worktreeSessionService.ts:39-80`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/worktreeSessionService.ts#L39-L80)):
+`chats/<sessionId>.worktree.json`, written beside the transcript when a session enters a worktree
+and removed when it leaves it, so it marks a session still working in a worktree
+([`core/src/services/worktreeSessionService.ts:33-80`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/worktreeSessionService.ts#L33-L80)):
 
 | Key | Type | Values | Since |
 | --- | --- | --- | --- |
@@ -1051,8 +1052,9 @@ local mode's `database/` may hold the workers' credentials; which was not determ
 Globs (home-relative): `.qwen/projects/*/chats/*.jsonl`,
 `.qwen/projects/*/chats/archive/*.jsonl`, `.qwen/tmp/*/logs.json`, `.qwen/trustedFolders.json`,
 `.qwen/settings.json` (also a project's), `.qwen/usage_record.jsonl`,
-`.qwen/channels/sessions.json` and `.qwen/channels/daemon/*/routes.json`. Excluded from transcript
-parsing: `*.runtime.json`, `*.worktree.json`, `*.pr.json` and `*.ledger.jsonl`.
+`.qwen/channels/sessions.json` and `.qwen/channels/daemon/*/routes.json`. Not read: the sidecars
+`*.runtime.json`, `*.pr.json`, `*.ledger.jsonl` and `*.worktree.json` (`*.worktree.json` is read
+only for the scratch directory row of its session).
 
 Rows: one per record; an assistant record also yields a `tool_use` row per `functionCall` part and
 a `thinking` row per `thought: true` part.
@@ -1067,7 +1069,7 @@ a `thinking` row per `thought: true` part.
 | model | `model` of an assistant record; `modelId` of a `session_model` payload or of `executionContext` for the model rows |
 | tool_name | `functionCall.name` / `functionResponse.name` |
 | tool_use_id | `functionCall.id` / `toolCallResult.callId` |
-| text | text parts, `systemPayload.displayText`, `rawCommand`, `toolCallResult.status` plus `errorType` |
+| text | text parts, `systemPayload.displayText`, `rawCommand`, `toolCallResult.status` plus `errorType`; `scratch directory: <worktreePath> (enter_worktree <slug>)` from the session's `.worktree.json` sidecar |
 
 A `notification`, `cron`, `agent_mention`, `agent_message` or `goal_runtime` record the user did
 not type is the `system` row `<subtype> (provenance=<provenance> agent=<agentName>
@@ -1152,8 +1154,9 @@ session it is the only row.
 
 Not read: `shell_history`, `checkpoint-<tag>.json`, the managed auto-memory `memory/`, the token
 usage log `token-usage-<YYYY-MM>.jsonl`, `todos/<sessionId>.json`, `PROJECT_SUMMARY.md`, the
-channels' `<channel>-group-history.jsonl` and the managed local mode's `database/` ([Other
-stores](#other-stores)).
+channels' `<channel>-group-history.jsonl`, the managed local mode's `database/` ([Other
+stores](#other-stores)) and its transcripts under `managed-local/harness/projects/` and
+`managed-local/worker-home/` ([Managed local mode](#managed-local-mode)).
 
 #### Sync, relay and origin rows
 
@@ -1220,8 +1223,13 @@ Code changed them as follows.
 
 #### Scratch directory rows
 
-A record whose `cwd` lies under `<project>/.qwen/worktrees/`, or a `.worktree.json` sidecar, should
-yield `scratch directory: <worktreePath> (enter_worktree <slug>)`. The paths are in
+A session file `chats/<sessionId>.jsonl` with a `chats/<sessionId>.worktree.json` sidecar beside
+it ([Worktree sidecar](#worktree-sidecar)) yields one `system` row
+`scratch directory: <worktreePath> (enter_worktree <slug>)`, `<slug>` the last path component of
+`worktreePath`, at the session's first record's time and line with its session id and with
+`project_path` the worktree, so the analyzer lists the worktree as a scratch directory rather than
+the project. A session without the sidecar yields none. The parser reads no other key of the
+sidecar and applies no rule to a record's `cwd`. The paths are in
 [Scratch workspaces and worktrees](#scratch-workspaces-and-worktrees).
 
 #### Deletion rows
@@ -1239,10 +1247,11 @@ is not a JSON object is one whole-file `parser:` row, and a routes entry that is
 its own row ([Channel routes](#channel-routes), [Permission rows](#permission-rows)). Each line of
 `usage_record.jsonl` that does not decode is its own `parser: unparseable line` row, and the lines
 before and after it are still read. A `settings.json` that is not a JSON object is one whole-file
-`parser:` row.
+`parser:` row. A `.worktree.json` sidecar that is not a JSON object is one
+`parser: <sessionId>.worktree.json is not a JSON object` row with the session's id and project path.
 
-A transcript, `usage_record.jsonl`, `logs.json`, channel routes file, `settings.json` or
-`trustedFolders.json` that cannot be read is one whole-file row
+A transcript, its `.worktree.json` sidecar, `usage_record.jsonl`, `logs.json`, channel routes file,
+`settings.json` or `trustedFolders.json` that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, distinct
 from the `parser: <file> is not a JSON object` of a file that reads but decodes to something else.
 

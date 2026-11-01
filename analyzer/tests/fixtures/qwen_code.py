@@ -228,6 +228,24 @@ def qwen_logs_entries():
     ]
 
 
+QWEN_WORKTREE = "/srv/proj/.qwen/worktrees/fix-tests"
+
+
+def qwen_worktree_sidecar():
+    """Return the `.worktree.json` sidecar of a session in an `enter_worktree` checkout.
+
+    Source: research/qwen-code.md#worktree-sidecar; source 835b080
+    """
+    return {
+        "slug": "fix-tests",
+        "worktreePath": QWEN_WORKTREE,
+        "worktreeBranch": "worktree-fix-tests",
+        "originalCwd": "/srv/proj",
+        "originalBranch": "main",
+        "originalHeadCommit": "",
+    }
+
+
 def build_qwen(home: Path) -> None:
     """Write a session, an archived session, their sidecars, the prompt log and settings.
 
@@ -240,6 +258,8 @@ def build_qwen(home: Path) -> None:
         [dict(record, sessionId=QWEN_ARCHIVED) for record in qwen_session_records()[1:2]],
     )
     _jsonl(chats / (QWEN_SESSION + ".ledger.jsonl"), [{"promptId": "p1", "text": "run the tests"}])
+    # The session works in an enter_worktree checkout; the archived session has no sidecar.
+    _json_file(chats / (QWEN_SESSION + ".worktree.json"), qwen_worktree_sidecar())
     (chats / (QWEN_SESSION + ".runtime.json")).write_text(
         '{"session_id": "x", "started_at": 1790848800}', encoding="utf-8"
     )
