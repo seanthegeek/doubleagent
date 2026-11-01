@@ -13,12 +13,13 @@ line of an untracked module; with `--all`, every parser module and every line):
     <file>:<line>: branch to exit never taken
 
 `exit` is the branch that leaves the function. coverage.py places a branch on the first line
-of its statement, so a touched continuation line of an `if` condition checks that first line. A
-line carrying `# pragma: no branch: <reason>` is exempt, as coverage.py itself skips it; a
-`# pragma: no branch` or `# pragma: no cover` on a checked line without a reason after a colon
-is a finding (`pragma: no branch without a reason`), since AGENTS.md wants every suppression to
-give one and `no cover` drops its whole block, branches included. A changed module the suite
-never imports is one finding, `not measured: the suite never imports it`, at line 1.
+of its statement and honours a pragma on any line of a statement's header (up to its closing
+colon), so a touched line of a header checks the whole header. A line carrying
+`# pragma: no branch: <reason>` is exempt, as coverage.py itself skips it; a `no branch` or
+`no cover` pragma in any spelling coverage.py accepts, on a checked line, without a colon and a
+reason after it is a finding, `pragma: no <kind> without a reason`, since AGENTS.md wants every
+suppression to give one and `no cover` drops its whole block, branches included. A changed
+module the suite never imports is one finding, `not measured: the suite never imports it`.
 
 Usage: tools/check_branch_coverage.py [--base REF] [--all]
 
@@ -31,12 +32,15 @@ from __future__ import annotations
 
 import argparse
 import ast
+import bisect
+import io
 import json
 import pathlib
 import re
 import subprocess
 import sys
 import tempfile
+import tokenize
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
@@ -47,11 +51,12 @@ DEFAULT_BASE = "origin/main"
 # The new side of a unified diff hunk header: `+start` or `+start,count`; a count of 0 is a
 # pure deletion, which touches no line of the new file.
 HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
-# coverage.py's default `partial_branches` and `exclude_lines` patterns in one, which also
-# match a pragma with a reason; group 1 is the pragma's kind.
+# coverage.py's default `partial_branches` and `exclude_lines` patterns in one; group 1 is the
+# pragma's kind, and a reason is a colon and text right after the match.
 PRAGMA = re.compile(r"#\s*(?:pragma|PRAGMA)[:\s]?\s*(?:no|NO)\s*(branch|BRANCH|cover|COVER)")
-PRAGMA_REASON = re.compile(r"#\s*pragma:\s*no\s+(?:branch|cover)\s*:\s*\S", re.IGNORECASE)
-BRANCH_REASON = re.compile(r"#\s*pragma:\s*no\s+branch\s*:\s*\S", re.IGNORECASE)
+REASON = re.compile(r"\s*:\s*\S")
+# The fields of a compound statement that hold its body rather than its header.
+BODY_FIELDS = frozenset({"body", "orelse", "finalbody", "handlers", "cases"})
 
 
 class GateError(RuntimeError):
@@ -132,42 +137,93 @@ def touched_lines(diff: str) -> dict[str, set[int]]:
 
 def diff_lines(root: pathlib.Path, merge_base: str, modules: Sequence[str]) -> dict[str, set[int]]:
     """Return the lines of `modules` the working tree changed since `merge_base`."""
-    diff = run_git(root, ["diff", "-U0", "--no-color", "--no-ext-diff", merge_base, "--", *modules])
+    # The prefixes are fixed so a user's diff.noprefix or diff.mnemonicPrefix leaves the
+    # `+++ b/` lines touched_lines reads.
+    options = ["-U0", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/"]
+    diff = run_git(root, ["diff", *options, merge_base, "--", *modules])
     return touched_lines(diff)
 
 
-def statement_starts(source: str) -> dict[int, int]:
-    """Return the first line of the innermost statement header holding each line of `source`.
+def header_colons(source: str) -> list[tuple[int, int]]:
+    """Return the position, `(line, column)`, of every `:` outside brackets, in order."""
+    colons = []
+    depth = 0
+    for token in tokenize.generate_tokens(io.StringIO(source).readline):
+        if token.type != tokenize.OP:
+            continue
+        if token.string in "([{":
+            depth += 1
+        elif token.string in ")]}":
+            depth -= 1
+        elif token.string == ":" and depth == 0:
+            colons.append(token.start)
+    return colons
 
-    A compound statement's header runs to the line before its body, so a body line maps to its
-    own statement, never the `if` above it. Source that does not parse maps nothing.
+
+def header_end(parts: Iterable[ast.AST], start: tuple[int, int], colons: list) -> int:
+    """Return the line of the colon closing a header whose expressions are `parts`.
+
+    The colon is the first one outside brackets after both `start` and the end of every
+    expression, so a lambda or slice inside the header is passed over.
+    """
+    position = start
+    for part in parts:
+        for node in ast.walk(part):
+            end_line = getattr(node, "end_lineno", None)
+            if end_line is not None:
+                position = max(position, (end_line, getattr(node, "end_col_offset", 0) or 0))
+    index = bisect.bisect_left(colons, position)
+    return colons[index][0] if index < len(colons) else position[0]
+
+
+def statement_spans(source: str) -> list[tuple[int, int]]:
+    """Return the first and last line of every statement header of `source`.
+
+    A simple statement is all header; a compound one's header ends at its closing colon, so the
+    blank, comment and body lines below it are outside, and a `case` clause has its own header.
+    Source that does not parse has no spans.
     """
     try:
         tree = ast.parse(source)
-    except SyntaxError:
-        return {}
-    starts: dict[int, int] = {}
-    # ast.walk visits outer nodes first, so an inner statement's lines overwrite its parent's.
+        colons = header_colons(source)
+    except (SyntaxError, tokenize.TokenError):
+        return []
+    spans = []
     for node in ast.walk(tree):
+        if isinstance(node, ast.match_case):
+            parts = [node.pattern] + ([node.guard] if node.guard else [])
+            first = node.pattern.lineno
+            spans.append((first, header_end(parts, (first, 0), colons)))
+            continue
         if not isinstance(node, ast.stmt):
             continue
-        end = node.end_lineno or node.lineno
-        body = getattr(node, "body", None)
-        if isinstance(node, ast.Match) and node.cases:
-            end = node.cases[0].pattern.lineno - 1
-        elif isinstance(body, list) and body and isinstance(body[0], ast.stmt):
-            end = max(node.lineno, body[0].lineno - 1)
-        for number in range(node.lineno, end + 1):
-            starts[number] = node.lineno
-    return starts
+        fields = dict(ast.iter_fields(node))
+        if not BODY_FIELDS & fields.keys():
+            spans.append((node.lineno, node.end_lineno or node.lineno))
+            continue
+        decorators = fields.pop("decorator_list", None) or []
+        parts = [
+            value
+            for name, field in fields.items()
+            if name not in BODY_FIELDS
+            for value in (field if isinstance(field, list) else [field])
+            if isinstance(value, ast.AST)
+        ]
+        first = min([node.lineno] + [decorator.lineno for decorator in decorators])
+        spans.append((first, header_end(parts, (node.lineno, node.col_offset), colons)))
+    return spans
 
 
 def checked_lines(source: str, lines: set[int] | None) -> set[int] | None:
-    """Return `lines` with the first line of each touched statement header added; None stays."""
+    """Return `lines` with every line of each statement header they touch added; None stays."""
     if lines is None:
         return None
-    starts = statement_starts(source)
-    return lines | {starts[number] for number in lines if number in starts}
+    checked = set(lines)
+    for first, last in statement_spans(source):
+        span = range(first, last + 1)
+        if any(number in lines for number in span):
+            checked.update(span)
+    return checked
 
 
 def pragma_findings(path: str, source: str, lines: set[int] | None) -> list[Finding]:
@@ -180,10 +236,16 @@ def pragma_findings(path: str, source: str, lines: set[int] | None) -> list[Find
         if lines is not None and number not in lines:
             continue
         match = PRAGMA.search(text)
-        if match and not PRAGMA_REASON.search(text):
+        if match and not REASON.match(text, match.end()):
             kind = match.group(1).lower()
             findings.append(Finding(path, number, f"pragma: no {kind} without a reason"))
     return findings
+
+
+def has_branch_reason(text: str) -> bool:
+    """Return True when `text` carries a `no branch` pragma with a reason."""
+    match = PRAGMA.search(text)
+    return bool(match and match.group(1).lower() == "branch" and REASON.match(text, match.end()))
 
 
 def branch_findings(
@@ -200,7 +262,7 @@ def branch_findings(
         if lines is not None and start not in lines:
             continue
         text = source_lines[start - 1] if 0 < start <= len(source_lines) else ""
-        if BRANCH_REASON.search(text):
+        if has_branch_reason(text):
             continue
         where = "exit" if target < 0 else str(target)
         findings.append(Finding(path, start, f"branch to {where} never taken"))

@@ -245,3 +245,78 @@ def test_a_failing_suite_exits_2(tmp_path, capsys):
     (tmp_path / "analyzer/tests/test_toy.py").write_text(failing, encoding="utf-8")
     assert gate.main(["--all"], root=tmp_path) == 2
     assert "the analyzer suite failed" in capsys.readouterr().err
+
+
+HEADERS = """import functools
+
+
+@functools.cache
+def f(
+    a,
+    b,
+):
+    # a comment under the header
+
+    if a:
+        pass
+    elif (b
+            or a):
+        if (a and
+                b):
+            pass
+    match a:
+        case (1 |
+              2) if b:
+            pass
+        case _:
+            pass
+    g = lambda: 0
+    return g
+"""
+
+
+def test_header_spans_end_at_the_closing_colon():
+    cases = {
+        4: set(range(4, 9)),  # a decorator line checks the whole decorated header
+        7: set(range(4, 9)),  # so does a line of the signature
+        9: {9},  # a comment under a header is not the header
+        10: {10},  # nor is a blank line
+        12: {12},  # a body line is not the if above it
+        13: {13, 14},  # an elif is its own header
+        16: {15, 16},  # a nested if's continuation line
+        19: {19, 20},  # a case pattern's continuation line, guard included
+        18: {18},  # the match line alone
+        24: {24},  # a lambda's colon does not end a header
+    }
+    for touched, expected in cases.items():
+        assert gate.checked_lines(HEADERS, {touched}) == expected, touched
+
+
+def test_a_bare_pragma_on_a_header_continuation_line_is_checked():
+    source = "if (a and\n        b):  # pragma: no branch\n    pass\n"
+    lines = gate.checked_lines(source, {1})
+    findings = gate.pragma_findings("p.py", source, lines)
+    assert [str(finding) for finding in findings] == ["p.py:2: pragma: no branch without a reason"]
+
+
+def test_every_spelling_coverage_accepts_takes_a_reason():
+    for text in ("# pragma no branch: x", "# pragma:nobranch: x", "# PRAGMA: NO BRANCH : x"):
+        assert gate.pragma_findings("p.py", f"if a:  {text}", None) == [], text
+        assert gate.has_branch_reason(f"if a:  {text}"), text
+    assert not gate.has_branch_reason("if a:  # pragma: no cover: x")
+
+
+def test_diff_prefix_settings_do_not_hide_touched_lines(tmp_path):
+    write_toy_repository(tmp_path)
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", ".")
+    git(tmp_path, "commit", "-q", "-m", "toy")
+    toy = tmp_path / gate.PARSERS / "toy.py"
+    toy.write_text(TOY.replace("if value:", "if value is not None:"), encoding="utf-8")
+    module = f"{gate.PARSERS}/toy.py"
+    for setting in ("diff.noprefix=true", "diff.mnemonicPrefix=true"):
+        name, value = setting.split("=")
+        git(tmp_path, "config", name, value)
+        lines = gate.diff_lines(tmp_path, "HEAD", [module])
+        git(tmp_path, "config", "--unset", name)
+        assert lines == {module: {6}}, setting

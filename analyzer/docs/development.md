@@ -178,8 +178,12 @@ line per finding on stdout, for a line the change added or modified:
 
 A branch is reported on the line where it starts, the first line of a
 statement that spans several, and a change to any line of a statement's
-header, such as the second line of an `if` condition, checks the branches
-of that first line. A branch no fixture can reach, such as a guard
+header (up to its closing colon, decorators and a `case` guard included),
+such as the second line of an `if` condition, checks the whole header:
+its first line's branches and a pragma on any of its lines, since
+coverage.py honours a pragma anywhere in the header. A pragma's reason is
+a colon and text right after it, in any spelling coverage.py accepts
+(`# pragma: no branch: <reason>`, `# pragma no branch: <reason>`). A branch no fixture can reach, such as a guard
 against a value the format never writes, carries
 `# pragma: no branch: <reason>` on that line, which coverage.py and the
 check both accept. The summary goes to stderr, and the exit status is 0

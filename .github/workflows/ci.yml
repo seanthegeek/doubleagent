@@ -205,7 +205,7 @@ jobs:
       # Branch coverage of the parser lines the change touched, on one Python
       # version, since the suite runs again under coverage.py. The checkout is
       # shallow, so the history down to the merge base and the base branch
-      # are fetched first; a complete clone (a re-run) skips the unshallow.
+      # are fetched first; a checkout with full history skips the unshallow.
       - name: branch coverage of the changed parser lines
         if: matrix.python == '3.14'
         env:
