@@ -1979,7 +1979,7 @@ Check 'relocated history.jsonl discovers project' { $row -and $row.user -eq 'ali
 Check 'Public profile skipped' { $null -eq (Row 'Public/Desktop/readme.txt') }
 Check 'Default profile skipped' { $null -eq (Row 'Default/NTUSER.DAT') }
 $entries = ArchiveEntries
-Check 'no live snapshot directory' { -not ($entries | Where-Object { $_ -match '(^|/)live/' }) }
+Check 'no live snapshot directory' { -not ($entries | Where-Object { $_ -match '^(\./)?live/' }) }
 Check 'manifest and summary inside archive' { ($entries | Where-Object { $_ -match 'manifest\.jsonl$' }) -and ($entries | Where-Object { $_ -match 'collection\.json$' }) }
 Check 'archive layout is fs/<path relative to root>' { @($entries | Where-Object { $_ -match '(^|\./)fs/Users/alice/\.claude/history\.jsonl$' }).Count -eq 1 }
 Check 'staging removed' { -not (Get-ChildItem -LiteralPath (Join-Path $Out 'default') -Filter '.stage-*' -Force) }
