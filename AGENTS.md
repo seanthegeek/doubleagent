@@ -1524,6 +1524,12 @@ links down.
   unless the task's instructions said to merge. An agent never pushes to
   `main`, never merges a pull request unasked, and never asks for a ruleset
   bypass.
+- Every pull request's base is `main`; the CI `Base branch is main` job
+  fails one opened against any other branch. A change that depends on an
+  unmerged pull request is folded into it or waits for it to merge and
+  rebases; shared files are resolved by rebasing, never by stacking. A
+  pull request is reported merged only when
+  `git merge-base --is-ancestor <merge commit> main` holds.
 - Reproduce a review finding before fixing or declining it. A finding the
   change introduced is fixed in the pull request with a test; a defect in
   untouched code is filed as an issue, and the reply names the fix commit

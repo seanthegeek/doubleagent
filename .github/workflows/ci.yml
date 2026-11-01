@@ -29,6 +29,23 @@ jobs:
   # force push), a change to the workflow or the classifier, and a path no
   # category names run everything. The Markdown, document, drift and code
   # style steps of lint run on every change, since they read every part.
+  # A pull request stacked on another branch merges into that branch, not
+  # main, and its commits are stranded there once the lower pull request
+  # has merged; only a pull request against main can reach main.
+  base-branch:
+    name: Base branch is main
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Fail when the base branch is not main
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$BASE_REF" != main ]; then
+            printf 'pull request base is %s, not main: retarget it with gh pr edit --base main\n' "$BASE_REF"
+            exit 1
+          fi
+
   changes:
     name: Classify the change
     runs-on: ubuntu-latest
@@ -311,6 +328,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs:
+      - base-branch
       - changes
       - catalog-sync
       - sh-collector
