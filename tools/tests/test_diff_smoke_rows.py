@@ -52,7 +52,7 @@ def manifest_line(path: str, status: str, agent: str, secret: bool, home: str = 
 
 def change(path: str, home: str = HOME) -> RowChange:
     """Return a row change of `path`, collected before and absent after."""
-    return RowChange(path, (home,), (("collected", "x", False),), ())
+    return RowChange(path, (home,), ((home, "collected", "x", False),), ())
 
 
 def test_parse_tables_keeps_each_table_in_order_without_comments():
@@ -133,7 +133,34 @@ def test_diff_rows_reports_status_agent_secret_and_one_sided_paths():
         "/w/root/status",
     ]
     gone = changes[1]
-    assert gone.before == (("collected", "a", False),) and gone.after == ()
+    assert gone.before == ((HOME, "collected", "a", False),) and gone.after == ()
+
+
+def test_diff_rows_reports_facts_that_trade_places_between_two_bases():
+    project = f"{HOME}/proj"
+    path = f"{project}/tmp"
+    before = [
+        Row(path, HOME, "collected", "project", False),
+        Row(path, project, "skipped_excluded", "project", False),
+    ]
+    after = [
+        Row(path, HOME, "skipped_excluded", "project", False),
+        Row(path, project, "collected", "project", False),
+    ]
+    changes = diff_smoke_rows.diff_rows(before, after)
+    assert [(item.path, item.homes) for item in changes] == [(path, (HOME, project))]
+
+
+def test_a_line_matching_only_under_an_unchanged_base_does_not_attribute():
+    project = f"{HOME}/proj"
+    path = f"{project}/tmp/x"
+    unchanged = Row(path, project, "collected", "project", False)
+    before = [Row(path, HOME, "collected", "claude-code", False), unchanged]
+    after = [Row(path, HOME, "collected", "codex-cli", False), unchanged]
+    changes = diff_smoke_rows.diff_rows(before, after)
+    assert [item.homes for item in changes] == [(HOME,)]
+    exclusion = TableChange("+", "exclude", "tmp")
+    assert diff_smoke_rows.attribute([exclusion], changes) == [(None, changes)]
 
 
 def test_diff_rows_ignores_row_order_of_a_path_with_two_rows():
@@ -196,8 +223,8 @@ def test_render_report_prints_the_diff_the_groups_and_the_note():
     moved = RowChange(
         f"{HOME}/.openclaw/a/tmp",
         (HOME,),
-        (("collected", "openclaw", False),),
-        (("skipped_excluded", "openclaw", False),),
+        ((HOME, "collected", "openclaw", False),),
+        ((HOME, "skipped_excluded", "openclaw", False),),
     )
     report = diff_smoke_rows.render_report("main", "HEAD", [exclusion], False, [moved], "/w/root")
     assert report.splitlines() == [
@@ -207,8 +234,8 @@ def test_render_report_prints_the_diff_the_groups_and_the_note():
         "paths whose rows changed: 1",
         "",
         "+ EXCLUDES .openclaw/*/tmp",
-        "  /home/alice/.openclaw/a/tmp: collected agent=openclaw secret=false"
-        " -> skipped_excluded agent=openclaw secret=false",
+        "  /home/alice/.openclaw/a/tmp: collected agent=openclaw secret=false base=/home/alice"
+        " -> skipped_excluded agent=openclaw secret=false base=/home/alice",
         "",
         diff_smoke_rows.NOTE,
     ]
@@ -223,9 +250,12 @@ def test_render_report_of_no_change_says_none_and_the_reordering():
 
 
 def test_describe_facts_of_a_missing_row():
-    assert diff_smoke_rows.describe_facts(()) == "(no row)"
-    assert diff_smoke_rows.describe_facts((("skipped_unmatched_volume", "", False),)) == (
+    assert diff_smoke_rows.describe_facts((), "/w/root") == "(no row)"
+    facts = ((VOLUME, "skipped_unmatched_volume", "", False), (HOME, "collected", "a", True))
+    assert diff_smoke_rows.describe_facts(facts, "/w/root") == (
         "skipped_unmatched_volume agent=- secret=false"
+        " base=/var/lib/docker/volumes/tabby_data/_data;"
+        " collected agent=a secret=true base=/home/alice"
     )
 
 
@@ -260,7 +290,7 @@ def test_a_path_under_two_bases_is_matched_relative_to_the_second_base():
     under_project = Row(path, project, "collected", "project", False)
     excluded = Row(path, project, "skipped_excluded", "project", False)
     changes = diff_smoke_rows.diff_rows([under_home, under_project], [under_home, excluded])
-    assert [item.homes for item in changes] == [(HOME, project)]
+    assert [item.homes for item in changes] == [(project,)]
     exclusion = TableChange("+", "exclude", "tmp")
     assert not diff_smoke_rows.line_matches(exclusion, path, HOME)
     assert diff_smoke_rows.attribute([exclusion], changes) == [(exclusion, changes)]
@@ -319,3 +349,32 @@ def test_build_image_removes_a_printed_work_directory_without_its_image(tmp_path
     else:
         raise AssertionError("a work directory without root/ was accepted")
     assert not work.exists()
+
+
+def test_build_image_returns_a_printed_work_directory_with_its_image(tmp_path, monkeypatch):
+    work = tmp_path / "cac-smoke.full"
+    (work / "root").mkdir(parents=True)
+    printed = f"note: no socket\n{work}\n"
+    monkeypatch.setattr(diff_smoke_rows, "run_process", lambda arguments, extra: printed)
+    assert diff_smoke_rows.build_image("dash") == work
+    assert (work / "root").is_dir()
+
+
+def test_build_image_never_removes_a_printed_path_outside_a_smoke_work_directory(
+    tmp_path, monkeypatch
+):
+    other = tmp_path / "somewhere"
+    other.mkdir()
+    monkeypatch.setattr(diff_smoke_rows, "run_process", lambda arguments, extra: f"{other}\n")
+    try:
+        diff_smoke_rows.build_image("dash")
+    except DiffError:
+        pass
+    else:
+        raise AssertionError("a directory without the cac-smoke. prefix was accepted")
+    assert other.is_dir()
+
+
+def test_main_exits_2_when_the_shell_does_not_exist(tmp_path):
+    missing = str(tmp_path / "no-such-shell")
+    assert diff_smoke_rows.main(["--shell", missing, "main"]) == 2

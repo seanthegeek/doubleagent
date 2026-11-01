@@ -185,23 +185,24 @@ printing its work directory leaves that `cac-smoke.*` directory under
 | Part | What it holds |
 | --- | --- |
 | `table lines changed from BASE to HEAD:` | each line added (`+`) or removed (`-`) between the two `--list` outputs, with its table name (`CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`); `(none)` when there is none; a further line when the `DOCKER_VOLUMES` lines both scripts have changed order, since the first matching line wins |
-| `paths whose rows changed: N` | the count of image paths whose rows differ in `status`, `agent` or `secret`, or that only one manifest has |
-| one group per changed table line | the paths the line's glob matches, each as `PATH: BEFORE -> AFTER`, the path as it reads on the imaged host and each side `STATUS agent=AGENT secret=true` (or `secret=false`), with `agent=-` for an empty agent and the rows of a path with several joined by `; `, or `(no row)` |
+| `paths whose rows changed: N` | the count of image paths whose rows under some base differ in `status`, `agent` or `secret`, or exist in only one manifest; rows are compared per path and base, so facts that trade places between two bases of one path count |
+| one group per changed table line | the paths the line's glob matches, each as `PATH: BEFORE -> AFTER`, the path as it reads on the imaged host and each side `STATUS agent=AGENT secret=true base=BASE` (or `secret=false`) for each row under a base whose rows changed, with `agent=-` for an empty agent and the rows of a path with several joined by `; `, or `(no row)` |
 | `unattributed` | the changed paths no changed line matches |
-| the closing note | that the image holds only the main image's fixtures, so a glob matching too much shows only where a fixture path exists to catch it |
+| the closing note | that the image holds only the smoke test's main fixtures, so a glob matching too much shows only where a fixture path exists to catch it |
 
 A path goes under every changed line that matches it relative to one of the
-bases its rows name in either manifest (a file inside a project inside a
-home has a row under each): a `CATALOG` or
+bases whose rows changed (a file inside a project inside a home has a row
+under each base; a base whose rows did not change is not tried): a `CATALOG` or
 `PROJECT_CATALOG` glob when it matches the leading segments of the path
 relative to its base, one segment at a time; an `EXCLUDES` glob when it
 matches that relative path or one of its parent directories; a
 `SECRET_GLOBS` glob when it matches the relative path itself; a
-`DOCKER_VOLUMES` glob when it matches the name of the volume holding the
-path. The collector decides the rows; the grouping only points at the line
+`DOCKER_VOLUMES` glob when it matches the name of the volume whose `_data` is
+one of the path's bases. The collector decides the rows; the grouping only points at the line
 likely responsible. Read each group for paths the line was not meant to
 reach. The exit status is `0`; with `--fail` it is `1` when any row changed;
-it is `2` when a step (the image build, `git show`, a collector run) fails.
+it is `2` when a step (the image build, `git show`, a collector run) fails
+or a command cannot be started, such as a `--shell` that does not exist.
 
 ## Catalog drift check and CI
 

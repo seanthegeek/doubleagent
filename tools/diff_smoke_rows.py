@@ -6,16 +6,17 @@ The exclusion and secret globs match relative to every collection base and their
 decide: it builds the main fake image of `collectors/tests/smoke.sh` once
 (`SMOKE_IMAGE_ONLY=1`), the image its first `run` collects, runs the collector of `BASE` and
 of `HEAD` over it in image mode with the command line the smoke test's `run` uses, and
-compares the two `manifest.jsonl` files. A path is matched against every base its rows name.
+compares the two `manifest.jsonl` files, row by row per path and base.
 
 It prints the table lines added and removed between the two scripts' `--list`, then every
 image path whose rows changed in `status`, `agent` or `secret`, or that only one manifest has,
-grouped under each changed line whose glob matches the path, and `unattributed` when none does.
-A `CATALOG` or `PROJECT_CATALOG` glob matches the leading segments of the path relative to its
-base, segment by segment; an `EXCLUDES` glob matches that relative path or one of its parent
-directories, a `SECRET_GLOBS` glob the relative path itself, both with `*` crossing `/`; a
-`DOCKER_VOLUMES` glob matches the name of the volume holding the base. The image holds only
-the main image's fixtures, so an overmatch shows only where a fixture path exists.
+grouped under each changed line whose glob matches the path relative to a base whose rows
+changed, and `unattributed` when none does. A `CATALOG` or `PROJECT_CATALOG` glob matches the
+leading segments of the path relative to its base, segment by segment; an `EXCLUDES` glob
+matches that relative path or one of its parent directories, a `SECRET_GLOBS` glob the
+relative path itself, both with `*` crossing `/`; a `DOCKER_VOLUMES` glob matches the name of
+the volume whose `_data` is one of the path's bases. The image holds only the smoke test's
+main fixtures, so an overmatch shows only where a fixture path exists.
 
 The image is built from the working tree's smoke test. `HEAD` defaults to the working tree's
 collector; a commit is read with `git show`. The run needs no tool beyond git and the shell.
@@ -52,9 +53,10 @@ TABLE_LABELS = {
     "docker": "DOCKER_VOLUMES",
 }
 NOTE = (
-    "note: the image holds only the main image's fixtures of the smoke test, so a glob that matches more than it"
-    " should shows here only where a fixture path exists to catch it."
+    "note: the image holds only the smoke test's main fixtures, so a glob that matches more"
+    " than it should shows here only where a fixture path exists to catch it."
 )
+Facts = tuple[str, str, str, bool]
 
 
 class DiffError(RuntimeError):
@@ -90,23 +92,24 @@ class Row:
     agent: str
     secret: bool
 
-    def facts(self) -> tuple[str, str, bool]:
-        """Return the compared fields: status, agent and secret flag."""
-        return (self.status, self.agent, self.secret)
+    def facts(self) -> Facts:
+        """Return the compared fields: base, status, agent and secret flag."""
+        return (self.home, self.status, self.agent, self.secret)
 
 
 @dataclass(frozen=True)
 class RowChange:
-    """One path whose rows differ between the manifests, with every base its rows name.
+    """One path whose rows differ between the manifests under the bases in `homes`.
 
-    A path can have rows under two bases, such as a home and a project inside it; an empty
-    `before` or `after` means that manifest has no row.
+    A path can have rows under two bases, such as a home and a project inside it; `homes`,
+    `before` and `after` hold only the bases whose rows changed, and an empty `before` or
+    `after` means that manifest has no row under them.
     """
 
     path: str
     homes: tuple[str, ...]
-    before: tuple[tuple[str, str, bool], ...]
-    after: tuple[tuple[str, str, bool], ...]
+    before: tuple[Facts, ...]
+    after: tuple[Facts, ...]
 
 
 def parse_tables(listing: str) -> dict[str, list[str]]:
@@ -168,20 +171,25 @@ def read_manifest(text: str) -> list[Row]:
 
 
 def diff_rows(before: Iterable[Row], after: Iterable[Row]) -> list[RowChange]:
-    """Return each path whose rows' facts differ, or that one manifest lacks, sorted by path."""
-    old_rows: dict[str, list[Row]] = {}
-    new_rows: dict[str, list[Row]] = {}
+    """Return each path whose rows under some base differ or exist on one side, sorted by path.
+
+    Rows are compared per path and base, so facts trading places between two bases of one
+    path are a change of both bases.
+    """
+    old_rows: dict[tuple[str, str], list[Facts]] = {}
+    new_rows: dict[tuple[str, str], list[Facts]] = {}
     for rows, index in ((before, old_rows), (after, new_rows)):
         for row in rows:
-            index.setdefault(row.path, []).append(row)
+            index.setdefault((row.path, row.home), []).append(row.facts())
+    changed: dict[str, list[str]] = {}
+    for key in sorted(set(old_rows) | set(new_rows)):
+        if sorted(old_rows.get(key, [])) != sorted(new_rows.get(key, [])):
+            changed.setdefault(key[0], []).append(key[1])
     changes: list[RowChange] = []
-    for path in sorted(set(old_rows) | set(new_rows)):
-        old_facts = tuple(sorted(row.facts() for row in old_rows.get(path, [])))
-        new_facts = tuple(sorted(row.facts() for row in new_rows.get(path, [])))
-        if old_facts != new_facts:
-            rows_of_path = old_rows.get(path, []) + new_rows.get(path, [])
-            homes = tuple(sorted({row.home for row in rows_of_path}))
-            changes.append(RowChange(path, homes, old_facts, new_facts))
+    for path, homes in changed.items():
+        old_facts = sorted(facts for home in homes for facts in old_rows.get((path, home), []))
+        new_facts = sorted(facts for home in homes for facts in new_rows.get((path, home), []))
+        changes.append(RowChange(path, tuple(homes), tuple(old_facts), tuple(new_facts)))
     return changes
 
 
@@ -225,12 +233,10 @@ def line_matches(change: TableChange, path: str, home: str) -> bool:
 def attribute(
     table_changes: list[TableChange], row_changes: list[RowChange]
 ) -> list[tuple[TableChange | None, list[RowChange]]]:
-    """Group each changed path under every changed line matching it under one of its bases.
+    """Group each changed path under every changed line matching it under a changed base.
 
-    A path no changed line matches goes under `None`.
-
-    The groups follow the order of `table_changes`, the unattributed group last; a group with
-    no path is left out.
+    A path no changed line matches goes under `None`. The groups follow the order of
+    `table_changes`, the unattributed group last; a group with no path is left out.
     """
     groups: dict[TableChange | None, list[RowChange]] = {change: [] for change in table_changes}
     groups[None] = []
@@ -245,13 +251,14 @@ def attribute(
     return [(change, paths) for change, paths in groups.items() if paths]
 
 
-def describe_facts(facts: tuple[tuple[str, str, bool], ...]) -> str:
+def describe_facts(facts: tuple[Facts, ...], image_root: str) -> str:
     """Return a path's row facts as printed, `(no row)` when the manifest has none."""
     if not facts:
         return "(no row)"
     return "; ".join(
         f"{status} agent={agent or '-'} secret={'true' if secret else 'false'}"
-        for status, agent, secret in facts
+        f" base={display_path(home, image_root)}"
+        for home, status, agent, secret in facts
     )
 
 
@@ -284,7 +291,8 @@ def render_report(
         for row_change in paths:
             lines.append(
                 f"  {display_path(row_change.path, image_root)}: "
-                f"{describe_facts(row_change.before)} -> {describe_facts(row_change.after)}"
+                f"{describe_facts(row_change.before, image_root)} -> "
+                f"{describe_facts(row_change.after, image_root)}"
             )
     lines.append("")
     lines.append(NOTE)
@@ -311,9 +319,12 @@ def image_command(shell: str) -> tuple[dict[str, str], list[str]]:
 def run_process(arguments: list[str], extra_environment: dict[str, str]) -> str:
     """Run a command from the repository root and return its stdout; a failure raises."""
     environment = dict(os.environ, **extra_environment)
-    completed = subprocess.run(
-        arguments, cwd=ROOT, env=environment, capture_output=True, text=True, check=False
-    )
+    try:
+        completed = subprocess.run(
+            arguments, cwd=ROOT, env=environment, capture_output=True, text=True, check=False
+        )
+    except OSError as error:
+        raise DiffError(f"{arguments[0]} could not be run ({error})") from error
     if completed.returncode != 0:
         raise DiffError(
             f"{' '.join(arguments[:3])} exited {completed.returncode}: {completed.stderr.strip()}"

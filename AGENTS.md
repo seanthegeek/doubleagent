@@ -97,9 +97,10 @@ tools/check_parser_research.py  compares each parser's row texts, file patterns 
                                with the Parsing part of its research document
 tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines, files,
                                keys and values with the research documents
-tools/diff_smoke_rows.py       runs the sh collector of two commits over the main image's
-                               fixtures of the sh smoke test and lists the paths whose
-                               manifest rows changed, grouped by the table line responsible
+tools/diff_smoke_rows.py       runs the sh collector of a commit and the working tree or
+                               a second commit over the sh smoke test's main fixtures and
+                               lists the paths whose manifest rows changed, grouped under
+                               each changed table line whose glob matches them
 tools/tests/                   pytest suite of the drift checkers and tools, on synthetic
                                inputs
 tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
