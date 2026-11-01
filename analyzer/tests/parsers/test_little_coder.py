@@ -160,6 +160,18 @@ class LittleCoderTests(ParserBase):
         self.assertEqual((rows[0].session_id, rows[0].project_path), (LC_SESSION, "/srv/proj"))
         self.assertNotIn("session file not collected", rows[0].text)
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unsearchable_sibling_project_directory_is_named_when_no_directory_holds_the_file(self):
+        sibling = self.home / ".pi/agent/sessions/--aaa--"
+        sibling.mkdir()
+        (self.home / PI_DIR / LC_FILE).unlink()
+        sibling.chmod(0)
+        try:
+            rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
+        finally:
+            sibling.chmod(0o700)
+        self.assert_unreadable_directory_rows(rows, "--aaa--")
+
     def assert_unreadable_directory_rows(self, rows, directory):
         """Check the checkpoint row without the not-collected clause, then the directory row."""
         self.assertEqual(len(rows), 2)

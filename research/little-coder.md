@@ -560,14 +560,15 @@ A pi session file a checkpoint directory names that cannot be read gives the che
 the `session file not collected` clause, followed by one row
 `parser: <file> could not be read (<reason>)`, `<file>` the session file's name.
 
-A pi sessions directory (`.pi/agent/sessions`) that cannot be read, listed or searched, or
-whose parent cannot be, or a project directory under it that cannot be searched, so the
-session file cannot be looked up, gives the checkpoint row without the
+A pi sessions directory (`.pi/agent/sessions`) that cannot be read, listed or searched, or a
+directory above it that cannot be searched, or a project directory under it that cannot be
+searched, so the session file cannot be looked up, gives the checkpoint row without the
 `session file not collected` clause, followed by one row
 `parser: <directory> could not be read (<reason>)`, `<directory>` the directory's name
 (`sessions`, or the project directory's `--<cwd>--` name). A denied project directory the
 session does not live in is passed over, and the row names it only when no directory holds
-the file.
+the file. A symlinked sessions directory counts as absent, since the analyzer follows no
+symlink, and gives the clause.
 
 #### Fixtures
 
