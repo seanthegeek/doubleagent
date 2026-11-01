@@ -2814,7 +2814,12 @@ unreadable `paste-cache/` file gives a row of its own
 A transcript, subagent file or `history.jsonl` that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name,
 `source_line` 0 when it could not be opened and the last line read when the read failed;
-the other files still parse.
+the other files still parse. A process registry file, settings file, `.claude.json`,
+`ccr-tip.json` or `bridge-pointer.json` that cannot be read gives the same row, `source_line` 0 and
+no time, in place of its not-a-JSON-object row. A `tool-results/` file that is there but cannot be
+read gives the same row after its transcript's rows, with the session id, and its `tool_result`
+row keeps the stub followed by `[persisted output could not be read (<reason>)]`
+([Persisted output files](#persisted-output-files)).
 
 #### Fixtures
 
@@ -2946,8 +2951,9 @@ line's `toolUseResult.persistedOutputPath` when that key is set (2.1.309), else 
 to equal the transcript's session directory (`<session id>/` beside a session file, the directory
 above `subagents/` for a subagent file). It reads `<session dir>/tool-results/<name>` when neither
 the file, `tool-results/` nor the session directory is a symlink, and otherwise keeps the stub
-followed by `[persisted output not found: tool-results/<name>]`. On the observed install every stub
-resolved.
+followed by `[persisted output not found: tool-results/<name>]`. A file that is there but cannot be
+read keeps the stub followed by `[persisted output could not be read (<reason>)]` and gives the
+unreadable row of [Bad-line rows](#bad-line-rows). On the observed install every stub resolved.
 
 ## Confidence
 

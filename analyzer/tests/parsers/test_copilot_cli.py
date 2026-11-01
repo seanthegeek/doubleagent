@@ -2,7 +2,10 @@
 
 import json
 import sqlite3
+import unittest
 from typing import ClassVar
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
@@ -853,6 +856,46 @@ class CopilotCliTests(ParserBase):
         )
         self.assertTrue(rows[0].timestamp_utc)
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_file_is_one_row(self):
+        cases = (
+            (COPILOT_HISTORY_REL, ""),
+            (COPILOT_PERMISSIONS_REL, ""),
+            (COPILOT_SETTINGS_REL, ""),
+            (COPILOT_LOG_REL, ""),
+            (COPILOT_SIDEBAR_REL, ""),
+            (COPILOT_SNAPSHOTS_REL, COPILOT_SESSION),
+            (COPILOT_WORKSPACE_REL, COPILOT_SESSION),
+        )
+        clean = [row.text for row in self.rows_for(CopilotCliParser(), COPILOT_EVENTS_REL)]
+        for rel, session_id in cases:
+            path = self.home / rel
+            path.chmod(0)
+            try:
+                parser = CopilotCliParser()
+                rows = self.rows_for(parser, rel)
+                events = self.rows_for(parser, COPILOT_EVENTS_REL)
+            finally:
+                path.chmod(0o600)
+            name = rel.rsplit("/", 1)[-1]
+            self.assertEqual(
+                [
+                    (row.turn_type, row.source_line, row.timestamp_utc, row.text, row.session_id)
+                    for row in rows
+                ],
+                [
+                    (
+                        "system",
+                        0,
+                        "",
+                        "parser: %s could not be read (Permission denied)" % name,
+                        session_id,
+                    )
+                ],
+                rel,
+            )
+            self.assertEqual([row.text for row in events], clean, rel)
+
     def test_log(self):
         rows = self.rows_for(CopilotCliParser(), COPILOT_LOG_REL)
         self.assertEqual(
@@ -875,20 +918,23 @@ class CopilotCliTests(ParserBase):
         from doubleagent.parsers.copilot_cli import read_flat_yaml
 
         path = self.home / "workspace-line-ends.yaml"
+        errors: list = []
         path.write_text(
             "cwd: /srv/proj\u00a0\nsummary: a\u2028b\nname: n\n", encoding="utf-8", newline=""
         )
         self.assertEqual(
-            read_flat_yaml(path), {"cwd": "/srv/proj\u00a0", "summary": "a\u2028b", "name": "n"}
+            read_flat_yaml(path, errors),
+            {"cwd": "/srv/proj\u00a0", "summary": "a\u2028b", "name": "n"},
         )
         path.write_text("cwd\u00a0: /srv/proj\n", encoding="utf-8", newline="")
-        self.assertEqual(read_flat_yaml(path), {"cwd\u00a0": "/srv/proj"})
+        self.assertEqual(read_flat_yaml(path, errors), {"cwd\u00a0": "/srv/proj"})
         with_lf = "id: x\ncwd: '/srv/proj'\nsummary: ~\n"
         path.write_text(with_lf, encoding="utf-8", newline="")
-        expected = read_flat_yaml(path)
+        expected = read_flat_yaml(path, errors)
         self.assertEqual(expected, {"id": "x", "cwd": "/srv/proj", "summary": None})
         path.write_text(with_lf.replace("\n", "\r\n"), encoding="utf-8", newline="")
-        self.assertEqual(read_flat_yaml(path), expected)
+        self.assertEqual(read_flat_yaml(path, errors), expected)
+        self.assertEqual(errors, [])
 
     def test_log_line_ends_and_trims(self):
         from doubleagent.parsers.copilot_cli import LOG_TIME_PATTERN, SIGNED_IN_PATTERN

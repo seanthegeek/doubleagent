@@ -49,6 +49,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     setting_value,
@@ -227,18 +228,18 @@ def strip_jsonc(text: str) -> str:
     return "".join(out)
 
 
-def read_flat_yaml(path: Path) -> dict[str, str | None]:
+def read_flat_yaml(path: Path, errors: list) -> dict[str, str | None]:
     """Return the top-level `key: value` scalars of a YAML file.
 
     `null` and `~` are None and quoted values are unquoted. `workspace.yaml` holds only scalars, so
-    a nested or multi-line value is skipped.
+    a nested or multi-line value is skipped. A file that cannot be read gives {} and its
+    unreadable entry in `errors`.
     """
     out: dict[str, str | None] = {}
-    try:
-        lines = split_lines(path.read_bytes().decode("utf-8", errors="replace"))
-    except OSError:
+    data = file_bytes(path, errors)
+    if data is None:
         return out
-    for line in lines:
+    for line in split_lines(data.decode("utf-8", errors="replace")):
         if not line or line[0] in " \t#-" or ":" not in line:
             continue
         key, _, value = line.partition(":")
@@ -257,10 +258,17 @@ def read_flat_yaml(path: Path) -> dict[str, str | None]:
     return out
 
 
-def _read_json(path: Path):
+def _read_json(path: Path, errors: list):
+    """Return the parsed file, or None when it cannot be read or parsed.
+
+    A file that cannot be read adds its unreadable entry to `errors`.
+    """
+    data = file_bytes(path, errors)
+    if data is None:
+        return None
     try:
-        return json.loads(path.read_bytes().decode("utf-8", errors="replace"))
-    except (OSError, ValueError):
+        return json.loads(data.decode("utf-8", errors="replace"))
+    except ValueError:
         return None
 
 
@@ -327,8 +335,8 @@ class CopilotCliParser(Parser):
             yield from self._parse_settings(artifact)
         elif LOG_PATTERN.match(rel):
             yield from self._parse_log(artifact)
-        # sidebar-sessions-state files give no rows of their own; they are
-        # read as a join by `_sidebar`.
+        elif SIDEBAR_PATTERN.match(rel):
+            yield from self._parse_sidebar(artifact)
 
     # -- helpers ------------------------------------------------------------
 
@@ -359,7 +367,8 @@ class CopilotCliParser(Parser):
                 for path in sorted(directory.glob("*.json")):
                     if path.is_symlink() or not path.is_file():
                         continue
-                    document = _dict(_read_json(path))
+                    # Each sidebar file is also an artifact `_parse_sidebar` reports.
+                    document = _dict(_read_json(path, []))
                     cwd = _str(document.get("cwd"))
                     ids = document.get("sessionIds")
                     if cwd and isinstance(ids, list):
@@ -373,7 +382,8 @@ class CopilotCliParser(Parser):
         path = session_dir / "workspace.yaml"
         if path.is_symlink() or not path.is_file():
             return ""
-        return read_flat_yaml(path).get("cwd") or ""
+        # The file is also an artifact `_parse_workspace` reads in full and reports.
+        return read_flat_yaml(path, []).get("cwd") or ""
 
     def _fallback_project(self, artifact: Artifact, session_dir: Path, session_id: str) -> str:
         return self._workspace_cwd(session_dir) or self._sidebar(artifact).get(session_id, "")
@@ -710,7 +720,11 @@ class CopilotCliParser(Parser):
     # -- workspace.yaml -----------------------------------------------------
 
     def _parse_workspace(self, artifact: Artifact, session_id: str) -> Iterator[Row]:
-        metadata = read_flat_yaml(artifact.disk_path)
+        errors: list = []
+        metadata = read_flat_yaml(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors, session_id)
+            return
         session_id = metadata.get("id") or session_id
         columns = {
             "timestamp_utc": to_utc(metadata.get("created_at")),
@@ -768,7 +782,11 @@ class CopilotCliParser(Parser):
     # -- rewind-file-snapshots/index.json -----------------------------------
 
     def _parse_snapshots(self, artifact: Artifact, session_id: str) -> Iterator[Row]:
-        document = _read_json(artifact.disk_path)
+        errors: list = []
+        document = _read_json(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors, session_id)
+            return
         if not isinstance(document, dict):
             yield self._problem(artifact, "parser: rewind snapshot index is not a JSON object")
             return
@@ -939,7 +957,11 @@ class CopilotCliParser(Parser):
     # -- command-history-state.json -----------------------------------------
 
     def _parse_history(self, artifact: Artifact) -> Iterator[Row]:
-        document = _read_json(artifact.disk_path)
+        errors: list = []
+        document = _read_json(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         if not isinstance(document, dict):
             yield self._problem(artifact, "parser: command history is not a JSON object")
             return
@@ -961,7 +983,11 @@ class CopilotCliParser(Parser):
 
     def _parse_permissions(self, artifact: Artifact) -> Iterator[Row]:
         timestamp = file_mtime(artifact)
-        document = _read_json(artifact.disk_path)
+        errors: list = []
+        document = _read_json(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         if not isinstance(document, dict):
             yield self._problem(
                 artifact, "parser: permissions-config.json is not a JSON object", timestamp
@@ -980,10 +1006,14 @@ class CopilotCliParser(Parser):
 
     def _parse_settings(self, artifact: Artifact) -> Iterator[Row]:
         timestamp = file_mtime(artifact)
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            raw = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-            document = json.loads(strip_jsonc(raw))
-        except (OSError, ValueError):
+            document = json.loads(strip_jsonc(data.decode("utf-8", errors="replace")))
+        except ValueError:
             document = None
         if not isinstance(document, dict):
             yield self._problem(artifact, "parser: settings.json is not a JSON object", timestamp)
@@ -997,10 +1027,12 @@ class CopilotCliParser(Parser):
     # -- logs/process-*.log -------------------------------------------------
 
     def _parse_log(self, artifact: Artifact) -> Iterator[Row]:
-        try:
-            lines = split_lines(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except OSError:
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors)
             return
+        lines = split_lines(data.decode("utf-8", errors="replace"))
         sessions = {
             match.group(1)
             for line in lines
@@ -1021,3 +1053,14 @@ class CopilotCliParser(Parser):
                 timestamp_utc=to_utc(time_match.group(1)) if time_match else "",
                 session_id=session_id,
             )
+
+    # -- sidebar-sessions-state/*.json --------------------------------------
+
+    def _parse_sidebar(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield the unreadable row of a sidebar file that cannot be read, else nothing.
+
+        A sidebar file gives no rows of its own; `_sidebar` reads it as a join.
+        """
+        errors: list = []
+        _read_json(artifact.disk_path, errors)
+        yield from error_rows(self, artifact, errors)

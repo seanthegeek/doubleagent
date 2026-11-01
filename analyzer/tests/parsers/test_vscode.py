@@ -2,6 +2,9 @@
 
 import io
 import json
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
@@ -314,6 +317,46 @@ class VsCodeTests(ParserBase):
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         rows = self.rows_for(VsCodeParser(), self.REL)
         self.assertEqual({row.project_path for row in rows}, {"/srv/proj"})
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_file_is_one_row(self):
+        workspace_json = VSCODE_WORKSPACE + "/workspace.json"
+        cases = (
+            (self.REL, self.REL, VSCODE_SESSION, "/srv/proj"),
+            (self.LEGACY, self.LEGACY, VSCODE_LEGACY_SESSION, ""),
+            (VSCODE_EDITING_REL, VSCODE_EDITING_REL, VSCODE_SESSION, "/srv/proj"),
+            (VSCODE_CLOUD_SESSIONS_REL, VSCODE_CLOUD_SESSIONS_REL, "", ""),
+            (VSCODE_PROFILE_SETTINGS_REL, VSCODE_PROFILE_SETTINGS_REL, "", ""),
+            (workspace_json, self.REL, VSCODE_SESSION, "/srv/proj"),
+        )
+        for locked, rel, session_id, project in cases:
+            path = self.home / locked
+            path.chmod(0)
+            try:
+                rows = self.rows_for(VsCodeParser(), rel)
+            finally:
+                path.chmod(0o600)
+            problems = [
+                (row.turn_type, row.source_line, row.timestamp_utc, row.text, row.session_id)
+                for row in rows
+                if row.text.startswith("parser:")
+            ]
+            self.assertEqual(
+                problems,
+                [
+                    (
+                        "system",
+                        0,
+                        "",
+                        "parser: %s could not be read (Permission denied)" % path.name,
+                        session_id,
+                    )
+                ],
+                locked,
+            )
+            self.assertEqual(rows[-1].project_path, project, locked)
+            if locked == workspace_json:
+                self.assertGreater(len(rows), 1, locked)
 
     def test_bad_workspace_json(self):
         clean = [(row.turn_type, row.text) for row in self.rows_for(VsCodeParser(), self.REL)]

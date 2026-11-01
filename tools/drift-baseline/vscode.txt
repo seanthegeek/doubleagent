@@ -4,7 +4,6 @@ check_fixture_schema|key-undocumented|isBuiltin
 check_fixture_schema|key-undocumented|scheme
 check_fixture_schema|module-provenance-missing|vscode
 check_parser_research|not-read-contradicted|timestamp
-check_parser_research|parser-message-undocumented|parser: cloudSessions.json is not a JSON object
 check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:profiles/(?:builtin/)?[^/]+/)?settings\.json$
 check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?:workspaceStorage/[^/]+/chatSessions/[^/]+\.jsonl?|globalStorage/emptyWindowChatSessions/[^/]+\.jsonl?|globalStorage/transferredChatSessions/[^/]+\.json)$
 check_parser_research|pattern-undocumented|^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?:Code[^/]*|VSCodium[^/]*|Positron|Trae[^/]*)|\.vscode-server[^/]*/data|\.vscodium-server[^/]*/data|\.positron-server/data)/User/(?P<scope>globalStorage|profiles/(?:builtin/)?[^/]+/globalStorage|workspaceStorage/[^/]+)/state\.vscdb$
