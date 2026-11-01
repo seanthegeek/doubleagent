@@ -66,7 +66,7 @@ def run_with(findings: list[Finding]):
 
 ALPHA = Finding("alpha", "line-unnamed", ".alpha/x", "analyzer/doubleagent/catalog.txt", 3)
 BETA = Finding("beta", "line-unnamed", ".config/beta", "analyzer/doubleagent/catalog.txt", 5)
-NO_AGENT = Finding("-", "exclusion-unreachable", "tmp/x", "analyzer/doubleagent/catalog.txt")
+NO_AGENT = Finding("-", "exclusion-unowned", "tmp/x", "analyzer/doubleagent/catalog.txt")
 
 
 # --- Finding ---------------------------------------------------------------------------------
@@ -150,6 +150,35 @@ def test_malformed_line_fails(tmp_path, capsys):
     ]
 
 
+def test_unsorted_line_fails_for_every_checker(tmp_path, capsys):
+    lines = "check_tables|line-unnamed|.alpha/x\ncheck_smoke|fixture-missing|.alpha\n"
+    write(tmp_path / "tools/drift-baseline/alpha.txt", lines)
+    assert drift_common.main_with_baseline("check_other", run_with([]), [], tmp_path) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "tools/drift-baseline/alpha.txt:2: unsorted: check_smoke|fixture-missing|.alpha"
+        " sorts before line 1"
+    ]
+
+
+def test_duplicate_line_fails(tmp_path, capsys):
+    key = "check_tables|line-unnamed|.alpha/x"
+    write(tmp_path / "tools/drift-baseline/alpha.txt", "%s\n%s\n" % (key, key))
+    assert drift_common.main_with_baseline("check_tables", run_with([ALPHA]), [], tmp_path) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "tools/drift-baseline/alpha.txt:2: duplicate: %s repeats line 1" % key
+    ]
+
+
+def test_update_sorts_and_deduplicates_every_line(tmp_path):
+    key = "check_tables|line-unnamed|.alpha/x"
+    other = "check_smoke|fixture-missing|.alpha"
+    write(tmp_path / "tools/drift-baseline/alpha.txt", "%s\n%s\n%s\n" % (key, other, other))
+    arguments = ["--update-baseline"]
+    drift_common.main_with_baseline("check_tables", run_with([ALPHA]), arguments, tmp_path)
+    assert baseline_text(tmp_path, "alpha") == "%s\n%s\n" % (other, key)
+    assert drift_common.main_with_baseline("check_tables", run_with([ALPHA]), [], tmp_path) == 0
+
+
 def test_update_writes_sorted_keys_per_agent_and_unattributed_file_for_no_agent(tmp_path):
     later = Finding("alpha", "credential-unflagged", ".alpha/auth.json", "research/alpha.md")
     findings = [ALPHA, later, ALPHA, NO_AGENT, BETA]
@@ -162,7 +191,7 @@ def test_update_writes_sorted_keys_per_agent_and_unattributed_file_for_no_agent(
         "check_tables|credential-unflagged|.alpha/auth.json\ncheck_tables|line-unnamed|.alpha/x\n"
     )
     assert baseline_text(tmp_path, "beta") == "check_tables|line-unnamed|.config/beta\n"
-    assert baseline_text(tmp_path, "unattributed") == "check_tables|exclusion-unreachable|tmp/x\n"
+    assert baseline_text(tmp_path, "unattributed") == "check_tables|exclusion-unowned|tmp/x\n"
     assert not (tmp_path / "tools/drift-baseline/-.txt").exists()
     assert drift_common.main_with_baseline("check_tables", run_with(findings), [], tmp_path) == 0
 
@@ -214,7 +243,7 @@ def test_unattributed_file_holds_the_findings_of_no_agent(tmp_path, capsys):
     run = run_with([NO_AGENT])
     assert drift_common.main_with_baseline("check_tables", run, [], tmp_path) == 1
     output = capsys.readouterr().out
-    assert "exclusion-unreachable [-]: tmp/x" in output
+    assert "exclusion-unowned [-]: tmp/x" in output
     assert "from tools/drift-baseline/unattributed.txt" in output
     assert drift_common.baseline_file("-") == "tools/drift-baseline/unattributed.txt"
     assert drift_common.file_agent("unattributed") == "-"
@@ -573,8 +602,10 @@ def test_attribute_glob_volume_glob_goes_to_the_one_volume_document_naming_it(tm
 
 def test_glob_owners_volume_subsections_before_the_collection_part(tmp_path):
     catalog = drift_common.tables(write(tmp_path / "catalog.txt", STAR_CATALOG)).catalog
-    volume = "### Per-user storage\n\n#### Docker volume\n\nThe volume holds `both` and `.ssh/*`.\n"
-    gamma = "# gamma\n\n## Collection\n\n" + volume
+    volume = (
+        "### Per-user storage\n\n#### Docker volume\n\nThe `%s` volume holds `both` and `.ssh/*`.\n"
+    )
+    gamma = "# gamma\n\n## Collection\n\n" + volume % "a0_gamma_usr"
     delta = "# delta\n\n## Collection\n\n### Per-user storage\n\n`both`, `~/.ssh/` and `solo`.\n"
     write(tmp_path / "research" / "gamma.md", gamma)
     write(tmp_path / "research" / "delta.md", delta)
@@ -588,7 +619,13 @@ def test_glob_owners_volume_subsections_before_the_collection_part(tmp_path):
     }
     for glob, owners in cases.items():
         assert drift_common.glob_owners(glob, catalog, tmp_path) == owners, glob
-    write(tmp_path / "research" / "delta.md", "# delta\n\n## Collection\n\n" + volume)
+    unnamed = "# delta\n\n## Collection\n\n" + volume.replace("`%s` ", "")
+    write(tmp_path / "research" / "delta.md", unnamed)
+    drift_common.collection_spans_by_depth.cache_clear()
+    assert drift_common.glob_owners("both", catalog, tmp_path) == ["gamma"]
+    write(
+        tmp_path / "research" / "delta.md", "# delta\n\n## Collection\n\n" + volume % "delta_data"
+    )
     drift_common.collection_spans_by_depth.cache_clear()
     assert drift_common.glob_owners("both", catalog, tmp_path) == ["delta", "gamma"]
 
@@ -644,6 +681,44 @@ def test_agents_page_rows(tmp_path):
         "alpha", "parsed", "source; fixture only", "[research](../research/alpha.md)", 8
     )
     assert rows["beta"].notes == "lines `beta|.config/beta` and more"
+
+
+SURVIVAL_INDEX = """\
+# Research
+
+| Agent | Transcripts live in | Second copy |
+| --- | --- | --- |
+ | `alpha` | home `.alpha/` | `history.jsonl`; secondary |
+| beta | none | none |
+| `alpha` | twice | ignored |
+
+Prose closes the table.
+
+| Agent | Status |
+| --- | --- |
+| `gamma` | not the survival table |
+"""
+
+
+def test_table_rows_yield_the_header_and_each_row_until_a_non_table_line():
+    header = drift_common.SURVIVAL_TABLE_HEADER
+    rows = list(drift_common.table_rows(SURVIVAL_INDEX, header))
+    assert rows == [
+        (2, []),
+        (4, ["`alpha`", "home `.alpha/`", "`history.jsonl`; secondary"]),
+        (5, ["beta", "none", "none"]),
+        (6, ["`alpha`", "twice", "ignored"]),
+    ]
+
+
+def test_survival_rows_key_by_first_code_span_and_keep_the_first(tmp_path):
+    write(tmp_path / "research/README.md", SURVIVAL_INDEX)
+    rows = drift_common.survival_rows(tmp_path)
+    assert list(rows) == ["alpha", "beta"]
+    assert rows["alpha"] == drift_common.SurvivalRow(
+        "alpha", ("`alpha`", "home `.alpha/`", "`history.jsonl`; secondary"), 5
+    )
+    assert drift_common.survival_rows(tmp_path / "missing") == {}
 
 
 PARSERS = {

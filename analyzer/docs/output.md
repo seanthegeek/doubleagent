@@ -16,106 +16,87 @@ The examples of [detect](#detect), [detect --json](#detect---json),
 [timeline](#timeline), [inventory.json](#inventoryjson),
 [timeline.jsonl](#timelinejsonl) and [sessions.jsonl](#sessionsjsonl) are
 the analyzer's output on a synthetic collection. No collector gathered
-it from a host: `analyzer/tools/example_collection.py` writes it, its
-`collection.json` and `manifest.jsonl` in the shape
+it from a host: `analyzer/tools/example_collection.py` writes the agents'
+files with the analyzer's test fixtures, the same records the parser
+tests read, so the examples show what the parsers make of the record
+shapes the research documents describe, from real installs and the
+agents' source. The contents are invented. A fixture covers every
+platform its agent writes for, and a Linux home holds no macOS
+`Library` or Windows `AppData` tree, so the tool leaves those trees out,
+except Cursor's editor state, which it moves to its Linux place,
+`.config/Cursor`. The tool writes `collection.json`, `manifest.jsonl`
+and `collector.log` itself, in the shape
 [`collectors/docs/output.md`](../../collectors/docs/output.md) documents,
-and every file's contents are invented. The record shapes are those of
-the analyzer's test fixtures and the research documents' samples, built
-from real installs (Claude Code 2.1.310 on Linux and macOS, Codex CLI
-0.162.1 on Linux) and the agents' source, so the parsers read these
-files as they read an install's. The collection is of
-`wsdev14`, a Linux workstation, as collector 1.19.0 would record it in
-live mode, with the users `alice` and `bob`, who both work on the
-repository `/srv/proj`, a Go billing service. Everything happens on
-2026-10-27, a working day, on a host whose clock runs on UTC.
+as the collector of this repository, whose version they carry, would
+record `wsdev14`, a Linux workstation, in live mode on 2026-10-15, with
+the users `alice` and `bob` and the repository `/srv/proj`. A file whose
+fixture sets no modification time has 15:56:10 UTC that day, an hour
+before the collection.
 
-- alice's terminal session in `/srv/proj` (Claude Code 2.1.310): she
-  pastes a CI failure and asks for the fix, and the model runs `Grep`,
-  `Read`, `Edit` and `Bash` calls, each a `tool_use` row joined to its
-  `tool_result` row on `tool_use_id`. Approvals of single commands, a
-  denial of a `git push` with alice's reason, and an allow-always grant
-  are `permission decision:` rows beside their calls. The session's
-  permission mode, from a state record that carries no time, is a
-  `permission mode:` row with no timestamp, her `/model` command and
-  its output are `system` rows, and the next reply, from the other
-  model, gives a `model: <old> -> <new>` row; its scratchpad is a
-  `scratch directory:` row (see
-  [Row order and system rows](#row-order-and-system-rows)). She then
-  turns on Remote Control with `/remote-control` and, later, sends a
-  prompt from her phone: the bridge records give `remote control:
-  bridge session` and `session synced: remote control bridge` rows, the
-  queued prompt a `prompt queued:` and a `prompt trigger:` row, and the
-  session's registry file under `.claude/sessions/`, whose process is
-  still running at collection time, a `claude-code process` row and one more
-  `session synced:` row. In `sessions.jsonl` it reads `synced` `yes`
-  and `origin` `local`.
-- alice's Remote Control session, spawned by the Remote Control server
-  for a prompt she sent from claude.ai: its records give
-  `session origin: remote (Remote Control, entrypoint sdk-cli)`, a
-  `prompt trigger:` row for that prompt, and a `permission decision:`
-  row for a `Bash` call a settings rule allowed; its `ccr-tip.json`
-  gives a `session synced: remote event` row, and the project's
-  `bridge-pointer.json`, left by the server, a `remote control:
-  environment` row that belongs to no session. In `sessions.jsonl` it
-  reads `synced` `yes` and `origin` `remote`.
-- alice's teleported session, a cloud session started with `claude --cloud`
-  and brought to this host with `claude --teleport`: the turns replayed
-  from the cloud give
-  `session origin: remote (teleport, remoteSourced)` and
-  `session synced: cloud session (teleported: ...)`, the cloud machine's
-  scratchpad a `session origin: remote (teleport, cloud scratchpad
-  <path>)` row, and the prompt alice then typed on this host is a `user`
-  row, with the local scratchpad as a `scratch directory:` row, and
-  its registry file under `.claude/sessions/` a `claude-code process`
-  row. The transcript's last line was cut mid-write, as a copy taken
-  while the session runs can catch it: it is a `parser: unparseable
-  line` row with an empty `timestamp_utc`, so it sorts after every
-  timed row, and every row before it is kept.
-- alice's prompt history and settings: `.claude/history.jsonl` repeats
-  the prompts the transcripts hold, the pasted CI failure among them
-  (the file keeps a placeholder and the paste cache its text, which the
-  parser puts back so it matches the transcript's copy), which are
+- alice's Claude Code files: transcripts of several builds whose tool
+  calls are `tool_use` rows joined to their `tool_result` rows on
+  `tool_use_id`, with `permission decision:` rows beside the calls,
+  `permission mode:` rows (one, from a state record that carries no
+  time, with no timestamp), `/model` commands as `slash command:` rows
+  and `model: <old> -> <new>` rows on a switch, and scratchpads as
+  `scratch directory:` rows (see
+  [Row order and system rows](#row-order-and-system-rows)). A session
+  bound to Remote Control gives `remote control: bridge session` and
+  `session synced: remote control bridge` rows, and the registry file
+  of another session's process under `.claude/sessions/`, still
+  running, one more `session synced:` row. A session the
+  Remote Control server spawned gives
+  `session origin: remote (Remote Control, entrypoint sdk-cli)`, its
+  `ccr-tip.json` a `session synced: remote event` row, and the project's
+  `bridge-pointer.json` a `remote control: environment` row that belongs
+  to no session. A cloud session brought to the host with
+  `claude --teleport` gives `session origin: remote (teleport, ...)`
+  and `session synced: cloud session (teleported: ...)` rows.
+  `.claude/history.jsonl` repeats prompts the transcripts hold, which are
   dropped as duplicates and counted on the `dropped:` line (see
-  [Secondary sources](#secondary-sources)); its other lines, a prompt of
-  a session whose transcript she deleted and one in a repository,
-  `/srv/invoicing-old`, that she removed with its transcripts, are kept
-  with `recovered` `yes`, each a session of its own.
-  `.claude/settings.json`
-  gives `permission setting:` rows with an empty `project_path` and a
-  `model setting:` row; `.claude.json` gives `permission setting:` rows
-  for `/srv/proj` (its trust dialog and an allowed tool) and for the
-  removed `/srv/invoicing-old`, whose entry it keeps, and the
-  `remote control: spawn mode`, `remote control: machine id set`,
-  `cloud: hasRemoteEnvironment=true` (left by the `--cloud` start) and
-  `source host: github status=connected` rows.
-- bob's Codex CLI 0.162.1 thread in `/srv/proj`: its rollout gives a
-  `session start:` row, a `git remote:` row with the repository's URL,
-  a `model:` row and a `permission mode: approval=... sandbox=...` row,
-  then an `exec_command` call whose command fails, its `tool_result`
-  starting `[exit <code>]`, and an `apply_patch` call. `.codex/history.jsonl`
-  repeats the typed prompt, `state_5.sqlite` gives a `thread record:`
-  row, and `.codex/config.toml` gives `permission setting:` rows at the
-  file's modification time.
-- bob's Gemini CLI and Ollama files: the Gemini CLI settings hold
-  nothing the parser turns into a row, so `gemini-cli` is under
-  `parser found no rows`, and a Gemini CLI chat the manifest lists as
-  collected is missing from `fs/`, which gives a `problem:` line. The
-  Ollama prompt history gives a `user` row per prompt and a
-  `slash command: /bye` row, with an empty `timestamp_utc` because the
-  file records no times.
-- alice's Amp settings: Amp has no parser, so it is under
-  `detected but not parsed`.
-- The files of `/srv/proj`: its git metadata (`.git/HEAD`, `.git/config`,
-  which names the remotes `origin` and `upstream`, `FETCH_HEAD`,
-  `packed-refs`, `info/exclude` and the refs) and `AGENTS.md` are
-  shared files; `.claude/settings.local.json`, written by the
-  allow-always grant, gives a `permission setting:` row with
-  `project_path` `/srv/proj`; `.aider.input.history` gives an Aider
-  prompt row, marked `recovered` because the chat history it mirrors is
-  not in the collection; and a Cursor rules file gives no row, so
-  `cursor` is under `parser found no rows`.
-- A manifest row is cut short, which gives the
-  `manifest rows did not parse` note.
+  [Secondary sources](#secondary-sources)), and keeps one of a session
+  whose transcript is gone, in `/srv/old`, with `recovered` `yes`.
+  `.claude/settings.json` gives `permission setting:` rows with an empty
+  `project_path`, and `.claude.json` rows for `/srv/proj`.
+- alice's Codex CLI files: a rollout with a `git remote:` row naming the
+  repository's URL, `model:` and `permission mode: approval=...
+  sandbox=...` rows and an `apply_patch` call, its history, the state
+  database, whose `threads` rows give `thread record:` rows, and the
+  thread history database, whose turns of a thread with no rollout read
+  `recovered` `yes`.
+- alice's Cursor files: the editor's state database, with
+  `source host: github` rows and cloud agents whose sessions read
+  `origin` `remote`; the CLI's settings, as `permission setting:` rows;
+  and agent transcripts, some of whose rows read `recovered` `yes`, one
+  whose last line was cut mid-write, as a copy taken while the agent
+  runs can catch it: a `parser: unparseable line` row with an empty
+  `timestamp_utc`, so it sorts after every timed row, with every row
+  before it kept.
+- alice's Aider history files in her home, and an Amp settings file:
+  Amp has no parser, so it is under `detected but not parsed`.
+- bob's Gemini CLI and Ollama files. A Gemini CLI chat the manifest
+  lists as collected is missing from `fs/`, which gives a `problem:`
+  line, and the manifest row of an Ollama model manifest is cut short,
+  which gives the `manifest rows did not parse` note. The Ollama prompt
+  history records no times, so its `user` and `slash command:` rows have
+  an empty `timestamp_utc`.
+- The files of `/srv/proj`: `.git/HEAD` and `.git/config`, which names
+  the remotes `origin` and `upstream`, are shared files, and
+  `.claude/settings.local.json` gives `permission setting:` rows with
+  `project_path` `/srv/proj`.
+- Two excluded directories, alice's `.claude/cache` and bob's
+  `.ollama/models/blobs`, are `skipped_excluded` rows of a used install's
+  size.
+
+The [timeline.jsonl](#timelinejsonl) example is not the whole run's file
+but that of a second, filtered run, `timeline -o out --agent claude-code
+--agent codex-cli --agent cursor --match <regex>`, where the regular
+expression selects the row forms the examples point out, plus the
+recovered history prompt and the Codex CLI patch call by their text, so
+the example stays short enough to read; the [timeline](#timeline)
+stdout, [inventory.json](#inventoryjson) and
+[sessions.jsonl](#sessionsjsonl) examples are the unfiltered run's. The
+filters are `TIMELINE_FILTERS` in `analyzer/tools/regenerate_examples.py`.
 
 To write the collection into an empty directory, here `example`, from
 the repository root:
@@ -213,8 +194,8 @@ This is the output of `detect` on
 gives the `note:` line and bob's missing Gemini CLI chat the `problem:`
 line. The first table holds alice's and bob's homes, with `amp` marked
 `detect only`; the second holds `/srv/proj`, with a line for each agent
-that left files there, a `(shared)` line for its `AGENTS.md` and `.git/`
-files, and the `remotes:` line its `.git/config` gives:
+that left files there, a `(shared)` line for its `.git/` files, and the
+`remotes:` line its `.git/config` gives:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: detect-text -->
 ```text
@@ -222,21 +203,21 @@ input:   /cases/wsdev14/wsdev14
 kind:    collected
 host:    wsdev14
 note:    1 manifest rows did not parse
-problem: /home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-10-27T09-41-2407af53.json: missing from the collection
+problem: /home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection
 
 user           home                             agent                 files        bytes  parser
-alice          /home/alice                      claude-code              13        48222  yes
-alice          /home/alice                      amp                       1          177  detect only
-bob            /home/bob                        gemini-cli                1          190  yes
-bob            /home/bob                        codex-cli                 4        22690  yes
-bob            /home/bob                        ollama                    1          116  yes
+alice          /home/alice                      claude-code              23        40040  yes
+alice          /home/alice                      codex-cli                 8        59166  yes
+alice          /home/alice                      cursor                   11       100667  yes
+alice          /home/alice                      aider                     4         1379  yes
+alice          /home/alice                      amp                       1           96  detect only
+bob            /home/bob                        gemini-cli                9         4598  yes
+bob            /home/bob                        ollama                    6          300  yes
 
 project                                  users          agent                 files        bytes  parser
-/srv/proj                                alice          aider                     1           72  yes
-                                                        claude-code               1           69  yes
-                                                        cursor                    1          372  yes
-                                                        (shared)                 10         1564
-  remotes: origin git@github.com:acme--ledger/ledger.git, upstream https://git.example.com/acme-billing/ledger.git
+/srv/proj                                alice          claude-code               1           70  yes
+                                                        (shared)                  2          486
+  remotes: origin git@github.com:alice/proj.git https://mirror.example.com/alice/proj.git (push https://alice:FIXTURE-TOKEN@github.com/alice/proj.git), upstream https://github.com/upstream/proj.git
 ```
 <!-- end generated: detect-text -->
 
@@ -258,10 +239,9 @@ last line, naming the `origin` and `upstream` remotes of `/srv/proj`.
 
 With `--json`, `detect` prints the same data as one JSON object,
 indented by two spaces, and exits `0` even when nothing was found. This
-example is the output of `detect --json --files` on
+example is the output of `detect --json` on
 [the example collection](#the-example-collection), the data of the
-[detect](#detect) example with each project's `remotes` and `head` and,
-since `--files` was given, the `files` key, one entry per attributed file:
+[detect](#detect) example with each project's `remotes` and `head`:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: detect-json -->
 ```json
@@ -279,15 +259,33 @@ since `--files` was given, the `files` key, one entry per attributed file:
       "inferred": false,
       "agents": [
         {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true
+        },
+        {
           "agent": "amp",
           "files": 1,
-          "bytes": 177,
+          "bytes": 96,
           "parser": false
         },
         {
           "agent": "claude-code",
-          "files": 13,
-          "bytes": 48222,
+          "files": 23,
+          "bytes": 40040,
+          "parser": true
+        },
+        {
+          "agent": "codex-cli",
+          "files": 8,
+          "bytes": 59166,
+          "parser": true
+        },
+        {
+          "agent": "cursor",
+          "files": 11,
+          "bytes": 100667,
           "parser": true
         }
       ]
@@ -298,21 +296,15 @@ since `--files` was given, the `files` key, one entry per attributed file:
       "inferred": false,
       "agents": [
         {
-          "agent": "codex-cli",
-          "files": 4,
-          "bytes": 22690,
-          "parser": true
-        },
-        {
           "agent": "gemini-cli",
-          "files": 1,
-          "bytes": 190,
+          "files": 9,
+          "bytes": 4598,
           "parser": true
         },
         {
           "agent": "ollama",
-          "files": 1,
-          "bytes": 116,
+          "files": 6,
+          "bytes": 300,
           "parser": true
         }
       ]
@@ -326,38 +318,29 @@ since `--files` was given, the `files` key, one entry per attributed file:
       ],
       "agents": [
         {
-          "agent": "aider",
-          "files": 1,
-          "bytes": 72,
-          "parser": true
-        },
-        {
           "agent": "claude-code",
           "files": 1,
-          "bytes": 69,
-          "parser": true
-        },
-        {
-          "agent": "cursor",
-          "files": 1,
-          "bytes": 372,
+          "bytes": 70,
           "parser": true
         }
       ],
-      "shared_files": 10,
-      "shared_bytes": 1564,
+      "shared_files": 2,
+      "shared_bytes": 486,
       "remotes": [
         {
           "name": "origin",
           "urls": [
-            "git@github.com:acme--ledger/ledger.git"
+            "git@github.com:alice/proj.git",
+            "https://mirror.example.com/alice/proj.git"
           ],
-          "pushurls": []
+          "pushurls": [
+            "https://alice:FIXTURE-TOKEN@github.com/alice/proj.git"
+          ]
         },
         {
           "name": "upstream",
           "urls": [
-            "https://git.example.com/acme-billing/ledger.git"
+            "https://github.com/upstream/proj.git"
           ],
           "pushurls": []
         }
@@ -366,174 +349,7 @@ since `--files` was given, the `files` key, one entry per attributed file:
     }
   ],
   "problems": [
-    "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-10-27T09-41-2407af53.json: missing from the collection"
-  ],
-  "files": [
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4/ccr-tip.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/projects/-srv-proj/bridge-pointer.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/history.jsonl"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/paste-cache/71ae889d1f1f55db.txt"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/sessions/48213.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/sessions/52904.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/sessions/48213.06ca70864509508792d04db08549a779154e3cb857f55101ac73f19455893e8a.key"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/sessions/52904.5f5e741bce555807b9efc334311290e2816512d548e151828eec498604de7beb.key"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude/settings.json"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/home/alice/.claude.json"
-    },
-    {
-      "user": "alice",
-      "agent": "amp",
-      "path": "/home/alice/.config/amp/settings.json"
-    },
-    {
-      "user": "bob",
-      "agent": "gemini-cli",
-      "path": "/home/bob/.gemini/settings.json"
-    },
-    {
-      "user": "bob",
-      "agent": "codex-cli",
-      "path": "/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl"
-    },
-    {
-      "user": "bob",
-      "agent": "codex-cli",
-      "path": "/home/bob/.codex/history.jsonl"
-    },
-    {
-      "user": "bob",
-      "agent": "codex-cli",
-      "path": "/home/bob/.codex/state_5.sqlite"
-    },
-    {
-      "user": "bob",
-      "agent": "codex-cli",
-      "path": "/home/bob/.codex/config.toml"
-    },
-    {
-      "user": "bob",
-      "agent": "ollama",
-      "path": "/home/bob/.ollama/history"
-    },
-    {
-      "user": "alice",
-      "agent": "claude-code",
-      "path": "/srv/proj/.claude/settings.local.json"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/AGENTS.md"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/HEAD"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/config"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/FETCH_HEAD"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/packed-refs"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/refs/heads/fix/invoice-rounding"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/refs/heads/main"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/refs/remotes/origin/HEAD"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/refs/remotes/origin/main"
-    },
-    {
-      "user": "alice",
-      "agent": "project",
-      "path": "/srv/proj/.git/info/exclude"
-    },
-    {
-      "user": "alice",
-      "agent": "cursor",
-      "path": "/srv/proj/.cursor/rules/style.mdc"
-    },
-    {
-      "user": "alice",
-      "agent": "aider",
-      "path": "/srv/proj/.aider.input.history"
-    }
+    "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection"
   ]
 }
 ```
@@ -546,8 +362,9 @@ missing Gemini CLI chat is left out of his `gemini-cli` counts and named
 under `problems`. `homes` holds the counts of the first table of
 `detect` grouped by home, with each home's agents sorted by name, where
 the table lists them in the order their first file was met: here
-alice's `amp` comes before `claude-code` whatever the manifest's order.
-Its keys, in order:
+alice's `aider` comes before `claude-code` whatever the manifest's order.
+With `--files` the object also holds the `files` key, one entry per
+attributed file, which the example leaves out. Its keys, in order:
 
 | Key | Type | Meaning |
 | --- | --- | --- |
@@ -693,34 +510,49 @@ are the examples under [inventory.json](#inventoryjson),
 The `note:` and `problem:` lines repeat those of `detect`; the
 `dropped:` line counts the secondary-source rows, the history prompts
 among them, that a transcript also records; and the `sessions:` line
-ends with the synced, remote and recovered counts: the terminal session
-that turned on Remote Control and the Remote Control and teleported
-sessions are synced, the Remote Control and teleported sessions remote,
-and the sessions only alice's prompt history still holds are recovered:
+ends with the synced, remote and recovered counts: the Claude Code
+sessions bound to Remote Control, spawned by it or teleported, the
+Cursor cloud agents and a Codex CLI thread whose feedback report was
+uploaded are synced; the Remote Control spawn, the teleported session
+and the cloud agents are remote; and the sessions whose rows come in
+whole or in part from secondary sources are recovered:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: timeline-stdout -->
 ```text
 input:     /cases/wsdev14/wsdev14 (collected)
 host:      wsdev14
 note:      1 manifest rows did not parse
-problem:   /home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-10-27T09-41-2407af53.json: missing from the collection
-dropped:   7 duplicate rows from secondary sources (claude-code 4, codex-cli 3)
-agents:    parsed: aider, claude-code, codex-cli, ollama; detected but not parsed: amp; parser found no rows: cursor, gemini-cli
-rows:      140 in out/timeline.jsonl
-           aider          user         1
-           claude-code    assistant    11
-           claude-code    system       69
-           claude-code    tool_result  12
-           claude-code    tool_use     12
-           claude-code    user         8
-           codex-cli      assistant    1
-           codex-cli      system       12
-           codex-cli      tool_result  5
-           codex-cli      tool_use     5
-           codex-cli      user         1
-           ollama         system       1
-           ollama         user         2
-sessions:  6 in out/sessions.jsonl (3 synced, 2 remote, 2 recovered)
+problem:   /home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection
+dropped:   20 duplicate rows from secondary sources (aider 2, claude-code 2, codex-cli 12, cursor 3, gemini-cli 1)
+agents:    parsed: aider, claude-code, codex-cli, cursor, gemini-cli, ollama; detected but not parsed: amp
+rows:      295 in out/timeline.jsonl
+           aider          assistant    2
+           aider          system       11
+           aider          tool_result  5
+           aider          user         5
+           claude-code    assistant    6
+           claude-code    system       97
+           claude-code    tool_result  10
+           claude-code    tool_use     10
+           claude-code    user         17
+           codex-cli      assistant    2
+           codex-cli      system       17
+           codex-cli      tool_result  4
+           codex-cli      tool_use     4
+           codex-cli      user         2
+           cursor         assistant    4
+           cursor         system       56
+           cursor         tool_result  4
+           cursor         tool_use     5
+           cursor         user         6
+           gemini-cli     assistant    2
+           gemini-cli     system       10
+           gemini-cli     tool_result  3
+           gemini-cli     tool_use     3
+           gemini-cli     user         6
+           ollama         system       3
+           ollama         user         1
+sessions:  22 in out/sessions.jsonl (7 synced, 4 remote, 7 recovered)
 inventory: out/inventory.json (homes, projects, scratch directories, counts per agent, problems)
 ```
 <!-- end generated: timeline-stdout -->
@@ -744,11 +576,11 @@ from the parsers that ran. This example is the `inventory.json` that
 [the example collection](#the-example-collection), the run shown under
 [timeline](#timeline). Under `projects`, `/srv/proj` has the `remotes`
 and `head` of its `.git/` files and, in `recorded_remotes`, the URL
-bob's Codex CLI thread recorded, and `/srv/invoicing-old`, which only
-alice's prompt history and `.claude.json` still name, is `referenced`;
-`scratch_directories`
-holds the scratchpads alice's Claude Code sessions used on this host,
-counted there rather than as projects:
+alice's Codex CLI thread recorded; the paths that only rows name, such
+as `/srv/old` of alice's prompt history and the GitHub repositories of
+the Cursor cloud agents, are `referenced`; and `scratch_directories`
+holds the scratchpads alice's Claude Code sessions name, counted there
+rather than as projects:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: inventory-json -->
 ```json
@@ -761,23 +593,22 @@ counted there rather than as projects:
     "1 manifest rows did not parse"
   ],
   "problems": [
-    "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-10-27T09-41-2407af53.json: missing from the collection"
+    "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection"
   ],
-  "rows": 140,
-  "sessions": 6,
+  "rows": 295,
+  "sessions": 22,
   "parsed": [
     "aider",
     "claude-code",
     "codex-cli",
+    "cursor",
+    "gemini-cli",
     "ollama"
   ],
   "detected_not_parsed": [
     "amp"
   ],
-  "no_rows": [
-    "cursor",
-    "gemini-cli"
-  ],
+  "no_rows": [],
   "homes": [
     {
       "user": "alice",
@@ -785,9 +616,19 @@ counted there rather than as projects:
       "inferred": false,
       "agents": [
         {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 2
+        },
+        {
           "agent": "amp",
           "files": 1,
-          "bytes": 177,
+          "bytes": 96,
           "parser": false,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -796,10 +637,30 @@ counted there rather than as projects:
         },
         {
           "agent": "claude-code",
-          "files": 13,
-          "bytes": 48222,
+          "files": 23,
+          "bytes": 40040,
           "parser": true,
-          "synced_sessions": 3,
+          "synced_sessions": 4,
+          "relayed_sessions": 0,
+          "remote_sessions": 2,
+          "recovered_sessions": 1
+        },
+        {
+          "agent": "codex-cli",
+          "files": 8,
+          "bytes": 59166,
+          "parser": true,
+          "synced_sessions": 1,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 1
+        },
+        {
+          "agent": "cursor",
+          "files": 11,
+          "bytes": 100667,
+          "parser": true,
+          "synced_sessions": 2,
           "relayed_sessions": 0,
           "remote_sessions": 2,
           "recovered_sessions": 2
@@ -812,29 +673,19 @@ counted there rather than as projects:
       "inferred": false,
       "agents": [
         {
-          "agent": "codex-cli",
-          "files": 4,
-          "bytes": 22690,
-          "parser": true,
-          "synced_sessions": 0,
-          "relayed_sessions": 0,
-          "remote_sessions": 0,
-          "recovered_sessions": 0
-        },
-        {
           "agent": "gemini-cli",
-          "files": 1,
-          "bytes": 190,
+          "files": 9,
+          "bytes": 4598,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
           "remote_sessions": 0,
-          "recovered_sessions": 0
+          "recovered_sessions": 1
         },
         {
           "agent": "ollama",
-          "files": 1,
-          "bytes": 116,
+          "files": 6,
+          "bytes": 300,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -845,16 +696,42 @@ counted there rather than as projects:
     }
   ],
   "projects": {
-    "/srv/invoicing-old": {
+    "/home/alice": {
       "status": "referenced",
-      "rows": 2,
+      "rows": 23,
+      "sessions": 2,
+      "agents": {
+        "aider": {
+          "rows": 23,
+          "sessions": 2,
+          "turn_types": {
+            "assistant": 2,
+            "system": 11,
+            "tool_result": 5,
+            "user": 5
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "partial",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/old": {
+      "status": "referenced",
+      "rows": 1,
       "sessions": 1,
       "agents": {
         "claude-code": {
-          "rows": 2,
+          "rows": 1,
           "sessions": 1,
           "turn_types": {
-            "system": 1,
             "user": 1
           },
           "files": 0,
@@ -870,55 +747,89 @@ counted there rather than as projects:
       "head": "",
       "recorded_remotes": []
     },
-    "/srv/proj": {
-      "status": "collected",
-      "rows": 120,
-      "sessions": 5,
+    "/srv/other": {
+      "status": "referenced",
+      "rows": 1,
+      "sessions": 0,
       "agents": {
-        "aider": {
+        "gemini-cli": {
           "rows": 1,
           "sessions": 0,
           "turn_types": {
-            "user": 1
+            "system": 1
           },
-          "files": 1,
-          "bytes": 72
-        },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/proj": {
+      "status": "collected",
+      "rows": 212,
+      "sessions": 16,
+      "agents": {
         "claude-code": {
-          "rows": 97,
-          "sessions": 4,
+          "rows": 124,
+          "sessions": 8,
           "turn_types": {
-            "assistant": 11,
-            "system": 55,
-            "tool_result": 12,
-            "tool_use": 12,
-            "user": 7
+            "assistant": 6,
+            "system": 83,
+            "tool_result": 10,
+            "tool_use": 10,
+            "user": 15
           },
           "files": 1,
-          "bytes": 69
+          "bytes": 70
         },
         "codex-cli": {
-          "rows": 22,
-          "sessions": 1,
+          "rows": 27,
+          "sessions": 2,
           "turn_types": {
-            "assistant": 1,
-            "system": 10,
-            "tool_result": 5,
-            "tool_use": 5,
-            "user": 1
+            "assistant": 2,
+            "system": 15,
+            "tool_result": 4,
+            "tool_use": 4,
+            "user": 2
           },
           "files": 0,
           "bytes": 0
         },
         "cursor": {
-          "rows": 0,
-          "sessions": 0,
-          "turn_types": {},
-          "files": 1,
-          "bytes": 372
+          "rows": 38,
+          "sessions": 3,
+          "turn_types": {
+            "assistant": 4,
+            "system": 19,
+            "tool_result": 4,
+            "tool_use": 5,
+            "user": 6
+          },
+          "files": 0,
+          "bytes": 0
+        },
+        "gemini-cli": {
+          "rows": 23,
+          "sessions": 3,
+          "turn_types": {
+            "assistant": 2,
+            "system": 9,
+            "tool_result": 3,
+            "tool_use": 3,
+            "user": 6
+          },
+          "files": 0,
+          "bytes": 0
         }
       },
-      "shared_files": 10,
+      "shared_files": 2,
       "synced": "partial",
       "relayed": "",
       "origin": "mixed",
@@ -927,67 +838,52 @@ counted there rather than as projects:
         {
           "name": "origin",
           "urls": [
-            "git@github.com:acme--ledger/ledger.git"
+            "git@github.com:alice/proj.git",
+            "https://mirror.example.com/alice/proj.git"
           ],
-          "pushurls": []
+          "pushurls": [
+            "https://alice:FIXTURE-TOKEN@github.com/alice/proj.git"
+          ]
         },
         {
           "name": "upstream",
           "urls": [
-            "https://git.example.com/acme-billing/ledger.git"
+            "https://github.com/upstream/proj.git"
           ],
           "pushurls": []
         }
       ],
       "head": "main",
       "recorded_remotes": [
-        "git@github.com:acme--ledger/ledger.git"
+        "git@github.com:alice/proj.git"
       ]
-    }
-  },
-  "outside_projects": {
-    "rows": 16,
-    "sessions": 0,
-    "agents": {
-      "claude-code": {
-        "rows": 11,
-        "sessions": 0,
-        "turn_types": {
-          "system": 11
-        }
-      },
-      "codex-cli": {
-        "rows": 2,
-        "sessions": 0,
-        "turn_types": {
-          "system": 2
-        }
-      },
-      "ollama": {
-        "rows": 3,
-        "sessions": 0,
-        "turn_types": {
-          "system": 1,
-          "user": 2
-        }
-      }
     },
-    "synced": "",
-    "relayed": "",
-    "origin": "",
-    "recovered": ""
-  },
-  "deduplicated": {
-    "claude-code": 4,
-    "codex-cli": 3
-  },
-  "collected_only": [],
-  "synced_sessions": 3,
-  "relayed_sessions": 0,
-  "remote_sessions": 2,
-  "recovered_sessions": 2,
-  "scratch_directories": {
-    "/tmp/claude-1000/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b/scratchpad": {
+    "/srv/proj2": {
+      "status": "referenced",
+      "rows": 2,
+      "sessions": 0,
+      "agents": {
+        "claude-code": {
+          "rows": 2,
+          "sessions": 0,
+          "turn_types": {
+            "system": 1,
+            "user": 1
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/work": {
       "status": "referenced",
       "rows": 1,
       "sessions": 0,
@@ -1011,7 +907,132 @@ counted there rather than as projects:
       "head": "",
       "recorded_remotes": []
     },
-    "/tmp/claude-1000/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d/scratchpad": {
+    "github.com/alice-gh/demo": {
+      "status": "referenced",
+      "rows": 8,
+      "sessions": 1,
+      "agents": {
+        "cursor": {
+          "rows": 8,
+          "sessions": 1,
+          "turn_types": {
+            "system": 8
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "yes",
+      "relayed": "",
+      "origin": "remote",
+      "recovered": "no",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "github.com/alice-gh/web": {
+      "status": "referenced",
+      "rows": 5,
+      "sessions": 1,
+      "agents": {
+        "cursor": {
+          "rows": 5,
+          "sessions": 1,
+          "turn_types": {
+            "system": 5
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "yes",
+      "relayed": "",
+      "origin": "remote",
+      "recovered": "no",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    }
+  },
+  "outside_projects": {
+    "rows": 40,
+    "sessions": 1,
+    "agents": {
+      "claude-code": {
+        "rows": 10,
+        "sessions": 0,
+        "turn_types": {
+          "system": 10
+        }
+      },
+      "codex-cli": {
+        "rows": 2,
+        "sessions": 0,
+        "turn_types": {
+          "system": 2
+        }
+      },
+      "cursor": {
+        "rows": 24,
+        "sessions": 1,
+        "turn_types": {
+          "system": 24
+        }
+      },
+      "ollama": {
+        "rows": 4,
+        "sessions": 0,
+        "turn_types": {
+          "system": 3,
+          "user": 1
+        }
+      }
+    },
+    "synced": "no",
+    "relayed": "",
+    "origin": "local",
+    "recovered": "no"
+  },
+  "deduplicated": {
+    "aider": 2,
+    "claude-code": 2,
+    "codex-cli": 12,
+    "cursor": 3,
+    "gemini-cli": 1
+  },
+  "collected_only": [],
+  "synced_sessions": 7,
+  "relayed_sessions": 0,
+  "remote_sessions": 4,
+  "recovered_sessions": 7,
+  "scratch_directories": {
+    "/private/tmp/claude-501/-srv-proj/11111111-2222-4333-8444-000000000002/scratchpad": {
+      "status": "referenced",
+      "rows": 1,
+      "sessions": 0,
+      "agents": {
+        "claude-code": {
+          "rows": 1,
+          "sessions": 0,
+          "turn_types": {
+            "system": 1
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad": {
       "status": "referenced",
       "rows": 1,
       "sessions": 0,
@@ -1044,35 +1065,31 @@ Each row is counted once: under the project its `project_path` names,
 under `scratch_directories` when that path is a scratch directory, or
 under `outside_projects` when it is empty; a session is counted where its
 first non-empty `project_path` puts it. `/srv/proj` is `collected`: its
-agents are those with rows there (the Claude Code sessions run in it,
-bob's Codex CLI thread, the Aider prompt and the project's
-`permission setting:` rows) and those with files there, such as
-`cursor`, whose rules file gives no row. A path that only rows name, such
-as the removed `/srv/invoicing-old` of alice's prompt history, is a
-`referenced` project with no files. `outside_projects` holds the rows
-with no project: the user-level settings rows of both users, the
-`.claude.json` rows that name no project, the rows of the Remote
-Control sidecar files (`bridge-pointer.json` and `ccr-tip.json`), the
-`parser:` row of the cut line, and bob's Ollama rows.
-`scratch_directories` holds the scratchpads alice's sessions used on
-this host, `referenced` because the collection holds no files from them.
+agents are those with rows there (the Claude Code, Codex CLI, Cursor and
+Gemini CLI sessions run in it and the project's `permission setting:`
+rows) and those with files there. A path that only rows name, such as
+`/srv/old` of alice's prompt history, is a `referenced` project with no
+files. `outside_projects` holds the rows with no project: the user-level
+settings rows, the rows of the Remote Control sidecar files
+(`bridge-pointer.json` and `ccr-tip.json`), a Codex CLI automation and
+log row, Cursor's editor-wide rows, and bob's Ollama rows.
+`scratch_directories` holds the scratchpads alice's sessions name,
+`referenced` because the collection holds no files from them.
 
-`no_rows` lists `cursor` and `gemini-cli`, `detected_not_parsed` lists
-`amp`, and `collected_only` is `[]` because no agent of the input is one
-whose files hold nothing to parse. `deduplicated` holds the counts of
-the `dropped:` line per agent. `synced_sessions` counts the terminal
-session that turned on Remote Control and the Remote Control and
-teleported sessions, `remote_sessions` the Remote Control and teleported
-sessions, `recovered_sessions`
-the sessions only the prompt history holds, and `relayed_sessions` is 0,
-since no session here went through a messaging platform. The `synced`,
-`relayed`, `origin` and `recovered` marks of each project follow the
-rules in the table below: a project whose sessions are some synced and
-some not reads `synced` `partial`, and one whose sessions are some
-remote and some local reads `origin` `mixed`. Only `/srv/proj` has
-`remotes` and `head`, from its `.git/config` and `.git/HEAD`; its
-`recorded_remotes` is the URL in the `git remote:` row of bob's Codex CLI
-thread. Its keys, in order:
+`no_rows` is `[]`, `detected_not_parsed` lists `amp`, and
+`collected_only` is `[]` because no agent of the input is one whose files
+hold nothing to parse. `deduplicated` holds the counts of the `dropped:`
+line per agent. `synced_sessions`, `remote_sessions` and
+`recovered_sessions` are the counts of the `sessions:` line of
+[timeline](#timeline), and `relayed_sessions` is 0, since no session here
+went through a messaging platform. The `synced`, `relayed`, `origin` and
+`recovered` marks of each project follow the rules in the table below: a
+project whose sessions are some synced and some not reads `synced`
+`partial`, and one whose sessions are some remote and some local reads
+`origin` `mixed`, as `/srv/proj` does. Only `/srv/proj` has `remotes` and
+`head`, from its `.git/config` and `.git/HEAD`; its `recorded_remotes` is
+the URL in the `git remote:` row of alice's Codex CLI thread. Its keys, in
+order:
 
 | Key | Type | Meaning |
 | --- | --- | --- |
@@ -1348,158 +1365,93 @@ The field names each parser relies on are listed in its module docstring
 under `doubleagent/parsers/`. Thinking and reasoning blocks are left out
 unless `--include-thinking` is passed.
 
-This is the `timeline.jsonl` that `timeline -o out` writes for
-[the example collection](#the-example-collection), the run shown under
-[timeline](#timeline). Rows worth following: a tool call and its result
-sharing one `tool_use_id`; a `permission decision:` row beside the call
-it decided; a `model: <old> -> <new>` row after alice's `/model`; the
+This is the `timeline.jsonl` of a filtered run on
+[the example collection](#the-example-collection): `timeline -o out`
+with `--agent claude-code --agent codex-cli --agent cursor` and a
+`--match` regular expression that keeps the row forms named here, where
+a matched row with a `tool_use_id` keeps that id's call and result (see
+[The example collection](#the-example-collection)); the unfiltered run
+is the one shown under [timeline](#timeline). Rows worth following: a
+tool call and its result sharing one `tool_use_id`; a
+`permission decision:` row beside the call it decided; a
+`model: <old> -> <new>` row after alice's `/model`; the
 `session origin: remote` rows of the Remote Control and teleported
-sessions; the history prompts with `recovered` `yes`; and the
-`parser: unparseable line` row at the cut end of alice's teleported
+sessions; the history prompt with `recovered` `yes`; and the
+`parser: unparseable line` row at the cut end of alice's Cursor agent
 transcript:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: timeline-jsonl -->
 ```json
-{"timestamp_utc":"2026-10-27T08:05:12.481Z","host":"wsdev14","user":"alice","agent":"aider","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"add tests for the invoice total rounding","source_file":"/srv/proj/.aider.input.history","source_line":2,"recovered":"yes"}
-{"timestamp_utc":"2026-10-27T08:20:14.903Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"18386daa-971d-40ca-828a-12b746180948","project_path":"/srv/invoicing-old","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"port the CSV export to the new ledger schema and keep the old column order","source_file":"/home/alice/.claude/history.jsonl","source_line":1,"recovered":"yes"}
-{"timestamp_utc":"2026-10-27T08:41:37.226Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"083d4578-89db-41c5-8894-271b3f00cb9b","project_path":"/srv/proj","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"why does the reconciler skip invoices dated on the last day of the month?","source_file":"/home/alice/.claude/history.jsonl","source_line":2,"recovered":"yes"}
-{"timestamp_utc":"2026-10-27T09:11:58.402Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"claude-code process 48213 interactive status=idle entrypoint=cli bridge=cse_20d42b8c54115622 host_session=none","source_file":"/home/alice/.claude/sessions/48213.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:03.087Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:03.087Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"<pasted_content id=\"71ae\">\n=== RUN   TestInvoiceTotal\n=== RUN   TestInvoiceTotal/single_line\n=== RUN   TestInvoiceTotal/quantity_three\n--- PASS: TestInvoiceTotal (0.00s)\n    --- PASS: TestInvoiceTotal/single_line (0.00s)\n    --- PASS: TestInvoiceTotal/quantity_three (0.00s)\n=== RUN   TestRoundCents\n=== RUN   TestRoundCents/whole_dollars\n=== RUN   TestRoundCents/half_cent_up\n=== RUN   TestRoundCents/half_cent_down\n=== RUN   TestRoundCents/negative_refund\n=== RUN   TestRoundCents/zero\n--- FAIL: TestRoundCents (0.00s)\n    --- PASS: TestRoundCents/whole_dollars (0.00s)\n    --- FAIL: TestRoundCents/half_cent_up (0.00s)\n        round_test.go:31: RoundCents(1.005) = 100, want 101\n    --- PASS: TestRoundCents/half_cent_down (0.00s)\n    --- FAIL: TestRoundCents/negative_refund (0.00s)\n        round_test.go:31: RoundCents(-1.005) = -100, want -101\n    --- PASS: TestRoundCents/zero (0.00s)\n=== RUN   TestParseAmount\n=== RUN   TestParseAmount/plain\n=== RUN   TestParseAmount/thousands_separator\n=== RUN   TestParseAmount/negative\n--- PASS: TestParseAmount (0.00s)\n    --- PASS: TestParseAmount/plain (0.00s)\n    --- PASS: TestParseAmount/thousands_separator (0.00s)\n    --- PASS: TestParseAmount/negative (0.00s)\nFAIL\nFAIL\tgithub.com/acme--ledger/ledger/internal/invoice\t0.014s\n</pasted_content> CI has failed like this on main since this morning's merge. Find the cause and fix it without changing the test expectations.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:03.091Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/tmp/claude-1000/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d/scratchpad","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scratch directory: /tmp/claude-1000/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d/scratchpad (session scratchpad, from the environment attachment)","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:08.412Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"model: claude-opus-5-5","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:08.412Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"assistant","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"Both failures are in RoundCents. I'll find where it is defined and who calls it.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:08.977Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Grep","tool_use_id":"toolu_01OVC1eOB5IXXxTdTTWbEmZS","text":"RoundCents | /srv/proj","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:09.204Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01OVC1eOB5IXXxTdTTWbEmZS","text":"internal/invoice/round.go:7:func RoundCents(amount float64) int64 {\ninternal/invoice/total.go:18:\t\tsum += RoundCents(line.Amount) * int64(line.Quantity)\ninternal/invoice/round_test.go:24:\t\tgot := RoundCents(tc.amount)","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:09.204Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01OVC1eOB5IXXxTdTTWbEmZS","text":"permission decision: accept source=config reason=mode","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:12.530Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Read","tool_use_id":"toolu_01rKYIFhqwxVQVhD2iEy7Z42","text":"/srv/proj/internal/invoice/round.go","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:12.611Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01rKYIFhqwxVQVhD2iEy7Z42","text":"1\tpackage invoice\n     2\t\n     3\timport \"math\"\n     4\t\n     5\t// RoundCents converts an amount in dollars to whole cents,\n     6\t// rounding half away from zero.\n     7\tfunc RoundCents(amount float64) int64 {\n     8\t\treturn int64(math.Round(amount * 100))\n     9\t}","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:12.611Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01rKYIFhqwxVQVhD2iEy7Z42","text":"permission decision: accept source=config reason=mode","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:24.019Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"assistant","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"The cause is float rounding: 1.005 * 100 is 100.49999999999999 in float64, so math.Round returns 100. I'll round to thousandths first and add the half cent in integer arithmetic, which is exact.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:25.330Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Edit","tool_use_id":"toolu_01vqU0JmXmcMBB5EDRUqdtkg","text":"/srv/proj/internal/invoice/round.go","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":11,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:25.391Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01vqU0JmXmcMBB5EDRUqdtkg","text":"The file /srv/proj/internal/invoice/round.go has been updated. Here's the result of running `cat -n` on a snippet of the edited file:\n     7\tfunc RoundCents(amount float64) int64 {\n     8\t\tmills := int64(math.Round(amount * 1000))\n     9\t\treturn (mills + 5) / 10\n    10\t}","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:25.391Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01vqU0JmXmcMBB5EDRUqdtkg","text":"permission decision: accept source=config reason=mode","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:28.804Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Bash","tool_use_id":"toolu_01ExtQ8rP6S0BlImvKaENojZ","text":"make test","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":13,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:41.115Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01ExtQ8rP6S0BlImvKaENojZ","text":"[error] Exit code 2\ngo vet ./...\ngo test ./...\nok  \tgithub.com/acme--ledger/ledger/cmd/ledger\t0.019s\nok  \tgithub.com/acme--ledger/ledger/internal/api\t0.176s\n--- FAIL: TestRoundCents (0.00s)\n    --- FAIL: TestRoundCents/negative_refund (0.00s)\n        round_test.go:31: RoundCents(-1.005) = -100, want -101\nFAIL\nFAIL\tgithub.com/acme--ledger/ledger/internal/invoice\t0.011s\nok  \tgithub.com/acme--ledger/ledger/internal/store\t0.298s\nFAIL\nmake: *** [Makefile:14: test] Error 1","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":14,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:41.115Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01ExtQ8rP6S0BlImvKaENojZ","text":"permission decision: accept source=user_temporary reason=- {\"decision\":\"accept\",\"grantScope\":\"once\",\"reasonCode\":\"bashMiss:no-rule-match\",\"source\":\"user_temporary\"}","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":14,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:47.302Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"assistant","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"The positive case passes now, but adding the half cent moves a negative amount toward zero: -1005 thousandths becomes -1000, so -100. Negative amounts need it subtracted.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:48.160Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Edit","tool_use_id":"toolu_01qxroJLMANaPvgU8vHVr2m7","text":"/srv/proj/internal/invoice/round.go","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":16,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:48.214Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01qxroJLMANaPvgU8vHVr2m7","text":"The file /srv/proj/internal/invoice/round.go has been updated. Here's the result of running `cat -n` on a snippet of the edited file:\n     8\t\tmills := int64(math.Round(amount * 1000))\n     9\t\tif mills < 0 {\n    10\t\t\treturn (mills - 5) / 10\n    11\t\t}\n    12\t\treturn (mills + 5) / 10","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":17,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:48.214Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01qxroJLMANaPvgU8vHVr2m7","text":"permission decision: accept source=config reason=mode","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":17,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:51.067Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Bash","tool_use_id":"toolu_017ab5eukF0YYIKa9jvCAlDq","text":"make test","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":18,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:12:53.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Bash(make *) (from .claude/settings.local.json, file mtime)","source_file":"/srv/proj/.claude/settings.local.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:13:19.842Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_017ab5eukF0YYIKa9jvCAlDq","text":"go vet ./...\ngo test ./...\nok  \tgithub.com/acme--ledger/ledger/cmd/ledger\t0.018s\nok  \tgithub.com/acme--ledger/ledger/internal/api\t0.181s\nok  \tgithub.com/acme--ledger/ledger/internal/invoice\t0.010s\nok  \tgithub.com/acme--ledger/ledger/internal/store\t0.305s","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":19,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:13:19.842Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_017ab5eukF0YYIKa9jvCAlDq","text":"permission decision: accept source=user_permanent reason=- {\"decision\":\"accept\",\"reasonCode\":\"bashMiss:no-rule-match\",\"source\":\"user_permanent\"}","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":19,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:13:23.509Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Bash","tool_use_id":"toolu_01RFZ4ewcSAT34QAQ7ldN3nh","text":"git status","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":20,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:13:23.618Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01RFZ4ewcSAT34QAQ7ldN3nh","text":"On branch fix/invoice-rounding\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   internal/invoice/round.go\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":21,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:13:23.618Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01RFZ4ewcSAT34QAQ7ldN3nh","text":"permission decision: accept source=config reason=subcommandResults","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":21,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:13:30.271Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"assistant","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"All tests pass. RoundCents now rounds half away from zero from thousandths, which gives 101 for 1.005 and -101 for -1.005; only round.go changed.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":22,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:13:30.288Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"turn_duration: 87201 ms, 21 messages","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":23,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:13:30.288Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session title: Fix invoice cent rounding","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":24,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:24:40.551Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: <command-name>/model</command-name>\n            <command-message>model</command-message>\n            <command-args></command-args>","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":25,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:24:40.552Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"command output: <local-command-stdout>Set model to `Fable 5.1` and saved as your default for new sessions</local-command-stdout>","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":26,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:02.904Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Commit this on the branch with a message that explains the float problem, then push it.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":27,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:09.633Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-opus-5-5 -> claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":28,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:09.633Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"I'll commit round.go with the float explanation in the body, then push the branch.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":28,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:10.118Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_01LG0RTHAb0M8gTu3drkGfKi","text":"git commit -am \"Round invoice cents from thousandths\" -m \"1.005 * 100 is 100.49999999999999 in float64, so math.Round gave 100. Round to thousandths first and add or subtract the half cent in integer arithmetic.\"","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":29,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:15.447Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01LG0RTHAb0M8gTu3drkGfKi","text":"[fix/invoice-rounding 8ca869c] Round invoice cents from thousandths\n 1 file changed, 5 insertions(+), 1 deletion(-)","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":30,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:15.447Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01LG0RTHAb0M8gTu3drkGfKi","text":"permission decision: accept source=user_temporary reason=- {\"decision\":\"accept\",\"grantScope\":\"once\",\"reasonCode\":\"bashMiss:no-rule-match\",\"source\":\"user_temporary\"}","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":30,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:18.026Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_01uv4kzzTiT6hnng4BsFIJQT","text":"git push -u origin fix/invoice-rounding","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":31,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:31.790Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01uv4kzzTiT6hnng4BsFIJQT","text":"[error] The user doesn't want to proceed with this tool use.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":32,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:31.790Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01uv4kzzTiT6hnng4BsFIJQT","text":"permission decision: reject source=user_reject reason=- {\"decision\":\"reject\",\"reasonCode\":\"bashMiss:no-rule-match\",\"source\":\"user_reject\"} toolDenialKind=user-rejected userFeedback=Don't push yet; I'll push it myself after the review meeting.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":32,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:36.412Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"Understood: the commit stays local on fix/invoice-rounding and nothing was pushed. Run `git push -u origin fix/invoice-rounding` when you are ready.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":33,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:25:36.430Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"turn_duration: 33526 ms, 8 messages","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":34,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Bash(go test:*) (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Bash(git diff:*) (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.deny=Bash(git push --force:*) (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.defaultMode=acceptEdits (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"model setting: model=fable (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:10.205Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"local_command: <command-name>/remote-control</command-name>\n            <command-message>remote-control</command-message>\n            <command-args></command-args>","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":35,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:12.660Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"bridge_status: /remote-control is active","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":36,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:12.660Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: bridge session cse_20d42b8c54115622 lastSequenceNum=1","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":37,"recovered":""}
-{"timestamp_utc":"2026-10-27T09:31:12.660Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote control bridge cse_20d42b8c54115622 url https://claude.ai/code/session_20d42b8c54115622","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":37,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:47.318Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt queued: delivered at line 40","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":38,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:47.320Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"queue dequeue:","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":39,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:47.341Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"What's the hash of the rounding fix commit?","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":40,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:47.341Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=queued turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":40,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:47.341Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: bridge session cse_20d42b8c54115622 lastSequenceNum=4","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":41,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:52.774Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_01PRSGFrNNXO2tCgIcsfwFnU","text":"git log -1 --oneline","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":42,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:52.903Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01PRSGFrNNXO2tCgIcsfwFnU","text":"8ca869c Round invoice cents from thousandths","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":43,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:52.903Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01PRSGFrNNXO2tCgIcsfwFnU","text":"permission decision: accept source=config reason=subcommandResults","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":43,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:57.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote control bridge cse_20d42b8c54115622 url - (from .claude/sessions/48213.json, file mtime)","source_file":"/home/alice/.claude/sessions/48213.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:57.115Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"The fix is commit 8ca869c on fix/invoice-rounding. It is still only on this machine; nothing has been pushed.","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":44,"recovered":""}
-{"timestamp_utc":"2026-10-27T11:02:57.130Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"turn_duration: 9789 ms, 5 messages","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":45,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:30:14.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: environment env_VA0YJCOC2x7fY4mf3gsqaP session 1aa70576079d5584943d534497c1db28 source=standalone (from .claude/projects/-srv-proj/bridge-pointer.json, file mtime)","source_file":"/home/alice/.claude/projects/-srv-proj/bridge-pointer.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:05.512Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt queued: delivered at line 3","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:05.515Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"queue dequeue:","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:05.604Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: sdk-cli","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:05.604Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (Remote Control, entrypoint sdk-cli)","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:05.604Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:05.604Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"I pulled main at lunch. Run the whole test suite and tell me whether anything outside the invoice package fails.","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:05.604Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=sdk turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:10.877Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:10.877Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"I'll run the whole suite with go test from the repository root.","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:11.240Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_01MEroK0ktBdtn9G7jU7wt3e","text":"go test ./...","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:39.065Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01MEroK0ktBdtn9G7jU7wt3e","text":"[error] Exit code 1\nok  \tgithub.com/acme--ledger/ledger/cmd/ledger\t0.021s\nok  \tgithub.com/acme--ledger/ledger/internal/api\t0.184s\n--- FAIL: TestExportCSV_Amounts (0.00s)\n    csv_test.go:42: row 2 amount = \"12.50 \", want \"12.50\"\nFAIL\nFAIL\tgithub.com/acme--ledger/ledger/internal/export\t0.009s\n--- FAIL: TestRoundCents (0.00s)\n    --- FAIL: TestRoundCents/half_cent_up (0.00s)\n        round_test.go:31: RoundCents(1.005) = 100, want 101\n    --- FAIL: TestRoundCents/negative_refund (0.00s)\n        round_test.go:31: RoundCents(-1.005) = -100, want -101\nFAIL\nFAIL\tgithub.com/acme--ledger/ledger/internal/invoice\t0.012s\nok  \tgithub.com/acme--ledger/ledger/internal/store\t0.311s\nFAIL","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:39.065Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01MEroK0ktBdtn9G7jU7wt3e","text":"permission decision: accept source=config reason=rule {\"decision\":\"accept\",\"reasonType\":\"rule\",\"ruleSource\":\"userSettings\",\"source\":\"config\"}","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:47.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote event 4e425611-e14e-462e-b7e0-8b3ee2ffefa6 at 2026-10-27T13:31:47.918Z (from .claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4/ccr-tip.json, file mtime)","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4/ccr-tip.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:31:47.392Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"One package outside invoice fails: internal/export, where TestExportCSV_Amounts finds a trailing space in \"12.50 \". invoice still fails as it did on main this morning, and every other package passes.","source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:58:40.000Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: approval_policy=on-request (from .codex/config.toml, file mtime)","source_file":"/home/bob/.codex/config.toml","source_line":0,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:58:40.000Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: sandbox_mode=workspace-write (from .codex/config.toml, file mtime)","source_file":"/home/bob/.codex/config.toml","source_line":0,"recovered":""}
-{"timestamp_utc":"2026-10-27T13:58:40.000Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: projects./srv/proj.trust_level=trusted (from .codex/config.toml, file mtime)","source_file":"/home/bob/.codex/config.toml","source_line":0,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:11.204Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session start: codex-tui 0.162.1 provider=openai cwd=/srv/proj account=32420289-a417-4e0c-be42-02da2bd8ecd9 user=user-XNddso5bC4XCeUmoPz38FuQm","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:11.204Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"git remote: git@github.com:acme--ledger/ledger.git","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:11.204Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"thread record: 01a17dab-2784-70e1-8cd3-70e4412754b8 title=TestExportCSV_Amounts fails because every amount ends with a space. Find where the CSV writer adds it and fix it. rollout=/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl branch=main model=gpt-6.1-sol","source_file":"/home/bob/.codex/state_5.sqlite","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:19.880Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"task_started turn=01a17dab-4968-7fa8-b1b2-2d507731075d","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:19.881Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"","text":"model: gpt-6.1-sol","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:19.881Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"","text":"permission mode: approval=on-request sandbox={\"type\":\"workspace-write\"} profile=- network=- reviewer=- profile_id=-","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:19.902Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"","text":"developer: <permissions instructions>\nApprovals are on request. The sandbox lets you write inside the workspace only; ask before anything else.\n</permissions instructions>","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:19.903Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"","text":"context: environments.environment_context: <environment_context>\n  <cwd>/srv/proj</cwd>\n  <approval_policy>on-request</approval_policy>\n  <sandbox_mode>workspace-write</sandbox_mode>\n  <network_access>restricted</network_access>\n  <shell>bash</shell>\n</environment_context>","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:19.903Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"","text":"TestExportCSV_Amounts fails because every amount ends with a space. Find where the CSV writer adds it and fix it.","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:24.315Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"gpt-6.1-sol","tool_name":"exec_command","tool_use_id":"call_WDWjD05lkBrmhyYL86B7VP4B","text":"{\"cmd\":\"go test ./internal/export/\"}","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:26.019Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"call_WDWjD05lkBrmhyYL86B7VP4B","text":"[exit 1] --- FAIL: TestExportCSV_Amounts (0.00s)\n    csv_test.go:42: row 2 amount = \"12.50 \", want \"12.50\"\nFAIL\nFAIL\tgithub.com/acme--ledger/ledger/internal/export\t0.009s\nFAIL","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:31.442Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"gpt-6.1-sol","tool_name":"exec_command","tool_use_id":"call_sXYp6mAX457CEaMFZQO0eex4","text":"{\"cmd\":\"grep -n '%.2f ' internal/export/csv.go\"}","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":11,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:31.497Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"call_sXYp6mAX457CEaMFZQO0eex4","text":"57:\t\tfmt.Fprintf(w, \"%s,%.2f ,%s\\n\", row.Date, row.Amount, row.Currency)","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":12,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:38.760Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"gpt-6.1-sol","tool_name":"apply_patch","tool_use_id":"call_cc0jc1nYnX6N0XgjsVSHZTSh","text":"*** Begin Patch\n*** Update File: internal/export/csv.go\n@@ func writeRows(w io.Writer, rows []Row) error {\n-\t\tfmt.Fprintf(w, \"%s,%.2f ,%s\\n\", row.Date, row.Amount, row.Currency)\n+\t\tfmt.Fprintf(w, \"%s,%.2f,%s\\n\", row.Date, row.Amount, row.Currency)\n*** End Patch","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":14,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:38.812Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"call_cc0jc1nYnX6N0XgjsVSHZTSh","text":"Success. Updated the following files:\nM internal/export/csv.go","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":15,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:41.106Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"gpt-6.1-sol","tool_name":"exec_command","tool_use_id":"call_vHYKQRDN6tj2iHBo3o6NuhJw","text":"{\"cmd\":\"go test ./internal/export/\"}","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":17,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:42.731Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"call_vHYKQRDN6tj2iHBo3o6NuhJw","text":"ok  \tgithub.com/acme--ledger/ledger/internal/export\t0.008s","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":18,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:44.512Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"gpt-6.1-sol","tool_name":"exec_command","tool_use_id":"call_oATZgmFjw0MwWSeqAcPT9Uo3","text":"{\"cmd\":\"git commit -am 'Drop the trailing space from CSV amounts'\"}","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":20,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:44.690Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"call_oATZgmFjw0MwWSeqAcPT9Uo3","text":"[main 8953e04] Drop the trailing space from CSV amounts\n 1 file changed, 1 insertion(+), 1 deletion(-)","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":21,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:47.255Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"","text":"The CSV writer's format string had a space after `%.2f`, so every amount ended with one. I removed it in internal/export/csv.go, committed that on main, and the export tests pass.","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":23,"recovered":""}
-{"timestamp_utc":"2026-10-27T14:02:47.301Z","host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"gpt-6.1-sol","tool_name":"","tool_use_id":"","text":"task_complete turn=01a17dab-4968-7fa8-b1b2-2d507731075d duration_ms=27421","source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","source_line":24,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:02.118Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session surface: cli","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:02.118Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (teleport, cloud scratchpad /tmp/claude-0/-home-user-repo/8c75ab24-50a1-4181-8625-11f05dca893b/scratchpad)","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:02.250Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (teleport, remoteSourced)","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:02.250Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: cloud session (teleported: remoteSourced records replayed from the vendor's copy)","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:02.250Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:02.250Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Read the README and list the make targets it documents, one line each.","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:02.250Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"prompt trigger: promptSource=sdk turnOrigin=human","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:06.913Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"model: claude-opus-5-5","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:06.913Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Read","tool_use_id":"toolu_01nkG02qOBC3oBDdZhc4Ullu","text":"/home/user/repo/README.md","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":3,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:07.020Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_01nkG02qOBC3oBDdZhc4Ullu","text":"1\t# ledger\n     2\t\n     3\tThe billing team's invoice service: it records invoices and exports them as CSV.\n     4\t\n     5\t## Make targets\n     6\t\n     7\t- `make build` compiles the service into `bin/ledger`.\n     8\t- `make test` runs `go vet` and the unit tests.\n     9\t- `make lint` runs gofmt and the linter.\n    10\t- `make migrate` applies the migrations in `migrations/`.","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:07.020Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_01nkG02qOBC3oBDdZhc4Ullu","text":"permission decision: accept source=config reason=rule {\"decision\":\"accept\",\"reasonType\":\"rule\",\"ruleSource\":\"cliArg\",\"source\":\"config\"}","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":4,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:13.587Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"The README documents four targets: `make build` compiles bin/ledger, `make test` runs go vet and the unit tests, `make lint` runs gofmt and the linter, and `make migrate` applies the migrations.","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":5,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:40:13.640Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"stop_hook_summary: {\"hasOutput\":false,\"hookAdditionalContext\":[],\"hookCount\":1,\"hookErrors\":[],\"hookInfos\":[],\"level\":\"info\",\"preventedContinuation\":false,\"stopReason\":\"\",\"toolUseID\":\"\"}","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":6,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:55:40.871Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"claude-code process 52904 interactive status=idle entrypoint=cli bridge=none host_session=none","source_file":"/home/alice/.claude/sessions/52904.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:55:41.006Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"informational: Session resumed","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":7,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:55:41.212Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/tmp/claude-1000/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b/scratchpad","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scratch directory: /tmp/claude-1000/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b/scratchpad (session scratchpad, from the environment attachment)","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":8,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: allowedTools=Bash(go vet:*) (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: hasTrustDialogAccepted=true (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: spawn mode same-dir for /srv/proj (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/invoicing-old","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: hasTrustDialogAccepted=true (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"source host: github status=connected (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: machine id set (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"cloud: hasRemoteEnvironment=true (from .claude.json, file mtime)","source_file":"/home/alice/.claude.json","source_line":1,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.377Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default -> acceptEdits","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:02.377Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"Which of those should I run before I push?","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":9,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:08.940Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"model: claude-opus-5-5 -> claude-fable-5-1","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"2026-10-27T16:56:08.940Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","git_branch":"main","turn_type":"assistant","model":"claude-fable-5-1","tool_name":"","tool_use_id":"","text":"Run `make test`, which AGENTS.md asks for before every commit, and `make lint`, which it wants clean. `make migrate` is only needed when you add a migration.","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":10,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"parser: unparseable line (Unterminated string starting at: line 1 column 188 (char 187)): {\"parentUuid\":\"1d1bd4e2-9917-4fd6-9ae6-2f66c67c4187\",\"isSidechain\":false,\"type\":\"system\",\"subtype\":\"turn_duration\",\"durationMs\":6563,\"messageCount\":3,\"isMeta\":false,\"level\":\"info\",\"uuid\":\"","source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","source_line":11,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","git_branch":"fix/invoice-rounding","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: acceptEdits","source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","source_line":2,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"how do I read a CSV file line by line in Go?","source_file":"/home/bob/.ollama/history","source_line":1,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"what does %.2f do in fmt.Printf, and can it add a trailing space?","source_file":"/home/bob/.ollama/history","source_line":2,"recovered":""}
-{"timestamp_utc":"","host":"wsdev14","user":"bob","agent":"ollama","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: /bye","source_file":"/home/bob/.ollama/history","source_line":3,"recovered":""}
+{"timestamp_utc":"2026-09-30T10:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99999999-0000-4000-8000-000000000000","project_path":"/srv/old","git_branch":"","turn_type":"user","model":"","tool_name":"","tool_use_id":"","text":"an older prompt whose session file is gone","source_file":"/home/alice/.claude/history.jsonl","source_line":2,"recovered":"yes"}
+{"timestamp_utc":"2026-10-01T08:00:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"thread record: aaaaaaaa-bbbb-4ccc-8ddd-000000000006 title=remove the old build artifacts rollout=/home/alice/.codex/sessions/2026/10/01/rollout-2026-10-01T08-00-00-aaaaaaaa-bbbb-4ccc-8ddd-000000000006.jsonl name=cleanup model=gpt-5-codex archived","source_file":"/home/alice/.codex/state_5.sqlite","source_line":2,"recovered":""}
+{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Bash(npm test:*) (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Read(~/notes/**) (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.defaultMode=acceptEdits (from .claude/settings.json, file mtime)","source_file":"/home/alice/.claude/settings.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: <command-name>/model</command-name>\n<command-message>model</command-message>\n<command-args></command-args>","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","source_line":14,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"model: grok-4.6 -> grok-4.7","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":6,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"permission decision: run outcome=success approval=user reason=Not in allowlist: curl, head","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:01.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t2-0\nfc_t2_0","text":"{\"output\": \"ok\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"permission decision: skip outcome=rejected approval=user reason=Not in allowlist: curl, head","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:10.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t3-1\nfc_t3_1","text":"[rejected] {\"error\": \"skipped\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":8,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_use","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"{\"command\": \"curl -s example.test | head\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"permission decision: allowlistCommands outcome=success approval=user reason=Not in allowlist: curl, head allowlisted=curl,head","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:01:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"tool_result","model":"grok-4.7","tool_name":"run_terminal_command_v2","tool_use_id":"call-t4-2\nfc_t4_2","text":"{\"output\": \"ok\"}","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":9,"recovered":""}
+{"timestamp_utc":"2026-10-01T10:06:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"source host: github account alice-gh scopes=repo,workflow,user:email,read:user (from state.vscdb key github-alice-gh)","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: auto","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_95","text":"cd /srv/proj && crontab -l","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":5,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_95","text":"0 3 * * * x","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":6,"recovered":""}
+{"timestamp_utc":"2026-10-01T11:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_95","text":"permission decision: allow source=auto_mode reason=classifier","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","source_line":6,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: auto","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (Remote Control, entrypoint sdk-cli)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":3,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: auto -> plan","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-fable-5-1","tool_name":"Bash","tool_use_id":"toolu_r1","text":"ls -la","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_r1","text":"calc.py\nREADME.md","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":5,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_r1","text":"permission decision: accept source=config reason=subcommandResults","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","source_line":5,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"slash command: <command-name>/model</command-name>\n<command-message>model</command-message>\n<command-args>opus</command-args>","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":6,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:08.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"claude-opus-5-5","tool_name":"","tool_use_id":"","text":"model: claude-fable-5-1 -> claude-opus-5-5 requested=opus","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":8,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:00:09.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: plan -> acceptEdits","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","source_line":9,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:46:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session synced: cursor cloud agent bc-e0000001-0000-4000-8000-000000000001 (vendor copy; from state.vscdb cloudAgentRepository.agents)","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":12,"recovered":""}
+{"timestamp_utc":"2026-10-01T12:47:40.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session origin: remote cursor cloud agent","source_file":"/home/alice/.config/Cursor/User/globalStorage/conversation-search.db","source_line":10,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:00.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (teleport, cloud scratchpad /tmp/claude-0/-home-user-repo/22222222-3333-4444-8555-666666666666/scratchpad)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session origin: remote (teleport, remoteSourced)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":2,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: cloud session (teleported: remoteSourced records replayed from the vendor's copy)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":2,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":2,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:01.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scratch directory: /tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad (session scratchpad, from the environment attachment)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:02.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-opus-5-5","tool_name":"Read","tool_use_id":"toolu_t1","text":"/home/user/repo/README.md","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":3,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_t1","text":"# logsleuth","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_t1","text":"permission decision: accept source=config reason=rule {\"decision\":\"accept\",\"reasonType\":\"rule\",\"ruleSource\":\"cliArg\",\"source\":\"config\"}","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:03.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-sonnet-5-5","tool_name":"PowerShell","tool_use_id":"toolu_309a","text":"python calc.py 2 3","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":9,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_309a","text":"first line of the listing\nsecond line of the listing","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":10,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:04.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_309a","text":"permission decision: accept source=user_temporary reason=- {\"decision\":\"accept\",\"grantScope\":\"once\",\"reasonCode\":\"other\",\"source\":\"user_temporary\"}","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":10,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:05.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_use","model":"claude-sonnet-5-5","tool_name":"PowerShell","tool_use_id":"toolu_309b","text":"python calc.py 5 7","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":11,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"tool_result","model":"","tool_name":"","tool_use_id":"toolu_309b","text":"The user doesn't want to proceed with this tool use.","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":12,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:06.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"toolu_309b","text":"permission decision: reject source=user_reject reason=- {\"decision\":\"reject\",\"reasonCode\":\"other\",\"source\":\"user_reject\"} toolDenialKind=user-rejected userFeedback=use the test runner instead","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":12,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:07.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote control bridge cse_0a1b2c3d4e5f6a7b url https://claude.ai/code/session_0a1b2c3d4e5f6a7b","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":14,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/private/tmp/claude-501/-srv-proj/11111111-2222-4333-8444-000000000002/scratchpad","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"scratch directory: /private/tmp/claude-501/-srv-proj/11111111-2222-4333-8444-000000000002/scratchpad (session scratchpad, from the environment attachment)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":7,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:00:11.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default -> auto","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","source_line":8,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:03:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session origin: remote cursor cloud agent","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
+{"timestamp_utc":"2026-10-01T13:03:20.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"","text":"session synced: cursor cloud agent bc-e0000002-0000-4000-8000-000000000002 (vendor copy; from state.vscdb cloudAgentRepository.agents)","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":13,"recovered":""}
+{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","git_branch":"","turn_type":"system","model":"grok-4.7","tool_name":"","tool_use_id":"toolu_mcp_auth_01\nfc_mcp_auth_01","text":"permission decision: accepted mcp auth for cloud agent bc-e0000001-0000-4000-8000-000000000001 tool_call=toolu_mcp_auth_01\nfc_mcp_auth_01 (from state.vscdb cloudAgentRepository.mcpAuthResolution, file mtime)","source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","source_line":29,"recovered":""}
+{"timestamp_utc":"2026-10-01T14:00:00.000Z","host":"wsdev14","user":"alice","agent":"cursor","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Shell(ls) (from .cursor/cli-config.json, file mtime)","source_file":"/home/alice/.cursor/cli-config.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-02T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"git remote: git@github.com:alice/proj.git","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-02T09:00:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"thread record: aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee title=exfiltrate nothing, just list the home dir rollout=/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl branch=feature/x model=gpt-5.5-codex","source_file":"/home/alice/.codex/state_5.sqlite","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-02T09:00:01.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5-codex","tool_name":"","tool_use_id":"","text":"permission mode: approval=on-request sandbox={\"type\":\"workspace-write\"} profile=- network=- reviewer=- profile_id=-","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":2,"recovered":""}
+{"timestamp_utc":"2026-10-02T09:00:04.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"tool_use","model":"gpt-5-codex","tool_name":"apply_patch","tool_use_id":"call_2","text":"{\"patch\":\"*** Begin Patch\"}","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":12,"recovered":""}
+{"timestamp_utc":"2026-10-02T09:00:05.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"tool_result","model":"gpt-5-codex","tool_name":"","tool_use_id":"call_2","text":"Done","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":13,"recovered":""}
+{"timestamp_utc":"2026-10-02T09:00:08.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5.5-codex","tool_name":"","tool_use_id":"","text":"model: gpt-5-codex -> gpt-5.5-codex","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":19,"recovered":""}
+{"timestamp_utc":"2026-10-02T09:00:08.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"gpt-5.5-codex","tool_name":"","tool_use_id":"","text":"permission mode: approval=on-request sandbox={\"type\":\"workspace-write\"} profile=- network=- reviewer=- profile_id=- -> approval=never sandbox={\"type\":\"danger-full-access\"} profile={\"type\":\"disabled\"} network={\"allowed_domains\":[\"github.com\"],\"denied_domains\":[]} reviewer=- profile_id=-","source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","source_line":19,"recovered":""}
+{"timestamp_utc":"2026-10-07T10:00:00.250Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","git_branch":"feature/x","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: feedback report uploaded to Sentry, attachments 2 failed false (from logs_2.sqlite logs, ts)","source_file":"/home/alice/.codex/logs_2.sqlite","source_line":3,"recovered":""}
+{"timestamp_utc":"2026-10-07T10:01:00.000Z","host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: feedback report uploaded to Sentry, attachments 0 failed false (from logs_2.sqlite logs, ts)","source_file":"/home/alice/.codex/logs_2.sqlite","source_line":4,"recovered":""}
+{"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote event 33333333-4444-4555-8666-777777777777 at 1790856300000 (from .claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001/ccr-tip.json, file mtime)","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001/ccr-tip.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"remote control: environment env_0123456789abcdefghijkl session 0123456789abcdef0123456789abcdef source=standalone (from .claude/projects/-srv-proj/bridge-pointer.json, file mtime)","source_file":"/home/alice/.claude/projects/-srv-proj/bridge-pointer.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-888888888888","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"session synced: remote control bridge cse_0123456789abcdef url - (from .claude/sessions/4343.json, file mtime)","source_file":"/home/alice/.claude/sessions/4343.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.allow=Bash(make lint) (from .claude/settings.local.json, file mtime)","source_file":"/srv/proj/.claude/settings.local.json","source_line":1,"recovered":""}
+{"timestamp_utc":"2026-10-15T15:56:10.000Z","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission setting: permissions.defaultMode=plan (from .claude/settings.local.json, file mtime)","source_file":"/srv/proj/.claude/settings.local.json","source_line":1,"recovered":""}
+{"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","git_branch":"main","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"permission mode: default","source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","source_line":2,"recovered":""}
+{"timestamp_utc":"","host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","git_branch":"","turn_type":"system","model":"","tool_name":"","tool_use_id":"","text":"parser: unparseable line (Expecting value: line 1 column 31 (char 30)): {\"type\": \"user\", \"truncated\": tr","source_file":"/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000001-0000-4000-8000-000000000001/c0000001-0000-4000-8000-000000000001.jsonl","source_line":7,"recovered":""}
 ```
 <!-- end generated: timeline-jsonl -->
 
@@ -3262,23 +3214,40 @@ no timestamp come first. Its fields, in order:
 
 This is the `sessions.jsonl` that `timeline -o out` writes for
 [the example collection](#the-example-collection), the run shown under
-[timeline](#timeline): one record per session, alice's Claude Code
-sessions and bob's Codex CLI thread. The Remote Control and teleported
-sessions read `synced` `yes` and `origin` `remote`; the terminal
-session, which turned on Remote Control, reads `synced` `yes` but
-`origin` `local`, since it began on this host; the sessions known only
-from alice's prompt history read `recovered` `yes`. The Aider and
-Ollama rows and the settings rows have no `session_id`, so they belong
-to no session:
+[timeline](#timeline): one record per session of every parsed agent.
+The Remote Control spawn, the teleported session and the Cursor cloud
+agents read `synced` `yes` and `origin` `remote`; the session bound to
+Remote Control and the one whose process the registry file names read
+`synced` `yes` but `origin` `local`, since they began on this host; the
+sessions whose every turn comes from a secondary source, among them the
+one known only from alice's prompt history, read `recovered` `yes`, and
+those with only some turns from one read `partial`. The settings rows
+have no `session_id`, so they belong to no session:
 
 <!-- generated by analyzer/tools/regenerate_examples.py: sessions-jsonl -->
 ```json
-{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"18386daa-971d-40ca-828a-12b746180948","project_path":"/srv/invoicing-old","first_timestamp_utc":"2026-10-27T08:20:14.903Z","last_timestamp_utc":"2026-10-27T08:20:14.903Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/history.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
-{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"083d4578-89db-41c5-8894-271b3f00cb9b","project_path":"/srv/proj","first_timestamp_utc":"2026-10-27T08:41:37.226Z","last_timestamp_utc":"2026-10-27T08:41:37.226Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/history.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
-{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"d4ccb1ca-a86b-4f26-9501-752de29ee24d","project_path":"/srv/proj","first_timestamp_utc":"2026-10-27T09:11:58.402Z","last_timestamp_utc":"2026-10-27T11:02:57.130Z","models":["claude-opus-5-5","claude-fable-5-1"],"user_turns":3,"assistant_turns":7,"tool_calls":10,"source_file":"/home/alice/.claude/projects/-srv-proj/d4ccb1ca-a86b-4f26-9501-752de29ee24d.jsonl","synced":"yes","relayed":"","origin":"local","recovered":"no"}
-{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"e9022006-4f4a-5a45-a27b-6623a05d1ab4","project_path":"/srv/proj","first_timestamp_utc":"2026-10-27T13:31:05.512Z","last_timestamp_utc":"2026-10-27T13:31:47.392Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":2,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/e9022006-4f4a-5a45-a27b-6623a05d1ab4.jsonl","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
-{"host":"wsdev14","user":"bob","agent":"codex-cli","session_id":"01a17dab-2784-70e1-8cd3-70e4412754b8","project_path":"/srv/proj","first_timestamp_utc":"2026-10-27T14:02:11.204Z","last_timestamp_utc":"2026-10-27T14:02:47.301Z","models":["gpt-6.1-sol"],"user_turns":1,"assistant_turns":1,"tool_calls":5,"source_file":"/home/bob/.codex/sessions/2026/10/27/rollout-2026-10-27T14-02-11-01a17dab-2784-70e1-8cd3-70e4412754b8.jsonl","synced":"no","relayed":"","origin":"","recovered":"no"}
-{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99b95ab5-5229-41e2-bc47-dcba1398c74b","project_path":"/srv/proj","first_timestamp_utc":"2026-10-27T16:40:02.118Z","last_timestamp_utc":"2026-10-27T16:56:08.940Z","models":["claude-opus-5-5","claude-fable-5-1"],"user_turns":2,"assistant_turns":2,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/99b95ab5-5229-41e2-bc47-dcba1398c74b.jsonl","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"99999999-0000-4000-8000-000000000000","project_path":"/srv/old","first_timestamp_utc":"2026-09-30T10:00:00.000Z","last_timestamp_utc":"2026-09-30T10:00:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/history.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000003-0000-4000-8000-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T01:30:00.000Z","last_timestamp_utc":"2026-10-01T13:00:00.000Z","models":["grok-4.6"],"user_turns":2,"assistant_turns":1,"tool_calls":0,"source_file":"/home/alice/.cursor/projects/srv-proj/agent-transcripts/c0000003-0000-4000-8000-000000000003/c0000003-0000-4000-8000-000000000003.jsonl","synced":"no","relayed":"","origin":"local","recovered":"yes"}
+{"host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T08:00:00.000Z","last_timestamp_utc":"2026-10-01T08:00:10.000Z","models":[],"user_turns":1,"assistant_turns":1,"tool_calls":1,"source_file":"/home/alice/.codex/thread_history_1.sqlite","synced":"no","relayed":"","origin":"","recovered":"yes"}
+{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:00.000Z","last_timestamp_utc":"2026-10-01T09:00:24.000Z","models":["gemini-2.5-pro","gemini-2.5-flash"],"user_turns":3,"assistant_turns":2,"tool_calls":3,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"partial"}
+{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"c3d4e5f6-0000-4000-8000-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:30.000Z","last_timestamp_utc":"2026-10-01T09:00:30.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
+{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-0000000000ff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:01:00.000Z","last_timestamp_utc":"2026-10-01T09:01:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:59:00.000Z","last_timestamp_utc":"2026-10-01T10:05:00.000Z","models":["grok-4.6","grok-4.7"],"user_turns":2,"assistant_turns":1,"tool_calls":5,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"partial"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:00.000Z","last_timestamp_utc":"2026-10-01T10:00:20.000Z","models":["claude-fable-5-1"],"user_turns":4,"assistant_turns":2,"tool_calls":5,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:30.000Z","last_timestamp_utc":"2026-10-01T10:00:31.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":1,"tool_calls":0,"source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000002-0000-4000-8000-000000000002","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:20:00.000Z","last_timestamp_utc":"2026-10-01T12:00:00.000Z","models":["grok-4.7"],"user_turns":2,"assistant_turns":2,"tool_calls":0,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-777777777777","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T11:00:00.000Z","last_timestamp_utc":"2026-10-01T11:00:04.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-777777777777.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-888888888888","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:00.000Z","last_timestamp_utc":"2026-10-15T15:56:10.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.claude/sessions/4343.json","synced":"yes","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-5333-8444-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:00.000Z","last_timestamp_utc":"2026-10-15T15:56:10.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-5333-8444-000000000001.jsonl","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-999999999999","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T12:00:01.000Z","last_timestamp_utc":"2026-10-01T12:00:10.000Z","models":["claude-fable-5-1","claude-opus-5-5"],"user_turns":3,"assistant_turns":3,"tool_calls":0,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-999999999999.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"d0000001-0000-4000-8000-000000000001","project_path":"","first_timestamp_utc":"2026-10-01T12:30:00.000Z","last_timestamp_utc":"2026-10-01T12:30:00.000Z","models":[],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000001-0000-4000-8000-000000000001","project_path":"github.com/alice-gh/demo","first_timestamp_utc":"2026-10-01T12:46:40.000Z","last_timestamp_utc":"2026-10-01T14:00:00.000Z","models":["grok-4.7"],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-000000000002","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T13:00:00.000Z","last_timestamp_utc":"2026-10-01T13:00:11.000Z","models":["claude-opus-5-5"],"user_turns":2,"assistant_turns":0,"tool_calls":1,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-000000000002.jsonl","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-aaaaaaaaaaaa","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T13:00:01.000Z","last_timestamp_utc":"2026-10-01T13:00:11.000Z","models":["claude-sonnet-5-5"],"user_turns":4,"assistant_turns":0,"tool_calls":2,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa.jsonl","synced":"yes","relayed":"","origin":"local","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"cursor","session_id":"bc-e0000002-0000-4000-8000-000000000002","project_path":"github.com/alice-gh/web","first_timestamp_utc":"2026-10-01T13:03:20.000Z","last_timestamp_utc":"2026-10-01T13:05:20.000Z","models":["grok-4.7"],"user_turns":0,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"yes","relayed":"","origin":"remote","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","project_path":"/srv/proj","first_timestamp_utc":"2026-10-02T09:00:00.000Z","last_timestamp_utc":"2026-10-14T15:25:52.000Z","models":["gpt-5-codex","gpt-5.5-codex"],"user_turns":1,"assistant_turns":1,"tool_calls":3,"source_file":"/home/alice/.codex/sessions/2026/10/02/rollout-2026-10-02T09-00-00-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jsonl","synced":"yes","relayed":"","origin":"","recovered":"no"}
+{"host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 12:00:00","project_path":"/home/alice","first_timestamp_utc":"2026-10-02T12:00:00.000Z","last_timestamp_utc":"2026-10-02T12:00:09.000Z","models":["anthropic/claude-sonnet-4-5","anthropic/claude-haiku-4-5"],"user_turns":1,"assistant_turns":2,"tool_calls":0,"source_file":"/home/alice/.aider.chat.history.md","synced":"","relayed":"","origin":"","recovered":"partial"}
+{"host":"wsdev14","user":"alice","agent":"aider","session_id":"/home/alice/.aider.chat.history.md#2026-10-02 13:00:00","project_path":"/home/alice","first_timestamp_utc":"2026-10-02T13:00:00.000Z","last_timestamp_utc":"2026-10-02T13:05:00.000Z","models":["gpt-4o","claude-opus-4-5","claude-sonnet-4-5","claude-haiku-4-5"],"user_turns":4,"assistant_turns":0,"tool_calls":0,"source_file":"/home/alice/.aider.chat.history.md","synced":"","relayed":"","origin":"","recovered":"partial"}
 ```
 <!-- end generated: sessions-jsonl -->
 

@@ -202,6 +202,19 @@ No Letta release reads `~/.memgpt`; a grep of 0.4.1, 0.11.7 and the archive head
 What a delete removes and leaves is in
 [What survives a delete](#what-survives-a-delete).
 
+#### Docker volume
+
+A Docker or Podman volume whose name matches `*letta*` is collected with its `_data` directory as
+the base. The volume name is inferred; a volume mounted in place of `~/.letta` would hold the
+layout of [Letta Code](#letta-code) and [Letta V1 server](#letta-v1-server) at its base.
+The volume-relative exclusions are `bin` and `mod-cache` (Letta Code), and `tool_execution_dir`
+and `chroma` (Letta V1). The volume-relative secret globs are `pg_uri`, `credentials`,
+`lc-local-backend/providers/auth.json`, `channels/*/accounts.json`,
+`channels/whatsapp/auth/*`, `agents/*/memory/.git/config` and
+`agents/*/memory/.git/letta-credential-helper.cmd`, and the shared `settings.json` glob applies
+([Credentials](#credentials)). The layout inside the volume is source-derived; not observed on any
+real install.
+
 ### Credentials
 
 - Letta Code stores the Letta API key and refresh token in the OS keychain through `Bun.secrets`,

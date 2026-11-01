@@ -109,11 +109,11 @@ python3 -m pytest tools/tests -q            # the checkers' own tests
 
 | Checker | Compares | What it reports |
 | --- | --- | --- |
-| `check_tables_research.py` | every `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS` and `DOCKER_VOLUMES` line with the Collection part of its agent's document (`research/shared.md` for the `shared` and `project` lines) | a line no code span names, a credential file the Credentials section names, unless its sentence says it is not one, that no secret glob flags and the Secrets section does not list, a secret glob an exclusion hides, an exclusion or secret glob that no home or project entry reaches and no one Docker volume agent's document names, a Docker volume glob that the document's Per-user storage subsection about the volume does not name, a missing Docker volume form of an exclusion, two agents' home entries whose first differing segment differs only by case or whose first segments differ and can still match one path, the wording "collected unflagged", "left unflagged", "not flagged", "may embed" or "can embed" in Credentials, a catalog agent without a document or an agents page row, a parser fact under Collection |
+| `check_tables_research.py` | every `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS` and `DOCKER_VOLUMES` line with the Collection part of its agent's document (`research/shared.md` for the `shared` and `project` lines) | a line no code span names, a credential file the Credentials section names, unless its sentence says it is not one, that no secret glob flags and the Secrets section does not list, a secret glob an exclusion hides, an exclusion or secret glob that no home or project entry reaches and no one Docker volume agent's document names, a Docker volume glob that the document's Per-user storage subsection about the volume (one whose heading or opening paragraph says "volume" and names the volume in a code span: its name, its `DOCKER_VOLUMES` glob or its catalog line) does not name, a missing Docker volume form of an exclusion, two agents' home entries whose first differing segment differs only by case or whose first segments differ and can still match one path, the wording "collected unflagged", "left unflagged", "not flagged", "may embed" or "can embed" in Credentials, a catalog agent without a document or an agents page row, a parser fact under Collection |
 | `check_smoke_coverage.py` | every table line with `collectors/tests/smoke.sh` and `collectors/tests/smoke.ps1`, read as text | a secret glob with no `secret: true` or no `skipped_secret` check, an exclusion with no `skipped_excluded` check, a catalog line no fixture file matches, a fixture file whose name the document does not give, a `smoke.ps1` check naming a row by a suffix, an agent with a `secret` case in the frameworks case list and no `--no-secrets` check of `skipped_secret` on one, a check or path the reader cannot follow |
-| `check_parser_research.py` | each parser in `parsers.ALL`, read with Python's `ast` module, with the Parsing part of its agent's document | a row text, `parser:` message or record key no code span or fenced line gives, a file pattern that neither appears unescaped nor has a path or glob span outside Fixtures shaped like it, a `records_sync`, `records_relay`, `records_origin` or `has_secondary` flag the Parser plan contradicts, a file or key a `Not read:` list names that the parser reads, a module docstring fact the document lacks |
+| `check_parser_research.py` | each parser in `parsers.ALL`, read with Python's `ast` module, with the Parsing part of its agent's document, and with the agent's row of the survival table in [`research/README.md`](../../research/README.md#where-transcripts-live-and-what-survives) | a row text, `parser:` message or record key no code span or fenced line gives, a file pattern that neither appears unescaped nor has a path or glob span outside Fixtures shaped like it, a `records_sync`, `records_relay`, `records_origin` or `has_secondary` flag the Parser plan contradicts, a file or key a `Not read:` list names that the parser reads, a module docstring fact the document lacks, a file pattern of `secondary()` the survival row names no file of, a parser with such a pattern and no survival row |
 | `check_fixture_schema.py` | the files `build_home` leaves on disk, so not a record a later builder overwrites, and the fixture modules' docstrings with the Parsing part of each agent's document | a builder without a `Source:` line, a module that names no document, a key, table, column or enum value the document lacks (and so do the documents of the agents whose fixture modules it imports from), a value whose type a key table contradicts, a project path the module does not declare, another agent's builder called without a `Lineage:` line, a Fixtures sample identical to a fixture record |
-| `check_research_structure.py` | each research document with "Research document structure" in [AGENTS.md](../../AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an install entry under `### Observed` without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or link, a fact stated twice, documentation named without a link |
+| `check_research_structure.py` | each research document with "Research document structure" in [AGENTS.md](../../AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an install entry under `### Observed` without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or inline link, a fact stated twice, documentation named without an inline link |
 
 Each checker prints one line per finding,
 `<path>[:<line>]: <kind> [<agent>]: <detail> - <explanation>`, such as:
@@ -128,7 +128,9 @@ stale baseline line or a malformed one, `0` otherwise.
 The drift that existed when the checkers were written is recorded in the
 baseline, `tools/drift-baseline/<agent>.txt`, one file per agent
 (`unattributed.txt` for a finding that names none) holding one
-`<checker>|<kind>|<detail>` line per finding, sorted. A finding missing
+`<checker>|<kind>|<detail>` line per finding, sorted, each once; every
+checker fails on a line out of order (`unsorted:`) or repeated
+(`duplicate:`). A finding missing
 from the baseline is new and fails CI: fix the table, document, parser or
 fixture that disagrees. A baseline line that no finding produces any more
 is stale and fails too, printed as
@@ -136,12 +138,60 @@ is stale and fails too, printed as
 commit that fixes the drift also deletes its line; when an agent is
 rebuilt from fresh evidence, its file empties and is deleted.
 `--update-baseline` rewrites one checker's lines in every file from the
-current findings, drops a malformed line and names it on stderr, and
+current findings, sorts the file and drops a repeated line, drops a
+malformed line and names it on stderr, and
 exits `0` (`check_research_structure.py` still exits `1` on an outline
 breach). It may add lines only in the commit that adds
 or changes a checker's rule, recording the breaches the new rule finds,
 and that commit's message body says why; a finding an edit of yours causes
 is fixed, never added to the baseline.
+
+## Branch coverage
+
+A parser's fixture holds the present and the absent form of every key the
+parser branches on, so the suite takes each branch both ways.
+`tools/check_branch_coverage.py` measures that for the parser modules a
+change touches, with [coverage.py](https://coverage.readthedocs.io/) in
+branch mode at the version `requirements-dev.txt` pins. CI runs it in the
+analyzer job on its newest Python, against the pull request's base branch.
+From the repository root, with `requirements-dev.txt` installed:
+
+```sh
+python3 tools/check_branch_coverage.py                   # parser lines changed since origin/main
+python3 tools/check_branch_coverage.py --base main       # against another ref
+python3 tools/check_branch_coverage.py --all             # every parser module, every line
+```
+
+It finds the modules under `doubleagent/parsers/` that differ between the
+working tree and the merge base of `--base` with HEAD, so uncommitted
+edits count, and the untracked modules git does not ignore, each of whose
+lines counts as changed. When there is none it prints
+`no parser module changed against <ref>` on stdout and exits 0. Otherwise
+it runs the whole suite once from `analyzer/` under
+`coverage run --branch`, measuring only those modules, and prints one
+line per finding on stdout, for a line the change added or modified:
+
+| Line | Meaning |
+| --- | --- |
+| `<file>:<line>: branch to <line> never taken` | the suite never went from this line to that one |
+| `<file>:<line>: branch to exit never taken` | the suite never left the function from this line |
+| `<file>:<line>: pragma: no branch without a reason` | the line carries `# pragma: no branch` with no `: <reason>` after it |
+| `<file>:<line>: pragma: no cover without a reason` | the line carries `# pragma: no cover`, which drops its whole block from measurement, with no `: <reason>` after it |
+| `<file>:1: not measured: the suite never imports it` | no test imports the changed module |
+
+A branch is reported on the line where it starts, the first line of a
+statement that spans several, and a change to any line of a statement's
+header (up to its closing colon, decorators and a `case` guard included),
+such as the second line of an `if` condition, checks the whole header:
+its first line's branches and a pragma on any of its lines, since
+coverage.py honours a pragma anywhere in the header. A pragma's reason is
+a colon and text right after it, in any spelling coverage.py accepts
+(`# pragma: no branch: <reason>`, `# pragma no branch: <reason>`). A branch no fixture can reach, such as a guard
+against a value the format never writes, carries
+`# pragma: no branch: <reason>` on that line, which coverage.py and the
+check both accept. The summary goes to stderr, and the exit status is 0
+with no finding, 1 with one, and 2 when git, the suite or coverage.py
+fails, with the failing step's output.
 
 ## Regenerating the output examples
 
@@ -159,15 +209,27 @@ by hand. `example_collection.py` and `regenerate_examples.py` under
 `example_collection.py` builds the synthetic collection that
 [The example collection](output.md#the-example-collection) describes:
 host `wsdev14`, the users `alice` and `bob` and the repository
-`/srv/proj`, with fixed times and ids. No collector gathered it: the
-module writes its `collection.json` and `manifest.jsonl` in the
-collector's documented shape, and every file's contents are invented,
-in the record shapes of the test fixtures and the research documents'
-samples, built from real installs (Claude Code 2.1.310 on Linux and
-macOS, Codex CLI 0.162.1 on Linux) and the agents' source.
-To write it to disk, give it an empty directory; it writes
-`<directory>/wsdev14/` with `collection.json`, `manifest.jsonl`,
-`collector.log` and `fs/`. From the repository root:
+`/srv/proj`. No collector gathered it. The agents' files are written by
+the test fixtures under `tests/fixtures/`: for each user, the
+`HOME_BUILDERS` entries, then the `EXAMPLE_BUILDERS` entries, of the
+fixture modules `USER_AGENTS` names for that user, and the project's
+`.git/` files and settings, so a change to one of those builders shows
+in the examples. `tools/check_fixture_schema.py` checks the records of
+both registries: it runs `build_home`, then each `EXAMPLE_BUILDERS`
+entry into the same home. The module itself keeps a home's Linux trees
+only, moving Cursor's macOS editor state to `.config/Cursor` and leaving
+out the other `Library` and `AppData` trees; walks the built trees in
+catalog order into manifest rows, with the `EXCLUDES` and `SECRET_GLOBS`
+lines of the bundled catalog; writes `collection.json` and
+`collector.log` in the collector's documented shape, with the version
+of `collectors/collect-agent-artifacts.sh`; and adds what the fixtures
+do not hold: an Amp settings file, two excluded directories with a used
+install's sizes, a cut manifest row and a file missing from `fs/`. A
+file whose builder sets no modification time is given a fixed one, so
+every run writes the same collection. To write it to disk, give it an
+empty directory; it writes `<directory>/wsdev14/` with
+`collection.json`, `manifest.jsonl`, `collector.log` and `fs/`. From the
+repository root:
 
 ```sh
 mkdir example
@@ -175,8 +237,10 @@ python3 analyzer/tools/example_collection.py example
 ```
 
 `regenerate_examples.py` builds the same collection in a temporary
-directory, runs `detect`, `detect --json --files` and `timeline -o` on it
-in the same Python process, and writes the output between the comments
+directory, runs `detect`, `detect --json` and `timeline -o` on it
+in the same Python process, then a second `timeline -o` with the filters
+of `TIMELINE_FILTERS`, whose `timeline.jsonl` is the one shown so that
+the example stays readable, and writes the output between the comments
 that enclose each block,
 `<!-- generated by analyzer/tools/regenerate_examples.py: <name> -->`
 and `<!-- end generated: <name> -->`. The collection's temporary path is
@@ -203,8 +267,9 @@ so its target is rewritten.
 `tests/test_examples.py` fails on a stale block and on each of these
 errors. A change that shows in the collection's output leaves the suite
 failing until the script is run, such as a change to the rows of the
-`claude-code`, `codex-cli`, `aider`, `ollama`, `cursor` or `gemini-cli`
-parsers, to the lines `detect` or `timeline` prints, to the keys of
+`claude-code`, `claude-desktop`, `codex-cli`, `aider`, `ollama`,
+`cursor` or `gemini-cli` parsers or to their fixture builders, to the
+lines `detect` or `timeline` prints, to the keys of
 `detect --json` or `inventory.json`, to `example_collection.py` itself,
 or a `VERSION` bump, since `inventory.json` names the analyzer version.
 The prose around each example says what to notice in it, and is written

@@ -1,4 +1,7 @@
-"""Synthetic Muse Code state for the analyzer tests."""
+"""Synthetic Muse Code state for the analyzer tests.
+
+Paths: `/srv/other` (a second trusted project).
+"""
 
 from __future__ import annotations
 

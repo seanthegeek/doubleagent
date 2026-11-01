@@ -1,4 +1,10 @@
-"""Synthetic Claude Code state for the analyzer tests."""
+"""Synthetic Claude Code state for the analyzer tests.
+
+Paths: `/srv/work` (a project of the relocated `.claude-work` home),
+       `/tmp/claude-0/-home-user-repo/22222222-3333-4444-8555-666666666666/scratchpad`
+       `/private/tmp/claude-501/-srv-proj/11111111-2222-4333-8444-000000000002/scratchpad`
+       (the teleported session's cloud and local scratchpads).
+"""
 
 from __future__ import annotations
 
@@ -1828,3 +1834,45 @@ def build_claude_code(home: Path) -> None:
     _jsonl(home / ".claude-work/history.jsonl", claude_work_history_records())
     (home / ".claude-code-router").mkdir()
     (home / ".claude-code-router/config.json").write_text('{"PORT": 3456}', encoding="utf-8")
+
+
+def claude_ccr_tip():
+    """`ccr-tip.json` of the Remote Control spawn: the last claude.ai event it processed.
+
+    Source: research/claude-code.md#remote-control; build 2.1.310
+    """
+    return {"eventId": "33333333-4444-4555-8666-777777777777", "updatedAt": 1790856300000}
+
+
+def claude_bridge_pointer():
+    """The project's `bridge-pointer.json`, left by a Remote Control server.
+
+    Source: research/claude-code.md#remote-control; build 2.1.310
+    """
+    return {
+        "environmentId": "env_0123456789abcdefghijkl",
+        "pid": 15081,
+        "procStart": "Mon Oct  1 12:00:00 2026",
+        "sessionId": "0123456789abcdef0123456789abcdef",
+        "source": "standalone",
+    }
+
+
+def build_claude_code_remote(home: Path) -> None:
+    """The Remote Control spawn and the teleported cloud session, with their sidecars.
+
+    `build_home` leaves them out; the output examples' collection writes them beside the files
+    of `build_claude_code`.
+
+    Source: research/claude-code.md#remote-control; build 2.1.310
+    """
+    project = home / ".claude/projects/-srv-proj"
+    _jsonl(project / (CLAUDE_MAC_SPAWN_SESSION + ".jsonl"), claude_mac_spawn_records())
+    _jsonl(project / (CLAUDE_MAC_TELEPORT_SESSION + ".jsonl"), claude_mac_teleport_records())
+    (project / CLAUDE_MAC_SPAWN_SESSION).mkdir(parents=True, exist_ok=True)
+    (project / CLAUDE_MAC_SPAWN_SESSION / "ccr-tip.json").write_text(
+        json.dumps(claude_ccr_tip()), encoding="utf-8"
+    )
+    (project / "bridge-pointer.json").write_text(
+        json.dumps(claude_bridge_pointer()), encoding="utf-8"
+    )

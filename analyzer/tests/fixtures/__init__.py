@@ -105,6 +105,7 @@ from .claude_code import (
     CLAUDE_TOOL_RESULT,
     CLAUDE_WORK_SESSION,
     build_claude_code,
+    build_claude_code_remote,
     claude_295_records,
     claude_296_records,
     claude_309_history_records,
@@ -1177,3 +1178,9 @@ def build_home(home: Path, with_noise: bool = True) -> Path:
         (project / ".claude").mkdir(exist_ok=True)
         (project / ".claude/settings.local.json").write_text("{}", encoding="utf-8")
     return home
+
+
+# Builders `build_home` does not run that the output examples' collection
+# (analyzer/tools/example_collection.py) runs after the `HOME_BUILDERS`
+# entries of a user's agents, each with the directory under the home.
+EXAMPLE_BUILDERS: tuple[tuple[Callable[[Path], None], str], ...] = ((build_claude_code_remote, ""),)

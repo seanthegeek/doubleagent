@@ -52,7 +52,8 @@ them ([Exclusions](#exclusions)). No session records a local working directory.
 On a developer workstation Tabby runs as that user (state under their home); in Docker the images
 set `TABBY_ROOT=/data`
 ([docker/Dockerfile.cuda:88](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/docker/Dockerfile.cuda#L88)),
-which is outside any home and not covered by a home catalog.
+which is outside any home and not covered by a home catalog; a named volume there is
+collected as [Docker volume](#docker-volume) says.
 
 `TABBY_ROOT` if set, else `home::home_dir()/.tabby`
 ([crates/tabby-common/src/path.rs:5-14](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/path.rs#L5-L14)).
@@ -102,6 +103,14 @@ Contents
 The webserver (and so the database) runs unless the hidden `--no-webserver` flag is given
 ([crates/tabby/src/serve.rs:112-114](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby/src/serve.rs#L112-L114),
 [125-145](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby/src/serve.rs#L125-L145)).
+
+#### Docker volume
+
+A Docker or Podman volume whose name matches `*tabby*` is collected with its `_data` directory as
+the base, which is the server root ([Server root `~/.tabby`](#server-root-tabby)). The volume name
+is inferred. The layout inside it is source-derived; not observed on any real install. The
+volume-relative exclusions are `index`, `models` and `repositories` ([Exclusions](#exclusions)).
+The volume-relative secret glob is `config.toml` ([Credentials](#credentials)).
 
 #### Client `~/.tabby-client/agent`
 

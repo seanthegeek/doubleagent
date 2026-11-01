@@ -15,10 +15,11 @@ pattern over the row text is set with `--match`:
   expression ([`re` syntax](https://docs.python.org/3/library/re.html),
   searched anywhere in the text, so anchor with `^` and `$` for a whole
   match). Repeat it to keep rows that match any of the patterns; `-i`
-  makes every pattern case-insensitive. A matched `tool_use` row keeps its
-  `tool_result` row, and a matched result its call, when the partner has
-  the same `session_id` and `tool_use_id` (the same `source_file` for rows
-  without a session id) and is inside the time window. Only `text` is
+  makes every pattern case-insensitive. A matched row with a
+  `tool_use_id` keeps every row with the same `session_id` and
+  `tool_use_id` (the same `source_file` for rows without a session id)
+  inside the time window: its call, its result and the rows beside them,
+  such as a `permission decision:` row. Only `text` is
   searched; filter other fields with jq afterwards.
 - `--match` applies after the time window. `sessions.jsonl` is summarised
   from the rows that are kept, so its counts and first and last timestamps

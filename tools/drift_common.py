@@ -11,10 +11,12 @@ fails, so new drift fails CI while the drift recorded in the baseline expires ag
 - A finding whose agent and key are not a baseline line is new, and fails.
 - A baseline line of the checker that no finding produced is stale, and fails with
   `stale: remove "<key>" from tools/drift-baseline/<agent>.txt`.
-- A baseline line with fewer than three fields belongs to no checker; every checker fails on it.
+- A baseline line with fewer than three fields belongs to no checker; every checker fails on it,
+  and on a line out of Python string order (`unsorted: `) or repeating one (`duplicate: `).
 - `--update-baseline` rewrites the checker's own lines of every agent file from the run's
-  findings, deletes a file left empty, keeps every other checker's lines, and exits 0; it drops
-  a malformed line with `<file>:<n>: dropped malformed baseline line: <text>` on stderr.
+  findings, deletes a file left empty, keeps every other checker's lines, sorted and once each,
+  and exits 0; it drops a line of fewer than three fields with
+  `<file>:<n>: dropped malformed baseline line: <text>` on stderr.
 
 A checker defines `run(root)`, yielding `Finding`s for the repository at `root`, and ends with
 `sys.exit(main_with_baseline("check_example", run))`; `tools/tests/example_checker.py` is the
@@ -27,12 +29,13 @@ from __future__ import annotations
 
 import argparse
 import ast
+import fnmatch
 import functools
 import importlib
 import pathlib
 import re
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from types import ModuleType
 from typing import TYPE_CHECKING
@@ -50,6 +53,7 @@ BASELINE = pathlib.PurePosixPath("tools/drift-baseline")
 UNATTRIBUTED = "unattributed"
 CATALOG_TEXT = pathlib.PurePosixPath("analyzer/doubleagent/catalog.txt")
 AGENTS_PAGE = pathlib.PurePosixPath("docs/agents.md")
+RESEARCH_INDEX = pathlib.PurePosixPath("research/README.md")
 PARSERS = pathlib.PurePosixPath("analyzer/doubleagent/parsers")
 # Files under research/ that are not one catalog agent's document.
 NOT_AGENT_DOCUMENTS = frozenset({"README.md", "frameworks.md", "shared.md"})
@@ -70,7 +74,10 @@ KIND = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 AGENT_NAME = re.compile(r"^(?:-|[a-z0-9][a-z0-9._-]*)$")
 AGENTS_TABLE_HEADER = re.compile(r"^\|\s*Agent\s*\|\s*Status\s*\|")
 TABLE_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
+SURVIVAL_TABLE_HEADER = re.compile(r"^\|\s*Agent\s*\|\s*Transcripts live in\s*\|")
 FIRST_CODE_SPAN = re.compile(r"`([^`]+)`")
+# A word that may be a Docker or Podman volume name, which Docker limits to these characters.
+VOLUME_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 # Characters a negated glob class may give a sample path, in order of preference.
 SAMPLE_CHARACTERS = "xabcdefghijklmnopqrstuvwyz0123456789"
 
@@ -132,7 +139,9 @@ class BaselineLines:
     """The baseline lines one checker owns, and the lines no checker owns.
 
     `own` maps (agent, key) to the line number of the key in `<agent>.txt`; `malformed` holds
-    one `<file>:<line>: malformed baseline line: <text>` per line with fewer than three fields.
+    one `<file>:<line>: malformed baseline line: <text>` per line with fewer than three fields,
+    `<file>:<line>: unsorted: <text> sorts before line <n>` per line sorting before a line
+    above it, and `<file>:<line>: duplicate: <text> repeats line <n>` per repeated line.
     """
 
     own: dict[tuple[str, str], int] = field(default_factory=dict)
@@ -162,16 +171,24 @@ def load_baseline(root: pathlib.Path, checker: str) -> BaselineLines:
     if not directory.is_dir():
         return found
     for path in sorted(directory.glob("*.txt")):
+        name = baseline_file(file_agent(path.stem))
+        seen: dict[str, int] = {}
+        previous = ("", 0)
         for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
             line = line.rstrip("\r")
             if not line:
                 continue
             owner = line_owner(line)
+            if line in seen:
+                message = "duplicate: %s repeats line %d" % (line, seen[line])
+                found.malformed.append("%s:%d: %s" % (name, number, message))
+            elif line < previous[0]:
+                message = "unsorted: %s sorts before line %d" % (line, previous[1])
+                found.malformed.append("%s:%d: %s" % (name, number, message))
+            seen.setdefault(line, number)
+            previous = max(previous, (line, number))
             if not owner:
-                agent = file_agent(path.stem)
-                found.malformed.append(
-                    "%s:%d: malformed baseline line: %s" % (baseline_file(agent), number, line)
-                )
+                found.malformed.append("%s:%d: malformed baseline line: %s" % (name, number, line))
             elif owner == checker:
                 found.own.setdefault((file_agent(path.stem), line), number)
     return found
@@ -634,8 +651,21 @@ def star_remainders(glob: str, catalog: Catalog) -> list[tuple[str, str]]:
     return found
 
 
-def is_volume_section(section: Section) -> bool:
-    """Return whether a section's heading or first paragraph holds the word "volume"."""
+def agent_volume_globs(catalog: Catalog, agent: str) -> tuple[str, ...]:
+    """Return the `DOCKER_VOLUMES` volume name globs of one agent, in table order."""
+    return tuple(entry.glob for entry in catalog.docker_volumes if entry.agent == agent)
+
+
+def is_volume_section(section: Section, volume_globs: Iterable[str], agent: str) -> bool:
+    """Return whether a section's heading or first paragraph names one of an agent's volumes.
+
+    Those lines hold the word "volume" and a code span naming one of `volume_globs`
+    (`agent_volume_globs`): the glob itself, the agent's catalog line (`<agent>|<glob>`), or a
+    volume name alone (`VOLUME_WORD`) the glob matches by `fnmatch.fnmatchcase`, as Docker
+    volume names are case-sensitive. Prose words never count, as a broad glob such as `*tabby*`
+    matches the agent's name in every paragraph; a span the glob matches can still be a file or
+    package name (`tabby-agent`), and only the word "volume" keeps such a section out.
+    """
     lines = section.text.split("\n")
     paragraph: list[str] = []
     for line in lines[1:]:
@@ -643,28 +673,38 @@ def is_volume_section(section: Section) -> bool:
             paragraph.append(line)
         elif paragraph:
             break
-    return "volume" in (lines[0] + " " + " ".join(paragraph)).lower()
+    text = lines[0] + "\n" + "\n".join(paragraph)
+    names = [
+        collapse(match.group(2)) for match in check_research_structure.CODE_SPAN.finditer(text)
+    ]
+    return "volume" in text.lower() and any(
+        name == glob
+        or name == "%s|%s" % (agent, glob)
+        or bool(VOLUME_WORD.fullmatch(name) and fnmatch.fnmatchcase(name, glob))
+        for glob in volume_globs
+        for name in names
+    )
 
 
 @functools.cache
 def collection_spans_by_depth(
-    path: pathlib.Path, volume_only: bool = False
+    path: pathlib.Path, volume_globs: tuple[str, ...] | None = None
 ) -> dict[int, tuple[str, ...]]:
     """Return a document's normalised Collection code spans by their count of `/`, read once.
 
-    With `volume_only`, only the spans of its Per-user storage volume subsections
-    (`is_volume_section`). A missing document has none. A glob's segments never cross `/`, so
-    only spans of its own depth, or one less for a glob ending in `/*`, can name it
-    (`names_glob`).
+    With `volume_globs`, the agent's volume name globs, only the spans of its Per-user storage
+    subsections naming one of them (`is_volume_section`). A missing document has none. A glob's
+    segments never cross `/`, so only spans of its own depth, or one less for a glob ending in
+    `/*`, can name it (`names_glob`).
     """
     if not path.is_file():
         return {}
     sections = research_sections(path)
-    if volume_only:
+    if volume_globs is not None:
         chosen = [
             section
             for section in within(sections, "Collection", "Per-user storage")
-            if is_volume_section(section)
+            if is_volume_section(section, volume_globs, path.stem)
         ]
     else:
         chosen = within(sections, "Collection")
@@ -676,25 +716,29 @@ def collection_spans_by_depth(
     return {depth: tuple(spans) for depth, spans in found.items()}
 
 
-def document_names_glob(path: pathlib.Path, glob: str, volume_only: bool = False) -> bool:
+def document_names_glob(
+    path: pathlib.Path, glob: str, volume_globs: tuple[str, ...] | None = None
+) -> bool:
     """Return whether a code span of a document's Collection part names a glob (`names_glob`).
 
-    With `volume_only`, only a span of a Per-user storage volume subsection counts.
+    With `volume_globs`, only a span of a Per-user storage subsection naming one of those
+    volumes counts.
     """
-    by_depth = collection_spans_by_depth(path, volume_only)
+    by_depth = collection_spans_by_depth(path, volume_globs)
     depth = glob.count("/")
     return names_glob(glob, by_depth.get(depth, ()) + by_depth.get(depth - 1, ()))
 
 
-def volume_section_names_glob(path: pathlib.Path, glob: str) -> bool:
+def volume_section_names_glob(path: pathlib.Path, glob: str, volume_globs: tuple[str, ...]) -> bool:
     """Return whether a document's Per-user storage volume subsections name a volume glob.
 
     The one test both volume ownership (`glob_owners`) and `volume-glob-unnamed` use. It is the
     strict form, `names_glob` without `deeper`: a span describing an agent's own layout below
     a path (`profiles/<name>/...`) does not name the bare glob above it (`profiles/*`), so it
-    never makes that agent an owner of another agent's glob.
+    never makes that agent an owner of another agent's glob. `volume_globs` are the agent's
+    volume name globs (`agent_volume_globs`), which pick its volume subsections.
     """
-    return document_names_glob(path, glob, volume_only=True)
+    return document_names_glob(path, glob, volume_globs)
 
 
 def home_claim(glob: str, catalog: Catalog) -> str:
@@ -785,15 +829,18 @@ def volume_agents_naming(
     """Return the `DOCKER_VOLUMES` agents whose documents under `root` name a glob, in order.
 
     A document names it when a code span of its Collection part does (`document_names_glob`),
-    with `volume_only` one of its Per-user storage volume subsections.
+    with `volume_only` one of its Per-user storage subsections naming one of the agent's volumes
+    (`is_volume_section`).
     """
     research = (ROOT if root is None else root) / "research"
     volume_agents = dict.fromkeys(entry.agent for entry in catalog.docker_volumes)
     return [
         agent
         for agent in volume_agents
-        if (volume_section_names_glob if volume_only else document_names_glob)(
-            research / ("%s.md" % agent), glob
+        if document_names_glob(
+            research / ("%s.md" % agent),
+            glob,
+            agent_volume_globs(catalog, agent) if volume_only else None,
         )
     ]
 
@@ -878,6 +925,56 @@ def agents_page_rows(path: pathlib.Path) -> dict[str, AgentRow]:
         span = FIRST_CODE_SPAN.search(cells[0])
         agent = span.group(1) if span else cells[0]
         rows.setdefault(agent, AgentRow(agent, cells[1], cells[2], cells[3], number))
+    return rows
+
+
+def table_rows(text: str, header: re.Pattern[str]) -> Iterator[tuple[int, list[str]]]:
+    """Yield (line offset, cells) of each row of the tables `header` opens in `text`.
+
+    A line `header` matches, once stripped, yields (offset, []) and opens a table; each later
+    line starting `|` is a row, split at every `|`, its cells stripped, the separator row left
+    out; any other line closes the table.
+    """
+    in_table = False
+    for offset, line in enumerate(text.split("\n")):
+        stripped = line.strip()
+        if header.match(stripped):
+            in_table = True
+            yield offset, []
+            continue
+        if not in_table or not stripped.startswith("|"):
+            in_table = False
+            continue
+        if not TABLE_SEPARATOR.match(stripped):
+            yield offset, [cell.strip() for cell in stripped.strip("|").split("|")]
+
+
+@dataclass(frozen=True)
+class SurvivalRow:
+    """One row of the survival table of `research/README.md`: its agent, cells and line."""
+
+    agent: str
+    cells: tuple[str, ...]
+    line: int
+
+
+def survival_rows(root: pathlib.Path | None = None) -> dict[str, SurvivalRow]:
+    """Return the rows of the survival table, keyed by agent, the first row of an agent kept.
+
+    The table is the one whose header starts `| Agent | Transcripts live in |`; a row's agent
+    is its first cell's first code span, or the cell's text when it has none. An absent index
+    gives no rows.
+    """
+    path = (ROOT if root is None else root) / RESEARCH_INDEX
+    if not path.is_file():
+        return {}
+    rows: dict[str, SurvivalRow] = {}
+    for offset, cells in table_rows(path.read_text(encoding="utf-8"), SURVIVAL_TABLE_HEADER):
+        if not cells:
+            continue
+        span = FIRST_CODE_SPAN.search(cells[0])
+        agent = span.group(1) if span else cells[0]
+        rows.setdefault(agent, SurvivalRow(agent, tuple(cells), offset + 1))
     return rows
 
 

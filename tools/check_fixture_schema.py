@@ -6,7 +6,7 @@ A fixture module is a file of `analyzer/tests/fixtures/` other than `__init__.py
 in a code span of the Parsing part or a fenced line outside Parser plan's Fixtures (a sample
 never documents a key), of the file's agent's document or of an agent whose fixture module that
 agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read only the files
-`build_home` leaves on disk, so a record a later builder overwrites is not checked.
+`build_home` and `EXAMPLE_BUILDERS` leave on disk: a record a later builder overwrites is unchecked.
 
 1. `builder-provenance-missing`: a public function of a fixture module (`is_public_builder`)
    whose docstring has no line `source_line` accepts, naming a document heading.
@@ -19,8 +19,8 @@ agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read o
 5. `type-mismatch`: a value no consulted row of its key (Record schema, Other stores) `accepts`:
    the rows of the sections naming its file (`names_file`) plus those naming no built file, or
    every row when none names it (`consulted_rows`); a key left no row is not checked.
-6. `substitution-undeclared`: a `project_path` outside `/srv/proj` and the agent's modules'
-   `declared_paths`.
+6. `substitution-undeclared`: a project path (a `project_path` value, or a key that is an
+   `absolute_path`) outside `/srv/proj` and the agent's modules' `declared_paths`.
 7. `cross-agent-builder`: a call to a function imported from another agent's fixture module
    whose agent `lineage` does not list.
 8. `sample-equals-builder`: a JSON value fenced under Fixtures equal, key-sorted, to a built record.
@@ -257,15 +257,23 @@ def is_enum_value(value: object) -> bool:
 
 
 def project_path(key: str, value: object) -> str:
-    r"""Return the path a value names when its key names a project directory, else "".
+    """Return the path a value names when its key names a project directory, else "".
 
     The key holds one of `PROJECT_KEY_WORDS`, case-folded (`cwd`, `workspaceRoots`,
-    `project_path`); the value is an absolute POSIX path, a drive path (`C:\x`, `C:/x`) or a
-    `file://` URI, given back decoded (`file:///C:/x` as `C:/x`). A relative path is none.
+    `project_path`); the value is a path `absolute_path` accepts.
     """
     folded = key.lower()
     if not isinstance(value, str) or not any(word in folded for word in PROJECT_KEY_WORDS):
         return ""
+    return absolute_path(value)
+
+
+def absolute_path(value: str) -> str:
+    r"""Return a text as a path when it is an absolute one, else "".
+
+    An absolute POSIX path, a drive path (`C:\x`, `C:/x`) or a `file://` URI, given back
+    decoded (`file:///C:/x` as `C:/x`); a relative path and `//host` are none.
+    """
     if value.startswith("file://"):
         value = urllib.parse.unquote(urllib.parse.urlsplit(value).path)
         value = value[1:] if WINDOWS_PATH.match(value[1:]) else value
@@ -537,6 +545,12 @@ def load_fixtures(root: pathlib.Path) -> ModuleType:
     return package
 
 
+def jsonc_module() -> ModuleType:
+    """Return the analyzer module holding `parse_jsonc`, the JSONC reader the parsers use."""
+    drift_common.catalog_module()
+    return importlib.import_module("doubleagent.parsers.gemini_cli")
+
+
 def sqlite_util_module() -> ModuleType:
     """Return `doubleagent.sqlite_util`, with `analyzer/` on the path as `drift_common` puts it."""
     drift_common.catalog_module()
@@ -579,14 +593,29 @@ def decode_text(text: str, whole: bool) -> list[object]:
 
 
 def decode_bytes(data: bytes, name: str) -> list[object]:
-    """Return the JSON values of a file's bytes, decompressing zstd first."""
+    """Return the JSON values of a file's bytes, decompressing zstd first.
+
+    A JSON Lines file is read line by line. Any other file is tried only when its text, after a
+    byte-order mark, opens `{` or `[`: whole as JSON, then as JSONC (`parse_jsonc`: comments and
+    trailing commas, which several agents' settings files hold), then line by line.
+    """
     if data.startswith(ZSTD_MAGIC):
         data = zstandard.ZstdDecompressor().decompressobj().decompress(data)
         name = name.removesuffix(".zst")
     text = data.decode("utf-8", errors="replace")
     if name.endswith((".jsonl", ".ndjson")):
         return decode_text(text, whole=False)
-    return decode_text(text, whole=True) if text.lstrip()[:1] in ("{", "[") else []
+    text = text.removeprefix("\ufeff")
+    if text.lstrip()[:1] not in ("{", "["):
+        return []
+    try:
+        return [json.loads(text)]
+    except ValueError:
+        pass
+    try:
+        return [jsonc_module().parse_jsonc(text.encode("utf-8"))]
+    except ValueError:
+        return decode_text(text, whole=False)
 
 
 def decode_column(value: object) -> list[object]:
@@ -654,12 +683,18 @@ def read_built_file(path: pathlib.Path, built: BuiltFile) -> None:
 
 
 def built_files(root: pathlib.Path, catalog: Catalog) -> list[BuiltFile]:
-    """Build the fixture home under `root` in a temporary directory and read every file."""
+    """Build the fixture home under `root` in a temporary directory and read every file.
+
+    The home is `build_home`'s, then each `EXAMPLE_BUILDERS` entry run into it, so the builders
+    only the output examples run are checked too.
+    """
     package = load_fixtures(root)
     found: list[BuiltFile] = []
     with tempfile.TemporaryDirectory(prefix="drift-fixtures-") as scratch:
         home = pathlib.Path(scratch) / "home"
         package.build_home(home)
+        for builder, directory in getattr(package, "EXAMPLE_BUILDERS", ()):
+            builder(home / directory)
         for path in sorted(home.rglob("*")):
             if path.is_symlink() or not path.is_file():
                 continue
@@ -743,18 +778,8 @@ def key_tables(sections: list[drift_common.Section]) -> tuple[dict[str, list[Key
 
 def _table_rows(section: drift_common.Section) -> Iterator[tuple[int, list[str]]]:
     """Yield (line offset, cells) of each key table row, and (offset, []) at each header row."""
-    in_table = False
-    for offset, line in enumerate(section.text.split("\n")):
-        text = line.strip()
-        if KEY_TABLE_HEADER.match(text):
-            in_table = True
-            yield offset, []
-            continue
-        if not in_table or not text.startswith("|"):
-            in_table = False
-            continue
-        cells = [cell.strip() for cell in text.strip("|").split("|")]
-        if len(cells) >= 3 and not drift_common.TABLE_SEPARATOR.match(text):
+    for offset, cells in drift_common.table_rows(section.text, KEY_TABLE_HEADER):
+        if not cells or len(cells) >= 3:
             yield offset, cells
 
 
@@ -881,9 +906,9 @@ def file_findings(
             enum = key in ENUM_KEYS and is_enum_value(value)
             if enum and not is_documented(str(value), document.names):
                 yield from report("enum-undocumented", "%s=%s" % (key, value))
-            path = project_path(key, value)
-            if path and not is_substitute(path, [SUBSTITUTE_PATH, *allowed]):
-                yield from report("substitution-undeclared", path)
+            for path in (project_path(key, value), "" if in_list else absolute_path(key)):
+                if path and not is_substitute(path, [SUBSTITUTE_PATH, *allowed]):
+                    yield from report("substitution-undeclared", path)
             rows = key_rows.get(key, [])
             if not rows or in_list or any(accepts(row, value) for row in rows):
                 continue
@@ -913,7 +938,7 @@ def sample_findings(
         relative = written.get(text)
         if relative and relative not in reported:
             reported.add(relative)
-            message = "a Fixtures sample equals a record build_home wrote"
+            message = "a Fixtures sample equals a record of the fixture home"
             yield drift_common.Finding(
                 agent, "sample-equals-builder", relative, document.path, line, message
             )
@@ -936,7 +961,7 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
     for built in files:
         if not built.agent:
             location = (FIXTURES / "__init__.py").as_posix()
-            message = "build_home wrote a file no catalog entry claims"
+            message = "the fixture home holds a file no catalog entry claims"
             yield drift_common.Finding("-", "file-unclaimed", built.relative, location, 0, message)
         else:
             by_agent.setdefault(built.agent, []).append(built)
@@ -951,7 +976,7 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
             yield from agent_findings(agent, agent_files, document, modules)
     with_tables = len({item.path for item in parsed.values() if item.key_tables})
     print(
-        "%s: build_home wrote %d file(s); %d document(s) hold a key table"
+        "%s: the fixture home holds %d file(s); %d document(s) hold a key table"
         % (CHECKER, len(files), with_tables),
         file=sys.stderr,
     )

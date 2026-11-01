@@ -2,6 +2,7 @@ check_fixture_schema|builder-provenance-missing|build_aider
 check_fixture_schema|module-provenance-missing|aider
 check_parser_research|key-undocumented|kind
 check_parser_research|key-undocumented|lines
+check_parser_research|secondary-unlisted|.aider.chat.history.md
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .aider/caches
 check_smoke_coverage|exclusion-check-missing|smoke.sh .aider/caches
 check_smoke_coverage|fixture-missing|smoke.ps1 home .aider

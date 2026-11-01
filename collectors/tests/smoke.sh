@@ -5,6 +5,8 @@
 # given shell, and check the manifest and archive. Usage:
 #   tests/smoke.sh [SHELL]     (SHELL defaults to sh; used for both the script
 #                               and the find -exec workers via COLLECTOR_SH)
+#   SMOKE_IMAGE_ONLY=1 tests/smoke.sh   builds the main image, prints its work
+#                               directory and exits 0 before the first run
 set -u
 SHELL_UNDER_TEST=${1:-sh}
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -1752,6 +1754,13 @@ printf '{"id":"p1","worktree":"/srv/ocproj","vcs":"git"}\n' >"$ALICE/.local/shar
 for _opencode_path in .opencode/opencode.json opencode.jsonc; do
   printf '{"mcp":{"x":{"type":"local","environment":{"TOKEN":"t"}}}}\n' >"$ROOT/srv/ocproj/$_opencode_path"
 done
+
+# The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
+# last stdout line is the work directory, which the caller removes.
+if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
+  printf '%s\n' "$WORK"
+  exit 0
+fi
 
 run() { # run NAME ARGS...
   _name=$1; shift
