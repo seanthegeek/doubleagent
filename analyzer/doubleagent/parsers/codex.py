@@ -40,7 +40,7 @@ from typing import cast
 
 import zstandard
 
-from ..errors import DoubleAgentError
+from ..errors import DoubleAgentError, unreadable_message
 from ..inputs import Artifact, error_reason
 from ..model import GIT_REMOTE_PREFIX, Row, compact
 from ..textlines import ASCII_SPACE, SPACE_OR_TAB, split_lines
@@ -164,23 +164,30 @@ def iter_zst_jsonl(path, errors: list) -> Iterator[tuple[int, dict]]:
     """Yield (line number, record) of a zstd-compressed JSONL file, streamed, like `iter_jsonl`.
 
     A corrupt or truncated frame becomes one entry in `errors`; the lines decoded before it are
-    still yielded, and a line cut by the damage is a bad line.
+    still yielded, and a line cut by the damage is a bad line. A file that cannot be opened is
+    one entry (0, `unreadable_message`), and one that fails while being read is one entry at the
+    last line read, after the lines before it, as `iter_lines` does. Nothing raises.
     """
     line_number = 0
     buffer = b""
-    with open(path, "rb") as handle:
-        try:
-            for chunk in iter_zst_chunks(handle):
-                buffer += chunk
-                lines = buffer.split(b"\n")
-                buffer = lines.pop()
-                for raw in lines:
-                    line_number += 1
-                    record = _decode_line(line_number, raw, errors)
-                    if record is not None:
-                        yield line_number, record
-        except (zstandard.ZstdError, TruncatedFrame) as error:
-            errors.append((line_number + 1, "zstd: %s" % error, ""))
+    try:
+        with open(path, "rb") as handle:
+            try:
+                for chunk in iter_zst_chunks(handle):
+                    buffer += chunk
+                    lines = buffer.split(b"\n")
+                    buffer = lines.pop()
+                    for raw in lines:
+                        line_number += 1
+                        record = _decode_line(line_number, raw, errors)
+                        if record is not None:
+                            yield line_number, record
+            except (zstandard.ZstdError, TruncatedFrame) as error:
+                errors.append((line_number + 1, "zstd: %s" % error, ""))
+    except OSError as error:
+        # line_number is 0 when the open failed, else the last line read.
+        errors.append((line_number, unreadable_message(path, error)))
+        return
     if buffer.strip():
         line_number += 1
         record = _decode_line(line_number, buffer, errors)

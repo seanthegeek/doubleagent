@@ -1,10 +1,12 @@
 """Tests of the Codex parser."""
 
+import io
 import json
 import sqlite3
 import sys
 import unittest
 from typing import ClassVar, cast
+from unittest import mock
 
 import zstandard
 from test_errors import CAN_DENY, DENY_REASON
@@ -13,7 +15,7 @@ from doubleagent import cli
 from doubleagent.inputs import open_input
 from doubleagent.model import summarise
 from doubleagent.parsers import Options
-from doubleagent.parsers.codex import CodexParser, flat_toml
+from doubleagent.parsers.codex import CodexParser, flat_toml, iter_zst_jsonl
 from doubleagent.parsers.codex_state import LOG_FIELD_PATTERN
 from doubleagent.parsers.open_interpreter import OpenInterpreterParser
 from doubleagent.timeutil import epoch_ms, to_utc
@@ -1766,6 +1768,48 @@ class CodexArchiveAndZstdTests(ParserBase):
         )
         rows = self.rows_for(CodexParser(), rel)
         self.assertEqual([row.turn_type for row in rows], self.LIVE_TYPES)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_zst_rollout_is_one_row(self):
+        rel = self.ARCHIVED + ".zst"
+        records = codex_rollout_records()[:2]
+        self._add(rel, zstandard.ZstdCompressor().compress(_rollout_bytes(records)))
+        locked = self.home / rel
+        locked.chmod(0)
+        try:
+            rows = self.rows_for(CodexParser(), rel)
+            others = self.rows_for(CodexParser(), CodexTests.REL)
+        finally:
+            locked.chmod(0o600)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+            [("system", "parser: %s could not be read (Permission denied)" % locked.name, 0, "")],
+        )
+        self.assertEqual(rows[0].session_id, CODEX_SESSION)
+        self.assertEqual([row.turn_type for row in others], self.LIVE_TYPES)
+        readable = self.rows_for(CodexParser(), rel)
+        self.assertTrue(readable, rel)
+        self.assertFalse(any(row.text.startswith("parser:") for row in readable), rel)
+
+    def test_zst_read_error_keeps_earlier_lines(self):
+        records = codex_rollout_records()[:2]
+        frame = zstandard.ZstdCompressor().compress(_rollout_bytes(records))
+
+        class FailingHandle(io.BytesIO):
+            """A file whose second read fails as a disk read error does."""
+
+            def read(self, size: int | None = -1):
+                if self.tell():
+                    raise OSError(5, "Input/output error")
+                return super().read(size)
+
+        errors: list = []
+        with mock.patch(
+            "doubleagent.parsers.codex.open", create=True, return_value=FailingHandle(frame)
+        ):
+            lines = list(iter_zst_jsonl(self.tmp / "rollout.jsonl.zst", errors))
+        self.assertEqual(lines, [(1, records[0]), (2, records[1])])
+        self.assertEqual(errors, [(2, "rollout.jsonl.zst could not be read (Input/output error)")])
 
     def test_corrupt_zst_is_reported_not_fatal(self):
         rel = self.ARCHIVED + ".zst"

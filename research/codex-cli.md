@@ -2384,11 +2384,13 @@ is not a SQLite database is `parser: not a SQLite database`. The rollout parse, 
 `state_5.sqlite` and the log databases beside it for thread records and guardian review calls, gives
 no row of its own for such a database: the database's own parse reports it.
 
-An uncompressed `rollout-*.jsonl`, a `history.jsonl`, an `automation.toml`, a `config.toml`, a
-`rules/*.rules` file, a `memories/rollout_summaries/*.md` file or the `.codex-global-state.json`
-that cannot be read is one whole-file row `parser: <file> could not be read (<reason>)` through
-`error_rows`, `<file>` its name, with `source_line` 0 and an empty `timestamp_utc`; a project's
-`config.toml` or rules file carries the project as `project_path`.
+A `rollout-*.jsonl` or `rollout-*.jsonl.zst` rollout, a `history.jsonl`, an `automation.toml`, a
+`config.toml`, a `rules/*.rules` file, a `memories/rollout_summaries/*.md` file or the
+`.codex-global-state.json` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with
+`source_line` 0 and an empty `timestamp_utc`; a rollout carries the session id its file name gives,
+and a project's `config.toml` or rules file carries the project as `project_path`. A rollout that
+fails while being read gives that row at the last line read, after the rows of the lines before it.
 
 #### Fixtures
 
