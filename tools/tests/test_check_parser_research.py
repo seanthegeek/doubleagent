@@ -1061,7 +1061,11 @@ SECONDARY_ALPHA = ALPHA.replace(
 
 
 def survival_index(
-    second_copy: str, agent: str = "alpha", transcripts: str = "home `.alpha/logs/`"
+    second_copy: str,
+    agent: str = "alpha",
+    transcripts: str = "home `.alpha/logs/`",
+    survives: str = "yes",
+    history: str = "none",
 ) -> str:
     """Return a research index whose survival table has one row, its last cell `second_copy`."""
     return "\n".join(
@@ -1071,7 +1075,8 @@ def survival_index(
             "| Agent | Transcripts live in | Survives project deletion | Per-prompt history file"
             " | Working directory recorded | Second copy |",
             "| --- | --- | --- | --- | --- | --- |",
-            "| `%s` | %s | yes | none | none | %s |" % (agent, transcripts, second_copy),
+            "| `%s` | %s | %s | %s | none | %s |"
+            % (agent, transcripts, survives, history, second_copy),
             "",
         ]
     )
@@ -1091,6 +1096,16 @@ def test_secondary_listed_by_a_code_span_or_by_its_file_name(tmp_path):
     for cell in ("`~/.alpha/history.jsonl`, secondary", "the history.jsonl file, secondary"):
         root = repository(tmp_path, SECONDARY_ALPHA, index=survival_index(cell))
         assert details(root, "secondary-unlisted") == [], cell
+
+
+def test_secondary_listed_by_the_survives_or_the_history_cell_alone(tmp_path):
+    cases = [
+        survival_index("none", history="`~/.alpha/history.jsonl`: prompts; secondary"),
+        survival_index("none", survives="yes, `~/.alpha/history.jsonl` stays"),
+    ]
+    for index in cases:
+        root = repository(tmp_path, SECONDARY_ALPHA, index=index)
+        assert details(root, "secondary-unlisted") == [], index
 
 
 def test_secondary_listed_by_a_code_span_alone(tmp_path):
@@ -1180,7 +1195,17 @@ def test_names_selector_tail_forms():
     record = selector(r"^\.c/(?P<tree>sessions/[^/]+/)local_[0-9a-f-]{36}\.json$", True)
     shell = selector(r"(^|/)shell_gpt/cache/[0-9a-f]{32}$", True)
     generic = selector(r"^\.alpha/[^/]+\.jsonl$", True)
+    stamp = r"\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d"
+    archive = selector(
+        r"^sessions/[^/]+?(?:\.jsonl\.(?:reset|deleted)\.%sZ"
+        r"|\.jsonl\.pre-doctor-branch-repair-%s-\d{3}Z\.bak|\.jsonl)$" % (stamp, stamp),
+        True,
+    )
+    archive_ms = selector(r"^sessions/[^/]+?\.jsonl\.reset\.%s\.\d{3}Z$" % stamp, True)
     accepted = [
+        (archive, "<id>.jsonl.reset.<ts>"),
+        (archive, "<id>.jsonl.pre-doctor-branch-repair-<ts>.bak"),
+        (archive_ms, "sessions/<id>.jsonl.reset.<ts>"),
         (brain, "transcript_full.jsonl"),
         (aider, "<repo>/.aider.input.history"),
         (aider, ".aider.input.history"),
