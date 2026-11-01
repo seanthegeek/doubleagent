@@ -449,9 +449,7 @@ from .cursor import (
     write_cursor_tracking,
 )
 from .gemini_cli import (
-    CODE_ASSIST_UTILITY_URL,
     GEMINI_ACTIVITY_REL,
-    GEMINI_API_URL,
     GEMINI_BUG_MS,
     GEMINI_BUG_REL,
     GEMINI_CHECKPOINT_REL,
@@ -480,11 +478,9 @@ from .gemini_cli import (
     gemini_history_contents,
     gemini_legacy_record,
     gemini_logs_records,
-    gemini_request,
     gemini_response,
     gemini_session_records,
     gemini_settings,
-    gemini_sse_body,
     gemini_tool_checkpoint,
 )
 from .goose import (

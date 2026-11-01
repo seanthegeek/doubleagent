@@ -495,6 +495,16 @@ GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:"
     "streamGenerateContent?alt=sse"
 )
+# The environment-context item every chat history opens with (environmentContext.ts).
+GEMINI_SESSION_CONTEXT = {
+    "role": "user",
+    "parts": [
+        {
+            "text": "<session_context>\nThis is the Gemini CLI. We are setting up the context "
+            "for our chat.\nMy operating system is: linux\n</session_context>"
+        }
+    ],
+}
 # The loop detector's internal prompt (loopDetectionService.ts), sent with a trimmed history.
 GEMINI_LOOP_PROMPT = "Please analyze the conversation history to determine the possibility"
 
@@ -603,6 +613,7 @@ def gemini_tool_checkpoint():
     return {
         "history": [{"id": 1, "type": "user", "text": "list files in src"}],
         "clientHistory": [
+            GEMINI_SESSION_CONTEXT,
             *gemini_history_contents()[:3],
             {"role": "model", "parts": [{"text": "Editing util.ts."}]},
         ],
@@ -620,6 +631,7 @@ def gemini_error_report():
     return {
         "error": {"message": "fetch failed", "stack": "TypeError: fetch failed\n    at fetch"},
         "context": [
+            GEMINI_SESSION_CONTEXT,
             *gemini_history_contents()[:1],
             {"role": "user", "parts": [{"text": "why did the request fail?"}]},
         ],

@@ -12,8 +12,9 @@ says how far the fork has drifted), Antigravity keeps its own state inside `~/.g
 [v0.66.0](https://github.com/google-gemini/gemini-cli/releases/tag/v0.66.0). The agent is
 parsed: the `gemini-cli` parser reads the session files, the past-use copies beside them
 (`logs.json`, `shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the
-activity log, the tool checkpoints and the error reports), the `memory/` files, the clipboard
-images and the standing permission files ([Parser plan](#parser-plan)).
+tool checkpoints and the error reports), the activity log's records but not the conversation
+turns in its bodies, the `memory/` files, the clipboard images and the standing permission files
+([Parser plan](#parser-plan)).
 
 ## Source and evidence
 
@@ -434,11 +435,11 @@ directory. The agent writes no deletion marker, and the
 requests already sent to Code Assist and Clearcut under the session's `sessionId` are server-side
 records held by Google, which a responder can only ask Google for
 ([Sync, relay and origin rows](#sync-relay-and-origin-rows)). The analyzer reads `logs.json`,
-`shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the activity log, the
-tool checkpoints and a copied error report as secondary sources
-([Secondary sources](../analyzer/docs/output.md#secondary-sources)), and `memory/` and the
-clipboard images as stores of their own, but not the shadow repository
-([Parser plan](#parser-plan)).
+`shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the tool checkpoints
+and a copied error report as secondary sources
+([Secondary sources](../analyzer/docs/output.md#secondary-sources)), and the activity log's
+records, `memory/` and the clipboard images as stores of their own, but not the shadow
+repository or the turns in the activity log's bodies ([Parser plan](#parser-plan)).
 
 So a session missing from `chats/` on a host whose `settings.json` sets no
 `general.sessionRetention` was either deleted by the user or more than 30 days old when the agent
@@ -828,7 +829,7 @@ its path.
 
 `tmp/<slug>/logs/session-<session id>.jsonl`
 ([`activityLogger.ts:772-778`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L772-L778))
-(secondary, not parsed): one JSON object per line
+(parsed as a store of its own, its records only): one JSON object per line
 ([`activityLogger.ts:767-809`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L767-L809)):
 
 | Key | Type | Values | Since |
@@ -921,13 +922,19 @@ the next-speaker check
 and compression
 ([`core/src/context/chatCompressionService.ts:595`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/chatCompressionService.ts#L595),
 [`620`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/chatCompressionService.ts#L620)).
-Each chat request repeats the whole history of its chat up to it, so the log joins the session on
-the record's `sessionId` and on text, tool items on the call id; a request's items carry no time
-of their own.
+Each chat request repeats the whole history of its chat up to it, under the record's
+`sessionId`, its items carrying no time of their own. Every chat history opens with the
+environment-context item, a `user` item whose text is a `<session_context>` block (the date, the
+platform, the project's temporary directory, optionally the directory tree and the session
+memory) that the CLI sends and the session file does not record as a message
+([`core/src/utils/environmentContext.ts:68-77`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L68-L77),
+[`84-111`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L84-L111)).
 
 The response `body` is recorded as received: the joined text of the stream, for a chat request
-the server-sent events, one `data: <JSON>` line per chunk, which the CLI reads the same way
-([`server.ts:470-533`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/server.ts#L470-L533)).
+the server-sent events. The Code Assist reader buffers each `data:` line, less its six-character
+`data: ` prefix, until a blank line and joins the buffered lines with a newline into one event's
+JSON, ignoring other lines
+([`server.ts:497-533`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/server.ts#L497-L533)).
 Each chunk is a `GenerateContentResponse`, wrapped under `response` with a `traceId` for Code
 Assist
 ([`converter.ts:77-87`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/converter.ts#L77-L87),
@@ -1254,8 +1261,9 @@ and a `functionResponse` part its `response`'s `output` or `error`.
 
 Not read: `compression_state.json`, `policy_integrity.json`, `extension_integrity.json`,
 `mcp-server-enablement.json`, an error report's `requestConfig` and `additionalInfo`, the
-activity log's `chunk` records and every `headers` object. A tool checkpoint's display list is
-not read either: its turns are the `clientHistory` items in display form.
+activity log's `chunk` records, `body` and `response.body`, and every `headers` object. A tool
+checkpoint's display list is not read either: its turns are the `clientHistory` items in display
+form.
 
 #### Permission rows
 
@@ -1350,29 +1358,12 @@ session file on text, tool rows on `tool_use_id` ([Other stores](#other-stores))
   `bug report history: exported (from <file>, time in the file name)`, timestamped with the
   milliseconds in the name.
 
-Three more secondary sources repeat the turns sent to the model, matched the same way; their
-`Content` items give the item rows above with an empty `timestamp_utc`, the item's file line or
-1-based position as `source_line`, and the session id where the file names one:
+Two more secondary sources repeat the turns sent to the model, matched the same way; their
+`Content` items give the item rows above with an empty `timestamp_utc`, the item's 1-based
+position as `source_line`, and the session id where the file names one. A first item that is the
+environment-context item, its first part's text opening with `<session_context>`
+([Activity log](#activity-log)), gives no row, since the session file does not record it:
 
-- `logs/session-<session id>.jsonl`, the activity log
-  ([Activity log](#activity-log)): per line, at the record's `timestamp`, with its `sessionId`
-  and the project of its directory, a `console` record is `console <type>: <content>`; a
-  `network` record holding a `method` is `network request: <method> <url> (request <id>)`; a
-  record holding a `response` is
-  `network response: <method> <url> status <status> in <durationMs> ms (request <id>)` and one
-  holding an `error` `network error: <method> <url>: <error> (request <id>)`, the method and URL
-  from the request record of the same `id` and `-` for a value the file lacks. `<url>` stops
-  before its query string, and a `chunk` record gives no row. Turns come from chat requests
-  only, those whose URL ends in `:streamGenerateContent`: a chat is the run of chat requests of
-  one `sessionId` whose `contents` (or `request.contents`) open with the same item, so a
-  subagent's requests are a chat of their own. A chat request gives the items after the longest
-  prefix it shares with the chat's previous request, so a turn each request resends appears once
-  and a rewound or compressed history gives its new items again. Its reply, the parts of every
-  `data:` chunk of the response `body` joined in order (consecutive text parts of one kind into
-  one), is one model item at the response line, given unless the chat's next request holds a
-  `model` item right after the previous request's items, which repeats it. A utility request, a
-  non-model request and any other body give no item rows, so an internal prompt never becomes a
-  `user` row.
 - `checkpoints/<time>-<file basename>-<tool>.json`, a tool checkpoint
   ([Tool checkpoints](#tool-checkpoints)): a first `system` row
   `tool checkpoint: <tool> <file_path> commit <commitHash> prompt <messageId> (from <file>, time in the file name)`
@@ -1384,15 +1375,28 @@ Three more secondary sources repeat the turns sent to the model, matched the sam
   the `stack` on the lines after it when present, then the items of `context`, or of its
   `requestContents`, with no session id and the project of a `tmp/<slug>` directory it sits in.
 
-Two stores repeat nothing of the session file and are primary, one `system` row per file with no
-session id and the project of its `tmp/<slug>` directory:
+Three stores repeat nothing of the session file in the rows read from them and are primary, one
+`system` row per record or file with the project of its `tmp/<slug>` directory:
 
+- `logs/session-<session id>.jsonl`, the activity log ([Activity log](#activity-log)): per
+  line, at the record's `timestamp` and with its `sessionId`, a `console` record is
+  `console <type>: <content>`; a `network` record holding a `method` is
+  `network request: <method> <url> (request <id>)`, one holding a `response`
+  `network response: <method> <url> status <status> in <durationMs> ms (request <id>)` and one
+  holding an `error` `network error: <method> <url>: <error> (request <id>)`, the method and URL
+  from the request record of the same `id` and `-` for a value the file lacks. `<url>` stops
+  before its query string, and a `chunk` record gives no row. The conversation turns in the
+  request `body` and the response `body` are not read: which requests form one chat, which items
+  the CLI adds itself (the environment context, the compression summary and its acknowledgement,
+  retry prompts), the event form of a stored stream and when a reply is repeated by the next
+  request are left to the real-install round, which records the log before a parser reads turns
+  from it.
 - `memory/<name>`: `memory file: <name> (from <file>, file mtime)` at the file's modification
-  time, the file's whole text on the lines after it ([memory/](#memory)).
+  time, no session id, the file's whole text on the lines after it ([memory/](#memory)).
 - `images/clipboard-<epoch ms>.<ext>`:
   `clipboard image: <file name> <size> bytes (from <file>, time in the file name)` at the
-  milliseconds in the name, the size the manifest's `size` or, in a loose tree, the file's;
-  the image itself is not read ([Clipboard images](#clipboard-images)).
+  milliseconds in the name, no session id, the size the manifest's `size` or, in a loose tree,
+  the file's; the image itself is not read ([Clipboard images](#clipboard-images)).
 
 #### Sync, relay and origin rows
 
@@ -1682,12 +1686,11 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
   and contents of a `--worktree` checkout and that it stays after exit; the `logs.json` and
   `shell_history` copies of one shell-mode command; the keychain item names on macOS and the
   `gemini-credentials.json` fallback over SSH; the error report file after a failed request.
-- For the round: the activity log of a session with `general.devtools` on, in particular whether
-  the Code Assist and Gemini API request bodies reach it as strings and whether a header other
-  than the three redacted ones carries a token; that a Gemini API chat request's URL ends in
-  `:streamGenerateContent`, which rests on the `@google/genai` method `generateContentStream` the
-  CLI calls, its URL built inside that package and not in the reviewed repository; a tool
-  checkpoint after an edit with `general.checkpointing.enabled` on.
+- For the round: the activity log of a session with `general.devtools` on: whether the Code
+  Assist and Gemini API request bodies reach it as strings, whether a header other than the three
+  redacted ones carries a token, and the request and response bodies of a whole session (main
+  and subagent chats, utility requests, a compression and a retry), from which the turns could
+  be read; a tool checkpoint after an edit with `general.checkpointing.enabled` on.
 - Not determined: how common a `GEMINI_CLI_HOME` relocation is.
 - Not determined: the `tmp/<slug>/<session id>/` layout beyond `plans`, `tracker` and `tasks`.
 - Not determined: the `a2a-server` and `sdk` packages' own storage.

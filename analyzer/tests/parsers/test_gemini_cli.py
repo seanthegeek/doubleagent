@@ -20,9 +20,7 @@ from doubleagent.parsers.gemini_cli import (
 )
 from doubleagent.timeutil import to_utc
 from fixtures import (
-    CODE_ASSIST_UTILITY_URL,
     GEMINI_ACTIVITY_REL,
-    GEMINI_API_URL,
     GEMINI_BUG_MS,
     GEMINI_BUG_REL,
     GEMINI_CHECKPOINT_REL,
@@ -44,11 +42,9 @@ from fixtures import (
     TRUST_JSONC,
     bad_line_text,
     build_gemini_cli_sources,
-    gemini_activity_records,
     gemini_error_report,
-    gemini_request,
     gemini_response,
-    gemini_sse_body,
+    gemini_tool_checkpoint,
     write_bad_line,
 )
 
@@ -955,7 +951,7 @@ class GeminiCliTests(ParserBase):
     def test_past_use_stores_wanted(self):
         parser = GeminiCliParser()
         for rel, secondary in (
-            (GEMINI_ACTIVITY_REL, True),
+            (GEMINI_ACTIVITY_REL, False),
             (GEMINI_TOOL_CHECKPOINT_REL, True),
             (GEMINI_ERROR_REPORT_REL, True),
             (".gemini/tmp/proj/memory/MEMORY.md", False),
@@ -978,83 +974,79 @@ class GeminiCliTests(ParserBase):
 
     CODE_ASSIST = "https://cloudcode-pa.googleapis.com/v1internal:"
     GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:"
-    ACTIVITY_ROWS: ClassVar[list[tuple[int, str, str, str]]] = [
-        (1, "2026-10-01T09:00:05.000Z", "system", "console warn: Slow response"),
+    ACTIVITY_ROWS: ClassVar[list[tuple[int, str, str]]] = [
+        (1, "2026-10-01T09:00:05.000Z", "console warn: Slow response"),
         (
             2,
             "2026-10-01T09:00:05.000Z",
-            "system",
             "network request: POST %sstreamGenerateContent (request k3x9q)" % CODE_ASSIST,
         ),
-        (2, "", "user", "list files in src"),
         (
             4,
             "2026-10-01T09:00:06.800Z",
-            "system",
             "network response: POST %sstreamGenerateContent status 200 in 1800 ms "
             "(request k3x9q)" % CODE_ASSIST,
         ),
         (
             5,
             "2026-10-01T09:00:06.900Z",
-            "system",
             "network request: POST %sgenerateContent (request u5v6w)" % CODE_ASSIST,
         ),
         (
             6,
             "2026-10-01T09:00:07.100Z",
-            "system",
             "network response: POST %sgenerateContent status 200 in - ms (request u5v6w)"
             % CODE_ASSIST,
         ),
         (
             7,
             "2026-10-01T09:00:07.150Z",
-            "system",
             "network request: POST https://oauth2.googleapis.com/token (request t4r8z)",
         ),
         (
             8,
             "2026-10-01T09:00:07.190Z",
-            "system",
             "network error: POST https://oauth2.googleapis.com/token: socket hang up "
             "(request t4r8z)",
         ),
         (
             9,
             "2026-10-01T09:00:07.200Z",
-            "system",
             "network request: POST %sstreamGenerateContent (request p7w2m)" % GEMINI_API,
         ),
-        (9, "", "assistant", "Listing now."),
-        (9, "", "tool_use", '{"dir_path":"/srv/proj/src"}'),
-        (9, "", "tool_result", "main.ts\nutil.ts"),
         (
             10,
             "2026-10-01T09:00:08.100Z",
-            "system",
             "network response: POST %sstreamGenerateContent status 200 in 900 ms "
             "(request p7w2m)" % GEMINI_API,
         ),
         (
             11,
             "2026-10-01T09:00:08.200Z",
-            "system",
             "network request: GET https://play.googleapis.com/log (request g1h2j)",
         ),
-        (10, "", "assistant", "Found main.ts and util.ts."),
     ]
 
     def test_activity_log_rows(self):
         rows = self.rows_for(GeminiCliParser(), GEMINI_ACTIVITY_REL)
         self.assertEqual(
-            [(row.source_line, row.timestamp_utc, row.turn_type, row.text) for row in rows],
-            self.ACTIVITY_ROWS,
+            [(row.source_line, row.timestamp_utc, row.text) for row in rows], self.ACTIVITY_ROWS
         )
         for row in rows:
-            self.assertEqual((row.session_id, row.project_path), (GEMINI_SESSION, "/srv/proj"))
-        # No header value, query string, non-chat body or utility prompt reaches a row.
-        for secret in ("[REDACTED]", "redacted", "refresh_token", "alt=sse", GEMINI_LOOP_PROMPT):
+            self.assertEqual(
+                (row.turn_type, row.session_id, row.project_path),
+                ("system", GEMINI_SESSION, "/srv/proj"),
+            )
+        # No header value, query string, body or conversation turn reaches a row.
+        for secret in (
+            "[REDACTED]",
+            "redacted",
+            "refresh_token",
+            "alt=sse",
+            GEMINI_LOOP_PROMPT,
+            "list files in src",
+            "Found main.ts",
+        ):
             self.assertFalse([row for row in rows if secret in row.text], secret)
         # The chunk record (line 3) gives no row.
         self.assertNotIn(3, [row.source_line for row in rows])
@@ -1062,14 +1054,6 @@ class GeminiCliTests(ParserBase):
     def _write_activity(self, records):
         path = self.home / GEMINI_ACTIVITY_REL
         path.write_text("".join(json.dumps(record) + "\n" for record in records), "utf-8")
-
-    def _activity_items(self):
-        rows = self.rows_for(GeminiCliParser(), GEMINI_ACTIVITY_REL)
-        return [
-            (row.session_id, row.turn_type, row.text)
-            for row in rows
-            if row.text[:8] not in ("network ", "console ")
-        ]
 
     def test_activity_log_bad_lines(self):
         path = self.home / GEMINI_ACTIVITY_REL
@@ -1081,20 +1065,18 @@ class GeminiCliTests(ParserBase):
         with open(path, "a", encoding="utf-8") as handle:
             handle.write("\n" + json.dumps(console) + "\n")
         rows = self.rows_for(GeminiCliParser(), GEMINI_ACTIVITY_REL)
-        self.assertEqual(rows[: len(before) - 1], before[:-1])
+        self.assertEqual(rows[: len(before)], before)
         self.assertEqual(
-            [(row.source_line, row.turn_type, row.text) for row in rows[len(before) - 1 :]],
+            [(row.source_line, row.text) for row in rows[len(before) :]],
             [
-                (15, "system", "console log:"),
-                (10, "assistant", "Found main.ts and util.ts."),
+                (15, "console log:"),
                 (
                     12,
-                    "system",
                     'parser: unparseable line (not an activity log record): {"payload":{},'
                     '"type":"trace"}',
                 ),
-                (13, "system", "parser: unparseable line (not a JSON object): [1]"),
-                (14, "system", bad_line_text()),
+                (13, "parser: unparseable line (not a JSON object): [1]"),
+                (14, bad_line_text()),
             ],
         )
         for row in rows[-3:]:
@@ -1102,103 +1084,6 @@ class GeminiCliTests(ParserBase):
                 (row.session_id, row.project_path, row.timestamp_utc),
                 (GEMINI_SESSION, "/srv/proj", ""),
             )
-
-    def _chat(self, request_id, contents, url=None, session=GEMINI_SESSION):
-        record = gemini_request(
-            request_id, url or GEMINI_API_URL, 1790845205000, json.dumps({"contents": contents})
-        )
-        return dict(record, sessionId=session)
-
-    def test_activity_log_chat_chains(self):
-        user1 = {"role": "user", "parts": [{"text": "u1"}]}
-        model1 = {"role": "model", "parts": [{"text": "m1"}]}
-        user2 = {"role": "user", "parts": [{"text": "u2"}]}
-        loop_prompt = {"role": "user", "parts": [{"text": GEMINI_LOOP_PROMPT}]}
-        utility = CODE_ASSIST_UTILITY_URL
-        # A utility request between two chat requests is no turn and breaks no chain.
-        self._write_activity(
-            [
-                self._chat("a", [user1]),
-                self._chat("b", [model1, loop_prompt], url=utility),
-                self._chat("c", [user1, model1, user2]),
-            ]
-        )
-        self.assertEqual(
-            self._activity_items(),
-            [(GEMINI_SESSION, "user", text) for text in ("u1",)]
-            + [(GEMINI_SESSION, "assistant", "m1"), (GEMINI_SESSION, "user", "u2")],
-        )
-        # A non-model request between two chat requests leaves the chain intact.
-        token = gemini_request("t", "https://oauth2.googleapis.com/token", 1, "grant_type=x")
-        self._write_activity(
-            [self._chat("a", [user1]), token, self._chat("c", [user1, model1, user2])]
-        )
-        self.assertEqual([text for _, _, text in self._activity_items()], ["u1", "m1", "u2"])
-        # A history that diverges (rewound or compressed) gives its items again from the fork.
-        rewound = {"role": "user", "parts": [{"text": "u2 again"}]}
-        self._write_activity(
-            [self._chat("a", [user1, model1, user2]), self._chat("c", [user1, model1, rewound])]
-        )
-        self.assertEqual(
-            [text for _, _, text in self._activity_items()], ["u1", "m1", "u2", "u2 again"]
-        )
-        # A subagent's chat (another first item) and another session's are chats of their own.
-        task = {"role": "user", "parts": [{"text": "subagent task"}]}
-        self._write_activity(
-            [
-                self._chat("a", [user1]),
-                self._chat("s", [task]),
-                self._chat("o", [user1], session="other"),
-                self._chat("c", [user1, model1]),
-            ]
-        )
-        self.assertEqual(
-            self._activity_items(),
-            [
-                (GEMINI_SESSION, "user", "u1"),
-                (GEMINI_SESSION, "user", "subagent task"),
-                ("other", "user", "u1"),
-                (GEMINI_SESSION, "assistant", "m1"),
-            ],
-        )
-
-    def test_activity_log_replies(self):
-        user1 = {"role": "user", "parts": [{"text": "u1"}]}
-        model1 = {"role": "model", "parts": [{"text": "m1"}]}
-        user2 = {"role": "user", "parts": [{"text": "u2"}]}
-        reply = {"status": 200, "body": gemini_sse_body([{"text": "m"}], [{"text": "1"}])}
-        # The next request repeats the reply, so it is given once, from the request.
-        self._write_activity(
-            [
-                self._chat("a", [user1]),
-                gemini_response("a", 2, reply),
-                self._chat("c", [user1, model1, user2]),
-            ]
-        )
-        self.assertEqual([text for _, _, text in self._activity_items()], ["u1", "m1", "u2"])
-        # A next request that does not carry it (rewound to before it) leaves the reply a row.
-        self._write_activity(
-            [
-                self._chat("a", [user1]),
-                gemini_response("a", 2, reply),
-                self._chat("c", [user1, user2]),
-            ]
-        )
-        self.assertEqual([text for _, _, text in self._activity_items()], ["u1", "m1", "u2"])
-        # The reply to a utility request is never a row; a JSON (not streamed) body reads too.
-        whole = {
-            "status": 200,
-            "body": json.dumps({"candidates": [{"content": {"parts": [{"text": "json reply"}]}}]}),
-        }
-        self._write_activity(
-            [
-                self._chat("a", [user1]),
-                gemini_response("a", 2, whole),
-                self._chat("u", [user1], url=CODE_ASSIST_UTILITY_URL),
-                gemini_response("u", 3, reply),
-            ]
-        )
-        self.assertEqual([text for _, _, text in self._activity_items()], ["u1", "json reply"])
 
     def test_activity_log_response_without_values(self):
         self._write_activity([gemini_response("z", 1790845205000, {"body": "not json"})])
@@ -1213,24 +1098,6 @@ class GeminiCliTests(ParserBase):
         secondary = self.rows_for(GeminiCliParser(), rel)
         kept, dropped = deduplicate(primary, [(row, 2.0) for row in secondary])
         return kept[len(primary) :], dropped.get("gemini-cli", 0)
-
-    def test_activity_log_dedup_against_the_session(self):
-        # The prompt, the reply and the tool call and result the session file holds are
-        # dropped; the network rows and the last reply, which only the log holds, stay.
-        kept, dropped = self._deduplicated(GEMINI_ACTIVITY_REL, self.REL)
-        self.assertEqual(dropped, 4)
-        self.assertEqual(
-            [row.text for row in kept if row.turn_type != "system"], ["Found main.ts and util.ts."]
-        )
-        # Without the session file every row is kept.
-        kept, dropped = self._deduplicated(GEMINI_ACTIVITY_REL)
-        self.assertEqual((dropped, len(kept)), (0, len(self.ACTIVITY_ROWS)))
-        # A log of another session (the records' sessionId) pairs with no row of this one.
-        path = self.home / GEMINI_ACTIVITY_REL
-        records = [dict(record, sessionId="other") for record in gemini_activity_records()]
-        path.write_text("".join(json.dumps(record) + "\n" for record in records), "utf-8")
-        kept, dropped = self._deduplicated(GEMINI_ACTIVITY_REL, self.REL)
-        self.assertEqual((dropped, len(kept)), (0, len(self.ACTIVITY_ROWS)))
 
     def test_tool_checkpoint_of_another_session_pairs_with_nothing(self):
         path = self.home / GEMINI_TOOL_CHECKPOINT_REL
@@ -1255,29 +1122,46 @@ class GeminiCliTests(ParserBase):
         self.assertEqual(dropped, 1)
 
     def test_equal_copies_across_files_are_kept_once(self):
-        # With the session file gone, the activity log and the tool checkpoint both hold the
-        # first turns with no time; each turn is kept once, the checkpoint's own reply too.
-        secondary = self.rows_for(GeminiCliParser(), GEMINI_ACTIVITY_REL) + self.rows_for(
-            GeminiCliParser(), GEMINI_TOOL_CHECKPOINT_REL
+        # With the session file gone, the tool checkpoint and the error report both hold the
+        # first prompt with no time; it is kept once, each file's own turns too.
+        secondary = self.rows_for(GeminiCliParser(), GEMINI_TOOL_CHECKPOINT_REL) + self.rows_for(
+            GeminiCliParser(), GEMINI_ERROR_REPORT_REL
         )
         kept, dropped = deduplicate([], [(row, 2.0) for row in secondary])
-        self.assertEqual(dropped["gemini-cli"], 4)
+        self.assertEqual(dropped["gemini-cli"], 1)
         texts = [row.text for row in kept if row.turn_type in ("user", "assistant")]
-        for text in ("list files in src", "Listing now.", "Editing util.ts."):
+        for text in ("list files in src", "Editing util.ts.", "why did the request fail?"):
             self.assertEqual(texts.count(text), 1, text)
 
     def test_relocated_project_still_pairs_on_the_session(self):
-        # The same activity log under a slug whose project moved still joins on its session.
+        # The same tool checkpoint under a slug whose project moved still joins on its session.
         moved = self.home / ".gemini/tmp/moved"
-        (moved / "logs").mkdir(parents=True)
+        (moved / "checkpoints").mkdir(parents=True)
         (moved / ".project_root").write_text("/srv/moved", encoding="utf-8")
-        name = GEMINI_ACTIVITY_REL.split("/")[-1]
-        (moved / "logs" / name).write_bytes((self.home / GEMINI_ACTIVITY_REL).read_bytes())
+        name = GEMINI_TOOL_CHECKPOINT_REL.split("/")[-1]
+        source = self.home / GEMINI_TOOL_CHECKPOINT_REL
+        (moved / "checkpoints" / name).write_bytes(source.read_bytes())
         self.col = open_input(self.tmp / "home", self.cat, host="h1")
-        rel = ".gemini/tmp/moved/logs/" + name
+        rel = ".gemini/tmp/moved/checkpoints/" + name
         kept, dropped = self._deduplicated(rel, self.REL)
         self.assertEqual(dropped, 4)
         self.assertEqual({row.project_path for row in kept}, {"/srv/moved"})
+
+    def test_environment_context_item_is_no_turn(self):
+        # The first history item of a checkpoint and a report is the environment context the
+        # CLI sends; it gives no row there, and an item like it in another position does.
+        context = gemini_tool_checkpoint()["clientHistory"][0]
+        for rel in (GEMINI_TOOL_CHECKPOINT_REL, GEMINI_ERROR_REPORT_REL):
+            texts = [row.text for row in self.rows_for(GeminiCliParser(), rel)]
+            self.assertFalse([text for text in texts if "<session_context>" in text], rel)
+        report = gemini_error_report()
+        report["context"] = [report["context"][1], context]
+        (self.home / GEMINI_ERROR_REPORT_REL).write_text(json.dumps(report), "utf-8")
+        rows = self.rows_for(GeminiCliParser(), GEMINI_ERROR_REPORT_REL)
+        self.assertEqual(
+            [(row.source_line, row.text[:17]) for row in rows[1:]],
+            [(1, "list files in src"), (2, "<session_context>")],
+        )
 
     def test_tool_checkpoint_rows(self):
         rows = self.rows_for(GeminiCliParser(), GEMINI_TOOL_CHECKPOINT_REL)
@@ -1295,7 +1179,13 @@ class GeminiCliTests(ParserBase):
         )
         self.assertEqual(
             [(row.source_line, row.turn_type, row.text) for row in rows[1:]],
-            [*self.CHECKPOINT_ROWS[:4], (4, "assistant", "Editing util.ts.")],
+            [
+                (2, "user", "list files in src"),
+                (3, "assistant", "Listing now."),
+                (3, "tool_use", '{"dir_path":"/srv/proj/src"}'),
+                (4, "tool_result", "main.ts\nutil.ts"),
+                (5, "assistant", "Editing util.ts."),
+            ],
         )
         for row in rows:
             self.assertEqual((row.session_id, row.project_path), (GEMINI_SESSION, "/srv/proj"))
@@ -1394,8 +1284,8 @@ class GeminiCliTests(ParserBase):
                 for row in rows[1:]
             ],
             [
-                (1, "", "", "user", "list files in src"),
-                (2, "", "", "user", "why did the request fail?"),
+                (2, "", "", "user", "list files in src"),
+                (3, "", "", "user", "why did the request fail?"),
             ],
         )
         # The prompt the session file holds is dropped; the failed one, which only the report

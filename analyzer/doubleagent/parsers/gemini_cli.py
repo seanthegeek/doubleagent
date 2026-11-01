@@ -2,9 +2,10 @@
 
 Reads under `~/.gemini` or `~/.cache/.gemini`: the session files `tmp/<slug>/chats/**/*.jsonl`
 and legacy `.json`; as secondary sources `logs.json`, `shell_history`, `checkpoint-<tag>.json`,
-`bug-report-history-<ms>.json`, the activity log `logs/session-<id>.jsonl`, the tool checkpoints
-`checkpoints/*.json` and a copied `gemini-client-error-<type>-<time>.json`; as primary stores
-the `memory/` files and `images/clipboard-<ms>.<ext>`. Standing grants: `trustedFolders.json`,
+`bug-report-history-<ms>.json`, the tool checkpoints `checkpoints/*.json` and a copied
+`gemini-client-error-<type>-<time>.json`; as primary stores the activity log
+`logs/session-<id>.jsonl` (its records, not the turns in its bodies), the `memory/` files and
+`images/clipboard-<ms>.<ext>`. Standing grants: `trustedFolders.json`,
 `settings.json` (`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`),
 `policies/*.toml` and `sandbox.toml` (Python 3.11 or later), `trusted_hooks.json` and
 `acknowledgments/agents.json`.
@@ -18,8 +19,7 @@ Fields the parser depends on:
   `status`, `timestamp`, `displayName`);
 - `logs.json`: `sessionId`, `timestamp`, `message`; a history copy's `role`, `parts`;
 - activity log: `type`, `payload`, `sessionId`, `timestamp`; payload `content`, `id`, `method`,
-  `url`, `body` (`contents`, `request`), `response` (`status`, `durationMs`, `body` with each
-  chunk's `candidates[0].content`, under `response` for Code Assist), `error`;
+  `url`, `response` (`status`, `durationMs`), `error`;
 - tool checkpoint `clientHistory`, `commitHash`, `toolCall`, `messageId`; error report `error`
   (`message`, `stack`), `context` (`requestContents`); `sandbox.toml` `modes`, `commands`.
 
@@ -98,6 +98,9 @@ NAME_TIME_PATTERN = re.compile(
 )
 # The separator of a prompt id, `<session id>########<prompt count>` (useGeminiStream.ts).
 PROMPT_ID_SEPARATOR = "########"
+# The opening of the environment-context item every chat history starts with
+# (environmentContext.ts), which is no turn of the conversation.
+SESSION_CONTEXT_TAG = "<session_context>"
 # Standing permission files. `settings.json` and the policy files are read in
 # the home's `.gemini` and in a project's; the other two exist only in the home.
 SETTINGS_PATTERN = re.compile(r"^\.gemini/settings\.json$")
@@ -518,132 +521,21 @@ def url_without_query(url: str) -> str:
     return url.split("?", 1)[0].split("#", 1)[0]
 
 
-def request_contents(body: object) -> list:
-    """Return the `Content[]` a model request body sends, or [] for any other body.
-
-    The Gemini API body holds `contents`, the Code Assist body `request.contents`
-    (`code_assist/converter.ts`); any other body, a token refresh among them, yields no rows.
-    """
-    if not isinstance(body, str) or not body.lstrip().startswith("{"):
-        return []
-    try:
-        document = json.loads(body)
-    except ValueError:
-        return []
-    if not isinstance(document, dict):
-        return []
-    inner = document.get("request")
-    contents = inner.get("contents") if isinstance(inner, dict) else document.get("contents")
-    return contents if isinstance(contents, list) else []
-
-
-def is_chat_request(url: str) -> bool:
-    """Return whether a request URL is a chat turn, the one method `GeminiChat` calls.
-
-    Utility requests (loop detection, routing, next-speaker checks, compression, token counts)
-    call `generateContent` or `countTokens` instead, with a trimmed history and an internal prompt.
-    """
-    return url_without_query(url).endswith(":streamGenerateContent")
-
-
-def reply_content(body: object) -> dict | None:
-    """Return the model reply a chat response body holds as one `Content`, or None.
-
-    The body is the server-sent event stream as received, one `data: <JSON>` line per chunk, or
-    one JSON object. Each chunk is a `GenerateContentResponse`, under `response` for Code Assist
-    (`code_assist/converter.ts`); the parts of the first candidate's `content` of every chunk are
-    joined in order, consecutive text parts of one kind into one.
-    """
-    if not isinstance(body, str):
-        return None
-    stripped = body.strip(" \t\r\n")
-    if stripped.startswith("{"):
-        payloads = [stripped]
-    else:
-        payloads = [line[5:] for line in body.split("\n") if line.startswith("data:")]
-    parts: list = []
-    for payload in payloads:
-        try:
-            chunk = json.loads(payload)
-        except ValueError:
-            continue
-        if isinstance(chunk, dict) and isinstance(chunk.get("response"), dict):
-            chunk = chunk["response"]
-        candidates = chunk.get("candidates") if isinstance(chunk, dict) else None
-        first = candidates[0] if isinstance(candidates, list) and candidates else None
-        content = first.get("content") if isinstance(first, dict) else None
-        for part in _parts(content.get("parts")) if isinstance(content, dict) else []:
-            previous = parts[-1] if parts else None
-            if (
-                isinstance(part, dict)
-                and isinstance(part.get("text"), str)
-                and isinstance(previous, dict)
-                and isinstance(previous.get("text"), str)
-                and bool(previous.get("thought")) == bool(part.get("thought"))
-            ):
-                parts[-1] = dict(previous, text=previous["text"] + part["text"])
-            else:
-                parts.append(part)
-    return {"role": "model", "parts": parts} if parts else None
-
-
 def _or_dash(value: object) -> str:
     """Return a value as row text, `-` when it is absent."""
     return "-" if value is None or value == "" else str(value)
 
 
-class _ChatChains:
-    """The turns an activity log's chat requests and replies add, each emitted once.
+def _history_start(items: list) -> int:
+    """Return 1 when a history opens with the environment-context item, else 0.
 
-    A chain is the run of chat requests of one session whose `contents` open with the same
-    item: the main conversation, or one subagent's. A request's items after the longest prefix
-    it shares with the chain's previous request are new; a reply is new unless the chain's next
-    request carries a model item at the position after the previous request's contents.
+    `getInitialChatHistory` puts it first in every chat; it opens with `<session_context>`
+    (`environmentContext.ts`) and is no turn of the conversation.
     """
-
-    def __init__(self) -> None:
-        self.contents: dict[tuple[str, str], list] = {}  # chain -> its last request's contents
-        self.requests: dict[str, tuple[str, str]] = {}  # request id -> its chain
-        self.pending: dict[tuple[str, str], tuple[int, str, dict]] = {}  # chain -> its reply
-
-    def request(
-        self, request_id: str, session_id: str, line: int, contents: list
-    ) -> list[tuple[int, str, dict]]:
-        """Return (line, session id, item) for each new item of a chat request and its chain."""
-        if not contents:
-            return []
-        chain = (session_id, compact_json(contents[0]))
-        earlier = self.contents.get(chain, [])
-        found = []
-        held = self.pending.pop(chain, None)
-        size = len(earlier)
-        carried = (
-            len(contents) > size
-            and contents[:size] == earlier
-            and isinstance(contents[size], dict)
-            and contents[size].get("role") == "model"
-        )
-        if held is not None and not carried:
-            found.append(held)
-        shared = 0
-        while shared < min(len(contents), size) and contents[shared] == earlier[shared]:
-            shared += 1
-        found += [(line, session_id, item) for item in contents[shared:] if isinstance(item, dict)]
-        self.contents[chain] = contents
-        self.requests[request_id] = chain
-        return found
-
-    def reply(self, request_id: str, session_id: str, line: int, reply: dict) -> None:
-        """Hold the reply to a chat request until the chain's next request shows if it repeats."""
-        chain = self.requests.get(request_id)
-        if chain is not None:
-            self.pending[chain] = (line, session_id, reply)
-
-    def flush(self) -> list[tuple[int, str, dict]]:
-        """Return the replies no later request repeated."""
-        held = list(self.pending.values())
-        self.pending.clear()
-        return held
+    first = items[0] if items else None
+    parts = _parts(first.get("parts")) if isinstance(first, dict) else []
+    text = parts[0].get("text") if parts and isinstance(parts[0], dict) else None
+    return 1 if isinstance(text, str) and text.startswith(SESSION_CONTEXT_TAG) else 0
 
 
 # ---- parser -------------------------------------------------------------------
@@ -686,7 +578,6 @@ class GeminiCliParser(Parser):
             or SHELL_PATTERN.match(rel)
             or CHECKPOINT_PATTERN.match(rel)
             or BUG_PATTERN.match(rel)
-            or ACTIVITY_PATTERN.match(rel)
             or TOOL_CHECKPOINT_PATTERN.match(rel)
             or ERROR_REPORT_PATTERN.match(rel)
             or PROJECT_ERROR_REPORT_PATTERN.match(rel)
@@ -992,18 +883,11 @@ class GeminiCliParser(Parser):
         A `console` record is one `console <type>: <content>` row; a `network` record naming
         a method is a `network request:` row, one with a `response` a `network response:` row,
         one with an `error` a `network error:` row, and a streamed `chunk` none. Header values
-        and non-chat bodies are never printed; the turns of chat requests and replies are item
-        rows with no time (`_ChatChains`).
+        and bodies are never read into a row.
         """
         errors: list = []
         project = self._project_of(artifact, match, errors)
         requests: dict[str, tuple[str, str]] = {}  # request id -> (method, url)
-        chains = _ChatChains()
-
-        def items(found: list[tuple[int, str, dict]]) -> Iterator[Row]:
-            for line, session_id, item in found:
-                yield from self._content_rows(artifact, opts, item, line, project, session_id)
-
         for line_number, record in iter_jsonl(artifact.disk_path, errors):
             payload, kind = record.get("payload"), record.get("type")
             if not isinstance(payload, dict) or kind not in ("console", "network"):
@@ -1012,28 +896,16 @@ class GeminiCliParser(Parser):
                 continue
             session_id = str(record.get("sessionId") or "")
             where = (artifact, line_number, to_utc(record.get("timestamp")), session_id, project)
+            request_id = str(payload.get("id") or "")
+            response = payload.get("response")
             if kind == "console":
                 text = "console %s: %s" % (payload.get("type") or "-", payload.get("content") or "")
-                yield self._system(*where, text, opts)
-                continue
-            request_id = str(payload.get("id") or "")
-            if isinstance(payload.get("method"), str):
-                method, url = payload["method"], str(payload.get("url") or "")
-                requests[request_id] = (method, url_without_query(url))
-                text = "network request: %s %s (request %s)" % (
-                    method,
-                    url_without_query(url),
-                    request_id,
-                )
-                yield self._system(*where, text, opts)
-                if is_chat_request(url):
-                    contents = request_contents(payload.get("body"))
-                    found = chains.request(request_id, session_id, line_number, contents)
-                    yield from items(found)
-                continue
-            method, url = requests.get(request_id, ("-", "-"))
-            response = payload.get("response")
-            if isinstance(response, dict):
+            elif isinstance(payload.get("method"), str):
+                method, url = payload["method"], url_without_query(str(payload.get("url") or ""))
+                requests[request_id] = (method, url)
+                text = "network request: %s %s (request %s)" % (method, url, request_id)
+            elif isinstance(response, dict):
+                method, url = requests.get(request_id, ("-", "-"))
                 text = "network response: %s %s status %s in %s ms (request %s)" % (
                     method,
                     url,
@@ -1041,19 +913,17 @@ class GeminiCliParser(Parser):
                     _or_dash(response.get("durationMs")),
                     request_id,
                 )
-                yield self._system(*where, text, opts)
-                reply = reply_content(response.get("body"))
-                if reply is not None:
-                    chains.reply(request_id, session_id, line_number, reply)
             elif payload.get("error"):
+                method, url = requests.get(request_id, ("-", "-"))
                 text = "network error: %s %s: %s (request %s)" % (
                     method,
                     url,
                     payload["error"],
                     request_id,
                 )
-                yield self._system(*where, text, opts)
-        yield from items(chains.flush())
+            else:
+                continue
+            yield self._system(*where, text, opts)
         yield from error_rows(self, artifact, errors, match.group("session"), project)
 
     def _json_file(self, artifact: Artifact, errors: list, label: str):
@@ -1096,7 +966,9 @@ class GeminiCliParser(Parser):
             artifact, 0, name_time(match.group("time")), session_id, project, text, opts
         )
         history = document.get("clientHistory")
-        for i, item in enumerate(history if isinstance(history, list) else [], 1):
+        history = history if isinstance(history, list) else []
+        skip = _history_start(history)
+        for i, item in enumerate(history[skip:], skip + 1):
             if not isinstance(item, dict):
                 errors.append(
                     (i, "unparseable record %d (not a JSON object)" % i, compact_json(item))
@@ -1169,7 +1041,9 @@ class GeminiCliParser(Parser):
         context = document.get("context") if isinstance(document, dict) else None
         if isinstance(context, dict):
             context = context.get("requestContents")
-        for i, item in enumerate(context if isinstance(context, list) else [], 1):
+        context = context if isinstance(context, list) else []
+        skip = _history_start(context)
+        for i, item in enumerate(context[skip:], skip + 1):
             if not isinstance(item, dict):
                 errors.append(
                     (i, "unparseable record %d (not a JSON object)" % i, compact_json(item))
