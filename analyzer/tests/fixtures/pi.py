@@ -605,6 +605,14 @@ PI_HTML = "pi-session-%s.html" % PI_FILE[: -len(".jsonl")]
 PI_GONE_HTML = "pi-session-2026-10-02T08-00-00-000Z_%s.html" % PI_GONE_SESSION
 PI_GONE_JSONL = "session-2026-10-02T08-10-00-000Z.jsonl"
 PI_BUG_ZIP_FILE = "pi-bug-report-%s.zip" % PI_BUG_ZIP
+# A second report of PI_BUG_SESSION that attached a summary in place of the
+# transcript; pi offers the summary only when the transcript is left out.
+PI_BUG_SUMMARY = "0199a1b2-9999-7000-8000-00000000b003"
+PI_BUG_SUMMARY_FILE = "pi-bug-report-%s.zip" % PI_BUG_SUMMARY
+# Exports of the fork PI_FORK, whose first three entries are PI_SESSION's.
+PI_FORK_HTML = "pi-session-%s.html" % PI_FORK_FILE[: -len(".jsonl")]
+PI_FORK_JSONL = "session-2026-10-01T09-40-00-000Z.jsonl"
+PI_PARENT_PATH = "/home/alice/" + PI_DIR + PI_FILE
 PI_TUI_CRASH = ".pi/agent/pi-tui-crash.log"
 
 
@@ -696,8 +704,8 @@ def pi_branch_export_records(records, branch_ids, exported_at) -> list[dict]:
     return out
 
 
-def pi_bug_zip_members():
-    """Return a bug report zip's members by name: report, diagnostics, summary and session.
+def pi_bug_zip_members(transcript=True):
+    """Return a bug report zip's members: report, diagnostics, and the transcript or a summary.
 
     Source: research/pi.md#bug-report-archive; source 2c8d1fe
     """
@@ -716,16 +724,15 @@ def pi_bug_zip_members():
     )
     report = {
         "schemaVersion": 1,
-        "id": PI_BUG_ZIP,
-        "createdAt": "2026-10-01T13:00:59.000Z",
+        "id": PI_BUG_ZIP if transcript else PI_BUG_SUMMARY,
+        "createdAt": "2026-10-01T13:00:59.000Z" if transcript else "2026-10-01T13:02:10.000Z",
         "hint": None,
         "environment": {"version": "1.4.0", "platform": "linux", "arch": "x64"},
         "session": {
             "id": PI_BUG_SESSION,
-            "included": True,
-            "summaryIncluded": True,
+            "included": transcript,
+            "summaryIncluded": not transcript,
             "messageCount": 1,
-            "cwd": "/srv/proj",
         },
         "model": {"provider": "openai", "id": "gpt-5"},
         "settings": {"global": {"httpProxy": "<redacted>"}, "project": {}},
@@ -758,13 +765,19 @@ def pi_bug_zip_members():
             }
         ],
     }
-    session = "".join(json.dumps(record) + "\n" for record in branch) + BAD_LINE
-    return {
-        "report.json": json.dumps(report, indent=2) + "\n",
+    members = {
+        "report.json": "",
         "diagnostics.json": json.dumps(diagnostics, indent=2) + "\n",
-        "session.jsonl": session,
-        "summary.md": "## What the user was doing\nRunning the build.\n",
     }
+    if transcript:
+        report["session"]["cwd"] = "/srv/proj"
+        members["session.jsonl"] = (
+            "".join(json.dumps(record) + "\n" for record in branch) + BAD_LINE
+        )
+    else:
+        members["summary.md"] = "## What the user was doing\nRunning the build.\n"
+    members["report.json"] = json.dumps(report, indent=2) + "\n"
+    return members
 
 
 def pi_zip_bytes(members):
@@ -814,3 +827,12 @@ def build_pi_exports(project: Path) -> None:
     )
     write_bad_line(project / PI_GONE_JSONL)
     (project / PI_BUG_ZIP_FILE).write_bytes(pi_zip_bytes(pi_bug_zip_members()))
+    (project / PI_BUG_SUMMARY_FILE).write_bytes(pi_zip_bytes(pi_bug_zip_members(False)))
+    fork = pi_fork_records(PI_PARENT_PATH)
+    (project / PI_FORK_HTML).write_text(pi_html_export_text(fork, "8192a3b4"), encoding="utf-8")
+    _jsonl(
+        project / PI_FORK_JSONL,
+        pi_branch_export_records(
+            fork, ("1a2b3c4d", "2b3c4d5e", "3c4d5e6f", "8192a3b4"), "2026-10-01T09:40:00.000Z"
+        ),
+    )

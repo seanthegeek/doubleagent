@@ -43,7 +43,7 @@ import zlib
 from collections.abc import Iterator
 from pathlib import Path
 
-from ..inputs import Artifact
+from ..inputs import HOME_PARENTS, ROOT_HOMES, Artifact
 from ..model import Row, compact
 from ..textlines import JSON_SPACE
 from ..timeutil import to_utc
@@ -55,6 +55,7 @@ from .base import (
     file_bytes,
     file_mtime,
     iter_jsonl,
+    iter_jsonl_lines,
     iter_lines,
     line_text,
     setting_value,
@@ -86,6 +87,8 @@ JSONL_EXPORT_PATTERN = re.compile(r"^session-[0-9]{4}-[^/]*\.jsonl$")
 BUG_ZIP_PATTERN = re.compile(r"^pi-bug-report-[^/]+\.zip$")
 TUI_CRASH_PATTERN = re.compile(r"^\.pi/agent/pi(?:-tui)?-crash\.log$")
 EXPORT_PATTERNS = (HTML_EXPORT_PATTERN, JSONL_EXPORT_PATTERN, BUG_ZIP_PATTERN)
+DRIVE = re.compile(r"[A-Za-z]:")
+DRIVE_DIR = re.compile(r"[A-Za-z]")
 # The element `export-html/template.html` puts the base64 session data in.
 SESSION_DATA_OPEN = b'<script id="session-data" type="application/json">'
 SESSION_DATA_CLOSE = b"</script>"
@@ -117,15 +120,26 @@ class SessionFile:
 def read_session(path) -> SessionFile:
     """Read a pi-format session file into its header, entries and bad lines."""
     session = SessionFile()
+    _fill_session(session, iter_jsonl(path, session.errors))
+    return session
+
+
+def read_session_bytes(data: bytes) -> SessionFile:
+    """Read a pi-format session held in memory, as `read_session` reads a file."""
+    session = SessionFile()
+    _fill_session(session, iter_jsonl_lines(enumerate(io.BytesIO(data), 1), session.errors))
+    return session
+
+
+def _fill_session(session: SessionFile, records: Iterator[tuple[int, dict]]) -> None:
     first = True
-    for line_number, record in iter_jsonl(path, session.errors):
+    for line_number, record in records:
         if first:
             first = False
             if record.get("type") == "session":
                 session.header, session.header_line = record, line_number
                 continue
         session.entries.append((line_number, record))
-    return session
 
 
 def entry_keys(path) -> set[tuple[str, str]]:
@@ -446,8 +460,9 @@ class PiParser(Parser):
     has_secondary = True
 
     def __init__(self) -> None:
-        """Start with an empty cache of parent sessions' entry keys."""
+        """Start with empty caches of parent sessions' entry keys and collections' sessions."""
         self._parent_cache: dict[Path, set[tuple[str, str]]] = {}
+        self._session_index: dict[Path, dict[str, Path]] = {}
 
     def wants(self, artifact: Artifact) -> bool:
         """Return True for a session, trust, settings, debug, crash, metadata or export file."""
@@ -542,10 +557,7 @@ class PiParser(Parser):
                 row.source_line = session.header_line
                 row.timestamp_utc = to_utc(header.get("timestamp"))
                 row.session_id, row.project_path, row.turn_type = session_id, cwd, "system"
-                row.text = compact(
-                    "fork: %d entries copied from the parent session %s omitted; "
-                    "they are in the parent's rows" % (dropped, parent),
-                )
+                row.text = compact(fork_text(dropped, parent))
                 yield row
 
         yield from entry_rows(
@@ -721,7 +733,9 @@ class PiParser(Parser):
             )
             if screen:
                 text += "\n" + "\n".join(screen)
-            yield self._system_row(artifact, crash.line, to_utc(crash.time.strip()), "", "", text)
+            yield self._system_row(
+                artifact, crash.line, to_utc(crash.time.strip(JSON_SPACE)), "", "", text
+            )
         yield from error_rows(self, artifact, errors)
 
     def _parse_html_export(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
@@ -775,7 +789,7 @@ class PiParser(Parser):
             cwd,
             session_start_text(header),
         )
-        yield from entry_rows(self, artifact, session, opts, session_id, cwd)
+        yield from self._copy_rows(artifact, session, opts, to_utc(header.get("timestamp")))
         yield from error_rows(self, artifact, errors, session_id, cwd)
 
     def _parse_jsonl_export(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
@@ -798,7 +812,7 @@ class PiParser(Parser):
             "session exported: JSONL /export of the current branch of session %s, %d entries "
             "(from %s, header timestamp)" % (session_id, len(session.entries), artifact.rel),
         )
-        yield from entry_rows(self, artifact, session, opts, session_id, cwd)
+        yield from self._copy_rows(artifact, session, opts, to_utc(header.get("timestamp")))
         yield from error_rows(self, artifact, session.errors, session_id, cwd)
 
     def _parse_bug_zip(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
@@ -848,8 +862,141 @@ class PiParser(Parser):
             if session.header:
                 session_id = str(session.header.get("id") or session_id)
                 cwd = str(session.header.get("cwd") or cwd)
-                yield from entry_rows(self, artifact, session, opts, session_id, cwd)
+                time = to_utc(session.header.get("timestamp"))
+                yield from self._copy_rows(artifact, session, opts, time)
         yield from error_rows(self, artifact, errors, session_id, cwd)
+
+    def _copy_rows(
+        self, artifact: Artifact, session: SessionFile, opts: Options, fork_time: str
+    ) -> Iterator[Row]:
+        """Yield the entry rows of an export's session, as copies of its session file's.
+
+        A fork's entries copied from a parent the collection holds are dropped, after one
+        `fork:` row at `fork_time`. No `model:` row is given: its place depends on which
+        entries a branch holds, and the session file gives it; each row keeps its `model`.
+        """
+        header = session.header
+        session_id, cwd = str(header.get("id") or ""), str(header.get("cwd") or "")
+        skip, parent = self._fork_keys(artifact, header)
+        dropped = sum(
+            1
+            for _, record in session.entries
+            if (str(record.get("id") or ""), str(record.get("timestamp") or "")) in skip
+        )
+        if dropped:
+            yield self._system_row(
+                artifact,
+                session.header_line,
+                fork_time,
+                session_id,
+                cwd,
+                fork_text(dropped, parent),
+            )
+        for row in entry_rows(
+            self, artifact, session, opts, session_id, cwd, skip if dropped else None
+        ):
+            if not (row.turn_type == "system" and row.text.startswith("model: ")):
+                yield row
+
+    def _fork_keys(self, artifact: Artifact, header: dict) -> tuple[set[tuple[str, str]], str]:
+        """Return the entry keys of the parent an export's session was forked from, and its path.
+
+        The parent is the header's `parentSession`, else that of the session's own file;
+        either is looked for in the collection holding the export. Both empty when none is.
+        """
+        root = collection_root(artifact)
+        if root is None:
+            return set(), ""
+        parent = str(header.get("parentSession") or "")
+        if not parent:
+            own = self._session_files(root).get(str(header.get("id") or ""))
+            if own is None:
+                return set(), ""
+            parent = str(read_session(own).header.get("parentSession") or "")
+        parent_file = host_file(root, parent) if parent else None
+        if parent_file is None:
+            return set(), parent
+        if parent_file not in self._parent_cache:
+            self._parent_cache[parent_file] = entry_keys(parent_file)
+        return self._parent_cache[parent_file], parent
+
+    def _session_files(self, root: Path) -> dict[str, Path]:
+        """Return the session files of every home under a collection root, by session id."""
+        if root not in self._session_index:
+            self._session_index[root] = session_files_under(root)
+        return self._session_index[root]
+
+
+def fork_text(dropped: int, parent: str) -> str:
+    """Return the `fork:` row text for `dropped` entries copied from the parent `parent`."""
+    return (
+        "fork: %d entries copied from the parent session %s omitted; "
+        "they are in the parent's rows" % (dropped, parent)
+    )
+
+
+def collection_root(artifact: Artifact) -> Path | None:
+    """Return the directory a collection lays host paths under, or None.
+
+    That is the artifact's base less the segments of the base's original path,
+    the `fs/<original path>` layout; None when they do not line up.
+    """
+    parts = _host_parts(artifact.home.original)
+    disk = artifact.home.disk_path.parts
+    if not parts or len(disk) <= len(parts) or list(disk[-len(parts) :]) != parts:
+        return None
+    return Path(*disk[: -len(parts)])
+
+
+def _host_parts(original: str) -> list[str]:
+    parts = [part for part in original.replace("\\", "/").split("/") if part]
+    if parts and DRIVE.fullmatch(parts[0]):
+        parts[0] = parts[0][0]  # a collection lays C:\ out as C/
+    return parts
+
+
+def host_file(root: Path, original: str) -> Path | None:
+    """Return the collected copy of a host path under a collection root, never through a symlink."""
+    parts = _host_parts(original)
+    if not parts or ".." in parts:
+        return None
+    current = root
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            return None
+    return current if current.is_file() else None
+
+
+def session_files_under(root: Path) -> dict[str, Path]:
+    """Return the `.pi/agent/sessions/*/*_<id>.jsonl` files of the homes under a root, by id.
+
+    The homes are those the collectors enumerate (`inputs.HOME_PARENTS`,
+    `inputs.ROOT_HOMES`), on the root or under a drive letter. A directory that
+    cannot be listed holds none: this only finds a fork's parent.
+    """
+    homes: list[Path] = [root / rel for rel in ROOT_HOMES]
+    bases = [root, *(path for path in _listing(root) if DRIVE_DIR.fullmatch(path.name))]
+    for base in bases:
+        for parent in HOME_PARENTS:
+            homes.extend(_listing(base / parent))
+    found: dict[str, Path] = {}
+    for home in homes:
+        for directory in _listing(home / ".pi/agent/sessions"):
+            for file in _listing(directory):
+                match = SESSION_NAME_PATTERN.search(file.name)
+                if match and not file.is_symlink() and file.is_file():
+                    found.setdefault(match.group(1), file)
+    return found
+
+
+def _listing(directory: Path) -> list[Path]:
+    if directory.is_symlink() or not directory.is_dir():
+        return []
+    try:
+        return sorted(directory.iterdir())
+    except OSError:
+        return []
 
 
 class TuiCrash:
@@ -871,32 +1018,6 @@ def session_start_text(header: dict) -> str:
     if parent:
         text += " parentSession=%s" % parent
     return text
-
-
-def read_session_bytes(data: bytes) -> SessionFile:
-    """Read a pi-format session held in memory, as `read_session` reads a file."""
-    session = SessionFile()
-    first = True
-    for line_number, raw in enumerate(io.BytesIO(data), 1):
-        stripped = raw.strip()
-        if not stripped:
-            continue
-        try:
-            record = json.loads(stripped.decode("utf-8", errors="replace"))
-        except ValueError as error:
-            session.errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
-            continue
-        if not isinstance(record, dict):
-            message = "unparseable line (not a JSON object)"
-            session.errors.append((line_number, message, line_text(raw)))
-            continue
-        if first:
-            first = False
-            if record.get("type") == "session":
-                session.header, session.header_line = record, line_number
-                continue
-        session.entries.append((line_number, record))
-    return session
 
 
 def html_session_data(data: bytes) -> tuple[dict | None, str]:
@@ -934,7 +1055,7 @@ def bug_zip_members(artifact: Artifact, errors: list) -> dict[str, bytes]:
         return {}
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
-    except (zipfile.BadZipFile, ValueError, EOFError) as error:
+    except (zipfile.BadZipFile, ValueError, EOFError, OSError) as error:
         errors.append((0, "%s is not a zip archive (%s)" % (artifact.rel, error)))
         return {}
     members: dict[str, bytes] = {}
@@ -952,6 +1073,8 @@ def bug_zip_members(artifact: Artifact, errors: list) -> dict[str, bytes]:
             EOFError,
             RuntimeError,
             NotImplementedError,
+            ValueError,
+            OSError,
         ) as error:
             message = "%s member %s could not be read (%s)" % (artifact.rel, name, error)
             errors.append((0, message))

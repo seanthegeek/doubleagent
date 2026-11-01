@@ -7,7 +7,7 @@ artifacts it reads, and yields timeline rows from each.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
 from ..dedup import TOLERANCE_SECONDS
@@ -136,7 +136,18 @@ def iter_jsonl(path, errors: list) -> Iterator[tuple[int, dict]]:
     lines come from `iter_lines`, which reports a file that cannot be opened
     or read; nothing raises.
     """
-    for line_number, raw in iter_lines(path, errors):
+    yield from iter_jsonl_lines(iter_lines(path, errors), errors)
+
+
+def iter_jsonl_lines(
+    lines: Iterable[tuple[int, bytes]], errors: list
+) -> Iterator[tuple[int, dict]]:
+    """Yield (line_number, record) for each JSON object line of (line_number, raw) pairs.
+
+    The lines are as `iter_lines` yields them, from a file or from bytes held
+    in memory; bad lines go to `errors` as `iter_jsonl` says.
+    """
+    for line_number, raw in lines:
         stripped = raw.strip()
         if not stripped:
             continue

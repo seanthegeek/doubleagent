@@ -21,6 +21,8 @@ from fixtures import (
     PI_BUG_FILE,
     PI_BUG_REPORT,
     PI_BUG_SESSION,
+    PI_BUG_SUMMARY,
+    PI_BUG_SUMMARY_FILE,
     PI_BUG_ZIP,
     PI_BUG_ZIP_FILE,
     PI_CRASHES,
@@ -28,10 +30,11 @@ from fixtures import (
     PI_DELETED_PROMPT,
     PI_DIR,
     PI_EXPERIMENTAL,
-    PI_EXPORT_DIR,
     PI_FILE,
     PI_FORK,
     PI_FORK_FILE,
+    PI_FORK_HTML,
+    PI_FORK_JSONL,
     PI_GONE_HTML,
     PI_GONE_JSONL,
     PI_GONE_PROMPT,
@@ -40,6 +43,7 @@ from fixtures import (
     PI_KINDS_FILE,
     PI_KINDS_SESSION,
     PI_MCP_LOG,
+    PI_PARENT_PATH,
     PI_SESSION,
     PI_SETTINGS,
     PI_TRUST,
@@ -49,6 +53,7 @@ from fixtures import (
     _json,
     _jsonl,
     bad_line_text,
+    build_pi_exports,
     pi_bug_zip_members,
     pi_crash_records,
     pi_debug_log_text,
@@ -396,9 +401,9 @@ class PiTests(ParserBase):
         self.assertFalse(any(row.text.startswith("permission decision:") for row in plain))
 
     def test_debug_log_secondary(self):
-        art = self.artifact(PI_DEBUG_LOG)
-        self.assertTrue(PiParser().secondary(art))
-        self.assertEqual(PiParser().secondary_tolerance(art), 3600.0)
+        artifact = self.artifact(PI_DEBUG_LOG)
+        self.assertTrue(PiParser().secondary(artifact))
+        self.assertEqual(PiParser().secondary_tolerance(artifact), 3600.0)
         self.assertTrue(PiParser.has_secondary)
         self.assertFalse(PiParser().secondary(self.artifact(self.REL)))
         rows = self.rows_for(PiParser(), PI_DEBUG_LOG)
@@ -509,8 +514,8 @@ class PiTests(ParserBase):
 
     def test_config_not_wanted(self):
         for rel in (PI_MCP_LOG,):
-            art = next(artifact for artifact in self.col.artifacts if artifact.rel == rel)
-            self.assertFalse(PiParser().wants(art), rel)
+            artifact = next(artifact for artifact in self.col.artifacts if artifact.rel == rel)
+            self.assertFalse(PiParser().wants(artifact), rel)
         for rel in (
             ".pi/agent/auth.json",
             ".pi/agent/mcp-auth.json",
@@ -641,22 +646,43 @@ class PiTests(ParserBase):
 
     # ---- project exports, the bug report zip and the terminal UI crash log ----
 
+    def project(self):
+        """Return the fixture's project directory beside the home, under one collection root."""
+        project = self.tmp / "srv/proj"
+        if not project.exists():
+            build_pi_exports(project)
+        return project
+
     def export_artifact(self, rel, original="/srv/proj"):
         """Return a project-local pi file of the fixture as the collector attributes it."""
-        project = self.home / PI_EXPORT_DIR
+        project = self.project()
         home = Home(disk_path=project, original=original, user="alice", host="h1", project=True)
         return Artifact(project / rel, original + "/" + rel, rel, "pi", home)
 
     def export_rows(self, rel, original="/srv/proj", **options):
         return list(PiParser().parse(self.export_artifact(rel, original), Options(**options)))
 
+    def home_rows(self, rel):
+        """Return the rows of a file written into the fixture home after the input was opened."""
+        home = self.artifact(self.REL).home
+        artifact = Artifact(self.home / rel, "/home/alice/" + rel, rel, "pi", home)
+        return list(PiParser().parse(artifact, Options()))
+
     def test_exports_wanted_and_secondary(self):
         parser = PiParser()
-        for rel in (PI_HTML, PI_GONE_HTML, PI_GONE_JSONL, PI_BUG_ZIP_FILE):
-            art = self.export_artifact(rel)
-            self.assertTrue(parser.wants(art), rel)
-            self.assertTrue(parser.secondary(art), rel)
-            self.assertEqual(parser.secondary_tolerance(art), 2.0, rel)
+        for rel in (
+            PI_HTML,
+            PI_GONE_HTML,
+            PI_GONE_JSONL,
+            PI_BUG_ZIP_FILE,
+            PI_BUG_SUMMARY_FILE,
+            PI_FORK_HTML,
+            PI_FORK_JSONL,
+        ):
+            artifact = self.export_artifact(rel)
+            self.assertTrue(parser.wants(artifact), rel)
+            self.assertTrue(parser.secondary(artifact), rel)
+            self.assertEqual(parser.secondary_tolerance(artifact), 2.0, rel)
         for rel in (PI_TUI_CRASH, ".pi/agent/pi-crash.log"):
             self.assertTrue(parser.wants(rel_only(rel)), rel)
             self.assertFalse(parser.secondary(rel_only(rel)), rel)
@@ -672,7 +698,7 @@ class PiTests(ParserBase):
 
     def test_html_export_rows(self):
         rows = self.export_rows(PI_GONE_HTML)
-        mtime = to_utc((self.home / PI_EXPORT_DIR / PI_GONE_HTML).stat().st_mtime)
+        mtime = to_utc((self.project() / PI_GONE_HTML).stat().st_mtime)
         self.assertEqual(
             [(row.turn_type, row.text, row.timestamp_utc, row.source_line) for row in rows],
             [
@@ -690,11 +716,12 @@ class PiTests(ParserBase):
                     0,
                 ),
                 ("user", PI_GONE_PROMPT, "2026-10-02T08:00:02.000Z", 1),
-                ("system", "model: gpt-5 provider=openai", "2026-10-02T08:00:05.000Z", 2),
                 ("assistant", "the first answer", "2026-10-02T08:00:05.000Z", 2),
                 ("assistant", "the second answer", "2026-10-02T08:01:00.000Z", 3),
             ],
         )
+        # No `model:` row, but every assistant row keeps its model.
+        self.assertEqual([row.model for row in rows[3:]], ["gpt-5", "gpt-5"])
         for row in rows:
             self.assertEqual(
                 (row.agent, row.session_id, row.project_path),
@@ -704,10 +731,13 @@ class PiTests(ParserBase):
 
     def test_html_export_dedup_against_the_session(self):
         primary = self.rows_for(PiParser(), self.REL)
-        secondary = [(row, 2.0) for row in self.export_rows(PI_HTML)]
-        kept, dropped = deduplicate(primary, secondary)
+        copies = self.export_rows(PI_HTML)
+        self.assertFalse([row for row in copies if row.text.startswith("model: ")])
+        kept, dropped = deduplicate(primary, [(row, 2.0) for row in copies])
         # Every row but the export's own is a copy of a session file row.
-        self.assertEqual(dropped, {"pi": len(primary)})
+        model_rows = [row for row in primary if row.text.startswith("model: ")]
+        self.assertEqual(len(model_rows), 2)
+        self.assertEqual(dropped, {"pi": len(primary) - len(model_rows)})
         self.assertEqual(
             [row.text.split(":")[0] for row in kept[len(primary) :]], ["session exported"]
         )
@@ -718,7 +748,7 @@ class PiTests(ParserBase):
         self.assertEqual({row.project_path for row in rows}, {"/srv/proj"})
         self.assertTrue(rows[0].source_file.startswith("/srv/moved/"))
         _, dropped = deduplicate(primary, [(row, 2.0) for row in rows])
-        self.assertEqual(dropped, {"pi": len(primary)})
+        self.assertEqual(dropped, {"pi": len(rows) - 1})
 
     def test_export_only_and_two_exports_of_one_session(self):
         # No session file holds PI_GONE_SESSION: the HTML export's rows are
@@ -726,19 +756,114 @@ class PiTests(ParserBase):
         html = self.export_rows(PI_GONE_HTML)
         jsonl = self.export_rows(PI_GONE_JSONL)
         kept, dropped = deduplicate([], [(row, 2.0) for row in html + jsonl])
-        # The prompt and the second answer; each export's `model:` row is at
-        # the first assistant message of its own branch, so the two differ.
         self.assertEqual(dropped, {"pi": 2})
         texts = [row.text for row in kept]
-        self.assertEqual(texts.count(PI_GONE_PROMPT), 1)
-        self.assertEqual(texts.count("the second answer"), 1)
-        self.assertEqual(texts.count("the first answer"), 1)
+        for text in (PI_GONE_PROMPT, "the first answer", "the second answer"):
+            self.assertEqual(texts.count(text), 1, text)
+        self.assertFalse([text for text in texts if text.startswith("model: ")])
         self.assertEqual(
             sorted(row.recovered for row in kept if row.turn_type != "system"), ["yes"] * 3
         )
         # The negative half: a different session's export is never dropped.
         _, dropped = deduplicate(self.rows_for(PiParser(), self.REL), [(row, 2.0) for row in html])
         self.assertEqual(dropped, {})
+
+    def repeated_prompt_records(self, *seconds):
+        """Return a session holding the prompt `again` at each given second after 10:00."""
+        records = [
+            {
+                "type": "session",
+                "version": 3,
+                "id": PI_GONE_SESSION,
+                "timestamp": "2026-10-03T10:00:00.000Z",
+                "cwd": "/srv/proj",
+            }
+        ]
+        for index, second in enumerate(seconds):
+            stamp = "2026-10-03T10:%02d:%02d.000Z" % divmod(second, 60)
+            records.append(
+                {
+                    "type": "message",
+                    "id": "f%07d" % index,
+                    "parentId": None,
+                    "timestamp": stamp,
+                    "message": {"role": "user", "content": "again", "timestamp": 0},
+                }
+            )
+        return records
+
+    def join_repeated_prompt(self, primary_seconds, export_seconds):
+        """Return the export's `again` rows kept beside a session file holding some of them."""
+        _jsonl(self.home / PI_DIR / "repeat.jsonl", self.repeated_prompt_records(*primary_seconds))
+        primary = self.home_rows(PI_DIR + "repeat.jsonl")
+        page = pi_html_export_text(self.repeated_prompt_records(*export_seconds), None)
+        (self.project() / PI_GONE_HTML).write_text(page, encoding="utf-8")
+        copies = self.export_rows(PI_GONE_HTML)
+        kept, _ = deduplicate(primary, [(row, 2.0) for row in copies])
+        return [row.timestamp_utc for row in kept[len(primary) :] if row.text == "again"]
+
+    def test_export_join_is_one_to_one_within_the_window(self):
+        early, late = "2026-10-03T10:00:10.000Z", "2026-10-03T10:05:00.000Z"
+        # (session file's prompt seconds, export's prompt seconds, export rows kept)
+        cases = (
+            ((10, 300), (10, 300), []),
+            ((300,), (10, 300), [early]),  # the earlier claimant missing
+            ((10,), (10, 300), [late]),  # the later claimant missing
+            ((10,), (20,), ["2026-10-03T10:00:20.000Z"]),  # outside the two-second window
+            ((10,), (11,), []),  # inside it
+        )
+        for primary, export, expected in cases:
+            self.assertEqual(
+                self.join_repeated_prompt(primary, export), expected, (primary, export)
+            )
+
+    def test_fork_export_drops_the_entries_its_parent_holds(self):
+        parent = self.rows_for(PiParser(), self.REL)
+        fork = self.rows_for(PiParser(), self.FORK)
+        fork_row = (
+            "fork: 3 entries copied from the parent session %s omitted; "
+            "they are in the parent's rows" % PI_PARENT_PATH
+        )
+        html = self.export_rows(PI_FORK_HTML)
+        self.assertEqual(
+            [(row.turn_type, row.text.split("\n")[0][:30]) for row in html[1:]],
+            [
+                (
+                    "system",
+                    ("session start: version=3 cwd=/srv/proj parentSession=%s" % PI_PARENT_PATH)[
+                        :30
+                    ],
+                ),
+                ("system", fork_row[:30]),
+                ("assistant", "Trying another way."),
+            ],
+        )
+        self.assertEqual(html[2].text, fork_row)
+        _, dropped = deduplicate(parent + fork, [(row, 2.0) for row in html])
+        self.assertEqual(dropped, {"pi": 3})  # all but the export's own row
+        # A JSONL export names no parent; the fork's own session file does.
+        jsonl = self.export_rows(PI_FORK_JSONL)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.timestamp_utc) for row in jsonl[1:]],
+            [
+                ("system", fork_row, "2026-10-01T09:40:00.000Z"),
+                ("assistant", "Trying another way.", "2026-10-01T09:30:05.000Z"),
+            ],
+        )
+        self.assertFalse(
+            [row for row in html + jsonl if row.text == "fix the failing test"], "copied rows"
+        )
+
+    def test_fork_export_keeps_the_copied_entries_without_the_parent(self):
+        (self.home / PI_DIR / PI_FILE).unlink()
+        html = self.export_rows(PI_FORK_HTML)
+        self.assertIn("fix the failing test", [row.text for row in html])
+        self.assertFalse([row for row in html if row.text.startswith("fork: ")])
+        # Without the fork's own session file a JSONL export cannot name the parent either.
+        (self.home / PI_DIR / PI_FORK_FILE).unlink()
+        jsonl = self.export_rows(PI_FORK_JSONL)
+        self.assertIn("fix the failing test", [row.text for row in jsonl])
+        self.assertFalse([row for row in jsonl if row.text.startswith("fork: ")])
 
     def test_jsonl_export_rows_and_truncated_line(self):
         rows = self.export_rows(PI_GONE_JSONL)
@@ -753,7 +878,6 @@ class PiTests(ParserBase):
                     1,
                 ),
                 ("user", PI_GONE_PROMPT, "2026-10-02T08:00:02.000Z", 2),
-                ("system", "model: gpt-5 provider=openai", "2026-10-02T08:01:00.000Z", 3),
                 ("assistant", "the second answer", "2026-10-02T08:01:00.000Z", 3),
                 ("system", bad_line_text(), "", 4),
             ],
@@ -762,25 +886,25 @@ class PiTests(ParserBase):
             self.assertEqual((row.session_id, row.project_path), (PI_GONE_SESSION, "/srv/proj"))
 
     def test_jsonl_export_bad_line_mid_file_keeps_the_rows_around_it(self):
-        path = self.home / PI_EXPORT_DIR / PI_GONE_JSONL
+        path = self.project() / PI_GONE_JSONL
         lines = path.read_text(encoding="utf-8").split("\n")
         path.write_text("\n".join([lines[0], lines[1], BAD_LINE, lines[2]]), encoding="utf-8")
         rows = self.export_rows(PI_GONE_JSONL)
         self.assertEqual(
             [(row.turn_type, row.source_line) for row in rows],
-            [("system", 1), ("user", 2), ("system", 4), ("assistant", 4), ("system", 3)],
+            [("system", 1), ("user", 2), ("assistant", 4), ("system", 3)],
         )
         self.assertEqual(rows[-1].text, bad_line_text())
         self.assertEqual(rows[-1].session_id, PI_GONE_SESSION)
 
     def test_jsonl_export_without_header_gives_its_bad_lines_alone(self):
-        path = self.home / PI_EXPORT_DIR / PI_GONE_JSONL
+        path = self.project() / PI_GONE_JSONL
         path.write_text(BAD_LINE + "\n", encoding="utf-8")
         rows = self.export_rows(PI_GONE_JSONL)
         self.assertEqual([(row.text, row.session_id) for row in rows], [(bad_line_text(), "")])
 
     def test_html_export_failures_are_one_row(self):
-        path = self.home / PI_EXPORT_DIR / PI_GONE_HTML
+        path = self.project() / PI_GONE_HTML
         page = pi_html_export_text(pi_gone_records(), "e1000003")
         marker = '<script id="session-data" type="application/json">'
         start = page.index(marker) + len(marker)
@@ -827,12 +951,12 @@ class PiTests(ParserBase):
             rows[-1].text, "parser: %s session data has no entries array" % PI_GONE_HTML
         )
 
-    def test_bug_zip_rows(self):
+    def test_bug_zip_with_transcript_rows(self):
         rows = self.export_rows(PI_BUG_ZIP_FILE)
-        report, crash, summary, user, bad = rows
+        report, crash, user, bad = rows
         self.assertEqual(
             report.text,
-            "bug report: %s session=%s transcript=true summary=true messages=1 entries=3 "
+            "bug report: %s session=%s transcript=true summary=false messages=1 entries=3 "
             "version=1.4.0 platform=linux/x64 model=openai/gpt-5 "
             "(from %s report.json, createdAt)\n"
             "failed assistant turn b10000aa at 2026-10-01T13:00:20.000Z: stopReason=error "
@@ -845,16 +969,10 @@ class PiTests(ParserBase):
             % (PI_DIR, PI_BUG_FILE, PI_BUG_ZIP_FILE),
         )
         self.assertEqual(
-            summary.text,
-            "bug report summary: %s (from %s summary.md, report.json createdAt)\n"
-            "## What the user was doing\nRunning the build." % (PI_BUG_ZIP, PI_BUG_ZIP_FILE),
-        )
-        self.assertEqual(
             [(row.timestamp_utc, row.session_id, row.project_path) for row in rows],
             [
                 ("2026-10-01T13:00:59.000Z", PI_BUG_SESSION, "/srv/proj"),
                 ("2026-10-01T12:58:00.000Z", PI_BUG_SESSION, "/srv/proj"),
-                ("2026-10-01T13:00:59.000Z", PI_BUG_SESSION, "/srv/proj"),
                 ("2026-10-01T13:00:01.000Z", PI_BUG_SESSION, "/srv/proj"),
                 ("", PI_BUG_SESSION, "/srv/proj"),
             ],
@@ -869,14 +987,44 @@ class PiTests(ParserBase):
         primary = self.rows_for(PiParser(), PI_DIR + PI_BUG_FILE)
         kept, dropped = deduplicate(primary, [(row, 2.0) for row in rows])
         self.assertEqual(dropped, {"pi": 1})
-        self.assertEqual(len(kept), len(primary) + 4)
+        self.assertEqual(len(kept), len(primary) + 3)
+
+    def test_bug_zip_with_summary_rows(self):
+        rows = self.export_rows(PI_BUG_SUMMARY_FILE)
+        self.assertEqual(
+            [(row.text.split(" (from ")[0], row.project_path) for row in rows],
+            [
+                (
+                    "bug report: %s session=%s transcript=false summary=true messages=1 "
+                    "entries=3 version=1.4.0 platform=linux/x64 model=openai/gpt-5"
+                    % (PI_BUG_SUMMARY, PI_BUG_SESSION),
+                    "",
+                ),
+                (
+                    "crash: fatal_error EPIPE: broken pipe, write version=1.4.0 sessionFile="
+                    "/home/alice/%s%s" % (PI_DIR, PI_BUG_FILE),
+                    "/srv/proj",
+                ),
+                ("bug report summary: %s" % PI_BUG_SUMMARY, ""),
+            ],
+        )
+        self.assertEqual(
+            rows[-1].text,
+            "bug report summary: %s (from %s summary.md, report.json createdAt)\n"
+            "## What the user was doing\nRunning the build."
+            % (PI_BUG_SUMMARY, PI_BUG_SUMMARY_FILE),
+        )
+        self.assertEqual(
+            {(row.session_id, row.timestamp_utc) for row in (rows[0], rows[2])},
+            {(PI_BUG_SESSION, "2026-10-01T13:02:10.000Z")},
+        )
 
     def test_bug_zip_without_transcript_or_summary(self):
         members = pi_bug_zip_members()
         report = json.loads(members["report.json"])
         report["session"] = {"id": PI_BUG_SESSION, "included": False, "summaryIncluded": False}
         members = {"report.json": json.dumps(report), "diagnostics.json": "{}"}
-        (self.home / PI_EXPORT_DIR / PI_BUG_ZIP_FILE).write_bytes(pi_zip_bytes(members))
+        (self.project() / PI_BUG_ZIP_FILE).write_bytes(pi_zip_bytes(members))
         rows = self.export_rows(PI_BUG_ZIP_FILE)
         self.assertEqual(len(rows), 1)
         self.assertTrue(rows[0].text.startswith("bug report: %s session=" % PI_BUG_ZIP))
@@ -884,7 +1032,7 @@ class PiTests(ParserBase):
         self.assertEqual((rows[0].session_id, rows[0].project_path), (PI_BUG_SESSION, ""))
 
     def test_bug_zip_failures_name_the_file_and_member(self):
-        path = self.home / PI_EXPORT_DIR / PI_BUG_ZIP_FILE
+        path = self.project() / PI_BUG_ZIP_FILE
         path.write_bytes(b"not a zip")
         rows = self.export_rows(PI_BUG_ZIP_FILE)
         self.assertEqual(len(rows), 1)
@@ -905,8 +1053,9 @@ class PiTests(ParserBase):
                 bad_line_text(),
             ],
         )
-        # The summary and the transcript copy still give their rows.
+        # The transcript copy still gives its rows.
         self.assertIn("the build hangs", [row.text for row in rows])
+        member_failure = "parser: %s member report.json could not be read (" % PI_BUG_ZIP_FILE
         # A member whose stored data is damaged.
         data = bytearray(pi_zip_bytes({"report.json": "{}" * 64, "diagnostics.json": "{}"}))
         offset = data.index(b"report.json") + len(b"report.json")
@@ -914,10 +1063,20 @@ class PiTests(ParserBase):
         path.write_bytes(bytes(data))
         rows = self.export_rows(PI_BUG_ZIP_FILE)
         self.assertTrue(
+            any(row.text.startswith(member_failure) for row in rows), [row.text for row in rows]
+        )
+        # An end record whose central directory offset is past its real place.
+        data = bytearray(pi_zip_bytes(pi_bug_zip_members()))
+        end = data.rindex(b"PK\x05\x06")
+        moved = int.from_bytes(data[end + 16 : end + 20], "little") + 1000
+        data[end + 16 : end + 20] = moved.to_bytes(4, "little")
+        path.write_bytes(bytes(data))
+        rows = self.export_rows(PI_BUG_ZIP_FILE)
+        self.assertTrue(rows, "rows")
+        self.assertTrue(all(row.text.startswith("parser: ") for row in rows), rows)
+        self.assertTrue(
             any(
-                row.text.startswith(
-                    "parser: %s member report.json could not be read (" % PI_BUG_ZIP_FILE
-                )
+                row.text.startswith(member_failure) or " is not a zip archive (" in row.text
                 for row in rows
             ),
             [row.text for row in rows],
@@ -926,7 +1085,7 @@ class PiTests(ParserBase):
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_export_is_one_row(self):
         for rel in (PI_HTML, PI_GONE_JSONL, PI_BUG_ZIP_FILE):
-            path = self.home / PI_EXPORT_DIR / rel
+            path = self.project() / rel
             path.chmod(0)
             try:
                 rows = self.export_rows(rel)

@@ -875,8 +875,10 @@ the same shape with a trailing `custom` entry, `customType` `pi.share`, whose `d
 #### Bug report archive
 
 `pi-bug-report-<id>.zip` holds `report.json` and `diagnostics.json`, each JSON with two-space
-indent, and, when the user chose them, `session.jsonl` and `summary.md`
-([core/bug-report.ts:252-272](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L252-L272)), every member deflated by pi's own
+indent, and, when the user chose it, either `session.jsonl` or `summary.md`: `/bug` offers the
+summary only after the user declines the transcript, so no archive holds both
+([modes/interactive/bug-report.ts:120-131](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/bug-report.ts#L120-L131);
+[core/bug-report.ts:252-272](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bug-report.ts#L252-L272)), every member deflated by pi's own
 zip writer ([utils/zip.ts:17-67](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/utils/zip.ts#L17-L67)). `session.jsonl` is the current branch
 in the [JSONL export](#jsonl-export) shape with the trailing `pi.share` entry, and `summary.md` a
 report the session's model wrote from the transcript
@@ -920,6 +922,11 @@ settings files less `deviceId` and `trackingId` and redacted ([Secrets](#secrets
 | `assistantMessageCount` | number | | |
 | `assistant` | array | | |
 | `crashes` | array | | |
+
+Each item of `assistant`:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
 | `entryId` | string | | |
 | `timestamp` | string | | |
 | `provider` | string | | |
@@ -930,7 +937,7 @@ settings files less `deviceId` and `trackingId` and redacted ([Secrets](#secrets
 | `errorMessage` | string | | |
 | `diagnostics` | array | | |
 
-Each `assistant` item, with `entryId` to `diagnostics`, is a failed assistant turn: one with
+Each `assistant` item is a failed assistant turn: one with
 diagnostics, an `error` or `aborted` stop reason or an error message. `crashes` are the
 [crash records](#debug-log-and-crash-log) less `notified`; a report that carries crashes deletes
 `crashes.json` ([modes/interactive/bug-report.ts:226](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/bug-report.ts#L226)), so
@@ -1199,6 +1206,11 @@ user's own switch, so one that names the model already in force still yields the
 `model: <id> provider=<provider>` row; an assistant message that repeats the current model yields
 none.
 
+The project exports and a bug report zip's `session.jsonl` give no `model:` row: they are copies
+of a session file, which gives the rows, and a one-branch copy would place a `model:` row at
+another entry than the session file does, so the copy would survive the join as a second row.
+Their rows keep the `model` column.
+
 #### Past-use rows and secondary sources
 
 Both files of [Debug log and crash log](#debug-log-and-crash-log) are read on every run:
@@ -1234,9 +1246,7 @@ in a moved project still joins.
   one `system` row
   `session exported: HTML /export of session <id>, <N> entries of every branch, leaf <leafId> (from <file>, file mtime)`
   at the file's modification time, the header's `session start:` row at its `timestamp`, then
-  every entry of every branch, `source_line` the entry's 1-based position in `entries`. An export
-  of a fork repeats the entries copied from the parent under the fork's id, and they are kept,
-  since the parent file is in the home and the export in a project.
+  every entry of every branch, `source_line` the entry's 1-based position in `entries`.
 - `session-<time>.jsonl` ([JSONL export](#jsonl-export)): one `system` row
   `session exported: JSONL /export of the current branch of session <id>, <N> entries (from <file>, header timestamp)`
   at the header's `timestamp`, the export time, then the branch's entries; no `session start:`
@@ -1247,16 +1257,27 @@ in a moved project still joins.
   at `createdAt`, followed by one line per failed assistant turn,
   `failed assistant turn <entryId> at <timestamp>: stopReason=<stopReason> <errorMessage>`; one
   `crash:` row per `diagnostics.json` crash in the `crashes.json` form ending
-  `(from <file> diagnostics.json, record timestamp)`; one row
+  `(from <file> diagnostics.json, record timestamp)`; then one row
   `bug report summary: <id> (from <file> summary.md, report.json createdAt)` followed by the
-  summary's text; then the rows of `session.jsonl`, whose `pi.share` entry is skipped as every
-  other `custom` entry is. The rows carry `session.id` (else `sessionId`) and `session.cwd`;
+  summary's text, or the rows of `session.jsonl`, whose `pi.share` entry is skipped as every
+  other `custom` entry is. The rows carry `session.id` (else `sessionId`) and `session.cwd`, so a
+  summary-only report's rows have an empty `project_path`;
   `hint`, `settings`, `extensions` and `provider` are not printed. `-` stands for an absent value.
 
 pi keeps no prompt history file ([What survives a delete](#what-survives-a-delete)).
 
 When a file's `parentSession` parent is also in the collection, child entries whose `id` and
 `timestamp` match a parent entry are dropped, so a fork does not double the timeline.
+
+An export or a zip transcript of a fork repeats those copied entries under the fork's id, where no
+session file row matches them, so the same rule applies to it. The parent is the HTML export's
+`header.parentSession`, or, for the JSONL export and `session.jsonl`, whose header has none, the
+`parentSession` of the fork's own session file, found by its id as
+`.pi/agent/sessions/*/*_<id>.jsonl` in a home of the collection holding the export (the homes the
+collectors list, the `fs/<host path>` layout the export's own path gives). Each copied entry whose
+`id` and `timestamp` the parent file holds is dropped after one `fork:` row in the session file's
+form at the copy's header `timestamp`; with no parent file (or no fork session file) in the
+collection the copied entries are kept.
 
 #### Sync, relay and origin rows
 
