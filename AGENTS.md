@@ -1338,7 +1338,7 @@ the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
 drift test and sh smoke test under dash on macOS (BSD tools); the
 PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell
 5.1 on Windows; the analyzer tests on Python 3.11 to 3.14, with the
-branch-coverage gate on the newest; the lint job of
+branch-coverage gate on the newest; the lint and site jobs of
 [Quality gates](#quality-gates); and a `CI result` job that fails when any
 of them failed or was cancelled. `CI result` is the one status check the
 ruleset on `main` requires.
@@ -1366,8 +1366,8 @@ job or lint step runs when one of its categories is set.
   `collectors/tests/catalog-sync.sh`): the catalog drift job and the
   analyzer tests.
 
-Markdownlint, the document checks, the drift checkers and code style run on
-every change. Everything runs for a push to `main`, a change to the
+Markdownlint, the site build, the document checks, the drift checkers and
+code style run on every change. Everything runs for a push to `main`, a change to the
 workflow, the classifier or `.gitattributes`, and a file the classifier
 does not list; a commit that makes a job read another file adds that file
 to the job's category. A push whose previous commit GitHub cannot name (a
@@ -1484,11 +1484,13 @@ skipped without it. Never add a `python3` requirement to the collector.
 ### Quality gates
 
 Every gate runs in CI, never in the pre-commit hook: branch coverage in the
-`analyzer` job on its newest Python, the others in the `lint` job. The
+`analyzer` job on its newest Python, the site build in the `site` job on the
+Python the Pages workflow uses, the others in the `lint` job. The
 versions are pinned in the workflow's `env` block, coverage.py's in
 `analyzer/requirements-dev.txt`; change it and this table together. Run the
 commands from the repository root before pushing; a documentation-only
-change needs markdownlint and the rows from document links down.
+change needs markdownlint, the site build and the rows from document links
+down.
 
 | Gate | Version | Local command | Configuration |
 | --- | --- | --- | --- |
@@ -1496,6 +1498,7 @@ change needs markdownlint and the rows from document links down.
 | ruff format | 0.16.10 | `uvx ruff@0.16.10 format --check .` | `ruff.toml` (line length 100) |
 | pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
+| site build, strict | the versions `requirements-docs.txt` pins | `pip install -r requirements-docs.txt && mkdocs build --strict -f mkdocs/mkdocs.yml -d /tmp/site` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
 | shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f .) >/dev/null` | none; never pass `-w` |
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
