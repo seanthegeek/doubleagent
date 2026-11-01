@@ -77,7 +77,9 @@ class LittleCoderTests(ParserBase):
         self.assertIn("_srv_proj_src_new.ts (did not exist)", row.text)
 
     def test_stray_file_in_the_sessions_directory_is_skipped(self):
-        (self.home / ".pi/agent/sessions/stray.txt").write_text("not a project", encoding="utf-8")
+        """A stray file sorting before the project directory is passed over, not read."""
+        stray = self.home / ".pi/agent/sessions/+stray.txt"
+        stray.write_text("not a project", encoding="utf-8")
         rows = self.rows_for(LittleCoderParser(), self.CHECKPOINTS + "_srv_proj_src_a.ts")
         self.assertEqual(len(rows), 1)
         self.assertIn("pi session %s" % LC_FILE, rows[0].text)
