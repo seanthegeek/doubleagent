@@ -445,6 +445,26 @@ class TabbyTests(ParserBase):
             ],
         )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_intellij_history_is_one_row(self):
+        path = self.home / TABBY_INTELLIJ_REL
+        path.chmod(0)
+        try:
+            rows = self.rows_for(TabbyParser(), TABBY_INTELLIJ_REL)
+            config = self.rows_for(TabbyParser(), TABBY_CONFIG_REL)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.timestamp_utc, row.text, row.source_line, row.session_id)
+                for row in rows
+            ],
+            [("system", "", "parser: %s could not be read (Permission denied)" % path.name, 0, "")],
+        )
+        self.assertTrue(any(not row.text.startswith("parser:") for row in config))
+        readable = self.rows_for(TabbyParser(), TABBY_INTELLIJ_REL)
+        self.assertEqual([row.turn_type for row in readable], ["system", "user", "user"])
+
     def test_truncated_intellij_history_is_reported_not_fatal(self):
         path = self.home / TABBY_INTELLIJ_REL
         path.write_text(path.read_text(encoding="utf-8")[:120], encoding="utf-8")

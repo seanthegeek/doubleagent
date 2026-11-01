@@ -658,9 +658,14 @@ class TabbyParser(Parser):
             yield self._row(artifact, index, turn_type="user", text=command, opts=opts)
 
     def _parse_intellij_history(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            root = ET.parse(artifact.disk_path).getroot()
-        except (ET.ParseError, OSError) as error:
+            root = ET.fromstring(content)
+        except ET.ParseError as error:
             yield self._row(
                 artifact, 0, opts=opts, text="parser: not a readable XML document (%s)" % error
             )
