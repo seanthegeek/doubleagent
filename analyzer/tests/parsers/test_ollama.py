@@ -442,6 +442,29 @@ class OllamaTests(ParserBase):
             self.assertTrue(rows[0].text.startswith("parser: %s is not " % rel), rows[0].text)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_settings_file_is_one_row_with_no_line_or_time(self):
+        parser = OllamaParser()
+        for target in (self.CONFIG_REL, OLLAMA_CD_PROFILE_REL):
+            locked = self.home / target
+            locked.chmod(0)
+            try:
+                rows = self.rows_for(parser, target)
+            finally:
+                locked.chmod(0o600)
+            self.assertEqual(
+                [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % locked.name,
+                        0,
+                        "",
+                    )
+                ],
+                target,
+            )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_history_is_one_row(self):
         parser = OllamaParser()
         target = self.HISTORY_REL

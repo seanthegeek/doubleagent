@@ -740,6 +740,30 @@ class NanobotTests(ParserBase):
         self.assertEqual(sessions[NANOBOT_SWEEP_RELS["run_key"]]["recovered"], "yes")
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_object_file_is_one_row_with_no_line_or_time(self):
+        parser = NanobotParser()
+        for key in ("config", "pairing", "sidebar", "cron"):
+            target = NANOBOT_SWEEP_RELS[key]
+            locked = self.home / target
+            locked.chmod(0)
+            try:
+                rows = self.rows_for(parser, target)
+            finally:
+                locked.chmod(0o600)
+            self.assertEqual(
+                [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % locked.name,
+                        0,
+                        "",
+                    )
+                ],
+                key,
+            )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_workspace_marker_is_a_row_of_the_session(self):
         parser = NanobotParser()
         target = NANOBOT_REL
