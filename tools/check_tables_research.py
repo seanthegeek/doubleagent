@@ -15,7 +15,7 @@
 - `exclusion-unreachable`, `secret-unreachable`: an exclusion or secret glob with no owner
   (`Repository.owners`, `glob_owners`): no entry reaches it, no volume document claims it.
 - `volume-glob-unnamed`: a glob a docker-volume agent's document owns that no code span of its
-  Per-user storage volume subsections (`is_volume_section`) names, once per such owner.
+  volume subsections (`is_volume_section`) names, once per such owner.
 - `volume-twin-missing`: an exclusion below a directory a docker volume is `mounted at`
   (`mount_path`, `volume_home_remainders`) with no volume-relative twin (`volume_twin`).
 - `case-overlap`: two agents' home entries whose first differing segment differs only by case,
@@ -676,8 +676,8 @@ def unnamed_volume_globs(repository: Repository) -> Iterator[Finding]:
     """Yield `volume-glob-unnamed` for each volume-relative glob its volume section never names.
 
     The glob is one docker-volume agents' documents own (`glob_owners`, neither a home nor a
-    project entry reaching it); each owner's Per-user storage subsections about a volume
-    (`is_volume_section`) must name it in a code span (`volume_section_names_glob`), and each
+    project entry reaching it); each owner's Per-user storage subsections naming one of its
+    volumes (`is_volume_section`) must name it in a code span (`volume_section_names_glob`), and each
     owner whose do not gets its own finding.
     """
     catalog = repository.tables.catalog
@@ -692,16 +692,20 @@ def unnamed_volume_globs(repository: Repository) -> Iterator[Finding]:
 
 def _unnamed_volume_glob(repository: Repository, line: TableLine, agent: str) -> Iterator[Finding]:
     """Yield `volume-glob-unnamed` for one owner unless its volume subsections name the glob."""
+    volume_globs = drift_common.agent_volume_globs(repository.tables.catalog, agent)
     sections = [
         section
         for section in repository.collection(agent, "Per-user storage")
-        if is_volume_section(section)
+        if is_volume_section(section, volume_globs)
     ]
     if drift_common.volume_section_names_glob(
-        repository.root / repository.document(agent), line.glob
+        repository.root / repository.document(agent), line.glob, volume_globs
     ):
         return
-    looked = ", ".join(section.key for section in sections) or "none, no subsection names a volume"
+    names = ", ".join("`%s`" % glob for glob in volume_globs)
+    looked = ", ".join(section.key for section in sections) or (
+        "none, no subsection names a volume matching %s" % names
+    )
     message = "no Per-user storage volume subsection of %s names it (looked in: %s)" % (
         repository.document(agent),
         looked,

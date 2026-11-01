@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import fnmatch
 import functools
 import importlib
 import pathlib
@@ -71,6 +72,8 @@ AGENT_NAME = re.compile(r"^(?:-|[a-z0-9][a-z0-9._-]*)$")
 AGENTS_TABLE_HEADER = re.compile(r"^\|\s*Agent\s*\|\s*Status\s*\|")
 TABLE_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
 FIRST_CODE_SPAN = re.compile(r"`([^`]+)`")
+# A word that may be a Docker or Podman volume name, which Docker limits to these characters.
+VOLUME_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 # Characters a negated glob class may give a sample path, in order of preference.
 SAMPLE_CHARACTERS = "xabcdefghijklmnopqrstuvwyz0123456789"
 
@@ -634,8 +637,20 @@ def star_remainders(glob: str, catalog: Catalog) -> list[tuple[str, str]]:
     return found
 
 
-def is_volume_section(section: Section) -> bool:
-    """Return whether a section's heading or first paragraph holds the word "volume"."""
+def agent_volume_globs(catalog: Catalog, agent: str) -> tuple[str, ...]:
+    """Return the `DOCKER_VOLUMES` volume name globs of one agent, in table order."""
+    return tuple(entry.glob for entry in catalog.docker_volumes if entry.agent == agent)
+
+
+def is_volume_section(section: Section, volume_globs: Iterable[str]) -> bool:
+    """Return whether a section's heading or first paragraph names one of an agent's volumes.
+
+    Those lines hold the word "volume" and a code span naming one of `volume_globs`
+    (`agent_volume_globs`): the glob itself, its catalog line (`agent|glob`), or a volume name
+    alone (`VOLUME_WORD`) the glob matches by `fnmatch.fnmatchcase`, as Docker volume names are
+    case-sensitive. Neither suffices alone, and prose words never count: a broad glob such as
+    `*tabby*` also matches file and package names (`tabby-agent`) and the agent's name.
+    """
     lines = section.text.split("\n")
     paragraph: list[str] = []
     for line in lines[1:]:
@@ -643,28 +658,38 @@ def is_volume_section(section: Section) -> bool:
             paragraph.append(line)
         elif paragraph:
             break
-    return "volume" in (lines[0] + " " + " ".join(paragraph)).lower()
+    text = lines[0] + "\n" + "\n".join(paragraph)
+    names = [
+        collapse(match.group(2)) for match in check_research_structure.CODE_SPAN.finditer(text)
+    ]
+    return "volume" in text.lower() and any(
+        name == glob
+        or name.endswith("|" + glob)
+        or bool(VOLUME_WORD.fullmatch(name) and fnmatch.fnmatchcase(name, glob))
+        for glob in volume_globs
+        for name in names
+    )
 
 
 @functools.cache
 def collection_spans_by_depth(
-    path: pathlib.Path, volume_only: bool = False
+    path: pathlib.Path, volume_globs: tuple[str, ...] | None = None
 ) -> dict[int, tuple[str, ...]]:
     """Return a document's normalised Collection code spans by their count of `/`, read once.
 
-    With `volume_only`, only the spans of its Per-user storage volume subsections
-    (`is_volume_section`). A missing document has none. A glob's segments never cross `/`, so
-    only spans of its own depth, or one less for a glob ending in `/*`, can name it
-    (`names_glob`).
+    With `volume_globs`, the agent's volume name globs, only the spans of its Per-user storage
+    subsections naming one of them (`is_volume_section`). A missing document has none. A glob's
+    segments never cross `/`, so only spans of its own depth, or one less for a glob ending in
+    `/*`, can name it (`names_glob`).
     """
     if not path.is_file():
         return {}
     sections = research_sections(path)
-    if volume_only:
+    if volume_globs is not None:
         chosen = [
             section
             for section in within(sections, "Collection", "Per-user storage")
-            if is_volume_section(section)
+            if is_volume_section(section, volume_globs)
         ]
     else:
         chosen = within(sections, "Collection")
@@ -676,25 +701,29 @@ def collection_spans_by_depth(
     return {depth: tuple(spans) for depth, spans in found.items()}
 
 
-def document_names_glob(path: pathlib.Path, glob: str, volume_only: bool = False) -> bool:
+def document_names_glob(
+    path: pathlib.Path, glob: str, volume_globs: tuple[str, ...] | None = None
+) -> bool:
     """Return whether a code span of a document's Collection part names a glob (`names_glob`).
 
-    With `volume_only`, only a span of a Per-user storage volume subsection counts.
+    With `volume_globs`, only a span of a Per-user storage subsection naming one of those
+    volumes counts.
     """
-    by_depth = collection_spans_by_depth(path, volume_only)
+    by_depth = collection_spans_by_depth(path, volume_globs)
     depth = glob.count("/")
     return names_glob(glob, by_depth.get(depth, ()) + by_depth.get(depth - 1, ()))
 
 
-def volume_section_names_glob(path: pathlib.Path, glob: str) -> bool:
+def volume_section_names_glob(path: pathlib.Path, glob: str, volume_globs: tuple[str, ...]) -> bool:
     """Return whether a document's Per-user storage volume subsections name a volume glob.
 
     The one test both volume ownership (`glob_owners`) and `volume-glob-unnamed` use. It is the
     strict form, `names_glob` without `deeper`: a span describing an agent's own layout below
     a path (`profiles/<name>/...`) does not name the bare glob above it (`profiles/*`), so it
-    never makes that agent an owner of another agent's glob.
+    never makes that agent an owner of another agent's glob. `volume_globs` are the agent's
+    volume name globs (`agent_volume_globs`), which pick its volume subsections.
     """
-    return document_names_glob(path, glob, volume_only=True)
+    return document_names_glob(path, glob, volume_globs)
 
 
 def home_claim(glob: str, catalog: Catalog) -> str:
@@ -785,15 +814,18 @@ def volume_agents_naming(
     """Return the `DOCKER_VOLUMES` agents whose documents under `root` name a glob, in order.
 
     A document names it when a code span of its Collection part does (`document_names_glob`),
-    with `volume_only` one of its Per-user storage volume subsections.
+    with `volume_only` one of its Per-user storage subsections naming one of the agent's volumes
+    (`is_volume_section`).
     """
     research = (ROOT if root is None else root) / "research"
     volume_agents = dict.fromkeys(entry.agent for entry in catalog.docker_volumes)
     return [
         agent
         for agent in volume_agents
-        if (volume_section_names_glob if volume_only else document_names_glob)(
-            research / ("%s.md" % agent), glob
+        if document_names_glob(
+            research / ("%s.md" % agent),
+            glob,
+            agent_volume_globs(catalog, agent) if volume_only else None,
         )
     ]
 

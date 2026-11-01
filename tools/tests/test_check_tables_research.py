@@ -742,7 +742,7 @@ def test_attribute_glob_forms(tmp_path):
 def test_volume_glob_unnamed(tmp_path):
     assert findings(repository(tmp_path / "clean"), "volume-glob-unnamed") == []
     beta = BETA.replace("#### Docker volume", "#### Container")
-    beta = beta.replace("The `beta_data` volume", "The `beta_data` store")
+    beta = beta.replace("The `beta_data` volume", "The store")
     root = repository(tmp_path / "drift", beta=beta)
     found = [finding for finding in checker.run(root) if finding.kind == "volume-glob-unnamed"]
     assert [(finding.agent, finding.detail) for finding in found] == [("beta", "exclude models")]
@@ -760,7 +760,7 @@ def test_is_volume_section_forms(tmp_path):
 
         Nothing here.
 
-        Later a volume.
+        Later the `beta_data` volume.
 
         #### Docker volumes
 
@@ -768,23 +768,69 @@ def test_is_volume_section_forms(tmp_path):
 
         #### Container
 
-        The named Volume holds
-        the home.
+        The named volume
+        `prod_beta_data` holds the home.
 
-        #### Bind mount
+        #### Other agent's volume
 
-        The home is bind-mounted.
+        The `gamma_data` volume holds the home.
+
+        #### Word alone
+
+        The named Volume holds the home.
+
+        #### Name as a word
+
+        Mounted from the beta_data volume.
+
+        #### Path naming the volume
+
+        Mounted from `/var/lib/docker/volumes/beta_data`.
+
+        #### Case
+
+        The `BETA_DATA` volume.
+
+        #### Glob
+
+        A volume `*beta_cache` holds the cache.
+
+        #### Catalog line
+
+        In a volume the `beta|*beta_data` line matches.
+
+        #### Name without the word
+
+        The `beta_data` store.
         """
     sections = sections_of(tmp_path, textwrap.dedent(text))
-    verdicts = {key: checker.is_volume_section(section) for key, section in sections.items()}
+    verdicts = {
+        key: checker.is_volume_section(section, ("*beta_data", "*beta_cache"))
+        for key, section in sections.items()
+    }
     assert verdicts == {
         "": False,
         "Collection": False,
         "Collection/Per-user storage": False,
-        "Collection/Per-user storage/Docker volumes": True,
+        "Collection/Per-user storage/Docker volumes": False,
         "Collection/Per-user storage/Container": True,
-        "Collection/Per-user storage/Bind mount": False,
+        "Collection/Per-user storage/Other agent's volume": False,
+        "Collection/Per-user storage/Word alone": False,
+        "Collection/Per-user storage/Name as a word": False,
+        "Collection/Per-user storage/Path naming the volume": False,
+        "Collection/Per-user storage/Case": False,
+        "Collection/Per-user storage/Glob": True,
+        "Collection/Per-user storage/Catalog line": True,
+        "Collection/Per-user storage/Name without the word": False,
     }
+
+
+def test_volume_glob_unnamed_when_the_subsection_names_another_volume(tmp_path):
+    beta = BETA.replace("The `beta_data` volume", "The `gamma_data` volume")
+    root = repository(tmp_path, beta=beta)
+    found = [finding for finding in checker.run(root) if finding.kind == "volume-glob-unnamed"]
+    assert [(finding.agent, finding.detail) for finding in found] == [("beta", "exclude models")]
+    assert "matching `*beta_data`" in found[0].message
 
 
 # --- Rule 6: volume-twin-missing -------------------------------------------------------------

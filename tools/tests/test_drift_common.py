@@ -573,8 +573,10 @@ def test_attribute_glob_volume_glob_goes_to_the_one_volume_document_naming_it(tm
 
 def test_glob_owners_volume_subsections_before_the_collection_part(tmp_path):
     catalog = drift_common.tables(write(tmp_path / "catalog.txt", STAR_CATALOG)).catalog
-    volume = "### Per-user storage\n\n#### Docker volume\n\nThe volume holds `both` and `.ssh/*`.\n"
-    gamma = "# gamma\n\n## Collection\n\n" + volume
+    volume = (
+        "### Per-user storage\n\n#### Docker volume\n\nThe `%s` volume holds `both` and `.ssh/*`.\n"
+    )
+    gamma = "# gamma\n\n## Collection\n\n" + volume % "a0_gamma_usr"
     delta = "# delta\n\n## Collection\n\n### Per-user storage\n\n`both`, `~/.ssh/` and `solo`.\n"
     write(tmp_path / "research" / "gamma.md", gamma)
     write(tmp_path / "research" / "delta.md", delta)
@@ -588,7 +590,13 @@ def test_glob_owners_volume_subsections_before_the_collection_part(tmp_path):
     }
     for glob, owners in cases.items():
         assert drift_common.glob_owners(glob, catalog, tmp_path) == owners, glob
-    write(tmp_path / "research" / "delta.md", "# delta\n\n## Collection\n\n" + volume)
+    unnamed = "# delta\n\n## Collection\n\n" + volume.replace("`%s` ", "")
+    write(tmp_path / "research" / "delta.md", unnamed)
+    drift_common.collection_spans_by_depth.cache_clear()
+    assert drift_common.glob_owners("both", catalog, tmp_path) == ["gamma"]
+    write(
+        tmp_path / "research" / "delta.md", "# delta\n\n## Collection\n\n" + volume % "delta_data"
+    )
     drift_common.collection_spans_by_depth.cache_clear()
     assert drift_common.glob_owners("both", catalog, tmp_path) == ["delta", "gamma"]
 
