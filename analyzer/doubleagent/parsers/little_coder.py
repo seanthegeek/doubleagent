@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -87,8 +88,8 @@ def _session_header(home: Path, name: str) -> tuple[dict | None, list]:
     """Return the header of the pi session file `name` in the same home, or None, and its failure.
 
     The failure is the whole-file `errors` entries: one when the sessions
-    directory cannot be listed, or the file exists but cannot be read; its bad
-    lines are left to the pi parser.
+    directory or a project directory under it cannot be read, or the file
+    exists but cannot be read; its bad lines are left to the pi parser.
     """
     sessions = home / ".pi/agent/sessions"
     if sessions.is_symlink() or not sessions.is_dir():
@@ -98,18 +99,25 @@ def _session_header(home: Path, name: str) -> tuple[dict | None, list]:
     except OSError as error:
         return None, [(0, unreadable_message(sessions, error))]
     for directory in directories:
+        if directory.is_symlink() or not directory.is_dir():
+            continue
         session_path = directory / name
-        if (
-            not directory.is_symlink()
-            and directory.is_dir()
-            and not session_path.is_symlink()
-            and session_path.is_file()
-        ):
-            session = read_session(session_path)
-            # A two-tuple is a whole-file entry (the file could not be read); a bad
-            # line is a three-tuple the pi parser reports itself.
-            failure = [entry for entry in session.errors if len(entry) == 2]
-            return session.header or None, failure
+        # lstat rather than is_file: a project directory that cannot be searched
+        # must become a row, and pathlib's is_file swallows that error on some
+        # Python versions and raises it on others.
+        try:
+            found = os.lstat(session_path)
+        except FileNotFoundError:
+            continue
+        except OSError as error:
+            return None, [(0, unreadable_message(directory, error))]
+        if not stat.S_ISREG(found.st_mode):
+            continue
+        session = read_session(session_path)
+        # A two-tuple is a whole-file entry (the file could not be read); a bad
+        # line is a three-tuple the pi parser reports itself.
+        failure = [entry for entry in session.errors if len(entry) == 2]
+        return session.header or None, failure
     return None, []
 
 
