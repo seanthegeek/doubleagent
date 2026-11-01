@@ -44,6 +44,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     setting_value,
@@ -206,15 +207,19 @@ class QwenCodeParser(Parser):
 
     def _parse_channel_routes(self, artifact: Artifact, name: str) -> Iterator[Row]:
         """One `session relayed:` row per entry of a channel routes file."""
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            doc = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            doc = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError:
             doc = None
         if not isinstance(doc, dict):
             yield from error_rows(self, artifact, [(0, "%s is not a JSON object" % name, "")])
             return
         mtime = ""
-        errors: list = []
         for index, (key, entry) in enumerate(doc.items(), 1):
             if not isinstance(entry, dict):
                 errors.append((index, "entry %s is not a JSON object" % key, ""))
@@ -264,14 +269,13 @@ class QwenCodeParser(Parser):
         Code reads it; no other key is read, since the file can hold provider
         keys and channel tokens.
         """
+        errors: list = []
+        raw = file_bytes(artifact.disk_path, errors)
+        if raw is None:
+            yield from error_rows(self, artifact, errors)
+            return
         timestamp = file_mtime(artifact)
         project = artifact.home.original if artifact.home.project else ""
-        try:
-            raw = artifact.disk_path.read_bytes()
-        except OSError as error:
-            text = "parser: unreadable %s: %s" % (artifact.rel, error.strerror or error)
-            yield self._settings_row(artifact, timestamp, project, text)
-            return
         try:
             doc = parse_jsonc(raw)
         except ValueError:
@@ -545,10 +549,12 @@ class QwenCodeParser(Parser):
         walk; raw is the text from the element the failed decode started at
         to the end of the file, less a trailing line terminator, since a
         broken element has no boundary of its own. A whole-file error has
-        raw `""`.
+        raw `""`; a file that cannot be read is one entry and yields nothing.
         """
-        with open(path, "rb") as handle:
-            data = handle.read().decode("utf-8", errors="replace")
+        content = file_bytes(path, errors)
+        if content is None:
+            return
+        data = content.decode("utf-8", errors="replace")
         decoder = json.JSONDecoder()
         offset = 0
         length = len(data)

@@ -50,6 +50,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     line_text,
@@ -195,22 +196,32 @@ def tool_text(call: dict) -> str:
 # ---- project path -------------------------------------------------------------
 
 
-def _read_small(path: Path) -> str | None:
+def _read_small(path: Path, errors: list) -> str | None:
+    """Return a side file's text, or None when it is absent, a symlink or unreadable.
+
+    Only an unreadable file leaves its entry in `errors`; an absent one is
+    silent, since both side files are optional.
+    """
     try:
         if os.path.islink(str(path)) or not path.is_file():
             return None
-        return path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
+    content = file_bytes(path, errors)
+    return None if content is None else content.decode("utf-8", errors="replace")
 
 
-def resolve_project(base: Path, slug: str, project_hash: str = "") -> str:
-    """Project path for `tmp/<slug>` under the `.gemini` directory `base`."""
-    root = _read_small(base / "tmp" / slug / ".project_root")
+def resolve_project(base: Path, slug: str, errors: list, project_hash: str = "") -> str:
+    """Return the project path for `tmp/<slug>` under the `.gemini` directory `base`.
+
+    A side file (`tmp/<slug>/.project_root`, `projects.json`) that exists but
+    cannot be read leaves its entry in `errors` for the caller's rows.
+    """
+    root = _read_small(base / "tmp" / slug / ".project_root", errors)
     if root and root.strip():
         return root.strip()
     projects = {}
-    raw = _read_small(base / "projects.json")
+    raw = _read_small(base / "projects.json", errors)
     if raw:
         try:
             data = json.loads(raw)
@@ -323,15 +334,18 @@ def trusted_folder_rows(parser: Parser, artifact: Artifact) -> Iterator[Row]:
     """Yield one `permission setting: trustedFolders.<path>=<value>` row per key of the file.
 
     The file is a `trustedFolders.json` of Gemini CLI or Qwen Code; the rows are at its
-    modification time, and a file that is not a JSON object is one row saying so. It is read with
-    `parse_jsonc`, so a byte-order mark and trailing commas, which Qwen Code accepts, decode.
+    modification time, and a file that cannot be read or is not a JSON object is one row saying
+    so. It is read with `parse_jsonc`, so a byte-order mark and trailing commas, which Qwen Code
+    accepts, decode.
     """
+    errors: list = []
+    content = file_bytes(artifact.disk_path, errors)
+    if content is None:
+        yield from error_rows(parser, artifact, errors)
+        return
     timestamp = file_mtime(artifact)
-    unreadable = ""
     try:
-        document = parse_jsonc(artifact.disk_path.read_bytes())
-    except OSError as error:
-        document, unreadable = None, error.strerror or str(error)
+        document = parse_jsonc(content)
     except ValueError:
         document = None
 
@@ -344,9 +358,6 @@ def trusted_folder_rows(parser: Parser, artifact: Artifact) -> Iterator[Row]:
         new_row.text = compact(text)
         return new_row
 
-    if unreadable:
-        yield row("parser: unreadable %s: %s" % (artifact.rel, unreadable))
-        return
     if not isinstance(document, dict):
         yield row("parser: %s is not a JSON object" % artifact.rel)
         return
@@ -493,11 +504,10 @@ class GeminiCliParser(Parser):
 
     def _json_object(self, artifact: Artifact, jsonc: bool) -> tuple[dict | None, Row | None]:
         """The file's JSON object, or None and the row saying it cannot be read or is not one."""
-        try:
-            raw = artifact.disk_path.read_bytes()
-        except OSError as error:
-            text = "parser: unreadable %s: %s" % (artifact.rel, error.strerror or error)
-            return None, self._standing(artifact, file_mtime(artifact), "", text)
+        errors: list = []
+        raw = file_bytes(artifact.disk_path, errors)
+        if raw is None:
+            return None, next(error_rows(self, artifact, errors))
         try:
             document = (
                 parse_jsonc(raw) if jsonc else json.loads(raw.decode("utf-8", errors="replace"))
@@ -554,9 +564,14 @@ class GeminiCliParser(Parser):
             text = "parser: %s not read: its [[rule]] tables need Python 3.11 or later (tomllib)"
             yield self._standing(artifact, timestamp, project, text % artifact.rel)
             return
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, "", project)
+            return
         try:
-            document = load_toml(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+            document = load_toml(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             text = "parser: unreadable %s: %s" % (artifact.rel, error)
             yield self._standing(artifact, timestamp, project, text)
             return
@@ -613,13 +628,9 @@ class GeminiCliParser(Parser):
     # -- shell_history, /chat save checkpoints and /bug history exports --
 
     def _parse_shell_history(self, artifact: Artifact, match) -> Iterator[Row]:
-        project = resolve_project(self._base_dir(artifact, match), match.group("slug"))
         errors: list = []
-        try:
-            raw = artifact.disk_path.read_bytes()
-        except OSError as error:
-            errors.append((0, "unreadable shell_history (%s)" % error, ""))
-            raw = b""
+        project = resolve_project(self._base_dir(artifact, match), match.group("slug"), errors)
+        raw = file_bytes(artifact.disk_path, errors) or b""
         for line, command in shell_history_entries(raw, errors):
             row = self.base_row(artifact)
             row.source_line = line
@@ -630,13 +641,10 @@ class GeminiCliParser(Parser):
         yield from error_rows(self, artifact, errors, "", project)
 
     def _parse_history_copy(self, artifact: Artifact, opts: Options, match) -> Iterator[Row]:
-        project = resolve_project(self._base_dir(artifact, match), match.group("slug"))
         errors: list = []
-        try:
-            text = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError as error:
-            errors.append((0, "unreadable chat history (%s)" % error, ""))
-            text = ""
+        project = resolve_project(self._base_dir(artifact, match), match.group("slug"), errors)
+        content = file_bytes(artifact.disk_path, errors)
+        text = "" if content is None else content.decode("utf-8", errors="replace")
         items, document = history_items(text, errors) if text else ([], {})
         if "tag" in match.groupdict():
             header = self._standing(
@@ -746,14 +754,19 @@ class GeminiCliParser(Parser):
     # -- logs.json --
 
     def _parse_logs(self, artifact: Artifact, opts: Options, match) -> Iterator[Row]:
-        project = resolve_project(self._base_dir(artifact, match), match.group("slug"))
+        errors: list = []
+        project = resolve_project(self._base_dir(artifact, match), match.group("slug"), errors)
+        content = file_bytes(artifact.disk_path, errors)
+        if content is not None:
+            yield from self._log_rows(artifact, opts, project, content)
+        yield from error_rows(self, artifact, errors, "", project)
+
+    def _log_rows(
+        self, artifact: Artifact, opts: Options, project: str, content: bytes
+    ) -> Iterator[Row]:
+        """Yield one `user` row per record of `logs.json`, or the row saying it is not an array."""
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                data = json.loads(handle.read().decode("utf-8", errors="replace"))
-        except OSError as error:
-            text = "parser: unreadable logs.json: %s" % (error.strerror or error)
-            yield self._system(artifact, 0, "", "", project, text, opts)
-            return
+            data = json.loads(content.decode("utf-8", errors="replace"))
         except ValueError as error:
             yield self._system(
                 artifact, 0, "", "", project, "parser: unparseable logs.json: %s" % error, opts
@@ -886,7 +899,7 @@ class GeminiCliParser(Parser):
                         latest_timestamp = max(latest_timestamp, to_utc(message.get("timestamp")))
                         put(message, line_number)
 
-        project = resolve_project(base, slug, str(metadata.get("projectHash") or ""))
+        project = resolve_project(base, slug, errors, str(metadata.get("projectHash") or ""))
         # Session start, then the surviving messages in replay order, then
         # summaries, rewinds and removals.
         for line, timestamp, record_session_id, text in starts:
@@ -932,11 +945,12 @@ class GeminiCliParser(Parser):
         return list(iter_jsonl(artifact.disk_path, errors)), errors
 
     def _legacy_records(self, artifact: Artifact):
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            return [], errors
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                record = json.loads(handle.read().decode("utf-8", errors="replace"))
-        except OSError as error:
-            return [], [(1, "unreadable session file: %s" % (error.strerror or error), "")]
+            record = json.loads(content.decode("utf-8", errors="replace"))
         except ValueError as error:
             return [], [(1, "unparseable session file: %s" % error, "")]
         if not isinstance(record, dict) or not isinstance(record.get("sessionId"), str):

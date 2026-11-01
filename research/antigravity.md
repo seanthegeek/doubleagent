@@ -1756,9 +1756,18 @@ A `conversation_summaries.db` or `conversations/<id>.db` that cannot be read, or
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
 `<file>` the name of the file that failed; one that is not a SQLite database is
 `parser: not a SQLite database`, a conversation database's row carrying the id its file name gives.
+One that starts with the SQLite header but cannot be read past it (a truncated copy, a damaged page)
+is one row `parser: SQLite error: <message>`, `<message>` SQLite's own, with the same id, and the
+other files are still parsed.
 
 A `history.jsonl` that cannot be read is one whole-file row
-`parser: history.jsonl could not be read (<reason>)` through `error_rows`.
+`parser: history.jsonl could not be read (<reason>)` through `error_rows`. A brain transcript copy
+or one of its chunks that cannot be read is one row `parser: <file> could not be read (<reason>)`
+at the file the copy is read through (its first chunk for a chunked copy), with the conversation id
+its directory names; the chunks that can be read are still joined and parsed. A standing permission
+file that cannot be read is one row `parser: <file> could not be read (<reason>)`, `<file>` its
+name; one that reads but does not parse, or is not a JSON object, is one row
+`parser: unreadable <file>`, `<file>` its home-relative path, at the file's modification time.
 
 #### Fixtures
 

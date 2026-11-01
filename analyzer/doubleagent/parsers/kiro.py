@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 from collections.abc import Iterator
 
 from ..inputs import Artifact
@@ -45,7 +46,9 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
+    iter_lines,
     line_text,
     setting_value,
     track_change,
@@ -78,7 +81,11 @@ _HISTORY_PATTERN = re.compile(r'"history"[ \t\n\r]*:[ \t\n\r]*\[')
 
 
 def _sniff_export(path) -> bool:
-    """Return True when a file starts like a `/save` export (an object with `conversation_id`)."""
+    """Return True when a file starts like a `/save` export (an object with `conversation_id`).
+
+    This is file selection, not a parse: a file that cannot be read is not
+    recognised, so it is never offered to the parser and gives no row.
+    """
     try:
         with open(path, "rb") as handle:
             head = handle.read(SNIFF_BYTES)
@@ -251,34 +258,35 @@ class KiroParser(Parser):
         """Yield one `user` row per history entry, with no timestamp, session or project."""
         errors: list = []
         multiline = False
-        with open(artifact.disk_path, "rb") as handle:
-            for line_number, raw in enumerate(handle, 1):
-                try:
-                    line = raw.decode("utf-8")
-                except UnicodeDecodeError:
-                    errors.append(
-                        (line_number, "unparseable line (not valid UTF-8)", line_text(raw))
-                    )
-                    continue
-                line = line_text(raw)
-                if line_number == 1 and line == HISTORY_V2:
-                    multiline = True
-                    continue
-                if not line:
-                    continue
-                row = self.base_row(artifact)
-                row.source_line = line_number
-                row.turn_type = "user"
-                row.text = compact(unescape_history(line) if multiline else line)
-                yield row
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            try:
+                raw.decode("utf-8")
+            except UnicodeDecodeError:
+                errors.append((line_number, "unparseable line (not valid UTF-8)", line_text(raw)))
+                continue
+            line = line_text(raw)
+            if line_number == 1 and line == HISTORY_V2:
+                multiline = True
+                continue
+            if not line:
+                continue
+            row = self.base_row(artifact)
+            row.source_line = line_number
+            row.turn_type = "user"
+            row.text = compact(unescape_history(line) if multiline else line)
+            yield row
         yield from error_rows(self, artifact, errors)
 
     # -- cli-agents/<name>.json ---------------------------------------------------
     def _json_doc(self, artifact: Artifact, what: str) -> tuple[dict | None, Row | None]:
-        """Return the file as a JSON object, or a `system` row saying it is not one."""
+        """Return the file as a JSON object, or a `system` row when it is unreadable or not one."""
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            return None, next(error_rows(self, artifact, errors))
         try:
-            document = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            document = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError:
             document = None
         if isinstance(document, dict):
             return document, None
@@ -377,24 +385,34 @@ class KiroParser(Parser):
 
     # -- data.sqlite3 -------------------------------------------------------------
     def _parse_database(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
+        """Yield the rows of `data.sqlite3`, or one row for a database that cannot be read."""
         problem = sqlite_problem(artifact.disk_path)
         if problem:
             yield from error_rows(self, artifact, [(0, problem)])
             return
-        with open_copy(artifact.disk_path) as connection:
-            tables = table_names(connection)
-            if "conversations" in tables:
-                for position, table_row in enumerate(
-                    connection.execute("select key, value from conversations order by rowid"), 1
-                ):
-                    value = table_row["value"]
-                    if isinstance(value, bytes):
-                        value = value.decode("utf-8", errors="replace")
-                    yield from self._conversation(
-                        artifact, opts, str(value or ""), str(table_row["key"] or ""), position
-                    )
-            if "history" in tables:
-                yield from self._shell_history(artifact, opts, connection)
+        try:
+            with open_copy(artifact.disk_path) as connection:
+                rows = list(self._database_rows(artifact, opts, connection))
+        except sqlite3.DatabaseError as error:
+            yield from error_rows(self, artifact, [(0, "SQLite error: %s" % error)])
+            return
+        yield from rows
+
+    def _database_rows(self, artifact: Artifact, opts: Options, connection) -> Iterator[Row]:
+        """Yield the conversation and legacy shell history rows of an open database."""
+        tables = table_names(connection)
+        if "conversations" in tables:
+            for position, table_row in enumerate(
+                connection.execute("select key, value from conversations order by rowid"), 1
+            ):
+                value = table_row["value"]
+                if isinstance(value, bytes):
+                    value = value.decode("utf-8", errors="replace")
+                yield from self._conversation(
+                    artifact, opts, str(value or ""), str(table_row["key"] or ""), position
+                )
+        if "history" in tables:
+            yield from self._shell_history(artifact, opts, connection)
 
     def _shell_history(self, artifact: Artifact, opts: Options, connection) -> Iterator[Row]:
         """Yield one `shell history:` row per legacy Fig shell history row."""
@@ -427,9 +445,14 @@ class KiroParser(Parser):
     # -- /save exports ------------------------------------------------------------
     def _parse_export(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         """Yield the rows of a `/save` export."""
-        with open(artifact.disk_path, "rb") as handle:
-            text = handle.read().decode("utf-8", errors="replace")
-        yield from self._conversation(artifact, opts, text, "", 0)
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
+        yield from self._conversation(
+            artifact, opts, content.decode("utf-8", errors="replace"), "", 0
+        )
 
     # -- ConversationState --------------------------------------------------------
     def _conversation(
