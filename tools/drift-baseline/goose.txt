@@ -1,28 +1,14 @@
-check_tables_research|credential-unflagged|.goose/settings.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/chatgpt_codex/tokens.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/config.yaml
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/custom_providers/<id>.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/databricks/oauth/.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/gemini_oauth/tokens.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/githubcopilot/info.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/githubcopilot/x/info.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/huggingface/oauth/tokens.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/kimicode/token.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/muse_code/token.json
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/secrets.yaml
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/tls/server.key
-check_tables_research|credential-unflagged|AppData/Roaming/Goose/xai_oauth/tokens.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/chatgpt_codex/tokens.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/claude-code/mcp-config-.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/config.yaml
-check_tables_research|credential-unflagged|Library/Application Support/Goose/custom_providers/<id>.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/databricks/oauth/.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/gemini_oauth/tokens.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/githubcopilot/info.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/githubcopilot/x/info.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/huggingface/oauth/tokens.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/kimicode/token.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/muse_code/token.json
-check_tables_research|credential-unflagged|Library/Application Support/Goose/secrets.yaml
-check_tables_research|credential-unflagged|Library/Application Support/Goose/tls/server.key
-check_tables_research|credential-unflagged|Library/Application Support/Goose/xai_oauth/tokens.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/chatgpt_codex/tokens.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/claude-code/mcp-config-.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/config.yaml
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/custom_providers/<id>.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/databricks/oauth/.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/gemini_oauth/tokens.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/githubcopilot/info.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/githubcopilot/x/info.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/huggingface/oauth/tokens.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/kimicode/token.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/muse_code/token.json
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/secrets.yaml
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/tls/server.key
+check_tables_research|credential-unflagged|Library/Application Support/Block/goose/xai_oauth/tokens.json

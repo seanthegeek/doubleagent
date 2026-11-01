@@ -487,7 +487,7 @@ def test_sibling_bases_forms():
     entries = [
         line(".config/Claude"),
         line("Library/Application Support/Claude"),
-        line("AppData/Roaming/claude"),
+        line("AppData/Roaming/Claude"),
         line("Library/Logs/Claude"),
         line(".config/claude-two"),
         line("AppData/Local/Temp/claude"),
@@ -496,7 +496,7 @@ def test_sibling_bases_forms():
     ]
     named = [
         "Library/Application Support/Claude",
-        "AppData/Roaming/claude",
+        "AppData/Roaming/Claude",
         "Library/Logs/Claude",
         "AppData/Local/Temp/claude",
         "Claude",
@@ -504,7 +504,7 @@ def test_sibling_bases_forms():
     found = checker.sibling_bases(entries[0], entries, named)
     assert [entry.glob for entry in found] == [
         "Library/Application Support/Claude",
-        "AppData/Roaming/claude",
+        "AppData/Roaming/Claude",
     ]
     zed = [line(".config/zed"), line(".local/share/zed"), line(".var/app/z/config/zed")]
     found = checker.sibling_bases(zed[0], zed, [".local/share/zed", ".var/app/z/config/zed"])
@@ -512,6 +512,34 @@ def test_sibling_bases_forms():
     homes = [line(".agent-zero"), line("agent-zero"), line("AppData/Local/agent-zero")]
     found = checker.sibling_bases(homes[0], homes, ["agent-zero", "AppData/Local/agent-zero"])
     assert [entry.glob for entry in found] == ["AppData/Local/agent-zero"]
+
+
+def test_sibling_bases_keep_case():
+    cases = [
+        ([".hermes", "AppData/Local/hermes", "AppData/Roaming/Hermes"], ["AppData/Local/hermes"]),
+        (
+            [
+                ".config/goose",
+                "Library/Application Support/Block/goose",
+                "Library/Application Support/Goose",
+                "AppData/Roaming/Goose",
+            ],
+            ["Library/Application Support/Block/goose"],
+        ),
+        (
+            [
+                ".config/Hermes",
+                "Library/Application Support/Hermes",
+                "AppData/Roaming/Hermes",
+                "Library/Application Support/hermes",
+            ],
+            ["Library/Application Support/Hermes", "AppData/Roaming/Hermes"],
+        ),
+    ]
+    for globs, expected in cases:
+        entries = [line(glob) for glob in globs]
+        found = checker.sibling_bases(entries[0], entries, globs[1:])
+        assert [entry.glob for entry in found] == expected, globs
 
 
 def test_credential_paths_forms():

@@ -8,8 +8,8 @@
   its glob or its remainder below an owner's entry (`base_remainders`, `star_remainders`);
   its detail is `<table> <glob>`, as one glob may be in several tables.
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
-  secret glob flags on its own base, or on any sibling base of one platform (`sibling_bases`),
-  unless a code span of the Parsing part's Secrets section names the path (`secrets_store`),
+  secret glob flags on its own base, or on any sibling base of one platform (`sibling_bases`:
+  the same last segment, a leading `.` dropped and case kept), unless a code span of the Parsing part's Secrets section names the path (`secrets_store`),
   or its sentence says it is not a credential (`denies_credential`).
 - `secret-under-exclusion`: a secret glob each of whose sample paths an exclusion prunes.
 - `exclusion-unreachable`, `secret-unreachable`: an exclusion or secret glob with no owner
@@ -174,19 +174,20 @@ def sibling_bases(
 ) -> list[TableLine]:
     """Return the other platform forms of a base directory among an agent's home entries.
 
-    A sibling ends in the same segment, compared case-folded with a leading `.` dropped, is on
-    a platform the base's does not cover (`PLATFORMS_COVERED`), shares a kind of state with the
-    base (`base_form`), and is named by a span of the Per-user storage section (`names_glob`):
-    `.config/Claude` and `Library/Application Support/Claude` are siblings; `.config/zed` and
-    `.local/share/zed` are not, nor `.alpha` and `Library/Application Support/alpha`.
+    A sibling ends in the base's last segment with a leading `.` dropped and case kept, since a
+    directory differing only by case is another surface's; it is on a platform the base's does
+    not cover (`PLATFORMS_COVERED`), shares a kind of state with the base (`base_form`), and is
+    named by a span of the Per-user storage section (`names_glob`): `.config/Claude` and
+    `Library/Application Support/Claude` are siblings; `.config/zed` and `.local/share/zed` are
+    not, nor `.alpha` and `Library/Application Support/alpha`, nor `.hermes` and `.../Hermes`.
     """
     spans = list(named)
-    last = base.glob.rsplit("/", 1)[-1].lstrip(".").casefold()
+    last = base.glob.rsplit("/", 1)[-1].lstrip(".")
     platform, kinds = base_form(base.glob)
     covered = PLATFORMS_COVERED.get(platform, {platform})
     found: list[TableLine] = []
     for entry in entries:
-        if entry.glob.rsplit("/", 1)[-1].lstrip(".").casefold() != last:
+        if entry.glob.rsplit("/", 1)[-1].lstrip(".") != last:
             continue
         other_platform, other_kinds = base_form(entry.glob)
         if covered & PLATFORMS_COVERED.get(other_platform, {other_platform}):
