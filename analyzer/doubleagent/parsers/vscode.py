@@ -39,7 +39,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from .. import sqlite_util
-from ..errors import DoubleAgentError
+from ..errors import DoubleAgentError, unreadable_message
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
@@ -50,7 +50,9 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
+    iter_lines,
     line_text,
     setting_value,
     track_change,
@@ -433,12 +435,13 @@ class VsCodeParser(Parser):
         if artifact.rel.endswith(".jsonl"):
             state = self._replay(artifact, request_lines, errors)
         else:
-            try:
-                with open(artifact.disk_path, "rb") as handle:
-                    state = json.loads(handle.read().decode("utf-8", errors="replace"))
-            except ValueError as error:
-                state = None
-                errors.append((0, "file is not valid JSON (%s)" % error, ""))
+            state = None
+            data = file_bytes(artifact.disk_path, errors)
+            if data is not None:
+                try:
+                    state = json.loads(data.decode("utf-8", errors="replace"))
+                except ValueError as error:
+                    errors.append((0, "file is not valid JSON (%s)" % error, ""))
         if not isinstance(state, dict):
             state = {}
         session_id = str(state.get("sessionId") or Path(artifact.rel).name.rsplit(".", 1)[0])
@@ -495,12 +498,16 @@ class VsCodeParser(Parser):
     def _parse_cloud_sessions(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one sync row per `cloudSessions.json` entry at the file's mtime.
 
-        A file that is not a JSON object gives one `parser:` row.
+        A file that cannot be read or is not a JSON object gives one `parser:` row.
         """
         timestamp = file_mtime(artifact)
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                doc = json.loads(handle.read().decode("utf-8", errors="replace"))
+            doc = json.loads(data.decode("utf-8", errors="replace"))
         except ValueError as error:
             doc = error
         if not isinstance(doc, dict):
@@ -650,12 +657,17 @@ class VsCodeParser(Parser):
         A `permission setting:` row per auto-approve setting or entry and for
         the default permission level, and a `model setting:` row for the
         default model, at the file's mtime; one `parser:` row when the file
-        is not a JSON object.
+        cannot be read or is not a JSON object.
         """
         timestamp, source = file_mtime(artifact), user_rel(artifact.rel)
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            doc = parse_jsonc(artifact.disk_path.read_bytes())
-        except (OSError, ValueError) as error:
+            doc = parse_jsonc(data)
+        except ValueError as error:
             doc = error
         if not isinstance(doc, dict):
             why = " (%s)" % doc if isinstance(doc, Exception) else ""
@@ -688,14 +700,15 @@ class VsCodeParser(Parser):
         errors: list = []
         project = self._workspace_json(artifact.disk_path.parent.parent.parent, errors)[0]
         doc = None
-        try:
-            with open(artifact.disk_path, "rb") as handle:
-                doc = json.loads(handle.read().decode("utf-8", errors="replace"))
-        except ValueError as error:
-            errors.append((0, "file is not valid JSON (%s)" % error, ""))
-        else:
-            if not isinstance(doc, dict):
-                errors.append((0, "state.json is not a JSON object", ""))
+        data = file_bytes(artifact.disk_path, errors)
+        if data is not None:
+            try:
+                doc = json.loads(data.decode("utf-8", errors="replace"))
+            except ValueError as error:
+                errors.append((0, "file is not valid JSON (%s)" % error, ""))
+            else:
+                if not isinstance(doc, dict):
+                    errors.append((0, "state.json is not a JSON object", ""))
         snapshot = doc.get("recentSnapshot") if isinstance(doc, dict) else None
         entries = snapshot.get("entries") if isinstance(snapshot, dict) else None
         timestamp = file_mtime(artifact)
@@ -735,29 +748,27 @@ class VsCodeParser(Parser):
         A line that does not decode, or whose mutation does not apply, is
         appended to `errors` as (line, reason, line text) and skipped;
         `iter_jsonl` is not used because a mutation error needs the line's
-        text too.
+        text too. The lines come from `iter_lines`, which reports a file
+        that cannot be opened or read.
         """
         state = None
-        with open(artifact.disk_path, "rb") as handle:
-            for line_number, raw in enumerate(handle, 1):
-                stripped = raw.strip()
-                if not stripped:
-                    continue
-                try:
-                    record = json.loads(stripped.decode("utf-8", errors="replace"))
-                except ValueError as error:
-                    errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
-                    continue
-                if not isinstance(record, dict):
-                    continue
-                try:
-                    state = apply_mutation(state, record)
-                except MutationError as error:
-                    errors.append(
-                        (line_number, "mutation not applied (%s)" % error, line_text(raw))
-                    )
-                    continue
-                self._track(record, state, line_number, request_lines)
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            stripped = raw.strip()
+            if not stripped:
+                continue
+            try:
+                record = json.loads(stripped.decode("utf-8", errors="replace"))
+            except ValueError as error:
+                errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
+                continue
+            if not isinstance(record, dict):
+                continue
+            try:
+                state = apply_mutation(state, record)
+            except MutationError as error:
+                errors.append((line_number, "mutation not applied (%s)" % error, line_text(raw)))
+                continue
+            self._track(record, state, line_number, request_lines)
         return state
 
     @staticmethod
@@ -794,8 +805,8 @@ class VsCodeParser(Parser):
 
         Returns `(folder, workspace_file)`, either empty when absent; only
         the folder may become the project path. A
-        `workspace.json` that cannot be read or is not a JSON object adds
-        one whole-file entry to `errors`.
+        `workspace.json` that cannot be read, does not decode or is not a
+        JSON object adds one whole-file entry to `errors`.
         """
         parts = artifact.rel.split("/")
         if len(parts) < 4 or parts[-2] != "chatSessions" or parts[-4] != "workspaceStorage":
@@ -813,9 +824,15 @@ class VsCodeParser(Parser):
         try:
             if workspace_file.is_symlink() or not workspace_file.is_file():
                 return "", ""
-            with open(workspace_file, "rb") as handle:
-                data = json.loads(handle.read().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+        except OSError as error:
+            errors.append((0, unreadable_message(workspace_file, error)))
+            return "", ""
+        content = file_bytes(workspace_file, errors)
+        if content is None:
+            return "", ""
+        try:
+            data = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             errors.append((0, "workspace.json not read (%s)" % error, ""))
             return "", ""
         if not isinstance(data, dict):

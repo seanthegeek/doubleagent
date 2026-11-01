@@ -404,7 +404,6 @@ class TabbyTests(ParserBase):
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_config_unreadable_is_reported_on_every_python(self):
         path = self.home / TABBY_CONFIG_REL
-        mtime = to_utc(path.stat().st_mtime)
         path.chmod(0)
         try:
             rows = self.rows_for(TabbyParser(), TABBY_CONFIG_REL)
@@ -412,7 +411,7 @@ class TabbyTests(ParserBase):
             path.chmod(0o600)
         self.assertEqual(
             [(row.turn_type, row.timestamp_utc, row.text, row.source_line) for row in rows],
-            [("system", mtime, "parser: config.toml could not be read: Permission denied", 0)],
+            [("system", "", "parser: config.toml could not be read (Permission denied)", 0)],
         )
 
     def test_bad_config_is_reported_not_fatal(self):
@@ -445,6 +444,26 @@ class TabbyTests(ParserBase):
                 ("user", 2, "", "", "convert to async"),
             ],
         )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_intellij_history_is_one_row(self):
+        path = self.home / TABBY_INTELLIJ_REL
+        path.chmod(0)
+        try:
+            rows = self.rows_for(TabbyParser(), TABBY_INTELLIJ_REL)
+            events = self.rows_for(TabbyParser(), TABBY_EVENTS_REL)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.timestamp_utc, row.text, row.source_line, row.session_id)
+                for row in rows
+            ],
+            [("system", "", "parser: %s could not be read (Permission denied)" % path.name, 0, "")],
+        )
+        self.assertTrue(any(not row.text.startswith("parser:") for row in events))
+        readable = self.rows_for(TabbyParser(), TABBY_INTELLIJ_REL)
+        self.assertEqual([row.turn_type for row in readable], ["system", "user", "user"])
 
     def test_truncated_intellij_history_is_reported_not_fatal(self):
         path = self.home / TABBY_INTELLIJ_REL

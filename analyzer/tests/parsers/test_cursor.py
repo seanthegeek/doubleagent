@@ -3,7 +3,10 @@
 import json
 import os
 import sqlite3
+import unittest
 from typing import ClassVar
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.model import summarise
@@ -1030,6 +1033,40 @@ class CursorTests(ParserBase):
             [row.text for row in self.rows_for(parser, CURSOR_ATTEMPT_REL)],
             ["parser: %s is not a JSON object" % CURSOR_ATTEMPT_REL],
         )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_attempt_and_settings_files_are_one_row(self):
+        """Give an attempt or settings file that cannot be opened one shared `parser:` row."""
+        parser = CursorParser()
+        cases = [CURSOR_ATTEMPT_REL, ".cursor/cli-config.json", ".cursor/permissions.json"]
+        for rel in cases:
+            others = [other for other in cases if other != rel]
+            locked = self.home / rel
+            locked.chmod(0)
+            try:
+                rows = self.rows_for(parser, rel)
+                later = [row for other in others for row in self.rows_for(parser, other)]
+            finally:
+                locked.chmod(0o600)
+            self.assertEqual(
+                [
+                    (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                    for row in rows
+                ],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % locked.name,
+                        0,
+                        "",
+                        "",
+                    )
+                ],
+                rel,
+            )
+            self.assertEqual(rows[0].project_path, "", rel)
+            self.assertTrue(later, rel)
+            self.assertFalse([row for row in later if row.text.startswith("parser:")], rel)
 
     def test_mcp_auth_resolution(self):
         """Join the cloud agent's MCP auth answer to its tool call as a decision."""

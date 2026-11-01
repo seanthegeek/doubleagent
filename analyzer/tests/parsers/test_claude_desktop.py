@@ -2,6 +2,9 @@
 
 import json
 import shutil
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import open_input
@@ -613,6 +616,25 @@ class ClaudeDesktopTests(ParserBase):
                 for folder in ("/srv/proj", "/srv/docs")
             ],
         )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_json_file_is_one_row(self):
+        for rel in (CD_RECORD_REL, CD_SCHED_REL, CD_WORKTREES_REL, CD_SPACES_REL):
+            path = self.home / rel
+            path.chmod(0)
+            try:
+                parser = ClaudeDesktopParser()
+                rows = self.rows_for(parser, rel)
+                transcript = self.rows_for(parser, CD_TRANSCRIPT_REL)
+            finally:
+                path.chmod(0o600)
+            name = rel.rsplit("/", 1)[-1]
+            self.assertEqual(
+                [(row.turn_type, row.source_line, row.timestamp_utc, row.text) for row in rows],
+                [("system", 0, "", "parser: %s could not be read (Permission denied)" % name)],
+                rel,
+            )
+            self.assertTrue(transcript, rel)
 
     def test_remote_session_spaces_not_object(self):
         (self.home / CD_SPACES_REL).write_text("[1]", encoding="utf-8")

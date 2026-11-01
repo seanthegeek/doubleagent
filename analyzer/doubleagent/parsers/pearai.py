@@ -256,7 +256,8 @@ class PearAiParser(LegacyTaskParser):
 
     def _api_permission_rows(self, artifact: Artifact) -> Iterator[Row]:
         context = self.context(artifact)
-        ui_messages = self.cached_json(artifact.disk_path.parent / UI_FILE)
+        # A pre-scan: the same parser reports ui_messages.json when it parses the file.
+        ui_messages = self.cached_json(artifact.disk_path.parent / UI_FILE, [])
         asks = sorted(
             message["ts"]
             for message in (ui_messages if isinstance(ui_messages, list) else [])
@@ -419,20 +420,15 @@ class PearAiParser(LegacyTaskParser):
     # ---- chat sessions (Continue fork) -----------------------------------------
 
     def _parse_session(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        raw = read_text(artifact.disk_path)
+        match = SESSION_PATTERN.match(artifact.rel)
+        assert match is not None  # wants() accepted only matching paths
+        errors: list = []
+        raw = read_text(artifact.disk_path, errors)
         if raw is None:
-            row = self.base_row(artifact)
-            row.turn_type = "system"
-            row.text = "parser: unreadable session file"
-            yield row
+            yield from error_rows(self, artifact, errors, match.group(1))
             return
         session, problem = load_session(raw)
-        session_id = session.get("sessionId")
-        if not session_id:
-            match = SESSION_PATTERN.match(artifact.rel)
-            assert match is not None  # wants() accepted only matching paths
-            session_id = match.group(1)
-        session_id = str(session_id)
+        session_id = str(session.get("sessionId") or match.group(1))
         entry = self._continue._index(artifact.disk_path.parent).get(session_id, {})
         timestamp = to_utc(entry.get("dateCreated"))
         project = str(session.get("workspaceDirectory") or entry.get("workspaceDirectory") or "")
@@ -515,11 +511,11 @@ class PearAiParser(LegacyTaskParser):
     # ---- chat use outside the session files (secondary sources) ----------------
 
     def _parse_output_log(self, artifact: Artifact) -> Iterator[Row]:
-        raw = read_text(artifact.disk_path)
-        if raw is None:
-            yield from error_rows(self, artifact, [(0, "unreadable output channel log", "")])
-            return
         errors: list = []
+        raw = read_text(artifact.disk_path, errors)
+        if raw is None:
+            yield from error_rows(self, artifact, errors)
+            return
         models: dict = {}
         model = ""
         chat = False

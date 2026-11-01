@@ -133,7 +133,7 @@ class CrushTests(ParserBase):
         problems = [row for row in rows if row.source_file.endswith(rel)]
         self.assertEqual(
             [(row.turn_type, row.text) for row in problems],
-            [("system", "parser: projects.json could not be read: Permission denied")],
+            [("system", "parser: projects.json could not be read (Permission denied)")],
         )
         # The session database beside it is still parsed.
         self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 8)
@@ -439,9 +439,39 @@ class CrushTests(ParserBase):
                 path.chmod(0o600)
             self.assertEqual(
                 [(row.turn_type, row.text, row.source_line) for row in rows],
-                [("system", "parser: %s could not be read: Permission denied" % rel, 1)],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % Path(rel).name,
+                        0,
+                    )
+                ],
                 rel,
             )
+            self.assertEqual({row.timestamp_utc for row in rows}, {""}, rel)
+            self.assertEqual(
+                {row.project_path for row in rows},
+                {"/alice" if rel.startswith(".crush") else ""},
+                rel,
+            )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_crushrc_unreadable_is_one_row(self):
+        rel = ".config/crush/crushrc"
+        path = self.home / rel
+        path.write_text("permissions allow bash\n", encoding="utf-8")
+        parser = CrushParser()
+        col = open_input(self.tmp / "home", self.cat, host="h1")
+        artifact = next(item for item in col.artifacts if item.rel == rel)
+        path.chmod(0)
+        try:
+            rows = list(parser.parse(artifact, Options()))
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+            [("system", "parser: crushrc could not be read (Permission denied)", 0, "")],
+        )
 
     def test_crushrc_standing_rows(self):
         from fixtures import CRUSHRC

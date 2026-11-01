@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -45,6 +46,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     line_text,
@@ -583,11 +585,18 @@ def _dict(value: object) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def _read_json(artifact: Artifact) -> object:
-    """The parsed file, or None when it cannot be read or parsed."""
+def _read_json(artifact: Artifact, errors: list) -> object:
+    """Return the parsed file, or None when it cannot be read or parsed.
+
+    A file that cannot be read also leaves its entry in `errors`; one that
+    does not parse leaves none.
+    """
+    content = file_bytes(artifact.disk_path, errors)
+    if content is None:
+        return None
     try:
-        return json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-    except (OSError, ValueError):
+        return json.loads(content.decode("utf-8", errors="replace"))
+    except ValueError:
         return None
 
 
@@ -608,22 +617,24 @@ def _chunks(logs: Path, form: str) -> list[Path]:
     return sorted((path for path in names if _regular(path)), key=lambda path: int(path.stem))
 
 
-def brain_copy(path: Path, form: str, chunk_form: str) -> bytes | None:
+def brain_copy(path: Path, form: str, chunk_form: str, errors: list) -> bytes | None:
     """Return the bytes of the brain transcript `path` stands for, or None.
 
-    None means another copy of the same transcript is the one read. The copies, in order
-    of preference: `transcript_full.jsonl`; its chunks, concatenated (a line cut at a
-    chunk boundary is whole again); the shortened `transcript.jsonl`; its chunks. A
-    chunked form is read through its first chunk present.
+    None means another copy of the same transcript is the one read, or the file could
+    not be read, which leaves its entry in `errors`. The copies, in order of preference:
+    `transcript_full.jsonl`; its chunks, concatenated (a line cut at a chunk boundary is
+    whole again, and a chunk that cannot be read is left out after its entry); the
+    shortened `transcript.jsonl`; its chunks. A chunked form is read through its first
+    chunk present.
     """
     logs = path.parent if form else path.parent.parent.parent
     full = logs / (FULL + ".jsonl")
     if form == FULL:
-        return path.read_bytes()
+        return file_bytes(path, errors)
     if form == SHORT:
         if _regular(full) or _chunks(logs, FULL):
             return None
-        return path.read_bytes()
+        return file_bytes(path, errors)
     chunks = _chunks(logs, chunk_form)
     if not chunks or chunks[0].name != path.name:
         return None
@@ -631,7 +642,7 @@ def brain_copy(path: Path, form: str, chunk_form: str) -> bytes | None:
         return None
     if chunk_form == SHORT and (_chunks(logs, FULL) or _regular(logs / (SHORT + ".jsonl"))):
         return None
-    return b"".join(chunk.read_bytes() for chunk in chunks)
+    return b"".join(file_bytes(chunk, errors) or b"" for chunk in chunks)
 
 
 def _brain_args(tool_call: dict) -> str:
@@ -935,11 +946,12 @@ class AntigravityParser(Parser):
         match = BRAIN_PATTERN.match(artifact.rel)
         if not match:
             return
-        blob = brain_copy(artifact.disk_path, match.group(3) or "", match.group(4) or "")
-        if blob is None:
-            return
         session_id = match.group(2)
         errors: list = []
+        blob = brain_copy(artifact.disk_path, match.group(3) or "", match.group(4) or "", errors)
+        if blob is None:
+            yield from error_rows(self, artifact, errors, session_id)
+            return
         calls: list[dict] = []
         for line_number, raw in enumerate(blob.split(b"\n"), 1):
             stripped = raw.strip()
@@ -1028,7 +1040,11 @@ class AntigravityParser(Parser):
 
     # -- standing permission files ----------------------------------------------
     def _parse_standing(self, artifact: Artifact) -> Iterator[Row]:
-        doc = _read_json(artifact)
+        errors: list = []
+        doc = _read_json(artifact, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         mtime = file_mtime(artifact)
         if not isinstance(doc, dict):
             row = self.base_row(artifact)
@@ -1056,39 +1072,47 @@ class AntigravityParser(Parser):
         if problem:
             yield from error_rows(self, artifact, [(0, problem)])
             return
-        with open_copy(artifact.disk_path) as connection:
-            if "conversation_summaries" not in table_names(connection):
-                return
-            for position, summary in enumerate(
-                connection.execute(
-                    "select * from conversation_summaries order by last_modified_time"
+        try:
+            with open_copy(artifact.disk_path) as connection:
+                rows = list(self._summary_rows(artifact, opts, connection))
+        except sqlite3.DatabaseError as error:
+            message = "SQLite error: %s" % error
+            yield from error_rows(self, artifact, [(0, message)])
+            return
+        yield from rows
+
+    def _summary_rows(self, artifact: Artifact, opts: Options, connection) -> Iterator[Row]:
+        """Yield one `conversation summary` row per summary of an open database."""
+        if "conversation_summaries" not in table_names(connection):
+            return
+        for position, summary in enumerate(
+            connection.execute("select * from conversation_summaries order by last_modified_time"),
+            1,
+        ):
+            summary = dict(summary)
+            row = self.base_row(artifact)
+            row.source_line = position
+            row.session_id = str(summary.get("conversation_id") or "")
+            row.timestamp_utc = to_utc(summary.get("last_modified_time"))
+            try:
+                uris = json.loads(summary.get("workspace_uris") or "[]")
+            except ValueError:
+                uris = []
+            row.project_path = uri_to_path(uris[0]) if uris else ""
+            row.turn_type = "system"
+            row.text = compact(
+                _join(
+                    "conversation summary",
+                    summary.get("title") or summary.get("preview") or "",
+                    str(summary.get("status") or ""),
+                    "%s steps" % summary.get("step_count", 0),
+                    "agent=%s" % summary["agent_name"] if summary.get("agent_name") else "",
+                    "parent=%s" % summary["parent_conversation_id"]
+                    if summary.get("parent_conversation_id")
+                    else "",
                 ),
-                1,
-            ):
-                summary = dict(summary)
-                row = self.base_row(artifact)
-                row.source_line = position
-                row.session_id = str(summary.get("conversation_id") or "")
-                row.timestamp_utc = to_utc(summary.get("last_modified_time"))
-                try:
-                    uris = json.loads(summary.get("workspace_uris") or "[]")
-                except ValueError:
-                    uris = []
-                row.project_path = uri_to_path(uris[0]) if uris else ""
-                row.turn_type = "system"
-                row.text = compact(
-                    _join(
-                        "conversation summary",
-                        summary.get("title") or summary.get("preview") or "",
-                        str(summary.get("status") or ""),
-                        "%s steps" % summary.get("step_count", 0),
-                        "agent=%s" % summary["agent_name"] if summary.get("agent_name") else "",
-                        "parent=%s" % summary["parent_conversation_id"]
-                        if summary.get("parent_conversation_id")
-                        else "",
-                    ),
-                )
-                yield row
+            )
+            yield row
 
     # -- conversations/<id>.db -----------------------------------------------------
     def _parse_conversation(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
@@ -1096,130 +1120,126 @@ class AntigravityParser(Parser):
         if problem:
             yield from error_rows(self, artifact, [(0, problem)], artifact.disk_path.name[:-3])
             return
-        with open_copy(artifact.disk_path) as connection:
-            tables = table_names(connection)
-            if "steps" not in tables:
-                return
-            session_id = artifact.disk_path.name[:-3]
-            project_path = branch = source = ""
-            match = CONVERSATION_PATTERN.match(artifact.rel)
-            data_dir = match.group(1) if match else ""
-            if "trajectory_meta" in tables:
-                trajectory = connection.execute("select * from trajectory_meta limit 1").fetchone()
-                if trajectory:
-                    session_id = trajectory["cascade_id"] or session_id
-                    if trajectory["source"] is not None:
-                        source = TRAJECTORY_SOURCES.get(
-                            trajectory["source"], str(trajectory["source"])
-                        )
-            if "trajectory_metadata_blob" in tables:
-                blob = connection.execute(
-                    "select data from trajectory_metadata_blob limit 1"
-                ).fetchone()
-                if blob and blob[0]:
-                    try:
-                        meta = decode(blob[0], "CortexTrajectoryMetadata", SCHEMA)
-                    except ValueError:
-                        meta = {}
-                    workspace = (meta.get("workspaces") or [{}])[0]
-                    project_path = uri_to_path(
-                        workspace.get("workspace_folder_absolute_uri")
-                        or (meta.get("workspace_uris") or [""])[0]
-                    )
-                    branch = workspace.get("branch_name", "")
-                    if meta.get("created_at"):
-                        row = self._row(artifact, 0, session_id, project_path, branch)
-                        row.timestamp_utc = meta["created_at"]
-                        row.turn_type = "system"
-                        row.text = compact(
-                            _join(
-                                "session start",
-                                "source=%s" % source if source else "",
-                                "data_dir=%s" % data_dir if data_dir else "",
-                                "project_id=%s" % meta["project_id"]
-                                if meta.get("project_id")
-                                else "",
-                                "parent=%s" % meta["parent_conversation_id"]
-                                if meta.get("parent_conversation_id")
-                                else "",
-                            ),
-                        )
-                        yield row
-            models: dict[int, str] = {}
-            if "gen_metadata" in tables:
-                for (data,) in connection.execute("select data from gen_metadata"):
-                    try:
-                        generator = decode(data or b"", "CortexStepGeneratorMetadata", SCHEMA)
-                    except ValueError:
-                        continue
-                    chat_model = generator.get("chat_model") or {}
-                    model = (
-                        chat_model.get("response_model")
-                        or chat_model.get("model_display_name")
-                        or ""
-                    )
-                    for index in generator.get("step_indices", []):
-                        models[index] = model
-            seen_models: dict = {}
-            bad = 0
-            columns = {
-                column_info[1] for column_info in connection.execute("pragma table_info(steps)")
-            }
-            permissions_column = (
-                "permissions" if "permissions" in columns else "NULL AS permissions"
-            )
-            for step_row in connection.execute(
-                "select idx, step_type, status, metadata, step_payload, %s from steps order by idx"
-                % permissions_column
-            ):
-                index = step_row["idx"]
+        try:
+            with open_copy(artifact.disk_path) as connection:
+                rows = list(self._conversation_rows(artifact, opts, connection))
+        except sqlite3.DatabaseError as error:
+            message = "SQLite error: %s" % error
+            yield from error_rows(self, artifact, [(0, message)], artifact.disk_path.name[:-3])
+            return
+        yield from rows
+
+    def _conversation_rows(self, artifact: Artifact, opts: Options, connection) -> Iterator[Row]:
+        """Yield the rows of an open conversation database."""
+        tables = table_names(connection)
+        if "steps" not in tables:
+            return
+        session_id = artifact.disk_path.name[:-3]
+        project_path = branch = source = ""
+        match = CONVERSATION_PATTERN.match(artifact.rel)
+        data_dir = match.group(1) if match else ""
+        if "trajectory_meta" in tables:
+            trajectory = connection.execute("select * from trajectory_meta limit 1").fetchone()
+            if trajectory:
+                session_id = trajectory["cascade_id"] or session_id
+                if trajectory["source"] is not None:
+                    source = TRAJECTORY_SOURCES.get(trajectory["source"], str(trajectory["source"]))
+        if "trajectory_metadata_blob" in tables:
+            blob = connection.execute(
+                "select data from trajectory_metadata_blob limit 1"
+            ).fetchone()
+            if blob and blob[0]:
                 try:
-                    step = (
-                        decode(step_row["step_payload"], "Step", SCHEMA)
-                        if step_row["step_payload"]
-                        else {}
-                    )
-                    if "metadata" not in step and step_row["metadata"]:
-                        step["metadata"] = decode(
-                            step_row["metadata"], "CortexStepMetadata", SCHEMA
-                        )
+                    meta = decode(blob[0], "CortexTrajectoryMetadata", SCHEMA)
                 except ValueError:
-                    bad += 1
-                    continue
-                model = models.get(index, "")
-                change = track_change("model", seen_models, session_id, model)
-                if change:
-                    # The model at the conversation's first generated step and
-                    # on every change, before that step's own rows.
-                    metadata = step.get("metadata") or {}
-                    row = self._row(artifact, index, session_id, project_path, branch)
-                    row.timestamp_utc = metadata.get("created_at") or metadata.get(
-                        "completed_at", ""
-                    )
+                    meta = {}
+                workspace = (meta.get("workspaces") or [{}])[0]
+                project_path = uri_to_path(
+                    workspace.get("workspace_folder_absolute_uri")
+                    or (meta.get("workspace_uris") or [""])[0]
+                )
+                branch = workspace.get("branch_name", "")
+                if meta.get("created_at"):
+                    row = self._row(artifact, 0, session_id, project_path, branch)
+                    row.timestamp_utc = meta["created_at"]
                     row.turn_type = "system"
-                    row.model = model
-                    row.text = change
+                    row.text = compact(
+                        _join(
+                            "session start",
+                            "source=%s" % source if source else "",
+                            "data_dir=%s" % data_dir if data_dir else "",
+                            "project_id=%s" % meta["project_id"] if meta.get("project_id") else "",
+                            "parent=%s" % meta["parent_conversation_id"]
+                            if meta.get("parent_conversation_id")
+                            else "",
+                        ),
+                    )
                     yield row
-                yield from self._step_rows(
-                    artifact,
-                    index,
-                    step_row["step_type"],
-                    step_row["status"],
-                    step,
-                    session_id,
-                    project_path,
-                    branch,
-                    model,
-                    opts,
+        models: dict[int, str] = {}
+        if "gen_metadata" in tables:
+            for (data,) in connection.execute("select data from gen_metadata"):
+                try:
+                    generator = decode(data or b"", "CortexStepGeneratorMetadata", SCHEMA)
+                except ValueError:
+                    continue
+                chat_model = generator.get("chat_model") or {}
+                model = (
+                    chat_model.get("response_model") or chat_model.get("model_display_name") or ""
                 )
-                yield from self._permission_rows(
-                    artifact, index, step, step_row["permissions"], session_id, project_path, branch
+                for index in generator.get("step_indices", []):
+                    models[index] = model
+        seen_models: dict = {}
+        bad = 0
+        columns = {column_info[1] for column_info in connection.execute("pragma table_info(steps)")}
+        permissions_column = "permissions" if "permissions" in columns else "NULL AS permissions"
+        for step_row in connection.execute(
+            "select idx, step_type, status, metadata, step_payload, %s from steps order by idx"
+            % permissions_column
+        ):
+            index = step_row["idx"]
+            try:
+                step = (
+                    decode(step_row["step_payload"], "Step", SCHEMA)
+                    if step_row["step_payload"]
+                    else {}
                 )
-            if bad:
-                row = self._row(artifact, 0, session_id, project_path, branch)
+                if "metadata" not in step and step_row["metadata"]:
+                    step["metadata"] = decode(step_row["metadata"], "CortexStepMetadata", SCHEMA)
+            except ValueError:
+                bad += 1
+                continue
+            model = models.get(index, "")
+            change = track_change("model", seen_models, session_id, model)
+            if change:
+                # The model at the conversation's first generated step and
+                # on every change, before that step's own rows.
+                metadata = step.get("metadata") or {}
+                row = self._row(artifact, index, session_id, project_path, branch)
+                row.timestamp_utc = metadata.get("created_at") or metadata.get("completed_at", "")
                 row.turn_type = "system"
-                row.text = "parser: %d step(s) could not be decoded" % bad
+                row.model = model
+                row.text = change
                 yield row
+            yield from self._step_rows(
+                artifact,
+                index,
+                step_row["step_type"],
+                step_row["status"],
+                step,
+                session_id,
+                project_path,
+                branch,
+                model,
+                opts,
+            )
+            yield from self._permission_rows(
+                artifact, index, step, step_row["permissions"], session_id, project_path, branch
+            )
+        if bad:
+            row = self._row(artifact, 0, session_id, project_path, branch)
+            row.turn_type = "system"
+            row.text = "parser: %d step(s) could not be decoded" % bad
+            yield row
 
     def _row(
         self, artifact: Artifact, index: int, session_id: str, project_path: str, branch: str

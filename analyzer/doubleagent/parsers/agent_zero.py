@@ -41,6 +41,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     setting_value,
     text_of,
@@ -416,7 +417,12 @@ class AgentZeroParser(Parser):
         fallback_id = path.stem if legacy else path.parent.name
         base = self.base_row(artifact)
         base.session_id = fallback_id
-        raw = path.read_bytes().decode("utf-8", errors="replace")
+        errors: list = []
+        content = file_bytes(path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, fallback_id)
+            return
+        raw = content.decode("utf-8", errors="replace")
         try:
             chat = json.loads(raw)
             if not isinstance(chat, dict):
@@ -428,7 +434,7 @@ class AgentZeroParser(Parser):
                 "parser: chat.json did not parse (%s); log items recovered without history" % error,
                 opts,
             )
-            yield from self._log_rows(base, recover_logs(raw), {}, None, opts, {})
+            yield from self._log_rows(base, recover_logs(raw), {}, None, opts, {}, errors)
             return
 
         base.session_id = str(chat.get("id") or fallback_id)
@@ -517,9 +523,9 @@ class AgentZeroParser(Parser):
                 elif str(node.get("id") or "") not in log_ids:
                     yield from self._history_rows(base, agent_number, node, opts, models)
 
-        yield from self._log_rows(
-            base, logs, history, path.parent / "messages" if not legacy else None, opts, models
-        )
+        messages_dir = path.parent / "messages" if not legacy else None
+        yield from self._log_rows(base, logs, history, messages_dir, opts, models, errors)
+        yield from error_rows(self, artifact, errors, base.session_id, base.project_path)
 
     # -- helpers -----------------------------------------------------------------------
     @staticmethod
@@ -545,14 +551,19 @@ class AgentZeroParser(Parser):
         return row
 
     @staticmethod
-    def _message_file(messages_dir, content) -> str:
+    def _message_file(messages_dir, content, errors: list) -> str:
+        """Return the text of the message file a history entry names, `""` when there is none.
+
+        A file that exists but cannot be read is its unreadable entry in `errors`.
+        """
         if messages_dir is None or not isinstance(content, dict) or not content.get("file"):
             return ""
         name = str(content["file"]).replace("\\", "/").rsplit("/", 1)[-1]
         path = messages_dir / name
         if not name or path.is_symlink() or not path.is_file():
             return ""
-        return path.read_bytes().decode("utf-8", errors="replace")
+        text = file_bytes(path, errors)
+        return "" if text is None else text.decode("utf-8", errors="replace")
 
     def _model_row(
         self, base: Row, agent_number, model: str, models: dict, opts: Options, line=0, timestamp=""
@@ -625,7 +636,9 @@ class AgentZeroParser(Parser):
         messages_dir,
         opts: Options,
         models: dict,
+        errors: list,
     ) -> Iterator[Row]:
+        """Yield the log items' rows; a message file that cannot be read goes to `errors`."""
         for item in logs:
             kind = str(item.get("type") or "")
             number = item.get("no")
@@ -695,7 +708,7 @@ class AgentZeroParser(Parser):
                 row = make_row("tool_use", args_summary(kvps))
                 row.tool_name, row.tool_use_id = tool_name, tool_id
                 yield row
-                result = self._message_file(messages_dir, history_content)
+                result = self._message_file(messages_dir, history_content, errors)
                 if (
                     not result
                     and isinstance(history_content, dict)
@@ -722,12 +735,15 @@ class AgentZeroParser(Parser):
                         yield row
 
     # -- files beside the chats ----------------------------------------------------
-    def _doc(self, artifact: Artifact) -> tuple[object, str]:
-        """The file as JSON, or (None, the reason it is not)."""
-        try:
-            raw = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError as error:
-            return None, "unreadable (%s)" % error
+    def _doc(self, artifact: Artifact, errors: list) -> tuple[object, str]:
+        """Return the file as JSON, or (None, the reason it is not).
+
+        A file that cannot be read is its unreadable entry in `errors` and gives (None, "").
+        """
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            return None, ""
+        raw = content.decode("utf-8", errors="replace")
         try:
             return json.loads(raw), ""
         except ValueError as error:
@@ -756,14 +772,17 @@ class AgentZeroParser(Parser):
         row at `created_at`, the prompt as the chat logged it with no time of its own, and
         the last result at `last_run`.
         """
-        doc, why = self._doc(artifact)
+        errors: list = []
+        doc, why = self._doc(artifact, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         tasks = doc.get("tasks") if isinstance(doc, dict) else None
         if not isinstance(tasks, list):
             yield self._file_row(
                 artifact, "parser: scheduler tasks file %s" % (why or "has no tasks list")
             )
             return
-        errors = []
         for number, task in enumerate(tasks, 1):
             if not isinstance(task, dict):
                 errors.append(
@@ -814,7 +833,11 @@ class AgentZeroParser(Parser):
 
     def _telegram_state(self, artifact: Artifact) -> Iterator[Row]:
         """Yield a `session deleted:` row per Telegram chat whose chat file is absent."""
-        doc, why = self._doc(artifact)
+        errors: list = []
+        doc, why = self._doc(artifact, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         chats = doc.get("chats") if isinstance(doc, dict) else None
         if not isinstance(chats, dict):
             yield self._file_row(artifact, "parser: state.json %s" % (why or "has no chats map"))
@@ -859,7 +882,11 @@ class AgentZeroParser(Parser):
         The file is a `_tool_access` policy (helpers/tool_policy.py:27-37) or the
         Orchestrator's settings.
         """
-        doc, why = self._doc(artifact)
+        errors: list = []
+        doc, why = self._doc(artifact, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         if not isinstance(doc, dict):
             yield self._file_row(
                 artifact, "parser: %s %s" % (artifact.rel, why or "is not a JSON object")
@@ -901,10 +928,12 @@ class AgentZeroParser(Parser):
         The file is a secret: only the last chat's host and id are read, as the connector
         reads them (a0-connector config.py:51-66), and no other line reaches a row.
         """
-        try:
-            text = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError:
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
             return
+        text = content.decode("utf-8", errors="replace")
         values = {}
         for line in text.splitlines():
             key, sep, value = line.strip().partition("=")

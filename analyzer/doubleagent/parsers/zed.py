@@ -45,7 +45,15 @@ from ..inputs import Artifact
 from ..model import GIT_REMOTE_PREFIX, Row, compact
 from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
-from .base import Options, Parser, compact_json, error_rows, file_mtime, setting_value
+from .base import (
+    Options,
+    Parser,
+    compact_json,
+    error_rows,
+    file_bytes,
+    file_mtime,
+    setting_value,
+)
 from .gemini_cli import parse_jsonc
 
 DATA_DIR = r"(?:\.local/share/zed|Library/Application Support/Zed|AppData/Local/Zed|\.var/app/dev\.zed\.Zed[A-Za-z]*/data/zed)"
@@ -290,10 +298,10 @@ class ZedParser(Parser):
     # -- settings.json, global_settings.json ----------------------------------------
     def _parse_settings(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one `permission setting:` row per standing permission, at the file's mtime."""
-        try:
-            raw = artifact.disk_path.read_bytes()
-        except OSError as error:
-            yield self._file_error(artifact, "unreadable: %s" % error)
+        errors: list = []
+        raw = file_bytes(artifact.disk_path, errors)
+        if raw is None:
+            yield from error_rows(self, artifact, errors)
             return
         if not raw.strip():
             return

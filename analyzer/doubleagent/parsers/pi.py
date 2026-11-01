@@ -46,8 +46,10 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
+    iter_lines,
     line_text,
     setting_value,
     text_of,
@@ -524,9 +526,14 @@ class PiParser(Parser):
 
     def _parse_trust(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one standing row per project path of `trust.json`, at the file's mtime."""
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            doc = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            doc = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError:
             doc = None
         timestamp = file_mtime(artifact)
         if not isinstance(doc, dict):
@@ -547,9 +554,14 @@ class PiParser(Parser):
 
     def _parse_settings(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the `defaultProjectTrust` standing row of `settings.json`, at the file's mtime."""
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            doc = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            doc = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError:
             return  # settings, not a transcript: no standing value to report
         value = doc.get("defaultProjectTrust") if isinstance(doc, dict) else None
         if value in (None, ""):
@@ -565,32 +577,35 @@ class PiParser(Parser):
     def _parse_debug_log(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         """Yield the messages after the JSONL marker of `pi-debug.log`, with no session id.
 
-        The screen lines before the marker are not read.
+        The screen lines before the marker are not read. A log that cannot be
+        opened is its one unreadable row, with no snapshot row.
         """
         session = SessionFile()
         written = ""
         in_messages = False
-        with open(artifact.disk_path, "rb") as handle:
-            for line_number, raw in enumerate(handle, 1):
-                line = line_text(raw)
-                if line_number == 1 and line.startswith(DEBUG_HEADER):
-                    written = to_utc(line[len(DEBUG_HEADER) :].strip())
-                if not in_messages:
-                    in_messages = line == DEBUG_MARKER
-                    continue
-                if not line.strip(JSON_SPACE):
-                    continue
-                try:
-                    message = json.loads(line)
-                except ValueError as error:
-                    session.errors.append((line_number, "unparseable line (%s)" % error, line))
-                    continue
-                if not isinstance(message, dict):
-                    session.errors.append(
-                        (line_number, "unparseable line (not a JSON object)", line)
-                    )
-                    continue
-                session.entries.append((line_number, {"type": "message", "message": message}))
+        read_any = False
+        for line_number, raw in iter_lines(artifact.disk_path, session.errors):
+            read_any = True
+            line = line_text(raw)
+            if line_number == 1 and line.startswith(DEBUG_HEADER):
+                written = to_utc(line[len(DEBUG_HEADER) :].strip())
+            if not in_messages:
+                in_messages = line == DEBUG_MARKER
+                continue
+            if not line.strip(JSON_SPACE):
+                continue
+            try:
+                message = json.loads(line)
+            except ValueError as error:
+                session.errors.append((line_number, "unparseable line (%s)" % error, line))
+                continue
+            if not isinstance(message, dict):
+                session.errors.append((line_number, "unparseable line (not a JSON object)", line))
+                continue
+            session.entries.append((line_number, {"type": "message", "message": message}))
+        if not read_any and session.errors:
+            yield from error_rows(self, artifact, session.errors)
+            return
         row = self.base_row(artifact)
         row.source_line, row.turn_type, row.timestamp_utc = 1, "system", written
         row.text = compact(
@@ -628,11 +643,15 @@ class PiParser(Parser):
         yield from error_rows(self, artifact, errors)
 
     def _parse_meta(self, artifact: Artifact, session_id: str, opts: Options) -> Iterator[Row]:
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, session_id)
+            return
         row = self.base_row(artifact)
         row.session_id, row.turn_type, row.source_line = session_id, "system", 1
         try:
-            with open(artifact.disk_path, "rb") as handle:
-                meta = json.loads(handle.read().decode("utf-8", errors="replace"))
+            meta = json.loads(content.decode("utf-8", errors="replace"))
         except ValueError as error:
             row.text = "parser: %s" % error
             yield row

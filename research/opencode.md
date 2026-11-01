@@ -1449,13 +1449,18 @@ is its own row, `source_file` the part file; a message or session file that does
 one whole-file `parser:` row, and a session file's project file that exists but does not decode
 gives one more; each line of `prompt-history.jsonl` and `prompt-stash.jsonl` that does not decode
 is its own row, read before OpenCode's next start drops it; a `session.json` that is not a JSON
-object is one `parser:` row, and a database SQLite cannot read is one:
+object is one `parser:` row, and a database SQLite cannot read is one. A message, session, part,
+project or `session.json` file that exists but cannot be read is one
+`parser: <file> could not be read (<reason>)` row, `<file>` its name, with `source_line` 0 and
+the session and project the parser knows for it: a part file's row has the part file as
+`source_file` and the message's session and project, and a project file's row sits with the
+session file that reads it. The session and project files read for a message file's context give
+no row there; their own pass reports them.
 
 ```text
 parser: unparseable record <rowid> (<table>.data: <reason>): <data>
 parser: unparseable record <rowid> (<table>.permission: not a JSON array): <value>
 parser: unparseable part <partID> (<reason>): <file text>
-parser: unparseable part <partID> (unreadable: <reason>)
 parser: unparseable line (<reason>): <line>
 parser: session file could not be decoded
 parser: message file could not be decoded

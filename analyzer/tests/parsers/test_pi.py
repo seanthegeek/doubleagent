@@ -2,6 +2,9 @@
 
 import io
 import json
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.dedup import deduplicate
@@ -35,7 +38,7 @@ from fixtures import (
 )
 
 from . import test_codex
-from .base import ParserBase, read_jsonl, rel_only
+from .base import ParserBase, kept_rows, parse_with, read_jsonl, rel_only, unreadable_rows
 
 
 class PiTests(ParserBase):
@@ -456,6 +459,35 @@ class PiTests(ParserBase):
             [(row.turn_type, row.source_line, row.text, row.session_id) for row in rows],
             [("system", line, bad_line_text(), "") for line in (1, 2)],
         )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_file_is_one_row(self):
+        unlocked = parse_with(self, PiParser)
+        # (file made unreadable, the session id of its row)
+        for rel, session_id in (
+            (".pi/agent/trust.json", ""),
+            (".pi/agent/settings.json", ""),
+            (".pi/agent/pi-debug.log", ""),
+            (".pi/agent/experimental/sessions/exp-session-1/meta.json", "exp-session-1"),
+        ):
+            rows = parse_with(self, PiParser, rel)
+            text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
+            self.assertEqual(
+                [
+                    (
+                        row.source_file.endswith(rel),
+                        row.source_line,
+                        row.timestamp_utc,
+                        row.session_id,
+                        row.text,
+                    )
+                    for row in unreadable_rows(rows)
+                ],
+                [(True, 0, "", session_id, text)],
+                rel,
+            )
+            # Every other file of the parser still gives its rows.
+            self.assertEqual(kept_rows(rows, rel), kept_rows(unlocked, rel), rel)
 
 
 class PiSyncTests(ParserBase):

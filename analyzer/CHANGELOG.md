@@ -17,11 +17,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Every SQLite reader treats a 0-byte database file as an empty database, as SQLite opens one, and reads it: the readers that reported one as not SQLite (Codex CLI and Open Interpreter, Goose, Crush, Hermes, Zed, Ollama, Copilot CLI and Desktop, Cursor, Tabby, the ChatGPT app and Nanobot with `parser: not a SQLite database`; Cline and OpenClaw's state database with their file-named wording) now give no row for it, or their row for a database without the expected table ([#378]).
 
 - Roo Code's row for a damaged `state.vscdb`, `parser: state.vscdb unreadable: <message>`, carries the whole message and no file time, as the other whole-file rows do; the Tabby and Twinny readers keep the message whole too ([#378]).
+- Every parser reports a file that exists but cannot be read as one `system` row `parser: <file> could not be read (<reason>)` with the operating system's reason, `<file>` its name and no time, in place of `parser: unreadable` rows, the Crush and Tabby `could not be read: <reason>` rows, a not-a-JSON-object or did-not-parse row, a `problem:` line or silence; the Gemini CLI and Qwen Code `parser: unreadable <file>: <reason>` rows of 0.22.0 for a file that cannot be read change to it too. A file read beside the one being parsed (a Claude Code persisted tool output or paste cache file, a Gemini CLI project marker, a Nanobot `.workspace`, an Antigravity brain chunk) gives the row at the file that reads it, and a log that fails mid-read keeps the rows of the lines before the failure ([#388]).
 
 ### Fixed
 
 - A SQLite database a parser cannot open, or an unreadable `-wal`, `-shm` or `-journal` sidecar beside one, is one `system` row `parser: <file> could not be read (<reason>)` from the parser that reads it, with the operating system's reason, and the rest of the input is still parsed. Before, an unreadable database was reported as `parser: not a SQLite database` or not at all, and an unreadable sidecar was a `problem:` line that lost every row of the database. A read error after the open, while the scratch copy is made, still leaves the parser ([#378], [#386]).
 - A JSONL file read through the shared JSONL reader that cannot be opened or read is one whole-file `system` row `parser: <file> could not be read (<reason>)` with the file's known session id and project path, and the parser's other files are still parsed. Before, the error left the parser as a `problem:` line and the timeline had no row for the file ([#379]).
+- A damaged Kiro or Antigravity SQLite database gives one `parser: SQLite error: <message>` row, as the other SQLite readers do, instead of the error leaving the parser as a `problem:` line ([#384]).
 
 ## [0.22.0] - 2026-10-31
 
@@ -2170,7 +2172,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#388]: https://github.com/seanthegeek/doubleagent/issues/388
 [#386]: https://github.com/seanthegeek/doubleagent/issues/386
+[#384]: https://github.com/seanthegeek/doubleagent/issues/384
 [#380]: https://github.com/seanthegeek/doubleagent/issues/380
 [#379]: https://github.com/seanthegeek/doubleagent/issues/379
 [#378]: https://github.com/seanthegeek/doubleagent/issues/378

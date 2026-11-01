@@ -42,8 +42,10 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
+    iter_lines,
     line_text,
     setting_value,
     track_change,
@@ -534,10 +536,15 @@ class MuseCodeParser(Parser):
 
     def _parse_trust(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one `permission setting:` row per `projects.<path>.decision`."""
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
         timestamp = file_mtime(artifact)
         try:
-            document = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            document = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError:
             document = None
         if not isinstance(document, dict):
             row = self.base_row(artifact)
@@ -664,23 +671,22 @@ class MuseCodeParser(Parser):
             row.text = compact(text)
             return row
 
-        with open(artifact.disk_path, "rb") as handle:
-            for line_number, raw in enumerate(handle, 1):
-                stripped = raw.strip()
-                if not stripped:
-                    continue
-                try:
-                    record = json.loads(stripped.decode("utf-8", errors="replace"))
-                except ValueError as error:
-                    errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
-                    continue
-                if isinstance(record, str):
-                    if pending is not None:
-                        yield emit(pending[0], pending[1], {})
-                    pending = (line_number, record)
-                elif isinstance(record, dict) and pending is not None:
-                    yield emit(pending[0], pending[1], record)
-                    pending = None
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            stripped = raw.strip()
+            if not stripped:
+                continue
+            try:
+                record = json.loads(stripped.decode("utf-8", errors="replace"))
+            except ValueError as error:
+                errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
+                continue
+            if isinstance(record, str):
+                if pending is not None:
+                    yield emit(pending[0], pending[1], {})
+                pending = (line_number, record)
+            elif isinstance(record, dict) and pending is not None:
+                yield emit(pending[0], pending[1], record)
+                pending = None
         if pending is not None:
             yield emit(pending[0], pending[1], {})
         yield from error_rows(self, artifact, errors)

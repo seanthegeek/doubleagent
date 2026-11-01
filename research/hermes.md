@@ -1681,11 +1681,14 @@ one SQLite cannot read is `parser: SQLite error: <message>`, and a `response_sto
 `responses` table is `parser: no responses table`; a `state.db` with no `messages` table gives no
 rows.
 
-`sessions/<id>.jsonl` goes through `iter_jsonl` and `error_rows`; one that cannot be read is one
-whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its name. In
-`pastes/pending.json` a file
-that does not parse or is not a JSON list is one `parser:` row, and an entry that is not an object
-with a `url` is its own `parser: unparseable record <N>` row carrying the entry.
+`sessions/<id>.jsonl` goes through `iter_jsonl` and `error_rows`. A `sessions/<id>.jsonl`,
+`pastes/pending.json`, `config.yaml`, pairing file, `connections.json`, cron run file,
+`trajectory_samples.jsonl` or `failed_trajectories.jsonl` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0 and no time;
+a trajectory file's row carries its project as `project_path`, and a cron run file keeps its
+`cron run:` row beside it. In `pastes/pending.json` a file that does not decode as JSON or is not
+a JSON list is one `parser:` row, and an entry that is not an object with a `url` is its own
+`parser: unparseable record <N>` row carrying the entry.
 
 In `state.db` a `sessions.origin_json` or `model_config`, a `state_meta` fence value, or a
 `hosted_room_events` `actor_json` or `payload_json` that does not decode to a JSON object is a row
@@ -1696,8 +1699,8 @@ value is reported the same way (`responses.data`), and a history entry that is n
 the Aider parser's `read_input_history`, whose bad line is `parser: unparseable line (not a
 FileHistory line): <line>`; a trajectory file's line that does not decode, is not an object or has
 no `conversations` list is `parser: unparseable line (<reason>): <line>`. A pairing file or
-`connections.json` that does not parse is one whole-file row and an entry that is not an object
-is its own `unparseable record <N> (not an object)` row; `config.yaml` is under
+`connections.json` that does not decode as JSON is one whole-file row and an entry that is not an
+object is its own `unparseable record <N> (not an object)` row; `config.yaml` is under
 [Permission rows](#permission-rows).
 
 Malformed `tool_calls`: a value that is not valid JSON, is not a list (a lone object is read as a

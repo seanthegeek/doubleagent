@@ -762,21 +762,22 @@ it (`input_history.json`, `dev_data`,
 
 `chatInteraction.jsonl`, `toolUsage.jsonl`, `editInteraction.jsonl`, `editOutcome.jsonl` and
 `chatFeedback.jsonl` go through `iter_jsonl` and `error_rows`, a file that cannot be read giving one
-whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its name.
-`input_history.json` is read as a
+whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its name. So is an
+`input_history.json`, `permissions.yaml`, session file or `cn.log` that cannot be read (the
+session file's row carries the session id of its file name, the log's rows read before the failure
+are kept), each with `source_line` 0 and an empty time. `input_history.json` is read as a
 JSON array: an element cut mid-write is `parser: unparseable record <N> (<reason>): <the text from
 that element to the end of the file>`, the entries before it kept; an element that is not an
 object with a string `text` is `parser: unparseable record <N> (not an object with a text): <the
 element as JSON>` and the walk goes on; `parser: not a JSON array`, `parser: array cut off after
-record <N>` and `parser: unparseable data after the JSON array` describe the whole file, and an
-unreadable file is `parser: unreadable (<reason>)`, as is an unreadable `permissions.yaml`, whose
-other layouts are the one row of [Permission rows](#permission-rows). These are source-derived;
-not observed on any real install. `sessions.json` is read by
+record <N>` and `parser: unparseable data after the JSON array` describe the whole file; the
+other layouts of `permissions.yaml` are the one row of [Permission rows](#permission-rows). These
+are source-derived; not observed on any real install. `sessions.json` is read by
 `read_index` in `continue_dev.py` (the PearAI parser shares it), whose
 errors the index's own artifact reports through `error_rows`, once,
 with an empty `session_id` and time
-([issue 170](https://github.com/seanthegeek/doubleagent/issues/170)): `parser: unreadable
-session index: <reason>`, `parser: not a JSON array`, `parser:
+([issue 170](https://github.com/seanthegeek/doubleagent/issues/170)): `parser: <file> could not be
+read (<reason>)` with `<file>` `sessions.json`, `parser: not a JSON array`, `parser:
 unparseable record <N> (<reason>): <the text from that entry to the
 end of the file>` for an entry cut mid-write (the entries before it
 still time their sessions), `parser: array cut off after record <N>`,

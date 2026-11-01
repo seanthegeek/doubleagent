@@ -1020,7 +1020,10 @@ file that failed; one that is not a SQLite database is
 `parser: session-search.db is not a SQLite database`.
 
 A `logs/hooks.jsonl` or `cache/user_input_history.jsonl` that cannot be read is one whole-file row
-`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name. So is a task
+file, a `taskHistory.json`, a session manifest or messages file, `sync-queue.json`,
+`globalState.json`, a settings file or a pending-start file that cannot be read, in place of the
+row for a file of the wrong shape, with the task's or session's id where the path gives one.
 
 #### Fixtures
 

@@ -39,7 +39,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from ..inputs import Artifact, error_reason
+from ..errors import unreadable_message
+from ..inputs import Artifact
 from ..model import Row, compact
 from ..textlines import ASCII_WHITESPACE
 from ..timeutil import to_utc
@@ -48,6 +49,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     setting_value,
     text_of,
@@ -92,25 +94,36 @@ def _join(*parts: str) -> str:
     return " | ".join(part for part in parts if part)
 
 
-def _load_json(path: Path) -> tuple[object, str]:
-    """Return the decoded JSON of `path` and "", or None and why it could not be read.
+def _load_json(path: Path, errors: list) -> tuple[object, str]:
+    """Return the decoded JSON of `path` and "", or None and why it did not decode.
 
-    A missing file, a symlink or a directory is None and "", since the CLI
-    writes no `meta.json` and that is not an error.
+    A file that exists but cannot be read gives None and "" after its
+    `unreadable_message` entry in `errors`. A missing file, a symlink or a
+    directory is None and "" with no entry, since the CLI writes no
+    `meta.json` and that is not an error.
     """
     try:
         if path.is_symlink() or not path.is_file():
             return None, ""
-        with open(path, "rb") as handle:
-            return json.loads(handle.read().decode("utf-8", errors="replace")), ""
     except OSError as error:
-        return None, "could not be read (%s)" % error_reason(error)
+        errors.append((0, unreadable_message(path, error)))
+        return None, ""
+    data = file_bytes(path, errors)
+    if data is None:
+        return None, ""
+    try:
+        return json.loads(data.decode("utf-8", errors="replace")), ""
     except ValueError as error:
         return None, "could not be decoded (%s)" % error
 
 
 def _read_json(path: Path):
-    return _load_json(path)[0]
+    """Return the decoded JSON of a file this parser also parses in full, else None.
+
+    A pre-scan: the event and conversation files it reads are reported when
+    they are parsed as artifacts or loaded as a conversation's state.
+    """
+    return _load_json(path, [])[0]
 
 
 def _is_file(path: Path) -> bool:
@@ -120,17 +133,22 @@ def _is_file(path: Path) -> bool:
         return False
 
 
-def _load_object(path: Path, problems: list[str]) -> dict:
+def _load_object(path: Path, problems: list) -> dict:
     """Return the JSON object in `path`, else {}.
 
-    A file that exists but cannot be read or decoded, or is not an object,
-    appends `parser: <name> <reason>` to `problems`.
+    A file that exists but cannot be read appends its whole-file entry
+    (0, `unreadable_message`) to `problems`; one that does not decode or is
+    not an object appends (1, `<name> <reason>`).
     """
-    value, reason = _load_json(path)
+    read_errors: list = []
+    value, reason = _load_json(path, read_errors)
+    if read_errors:
+        problems.extend(read_errors)
+        return {}
     if not reason and not isinstance(value, dict) and (value is not None or _is_file(path)):
         reason = "is not a JSON object"  # a list, a scalar or a literal null
     if reason:
-        problems.append("parser: %s %s" % (path.name, reason))
+        problems.append((1, "%s %s" % (path.name, reason)))
     return value if isinstance(value, dict) else {}
 
 
@@ -170,9 +188,9 @@ class _Conversation:
     first_event: str = ""  # file name of the lowest-index event
     header: str = ""
     created: str = ""
-    # Whole-file `parser:` rows for a meta.json or base_state.json that
-    # exists but did not decode.
-    problems: list[str] = field(default_factory=list)
+    # Whole-file `errors` entries for a meta.json or base_state.json that
+    # exists but cannot be read or did not decode.
+    problems: list = field(default_factory=list)
     # The model in force at the conversation's start: the model of the first
     # response before any switch, else `base_state.json` `agent.llm.model`.
     initial_model: str = ""
@@ -246,11 +264,20 @@ class OpenHandsParser(Parser):
                     row.model = conversation.initial_model or conversation.model
                     row.text = text
                     yield row
-            for problem in conversation.problems:
-                row = self._row(artifact, conversation, "system")
-                row.text = problem
-                yield row
-        event, reason = _load_json(artifact.disk_path)
+            yield from error_rows(
+                self,
+                artifact,
+                conversation.problems,
+                conversation.session_id,
+                conversation.project_path,
+            )
+        read_errors: list = []
+        event, reason = _load_json(artifact.disk_path, read_errors)
+        if read_errors:
+            yield from error_rows(
+                self, artifact, read_errors, conversation.session_id, conversation.project_path
+            )
+            return
         if not isinstance(event, dict):
             row = self._row(artifact, conversation, "system")
             row.text = "parser: event file %s" % (reason or "is not a JSON object")
@@ -620,7 +647,8 @@ class OpenHandsParser(Parser):
             pass
         if numbers and mine != min(numbers):
             return
-        event = _dict_or_empty(_read_json(artifact.disk_path))
+        read_errors: list = []
+        event = _dict_or_empty(_load_json(artifact.disk_path, read_errors)[0])
         row = self.base_row(artifact)
         row.session_id = match.group(1)
         row.turn_type = "system"
@@ -633,6 +661,7 @@ class OpenHandsParser(Parser):
             "times are host local, emitted as if UTC" % len(numbers),
         )
         yield row
+        yield from error_rows(self, artifact, read_errors, row.session_id)
 
 
 def _project_for_hash(root: Path, digest: str) -> str:

@@ -39,7 +39,17 @@ from pathlib import Path
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
-from .base import Options, Parser, error_rows, file_mtime, line_text, setting_value, text_of
+from .base import (
+    Options,
+    Parser,
+    error_rows,
+    file_bytes,
+    file_mtime,
+    iter_lines,
+    line_text,
+    setting_value,
+    text_of,
+)
 from .cline_legacy import iter_array_at, iter_json_array, read_text
 from .pi import args_summary, read_session
 
@@ -207,20 +217,26 @@ class LittleCoderParser(Parser):
 
     def _parse_input_history(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one `user` row per line of `input_history.txt`, with no time."""
-        with open(artifact.disk_path, "rb") as handle:
-            for line_number, raw in enumerate(handle, 1):
-                text = line_text(raw)
-                if not text.strip():
-                    continue
-                row = self.base_row(artifact)
-                row.source_line, row.turn_type, row.text = line_number, "user", compact(text)
-                yield row
+        errors: list = []
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            text = line_text(raw)
+            if not text.strip():
+                continue
+            row = self.base_row(artifact)
+            row.source_line, row.turn_type, row.text = line_number, "user", compact(text)
+            yield row
+        yield from error_rows(self, artifact, errors)
 
     def _parse_legacy_config(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the gist, Telegram chat and permission mode rows of `config.json`."""
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            document = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            document = json.loads(data.decode("utf-8", errors="replace"))
+        except ValueError:
             document = None
         timestamp = file_mtime(artifact)
         if not isinstance(document, dict):
@@ -254,7 +270,7 @@ class LittleCoderParser(Parser):
     def _parse_legacy_history(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the rows of `sessions/history.json`, every session saved at exit."""
         errors: list = []
-        text = read_text(artifact.disk_path)
+        text = read_text(artifact.disk_path, errors)
         document = None
         if text is not None:
             try:
@@ -264,7 +280,6 @@ class LittleCoderParser(Parser):
         if isinstance(document, dict) and isinstance(document.get("sessions"), list):
             sessions = enumerate(document["sessions"], 1)
         elif text is None:
-            errors.append((0, "unreadable", ""))
             sessions = iter(())
         else:
             # Cut mid-write: walk the sessions array as far as it parses.
@@ -290,7 +305,7 @@ class LittleCoderParser(Parser):
     def _parse_legacy_session(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the rows of one saved session file (daily, `/save`, or `session_latest.json`)."""
         errors: list = []
-        text = read_text(artifact.disk_path)
+        text = read_text(artifact.disk_path, errors)
         document = None
         if text is not None:
             try:
@@ -305,9 +320,7 @@ class LittleCoderParser(Parser):
                 str(document.get("session_id") or ""),
                 str(document.get("saved_at") or ""),
             )
-        elif text is None:
-            errors.append((0, "unreadable", ""))
-        else:
+        elif text is not None:
             # Cut mid-write: the keys before `messages` and the messages
             # array as far as it parses.
             match = MESSAGES_KEY_PATTERN.search(text)

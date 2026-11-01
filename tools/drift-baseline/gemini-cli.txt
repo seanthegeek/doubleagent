@@ -13,7 +13,6 @@ check_parser_research|key-undocumented|mimeType
 check_parser_research|parser-message-undocumented|parser: %s rule is not an array
 check_parser_research|parser-message-undocumented|parser: logs.json is not a JSON array
 check_parser_research|parser-message-undocumented|parser: unparseable logs.json: %s
-check_parser_research|parser-message-undocumented|parser: unreadable logs.json: %s
 check_parser_research|pattern-undocumented|^(?:\.cache/)?\.gemini/trustedFolders\.json$
 check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/bug-report-history-(?P<ms>[0-9]+)\.json$
 check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/chats/(?:.*/)?[^/]+\.jsonl?$
@@ -23,7 +22,6 @@ check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/
 check_parser_research|row-text-undocumented|not a chat history: neither a JSON array nor an object with history
 check_parser_research|row-text-undocumented|session start: kind=
 check_parser_research|row-text-undocumented|unparseable session file:
-check_parser_research|row-text-undocumented|unreadable session file:
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/cli-browser-profile
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .gemini/extensions/*/.git

@@ -703,8 +703,11 @@ that does not decode is its own `system` row at the end of the session's rows,
 session's id and `cwd`; a file with no header line gives those rows alone,
 with an empty session id. Every line-by-line reader reports bad lines.
 
-A session file that cannot be read is one whole-file row
-`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+A session file, `crashes.json`, `pi-debug.log`, `trust.json`, `settings.json` or an experimental
+session's `meta.json` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name. A
+`pi-debug.log` that cannot be opened gives no `debug snapshot` row, and the `meta.json` row carries
+the session id its directory names.
 
 #### Fixtures
 

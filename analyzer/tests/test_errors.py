@@ -296,8 +296,8 @@ class IterJsonlTests(unittest.TestCase):
     """The shared JSONL reader reports every line it does not yield."""
 
     def test_non_object_line_is_an_error(self):
-        # Issue 228: a line that is valid JSON but not an object (an array,
-        # a string, a number, null) was skipped silently.
+        # A line that is valid JSON but not an object (an array, a string, a
+        # number, null) is an error, never skipped.
         from doubleagent.parsers.base import iter_jsonl
 
         lines = [b'{"a": 1}', b"[1, 2]", b'"text"', b"42", b"null", b"{bad", b'{"b": 2}']
@@ -353,3 +353,156 @@ def test_iter_jsonl_read_error_keeps_earlier_lines(tmp_path):
         records = list(iter_jsonl(tmp_path / "t.jsonl", errors))
     assert records == [(1, {"a": 1})]
     assert errors == [(1, "t.jsonl could not be read (Input/output error)")]
+
+
+@contextlib.contextmanager
+def _deny(path: Path):
+    """Make `path` unreadable for the block, then readable again."""
+    if not CAN_DENY:
+        raise unittest.SkipTest(DENY_REASON)
+    path.chmod(0)
+    try:
+        yield
+    finally:
+        path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+def test_iter_lines_numbers_lines_and_keeps_terminators(tmp_path):
+    from doubleagent.parsers.base import iter_lines
+
+    cases = [
+        (b"a\nb\r\nc", [(1, b"a\n"), (2, b"b\r\n"), (3, b"c")]),
+        (b"a\n", [(1, b"a\n")]),
+        (b"x\ry\n\n", [(1, b"x\ry\n"), (2, b"\n")]),
+        (b"", []),
+    ]
+    for content, expected in cases:
+        path = tmp_path / "t.txt"
+        path.write_bytes(content)
+        errors: list = []
+        assert list(iter_lines(path, errors)) == expected, content
+        assert errors == [], content
+
+
+def test_iter_lines_unreadable_file_is_one_entry(tmp_path):
+    from doubleagent.parsers.base import iter_lines
+
+    path = tmp_path / "t.txt"
+    path.write_bytes(b"a\nb\n")
+    errors: list = []
+    with _deny(path):
+        lines = list(iter_lines(path, errors))
+    assert lines == []
+    assert errors == [(0, "t.txt could not be read (Permission denied)")]
+
+
+def test_iter_lines_read_error_keeps_earlier_lines(tmp_path):
+    from doubleagent.parsers.base import iter_lines
+
+    handle = _FailingHandle(b"a\nb\n")
+    errors: list = []
+    with mock.patch("doubleagent.parsers.base.open", create=True, return_value=handle):
+        lines = list(iter_lines(tmp_path / "t.txt", errors))
+    assert lines == [(1, b"a\n")]
+    assert errors == [(1, "t.txt could not be read (Input/output error)")]
+
+
+def test_file_bytes_returns_the_content(tmp_path):
+    from doubleagent.parsers.base import file_bytes
+
+    path = tmp_path / "t.json"
+    path.write_bytes(b'\xef\xbb\xbf{"a": 1}\r\n')
+    errors: list = []
+    assert file_bytes(path, errors) == b'\xef\xbb\xbf{"a": 1}\r\n'
+    assert errors == []
+
+
+def test_file_bytes_unreadable_file_is_one_entry(tmp_path):
+    from doubleagent.parsers.base import file_bytes
+
+    path = tmp_path / "t.json"
+    path.write_bytes(b"{}")
+    errors: list = []
+    with _deny(path):
+        content = file_bytes(path, errors)
+    assert content is None
+    assert errors == [(0, "t.json could not be read (Permission denied)")]
+
+
+def test_read_text_drops_a_bom_and_nothing_else(tmp_path):
+    from doubleagent.parsers.cline_legacy import read_text
+
+    cases = [
+        (b'\xef\xbb\xbf["a"]\r\n', '["a"]\r\n'),
+        (b'["a"]', '["a"]'),
+        (b"\xef\xbb\xbf\xef\xbb\xbfx", "﻿x"),
+        (b"\xff", "�"),
+    ]
+    for content, expected in cases:
+        path = tmp_path / "t.json"
+        path.write_bytes(content)
+        errors: list = []
+        assert read_text(path, errors) == expected, content
+        assert errors == [], content
+
+
+def test_read_text_missing_file_and_symlink_are_silent(tmp_path):
+    from doubleagent.parsers.cline_legacy import read_text
+
+    target = tmp_path / "target.json"
+    target.write_bytes(b"[]")
+    link = tmp_path / "link.json"
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError) as error:
+        raise unittest.SkipTest("cannot create a symlink: %s" % error) from error
+    for path in (tmp_path / "missing.json", link, tmp_path):
+        errors: list = []
+        assert read_text(path, errors) is None, path
+        assert errors == [], path
+
+
+def test_legacy_readers_report_an_unreadable_file(tmp_path):
+    from doubleagent.parsers.cline_legacy import iter_json_array, load_json, read_text
+
+    path = tmp_path / "t.json"
+    path.write_bytes(b'["a"]')
+    readers = [
+        ("read_text", lambda errors: read_text(path, errors), None),
+        ("iter_json_array", lambda errors: list(iter_json_array(path, errors)), []),
+        ("load_json", lambda errors: load_json(path, errors), None),
+    ]
+    with _deny(path):
+        for name, reader, empty in readers:
+            errors: list = []
+            assert reader(errors) == empty, name
+            assert errors == [(0, "t.json could not be read (Permission denied)")], name
+
+
+def test_load_json_leaves_a_decode_failure_to_the_caller(tmp_path):
+    from doubleagent.parsers.cline_legacy import load_json
+
+    path = tmp_path / "t.json"
+    path.write_bytes(b'{"a": ')
+    errors: list = []
+    assert load_json(path, errors) is None
+    assert errors == []
+
+
+def test_cached_json_reports_an_unreadable_file_on_every_call(tmp_path):
+    from doubleagent.parsers.cline import ClineParser
+
+    parser = ClineParser()
+    path = tmp_path / "t.json"
+    path.write_bytes(b'[{"id": "1"}]')
+    errors: list = []
+    assert parser.cached_json(path, errors) == [{"id": "1"}]
+    assert parser.cached_json(tmp_path / "missing.json", errors) is None
+    assert errors == []
+    locked = tmp_path / "locked.json"
+    locked.write_bytes(b"[]")
+    with _deny(locked):
+        for call in (1, 2):
+            errors = []
+            assert parser.cached_json(locked, errors) is None, call
+            assert errors == [(0, "locked.json could not be read (Permission denied)")], call

@@ -2,7 +2,6 @@ check_fixture_schema|enum-undocumented|type=summary_text
 check_fixture_schema|key-undocumented|initialEffort
 check_fixture_schema|key-undocumented|metrics
 check_fixture_schema|key-undocumented|modelDisplayName
-check_fixture_schema|key-undocumented|object
 check_fixture_schema|key-undocumented|parentAgentTaskId
 check_fixture_schema|key-undocumented|properties
 check_fixture_schema|key-undocumented|supportedNativeDocumentMimeTypes
@@ -15,10 +14,6 @@ check_fixture_schema|sample-equals-builder|.copilot/session-state/5e55a0a1-0000-
 check_fixture_schema|sample-equals-builder|.copilot/sidebar-sessions-state/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972.json
 check_parser_research|key-undocumented|project
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s
-check_parser_research|parser-message-undocumented|parser: command history is not a JSON object
-check_parser_research|parser-message-undocumented|parser: permissions-config.json is not a JSON object
-check_parser_research|parser-message-undocumented|parser: rewind snapshot index is not a JSON object
-check_parser_research|parser-message-undocumented|parser: settings.json is not a JSON object
 check_parser_research|pattern-undocumented|^((?:\.copilot|\.local/state/\.copilot|\.config/\.copilot))/session-store\.db$
 check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/command-history-state\.json$
 check_parser_research|pattern-undocumented|^(?:\.copilot|\.local/state/\.copilot|\.config/\.copilot)/logs/process-\d+-\d+\.log$

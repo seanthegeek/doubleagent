@@ -696,6 +696,10 @@ header nor a continuation of an open entry (indented or empty) is a bad line,
 are still yielded; a continuation that follows a bad line is a bad line too, since it has no entry
 to join.
 
+An agent-changes record or a Twinny log channel file that cannot be read is one row
+`parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0 and an empty
+time; the log lines read before a failure are kept.
+
 A `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
 that is not a SQLite database is `parser: state.vscdb is not a SQLite database`, a damaged one

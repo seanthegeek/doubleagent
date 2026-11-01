@@ -38,7 +38,7 @@ import sqlite3
 from collections.abc import Generator, Iterable, Iterator
 from pathlib import Path
 
-from ..inputs import Artifact, error_reason
+from ..inputs import Artifact
 from ..model import Row, compact
 from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
@@ -48,6 +48,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     setting_value,
@@ -159,14 +160,18 @@ def decode_stem(stem: str) -> str:
     return key
 
 
-def _read_marker(path: Path) -> str:
-    """Return the stripped text of a `.workspace` file, `""` when it cannot be read."""
-    try:
-        if path.is_symlink() or not path.is_file():
-            return ""
-        return path.read_text(encoding="utf-8", errors="replace").strip()
-    except OSError:
+def _read_marker(path: Path, errors: list) -> str:
+    """Return the stripped text of a `.workspace` file, `""` when it is absent or unreadable.
+
+    A marker that exists but cannot be read is its unreadable entry in `errors`
+    (`file_bytes`), for the caller to report at the file it is parsing.
+    """
+    if path.is_symlink() or not path.is_file():
         return ""
+    content = file_bytes(path, errors)
+    if content is None:
+        return ""
+    return content.decode("utf-8", errors="replace").strip()
 
 
 def _json_object(raw: object, rowid: int, label: str, errors: list) -> dict | None:
@@ -326,8 +331,8 @@ class NanobotParser(Parser):
         match = SESSION_PATTERN.match(artifact.rel)
         assert match is not None  # parse() routes only matching paths here
         namespace = self._namespace(artifact)
-        project = _read_marker(namespace / ".workspace") if namespace else ""
         errors: list = []
+        project = _read_marker(namespace / ".workspace", errors) if namespace else ""
         session_id = yield from self._session_rows(
             artifact,
             opts,
@@ -482,7 +487,9 @@ class NanobotParser(Parser):
 
     def _parse_database(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         """Yield the rows of every session of a `sessions.sqlite3`, orphaned messages included."""
-        project = _read_marker(artifact.disk_path.parent / ".workspace")
+        marker_errors: list = []
+        project = _read_marker(artifact.disk_path.parent / ".workspace", marker_errors)
+        yield from error_rows(self, artifact, marker_errors, "", project)
         problem = sqlite_problem(artifact.disk_path)
         if problem:
             yield self._file_row(artifact, project, "parser: " + problem)
@@ -578,8 +585,11 @@ class NanobotParser(Parser):
         yield from error_rows(self, artifact, errors, "", project)
 
     @staticmethod
-    def _webui_workspace(artifact: Artifact, session_id: str) -> str:
-        """Return the `.workspace` of the session file for `session_id`, if exactly one has one."""
+    def _webui_workspace(artifact: Artifact, session_id: str, errors: list) -> str:
+        """Return the `.workspace` of the session file for `session_id`, if exactly one has one.
+
+        A marker that cannot be read is its unreadable entry in `errors`.
+        """
         match = WEBUI_PATTERN.match(artifact.rel)
         assert match is not None  # parse() routes only matching paths here
         state = artifact.disk_path.parents[2 if match.group("seg") else 1]
@@ -591,7 +601,7 @@ class NanobotParser(Parser):
                     not (session_file.is_symlink() or session_file.parent.is_symlink())
                     and session_file.is_file()
                 ):
-                    found.add(_read_marker(session_file.parent / ".workspace"))
+                    found.add(_read_marker(session_file.parent / ".workspace", errors))
         except OSError:
             return ""
         found.discard("")
@@ -616,7 +626,7 @@ class NanobotParser(Parser):
         ) -> Row:
             turn_type, text, tool_name, tool_use_id = event
             if row_session_id not in projects:
-                projects[row_session_id] = self._webui_workspace(artifact, row_session_id)
+                projects[row_session_id] = self._webui_workspace(artifact, row_session_id, errors)
             row = self.base_row(artifact)
             row.source_line = source_line
             row.session_id = row_session_id
@@ -636,7 +646,7 @@ class NanobotParser(Parser):
                 yield make_row(line_number, session_id, record.get("created_at_ms"), event)
         if errors:
             if session_id not in projects:
-                projects[session_id] = self._webui_workspace(artifact, session_id)
+                projects[session_id] = self._webui_workspace(artifact, session_id, errors)
             yield from error_rows(self, artifact, errors, session_id, projects[session_id])
 
     @staticmethod
@@ -714,12 +724,12 @@ class NanobotParser(Parser):
 
     def _load_object(self, artifact: Artifact, what: str) -> tuple[dict | None, Row | None]:
         """Return the JSON object in `artifact`, or None and the `parser:` row that says why."""
+        read_errors: list = []
+        content = file_bytes(artifact.disk_path, read_errors)
+        if content is None:
+            return None, self._file_row(artifact, "", "parser: %s" % read_errors[0][1])
         try:
-            value = json.loads(artifact.disk_path.read_text(encoding="utf-8", errors="replace"))
-        except OSError as error:
-            return None, self._file_row(
-                artifact, "", "parser: unreadable %s: %s" % (what, error_reason(error))
-            )
+            value = json.loads(content.decode("utf-8", errors="replace"))
         except ValueError as error:
             return None, self._file_row(
                 artifact, "", "parser: %s did not parse: %s" % (what, error)

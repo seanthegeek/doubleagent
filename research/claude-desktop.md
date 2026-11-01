@@ -1025,7 +1025,12 @@ is not a JSON object is one whole-file row ([Remote session folders](#remote-ses
 fixture adds a truncated last line written with `write_bad_line` ([Fixtures](#fixtures)).
 
 A transcript or `audit.jsonl` that cannot be read is one whole-file row
-`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name. A session
+record, `scheduled-tasks.json`, `git-worktrees.json` or `remote-session-spaces.json` that cannot be
+read gives the same row, `source_line` 0 and no time. One that reads but is not a JSON object keeps
+its own row at `source_line` 1: `parser: session record is not a JSON object`,
+`parser: unreadable scheduled-tasks.json`, `parser: unreadable git-worktrees.json` or
+`parser: remote-session-spaces.json is not a JSON object`.
 
 #### Fixtures
 

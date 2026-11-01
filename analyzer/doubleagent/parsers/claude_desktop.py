@@ -44,6 +44,7 @@ from .base import (
     Options,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     text_of,
@@ -144,11 +145,17 @@ AUDIT_ENVELOPE = frozenset(
 )
 
 
-def _read_json(path: Path):
-    """The parsed file, or None when it cannot be read or parsed."""
+def _read_json(path: Path, errors: list):
+    """Return the parsed file, or None when it cannot be read or parsed.
+
+    A file that cannot be read adds its unreadable entry to `errors`.
+    """
+    data = file_bytes(path, errors)
+    if data is None:
+        return None
     try:
-        return json.loads(path.read_bytes().decode("utf-8", errors="replace"))
-    except (OSError, ValueError):
+        return json.loads(data.decode("utf-8", errors="replace"))
+    except ValueError:
         return None
 
 
@@ -191,7 +198,8 @@ def _find_record(session_dir: Path) -> dict | None:
                 candidate
             ):
                 continue
-            record = _read_json(candidate)
+            # The record is an artifact `_record` parses in full and reports there.
+            record = _read_json(candidate, [])
             if isinstance(record, dict):
                 return record
     return None
@@ -479,7 +487,11 @@ class ClaudeDesktopParser(ClaudeCodeParser):
         match = RECORD_PATTERN.match(artifact.rel)
         assert match is not None
         code = match.group("tree").startswith("claude-code-sessions/")
-        record = _read_json(artifact.disk_path)
+        errors: list = []
+        record = _read_json(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         if not isinstance(record, dict):
             yield self._system(artifact, "parser: session record is not a JSON object", 1)
             return
@@ -631,7 +643,11 @@ class ClaudeDesktopParser(ClaudeCodeParser):
     # -- scheduled tasks and worktrees -----------------------------------------
 
     def _scheduled(self, artifact: Artifact) -> Iterator[Row]:
-        doc = _read_json(artifact.disk_path)
+        errors: list = []
+        doc = _read_json(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         if not isinstance(doc, dict):
             yield self._system(artifact, "parser: unreadable scheduled-tasks.json", 1)
             return
@@ -661,7 +677,11 @@ class ClaudeDesktopParser(ClaudeCodeParser):
             yield row
 
     def _worktrees(self, artifact: Artifact) -> Iterator[Row]:
-        doc = _read_json(artifact.disk_path)
+        errors: list = []
+        doc = _read_json(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         if not isinstance(doc, dict):
             yield self._system(artifact, "parser: unreadable git-worktrees.json", 1)
             return

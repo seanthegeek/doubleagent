@@ -601,9 +601,9 @@ The shared reader's `state_5.sqlite`, `thread_history_1.sqlite` and `logs_<N>.sq
 database that cannot be read or is not SQLite are those of
 [Bad lines in `codex-cli.md`](codex-cli.md#bad-line-rows).
 
-A rollout or `history.jsonl` that cannot be read is one whole-file row
-`parser: <file> could not be read (<reason>)`, as in
-[Bad lines in `codex-cli.md`](codex-cli.md#bad-line-rows).
+A rollout, `history.jsonl` or the import ledger `external_agent_session_imports.json` that cannot
+be read is one whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its name, as
+in [Bad lines in `codex-cli.md`](codex-cli.md#bad-line-rows).
 
 #### Fixtures
 

@@ -14,13 +14,17 @@ class InputError(DoubleAgentError):
     """An input that is neither a file nor a directory, or an archive that cannot be extracted."""
 
 
+def unreadable_reason(error: OSError) -> str:
+    """Return the system's own text for an OSError, or its whole text when it carries none."""
+    return error.strerror or str(error)
+
+
 def unreadable_message(path: str | os.PathLike, error: OSError) -> str:
     """Return `<file name> could not be read (<reason>)` for the OSError that stopped a read.
 
-    The reason is the system's own text (`Permission denied`), or the
-    error's whole text when it carries none.
+    The reason is `unreadable_reason(error)`, such as `Permission denied`.
     """
-    return "%s could not be read (%s)" % (Path(path).name, error.strerror or str(error))
+    return "%s could not be read (%s)" % (Path(path).name, unreadable_reason(error))
 
 
-__all__ = ["DoubleAgentError", "InputError", "unreadable_message"]
+__all__ = ["DoubleAgentError", "InputError", "unreadable_message", "unreadable_reason"]

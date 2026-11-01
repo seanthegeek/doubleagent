@@ -6,7 +6,6 @@ check_fixture_schema|key-undocumented|path
 check_fixture_schema|key-undocumented|scheme
 check_fixture_schema|key-undocumented|source
 check_fixture_schema|module-provenance-missing|cody
-check_parser_research|parser-message-undocumented|parser: unreadable history file
 check_parser_research|pattern-undocumented|(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrains-globalState/cody-local-chatHistory-v2$
 check_parser_research|pattern-undocumented|(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrains-globalState/cody-model-preferences$
 check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$

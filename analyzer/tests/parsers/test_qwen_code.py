@@ -20,7 +20,7 @@ from fixtures import (
     write_bad_line,
 )
 
-from .base import ParserBase
+from .base import ParserBase, kept_rows, parse_with, unreadable_rows
 
 
 class QwenCodeTests(ParserBase):
@@ -406,8 +406,8 @@ class QwenCodeTests(ParserBase):
             finally:
                 path.chmod(0o600)
             self.assertEqual(
-                [(row.turn_type, row.text) for row in rows],
-                [("system", "parser: unreadable %s: Permission denied" % rel)],
+                [(row.source_line, row.turn_type, row.text) for row in rows],
+                [(0, "system", "parser: %s could not be read (Permission denied)" % rel[6:])],
                 rel,
             )
 
@@ -690,3 +690,33 @@ class QwenCodeTests(ParserBase):
             ],
         )
         self.assertEqual(rows[6].project_path, "/srv/proj")
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_file_is_one_row(self):
+        unlocked = parse_with(self, QwenCodeParser)
+        # (file made unreadable, the session id of its row)
+        for rel, session_id in (
+            (".qwen/channels/sessions.json", ""),
+            (
+                ".qwen/tmp/3f0a9c0000000000000000000000000000000000000000000000000000000000/logs.json",
+                "",
+            ),
+        ):
+            rows = parse_with(self, QwenCodeParser, rel)
+            text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
+            self.assertEqual(
+                [
+                    (
+                        row.source_file.endswith(rel),
+                        row.source_line,
+                        row.timestamp_utc,
+                        row.session_id,
+                        row.text,
+                    )
+                    for row in unreadable_rows(rows)
+                ],
+                [(True, 0, "", session_id, text)],
+                rel,
+            )
+            # Every other file of the parser still gives its rows.
+            self.assertEqual(kept_rows(rows, rel), kept_rows(unlocked, rel), rel)

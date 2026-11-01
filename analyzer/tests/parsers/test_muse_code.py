@@ -1,6 +1,9 @@
 """Tests of the Muse Code parser."""
 
 import json
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.inputs import open_input
 from doubleagent.parsers import Options
@@ -28,7 +31,7 @@ from fixtures import (
 )
 
 from . import test_codex
-from .base import ParserBase
+from .base import ParserBase, kept_rows, parse_with, unreadable_rows
 
 
 class MuseCodeTests(ParserBase):
@@ -427,3 +430,30 @@ class MuseCodeTests(ParserBase):
         self.assertTrue(rows[0].timestamp_utc)
         # The session log still yields every row.
         self.assertEqual(len(self.rows_for(MuseCodeParser(), MUSE_REL)), 12)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_file_is_one_row(self):
+        unlocked = parse_with(self, MuseCodeParser)
+        # (file made unreadable, the session id of its row)
+        for rel, session_id in (
+            (".config/muse/trust.json", ""),
+            (".local/share/muse/tui-history.jsonl", ""),
+        ):
+            rows = parse_with(self, MuseCodeParser, rel)
+            text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
+            self.assertEqual(
+                [
+                    (
+                        row.source_file.endswith(rel),
+                        row.source_line,
+                        row.timestamp_utc,
+                        row.session_id,
+                        row.text,
+                    )
+                    for row in unreadable_rows(rows)
+                ],
+                [(True, 0, "", session_id, text)],
+                rel,
+            )
+            # Every other file of the parser still gives its rows.
+            self.assertEqual(kept_rows(rows, rel), kept_rows(unlocked, rel), rel)

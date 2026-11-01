@@ -3,7 +3,6 @@ check_fixture_schema|enum-undocumented|source=schedule
 check_fixture_schema|key-undocumented|tab_order
 check_fixture_schema|module-provenance-missing|copilot_desktop
 check_parser_research|parser-message-undocumented|parser: SQLite error: %s
-check_parser_research|parser-message-undocumented|parser: unreadable %s
 check_research_structure|latest-version-missing|macOS was not observed.
 check_research_structure|observed-label-missing|**Linux**: GitHub Copilot Desktop 1.1.29, the arm64 `.deb`
 check_research_structure|observed-label-missing|**Windows**: GitHub Copilot Desktop 1.1.30, the arm64 NSIS

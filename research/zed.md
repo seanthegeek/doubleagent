@@ -769,7 +769,9 @@ survives is in [What survives a delete](#what-survives-a-delete).
 
 Implemented ([issue 168](https://github.com/seanthegeek/doubleagent/issues/168)). The parser reads
 no file line by line; its bad records are whole files, `threads` rows and items
-inside a thread blob. A database file that cannot be read, or whose `-wal`, `-shm` or `-journal`
+inside a thread blob. A `settings.json` or `global_settings.json` that cannot be read is one row
+`parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0 and an empty
+time. A database file that cannot be read, or whose `-wal`, `-shm` or `-journal`
 sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, and a SQLite
 error while reading one `parser: SQLite error: <error>` row. A `data` blob that does not decode to a

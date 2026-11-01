@@ -41,7 +41,15 @@ from ..inputs import Artifact
 from ..model import Row, compact
 from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
-from .base import Options, Parser, compact_json, error_rows, file_mtime, setting_value
+from .base import (
+    Options,
+    Parser,
+    compact_json,
+    error_rows,
+    file_bytes,
+    file_mtime,
+    setting_value,
+)
 
 DATABASE_PATTERN = re.compile(r"(^|/)\.crush/crush\.db$")
 PROJECTS_PATTERN = re.compile(r"^(\.local/share/crush|AppData/Local/crush)/projects\.json$")
@@ -208,13 +216,13 @@ class CrushParser(Parser):
 
     # -- projects.json ---------------------------------------------------------------
     def _parse_projects(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        try:
-            with open(artifact.disk_path, "rb") as handle:
-                data = json.loads(handle.read().decode("utf-8", errors="replace"))
-        except OSError as error:
-            reason = error.strerror or error
-            yield self._system(artifact, "parser: projects.json could not be read: %s" % reason)
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
             return
+        try:
+            data = json.loads(content.decode("utf-8", errors="replace"))
         except ValueError as error:
             yield self._system(artifact, "parser: projects.json did not parse: %s" % error)
             return
@@ -264,16 +272,12 @@ class CrushParser(Parser):
         Nothing else is read, so no key is printed.
         """
         timestamp = file_mtime(artifact)
-        try:
-            raw = artifact.disk_path.read_bytes()
-        except OSError as error:
-            reason = error.strerror or error
-            row = self._system(
-                artifact, "parser: %s could not be read: %s" % (artifact.rel, reason), 1
+        errors: list = []
+        raw = file_bytes(artifact.disk_path, errors)
+        if raw is None:
+            yield from error_rows(
+                self, artifact, errors, project_path=self._config_project(artifact)
             )
-            row.timestamp_utc = timestamp
-            row.project_path = self._config_project(artifact)
-            yield row
             return
         try:
             document = json.loads(raw.decode("utf-8", errors="replace"))
@@ -310,14 +314,16 @@ class CrushParser(Parser):
         them runs; such a line that does not split into shell words (an unclosed quote) is a bad
         line.
         """
-        try:
-            lines = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError as error:
-            yield self._system(artifact, "parser: %s could not be read: %s" % (artifact.rel, error))
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(
+                self, artifact, errors, project_path=self._config_project(artifact)
+            )
             return
+        lines = content.decode("utf-8", errors="replace")
         timestamp = file_mtime(artifact)
         keys = {"allow": "permissions.allowed_tools", "deny": "options.disabled_tools"}
-        errors: list = []
         for line_number, line in enumerate(lines.split("\n"), 1):
             line = line[:-1] if line.endswith("\r") else line
             if not line.lstrip().startswith("permissions"):

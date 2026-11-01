@@ -774,3 +774,39 @@ class GooseTests(ParserBase):
                 self.assertFalse(
                     [row for row in other_rows if "could not be read" in row.text], artifact.rel
                 )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_history_is_one_row(self):
+        parser = GooseParser()
+        target = self.HISTORY
+        others = [
+            artifact
+            for artifact in self.col.artifacts
+            if parser.wants(artifact) and artifact.rel != target
+        ]
+        locked = self.home / target
+        locked.chmod(0)
+        try:
+            rows = self.rows_for(parser, target)
+            later = [row for artifact in others for row in parser.parse(artifact, Options())]
+        finally:
+            locked.chmod(0o600)
+        reported = [row for row in rows if row.text.startswith("parser:")]
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in reported
+            ],
+            [
+                (
+                    "system",
+                    "parser: %s could not be read (Permission denied)" % locked.name,
+                    0,
+                    "",
+                    "",
+                )
+            ],
+        )
+        self.assertEqual(reported[0].project_path, "")
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(any(not row.text.startswith("parser:") for row in later))

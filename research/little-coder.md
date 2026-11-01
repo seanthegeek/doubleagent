@@ -549,7 +549,12 @@ Covered: the session files go through pi's reader
 ([Bad lines in `pi.md`](pi.md#bad-line-rows)), and the prompt history reader reports a bad record.
 A v0.0.x session file or `history.json` cut mid-write yields the messages or sessions before the
 cut and one `parser: unparseable record <N> (<reason>): <the rest>` row; a `snapshots.json` cut
-the same way does too, and a `config.json` that is not a JSON object is one `parser:` row.
+the same way does too, and a `config.json` that is not a JSON object is one `parser:` row. A
+v0.0.x session file, `history.json`, `snapshots.json`, `config.json`, `input_history.txt` or the
+prompt history that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name; an
+`input_history.txt` that fails part way through gives that row after the prompts read before the
+failure, its `source_line` the last line read.
 
 A pi session file a checkpoint directory names that cannot be read gives the checkpoint row without
 the `session file not collected` clause, followed by one row
