@@ -1151,7 +1151,8 @@ AppData/Local/open-interpreter/open-interpreter/models
 .openhands/agent-canvas/tmux
 .openhands/workspaces
 .pi/agent/bin
-.pi/agent/install
+.pi/agent/install/releases
+.pi/agent/install/staging
 .pi/agent/tools/fd*
 .pi/agent/tools/rg*
 .pi/agent/tmp

@@ -219,7 +219,8 @@ secret||.openhands/.keys
 agent|openhands|.config/OpenHands Agent Canvas/config.json
 agent|openhands|.openhands/conversations/c1/events/event-00000-e1.json
 excl||.pi/agent/bin
-excl||.pi/agent/install
+excl||.pi/agent/install/releases
+excl||.pi/agent/install/staging
 excl||.pi/agent/tmp
 excl||.pi/agent/npm/node_modules
 excl||.pi/agent/git/github.com/o1/node_modules
@@ -239,6 +240,8 @@ secret||.pi/agent/mcp.json
 secret||.pi/mcp.json
 secret||.config/little-coder/models.json
 agent|pi|.pi/agent/settings.json
+agent|pi|.pi/agent/install/managed-install.json
+agent|pi|.pi/agent/install/current-version
 agent|little-coder|.pi/agent/little-coder-prompt-history.json
 agent|little-coder|.little-coder/state.json
 agent|little-coder|.cache/little-coder/log.txt

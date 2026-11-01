@@ -314,7 +314,9 @@ Copied, not made by pi, and large:
 - `.pi/agent/tools/fd*` and `.pi/agent/tools/rg*`: the same binaries (`fd`, `rg`, `fd.exe`,
   `rg.exe`) where an older build left them in legacy `tools/` and no later start moved them
   ([migrations.ts:177-200](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/migrations.ts#L177-L200)).
-- `.pi/agent/install`: the managed install, a full copy of pi per release.
+- `.pi/agent/install/releases` and `.pi/agent/install/staging`: the managed install, a full copy
+  of pi per release. The two small files beside them, `.pi/agent/install/managed-install.json` and
+  `.pi/agent/install/current-version`, record the installed version and layout and are kept.
 - `.pi/agent/npm/node_modules`: installed npm packages; the sources stay recorded in `settings.json`
   `packages` and `npm/package.json`
   ([package-manager.ts:2207-2211](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/package-manager.ts#L2207-L2211)).
@@ -326,15 +328,13 @@ Copied, not made by pi, and large:
   `.pi/git/*/*/.git`
   ([package-manager.ts:2229-2230](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/package-manager.ts#L2229-L2230),
   [2310-2311](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/package-manager.ts#L2310-L2311)).
-
 - `.pi/server/*.sock`: the Unix sockets older builds' experimental server left in `~/.pi/server`,
   `<server id>.sock`, `control-<server id>.sock` and `server-<server id>-<nonce>.sock`
   ([packages/client/src/unix.ts:16](https://github.com/earendil-works/pi/blob/200387122ca450d6387f033949423114a270b96c/packages/client/src/unix.ts#L16);
   [experimental/server.ts:582-585](https://github.com/earendil-works/pi/blob/200387122ca450d6387f033949423114a270b96c/packages/coding-agent/src/experimental/server.ts#L582-L585)),
   which cannot be copied.
 
-Session files stay whole: images
-are inline base64 and can be large, but they are the transcript.
+Session files stay whole: images are inline base64 and can be large, but they are the transcript.
 
 ### Project-local files
 
@@ -986,8 +986,9 @@ version 3 keys are added without a bump; a parser must ignore unknown types and 
 
 ### Parser plan
 
-The parser reads `.pi/agent/sessions/*/*.jsonl` and `.pi/agent/*.jsonl`, takes line 1 as the
-header and skips files whose first record is not `type` `session`. Files in a custom session
+The parser reads `.pi/agent/sessions/*/*.jsonl` and `.pi/agent/*.jsonl` and takes the first line
+that decodes as the header; a file whose first decoded record is not `type` `session` gives only
+its bad-line rows ([Bad-line rows](#bad-line-rows)). Files in a custom session
 directory elsewhere on disk are not read; they would be recognised by that header shape. It also
 reads `.pi/agent/trust.json`, `.pi/agent/settings.json`, `.pi/agent/pi-debug.log`,
 `.pi/agent/crashes.json` and `.pi/agent/experimental/sessions/*/meta.json`.
@@ -1182,7 +1183,12 @@ session's `meta.json` that cannot be read is one whole-file row
 dropped as pi drops it ([Project trust](#project-trust)), is one whole-file row
 `parser: <path> is not a JSON object`, `<path>` relative to the home. A `crashes.json` element
 that is not an object is `parser: unparseable record <N> (not a JSON object): <element>`, and a cut
-array `parser: unparseable record <N> (<reason>)`. A `pi-debug.log` that cannot be opened gives no
+array `parser: unparseable record <N> (<reason>)`. An empty `settings.json` gives no row, since pi
+reads empty content as no settings
+([settings-manager.ts:377-379](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/settings-manager.ts#L377-L379)),
+while an empty `trust.json` gives the not-an-object row, as pi rejects it
+([trust-manager.ts:111-117](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L111-L117)).
+A `pi-debug.log` that cannot be opened gives no
 `debug snapshot` row, and a `meta.json` row carries the session id its directory names.
 
 #### Fixtures
