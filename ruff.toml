@@ -1,5 +1,5 @@
 # Ruff configuration for every Python file in the repository (analyzer/,
-# analyzer/tools/, tools/, mkdocs/). analyzer/pyproject.toml extends this
+# analyzer/tools/, tools/, mkdocs/, lab/round/). analyzer/pyproject.toml extends this
 # file so running ruff from inside analyzer/ uses the same settings. A project
 # config takes precedence over any user-level ruff configuration.
 target-version = "py311"
@@ -42,6 +42,7 @@ ignore = [
 # Test methods and functions are named for what they prove, so need no docstring.
 "analyzer/tests/*.py" = ["D102", "D103", "D105", "D107"]
 "tools/tests/*.py" = ["D102", "D103", "D105", "D107"]
+"lab/round/tests/*.py" = ["D102", "D103", "D105", "D107"]
 # The fixtures package re-exports every agent module's builders and values so
 # the tests import them from one name; an __all__ would repeat the list.
 "analyzer/tests/fixtures/__init__.py" = ["F401"]

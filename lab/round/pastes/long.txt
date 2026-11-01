@@ -1,0 +1,39 @@
+Release notes for calc 0.3.0
+
+Added
+- A subtract command: `python3 calc.py sub 7 2` prints 5.
+- A multiply command: `python3 calc.py mul 6 7` prints 42.
+- A divide command that refuses a zero divisor with a clear message instead of a traceback.
+- A `--precision` option for the divide command, defaulting to two decimal places.
+- A `--version` option that prints the version and exits.
+- Shell completion scripts for bash and zsh, installed with `python3 calc.py completion`.
+
+Changed
+- The add command now accepts any number of operands: `python3 calc.py add 1 2 3` prints 6.
+- Operands may be decimal numbers as well as integers; integers still print without a point.
+- Errors go to standard error and the command exits with status 2 on a usage error and 1 on
+  a calculation error, so scripts can tell them apart.
+- The help text lists every command with one example each.
+- The README explains how to run the tests and how to add a command.
+
+Fixed
+- add() subtracted its second operand instead of adding it.
+- A missing operand raised ValueError with a traceback; it now prints the usage line.
+- A non-numeric operand raised ValueError with a traceback; it now names the bad operand.
+- Very large integers lost precision when printed through float; they now print exactly.
+- Negative operands written as `-3` were read as options; `--` now ends the option list.
+
+Removed
+- The undocumented `calc.py --debug` flag, which printed the parsed arguments.
+
+Upgrade notes
+- Scripts that relied on add() subtracting must be changed; there is no compatibility flag.
+- Scripts that parsed the traceback text of a usage error should check the exit status instead.
+- The minimum supported Python is now 3.10, for the match statement used by the command table.
+
+Known issues
+- The completion script for zsh does not complete the `--precision` value.
+- Dividing two very large integers rounds through float before applying the precision.
+- The help text is English only.
+
+Thanks to everyone who reported the add() bug, and to the reviewers of the command table.

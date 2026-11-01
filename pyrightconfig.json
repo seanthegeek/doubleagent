@@ -1,9 +1,10 @@
 {
-  "include": ["analyzer/doubleagent", "analyzer/tests", "analyzer/tools", "tools", "mkdocs"],
+  "include": ["analyzer/doubleagent", "analyzer/tests", "analyzer/tools", "tools", "mkdocs", "lab/round"],
   "typeCheckingMode": "standard",
   "pythonVersion": "3.11",
   "executionEnvironments": [
     {"root": "analyzer/tests", "extraPaths": ["analyzer"]},
+    {"root": "lab/round", "extraPaths": ["lab/round", "analyzer"]},
     {"root": "analyzer"}
   ]
 }

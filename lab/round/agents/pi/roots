@@ -1,0 +1,19 @@
+# Survey roots for pi, from research/pi.md (Per-user storage, Scratch
+# directories, Credentials). The lab project ~/lab/proj is always surveyed,
+# so its .pi/, pi-session-*.html and pi-bug-report-*.zip need no line here.
+# The managed install's releases are a full npm tree each, so only their
+# directories are listed; the Trash is where the session picker's delete
+# sends a session file.
+~/.pi
+skip:~/.pi/agent/install/releases
+skip:~/.pi/agent/install/staging
+~/.agents
+~/.local/bin/pi
+unix:~/.local/share/pi-node
+skip:~/.local/share/pi-node
+windows:%LOCALAPPDATA%/pi-node
+windows:skip:%LOCALAPPDATA%/pi-node
+<tmp>/pi-*
+linux:~/.local/share/Trash
+macos:~/.Trash
+process:pi

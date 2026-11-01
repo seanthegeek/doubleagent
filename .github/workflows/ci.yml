@@ -235,6 +235,10 @@ jobs:
       # the import path, so they run from the repository root.
       - name: pytest (drift checkers)
         run: python3 -m pytest tools/tests -q
+      # The round pipeline's host-side tools; lab/round/tests/conftest.py
+      # puts lab/round/ on the import path.
+      - name: pytest (round pipeline)
+        run: python3 -m pytest lab/round/tests -q
 
   lint:
     name: Lint (ruff, pyright, markdownlint, sh linters, PSScriptAnalyzer)
@@ -325,7 +329,9 @@ jobs:
         shell: pwsh
         run: |
           Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
-          $r = @('collectors/Collect-AgentArtifacts.ps1', 'collectors/tests/smoke.ps1') | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }
+          # The collector, its smoke test and the round pipeline's guest scripts (lab/round/**/*.ps1).
+          $files = @('collectors/Collect-AgentArtifacts.ps1', 'collectors/tests/smoke.ps1') + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName })
+          $r = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }
           $r | Format-Table -AutoSize
           exit @($r).Count
 

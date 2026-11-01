@@ -1,0 +1,19 @@
+# Survey roots for gemini-cli, from research/gemini-cli.md (Per-user storage,
+# Credentials, Project-local files). The lab project ~/lab/proj is always
+# surveyed, so its .gemini/ and worktrees need no line here.
+~/.gemini
+~/.cache/.gemini
+~/.agents
+~/.env
+<tmp>/gemini
+<tmp>/gemini-client-error-*.json
+<tmp>/gemini-sandbox-*
+<tmp>/gemini-ide-server-*
+linux:/etc/gemini-cli
+macos:/Library/Application Support/GeminiCli
+windows:C:/ProgramData/gemini-cli
+linux:~/.local/share/keyrings
+keychain:gemini-cli-oauth
+keychain:gemini-cli-api-key
+keychain:gemini-cli-extension-integrity
+process:gemini

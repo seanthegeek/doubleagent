@@ -51,7 +51,7 @@ while IFS= read -r path; do
 
   case "$path" in
     collectors/Collect-AgentArtifacts.ps1 | collectors/tests/smoke.ps1 | \
-      collectors/PSScriptAnalyzerSettings.psd1)
+      collectors/PSScriptAnalyzerSettings.psd1 | lab/round/*.ps1)
       powershell=true
       matched=true
       ;;
@@ -59,7 +59,8 @@ while IFS= read -r path; do
 
   # The analyzer job and the ruff and pyright steps. The analyzer tests also
   # read analyzer/docs/output.md (its generated examples) and docs/agents.md
-  # (the collected agents), and run the tools/ checkers' tests.
+  # (the collected agents), and run the tools/ checkers' tests and the round
+  # pipeline's tests, which read every file of lab/round/.
   case "$path" in
     tools/drift-baseline/*) ;;
     analyzer/docs/output.md | docs/agents.md)
@@ -67,7 +68,7 @@ while IFS= read -r path; do
       matched=true
       ;;
     *.md) ;;
-    analyzer/* | tools/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json)
+    analyzer/* | tools/* | lab/round/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json)
       python=true
       matched=true
       ;;

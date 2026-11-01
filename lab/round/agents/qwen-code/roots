@@ -1,0 +1,20 @@
+# Survey roots for qwen-code, from research/qwen-code.md (Per-user storage,
+# Scratch directories, Managed local mode, Qwen Code Desktop, Credentials).
+# The lab project ~/lab/proj is always surveyed, so its .qwen/ needs no
+# line here. The installed package under ~/.local/lib/qwen-code is left
+# out: it is the install, not the agent's state.
+~/.qwen
+~/.qwen-live
+~/.agents
+~/.env
+~/.local/bin/qwen
+~/.config/gh
+linux:~/.config/com.alibaba.qwen-code
+macos:~/Library/Application Support/com.alibaba.qwen-code
+windows:%APPDATA%/com.alibaba.qwen-code
+windows:%LOCALAPPDATA%/qwen-code
+<tmp>/qwen*
+linux:~/.local/share/keyrings
+keychain:qwen-code-oauth
+keychain:Qwen Code Extension Git Credentials
+process:qwen
