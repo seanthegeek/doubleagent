@@ -83,14 +83,15 @@ _HISTORY_PATTERN = re.compile(r'"history"[ \t\n\r]*:[ \t\n\r]*\[')
 def _sniff_export(path) -> bool:
     """Return True when a file starts like a `/save` export (an object with `conversation_id`).
 
-    This is file selection, not a parse: a file that cannot be read is not
-    recognised, so it is never offered to the parser and gives no row.
+    This is file selection, not a parse. A candidate that cannot be read is
+    offered (True), since it may be an export and a file left unoffered gives
+    no row; `_parse_export` then reports it through `file_bytes`.
     """
     try:
         with open(path, "rb") as handle:
             head = handle.read(SNIFF_BYTES)
     except OSError:
-        return False
+        return True
     return head.lstrip()[:1] == b"{" and b'"conversation_id"' in head
 
 

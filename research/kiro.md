@@ -663,8 +663,8 @@ record is not a JSON object`.
 
 A `.cli_bash_history`, `/save` export, agent configuration or delegate record that cannot be read
 is one row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
-An export that cannot be read when the files are selected gives no row: selection reads a `.json`
-file's first bytes to recognise an export, so that file is never offered to the parser.
+Selection reads a `.json` file's first bytes to recognise an export; a `.json` file it cannot read
+is offered as an export, so it gives that one row too.
 
 A `data.sqlite3` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one

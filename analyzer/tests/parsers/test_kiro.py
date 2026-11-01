@@ -6,7 +6,7 @@ import unittest
 from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.dedup import deduplicate
-from doubleagent.inputs import Artifact, Home
+from doubleagent.inputs import Artifact, Home, open_input
 from doubleagent.parsers import Options
 from doubleagent.parsers.kiro import KiroParser, salvage
 from doubleagent.parsers.kiro import unescape_history as kiro_unescape
@@ -465,6 +465,30 @@ class KiroTests(ParserBase):
             )
             # Every other file of the parser still gives its rows.
             self.assertEqual(kept_rows(rows), kept_rows(unlocked, rel), rel)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_export_unreadable_before_selection_is_one_row(self):
+        """Offer an export candidate the sniff cannot read, so it gives exactly one row."""
+        unlocked = parse_with(self, KiroParser)
+        path = self.home / self.EXPORT
+        path.chmod(0)
+        try:
+            rows = parse_with(self, KiroParser)
+        finally:
+            path.chmod(0o600)
+        own = [row for row in rows if row.source_file.endswith(self.EXPORT)]
+        self.assertEqual(
+            [(row.turn_type, row.source_line, row.timestamp_utc, row.text) for row in own],
+            [("system", 0, "", "parser: %s could not be read (Permission denied)" % path.name)],
+        )
+        self.assertEqual(kept_rows(rows, self.EXPORT), kept_rows(unlocked, self.EXPORT))
+
+    def test_readable_non_export_json_is_not_wanted(self):
+        rel = ".aws/amazonq/exports/notes.json"
+        (self.home / rel).write_text(json.dumps({"name": "x"}), encoding="utf-8")
+        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+        self.assertFalse(KiroParser().wants(self.artifact(rel)))
+        self.assertTrue(KiroParser().wants(self.artifact(self.EXPORT)))
 
     def test_damaged_database_is_one_row(self):
         database = self.home / self.DATABASE
