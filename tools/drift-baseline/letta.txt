@@ -1,4 +1,10 @@
+check_fixture_schema|builder-provenance-missing|build_letta
+check_fixture_schema|builder-provenance-missing|build_letta_stores
+check_fixture_schema|builder-provenance-missing|build_letta_sync
+check_fixture_schema|builder-provenance-missing|letta_cron_task
+check_fixture_schema|builder-provenance-missing|letta_interrupted_record
 check_fixture_schema|builder-provenance-missing|letta_local_records
+check_fixture_schema|builder-provenance-missing|letta_project_settings
 check_fixture_schema|builder-provenance-missing|letta_run_records
 check_fixture_schema|builder-provenance-missing|letta_sessions_records
 check_fixture_schema|builder-provenance-missing|letta_transcript_records

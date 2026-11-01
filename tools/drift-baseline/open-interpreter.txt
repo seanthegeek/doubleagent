@@ -1,4 +1,7 @@
+check_fixture_schema|builder-provenance-missing|build_open_interpreter
+check_fixture_schema|builder-provenance-missing|build_open_interpreter_stores
 check_fixture_schema|builder-provenance-missing|open_interpreter_imported_records
+check_fixture_schema|builder-provenance-missing|open_interpreter_ledger
 check_fixture_schema|builder-provenance-missing|open_interpreter_rollout_records
 check_fixture_schema|cross-agent-builder|codex_log_rows
 check_fixture_schema|cross-agent-builder|write_codex_logs

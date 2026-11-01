@@ -1,3 +1,6 @@
+check_fixture_schema|builder-provenance-missing|build_little_coder
+check_fixture_schema|builder-provenance-missing|build_little_coder_legacy
+check_fixture_schema|builder-provenance-missing|little_coder_legacy_session
 check_fixture_schema|builder-provenance-missing|little_coder_session_records
 check_fixture_schema|key-undocumented|file_path
 check_fixture_schema|key-undocumented|mcpServers

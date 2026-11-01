@@ -1,3 +1,7 @@
+check_fixture_schema|builder-provenance-missing|build_twinny
+check_fixture_schema|builder-provenance-missing|build_twinny_415
+check_fixture_schema|builder-provenance-missing|build_twinny_said
+check_fixture_schema|builder-provenance-missing|twinny_415_change_record
 check_fixture_schema|builder-provenance-missing|twinny_415_records
 check_fixture_schema|builder-provenance-missing|twinny_records
 check_fixture_schema|builder-provenance-missing|twinny_said_records

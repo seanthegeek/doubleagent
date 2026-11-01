@@ -27,15 +27,20 @@ INIT = '''\
 """Synthetic fixtures."""
 
 from .alpha import build_alpha
-from .beta import build_beta
+from .beta import build_beta as beta_home
 from .gamma import build_gamma
+
+HOME_BUILDERS = (
+    (build_alpha, ""),
+    (beta_home, ""),
+    (build_gamma, ""),
+)
 
 
 def build_home(home, with_noise=True):
     """Write every synthetic agent's state, a noise file and a project."""
-    build_alpha(home)
-    build_beta(home)
-    build_gamma(home)
+    for builder, directory in HOME_BUILDERS:
+        builder(home / directory)
     (home / "Documents").mkdir(parents=True)
     (home / "Documents/notes.txt").write_text("noise\\n")
     (home / "dev/repo/.alpha").mkdir(parents=True)
@@ -250,8 +255,14 @@ def test_builder_provenance_missing(tmp_path):
     assert ("alpha", "builder-provenance-missing", "alpha_records") in found
     assert ("beta", "builder-provenance-missing", "write_beta_extra") in found
     assert ("beta", "builder-provenance-missing", "beta_records") not in found
-    assert ("alpha", "builder-provenance-missing", "alpha_helper") not in found
-    assert ("alpha", "builder-provenance-missing", "build_alpha") not in found
+
+
+def test_builder_provenance_reaches_every_public_function(tmp_path):
+    found = findings_of(tmp_path)
+    assert ("alpha", "builder-provenance-missing", "alpha_helper") in found
+    for name in ("build_alpha", "build_beta", "build_gamma"):
+        agent = name.split("_")[1]
+        assert (agent, "builder-provenance-missing", name) in found, name
 
 
 def test_module_provenance_missing(tmp_path):
@@ -426,6 +437,176 @@ def test_type_mismatch_met_by_no_row_gives_both_details(tmp_path):
     assert found == {("type:string", line), ("type=system", line)}
 
 
+SCOPED_DOCUMENT = """\
+# beta
+
+## Parsing
+
+### Record schema
+
+#### Index
+
+Each `index/<id>.json` holds one entry.
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | | 1.0 |
+| `count` | number | | 1.0 |
+
+#### Turn lines
+
+`~/.beta/history.jsonl` holds one turn per line.
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | `user`, `assistant`, `index.json` | 1.0 |
+
+#### Shared fields
+
+Every store repeats these.
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `count` | string | | 1.0 |
+"""
+
+
+def scoped_findings(tmp_path, relative, records, document=SCOPED_DOCUMENT):
+    """Return (detail, line) of the type mismatches of one file beside an index file."""
+    write(tmp_path / "research/beta.md", document)
+    parsed = checker.agent_document(tmp_path, tmp_path / "research/beta.md")
+    files = [
+        checker.BuiltFile(relative, "beta", records=records),
+        checker.BuiltFile(".beta/index/a1.json", "beta", records=[{"type": "entry"}]),
+    ]
+    found = checker.agent_findings("beta", files, parsed, [])
+    return {(item.detail, item.line) for item in found if item.kind == "type-mismatch"}
+
+
+def scoped_line(text):
+    """Return the line number of a row of the scoped document."""
+    return SCOPED_DOCUMENT.split("\n").index(text) + 1
+
+
+def test_type_mismatch_consults_only_the_sections_naming_the_file(tmp_path):
+    found = scoped_findings(tmp_path, ".beta/history.jsonl", [{"type": "system"}])
+    turn_row = scoped_line("| `type` | string | `user`, `assistant`, `index.json` | 1.0 |")
+    assert found == {("type=system", turn_row)}
+
+
+def test_type_mismatch_names_the_first_consulted_row(tmp_path):
+    shared_type = "| `type` | string | `user` | 1.0 |"
+    document = SCOPED_DOCUMENT.replace(
+        "| `count` | string | | 1.0 |", "| `count` | string | | 1.0 |\n" + shared_type
+    )
+    found = scoped_findings(tmp_path, ".beta/history.jsonl", [{"type": "system"}], document)
+    lines = document.split("\n")
+    index_row = lines.index("| `type` | string | | 1.0 |") + 1
+    turn_row = lines.index("| `type` | string | `user`, `assistant`, `index.json` | 1.0 |") + 1
+    shared_row = lines.index(shared_type) + 1
+    assert index_row < turn_row < shared_row
+    assert found == {("type=system", turn_row)}
+
+
+def test_type_mismatch_consults_every_row_when_no_section_names_the_file(tmp_path):
+    assert scoped_findings(tmp_path, ".beta/other.json", [{"type": "system"}]) == set()
+
+
+def test_type_mismatch_consults_sections_naming_no_built_file(tmp_path):
+    turn_count = "| `count` | number | | 2.0 |"
+    document = SCOPED_DOCUMENT.replace(
+        "`index.json` | 1.0 |", "`index.json` | 1.0 |\n" + turn_count
+    )
+    records: list[object] = [{"count": "three"}]
+    assert scoped_findings(tmp_path, ".beta/history.jsonl", records, document) == set()
+    scoped = document.replace("Every store repeats these.", "`index/<id>.json` too.")
+    found = scoped_findings(tmp_path / "scoped", ".beta/history.jsonl", records, scoped)
+    assert found == {("count:string", scoped.split("\n").index(turn_count) + 1)}
+
+
+HOME_FORMS_DOCUMENT = """\
+# beta
+
+## Parsing
+
+### Record schema
+
+#### Stores
+
+`C:\\Users\\<user>\\.beta\\history.jsonl`, `/home/<user>/.beta/b.jsonl`, `sessions/`,
+`${XDG_DATA_HOME}/beta/c.db`, `<data>/logs` and `~/` hold the records of `type`.
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | | 1.0 |
+"""
+
+
+def test_section_paths_take_home_prefixed_and_directory_spans(tmp_path):
+    write(tmp_path / "doc.md", HOME_FORMS_DOCUMENT)
+    sections = drift_common.research_sections(tmp_path / "doc.md")
+    paths = checker.section_paths(drift_common.within(sections, "Parsing"))
+    assert paths == {
+        "Parsing/Record schema/Stores": [
+            "C:\\Users\\<user>\\.beta\\history.jsonl",
+            "/home/<user>/.beta/b.jsonl",
+            "sessions/",
+            "${XDG_DATA_HOME}/beta/c.db",
+            "<data>/logs",
+        ]
+    }
+
+
+def test_section_paths_skip_key_table_cells(tmp_path):
+    write(tmp_path / "doc.md", SCOPED_DOCUMENT)
+    sections = drift_common.research_sections(tmp_path / "doc.md")
+    paths = checker.section_paths(drift_common.within(sections, "Parsing"))
+    assert paths == {
+        "Parsing/Record schema/Index": ["index/<id>.json"],
+        "Parsing/Record schema/Turn lines": ["~/.beta/history.jsonl"],
+        "Parsing/Record schema/Shared fields": [],
+    }
+    rows, _ = checker.key_tables(drift_common.within(sections, "Parsing"))
+    assert [row.section for row in rows["count"]] == [
+        "Parsing/Record schema/Index",
+        "Parsing/Record schema/Shared fields",
+    ]
+
+
+def test_names_file_forms():
+    cases = [
+        ("index/<id>.json", ".beta/index/a1.json", True),
+        ("<id>.json", ".beta/index/a1.json", True),
+        ("*.jsonl", ".beta/history.jsonl", True),
+        ("sessions/*/<id>.jsonl", ".beta/sessions/p/a1.jsonl", True),
+        ("~/.beta/history.jsonl", ".beta/history.jsonl", True),
+        ("<home>/.beta/history.jsonl", ".beta/history.jsonl", True),
+        ("%APPDATA%\\Beta\\state.json", "AppData/Roaming/Beta/state.json", True),
+        ("C:\\Users\\<user>\\.beta\\history.jsonl", ".beta/history.jsonl", True),
+        ("/home/<user>/.beta/history.jsonl", ".beta/history.jsonl", True),
+        ("/Users/alice/.beta/history.jsonl", ".beta/history.jsonl", True),
+        ("$XDG_DATA_HOME/beta/state.db", ".local/share/beta/state.db", True),
+        ("${XDG_DATA_HOME}/beta/state.db", ".local/share/beta/state.db", True),
+        ("sessions/", ".beta/sessions/p/a1.jsonl", True),
+        (".beta/sessions/", ".beta/sessions/p/a1.jsonl", True),
+        ("sessions/<id>/", ".beta/sessions/p/a1.jsonl", True),
+        (".beta/sessions/", ".beta/sessions", True),
+        ("~/.local/state/opencode", ".local/state/opencode/kv.json", True),
+        ("<data>/logs", ".beta/data/logs/a.log", True),
+        ("%LOCALAPPDATA%\\OpenAI\\Codex", "AppData/Local/OpenAI/Codex/log.txt", True),
+        ("state/opencode", ".local/state/opencode-two/kv.json", False),
+        ("history.jsonl", ".beta/history.jsonl", True),
+        ("ory.jsonl", ".beta/history.jsonl", False),
+        (".beta/history.jsonl", "x.beta/history.jsonl", False),
+        ("history.jsonl", ".beta/history.jsonl.bak", False),
+        ("index/<id>.json", ".beta/index/sub/a1.json", False),
+        ("<owner>/<repo>", ".beta/history.jsonl", False),
+        ("/model", ".beta/model", False),
+    ]
+    for span, relative, expected in cases:
+        assert checker.names_file(span, relative) is expected, (span, relative)
+
+
 BLOB_DOCUMENT = """\
 # beta
 
@@ -521,9 +702,10 @@ def test_new_finding_fails_without_baseline(tmp_path):
 
 
 def test_is_public_builder_forms():
-    for name in ("alpha_records", "goose_records", "write_alpha_state", "claude_309_records"):
+    builders = ("alpha_records", "write_alpha_state", "build_alpha", "alpha_rows")
+    for name in (*builders, "alpha_header", "claude_309_records"):
         assert checker.is_public_builder(name), name
-    for name in ("_alpha_records", "build_alpha", "alpha_helper", "alpha_rows", "_write_x"):
+    for name in ("_alpha_records", "_write_x", "_uuid7"):
         assert not checker.is_public_builder(name), name
 
 

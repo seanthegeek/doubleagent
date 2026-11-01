@@ -1,0 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_kilo
+check_fixture_schema|builder-provenance-missing|build_kilo_share
+check_fixture_schema|builder-provenance-missing|build_kilo_state
+check_fixture_schema|type-mismatch|input:object

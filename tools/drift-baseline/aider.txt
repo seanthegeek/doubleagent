@@ -1,3 +1,4 @@
+check_fixture_schema|builder-provenance-missing|build_aider
 check_fixture_schema|module-provenance-missing|aider
 check_parser_research|key-undocumented|kind
 check_parser_research|key-undocumented|lines

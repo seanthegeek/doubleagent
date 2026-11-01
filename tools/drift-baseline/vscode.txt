@@ -1,3 +1,9 @@
+check_fixture_schema|builder-provenance-missing|build_vscode
+check_fixture_schema|builder-provenance-missing|build_vscode_agents_window
+check_fixture_schema|builder-provenance-missing|build_vscode_grants
+check_fixture_schema|builder-provenance-missing|build_vscode_sync
+check_fixture_schema|builder-provenance-missing|vscode_editing_state
+check_fixture_schema|builder-provenance-missing|vscode_legacy_session
 check_fixture_schema|builder-provenance-missing|vscode_log_records
 check_fixture_schema|enum-undocumented|type=embed
 check_fixture_schema|key-undocumented|isBuiltin

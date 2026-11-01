@@ -1,3 +1,6 @@
+check_fixture_schema|builder-provenance-missing|build_shellgpt
+check_fixture_schema|builder-provenance-missing|shellgpt_legacy_messages
+check_fixture_schema|builder-provenance-missing|shellgpt_messages
 check_fixture_schema|module-provenance-missing|shellgpt
 check_parser_research|parser-message-undocumented|parser: not a ShellGPT chat file
 check_parser_research|pattern-undocumented|(^|/)\.config/shell_gpt/\.sgptrc$

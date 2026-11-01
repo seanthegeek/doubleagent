@@ -1,5 +1,7 @@
+check_fixture_schema|builder-provenance-missing|build_pi
 check_fixture_schema|builder-provenance-missing|pi_bug_report_records
 check_fixture_schema|builder-provenance-missing|pi_crash_records
+check_fixture_schema|builder-provenance-missing|pi_debug_log_text
 check_fixture_schema|builder-provenance-missing|pi_fork_records
 check_fixture_schema|builder-provenance-missing|pi_session_records
 check_fixture_schema|cross-agent-builder|little_coder_session_records

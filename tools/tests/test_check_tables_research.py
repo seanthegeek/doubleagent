@@ -514,6 +514,59 @@ def test_sibling_bases_forms():
     assert [entry.glob for entry in found] == ["AppData/Local/agent-zero"]
 
 
+def test_sibling_bases_keep_case():
+    cases = [
+        ([".hermes", "AppData/Local/hermes", "AppData/Roaming/Hermes"], ["AppData/Local/hermes"]),
+        (
+            [
+                ".config/goose",
+                "Library/Application Support/Block/goose",
+                "Library/Application Support/Goose",
+                "AppData/Roaming/Goose",
+            ],
+            ["Library/Application Support/Block/goose"],
+        ),
+        (
+            [
+                ".config/Hermes",
+                "Library/Application Support/Hermes",
+                "AppData/Roaming/Hermes",
+                "Library/Application Support/hermes",
+            ],
+            ["Library/Application Support/Hermes", "AppData/Roaming/Hermes"],
+        ),
+        (
+            [".ollama", "Library/Application Support/Ollama", "AppData/Local/Ollama"],
+            ["AppData/Local/Ollama"],
+        ),
+        (
+            [".local/share/a0", "Library/Application Support/A0", "AppData/Local/A0"],
+            ["Library/Application Support/A0", "AppData/Local/A0"],
+        ),
+        (
+            [".config/zed", "AppData/Roaming/Zed", "AppData/Local/Zed"],
+            ["AppData/Roaming/Zed", "AppData/Local/Zed"],
+        ),
+    ]
+    for globs, expected in cases:
+        entries = [line(glob) for glob in globs]
+        found = checker.sibling_bases(entries[0], entries, globs[1:])
+        assert [entry.glob for entry in found] == expected, globs
+
+
+def test_case_distinguishes_forms():
+    cases = [
+        ([".hermes", "AppData/Local/hermes", "AppData/Roaming/Hermes"], True),
+        ([".config/goose", ".config/Goose"], True),
+        ([".ollama", "AppData/Local/Ollama"], False),
+        ([".config/zed", "Library/Application Support/Zed", "AppData/Local/Zed"], False),
+        (["Claude", "Documents/claude"], False),
+        ([], False),
+    ]
+    for globs, expected in cases:
+        assert checker.case_distinguishes([line(glob) for glob in globs]) is expected, globs
+
+
 def test_credential_paths_forms():
     entries = [line(".config/alpha"), line("Library/Application Support/alpha"), line(".alpha")]
     named = ["Library/Application Support/alpha"]

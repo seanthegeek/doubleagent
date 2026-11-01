@@ -8,22 +8,22 @@ never documents a key), of the file's agent's document or of an agent whose fixt
 agent's modules import a name from (`lineage_agents`). Rules 3 to 6 and 8 read only the files
 `build_home` leaves on disk, so a record a later builder overwrites is not checked.
 
-1. `builder-provenance-missing`: a public builder (`is_public_builder`) whose docstring has no
-   line `source_line` accepts, naming an agent document and one of its heading anchors.
+1. `builder-provenance-missing`: a public function of a fixture module (`is_public_builder`)
+   whose docstring has no line `source_line` accepts, naming a document heading.
 2. `module-provenance-missing`: a fixture module whose docstring does not name
    `research/<agent>.md` for its own agent as a whole path token (`names_document`).
 3. `key-undocumented`: a dict key, SQLite table or column name, or YAML or TOML key that is
    a field name (`is_field_name`) in a file of an agent and is not documented;
    `file-unclaimed`: a file no catalog entry claims (`claiming_agent`).
 4. `enum-undocumented`: a value (`is_enum_value`) of a key in `ENUM_KEYS` not documented.
-5. `type-mismatch`: a value no key table row of its key (Record schema, Other stores) `accepts`;
-   a key in several tables passes when any one of its rows accepts both its type and its value.
-6. `substitution-undeclared`: a project path (`project_path`) outside `/srv/proj` and the
-   `declared_paths` of the agent's fixture modules.
+5. `type-mismatch`: a value no consulted row of its key (Record schema, Other stores) `accepts`:
+   the rows of the sections naming its file (`names_file`) plus those naming no built file, or
+   every row when none names it (`consulted_rows`); a key left no row is not checked.
+6. `substitution-undeclared`: a `project_path` outside `/srv/proj` and the agent's modules'
+   `declared_paths`.
 7. `cross-agent-builder`: a call to a function imported from another agent's fixture module
    whose agent `lineage` does not list.
-8. `sample-equals-builder`: a JSON value in a fenced block under Parser plan's Fixtures whose
-   key-sorted form equals a record `build_home` wrote.
+8. `sample-equals-builder`: a JSON value fenced under Fixtures equal, key-sorted, to a built record.
 
 A key table's header row is `| Key | Type | Values | Since |` (or `Builds`): Key a code span,
 Type `TYPE_NAMES` joined by ` or `, `,` or `/`, Values code spans (empty for any).
@@ -51,6 +51,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING
 
 import check_doc_links
+import check_tables_research
 import drift_common
 import zstandard
 
@@ -101,6 +102,15 @@ MAP_CONTAINERS = frozenset(
 ENUM_VALUE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,63}$")
 KEY_TABLE_HEADER = re.compile(r"^\|\s*Key\s*\|\s*Type\s*\|\s*Values\s*\|\s*(?:Since|Builds)\s*\|")
 TYPE_SEPARATOR = re.compile(r"\s+or\s+|[,/]")
+# A placeholder segment part of a path span, such as `<id>` in `sessions/<id>.json`.
+PLACEHOLDER = re.compile(r"<[^<>/]*>")
+# Leading placeholder segments of a path span, the base it sits under (`<home>/`, `<GS>/`).
+LEADING_PLACEHOLDERS = re.compile(r"^(?:<[^<>/]*>/)+")
+# An absolute home directory opening a path span, once backslashes are slashes.
+ABSOLUTE_HOME = re.compile(r"^(?:[A-Za-z]:/Users/[^/]+/|/(?:home|Users)/[^/]+/|/root/)")
+# A braced shell variable opening a path span (`${XDG_DATA_HOME}/`), written bare for
+# `normalise_span`.
+BRACED_VARIABLE = re.compile(r"^\$\{(\w+)\}")
 WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 
 
@@ -108,8 +118,12 @@ WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 def is_public_builder(name: str) -> bool:
-    """Return whether a function is a public builder: no leading `_`, `*records` or `write_*`."""
-    return not name.startswith("_") and (name.endswith("records") or name.startswith("write_"))
+    """Return whether a fixture module's function is a builder needing a `Source:` line.
+
+    Every public function is one, the home builders `HOME_BUILDERS` registers included, since
+    each writes records a document section sources.
+    """
+    return not name.startswith("_")
 
 
 def source_line(line: str) -> tuple[str, str, str] | None:
@@ -302,6 +316,50 @@ def is_field_name(key: str, container: str = "") -> bool:
     return bool(FIELD_NAME.match(key)) and not HEX_ID.match(key) and not ENVIRONMENT.match(key)
 
 
+def home_relative(span: str) -> str:
+    """Return a path span home-relative: variable, absolute and placeholder home prefixes dropped.
+
+    A braced variable (`BRACED_VARIABLE`) is written bare for `normalise_span`, which drops a
+    `~/` or variable home prefix; then an absolute home (`ABSOLUTE_HOME`) and leading
+    placeholder segments (`<home>/`) go.
+    """
+    path = drift_common.normalise_span(BRACED_VARIABLE.sub(r"$\1", span))
+    return LEADING_PLACEHOLDERS.sub("", ABSOLUTE_HOME.sub("", path))
+
+
+def is_section_path(span: str) -> bool:
+    r"""Return whether a code span has the form of a path, the spans `names_file` reads.
+
+    A span ending in `/` or `\` is a directory path once anything other than placeholders
+    remains; any other span is a path when `is_path_span` says so of its placeholders filled,
+    as written (`<data>/logs`) or in its home-relative form (`~/.beta`).
+    """
+    if span.endswith(("/", "\\")):
+        return bool(PLACEHOLDER.sub("", span).strip("*/\\~."))
+    filled = (PLACEHOLDER.sub("x", text) for text in (span, home_relative(span)))
+    return any(check_tables_research.is_path_span(text) for text in filled)
+
+
+def names_file(span: str, relative: str) -> bool:
+    """Return whether a path span names a home-relative file: the file, or a directory above it.
+
+    The span is read in its `home_relative` form; each `<...>` and `*` matches within one
+    segment, so `sessions/<id>.json` and `*.jsonl` name `.beta/sessions/x.json` and
+    `.beta/x.jsonl`. It matches whole segments ending at the file or at a directory above it,
+    so `.local/state/opencode` names `.local/state/opencode/kv.json` and `ory.jsonl` does not
+    name `history.jsonl`; a span of placeholders alone names no file.
+    """
+    path = home_relative(span)
+    if not PLACEHOLDER.sub("", path).strip("*/"):
+        return False
+    parts = re.split(r"(%s|\*)" % PLACEHOLDER.pattern, path)
+    pattern = "".join(
+        "[^/]*" if part == "*" else "[^/]+" if PLACEHOLDER.fullmatch(part) else re.escape(part)
+        for part in parts
+    )
+    return re.search("(?:^|/)%s(?:/.+)?$" % pattern, relative) is not None
+
+
 def is_documented(name: str, names: set[str]) -> bool:
     """Return whether a key, table, column or value is among `span_names`' names."""
     return name in names
@@ -341,7 +399,9 @@ def _anchors(path: pathlib.Path) -> frozenset[str]:
 
 
 def provenance_findings(
-    root: pathlib.Path, module: FixtureModule, documents: dict[str, pathlib.Path]
+    root: pathlib.Path,
+    module: FixtureModule,
+    documents: dict[str, pathlib.Path],
 ) -> Iterator[drift_common.Finding]:
     """Yield the module's `module-provenance-missing` and `builder-provenance-missing` findings."""
     relative = module.path.relative_to(root).as_posix()
@@ -640,11 +700,12 @@ def canonical(value: object) -> str:
 
 @dataclass
 class KeyRow:
-    """One row of a key table: its JSON type names, its allowed values, its line."""
+    """One row of a key table: its JSON type names, allowed values, line and section key."""
 
     types: set[str]
     values: set[str]
     line: int
+    section: str = ""
 
 
 @dataclass
@@ -656,31 +717,64 @@ class AgentDocument:
     key_rows: dict[str, list[KeyRow]]
     samples: list[tuple[str, int]]
     key_tables: int
+    section_paths: dict[str, list[str]] = field(default_factory=dict)
+    scoped: frozenset[str] = frozenset()
 
 
 def key_tables(sections: list[drift_common.Section]) -> tuple[dict[str, list[KeyRow]], int]:
-    """Return every key table row in the sections, in document order per key, and the count."""
+    """Return every key table row in the sections, in document order per key, and the count.
+
+    Each row holds the key of the section the table is in, the section `section_paths` reads.
+    """
     rows: dict[str, list[KeyRow]] = {}
     count = 0
     for section in sections:
-        in_table = False
-        for offset, line in enumerate(section.text.split("\n")):
-            text = line.strip()
-            if KEY_TABLE_HEADER.match(text):
-                in_table, count = True, count + 1
-                continue
-            if not in_table or not text.startswith("|"):
-                in_table = False
-                continue
-            cells = [cell.strip() for cell in text.strip("|").split("|")]
-            if len(cells) < 3 or drift_common.TABLE_SEPARATOR.match(text):
+        for offset, cells in _table_rows(section):
+            if not cells:
+                count += 1
                 continue
             spans = CODE_SPAN.findall(cells[0])
             key = spans[0] if spans else cells[0]
             values = set(CODE_SPAN.findall(cells[2]))
-            row = KeyRow(table_types(cells[1]), values, section.start + offset)
+            row = KeyRow(table_types(cells[1]), values, section.start + offset, section.key)
             rows.setdefault(key, []).append(row)
     return rows, count
+
+
+def _table_rows(section: drift_common.Section) -> Iterator[tuple[int, list[str]]]:
+    """Yield (line offset, cells) of each key table row, and (offset, []) at each header row."""
+    in_table = False
+    for offset, line in enumerate(section.text.split("\n")):
+        text = line.strip()
+        if KEY_TABLE_HEADER.match(text):
+            in_table = True
+            yield offset, []
+            continue
+        if not in_table or not text.startswith("|"):
+            in_table = False
+            continue
+        cells = [cell.strip() for cell in text.strip("|").split("|")]
+        if len(cells) >= 3 and not drift_common.TABLE_SEPARATOR.match(text):
+            yield offset, cells
+
+
+def section_paths(sections: list[drift_common.Section]) -> dict[str, list[str]]:
+    """Return, per section holding a key table, the path spans outside its key tables.
+
+    A span is a path when `is_section_path` says so; a key table's own cells are keys and
+    values, never the files the section names.
+    """
+    found: dict[str, list[str]] = {}
+    for section in sections:
+        table_lines = {section.start + offset for offset, _ in _table_rows(section)}
+        if not table_lines:
+            continue
+        found[section.key] = [
+            span.text
+            for span in section.code_spans
+            if span.line not in table_lines and is_section_path(span.text)
+        ]
+    return found
 
 
 def sample_values(sections: list[drift_common.Section]) -> list[tuple[str, int]]:
@@ -715,7 +809,8 @@ def agent_document(root: pathlib.Path, path: pathlib.Path) -> AgentDocument:
     rows, count = key_tables(tables)
     fixtures = drift_common.within(sections, *FIXTURES_SECTION)
     relative = path.relative_to(root).as_posix()
-    return AgentDocument(relative, names, rows, sample_values(fixtures), count)
+    samples = sample_values(fixtures)
+    return AgentDocument(relative, names, rows, samples, count, section_paths(tables))
 
 
 # --- Rules on the built files ---------------------------------------------------------------
@@ -731,12 +826,39 @@ def accepts(row: KeyRow, value: object) -> bool:
     return typed and (not row.values or not isinstance(value, str) or value in row.values)
 
 
+def naming_sections(document: AgentDocument, relative: str) -> set[str]:
+    """Return the keys of the sections holding key tables that name a file (`names_file`)."""
+    return {
+        key
+        for key, spans in document.section_paths.items()
+        if any(names_file(span, relative) for span in spans)
+    }
+
+
+def consulted_rows(relative: str, document: AgentDocument) -> dict[str, list[KeyRow]]:
+    """Return the key table rows that apply to a built file, by key, in document order.
+
+    When a section holding key tables names the file, the rows of the sections that name it
+    apply, and those of each section naming no built file (outside `document.scoped`); when
+    none names it, every row of the document does. A key whose rows all sit in sections naming
+    other files keeps no row, and its values pass unchecked.
+    """
+    named = naming_sections(document, relative)
+    if not named:
+        return document.key_rows
+    return {
+        key: [row for row in rows if row.section in named or row.section not in document.scoped]
+        for key, rows in document.key_rows.items()
+    }
+
+
 def file_findings(
     built: BuiltFile, document: AgentDocument, allowed: list[str], seen: set[tuple[str, str]]
 ) -> Iterator[drift_common.Finding]:
     """Yield the findings of rules 3 to 6 for one built file, each (kind, detail) once per agent.
 
-    A `type-mismatch` finding names the line of the first key table row of its key.
+    A `type-mismatch` finding names the line of the first key table row of its key among the
+    rows `consulted_rows` applies to the file.
     """
 
     def report(kind: str, detail: str, line: int = 0) -> Iterator[drift_common.Finding]:
@@ -747,6 +869,7 @@ def file_findings(
             message = "in %s" % built.relative
             yield drift_common.Finding(built.agent, kind, detail, document.path, line, message)
 
+    key_rows = consulted_rows(built.relative, document)
     for name in built.names:
         if is_field_name(name) and not is_documented(name, document.names):
             yield from report("key-undocumented", name)
@@ -761,7 +884,7 @@ def file_findings(
             path = project_path(key, value)
             if path and not is_substitute(path, [SUBSTITUTE_PATH, *allowed]):
                 yield from report("substitution-undeclared", path)
-            rows = document.key_rows.get(key, [])
+            rows = key_rows.get(key, [])
             if not rows or in_list or any(accepts(row, value) for row in rows):
                 continue
             # Each half no row meets gets its detail; when each is met by a different row, the
@@ -845,6 +968,8 @@ def agent_findings(
         for found in declared_paths(module.docstring)
     ]
     seen: set[tuple[str, str]] = set()
+    scoped = {key for built in files for key in naming_sections(document, built.relative)}
+    document = dataclasses.replace(document, scoped=frozenset(scoped))
     for built in files:
         yield from file_findings(built, document, allowed, seen)
     yield from sample_findings(agent, files, document)

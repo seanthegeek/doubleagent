@@ -1,5 +1,15 @@
+check_fixture_schema|builder-provenance-missing|build_pearai
 check_fixture_schema|builder-provenance-missing|pearai_api_records
+check_fixture_schema|builder-provenance-missing|pearai_dev_chat
+check_fixture_schema|builder-provenance-missing|pearai_index
+check_fixture_schema|builder-provenance-missing|pearai_log_completion
+check_fixture_schema|builder-provenance-missing|pearai_log_settings
+check_fixture_schema|builder-provenance-missing|pearai_output_log
 check_fixture_schema|builder-provenance-missing|pearai_permission_records
+check_fixture_schema|builder-provenance-missing|pearai_permission_ui_asks
+check_fixture_schema|builder-provenance-missing|pearai_search_session
+check_fixture_schema|builder-provenance-missing|pearai_session
+check_fixture_schema|builder-provenance-missing|pearai_tokens
 check_fixture_schema|cross-agent-builder|roo_ui_records
 check_fixture_schema|key-undocumented|accepted
 check_fixture_schema|key-undocumented|itemId

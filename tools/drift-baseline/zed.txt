@@ -1,3 +1,8 @@
+check_fixture_schema|builder-provenance-missing|build_zed
+check_fixture_schema|builder-provenance-missing|build_zed_database_stores
+check_fixture_schema|builder-provenance-missing|zed_blob
+check_fixture_schema|builder-provenance-missing|zed_thread_record
+check_fixture_schema|builder-provenance-missing|zed_unknown_variants_record
 check_fixture_schema|module-provenance-missing|zed
 check_fixture_schema|substitution-undeclared|/private/var/folders/xy/abc/T/zed-agent-terminal-Ab12Cd
 check_fixture_schema|substitution-undeclared|/srv/worktrees/fix-tests/proj
