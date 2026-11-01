@@ -1128,7 +1128,16 @@ one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the 
 one that is not a SQLite database is `parser: not a SQLite database`.
 
 An `events.jsonl` that cannot be read is one whole-file row
-`parser: events.jsonl could not be read (<reason>)` through `error_rows`.
+`parser: events.jsonl could not be read (<reason>)` through `error_rows`. So is a
+`workspace.yaml`, `rewind-file-snapshots/index.json`, `command-history-state.json`,
+`permissions-config.json`, `settings.json`, `logs/process-*.log` or `sidebar-sessions-state/*.json`
+file that cannot be read, `parser: <file> could not be read (<reason>)` with `source_line` 0 and no
+time, the session id from the path for the two session-directory files; a sidebar file gives no
+other row. A JSON file that reads but is not a JSON object is one row at `source_line` 1:
+`parser: rewind snapshot index is not a JSON object`,
+`parser: command history is not a JSON object`,
+`parser: permissions-config.json is not a JSON object` or
+`parser: settings.json is not a JSON object`.
 
 #### Fixtures
 

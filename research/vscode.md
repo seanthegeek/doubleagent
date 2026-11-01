@@ -1009,8 +1009,10 @@ a scratch directory, while the real project is in `workingDirectory`. The parser
 session's `workingDirectory` first, then `workspace.json`'s `folder`, and never the `workspace`
 value, which names a `.code-workspace` file rather than a directory (a user's multi-root workspace
 file as well as the Agents window's); the workspace file is named in the session-start row as
-`workspace=<path>`, and a `workspace.json` that cannot be read or is not a JSON object gives a
-`parser: workspace.json not read (<reason>)` or `parser: workspace.json is not a JSON object` row.
+`workspace=<path>`. A `workspace.json` that cannot be read gives a
+`parser: workspace.json could not be read (<reason>)` row, one that does not decode a
+`parser: workspace.json not read (<reason>)` row and one that is not a JSON object a
+`parser: workspace.json is not a JSON object` row.
 That the Agents window's chats are stored under that workspace's hash follows from the store's
 rule ([Transcript stores](#transcript-stores)) and was not traced further; it is not observed on any
 real install, source-derived. An empty-window chat has no project. The worktrees VS Code makes for
@@ -1045,9 +1047,14 @@ read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
 is not a SQLite database `parser: state.vscdb is not a SQLite database`, and a damaged `state.vscdb`
 or a value that is not JSON is `parser: state.vscdb unreadable: <message>` or
-`parser: ItemTable value for <key> is not valid JSON (<reason>)`. When they are read, the transcript
-and debug-log readers go through `iter_jsonl` and `error_rows`, and `session-store.db` errors are
-whole-file `parser:` rows.
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`. A `cloudSessions.json` that does
+not decode or is not a JSON object is `parser: cloudSessions.json is not a JSON object`, followed
+by the decoder's message in parentheses when it does not decode. A `.json` or `.jsonl` session, a
+chat editing `state.json`, `cloudSessions.json` or `settings.json` that cannot be read is one
+whole-file row `parser: <file> could not be read (<reason>)` through `error_rows`, `source_line` 0
+(for a `.jsonl` session that fails mid-read, the last line read) and no time, with the session id
+the file's rows carry. When they are read, the transcript and debug-log readers go through
+`iter_jsonl` and `error_rows`, and `session-store.db` errors are whole-file `parser:` rows.
 
 #### Fixtures
 

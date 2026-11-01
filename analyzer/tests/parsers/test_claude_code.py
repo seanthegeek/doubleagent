@@ -222,6 +222,64 @@ class ClaudeCodeTests(ParserBase):
             missing.endswith("[persisted output not found: tool-results/f0e1d2c3b.txt]"), missing
         )
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_persisted_output_is_noted_and_reported(self):
+        results_dir = self.home / ".claude/projects/-srv-proj" / CLAUDE_SESSION / "tool-results"
+        stored = results_dir / "b1c2d3e4f.txt"
+        stored.chmod(0)
+        try:
+            parser = ClaudeCodeParser()
+            rows = self.rows_for(parser, self.REL)
+            history = self.rows_for(parser, ".claude/history.jsonl")
+        finally:
+            stored.chmod(0o600)
+        by_line = {row.source_line: row for row in rows}
+        self.assertTrue(by_line[20].text.startswith("<persisted-output>"), by_line[20].text)
+        self.assertTrue(
+            by_line[20].text.endswith("\n[persisted output could not be read (Permission denied)]"),
+            by_line[20].text,
+        )
+        self.assertEqual(
+            [
+                (row.turn_type, row.source_line, row.timestamp_utc, row.text, row.session_id)
+                for row in rows
+                if row.text.startswith("parser:")
+            ],
+            [
+                (
+                    "system",
+                    0,
+                    "",
+                    "parser: b1c2d3e4f.txt could not be read (Permission denied)",
+                    CLAUDE_SESSION,
+                )
+            ],
+        )
+        self.assertEqual(len(history), 2)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_json_file_is_one_row(self):
+        for rel in (".claude/settings.json", ".claude/sessions/4242.json", ".claude.json"):
+            path = self.home / rel
+            path.chmod(0)
+            try:
+                parser = ClaudeCodeParser()
+                rows = self.rows_for(parser, rel)
+                session_rows = self.rows_for(parser, self.REL)
+            finally:
+                path.chmod(0o600)
+            name = rel.rsplit("/", 1)[-1]
+            self.assertEqual(
+                [(row.turn_type, row.source_line, row.timestamp_utc, row.text) for row in rows],
+                [("system", 0, "", "parser: %s could not be read (Permission denied)" % name)],
+                rel,
+            )
+            self.assertEqual(
+                [(row.source_line, row.turn_type, row.text) for row in session_rows][:3],
+                self.EXPECTED[:3],
+                rel,
+            )
+
     def test_persisted_output_not_through_symlink(self):
         results_dir = self.home / ".claude/projects/-srv-proj" / CLAUDE_SESSION / "tool-results"
         stored = results_dir / "b1c2d3e4f.txt"

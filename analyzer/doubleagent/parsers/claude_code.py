@@ -45,6 +45,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     setting_value,
@@ -239,12 +240,16 @@ def session_dir(artifact: Artifact) -> Path:
     return path.with_suffix("")
 
 
-def persisted_text(artifact: Artifact, stub: str, path: str = "") -> str:
+def persisted_text(
+    artifact: Artifact, stub: str, path: str = "", errors: list | None = None
+) -> str:
     """Return the full text of a persisted tool output's file.
 
     Returns the stub with a note when the file is not in this session's `tool-results/`
-    or is a symlink. `path` is the line's `toolUseResult.persistedOutputPath` (2.1.309);
-    without it the path is read from a `<persisted-output>` stub's text.
+    or is a symlink, or with `[persisted output could not be read (<reason>)]` when it is
+    there but cannot be read, its unreadable entry added to `errors`. `path` is the line's
+    `toolUseResult.persistedOutputPath` (2.1.309); without it the path is read from a
+    `<persisted-output>` stub's text.
     """
     if not path:
         match = PERSISTED_PATTERN.search(stub)
@@ -272,9 +277,18 @@ def persisted_text(artifact: Artifact, stub: str, path: str = "") -> str:
             or not output_file.is_file()
         ):
             return note
-        return output_file.read_bytes().decode("utf-8", errors="replace")
     except OSError:
         return note
+    failures: list = []
+    data = file_bytes(output_file, failures)
+    if data is None:
+        message = failures[0][1]
+        if errors is not None:
+            errors.extend(failures)
+        # The entry reads `<name> could not be read (<reason>)`; the note keeps the reason.
+        reason = message.partition(" could not be read (")[2][:-1]
+        return "%s\n[persisted output could not be read (%s)]" % (stub, reason)
+    return data.decode("utf-8", errors="replace")
 
 
 def match_form(row: Row) -> tuple[str, str]:
@@ -542,9 +556,14 @@ class ClaudeCodeParser(Parser):
         row = self.base_row(artifact)
         row.source_line = 1
         row.turn_type = "system"
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            record = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            record = json.loads(data.decode("utf-8", errors="replace"))
+        except ValueError:
             record = None
         if not isinstance(record, dict):
             row.text = "parser: session registry file is not a JSON object"
@@ -602,10 +621,18 @@ class ClaudeCodeParser(Parser):
         return row
 
     def _settings_doc(self, artifact: Artifact, what: str) -> tuple[dict | None, Row | None]:
-        """Return the file as a JSON object, or a `system` row saying it is not one."""
+        """Return the file as a JSON object, or a `system` row saying why it is not one.
+
+        A file that cannot be read gives the shared unreadable row; one that reads but is
+        not a JSON object gives `parser: <what> is not a JSON object`.
+        """
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            return None, next(error_rows(self, artifact, errors))
         try:
-            doc = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError):
+            doc = json.loads(data.decode("utf-8", errors="replace"))
+        except ValueError:
             doc = None
         if isinstance(doc, dict):
             return doc, None
@@ -865,7 +892,7 @@ class ClaudeCodeParser(Parser):
                     yield model_row
 
             if record_type == "user":
-                yield from self._user(record, base, artifact, opts, not task_done)
+                yield from self._user(record, base, artifact, opts, not task_done, errors)
                 task_done = True
             elif record_type == "assistant":
                 yield from self._assistant(record, base, opts)
@@ -1041,9 +1068,9 @@ class ClaudeCodeParser(Parser):
         return path if isinstance(path, str) else ""
 
     def _user(
-        self, record, base, artifact: Artifact, opts: Options, is_task: bool
+        self, record, base, artifact: Artifact, opts: Options, is_task: bool, errors: list
     ) -> Iterator[Row]:
-        yield from self._user_blocks(record, base, artifact, is_task)
+        yield from self._user_blocks(record, base, artifact, is_task, errors)
         source = record.get("promptSource")
         origin = record.get("turnOrigin")
         source = "" if source is None else str(source)
@@ -1108,7 +1135,9 @@ class ClaudeCodeParser(Parser):
         row.text = compact(text + denial)
         return row
 
-    def _user_blocks(self, record, base, artifact: Artifact, is_task: bool) -> Iterator[Row]:
+    def _user_blocks(
+        self, record, base, artifact: Artifact, is_task: bool, errors: list
+    ) -> Iterator[Row]:
         content = (record.get("message") or {}).get("content")
         origin = record.get("origin") or {}
         kind = origin.get("kind") if isinstance(origin, dict) else None
@@ -1166,9 +1195,9 @@ class ClaudeCodeParser(Parser):
                 row.tool_use_id = str(block.get("tool_use_id") or "")
                 text = result_text(block.get("content"))
                 if saved:
-                    text = persisted_text(artifact, text, saved)
+                    text = persisted_text(artifact, text, saved, errors)
                 elif text.lstrip().startswith(PERSISTED_MARK):
-                    text = persisted_text(artifact, text)
+                    text = persisted_text(artifact, text, errors=errors)
                 if block.get("is_error"):
                     text = "[error] " + text
                 row.text = compact(text)

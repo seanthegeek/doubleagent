@@ -15,29 +15,7 @@ antigravity no-reason .gemini/config/config.json
 antigravity no-reason .gemini/config/projects/5e1d7c2a-0000-4000-8000-0000000000a1.json
 antigravity no-reason .gemini/config/projects/default-cli-project.json
 antigravity no-reason .gemini/config/sidecars/weekly-check/sidecar.json
-claude-code no-reason .claude-work/.claude.json
-claude-code no-reason .claude.json
-claude-code no-reason .claude/sessions/4242.json
-claude-code no-reason .claude/sessions/4343.json
-claude-code no-reason .claude/settings.json
-claude-code silent .claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555/tool-results/b1c2d3e4f.txt
-claude-code silent .claude/projects/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/tool-results/k3j9x2m1q.txt
-claude-desktop no-reason Library/Application Support/Claude/claude-code-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_e2e2e2e2-9999-4aaa-8bbb-cccccccccccc.json
-claude-desktop no-reason Library/Application Support/Claude/claude-code-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_e3e3e3e3-9999-4aaa-8bbb-cccccccccccc.json
-claude-desktop no-reason Library/Application Support/Claude/git-worktrees.json
-claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_c0c0c0c0-1111-4222-8333-444444444444.json
-claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/remote-session-spaces.json
-claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/scheduled-tasks.json
 cody silent .config/Code/User/settings.json
-copilot-cli no-reason .copilot/command-history-state.json
-copilot-cli no-reason .copilot/permissions-config.json
-copilot-cli no-reason .copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/rewind-file-snapshots/index.json
-copilot-cli no-reason .copilot/settings.json
-copilot-cli silent .copilot/logs/process-1790845199000-4242.log
-copilot-cli silent .copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/workspace.yaml
-copilot-cli silent .copilot/sidebar-sessions-state/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972.json
-copilot-desktop no-reason .copilot/repos/proj/.git/refs/copilot/checkpoints/5e55a0a1-0000-4000-8000-000000000001/00000000000000000001/e0000000-0000-4000-8000-000000000004
-copilot-desktop no-reason .copilot/repos/proj/.git/refs/copilot/checkpoints/5e55a0a1-0000-4000-8000-000000000001/00000000000000000002/e0000000-0000-4000-8000-000000000020
 gemini-cli silent .gemini/projects.json
 gemini-cli silent .gemini/tmp/proj/.project_root
 goose escaped .local/state/goose/history.txt
@@ -81,7 +59,3 @@ shellgpt escaped AppData/Local/Temp/shell_gpt/cache/0cc175b9c0f1b6a831c399e26977
 shellgpt escaped AppData/Local/Temp/shell_gpt/cache/900150983cd24fb0d6963f7d28e17f72
 shellgpt escaped AppData/Local/Temp/shell_gpt/cache/d41d8cd98f00b204e9800998ecf8427e
 shellgpt escaped AppData/Local/Temp/shell_gpt/chat_cache/old-functions
-vscode escaped .config/Code/User/globalStorage/github.copilot-chat/cloudSessions.json
-vscode escaped .config/Code/User/workspaceStorage/abc123/chatEditingSessions/9ab0c1d2-0000-4000-8000-00000000c0de/state.json
-vscode escaped .config/Code/User/workspaceStorage/abc123/chatSessions/9ab0c1d2-0000-4000-8000-00000000c0de.jsonl
-vscode escaped .vscode-server/data/User/globalStorage/emptyWindowChatSessions/9ab0c1d2-0000-4000-8000-0000000001d0.json

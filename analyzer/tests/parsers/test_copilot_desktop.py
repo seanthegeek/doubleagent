@@ -1,8 +1,11 @@
 """Tests of the GitHub Copilot Desktop parser."""
 
 import sqlite3
+import unittest
 from pathlib import Path
 from typing import ClassVar
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
@@ -307,6 +310,33 @@ class CopilotDesktopTests(ParserBase):
             self.assertFalse(parser.wants(rel_only(rel)), rel)
         self.assertTrue(parser.wants(rel_only(ref)))
         self.assertTrue(parser.wants(self.artifact(ref)))
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_checkpoint_ref_is_one_row(self):
+        path = self.home / COPILOT_DESKTOP_REF_REL
+        path.chmod(0)
+        try:
+            parser = CopilotDesktopParser()
+            rows = self.rows_for(parser, COPILOT_DESKTOP_REF_REL)
+            database = self.rows_for(parser, COPILOT_DESKTOP_DATABASE_REL)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.source_line, row.timestamp_utc, row.text, row.session_id)
+                for row in rows
+            ],
+            [
+                (
+                    "system",
+                    0,
+                    "",
+                    "parser: %s could not be read (Permission denied)" % path.name,
+                    COPILOT_SESSION,
+                )
+            ],
+        )
+        self.assertTrue(database)
 
     def test_unreadable_database(self):
         database = self.home / COPILOT_DESKTOP_DATABASE_REL

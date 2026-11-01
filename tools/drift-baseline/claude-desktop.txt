@@ -29,9 +29,6 @@ check_fixture_schema|sample-equals-builder|Library/Application Support/Claude/lo
 check_fixture_schema|substitution-undeclared|/sessions/quiet-river-1234
 check_fixture_schema|substitution-undeclared|/srv/docs
 check_fixture_schema|substitution-undeclared|/srv/proj2
-check_parser_research|parser-message-undocumented|parser: session record is not a JSON object
-check_parser_research|parser-message-undocumented|parser: unreadable git-worktrees.json
-check_parser_research|parser-message-undocumented|parser: unreadable scheduled-tasks.json
 check_parser_research|pattern-undocumented|(?P<sess>^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/local-agent-mode-sessions/[^/]+/[^/]+/(?:agent/)?[^/]+)/audit\.jsonl$
 check_parser_research|pattern-undocumented|^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/(?:local-agent-mode-sessions|claude-code-sessions)/[^/]+/[^/]+/scheduled-tasks\.json$
 check_parser_research|pattern-undocumented|^(?:Library/Application Support/Claude(?:-3p)?|\.config/Claude(?:-3p)?|AppData/Roaming/Claude(?:-3p)?|AppData/Local/Claude(?:-3p)?|AppData/Local/Claude-Data(?:/[^/]+)?|AppData/Local/Packages/(?:AnthropicPBC\.)?Claude_[^/]+/LocalCache/Roaming/Claude)/(?P<tree>(?:local-agent-mode-sessions|claude-code-sessions)/[^/]+/[^/]+/)(?:agent/)?local_[0-9a-f-]{36}\.json$

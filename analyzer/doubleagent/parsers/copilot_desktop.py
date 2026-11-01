@@ -36,7 +36,7 @@ from ..inputs import Artifact
 from ..model import Row, compact
 from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
-from .base import Options, Parser, compact_json, file_mtime
+from .base import Options, Parser, compact_json, error_rows, file_bytes, file_mtime
 
 DATABASE_PATTERN = re.compile(r"^\.copilot/data\.db$")
 REF_PATTERN = re.compile(
@@ -89,16 +89,14 @@ class CopilotDesktopParser(Parser):
 
     def _ref_row(self, artifact: Artifact, ref: re.Match) -> Row:
         session_id, sequence, event_id = ref.groups()
-        try:
-            content = artifact.disk_path.read_bytes().decode("utf-8", "replace")
-        except OSError:
-            return self._row(
-                artifact, "parser: unreadable %s" % artifact.rel, session_id=session_id
-            )
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            return next(error_rows(self, artifact, errors, session_id))
         return self._row(
             artifact,
             "checkpoint ref %d: commit %s event %s (file mtime)"
-            % (int(sequence), content.strip(), event_id),
+            % (int(sequence), data.decode("utf-8", "replace").strip(), event_id),
             file_mtime(artifact),
             session_id=session_id,
         )

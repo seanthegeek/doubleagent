@@ -1201,7 +1201,9 @@ deleted session's checkpoints in the clone.
 Every column is read as possibly NULL. A database that cannot be opened
 gives one `parser: <message>` row. A checkpoint ref file that is empty or
 not a 40-hex hash still yields the row with its content as read,
-stripped, nothing repaired.
+stripped, nothing repaired; one that cannot be read is one row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `source_line` 0, with the
+session id from its path.
 
 A `data.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
