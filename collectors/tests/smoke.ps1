@@ -2509,7 +2509,7 @@ foreach ($opencodePath in $opencodeProjectConfigs) {
 Run 'nosecrets' @{ NoSecrets = $true }
 Check 'NoSecrets exit 0' { $script:ExitCode -eq 0 }
 Check 'credentials skipped_secret' { (StatusOf 'Users/alice/.claude/.credentials.json') -eq 'skipped_secret' }
-Check 'credentials absent from archive' { -not (ArchiveEntries | Where-Object { $_ -match 'credentials\.json$' }) }
+Check 'credentials absent from archive' { -not (ArchiveEntries | Where-Object { $_ -match '\.claude/\.credentials\.json$' }) }
 # 2026-10-11 Claude Desktop Linux deb and Claude Code 2.1.295 session keys (#73, #76)
 Check '#73 #76 NoSecrets skips link-key and the session key' { (StatusOf $linkKey) -eq 'skipped_secret' -and (StatusOf $sessionKey) -eq 'skipped_secret' }
 # 2026-10-13 Antigravity desktop app (#83, #84)
