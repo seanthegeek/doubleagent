@@ -161,7 +161,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.ps1 agents/*/memory/.git/lett
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 channels/*/accounts.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 config
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 config.json
-check_smoke_coverage|nosecrets-check-missing|smoke.ps1 config.toml
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 lc-local-backend/providers/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|nosecrets-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.ssh/*
@@ -178,7 +177,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh agents/*/memory/.git/letta
 check_smoke_coverage|nosecrets-check-missing|smoke.sh channels/*/accounts.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh config
 check_smoke_coverage|nosecrets-check-missing|smoke.sh config.json
-check_smoke_coverage|nosecrets-check-missing|smoke.sh config.toml
 check_smoke_coverage|nosecrets-check-missing|smoke.sh lc-local-backend/providers/auth.json
 check_smoke_coverage|nosecrets-check-missing|smoke.sh plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|nosecrets-check-missing|smoke.sh plugins/_desktop/profiles/*/.ssh/*
@@ -194,7 +192,6 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/memory/.git/config
 check_smoke_coverage|secret-check-missing|smoke.ps1 agents/*/memory/.git/letta-credential-helper.cmd
 check_smoke_coverage|secret-check-missing|smoke.ps1 channels/*/accounts.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 config.json
-check_smoke_coverage|secret-check-missing|smoke.ps1 config.toml
 check_smoke_coverage|secret-check-missing|smoke.ps1 lc-local-backend/providers/auth.json
 check_smoke_coverage|secret-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|secret-check-missing|smoke.ps1 plugins/_desktop/profiles/*/.ssh/*
@@ -210,7 +207,6 @@ check_smoke_coverage|secret-check-missing|smoke.sh agents/*/memory/.git/config
 check_smoke_coverage|secret-check-missing|smoke.sh agents/*/memory/.git/letta-credential-helper.cmd
 check_smoke_coverage|secret-check-missing|smoke.sh channels/*/accounts.json
 check_smoke_coverage|secret-check-missing|smoke.sh config.json
-check_smoke_coverage|secret-check-missing|smoke.sh config.toml
 check_smoke_coverage|secret-check-missing|smoke.sh lc-local-backend/providers/auth.json
 check_smoke_coverage|secret-check-missing|smoke.sh plugins/_desktop/profiles/*/.gnupg/*
 check_smoke_coverage|secret-check-missing|smoke.sh plugins/_desktop/profiles/*/.ssh/*
@@ -251,7 +247,6 @@ check_tables_research|secret-unreachable|agents/*/memory/.git/letta-credential-h
 check_tables_research|secret-unreachable|channels/*/accounts.json
 check_tables_research|secret-unreachable|config
 check_tables_research|secret-unreachable|config.json
-check_tables_research|secret-unreachable|config.toml
 check_tables_research|secret-unreachable|lc-local-backend/providers/auth.json
 check_tables_research|secret-unreachable|plugins/_desktop/profiles/*/.gnupg/*
 check_tables_research|secret-unreachable|plugins/_desktop/profiles/*/.ssh/*

@@ -52,7 +52,8 @@ them ([Exclusions](#exclusions)). No session records a local working directory.
 On a developer workstation Tabby runs as that user (state under their home); in Docker the images
 set `TABBY_ROOT=/data`
 ([docker/Dockerfile.cuda:88](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/docker/Dockerfile.cuda#L88)),
-which is outside any home and not covered by a home catalog.
+which is outside any home and not covered by a home catalog; a named volume there is
+collected as [Docker volume](#docker-volume) says.
 
 `TABBY_ROOT` if set, else `home::home_dir()/.tabby`
 ([crates/tabby-common/src/path.rs:5-14](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/path.rs#L5-L14)).
@@ -105,15 +106,11 @@ The webserver (and so the database) runs unless the hidden `--no-webserver` flag
 
 #### Docker volume
 
-A Docker or Podman volume whose name matches `*tabby*` holds the server root, since the images
-set `TABBY_ROOT=/data` ([Server root `~/.tabby`](#server-root-tabby)); the collector takes its
-`_data` directory as the base, so the files above arrive without the leading `.tabby/`. The
-volume-relative exclusions are `index` (the Tantivy index, rebuilt from sources), `models`
-(model weights) and `repositories` (clones of indexed remote repositories)
-([path.rs:40-42](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/path.rs#L40-L42),
-[44-50](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/path.rs#L44-L50),
-[config.rs:198-218](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/config.rs#L198-L218)).
-The volume form is source-derived; not observed on any real install.
+A Docker or Podman volume whose name matches `*tabby*` is collected with its `_data` directory as
+the base, which is the server root ([Server root `~/.tabby`](#server-root-tabby)); the files
+arrive relative to the server root, as listed above. The volume name is inferred; the layout
+inside it is source-derived; not observed on any real install. The volume-relative exclusions are
+`index`, `models` and `repositories` ([Exclusions](#exclusions)).
 
 #### Client `~/.tabby-client/agent`
 
