@@ -1269,15 +1269,13 @@ pi keeps no prompt history file ([What survives a delete](#what-survives-a-delet
 When a file's `parentSession` parent is also in the collection, child entries whose `id` and
 `timestamp` match a parent entry are dropped, so a fork does not double the timeline.
 
-An export or a zip transcript of a fork repeats those copied entries under the fork's id, where no
-session file row matches them, so the same rule applies to it. The parent is the HTML export's
-`header.parentSession`, or, for the JSONL export and `session.jsonl`, whose header has none, the
-`parentSession` of the fork's own session file, found by its id as
-`.pi/agent/sessions/*/*_<id>.jsonl` in a home of the collection holding the export (the homes the
-collectors list, the `fs/<host path>` layout the export's own path gives). Each copied entry whose
-`id` and `timestamp` the parent file holds is dropped after one `fork:` row in the session file's
-form at the copy's header `timestamp`; with no parent file (or no fork session file) in the
-collection the copied entries are kept.
+An export or a zip transcript of a fork keeps the entries the fork copied from its parent. They
+carry the fork's id, the parent's rows carry the parent's, and the fork's session file drops them,
+so no session-file row matches them, and they are kept, marked recovered, beside the parent's
+rows. The parser does not drop them: the export lies in a project directory, the parent file in a
+home, and the JSONL export and `session.jsonl` name no parent at all, so dropping them would mean
+finding files across the collection by host path, which the parser does not do. The copy gives no
+`fork:` row.
 
 #### Sync, relay and origin rows
 

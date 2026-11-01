@@ -43,7 +43,6 @@ from fixtures import (
     PI_KINDS_FILE,
     PI_KINDS_SESSION,
     PI_MCP_LOG,
-    PI_PARENT_PATH,
     PI_SESSION,
     PI_SETTINGS,
     PI_TRUST,
@@ -647,7 +646,7 @@ class PiTests(ParserBase):
     # ---- project exports, the bug report zip and the terminal UI crash log ----
 
     def project(self):
-        """Return the fixture's project directory beside the home, under one collection root."""
+        """Return the fixture's project directory, built once."""
         project = self.tmp / "srv/proj"
         if not project.exists():
             build_pi_exports(project)
@@ -811,59 +810,27 @@ class PiTests(ParserBase):
             ((10,), (10, 300), [late]),  # the later claimant missing
             ((10,), (20,), ["2026-10-03T10:00:20.000Z"]),  # outside the two-second window
             ((10,), (11,), []),  # inside it
+            ((10,), (9,), []),  # inside it, the export earlier
+            ((10,), (7,), ["2026-10-03T10:00:07.000Z"]),  # outside it, earlier
         )
         for primary, export, expected in cases:
             self.assertEqual(
                 self.join_repeated_prompt(primary, export), expected, (primary, export)
             )
 
-    def test_fork_export_drops_the_entries_its_parent_holds(self):
+    def test_fork_export_keeps_the_entries_copied_from_its_parent(self):
+        # The parent's rows hold those entries under the parent's id, so the
+        # copies join nothing and stay; the fork's own entry is dropped.
         parent = self.rows_for(PiParser(), self.REL)
         fork = self.rows_for(PiParser(), self.FORK)
-        fork_row = (
-            "fork: 3 entries copied from the parent session %s omitted; "
-            "they are in the parent's rows" % PI_PARENT_PATH
-        )
-        html = self.export_rows(PI_FORK_HTML)
-        self.assertEqual(
-            [(row.turn_type, row.text.split("\n")[0][:30]) for row in html[1:]],
-            [
-                (
-                    "system",
-                    ("session start: version=3 cwd=/srv/proj parentSession=%s" % PI_PARENT_PATH)[
-                        :30
-                    ],
-                ),
-                ("system", fork_row[:30]),
-                ("assistant", "Trying another way."),
-            ],
-        )
-        self.assertEqual(html[2].text, fork_row)
-        _, dropped = deduplicate(parent + fork, [(row, 2.0) for row in html])
-        self.assertEqual(dropped, {"pi": 3})  # all but the export's own row
-        # A JSONL export names no parent; the fork's own session file does.
-        jsonl = self.export_rows(PI_FORK_JSONL)
-        self.assertEqual(
-            [(row.turn_type, row.text, row.timestamp_utc) for row in jsonl[1:]],
-            [
-                ("system", fork_row, "2026-10-01T09:40:00.000Z"),
-                ("assistant", "Trying another way.", "2026-10-01T09:30:05.000Z"),
-            ],
-        )
-        self.assertFalse(
-            [row for row in html + jsonl if row.text == "fix the failing test"], "copied rows"
-        )
-
-    def test_fork_export_keeps_the_copied_entries_without_the_parent(self):
-        (self.home / PI_DIR / PI_FILE).unlink()
-        html = self.export_rows(PI_FORK_HTML)
-        self.assertIn("fix the failing test", [row.text for row in html])
-        self.assertFalse([row for row in html if row.text.startswith("fork: ")])
-        # Without the fork's own session file a JSONL export cannot name the parent either.
-        (self.home / PI_DIR / PI_FORK_FILE).unlink()
-        jsonl = self.export_rows(PI_FORK_JSONL)
-        self.assertIn("fix the failing test", [row.text for row in jsonl])
-        self.assertFalse([row for row in jsonl if row.text.startswith("fork: ")])
+        for rel in (PI_FORK_HTML, PI_FORK_JSONL):
+            copies = self.export_rows(rel)
+            self.assertFalse([row for row in copies if row.text.startswith("fork: ")], rel)
+            self.assertIn("fix the failing test", [row.text for row in copies], rel)
+            kept, _ = deduplicate(parent + fork, [(row, 2.0) for row in copies])
+            texts = [row.text for row in kept[len(parent + fork) :]]
+            self.assertIn("fix the failing test", texts, rel)
+            self.assertNotIn("Trying another way.", texts, rel)
 
     def test_jsonl_export_rows_and_truncated_line(self):
         rows = self.export_rows(PI_GONE_JSONL)

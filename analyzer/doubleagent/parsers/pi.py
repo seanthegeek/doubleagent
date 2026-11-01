@@ -23,11 +23,11 @@ fixture, no real install. Files read:
   `session-<time>.jsonl` export and `pi-bug-report-<id>.zip`, read in
   memory (`report.json` `id`, `createdAt`, `session`, `environment`,
   `model`; `diagnostics.json` `sessionId`, `entryCount`, `assistant`,
-  `crashes`; `summary.md`; `session.jsonl`).
+  `crashes`; `summary.md` or `session.jsonl`); a fork's copy keeps the
+  parent's entries. Copies give no `model:` rows.
 
-A `pi.bug-report` entry gives `session synced:` or `bug report exported:`
-(`hint` never printed). `read_session` and `entry_rows` are shared with
-`letta.py` and `little_coder.py`.
+A `pi.bug-report` entry gives `session synced:` or `bug report exported:`.
+`read_session` and `entry_rows` are shared with `letta.py` and `little_coder.py`.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ import zlib
 from collections.abc import Iterator
 from pathlib import Path
 
-from ..inputs import HOME_PARENTS, ROOT_HOMES, Artifact
+from ..inputs import Artifact
 from ..model import Row, compact
 from ..textlines import JSON_SPACE
 from ..timeutil import to_utc
@@ -87,8 +87,6 @@ JSONL_EXPORT_PATTERN = re.compile(r"^session-[0-9]{4}-[^/]*\.jsonl$")
 BUG_ZIP_PATTERN = re.compile(r"^pi-bug-report-[^/]+\.zip$")
 TUI_CRASH_PATTERN = re.compile(r"^\.pi/agent/pi(?:-tui)?-crash\.log$")
 EXPORT_PATTERNS = (HTML_EXPORT_PATTERN, JSONL_EXPORT_PATTERN, BUG_ZIP_PATTERN)
-DRIVE = re.compile(r"[A-Za-z]:")
-DRIVE_DIR = re.compile(r"[A-Za-z]")
 # The element `export-html/template.html` puts the base64 session data in.
 SESSION_DATA_OPEN = b'<script id="session-data" type="application/json">'
 SESSION_DATA_CLOSE = b"</script>"
@@ -460,9 +458,8 @@ class PiParser(Parser):
     has_secondary = True
 
     def __init__(self) -> None:
-        """Start with empty caches of parent sessions' entry keys and collections' sessions."""
+        """Start with an empty cache of parent sessions' entry keys."""
         self._parent_cache: dict[Path, set[tuple[str, str]]] = {}
-        self._session_index: dict[Path, dict[str, Path]] = {}
 
     def wants(self, artifact: Artifact) -> bool:
         """Return True for a session, trust, settings, debug, crash, metadata or export file."""
@@ -789,7 +786,7 @@ class PiParser(Parser):
             cwd,
             session_start_text(header),
         )
-        yield from self._copy_rows(artifact, session, opts, to_utc(header.get("timestamp")))
+        yield from self._copy_rows(artifact, session, opts)
         yield from error_rows(self, artifact, errors, session_id, cwd)
 
     def _parse_jsonl_export(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
@@ -812,7 +809,7 @@ class PiParser(Parser):
             "session exported: JSONL /export of the current branch of session %s, %d entries "
             "(from %s, header timestamp)" % (session_id, len(session.entries), artifact.rel),
         )
-        yield from self._copy_rows(artifact, session, opts, to_utc(header.get("timestamp")))
+        yield from self._copy_rows(artifact, session, opts)
         yield from error_rows(self, artifact, session.errors, session_id, cwd)
 
     def _parse_bug_zip(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
@@ -862,69 +859,20 @@ class PiParser(Parser):
             if session.header:
                 session_id = str(session.header.get("id") or session_id)
                 cwd = str(session.header.get("cwd") or cwd)
-                time = to_utc(session.header.get("timestamp"))
-                yield from self._copy_rows(artifact, session, opts, time)
+                yield from self._copy_rows(artifact, session, opts)
         yield from error_rows(self, artifact, errors, session_id, cwd)
 
-    def _copy_rows(
-        self, artifact: Artifact, session: SessionFile, opts: Options, fork_time: str
-    ) -> Iterator[Row]:
+    def _copy_rows(self, artifact: Artifact, session: SessionFile, opts: Options) -> Iterator[Row]:
         """Yield the entry rows of an export's session, as copies of its session file's.
 
-        A fork's entries copied from a parent the collection holds are dropped, after one
-        `fork:` row at `fork_time`. No `model:` row is given: its place depends on which
-        entries a branch holds, and the session file gives it; each row keeps its `model`.
+        No `model:` row is given: its place depends on which entries a branch holds, and
+        the session file gives it; each row keeps its `model`.
         """
         header = session.header
         session_id, cwd = str(header.get("id") or ""), str(header.get("cwd") or "")
-        skip, parent = self._fork_keys(artifact, header)
-        dropped = sum(
-            1
-            for _, record in session.entries
-            if (str(record.get("id") or ""), str(record.get("timestamp") or "")) in skip
-        )
-        if dropped:
-            yield self._system_row(
-                artifact,
-                session.header_line,
-                fork_time,
-                session_id,
-                cwd,
-                fork_text(dropped, parent),
-            )
-        for row in entry_rows(
-            self, artifact, session, opts, session_id, cwd, skip if dropped else None
-        ):
+        for row in entry_rows(self, artifact, session, opts, session_id, cwd):
             if not (row.turn_type == "system" and row.text.startswith("model: ")):
                 yield row
-
-    def _fork_keys(self, artifact: Artifact, header: dict) -> tuple[set[tuple[str, str]], str]:
-        """Return the entry keys of the parent an export's session was forked from, and its path.
-
-        The parent is the header's `parentSession`, else that of the session's own file;
-        either is looked for in the collection holding the export. Both empty when none is.
-        """
-        root = collection_root(artifact)
-        if root is None:
-            return set(), ""
-        parent = str(header.get("parentSession") or "")
-        if not parent:
-            own = self._session_files(root).get(str(header.get("id") or ""))
-            if own is None:
-                return set(), ""
-            parent = str(read_session(own).header.get("parentSession") or "")
-        parent_file = host_file(root, parent) if parent else None
-        if parent_file is None:
-            return set(), parent
-        if parent_file not in self._parent_cache:
-            self._parent_cache[parent_file] = entry_keys(parent_file)
-        return self._parent_cache[parent_file], parent
-
-    def _session_files(self, root: Path) -> dict[str, Path]:
-        """Return the session files of every home under a collection root, by session id."""
-        if root not in self._session_index:
-            self._session_index[root] = session_files_under(root)
-        return self._session_index[root]
 
 
 def fork_text(dropped: int, parent: str) -> str:
@@ -933,70 +881,6 @@ def fork_text(dropped: int, parent: str) -> str:
         "fork: %d entries copied from the parent session %s omitted; "
         "they are in the parent's rows" % (dropped, parent)
     )
-
-
-def collection_root(artifact: Artifact) -> Path | None:
-    """Return the directory a collection lays host paths under, or None.
-
-    That is the artifact's base less the segments of the base's original path,
-    the `fs/<original path>` layout; None when they do not line up.
-    """
-    parts = _host_parts(artifact.home.original)
-    disk = artifact.home.disk_path.parts
-    if not parts or len(disk) <= len(parts) or list(disk[-len(parts) :]) != parts:
-        return None
-    return Path(*disk[: -len(parts)])
-
-
-def _host_parts(original: str) -> list[str]:
-    parts = [part for part in original.replace("\\", "/").split("/") if part]
-    if parts and DRIVE.fullmatch(parts[0]):
-        parts[0] = parts[0][0]  # a collection lays C:\ out as C/
-    return parts
-
-
-def host_file(root: Path, original: str) -> Path | None:
-    """Return the collected copy of a host path under a collection root, never through a symlink."""
-    parts = _host_parts(original)
-    if not parts or ".." in parts:
-        return None
-    current = root
-    for part in parts:
-        current = current / part
-        if current.is_symlink():
-            return None
-    return current if current.is_file() else None
-
-
-def session_files_under(root: Path) -> dict[str, Path]:
-    """Return the `.pi/agent/sessions/*/*_<id>.jsonl` files of the homes under a root, by id.
-
-    The homes are those the collectors enumerate (`inputs.HOME_PARENTS`,
-    `inputs.ROOT_HOMES`), on the root or under a drive letter. A directory that
-    cannot be listed holds none: this only finds a fork's parent.
-    """
-    homes: list[Path] = [root / rel for rel in ROOT_HOMES]
-    bases = [root, *(path for path in _listing(root) if DRIVE_DIR.fullmatch(path.name))]
-    for base in bases:
-        for parent in HOME_PARENTS:
-            homes.extend(_listing(base / parent))
-    found: dict[str, Path] = {}
-    for home in homes:
-        for directory in _listing(home / ".pi/agent/sessions"):
-            for file in _listing(directory):
-                match = SESSION_NAME_PATTERN.search(file.name)
-                if match and not file.is_symlink() and file.is_file():
-                    found.setdefault(match.group(1), file)
-    return found
-
-
-def _listing(directory: Path) -> list[Path]:
-    if directory.is_symlink() or not directory.is_dir():
-        return []
-    try:
-        return sorted(directory.iterdir())
-    except OSError:
-        return []
 
 
 class TuiCrash:

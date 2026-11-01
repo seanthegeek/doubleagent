@@ -1065,7 +1065,7 @@ lines), and, in a project directory, the `/export` copies
 the page's base64 data) and `session-<time>.jsonl` (secondary, one branch)
 and the `/bug` archive `pi-bug-report-*.zip`, read in memory (a `bug
 report:` row from `report.json` and `diagnostics.json`, its crashes,
-`summary.md`, and `session.jsonl` as a secondary copy). A session's
+`summary.md` or `session.jsonl` (a secondary copy)). A session's
 `pi.bug-report` entry gives a `session synced:` row for a `/bug` upload
 or a `bug report exported:` row for a zip, and a call little-coder's
 permission gate refused a `permission decision: denied` row.
