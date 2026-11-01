@@ -1,15 +1,13 @@
 """Tests of the Kiro parser."""
 
 import json
-import stat
 import unittest
 
 from test_errors import CAN_DENY, DENY_REASON
 
-from doubleagent.cli import parsers_for
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import Artifact, Home
-from doubleagent.parsers import Options, by_agent
+from doubleagent.parsers import Options
 from doubleagent.parsers.kiro import KiroParser, salvage
 from doubleagent.parsers.kiro import unescape_history as kiro_unescape
 from doubleagent.timeutil import to_utc
@@ -21,45 +19,7 @@ from fixtures import (
     kiro_delegate_records,
 )
 
-from .base import ParserBase, model_or_permission_row
-
-OPTIONS = Options(include_thinking=True)
-
-
-def _parse_with(test, parser_class, locked: str = "") -> list:
-    """Parse every file a new `parser_class` is offered, with `locked` at mode 000 if given."""
-    parser = parser_class()
-    groups = by_agent()
-    offered = [
-        artifact
-        for artifact in test.col.artifacts
-        if any(type(candidate) is parser_class for candidate in parsers_for(artifact, groups))
-        and parser.wants(artifact)
-    ]
-    path = test.home / locked if locked else None
-    mode = stat.S_IMODE(path.stat().st_mode) if path else 0
-    if path:
-        path.chmod(0)
-    try:
-        return [row for artifact in offered for row in parser.parse(artifact, OPTIONS)]
-    finally:
-        if path:
-            path.chmod(mode)
-
-
-def _unreadable_rows(rows: list) -> list:
-    """Return the rows saying a file could not be read."""
-    return [row for row in rows if "could not be read" in row.text]
-
-
-def _kept(rows: list, without: str = "") -> list:
-    """Return each row's identifying fields, less the unreadable rows and those of `without`."""
-    return [
-        (row.source_file, row.source_line, row.turn_type, row.text, row.project_path)
-        for row in rows
-        if "could not be read" not in row.text
-        and not (without and row.source_file.endswith(without))
-    ]
+from .base import ParserBase, kept_rows, model_or_permission_row, parse_with, unreadable_rows
 
 
 class KiroTests(ParserBase):
@@ -481,17 +441,17 @@ class KiroTests(ParserBase):
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_file_is_one_row(self):
-        unlocked = _parse_with(self, KiroParser)
+        unlocked = parse_with(self, KiroParser)
         for rel in (
             ".aws/amazonq/.cli_bash_history",
             ".aws/amazonq/cli-agents/dev.json",
             self.EXPORT,
         ):
-            rows = _parse_with(self, KiroParser, rel)
+            rows = parse_with(self, KiroParser, rel)
             self.assertEqual(
                 [
                     (row.source_file.endswith(rel), row.source_line, row.timestamp_utc, row.text)
-                    for row in _unreadable_rows(rows)
+                    for row in unreadable_rows(rows)
                 ],
                 [
                     (
@@ -504,16 +464,16 @@ class KiroTests(ParserBase):
                 rel,
             )
             # Every other file of the parser still gives its rows.
-            self.assertEqual(_kept(rows), _kept(unlocked, rel), rel)
+            self.assertEqual(kept_rows(rows), kept_rows(unlocked, rel), rel)
 
     def test_damaged_database_is_one_row(self):
         database = self.home / self.DATABASE
         for suffix in ("-wal", "-shm"):
             database.with_name(database.name + suffix).unlink(missing_ok=True)
-        unlocked = _parse_with(self, KiroParser)
+        unlocked = parse_with(self, KiroParser)
         database.write_bytes(b"SQLite format 3\x00" + b"\xff" * 200)
-        rows = _parse_with(self, KiroParser)
+        rows = parse_with(self, KiroParser)
         own = [row for row in rows if row.source_file.endswith(self.DATABASE)]
         self.assertEqual([(row.turn_type, row.source_line) for row in own], [("system", 0)])
         self.assertTrue(own[0].text.startswith("parser: SQLite error: "), own[0].text)
-        self.assertEqual(_kept(rows, self.DATABASE), _kept(unlocked, self.DATABASE))
+        self.assertEqual(kept_rows(rows, self.DATABASE), kept_rows(unlocked, self.DATABASE))

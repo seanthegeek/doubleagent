@@ -1,17 +1,14 @@
 """Tests of the Antigravity parser."""
 
 import json
-import stat
 import unittest
 from typing import cast
 
 from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import protobuf
-from doubleagent.cli import parsers_for
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import Artifact
-from doubleagent.parsers import Options, by_agent
 from doubleagent.parsers.antigravity import (
     AntigravityParser,
     file_mtime,
@@ -32,45 +29,7 @@ from fixtures import (
     write_bad_line,
 )
 
-from .base import ParserBase
-
-OPTIONS = Options(include_thinking=True)
-
-
-def _parse_with(test, parser_class, locked: str = "") -> list:
-    """Parse every file a new `parser_class` is offered, with `locked` at mode 000 if given."""
-    parser = parser_class()
-    groups = by_agent()
-    offered = [
-        artifact
-        for artifact in test.col.artifacts
-        if any(type(candidate) is parser_class for candidate in parsers_for(artifact, groups))
-        and parser.wants(artifact)
-    ]
-    path = test.home / locked if locked else None
-    mode = stat.S_IMODE(path.stat().st_mode) if path else 0
-    if path:
-        path.chmod(0)
-    try:
-        return [row for artifact in offered for row in parser.parse(artifact, OPTIONS)]
-    finally:
-        if path:
-            path.chmod(mode)
-
-
-def _unreadable_rows(rows: list) -> list:
-    """Return the rows saying a file could not be read."""
-    return [row for row in rows if "could not be read" in row.text]
-
-
-def _kept(rows: list, without: str = "") -> list:
-    """Return each row's identifying fields, less the unreadable rows and those of `without`."""
-    return [
-        (row.source_file, row.source_line, row.turn_type, row.text, row.project_path)
-        for row in rows
-        if "could not be read" not in row.text
-        and not (without and row.source_file.endswith(without))
-    ]
+from .base import ParserBase, kept_rows, parse_with, unreadable_rows
 
 
 class AntigravityTests(ParserBase):
@@ -301,7 +260,7 @@ class AntigravityTests(ParserBase):
     def test_unreadable_file_is_one_row(self):
         logs = ".gemini/antigravity-cli/brain/%s/.system_generated/logs/"
         chunks = logs % AGY_ORPHAN + "chunks/transcript_full/"
-        unlocked = _parse_with(self, AntigravityParser)
+        unlocked = parse_with(self, AntigravityParser)
         # (file made unreadable, file whose row reports it, that row's session id)
         for locked, reported_at, session_id in (
             (".gemini/config/config.json", ".gemini/config/config.json", ""),
@@ -309,7 +268,7 @@ class AntigravityTests(ParserBase):
             (chunks + "00000001.jsonl", chunks + "00000000.jsonl", AGY_ORPHAN),
         ):
             reported_at = reported_at or locked
-            rows = _parse_with(self, AntigravityParser, locked)
+            rows = parse_with(self, AntigravityParser, locked)
             text = "parser: %s could not be read (Permission denied)" % locked.split("/")[-1]
             self.assertEqual(
                 [
@@ -319,13 +278,13 @@ class AntigravityTests(ParserBase):
                         row.session_id,
                         row.text,
                     )
-                    for row in _unreadable_rows(rows)
+                    for row in unreadable_rows(rows)
                 ],
                 [(True, 0, session_id, text)],
                 locked,
             )
             # Every other file of the parser still gives its rows.
-            self.assertEqual(_kept(rows, reported_at), _kept(unlocked, reported_at), locked)
+            self.assertEqual(kept_rows(rows, reported_at), kept_rows(unlocked, reported_at), locked)
 
     def test_damaged_database_is_one_row(self):
         summaries = ".gemini/antigravity-cli/conversation_summaries.db"
@@ -333,11 +292,11 @@ class AntigravityTests(ParserBase):
             database = self.home / rel
             for suffix in ("-wal", "-shm"):
                 database.with_name(database.name + suffix).unlink(missing_ok=True)
-            unlocked = _parse_with(self, AntigravityParser)
+            unlocked = parse_with(self, AntigravityParser)
             content = database.read_bytes()
             database.write_bytes(b"SQLite format 3\x00" + b"\xff" * 200)
             try:
-                rows = _parse_with(self, AntigravityParser)
+                rows = parse_with(self, AntigravityParser)
             finally:
                 database.write_bytes(content)
             own = [row for row in rows if row.source_file.endswith(rel)]
@@ -347,7 +306,7 @@ class AntigravityTests(ParserBase):
                 rel,
             )
             self.assertTrue(own[0].text.startswith("parser: SQLite error: "), own[0].text)
-            self.assertEqual(_kept(rows, rel), _kept(unlocked, rel), rel)
+            self.assertEqual(kept_rows(rows, rel), kept_rows(unlocked, rel), rel)
 
 
 class AntigravityAppTests(ParserBase):

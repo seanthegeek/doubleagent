@@ -2,17 +2,15 @@
 
 import json
 import os
-import stat
 import sys
 import unittest
 from typing import ClassVar
 
 from test_errors import CAN_DENY, DENY_REASON
 
-from doubleagent.cli import parsers_for
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import Artifact, Home, open_input
-from doubleagent.parsers import Options, by_agent
+from doubleagent.parsers import Options
 from doubleagent.parsers.gemini_cli import HISTORY_OBJECT_PATTERN, GeminiCliParser, resolve_project
 from doubleagent.timeutil import to_utc
 from fixtures import (
@@ -33,45 +31,7 @@ from fixtures import (
     write_bad_line,
 )
 
-from .base import ParserBase
-
-OPTIONS = Options(include_thinking=True)
-
-
-def _parse_with(test, parser_class, locked: str = "") -> list:
-    """Parse every file a new `parser_class` is offered, with `locked` at mode 000 if given."""
-    parser = parser_class()
-    groups = by_agent()
-    offered = [
-        artifact
-        for artifact in test.col.artifacts
-        if any(type(candidate) is parser_class for candidate in parsers_for(artifact, groups))
-        and parser.wants(artifact)
-    ]
-    path = test.home / locked if locked else None
-    mode = stat.S_IMODE(path.stat().st_mode) if path else 0
-    if path:
-        path.chmod(0)
-    try:
-        return [row for artifact in offered for row in parser.parse(artifact, OPTIONS)]
-    finally:
-        if path:
-            path.chmod(mode)
-
-
-def _unreadable_rows(rows: list) -> list:
-    """Return the rows saying a file could not be read."""
-    return [row for row in rows if "could not be read" in row.text]
-
-
-def _kept(rows: list, without: str = "") -> list:
-    """Return each row's identifying fields, less the unreadable rows and those of `without`."""
-    return [
-        (row.source_file, row.source_line, row.turn_type, row.text, row.project_path)
-        for row in rows
-        if "could not be read" not in row.text
-        and not (without and row.source_file.endswith(without))
-    ]
+from .base import ParserBase, kept_rows, parse_with, unreadable_rows
 
 
 class GeminiCliTests(ParserBase):
@@ -822,7 +782,7 @@ class GeminiCliTests(ParserBase):
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_project_side_file_is_a_row_at_each_reader(self):
-        unlocked = _parse_with(self, GeminiCliParser)
+        unlocked = parse_with(self, GeminiCliParser)
         subagent = "c3d4e5f6-0000-4000-8000-000000000003.jsonl"
         # (side file made unreadable, the files reading it, the project their rows get)
         for locked, readers, project in (
@@ -833,9 +793,9 @@ class GeminiCliTests(ParserBase):
             ),
             (".gemini/projects.json", [self.LEGACY], GEMINI_HASH),
         ):
-            rows = _parse_with(self, GeminiCliParser, locked)
+            rows = parse_with(self, GeminiCliParser, locked)
             text = "parser: %s could not be read (Permission denied)" % locked.split("/")[-1]
-            reported = _unreadable_rows(rows)
+            reported = unreadable_rows(rows)
             self.assertEqual(
                 [
                     (row.source_line, row.timestamp_utc, row.project_path, row.text)
@@ -850,5 +810,5 @@ class GeminiCliTests(ParserBase):
                 locked,
             )
         # The project path still resolves through projects.json, so no other row changes.
-        rows = _parse_with(self, GeminiCliParser, ".gemini/tmp/proj/.project_root")
-        self.assertEqual(_kept(rows), _kept(unlocked))
+        rows = parse_with(self, GeminiCliParser, ".gemini/tmp/proj/.project_root")
+        self.assertEqual(kept_rows(rows), kept_rows(unlocked))

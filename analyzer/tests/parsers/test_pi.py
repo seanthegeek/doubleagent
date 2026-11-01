@@ -2,15 +2,12 @@
 
 import io
 import json
-import stat
 import unittest
 
 from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
-from doubleagent.cli import parsers_for
 from doubleagent.dedup import deduplicate
-from doubleagent.parsers import Options, by_agent
 from doubleagent.parsers.pi import PiParser
 from doubleagent.parsers.pi import args_summary as pi_args_summary
 from fixtures import (
@@ -41,45 +38,7 @@ from fixtures import (
 )
 
 from . import test_codex
-from .base import ParserBase, read_jsonl, rel_only
-
-OPTIONS = Options(include_thinking=True)
-
-
-def _parse_with(test, parser_class, locked: str = "") -> list:
-    """Parse every file a new `parser_class` is offered, with `locked` at mode 000 if given."""
-    parser = parser_class()
-    groups = by_agent()
-    offered = [
-        artifact
-        for artifact in test.col.artifacts
-        if any(type(candidate) is parser_class for candidate in parsers_for(artifact, groups))
-        and parser.wants(artifact)
-    ]
-    path = test.home / locked if locked else None
-    mode = stat.S_IMODE(path.stat().st_mode) if path else 0
-    if path:
-        path.chmod(0)
-    try:
-        return [row for artifact in offered for row in parser.parse(artifact, OPTIONS)]
-    finally:
-        if path:
-            path.chmod(mode)
-
-
-def _unreadable_rows(rows: list) -> list:
-    """Return the rows saying a file could not be read."""
-    return [row for row in rows if "could not be read" in row.text]
-
-
-def _kept(rows: list, without: str = "") -> list:
-    """Return each row's identifying fields, less the unreadable rows and those of `without`."""
-    return [
-        (row.source_file, row.source_line, row.turn_type, row.text, row.project_path)
-        for row in rows
-        if "could not be read" not in row.text
-        and not (without and row.source_file.endswith(without))
-    ]
+from .base import ParserBase, kept_rows, parse_with, read_jsonl, rel_only, unreadable_rows
 
 
 class PiTests(ParserBase):
@@ -503,7 +462,7 @@ class PiTests(ParserBase):
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_file_is_one_row(self):
-        unlocked = _parse_with(self, PiParser)
+        unlocked = parse_with(self, PiParser)
         # (file made unreadable, the session id of its row)
         for rel, session_id in (
             (".pi/agent/trust.json", ""),
@@ -511,7 +470,7 @@ class PiTests(ParserBase):
             (".pi/agent/pi-debug.log", ""),
             (".pi/agent/experimental/sessions/exp-session-1/meta.json", "exp-session-1"),
         ):
-            rows = _parse_with(self, PiParser, rel)
+            rows = parse_with(self, PiParser, rel)
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(
                 [
@@ -522,13 +481,13 @@ class PiTests(ParserBase):
                         row.session_id,
                         row.text,
                     )
-                    for row in _unreadable_rows(rows)
+                    for row in unreadable_rows(rows)
                 ],
                 [(True, 0, "", session_id, text)],
                 rel,
             )
             # Every other file of the parser still gives its rows.
-            self.assertEqual(_kept(rows, rel), _kept(unlocked, rel), rel)
+            self.assertEqual(kept_rows(rows, rel), kept_rows(unlocked, rel), rel)
 
 
 class PiSyncTests(ParserBase):
