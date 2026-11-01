@@ -11,11 +11,14 @@ Lineage: little-coder
 
 from __future__ import annotations
 
+import base64
+import io
 import json
 import os
+import zipfile
 from pathlib import Path
 
-from .common import _json, _jsonl
+from .common import BAD_LINE, _json, _jsonl, write_bad_line
 from .little_coder import LC_FILE, little_coder_session_records
 
 # ---- pi, little-coder, letta (pi session format) --------------------------------
@@ -209,6 +212,7 @@ def build_pi(home: Path) -> None:
     _json(home / PI_CRASHES, pi_crash_records())
     _jsonl(home / PI_DIR / PI_KINDS_FILE, pi_entry_kinds_records())
     _jsonl(home / PI_V1_FILE, pi_v1_records())
+    (home / PI_TUI_CRASH).write_text(pi_tui_crash_text(), encoding="utf-8")
 
 
 # Secondary and past-use sources beside the sessions (research/pi.md, Debug log and crash log): the `/debug` snapshot of the
@@ -589,3 +593,246 @@ def pi_v1_records(cwd="/srv/proj"):
             "message": {"role": "user", "content": "an old prompt", "timestamp": 1788249605000},
         },
     ]
+
+
+# Copies of sessions in a project directory (research/pi.md, Project-local
+# files): an HTML export of PI_SESSION, an HTML and a JSONL export of a
+# session whose file was deleted, and a bug report zip of PI_BUG_SESSION.
+PI_EXPORT_DIR = "dev/pi-webapp"
+PI_GONE_SESSION = "0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0e60"
+PI_GONE_PROMPT = "a prompt only the exports hold"
+PI_HTML = "pi-session-%s.html" % PI_FILE[: -len(".jsonl")]
+PI_GONE_HTML = "pi-session-2026-10-02T08-00-00-000Z_%s.html" % PI_GONE_SESSION
+PI_GONE_JSONL = "session-2026-10-02T08-10-00-000Z.jsonl"
+PI_BUG_ZIP_FILE = "pi-bug-report-%s.zip" % PI_BUG_ZIP
+# A second report of PI_BUG_SESSION that attached a summary in place of the
+# transcript; pi offers the summary only when the transcript is left out.
+PI_BUG_SUMMARY = "0199a1b2-9999-7000-8000-00000000b003"
+PI_BUG_SUMMARY_FILE = "pi-bug-report-%s.zip" % PI_BUG_SUMMARY
+# Exports of the fork PI_FORK, whose first three entries are PI_SESSION's.
+PI_FORK_HTML = "pi-session-%s.html" % PI_FORK_FILE[: -len(".jsonl")]
+PI_FORK_JSONL = "session-2026-10-01T09-40-00-000Z.jsonl"
+PI_PARENT_PATH = "/home/alice/" + PI_DIR + PI_FILE
+PI_TUI_CRASH = ".pi/agent/pi-tui-crash.log"
+
+
+def pi_gone_records(cwd="/srv/proj"):
+    """Return a deleted session's header and entries: a prompt, two replies on two branches.
+
+    Source: research/pi.md#entries; source 2c8d1fe
+    """
+    return [
+        {
+            "type": "session",
+            "version": 3,
+            "id": PI_GONE_SESSION,
+            "timestamp": "2026-10-02T08:00:00.000Z",
+            "cwd": cwd,
+        },
+        {
+            "type": "message",
+            "id": "e1000001",
+            "parentId": None,
+            "timestamp": "2026-10-02T08:00:02.000Z",
+            "message": {"role": "user", "content": PI_GONE_PROMPT, "timestamp": 1790928002000},
+        },
+        # The abandoned branch: a reply the user went back from.
+        {
+            "type": "message",
+            "id": "e1000002",
+            "parentId": "e1000001",
+            "timestamp": "2026-10-02T08:00:05.000Z",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "the first answer"}],
+                "provider": "openai",
+                "model": "gpt-5",
+                "stopReason": "stop",
+                "timestamp": 1790928003000,
+            },
+        },
+        {
+            "type": "message",
+            "id": "e1000003",
+            "parentId": "e1000001",
+            "timestamp": "2026-10-02T08:01:00.000Z",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "the second answer"}],
+                "provider": "openai",
+                "model": "gpt-5",
+                "stopReason": "stop",
+                "timestamp": 1790928058000,
+            },
+        },
+    ]
+
+
+def pi_html_export_text(records, leaf_id):
+    """Return an HTML export page embedding a session's header and every entry as base64 JSON.
+
+    Source: research/pi.md#html-export; source 2c8d1fe
+    """
+    data = {
+        "header": records[0],
+        "entries": records[1:],
+        "leafId": leaf_id,
+        "systemPrompt": "You are pi.",
+        "tools": [{"name": "bash", "description": "Run a command", "parameters": {}}],
+    }
+    payload = base64.b64encode(json.dumps(data).encode("utf-8")).decode("ascii")
+    return (
+        "<!DOCTYPE html>\n<html>\n<head><style>body { margin: 0; }</style></head>\n<body>\n"
+        '  <script id="session-data" type="application/json">%s</script>\n'
+        "  <script>/* viewer */</script>\n</body>\n</html>\n" % payload
+    )
+
+
+def pi_branch_export_records(records, branch_ids, exported_at) -> list[dict]:
+    """Return a JSONL export of one branch: a new header at the export time, parents re-chained.
+
+    Source: research/pi.md#jsonl-export; source 2c8d1fe
+    """
+    header = dict(records[0], timestamp=exported_at)
+    header.pop("parentSession", None)
+    out: list[dict] = [header]
+    parent = None
+    for record in records[1:]:
+        if record.get("id") in branch_ids:
+            out.append(dict(record, parentId=parent))
+            parent = record["id"]
+    return out
+
+
+def pi_bug_zip_members(transcript=True):
+    """Return a bug report zip's members: report, diagnostics, and the transcript or a summary.
+
+    Source: research/pi.md#bug-report-archive; source 2c8d1fe
+    """
+    branch = pi_branch_export_records(
+        pi_bug_report_records(), ("b1000001",), "2026-10-01T13:00:58.000Z"
+    )
+    branch.append(
+        {
+            "type": "custom",
+            "customType": "pi.share",
+            "id": "5a1e0c2f",
+            "parentId": "b1000001",
+            "timestamp": "2026-10-01T13:00:58.000Z",
+            "data": {"systemPrompt": "You are pi.", "tools": []},
+        }
+    )
+    report = {
+        "schemaVersion": 1,
+        "id": PI_BUG_ZIP if transcript else PI_BUG_SUMMARY,
+        "createdAt": "2026-10-01T13:00:59.000Z" if transcript else "2026-10-01T13:02:10.000Z",
+        "hint": None,
+        "environment": {"version": "1.4.0", "platform": "linux", "arch": "x64"},
+        "session": {
+            "id": PI_BUG_SESSION,
+            "included": transcript,
+            "summaryIncluded": not transcript,
+            "messageCount": 1,
+        },
+        "model": {"provider": "openai", "id": "gpt-5"},
+        "settings": {"global": {"httpProxy": "<redacted>"}, "project": {}},
+    }
+    diagnostics = {
+        "schemaVersion": 1,
+        "sessionId": PI_BUG_SESSION,
+        "entryCount": 3,
+        "assistantMessageCount": 1,
+        "assistant": [
+            {
+                "entryId": "b10000aa",
+                "timestamp": "2026-10-01T13:00:20.000Z",
+                "provider": "openai",
+                "model": "gpt-5",
+                "stopReason": "error",
+                "errorMessage": "socket hang up",
+                "diagnostics": [],
+            }
+        ],
+        "crashes": [
+            {
+                "timestamp": "2026-10-01T12:58:00.000Z",
+                "version": "1.4.0",
+                "kind": "fatal_error",
+                "message": "EPIPE: broken pipe, write",
+                "stack": None,
+                "sessionFile": "/home/alice/" + PI_DIR + PI_BUG_FILE,
+                "cwd": "/srv/proj",
+            }
+        ],
+    }
+    members = {
+        "report.json": "",
+        "diagnostics.json": json.dumps(diagnostics, indent=2) + "\n",
+    }
+    if transcript:
+        report["session"]["cwd"] = "/srv/proj"
+        members["session.jsonl"] = (
+            "".join(json.dumps(record) + "\n" for record in branch) + BAD_LINE
+        )
+    else:
+        members["summary.md"] = "## What the user was doing\nRunning the build.\n"
+    members["report.json"] = json.dumps(report, indent=2) + "\n"
+    return members
+
+
+def pi_zip_bytes(members):
+    """Return a zip archive of `members`, deflated as pi's own zip writer stores them.
+
+    Source: research/pi.md#bug-report-archive; source 2c8d1fe
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, text in members.items():
+            archive.writestr(name, text)
+    return buffer.getvalue()
+
+
+def pi_tui_crash_text():
+    """Return the terminal UI crash log: the time, the widths and the rendered screen lines.
+
+    Source: research/pi.md#terminal-ui-crash-log; source 2c8d1fe
+    """
+    lines = [
+        "Crash at 2026-10-01T09:06:30.000Z",
+        "Terminal width: 40",
+        "Line 1 visible width: 52",
+        "",
+        "=== All rendered lines ===",
+        "[0] (w=20) fix the failing test",
+        "[1] (w=52) a status line from an extension that ran past the edge",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def build_pi_exports(project: Path) -> None:
+    """Write the HTML, JSONL and bug report exports pi leaves in a working directory.
+
+    Source: research/pi.md#project-local-files; source 2c8d1fe
+    """
+    project.mkdir(parents=True, exist_ok=True)
+    (project / PI_HTML).write_text(
+        pi_html_export_text(pi_session_records(), "8192a3b5"), encoding="utf-8"
+    )
+    gone = pi_gone_records()
+    (project / PI_GONE_HTML).write_text(pi_html_export_text(gone, "e1000003"), encoding="utf-8")
+    _jsonl(
+        project / PI_GONE_JSONL,
+        pi_branch_export_records(gone, ("e1000001", "e1000003"), "2026-10-02T08:10:00.000Z"),
+    )
+    write_bad_line(project / PI_GONE_JSONL)
+    (project / PI_BUG_ZIP_FILE).write_bytes(pi_zip_bytes(pi_bug_zip_members()))
+    (project / PI_BUG_SUMMARY_FILE).write_bytes(pi_zip_bytes(pi_bug_zip_members(False)))
+    fork = pi_fork_records(PI_PARENT_PATH)
+    (project / PI_FORK_HTML).write_text(pi_html_export_text(fork, "8192a3b4"), encoding="utf-8")
+    _jsonl(
+        project / PI_FORK_JSONL,
+        pi_branch_export_records(
+            fork, ("1a2b3c4d", "2b3c4d5e", "3c4d5e6f", "8192a3b4"), "2026-10-01T09:40:00.000Z"
+        ),
+    )

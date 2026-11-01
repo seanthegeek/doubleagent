@@ -21,6 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The bundled catalog copy gains collector 1.22.0's Gemini CLI secret globs, `.gemini/integrity.key` and `*.gemini/.settings.json.*.tmp` ([#326]).
 - The bundled catalog copy gains collector 1.22.0's Qwen Live lines, so `detect` attributes `.qwen-live` to the new agent `qwen-live`, which `timeline` lists as detected but not parsed ([#156]).
 - The `gemini-cli` parser reads Gemini CLI's other past-use stores on every run: the tool checkpoints `tmp/<slug>/checkpoints/*.json` (a `tool checkpoint:` row naming the tool, file, shadow commit and prompt id, then the history sent) and an error report `gemini-client-error-<type>-<time>.json` copied into `.gemini` or `.cache/.gemini`, or the `tmp/<slug>` directory of either (an `error report:` row, then the history sent), both as copies of the session file's turns, each turn the session file also holds dropped from the timeline and the environment-context item the CLI sends first never a row; and, as stores of their own, the activity log `tmp/<slug>/logs/session-<id>.jsonl` (`console <type>: <content>`, `network request:`, `network response:` and `network error:` rows naming the method, the URL without its query string and the status, never a header value or a body; the conversation turns in its bodies are not read), each `tmp/<slug>/memory/` file as one `memory file:` row holding its text at its modification time and each clipboard image `tmp/<slug>/images/clipboard-<ms>.<ext>` as one `clipboard image: <name> <size> bytes` row at the time in its name ([#394]).
+- The `pi` parser reads the copies of past sessions pi leaves in a project directory as [secondary sources](docs/output.md#secondary-sources): an HTML export `pi-session-*.html` (every entry of every branch, from the page's base64 session data) and a JSONL export `session-<time>.jsonl` (one branch), each with a `session exported:` row, and a bug report zip `pi-bug-report-*.zip`, read in memory, giving a `bug report:` row from `report.json` and `diagnostics.json` with its failed assistant turns, a `crash:` row per carried crash, a `bug report summary:` row for `summary.md` or the rows of its `session.jsonl`. Rows a session file also holds are dropped; a deleted session's are kept and marked recovered, as are the entries an export of a fork copied from its parent. The copies give no `model:` rows; the session file gives them ([#395]).
+- The `pi` parser reads the terminal UI crash log `.pi/agent/pi-tui-crash.log` (`pi-crash.log` in older builds such as 0.83.0): one `tui crash:` row per crash at its `Crash at` time, the rendered screen lines as its text ([#395]).
 
 ### Changed
 
@@ -2197,6 +2199,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#395]: https://github.com/seanthegeek/doubleagent/issues/395
 [#394]: https://github.com/seanthegeek/doubleagent/issues/394
 [#389]: https://github.com/seanthegeek/doubleagent/issues/389
 [#388]: https://github.com/seanthegeek/doubleagent/issues/388
