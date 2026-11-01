@@ -296,8 +296,9 @@ channel may use the host's own `gh` login instead of a token in `settings.json`,
 - `.qwen/locales`: user locale overrides.
 - `.qwen/sandbox`: the execution sandbox's state.
 - The same subtrees under `.qwen/managed-local/worker-home/`, the worker processes' `$QWEN_HOME`
-  and, unless `$QWEN_RUNTIME_DIR` or the worker's `advanced.runtimeOutputDir` setting moves it,
-  their runtime base
+  and, unless `$QWEN_RUNTIME_DIR` or the worker's `advanced.runtimeOutputDir` setting
+  ([`cli/src/config/config.ts:1863`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/config/config.ts#L1863))
+  moves it, their runtime base
   ([`cli/src/serve/managed-local-serve.ts:41-48`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L41-L48),
   [`103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)):
   `.qwen/managed-local/worker-home/updates`, `.qwen/managed-local/worker-home/extension-store`,

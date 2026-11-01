@@ -14,7 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Qwen Code's Agent Host registration `.qwen/agent-hosts/*.json`, the managed local mode's `.qwen/managed-local/state.json`, the stores its worker processes write under `.qwen/managed-local/worker-home/` (`oauth_creds.json`, `mcp-oauth-tokens*.json`, `extension-secrets-v1.json`, `.env`, `settings.json` and `sessions/*.json`), and the settings copies `.qwen/settings.json.corrupted` and `.qwen/settings.json.write-*/settings.json.orig` in the home or a project are flagged `secret: true` ([#326]).
+- Qwen Code's Agent Host registration `.qwen/agent-hosts/*.json`, the managed local mode's `.qwen/managed-local/state.json`, the stores its worker processes write under `.qwen/managed-local/worker-home/` (`oauth_creds.json`, `mcp-oauth-tokens*.json`, `extension-secrets-v1.json`, `.env`, `settings.json`, its `settings.json.corrupted` and `settings.json.write-*/settings.json.orig` copies, and `sessions/*.json`), and the settings copies `.qwen/settings.json.corrupted` and `.qwen/settings.json.write-*/settings.json.orig` in the home or a project are flagged `secret: true` ([#326]).
 - Qwen Code's `.qwen/session-start-perf`, `.qwen/cpu-profiles` and `.qwen/memory-snapshots` profiles and the managed local mode's scratch directory `.qwen/managed-local/workspaces` are excluded ([#326]).
 
 ### Removed
