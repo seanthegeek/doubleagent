@@ -17,6 +17,104 @@ one `ssh` call that types, presses keys or reads the rendered screen.
 It stops for the person at every step that needs a browser, a phone or
 the VM's desktop, and picks up where it stopped.
 
+## Requirements
+
+[Lab VMs](../../docs/lab-vms.md) says how each clean snapshot is built
+and which development tools it holds; this section adds what the
+pipeline itself needs from the host, the guests and the operator.
+
+### The host
+
+- **Parallels Desktop**, Pro or Business edition: the pipeline reverts,
+  starts, stops and snapshots VMs with `prlctl`, taken from `$PRLCTL`,
+  else `prlctl` on `PATH`, else
+  `/Applications/Parallels Desktop.app/Contents/MacOS/prlctl`.
+- **The VMs**, named as in `prlctl list -a` and as the files under
+  `vms/`: `Ubuntu`, `Windows` and `macOS`. Each needs exactly one
+  snapshot named `DoubleAgent fresh lab`, matched without case
+  (`CLEAN_SNAPSHOT_ID` in the environment names one by id instead);
+  `start` and `finish` revert to it.
+- **One VM at a time**: `start`, and `resume` when its own VM is not
+  already up, refuse while another VM runs. The host must leave the running VM the memory it is configured
+  with, plus room for the analyzer and the shape tool, which `collect`
+  runs on the host while the VM is still up.
+- **Commands**: `ssh`, `scp`, `perl` (every wait is bounded with its
+  `alarm`, as macOS has no `timeout`), `curl` (the tui-test download),
+  `shasum`, `tar`, `unzip`, `awk` and `sed`, and a `python3` for the
+  pipeline's own standard-library tools.
+- **A Python with the analyzer's requirements** for the analysis step,
+  any interpreter with `analyzer/requirements.txt` installed, such as a
+  virtual environment of the operator's choosing, given as
+  `ROUND_PYTHON=<path to its python>`.
+- **The lab key** at `~/.ssh/doubleagent_lab`, or wherever
+  `ROUND_SSH_KEY` points, made as
+  [SSH access in Lab VMs](../../docs/lab-vms.md#ssh-access) describes.
+  The cell's own ssh config uses it with `IdentitiesOnly` and the
+  known-hosts file `ROUND_KNOWN_HOSTS` (by default one in the cell).
+
+### Each guest
+
+- **The lab user** named by `GUEST_USER` in `vms/<VM>.conf`, whose
+  authorized keys hold the lab key's public half: the user's own file on
+  Ubuntu and macOS, `C:\ProgramData\ssh\administrators_authorized_keys`
+  on Windows, as the SSH sections for
+  [Windows](../../docs/lab-vms.md#ssh),
+  [macOS](../../docs/lab-vms.md#ssh-1) and
+  [Ubuntu](../../docs/lab-vms.md#ssh-2) set up.
+- **`sudo -n` without a password** on Ubuntu and macOS, as
+  [sudo without a password](../../docs/lab-vms.md#sudo-without-a-password)
+  sets up: the `reboot` step runs `sudo -n systemctl reboot` (Ubuntu) or
+  `sudo -n shutdown -r now` (macOS), and the Gemini CLI install runs the
+  vendor's `npm install -g` under `sudo -n` when npm's global prefix is not
+  writable. The collector runs as the lab user, without `sudo`.
+- **cmd.exe as the Windows ssh login shell**, which the pipeline assumes:
+  every guest command is a `.ps1` file run with
+  `powershell -NoProfile -ExecutionPolicy Bypass -File`, or Windows
+  PowerShell reading the command on stdin, and every argument passed on
+  the command line is a plain word of letters, digits and `._,:+=/@-`.
+- **The shells the agents run in**: an interactive login `bash` on
+  Ubuntu and `zsh` on macOS, so the startup files a terminal reads set
+  `PATH`, and Windows PowerShell 5.1 on Windows; `command` steps run in a
+  login `bash` or `zsh`, or Windows PowerShell 5.1.
+- **A network the host reaches over ssh**, at the address
+  `prlctl list -f` reports for the VM: the pipeline reads it at `start`
+  and after every reboot and never stores it, so a DHCP address on
+  Parallels' shared network is enough. The guest also needs internet
+  access for the agents' vendor install commands, npm (the MCP server
+  steps run `npx`) and the agents themselves; the tui-test release is
+  downloaded on the host and copied in.
+- **The VM's console** in Parallels Desktop, for the person: a pause step
+  is done there, in a desktop terminal or browser, and the desktop login
+  after a reboot.
+- **Automatic updates and scheduled reboots off** in the clean snapshot,
+  as [Why the VMs hold development tools](../../docs/lab-vms.md#why-the-vms-hold-development-tools)
+  explains: an update during a cell writes files the agent did not.
+
+### The tui-test release
+
+`round.sh` pins the tui-test version (`TUI_TEST_VERSION`), and each
+`vms/<VM>.conf` names its release asset (`TUI_TEST_ASSET`) and that
+asset's sha256 (`TUI_TEST_SHA256`). `start` downloads the asset into the
+cell and checks the sha256 before it reverts the VM; a mismatch stops the
+cell. To move to another release, change `TUI_TEST_VERSION` and, in each
+VM file, the asset name and the sha256 the release page publishes for it.
+
+### Accounts
+
+Every sign-in a pause step asks for uses a throwaway account made for the
+lab: a vendor account per agent, and for the source-host steps a
+throwaway GitHub account, whose lab repository is the sample project's
+`origin` in `lib/make-project.sh`. Nothing of the operator's own (an
+account, a token, a key other than the lab key) goes into a VM.
+
+### The cell directory
+
+The cell directory is the third argument, outside the repository
+(`round.sh` refuses one inside it). It receives the listings, diffs,
+screens, recordings, the collections with every credential file the
+agent wrote, the analysis and the report, and is deleted once the round
+is written up.
+
 ## Running a cell
 
 ```sh
