@@ -849,9 +849,9 @@ their state must be copied by hand.
   by default `AppData/Local/Temp` in the profile) when a model request
   fails; the file holds the error and the conversation history sent with
   the request. Its VS Code companion extension writes
-  `gemini/ide/gemini-ide-server-<pid>-<n>.json` there, holding the port
-  and a per-run auth token. No catalog line reaches either on any
-  platform, so copy them by hand
+  `gemini/ide/gemini-ide-server-<parent pid>-<port>.json` there,
+  holding the port, the workspace path and a per-run auth token. No
+  catalog line reaches either on any platform, so copy them by hand
   ([Per-user storage in `research/gemini-cli.md`](../../research/gemini-cli.md#per-user-storage)).
 - **Muse Code** keeps its launcher state beside the launcher; see below.
 - **Cursor** writes its agent worker's logs and copies of the user's zsh

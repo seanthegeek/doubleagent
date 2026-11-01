@@ -610,44 +610,58 @@ class GeminiCliTests(ParserBase):
         # The main fixture session's project is not a worktree: no scratch row.
         rows = self.rows_for(GeminiCliParser(), self.REL)
         self.assertFalse([row for row in rows if row.text.startswith("scratch directory:")])
-        worktree = "/srv/proj/.gemini/worktrees/fix-1"
-        slug = self.home / ".gemini/tmp/fix-1"
-        (slug / "chats").mkdir(parents=True)
-        (slug / ".project_root").write_text(worktree, encoding="utf-8")
-        records = [
-            {
-                "sessionId": GEMINI_SUBAGENT,
-                "projectHash": "0" * 64,
-                "startTime": "2026-10-02T10:00:00.000Z",
-                "lastUpdated": "2026-10-02T10:00:00.000Z",
-                "kind": "main",
-            },
-            {
-                "id": "w-u1",
-                "timestamp": "2026-10-02T10:00:05.000Z",
-                "type": "user",
-                "content": "fix it",
-            },
-        ]
-        rel = ".gemini/tmp/fix-1/chats/session-2026-10-02T10-00-c3d4e5f6.jsonl"
-        (self.home / rel).write_text(
-            "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+        session_id = "d4e5f6a7-0000-4000-8000-000000000004"
+        # A POSIX project root, and a Windows one, which the CLI writes with
+        # backslashes and lower-cased.
+        cases = (
+            ("fix-1", "/srv/proj/.gemini/worktrees/fix-1"),
+            ("win-fix-1", "c:\\users\\a\\proj\\.gemini\\worktrees\\fix-1"),
         )
-        self.col = open_input(self.tmp / "home", self.cat, host="h1")
-        rows = self.rows_for(GeminiCliParser(), rel)
-        self.assertEqual(
-            [(row.turn_type, row.text) for row in rows[:3]],
-            [
-                ("system", "session start: kind=main projectHash=" + "0" * 64),
-                ("system", "scratch directory: %s (gemini --worktree fix-1)" % worktree),
-                ("user", "fix it"),
-            ],
-        )
-        scratch = rows[1]
-        self.assertEqual(
-            (scratch.timestamp_utc, scratch.session_id, scratch.project_path, scratch.source_line),
-            ("2026-10-02T10:00:00.000Z", GEMINI_SUBAGENT, worktree, 1),
-        )
+        for slug_name, worktree in cases:
+            slug = self.home / ".gemini/tmp" / slug_name
+            (slug / "chats").mkdir(parents=True)
+            (slug / ".project_root").write_text(worktree, encoding="utf-8")
+            records = [
+                {
+                    "sessionId": session_id,
+                    "projectHash": "0" * 64,
+                    "startTime": "2026-10-02T10:00:00.000Z",
+                    "lastUpdated": "2026-10-02T10:00:00.000Z",
+                    "kind": "main",
+                },
+                {
+                    "id": "w-u1",
+                    "timestamp": "2026-10-02T10:00:05.000Z",
+                    "type": "user",
+                    "content": "fix it",
+                },
+            ]
+            rel = ".gemini/tmp/%s/chats/session-2026-10-02T10-00-d4e5f6a7.jsonl" % slug_name
+            (self.home / rel).write_text(
+                "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+            )
+            self.col = open_input(self.tmp / "home", self.cat, host="h1")
+            rows = self.rows_for(GeminiCliParser(), rel)
+            self.assertEqual(
+                [(row.turn_type, row.text) for row in rows[:3]],
+                [
+                    ("system", "session start: kind=main projectHash=" + "0" * 64),
+                    ("system", "scratch directory: %s (gemini --worktree fix-1)" % worktree),
+                    ("user", "fix it"),
+                ],
+                worktree,
+            )
+            scratch = rows[1]
+            self.assertEqual(
+                (
+                    scratch.timestamp_utc,
+                    scratch.session_id,
+                    scratch.project_path,
+                    scratch.source_line,
+                ),
+                ("2026-10-02T10:00:00.000Z", session_id, worktree, 1),
+                worktree,
+            )
 
     def test_project_settings_and_policy(self):
         # A project's .gemini/settings.json and workspace policy file: the

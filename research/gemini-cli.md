@@ -197,7 +197,8 @@ error and the conversation history sent with the request
 ([`core/src/utils/errorReporting.ts:26-35`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/errorReporting.ts#L26-L35);
 [`core/src/core/turn.ts:440-447`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/turn.ts#L440-L447)); on Windows that
 directory is `%TEMP%`, by default inside the profile. The VS Code companion extension writes
-`gemini/ide/gemini-ide-server-<pid>-<n>.json` there, with the port and a per-run auth token
+`gemini/ide/gemini-ide-server-<parent pid>-<port>.json` there, holding the port, the workspace
+path and a per-run auth token
 ([`vscode-ide-companion/src/ide-server.ts:82-91`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/vscode-ide-companion/src/ide-server.ts#L82-L91),
 [`362-370`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/vscode-ide-companion/src/ide-server.ts#L362-L370)).
 
@@ -248,8 +249,9 @@ one directory it creates for work is the `--worktree` checkout inside the projec
   `headers` values (`mcpServers.*.env`, `mcpServers.*.headers`)
   ([`cli/src/config/settingsSchema.ts:3053`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L3053),
   [`3071`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L3071)). The CLI rewrites either through
-  a write copy `.gemini/.settings.json.<pid>.<epoch ms>.<n>.tmp` beside it, renamed over the file
-  and left behind only when the rename fails between the two writes
+  a write copy `.gemini/.settings.json.<pid>.<epoch ms>.<n>.tmp` beside it, renamed over the file;
+  when the rename fails the CLI deletes the copy and writes the file directly, so the copy remains
+  only when the process stops between writing it and the rename, or when that delete fails
   ([`cli/src/utils/commentJson.ts:22-45`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/commentJson.ts#L22-L45)).
 - `.gemini/tmp/<slug>/bug-memory-<epoch ms>.heapsnapshot`, the V8 heap snapshot `/bug-memory`
   writes, is a dump of the CLI process's memory and so holds the access token and API keys in
@@ -1089,8 +1091,9 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per
   `modes` table and one row
   `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)`
-  per `commands` grant, the keys in file order. A project's `sandbox.toml` is an ordinary policy
-  file.
+  per `commands` grant, the keys in file order. On Python 3.10 it gives the same `not read` row
+  as the other policy files, though it holds no `[[rule]]` table. A project's `sandbox.toml` is an
+  ordinary policy file.
 - `settings.json`, in the home and in a project: one
   `permission setting: <key>=<value> (from <file>, file mtime)` row per entry of
   `tools.sandboxAllowedPaths`, `tools.core`, `tools.allowed`, `tools.confirmationRequired`,
@@ -1221,8 +1224,8 @@ remote id, share URL or synced flag:
 #### Scratch directory rows
 
 A session whose project path (its `.project_root`) is `<project>/.gemini/worktrees/<name>` gets
-one `system` row `scratch directory: <path> (gemini --worktree <name>)` after its
-`session start:` row, at the same time, `project_path` the worktree
+one `system` row `scratch directory: <path> (gemini --worktree <name>)` after the file's
+`session start:` rows, at the first one's time and line, `project_path` the worktree
 ([Worktree sessions](#worktree-sessions)).
 
 #### Deletion rows
