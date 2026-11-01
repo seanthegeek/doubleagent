@@ -204,14 +204,15 @@ jobs:
         run: analyzer/tests/run.sh
       # Branch coverage of the parser lines the change touched, on one Python
       # version, since the suite runs again under coverage.py. The checkout is
-      # shallow, so the base branch and the history down to the merge base
-      # are fetched first.
+      # shallow, so the history down to the merge base and the base branch
+      # are fetched first; a complete clone (a re-run) skips the unshallow.
       - name: branch coverage of the changed parser lines
         if: matrix.python == '3.14'
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}
         run: |
-          git fetch --no-tags --unshallow origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then git fetch --no-tags --unshallow origin; fi
+          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
           python3 tools/check_branch_coverage.py --base "origin/$BASE_REF"
       # The drift checkers' tests; tools/tests/conftest.py puts tools/ on
       # the import path, so they run from the repository root.
