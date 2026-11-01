@@ -1,6 +1,6 @@
 """Tests of `toml_util`: the TOML rules the parsers rely on `tomllib` for."""
 
-from doubleagent.toml_util import load_config_toml, load_toml
+from doubleagent.toml_util import load_toml
 from fixtures import CODEX_AUTOMATION_TOML, CODEX_SESSION
 
 
@@ -40,7 +40,7 @@ def test_load_toml_reads_automation_file():
 def test_toml_line_ends_at_lf_or_crlf_only():
     # A U+2028 inside a string or a quoted key is part of it, not a line end.
     assert load_toml('prompt = "a\u2028b"\n') == {"prompt": "a\u2028b"}
-    assert load_config_toml('[projects."/srv/a\u2028b"]\ntrust_level = "trusted"\n') == {
+    assert load_toml('[projects."/srv/a\u2028b"]\ntrust_level = "trusted"\n') == {
         "projects": {"/srv/a\u2028b": {"trust_level": "trusted"}}
     }
     with_lf = 'id = "x"\nprompt = """a\nb"""\n[projects."/srv/proj"]\ntrust_level = "trusted"\n'
@@ -92,7 +92,7 @@ def test_toml_line_ending_backslash():
         'p = """a\\\\\\\n  b"""\n': "a\\b",
     }
     # A backslash and a space, a tab or a CR with no line end after it is a bad escape.
-    for text in ('p = "a\\ b"\n', 'p = "a\\\tb"\n', 'p = """a\\ b"""\n'):
+    for text in ('p = "a\\ b"\n', 'p = "a\\\tb"\n', 'p = "a\\\rb"\n', 'p = """a\\ b"""\n'):
         assert raises_value_error(text), text
     for text, want in cases.items():
         assert load_toml(text) == {"p": want}, text
