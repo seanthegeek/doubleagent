@@ -106,6 +106,8 @@ TYPE_SEPARATOR = re.compile(r"\s+or\s+|[,/]")
 PLACEHOLDER = re.compile(r"<[^<>/]*>")
 # Leading placeholder segments of a path span, the base it sits under (`<home>/`, `<GS>/`).
 LEADING_PLACEHOLDERS = re.compile(r"^(?:<[^<>/]*>/)+")
+# An absolute home directory opening a path span, once backslashes are slashes.
+ABSOLUTE_HOME = re.compile(r"^(?:[A-Za-z]:/Users/[^/]+/|/(?:home|Users)/[^/]+/|/root/)")
 WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 
 
@@ -312,20 +314,24 @@ def is_field_name(key: str, container: str = "") -> bool:
 
 
 def is_section_path(span: str) -> bool:
-    """Return whether a code span is a path (`is_path_span`) once its placeholders are filled."""
-    return check_tables_research.is_path_span(PLACEHOLDER.sub("x", span))
+    """Return whether a code span, home prefix normalised and placeholders filled, is a path."""
+    path = drift_common.normalise_span(span)
+    return check_tables_research.is_path_span(PLACEHOLDER.sub("x", path))
 
 
 def names_file(span: str, relative: str) -> bool:
     """Return whether a path span names a home-relative file: it matches the file path's end.
 
-    The span is read as `normalise_span` gives it (a `~/` or other home prefix dropped) less its
-    leading placeholder segments (`<home>/`); each other `<...>` and `*` matches within one
-    segment, so `sessions/<id>.json` and `*.jsonl` name `.beta/sessions/x.json` and
-    `.beta/x.jsonl`. The match starts at a segment boundary, so `ory.jsonl` does not name
-    `history.jsonl`, and a span of placeholders alone names no file.
+    The span is read as `normalise_span` gives it (a `~/` or variable home prefix dropped) less
+    an absolute home (`ABSOLUTE_HOME`) and its leading placeholder segments (`<home>/`); each
+    other `<...>` and `*` matches within one segment, so `sessions/<id>.json` and `*.jsonl` name
+    `.beta/sessions/x.json` and `.beta/x.jsonl`. The match starts at a segment boundary, so
+    `ory.jsonl` does not name `history.jsonl`; a span ending in `/` is a directory and names
+    every file below it; a span of placeholders alone names no file.
     """
-    path = LEADING_PLACEHOLDERS.sub("", drift_common.normalise_span(span))
+    below = span.endswith(("/", "\\"))
+    path = ABSOLUTE_HOME.sub("", drift_common.normalise_span(span))
+    path = LEADING_PLACEHOLDERS.sub("", path)
     if not PLACEHOLDER.sub("", path).strip("*/"):
         return False
     parts = re.split(r"(%s|\*)" % PLACEHOLDER.pattern, path)
@@ -333,7 +339,8 @@ def names_file(span: str, relative: str) -> bool:
         "[^/]*" if part == "*" else "[^/]+" if PLACEHOLDER.fullmatch(part) else re.escape(part)
         for part in parts
     )
-    return re.search("(?:^|/)%s$" % pattern, relative) is not None
+    tail = "/.+$" if below else "$"
+    return re.search("(?:^|/)%s%s" % (pattern, tail), relative) is not None
 
 
 def is_documented(name: str, names: set[str]) -> bool:
@@ -368,23 +375,24 @@ def fixture_modules(root: pathlib.Path, documents: set[str]) -> list[FixtureModu
     return modules
 
 
-def registered_builders(root: pathlib.Path) -> frozenset[str]:
-    """Return the function names of the home builders `HOME_BUILDERS` in `__init__.py` lists.
+def registered_builders(root: pathlib.Path) -> frozenset[tuple[str, str]]:
+    """Return (module stem, function name) of each home builder `HOME_BUILDERS` lists.
 
-    The tuple is read from the syntax tree, each entry's first item a name bound by a relative
-    import (`from .x import build_x as y` gives `build_x`); empty when there is no such tuple.
+    The tuple is read from the `__init__.py` syntax tree, each entry's first item a name bound
+    by a relative import (`from .x import build_x as y` gives `("x", "build_x")`); empty when
+    there is no such tuple.
     """
     path = root / FIXTURES / "__init__.py"
     if not path.is_file():
         return frozenset()
     tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
     imported = {
-        alias.asname or alias.name: alias.name
+        alias.asname or alias.name: (node.module or "", alias.name)
         for node in tree.body
         if isinstance(node, ast.ImportFrom) and node.level == 1
         for alias in node.names
     }
-    found: set[str] = set()
+    found: set[tuple[str, str]] = set()
     for node in tree.body:
         target = node.target if isinstance(node, ast.AnnAssign) else None
         if isinstance(node, ast.Assign) and len(node.targets) == 1:
@@ -394,8 +402,8 @@ def registered_builders(root: pathlib.Path) -> frozenset[str]:
             continue
         for entry in value.elts if isinstance(value, (ast.Tuple, ast.List)) else []:
             first = entry.elts[0] if isinstance(entry, ast.Tuple) and entry.elts else None
-            if isinstance(first, ast.Name):
-                found.add(imported.get(first.id, first.id))
+            if isinstance(first, ast.Name) and first.id in imported:
+                found.add(imported[first.id])
     return frozenset(found)
 
 
@@ -409,16 +417,20 @@ def provenance_findings(
     root: pathlib.Path,
     module: FixtureModule,
     documents: dict[str, pathlib.Path],
-    registered: frozenset[str] = frozenset(),
+    registered: frozenset[tuple[str, str]] = frozenset(),
 ) -> Iterator[drift_common.Finding]:
-    """Yield the module's `module-provenance-missing` and `builder-provenance-missing` findings."""
+    """Yield the module's `module-provenance-missing` and `builder-provenance-missing` findings.
+
+    `registered` holds (module stem, name) of the home builders; only this module's exempt.
+    """
     relative = module.path.relative_to(root).as_posix()
+    home_builders = frozenset(name for stem, name in registered if stem == module.stem)
     if not names_document(module.docstring, module.agent):
         yield drift_common.Finding(
             module.agent, "module-provenance-missing", module.stem, relative, 1
         )
     for node in module.tree.body:
-        if not isinstance(node, ast.FunctionDef) or not is_public_builder(node.name, registered):
+        if not isinstance(node, ast.FunctionDef) or not is_public_builder(node.name, home_builders):
             continue
         lines = (ast.get_docstring(node) or "").split("\n")
         sources = [found for found in map(source_line, lines) if found]
@@ -848,7 +860,8 @@ def consulted_rows(relative: str, document: AgentDocument) -> dict[str, list[Key
 
     When a section holding key tables names the file, the rows of the sections that name it
     apply, and those of each section naming no built file (outside `document.scoped`); when
-    none names it, every row of the document does.
+    none names it, every row of the document does. A key whose rows all sit in sections naming
+    other files keeps no row, and its values pass unchecked.
     """
     named = naming_sections(document, relative)
     if not named:

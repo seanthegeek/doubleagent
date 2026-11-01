@@ -9,8 +9,8 @@
   its detail is `<table> <glob>`, as one glob may be in several tables.
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
   secret glob flags on its own base or a sibling base of one platform (`sibling_bases`: the same
-  last segment, a leading `.` dropped, case kept), unless a Parsing-part Secrets code span names
-  the path (`secrets_store`) or its sentence says it is not a credential (`denies_credential`).
+  last segment, case kept where `case_distinguishes`), unless a Parsing-part Secrets code span
+  names the path (`secrets_store`) or says it is not a credential (`denies_credential`).
 - `secret-under-exclusion`: a secret glob each of whose sample paths an exclusion prunes.
 - `exclusion-unreachable`, `secret-unreachable`: an exclusion or secret glob with no owner
   (`Repository.owners`, `glob_owners`): no entry reaches it, no volume document claims it.
@@ -169,25 +169,52 @@ def base_form(glob: str) -> tuple[str, set[str]]:
     return "", set()
 
 
+def base_segment(glob: str, keep_case: bool) -> str:
+    """Return a home entry's last segment with a leading `.` dropped, case-folded unless kept."""
+    segment = glob.rsplit("/", 1)[-1].lstrip(".")
+    return segment if keep_case else segment.casefold()
+
+
+def case_distinguishes(entries: Iterable[TableLine]) -> bool:
+    """Return whether case tells an agent's base directories apart.
+
+    It does when two home entries on one platform (`base_form`) end in segments equal
+    case-folded but not as written (`AppData/Local/hermes` beside `AppData/Roaming/Hermes`),
+    the way the catalog separates surfaces; otherwise Windows capitalises what POSIX spells
+    lower (`.ollama`, `AppData/Local/Ollama`) and siblings compare case-folded.
+    """
+    forms: dict[tuple[str, str], set[str]] = {}
+    for entry in entries:
+        segment = base_segment(entry.glob, True)
+        seen = forms.setdefault((base_form(entry.glob)[0], segment.casefold()), set())
+        seen.add(segment)
+        if len(seen) > 1:
+            return True
+    return False
+
+
 def sibling_bases(
     base: TableLine, entries: Iterable[TableLine], named: Iterable[str]
 ) -> list[TableLine]:
     """Return the other platform forms of a base directory among an agent's home entries.
 
-    A sibling ends in the base's last segment with a leading `.` dropped and case kept, since a
-    directory differing only by case is another surface's; it is on a platform the base's does
-    not cover (`PLATFORMS_COVERED`), shares a kind of state with the base (`base_form`), and is
-    named by a span of the Per-user storage section (`names_glob`): `.config/Claude` and
-    `Library/Application Support/Claude` are siblings; `.config/zed` and `.local/share/zed` are
-    not, nor `.alpha` and `Library/Application Support/alpha`, nor `.hermes` and `.../Hermes`.
+    A sibling ends in the base's last segment with a leading `.` dropped, compared as written
+    when case tells the agent's directories apart (`case_distinguishes`) and case-folded
+    otherwise; it is on a platform the base's does not cover (`PLATFORMS_COVERED`), shares a
+    kind of state with the base (`base_form`), and is named by a span of the Per-user storage
+    section (`names_glob`): `.config/Claude` and `Library/Application Support/Claude` are
+    siblings, and `.ollama` and `AppData/Local/Ollama`; `.config/zed` and `.local/share/zed` are
+    not, nor `.hermes` and `AppData/Roaming/Hermes` beside `AppData/Local/hermes`.
     """
     spans = list(named)
-    last = base.glob.rsplit("/", 1)[-1].lstrip(".")
+    entries = list(entries)
+    keep_case = case_distinguishes(entries)
+    last = base_segment(base.glob, keep_case)
     platform, kinds = base_form(base.glob)
     covered = PLATFORMS_COVERED.get(platform, {platform})
     found: list[TableLine] = []
     for entry in entries:
-        if entry.glob.rsplit("/", 1)[-1].lstrip(".") != last:
+        if base_segment(entry.glob, keep_case) != last:
             continue
         other_platform, other_kinds = base_form(entry.glob)
         if covered & PLATFORMS_COVERED.get(other_platform, {other_platform}):

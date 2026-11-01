@@ -267,9 +267,24 @@ def test_builder_provenance_reaches_every_unregistered_public_function(tmp_path)
 
 def test_registered_builders_follow_import_aliases(tmp_path):
     root = make_repository(tmp_path)
-    expected = {"build_alpha", "build_beta", "build_gamma"}
+    expected = {("alpha", "build_alpha"), ("beta", "build_beta"), ("gamma", "build_gamma")}
     assert checker.registered_builders(root) == expected
     assert checker.registered_builders(tmp_path / "empty") == frozenset()
+
+
+def test_registered_builders_exempt_only_their_own_module(tmp_path):
+    root = make_repository(tmp_path)
+    modules = checker.fixture_modules(root, {"alpha", "beta", "gamma"})
+    alpha = next(module for module in modules if module.stem == "alpha")
+    documents = {"alpha": root / "research/alpha.md", "beta": root / "research/beta.md"}
+    registered = frozenset({("beta", "alpha_records"), ("alpha", "alpha_helper")})
+    details = {
+        finding.detail
+        for finding in checker.provenance_findings(root, alpha, documents, registered)
+        if finding.kind == "builder-provenance-missing"
+    }
+    assert "alpha_records" in details
+    assert "alpha_helper" not in details
 
 
 def test_module_provenance_missing(tmp_path):
@@ -502,10 +517,17 @@ def test_type_mismatch_consults_only_the_sections_naming_the_file(tmp_path):
 
 
 def test_type_mismatch_names_the_first_consulted_row(tmp_path):
-    found = scoped_findings(tmp_path, ".beta/history.jsonl", [{"type": "system"}])
-    index_row = scoped_line("| `type` | string | | 1.0 |")
-    assert found, "the named section's closed row rejects the value"
-    assert all(line > index_row for _, line in found), found
+    shared_type = "| `type` | string | `user` | 1.0 |"
+    document = SCOPED_DOCUMENT.replace(
+        "| `count` | string | | 1.0 |", "| `count` | string | | 1.0 |\n" + shared_type
+    )
+    found = scoped_findings(tmp_path, ".beta/history.jsonl", [{"type": "system"}], document)
+    lines = document.split("\n")
+    index_row = lines.index("| `type` | string | | 1.0 |") + 1
+    turn_row = lines.index("| `type` | string | `user`, `assistant`, `index.json` | 1.0 |") + 1
+    shared_row = lines.index(shared_type) + 1
+    assert index_row < turn_row < shared_row
+    assert found == {("type=system", turn_row)}
 
 
 def test_type_mismatch_consults_every_row_when_no_section_names_the_file(tmp_path):
@@ -549,6 +571,13 @@ def test_names_file_forms():
         ("~/.beta/history.jsonl", ".beta/history.jsonl", True),
         ("<home>/.beta/history.jsonl", ".beta/history.jsonl", True),
         ("%APPDATA%\\Beta\\state.json", "AppData/Roaming/Beta/state.json", True),
+        ("C:\\Users\\<user>\\.beta\\history.jsonl", ".beta/history.jsonl", True),
+        ("/home/<user>/.beta/history.jsonl", ".beta/history.jsonl", True),
+        ("/Users/alice/.beta/history.jsonl", ".beta/history.jsonl", True),
+        ("$XDG_DATA_HOME/beta/state.db", ".local/share/beta/state.db", True),
+        (".beta/sessions/", ".beta/sessions/p/a1.jsonl", True),
+        ("sessions/<id>/", ".beta/sessions/p/a1.jsonl", True),
+        (".beta/sessions/", ".beta/sessions", False),
         ("history.jsonl", ".beta/history.jsonl", True),
         ("ory.jsonl", ".beta/history.jsonl", False),
         (".beta/history.jsonl", "x.beta/history.jsonl", False),
