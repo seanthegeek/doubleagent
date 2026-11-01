@@ -97,6 +97,8 @@ tools/check_parser_research.py  compares each parser's row texts, file patterns 
                                with the Parsing part of its research document
 tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines, files,
                                keys and values with the research documents
+tools/check_branch_coverage.py  runs the analyzer suite under branch coverage and reports
+                               each branch of a changed parser line the suite never takes
 tools/tests/                   pytest suite of the drift checkers, on synthetic inputs
 tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
                                disagreements recorded so far, unattributed.txt for
@@ -509,7 +511,10 @@ The analyzer runs on the analyst's workstation, never on the host.
   the unfixed code and fails there. A test needing POSIX permissions or an
   unprivileged user skips with the `CAN_DENY` guard of
   `analyzer/tests/test_errors.py`; one creating a symlink skips when
-  `symlink_to` raises.
+  `symlink_to` raises. Every branch on a parser line a change adds or
+  modifies is taken both ways by the suite, which
+  `tools/check_branch_coverage.py` checks; a branch no fixture can reach
+  carries `# pragma: no branch: <reason>`, never a bare pragma.
 
 ## Adding a parser
 
@@ -1366,6 +1371,7 @@ python3 tools/check_tables_research.py
 python3 tools/check_smoke_coverage.py
 python3 tools/check_parser_research.py
 python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as tests/run.sh does
+python3 tools/check_branch_coverage.py  # runs the analyzer suite again when a parser changed
 python3 tools/check_code_style.py
 shfmt -ln posix $(shfmt -f .) >/dev/null && shellcheck -s sh $(shfmt -f .) && checkbashisms -p $(shfmt -f .)
 pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
@@ -1441,11 +1447,12 @@ skipped without it. Never add a `python3` requirement to the collector.
 
 ### Quality gates
 
-Every gate runs in the CI `lint` job, never in the pre-commit hook. The
-versions are pinned in the workflow's `env` block; change it and this table
-together. Run the commands from the repository root before pushing; a
-documentation-only change needs markdownlint and the rows from document
-links down.
+Every gate runs in CI, never in the pre-commit hook: branch coverage in the
+`analyzer` job on its newest Python, the others in the `lint` job. The
+versions are pinned in the workflow's `env` block, coverage.py's in
+`analyzer/requirements-dev.txt`; change it and this table together. Run the
+commands from the repository root before pushing; a documentation-only
+change needs markdownlint and the rows from document links down.
 
 | Gate | Version | Local command | Configuration |
 | --- | --- | --- | --- |
@@ -1457,6 +1464,7 @@ links down.
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
+| branch coverage of changed parser lines | coverage.py 7.16.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
 | code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
 | research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |
