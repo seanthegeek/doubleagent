@@ -802,6 +802,8 @@ openhands|.openhands
 pi|.pi
 little-coder|.pi/approved-plan.md
 pi|pi-session-*.html
+pi|pi-bug-report-*.zip
+pi|session-[0-9][0-9][0-9][0-9]-*.jsonl
 letta|.letta
 pydantic-clai|.clai
 letta|.skills
@@ -1188,15 +1190,17 @@ AppData/Local/open-interpreter/open-interpreter/models
 .openhands/agent-canvas/tmux
 .openhands/workspaces
 .pi/agent/bin
+.pi/agent/install/releases
+.pi/agent/install/staging
 .pi/agent/tools/fd*
 .pi/agent/tools/rg*
 .pi/agent/tmp
 .pi/agent/npm/node_modules
-.pi/agent/git/*/node_modules
-.pi/agent/git/*/.git
+.pi/agent/git/*/*/node_modules
+.pi/agent/git/*/*/.git
 .pi/npm/node_modules
-.pi/git/*/node_modules
-.pi/git/*/.git
+.pi/git/*/*/node_modules
+.pi/git/*/*/.git
 .pi/server/*.sock
 .letta/bin
 .letta/mod-cache
@@ -1495,6 +1499,8 @@ AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-sess
 *.gemini/a2a-oauth-tokens.json
 *.gemini/.env
 *.gemini/settings.json
+*.gemini/.settings.json.*.tmp
+.gemini/integrity.key
 *.gemini/extensions/*/.env
 *.gemini/tmp/*/bug-memory-*.heapsnapshot
 *.gemini/antigravity-cli/antigravity-oauth-token
@@ -1792,7 +1798,6 @@ Library/Application Support/OpenHands Agent Canvas/mars-credentials.json
 .config/OpenHands Agent Canvas/mars-credentials.json
 AppData/Roaming/OpenHands Agent Canvas/mars-credentials.json
 .pi/agent/auth.json
-.pi/agent/auth.json.*
 .pi/agent/mcp-auth.json
 .pi/agent/oauth.json*
 .pi/agent/models.json

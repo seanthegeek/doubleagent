@@ -26,12 +26,18 @@ from fixtures import (
     PI_FILE,
     PI_FORK,
     PI_FORK_FILE,
+    PI_KINDS_FILE,
+    PI_KINDS_SESSION,
+    PI_MCP_LOG,
     PI_SESSION,
     PI_SETTINGS,
     PI_TRUST,
+    PI_V1_FILE,
+    PI_V1_SESSION,
     _json,
     _jsonl,
     bad_line_text,
+    pi_crash_records,
     pi_debug_log_text,
     pi_session_records,
     write_bad_line,
@@ -262,8 +268,8 @@ class PiTests(ParserBase):
         (self.home / PI_TRUST).write_text('["/srv/proj"]', encoding="utf-8")
         rows = self.rows_for(PiParser(), PI_TRUST)
         self.assertEqual(
-            [(row.turn_type, row.text, row.session_id) for row in rows],
-            [("system", "parser: .pi/agent/trust.json is not a JSON object", "")],
+            [(row.turn_type, row.text, row.session_id, row.timestamp_utc) for row in rows],
+            [("system", "parser: .pi/agent/trust.json is not a JSON object", "", "")],
         )
         (self.home / PI_TRUST).write_text('{"/srv/proj": tr', encoding="utf-8")
         rows = self.rows_for(PiParser(), PI_TRUST)
@@ -291,8 +297,53 @@ class PiTests(ParserBase):
         )
         _json(self.home / PI_SETTINGS, {"defaultProvider": "anthropic"})
         self.assertEqual(self.rows_for(PiParser(), PI_SETTINGS), [])
-        (self.home / PI_SETTINGS).write_text("{not json", encoding="utf-8")
+
+    def test_settings_not_an_object_is_one_row(self):
+        for text in ("{not json", "[]"):
+            (self.home / PI_SETTINGS).write_text(text, encoding="utf-8")
+            rows = self.rows_for(PiParser(), PI_SETTINGS)
+            self.assertEqual(
+                [(row.turn_type, row.text, row.timestamp_utc, row.source_line) for row in rows],
+                [("system", "parser: .pi/agent/settings.json is not a JSON object", "", 0)],
+                text,
+            )
+
+    def test_empty_settings_gives_no_row_but_empty_trust_does(self):
+        # pi reads an empty settings.json as no settings and rejects an empty
+        # trust.json.
+        (self.home / PI_SETTINGS).write_bytes(b"")
+        (self.home / PI_TRUST).write_bytes(b"")
         self.assertEqual(self.rows_for(PiParser(), PI_SETTINGS), [])
+        self.assertEqual(
+            [row.text for row in self.rows_for(PiParser(), PI_TRUST)],
+            ["parser: .pi/agent/trust.json is not a JSON object"],
+        )
+
+    def test_byte_order_mark_is_dropped(self):
+        # pi drops a leading BOM from trust.json and settings.json.
+        (self.home / PI_TRUST).write_text('\ufeff{"/srv/proj": true}', encoding="utf-8")
+        (self.home / PI_SETTINGS).write_text(
+            '\ufeff{"defaultProjectTrust": "never"}', encoding="utf-8"
+        )
+        trust = self.rows_for(PiParser(), PI_TRUST)
+        settings = self.rows_for(PiParser(), PI_SETTINGS)
+        self.assertEqual(
+            [row.text for row in trust + settings],
+            [
+                "permission setting: /srv/proj=true (from .pi/agent/trust.json, file mtime)",
+                "permission setting: defaultProjectTrust=never "
+                "(from .pi/agent/settings.json, file mtime)",
+            ],
+        )
+
+    def test_meta_not_an_object_is_one_row(self):
+        rel = ".pi/agent/experimental/sessions/%s/meta.json" % PI_EXPERIMENTAL
+        (self.home / rel).write_text('["/srv/proj"]', encoding="utf-8")
+        rows = self.rows_for(PiParser(), rel)
+        self.assertEqual(
+            [(row.text, row.session_id, row.source_line) for row in rows],
+            [("parser: %s is not a JSON object" % rel, PI_EXPERIMENTAL, 0)],
+        )
 
     def test_permission_gate_refusal(self):
         # little-coder's gate blocks the edit; pi records an error toolResult
@@ -339,7 +390,7 @@ class PiTests(ParserBase):
             [
                 (
                     "system",
-                    "debug snapshot: /debug wrote 4 message(s) of the open session, which "
+                    "debug snapshot: /debug wrote 6 message(s) of the open session, which "
                     "the log does not name (from .pi/agent/pi-debug.log, Debug output at line)",
                     "2026-10-01T09:02:00.000Z",
                     1,
@@ -354,6 +405,8 @@ class PiTests(ParserBase):
                 ("tool_use", "npm test", "2026-10-01T09:00:02.000Z", 11),
                 ("tool_result", "1 failing", "2026-10-01T09:00:07.000Z", 12),
                 ("user", PI_DELETED_PROMPT, "2026-10-01T09:01:40.000Z", 13),
+                ("system", "compactionSummary: the turns before", "2026-10-01T09:01:50.000Z", 14),
+                ("system", "branchSummary: the other branch", "2026-10-01T09:02:00.000Z", 15),
             ],
         )
         for row in rows:
@@ -370,7 +423,8 @@ class PiTests(ParserBase):
         self.assertEqual(dropped, {"pi": 4})
         survivors = kept[len(primary) :]
         self.assertEqual(
-            [(row.turn_type, row.recovered) for row in survivors], [("system", ""), ("user", "yes")]
+            [(row.turn_type, row.recovered) for row in survivors],
+            [("system", ""), ("user", "yes"), ("system", ""), ("system", "")],
         )
         self.assertEqual(survivors[1].text, PI_DELETED_PROMPT)
 
@@ -411,6 +465,20 @@ class PiTests(ParserBase):
             ],
         )
 
+    def test_crash_element_not_an_object_is_a_bad_record(self):
+        records = [*pi_crash_records(), "boom", *pi_crash_records()]
+        _json(self.home / PI_CRASHES, records)
+        rows = self.rows_for(PiParser(), PI_CRASHES)
+        self.assertEqual(
+            [(row.source_line, row.text[:24]) for row in rows],
+            [
+                (1, "crash: uncaught_exceptio"),
+                (3, "crash: uncaught_exceptio"),
+                (2, "parser: unparseable reco"),
+            ],
+        )
+        self.assertEqual(rows[-1].text, 'parser: unparseable record 2 (not a JSON object): "boom"')
+
     def test_truncated_crash_log_keeps_earlier_records(self):
         text = (self.home / PI_CRASHES).read_text(encoding="utf-8")
         (self.home / PI_CRASHES).write_text(
@@ -423,7 +491,7 @@ class PiTests(ParserBase):
         self.assertTrue(rows[1].text.startswith("parser: unparseable record 2 ("), rows[1].text)
 
     def test_config_not_wanted(self):
-        for rel in (".pi/agent/auth.json",):
+        for rel in (PI_MCP_LOG,):
             art = next(artifact for artifact in self.col.artifacts if artifact.rel == rel)
             self.assertFalse(PiParser().wants(art), rel)
         for rel in (
@@ -460,6 +528,68 @@ class PiTests(ParserBase):
             [("system", line, bad_line_text(), "") for line in (1, 2)],
         )
 
+    def test_headerless_file_with_entries_reports_its_bad_lines(self):
+        # pi skips a file whose first record is not a header; its bad lines
+        # are still rows.
+        entries = pi_session_records()[1:3]
+        lines = [BAD_LINE, *(json.dumps(record) for record in entries)]
+        (self.home / self.REL).write_text("\n".join(lines) + "\n", encoding="utf-8")
+        rows = self.rows_for(PiParser(), self.REL)
+        self.assertEqual(
+            [(row.turn_type, row.source_line, row.text, row.session_id) for row in rows],
+            [("system", 1, bad_line_text(), "")],
+        )
+
+    def test_entry_kinds(self):
+        rows = self.rows_for(PiParser(), PI_DIR + PI_KINDS_FILE)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.source_line) for row in rows],
+            [
+                ("system", "session start: version=3 cwd=/srv/proj", 1),
+                ("system", "system prompt: You are pi.", 2),
+                ("system", "thinking_level_change: high", 3),
+                ("system", "model: gpt-5.1-codex provider=openai", 4),
+                ("tool_use", "Get-ChildItem", 4),
+                ("tool_result", "[error] Tool execution was blocked", 5),
+                ("system", "assistant stopReason=error: 429 rate limited", 6),
+                ("system", "compaction: tokensBefore=51234: earlier turns", 7),
+                ("system", "branch_summary from c1000003: the abandoned branch", 8),
+                ("system", "custom_message notes: remember the deadline", 9),
+                ("system", "context_edit target=c1000004: blocked", 10),
+                ("system", "context_edit target=c1000005: omitted from context", 11),
+                ("system", "custom hook: hook text", 12),
+                ("system", "assistant stopReason=aborted", 14),
+                ("tool_use", "make test", 15),
+                ("tool_result", "partial\n[cancelled, truncated]", 15),
+            ],
+        )
+        self.assertEqual((rows[-1].tool_name, rows[-1].tool_use_id), ("bash", "c100000e"))
+        self.assertEqual(rows[4].tool_name, "powershell")
+        self.assertEqual({row.session_id for row in rows}, {PI_KINDS_SESSION})
+        # Not a gate refusal: no permission decision row.
+        self.assertFalse(any(row.text.startswith("permission decision:") for row in rows))
+        thinking = [
+            (row.text, row.source_line)
+            for row in self.rows_for(PiParser(), PI_DIR + PI_KINDS_FILE, include_thinking=True)
+            if row.turn_type == "thinking"
+        ]
+        self.assertEqual(thinking, [("[redacted]", 14)])
+
+    def test_version_1_header(self):
+        rows = self.rows_for(PiParser(), PI_V1_FILE)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.session_id, row.timestamp_utc) for row in rows],
+            [
+                (
+                    "system",
+                    "session start: version=1 cwd=/srv/proj",
+                    PI_V1_SESSION,
+                    "2026-09-01T08:00:00.000Z",
+                ),
+                ("user", "an old prompt", PI_V1_SESSION, "2026-09-01T08:00:05.000Z"),
+            ],
+        )
+
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_file_is_one_row(self):
         unlocked = parse_with(self, PiParser)
@@ -469,6 +599,8 @@ class PiTests(ParserBase):
             (".pi/agent/settings.json", ""),
             (".pi/agent/pi-debug.log", ""),
             (".pi/agent/experimental/sessions/exp-session-1/meta.json", "exp-session-1"),
+            (PI_CRASHES, ""),
+            (PI_DIR + PI_KINDS_FILE, ""),
         ):
             rows = parse_with(self, PiParser, rel)
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]

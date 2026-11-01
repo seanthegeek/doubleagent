@@ -32,7 +32,6 @@ check_parser_research|parser-message-undocumented|parser: import ledger has no r
 check_parser_research|parser-message-undocumented|parser: unreadable automation.toml: %s
 check_parser_research|parser-message-undocumented|parser: unreadable global state: %s
 check_parser_research|parser-message-undocumented|parser: unreadable import ledger: %s
-check_parser_research|row-text-undocumented|session start:
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .codewhale/notes.md
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/.sandbox-secrets/s1
 check_smoke_coverage|fixture-name-undocumented|smoke.ps1 .openinterpreter/archived_sessions/rollout-2026-10-01T00-00-00-u2.jsonl

@@ -132,7 +132,7 @@ class GeminiCliTests(ParserBase):
             (
                 "permission decision: cancelled",
                 "run_shell_command",
-                "run_shell_command-2",
+                "run_shell_command__run_shell_command_1759309224000_0",
                 "2026-10-01T09:00:24.000Z",
             ),
         )
@@ -143,12 +143,13 @@ class GeminiCliTests(ParserBase):
         )  # re-appended record
         self.assertEqual(
             (listing.tool_name, listing.tool_use_id),
-            ("list_directory", "list_directory-1759309207000"),
+            ("list_directory", "list_directory__list_directory_1759309207000_0"),
         )
-        self.assertEqual(listing.text, 'ReadFolder: {"path":"/srv/proj/src"}')
+        self.assertEqual(listing.text, 'ReadFolder: {"dir_path":"/srv/proj/src"}')
         self.assertEqual(listing.timestamp_utc, "2026-10-01T09:00:07.100Z")
         self.assertEqual(
-            (lsout.tool_use_id, lsout.text), ("list_directory-1759309207000", "main.ts\nutil.ts")
+            (lsout.tool_use_id, lsout.text),
+            ("list_directory__list_directory_1759309207000_0", "main.ts\nutil.ts"),
         )
         self.assertNotIn("delete everything", " ".join(row.text for row in rows))  # rewound
         self.assertEqual(reply3.text, "Here is util.ts.")  # $patch content
@@ -198,7 +199,7 @@ class GeminiCliTests(ParserBase):
     def test_awaiting_approval_without_result(self):
         rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
         call = {
-            "id": "run_shell_command-9",
+            "id": "run_shell_command__run_shell_command_1759309299000_0",
             "name": "run_shell_command",
             "args": {"command": "make deploy"},
             "status": "awaiting_approval",
@@ -228,7 +229,7 @@ class GeminiCliTests(ParserBase):
             (dec.tool_name, dec.tool_use_id, dec.timestamp_utc, dec.session_id),
             (
                 "run_shell_command",
-                "run_shell_command-9",
+                "run_shell_command__run_shell_command_1759309299000_0",
                 "2026-10-01T09:00:32.000Z",
                 GEMINI_SUBAGENT,
             ),
@@ -542,9 +543,9 @@ class GeminiCliTests(ParserBase):
         self.assertEqual(
             [row.text for row in rows],
             [
-                "permission setting: policy allow run_shell_command priority=2.95 "
+                "permission setting: policy allow run_shell_command priority=950 "
                 'commandPrefix=["git","status"]' + source,
-                "permission setting: policy allow search priority=2.95 mcpName=docs "
+                "permission setting: policy allow search priority=950 mcpName=docs "
                 'modes=["autoEdit"]' + source,
             ],
         )
@@ -562,6 +563,106 @@ class GeminiCliTests(ParserBase):
             rows[0].text,
         )
 
+    def test_sandbox_policy_rows(self):
+        self.sources()
+        rel = ".gemini/policies/sandbox.toml"
+        rows = self.rows_for(GeminiCliParser(), rel)
+        if sys.version_info < (3, 11):
+            self.assertEqual(
+                [row.text for row in rows],
+                [
+                    "parser: .gemini/policies/sandbox.toml not read: its [[rule]] tables "
+                    "need Python 3.11 or later (tomllib)"
+                ],
+            )
+            return
+        source = " (from .gemini/policies/sandbox.toml, file mtime)"
+        self.assertEqual(
+            [row.text for row in rows],
+            [
+                "permission setting: sandbox mode plan network=false readonly=true "
+                "approvedTools=[] allowOverrides=true" + source,
+                "permission setting: sandbox mode default network=false readonly=false "
+                "approvedTools=[] allowOverrides=true" + source,
+                "permission setting: sandbox mode accepting_edits network=false readonly=false "
+                'approvedTools=["sed","grep"] allowOverrides=true' + source,
+                "permission setting: sandbox command cargo "
+                'allowed_paths=["/srv/proj/target","/srv/proj/.cargo"] allow_network=false'
+                + source,
+            ],
+        )
+        for row in rows:
+            self.assertEqual(
+                (row.turn_type, row.timestamp_utc, row.session_id, row.project_path),
+                ("system", to_utc(GEMINI_SOURCES_MTIME), "", ""),
+            )
+        # A project's sandbox.toml is an ordinary policy file: its tables give no row.
+        project = self.tmp / "srv" / "proj"
+        (project / ".gemini/policies").mkdir(parents=True)
+        (project / ".gemini" / "policies" / "sandbox.toml").write_bytes(
+            (self.home / rel).read_bytes()
+        )
+        home = Home(disk_path=project, original="/srv/proj", user="alice", host="h1", project=True)
+        art = Artifact(project / rel, "/srv/proj/" + rel, rel, "gemini-cli", home)
+        self.assertEqual(list(GeminiCliParser().parse(art, Options())), [])
+
+    def test_worktree_session_scratch_row(self):
+        # The main fixture session's project is not a worktree: no scratch row.
+        rows = self.rows_for(GeminiCliParser(), self.REL)
+        self.assertFalse([row for row in rows if row.text.startswith("scratch directory:")])
+        session_id = "d4e5f6a7-0000-4000-8000-000000000004"
+        # A POSIX project root, and a Windows one, which the CLI writes with
+        # backslashes and lower-cased.
+        cases = (
+            ("fix-1", "/srv/proj/.gemini/worktrees/fix-1"),
+            ("win-fix-1", "c:\\users\\a\\proj\\.gemini\\worktrees\\fix-1"),
+        )
+        for slug_name, worktree in cases:
+            slug = self.home / ".gemini/tmp" / slug_name
+            (slug / "chats").mkdir(parents=True)
+            (slug / ".project_root").write_text(worktree, encoding="utf-8")
+            records = [
+                {
+                    "sessionId": session_id,
+                    "projectHash": "0" * 64,
+                    "startTime": "2026-10-02T10:00:00.000Z",
+                    "lastUpdated": "2026-10-02T10:00:00.000Z",
+                    "kind": "main",
+                },
+                {
+                    "id": "w-u1",
+                    "timestamp": "2026-10-02T10:00:05.000Z",
+                    "type": "user",
+                    "content": "fix it",
+                },
+            ]
+            rel = ".gemini/tmp/%s/chats/session-2026-10-02T10-00-d4e5f6a7.jsonl" % slug_name
+            (self.home / rel).write_text(
+                "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+            )
+            self.col = open_input(self.tmp / "home", self.cat, host="h1")
+            rows = self.rows_for(GeminiCliParser(), rel)
+            self.assertEqual(
+                [(row.turn_type, row.text) for row in rows[:3]],
+                [
+                    ("system", "session start: kind=main projectHash=" + "0" * 64),
+                    ("system", "scratch directory: %s (gemini --worktree fix-1)" % worktree),
+                    ("user", "fix it"),
+                ],
+                worktree,
+            )
+            scratch = rows[1]
+            self.assertEqual(
+                (
+                    scratch.timestamp_utc,
+                    scratch.session_id,
+                    scratch.project_path,
+                    scratch.source_line,
+                ),
+                ("2026-10-02T10:00:00.000Z", session_id, worktree, 1),
+                worktree,
+            )
+
     def test_project_settings_and_policy(self):
         # A project's .gemini/settings.json and workspace policy file: the
         # rows carry the project directory.
@@ -571,7 +672,7 @@ class GeminiCliTests(ParserBase):
             json.dumps({"tools": {"confirmationRequired": ["write_file"]}}), encoding="utf-8"
         )
         (project / ".gemini/policies/auto-saved.toml").write_text(
-            '[[rule]]\ndecision = "allow"\npriority = 2.95\ntoolName = "write_file"\n',
+            '[[rule]]\ndecision = "allow"\npriority = 950\ntoolName = "write_file"\n',
             encoding="utf-8",
         )
         home = Home(disk_path=project, original="/srv/proj", user="alice", host="h1", project=True)
@@ -596,7 +697,7 @@ class GeminiCliTests(ParserBase):
                 [(row.text, row.project_path) for row in parser.parse(art, Options())],
                 [
                     (
-                        "permission setting: policy allow write_file priority=2.95 "
+                        "permission setting: policy allow write_file priority=950 "
                         "(from .gemini/policies/auto-saved.toml, file mtime)",
                         "/srv/proj",
                     )
@@ -667,7 +768,7 @@ class GeminiCliTests(ParserBase):
     CHECKPOINT_ROWS: ClassVar[list[tuple[int, str, str]]] = [
         (1, "user", "list files in src"),
         (2, "assistant", "Listing now."),
-        (2, "tool_use", '{"path":"/srv/proj/src"}'),
+        (2, "tool_use", '{"dir_path":"/srv/proj/src"}'),
         (3, "tool_result", "main.ts\nutil.ts"),
         (4, "user", "delete everything in /srv/proj"),
         (5, "assistant", "No."),
@@ -698,7 +799,7 @@ class GeminiCliTests(ParserBase):
         call, result = rest[2], rest[3]
         self.assertEqual(
             (call.tool_name, call.tool_use_id, result.tool_name, result.tool_use_id),
-            ("list_directory", "list_directory-1759309207000") * 2,
+            ("list_directory", "list_directory__list_directory_1759309207000_0") * 2,
         )
         thinking = self.rows_for(GeminiCliParser(), GEMINI_CHECKPOINT_REL, include_thinking=True)
         self.assertEqual(

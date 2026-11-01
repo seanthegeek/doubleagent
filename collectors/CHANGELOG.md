@@ -16,10 +16,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Qwen Code's Agent Host registration `.qwen/agent-hosts/*.json`, the managed local mode's `.qwen/managed-local/state.json`, the stores its worker processes write under `.qwen/managed-local/worker-home/` (`oauth_creds.json`, `mcp-oauth-tokens*.json`, `extension-secrets-v1.json`, `.env`, `settings.json`, its `settings.json.corrupted` and `settings.json.write-*/settings.json.orig` copies, and `sessions/*.json`), and the settings copies `.qwen/settings.json.corrupted` and `.qwen/settings.json.write-*/settings.json.orig` in the home or a project are flagged `secret: true` ([#326]).
 - Qwen Code's `.qwen/session-start-perf`, `.qwen/cpu-profiles` and `.qwen/memory-snapshots` profiles and the managed local mode's scratch directory `.qwen/managed-local/workspaces` are excluded ([#326]).
+- The release copies and staging directory of pi's managed install, `.pi/agent/install/releases` and `.pi/agent/install/staging`, are excluded, while its `managed-install.json` and `current-version` stay collected, and the `/bug` report zip `pi-bug-report-*.zip` and the `/export` JSONL copy `session-<time>.jsonl` (glob `session-[0-9][0-9][0-9][0-9]-*.jsonl`) a session leaves in a project directory are collected as `pi` ([#326]).
+- Gemini CLI's extension integrity key `.gemini/integrity.key`, written when the OS keychain is unavailable, and the write copy `.gemini/.settings.json.<pid>.<ms>.<n>.tmp` a cut settings write leaves beside a home or project `settings.json` (glob `*.gemini/.settings.json.*.tmp`) are flagged `secret: true` ([#326]).
+
+### Changed
+
+- pi's package checkout exclusions are written against the `git/<host>/<path>` layout pi uses, as `.pi/agent/git/*/*/node_modules`, `.pi/agent/git/*/*/.git` and the same under a project's `.pi/git`; every checkout pi writes was already excluded by the earlier globs ([#326]).
 
 ### Removed
 
 - Qwen Code's extension git-credential selector, `.qwen/extensions/*/.qwen-extension-git-credentials.json`, which only names the store holding the credential, is no longer flagged `secret: true` ([#326]).
+- The `.pi/agent/auth.json.*` secret glob: no pi build writes a backup or temporary copy of `auth.json` ([#326]).
 
 ## [1.21.0] - 2026-10-31
 
