@@ -118,3 +118,24 @@ def test_shipped_agents_pass():
 def test_missing_files_are_reported(tmp_path):
     _, found = steps.load(tmp_path)
     assert len(found) == len(steps.REQUIRED_FILES)
+
+
+def test_one_number_width_per_table(tmp_path):
+    text = line("98", "a", "idle", "1", "-", "c") + line("099", "b", "idle", "1", "-", "c")
+    text += line("100", "c", "idle", "1", "-", "c")
+    found = problems_of(text, tmp_path)
+    assert found == [
+        "number 099 is not 2 digits wide like the first step's",
+        "number 100 is not 2 digits wide like the first step's",
+    ]
+
+
+def test_renumber_shifts_from_the_inserted_line():
+    text = "NN\tname\n# note\n" + line("02", "a", "idle", "1", "-", "c")
+    text += line("03", "ask", "prompt", "hi", "-", "c") + line(
+        "03", "ask-again", "prompt", "hi!", "-", "c"
+    )
+    text += line("04", "next", "idle", "1", "-", "c") + line("05", "last", "idle", "1", "-", "c")
+    numbers = [row.split("\t")[0] for row in steps.renumber(text).split("\n")[2:] if row]
+    assert numbers == ["02", "03", "04", "05", "06"]
+    assert steps.renumber(steps.renumber(text)) == steps.renumber(text)

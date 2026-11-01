@@ -137,3 +137,9 @@ def test_empty_cell(tmp_path):
     text = report.build_report(tmp_path)
     assert "No collection yet" in text
     assert "- none" in text
+
+
+def test_listings_pair_in_numeric_order(tmp_path):
+    names = ["100-c.txt", "99-b.txt", "09-a.txt", "100-finish.txt"]
+    paths = sorted((tmp_path / name for name in names), key=report.listing_order)
+    assert [path.name for path in paths] == ["09-a.txt", "99-b.txt", "100-c.txt", "100-finish.txt"]

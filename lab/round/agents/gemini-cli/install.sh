@@ -17,6 +17,10 @@ if [ -w "$prefix/lib/node_modules" ] || [ -w "$prefix" ]; then
 else
   sudo -n npm install -g @google/gemini-cli
 fi
+if [ ! -x "$prefix/bin/$binary" ]; then
+  printf 'install.sh: no %s after npm install\n' "$prefix/bin/$binary" >&2
+  exit 1
+fi
 printf 'bin: %s\n' "$prefix/bin/$binary"
 # The version comes from npm's record, not `gemini --version`, which
 # already creates ~/.gemini and belongs to the first-launch step.

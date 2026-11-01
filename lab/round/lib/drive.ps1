@@ -28,14 +28,35 @@ if (-not (Test-Path -LiteralPath $tui)) { Write-Error "drive: $tui is missing"; 
 
 function Read-StandardInput { [Console]::In.ReadToEnd() }
 
+# Quote one argument by the rules the C runtime and Rust use to split a
+# Windows command line. Windows PowerShell 5.1 does not escape an embedded
+# `"` when it passes an argument to a native program, so text that holds
+# quotes (a prompt, a paste) goes through this instead.
+function ConvertTo-NativeArgument([string]$text) {
+    if ($text -ne '' -and $text -notmatch '[\s"]') { return $text }
+    $escaped = ($text -replace '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1'
+    '"' + $escaped + '"'
+}
+
+# Run tui-test with the arguments quoted by ConvertTo-NativeArgument, its
+# output going to this script's; return its exit code.
+function Invoke-Tui([string[]]$arguments) {
+    $info = New-Object System.Diagnostics.ProcessStartInfo
+    $info.FileName = $tui
+    $info.Arguments = (@($arguments) | ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' '
+    $info.UseShellExecute = $false
+    $process = [System.Diagnostics.Process]::Start($info)
+    $process.WaitForExit()
+    $process.ExitCode
+}
+
 function Open-AgentSession([string]$cols, [string]$rows, [string]$directory) {
     $commandLine = (Read-StandardInput).Trim()
     if ($commandLine -eq '') { Write-Error 'drive: no command line on stdin'; exit 2 }
     $runArguments = @('--session', $Session, 'run', '--config', $config, '--cols', $cols,
         '--rows', $rows, '--cwd', $directory, '--',
         'powershell.exe', '-NoLogo', '-Command', $commandLine)
-    & $tui @runArguments
-    exit $LASTEXITCODE
+    exit (Invoke-Tui $runArguments)
 }
 
 function Send-Keys([string]$keyList) {
@@ -51,8 +72,7 @@ function Send-Paste([string]$file) {
     if (-not (Test-Path -LiteralPath $path)) { Write-Error "drive: no paste file $path"; exit 2 }
     $content = [IO.File]::ReadAllText($path).Replace("`r`n", "`r").Replace("`n", "`r")
     $escape = [char]27
-    & $tui --session $Session write "$escape[200~$content$escape[201~"
-    exit $LASTEXITCODE
+    exit (Invoke-Tui @('--session', $Session, 'write', "$escape[200~$content$escape[201~"))
 }
 
 # Succeed once the screen has not changed for $quiet seconds while the
@@ -69,8 +89,9 @@ function Wait-Idle([int]$quiet, [int]$limit) {
         $screen = (& $tui --session $Session text 2>$null) -join "`n"
         if ($screen -eq $last) { $still++ } else { $still = 0; $last = $screen }
         $ready = $true
-        if ($marker -ne '' -and $screen -notmatch $marker) { $ready = $false }
-        if ($busy -ne '' -and $screen -match $busy) { $ready = $false }
+        # -cmatch, as grep -E in drive.sh is case-sensitive too.
+        if ($marker -ne '' -and $screen -cnotmatch $marker) { $ready = $false }
+        if ($busy -ne '' -and $screen -cmatch $busy) { $ready = $false }
         if ($ready -and $still -ge $quiet) { exit 0 }
         Start-Sleep -Seconds 1
     }
@@ -92,8 +113,7 @@ switch ($Verb) {
     'start' { Open-AgentSession $Rest[0] $Rest[1] (Join-Path $env:USERPROFILE $Rest[2]) }
     'keys' { Send-Keys $Rest[0] }
     'type' {
-        & $tui --session $Session type ((Read-StandardInput).TrimEnd("`r", "`n"))
-        exit $LASTEXITCODE
+        exit (Invoke-Tui @('--session', $Session, 'type', (Read-StandardInput).TrimEnd("`r", "`n")))
     }
     'paste' { Send-Paste $Rest[0] }
     'screen' { & $tui --session $Session text; exit $LASTEXITCODE }
@@ -112,7 +132,7 @@ switch ($Verb) {
         $readyCommand = "Write-Output 'drive ready'; Start-Sleep -Seconds 30"
         $readyArguments = @('--session', $Session, 'run', '--config', $config, '--cols', '80',
             '--rows', '24', '--', 'powershell.exe', '-NoLogo', '-Command', $readyCommand)
-        & $tui @readyArguments
+        Invoke-Tui $readyArguments | Out-Null
         & $tui --session $Session expect text 'drive ready' --timeout 10000 | Out-Null
         $code = $LASTEXITCODE
         & $tui --session $Session close 2>$null | Out-Null

@@ -29,15 +29,18 @@ lab/round/round.sh gemini-cli Ubuntu ~/rounds/gemini-cli-ubuntu finish
 
 The arguments are the agent (a directory under `agents/`), the VM (its
 name in `prlctl list -a`, with a file under `vms/`) and the cell
-directory, which must lie outside the repository because it receives the
-agent's credentials with the collection.
+directory, which must lie outside the repository because it receives
+what the agent showed on screen and the credentials it wrote; delete it
+once the round is written up, as
+[Real-install rounds in AGENTS.md](../../AGENTS.md#real-install-rounds)
+says of pulled collections.
 
 | Action | What it does |
 | --- | --- |
-| `start` | Refuses when another VM is running or the cell has started. Copies the agent's `steps.tsv` and `roots` into the cell, downloads the pinned tui-test release and checks its sha256, reverts the VM to its clean snapshot, starts it and waits for `ssh`, copies the survey and drive scripts, `analyzer/tools/shape.py` and this checkout's collector into `~/lab` in the VM, makes the sample project `~/lab/proj`, takes listing `00-baseline`, runs the agent's install script, takes `01-install`, then runs the steps. |
-| `resume` | Finishes the paused person step (its screen and listing), then runs the remaining steps. |
-| `collect` | Runs the collector in the VM as the lab user, pulls its archive, manifest, summary, log and hash file into the cell, deletes them in the VM, then runs the analyzer and the shape tool on the Mac and rewrites the report. |
-| `finish` | Stops the agent's session, takes the last listing, stops the VM, reverts it to the clean snapshot, deletes the snapshots this cell took and only those, and prints what is left for the person. |
+| `start` | Refuses when another VM is running or the cell has started. Copies the agent's `steps.tsv` and `roots` into the cell, downloads the pinned tui-test release and checks its sha256, reverts the VM to its clean snapshot, starts it and waits for `ssh`, copies the survey and drive scripts and this checkout's collector into `~/lab` in the VM, makes the sample project `~/lab/proj`, takes listing `00-baseline`, runs the agent's install script, takes `01-install`, then runs the steps. |
+| `resume` | Refuses when another VM is running. Finishes the paused person step (its screen and listing), then runs the remaining steps. |
+| `collect` | Runs the collector in the VM as the lab user, pulls its archive, manifest, summary, log and hash file into the cell, deletes them in the VM, then runs the analyzer and the shape tool on the Mac and rewrites the report. The shape tool runs on the Mac over the pulled archive, never in the VM: the macOS VM has no `python3` outside the command-line tools, and installing them would change what the round records. |
+| `finish [--force]` | Refuses while a person step waits, while steps have not run, or when no collection was taken after the last step began, since the revert discards the VM; run `collect` first, or pass `--force` to discard it anyway. Then stops the agent's session, takes the last listing, stops the VM, reverts it to the clean snapshot, deletes the snapshots this cell took and only those, and prints what is left for the person. |
 | `status` | Prints the cell's state and step log. |
 
 Exit status 3 means a person step is waiting; 1 is an error, with the
@@ -48,7 +51,7 @@ reason on stderr and in `round.log`.
 | `ROUND_PYTHON` | `python3` | The Python that runs the analyzer: one with `analyzer/requirements.txt` installed. The pipeline's own tools need only the standard library. |
 | `ROUND_KNOWN_HOSTS` | `<cell>/known_hosts` | The known-hosts file of the cell's ssh config. |
 | `ROUND_SSH_KEY` | `~/.ssh/doubleagent_lab` | The lab key, as [SSH access in Lab VMs](../../docs/lab-vms.md#ssh-access) describes it. |
-| `ROUND_STOP_AFTER` | none | A step number after which `start` or `resume` stops with exit 0; `resume` goes on from the next step. |
+| `ROUND_STOP_AFTER` | none | A step number, compared as a number (`9` and `09` are the same step), after which `start` or `resume` stops with exit 0; `resume` goes on from the next step. |
 | `TURN_SECONDS`, `QUIET_SECONDS` | the agent's `agent.conf` | How long a step waits for its expectation, and how long the screen must stay unchanged to count as settled. |
 | `PRLCTL` | `prlctl` | The Parallels Desktop command line. |
 
@@ -72,16 +75,18 @@ with the throwaway account, the browser part included, then detach with
 Ctrl+] and run `resume`. If attaching fails, sign in from a desktop
 terminal of your own (start the agent there, sign in, exit) and run
 `resume`: the next listing records where the credential landed either
-way. The pipeline never asks for, stores or prints a credential; whatever
-file the agent writes for it shows in the next listing by name, size and
-mode.
+way. The pipeline never asks for a credential or types one. It does
+print the agent's screen at a pause, so a one-time code or a sign-in URL
+the agent shows appears there and in `screens/` and `casts/`, and the
+collection holds the credential files the agent wrote; the listings and
+diffs name such a file by name, size and mode only.
 
 ## The step table
 
 `agents/<agent>/steps.tsv` holds one step per line, its fields separated
 by tabs and none empty: `NN`, `name`, `kind`, `text`, `expect` and `claim`.
 Lines starting with `#` and the header line are skipped. `NN` is two or
-three digits rising from `02` (`00-baseline` and `01-install` are the
+three digits, one width for the whole table, rising from `02` (`00-baseline` and `01-install` are the
 listings `start` takes itself), and `NN-name` names the step's listing,
 diff and screen files. `claim` is the statement of the agent's research
 document the step tests, with its section anchor, or `none`. A claim
@@ -99,7 +104,9 @@ channel sessions are relays through a messaging platform); pi has no
 permission modes, no scheduled task, no synced session (`/share` is left
 out too) and no source-host integration. A resumed session after a
 relaunch is the same terminal program for all three, so the `/exit` and
-resume steps cover it.
+resume steps cover it. The ssh-driven steps all come before the sign-out
+and the sign-in from the desktop, which come just before the reboot; run
+`collect` after the last step, before `finish`.
 `python3 -I lab/round/steps.py check lab/round/agents/<agent>` checks a
 table; `start` and `resume` refuse one that fails.
 
@@ -128,6 +135,14 @@ for `QUIET_SECONDS` while the agent's busy pattern is absent. A step
 whose expectation is not met within `TURN_SECONDS` is recorded as
 `missed` and the run goes on: a missed prompt is a finding about the
 agent, repeated under the next number with a sharper prompt.
+
+The state names steps by number, not by position. To repeat a missed
+step, stop the run (`ROUND_STOP_AFTER`, or a pause), copy the missed
+step's line in the cell's `steps.tsv` to just after it with a sharper
+text and a new name, keeping its number, and run
+`python3 -I lab/round/steps.py renumber <cell>/steps.tsv`: the copy and
+every line after it take the next numbers, the steps that ran keep
+theirs, and `resume` runs the copy next.
 
 ## Agent and VM definitions
 
@@ -158,8 +173,8 @@ directories, as `top` lines, so a directory no root covers still shows.
 | Path in the cell | Holds |
 | --- | --- |
 | `state`, `steps.log`, `round.log` | The cell's state (agent, VM, version, install source, tui-test version and sha256, the step to run next), one line per finished step with its status (`done`, `missed`, `failed`), and every command sent to the VM. |
-| `steps.tsv`, `roots` | The cell's copy of the step table and roots; a fix during the round is made here, under the next step number. |
-| `listings/NN-name.txt` | One listing: kind, size, mode, UTC modification time and path, tab-separated, never a file's contents. |
+| `steps.tsv`, `roots` | The cell's copy of the step table and roots; a fix during the round is made here, as the step table section says. |
+| `listings/NN-name.txt` | One listing: kind, size, mode, UTC modification time and path, tab-separated, never a file's contents. The time's precision is the platform's: fractional seconds from GNU `find` on Linux, whole seconds from BSD `stat` on macOS, milliseconds on Windows. |
 | `diffs/NN-name.txt` | The diff from the previous listing (`classify.py --redact`): added, removed and changed paths grouped by their first two components below the home, new top-level names, and changed credential-store items and process counts, with UUIDs and long hex runs printed as their class. |
 | `screens/NN-name.txt` | The rendered screen before and after the step; `NN-name.command.txt` for a `command` step's output. |
 | `casts/s<NN>.cast` | The asciicast of each terminal session. |
@@ -175,7 +190,7 @@ neither shows in a diff.
 
 The screens and recordings hold the agent's own output and the
 collection holds its credentials: they stay in the cell directory, which
-is deleted when the round is written up. A diff, the report and the
+must be deleted once the round is written up. A diff, the report and the
 shape tool's output name files and keys only.
 
 ## Platforms
@@ -194,5 +209,5 @@ stdin; that path has not been run yet.
 python3 -m pytest lab/round/tests -q
 ```
 
-The tests cover `classify.py`, the step table checker (including every
-shipped agent's table) and the report.
+The tests cover `classify.py`, the step table checker and `renumber`
+(including every shipped agent's table) and the report.

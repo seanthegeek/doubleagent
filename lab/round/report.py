@@ -84,9 +84,15 @@ def listing_summary(before: pathlib.Path, after: pathlib.Path) -> tuple[str, str
     return counts, top
 
 
+def listing_order(path: pathlib.Path) -> tuple[int, str]:
+    """Order listings by their step number as a number, so `100-x` follows `99-x`."""
+    number = path.stem.split("-", 1)[0]
+    return (int(number) if number.isdigit() else sys.maxsize, path.stem)
+
+
 def steps_section(cell: pathlib.Path, steps: list[dict[str, str]]) -> list[str]:
     """Return the report lines of the steps table and the missed and failed steps."""
-    listings = sorted((cell / "listings").glob("*.txt"))
+    listings = sorted((cell / "listings").glob("*.txt"), key=listing_order)
     previous = {after.stem: before for before, after in itertools.pairwise(listings)}
     lines = [
         "## Steps",

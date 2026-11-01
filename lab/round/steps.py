@@ -3,14 +3,17 @@
 
     python3 -I steps.py check [--steps CELL/steps.tsv] agents/<agent>
     python3 -I steps.py table agents/<agent>
+    python3 -I steps.py renumber CELL/steps.tsv
 
 An agent's directory holds `agent.conf`, `install.sh`, `roots` and `steps.tsv`; a step line is
 `NN<TAB>name<TAB>kind<TAB>text<TAB>expect<TAB>claim`, and lines starting with `#` and the header
 line (`NN` first) are skipped. `check` prints one `<file>:<line>: <problem>` per problem and exits
-1 when there is any; `table` prints the steps as a Markdown table. The rules are the ones round.sh
-relies on: every field present, numbers zero-padded and rising from 02 (00 and 01 are the baseline
-and install listings), a known kind with the text it needs, a session open for every step that
-types into one, and an expectation grep -E, PowerShell and Python all read the same way.
+1 when there is any; `table` prints the steps as a Markdown table; `renumber` rewrites a steps file
+so that a line inserted after a step, numbered like it, and every line after it rise by one. The
+rules are the ones round.sh relies on: every field present, numbers zero-padded to one width and
+rising from 02 (00 and 01 are the baseline and install listings), a known kind with the text it
+needs, a session open for every step that types into one, and an expectation grep -E, PowerShell
+and Python all read the same way.
 
 Standard library only.
 """
@@ -124,15 +127,21 @@ def check_steps(steps: list[Step], paste_dirs: list[pathlib.Path]) -> list[tuple
     """Return the (line, problem) pairs of steps that break a rule round.sh relies on."""
     problems: list[tuple[int, str]] = []
     previous = 1
+    width = 0
     session_open = False
     for step in steps:
         found: list[str] = []
         if not NUMBER_RE.fullmatch(step.number):
             found.append("number %r is not two or three digits" % step.number)
+        elif width and len(step.number) != width:
+            found.append(
+                "number %s is not %d digits wide like the first step's" % (step.number, width)
+            )
         elif int(step.number) <= previous:
             found.append("number %s does not rise from %02d" % (step.number, previous))
         else:
             previous = int(step.number)
+            width = width or len(step.number)
         if not NAME_RE.fullmatch(step.name):
             found.append("name %r is not lower-case words joined by hyphens" % step.name)
         if step.kind not in KINDS:
@@ -188,14 +197,46 @@ def markdown_table(steps: list[Step]) -> str:
     return "\n".join(rows) + "\n"
 
 
+def renumber(source: str) -> str:
+    """Return a steps file's text renumbered from the first number that does not rise.
+
+    The numbers before that line keep theirs, so steps that have run keep their listing names;
+    from it on each step takes the previous number plus one, at the table's width.
+    """
+    lines = source.split("\n")
+    previous = 1
+    width = 0
+    renumbering = False
+    for index, line in enumerate(lines):
+        if not line.strip() or line.startswith("#") or line.startswith("NN\t"):
+            continue
+        number, separator, rest = line.partition("\t")
+        if not separator or not number.strip().isdigit():
+            continue
+        width = width or len(number.strip())
+        if renumbering or int(number) <= previous:
+            renumbering = True
+            number = "%0*d" % (width, previous + 1)
+        previous = int(number)
+        lines[index] = number + separator + rest
+    return "\n".join(lines)
+
+
 def main(arguments: list[str] | None = None) -> int:
     """Run the command line; return the exit status."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
-    parser.add_argument("command", choices=("check", "table"))
+    parser.add_argument("command", choices=("check", "table", "renumber"))
     parser.add_argument("--steps", type=pathlib.Path, help="a steps file other than the agent's")
-    parser.add_argument("agent_dir", type=pathlib.Path)
+    parser.add_argument(
+        "path", type=pathlib.Path, help="an agent directory, or for renumber a file"
+    )
     options = parser.parse_args(arguments)
-    steps, problems = load(options.agent_dir, options.steps)
+    if options.command == "renumber":
+        options.path.write_text(
+            renumber(options.path.read_text(encoding="utf-8")), encoding="utf-8"
+        )
+        return 0
+    steps, problems = load(options.path, options.steps)
     if options.command == "table":
         sys.stdout.write(markdown_table(steps))
     for problem in problems:

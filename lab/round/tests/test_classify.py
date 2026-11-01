@@ -5,20 +5,20 @@ from __future__ import annotations
 import classify
 
 BEFORE = [
-    "dir\t4096\t755\t2026-11-01 10:00:00.000000000 +0000\t/home/sean/.gemini\n",
-    "file\t10\t644\t2026-11-01 10:00:00.000000000 +0000\t/home/sean/.gemini/settings.json\n",
-    "file\t5\t600\t2026-11-01 10:00:00.000000000 +0000\t/home/sean/.gemini/old.json\n",
-    "top\tdir\t4096\t755\t2026-11-01 10:00:00.000000000 +0000\t/home/sean/.gemini\n",
+    "dir\t4096\t755\t2026-11-01T10:00:00.0000000000Z\t/home/sean/.gemini\n",
+    "file\t10\t644\t2026-11-01T10:00:00.0000000000Z\t/home/sean/.gemini/settings.json\n",
+    "file\t5\t600\t2026-11-01T10:00:00.0000000000Z\t/home/sean/.gemini/old.json\n",
+    "top\tdir\t4096\t755\t2026-11-01T10:00:00.0000000000Z\t/home/sean/.gemini\n",
     "keychain\tabsent\t-\t-\tgemini-cli-oauth\n",
     "process\t0\t-\t-\tgemini\n",
 ]
 SESSION = "/home/sean/.gemini/tmp/proj/chats/session-2026-11-01T10-05-0123abcd.jsonl"
 AFTER = [
-    "dir\t4096\t700\t2026-11-01 10:05:00.000000000 +0000\t/home/sean/.gemini\n",
-    "file\t12\t644\t2026-11-01 10:05:00.000000000 +0000\t/home/sean/.gemini/settings.json\n",
-    "file\t900\t644\t2026-11-01 10:05:00.000000000 +0000\t%s\n" % SESSION,
-    "top\tdir\t4096\t755\t2026-11-01 10:00:00.000000000 +0000\t/home/sean/.gemini\n",
-    "top\tdir\t4096\t755\t2026-11-01 10:05:00.000000000 +0000\t/home/sean/.npm\n",
+    "dir\t4096\t700\t2026-11-01T10:05:00.0000000000Z\t/home/sean/.gemini\n",
+    "file\t12\t644\t2026-11-01T10:05:00.0000000000Z\t/home/sean/.gemini/settings.json\n",
+    "file\t900\t644\t2026-11-01T10:05:00.0000000000Z\t%s\n" % SESSION,
+    "top\tdir\t4096\t755\t2026-11-01T10:00:00.0000000000Z\t/home/sean/.gemini\n",
+    "top\tdir\t4096\t755\t2026-11-01T10:05:00.0000000000Z\t/home/sean/.npm\n",
     "keychain\tpresent\t-\t-\tgemini-cli-oauth\n",
     "process\t0\t-\t-\tgemini\n",
 ]
@@ -36,8 +36,8 @@ def test_added_removed_changed():
 
 
 def test_directory_changes_only_by_mode():
-    before = classify.parse_listing(["dir\t4096\t755\tt1\t/home/sean/.gemini\n"])
-    after = classify.parse_listing(["dir\t8192\t755\tt2\t/home/sean/.gemini\n"])
+    before = classify.parse_listing(["dir\t4096\t755\t2026-11-01T10:00:00Z\t/Users/sean/.gemini\n"])
+    after = classify.parse_listing(["dir\t8192\t755\t2026-11-01T10:05:00Z\t/Users/sean/.gemini\n"])
     assert classify.compare(before, after).changed == []
 
 
