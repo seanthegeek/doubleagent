@@ -241,16 +241,14 @@ def session_dir(artifact: Artifact) -> Path:
     return path.with_suffix("")
 
 
-def persisted_text(
-    artifact: Artifact, stub: str, path: str = "", errors: list | None = None
-) -> str:
+def persisted_text(artifact: Artifact, stub: str, errors: list, path: str = "") -> str:
     """Return the full text of a persisted tool output's file.
 
     Returns the stub with a note when the file is not in this session's `tool-results/`
     or is a symlink, or with `[persisted output could not be read (<reason>)]` when it is
-    there but cannot be read, its unreadable entry added to `errors`. `path` is the line's
-    `toolUseResult.persistedOutputPath` (2.1.309); without it the path is read from a
-    `<persisted-output>` stub's text.
+    there but cannot be read, its unreadable entry added to `errors`, which the caller
+    reports through `error_rows`. `path` is the line's `toolUseResult.persistedOutputPath`
+    (2.1.309); without it the path is read from a `<persisted-output>` stub's text.
     """
     if not path:
         match = PERSISTED_PATTERN.search(stub)
@@ -285,8 +283,7 @@ def persisted_text(
         with open(output_file, "rb") as handle:
             data = handle.read()
     except OSError as error:
-        if errors is not None:
-            errors.append((0, unreadable_message(output_file, error)))
+        errors.append((0, unreadable_message(output_file, error)))
         return "%s\n[persisted output could not be read (%s)]" % (stub, unreadable_reason(error))
     return data.decode("utf-8", errors="replace")
 
@@ -354,7 +351,7 @@ def read_paste(history: Path, content_hash: str) -> tuple[str | None, str]:
         return None, unreadable_message(cache_file, error)
 
 
-def expand_pastes(history: Path, display: str, pasted, errors: list | None = None) -> str:
+def expand_pastes(history: Path, display: str, pasted, errors: list) -> str:
     """Return `display` with each `[Pasted text #<n> ...]` placeholder expanded.
 
     The text is `pastedContents.<n>.content` when the paste is kept inline, else
@@ -376,7 +373,7 @@ def expand_pastes(history: Path, display: str, pasted, errors: list | None = Non
         text, problem = (
             read_paste(history, content_hash) if isinstance(content_hash, str) else (None, "")
         )
-        if problem and errors is not None:
+        if problem:
             errors.append((0, problem))
         return match.group(0) if text is None else text
 
@@ -1193,9 +1190,9 @@ class ClaudeCodeParser(Parser):
                 row.tool_use_id = str(block.get("tool_use_id") or "")
                 text = result_text(block.get("content"))
                 if saved:
-                    text = persisted_text(artifact, text, saved, errors)
+                    text = persisted_text(artifact, text, errors, saved)
                 elif text.lstrip().startswith(PERSISTED_MARK):
-                    text = persisted_text(artifact, text, errors=errors)
+                    text = persisted_text(artifact, text, errors)
                 if block.get("is_error"):
                     text = "[error] " + text
                 row.text = compact(text)
