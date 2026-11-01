@@ -694,7 +694,9 @@ FIXTURE_DEDUPLICATED = {
     "continue": 3,  # input_history.json "rename foo", chatFeedback prompt and reply
     "copilot-cli": 6,  # session-store.db 3, rewind snapshot 1, command history 2
     "cursor": 3,  # agent transcript: two prompts and a reply the bubbles hold
-    "gemini-cli": 1,  # "list files in src"
+    # logs.json "list files in src"; tool checkpoint 4 (the prompt, reply, tool call and
+    # result the session file holds) and error report 1 (the prompt)
+    "gemini-cli": 6,
     "goose": 1,  # history.txt "run the tests", no timestamp
     "hermes": 11,  # snapshot copies and the divert's screenshot prompt
     "kiro": 1,  # .cli_bash_history "list the files here"

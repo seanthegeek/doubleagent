@@ -11,8 +11,10 @@ says how far the fork has drifted), Antigravity keeps its own state inside `~/.g
 (version 0.67.0-nightly.20261020) and the stable release
 [v0.66.0](https://github.com/google-gemini/gemini-cli/releases/tag/v0.66.0). The agent is
 parsed: the `gemini-cli` parser reads the session files, the past-use copies beside them
-(`logs.json`, `shell_history`, the `/chat save` checkpoints and the `/bug` history exports) and
-the standing permission files ([Parser plan](#parser-plan)).
+(`logs.json`, `shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the
+tool checkpoints and the error reports), the activity log's records but not the conversation
+turns in its bodies, the `memory/` files, the clipboard images and the standing permission files
+([Parser plan](#parser-plan)).
 
 ## Source and evidence
 
@@ -39,6 +41,11 @@ versions with its commit.
 
 ### Source reviews
 
+- 2026-11-01: `main` at
+  [`6814e00`](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d):
+  added the activity log's payload keys and the error report's keys, and the session id inside a
+  tool checkpoint's `messageId`; corrected the tool checkpoint's `history`, which is the
+  interface's display list, not `Content` items.
 - 2026-11-01: `main` at
   [`6814e00`](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d)
   (0.67.0-nightly.20261020) and tag `v0.66.0`: every citation re-read at the new commit; added
@@ -423,13 +430,16 @@ What remains of a deleted or expired session: the per-project prompt history `lo
 neither the delete command nor retention touches; `shell_history`, the last 100 shell-mode
 commands with no time or session id; the `/chat save` checkpoints, removed only by
 `/chat delete <tag>`; the shadow git repository under `history/<slug>`; `memory/`; and the
-`bug-report-history-*.json` files from `/bug`. The agent writes no deletion marker, and the
+`bug-report-history-*.json` files from `/bug`; and an error report in the system temporary
+directory. The agent writes no deletion marker, and the
 requests already sent to Code Assist and Clearcut under the session's `sessionId` are server-side
 records held by Google, which a responder can only ask Google for
 ([Sync, relay and origin rows](#sync-relay-and-origin-rows)). The analyzer reads `logs.json`,
-`shell_history`, the `/chat save` checkpoints and the `/bug` history exports as secondary sources
-([Secondary sources](../analyzer/docs/output.md#secondary-sources)), and not the shadow repository
-or `memory/` ([Parser plan](#parser-plan)).
+`shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the tool checkpoints
+and a copied error report as secondary sources
+([Secondary sources](../analyzer/docs/output.md#secondary-sources)), and the activity log's
+records, `memory/` and the clipboard images as stores of their own, but not the shadow
+repository or the turns in the activity log's bodies ([Parser plan](#parser-plan)).
 
 So a session missing from `chats/` on a host whose `settings.json` sets no
 `general.sessionRetention` was either deleted by the user or more than 30 days old when the agent
@@ -670,7 +680,27 @@ A tool checkpoint in `checkpoints/` is a `ToolCallData`
 | `toolCall` | object | | |
 | `messageId` | string | | |
 
-`toolCall` holds `name` and `args`; `messageId` equals the prompt id, `prompt_id`.
+`toolCall` holds `name` and `args` (an edit tool's `file_path` among them); `messageId` equals
+the prompt id, `prompt_id`, which the interface builds as `<session id>########<prompt count>`
+([`cli/src/ui/hooks/useGeminiStream.ts:1884-1886`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L1884-L1886)),
+so it names the session. `clientHistory` is the model history, `Content` items as above;
+`history` is the interface's display list, `HistoryItem` objects
+([`useGeminiStream.ts:2407-2414`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2407-L2414);
+[`cli/src/ui/types.ts:162-174`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/types.ts#L162-L174),
+[`453`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/types.ts#L453)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | number | | |
+| `type` | string | `user`, `gemini`, `gemini_content`, `info`, `error`, `warning` | |
+| `text` | string | | |
+
+`type` has further values for display-only items. Only a `replace` or `write_file` call awaiting
+approval gets one, and only with `general.checkpointing.enabled` on, off by default
+([`useGeminiStream.ts:2389-2397`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2389-L2397);
+[`core/src/tools/tool-names.ts:167`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/tools/tool-names.ts#L167);
+[`cli/src/config/config.ts:1038`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/config.ts#L1038);
+[`settingsSchema.ts:299-317`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L299-L317)).
 
 ### Joins and timestamps
 
@@ -693,8 +723,8 @@ subagent session to its parent.
 ### Other stores
 
 No SQLite store exists. `history/<slug>` is a shadow git repository and is treated as binary.
-Each store below is collected under `.gemini`; `logs.json`, `shell_history`, the `/chat save`
-checkpoints and the `/bug` history exports are parsed.
+Each store below is collected under `.gemini`, the error reports excepted, and every one but
+`projects.json` is parsed ([Parser plan](#parser-plan)).
 
 #### logs.json
 
@@ -753,8 +783,8 @@ deletion and expiry; it joins on text.
 `tmp/<slug>/checkpoints/<ISO time with : and . replaced>-<file basename>-<tool>.json`
 ([`checkpointUtils.ts:59-66`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/checkpointUtils.ts#L59-L66),
 [`130-141`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/checkpointUtils.ts#L130-L141);
-[`storage.ts:364-366`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L364-L366)) (secondary, not
-parsed): the `clientHistory` before each file-changing tool call
+[`storage.ts:364-366`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L364-L366)) (secondary, parsed):
+the `clientHistory` before each file-changing tool call
 ([Checkpoint records](#checkpoint-records)), with the shadow repository commit at
 `history/<slug>`
 ([`storage.ts:326-330`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L326-L330);
@@ -762,24 +792,44 @@ parsed): the `clientHistory` before each file-changing tool call
 the whole directory at every start
 ([`cli/src/utils/cleanup.ts:221-231`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/cleanup.ts#L221-L231); called
 from [`gemini.tsx:508-513`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/gemini.tsx#L508-L513)), so only the checkpoints
-of the last run in each project exist. The shadow repository is not cleaned.
+of the last run in each project exist. The shadow repository is not cleaned. A checkpoint
+joins the session on the session id its `messageId` names and on text, its tool items on the
+call id; the time in its name is when it was written, in milliseconds.
 
 #### memory/
 
-`tmp/<slug>/memory/` (a projection, not parsed): `MEMORY.md` and skills the memory tool writes,
-and, under `experimental.autoMemory` (off by default), `.inbox/<kind>/*.patch` files a background
-agent extracts from past sessions
+`tmp/<slug>/memory/` (a projection, parsed as a store of its own): `MEMORY.md` and skills the
+memory tool writes, and, under `experimental.autoMemory` (off by default), `.inbox/<kind>/*.patch`
+files a background agent extracts from past sessions
 ([`storage.ts:332-342`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L332-L342);
 [`memoryTool.ts:12`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/tools/memoryTool.ts#L12);
 [`settingsSchema.ts:2432-2441`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L2432-L2441);
 [Auto Memory: How Auto Memory works](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/docs/cli/auto-memory.md#how-auto-memory-works)). It holds
-no session id or time and outlives the sessions it was drawn from.
+no session id or time and outlives the sessions it was drawn from. Although drawn from sessions,
+it is primary: its files are the memory tool's and the extraction agent's own summaries, which no
+session file repeats, so there is nothing to deduplicate them against. They are text with no
+record structure and have no key table.
+
+#### Clipboard images
+
+`tmp/<slug>/images/clipboard-<epoch ms>.<ext>` (parsed as a store of its own): an image pasted
+from the clipboard, `png` on Linux and Windows and `png` or `jpg` on macOS, named by the time of
+the paste
+([`clipboardUtils.ts:258-283`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/utils/clipboardUtils.ts#L258-L283),
+[`298`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/utils/clipboardUtils.ts#L298),
+[`331-342`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/utils/clipboardUtils.ts#L331-L342)).
+The cleanup that runs at each paste deletes a `clipboard-*` file with an extension of
+`IMAGE_EXTENSIONS` (`.png`, `.jpg`, `.jpeg`, `.webp`, `.heic`, `.heif`) older than an hour
+([`22-29`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/utils/clipboardUtils.ts#L22-L29),
+[`397-418`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/utils/clipboardUtils.ts#L397-L418)).
+An image is binary with no record structure and no key table; the prompt that pasted it names
+its path.
 
 #### Activity log
 
 `tmp/<slug>/logs/session-<session id>.jsonl`
 ([`activityLogger.ts:772-778`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L772-L778))
-(secondary, not parsed): one JSON object per line
+(parsed as a store of its own, its records only): one JSON object per line
 ([`activityLogger.ts:767-809`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L767-L809)):
 
 | Key | Type | Values | Since |
@@ -789,10 +839,119 @@ no session id or time and outlives the sessions it was drawn from.
 | `sessionId` | string | | |
 | `timestamp` | number | | |
 
-`timestamp` is epoch milliseconds. A `network` payload carries the request and response bodies,
-so the model calls themselves (`id`, `timestamp`, `method`, `url`, `headers`, `body`, `pending`,
-`chunk`, `response` with `status`, `headers`, `body` and `durationMs`, `error`;
-[`activityLogger.ts:102-119`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L102-L119)). It is
+`timestamp` is epoch milliseconds, the time of the write. A `console` payload is a
+`ConsoleLogPayload` with the time it was logged
+([`core/src/utils/events.ts:73-76`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/events.ts#L73-L76);
+[`activityLogger.ts:754-761`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L754-L761)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `type` | string | `log`, `warn`, `error`, `debug`, `info` | |
+| `content` | string | | |
+| `timestamp` | number | | |
+
+A `network` payload is a `NetworkLog`, the request and response of an HTTP call other than to
+`127.0.0.1` or `localhost`, the model calls among them
+([`activityLogger.ts:102-119`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L102-L119),
+[`302`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L302),
+[`481`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L481)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | string | | |
+| `timestamp` | number | | |
+| `method` | string | | |
+| `url` | string | | |
+| `headers` | object | | |
+| `body` | string | | |
+| `pending` | boolean | | |
+| `chunk` | object | | |
+| `response` | object | | |
+| `error` | string | | |
+
+One call is several records sharing its random `id`: the request (`method`, `url`, `headers`,
+`body`, `pending` true), one `chunk` record per piece of a streamed response, then a last record
+with `pending` false and either `response` or `error`
+([`334-342`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L334-L342),
+[`365-374`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L365-L374),
+[`381-390`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L381-L390),
+[`436`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L436)).
+A `chunk` object and a `response` object:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `index` | number | | |
+| `data` | string | | |
+| `timestamp` | number | | |
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `status` | number | | |
+| `headers` | object | | |
+| `body` | string | | |
+| `durationMs` | number | | |
+
+The request `headers` have `authorization`, `cookie` and `x-goog-api-key` replaced by
+`[REDACTED]`, the response `headers` `set-cookie`; no other header and no body is redacted
+([`224-258`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L224-L258)).
+A model request's `body` is the request as JSON: `contents`, the `Content[]` history sent, at the
+top for the Gemini API and under `request` for Code Assist
+([`code_assist/converter.ts:33-51`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/converter.ts#L33-L51),
+[`163-177`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/converter.ts#L163-L177)).
+A chat turn, of the main conversation or of a subagent, is a `GeminiChat` request, and
+`GeminiChat` is the only caller of the streaming method, `streamGenerateContent` in the URL
+([`core/src/core/geminiChat.ts:1220-1227`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1220-L1227);
+[`code_assist/server.ts:118-119`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/server.ts#L118-L119);
+[`core/src/core/client.ts:429`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L429);
+[`core/src/agents/local-executor.ts:1115`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L1115)).
+A subagent's requests are logged under the parent's `sessionId`, its history opening with its own
+first item. The utility requests send a trimmed history plus an internal prompt through
+`generateContent` or `countTokens`
+([`core/src/core/baseLlmClient.ts:131`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/baseLlmClient.ts#L131),
+[`240`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/baseLlmClient.ts#L240),
+[`365`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/baseLlmClient.ts#L365);
+[`server.ts:205-206`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/server.ts#L205-L206),
+[`339-341`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/server.ts#L339-L341)):
+the loop detector's `<original_user_request>` and "Please analyze the conversation history"
+prompt
+([`core/src/services/loopDetectionService.ts:568-599`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/loopDetectionService.ts#L568-L599)),
+the classifier router
+([`core/src/routing/strategies/classifierStrategy.ts:161-176`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/routing/strategies/classifierStrategy.ts#L161-L176)),
+the next-speaker check
+([`core/src/utils/nextSpeakerChecker.ts:106-115`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/nextSpeakerChecker.ts#L106-L115))
+and compression
+([`core/src/context/chatCompressionService.ts:595`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/chatCompressionService.ts#L595),
+[`620`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/chatCompressionService.ts#L620)).
+Each chat request repeats the whole history of its chat up to it, under the record's
+`sessionId`, its items carrying no time of their own. Every chat history opens with the
+environment-context item, a `user` item whose text is a `<session_context>` block (the date, the
+platform, the project's temporary directory, optionally the directory tree and the session
+memory) that the CLI sends and the session file does not record as a message
+([`core/src/utils/environmentContext.ts:68-77`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L68-L77),
+[`84-111`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L84-L111)).
+
+The response `body` is recorded as received: the joined text of the stream, for a chat request
+the server-sent events. The Code Assist reader buffers each `data:` line, less its six-character
+`data: ` prefix, until a blank line and joins the buffered lines with a newline into one event's
+JSON, ignoring other lines
+([`server.ts:497-533`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/server.ts#L497-L533)).
+Each chunk is a `GenerateContentResponse`, wrapped under `response` with a `traceId` for Code
+Assist
+([`converter.ts:77-87`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/converter.ts#L77-L87),
+[`145-155`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/converter.ts#L145-L155)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `response` | object | | |
+| `traceId` | string | | |
+| `candidates` | array | | |
+
+A `candidates[]` element holds `content`, a `Content` of the `model` role whose parts are a piece
+of the reply; the chunks' parts, in order, are the reply the next chat request of the chat sends
+back as its history item. The reply to a chat's last request is in no later request: for a
+deleted session its response `body` is the only copy of that reply.
+
+It is
 written only in interactive mode with `general.devtools` on (off by default), or to
 `GEMINI_CLI_ACTIVITY_LOG_TARGET` when that is set
 ([`gemini.tsx:774-779`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/gemini.tsx#L774-L779);
@@ -817,6 +976,42 @@ are when `/bug` ran. `/bug-memory` writes the V8 heap snapshot
 `bug-memory-<epoch ms>.heapsnapshot` to the same directory
 ([`cli/src/ui/commands/bugMemoryCommand.ts:26-41`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/commands/bugMemoryCommand.ts#L26-L41)),
 a dump of the CLI process's memory ([Credentials](#credentials)).
+
+#### Error reports
+
+`gemini-client-error-<type>-<ISO time with : and . replaced by ->.json` in the system temporary
+directory, outside every home ([Per-user storage](#per-user-storage)) (secondary, parsed): one
+object written with `JSON.stringify(..., null, 2)` when a model request or a chat start fails
+([`errorReporting.ts:13-17`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/errorReporting.ts#L13-L17),
+[`26-60`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/errorReporting.ts#L26-L60)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `error` | object | | |
+| `context` | array or object | | |
+| `additionalInfo` | object | | |
+
+`error` holds `message` and, for an `Error`, `stack`; a report whose context cannot be
+serialised is written with `error` alone
+([`37-50`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/errorReporting.ts#L37-L50),
+[`76-81`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/errorReporting.ts#L76-L81)).
+`context` is the `Content[]` history: the curated history plus the failed prompt for
+`Turn.run-sendMessageStream`
+([`core/src/core/turn.ts:439-448`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/turn.ts#L439-L448)),
+the starting history for `startChat`
+([`core/src/core/client.ts:451-456`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L451-L456);
+[`core/src/agents/local-executor.ts:1126-1131`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L1126-L1131)),
+the request for `<context>-api` and `<context>-invalid-content`
+([`core/src/core/baseLlmClient.ts:423-436`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/baseLlmClient.ts#L423-L436)),
+or, for `generateContent-api`, an object of `requestContents` (that history) and
+`requestConfig` (the generation settings)
+([`client.ts:1239-1246`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L1239-L1246)).
+The report carries no session id and no project; it repeats the turns sent with the request, so
+it joins the session on text, its tool items on the call id. No catalog line reaches the system
+temporary directory, so a collection holds a report only when the responder copied it by hand
+([`collectors/docs/coverage.md`](../collectors/docs/coverage.md)); the analyzer reads one placed
+directly in a home's runtime directory (`.gemini` or `.cache/.gemini`) or in its `tmp/<slug>/`,
+which gives the report that directory's project.
 
 #### projects.json
 
@@ -1010,10 +1205,14 @@ The credential files are in [Credentials](#credentials). `oauth_creds.json` is a
 ([`oauth-credential-storage.ts:64-90`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/oauth-credential-storage.ts#L64-L90),
 [`117-153`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/oauth-credential-storage.ts#L117-L153)).
 Inside the stores, tool checkpoints
-(`clientHistory`), `toolCalls[].result`, the `/chat save` checkpoints, the `/bug` exports and the
-activity log's `network` payloads (request `headers` included) hold full tool output and request
-bodies, which can include secrets the agent read; `google_accounts.json` and Clearcut's account
-email are identities.
+(`clientHistory`), `toolCalls[].result`, the `/chat save` checkpoints, the `/bug` exports, the
+error reports and the activity log's `network` payloads hold full tool output and request
+bodies, which can include secrets the agent read. In the activity log the request `headers`
+other than the three the CLI redacts, any `url` query string (an API key can ride there), and
+the request and response `body` of a non-chat request, such as a token refresh's
+`refresh_token` and the `access_token` it returns, can hold credentials; the parser prints none
+of them ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)).
+`google_accounts.json` and Clearcut's account email are identities.
 
 ### Parser plan
 
@@ -1021,7 +1220,14 @@ Globs, home-relative, `<base>` the runtime directory (`.gemini`, or `.cache/.gem
 macOS sandbox): `<base>/tmp/<slug>/chats/<path>.jsonl` and `<base>/tmp/<slug>/chats/<path>.json`,
 `<path>` a session file name or `<parent session id>/<session id>`;
 `<base>/tmp/<slug>/logs.json`, `<base>/tmp/<slug>/shell_history`,
-`<base>/tmp/<slug>/checkpoint-<tag>.json`, `<base>/tmp/<slug>/bug-report-history-<ms>.json` and
+`<base>/tmp/<slug>/checkpoint-<tag>.json`, `<base>/tmp/<slug>/bug-report-history-<ms>.json`,
+`<base>/tmp/<slug>/logs/session-<session id>.jsonl`,
+`<base>/tmp/<slug>/checkpoints/<time>-<file basename>-<tool>.json` (`<time>` in the
+`YYYY-MM-DDTHH-MM-SS_mmmZ` form), `<base>/tmp/<slug>/memory/<name>` (`<name>` any path below
+`memory/`), `<base>/tmp/<slug>/images/clipboard-<epoch ms>.<ext>` (`<ext>` one of the
+`IMAGE_EXTENSIONS` in lower case), `<base>/gemini-client-error-<type>-<time>.json` and
+`<base>/tmp/<slug>/gemini-client-error-<type>-<time>.json` (`<time>` in the
+`YYYY-MM-DDTHH-MM-SS-mmmZ` form), and
 `<base>/trustedFolders.json`. In the home and in a project: `.gemini/settings.json` and
 `.gemini/policies/*.toml` (also `auto-saved.toml.bak`). In the home only:
 `.gemini/trusted_hooks.json` and `.gemini/acknowledgments/agents.json`.
@@ -1053,9 +1259,11 @@ and a `functionResponse` part its `response`'s `output` or `error`.
 | tool_name, tool_use_id | `toolCalls[].name`, `toolCalls[].id` |
 | text | `content` text; for tool_use `displayName` plus args; `summary` on `$set` |
 
-Not read: `.gemini/tmp/*/checkpoints/*.json` (deleted at every start), `memory/`,
-`logs/session-*.jsonl`, `compression_state.json`, `policy_integrity.json`,
-`extension_integrity.json`, `mcp-server-enablement.json`.
+Not read: `compression_state.json`, `policy_integrity.json`, `extension_integrity.json`,
+`mcp-server-enablement.json`, an error report's `requestConfig` and `additionalInfo`, the
+activity log's `chunk` records, `body` and `response.body`, and every `headers` object. A tool
+checkpoint's display list is not read either: its turns are the `clientHistory` items in display
+form.
 
 #### Permission rows
 
@@ -1150,8 +1358,45 @@ session file on text, tool rows on `tool_use_id` ([Other stores](#other-stores))
   `bug report history: exported (from <file>, time in the file name)`, timestamped with the
   milliseconds in the name.
 
-The tool checkpoints, `memory/`, the activity log, the clipboard images and the error reports in
-the system temporary directory are past use the parser does not read.
+Two more secondary sources repeat the turns sent to the model, matched the same way; their
+`Content` items give the item rows above with an empty `timestamp_utc`, the item's 1-based
+position as `source_line`, and the session id where the file names one. A first item that is the
+environment-context item, its first part's text opening with `<session_context>`
+([Activity log](#activity-log)), gives no row, since the session file does not record it:
+
+- `checkpoints/<time>-<file basename>-<tool>.json`, a tool checkpoint
+  ([Tool checkpoints](#tool-checkpoints)): a first `system` row
+  `tool checkpoint: <tool> <file_path> commit <commitHash> prompt <messageId> (from <file>, time in the file name)`
+  at the time in the name, `-` for a value the file lacks, then the `clientHistory` items, all
+  with the session id before the `########` of `messageId` and the project of the directory.
+- `gemini-client-error-<type>-<time>.json`, a copied error report
+  ([Error reports](#error-reports)): a first `system` row
+  `error report: <type>: <message> (from <file>, time in the file name)` at the time in the name,
+  the `stack` on the lines after it when present, then the items of `context`, or of its
+  `requestContents`, with no session id and the project of a `tmp/<slug>` directory it sits in.
+
+Three stores repeat nothing of the session file in the rows read from them and are primary, one
+`system` row per record or file with the project of its `tmp/<slug>` directory:
+
+- `logs/session-<session id>.jsonl`, the activity log ([Activity log](#activity-log)): per
+  line, at the record's `timestamp` and with its `sessionId`, a `console` record is
+  `console <type>: <content>`; a `network` record holding a `method` is
+  `network request: <method> <url> (request <id>)`, one holding a `response`
+  `network response: <method> <url> status <status> in <durationMs> ms (request <id>)` and one
+  holding an `error` `network error: <method> <url>: <error> (request <id>)`, the method and URL
+  from the request record of the same `id` and `-` for a value the file lacks. `<url>` stops
+  before its query string, and a `chunk` record gives no row. The conversation turns in the
+  request `body` and the response `body` are not read: which requests form one chat, which items
+  the CLI adds itself (the environment context, the compression summary and its acknowledgement,
+  retry prompts), the event form of a stored stream and when a reply is repeated by the next
+  request are left to the real-install round, which records the log before a parser reads turns
+  from it.
+- `memory/<name>`: `memory file: <name> (from <file>, file mtime)` at the file's modification
+  time, no session id, the file's whole text on the lines after it ([memory/](#memory)).
+- `images/clipboard-<epoch ms>.<ext>`:
+  `clipboard image: <file name> <size> bytes (from <file>, time in the file name)` at the
+  milliseconds in the name, no session id, the size the manifest's `size` or, in a loose tree,
+  the file's; the image itself is not read ([Clipboard images](#clipboard-images)).
 
 #### Sync, relay and origin rows
 
@@ -1257,8 +1502,24 @@ decodes to neither form one
 file ([Permission rows](#permission-rows)) that reads but decodes to something else is one
 `parser: <file> is not a JSON object` row, at the file's modification time.
 
+In the activity log a line that does not decode is a `parser: unparseable line (<reason>): <line>`
+row and one that decodes to something other than an object a
+`parser: unparseable line (not a JSON object): <line>` row; an object without a `console` or
+`network` `type` and an object `payload` is a
+`parser: unparseable line (not an activity log record): <record>` row, the record as compact
+JSON with sorted keys. The records around each are kept, and each row has the session id of the
+file name. A tool
+checkpoint that does not decode is one
+`parser: unparseable tool checkpoint (<reason>)` row, one that is not an object
+`parser: not a tool checkpoint: not a JSON object`; an error report that does not decode is one
+`parser: unparseable error report (<reason>)` row, one without an `error` object
+`parser: not an error report: no error object`. In either a `clientHistory` or `context` item that
+is not an object is `parser: unparseable record <N> (not a JSON object): <item>`. A `memory/`
+file that is not valid UTF-8 is one `parser: <name> is not UTF-8 text` row.
+
 A session file (JSONL or legacy JSON), `logs.json`, `shell_history`, `/chat save` checkpoint,
-`/bug` export, policy file or standing file (`settings.json`, `trusted_hooks.json`,
+`/bug` export, activity log, tool checkpoint, error report, `memory/` file, policy file or
+standing file (`settings.json`, `trusted_hooks.json`,
 `trustedFolders.json`, `acknowledgments/agents.json`) that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)`, `<file>` its name. A `tmp/<slug>/.project_root` or
 `projects.json` that exists but cannot be read gives every file that resolves its project through
@@ -1425,6 +1686,11 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
   and contents of a `--worktree` checkout and that it stays after exit; the `logs.json` and
   `shell_history` copies of one shell-mode command; the keychain item names on macOS and the
   `gemini-credentials.json` fallback over SSH; the error report file after a failed request.
+- For the round: the activity log of a session with `general.devtools` on: whether the Code
+  Assist and Gemini API request bodies reach it as strings, whether a header other than the three
+  redacted ones carries a token, and the request and response bodies of a whole session (main
+  and subagent chats, utility requests, a compression and a retry), from which the turns could
+  be read; a tool checkpoint after an edit with `general.checkpointing.enabled` on.
 - Not determined: how common a `GEMINI_CLI_HOME` relocation is.
 - Not determined: the `tmp/<slug>/<session id>/` layout beyond `plans`, `tracker` and `tasks`.
 - Not determined: the `a2a-server` and `sdk` packages' own storage.
