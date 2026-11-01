@@ -696,7 +696,7 @@ def _unnamed_volume_glob(repository: Repository, line: TableLine, agent: str) ->
     sections = [
         section
         for section in repository.collection(agent, "Per-user storage")
-        if is_volume_section(section, volume_globs)
+        if is_volume_section(section, volume_globs, agent)
     ]
     if drift_common.volume_section_names_glob(
         repository.root / repository.document(agent), line.glob, volume_globs

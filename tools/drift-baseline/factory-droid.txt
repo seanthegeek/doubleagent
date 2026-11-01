@@ -1,4 +1,3 @@
-check_research_structure|bare-doc-reference|Evidence level **D** is vendor documentation, fetched as Markdown from https://docs.factory.com/<page>.md (index https://docs.factory.ai/llms.txt).
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .factory/bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .factory/generated-images
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .factory/snapshots

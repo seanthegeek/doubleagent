@@ -654,14 +654,15 @@ def agent_volume_globs(catalog: Catalog, agent: str) -> tuple[str, ...]:
     return tuple(entry.glob for entry in catalog.docker_volumes if entry.agent == agent)
 
 
-def is_volume_section(section: Section, volume_globs: Iterable[str]) -> bool:
+def is_volume_section(section: Section, volume_globs: Iterable[str], agent: str) -> bool:
     """Return whether a section's heading or first paragraph names one of an agent's volumes.
 
     Those lines hold the word "volume" and a code span naming one of `volume_globs`
-    (`agent_volume_globs`): the glob itself, its catalog line (`agent|glob`), or a volume name
-    alone (`VOLUME_WORD`) the glob matches by `fnmatch.fnmatchcase`, as Docker volume names are
-    case-sensitive. Neither suffices alone, and prose words never count: a broad glob such as
-    `*tabby*` also matches file and package names (`tabby-agent`) and the agent's name.
+    (`agent_volume_globs`): the glob itself, the agent's catalog line (`<agent>|<glob>`), or a
+    volume name alone (`VOLUME_WORD`) the glob matches by `fnmatch.fnmatchcase`, as Docker
+    volume names are case-sensitive. Prose words never count, as a broad glob such as `*tabby*`
+    matches the agent's name in every paragraph; a span the glob matches can still be a file or
+    package name (`tabby-agent`), and only the word "volume" keeps such a section out.
     """
     lines = section.text.split("\n")
     paragraph: list[str] = []
@@ -676,7 +677,7 @@ def is_volume_section(section: Section, volume_globs: Iterable[str]) -> bool:
     ]
     return "volume" in text.lower() and any(
         name == glob
-        or name.endswith("|" + glob)
+        or name == "%s|%s" % (agent, glob)
         or bool(VOLUME_WORD.fullmatch(name) and fnmatch.fnmatchcase(name, glob))
         for glob in volume_globs
         for name in names
@@ -701,7 +702,7 @@ def collection_spans_by_depth(
         chosen = [
             section
             for section in within(sections, "Collection", "Per-user storage")
-            if is_volume_section(section, volume_globs)
+            if is_volume_section(section, volume_globs, path.stem)
         ]
     else:
         chosen = within(sections, "Collection")

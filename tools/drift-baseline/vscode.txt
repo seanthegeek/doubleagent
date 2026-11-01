@@ -6,9 +6,7 @@ check_fixture_schema|builder-provenance-missing|vscode_editing_state
 check_fixture_schema|builder-provenance-missing|vscode_legacy_session
 check_fixture_schema|builder-provenance-missing|vscode_log_records
 check_fixture_schema|enum-undocumented|type=embed
-check_fixture_schema|key-undocumented|editor.fontSize
 check_fixture_schema|key-undocumented|isBuiltin
-check_fixture_schema|key-undocumented|rm
 check_fixture_schema|key-undocumented|scheme
 check_fixture_schema|module-provenance-missing|vscode
 check_parser_research|not-read-contradicted|timestamp

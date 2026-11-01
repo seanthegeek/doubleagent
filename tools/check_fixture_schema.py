@@ -595,9 +595,9 @@ def decode_text(text: str, whole: bool) -> list[object]:
 def decode_bytes(data: bytes, name: str) -> list[object]:
     """Return the JSON values of a file's bytes, decompressing zstd first.
 
-    A file that is not JSON Lines is read whole as JSON, then as JSONC (`parse_jsonc`: a
-    byte-order mark, comments and trailing commas, which several agents' settings files hold),
-    then line by line.
+    A JSON Lines file is read line by line. Any other file is tried only when its text, after a
+    byte-order mark, opens `{` or `[`: whole as JSON, then as JSONC (`parse_jsonc`: comments and
+    trailing commas, which several agents' settings files hold), then line by line.
     """
     if data.startswith(ZSTD_MAGIC):
         data = zstandard.ZstdDecompressor().decompressobj().decompress(data)

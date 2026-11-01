@@ -799,13 +799,17 @@ def test_is_volume_section_forms(tmp_path):
 
         In a volume the `beta|*beta_data` line matches.
 
+        #### Another agent's catalog line
+
+        In a volume the `gamma|*beta_data` line matches.
+
         #### Name without the word
 
         The `beta_data` store.
         """
     sections = sections_of(tmp_path, textwrap.dedent(text))
     verdicts = {
-        key: checker.is_volume_section(section, ("*beta_data", "*beta_cache"))
+        key: checker.is_volume_section(section, ("*beta_data", "*beta_cache"), "beta")
         for key, section in sections.items()
     }
     assert verdicts == {
@@ -821,6 +825,7 @@ def test_is_volume_section_forms(tmp_path):
         "Collection/Per-user storage/Case": False,
         "Collection/Per-user storage/Glob": True,
         "Collection/Per-user storage/Catalog line": True,
+        "Collection/Per-user storage/Another agent's catalog line": False,
         "Collection/Per-user storage/Name without the word": False,
     }
 

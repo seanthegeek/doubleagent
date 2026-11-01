@@ -980,8 +980,9 @@ when the page has one.
      per platform or product when layouts differ; the fixed
      `#### Scratch directories` ("None known." when none). A Docker volume
      layout is described in a Per-user storage subsection whose heading or
-     opening paragraph names the volume, and names each volume-relative
-     exclusion and secret glob. Each table line of the agent is named in
+     opening paragraph says "volume" and names the volume in a code span
+     (its name, its `DOCKER_VOLUMES` glob or its catalog line), and names
+     each volume-relative exclusion and secret glob. Each table line of the agent is named in
      the Collection part as its glob, a path it matches or (a home or
      project line) lies above, its remainder below one of the agent's own
      catalog entries, or, for a glob opening `*/`, its remainder below the

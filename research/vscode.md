@@ -1089,8 +1089,10 @@ the default profile's `state.vscdb` with `"chat/autoconfirm-post": {"read_file":
 Chat", "scopes": ["read:user", "user:email"], "lastUsed": 1791025100000}]`, the matching
 `-mcpserver-usages` entry and `"userSelectedRepositories": [{"name": "octocat/hello-world",
 "timestamp": 1791025000000}]` in the `GitHub.copilot-chat` value; a profile `settings.json` (JSONC)
-with `chat.tools.terminal.autoApprove`, an empty `chat.tools.edits.autoApprove`,
-`chat.permissions.default` and `chat.defaultModel`; and a chat editing `state.json`:
+with `chat.tools.terminal.autoApprove` holding the command patterns `npm test` (approved) and
+`rm` (denied), an empty `chat.tools.edits.autoApprove`, `chat.permissions.default`,
+`chat.defaultModel` and `editor.fontSize`, an unrelated setting the parser ignores; and a chat
+editing `state.json`:
 
 ```json
 {"version": 2, "initialFileContents": [["file:///srv/proj/test_a.py", "aaaaaaa"]], "timeline": null,
