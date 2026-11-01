@@ -42,9 +42,9 @@ from ..inputs import Artifact
 from ..model import Row, compact
 from ..sqlite_util import open_copy, sqlite_problem, table_names
 from ..timeutil import to_utc
+from ..toml_util import flat_toml, load_toml
 from ..vscode_state import EDITOR_AGENTS, STATE_DATABASE_PATTERN, read_item, shown_problem
 from .base import Options, Parser, compact_json, error_rows, file_bytes, file_mtime, iter_jsonl
-from .codex import flat_toml, load_toml
 
 # The server root a path starts with: `.tabby/` under a user's home, or
 # nothing when the collection base is a Docker or Podman named volume's

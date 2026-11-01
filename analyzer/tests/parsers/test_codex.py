@@ -15,7 +15,7 @@ from doubleagent import cli
 from doubleagent.inputs import open_input
 from doubleagent.model import summarise
 from doubleagent.parsers import Options
-from doubleagent.parsers.codex import CodexParser, flat_toml, iter_zst_jsonl
+from doubleagent.parsers.codex import CodexParser, iter_zst_jsonl
 from doubleagent.parsers.codex_state import LOG_FIELD_PATTERN
 from doubleagent.parsers.open_interpreter import OpenInterpreterParser
 from doubleagent.timeutil import epoch_ms, to_utc
@@ -24,7 +24,6 @@ from fixtures import (
     CODEX_ACCOUNT,
     CODEX_AUTOMATION_MTIME,
     CODEX_AUTOMATION_REL,
-    CODEX_AUTOMATION_TOML,
     CODEX_BACKUP_STATE_REL,
     CODEX_DECLINED_ITEM,
     CODEX_DELETED,
@@ -235,36 +234,6 @@ class CodexTests(ParserBase):
         self.assertEqual([row.turn_type for row in rows], ["system"])
         self.assertTrue(rows[0].text.startswith("parser: unreadable automation.toml:"))
 
-    def test_flat_toml_matches_tomllib(self):
-        # The Python 3.10 stand-in reads what tomllib reads for these files.
-        multi = CODEX_AUTOMATION_TOML.replace(
-            'prompt = "Check the nightly build and \\"summarise\\" failures"',
-            'prompt = """\nline one\\tand \\u00e9\nline two"""\nnote = \'C:\\path\' # x',
-        )
-        expected = {
-            "version": 1,
-            "id": "check-the-nightly-build",
-            "kind": "heartbeat",
-            "name": "Check the nightly build",
-            "prompt": 'Check the nightly build and "summarise" failures',
-            "status": "ACTIVE",
-            "rrule": "RRULE:FREQ=WEEKLY;BYHOUR=9;BYMINUTE=0;BYDAY=MO,TU,WE,TH,FR",
-            "target_thread_id": CODEX_SESSION,
-            "created_at": 1791991549000,
-            "updated_at": 1791991551000,
-        }
-        self.assertEqual(flat_toml(CODEX_AUTOMATION_TOML), expected)
-        got = flat_toml(multi)
-        self.assertEqual(got["prompt"], "line one\tand \u00e9\nline two")
-        self.assertEqual(got["note"], "C:\\path")
-        if sys.version_info >= (3, 11):
-            import tomllib
-
-            self.assertEqual(tomllib.loads(CODEX_AUTOMATION_TOML), expected)
-            self.assertEqual(tomllib.loads(multi), got)
-        with self.assertRaises(ValueError):
-            flat_toml('name = """never closed\n')
-
     def test_model_and_permission_mode_rows(self):
         rows = self.rows_for(CodexParser(), self.REL)
         last = len(codex_rollout_records())
@@ -371,7 +340,8 @@ class CodexTests(ParserBase):
 
     def test_config_scan_matches_tomllib(self):
         # Python 3.10 reads config.toml with scan_toml; the settings agree.
-        from doubleagent.parsers.codex import config_settings, scan_toml
+        from doubleagent.parsers.codex import config_settings
+        from doubleagent.toml_util import scan_toml
         from fixtures import CODEX_CONFIG_TOML
 
         got = config_settings(scan_toml(CODEX_CONFIG_TOML))
@@ -450,82 +420,6 @@ class CodexTests(ParserBase):
         self.assertEqual(
             [row.text for row in rows], ["parser: memory summary has no thread_id header"]
         )
-
-    def test_toml_line_ends_at_lf_or_crlf_only(self):
-        from doubleagent.parsers.codex import scan_toml
-
-        # A U+2028 inside a string or a quoted key is part of it, not a line end.
-        self.assertEqual(flat_toml('prompt = "a\u2028b"\n'), {"prompt": "a\u2028b"})
-        self.assertEqual(
-            scan_toml('[projects."/srv/a\u2028b"]\ntrust_level = "trusted"\n'),
-            {"projects": {"/srv/a\u2028b": {"trust_level": "trusted"}}},
-        )
-        with_lf = 'id = "x"\nprompt = """a\nb"""\n[projects."/srv/proj"]\ntrust_level = "trusted"\n'
-        with_crlf = with_lf.replace("\n", "\r\n")
-        self.assertEqual(flat_toml(with_crlf), flat_toml(with_lf))
-        self.assertEqual(flat_toml(with_lf), {"id": "x", "prompt": "a\nb"})
-        self.assertEqual(scan_toml(with_crlf), scan_toml(with_lf))
-
-    def test_toml_trims_space_and_tab_only(self):
-        from doubleagent.parsers.codex import scan_toml
-
-        # TOML whitespace is space and tab: a U+00A0 ending a multi-line string's first line
-        # is the string's, and one leading a line is no key.
-        text = 'prompt = """x\u00a0\nend"""\n'
-        self.assertEqual(flat_toml(text), {"prompt": "x\u00a0\nend"})
-        if sys.version_info >= (3, 11):
-            import tomllib
-
-            self.assertEqual(tomllib.loads(text), flat_toml(text))
-        self.assertEqual(scan_toml('[a]\n\u00a0trust_level = "trusted"\n'), {"a": {}})
-        with self.assertRaisesRegex(ValueError, "not a key = value line"):
-            flat_toml("k\u00a0= 1\n")
-        with self.assertRaises(ValueError):
-            flat_toml("k = \u00a01\n")
-        with self.assertRaises(ValueError):
-            flat_toml("flag = true\u00a0\n")
-        # A line of U+00A0, or a key line led by one, is no blank and no key.
-        for text in ("\u00a0\nk = 1\n", "\u00a0# note\nk = 1\n", "\u00a0k = 1\n"):
-            with self.assertRaises(ValueError, msg=text):
-                flat_toml(text)
-        # An integer is ASCII digits with no leading zero and no padding but space and tab.
-        self.assertEqual(
-            flat_toml("a = 1_000\nb = -5\nc = 0\nd = 7 \t# c\n"),
-            {"a": 1000, "b": -5, "c": 0, "d": 7},
-        )
-        for text in ("k = 1\u00a0\n", "k = 0012\n", "k = \u0661\n", "k = 1__0\n"):
-            with self.assertRaises(ValueError, msg=text):
-                flat_toml(text)
-        self.assertEqual(scan_toml("[a]\nk = true\u00a0\n"), {"a": {}})
-        self.assertEqual(scan_toml("[a\u00a0.b]\nk = 1\n"), {})
-        # Spaces before a multi-line string's first line end are the string's.
-        multi = 'p = """a  \nb"""\nq = """\t\nc"""\n'
-        self.assertEqual(flat_toml(multi), {"p": "a  \nb", "q": "\t\nc"})
-        if sys.version_info >= (3, 11):
-            import tomllib
-
-            self.assertEqual(tomllib.loads(multi), flat_toml(multi))
-
-    def test_toml_line_ending_backslash(self):
-        # The backslash removes spaces, tabs and line ends up to the next character, a
-        # no-break space included in what stays; a backslash an earlier one escapes is a
-        # backslash, not a continuation.
-        cases = {
-            'p = """a\\  \n  \n  b"""\n': "ab",
-            'p = """a\\\n\u00a0b"""\n': "a\u00a0b",
-            'p = """a\\\\\nb"""\n': "a\\\nb",
-            'p = """a\\\\\\\n  b"""\n': "a\\b",
-        }
-        # A backslash and a space, a tab or a CR with no line end after it is a bad escape.
-        for text in ('p = "a\\ b"\n', 'p = "a\\\tb"\n', 'p = """a\\ b"""\n'):
-            with self.assertRaisesRegex(ValueError, "bad escape", msg=text):
-                flat_toml(text)
-        for text, want in cases.items():
-            self.assertEqual(flat_toml(text), {"p": want}, text)
-            if sys.version_info >= (3, 11):
-                import tomllib
-
-                self.assertEqual(tomllib.loads(text), {"p": want}, text)
 
     def test_rule_statements_line_ends_and_trims(self):
         from doubleagent.parsers.codex import rule_statements
