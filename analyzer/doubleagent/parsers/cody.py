@@ -36,6 +36,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from email.utils import parsedate_to_datetime
 
+from ..errors import unreadable_message
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
@@ -45,6 +46,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     setting_value,
     text_of,
@@ -314,9 +316,10 @@ class CodyParser(Parser):
 
     def _settings_rows(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the `permission setting:` rows of an editor's `User/settings.json`."""
-        try:
-            raw = artifact.disk_path.read_bytes()
-        except OSError:
+        errors: list = []
+        raw = file_bytes(artifact.disk_path, errors)
+        if raw is None:
+            yield from error_rows(self, artifact, errors)
             return
         try:
             doc = parse_jsonc(raw)
@@ -395,7 +398,10 @@ class CodyParser(Parser):
                         chats += 1
                         yield from self._legacy_chat(artifact, element, account, project)
                         element.clear()
-        except (OSError, ET.ParseError) as error:
+        except OSError as error:
+            failure = [(0, unreadable_message(artifact.disk_path, error))]
+            yield from error_rows(self, artifact, failure, "", project)
+        except ET.ParseError as error:
             row = self._system(
                 artifact,
                 "parser: cody_history.xml did not parse; read %d chat(s) (%s)" % (chats, error),

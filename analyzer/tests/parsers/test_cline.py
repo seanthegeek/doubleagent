@@ -2,6 +2,9 @@
 
 import json
 import sqlite3
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.dedup import deduplicate
 from doubleagent.inputs import open_input
@@ -1001,3 +1004,22 @@ class ClineTests(ParserBase):
         )
         native = self.rows_for(ClineParser(), self.SDK + ".json")[0]
         self.assertNotIn("imported_", native.text)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_task_history_is_one_row(self):
+        rel = ".cline/data/state/taskHistory.json"
+        task = ".cline/data/tasks/1791021300000/api_conversation_history.json"
+        path = self.home / rel
+        path.chmod(0)
+        try:
+            rows = self.rows_for(ClineParser(), rel)
+            task_rows = self.rows_for(ClineParser(), task)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+            [("system", "parser: taskHistory.json could not be read (Permission denied)", 0, "")],
+        )
+        # The task beside it still parses; its index lookup is a pre-scan.
+        self.assertTrue(task_rows)
+        self.assertFalse([row for row in task_rows if row.text.startswith("parser:")])

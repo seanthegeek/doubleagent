@@ -696,9 +696,11 @@ XML is read incrementally, so the chats before a cut or damaged part are yielded
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:
 cody-model-preferences is not a JSON object` row. A JetBrains chat history
-(`JetBrains-globalState/cody-local-chatHistory-v2`) or model preferences file that cannot be read
-is one whole-file row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>`
-its name.
+(`JetBrains-globalState/cody-local-chatHistory-v2`), model preferences file, editor
+`User/settings.json` or legacy `cody_history.xml` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name; the row for
+`cody_history.xml` carries the project as `project_path` and follows the chats read before the
+failure.
 
 A `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one

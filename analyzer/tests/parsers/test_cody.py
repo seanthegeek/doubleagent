@@ -1,6 +1,9 @@
 """Tests of the Cody parser."""
 
 import json
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.dedup import deduplicate
@@ -508,3 +511,46 @@ class CodyTests(ParserBase):
         rows = list(CodyParser().parse(self.legacy_artifact("not xml"), Options()))
         self.assertEqual(len(rows), 1)
         self.assertIn("read 0 chat(s)", rows[0].text)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_settings_file_is_one_row(self):
+        from fixtures import CODY_SETTINGS_REL
+
+        self.settings_col()
+        path = self.home / CODY_SETTINGS_REL
+        path.chmod(0)
+        try:
+            rows = self.rows_for(CodyParser(), CODY_SETTINGS_REL)
+            history = self.rows_for(CodyParser(), CODY_JB_REL)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+            [("system", "parser: settings.json could not be read (Permission denied)", 0, "")],
+        )
+        self.assertTrue(history)
+        self.assertFalse([row for row in history if row.text.startswith("parser:")])
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_legacy_history_is_one_row(self):
+        art = self.legacy_artifact()
+        art.disk_path.chmod(0)
+        try:
+            rows = list(CodyParser().parse(art, Options()))
+        finally:
+            art.disk_path.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.project_path)
+                for row in rows
+            ],
+            [
+                (
+                    "system",
+                    "parser: cody_history.xml could not be read (Permission denied)",
+                    0,
+                    "",
+                    "/srv/proj",
+                )
+            ],
+        )

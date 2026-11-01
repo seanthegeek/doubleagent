@@ -28,7 +28,6 @@ claude-desktop no-reason Library/Application Support/Claude/git-worktrees.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_c0c0c0c0-1111-4222-8333-444444444444.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/remote-session-spaces.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/scheduled-tasks.json
-cody silent .config/Code/User/settings.json
 copilot-cli no-reason .copilot/command-history-state.json
 copilot-cli no-reason .copilot/permissions-config.json
 copilot-cli no-reason .copilot/session-state/5e55a0a1-0000-4000-8000-000000000001/rewind-file-snapshots/index.json
@@ -52,8 +51,6 @@ letta no-reason .letta/channels/telegram/routing.json
 letta no-reason .letta/crons.json
 letta no-reason .letta/listener-state/0123456789abcdef01234567/agent-1a2b_conv-9f.json
 letta no-reason .letta/settings.json
-little-coder escaped .little-coder/input_history.txt
-little-coder no-reason .little-coder/config.json
 muse-code escaped .local/share/muse/tui-history.jsonl
 muse-code no-reason .config/muse/trust.json
 nanobot escaped .nanobot/history/cli_history
@@ -67,7 +64,6 @@ openclaw escaped .openclaw/agents/main/sessions/7d0c2a8e-1111-4000-8000-00000000
 opencode no-reason .local/share/opencode/storage/message/ses_00LEGACY/msg_a.json
 opencode no-reason .local/share/opencode/storage/message/ses_00LEGACY/msg_b.json
 opencode no-reason .local/share/opencode/storage/session/proj_a1/ses_00LEGACY.json
-openhands silent .openhands/sessions/legacy-sid-1/events/0.json
 pi escaped .pi/agent/experimental/sessions/exp-session-1/meta.json
 pi escaped .pi/agent/pi-debug.log
 pi no-reason .pi/agent/trust.json

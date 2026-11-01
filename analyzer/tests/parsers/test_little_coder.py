@@ -342,3 +342,22 @@ class LittleCoderTests(ParserBase):
             ".little-coder/checkpoints/%s/backups/0123456789abcdef@v1" % LC_LEGACY_CKPT,
         ):
             self.assertFalse(LittleCoderParser().wants(self.artifact(rel)), rel)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_legacy_files_are_one_row_each(self):
+        prompts = ".pi/agent/little-coder-prompt-history.json"
+        for rel in (".little-coder/input_history.txt", ".little-coder/config.json"):
+            path = self.home / rel
+            path.chmod(0)
+            try:
+                rows = self.rows_for(LittleCoderParser(), rel)
+                other = self.rows_for(LittleCoderParser(), prompts)
+            finally:
+                path.chmod(0o600)
+            self.assertEqual(
+                [(row.turn_type, row.text, row.source_line, row.timestamp_utc) for row in rows],
+                [("system", "parser: %s could not be read (Permission denied)" % path.name, 0, "")],
+                rel,
+            )
+            self.assertTrue(other, rel)
+            self.assertFalse([row for row in other if row.text.startswith("parser:")], rel)

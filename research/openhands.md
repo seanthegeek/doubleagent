@@ -923,15 +923,20 @@ conversation ([What survives a delete](#what-survives-a-delete)).
 #### Bad-line rows
 
 No file is read line by line, and an event file that does not decode gives one
-`parser: event file could not be decoded (<reason>)` row. A `meta.json` or `base_state.json` that
+`parser: event file could not be decoded (<reason>)` row. An event file that cannot be read is one
+row `parser: <file name> could not be read (<reason>)` through `error_rows`, with `source_line` 0
+and the conversation's session id and `project_path`. A `meta.json` or `base_state.json` that
 exists but cannot be read, does not decode or is not a JSON object is read as empty and gives one
 whole-file `system` row on the conversation's first event file, after the header and model rows:
-`parser: <file name> could not be decoded (<reason>)`,
-`parser: <file name> could not be read (<reason>)` or `parser: <file name> is not a JSON object`,
-with an empty timestamp and the session id and `project_path` the other file still gives. The
-header then lacks what the file held (title, model, time basis). A missing file is not an error,
-since the CLI writes no `meta.json`. A `prompt_history.json` that cannot be read is one whole-file
-row `parser: <file name> could not be read (<reason>)` through `error_rows`. The cut-file shape is
+`parser: <file name> could not be read (<reason>)` with `source_line` 0, or
+`parser: <file name> could not be decoded (<reason>)` or `parser: <file name> is not a JSON object`
+with `source_line` 1, each with an empty timestamp and the session id and `project_path` the other
+file still gives. The header then lacks what the file held (title, model, time basis). A missing
+file is not an error, since the CLI writes no `meta.json`. A `prompt_history.json` that cannot be
+read is one whole-file row `parser: <file name> could not be read (<reason>)` through
+`error_rows`. A legacy 0.x `events/<n>.json` that cannot be read gives the session's one row with
+an empty timestamp, followed by one row `parser: <file name> could not be read (<reason>)` with
+the session id. The cut-file shape is
 not observed on any real install, source-derived (OpenHands/software-agent-sdk at
 [`33d8aa2`](https://github.com/OpenHands/software-agent-sdk/commit/33d8aa29c3078d074799e2fbf5e847aeb2d71360)).
 
