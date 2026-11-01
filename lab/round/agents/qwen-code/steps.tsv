@@ -6,67 +6,81 @@ NN	name	kind	text	expect	claim
 06	help	prompt	/help	-	whether /help writes a system record to the chat file (research/qwen-code.md#system-payloads) (unverified)
 07	question	prompt	what is 17 + 25?	-	user and assistant ChatRecords with uuid, parentUuid, cwd and gitBranch, and the first model: <id> row (research/qwen-code.md#chatrecord)
 08	web-search	prompt	What is the latest release of the npm package @qwen-code/qwen-code? Search the web for it.	Allow once|Type your message	a web search tool call and its result in the chat file, or a missed prompt if no search tool is configured (research/qwen-code.md#chatrecord) (unverified)
-09	mode-1	keys	Shift+Tab	quiet	the approval mode after the default in the cycle, read from the screen; the modes are plan, default, auto-edit, auto and yolo (research/qwen-code.md#permission-records) (unverified)
-10	mode-2	keys	Shift+Tab	quiet	the next approval mode in the cycle (unverified)
-11	mode-3	keys	Shift+Tab	quiet	the next approval mode in the cycle (unverified)
-12	mode-4	keys	Shift+Tab	quiet	the next approval mode in the cycle (unverified)
-13	mode-5	keys	Shift+Tab	quiet	the cycle back on the mode it started in (unverified)
-14	mode-ask	prompt	/approval-mode default	quiet	tools.approvalMode defaults to auto, so the asking mode is set before the tool calls: a session_approval_mode record and a permission mode: <old> -> default row (research/qwen-code.md#permission-rows) (unverified)
-15	approve-ask	prompt	Run python3 calc.py 2 3 and tell me what it prints.	Allow once|Type your message	the shell tool's confirmation dialog: its options and footer hints are findings (unverified)
-16	approve-option-2	keys	Down	quiet	the dialog's second option, read from the screen (unverified)
-17	approve-option-3	keys	Down	quiet	the dialog's third option, read from the screen (unverified)
-18	approve-back	keys	Up,Up	quiet	back on the first option (unverified)
-19	approve	keys	Enter	marker	the call's result with status success, and any per-call decision record (research/qwen-code.md#permission-rows) (unverified)
-20	deny-ask	prompt	Run git log --oneline and tell me what it shows.	Allow once|Type your message	a second confirmation dialog (unverified)
-21	deny	keys	Escape	quiet	the No answer: a cancelled result and a permission decision: row (research/qwen-code.md#permission-rows) (unverified)
-22	deny-reason	prompt	Do not run git. Tell me what calc.py does instead, without running anything.	-	the reason is an ordinary user record (research/qwen-code.md#permission-records)
-23	always-ask	prompt	Run ls -la and summarise the listing.	Allow once|Type your message	a third confirmation dialog (unverified)
-24	always-option-2	keys	Down	quiet	the option under the cursor, read from the screen (unverified)
-25	always-option-3	keys	Down	quiet	the allow-always option, expected third: check this screen before the next step (unverified)
-26	always	keys	Enter	marker	the allow-always grant lands in a settings or policy file as a permission setting: row (research/qwen-code.md#permission-rows) (unverified)
-27	follow-up	prompt	refactor this	-	the agent asks which code and waits: an assistant record with no tool call (a turn that asks the user)
-28	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB inline in the user record and its logs.json copy (research/qwen-code.md#logsjson)
-29	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the chat file and logs.json (not stated)
-30	model-dialog	prompt	/model	quiet	the model dialog's options and footer (unverified)
-31	model-pick	keys	Down,Enter	quiet	a model change: executionContext.modelId on the next prompt (research/qwen-code.md#model-rows) (unverified)
-32	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> before the next assistant record (research/qwen-code.md#model-rows)
-33	todo	prompt	Make a todo list of three steps to add a subtract function to calc.py, then do only the first step and stop.	Allow once|Apply this change|Type your message	todos/<sessionId>.json under the runtime base (research/qwen-code.md#per-user-storage) (unverified)
-34	todo-approve	keys	Enter	marker	the first todo step's edit or call, approved once (unverified)
-35	edit-ask	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	Allow once|Apply this change|Type your message	the edit confirmation dialog and its diff (unverified)
-36	edit	keys	Enter	marker	file-history/<sessionId>/ holds the pre-edit copy of calc.py (research/qwen-code.md#per-user-storage) (unverified)
-37	summary	prompt	/summary	-	the project's .qwen/PROJECT_SUMMARY.md and welcome-back-state.json (research/qwen-code.md#project-local-files)
-38	loop	prompt	/loop 1m say the time in one short line	-	the loop skill's scheduled task in tmp/<sha256(cwd)>/scheduled_tasks.json (research/qwen-code.md#per-user-storage) (unverified)
-39	loop-firings	idle	150	-	each firing is a user record with provenance system and subtype cron, a system row (research/qwen-code.md#system-payloads)
-40	loop-cancel	prompt	Cancel the scheduled task you just created.	-	the task leaves scheduled_tasks.json (unverified)
-41	exit	prompt	/exit	exit	usage_record.jsonl gains the session's summary at exit (research/qwen-code.md#usage_recordjsonl)
-42	exit-close	stop	-	-	none: closes the terminal session
-43	mcp-add	command	qwen mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	a settings.json gains mcpServers.fs, a credential file (research/qwen-code.md#credentials)
-44	resume	agent	qwen --continue	marker	a resume appends to the same chat file with parentUuid links (research/qwen-code.md#joins-and-timestamps) (unverified)
-45	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Type your message	an MCP tool call and its confirmation; mcpApprovals.json for a project-scoped server (research/qwen-code.md#permission-lists-and-trusted-folders) (unverified)
-46	mcp-approve	keys	Enter	marker	the MCP call's records (unverified)
-47	kill-process	command	for file in "$HOME"/.qwen/sessions/*.json; do name=${file##*/}; kill -KILL "${name%%[.-]*}"; done	-	a killed process leaves sessions/<pid>.json until the next listing finds the process gone (research/qwen-code.md#session-registry)
-48	kill-close	stop	-	-	none: closes the terminal session of the killed process
-49	after-kill	agent	qwen	marker	the next start removes the stale sessions/<pid>.json (research/qwen-code.md#session-registry)
-50	delete-dialog	prompt	/delete	quiet	the TUI's delete: its picker or confirmation (research/qwen-code.md#what-survives-a-delete) (unverified)
-51	delete	keys	Enter	quiet	the transcript, file-history and session-organization entry go; usage_record.jsonl keeps the summary; logs.json rows purged (research/qwen-code.md#what-survives-a-delete) (unverified)
-52	delete-stop	stop	-	-	none: closes the terminal session
-53	serve-managed	agent	qwen serve --managed	quiet	managed local mode runs headless and writes ~/.qwen/managed-local/ (state.json, database/, harness/), or the Java service it needs is missing (research/qwen-code.md#managed-local-mode) (unverified)
-54	serve-stop	stop	-	-	none: stops the daemon
-55	auth	agent	qwen	marker	a session for the sign-out
-56	auth-dialog	prompt	/auth	quiet	what /auth offers; the research document names no sign-out command (not stated) (unverified)
-57	sign-out	pause	Through the monitor, as at the sign-in step, sign out as the /auth dialog offers, detach, then resume	-	which credential files a sign-out removes or keeps (research/qwen-code.md#credentials)
-58	auth-stop	stop	-	-	none: closes the terminal session
-59	gui-sign-in	pause	In a terminal of the VM desktop: cd ~/lab/proj, run qwen, sign in, ask what is 1 + 1?, /exit, then resume	-	the desktop sign-in writes the same oauth_creds.json; Qwen keeps no keychain item for it (research/qwen-code.md#credentials)
-60	gh-login	agent	in:. gh auth login --expiring --hostname github.com --git-protocol https --web	quiet	gh's device login over ssh: its one-time code and the token in the plaintext ~/.config/gh/hosts.yml (the round's gh rule in AGENTS.md) (unverified)
-61	gh-login-browser	pause	Open the device-login page in the VM's browser, sign in with the throwaway GitHub account, enter the code on the screen above, then resume	-	where gh's token landed: hosts.yml, by name and mode only
-62	gh-login-stop	stop	-	-	none: closes gh's terminal session
-63	github-channel	pause	Where offered, set up Qwen Code's GitHub channel for the lab repository with the gh login, as the vendor's channels page describes; run qwen channel start; ask it, from the repository, to describe the repository, change nothing and open no pull request; stop the channel; then resume	-	the channel acts through gh and keeps the login in memory; github-audit.jsonl, the pending deliveries and inbound tasks files, and a session relayed: row from channels/sessions.json (research/qwen-code.md#source-host-rows) (unverified)
-64	gh-logout	command	gh auth logout --hostname github.com	-	the logout removes the local token from hosts.yml; the grant itself stays until revoked in the account
-65	idle	idle	600	-	nothing is written while no agent runs
-66	collect-before-delete	collect	-	-	the collector's rows before the project is removed
-67	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: projects/<sanitized cwd>/ and tmp/<sha256>/ stay (research/qwen-code.md#what-survives-a-delete)
-68	home-start	agent	in:. qwen	marker	a start from the home after the project is gone
-69	home-stop	stop	-	-	none: closes the terminal session
-70	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/qwen-code.md#what-survives-a-delete)
-71	reboot	reboot	-	-	a reboot: stale sessions/*.json and the temp files
-72	desktop-login	pause	Log in to the VM desktop after the reboot, then resume	-	the listing after login: what the desktop session writes
+09	web-search-answer	keys	Enter	marker	answers the web tool's dialog with its first option when one asks; an Enter on the empty input box sends nothing (unverified)
+10	mode-1	keys	Shift+Tab	quiet	the approval mode after the default in the cycle, read from the screen; the modes are plan, default, auto-edit, auto and yolo (research/qwen-code.md#permission-records) (unverified)
+11	mode-2	keys	Shift+Tab	quiet	the next approval mode in the cycle (unverified)
+12	mode-3	keys	Shift+Tab	quiet	the next approval mode in the cycle (unverified)
+13	mode-4	keys	Shift+Tab	quiet	the next approval mode in the cycle (unverified)
+14	mode-5	keys	Shift+Tab	quiet	the cycle back on the mode it started in (unverified)
+15	mode-ask	prompt	/approval-mode default	quiet	tools.approvalMode defaults to auto, so the asking mode is set before the tool calls: a session_approval_mode record and a permission mode: <old> -> default row (research/qwen-code.md#permission-rows) (unverified)
+16	approve-ask	prompt	Run python3 calc.py 2 3 and tell me what it prints.	Allow once|Type your message	the shell tool's confirmation dialog: its options and footer hints are findings (unverified)
+17	approve-option-2	keys	Down	quiet	the dialog's second option, read from the screen (unverified)
+18	approve-option-3	keys	Down	quiet	the dialog's third option, read from the screen (unverified)
+19	approve-back	keys	Up,Up	quiet	back on the first option (unverified)
+20	approve	keys	Enter	marker	the call's result with status success, and any per-call decision record (research/qwen-code.md#permission-rows) (unverified)
+21	deny-ask	prompt	Run git log --oneline and tell me what it shows.	Allow once|Type your message	a second confirmation dialog (unverified)
+22	deny-option-2	keys	Down	quiet	the second option of the second dialog, read from the screen (unverified)
+23	deny-back	keys	Up	quiet	back on the first option of the second dialog (unverified)
+24	deny	keys	Escape	quiet	the No answer: a cancelled result and a permission decision: row (research/qwen-code.md#permission-rows) (unverified)
+25	deny-reason	prompt	Do not run git. Tell me what calc.py does instead, without running anything.	-	the reason is an ordinary user record (research/qwen-code.md#permission-records)
+26	always-ask	prompt	Run ls -la and summarise the listing.	Allow once|Type your message	a third confirmation dialog (unverified)
+27	always-option-2	keys	Down	quiet	the option under the cursor, read from the screen (unverified)
+28	always-option-3	keys	Down	quiet	the allow-always option, expected third: check this screen before the next step (unverified)
+29	always	keys	Enter	marker	the allow-always grant lands in a settings or policy file as a permission setting: row (research/qwen-code.md#permission-rows) (unverified)
+30	follow-up	prompt	refactor this	-	the agent asks which code and waits: an assistant record with no tool call (a turn that asks the user)
+31	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB inline in the user record and its logs.json copy (research/qwen-code.md#logsjson)
+32	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the chat file and logs.json (not stated)
+33	model-dialog	prompt	/model	quiet	the model dialog's options and footer (unverified)
+34	model-option-2	keys	Down	quiet	the second model of the dialog, read from the screen (unverified)
+35	model-pick	keys	Enter	quiet	a model change: executionContext.modelId on the next prompt (research/qwen-code.md#model-rows) (unverified)
+36	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> before the next assistant record (research/qwen-code.md#model-rows)
+37	todo	prompt	Make a todo list of three steps to add a subtract function to calc.py, then do only the first step and stop.	Allow once|Apply this change|Type your message	todos/<sessionId>.json under the runtime base (research/qwen-code.md#per-user-storage) (unverified)
+38	todo-option-2	keys	Down	quiet	the second option of the first todo step's dialog, read from the screen (unverified)
+39	todo-back	keys	Up	quiet	back on the first option of the first todo step's dialog (unverified)
+40	todo-approve	keys	Enter	marker	the first todo step's edit or call, approved once (unverified)
+41	edit-ask	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	Allow once|Apply this change|Type your message	the edit confirmation dialog and its diff (unverified)
+42	edit-option-2	keys	Down	quiet	the second option of the edit dialog, read from the screen (unverified)
+43	edit-back	keys	Up	quiet	back on the first option of the edit dialog (unverified)
+44	edit	keys	Enter	marker	file-history/<sessionId>/ holds the pre-edit copy of calc.py (research/qwen-code.md#per-user-storage) (unverified)
+45	summary	prompt	/summary	-	the project's .qwen/PROJECT_SUMMARY.md and welcome-back-state.json (research/qwen-code.md#project-local-files)
+46	loop	prompt	/loop 1m say the time in one short line	-	the loop skill's scheduled task in tmp/<sha256(cwd)>/scheduled_tasks.json (research/qwen-code.md#per-user-storage) (unverified)
+47	loop-firings	idle	150	-	each firing is a user record with provenance system and subtype cron, a system row (research/qwen-code.md#system-payloads)
+48	loop-cancel	prompt	Cancel the scheduled task you just created.	-	the task leaves scheduled_tasks.json (unverified)
+49	exit	prompt	/exit	exit	usage_record.jsonl gains the session's summary at exit (research/qwen-code.md#usage_recordjsonl)
+50	exit-close	stop	-	-	none: closes the terminal session
+51	mcp-add	command	qwen mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	a settings.json gains mcpServers.fs, a credential file (research/qwen-code.md#credentials)
+52	resume	agent	qwen --continue	marker	a resume appends to the same chat file with parentUuid links (research/qwen-code.md#joins-and-timestamps) (unverified)
+53	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Type your message	an MCP tool call and its confirmation; mcpApprovals.json for a project-scoped server (research/qwen-code.md#permission-lists-and-trusted-folders) (unverified)
+54	mcp-option-2	keys	Down	quiet	the second option of the MCP dialog, read from the screen (unverified)
+55	mcp-back	keys	Up	quiet	back on the first option of the MCP dialog (unverified)
+56	mcp-approve	keys	Enter	marker	the MCP call's records (unverified)
+57	kill-process	command	for file in "$HOME"/.qwen/sessions/*.json; do name=${file##*/}; kill -KILL "${name%%[.-]*}"; done	-	a killed process leaves sessions/<pid>.json until the next listing finds the process gone (research/qwen-code.md#session-registry)
+58	kill-close	stop	-	-	none: closes the terminal session of the killed process
+59	after-kill	agent	qwen	marker	the next start removes the stale sessions/<pid>.json (research/qwen-code.md#session-registry)
+60	after-kill-stop	stop	-	-	none: closes the terminal session
+61	serve-managed	agent	qwen serve --managed	quiet	managed local mode runs headless and writes ~/.qwen/managed-local/ (state.json, database/, harness/), or the Java service it needs is missing (research/qwen-code.md#managed-local-mode) (unverified)
+62	serve-stop	stop	-	-	none: stops the daemon
+63	gh-login	agent	in:. gh auth login --expiring --hostname github.com --git-protocol https --web	quiet	gh's device login over ssh: its one-time code and the token in the plaintext ~/.config/gh/hosts.yml (the round's gh rule in AGENTS.md) (unverified)
+64	gh-login-browser	pause	Open the device-login page in the VM's browser, sign in with the throwaway GitHub account, enter the code on the screen above, then resume	-	where gh's token landed: hosts.yml, by name and mode only
+65	gh-login-stop	stop	-	-	none: closes gh's terminal session
+66	github-channel	pause	Where offered, set up Qwen Code's GitHub channel for the lab repository with the gh login, as the vendor's channels page describes; run qwen channel start; ask it, from the repository, to describe the repository, change nothing and open no pull request; stop the channel; then resume	-	the channel acts through gh and keeps the login in memory; github-audit.jsonl, the pending deliveries and inbound tasks files, and a session relayed: row from channels/sessions.json (research/qwen-code.md#source-host-rows) (unverified)
+67	gh-logout	command	gh auth logout --hostname github.com	-	the logout removes the local token from hosts.yml; the grant itself stays until revoked in the account
+68	idle	idle	600	-	nothing is written while no agent runs
+69	collect-before-delete	collect	-	-	the collector's rows before the project is removed
+70	delete-start	agent	qwen	marker	a session for the TUI's delete
+71	delete-dialog	prompt	/delete	quiet	the TUI's delete: its picker or confirmation (research/qwen-code.md#what-survives-a-delete) (unverified)
+72	delete-option-2	keys	Down	quiet	the second option of the delete dialog, read from the screen (unverified)
+73	delete-back	keys	Up	quiet	back on the first option of the delete dialog (unverified)
+74	delete	keys	Enter	quiet	the transcript, file-history and session-organization entry go; usage_record.jsonl keeps the summary; logs.json rows purged (research/qwen-code.md#what-survives-a-delete) (unverified)
+75	delete-stop	stop	-	-	none: closes the terminal session
+76	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: projects/<sanitized cwd>/ and tmp/<sha256>/ stay (research/qwen-code.md#what-survives-a-delete)
+77	home-start	agent	in:. qwen	marker	a start from the home after the project is gone
+78	home-stop	stop	-	-	none: closes the terminal session
+79	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/qwen-code.md#what-survives-a-delete)
+80	auth	agent	in:. qwen	marker	a session for the sign-out
+81	auth-dialog	prompt	/auth	quiet	what /auth offers; the research document names no sign-out command (not stated) (unverified)
+82	sign-out	pause	Through the monitor, as at the sign-in step, sign out as the /auth dialog offers, detach, then resume	-	which credential files a sign-out removes or keeps (research/qwen-code.md#credentials)
+83	auth-stop	stop	-	-	none: closes the terminal session
+84	gui-sign-in	pause	In a terminal of the VM desktop: run qwen in the home, sign in, ask what is 1 + 1?, /exit, then resume	-	the desktop sign-in writes the same oauth_creds.json; Qwen keeps no keychain item for it (research/qwen-code.md#credentials)
+85	reboot	reboot	-	-	a reboot: stale sessions/*.json and the temp files
+86	desktop-login	pause	Log in to the VM desktop after the reboot, then resume	-	the listing after login: what the desktop session writes
