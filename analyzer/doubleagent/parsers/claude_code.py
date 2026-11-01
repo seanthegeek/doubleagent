@@ -37,6 +37,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..dedup import MATCH_FORMS, MATCH_TOLERANCES
+from ..errors import unreadable_message, unreadable_reason
 from ..inputs import Artifact
 from ..model import ORIGIN_PREFIX, SCRATCH_PREFIX, SYNCED_PREFIX, Row, compact
 from ..timeutil import to_utc
@@ -279,15 +280,14 @@ def persisted_text(
             return note
     except OSError:
         return note
-    failures: list = []
-    data = file_bytes(output_file, failures)
-    if data is None:
-        message = failures[0][1]
+    # Read here rather than through file_bytes: the note itself carries the reason.
+    try:
+        with open(output_file, "rb") as handle:
+            data = handle.read()
+    except OSError as error:
         if errors is not None:
-            errors.extend(failures)
-        # The entry reads `<name> could not be read (<reason>)`; the note keeps the reason.
-        reason = message.partition(" could not be read (")[2][:-1]
-        return "%s\n[persisted output could not be read (%s)]" % (stub, reason)
+            errors.append((0, unreadable_message(output_file, error)))
+        return "%s\n[persisted output could not be read (%s)]" % (stub, unreadable_reason(error))
     return data.decode("utf-8", errors="replace")
 
 
