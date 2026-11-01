@@ -238,6 +238,7 @@ Linux and macOS, under `%USERPROFILE%` on Windows), or under `$QWEN_HOME` when i
 | `.qwen/sessions/<pid>.json`, `.qwen/sessions/<pid>-<8 hex>.json` (the files `.qwen/sessions/*.json`) | the session registry, whose `ipcToken` admits a connection to a running session's socket ([Session registry](#session-registry)) |
 | `.qwen/agent-hosts/<sha256>.json` | the daemon's Agent Host `hostId` and `secret`, mode 0600 ([`cli/src/serve/agent-host-client.ts:94-100`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/agent-host-client.ts#L94-L100), [`189-194`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/agent-host-client.ts#L189-L194)) |
 | `.qwen/managed-local/state.json` | the managed local mode's `publicToken`, `signingKey`, `harnessToken`, `brokerToken`, `writerBindingKey` and `runtimeCredentialKey`, mode 0600 ([`cli/src/serve/managed-local-state.ts:24-37`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-state.ts#L24-L37), [`146-158`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-state.ts#L146-L158)) |
+| `.qwen/managed-local/worker-home/oauth_creds.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json`, `.qwen/managed-local/worker-home/extension-secrets-v1.json`, `.qwen/managed-local/worker-home/.env`, `.qwen/managed-local/worker-home/settings.json` and `.qwen/managed-local/worker-home/sessions/<pid>.json` (the files `.qwen/managed-local/worker-home/sessions/*.json`) | the same stores written by the managed local mode's worker processes, whose `$QWEN_HOME` is `worker-home/` ([`cli/src/serve/managed-local-serve.ts:103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)) |
 
 The same `settings.json` keys in a project's `.qwen/settings.json` make it a credential file too,
 and so does the copy Qwen Code saves of a project settings file it cannot parse,
@@ -254,10 +255,10 @@ then falls back to the encrypted file when no keychain is available or
 The encrypted file uses AES-256-GCM with a key from
 `scryptSync('qwen-code-oauth', '<hostname>-<username>-qwen-code')`, so it decrypts given the host
 name and user name ([`file-token-storage.ts:62-70`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/mcp/token-storage/file-token-storage.ts#L62-L70)).
-An extension's `.qwen/extensions/<name>/.qwen-extension-git-credentials.json` (the selector file
-`.qwen-extension-git-credentials.json`) is not a credential:
-it names which store, the keychain service `Qwen Code Extension Git Credentials` or the encrypted
-file, holds the git credential
+An extension's selector file
+`.qwen/extensions/<name>/.qwen-extension-git-credentials.json` is not a credential: it names which
+store, the keychain service `Qwen Code Extension Git Credentials` or the encrypted file, holds the
+git credential
 ([`core/src/extension/extension-git-credentials.ts:19-22`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/extension/extension-git-credentials.ts#L19-L22),
 [`66-73`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/extension/extension-git-credentials.ts#L66-L73)). `.qwen/oauth_creds.lock` is
 not a credential: it holds the owner id of the process refreshing the token
@@ -1015,8 +1016,7 @@ and `systemPayload.hookContext` holds hook output, either of which may carry a s
 printed. `ipcToken` in a `sessions/<pid>.json` record ([Session registry](#session-registry)) is the
 token that admits a connection to the running session's socket
 ([`session-registry.ts:224-235`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-registry.ts#L224-L235)). The managed
-local mode's `database/` and `worker-home/` may hold the workers' own copies of credentials; which
-was not determined.
+local mode's `database/` may hold the workers' credentials; which was not determined.
 
 ### Parser plan
 
