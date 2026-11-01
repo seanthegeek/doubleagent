@@ -1682,12 +1682,13 @@ one SQLite cannot read is `parser: SQLite error: <message>`, and a `response_sto
 rows.
 
 `sessions/<id>.jsonl` goes through `iter_jsonl` and `error_rows`. A `sessions/<id>.jsonl`,
-`pastes/pending.json`, `config.yaml`, pairing file, `connections.json` or cron run file that
-cannot be read is one whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its
-name, with `source_line` 0 and no time; a cron run file keeps its `cron run:` row beside it. In
-`pastes/pending.json` a file that does not decode as JSON or is not a JSON list is one `parser:`
-row, and an entry that is not an object with a `url` is its own `parser: unparseable record <N>`
-row carrying the entry.
+`pastes/pending.json`, `config.yaml`, pairing file, `connections.json`, cron run file,
+`trajectory_samples.jsonl` or `failed_trajectories.jsonl` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0 and no time;
+a trajectory file's row carries its project as `project_path`, and a cron run file keeps its
+`cron run:` row beside it. In `pastes/pending.json` a file that does not decode as JSON or is not
+a JSON list is one `parser:` row, and an entry that is not an object with a `url` is its own
+`parser: unparseable record <N>` row carrying the entry.
 
 In `state.db` a `sessions.origin_json` or `model_config`, a `state_meta` fence value, or a
 `hosted_room_events` `actor_json` or `payload_json` that does not decode to a JSON object is a row

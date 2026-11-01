@@ -1207,6 +1207,38 @@ class HermesTests(ParserBase):
         self.assertEqual({row.project_path for row in rows}, {"/srv/proj"})
         self.assertEqual({row.session_id for row in rows}, {""})
 
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_trajectory_file_is_one_row(self):
+        """Give a trajectory file that cannot be read one shared row with its project.
+
+        `failed_trajectories.jsonl` goes through the same line reader, so one file covers both.
+        """
+        from fixtures import _jsonl, hermes_trajectory_records
+
+        parser = HermesParser()
+        rel = "trajectory_samples.jsonl"
+        path = self.tmp / "h208" / "proj" / rel
+        _jsonl(path, hermes_trajectory_records()[:1])
+        art = self.hermes_art(rel, path, project="/srv/proj")
+        path.chmod(0)
+        try:
+            rows = list(parser.parse(art, Options()))
+            database = self.rows_for(parser, self.REL)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in rows
+            ],
+            [("system", "parser: %s could not be read (Permission denied)" % rel, 0, "", "")],
+        )
+        self.assertEqual(rows[0].project_path, "/srv/proj")
+        self.assertTrue(any(not row.text.startswith("parser:") for row in database))
+        readable = list(parser.parse(art, Options()))
+        self.assertTrue(readable)
+        self.assertFalse(any(row.text.startswith("parser:") for row in readable))
+
     def test_trajectory_truncated_line(self):
         from fixtures import _jsonl, hermes_trajectory_records
 
