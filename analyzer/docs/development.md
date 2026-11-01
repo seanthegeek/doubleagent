@@ -146,6 +146,53 @@ or changes a checker's rule, recording the breaches the new rule finds,
 and that commit's message body says why; a finding an edit of yours causes
 is fixed, never added to the baseline.
 
+## Branch coverage
+
+A parser's fixture holds the present and the absent form of every key the
+parser branches on, so the suite takes each branch both ways.
+`tools/check_branch_coverage.py` measures that for the parser modules a
+change touches, with [coverage.py](https://coverage.readthedocs.io/) in
+branch mode at the version `requirements-dev.txt` pins. CI runs it in the
+analyzer job on its newest Python, against the pull request's base branch.
+From the repository root, with `requirements-dev.txt` installed:
+
+```sh
+python3 tools/check_branch_coverage.py                   # parser lines changed since origin/main
+python3 tools/check_branch_coverage.py --base main       # against another ref
+python3 tools/check_branch_coverage.py --all             # every parser module, every line
+```
+
+It finds the modules under `doubleagent/parsers/` that differ between the
+working tree and the merge base of `--base` with HEAD, so uncommitted
+edits count, and the untracked modules git does not ignore, each of whose
+lines counts as changed. When there is none it prints
+`no parser module changed against <ref>` on stdout and exits 0. Otherwise
+it runs the whole suite once from `analyzer/` under
+`coverage run --branch`, measuring only those modules, and prints one
+line per finding on stdout, for a line the change added or modified:
+
+| Line | Meaning |
+| --- | --- |
+| `<file>:<line>: branch to <line> never taken` | the suite never went from this line to that one |
+| `<file>:<line>: branch to exit never taken` | the suite never left the function from this line |
+| `<file>:<line>: pragma: no branch without a reason` | the line carries `# pragma: no branch` with no `: <reason>` after it |
+| `<file>:<line>: pragma: no cover without a reason` | the line carries `# pragma: no cover`, which drops its whole block from measurement, with no `: <reason>` after it |
+| `<file>:1: not measured: the suite never imports it` | no test imports the changed module |
+
+A branch is reported on the line where it starts, the first line of a
+statement that spans several, and a change to any line of a statement's
+header (up to its closing colon, decorators and a `case` guard included),
+such as the second line of an `if` condition, checks the whole header:
+its first line's branches and a pragma on any of its lines, since
+coverage.py honours a pragma anywhere in the header. A pragma's reason is
+a colon and text right after it, in any spelling coverage.py accepts
+(`# pragma: no branch: <reason>`, `# pragma no branch: <reason>`). A branch no fixture can reach, such as a guard
+against a value the format never writes, carries
+`# pragma: no branch: <reason>` on that line, which coverage.py and the
+check both accept. The summary goes to stderr, and the exit status is 0
+with no finding, 1 with one, and 2 when git, the suite or coverage.py
+fails, with the failing step's output.
+
 ## Regenerating the output examples
 
 The plain [`detect`](output.md#detect) output, the
