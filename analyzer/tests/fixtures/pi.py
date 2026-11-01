@@ -557,7 +557,6 @@ def pi_entry_kinds_records(cwd="/srv/proj"):
                 role="bashExecution",
                 command="make test",
                 output="partial",
-                exitCode=2,
                 cancelled=True,
                 truncated=True,
                 fullOutputPath="/tmp/pi-bash-0123456789abcdef.log",
@@ -566,8 +565,8 @@ def pi_entry_kinds_records(cwd="/srv/proj"):
     ]
 
 
-# A version 1 file in the legacy location, which no later build resumed: no
-# `version`, no entry ids (research/pi.md, Format versions).
+# A version 1 file in the legacy location, which pi has not started since to
+# move: no `version`, no entry ids (research/pi.md, Format versions).
 PI_V1_SESSION = "0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0d5f"
 PI_V1_FILE = ".pi/agent/2026-09-01T08-00-00-000Z_%s.jsonl" % PI_V1_SESSION
 

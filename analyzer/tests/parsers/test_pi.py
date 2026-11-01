@@ -560,7 +560,7 @@ class PiTests(ParserBase):
                 ("system", "custom hook: hook text", 12),
                 ("system", "assistant stopReason=aborted", 14),
                 ("tool_use", "make test", 15),
-                ("tool_result", "partial\n[exit 2, cancelled, truncated]", 15),
+                ("tool_result", "partial\n[cancelled, truncated]", 15),
             ],
         )
         self.assertEqual((rows[-1].tool_name, rows[-1].tool_use_id), ("bash", "c100000e"))

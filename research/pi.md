@@ -314,8 +314,10 @@ Copied, not made by pi, and large:
 - `.pi/agent/tools/fd*` and `.pi/agent/tools/rg*`: the same binaries (`fd`, `rg`, `fd.exe`,
   `rg.exe`) where an older build left them in legacy `tools/` and no later start moved them
   ([migrations.ts:177-200](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/migrations.ts#L177-L200)).
-- `.pi/agent/install/releases` and `.pi/agent/install/staging`: the managed install, a full copy
-  of pi per release. The two small files beside them, `.pi/agent/install/managed-install.json` and
+- `.pi/agent/install/releases` and `.pi/agent/install/staging`: the managed install's full copy of
+  pi per release and the update being assembled before it becomes a release
+  ([package-manager-cli.ts:219-231](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/package-manager-cli.ts#L219-L231)).
+  The two small files beside them, `.pi/agent/install/managed-install.json` and
   `.pi/agent/install/current-version`, record the installed version and layout and are kept.
 - `.pi/agent/npm/node_modules`: installed npm packages; the sources stay recorded in `settings.json`
   `packages` and `npm/package.json`
@@ -633,7 +635,9 @@ Per role:
   [922-927](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/agent/src/agent-loop.ts#L922-L927));
   little-coder's [permission gate](little-coder.md#permission-gate) is such an extension.
 - `bashExecution`: `command`, `output`, `exitCode`, `cancelled`, `truncated`, `fullOutputPath`,
-  `excludeFromContext` (set for a `!!` command).
+  `excludeFromContext` (set for a `!!` command); `exitCode` is absent when the command was
+  cancelled
+  ([bash-executor.ts:137-145](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/bash-executor.ts#L137-L145)).
 - `custom`: `customType`, `content`, `display`, `details`.
 - `branchSummary` (`summary`, `fromId`) and `compactionSummary` (`summary`, `tokensBefore`).
 
@@ -1019,13 +1023,15 @@ The `system` rows other than those of the subsections below, `<...>` a record va
   replacement) and `session_info: name=<name>`;
 - `system prompt: <content text>`, `custom <customType>: <content text>`,
   `branchSummary: <summary>` and `compactionSummary: <summary>` for those message roles;
-- `assistant stopReason=<stopReason>: <errorMessage>` after an assistant message whose
-  `stopReason` is `error` or `aborted`;
+- `assistant stopReason=<stopReason>: <errorMessage>` (no `: <errorMessage>` when it is absent)
+  after an assistant message whose `stopReason` is `error` or `aborted`;
 - `experimental durable session created: cwd=<cwd> (transcript in session.sqlite, not parsed)`
   per older-build `meta.json`, at its `createdAt`, with the session id its directory names.
 
 An error `toolResult` row's text starts `[error] `; a `bashExecution` result row ends with
-`[exit <exitCode>, cancelled, truncated]`, naming only what applies.
+`[exit <exitCode>, truncated]` or `[cancelled, truncated]`, naming only what applies (a cancelled
+command has no exit code). A `thinking` part with `redacted` true and an empty `thinking` gives
+the thinking row `[redacted]`.
 
 Not read: `mcp.log`, `mcp.log.1`, `pi-tui-crash.log`, `pi-tui-debug.log`, `models-store.json`,
 `keybindings.json`, the project exports `pi-session-*.html` and `session-*.jsonl`, and
