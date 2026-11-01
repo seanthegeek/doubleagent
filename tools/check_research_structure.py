@@ -16,10 +16,10 @@ bullet or paragraph opening "No real install." or "No real install:" is exempt f
 - `earlier-builds-malformed`: an Observed bullet saying "Earlier builds observed" without a
   sentence `earlier_builds` accepts at its end.
 - `version-without-change`: a version phrase (`version_phrases`) in Collection or Parsing outside
-  Format versions, whose version Format versions does not name, with no link near (`link_near`).
+  Format versions, whose version Format versions does not name, no inline link near (`link_near`).
 - `duplicate-fact`: one sentence key (`sentence_key`) holding the same code span in two `###`
   sections of one part.
-- `bare-doc-reference`: a sentence naming documentation (`documentation_reference`) with no link.
+- `bare-doc-reference`: a sentence naming documentation (`documentation_reference`), unlinked.
 The last three rules' detail is the sentence (`phrase_sentence`), code spans kept as text.
 
 `--before DIR` prints each URL, code span, fenced line, number, bold label, Observed label and
@@ -114,7 +114,6 @@ VERSION_PHRASE = re.compile(
     r" `?v?(?P<version>\d+\.\d+(?:\.\d+)*)"
 )
 INLINE_LINK = re.compile(r"\[[^\]]*\]\([^)\s]+[^)]*\)")
-REFERENCE_LINK = re.compile(r"\[[^\]]+\]\[[^\]]*\]")
 LINK_TARGET = re.compile(r"\]\([^)]*\)")
 DOCUMENTATION = re.compile(
     r"(?i:\b(?:documentation|docs page|changelogs?|release notes)\b)|\bREADME\b"
@@ -382,12 +381,16 @@ def version_phrases(line: str) -> list[tuple[str, str]]:
 
 
 def has_link(text: str) -> bool:
-    """Return whether `text` holds an inline or reference link, an autolink or a bare URL."""
-    return bool(INLINE_LINK.search(text) or REFERENCE_LINK.search(text) or URL.search(text))
+    """Return whether `text` holds an inline link, `[text](target)`.
+
+    AGENTS.md asks for an inline link at the claim, so a reference link (`[text][label]`), an
+    autolink and a bare URL do not count.
+    """
+    return bool(INLINE_LINK.search(text))
 
 
 def link_near(lines: list[str], index: int) -> bool:
-    """Return whether `lines[index]` or the line after it holds a link (`has_link`)."""
+    """Return whether `lines[index]` or the line after it holds an inline link (`has_link`)."""
     return any(has_link(line) for line in lines[index : index + 2])
 
 

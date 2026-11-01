@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 import pathlib
 import textwrap
 
@@ -106,15 +107,16 @@ def repository(
     text: str | None = None,
     modules: dict[str, str] | None = None,
     registry: str = REGISTRY,
+    index: str = "# Research\n",
 ) -> pathlib.Path:
-    """Write a parsers package and `research/alpha.md` under `root`, and return `root`."""
+    """Write a parsers package, `research/alpha.md` and the index under `root`; return `root`."""
     write(root / PARSERS / "__init__.py", registry)
     write(root / PARSERS / "base.py", BASE)
     write(root / PARSERS / "alpha.py", alpha)
     for name, body in (modules or {}).items():
         write(root / PARSERS / name, body)
     write(root / "research/alpha.md", document() if text is None else text)
-    write(root / "research/README.md", "# Research\n")
+    write(root / "research/README.md", index)
     return root
 
 
@@ -187,6 +189,239 @@ def test_row_text_outside_the_parsing_part_is_undocumented(tmp_path):
     alpha = alpha_with('return "session title: %s" % record.get("type")')
     text = document().replace("Collected: `.alpha/notes.md`.", "`session title: x`")
     assert details(repository(tmp_path, alpha, text), "row-text-undocumented") == ["session title:"]
+
+
+ASSIGNED_ROW_TEXTS = """\
+    def emit(row, turn, text, tool_name="") -> Row:
+        row.text = text
+        return row
+
+    text = "[plain]"
+    yield emit(row, "system", text)
+    if record.get("redacted"):
+        hidden = "[redacted]"
+        yield emit(row, "thinking", hidden)
+    summary = f"compacted {record.get('type')} turns"
+    yield Row(turn_type="system", text=summary)
+    note = "[note]"
+    row.text = note
+    choice = "[yes]" if record.get("type") else "[no]"
+    yield emit(row, "system", choice)
+    other = "[not a row]"
+    yield emit(row, other, "x")
+    unused = "[unused]"
+    message = "parser: assigned %s"
+    yield emit(row, "system", message)
+    keyword = "[keyword only]"
+    log(text=keyword)
+    labelled = "[label only]"
+    yield emit(row, "system", label(labelled))
+    first = "[first hop]"
+    second = first
+    yield emit(row, "system", second)
+
+    def nested():
+        inner = "[nested]"
+        return inner
+
+    inner = nested()
+    yield emit(row, "system", inner)
+"""
+
+# A helper with a `text` parameter that makes no row, and two row makers of one name whose
+# `text` places differ.
+ROW_MAKER_HEADER = """\
+
+
+    def label(text: str) -> str:
+        return text
+
+
+    def log(text=""):
+        return text
+
+
+    def first_rows(row):
+        def make(text: str, project: str = "") -> Row:
+            return row
+
+        lone = "[lone]"
+        yield make(lone)
+
+
+    def second_rows(row):
+        def make(turn: str, text: str) -> Row:
+            return row
+
+        turn = "system"
+        body = "[second maker]"
+        yield make(turn, body)
+"""
+
+
+def test_assigned_constant_reaching_a_row_text_is_a_row_text(tmp_path):
+    alpha = alpha_with(ASSIGNED_ROW_TEXTS, ROW_MAKER_HEADER)
+    found = sorted(details(repository(tmp_path, alpha), "row-text-undocumented"))
+    expected = ["[lone]", "[no]", "[note]", "[plain]", "[redacted]", "[second maker]", "[yes]"]
+    assert found == [*expected, "compacted"], found
+    spans = ", ".join("`%s`" % item for item in expected)
+    text = document(schema="`type`; rows %s, `compacted <n> turns`" % spans)
+    assert details(repository(tmp_path, alpha, text), "row-text-undocumented") == []
+
+
+RESOLVER_BASE = BASE.replace(
+    "        def secondary(self, artifact):\n            return False\n",
+    "        def secondary(self, artifact):\n            return False\n\n"
+    "        def base_note(self, text):\n            row = self.base_row(None)\n"
+    "            row.text = text\n            return row\n",
+)
+
+# Each function names in its strings whether the resolver should take them: "[yes ...]" is a row
+# text, "[no ...]" is not.
+RESOLVER_MODULE = '''\
+    """Alpha transcripts."""
+
+    import re
+
+    from .base import Parser
+
+    LOG_PATTERN = re.compile(r"^\\.alpha/logs/[^/]+\\.jsonl$")
+
+
+    def make_row(turn, text) -> Row:
+        return Row(turn_type=turn, text=text)
+
+
+    def unannotated(row, text):
+        row.text = text
+        return row
+
+
+    def emit(row, turn, text) -> Row:
+        return row
+
+
+    def first_split(row):
+        def split(text, turn) -> Row:
+            return row
+
+        def nested_emit(row, turn, text) -> Row:
+            return row
+
+        return split, nested_emit
+
+
+    def second_split(row):
+        def split(turn, text) -> Row:
+            return row
+
+        return split
+
+
+    def module_rows(row):
+        text = "[yes module maker]"
+        yield make_row("system", text)
+        plain = "[yes unannotated maker]"
+        yield unannotated(row, plain)
+
+
+    def local_wins(row):
+        def make_row(text, turn) -> Row:
+            return row
+
+        first = "[yes local first]"
+        second = "[no module second]"
+        yield make_row(first, second)
+
+
+    def shadowed(row, factory):
+        make_row = factory
+        value = "[no shadowed by an assignment]"
+        yield make_row("system", value)
+
+
+    def passed_agreeing(row, emit):
+        value = "[yes passed maker that agrees]"
+        yield emit(row, "system", value)
+
+
+    def passed_disagreeing(row, split):
+        value = "[no passed maker that disagrees]"
+        yield split(value, "system")
+
+
+    def unresolved(row):
+        value = "[no unresolved name]"
+        yield nested_emit(row, "system", value)
+
+
+    class Unrelated:
+        def note(self, text, turn):
+            return Row(text=text)
+
+        def stray(self, text) -> Row:
+            return Row(text=text)
+
+
+    class AlphaParser(Parser):
+        agent = "alpha"
+
+        def wants(self, artifact):
+            return bool(LOG_PATTERN.match(artifact.rel))
+
+        def note(self, turn, text) -> Row:
+            return Row(turn_type=turn, text=text)
+
+        def parse(self, artifact, record):
+            label = "[yes own method]"
+            turn = "[no own method turn]"
+            yield self.note(turn, label)
+            inherited = "[yes inherited method]"
+            yield self.base_note(inherited)
+            missing = "[no method of an unrelated class]"
+            yield self.stray(missing)
+            return record.get("type")
+    '''
+
+
+def test_assigned_row_text_resolves_each_call_to_its_definition(tmp_path):
+    root = repository(tmp_path, RESOLVER_MODULE, modules={"base.py": RESOLVER_BASE})
+    found = details(root, "row-text-undocumented")
+    expected = [
+        "[yes inherited method]",
+        "[yes local first]",
+        "[yes module maker]",
+        "[yes own method]",
+        "[yes passed maker that agrees]",
+        "[yes unannotated maker]",
+    ]
+    assert sorted(found) == expected, sorted(found)
+
+
+def test_is_row_maker_forms():
+    makers = (
+        "def f(text) -> Row: pass",
+        "def f(text) -> Iterator[Row]: pass",
+        "def f(text) -> 'Iterator[Row]': pass",
+        "def f(self, text):\n    return Row(text=text)",
+        "def f(self, text):\n    row = self.base_row(None)\n    return row",
+        "def f(row, text):\n    row.text = text",
+    )
+    for source in makers:
+        assert checker.is_row_maker(ast.parse(source).body[0]), source
+    others = (
+        "def f(text) -> str: pass",
+        "def f(row) -> Row: pass",
+        "def f(text):\n    return text",
+    )
+    for source in others:
+        assert not checker.is_row_maker(ast.parse(source).body[0]), source
+
+
+def test_row_text_position_is_the_model_row_field():
+    drift_common.catalog_module()
+    columns = importlib.import_module("doubleagent.model").TIMELINE_COLUMNS
+    assert columns.index(checker.TEXT_NAME) == checker.ROW_TEXT_POSITION
 
 
 def test_is_row_text_forms():
@@ -1043,3 +1278,182 @@ def test_own_module_literal_is_checked_against_the_own_document_only(tmp_path):
     assert [(item.agent, item.detail, item.path) for item in found] == [
         ("alpha", "own", PARSERS + "/alpha.py")
     ]
+
+
+# --- Rule 8: the survival table ---------------------------------------------------------------
+
+SECONDARY_ALPHA = ALPHA.replace(
+    '    LOG_PATTERN = re.compile(r"^\\.alpha/logs/[^/]+\\.jsonl$")\n',
+    '    LOG_PATTERN = re.compile(r"^\\.alpha/logs/[^/]+\\.jsonl$")\n'
+    '    HISTORY_PATTERN = re.compile(r"^\\.alpha/history\\.jsonl$")\n',
+).replace(
+    "        def parse(self, artifact, record):\n",
+    "        def secondary(self, artifact):\n"
+    "            return bool(HISTORY_PATTERN.match(artifact.rel))\n\n"
+    "        def parse(self, artifact, record):\n",
+)
+
+
+def survival_index(
+    second_copy: str,
+    agent: str = "alpha",
+    transcripts: str = "home `.alpha/logs/`",
+    survives: str = "yes",
+    history: str = "none",
+) -> str:
+    """Return a research index whose survival table has one row, its last cell `second_copy`."""
+    return "\n".join(
+        [
+            "# Research",
+            "",
+            "| Agent | Transcripts live in | Survives project deletion | Per-prompt history file"
+            " | Working directory recorded | Second copy |",
+            "| --- | --- | --- | --- | --- | --- |",
+            "| `%s` | %s | %s | %s | none | %s |"
+            % (agent, transcripts, survives, history, second_copy),
+            "",
+        ]
+    )
+
+
+def test_secondary_unlisted_when_the_row_names_another_file(tmp_path):
+    index = survival_index("The prompt log survives a delete; secondary.")
+    root = repository(tmp_path, SECONDARY_ALPHA, index=index)
+    found = findings(root, "secondary-unlisted")
+    assert [(item.detail, item.agent, item.path, item.line) for item in found] == [
+        (r"^\.alpha/history\.jsonl$", "alpha", "research/README.md", 5)
+    ]
+    assert "'history.jsonl'" in found[0].message
+
+
+def test_secondary_listed_by_a_code_span_or_by_its_file_name(tmp_path):
+    for cell in ("`~/.alpha/history.jsonl`, secondary", "the history.jsonl file, secondary"):
+        root = repository(tmp_path, SECONDARY_ALPHA, index=survival_index(cell))
+        assert details(root, "secondary-unlisted") == [], cell
+
+
+def test_secondary_listed_by_the_survives_or_the_history_cell_alone(tmp_path):
+    cases = [
+        survival_index("none", history="`~/.alpha/history.jsonl`: prompts; secondary"),
+        survival_index("none", survives="yes, `~/.alpha/history.jsonl` stays"),
+    ]
+    for index in cases:
+        root = repository(tmp_path, SECONDARY_ALPHA, index=index)
+        assert details(root, "secondary-unlisted") == [], index
+
+
+def test_secondary_listed_by_a_code_span_alone(tmp_path):
+    alpha = SECONDARY_ALPHA.replace("HISTORY_PATTERN.match", "LOG_PATTERN.match")
+    root = repository(tmp_path, alpha, index=survival_index("`logs/<id>.jsonl`, secondary"))
+    assert details(root, "secondary-unlisted") == []
+
+
+def test_secondary_unlisted_by_the_transcript_cell_or_a_parent_directory(tmp_path):
+    alpha = SECONDARY_ALPHA.replace("HISTORY_PATTERN.match", "LOG_PATTERN.match")
+    pattern = r"^\.alpha/logs/[^/]+\.jsonl$"
+    cases = [
+        survival_index("none", transcripts="home `~/.alpha/logs/<id>.jsonl`"),
+        survival_index("`~/.alpha/logs/`, secondary"),
+    ]
+    for index in cases:
+        root = repository(tmp_path, alpha, index=index)
+        assert details(root, "secondary-unlisted") == [pattern], index
+
+
+def test_survival_row_missing_only_for_a_parser_with_a_secondary_pattern(tmp_path):
+    index = survival_index("none", agent="beta")
+    root = repository(tmp_path, SECONDARY_ALPHA, index=index)
+    assert details(root, "survival-row-missing") == ["alpha"]
+    assert details(root, "secondary-unlisted") == []
+    assert details(repository(tmp_path, ALPHA, index=index), "survival-row-missing") == []
+
+
+def test_a_pattern_only_wants_uses_needs_no_survival_row_entry(tmp_path):
+    root = repository(tmp_path, SECONDARY_ALPHA, index=survival_index("`history.jsonl`"))
+    assert details(root, "secondary-unlisted") == []
+
+
+def test_selector_methods_record_wants_secondary_or_both(tmp_path):
+    alpha = """\
+        import re
+
+        from .base import Parser
+
+        LOG_PATTERN = re.compile(r"^\\.alpha/logs/[^/]+\\.jsonl$")
+        HISTORY_PATTERN = re.compile(r"^\\.alpha/history\\.jsonl$")
+        SHARED_PATTERN = re.compile(r"^\\.alpha/shared\\.json$")
+
+
+        class AlphaParser(Parser):
+            agent = "alpha"
+
+            def wants(self, artifact):
+                return bool(LOG_PATTERN.match(artifact.rel)) or self._shared(artifact)
+
+            def secondary(self, artifact):
+                return bool(HISTORY_PATTERN.match(artifact.rel)) or self._shared(artifact)
+
+            def _shared(self, artifact):
+                return bool(SHARED_PATTERN.match(artifact.rel))
+        """
+    root = repository(tmp_path, alpha, index=survival_index("`history.jsonl`"))
+    parser = drift_common.parser_classes(root / PARSERS)[0]
+    index = checker.ModuleIndex(root / "analyzer/doubleagent")
+    found = checker.selectors(index, parser, root / PARSERS)
+    assert sorted((item.literal.text, sorted(item.methods)) for item in found) == [
+        (r"^\.alpha/history\.jsonl$", ["secondary"]),
+        (r"^\.alpha/logs/[^/]+\.jsonl$", ["wants"]),
+        (r"^\.alpha/shared\.json$", ["secondary", "wants"]),
+    ]
+    assert details(root, "secondary-unlisted") == [r"^\.alpha/shared\.json$"]
+
+
+def test_selector_basenames_forms():
+    cases = [
+        (selector(r"^\.alpha/history\.jsonl$", True), ["history.jsonl"]),
+        (selector(r"^\.alpha/[^/]+\.jsonl$", True), []),
+        (selector(r"^(?:\.alpha/a\.json|\.beta/b\.json)$", True), ["a.json", "b.json"]),
+        (selector(r"^\.alpha/(", True), []),
+        (selector(".alpha/input.json", False), ["input.json"]),
+        (selector(".bak", False), [".bak"]),
+    ]
+    for item, expected in cases:
+        assert checker.selector_basenames(item) == expected, item.literal.text
+
+
+def test_names_selector_tail_forms():
+    brain = selector(
+        r"^\.g/brain/[^/]+/logs/(?:(transcript(?:_full)?)\.jsonl|chunks/\d+\.jsonl)$", True
+    )
+    aider = selector(r"^(?:.*/)?(\.aider\.(?:chat\.history\.md|input\.history))$", True)
+    record = selector(r"^\.c/(?P<tree>sessions/[^/]+/)local_[0-9a-f-]{36}\.json$", True)
+    shell = selector(r"(^|/)shell_gpt/cache/[0-9a-f]{32}$", True)
+    generic = selector(r"^\.alpha/[^/]+\.jsonl$", True)
+    stamp = r"\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d"
+    archive = selector(
+        r"^sessions/[^/]+?(?:\.jsonl\.(?:reset|deleted)\.%sZ"
+        r"|\.jsonl\.pre-doctor-branch-repair-%s-\d{3}Z\.bak|\.jsonl)$" % (stamp, stamp),
+        True,
+    )
+    archive_ms = selector(r"^sessions/[^/]+?\.jsonl\.reset\.%s\.\d{3}Z$" % stamp, True)
+    accepted = [
+        (archive, "<id>.jsonl.reset.<ts>"),
+        (archive, "<id>.jsonl.pre-doctor-branch-repair-<ts>.bak"),
+        (archive_ms, "sessions/<id>.jsonl.reset.<ts>"),
+        (brain, "transcript_full.jsonl"),
+        (aider, "<repo>/.aider.input.history"),
+        (aider, ".aider.input.history"),
+        (record, "sessions/<acct>/local_<uuid>.json"),
+        (shell, "shell_gpt/cache/<md5>"),
+    ]
+    rejected = [
+        (generic, "history.jsonl"),
+        (generic, "*.jsonl"),
+        (brain, "other.jsonl"),
+        (record, "local.json"),
+        (selector(".alpha/history.jsonl", False), "history.jsonl"),
+    ]
+    for item, name in accepted:
+        assert checker.names_selector_tail(item, name), (item.literal.text, name)
+    for item, name in rejected:
+        assert not checker.names_selector_tail(item, name), (item.literal.text, name)

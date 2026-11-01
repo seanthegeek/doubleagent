@@ -93,6 +93,10 @@ def build_alpha(home):
     (base / "config.toml").write_text("[tomlTable]\\ntomlStray = 1\\n")
     data = json.dumps({"zstdStray": 1}).encode() + b"\\n"
     (base / "log.jsonl.zst").write_bytes(zstandard.ZstdCompressor().compress(data))
+    trusted = '{\\n  // folders\\n  "/srv/proj/sub": "TRUST",\\n  "/home/alice/trusted": "TRUST",'
+    trusted += '\\n  "C:/Users/alice/repo": "TRUST", "file:///home/alice/uri": "TRUST",'
+    trusted += '\\n  "relative/dir": "TRUST", "level": "/home/alice/value",\\n}\\n'
+    (base / "trustedFolders.json").write_text(trusted)
     connection = sqlite3.connect(base / "store.db")
     connection.execute("CREATE TABLE sessions (id TEXT, strayColumn TEXT)")
     row = ("s1", json.dumps({"columnKey": 1}))
@@ -135,6 +139,8 @@ def build_beta(home):
     """Write the beta store."""
     (home / ".beta").mkdir(parents=True)
     (home / ".beta/state.json").write_text(json.dumps(beta_records()))
+    trusted = {"/home/alice/declared/x": "TRUST", "/home/alice/beta-only": "TRUST"}
+    (home / ".beta/trustedFolders.json").write_text(json.dumps(trusted))
 '''
 
 GAMMA = '''\
@@ -290,6 +296,29 @@ def test_key_undocumented(tmp_path):
     for key in ("documentedKey", "type", "cwd", "sessions", "id", "projectKey", "commentKey"):
         assert ("alpha", "key-undocumented", key) not in found, key
     assert ("alpha", "key-undocumented", "columnKey") in found
+
+
+EXAMPLE_BUILDERS_INIT = '''
+
+def build_alpha_example(home):
+    """Write a file only the output examples' collection writes."""
+    (home / ".alpha/example.json").write_text('{"exampleOnlyKey": 1}')
+
+
+EXAMPLE_BUILDERS = ((build_alpha_example, ""),)
+'''
+
+
+def test_example_builders_are_checked_after_build_home(tmp_path):
+    found = {}
+    # Two repositories, since the checker caches a fixtures package by its directory.
+    for case, init in (("without", INIT), ("with", INIT + EXAMPLE_BUILDERS_INIT)):
+        root = make_repository(tmp_path / case)
+        write(root / "analyzer/tests/fixtures/__init__.py", init)
+        with contextlib.redirect_stderr(io.StringIO()):
+            found[case] = {(item.agent, item.kind, item.detail) for item in checker.run(root)}
+    assert ("alpha", "key-undocumented", "exampleOnlyKey") not in found["without"]
+    assert ("alpha", "key-undocumented", "exampleOnlyKey") in found["with"]
 
 
 def test_key_documented_by_schema_fence_not_by_sample(tmp_path):
@@ -650,6 +679,16 @@ def test_substitution_undeclared(tmp_path):
     assert ("beta", "substitution-undeclared", "/home/alice/declared/sub") not in found
 
 
+def test_substitution_undeclared_reads_dictionary_keys_of_json_and_jsonc(tmp_path):
+    found = findings_of(tmp_path)
+    undeclared = {detail for _, kind, detail in found if kind == "substitution-undeclared"}
+    for path in ("/home/alice/trusted", "C:/Users/alice/repo", "/home/alice/uri"):
+        assert path in undeclared, path
+    assert "/home/alice/beta-only" in undeclared
+    for path in ("/srv/proj/sub", "relative/dir", "/home/alice/value", "/home/alice/declared/x"):
+        assert path not in undeclared, path
+
+
 def test_cross_agent_builder(tmp_path):
     found = findings_of(tmp_path)
     assert ("beta", "cross-agent-builder", "alpha_helper") in found
@@ -1001,4 +1040,4 @@ def test_run_reports_file_and_key_table_counts(tmp_path):
     errors = io.StringIO()
     with contextlib.redirect_stderr(errors):
         list(checker.run(tmp_path))
-    assert "build_home wrote 10 file(s); 1 document(s) hold a key table" in errors.getvalue()
+    assert "the fixture home holds 12 file(s); 1 document(s) hold a key table" in errors.getvalue()

@@ -168,7 +168,10 @@ def test_shared_volume_glob_check_missing_goes_to_the_first_owner_once(tmp_path)
     catalog = catalog.replace(".alpha/auth.json\n", ".alpha/auth.json\n.env\n")
     write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
     for agent, text in (("alpha", DOCUMENTS["alpha"]), ("beta", DOCUMENTS["beta"])):
-        volume = "\n### Per-user storage\n\n#### Docker volume\n\nThe volume holds `.env`.\n"
+        volume = (
+            "\n### Per-user storage\n\n#### Docker volume\n\nThe `%s_data` volume holds `.env`.\n"
+        )
+        volume %= agent
         write(tmp_path / "research" / ("%s.md" % agent), text + volume)
     found = [item for item in findings(tmp_path) if item.kind == "secret-check-missing"]
     assert [(item.agent, item.detail) for item in found] == [

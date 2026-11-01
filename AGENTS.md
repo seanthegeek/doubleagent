@@ -54,9 +54,10 @@ analyzer/
   tests/                       pytest suite with synthetic fixtures; tests/run.sh
   tools/                       development tools: shape.py (shapes of a real install),
                                proto_descriptors.py (protobuf schemas of a binary),
-                               example_collection.py (the synthetic collection of
-                               the docs/output.md examples), regenerate_examples.py
-                               (rewrites those generated examples)
+                               example_collection.py (the docs/output.md examples'
+                               collection, from the fixture builders),
+                               regenerate_examples.py (rewrites those generated
+                               examples)
   pyproject.toml               installable as the doubleagent command
   requirements.txt             third-party dependencies (python-dateutil;
                                zstandard, for compressed transcripts)
@@ -94,10 +95,19 @@ tools/check_tables_research.py  compares the catalog tables with the Collection 
 tools/check_smoke_coverage.py  verifies both smoke tests check every table line, naming
                                each row by full path
 tools/check_parser_research.py  compares each parser's row texts, file patterns and keys
-                               with the Parsing part of its research document
+                               with the Parsing part of its research document, and its
+                               secondary sources with its survival table row in
+                               research/README.md
 tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines, files,
                                keys and values with the research documents
-tools/tests/                   pytest suite of the drift checkers, on synthetic inputs
+tools/check_branch_coverage.py  runs the analyzer suite under branch coverage and reports
+                               each branch of a changed parser line the suite never takes
+tools/diff_smoke_rows.py       runs the sh collector of a commit and the working tree or
+                               a second commit over the sh smoke test's main fixtures and
+                               lists the paths whose manifest rows changed, grouped under
+                               each changed table line whose glob matches them
+tools/tests/                   pytest suite of the drift checkers and tools, on synthetic
+                               inputs
 tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
                                disagreements recorded so far, unattributed.txt for
                                those of no agent
@@ -509,7 +519,11 @@ The analyzer runs on the analyst's workstation, never on the host.
   the unfixed code and fails there. A test needing POSIX permissions or an
   unprivileged user skips with the `CAN_DENY` guard of
   `analyzer/tests/test_errors.py`; one creating a symlink skips when
-  `symlink_to` raises.
+  `symlink_to` raises. Every branch on a parser line a change adds or
+  modifies is taken both ways by the suite, which
+  `tools/check_branch_coverage.py` checks; a branch no fixture can reach
+  carries `# pragma: no branch: <reason>`, and a `no branch` or `no cover`
+  pragma without a reason is a finding.
 
 ## Adding a parser
 
@@ -617,15 +631,21 @@ plan, and the parser is written from them.
      parser uses appears as a code span or fenced line in the Parsing part
      of its research document; a literal inherited from another parser's
      module may be named in that parser's document instead
-     (`tools/check_parser_research.py` checks this). A commit that finds
-     the document wrong fixes the document in that commit.
+     (`tools/check_parser_research.py` checks this). A row text includes a
+     fixed string assigned directly to a name that the same function then
+     passes as the `text` of `Row`, of a function that builds one, or
+     stores to `.text` (`[redacted]` for an empty redacted thinking block),
+     not only a `<label>: ` literal. A commit that finds the document wrong
+     fixes the document in that commit.
    - **Survival table.** Update the agent's row in the
      [survival table of `research/README.md`](research/README.md#where-transcripts-live-and-what-survives)
      in the same commit: one short sentence per cell with the file name,
      the one qualifier that matters, `parsed`, `secondary` or `not parsed`,
      and a link to the document's `#### What survives a delete`, which
      holds the facts; a fact the table holds that the document lacks goes
-     into the document first.
+     into the document first. The row names each file a pattern of the
+     parser's `secondary()` accepts, as a code span the pattern matches or
+     by its file name (`tools/check_parser_research.py` checks this).
 4. Open SQLite and decode protobuf as
    [Analyzer standards](#analyzer-standards) says; a new dependency goes in
    both `requirements.txt` and `pyproject.toml`.
@@ -640,8 +660,10 @@ plan, and the parser is written from them.
      schema and the samples' shapes, never invents one and never copies a
      sample verbatim, so the sample stays independent evidence.
      `tools/check_fixture_schema.py` checks the records `build_home`
-     writes and reports one equal to a Fixtures sample, so every builder a
-     test uses is reached through `HOME_BUILDERS`. Each public function of
+     writes, and those the `EXAMPLE_BUILDERS` entries add after it, and
+     reports one equal to a Fixtures sample, so every builder a test or
+     the output examples use is reached through `HOME_BUILDERS` or
+     `EXAMPLE_BUILDERS`. Each public function of
      an agent's fixture module (`common.py` aside), its home builder
      included, has a docstring
      line `Source: research/<agent>.md#<anchor>; build <version>` (or
@@ -649,7 +671,12 @@ plan, and the parser is written from them.
      module docstring names `research/<agent>.md`, has a `Paths:` line
      with a code span for every project path other than `/srv/proj`, and a
      `Lineage: <agent>[, <agent>]` line when it calls another agent's
-     builder. `tools/check_fixture_schema.py` checks these.
+     builder. `tools/check_fixture_schema.py` checks these. A project path
+     is a value under a key naming a project directory (`cwd`, `workspace`)
+     or a dictionary key that is itself an absolute path, drive path or
+     `file://` URI (a trusted-folders map), in any JSON or JSONC file
+     `build_home` writes; a path below `/srv/proj` or a declared path needs
+     no span of its own.
 6. Add a `<Agent>Tests(ParserBase)` class to
    `tests/parsers/test_<parser>.py` with the existing cases: rows, thinking
    opt-in, history, not-wanted, truncated line. The truncated-line case
@@ -972,12 +999,14 @@ when the page has one.
      per platform or product when layouts differ; the fixed
      `#### Scratch directories` ("None known." when none). A Docker volume
      layout is described in a Per-user storage subsection whose heading or
-     opening paragraph names the volume, and names each volume-relative
-     exclusion and secret glob. Each table line of the agent is named in
-     the Collection part as its glob, a path it matches or (a home or
-     project line) lies above, its remainder below one of the agent's own
-     catalog entries, or, for a glob opening `*/`, its remainder below the
-     entry it reaches (`tools/check_tables_research.py` checks this).
+     opening paragraph says "volume" and names the volume in a code span
+     (its name, its `DOCKER_VOLUMES` glob or its catalog line), and names
+     each volume-relative exclusion and secret glob. Each table line of the
+     agent is named in the Collection part as its glob, a path it matches
+     or (a home or project line) lies above, its remainder below one of the
+     agent's own catalog entries, or, for a glob opening `*/`, its
+     remainder below the entry it reaches (`tools/check_tables_research.py`
+     checks this).
    - `### Credentials`: credential files (settings files that hold keys
      among them), keychain use and its file fallback, identity values to
      redact. A credential file is named by its home-relative path on each
@@ -1304,7 +1333,8 @@ CI (`.github/workflows/ci.yml`) runs the catalog drift test; shellcheck;
 the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
 drift test and sh smoke test under dash on macOS (BSD tools); the
 PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell
-5.1 on Windows; the analyzer tests on Python 3.10 to 3.14; the lint job of
+5.1 on Windows; the analyzer tests on Python 3.10 to 3.14, with the
+branch-coverage gate on the newest; the lint job of
 [Quality gates](#quality-gates); and a `CI result` job that fails when any
 of them failed or was cancelled. `CI result` is the one status check the
 ruleset on `main` requires.
@@ -1366,6 +1396,7 @@ python3 tools/check_tables_research.py
 python3 tools/check_smoke_coverage.py
 python3 tools/check_parser_research.py
 python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as tests/run.sh does
+python3 tools/check_branch_coverage.py  # runs the analyzer suite again when a parser changed
 python3 tools/check_code_style.py
 shfmt -ln posix $(shfmt -f .) >/dev/null && shellcheck -s sh $(shfmt -f .) && checkbashisms -p $(shfmt -f .)
 pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
@@ -1393,6 +1424,11 @@ The smoke test runs the collector in image mode over a fake disk image
 under `$TMPDIR`, with the given shell for the script and the `find -exec`
 workers (`COLLECTOR_SH`). Every check passes under every shell; a failure
 under one shell is a portability bug.
+
+A change to a table line attaches the output of `tools/diff_smoke_rows.py`
+against its base to its review report, and the reviewer reads every group
+for paths the line was not meant to reach
+([Smoke-row diff in `collectors/docs/testing.md`](collectors/docs/testing.md#smoke-row-diff)).
 
 On Debian and Ubuntu `/usr/bin/ash` is dash, so test busybox with the
 wrapper above. CI installs `busybox-static`, whose `ash` runs busybox's own
@@ -1441,11 +1477,12 @@ skipped without it. Never add a `python3` requirement to the collector.
 
 ### Quality gates
 
-Every gate runs in the CI `lint` job, never in the pre-commit hook. The
-versions are pinned in the workflow's `env` block; change it and this table
-together. Run the commands from the repository root before pushing; a
-documentation-only change needs markdownlint and the rows from document
-links down.
+Every gate runs in CI, never in the pre-commit hook: branch coverage in the
+`analyzer` job on its newest Python, the others in the `lint` job. The
+versions are pinned in the workflow's `env` block, coverage.py's in
+`analyzer/requirements-dev.txt`; change it and this table together. Run the
+commands from the repository root before pushing; a documentation-only
+change needs markdownlint and the rows from document links down.
 
 | Gate | Version | Local command | Configuration |
 | --- | --- | --- | --- |
@@ -1457,6 +1494,7 @@ links down.
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
+| branch coverage of changed parser lines | coverage.py 7.16.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
 | code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
 | research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |

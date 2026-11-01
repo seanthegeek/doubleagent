@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Check the parsers against the Parsing part of their research documents.
 
-Each `parsers.ALL` class is read with `ast` and compared with its own agent's document. Its
-literals are its effective set's: its module and each base's in `parsers/`, whole, and what those
-import from another parsers module (`from .x import name`, `x.name`, in functions too) with the
-top-level names that uses; never `base.py`. "Documented" means in the code spans and fenced lines
-of the part named, in the parser's own document or, for a module of another parser's effective
-set, in that parser's agent document (rules 1 to 4).
+Each `parsers.ALL` class is read with `ast` and compared with its agent's document. Its literals
+are its effective set's: its module and each base's in `parsers/`, whole, and what those import
+from another parsers module (`from .x import name`, `x.name`, in functions too) with the top-level
+names that uses; never `base.py`. "Documented" means in the code spans and fenced lines of the
+part named, in the parser's own document or, for a module of another parser's effective set, in
+that parser's agent document (rules 1 to 4).
 
-- `row-text-undocumented`: a row text's constant prefix is in no Parsing part span or fenced line.
-- `parser-message-undocumented`: a `parser: ` literal's constant pieces, in order, are in no
-  Parsing part span or fenced line.
+- `row-text-undocumented`: a row text (`is_row_text`, `assigned_row_texts`) whose constant
+  prefix is in no Parsing part span or fenced line.
+- `parser-message-undocumented`: the same for a `parser: ` literal's constant pieces, in order.
 - `pattern-undocumented`: a file pattern of the parser equals no Parsing part span or fenced line,
   both unescaped, and no path or glob span outside Fixtures has its count of segments, each
   matched by the pattern's glob form there (`regex_components`, `*` any text): a segment with a
@@ -18,15 +18,15 @@ set, in that parser's agent document (rules 1 to 4).
   literal; a top-level alternation by a branch; a pattern that does not compile by nothing.
 - `key-undocumented`: a key the parser reads, or a `select` column or table, is no Parsing word;
   a named group `(?P<name>...)` of its literals read from a match's groups is no key read.
-- `flag-undocumented`: `records_sync`, `records_relay` or `records_origin` is True while Sync,
-  relay and origin rows says "The agent records none." or "Not stated.", or `has_secondary` is True
-  while Past-use rows and secondary sources says so.
+- `flag-undocumented`: `records_sync`, `records_relay`, `records_origin` or `has_secondary` is True
+  while the subsection owning it (`flag_findings`) says "The agent records none." or "Not stated.".
 - `flag-unset`: that subsection names a `session synced:`, `session relayed:` or `session origin:`
   row or a secondary source in a sentence neither denying nor only supposing it, its flag False.
 - `not-read-contradicted`: a name Parsing says is not read is a key read or a file patterns match.
 - `docstring-fact-undocumented`: a module docstring span is a row text or key in no span or fenced
   line of the document, a pattern the whole document does not document by rule 3's test, or a
   `key_value` with a key or value Parsing lacks.
+- `secondary-unlisted`, `survival-row-missing`: the agent's survival row (`secondary_findings`).
 
 Usage: tools/check_parser_research.py [--update-baseline]
 """
@@ -39,7 +39,7 @@ import pathlib
 import re
 import sys
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TypeGuard
 
 import drift_common
@@ -98,6 +98,25 @@ SPAN_WILDCARD = re.compile(r"<[^>]*>|[*?]")
 # Words that make a sentence deny or only suppose a row.
 NEGATION = re.compile(r"\b(?:no|not|never|none|neither|nor|without|would|could)\b", re.IGNORECASE)
 SECONDARY_NAMED = re.compile(r"\b(?:is|are|as)\s+(?:a\s+|the\s+)?secondary\b", re.IGNORECASE)
+# A word of a survival table row that may be a file name: dots kept, a trailing one dropped.
+FILE_WORD = re.compile(r"[A-Za-z0-9_$@.-]*[A-Za-z0-9_$@-]")
+# What a survival row name's placeholder is filled with, each tried in turn: a word, a number,
+# a hex hash, a UUID and file-name timestamps with and without milliseconds, the forms a file
+# pattern's variable pieces take.
+PLACEHOLDER_FILLS = (
+    "x",
+    "0",
+    "0" * 32,
+    "00000000-0000-0000-0000-000000000000",
+    "2026-01-01T00-00-00Z",
+    "2026-01-01T00-00-00.000Z",
+    "2026-01-01T00-00-00-000Z",
+)
+# The survival row's cells from the third on are searched: the agent and the transcript store
+# cells name no secondary source.
+SURVIVAL_SEARCHED_CELLS = 2
+# A run of letters of a name, which `names_selector_tail` replaces to test that it matters.
+LETTER_RUN = re.compile(r"[A-Za-z]+")
 # Last dotted segments that make a code span a file name rather than a key.
 FILE_EXTENSIONS = frozenset(
     {"json", "jsonl", "md", "db", "sqlite", "sqlite3", "txt", "toml", "yaml", "yml", "log"}
@@ -106,6 +125,13 @@ FILE_EXTENSIONS = frozenset(
 
 
 FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+# The parameter, keyword and attribute that carry a row's text, the class of a timeline row, and
+# the place of `text` among the fields of `doubleagent.model.Row`, which
+# `test_row_text_position_is_the_model_row_field` keeps in step.
+TEXT_NAME = "text"
+ROW_CLASS = "Row"
+BASE_ROW = "base_row"
+ROW_TEXT_POSITION = 11
 COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
 
 
@@ -123,10 +149,14 @@ class Literal:
 
 @dataclass(frozen=True)
 class Selector:
-    """A file pattern a parser selects files with: a regex, or a path compared to `rel`."""
+    """A file pattern a parser selects files with: a regex, or a path compared to `rel`.
+
+    `methods` names the `SELECTOR_METHODS` it was found under, `wants`, `secondary` or both.
+    """
 
     literal: Literal
     is_regex: bool
+    methods: frozenset[str] = frozenset()
 
 
 class ModuleIndex:
@@ -241,6 +271,252 @@ def string_literals(path: pathlib.Path, nodes: Iterable[ast.AST], skip: set[int]
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                 if id(node) not in skip and id(node) not in inside:
                     found.append(Literal(node.value, path, node.lineno))
+    return found
+
+
+def assigned_row_texts(index: ModuleIndex, effective: EffectiveSet) -> list[Literal]:
+    """Return the strings assigned to a name that the same function passes as a row's text.
+
+    A string, an f-string or a conditional choosing between them, assigned directly to a plain
+    name in any branch, counts when the same function, outside nested functions, passes the name
+    as the `text` of `Row` or of a row maker (`is_row_maker`, found by `_Resolver.definition`),
+    by keyword or place, or stores it in `.text`. A second hop (`b = a`) is never followed; an
+    f-string's values read `{}`.
+    """
+    base = index.package / "parsers" / "base.py"
+    roots: list[ast.AST] = [index.tree(base)] if base.is_file() else []
+    roots.extend(node for nodes in effective.nodes.values() for node in nodes)
+    makers: dict[str, list[ast.AST]] = {}
+    for root in roots:
+        for node in ast.walk(root):
+            if isinstance(node, FUNCTIONS[:2]) and is_row_maker(node):
+                makers.setdefault(node.name, []).append(node)
+    found: list[Literal] = []
+    for path, nodes in effective.nodes.items():
+        for root in nodes:
+            for function, enclosing in _functions_with_scopes(root, ()):
+                resolver = _Resolver(index, path, enclosing, makers)
+                found.extend(_function_row_texts(path, function, resolver))
+    return found
+
+
+def _functions_with_scopes(
+    node: ast.AST, enclosing: tuple[ast.AST, ...]
+) -> Iterator[tuple[ast.AST, tuple[ast.AST, ...]]]:
+    """Yield each function at or under `node` with its enclosing functions and classes.
+
+    The tuple ends with the function itself; `enclosing` holds the scopes around `node`.
+    """
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        enclosing = (*enclosing, node)
+        if not isinstance(node, ast.ClassDef):
+            yield node, enclosing
+    for child in ast.iter_child_nodes(node):
+        yield from _functions_with_scopes(child, enclosing)
+
+
+def is_row_maker(function: ast.AST) -> bool:
+    """Return whether a function builds a row from a `text` parameter.
+
+    It has a `text` parameter (`_text_place`) and either is annotated to return a `Row`
+    (`Row`, `Iterator[Row]`, a string naming it) or its body calls `Row(...)` or
+    `base_row(...)` (`self.base_row` too) or assigns to a `.text` attribute.
+    """
+    if _text_place(function) is None:
+        return False
+    returns = getattr(function, "returns", None)
+    for node in ast.walk(returns) if returns is not None else ():
+        quoted = node.value if isinstance(node, ast.Constant) else None
+        if isinstance(node, ast.Name) and node.id == ROW_CLASS:
+            return True
+        if isinstance(quoted, str) and re.search(r"\b%s\b" % ROW_CLASS, quoted):
+            return True
+    for node in ast.walk(function):
+        if isinstance(node, ast.Call) and _call_name(node) in (ROW_CLASS, BASE_ROW):
+            return True
+        targets = node.targets if isinstance(node, ast.Assign) else []
+        if any(
+            isinstance(target, ast.Attribute) and target.attr == TEXT_NAME for target in targets
+        ):
+            return True
+    return False
+
+
+def _call_name(call: ast.Call) -> str:
+    """Return the name a call calls: `f` of `f(...)` and the attribute of `x.f(...)`."""
+    function = call.func
+    if isinstance(function, ast.Name):
+        return function.id
+    return function.attr if isinstance(function, ast.Attribute) else ""
+
+
+def _text_place(function: ast.AST) -> int | None:
+    """Return the place of a function's `text` parameter in a call, `self` and `cls` left out."""
+    arguments = getattr(function, "args", None)
+    if arguments is None:
+        return None
+    names = [argument.arg for argument in arguments.posonlyargs + arguments.args]
+    if names[:1] in (["self"], ["cls"]):
+        names = names[1:]
+    return names.index(TEXT_NAME) if TEXT_NAME in names else None
+
+
+def _parameters(function: ast.AST) -> set[str]:
+    """Return every parameter name of a function."""
+    arguments = getattr(function, "args", None)
+    if arguments is None:
+        return set()
+    every = arguments.posonlyargs + arguments.args + arguments.kwonlyargs
+    every += [item for item in (arguments.vararg, arguments.kwarg) if item is not None]
+    return {argument.arg for argument in every}
+
+
+class _Resolver:
+    """Find the definition a call in one function names, by Python's own name lookup."""
+
+    def __init__(
+        self,
+        index: ModuleIndex,
+        path: pathlib.Path,
+        enclosing: tuple[ast.AST, ...],
+        makers: dict[str, list[ast.AST]],
+    ) -> None:
+        """Remember the module, the enclosing scopes and every row maker by name."""
+        self.index = index
+        self.path = path
+        self.enclosing = enclosing
+        self.makers = makers
+
+    def definition(self, call: ast.Call) -> ast.AST | None:
+        """Return the function or class a call calls, or None when it cannot be told.
+
+        A plain name is looked up from the innermost enclosing function out, as Python does:
+        a function's parameter of that name is the row makers of that name when they all put
+        `text` at one place (the maker is passed in), a local `def` is that definition, and any
+        other local binding shadows every outer one; past the functions, the module binding
+        (imports followed). `self.f` is the first `f` along the enclosing class and its bases,
+        depth first and left to right, `base.py`'s classes included.
+        """
+        function = call.func
+        if isinstance(function, ast.Name):
+            return self._name(function.id)
+        if not isinstance(function, ast.Attribute):
+            return None
+        owner = function.value
+        on_self = isinstance(owner, ast.Name) and owner.id == "self"
+        return self._method(function.attr) if on_self else None
+
+    def _name(self, name: str) -> ast.AST | None:
+        """Return the definition a plain name has in the enclosing scopes or the module."""
+        for scope in reversed(self.enclosing):
+            if isinstance(scope, ast.ClassDef):
+                continue
+            if name in _parameters(scope):
+                makers = self.makers.get(name, [])
+                places = {_text_place(maker) for maker in makers}
+                return makers[0] if len(places) == 1 else None
+            nodes = list(_scope_nodes(scope))
+            for node in nodes:
+                for child in ast.iter_child_nodes(node):
+                    if isinstance(child, FUNCTIONS[:2]) and child.name == name:
+                        return child
+            stores = {
+                node.id
+                for node in nodes
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+            }
+            if name in stores:
+                return None
+        bound = self.index.bindings(self.path).get(name)
+        return bound[1] if bound else None
+
+    def _method(self, name: str) -> ast.AST | None:
+        """Return the first method `name` along the enclosing class and its bases."""
+        classes = [scope for scope in self.enclosing if isinstance(scope, ast.ClassDef)]
+        pending = [(self.path, classes[-1])] if classes else []
+        seen: set[int] = set()
+        while pending:
+            path, node = pending.pop(0)
+            if id(node) in seen:
+                continue
+            seen.add(id(node))
+            for statement in node.body:
+                if isinstance(statement, FUNCTIONS[:2]) and statement.name == name:
+                    return statement
+            bases = []
+            for base in node.bases:
+                bound = (
+                    self.index.bindings(path).get(base.id) if isinstance(base, ast.Name) else None
+                )
+                if bound is not None and isinstance(bound[1], ast.ClassDef):
+                    bases.append((bound[0], bound[1]))
+            pending[:0] = bases
+        return None
+
+
+def row_maker_call(call: ast.Call, resolver: _Resolver) -> ast.expr | None:
+    """Return the expression a call passes as a row's text, or None.
+
+    The call is of `Row` (resolved, or a name `Row` with no definition) or of a row maker
+    (`is_row_maker`); its `text` keyword, else its argument at the `text` place, is the text.
+    """
+    definition = resolver.definition(call)
+    named_row = isinstance(call.func, ast.Name) and call.func.id == ROW_CLASS
+    if isinstance(definition, ast.ClassDef) and definition.name == ROW_CLASS:
+        place: int | None = ROW_TEXT_POSITION
+    elif named_row and definition is None:
+        place = ROW_TEXT_POSITION
+    elif definition is not None and is_row_maker(definition):
+        place = _text_place(definition)
+    else:
+        return None
+    for keyword in call.keywords:
+        if keyword.arg == TEXT_NAME:
+            return keyword.value
+    return call.args[place] if place is not None and place < len(call.args) else None
+
+
+def _text_names(scope: ast.AST, resolver: _Resolver) -> set[str]:
+    """Return the plain names a function passes or stores as a row's text."""
+    names: set[str] = set()
+    for node in _scope_nodes(scope):
+        values: list[ast.expr] = []
+        if isinstance(node, ast.Call):
+            value = row_maker_call(node, resolver)
+            values.extend([value] if value is not None else [])
+        elif isinstance(node, ast.Assign):
+            stores_text = any(
+                isinstance(target, ast.Attribute) and target.attr == TEXT_NAME
+                for target in node.targets
+            )
+            values.extend([node.value] if stores_text else [])
+        names.update(value.id for value in values if isinstance(value, ast.Name))
+    return names
+
+
+def _string_choices(path: pathlib.Path, value: ast.expr) -> list[Literal]:
+    """Return the strings an assigned value is: a string, an f-string, or a choice of them."""
+    if isinstance(value, ast.IfExp):
+        return _string_choices(path, value.body) + _string_choices(path, value.orelse)
+    if isinstance(value, (ast.Constant, ast.JoinedStr)):
+        return [item for item in string_literals(path, [value], set()) if item.line]
+    return []
+
+
+def _function_row_texts(
+    path: pathlib.Path, function: ast.AST, resolver: _Resolver
+) -> list[Literal]:
+    """Return the strings one function assigns to a name it passes as a row's text."""
+    names = _text_names(function, resolver)
+    found: list[Literal] = []
+    for node in _scope_nodes(function) if names else ():
+        assignment = None
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            assignment = (node.targets[0], node.value)
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            assignment = (node.target, node.value)
+        if assignment and isinstance(assignment[0], ast.Name) and assignment[0].id in names:
+            found.extend(_string_choices(path, assignment[1]))
     return found
 
 
@@ -616,6 +892,67 @@ def selector_matches_name(selector: Selector, name: str) -> bool:
         return False
 
 
+def selector_basenames(selector: Selector) -> list[str]:
+    r"""Return the file names a selector's last component is, for a match against a row's words.
+
+    A plain path gives its last segment; a regex gives, per top-level branch, its last
+    `regex_components` component read by `segment_form` when it has no variable piece:
+    `^\.codex/history\.jsonl$` gives `history.jsonl`, `^\.codex/[^/]+\.jsonl$` nothing, and a
+    pattern that does not compile nothing.
+    """
+    text = selector.literal.text
+    if not selector.is_regex:
+        name = text.rstrip("/").rsplit("/", 1)[-1]
+        return [name] if name else []
+    try:
+        re.compile(text)
+    except re.error:
+        return []
+    found: list[str] = []
+    for branch in top_level_branches(text):
+        components = regex_components(branch)
+        form, variable = segment_form(components[-1]) if components else ("", True)
+        if form and not variable:
+            found.append(form)
+    return list(dict.fromkeys(found))
+
+
+def names_selector_tail(selector: Selector, name: str) -> bool:
+    r"""Return whether a regex's last components match a name only because of its own words.
+
+    The name's `<...>` and `*` placeholders are filled from `PLACEHOLDER_FILLS` and a leading
+    `~/` dropped; for some fill and some k, the pattern's last k `regex_components` match the
+    name whole, and fail once each letter run of the name outside its placeholders and its file
+    extension is replaced. A group may hold a `/`, so k is not the name's segment count.
+    `transcript_full.jsonl` names `logs/(transcript(?:_full)?)\.jsonl`; `history.jsonl` does
+    not name `[^/]+\.jsonl`.
+    """
+    if not selector.is_regex:
+        return False
+    pieces = re.split(r"(<[^>]*>|\*+)", name.removeprefix("~/").rstrip("/"))
+    # `re.split` with one group puts the placeholders at odd indexes, so `literal` is never empty.
+    literal = pieces[::2]
+    last = literal[-1]
+    _, dot, extension = last.rpartition(".")
+    keep = dot + extension if dot and extension.lower() in FILE_EXTENSIONS else ""
+    changed = [
+        LETTER_RUN.sub("qqq", piece) for piece in [*literal[:-1], last[: len(last) - len(keep)]]
+    ]
+    changed[-1] += keep
+    components = regex_components(selector.literal.text)
+    try:
+        tails = [
+            re.compile("/".join(components[-count:])) for count in range(1, len(components) + 1)
+        ]
+    except re.error:
+        return False
+    for fill, tail in itertools.product(PLACEHOLDER_FILLS, tails):
+        whole = fill.join(literal)
+        if whole and tail.fullmatch(whole) and not tail.fullmatch(fill.join(changed)):
+            return True
+    return False
+
+
 def mask_code_spans(text: str) -> str:
     """Return `text` with each code span's inside made `x`, its backticks kept, offsets unchanged."""
     return CODE_SPAN.sub(
@@ -927,14 +1264,17 @@ def find_method(
 
 def selector_functions(
     classes: list[tuple[pathlib.Path, ast.ClassDef]], parsers: pathlib.Path
-) -> list[tuple[pathlib.Path, ast.FunctionDef]]:
-    """Return the nearest `wants` and `secondary` outside `base.py`, and the methods they call."""
-    found: list[tuple[pathlib.Path, ast.FunctionDef]] = []
+) -> list[tuple[pathlib.Path, ast.FunctionDef, frozenset[str]]]:
+    """Return the nearest `wants` and `secondary` outside `base.py`, and the methods they call.
+
+    Each function comes once, with the selector methods it is or that call it on `self`.
+    """
+    found: dict[int, tuple[pathlib.Path, ast.FunctionDef, set[str]]] = {}
     for name in SELECTOR_METHODS:
         method = find_method(classes, name)
         if method is None or method[0] == parsers / "base.py":
             continue
-        found.append(method)
+        functions = [method]
         for node in ast.walk(method[1]):
             function = node.func if isinstance(node, ast.Call) else None
             if not isinstance(function, ast.Attribute):
@@ -942,9 +1282,11 @@ def selector_functions(
             owner = function.value
             helper = find_method(classes, function.attr)
             is_self = isinstance(owner, ast.Name) and owner.id == "self"
-            if is_self and helper is not None and helper not in found:
-                found.append(helper)
-    return found
+            if is_self and helper is not None and helper not in functions:
+                functions.append(helper)
+        for module, function in functions:
+            found.setdefault(id(function), (module, function, set()))[2].add(name)
+    return [(module, function, frozenset(names)) for module, function, names in found.values()]
 
 
 def _selectors_of_value(
@@ -978,7 +1320,8 @@ def selectors(
     `wants` or `secondary` or in a method they call on `self`, or bound at module or class level
     to a name those methods use; and the strings those methods compare (`==`, `in`,
     `startswith`, `endswith`), directly or through such a name. A pattern built at run time
-    (`TEMPLATE % prefix`) is not folded and not checked.
+    (`TEMPLATE % prefix`) is not folded and not checked. Each selector's `methods` are those
+    of every function it was found in.
     """
     classes = class_definitions(index, parser)
     attributes: dict[str, tuple[pathlib.Path, ast.AST, int]] = {}
@@ -988,28 +1331,40 @@ def selectors(
                 for target in item.targets:
                     if isinstance(target, ast.Name):
                         attributes[target.id] = (module, item.value, item.lineno)
-    found: list[Selector] = []
-    for module, function in selector_functions(classes, parsers):
-        bindings = index.bindings(module)
-        for node in ast.walk(function):
-            if isinstance(node, ast.Call) and _is_regex_call(node):
-                found.extend(_selectors_of_value(index, module, node, node.lineno))
-            elif isinstance(node, ast.Name) and node.id in bindings:
-                where, value = bindings[node.id]
-                line = getattr(value, "lineno", node.lineno)
-                if not isinstance(value, (ast.FunctionDef, ast.ClassDef)):
-                    found.extend(_selectors_of_value(index, where, value, line))
-            elif isinstance(node, ast.Attribute) and node.attr in attributes:
-                is_self = isinstance(node.value, ast.Name) and node.value.id == "self"
-                if is_self:
-                    where, value, line = attributes[node.attr]
-                    found.extend(_selectors_of_value(index, where, value, line))
-            elif isinstance(node, (ast.Compare, ast.Call)):
-                found.extend(_compared_paths(module, node))
     unique: dict[tuple[str, bool], Selector] = {}
-    for selector in found:
-        unique.setdefault((selector.literal.text, selector.is_regex), selector)
+    for module, function, methods in selector_functions(classes, parsers):
+        for selector in _function_selectors(index, module, function, attributes):
+            identity = (selector.literal.text, selector.is_regex)
+            first = unique.setdefault(identity, selector)
+            unique[identity] = replace(first, methods=first.methods | methods)
     return [selector for selector in unique.values() if _is_path_like(selector)]
+
+
+def _function_selectors(
+    index: ModuleIndex,
+    module: pathlib.Path,
+    function: ast.FunctionDef,
+    attributes: dict[str, tuple[pathlib.Path, ast.AST, int]],
+) -> list[Selector]:
+    """Return the selectors one selector function uses, as `selectors` describes them."""
+    found: list[Selector] = []
+    bindings = index.bindings(module)
+    for node in ast.walk(function):
+        if isinstance(node, ast.Call) and _is_regex_call(node):
+            found.extend(_selectors_of_value(index, module, node, node.lineno))
+        elif isinstance(node, ast.Name) and node.id in bindings:
+            where, value = bindings[node.id]
+            line = getattr(value, "lineno", node.lineno)
+            if not isinstance(value, (ast.FunctionDef, ast.ClassDef)):
+                found.extend(_selectors_of_value(index, where, value, line))
+        elif isinstance(node, ast.Attribute) and node.attr in attributes:
+            is_self = isinstance(node.value, ast.Name) and node.value.id == "self"
+            if is_self:
+                where, value, line = attributes[node.attr]
+                found.extend(_selectors_of_value(index, where, value, line))
+        elif isinstance(node, (ast.Compare, ast.Call)):
+            found.extend(_compared_paths(module, node))
+    return found
 
 
 def _compared_paths(path: pathlib.Path, node: ast.AST) -> list[Selector]:
@@ -1244,11 +1599,15 @@ class Context:
     parser: drift_common.ParserClass
     document: Document
     literals: list[Literal]
+    # The strings `assigned_row_texts` finds, row texts whatever their form.
+    assigned_texts: list[Literal]
     keys: list[Literal]
     selectors: list[Selector]
     code_names: frozenset[str]
     # The agent documents of the other parsers whose effective set holds each module.
     owners: dict[pathlib.Path, list[Document]]
+    # The parser agent's survival table row, None when the table has none.
+    survival: drift_common.SurvivalRow | None = None
 
     def documents_for(self, literal: Literal) -> list[Document]:
         """Return the documents that may document a literal: the parser's own, then others.
@@ -1274,11 +1633,15 @@ class Context:
 
 
 def row_text_findings(context: Context) -> Iterator[drift_common.Finding]:
-    """Yield `row-text-undocumented` per row text whose prefix the Parsing part lacks."""
+    """Yield `row-text-undocumented` per row text whose prefix the Parsing part lacks.
+
+    A row text is an `is_row_text` literal or one of `Context.assigned_texts`; a `parser: `
+    message is rule 2's either way.
+    """
     document = context.relative(context.document.path)
-    for literal in context.literals:
-        if not is_row_text(literal.text):
-            continue
+    labelled = [literal for literal in context.literals if is_row_text(literal.text)]
+    assigned = [item for item in context.assigned_texts if not item.text.startswith(PARSER_PREFIX)]
+    for literal in labelled + assigned:
         prefix = constant_prefix(literal.text)
         documents = context.documents_for(literal)
         if prefix and not any(item.parsing.documents_prefix(prefix) for item in documents):
@@ -1453,6 +1816,54 @@ def docstring_findings(context: Context) -> Iterator[drift_common.Finding]:
             yield context.finding("docstring-fact-undocumented", span, literal, message)
 
 
+def secondary_findings(context: Context) -> Iterator[drift_common.Finding]:
+    """Yield `secondary-unlisted` per `secondary` pattern the survival row names no file of.
+
+    The row is the agent's in the survival table of `research/README.md`, read from its third
+    cell (`SURVIVAL_SEARCHED_CELLS`). A pattern is named by a code span there that
+    `selector_matches_name` or `names_selector_tail` accepts, never one ending in `/`, since a
+    parent directory names no file; or by a word equal to one of its `selector_basenames`. A
+    parser with such a pattern and no row yields one `survival-row-missing` instead.
+    """
+    patterns = [item for item in context.selectors if "secondary" in item.methods]
+    index = drift_common.RESEARCH_INDEX.as_posix()
+    agent = context.parser.agent
+    row = context.survival
+    if patterns and row is None:
+        message = "the parser reads %d secondary file pattern(s); the survival table has no row"
+        yield drift_common.Finding(
+            agent, "survival-row-missing", agent, index, 0, message % len(patterns)
+        )
+        return
+    if row is None:
+        return
+    text = " | ".join(row.cells[SURVIVAL_SEARCHED_CELLS:])
+    spans = [
+        span
+        for span in (drift_common.collapse(match.group(2)) for match in CODE_SPAN.finditer(text))
+        if not span.endswith("/")
+    ]
+    words = set(FILE_WORD.findall(text))
+    for selector in patterns:
+        names = selector_basenames(selector)
+        if any(
+            selector_matches_name(selector, span) or names_selector_tail(selector, span)
+            for span in spans
+        ):
+            continue
+        if any(name in words for name in names):
+            continue
+        looked = ", ".join(repr(name) for name in names) or "none, its last component varies"
+        where = "%s:%d" % (context.relative(selector.literal.path), selector.literal.line)
+        message = (
+            "the survival row of %s names no file the secondary pattern at %s matches"
+            " (no code span matches it; file names looked for among its words: %s)"
+        ) % (agent, where, looked)
+        yield drift_common.Finding(
+            agent, "secondary-unlisted", selector.literal.text, index, row.line, message
+        )
+
+
 RULES = (
     row_text_findings,
     parser_message_findings,
@@ -1461,6 +1872,7 @@ RULES = (
     flag_findings,
     not_read_findings,
     docstring_findings,
+    secondary_findings,
 )
 
 
@@ -1502,6 +1914,7 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
     for item in classes:
         for module in effective[id(item)].nodes:
             holders.setdefault(module, []).append(item.agent)
+    survival = drift_common.survival_rows(root)
     seen: set[tuple[str, str, str]] = set()
     for parser in classes:
         owners = {
@@ -1515,10 +1928,12 @@ def run(root: pathlib.Path) -> Iterator[drift_common.Finding]:
             parser,
             read[parser.agent],
             effective[id(parser)].literals(index),
+            assigned_row_texts(index, effective[id(parser)]),
             key_reads(index, effective[id(parser)]),
             selectors(index, parser, parsers),
             names,
             owners,
+            survival.get(parser.agent),
         )
         for rule in RULES:
             for finding in rule(context):

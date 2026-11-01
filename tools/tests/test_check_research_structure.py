@@ -352,6 +352,16 @@ def test_bare_doc_reference(tmp_path, capsys):
     )
 
 
+def test_doc_reference_with_reference_link_or_bare_url_fails(tmp_path, capsys):
+    for storage in (
+        "The [vendor documentation][docs] names `.alpha`.\n\n[docs]: https://example.com/docs",
+        "The vendor documentation at https://example.com/docs names `.alpha`.",
+    ):
+        write_document(tmp_path, document(storage=storage))
+        status, output = run(tmp_path, capsys)
+        assert (status, kinds(output)) == (1, ["bare-doc-reference"]), storage
+
+
 def test_linked_doc_reference_passes(tmp_path, capsys):
     storage = "The [vendor documentation](https://example.com/docs#paths) names `.alpha`."
     write_document(tmp_path, document(storage=storage))
@@ -497,15 +507,21 @@ def test_version_phrases_forms():
 
 
 def test_link_near_forms():
-    lines = ["since 2.1", "see [notes](https://x.com)", "plain", "plain", "<https://x.com>"]
+    lines = ["since 2.1", "see [notes](https://x.com)", "plain", "plain", "[a](#b)"]
     assert checker.link_near(lines, 0)
     assert checker.link_near(lines, 1)
     assert not checker.link_near(lines, 2)
     assert checker.link_near(lines, 3)
-    for text in ("[a][ref]", "https://x.com/a", "[Format versions](#format-versions)"):
+    for text in ("[notes](https://x.com/a)", "[Format versions](#format-versions)"):
         assert checker.has_link(text), text
     for text in ("[a] b", "`https` scheme", "(a)[b]"):
         assert not checker.has_link(text), text
+
+
+def test_reference_link_and_bare_url_are_not_links():
+    for text in ("[a][ref]", "[a][]", "https://x.com/a", "<https://x.com/a>"):
+        assert not checker.has_link(text), text
+        assert not checker.link_near([text, "plain"], 0), text
 
 
 def test_names_version_forms():

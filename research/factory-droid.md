@@ -15,7 +15,9 @@ for Linux, macOS and Windows. Its parser is in the backlog
   published `.sha256`; bun-compiled ELF. Evidence level **B** is strings from this binary:
   `strings -n 8` (the 8-bit table holds the minified code) and UTF-16 strings.
 - Evidence level **D** is vendor documentation, fetched as Markdown from
-  `https://docs.factory.com/<page>.md` (index `https://docs.factory.ai/llms.txt`).
+  `https://docs.factory.com/<page>.md`, as the [llms.txt index](https://docs.factory.com/llms.txt)
+  lists them (index and redirect checked 2026-11-01: `docs.factory.ai` redirects to
+  `docs.factory.com`).
 - The [Factory-AI/factory](https://github.com/Factory-AI/factory) GitHub repo is docs only (prior
   finding; not re-cloned).
 
