@@ -21,6 +21,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Qwen Code parser reads a `chats/` file only when its name is a session id, as Qwen Code's own session list does, so sidecars and other files there give no rows ([#326]).
 - A Qwen Code `settings.json` that is not a JSON object gives its `parser:` row with no line and no time, as every other whole-file row ([#326]).
 
+### Fixed
+
+- pi: a `.pi/agent/settings.json` that is not a JSON object gives one `parser: .pi/agent/settings.json is not a JSON object` row where it was silent; an experimental session's `meta.json` that is not a JSON object gives `parser: <path> is not a JSON object` in place of the decoder's message; and the `trust.json` row of that form carries no time and `source_line` 0, as other whole-file rows do. A leading byte-order mark is dropped from `trust.json` and `settings.json`, as pi drops it ([#201], [#326]).
+- pi: a session file whose first record is not a header reports its unparseable lines even when entries follow, and a `crashes.json` element that is not an object gives `parser: unparseable record <N> (not a JSON object): <element>` where it was skipped ([#201], [#326]).
+
 ## [0.23.0] - 2026-10-31
 
 ### Changed

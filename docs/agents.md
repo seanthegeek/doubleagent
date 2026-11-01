@@ -1057,7 +1057,7 @@ snapshot of a session's messages) and `.pi/agent/crashes.json` (one
 or a `bug report exported:` row for a zip, and a call little-coder's
 permission gate refused a `permission decision: denied` row.
 
-Validated against: Source at [2003871](https://github.com/earendil-works/pi/commit/200387122ca450d6387f033949423114a270b96c), synthetic fixture; `defaultProjectTrust`, the debug and crash logs and the permission-gate rows from source at [5c1736f](https://github.com/earendil-works/pi/commit/5c1736f82d201d09664642ab0d88147da94b450e) (coding-agent 1.3.0), synthetic fixture.
+Validated against: source at [2c8d1fe](https://github.com/earendil-works/pi/commit/2c8d1feb147f6b3d97e855da803bfe7b19f3c403) (coding-agent 1.4.0), and the older shapes of tag v0.83.0 and of 1.0.2 at [2003871](https://github.com/earendil-works/pi/commit/200387122ca450d6387f033949423114a270b96c); synthetic fixture only, no real install.
 
 ### `qwen-code`
 
