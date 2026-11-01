@@ -217,8 +217,10 @@ transcripts. Its Local Control setting shares the live daemon with a phone on th
 ([`desktop/README.md:17`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/desktop/README.md#L17)).
 
 Qwen Live (`packages/qwen-live`), the voice daemon in the same repository, keeps its state in
-`~/.qwen-live`, a directory of its own, so it is not described here
-([issue 156](https://github.com/seanthegeek/doubleagent/issues/156)).
+`~/.qwen-live`, the catalog agent `qwen-live` ([`qwen-live.md`](qwen-live.md)); it and
+`qwen serve`'s built-in Live module write the discovery record `live/daemon.json` here, through the
+temporary copy `live/.daemon.<pid>.<uuid>.tmp`
+([Discovery record in `~/.qwen` in `qwen-live.md`](qwen-live.md#discovery-record-in-qwen)).
 
 ### Credentials
 
@@ -237,6 +239,7 @@ Linux and macOS, under `%USERPROFILE%` on Windows), or under `$QWEN_HOME` when i
 | `.qwen/channels/weixin/account.json` | the WeChat adapter's `token` (or under `WEIXIN_STATE_DIR`) ([`channels/weixin/src/accounts.ts:21-40`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/weixin/src/accounts.ts#L21-L40)) |
 | `.qwen/sessions/<pid>.json`, `.qwen/sessions/<pid>-<8 hex>.json` (the files `.qwen/sessions/*.json`) | the session registry, whose `ipcToken` admits a connection to a running session's socket ([Session registry](#session-registry)) |
 | `.qwen/agent-hosts/<sha256>.json` | the daemon's Agent Host `hostId` and `secret`, mode 0600 ([`cli/src/serve/agent-host-client.ts:94-100`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/agent-host-client.ts#L94-L100), [`189-194`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/agent-host-client.ts#L189-L194)) |
+| `.qwen/live/daemon.json`, `.qwen/live/.daemon.<pid>.<uuid>.tmp` | the Live daemon's discovery record and its temporary copy ([Credentials in `qwen-live.md`](qwen-live.md#credentials)) |
 | `.qwen/managed-local/state.json` | the managed local mode's `publicToken`, `signingKey`, `harnessToken`, `brokerToken`, `writerBindingKey` and `runtimeCredentialKey`, mode 0600 ([`cli/src/serve/managed-local-state.ts:24-37`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-state.ts#L24-L37), [`146-158`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-state.ts#L146-L158)) |
 | `.qwen/managed-local/worker-home/oauth_creds.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens.json`, `.qwen/managed-local/worker-home/mcp-oauth-tokens-v2.json`, `.qwen/managed-local/worker-home/extension-secrets-v1.json`, `.qwen/managed-local/worker-home/.env`, `.qwen/managed-local/worker-home/settings.json`, `.qwen/managed-local/worker-home/settings.json.write-<random>/settings.json.orig`, `.qwen/managed-local/worker-home/settings.json.corrupted` and `.qwen/managed-local/worker-home/sessions/<pid>.json` (the files `.qwen/managed-local/worker-home/sessions/*.json`) | the same stores written by the managed local mode's worker processes, whose `$QWEN_HOME` is `worker-home/` ([`cli/src/serve/managed-local-serve.ts:103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)) |
 

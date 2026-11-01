@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `gemini-cli` parser reads Gemini CLI's sandbox grants, `~/.gemini/policies/sandbox.toml` (Python 3.11 or later): one `system` row `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per `modes` table and `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)` per command the user allowed and saved, at the file's modification time ([#186], [#326]).
 - A Gemini CLI session whose project is a `--worktree` checkout, `<project>/.gemini/worktrees/<name>`, gets a `system` row `scratch directory: <path> (gemini --worktree <name>)` after the file's `session start:` rows, at the first one's time and line, with the worktree as its `project_path` ([#216], [#326]).
 - The bundled catalog copy gains collector 1.22.0's Gemini CLI secret globs, `.gemini/integrity.key` and `*.gemini/.settings.json.*.tmp` ([#326]).
+- The bundled catalog copy gains collector 1.22.0's Qwen Live lines, so `detect` attributes `.qwen-live` to the new agent `qwen-live`, which `timeline` lists as detected but not parsed ([#156]).
 
 ### Changed
 
@@ -2289,6 +2290,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [#159]: https://github.com/seanthegeek/doubleagent/issues/159
 [#158]: https://github.com/seanthegeek/doubleagent/issues/158
 [#157]: https://github.com/seanthegeek/doubleagent/issues/157
+[#156]: https://github.com/seanthegeek/doubleagent/issues/156
 [#155]: https://github.com/seanthegeek/doubleagent/issues/155
 [#154]: https://github.com/seanthegeek/doubleagent/issues/154
 [#153]: https://github.com/seanthegeek/doubleagent/issues/153

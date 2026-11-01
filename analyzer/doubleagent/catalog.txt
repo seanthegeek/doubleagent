@@ -333,6 +333,8 @@ zed|.var/app/dev.zed.ZedNightly/config/zed
 zed|.var/app/dev.zed.ZedNightly/data/zed
 # Qwen Code
 qwen-code|.qwen
+# Qwen Live, the voice daemon of the Qwen Code repository (~/.qwen-live on every OS)
+qwen-live|.qwen-live
 # Amp (data dir is ~/.local/share/amp on every OS; threads are server-side)
 amp|.config/amp
 amp|.local/share/amp
@@ -1373,6 +1375,9 @@ AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
 .qwen/managed-local/worker-home/settings.json.write-*/settings.json.orig
 .qwen/managed-local/worker-home/settings.json.corrupted
 .qwen/managed-local/worker-home/sessions/*.json
+.qwen/live/daemon.json
+.qwen/live/.daemon.*.tmp
+.qwen-live/config.json*
 .codex/auth.json
 .codex/.credentials.json
 .codex/secrets/*

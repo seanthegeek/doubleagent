@@ -74,6 +74,7 @@ agent name in each row links to its subsection.
 | [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md); [issue 395](https://github.com/seanthegeek/doubleagent/issues/395); the session exports, bug report zip and TUI crash log are not parsed |
 | [`pydantic-clai`](#pydantic-clai) | backlog | Source, PyPI wheel | [research](../research/pydantic-clai.md); [issue 66](https://github.com/seanthegeek/doubleagent/issues/66); CLAI 2.0 `sessions.db` conversations and the prompt histories |
 | [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); [issue 396](https://github.com/seanthegeek/doubleagent/issues/396); the usage log, channel histories, todo files, project summary and managed-local transcripts are not parsed |
+| [`qwen-live`](#qwen-live) | backlog | Source | [research](../research/qwen-live.md); a JSONL call log per daemon run and SQLite memory libraries holding the dialogue |
 | [`roo-code`](#roo-code) | parsed | source; fixture only | [research](../research/roo-code.md) |
 | [`shared`](#shared) | collected | Derived from the per-agent documents | [research](../research/shared.md); cross-agent instruction and skill directories with no transcripts |
 | [`shellgpt`](#shellgpt) | parsed | source; fixture only | [research](../research/shellgpt.md) |
@@ -1395,6 +1396,19 @@ and each workspace's `workspace.json`, `token` and `session.log`, with the
 workspaces' clones of remote repositories excluded.
 
 Validated against: Source, PyPI wheel.
+
+### `qwen-live`
+
+Files collected: `.qwen-live/sessions/live-<ms>-<nonce>.jsonl` and its
+rotated parts (the call log of one daemon run: what the user said, what
+the voice model answered, tool calls, permission requests and decisions,
+backend events), `.qwen-live/memories/<id>/dialogue.db` with its WAL
+sidecars and `meta.json` (a memory library: the dialogue turns, the facts
+kept about the user and visual observations), and `config.json` with its
+temporary copies (the DashScope key and backend tokens). The discovery
+record `.qwen/live/daemon.json` is collected under `qwen-code`.
+
+Validated against: Source.
 
 ### `shared`
 

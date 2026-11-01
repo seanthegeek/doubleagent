@@ -905,6 +905,21 @@ printf '# tabby\n' >"$ROOT/srv/tabbyproj/AGENTS.md"
 printf '{"files":{"/srv/twinproj/src/a.ts":{"hash":"h1"},"/srv/twinproj/b.ts":{"hash":"h2"}}}\n' >"$ALICE/.twinny/embeddings/twinproj/manifest.json"
 printf '# twin\n' >"$ROOT/srv/twinproj/AGENTS.md"
 
+# 2026-11-01 qwen-live (#156)
+# Qwen Live's data directory with a call log, a memory library and the configuration with the
+# wizard's and the daemon's temporary copies, and the discovery record it writes inside ~/.qwen
+# with its own temporary copy.
+QWEN_LIVE="$ALICE/.qwen-live"
+mkdir -p "$QWEN_LIVE/sessions" "$QWEN_LIVE/memories/default" "$ALICE/.qwen/live"
+printf '{"ts":1793520000000,"seq":1,"type":"session.start","payload":{"callId":"c1"}}\n' >"$QWEN_LIVE/sessions/live-1793520000000-0a1b2c3d.jsonl"
+printf '{"version":1,"id":"default","name":"Default"}\n' >"$QWEN_LIVE/memories/default/meta.json"
+printf 'sqlite\n' >"$QWEN_LIVE/memories/default/dialogue.db"
+printf '{"realtimeApiKey":"x"}\n' >"$QWEN_LIVE/config.json"
+printf '{"realtimeApiKey":"x"}\n' >"$QWEN_LIVE/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp"
+printf '{"realtimeApiKey":"x"}\n' >"$QWEN_LIVE/config.json.tmp"
+printf '{"url":"http://127.0.0.1:4242","token":"x"}\n' >"$ALICE/.qwen/live/daemon.json"
+printf '{"url":"http://127.0.0.1:4242","token":"x"}\n' >"$ALICE/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp"
+
 # --- 2026-10-04 Docker volumes: a root volume matched to Agent Zero, an unmatched volume,
 # and a rootless volume in alice's home.
 VOLUMES="$ROOT/var/lib/docker/volumes"
@@ -2307,6 +2322,11 @@ check "#326 OpenCode legacy project store discovers project" "row \"$ROOT/srv/oc
 for _opencode_path in .opencode/opencode.json opencode.jsonc; do
   check "#326 OpenCode project config flagged secret: $_opencode_path" "row \"$ROOT/srv/ocproj/$_opencode_path\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
 done
+# 2026-11-01 qwen-live (#156)
+check "#156 Qwen Live call log collected" "row \"$QWEN_LIVE/sessions/live-1793520000000-0a1b2c3d.jsonl\" | grep -q '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"'"
+check "#156 Qwen Live memory library collected" "row \"$QWEN_LIVE/memories/default/dialogue.db\" | grep -q '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"' && row \"$QWEN_LIVE/memories/default/meta.json\" | grep -q '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"'"
+check "#156 Qwen Live config and its temporary copies flagged secret" "row \"$QWEN_LIVE/config.json\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED' && row \"$QWEN_LIVE/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED' && row \"$QWEN_LIVE/config.json.tmp\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED'"
+check "#156 Qwen Live discovery record and its temporary copy flagged secret" "row \"$ALICE/.qwen/live/daemon.json\" | grep -q '\"agent\":\"qwen-code\".*$SECRET_COLLECTED' && row \"$ALICE/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp\" | grep -q '\"agent\":\"qwen-code\".*$SECRET_COLLECTED'"
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
@@ -2395,6 +2415,9 @@ done
 check "#326 goose project diagnostics export skipped without secrets" "[ \"\$(status_of \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\")\" = skipped_secret ]"
 # 2026-11-01 qwen-code rebuild (#326)
 check "#326 Qwen Code project settings and recovery copy skipped without secrets" "[ \"\$(status_of \"$ROOT/srv/qwenproj/.qwen/settings.json\")\" = skipped_secret ] && [ \"\$(status_of \"$ROOT/srv/qwenproj/.qwen/settings.json.corrupted\")\" = skipped_secret ]"
+# 2026-11-01 qwen-live (#156)
+check "#156 Qwen Live config and its temporary copies skipped without secrets" "[ \"\$(status_of \"$QWEN_LIVE/config.json\")\" = skipped_secret ] && [ \"\$(status_of \"$QWEN_LIVE/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp\")\" = skipped_secret ] && [ \"\$(status_of \"$QWEN_LIVE/config.json.tmp\")\" = skipped_secret ]"
+check "#156 Qwen Live discovery record and its temporary copy skipped without secrets" "[ \"\$(status_of \"$ALICE/.qwen/live/daemon.json\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp\")\" = skipped_secret ]"
 # 2026-10-04 catalog cases
 printf '%s\n' "$CASES_CATALOG" >"$WORK/nosecrets14"
 while IFS='|' read -r _kind _agent _relpath; do
