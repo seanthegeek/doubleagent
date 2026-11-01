@@ -638,3 +638,321 @@ TRUST_JSONC = (
     b'  "/srv/b": "DO_NOT_TRUST", /* last */\n'
     b"}\n"
 )
+
+
+# The past-use stores beside the transcripts. QWEN_GROUP_SESSION is a
+# Telegram group's session whose second prompt quotes the group messages the
+# channel kept; the managed local mode's harness and worker each hold a
+# transcript of their own.
+QWEN_GROUP_SESSION = "e5f6a7b8-4444-4000-8000-000000000077"
+QWEN_HARNESS_SESSION = "e5f6a7b8-4444-4000-8000-000000000088"
+QWEN_WORKER_SESSION = "e5f6a7b8-4444-4000-8000-000000000099"
+QWEN_TOKEN_USAGE_REL = ".qwen/usage/token-usage-2026-10.jsonl"
+QWEN_GROUP_HISTORY_REL = ".qwen/channels/telegram-group-history.jsonl"
+QWEN_GROUP_REL = ".qwen/projects/-srv-proj/chats/%s.jsonl" % QWEN_GROUP_SESSION
+QWEN_TODO_REL = ".qwen/todos/%s.json" % QWEN_SESSION
+QWEN_TODO_DEFAULT_REL = ".qwen/todos/default.json"
+QWEN_ORGANIZATION_REL = ".qwen/projects/-srv-proj/session-organization.v1.json"
+QWEN_PR_REL = ".qwen/projects/-srv-proj/chats/%s.pr.json" % QWEN_SESSION
+QWEN_AUDIT_REL = ".qwen/channels/proj-0123456789ab/github-0123456789abcdef-github-audit.jsonl"
+QWEN_SUMMARY_REL = ".qwen/PROJECT_SUMMARY.md"
+QWEN_HARNESS_REL = ".qwen/managed-local/harness/projects/-srv-proj/chats/%s.jsonl" % (
+    QWEN_HARNESS_SESSION
+)
+QWEN_WORKER_REL = ".qwen/managed-local/worker-home/projects/-srv-proj/chats/%s.jsonl" % (
+    QWEN_WORKER_SESSION
+)
+QWEN_WORKER_USAGE_REL = ".qwen/managed-local/worker-home/usage_record.jsonl"
+QWEN_PAST_USE_MTIME = 1791453600  # 8 October 10:00:00 UTC
+# 3 October 08:00:00, 08:05:00 and 08:20:00 UTC in epoch milliseconds.
+QWEN_GROUP_TIMES = (1791014400000, 1791014700000, 1791015600000)
+
+
+def qwen_token_usage_records():
+    """Return two token usage records of one session, one with a model and one without.
+
+    Source: research/qwen-code.md#token-usage-log; source 835b080
+    """
+    common = dict(schemaVersion=1, localDate="2026-10-01", localMonth="2026-10")
+    return [
+        dict(
+            common,
+            id="u-1",
+            timestamp="2026-10-01T10:00:03.000Z",
+            sessionId=QWEN_SESSION,
+            model="qwen3-coder-plus",
+            authType="qwen-oauth",
+            source="main",
+            inputTokens=200,
+            outputTokens=30,
+            cachedTokens=0,
+            thoughtsTokens=12,
+            totalTokens=242,
+            apiDurationMs=2900,
+        ),
+        dict(
+            common,
+            id="u-2",
+            timestamp="2026-10-01T10:01:00.000Z",
+            sessionId=QWEN_SESSION,
+            model="unknown",
+            authType="unknown",
+            source="main",
+            inputTokens=0,
+            outputTokens=0,
+            cachedTokens=0,
+            thoughtsTokens=0,
+            totalTokens=0,
+            apiDurationMs=0,
+        ),
+    ]
+
+
+def qwen_group_history_records():
+    """Return a group history: two messages, the clear a prompt's drain writes, and a third.
+
+    The first message has a sender name and a message id, the second neither;
+    the third arrived after the drain and is still waiting.
+
+    Source: research/qwen-code.md#channel-state-files; source 835b080
+    """
+    key = json.dumps(["telegram", "-1001234", None])
+    first, second, third = QWEN_GROUP_TIMES
+    entry = {"senderId": "42", "senderName": "Bob"}
+    return [
+        {
+            "type": "message",
+            "key": key,
+            "limit": 20,
+            "entry": dict(entry, text="the deploy is broken", messageId="m-1", timestamp=first),
+            "recordedAt": first + 5,
+        },
+        {
+            "type": "message",
+            "key": key,
+            "limit": 20,
+            "entry": {"senderId": "43", "senderName": "", "text": "rollback?", "timestamp": second},
+            "recordedAt": second + 5,
+        },
+        {"type": "clear", "key": key, "recordedAt": second + 60000},
+        {
+            "type": "message",
+            "key": key,
+            "limit": 20,
+            "entry": dict(entry, text="fixed now", messageId="m-3", timestamp=third),
+            "recordedAt": third + 5,
+        },
+    ]
+
+
+def qwen_group_session_records():
+    """Return a channel session: a prompt with no quote, then one quoting two group messages.
+
+    Source: research/qwen-code.md#channel-state-files; source 835b080
+    """
+    common = dict(
+        sessionId=QWEN_GROUP_SESSION,
+        cwd="/srv/proj",
+        version="0.26.4",
+        gitBranch="main",
+        type="user",
+        provenance="real_user",
+    )
+    quoted = (
+        "[Chat messages since your last reply - for context]\n"
+        "- [Bob] the deploy is broken\n"
+        "- [43] rollback?\n"
+        "\n"
+        "[Current message - respond to this]\n"
+        "@bot what happened?"
+    )
+    return [
+        dict(
+            common,
+            uuid="g1",
+            parentUuid=None,
+            timestamp="2026-10-03T07:59:00.000Z",
+            message={"role": "user", "parts": [{"text": "hello"}]},
+        ),
+        dict(
+            common,
+            uuid="g2",
+            parentUuid="g1",
+            timestamp="2026-10-03T08:06:00.500Z",
+            message={"role": "user", "parts": [{"text": quoted}]},
+        ),
+    ]
+
+
+def qwen_todo_file():
+    """Return a session's todo file with a plan id and one item blocked by another.
+
+    Source: research/qwen-code.md#todo-files; source 835b080
+    """
+    return {
+        "planId": "plan-1",
+        "todos": [
+            {"id": "t1", "content": "Run the test suite", "status": "completed"},
+            {"id": "t2", "content": "Fix the failing test", "status": "in_progress"},
+            {
+                "id": "t3",
+                "content": "Open a pull request",
+                "status": "pending",
+                "blockedBy": ["t2"],
+            },
+        ],
+        "sessionId": QWEN_SESSION,
+    }
+
+
+def qwen_session_organization():
+    """Return the Web Shell's grouping file: one group, a pinned session and an ungrouped one.
+
+    Source: research/qwen-code.md#session-organization; source 835b080
+    """
+    return {
+        "schemaVersion": 1,
+        "groups": [
+            {
+                "id": "grp-1",
+                "name": "Release",
+                "color": "blue",
+                "order": 0,
+                "createdAt": "2026-10-01T11:00:00.000Z",
+                "updatedAt": "2026-10-01T11:00:00.000Z",
+            }
+        ],
+        "sessions": {
+            QWEN_SESSION: {
+                "groupId": "grp-1",
+                "color": "green",
+                "pinnedAt": "2026-10-01T11:05:00.000Z",
+                "updatedAt": "2026-10-01T11:05:00.000Z",
+            },
+            QWEN_ARCHIVED: {"groupId": None, "updatedAt": "2026-10-01T11:06:00.000Z"},
+        },
+    }
+
+
+def qwen_session_pull_requests():
+    """Return a session's `.pr.json`: a created pull request closing an issue, and a bare one.
+
+    Source: research/qwen-code.md#source-host-rows; source 835b080
+    """
+    return {
+        "prs": [
+            {
+                "number": 12,
+                "url": "https://github.com/alice/proj/pull/12",
+                "createdAt": "2026-10-01T10:30:00.000Z",
+                "state": "merged",
+                "source": "create",
+                "issues": [
+                    {
+                        "number": 7,
+                        "url": "https://github.com/alice/proj/issues/7",
+                        "state": "completed",
+                    }
+                ],
+            },
+            {
+                "number": 3,
+                "url": "https://github.com/upstream/proj/pull/3",
+                "createdAt": "2026-10-01T10:40:00.000Z",
+            },
+        ]
+    }
+
+
+def qwen_github_audit_records():
+    """Return the GitHub channel's publication audit: a posted reply and a failed one.
+
+    Source: research/qwen-code.md#source-host-rows; source 835b080
+    """
+    common = dict(
+        type="github_publication",
+        channel="github",
+        repository="alice/proj",
+        sessionId=QWEN_DAEMON_SESSION,
+        bodySha256="0" * 64,
+    )
+    return [
+        dict(
+            common,
+            at="2026-10-07T10:00:05.000Z",
+            outcome="posted",
+            triggerKind="issue_comment",
+            number=7,
+            sourceMessageId="c-991",
+            actor="octocat",
+            threadId="c-991",
+            commentId=5001,
+            commentUrl="https://github.com/alice/proj/issues/7#issuecomment-5001",
+            bodyChars=120,
+        ),
+        dict(
+            common,
+            at="2026-10-07T10:02:00.000Z",
+            outcome="failed",
+            pendingId="p-2",
+            failurePhase="delivery",
+            failureError="HTTP 403",
+            bodyChars=80,
+        ),
+    ]
+
+
+def qwen_managed_records(session_id):
+    """Return one prompt of a managed local mode session, the harness's or a worker's.
+
+    Source: research/qwen-code.md#managed-local-mode; source 835b080
+    """
+    return [
+        dict(
+            uuid="m1",
+            parentUuid=None,
+            sessionId=session_id,
+            timestamp="2026-10-04T09:00:00.000Z",
+            type="user",
+            provenance="real_user",
+            cwd="/srv/proj",
+            version="0.26.4",
+            message={"role": "user", "parts": [{"text": "summarise the repository"}]},
+        )
+    ]
+
+
+def build_qwen_past_use(home: Path) -> None:
+    """Write the token usage log, group history, todos, grouping, pull requests and audit.
+
+    Also the project summary, the managed local transcripts and the workers'
+    usage record, and files the parser must not want: the managed H2 database
+    and a GitHub queue.
+
+    Source: research/qwen-code.md#other-stores; source 835b080
+    """
+    _jsonl(home / QWEN_TOKEN_USAGE_REL, qwen_token_usage_records())
+    _jsonl(home / QWEN_GROUP_HISTORY_REL, qwen_group_history_records())
+    _jsonl(home / QWEN_GROUP_REL, qwen_group_session_records())
+    _json_file(home / QWEN_TODO_REL, qwen_todo_file())
+    _json_file(home / QWEN_TODO_DEFAULT_REL, {"todos": [], "sessionId": "default"})
+    _json_file(home / QWEN_ORGANIZATION_REL, qwen_session_organization())
+    _json_file(home / QWEN_PR_REL, qwen_session_pull_requests())
+    _jsonl(home / QWEN_AUDIT_REL, qwen_github_audit_records())
+    queue = (home / QWEN_AUDIT_REL).with_name("github-0123456789abcdef-github-inbound-tasks.json")
+    queue.write_text("[]", encoding="utf-8")
+    (home / QWEN_SUMMARY_REL).write_text("# Project summary\n\n- tests fixed\n", encoding="utf-8")
+    _jsonl(home / QWEN_HARNESS_REL, qwen_managed_records(QWEN_HARNESS_SESSION))
+    _jsonl(home / QWEN_WORKER_REL, qwen_managed_records(QWEN_WORKER_SESSION))
+    worker_usage = dict(
+        qwen_usage_records()[0],
+        sessionId=QWEN_WORKER_SESSION,
+        startTime=1791104400000,
+        timestamp=1791104460000,
+    )
+    _jsonl(home / QWEN_WORKER_USAGE_REL, [worker_usage])
+    database = home / ".qwen/managed-local/database/managed.mv.db"
+    database.parent.mkdir(parents=True, exist_ok=True)
+    database.write_bytes(b"H:2,block:2,blockSize:1000\n" + b"\0" * 32)
+    for rel in (QWEN_TODO_REL, QWEN_TODO_DEFAULT_REL, QWEN_SUMMARY_REL):
+        os.utime(home / rel, (QWEN_PAST_USE_MTIME, QWEN_PAST_USE_MTIME))

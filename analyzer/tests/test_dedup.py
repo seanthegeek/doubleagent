@@ -68,6 +68,13 @@ class DeduplicateTests(unittest.TestCase):
         self.assertEqual(kept, [primary_row])
         self.assertEqual(dropped, Counter({"claude-code": 1}))
 
+    def test_match_one_millisecond_before_the_epoch(self):
+        # -1 ms is a time like any other, not the NO_MATCH marker.
+        moment = "1969-12-31T23:59:59.999Z"
+        kept, dropped = dedup([row(moment)], [history_row(moment)])
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(dropped, Counter({"claude-code": 1}))
+
     def test_match_by_project_without_session(self):
         primary_row = row()
         kept, dropped = dedup([primary_row], [history_row(session_id="")])

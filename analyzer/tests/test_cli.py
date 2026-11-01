@@ -710,7 +710,7 @@ FIXTURE_DEDUPLICATED = {
     "openhands": 1,  # CLI prompt_history.json "list the files"
     "pearai": 4,  # output log and dev_data/chat.jsonl: "add the target" and its reply
     "pi": 4,  # pi-debug.log: prompt, model row, tool_use, tool_result
-    "qwen-code": 1,  # "run the tests"
+    "qwen-code": 3,  # "run the tests" and the two group messages a prompt quotes
     "roo-code": 2,  # cli-history.json "rename the helper" and "yes", no timestamp
     "shellgpt": 1,  # response cache: the answer the chat file holds
     # completion prompt and choice, threads 7 and 3 in the backups, and

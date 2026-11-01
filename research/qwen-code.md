@@ -14,8 +14,10 @@ that wraps the Web Shell), a managed mode of `qwen serve` that runs its sessions
 Java service, and messaging-platform channels. This document rests on the main branch at commit
 [`835b080`](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b)
 of 2026-11-01 (package version 0.26.4), beside the release tag `v0.26.5`. Parsed: the
-`qwen-code` parser reads the transcripts, `logs.json`, `usage_record.jsonl`, `trustedFolders.json`,
-`settings.json` and the channel route files ([Parser plan](#parser-plan)).
+`qwen-code` parser reads the transcripts (the managed local mode's among them), `logs.json`,
+`usage_record.jsonl`, the token usage log, the todo files, the session organization, the
+pull-request sidecars, `PROJECT_SUMMARY.md`, `trustedFolders.json`, `settings.json` and the channel
+route, group history and GitHub audit files ([Parser plan](#parser-plan)).
 
 ## Source and evidence
 
@@ -56,7 +58,9 @@ run.
   directory, the Agent Host credentials, the session organization store, the monthly token usage
   log, the per-session todo files, the GitHub channel's audit and the channels' group history, the
   settings recovery copies, the home-level worktree root and the key tables; recorded the record
-  subtypes added after 0.25.3.
+  subtypes added after 0.25.3. A second pass at the same commit added the key tables of the group
+  history, the todo files, the session organization and the pull-request issues, how a channel
+  prompt quotes the group history, and the managed local mode's runtime roots.
 - 2026-10-21: QwenLM/qwen-code at [`5dcf7c7`](https://github.com/QwenLM/qwen-code/commit/5dcf7c7cb162e825d95d531081f67ee60da3c0e1) (0.25.3): the per-call
   decision, approval-mode, `settings.json` permission and `usage_record.jsonl` rows moved from
   proposed to parsed, the `ui_telemetry` tool-call event name was corrected to
@@ -201,6 +205,16 @@ hosted harness process, so it holds that process's own `projects/` transcripts),
 [`208`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L208),
 [`283-292`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L283-L292);
 [`managed-agent-server/server/src/main/resources/application-managed-local.yml:3`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/managed-agent-server/server/src/main/resources/application-managed-local.yml#L3)).
+The harness runs with `QWEN_RUNTIME_DIR` set to `harness/` and the workers with `QWEN_HOME` set to
+`worker-home/`
+([`managed-local-serve.ts:291`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L291),
+[`103`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/serve/managed-local-serve.ts#L103)),
+so each is a runtime base of its own: `.qwen/managed-local/harness/projects/*/chats/*.jsonl` and
+`.qwen/managed-local/worker-home/projects/*/chats/*.jsonl` are transcripts in the home's form, with
+`tmp/`, `todos/` and `usage/` beside them in the same layout. `worker-home/` is also the workers'
+global directory, so it holds their `usage_record.jsonl` too
+([`core/src/services/usageHistoryService.ts:139-141`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/usageHistoryService.ts#L139-L141));
+the harness moves only its runtime base and keeps the home's.
 
 #### Qwen Code Desktop
 
@@ -401,7 +415,8 @@ Base directory `~/.qwen` or the runtime base directory
   [`core/src/utils/runtimeStatus.ts:46-70`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/utils/runtimeStatus.ts#L46-L70));
   `<sessionId>.worktree.json`
   ([Scratch workspaces and worktrees](#scratch-workspaces-and-worktrees)); `<sessionId>.pr.json`,
-  the pull requests bound to the session ([Source host rows](#source-host-rows));
+  the pull requests bound to the session
+  ([GitHub audit and pull-request sidecars](#github-audit-and-pull-request-sidecars));
   `<sessionId>.ledger.jsonl`, the append-only prompt ledger
   ([`sessionService.ts:982-1003`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/sessionService.ts#L982-L1003),
   [`1054-1067`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/sessionService.ts#L1054-L1067)).
@@ -411,7 +426,8 @@ Base directory `~/.qwen` or the runtime base directory
   `~/.qwen/channels/daemon/<workspace hash>/routes.json` ([Channel routes](#channel-routes)).
 - The managed local mode's harness keeps its transcripts under
   `~/.qwen/managed-local/harness/projects/` and its workers theirs under
-  `~/.qwen/managed-local/worker-home/` ([Managed local mode](#managed-local-mode)).
+  `~/.qwen/managed-local/worker-home/projects/`, in the same form as the home's, each record's
+  `cwd` naming its project ([Managed local mode](#managed-local-mode)).
 - Past use beyond the transcript: [Other stores](#other-stores).
 
 #### What survives a delete
@@ -433,18 +449,24 @@ the purge ([`cli/src/ui/hooks/useDeleteCommand.ts:50-69`](https://github.com/Qwe
 
 Untouched by any delete: `shell_history`, the `/chat save` checkpoints (`checkpoint-<tag>.json`),
 the managed auto-memory documents, the todo file `todos/<sessionId>.json`, the token usage log
-`usage/token-usage-<YYYY-MM>.jsonl`, the debug log `debug/<sessionId>.txt` and the session's
-`.qwen/PROJECT_SUMMARY.md` in the project. The tool checkpoints in `checkpoints/` are gone after
-the next start ([shell_history and checkpoints](#shell_history-and-checkpoints)).
+`usage/token-usage-<YYYY-MM>.jsonl`, the debug log `debug/<sessionId>.txt`, the session's
+`.qwen/PROJECT_SUMMARY.md` in the project, the GitHub channel's audit, whose records carry the
+`sessionId` ([GitHub audit and pull-request sidecars](#github-audit-and-pull-request-sidecars)),
+and the channels' group history, which keeps the messages a deleted session's prompts quoted until
+the next compaction ([Channel state files](#channel-state-files)). The tool checkpoints in
+`checkpoints/` are gone after the next start
+([shell_history and checkpoints](#shell_history-and-checkpoints)).
 `usage_record.jsonl` keeps a deleted session's summary but no text
 ([usage_record.jsonl](#usage_recordjsonl)). A session driven from a messaging platform also lives
 on that platform; the daemon's `routes.json` stays on disk while the foreground service's
 `channels/sessions.json` is deleted on a clean shutdown. No deletion marker is written: the
 surviving `usage_record.jsonl` entry, the token usage records and, after a daemon delete, the
 `logs.json` prompts are all that show a removed session. The analyzer reads the transcripts in
-`chats/` and `chats/archive/`, each session's `.worktree.json` sidecar and both channel route
-files, and reads `logs.json` and `usage_record.jsonl` as secondary sources; it does not read
-`shell_history`, the checkpoints, the token usage log or the memory documents (see
+`chats/` and `chats/archive/` (the managed local mode's too), each session's `.worktree.json` and
+`.pr.json` sidecars, both channel route files, the token usage log, the todo files, the session
+organization, the GitHub channel's audit and `.qwen/PROJECT_SUMMARY.md`, and reads `logs.json`,
+`usage_record.jsonl` and the channels' group history as secondary sources; it does not read
+`shell_history`, the checkpoints, the memory documents or the managed local mode's database (see
 [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
 
 #### Scratch workspaces and worktrees
@@ -772,13 +794,22 @@ Session = file = `sessionId` on every record; `cwd` and `gitBranch` on every rec
 `promptId`, the tree by `parentUuid`, subagents by `isSidechain` and `agentId`, forks by
 `forkedFrom`. Record times are ISO 8601 with milliseconds; `usage_record.jsonl`, the session
 registry, the channel routes and `turn_result` use epoch milliseconds, and `runtime.json` epoch
-seconds. `logs.json` and the token usage log join on `sessionId`; `shell_history` and the
-checkpoints carry no session id.
+seconds. `logs.json`, the token usage log, the todo file (`sessionId` and its name), the GitHub
+audit and the session organization's `sessions` keys join on `sessionId`, and a `.pr.json`
+sidecar by its name; `shell_history` and the checkpoints carry no session id, and the group
+history none either: a group message joins the transcript only as a quoted line of the prompt
+that drained it ([Channel state files](#channel-state-files)). The group history's times are
+epoch milliseconds, the token usage log's, the session organization's, the audit's and a
+`.pr.json` sidecar's ISO 8601 strings; a todo file and `PROJECT_SUMMARY.md` record no time, so
+their rows take the file's modification time.
 
 ### Other stores
 
 No SQLite store; all stores the CLI writes are JSON or JSONL text. The managed local mode's H2
-database is the one binary store ([Managed local mode](#managed-local-mode)).
+database, `managed-local/database/managed.mv.db`, is the one binary store
+([Managed local mode](#managed-local-mode)); it is not parsed, as it is written in H2's MVStore
+format, for which the Python standard library has no reader
+([issue 411](https://github.com/seanthegeek/doubleagent/issues/411)).
 
 #### logs.json
 
@@ -840,7 +871,7 @@ as its id, project, start and duration, the models it used and how often it call
 
 #### Token usage log
 
-`usage/token-usage-<YYYY-MM>.jsonl` under the runtime base (not parsed): one record per model
+`usage/token-usage-<YYYY-MM>.jsonl` under the runtime base (parsed, primary): one record per model
 response, written from the API response logger
 ([`core/src/services/tokenUsageService.ts:26-45`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/tokenUsageService.ts#L26-L45),
 [`386`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/tokenUsageService.ts#L386);
@@ -865,6 +896,47 @@ response, written from the API response logger
 | `apiDurationMs` | number | | |
 
 No delete touches it, so it keeps the time and model of every response of a deleted session.
+`model` and `authType` are `unknown` when the response named none, and `source` is `main` for the
+main agent or the subagent's name
+([`tokenUsageService.ts:240-256`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/tokenUsageService.ts#L240-L256);
+[`core/src/utils/subagentNameContext.ts:13`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/utils/subagentNameContext.ts#L13)).
+The token counts are whole numbers, `0` when the response gave none.
+
+#### Todo files
+
+`todos/<sessionId>.json` under the runtime base (parsed, primary), `todos/default.json` for a
+process with no session id: the `todo_write` tool's list, rewritten whole on every call as
+`{planId?, todos, sessionId}`, `sessionId` `default` in the default file
+([`core/src/tools/todoWrite.ts:95-102`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/tools/todoWrite.ts#L95-L102),
+[`133-151`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/tools/todoWrite.ts#L133-L151)).
+A file without a `todos` array reads as an empty list
+([`111-130`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/tools/todoWrite.ts#L111-L130)).
+No item has a time; no delete removes the file:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `planId` | string | | |
+| `todos` | array | | |
+| `sessionId` | string | | |
+
+Each item of `todos`
+([`core/src/hooks/types.ts:1291`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/hooks/types.ts#L1291),
+[`1344-1349`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/hooks/types.ts#L1344-L1349)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | string | | |
+| `content` | string | | |
+| `status` | string | `pending`, `in_progress`, `completed` | |
+| `blockedBy` | array | | |
+
+#### Project summary
+
+`<project>/.qwen/PROJECT_SUMMARY.md` (parsed, primary), the Markdown summary `/summary` writes of
+the conversation into the working directory's `.qwen/`
+([Project-local files](#project-local-files);
+[`core/src/utils/projectSummary.ts:37-45`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/utils/projectSummary.ts#L37-L45)).
+It records no session id and no time, and the next `/summary` overwrites it.
 
 #### Managed auto-memory
 
@@ -935,14 +1007,57 @@ transcripts themselves are ordinary `chats/<sessionId>.jsonl` files.
 
 #### Channel state files
 
-Beside the routes, under `~/.qwen/channels/` (not parsed):
+`~/.qwen/channels/<channel>-group-history.jsonl` (parsed, secondary): the group-chat messages a
+channel kept as context while the bot was not addressed, one record per line
+([`channels/base/src/ChannelBase.ts:1430-1437`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/ChannelBase.ts#L1430-L1437);
+[`channels/base/src/group-history-store.ts:12-39`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/group-history-store.ts#L12-L39),
+[`94-100`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/group-history-store.ts#L94-L100)):
 
-- `<channel>-group-history.jsonl`: the group-chat messages a channel kept as context, one
-  `{type: "message", key, limit, entry: {senderId, senderName, text, messageId?, timestamp},
-  recordedAt}` or `{type: "clear", key, recordedAt}` per line, times in epoch milliseconds
-  ([`channels/base/src/ChannelBase.ts:1430-1437`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/ChannelBase.ts#L1430-L1437);
-  [`channels/base/src/group-history-store.ts:12-39`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/group-history-store.ts#L12-L39),
-  [`94-100`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/group-history-store.ts#L94-L100)).
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `type` | string | `message`, `clear` | |
+| `key` | string | | |
+| `limit` | number | | |
+| `entry` | object | | |
+| `recordedAt` | number | | |
+
+`entry`, on a `message` record only:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `senderId` | string | | |
+| `senderName` | string | | |
+| `text` | string | | |
+| `messageId` | string | | |
+| `timestamp` | number | | |
+
+`key` is the JSON text of `[channelName, chatId, threadId or null, messageRoute?]`, `timestamp` the
+time the message arrived and `recordedAt` the time the line was written, both epoch milliseconds,
+and `text` is cut to 1000 characters
+([`ChannelBase.ts:6124-6131`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/ChannelBase.ts#L6124-L6131),
+[`6150-6182`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/ChannelBase.ts#L6150-L6182)).
+When the bot is next addressed in that chat, the channel drains the chat's messages, appending a
+`clear` record, and sends them inside the prompt: `[Chat messages since your last reply - for
+context]`, one `- [<sender>] <text>` line per message, a blank line, `[Current message - respond to
+this]` and the prompt itself, the sender `senderName` or else `senderId`
+([`group-history-store.ts:111-125`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/group-history-store.ts#L111-L125);
+[`ChannelBase.ts:117-120`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/ChannelBase.ts#L117-L120),
+[`6242-6269`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/ChannelBase.ts#L6242-L6269),
+[`7327-7334`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/ChannelBase.ts#L7327-L7334)).
+That prompt is the session's `user` record, so the transcript holds each drained message as a
+quoted line. The quote is sanitised: the sender name loses brackets, control and line characters
+and is cut to 64 characters, and the text has `"`, `[`, `]`, control and line characters, a line
+break among them, replaced by spaces ([`channels/base/src/sanitize.ts:75-109`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/sanitize.ts#L75-L109)).
+A `clear` record is also written when the chat is cleared, and `forget` drops a message that
+became a slash command. Drained messages stay in the file until the next compaction rewrites it
+with only the waiting ones, each with a new `recordedAt`
+([`group-history-store.ts:127-167`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/group-history-store.ts#L127-L167),
+[`261-290`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/group-history-store.ts#L261-L290)),
+so the file holds the messages still waiting and some already sent. No session id is recorded;
+no delete of a session touches the file.
+
+Beside the routes and the group history, under `~/.qwen/channels/` (not parsed):
+
 - `<channel>-pairing.json`, `<channel>-allowlist.json` and `<channel>-groups.json`, the pairing
   requests and approved senders and groups, under a per-workspace scope directory or at the top
   ([`channels/base/src/PairingStore.ts:52-71`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/PairingStore.ts#L52-L71)).
@@ -957,7 +1072,7 @@ Beside the routes, under `~/.qwen/channels/` (not parsed):
   `<name>-sessions-purged.json` ([`channels/qqbot/src/QQChannel.ts:623-625`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/qqbot/src/QQChannel.ts#L623-L625),
   [`720-733`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/qqbot/src/QQChannel.ts#L720-L733)).
 - The GitHub channel's publication audit and queues, per workspace scope
-  ([Source host rows](#source-host-rows)).
+  ([GitHub audit and pull-request sidecars](#github-audit-and-pull-request-sidecars)).
 
 #### Session registry
 
@@ -994,13 +1109,94 @@ peer-messaging socket and `ipcToken` the token a connection to it must present.
 
 #### Session organization
 
-`projects/<sanitized cwd>/session-organization.v1.json` (not parsed): the Web Shell's session
-groups, colours and pins, `{schemaVersion: 1, groups: [{id, name, color, order, createdAt,
-updatedAt}], sessions: {<sessionId>: {groupId, color?, pinnedAt?, updatedAt}}}`
+`projects/<sanitized cwd>/session-organization.v1.json` under the runtime base (parsed, primary):
+the Web Shell's session groups, colours and pins
 ([`core/src/services/session-organization-service.ts:27-46`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-organization-service.ts#L27-L46),
 [`80-97`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-organization-service.ts#L80-L97),
-[`260`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-organization-service.ts#L260)). A deleted session's entry is
-removed ([What survives a delete](#what-survives-a-delete)).
+[`260`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-organization-service.ts#L260)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `schemaVersion` | number | `1` | |
+| `groups` | array | | |
+| `sessions` | object | | |
+
+Each group, and each value of `sessions`, keyed by session id:
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `id` | string | | |
+| `name` | string | | |
+| `color` | string or null | `red`, `orange`, `yellow`, `green`, `blue`, `purple` | |
+| `order` | number | | |
+| `createdAt` | string | | |
+| `updatedAt` | string | | |
+| `groupId` | string or null | | |
+| `pinnedAt` | string | | |
+
+A group's `color` may also be a six-digit hex colour (`#` and six hex digits), a session's only a
+preset or null; `groupId`, `pinnedAt` and the session's `color` are optional, and the times are
+ISO 8601 ([`session-organization-service.ts:13-25`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-organization-service.ts#L13-L25),
+[`218-229`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-organization-service.ts#L218-L229)).
+A deleted session's entry is removed ([What survives a delete](#what-survives-a-delete)).
+
+#### GitHub audit and pull-request sidecars
+
+Both are parsed as primary sources ([Source host rows](#source-host-rows)). The GitHub channel
+appends a publication audit per workspace scope, the scope directory the workspace's base name and
+the first 12 hex digits of its SHA-256
+([`channels/base/src/paths.ts:90-102`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/base/src/paths.ts#L90-L102)),
+`~/.qwen/channels/<workspace scope>/<channel>-<hash>-github-audit.jsonl`, `<hash>` the first 16
+hex digits of the channel name's SHA-256
+([`GithubAdapter.ts:2064-2076`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L2064-L2076)), beside
+`github-pending-deliveries.json` and `github-inbound-tasks.json` of the same prefix
+([`GithubAdapter.ts:1027`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L1027),
+[`1948`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L1948),
+[`2064-2076`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L2064-L2076)). One audit record per reply
+([`GithubAdapter.ts:271-290`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L271-L290)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `at` | string | | |
+| `type` | string | `github_publication` | |
+| `outcome` | string | `posted`, `suppressed`, `failed`, `posting` | |
+| `channel` | string | | |
+| `triggerKind` | string | | |
+| `repository` | string | | |
+| `number` | number | | |
+| `sessionId` | string | | |
+| `sourceMessageId` | string | | |
+| `actor` | string | | |
+| `threadId` | string | | |
+| `pendingId` | string | | |
+| `commentId` | number | | |
+| `commentUrl` | string | | |
+| `failurePhase` | string | `delivery` | |
+| `failureError` | string | | |
+| `bodySha256` | string | | |
+| `bodyChars` | number | | |
+
+A session that opened or reviewed a pull request keeps `chats/<sessionId>.pr.json`, `{prs: [...]}`
+with at most ten entries ([`core/src/services/session-pr-service.ts:15-72`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-pr-service.ts#L15-L72)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `number` | number | | |
+| `url` | string | | |
+| `createdAt` | string | | |
+| `state` | string | `open`, `merged`, `closed` | |
+| `source` | string | `create`, `worktree`, `review` | |
+| `issues` | array | | |
+
+`prs` holds the entries; `state`, `source` and `issues` are optional. Each item of `issues`, a pull
+request's closing references
+([`session-pr-service.ts:54-61`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-pr-service.ts#L54-L61)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `number` | number | | |
+| `url` | string | | |
+| `state` | string | `open`, `completed`, `not_planned` | |
 
 #### Permission lists and trusted folders
 
@@ -1082,11 +1278,17 @@ local mode's `database/` may hold the workers' credentials; which was not determ
 ### Parser plan
 
 Globs (home-relative): `.qwen/projects/*/chats/*.jsonl`,
-`.qwen/projects/*/chats/archive/*.jsonl`, `.qwen/tmp/*/logs.json`, `.qwen/trustedFolders.json`,
-`.qwen/settings.json` (also a project's), `.qwen/usage_record.jsonl`,
-`.qwen/channels/sessions.json` and `.qwen/channels/daemon/*/routes.json`. Not read: the sidecars
-`*.runtime.json`, `*.pr.json`, `*.ledger.jsonl` and `*.worktree.json` (`*.worktree.json` is read
-only for the scratch directory row of its session).
+`.qwen/projects/*/chats/archive/*.jsonl`, `.qwen/projects/*/chats/*.pr.json`,
+`.qwen/projects/*/chats/archive/*.pr.json`, `.qwen/projects/*/session-organization.v1.json`,
+`.qwen/tmp/*/logs.json`, `.qwen/usage/token-usage-*.jsonl` and `.qwen/todos/*.json`, each also
+under `.qwen/managed-local/harness/` and `.qwen/managed-local/worker-home/` in place of `.qwen/`
+([Managed local mode](#managed-local-mode)); `.qwen/usage_record.jsonl`, also the workers'
+`.qwen/managed-local/worker-home/usage_record.jsonl`; `.qwen/trustedFolders.json`,
+`.qwen/settings.json` (also a project's), `.qwen/PROJECT_SUMMARY.md` (a project's, or one in
+the home), `.qwen/channels/sessions.json`, `.qwen/channels/daemon/*/routes.json`,
+`.qwen/channels/*-group-history.jsonl` and `.qwen/channels/*/*-github-audit.jsonl`. Not read: the
+sidecars `*.runtime.json`, `*.ledger.jsonl` and `*.worktree.json` (`*.worktree.json` is read only
+for the scratch directory row of its session).
 
 Rows: one per record; an assistant record also yields a `tool_use` row per `functionCall` part and
 a `thinking` row per `thought: true` part.
@@ -1101,7 +1303,11 @@ a `thinking` row per `thought: true` part.
 | model | `model` of an assistant record; `modelId` of a `session_model` payload or of `executionContext` for the model rows |
 | tool_name | `functionCall.name` / `functionResponse.name` |
 | tool_use_id | `functionCall.id` / `toolCallResult.callId` |
-| text | text parts, `systemPayload.displayText`, `rawCommand`, `toolCallResult.status` plus `errorType`; `scratch directory: <worktreePath> (enter_worktree <slug>)` from the session's `.worktree.json` sidecar |
+| text | text parts, `systemPayload.displayText`, `rawCommand`, `toolCallResult.status` plus `errorType`; `scratch directory: <worktreePath> (enter_worktree <slug>)` from the session's `.worktree.json` sidecar; `group message: [<sender>] <text>` per quoted line of a channel prompt |
+
+The other stores' rows are in
+[Past-use rows and secondary sources](#past-use-rows-and-secondary-sources) and
+[Source host rows](#source-host-rows).
 
 A `notification`, `cron`, `agent_mention`, `agent_message` or `goal_runtime` record the user did
 not type is the `system` row `<subtype> (provenance=<provenance> agent=<agentName>
@@ -1169,6 +1375,9 @@ record, written on every change.
 - A `logs.json` `model_switch` entry is `model: <fromModel> -> <toModel> reason=<reason>` (`model`
   column `toModel`), printed from the entry, not tracked; the reviewed builds write no such entry
   ([logs.json](#logsjson)).
+- The token usage log's `model` is shown in that record's own `token usage:` row and its `model`
+  column ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)), not as a
+  `model:` row: it repeats the transcript's assistant records, which give the model rows.
 
 #### Past-use rows and secondary sources
 
@@ -1184,11 +1393,75 @@ startTime)`, `-` for an absent part, at `startTime`, with `session_id` the recor
 `project_path` its `project`. No transcript row repeats it, so it is always kept, and for a deleted
 session it is the only row.
 
-Not read: `shell_history`, `checkpoint-<tag>.json`, the managed auto-memory `memory/`, the token
-usage log `token-usage-<YYYY-MM>.jsonl`, `todos/<sessionId>.json`, `PROJECT_SUMMARY.md`, the
-channels' `<channel>-group-history.jsonl`, the managed local mode's `database/` ([Other
-stores](#other-stores)) and its transcripts under `managed-local/harness/projects/` and
-`managed-local/worker-home/` ([Managed local mode](#managed-local-mode)).
+The channels' group history ([Channel state files](#channel-state-files)) is parsed as a secondary
+source, source-derived; not observed on any real install. A `message` record is the `system` row
+`group message: [<sender>] <text> (cleared <time>)` at the entry's `timestamp`, `<sender>` its
+`senderName` or else its `senderId` and `<time>` the `recordedAt` of the next `clear` record of
+the same `key`; `group message: [<sender>] <text> (cleared, time not recorded)` when that
+`clear` has no `recordedAt`, and `group message: [<sender>] <text> (waiting)` when no later
+`clear` of its key follows; the row has no session id and no project, as the file records
+neither. A `clear` record is `group history cleared: <key> (from <file>, recordedAt)` at
+`recordedAt`. On the transcript's side, a `user` record whose text holds the channel's quote
+block is followed, after its own row,
+by one `system` row `group message: [<sender>] <text>` per quoted line, at the record's time, with
+its session and project.
+
+The join is one predicate, derived per record from the store: the drain that quotes a chat's
+messages appends the `clear` of that chat's key and sends the prompt at once, and a compaction
+drops a drained message together with its `clear`. So a message is matched at its next `clear`'s
+`recordedAt`, against a transcript `group message:` row of the same text within two seconds of it,
+before or after; a `(waiting)` message was never quoted and a `(cleared, time not recorded)` one
+cannot be placed, so neither matches a transcript row. The text is compared without the history
+row's `(cleared ...)` or `(waiting)` suffix and with each run of ASCII
+whitespace collapsed to one space, since the channel quotes a line break as a space. A `clear` can
+also come from clearing the chat, with no prompt; its messages then find no quote and are kept.
+The chat's key does not reach the transcript, so the history row matches under any scope, and two
+chats whose `clear` records fall within the same two seconds with the same message text cannot be
+told apart. The channel routes file `channels/sessions.json` maps a chat to its session, but a
+clean shutdown deletes it ([Channel routes](#channel-routes)), so the join does not rest on it:
+the scope it could add would be missing in the usual collection. Copies of the same key's file
+are matched among themselves as one event: a quoted message at its `clear`'s time, a waiting one
+at its own time. A message whose text or sender name
+the sanitiser changed otherwise (a `"`, `[`, `]` or control character, a name over 64 characters)
+is quoted in another form and keeps both rows, as the analyzer never blanks characters a member
+typed to make two texts match. What only the history file holds, a message still waiting, a
+drained one whose session was deleted, the `clear` rows, is kept.
+
+The token usage log ([Token usage log](#token-usage-log)) is parsed as a primary source: no
+transcript row repeats a token count. Each record is one `system` row `token usage: model <model>
+auth <authType> source <source> tokens input <inputTokens> output <outputTokens> cached
+<cachedTokens> thoughts <thoughtsTokens> total <totalTokens> api <apiDurationMs>ms (from
+token-usage-<YYYY-MM>.jsonl)` at `timestamp`, with the record's `sessionId` and `model` and no
+project, `-` for a part not recorded; the `model` column stays empty when `model` is `unknown`,
+the placeholder for a response that named none, which the text keeps. It survives every delete,
+so for a deleted session it gives the time of each response.
+
+The todo files ([Todo files](#todo-files)) are parsed as a primary source: one `system` row per
+item, `todo: [<status>] <content> (id <id>, blocked by <id>,<id>, from todos/<file>, file mtime)`,
+`-` for a part not recorded, at the file's modification time, `source_line` the item's position,
+with the file's `sessionId` (else its name), none for `default`. An item that is not an object is
+its own `parser: todo <N> is not a JSON object` row.
+
+The session organization ([Session organization](#session-organization)) is parsed as a primary
+source: one `system` row per `sessions` entry, `session organization: group <name> color <color>
+pinned <pinnedAt> (from session-organization.v1.json, updatedAt)` at its `updatedAt`, the group
+named by its `name` in `groups` (else its id, `-` for none), `-` for no colour and `no` for no
+pin, with the entry's session id. An entry that is not an object is its own
+`parser: session <id> is not a JSON object` row.
+
+`.qwen/PROJECT_SUMMARY.md` ([Project summary](#project-summary)) is parsed as a primary source:
+one `system` row `project summary (from .qwen/PROJECT_SUMMARY.md, file mtime): <file text>`, the
+whole file, at its modification time, line 1, no session id, `project_path` the directory holding
+`.qwen/`.
+
+The managed local mode's transcripts under `managed-local/harness/projects/` and
+`managed-local/worker-home/projects/` are primary stores read as the home's, with each record's
+`cwd` its project ([Managed local mode](#managed-local-mode)); so are the logs, token usage, todo
+and organization files under those two roots.
+
+Not read: `shell_history`, `checkpoint-<tag>.json`, the managed auto-memory `memory/` and the
+managed local mode's database `managed.mv.db` ([Other stores](#other-stores);
+[issue 411](https://github.com/seanthegeek/doubleagent/issues/411)).
 
 #### Sync, relay and origin rows
 
@@ -1282,8 +1555,19 @@ before and after it are still read. A `settings.json` that is not a JSON object 
 `parser:` row. A `.worktree.json` sidecar that is not a JSON object is one
 `parser: <sessionId>.worktree.json is not a JSON object` row with the session's id and project path.
 
-A transcript, its `.worktree.json` sidecar, `usage_record.jsonl`, `logs.json`, channel routes file,
-`settings.json` or `trustedFolders.json` that cannot be read is one whole-file row
+Each line of the token usage log, a group history or a GitHub audit that does not decode is its own
+`parser: unparseable line` row, the lines around it still read; a group history line that decodes
+to neither a `message` (with an `entry` object) nor a `clear` record is its own
+`parser: unparseable line (not a group history record): <record>` row. A todo file, a `.pr.json`
+sidecar or a `session-organization.v1.json` that is not a JSON object is one whole-file
+`parser: <file> is not a JSON object` row, a todo file's and a sidecar's with the session's id;
+inside them, an item that is not an object is its own row (`parser: todo <N> is not a JSON object`,
+`parser: pull request <N> is not a JSON object`, `parser: session <id> is not a JSON object`).
+
+A transcript, its `.worktree.json` or `.pr.json` sidecar, `usage_record.jsonl`, `logs.json`, the
+token usage log, a todo file, the session organization, `PROJECT_SUMMARY.md`, a channel routes,
+group history or audit file, `settings.json` or `trustedFolders.json` that cannot be read is one
+whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, distinct
 from the `parser: <file> is not a JSON object` of a file that reads but decodes to something else.
 
@@ -1315,58 +1599,36 @@ A `usage_record.jsonl` line as `metricsToUsageRecord` writes it
 
 #### Source host rows
 
-The agent records no connected source-host account in a file the parser reads. The GitHub and
-GitLab channels act as an account through a personal access token in a `channels` entry of
-`settings.json` or, for GitHub, through the host's own `gh` login ([Credentials](#credentials));
+The agent records no connected source-host account in a file. The GitHub and GitLab channels act
+as an account through a personal access token in a `channels` entry of `settings.json` or, for
+GitHub, through the host's own `gh` login ([Credentials](#credentials));
 the authenticated login is looked up at connect and kept in memory (the GitHub channel also writes
 it to the daemon's standard error), never in a file
 ([`channels/github/src/GithubAdapter.ts:593-597`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L593-L597);
 [`channels/gitlab/src/GitlabAdapter.ts:92-98`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/gitlab/src/GitlabAdapter.ts#L92-L98)).
 
-The GitHub channel appends a publication audit per workspace scope,
-`~/.qwen/channels/<workspace scope>/<channel>-<hash>-github-audit.jsonl`, beside
-`github-pending-deliveries.json` and `github-inbound-tasks.json` of the same prefix
-([`GithubAdapter.ts:1027`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L1027),
-[`1948`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L1948),
-[`2064-2076`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L2064-L2076)). One audit record per reply
-([`GithubAdapter.ts:271-290`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L271-L290)):
+The audit and the sidecar are described under
+[GitHub audit and pull-request sidecars](#github-audit-and-pull-request-sidecars).
 
-| Key | Type | Values | Since |
-| --- | --- | --- | --- |
-| `at` | string | | |
-| `type` | string | `github_publication` | |
-| `outcome` | string | `posted`, `suppressed`, `failed`, `posting` | |
-| `channel` | string | | |
-| `triggerKind` | string | | |
-| `repository` | string | | |
-| `number` | number | | |
-| `sessionId` | string | | |
-| `sourceMessageId` | string | | |
-| `actor` | string | | |
-| `threadId` | string | | |
-| `pendingId` | string | | |
-| `commentId` | number | | |
-| `commentUrl` | string | | |
-| `failurePhase` | string | `delivery` | |
-| `failureError` | string | | |
-| `bodySha256` | string | | |
-| `bodyChars` | number | | |
+No repository list is cached. Grepped for `github`, `gitlab`, `bitbucket`, `oauth`,
+`installation`, `repositor`, `pull request` and `clone` at the reviewed commit.
 
-A session that opened or reviewed a pull request keeps `chats/<sessionId>.pr.json`, `{prs: [...]}`
-with at most ten entries ([`core/src/services/session-pr-service.ts:15-72`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/session-pr-service.ts#L15-L72)):
+Rows (parsed, primary; source-derived, not observed on any real install):
 
-| Key | Type | Values | Since |
-| --- | --- | --- | --- |
-| `number` | number | | |
-| `url` | string | | |
-| `createdAt` | string | | |
-| `state` | string | `open`, `merged`, `closed` | |
-| `source` | string | `create`, `worktree`, `review` | |
-| `issues` | array | | |
-
-Neither file is parsed. No repository list is cached. Grepped for `github`, `gitlab`,
-`bitbucket`, `oauth`, `installation`, `repositor`, `pull request` and `clone` at the reviewed
-commit.
+- Each audit record is one `system` row at `at` with its `sessionId`:
+  `source host: github repository <repository> actor <actor> publication <outcome> trigger
+  <triggerKind> number <number> comment <commentUrl> (from <file>, at)`, `-` for a part not
+  recorded, followed before `(from` by ` failure <failurePhase>: <failureError>` when either is
+  recorded. `actor` is the login of the GitHub user the reply answered (`getResponseSenderId`,
+  [`GithubAdapter.ts:727`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/github/src/GithubAdapter.ts#L727)),
+  not the account the channel posts as. The body is recorded only as `bodySha256` and
+  `bodyChars`, which the row leaves out. The file is
+  `.qwen/channels/*/<channel>-<16 hex>-github-audit.jsonl`; the queues beside it are not read.
+- Each entry of a `chats/<sessionId>.pr.json` sidecar (or `chats/archive/<sessionId>.pr.json`) is
+  one `system` row at its `createdAt`, the session the file's name: `source host: <host>
+  repository <owner>/<repo> pull request <url> state <state> source <source> issues
+  <number>,<number> (from <sessionId>.pr.json, createdAt)`, the host and repository taken from
+  the `url`'s host and first two path segments, `-` for a part not recorded.
 
 ## Confidence
 
@@ -1379,8 +1641,12 @@ commit.
   `extension-secrets-v1.json` holds anything besides extension secrets; what `hookContext` holds on
   a real install; what the managed local mode's H2 database and `worker-home/` hold beyond the
   sessions; whether a session registry record outlives a crashed process long enough to be
-  collected; a worktree's size and whether anything else lives under `.qwen/worktrees`.
+  collected; a worktree's size and whether anything else lives under `.qwen/worktrees`; whether
+  the user record of a channel prompt holds the prompt exactly as the channel sent it, quote block
+  included, which the group history rows' join rests on; where a managed local harness or worker
+  session's `cwd` points.
 - For a real-install round: the per-call decision, approval-mode, model and usage rows (an
   approval, a denial, an allow always, a model switch and a session deleted from the TUI and from
-  the Web Shell, with a listing diff after each), the channel route files and the Desktop app's
-  directories.
+  the Web Shell, with a listing diff after each), the channel route files and group history, a
+  `/summary`, a todo list, a session grouped and pinned in the Web Shell, a `qwen serve --managed`
+  session and the Desktop app's directories.
