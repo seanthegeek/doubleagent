@@ -59,7 +59,8 @@ while IFS= read -r path; do
 
   # The analyzer job and the ruff and pyright steps. The analyzer tests also
   # read analyzer/docs/output.md (its generated examples) and docs/agents.md
-  # (the collected agents), and run the tools/ checkers' tests.
+  # (the collected agents), and run the tools/ checkers' tests and the round
+  # pipeline's tests, which read every file of lab/round/.
   case "$path" in
     tools/drift-baseline/*) ;;
     analyzer/docs/output.md | docs/agents.md)
@@ -67,7 +68,7 @@ while IFS= read -r path; do
       matched=true
       ;;
     *.md) ;;
-    analyzer/* | tools/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json)
+    analyzer/* | tools/* | lab/round/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json)
       python=true
       matched=true
       ;;

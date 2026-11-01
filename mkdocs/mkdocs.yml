@@ -184,5 +184,6 @@ nav:
       - research/zed.md
       - research/frameworks.md
   - Agent lab: lab/README.md
+  - Round pipeline: lab/round/README.md
   - Lab VMs: docs/lab-vms.md
   - Contributing: AGENTS.md

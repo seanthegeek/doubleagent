@@ -223,6 +223,10 @@ jobs:
       # the import path, so they run from the repository root.
       - name: pytest (drift checkers)
         run: python3 -m pytest tools/tests -q
+      # The round pipeline's host-side tools; lab/round/tests/conftest.py
+      # puts lab/round/ on the import path.
+      - name: pytest (round pipeline)
+        run: python3 -m pytest lab/round/tests -q
 
   lint:
     name: Lint (ruff, pyright, markdownlint, sh linters, PSScriptAnalyzer)

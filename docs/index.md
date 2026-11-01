@@ -101,6 +101,14 @@ and exporting it for the collector, so real-install test material can be
 produced without installing agents on a workstation. See the
 [agent lab README](../lab/README.md).
 
+## Round pipeline
+
+One command that runs a real-install round of a terminal agent on one lab
+VM: it reverts the VM, installs the agent, plays a table of prompts, key
+presses and person steps through a headless terminal, lists the agent's
+directories after every step, collects and analyzes, and reverts the VM
+again. See the [round pipeline README](../lab/round/README.md).
+
 ## Lab VMs
 
 The clean virtual machines that the

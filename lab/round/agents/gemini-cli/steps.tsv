@@ -1,0 +1,67 @@
+NN	name	kind	text	expect	claim
+02	launch	agent	gemini	quiet	first start writes installation_id, projects.json, state.json and tmp/<slug>/ with a session file before any prompt; the folder-trust dialog opens (research/gemini-cli.md#per-user-storage)
+03	trust-option-2	keys	Down	quiet	the trust dialog's second option, Trust parent folder
+04	trust-option-3	keys	Down	quiet	the trust dialog's third option, Don't trust
+05	trust	keys	Up,Up,Enter	quiet	Trust folder writes trustedFolders.json: a permission setting: trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
+06	auth-option-2	keys	Down	quiet	the sign-in dialog's second option; Escape does not close the dialog, so ? and /help wait for the sign-in
+07	auth-option-3	keys	Down	quiet	the sign-in dialog's third option
+08	auth-back	keys	Up,Up	quiet	back on Sign in with Google
+09	sign-in	pause	In the VM desktop open a terminal, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, sign in through the agent's own dialog with the throwaway account (the browser step is yours), detach with Ctrl+], then resume	-	over ssh keytar reaches no Secret Service, so the token lands in .gemini/gemini-credentials.json or oauth_creds.json, and google_accounts.json names the account (research/gemini-cli.md#credentials)
+10	shortcuts	type	?	quiet	the ? shortcut list; nothing is written (none)
+11	shortcuts-close	keys	Backspace,Escape	quiet	none
+12	help	prompt	/help	-	/help is an info item: only info, error and warning items reach the session file (research/gemini-cli.md#session-jsonl)
+13	question	prompt	what is 17 + 25?	-	a user and a gemini message with no toolCalls, and the first model: <id> row (research/gemini-cli.md#model-rows)
+14	web-search	prompt	What is the latest release of the npm package @google/gemini-cli? Search the web for it.	Allow once|Apply this change|Type your message	a google_web_search call in toolCalls[] with its result (research/gemini-cli.md#session-jsonl)
+15	approve-ask	prompt	Run python3 calc.py 2 3 and tell me what it prints.	Allow once	the run_shell_command confirmation dialog: its options and footer hints are findings
+16	approve-option-2	keys	Down	quiet	the second option of the dialog, read from the screen
+17	approve-option-3	keys	Down	quiet	the third option of the dialog, read from the screen
+18	approve-back	keys	Up,Up	quiet	back on the first option, Allow once
+19	approve	keys	Enter	marker	toolCalls[].status success; the session file does not record which answer was given (research/gemini-cli.md#permission-rows)
+20	deny-ask	prompt	Run git log --oneline and tell me what it shows.	Allow once	a second confirmation dialog
+21	deny	keys	Escape	quiet	Esc is the No answer: status cancelled gives a permission decision: cancelled row (research/gemini-cli.md#permission-rows)
+22	deny-reason	prompt	Do not run git. Tell me what calc.py does instead, without running anything.	-	the reason is an ordinary user message; no reason field exists (research/gemini-cli.md#permission-rows)
+23	always-ask	prompt	Run ls -la and summarise the listing.	Allow once	a third confirmation dialog
+24	always-option-2	keys	Down	quiet	the option under the cursor, read from the screen
+25	always-option-3	keys	Down	quiet	the allow-always option, expected third: check this screen before the next step
+26	always	keys	Enter	marker	policies/auto-saved.toml gains a rule table: a permission setting: policy allow run_shell_command row (research/gemini-cli.md#standing-permission-files)
+27	follow-up	prompt	refactor this	-	the agent asks which code and waits: a gemini message with no toolCalls (a turn that asks the user)
+28	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB is inline in the user message and its logs.json copy (research/gemini-cli.md#logsjson)
+29	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the session file and logs.json (not stated)
+30	model-dialog	prompt	/model	quiet	the model dialog's options and footer
+31	model-pick	keys	Down,Enter	quiet	an info message Model set to <name>; model.name in settings.json only with --persist (research/gemini-cli.md#model-rows)
+32	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> before the next gemini message (research/gemini-cli.md#model-rows)
+33	edit-ask	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	Allow once|Apply this change|Type your message	the edit confirmation dialog and its diff
+34	edit	keys	Enter	marker	a replace or write_file call; history/<slug>/ only with checkpointing on (research/gemini-cli.md#tool-checkpoints)
+35	chat-save	prompt	/chat save lab	-	tmp/<slug>/checkpoint-lab.json (research/gemini-cli.md#chat-save-checkpoints)
+36	bug	prompt	/bug test report from a lab round	-	tmp/<slug>/bug-report-history-<ms>.json and the browser it tries to open (research/gemini-cli.md#bug-reports)
+37	exit	prompt	/exit	exit	the session file's last state; logs.json keeps every prompt (research/gemini-cli.md#logsjson)
+38	exit-close	stop	-	-	none: closes the terminal session
+39	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
+40	resume	agent	gemini --resume latest	marker	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps)
+41	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation; mcp-server-enablement.json (research/gemini-cli.md#per-user-storage)
+42	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result
+43	clear	prompt	/clear	marker	/clear starts a new session file and leaves the old one (research/gemini-cli.md#what-survives-a-delete)
+44	after-clear	prompt	what is 3 + 4?	-	the first lines of the session after /clear
+45	clear-stop	stop	-	-	none: closes the terminal session
+46	worktree	agent	gemini --worktree lab	marker	<project>/.gemini/worktrees/lab and a scratch directory: row for its session (research/gemini-cli.md#worktree-sessions)
+47	worktree-question	prompt	what is 5 + 6?	-	the worktree session's .project_root and chat file
+48	worktree-stop	stop	-	-	none: closes the terminal session
+49	devtools-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.general=Object.assign(s.general||{},{devtools:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	general.devtools set to true in settings.json (research/gemini-cli.md#activity-log)
+50	devtools	agent	gemini	marker	a session started with general.devtools on
+51	devtools-question	prompt	what is 2 + 9?	-	tmp/<slug>/logs/session-<id>.jsonl with network payloads (research/gemini-cli.md#activity-log)
+52	devtools-stop	stop	-	-	none: closes the terminal session
+53	auth	agent	gemini	marker	a session for the sign-out
+54	auth-dialog	prompt	/auth	quiet	what /auth offers; the research document names no sign-out command (not stated)
+55	sign-out	pause	Through the monitor, as at the sign-in step, sign out as the /auth dialog offers, detach, then resume	-	which credential files a sign-out removes or keeps (research/gemini-cli.md#credentials)
+56	auth-stop	stop	-	-	none: closes the terminal session
+57	gui-sign-in	pause	In a terminal of the VM desktop: cd ~/lab/proj, run gemini, sign in, ask what is 1 + 1?, /exit, then resume	-	from the desktop keytar reaches the Secret Service: the token goes to the keyring, not a file (research/gemini-cli.md#credentials)
+58	idle	idle	600	-	nothing is written while no agent runs
+59	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
+60	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
+61	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
+62	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
+63	home-start	agent	in:. gemini	marker	a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
+64	home-stop	stop	-	-	none: closes the terminal session
+65	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
+66	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
+67	desktop-login	pause	Log in to the VM desktop after the reboot, then resume	-	the listing after login: what the desktop session writes

@@ -69,6 +69,10 @@ research/README.md             the research index and the survival table
 research/frameworks.md         the framework sweep
 lab/                           Docker sandbox for running CLI agents against a scratch
                                home and exporting it for the collector; see lab/README.md
+lab/round/                     the real-install round pipeline: round.sh drives one agent
+                               on one lab VM from a step table (agents/<agent>/), with
+                               its listing, diff (classify.py) and report (report.py)
+                               tools; see lab/round/README.md
 docs/index.md                  the documentation site's home page; the root README.md is
                                the GitHub overview and is not a site page
 docs/agents.md                 every catalog agent with its parse status, files and evidence
@@ -1323,10 +1327,10 @@ job or lint step runs when one of its categories is set.
 - **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
   `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`):
   both PowerShell smoke jobs and PSScriptAnalyzer.
-- **Python** (everything under `analyzer/` and `tools/` except Markdown and
-  `tools/drift-baseline/`, and `analyzer/docs/output.md`, `docs/agents.md`,
-  `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`): the analyzer tests,
-  ruff and pyright.
+- **Python** (everything under `analyzer/`, `tools/` and `lab/round/` except
+  Markdown and `tools/drift-baseline/`, and `analyzer/docs/output.md`,
+  `docs/agents.md`, `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`): the
+  analyzer tests, the round pipeline's tests, ruff and pyright.
 - **Catalog** (either collector, `analyzer/doubleagent/catalog.txt`,
   `collectors/tests/catalog-sync.sh`): the catalog drift job and the
   analyzer tests.
@@ -1356,6 +1360,7 @@ pwsh -NoProfile -File tests/smoke.ps1
 cd ../analyzer && tests/run.sh
 cd ..
 python3 -m pytest tools/tests -q   # the drift checkers' tests, with the same python
+python3 -m pytest lab/round/tests -q   # the round pipeline's tests
 # quality gates, from the repository root (see "Quality gates")
 uvx ruff@0.16.10 check . && uvx ruff@0.16.10 format --check .
 uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright
