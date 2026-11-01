@@ -296,8 +296,8 @@ class IterJsonlTests(unittest.TestCase):
     """The shared JSONL reader reports every line it does not yield."""
 
     def test_non_object_line_is_an_error(self):
-        # Issue 228: a line that is valid JSON but not an object (an array,
-        # a string, a number, null) was skipped silently.
+        # A line that is valid JSON but not an object (an array, a string, a
+        # number, null) is an error, never skipped.
         from doubleagent.parsers.base import iter_jsonl
 
         lines = [b'{"a": 1}', b"[1, 2]", b'"text"', b"42", b"null", b"{bad", b'{"b": 2}']
