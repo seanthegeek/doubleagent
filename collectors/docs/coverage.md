@@ -862,8 +862,11 @@ their state must be copied by hand.
   `QWEN_LIVE_DATA_DIR` (the whole data directory), a `memory.dir` setting
   in `~/.qwen-live/config.json` (the memory libraries), and
   `QWEN_LIVE_DISCOVERY_DIR` or a `discoveryDir` setting (the discovery
-  record that otherwise sits in `~/.qwen/live`); copy those directories
-  by hand too
+  record that otherwise sits in `~/.qwen/live`), and `qwen serve` writes
+  a second discovery record under `live/` of a runtime base moved by
+  `QWEN_RUNTIME_DIR` or `advanced.runtimeOutputDir`. Each record holds
+  the daemon's bearer token and no secret glob reaches a moved one; copy
+  those directories by hand too
   ([Per-user storage in `research/qwen-live.md`](../../research/qwen-live.md#per-user-storage)).
 - **Muse Code** keeps its launcher state beside the launcher; see below.
 - **Cursor** writes its agent worker's logs and copies of the user's zsh

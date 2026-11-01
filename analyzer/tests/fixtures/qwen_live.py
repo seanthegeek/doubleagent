@@ -52,7 +52,9 @@ def qwen_live_call_records(call_id: str = QWEN_LIVE_CALL):
         ("transcript.user", {"text": "have gemini list the open issues"}),
         ("tool.call", {"name": "handoff", "callId": "fc_77", "args": '{"task":"list issues"}'}),
         ("tool.result", {"name": "handoff", "callId": "fc_77", "ok": True, "receipt": "{}"}),
-        ("transcript.assistant", {"text": "Gemini is on it.", "direct": True}),
+        ("transcript.assistant", {"text": "Gemini is on it."}),
+        ("transcript.user", {"text": "what time is it"}),
+        ("transcript.assistant", {"text": "It is nine o'clock.", "direct": True}),
         ("session.end", {"callId": call_id}),
     ]
     return [
