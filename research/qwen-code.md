@@ -480,6 +480,16 @@ and `version` the CLI version
 `text`, `thought: true` beside a reasoning `text`, `functionCall` (`id`, `name`, `args`) or
 `functionResponse` (`id`, `name`, `response`). `forkedFrom` is `{sessionId, messageUuid}` on every
 record `/branch` copied.
+A `functionCall`'s `args` are the tool's parameters, such as `command` for `run_shell_command`
+([`core/src/tools/shell.ts:1816-1822`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/tools/shell.ts#L1816-L1822)) and `file_path` for
+`read_file` ([`core/src/tools/read-file.ts:66-70`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/tools/read-file.ts#L66-L70)).
+A `functionResponse`'s `response` is `{output}` for a result and `{error}` for a failure
+([`core/src/core/coreToolScheduler.ts:989-1005`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/core/coreToolScheduler.ts#L989-L1005),
+[`1250-1258`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/core/coreToolScheduler.ts#L1250-L1258)). `usageMetadata` is the model
+API's usage object, `GenerateContentResponseUsageMetadata`, with `promptTokenCount`,
+`candidatesTokenCount`, `thoughtsTokenCount` and `totalTokenCount`
+([`chatRecordingService.ts:2989`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/chatRecordingService.ts#L2989);
+[`core/src/services/tokenEstimation.ts:130-147`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/services/tokenEstimation.ts#L130-L147)).
 
 The writers, by record kind:
 
@@ -705,6 +715,21 @@ A transcript of the managed engine begins with a `system` record of subtype
 | `originalHeadCommit` | string | | |
 | `supersededBy` | string | | |
 | `supersedes` | string | | |
+
+#### Runtime sidecar
+
+`chats/<sessionId>.runtime.json`, the live process's snapshot, written with snake_case keys
+([`core/src/utils/runtimeStatus.ts:62-70`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/utils/runtimeStatus.ts#L62-L70)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `schema_version` | number | `1` | |
+| `pid` | number | | |
+| `session_id` | string | | |
+| `work_dir` | string | | |
+| `hostname` | string | | |
+| `started_at` | number | | |
+| `qwen_version` | string or null | | |
 
 ### Joins and timestamps
 
@@ -1010,6 +1035,9 @@ and 0.25.3; none of this has been observed on a real install:
 ### Secrets
 
 The credential files are in [Credentials](#credentials). Inside the stores:
+`oauth_creds.json` holds the Qwen OAuth `access_token`, `refresh_token` and `id_token` beside
+`expiry_date`, `token_type` and `resource_url`
+([`core/src/qwen/qwenOAuth2.ts:168-175`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/qwen/qwenOAuth2.ts#L168-L175));
 `session_model.systemPayload.baseUrl` is an endpoint, not a key;
 `toolCallResult.responseParts` and `message.parts[].functionResponse.response` hold raw tool output
 and `systemPayload.hookContext` holds hook output, either of which may carry a secret a tool
