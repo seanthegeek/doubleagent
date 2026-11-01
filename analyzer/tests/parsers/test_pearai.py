@@ -1,5 +1,9 @@
 """Tests of the PearAI parser."""
 
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
+
 from doubleagent.dedup import deduplicate
 from doubleagent.parsers.pearai import PearAiParser
 from fixtures import (
@@ -488,3 +492,32 @@ class PearAiTests(ParserBase):
             [(row.agent, row.source_line, row.text) for row in self.rows_for(parser, index)],
             [("pearai", 1, "parser: not a JSON array")],
         )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_session_file_is_one_row(self):
+        path = self.home / self.SESSION
+        path.chmod(0)
+        try:
+            rows = self.rows_for(PearAiParser(), self.SESSION)
+            other = self.rows_for(
+                PearAiParser(), ".pearai/sessions/%s.json" % PEARAI_SEARCH_SESSION
+            )
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in rows
+            ],
+            [
+                (
+                    "system",
+                    "parser: %s.json could not be read (Permission denied)" % PEARAI_SESSION,
+                    0,
+                    "",
+                    PEARAI_SESSION,
+                )
+            ],
+        )
+        self.assertTrue(other)
+        self.assertFalse([row for row in other if row.text.startswith("parser:")])

@@ -1,6 +1,9 @@
 """Tests of the OpenHands parser."""
 
 import json
+import unittest
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.parsers import Options
 from doubleagent.parsers.openhands import OpenHandsParser, _naive
@@ -359,4 +362,78 @@ class OpenHandsTests(ParserBase):
                 "and the hidden files?",
                 'parser: unparseable record 1 (not a JSON object): "oops"',
             ],
+        )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_event_file_is_one_row(self):
+        rel = self.event(self.CANVAS, 6)
+        path = self.home / rel
+        path.chmod(0)
+        try:
+            rows = self.rows_for(OpenHandsParser(), rel)
+            others = self.conversation(self.CANVAS)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in rows
+            ],
+            [
+                (
+                    "system",
+                    "parser: %s could not be read (Permission denied)" % path.name,
+                    0,
+                    "",
+                    OPENHANDS_CONV,
+                )
+            ],
+        )
+        self.assertEqual(rows[0].project_path, "/srv/proj")
+        self.assertEqual(len(others), 10)  # the other events still parse, plus this row
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_meta_json_is_one_row_at_the_first_event(self):
+        path = self.home / (
+            ".openhands/agent-canvas/dev_conversations/%s/meta.json" % OPENHANDS_CONV
+        )
+        path.chmod(0)
+        try:
+            rows = self.conversation(self.CANVAS)
+        finally:
+            path.chmod(0o600)
+        problems = [row for row in rows if row.text.startswith("parser:")]
+        self.assertEqual(
+            [
+                (row.text, row.source_line, row.timestamp_utc, row.session_id, row.project_path)
+                for row in problems
+            ],
+            [
+                (
+                    "parser: meta.json could not be read (Permission denied)",
+                    0,
+                    "",
+                    OPENHANDS_CONV,
+                    "/srv/proj",
+                )
+            ],
+        )
+        self.assertEqual(problems[0].source_file, rows[0].source_file)
+        self.assertEqual(len(rows), 11)  # every event still yields its rows
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_legacy_event_is_reported_beside_the_session_row(self):
+        rel = ".openhands/sessions/%s/events/0.json" % OPENHANDS_LEGACY
+        path = self.home / rel
+        path.chmod(0)
+        try:
+            rows = self.rows_for(OpenHandsParser(), rel)
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(len(rows), 2)
+        self.assertIn("3 event files, not parsed", rows[0].text)
+        self.assertEqual(rows[0].timestamp_utc, "")
+        self.assertEqual(
+            (rows[1].turn_type, rows[1].text, rows[1].source_line, rows[1].session_id),
+            ("system", "parser: 0.json could not be read (Permission denied)", 0, OPENHANDS_LEGACY),
         )

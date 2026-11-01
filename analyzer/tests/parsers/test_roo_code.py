@@ -1,7 +1,10 @@
 """Tests of the Roo Code parser."""
 
 import json
+import unittest
 from typing import ClassVar
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent.inputs import Artifact, Home
 from doubleagent.parsers import Options
@@ -393,3 +396,31 @@ class RooCodeTests(ParserBase):
             self.assertNotIn(ROO_CLOUD_TOKEN, rows[0].text)
             self.assertNotIn("rename the helper", rows[0].text)
         self.assertFalse(parser.records_sync)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_history_item_is_one_row(self):
+        task = ".vscode-mock/global-storage/tasks/8f1c2b7e-0000-4000-8000-000000000002/"
+        path = self.home / (task + "history_item.json")
+        path.chmod(0)
+        try:
+            rows = self.rows_for(RooCodeParser(), task + "history_item.json")
+            api_rows = self.rows_for(RooCodeParser(), task + "api_conversation_history.json")
+        finally:
+            path.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in rows
+            ],
+            [
+                (
+                    "system",
+                    "parser: history_item.json could not be read (Permission denied)",
+                    0,
+                    "",
+                    "8f1c2b7e-0000-4000-8000-000000000002",
+                )
+            ],
+        )
+        self.assertTrue(api_rows)
+        self.assertFalse([row for row in api_rows if row.text.startswith("parser:")])
