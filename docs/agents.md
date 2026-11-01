@@ -52,7 +52,7 @@ agent name in each row links to its subsection.
 | [`dify`](#dify) | backlog | Source | [research](../research/dify.md); [issue 142](https://github.com/seanthegeek/doubleagent/issues/142); sandbox `shellctl.db` and job logs hold shell jobs; chats in PostgreSQL |
 | [`factory-droid`](#factory-droid) | backlog | Shipped binary strings, docs | [research](../research/factory-droid.md); [issue 54](https://github.com/seanthegeek/doubleagent/issues/54); JSONL session transcripts under `.factory/sessions` and a prompt history |
 | [`flowise`](#flowise) | backlog | Source | [research](../research/flowise.md); [issue 68](https://github.com/seanthegeek/doubleagent/issues/68); `database.sqlite` with `chat_message` (tool use and agent reasoning) and `execution` |
-| [`gemini-cli`](#gemini-cli) | parsed | source; fixture only | [research](../research/gemini-cli.md) |
+| [`gemini-cli`](#gemini-cli) | parsed | source; fixture only | [research](../research/gemini-cli.md); activity log, tool checkpoints, `memory/` and error reports not parsed |
 | [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md); [issue 368](https://github.com/seanthegeek/doubleagent/issues/368); the desktop app's local-storage prompt history is not parsed |
 | [`hermes`](#hermes) | parsed | source; fixture only | [research](../research/hermes.md); [issue 208](https://github.com/seanthegeek/doubleagent/issues/208); the nested `config.yaml` `approvals` settings are not parsed |
 | [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); [issue 221](https://github.com/seanthegeek/doubleagent/issues/221); the session pull request links are not parsed yet |
@@ -718,22 +718,28 @@ does not read it.
 Files read: `.gemini/tmp/<slug>/chats/**/*.jsonl` (with `$set`, `$patch`
 and `$rewindTo` replayed), legacy `chats/**/*.json`,
 `tmp/<slug>/logs.json`, also under `.cache/.gemini`; project path from
-`.project_root` or `projects.json`; `.gemini/trustedFolders.json`, one
-`permission setting: trustedFolders.<path>=<value> (from <file>, file
-mtime)` row per folder at the file's modification time with `project_path`
-the folder; a gemini message's `model` as `model: <id>` at a session's
-first and `model: <old> -> <new>` on each change; a tool call with status
-`cancelled` or `awaiting_approval` is followed by `permission decision:
-<status>`; `tmp/<slug>/shell_history` (the shell-mode commands),
+`.project_root` or `projects.json`, and a `scratch directory: <path>
+(gemini --worktree <name>)` row for a session run in a `--worktree`
+checkout; `.gemini/trustedFolders.json`, one `permission setting:
+trustedFolders.<path>=<value> (from <file>, file mtime)` row per folder at
+the file's modification time with `project_path` the folder; a gemini
+message's `model` as `model: <id>` at a session's first and `model: <old>
+-> <new>` on each change; a tool call with status `cancelled` or
+`awaiting_approval` is followed by `permission decision: <status>`;
+`tmp/<slug>/shell_history` (the shell-mode commands),
 `tmp/<slug>/checkpoint-<tag>.json` (`/chat save`) and
 `tmp/<slug>/bug-report-history-<ms>.json` (`/bug`) as secondary sources
 with no timestamp; `.gemini/settings.json` (permission, sandbox and
 retention keys) and `.gemini/policies/*.toml` (saved and written policy
-rules) in the home and in a project, `.gemini/trusted_hooks.json` and
-`.gemini/acknowledgments/agents.json`, one `permission setting:` or
-`session retention:` row per entry at the file's modification time.
+rules) in the home and in a project, `.gemini/policies/sandbox.toml` (the
+sandbox's saved command grants and mode settings),
+`.gemini/trusted_hooks.json` and `.gemini/acknowledgments/agents.json`,
+one `permission setting:` or `session retention:` row per entry at the
+file's modification time. Not read: the activity log
+`tmp/<slug>/logs/session-*.jsonl`, the tool checkpoints, `memory/`, the
+clipboard images and the error reports in the system temp directory.
 
-Validated against: Source at [fb972b2](https://github.com/google-gemini/gemini-cli/commit/fb972b2f87fe7d5b06d37eac711490162d98de2c), synthetic fixture; the standing permission files, `shell_history`, the `/chat save` checkpoints and the `/bug` exports from source at [3be3d44](https://github.com/google-gemini/gemini-cli/commit/3be3d4424b3c8a760d793ae1bea6cb5180adf27d) (0.66.0-nightly), synthetic fixture.
+Validated against: Source at [6814e00](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d) (0.67.0-nightly.20261020) and the v0.66.0 release, which writes the same shapes (reviewed 2026-11-01), synthetic fixture; no real install.
 
 ### `goose`
 

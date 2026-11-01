@@ -844,6 +844,15 @@ their state must be copied by hand.
   platform, so copy it by hand, while a remote session is live for the
   attachments
   ([Scratch directories in `research/kilo-code.md`](../../research/kilo-code.md#scratch-directories)).
+- **Gemini CLI** writes `gemini-client-error-<type>-<timestamp>.json` to
+  the system temp directory (`/tmp` or `$TMPDIR`, `%TEMP%` on Windows,
+  by default `AppData/Local/Temp` in the profile) when a model request
+  fails; the file holds the error and the conversation history sent with
+  the request. Its VS Code companion extension writes
+  `gemini/ide/gemini-ide-server-<pid>-<n>.json` there, holding the port
+  and a per-run auth token. No catalog line reaches either on any
+  platform, so copy them by hand
+  ([Per-user storage in `research/gemini-cli.md`](../../research/gemini-cli.md#per-user-storage)).
 - **Muse Code** keeps its launcher state beside the launcher; see below.
 - **Cursor** writes its agent worker's logs and copies of the user's zsh
   startup files to the temp directory; see
