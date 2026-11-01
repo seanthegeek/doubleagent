@@ -13,26 +13,33 @@ fixture, no real install. Files read:
   `toolCallId`, `toolName`, `isError` and the `bashExecution` fields. Rows
   follow file order, not the active branch. A fork's entries copied from a
   parent file in the same home are dropped.
-- `.pi/agent/trust.json` and the `defaultProjectTrust` key of
-  `.pi/agent/settings.json`: `permission setting:` rows at the file's time.
-- `.pi/agent/pi-debug.log`, a secondary source (a file repeating the open
-  session's messages, with no session id) after `DEBUG_MARKER`.
-- `.pi/agent/crashes.json`: one `crash:` row per record.
-- `.pi/agent/experimental/sessions/<id>/meta.json`: one row per session;
-  its `session.sqlite` transcript is not parsed.
+- `.pi/agent/trust.json`, `.pi/agent/settings.json` `defaultProjectTrust`:
+  `permission setting:` rows. `.pi/agent/pi-debug.log`: secondary (a file
+  repeating the open session's messages, with no session id).
+- `.pi/agent/crashes.json`, `.pi/agent/pi-tui-crash.log` (`crash:` and
+  `tui crash:` rows), `.pi/agent/experimental/sessions/<id>/meta.json`.
+- Secondary, in a project directory: `pi-session-<name>.html` (`header`,
+  `entries`, `leafId` of the base64 `session-data` element), the
+  `session-<time>.jsonl` export and `pi-bug-report-<id>.zip`, read in
+  memory (`report.json` `id`, `createdAt`, `session`, `environment`,
+  `model`; `diagnostics.json` `sessionId`, `entryCount`, `assistant`,
+  `crashes`; `summary.md`; `session.jsonl`).
 
-A `pi.bug-report` custom entry gives `session synced:` (an upload) or
-`bug report exported:` (a zip), so `records_sync` is set; its `hint` is
-never printed. An error `toolResult` with one of little-coder's refusal
-texts gets a `permission decision: denied` row. The session reader
-(`read_session`, `entry_rows`) is shared with `letta.py` and `little_coder.py`.
+A `pi.bug-report` entry gives `session synced:` or `bug report exported:`
+(`hint` never printed). `read_session` and `entry_rows` are shared with
+`letta.py` and `little_coder.py`.
 """
 
 from __future__ import annotations
 
+import base64
+import binascii
+import io
 import json
 import os
 import re
+import zipfile
+import zlib
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -45,6 +52,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     iter_lines,
@@ -71,6 +79,20 @@ SESSION_NAME_PATTERN = re.compile(r"_([^_/]+)\.jsonl$")
 GATE_REFUSALS = ("edit cancelled by user", "command cancelled by user")
 GATE_PREFIX = "shell whitelist:"
 META_PATTERN = re.compile(r"^\.pi/agent/experimental/sessions/([^/]+)/meta\.json$")
+# The project exports and bug report, relative to the project directory they
+# were written in; `pi-crash.log` is the terminal UI crash log of 0.83.0.
+HTML_EXPORT_PATTERN = re.compile(r"^pi-session-[^/]+\.html$")
+JSONL_EXPORT_PATTERN = re.compile(r"^session-[0-9]{4}-[^/]*\.jsonl$")
+BUG_ZIP_PATTERN = re.compile(r"^pi-bug-report-[^/]+\.zip$")
+TUI_CRASH_PATTERN = re.compile(r"^\.pi/agent/pi(?:-tui)?-crash\.log$")
+EXPORT_PATTERNS = (HTML_EXPORT_PATTERN, JSONL_EXPORT_PATTERN, BUG_ZIP_PATTERN)
+# The element `export-html/template.html` puts the base64 session data in.
+SESSION_DATA_OPEN = b'<script id="session-data" type="application/json">'
+SESSION_DATA_CLOSE = b"</script>"
+BASE64_SPACE = b" \t\r\n"
+BUG_MEMBERS = ("report.json", "diagnostics.json", "session.jsonl", "summary.md")
+TUI_CRASH_HEADER = "Crash at "
+TUI_CRASH_MARKER = "=== All rendered lines ==="
 
 ARG_KEYS = ("command", "path", "file_path", "pattern", "code", "url", "query")
 SKIPPED_ENTRIES = ("custom", "label", "usage")
@@ -428,14 +450,25 @@ class PiParser(Parser):
         self._parent_cache: dict[Path, set[tuple[str, str]]] = {}
 
     def wants(self, artifact: Artifact) -> bool:
-        """Return True for a session, trust, settings, debug, crash or metadata file."""
-        return artifact.rel in (TRUST_REL, SETTINGS_REL, DEBUG_REL, CRASHES_REL) or bool(
-            SESSION_PATTERN.match(artifact.rel) or META_PATTERN.match(artifact.rel)
+        """Return True for a session, trust, settings, debug, crash, metadata or export file."""
+        return artifact.rel in (TRUST_REL, SETTINGS_REL, DEBUG_REL, CRASHES_REL) or any(
+            pattern.match(artifact.rel)
+            for pattern in (
+                SESSION_PATTERN,
+                META_PATTERN,
+                TUI_CRASH_PATTERN,
+                *EXPORT_PATTERNS,
+            )
         )
 
     def secondary(self, artifact: Artifact) -> bool:
-        """Return True for the debug log, which repeats the open session's messages."""
-        return artifact.rel == DEBUG_REL
+        """Return True for the debug log, the two exports and the bug report zip.
+
+        Each repeats entries of a session file.
+        """
+        return artifact.rel == DEBUG_REL or any(
+            pattern.match(artifact.rel) for pattern in EXPORT_PATTERNS
+        )
 
     def secondary_tolerance(self, artifact: Artifact) -> float:
         """Return the debug log's wider match window, `DEBUG_TOLERANCE_SECONDS`."""
@@ -461,6 +494,18 @@ class PiParser(Parser):
         if match:
             yield from self._parse_meta(artifact, match.group(1), opts)
             return
+        if TUI_CRASH_PATTERN.match(artifact.rel):
+            yield from self._parse_tui_crash(artifact)
+            return
+        if HTML_EXPORT_PATTERN.match(artifact.rel):
+            yield from self._parse_html_export(artifact, opts)
+            return
+        if JSONL_EXPORT_PATTERN.match(artifact.rel):
+            yield from self._parse_jsonl_export(artifact, opts)
+            return
+        if BUG_ZIP_PATTERN.match(artifact.rel):
+            yield from self._parse_bug_zip(artifact, opts)
+            return
         session = read_session(artifact.disk_path)
         header = session.header
         if not header:
@@ -475,10 +520,7 @@ class PiParser(Parser):
         row.source_line = session.header_line
         row.timestamp_utc = to_utc(header.get("timestamp"))
         row.session_id, row.project_path, row.turn_type = session_id, cwd, "system"
-        text = "session start: version=%s cwd=%s" % (header.get("version") or 1, cwd)
-        if parent:
-            text += " parentSession=%s" % parent
-        row.text = compact(text)
+        row.text = compact(session_start_text(header))
         yield row
 
         skip: set[tuple[str, str]] = set()
@@ -610,24 +652,15 @@ class PiParser(Parser):
                 message = "unparseable record %d (not a JSON object)" % index
                 errors.append((index, message, compact_json(record)))
                 continue
-            session_file = str(record.get("sessionFile") or "")
-            match = SESSION_NAME_PATTERN.search(session_file.replace("\\", "/"))
-            row = self.base_row(artifact)
-            row.source_line, row.turn_type = index, "system"
-            row.timestamp_utc = to_utc(record.get("timestamp"))
-            row.session_id = match.group(1) if match else ""
-            row.project_path = str(record.get("cwd") or "")
-            text = "crash: %s %s version=%s sessionFile=%s (from %s, record timestamp)" % (
-                _dash(record.get("kind")),
-                _dash(record.get("message")),
-                _dash(record.get("version")),
-                _dash(record.get("sessionFile")),
-                artifact.rel,
+            text, session_id = crash_text(record, "(from %s, record timestamp)" % artifact.rel)
+            yield self._system_row(
+                artifact,
+                index,
+                to_utc(record.get("timestamp")),
+                session_id,
+                str(record.get("cwd") or ""),
+                text,
             )
-            if record.get("stack"):
-                text += "\n" + str(record.get("stack"))
-            row.text = compact(text)
-            yield row
         yield from error_rows(self, artifact, errors)
 
     def _parse_meta(self, artifact: Artifact, session_id: str, opts: Options) -> Iterator[Row]:
@@ -645,6 +678,357 @@ class PiParser(Parser):
             "not parsed)" % row.project_path,
         )
         yield row
+
+    def _system_row(
+        self, artifact: Artifact, line: int, timestamp: str, session_id: str, cwd: str, text: str
+    ) -> Row:
+        row = self.base_row(artifact)
+        row.source_line, row.turn_type, row.timestamp_utc = line, "system", timestamp
+        row.session_id, row.project_path = session_id, cwd
+        row.text = compact(text)
+        return row
+
+    def _parse_tui_crash(self, artifact: Artifact) -> Iterator[Row]:
+        """Yield one `tui crash:` row per `Crash at` record, its rendered screen lines as text.
+
+        The terminal UI rewrites the file at each crash, so it normally holds one record.
+        """
+        errors: list = []
+        crashes: list[TuiCrash] = []
+        for line_number, raw in iter_lines(artifact.disk_path, errors):
+            line = line_text(raw)
+            if line.startswith(TUI_CRASH_HEADER):
+                crashes.append(TuiCrash(line_number, line[len(TUI_CRASH_HEADER) :]))
+            elif not crashes:
+                if line.strip(JSON_SPACE):
+                    message = "unparseable line (before the first Crash at line)"
+                    errors.append((line_number, message, line))
+            elif crashes[-1].screen is not None:
+                crashes[-1].screen.append(line)
+            elif line == TUI_CRASH_MARKER:
+                crashes[-1].screen = []
+            elif line.startswith(("Terminal width: ", "Line ")):
+                crashes[-1].notes.append(line)
+            elif line.strip(JSON_SPACE):
+                errors.append((line_number, "unparseable line (not a crash header line)", line))
+        for crash in crashes:
+            screen = list(crash.screen or [])
+            while screen and not screen[-1].strip(JSON_SPACE):
+                screen.pop()
+            text = "tui crash: %s (from %s, Crash at line)" % (
+                "; ".join(crash.notes) or "-",
+                artifact.rel,
+            )
+            if screen:
+                text += "\n" + "\n".join(screen)
+            yield self._system_row(artifact, crash.line, to_utc(crash.time.strip()), "", "", text)
+        yield from error_rows(self, artifact, errors)
+
+    def _parse_html_export(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
+        """Yield an HTML export's `session exported:` row, header row and every entry's rows.
+
+        `source_line` is the entry's 1-based position in the embedded `entries`.
+        """
+        errors: list = []
+        data = file_bytes(artifact.disk_path, errors)
+        if data is None:
+            yield from error_rows(self, artifact, errors)
+            return
+        session_data, failure = html_session_data(data)
+        header = session_data.get("header") if session_data is not None else None
+        if session_data is not None and not (
+            isinstance(header, dict) and header.get("type") == "session"
+        ):
+            failure = "session data has no session header"
+        if failure or not isinstance(header, dict) or session_data is None:
+            errors.append((0, "%s %s" % (artifact.rel, failure)))
+            yield from error_rows(self, artifact, errors)
+            return
+        session = SessionFile()
+        session.header = header
+        entries = session_data.get("entries")
+        if not isinstance(entries, list):
+            errors.append((0, "%s session data has no entries array" % artifact.rel))
+            entries = []
+        for index, record in enumerate(entries, 1):
+            if isinstance(record, dict):
+                session.entries.append((index, record))
+            else:
+                message = "unparseable record %d (not a JSON object)" % index
+                errors.append((index, message, compact_json(record)))
+        session_id, cwd = str(header.get("id") or ""), str(header.get("cwd") or "")
+        leaf = session_data.get("leafId")
+        yield self._system_row(
+            artifact,
+            0,
+            file_mtime(artifact),
+            session_id,
+            cwd,
+            "session exported: HTML /export of session %s, %d entries of every branch, leaf %s "
+            "(from %s, file mtime)" % (session_id, len(session.entries), _dash(leaf), artifact.rel),
+        )
+        yield self._system_row(
+            artifact,
+            0,
+            to_utc(header.get("timestamp")),
+            session_id,
+            cwd,
+            session_start_text(header),
+        )
+        yield from entry_rows(self, artifact, session, opts, session_id, cwd)
+        yield from error_rows(self, artifact, errors, session_id, cwd)
+
+    def _parse_jsonl_export(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
+        """Yield a JSONL export's `session exported:` row and its branch's rows.
+
+        Its header `timestamp` is the export time, so it gives no `session start` row.
+        """
+        session = read_session(artifact.disk_path)
+        header = session.header
+        if not header:
+            yield from error_rows(self, artifact, session.errors)
+            return
+        session_id, cwd = str(header.get("id") or ""), str(header.get("cwd") or "")
+        yield self._system_row(
+            artifact,
+            session.header_line,
+            to_utc(header.get("timestamp")),
+            session_id,
+            cwd,
+            "session exported: JSONL /export of the current branch of session %s, %d entries "
+            "(from %s, header timestamp)" % (session_id, len(session.entries), artifact.rel),
+        )
+        yield from entry_rows(self, artifact, session, opts, session_id, cwd)
+        yield from error_rows(self, artifact, session.errors, session_id, cwd)
+
+    def _parse_bug_zip(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
+        """Yield a bug report zip's `bug report:`, crash and summary rows and its session's rows.
+
+        The archive is read in memory, never extracted. The rows of `session.jsonl` carry
+        that member's line numbers.
+        """
+        errors: list = []
+        members = bug_zip_members(artifact, errors)
+        report = bug_json_member(artifact, members, "report.json", errors)
+        diagnostics = bug_json_member(artifact, members, "diagnostics.json", errors)
+        report_session = report.get("session")
+        if not isinstance(report_session, dict):
+            report_session = {}
+        session_id = str(report_session.get("id") or diagnostics.get("sessionId") or "")
+        cwd = str(report_session.get("cwd") or "")
+        created = to_utc(report.get("createdAt"))
+        source = "(from %s %%s, %%s)" % artifact.rel
+        if report or diagnostics:
+            text = bug_report_row_text(report, diagnostics, source % ("report.json", "createdAt"))
+            yield self._system_row(artifact, 0, created, session_id, cwd, text)
+        crashes = diagnostics.get("crashes")
+        for record in crashes if isinstance(crashes, list) else []:
+            if isinstance(record, dict):
+                text, crash_session = crash_text(
+                    record, source % ("diagnostics.json", "record timestamp")
+                )
+                yield self._system_row(
+                    artifact,
+                    0,
+                    to_utc(record.get("timestamp")),
+                    crash_session,
+                    str(record.get("cwd") or ""),
+                    text,
+                )
+        if "summary.md" in members:
+            text = "bug report summary: %s %s\n%s" % (
+                _dash(report.get("id")),
+                source % ("summary.md", "report.json createdAt"),
+                members["summary.md"].decode("utf-8", errors="replace"),
+            )
+            yield self._system_row(artifact, 0, created, session_id, cwd, text)
+        if "session.jsonl" in members:
+            session = read_session_bytes(members["session.jsonl"])
+            errors.extend(session.errors)
+            if session.header:
+                session_id = str(session.header.get("id") or session_id)
+                cwd = str(session.header.get("cwd") or cwd)
+                yield from entry_rows(self, artifact, session, opts, session_id, cwd)
+        yield from error_rows(self, artifact, errors, session_id, cwd)
+
+
+class TuiCrash:
+    """Hold one record of the terminal UI crash log while it is read."""
+
+    def __init__(self, line: int, time: str) -> None:
+        """Start a record at its `Crash at` line."""
+        self.line = line
+        self.time = time
+        self.notes: list[str] = []
+        self.screen: list[str] | None = None
+
+
+def session_start_text(header: dict) -> str:
+    """Return the `session start:` row text of a session header."""
+    cwd = str(header.get("cwd") or "")
+    text = "session start: version=%s cwd=%s" % (header.get("version") or 1, cwd)
+    parent = str(header.get("parentSession") or "")
+    if parent:
+        text += " parentSession=%s" % parent
+    return text
+
+
+def read_session_bytes(data: bytes) -> SessionFile:
+    """Read a pi-format session held in memory, as `read_session` reads a file."""
+    session = SessionFile()
+    first = True
+    for line_number, raw in enumerate(io.BytesIO(data), 1):
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        try:
+            record = json.loads(stripped.decode("utf-8", errors="replace"))
+        except ValueError as error:
+            session.errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
+            continue
+        if not isinstance(record, dict):
+            message = "unparseable line (not a JSON object)"
+            session.errors.append((line_number, message, line_text(raw)))
+            continue
+        if first:
+            first = False
+            if record.get("type") == "session":
+                session.header, session.header_line = record, line_number
+                continue
+        session.entries.append((line_number, record))
+    return session
+
+
+def html_session_data(data: bytes) -> tuple[dict | None, str]:
+    """Return the session data an HTML export embeds, or None and why it could not be read.
+
+    The data is the base64 text of the `session-data` script element, UTF-8 JSON once decoded.
+    """
+    start = data.find(SESSION_DATA_OPEN)
+    if start < 0:
+        return None, "holds no session data"
+    start += len(SESSION_DATA_OPEN)
+    end = data.find(SESSION_DATA_CLOSE, start)
+    if end < 0:
+        return None, "session data has no closing tag"
+    try:
+        decoded = base64.b64decode(data[start:end].strip(BASE64_SPACE), validate=True)
+    except binascii.Error as error:
+        return None, "session data is not base64 (%s)" % error
+    try:
+        value = json.loads(decoded.decode("utf-8"))
+    except ValueError as error:
+        return None, "session data is not JSON (%s)" % error
+    if not isinstance(value, dict):
+        return None, "session data is not a JSON object"
+    return value, ""
+
+
+def bug_zip_members(artifact: Artifact, errors: list) -> dict[str, bytes]:
+    """Return the known members of a bug report zip by name, reporting what fails in `errors`.
+
+    `report.json` and `diagnostics.json` are always written; the other two only when chosen.
+    """
+    data = file_bytes(artifact.disk_path, errors)
+    if data is None:
+        return {}
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(data))
+    except (zipfile.BadZipFile, ValueError, EOFError) as error:
+        errors.append((0, "%s is not a zip archive (%s)" % (artifact.rel, error)))
+        return {}
+    members: dict[str, bytes] = {}
+    names = set(archive.namelist())
+    for name in BUG_MEMBERS:
+        if name not in names:
+            if name in BUG_MEMBERS[:2]:
+                errors.append((0, "%s has no member %s" % (artifact.rel, name)))
+            continue
+        try:
+            members[name] = archive.read(name)
+        except (
+            zipfile.BadZipFile,
+            zlib.error,
+            EOFError,
+            RuntimeError,
+            NotImplementedError,
+        ) as error:
+            message = "%s member %s could not be read (%s)" % (artifact.rel, name, error)
+            errors.append((0, message))
+    return members
+
+
+def bug_json_member(artifact: Artifact, members: dict[str, bytes], name: str, errors: list) -> dict:
+    """Return a JSON member of a bug report zip as an object, {} when absent or not one."""
+    if name not in members:
+        return {}
+    try:
+        value = json.loads(members[name].decode("utf-8"))
+    except ValueError:
+        value = None
+    if not isinstance(value, dict):
+        errors.append((0, "%s member %s is not a JSON object" % (artifact.rel, name)))
+        return {}
+    return value
+
+
+def bug_report_row_text(report: dict, diagnostics: dict, source: str) -> str:
+    """Return the `bug report:` row text of a zip's `report.json` and `diagnostics.json`.
+
+    The first line names the report, its session and environment; one line follows per failed
+    assistant turn. `hint` and the redacted settings are not printed.
+    """
+
+    def part(value, key: str):
+        return value.get(key) if isinstance(value, dict) else None
+
+    session = report.get("session")
+    environment = report.get("environment")
+    model = report.get("model")
+    text = (
+        "bug report: %s session=%s transcript=%s summary=%s messages=%s entries=%s version=%s "
+        "platform=%s/%s model=%s/%s %s"
+        % (
+            _dash(report.get("id")),
+            _dash(part(session, "id") or diagnostics.get("sessionId")),
+            _dash(part(session, "included")),
+            _dash(part(session, "summaryIncluded")),
+            _dash(part(session, "messageCount")),
+            _dash(diagnostics.get("entryCount")),
+            _dash(part(environment, "version")),
+            _dash(part(environment, "platform")),
+            _dash(part(environment, "arch")),
+            _dash(part(model, "provider")),
+            _dash(part(model, "id")),
+            source,
+        )
+    )
+    failed = diagnostics.get("assistant")
+    for turn in failed if isinstance(failed, list) else []:
+        if isinstance(turn, dict):
+            text += "\nfailed assistant turn %s at %s: stopReason=%s %s" % (
+                _dash(turn.get("entryId")),
+                _dash(turn.get("timestamp")),
+                _dash(turn.get("stopReason")),
+                _dash(turn.get("errorMessage")),
+            )
+    return text
+
+
+def crash_text(record: dict, source: str) -> tuple[str, str]:
+    """Return a crash record's `crash:` row text and the session id its `sessionFile` names."""
+    session_file = str(record.get("sessionFile") or "")
+    match = SESSION_NAME_PATTERN.search(session_file.replace("\\", "/"))
+    text = "crash: %s %s version=%s sessionFile=%s %s" % (
+        _dash(record.get("kind")),
+        _dash(record.get("message")),
+        _dash(record.get("version")),
+        _dash(record.get("sessionFile")),
+        source,
+    )
+    if record.get("stack"):
+        text += "\n" + str(record.get("stack"))
+    return text, match.group(1) if match else ""
 
 
 def json_object(artifact: Artifact, errors: list) -> dict | None:

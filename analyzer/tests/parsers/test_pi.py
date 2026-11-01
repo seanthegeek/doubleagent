@@ -1,5 +1,6 @@
 """Tests of the pi parser."""
 
+import base64
 import io
 import json
 import unittest
@@ -8,8 +9,11 @@ from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.dedup import deduplicate
+from doubleagent.inputs import Artifact, Home
+from doubleagent.parsers import Options
 from doubleagent.parsers.pi import PiParser
 from doubleagent.parsers.pi import args_summary as pi_args_summary
+from doubleagent.timeutil import to_utc
 from fixtures import (
     BAD_LINE,
     LC_FILE,
@@ -18,28 +22,41 @@ from fixtures import (
     PI_BUG_REPORT,
     PI_BUG_SESSION,
     PI_BUG_ZIP,
+    PI_BUG_ZIP_FILE,
     PI_CRASHES,
     PI_DEBUG_LOG,
     PI_DELETED_PROMPT,
     PI_DIR,
     PI_EXPERIMENTAL,
+    PI_EXPORT_DIR,
     PI_FILE,
     PI_FORK,
     PI_FORK_FILE,
+    PI_GONE_HTML,
+    PI_GONE_JSONL,
+    PI_GONE_PROMPT,
+    PI_GONE_SESSION,
+    PI_HTML,
     PI_KINDS_FILE,
     PI_KINDS_SESSION,
     PI_MCP_LOG,
     PI_SESSION,
     PI_SETTINGS,
     PI_TRUST,
+    PI_TUI_CRASH,
     PI_V1_FILE,
     PI_V1_SESSION,
     _json,
     _jsonl,
     bad_line_text,
+    pi_bug_zip_members,
     pi_crash_records,
     pi_debug_log_text,
+    pi_gone_records,
+    pi_html_export_text,
     pi_session_records,
+    pi_tui_crash_text,
+    pi_zip_bytes,
     write_bad_line,
 )
 
@@ -600,6 +617,7 @@ class PiTests(ParserBase):
             (".pi/agent/pi-debug.log", ""),
             (".pi/agent/experimental/sessions/exp-session-1/meta.json", "exp-session-1"),
             (PI_CRASHES, ""),
+            (PI_TUI_CRASH, ""),
             (PI_DIR + PI_KINDS_FILE, ""),
         ):
             rows = parse_with(self, PiParser, rel)
@@ -620,6 +638,353 @@ class PiTests(ParserBase):
             )
             # Every other file of the parser still gives its rows.
             self.assertEqual(kept_rows(rows, rel), kept_rows(unlocked, rel), rel)
+
+    # ---- project exports, the bug report zip and the terminal UI crash log ----
+
+    def export_artifact(self, rel, original="/srv/proj"):
+        """Return a project-local pi file of the fixture as the collector attributes it."""
+        project = self.home / PI_EXPORT_DIR
+        home = Home(disk_path=project, original=original, user="alice", host="h1", project=True)
+        return Artifact(project / rel, original + "/" + rel, rel, "pi", home)
+
+    def export_rows(self, rel, original="/srv/proj", **options):
+        return list(PiParser().parse(self.export_artifact(rel, original), Options(**options)))
+
+    def test_exports_wanted_and_secondary(self):
+        parser = PiParser()
+        for rel in (PI_HTML, PI_GONE_HTML, PI_GONE_JSONL, PI_BUG_ZIP_FILE):
+            art = self.export_artifact(rel)
+            self.assertTrue(parser.wants(art), rel)
+            self.assertTrue(parser.secondary(art), rel)
+            self.assertEqual(parser.secondary_tolerance(art), 2.0, rel)
+        for rel in (PI_TUI_CRASH, ".pi/agent/pi-crash.log"):
+            self.assertTrue(parser.wants(rel_only(rel)), rel)
+            self.assertFalse(parser.secondary(rel_only(rel)), rel)
+        for rel in (
+            "docs/pi-session-x.html",
+            "pi-session-x.htm",
+            "session-latest.jsonl",
+            "session-2026-10-02.json",
+            "pi-bug-report-x.tar",
+            ".pi/agent/pi-tui-debug.log",
+        ):
+            self.assertFalse(parser.wants(rel_only(rel)), rel)
+
+    def test_html_export_rows(self):
+        rows = self.export_rows(PI_GONE_HTML)
+        mtime = to_utc((self.home / PI_EXPORT_DIR / PI_GONE_HTML).stat().st_mtime)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.timestamp_utc, row.source_line) for row in rows],
+            [
+                (
+                    "system",
+                    "session exported: HTML /export of session %s, 3 entries of every branch, "
+                    "leaf e1000003 (from %s, file mtime)" % (PI_GONE_SESSION, PI_GONE_HTML),
+                    mtime,
+                    0,
+                ),
+                (
+                    "system",
+                    "session start: version=3 cwd=/srv/proj",
+                    "2026-10-02T08:00:00.000Z",
+                    0,
+                ),
+                ("user", PI_GONE_PROMPT, "2026-10-02T08:00:02.000Z", 1),
+                ("system", "model: gpt-5 provider=openai", "2026-10-02T08:00:05.000Z", 2),
+                ("assistant", "the first answer", "2026-10-02T08:00:05.000Z", 2),
+                ("assistant", "the second answer", "2026-10-02T08:01:00.000Z", 3),
+            ],
+        )
+        for row in rows:
+            self.assertEqual(
+                (row.agent, row.session_id, row.project_path),
+                ("pi", PI_GONE_SESSION, "/srv/proj"),
+            )
+            self.assertTrue(row.source_file.endswith("/srv/proj/" + PI_GONE_HTML), row)
+
+    def test_html_export_dedup_against_the_session(self):
+        primary = self.rows_for(PiParser(), self.REL)
+        secondary = [(row, 2.0) for row in self.export_rows(PI_HTML)]
+        kept, dropped = deduplicate(primary, secondary)
+        # Every row but the export's own is a copy of a session file row.
+        self.assertEqual(dropped, {"pi": len(primary)})
+        self.assertEqual(
+            [row.text.split(":")[0] for row in kept[len(primary) :]], ["session exported"]
+        )
+
+    def test_export_of_a_relocated_project_still_joins_on_the_session(self):
+        primary = self.rows_for(PiParser(), self.REL)
+        rows = self.export_rows(PI_HTML, original="/srv/moved")
+        self.assertEqual({row.project_path for row in rows}, {"/srv/proj"})
+        self.assertTrue(rows[0].source_file.startswith("/srv/moved/"))
+        _, dropped = deduplicate(primary, [(row, 2.0) for row in rows])
+        self.assertEqual(dropped, {"pi": len(primary)})
+
+    def test_export_only_and_two_exports_of_one_session(self):
+        # No session file holds PI_GONE_SESSION: the HTML export's rows are
+        # kept, and the JSONL export's copies of the same entries go.
+        html = self.export_rows(PI_GONE_HTML)
+        jsonl = self.export_rows(PI_GONE_JSONL)
+        kept, dropped = deduplicate([], [(row, 2.0) for row in html + jsonl])
+        # The prompt and the second answer; each export's `model:` row is at
+        # the first assistant message of its own branch, so the two differ.
+        self.assertEqual(dropped, {"pi": 2})
+        texts = [row.text for row in kept]
+        self.assertEqual(texts.count(PI_GONE_PROMPT), 1)
+        self.assertEqual(texts.count("the second answer"), 1)
+        self.assertEqual(texts.count("the first answer"), 1)
+        self.assertEqual(
+            sorted(row.recovered for row in kept if row.turn_type != "system"), ["yes"] * 3
+        )
+        # The negative half: a different session's export is never dropped.
+        _, dropped = deduplicate(self.rows_for(PiParser(), self.REL), [(row, 2.0) for row in html])
+        self.assertEqual(dropped, {})
+
+    def test_jsonl_export_rows_and_truncated_line(self):
+        rows = self.export_rows(PI_GONE_JSONL)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.timestamp_utc, row.source_line) for row in rows],
+            [
+                (
+                    "system",
+                    "session exported: JSONL /export of the current branch of session %s, "
+                    "2 entries (from %s, header timestamp)" % (PI_GONE_SESSION, PI_GONE_JSONL),
+                    "2026-10-02T08:10:00.000Z",
+                    1,
+                ),
+                ("user", PI_GONE_PROMPT, "2026-10-02T08:00:02.000Z", 2),
+                ("system", "model: gpt-5 provider=openai", "2026-10-02T08:01:00.000Z", 3),
+                ("assistant", "the second answer", "2026-10-02T08:01:00.000Z", 3),
+                ("system", bad_line_text(), "", 4),
+            ],
+        )
+        for row in rows:
+            self.assertEqual((row.session_id, row.project_path), (PI_GONE_SESSION, "/srv/proj"))
+
+    def test_jsonl_export_bad_line_mid_file_keeps_the_rows_around_it(self):
+        path = self.home / PI_EXPORT_DIR / PI_GONE_JSONL
+        lines = path.read_text(encoding="utf-8").split("\n")
+        path.write_text("\n".join([lines[0], lines[1], BAD_LINE, lines[2]]), encoding="utf-8")
+        rows = self.export_rows(PI_GONE_JSONL)
+        self.assertEqual(
+            [(row.turn_type, row.source_line) for row in rows],
+            [("system", 1), ("user", 2), ("system", 4), ("assistant", 4), ("system", 3)],
+        )
+        self.assertEqual(rows[-1].text, bad_line_text())
+        self.assertEqual(rows[-1].session_id, PI_GONE_SESSION)
+
+    def test_jsonl_export_without_header_gives_its_bad_lines_alone(self):
+        path = self.home / PI_EXPORT_DIR / PI_GONE_JSONL
+        path.write_text(BAD_LINE + "\n", encoding="utf-8")
+        rows = self.export_rows(PI_GONE_JSONL)
+        self.assertEqual([(row.text, row.session_id) for row in rows], [(bad_line_text(), "")])
+
+    def test_html_export_failures_are_one_row(self):
+        path = self.home / PI_EXPORT_DIR / PI_GONE_HTML
+        page = pi_html_export_text(pi_gone_records(), "e1000003")
+        marker = '<script id="session-data" type="application/json">'
+        start = page.index(marker) + len(marker)
+        end = page.index("</script>", start)
+
+        def embedded(payload):
+            return page[:start] + payload + page[end:]
+
+        def encoded(value):
+            return base64.b64encode(json.dumps(value).encode("utf-8")).decode("ascii")
+
+        cases = (
+            ("<html></html>", "holds no session data"),
+            (page[:start] + "e30=", "session data has no closing tag"),
+            (embedded("not base64!"), "session data is not base64 ("),
+            (embedded(base64.b64encode(b"{oops").decode("ascii")), "session data is not JSON ("),
+            (embedded(encoded([1])), "session data is not a JSON object"),
+            (embedded(encoded({"entries": []})), "session data has no session header"),
+        )
+        for text, message in cases:
+            path.write_text(text, encoding="utf-8")
+            rows = self.export_rows(PI_GONE_HTML)
+            self.assertEqual(len(rows), 1, message)
+            self.assertTrue(
+                rows[0].text.startswith("parser: %s %s" % (PI_GONE_HTML, message)), rows[0].text
+            )
+            self.assertEqual((rows[0].source_line, rows[0].timestamp_utc), (0, ""), message)
+        records = pi_gone_records()
+        broken = {"header": records[0], "entries": [records[1], "boom"], "leafId": None}
+        path.write_text(embedded(encoded(broken)), encoding="utf-8")
+        rows = self.export_rows(PI_GONE_HTML)
+        self.assertEqual(
+            [(row.turn_type, row.source_line) for row in rows],
+            [("system", 0), ("system", 0), ("user", 1), ("system", 2)],
+        )
+        self.assertEqual(rows[0].text.split(", leaf ")[1].split(" ")[0], "-")
+        self.assertEqual(
+            (rows[-1].text, rows[-1].session_id),
+            ('parser: unparseable record 2 (not a JSON object): "boom"', PI_GONE_SESSION),
+        )
+        path.write_text(embedded(encoded({"header": records[0], "entries": {}})), encoding="utf-8")
+        rows = self.export_rows(PI_GONE_HTML)
+        self.assertEqual(
+            rows[-1].text, "parser: %s session data has no entries array" % PI_GONE_HTML
+        )
+
+    def test_bug_zip_rows(self):
+        rows = self.export_rows(PI_BUG_ZIP_FILE)
+        report, crash, summary, user, bad = rows
+        self.assertEqual(
+            report.text,
+            "bug report: %s session=%s transcript=true summary=true messages=1 entries=3 "
+            "version=1.4.0 platform=linux/x64 model=openai/gpt-5 "
+            "(from %s report.json, createdAt)\n"
+            "failed assistant turn b10000aa at 2026-10-01T13:00:20.000Z: stopReason=error "
+            "socket hang up" % (PI_BUG_ZIP, PI_BUG_SESSION, PI_BUG_ZIP_FILE),
+        )
+        self.assertEqual(
+            crash.text,
+            "crash: fatal_error EPIPE: broken pipe, write version=1.4.0 sessionFile=/home/alice/"
+            "%s%s (from %s diagnostics.json, record timestamp)"
+            % (PI_DIR, PI_BUG_FILE, PI_BUG_ZIP_FILE),
+        )
+        self.assertEqual(
+            summary.text,
+            "bug report summary: %s (from %s summary.md, report.json createdAt)\n"
+            "## What the user was doing\nRunning the build." % (PI_BUG_ZIP, PI_BUG_ZIP_FILE),
+        )
+        self.assertEqual(
+            [(row.timestamp_utc, row.session_id, row.project_path) for row in rows],
+            [
+                ("2026-10-01T13:00:59.000Z", PI_BUG_SESSION, "/srv/proj"),
+                ("2026-10-01T12:58:00.000Z", PI_BUG_SESSION, "/srv/proj"),
+                ("2026-10-01T13:00:59.000Z", PI_BUG_SESSION, "/srv/proj"),
+                ("2026-10-01T13:00:01.000Z", PI_BUG_SESSION, "/srv/proj"),
+                ("", PI_BUG_SESSION, "/srv/proj"),
+            ],
+        )
+        self.assertEqual(
+            (user.turn_type, user.text, user.source_line), ("user", "the build hangs", 2)
+        )
+        self.assertEqual((bad.text, bad.source_line), (bad_line_text(), 4))
+        # The hint and the redacted settings are never printed.
+        self.assertNotIn("<redacted>", "".join(row.text for row in rows))
+        # The transcript copy joins the session file; what only the zip holds stays.
+        primary = self.rows_for(PiParser(), PI_DIR + PI_BUG_FILE)
+        kept, dropped = deduplicate(primary, [(row, 2.0) for row in rows])
+        self.assertEqual(dropped, {"pi": 1})
+        self.assertEqual(len(kept), len(primary) + 4)
+
+    def test_bug_zip_without_transcript_or_summary(self):
+        members = pi_bug_zip_members()
+        report = json.loads(members["report.json"])
+        report["session"] = {"id": PI_BUG_SESSION, "included": False, "summaryIncluded": False}
+        members = {"report.json": json.dumps(report), "diagnostics.json": "{}"}
+        (self.home / PI_EXPORT_DIR / PI_BUG_ZIP_FILE).write_bytes(pi_zip_bytes(members))
+        rows = self.export_rows(PI_BUG_ZIP_FILE)
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(rows[0].text.startswith("bug report: %s session=" % PI_BUG_ZIP))
+        self.assertIn(" transcript=false summary=false messages=- entries=- ", rows[0].text)
+        self.assertEqual((rows[0].session_id, rows[0].project_path), (PI_BUG_SESSION, ""))
+
+    def test_bug_zip_failures_name_the_file_and_member(self):
+        path = self.home / PI_EXPORT_DIR / PI_BUG_ZIP_FILE
+        path.write_bytes(b"not a zip")
+        rows = self.export_rows(PI_BUG_ZIP_FILE)
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(
+            rows[0].text.startswith("parser: %s is not a zip archive (" % PI_BUG_ZIP_FILE),
+            rows[0].text,
+        )
+        members = pi_bug_zip_members()
+        members["report.json"] = "[1]"
+        del members["diagnostics.json"]
+        path.write_bytes(pi_zip_bytes(members))
+        rows = self.export_rows(PI_BUG_ZIP_FILE)
+        self.assertEqual(
+            [row.text for row in rows if row.text.startswith("parser: ")],
+            [
+                "parser: %s has no member diagnostics.json" % PI_BUG_ZIP_FILE,
+                "parser: %s member report.json is not a JSON object" % PI_BUG_ZIP_FILE,
+                bad_line_text(),
+            ],
+        )
+        # The summary and the transcript copy still give their rows.
+        self.assertIn("the build hangs", [row.text for row in rows])
+        # A member whose stored data is damaged.
+        data = bytearray(pi_zip_bytes({"report.json": "{}" * 64, "diagnostics.json": "{}"}))
+        offset = data.index(b"report.json") + len(b"report.json")
+        data[offset : offset + 8] = b"\xff" * 8
+        path.write_bytes(bytes(data))
+        rows = self.export_rows(PI_BUG_ZIP_FILE)
+        self.assertTrue(
+            any(
+                row.text.startswith(
+                    "parser: %s member report.json could not be read (" % PI_BUG_ZIP_FILE
+                )
+                for row in rows
+            ),
+            [row.text for row in rows],
+        )
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_export_is_one_row(self):
+        for rel in (PI_HTML, PI_GONE_JSONL, PI_BUG_ZIP_FILE):
+            path = self.home / PI_EXPORT_DIR / rel
+            path.chmod(0)
+            try:
+                rows = self.export_rows(rel)
+            finally:
+                path.chmod(0o644)
+            self.assertEqual(
+                [(row.text, row.source_line, row.timestamp_utc) for row in rows],
+                [("parser: %s could not be read (Permission denied)" % rel, 0, "")],
+                rel,
+            )
+
+    def test_tui_crash_rows(self):
+        rows = self.rows_for(PiParser(), PI_TUI_CRASH)
+        self.assertEqual(
+            [(row.turn_type, row.timestamp_utc, row.source_line, row.text) for row in rows],
+            [
+                (
+                    "system",
+                    "2026-10-01T09:06:30.000Z",
+                    1,
+                    "tui crash: Terminal width: 40; Line 1 visible width: 52 "
+                    "(from .pi/agent/pi-tui-crash.log, Crash at line)\n"
+                    "[0] (w=20) fix the failing test\n"
+                    "[1] (w=52) a status line from an extension that ran past the edge",
+                )
+            ],
+        )
+        self.assertEqual((rows[0].session_id, rows[0].project_path), ("", ""))
+
+    def test_tui_crash_bad_lines_keep_the_record(self):
+        path = self.home / PI_TUI_CRASH
+        lines = pi_tui_crash_text().split("\n")
+        lines.insert(3, "garbage between the header lines")
+        path.write_text("stray text\n" + "\n".join(lines), encoding="utf-8")
+        rows = self.rows_for(PiParser(), PI_TUI_CRASH)
+        self.assertEqual(
+            [(row.source_line, row.text.split("\n")[0]) for row in rows],
+            [
+                (
+                    2,
+                    "tui crash: Terminal width: 40; Line 1 visible width: 52 "
+                    "(from .pi/agent/pi-tui-crash.log, Crash at line)",
+                ),
+                (1, "parser: unparseable line (before the first Crash at line): stray text"),
+                (
+                    5,
+                    "parser: unparseable line (not a crash header line): "
+                    "garbage between the header lines",
+                ),
+            ],
+        )
+        # A file cut before its screen lines still gives the record.
+        path.write_text("\n".join(lines[:2]), encoding="utf-8")
+        rows = self.rows_for(PiParser(), PI_TUI_CRASH)
+        self.assertEqual(
+            [row.text for row in rows],
+            ["tui crash: Terminal width: 40 (from .pi/agent/pi-tui-crash.log, Crash at line)"],
+        )
 
 
 class PiSyncTests(ParserBase):

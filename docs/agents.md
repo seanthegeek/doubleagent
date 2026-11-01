@@ -71,7 +71,7 @@ agent name in each row links to its subsection.
 | [`opencode`](#opencode) | parsed | source; fixture only | [research](../research/opencode.md); [issue 194](https://github.com/seanthegeek/doubleagent/issues/194); [issue 213](https://github.com/seanthegeek/doubleagent/issues/213); the desktop app's `drafts.sqlite` and the `shell/` command output are not parsed yet |
 | [`openhands`](#openhands) | parsed | source; fixture only | [research](../research/openhands.md); [issue 205](https://github.com/seanthegeek/doubleagent/issues/205); Agent Canvas browser storage (cloud origin, archive) needs a LevelDB reader |
 | [`pearai`](#pearai) | parsed | source; fixture only | [research](../research/pearai.md) |
-| [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md); [issue 395](https://github.com/seanthegeek/doubleagent/issues/395); the session exports, bug report zip and TUI crash log are not parsed |
+| [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md) |
 | [`pydantic-clai`](#pydantic-clai) | backlog | Source, PyPI wheel | [research](../research/pydantic-clai.md); [issue 66](https://github.com/seanthegeek/doubleagent/issues/66); CLAI 2.0 `sessions.db` conversations and the prompt histories |
 | [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); [issue 396](https://github.com/seanthegeek/doubleagent/issues/396); the usage log, channel histories, todo files, project summary and managed-local transcripts are not parsed |
 | [`roo-code`](#roo-code) | parsed | source; fixture only | [research](../research/roo-code.md) |
@@ -1057,8 +1057,15 @@ a `system` row saying so),
 trust decisions, one `permission setting:` row per project),
 `.pi/agent/settings.json` (only `defaultProjectTrust`, one `permission
 setting:` row), `.pi/agent/pi-debug.log` (secondary, the last `/debug`
-snapshot of a session's messages) and `.pi/agent/crashes.json` (one
-`crash:` row per recent crash). A session's
+snapshot of a session's messages), `.pi/agent/crashes.json` (one
+`crash:` row per recent crash), `.pi/agent/pi-tui-crash.log` and the older
+`.pi/agent/pi-crash.log` (one `tui crash:` row with the rendered screen
+lines), and, in a project directory, the `/export` copies
+`pi-session-*.html` (secondary, every entry of every branch, decoded from
+the page's base64 data) and `session-<time>.jsonl` (secondary, one branch)
+and the `/bug` archive `pi-bug-report-*.zip`, read in memory (a `bug
+report:` row from `report.json` and `diagnostics.json`, its crashes,
+`summary.md`, and `session.jsonl` as a secondary copy). A session's
 `pi.bug-report` entry gives a `session synced:` row for a `/bug` upload
 or a `bug report exported:` row for a zip, and a call little-coder's
 permission gate refused a `permission decision: denied` row.
