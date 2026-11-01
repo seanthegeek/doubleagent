@@ -1,35 +1,35 @@
 NN	name	kind	text	expect	claim
-02	launch	agent	pi	quiet	first start writes ~/.pi/agent/settings.json and no session file until a message exists (research/pi.md#per-user-storage)
+02	launch	agent	pi	quiet	first start writes ~/.pi/agent/settings.json and no session file until a message exists (research/pi.md#per-user-storage) (unverified)
 03	sign-in	pause	In the VM desktop open a terminal, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, sign in with /login as pi offers it with the throwaway account (the browser step is yours), detach with Ctrl+], then resume	-	auth.json, mode 0600 in a 0700 directory, holds the provider's api_key or oauth entry; no keychain (research/pi.md#credentials)
-04	shortcuts	type	?	quiet	the ? key: a shortcut list or a typed character (not stated)
+04	shortcuts	type	?	quiet	the ? key: a shortcut list or a typed character (not stated) (unverified)
 05	shortcuts-close	keys	Backspace,Escape	quiet	none
-06	help	prompt	/help	-	what /help shows; whether it reaches the session file (research/pi.md#entries)
-07	question	prompt	what is 17 + 25?	-	the session file appears with its header, a user and an assistant message with model, responseModel and provider; the first model: row (research/pi.md#model-rows)
+06	help	prompt	/help	-	what /help shows; whether it reaches the session file (research/pi.md#entries) (unverified)
+07	question	prompt	what is 17 + 25?	-	the session file appears with its header, a user and an assistant message with model, responseModel and provider; the first model: row (research/pi.md#model-rows) (unverified)
 08	web-search	prompt	What is the latest release of the npm package @earendil-works/pi-coding-agent? Search the web for it.	-	how a fetch or search through the shell tool is stored, pi having no web tool of its own (research/pi.md#message-roles)
 09	tool-call	prompt	Run python3 calc.py 2 3 and tell me what it prints.	-	pi asks nothing before a tool call: a toolCall and a toolResult and no decision record (research/pi.md#permission-rows)
 10	follow-up	prompt	refactor this	-	the agent asks which code and waits: an assistant message with no tool call (a turn that asks the user)
 11	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB inline in the user message (research/pi.md#message-roles)
 12	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the user message (not stated)
-13	model-dialog	prompt	/model	quiet	the model selector's options and footer
-14	model-pick	keys	Down,Enter	quiet	a model_change entry with provider and modelId (research/pi.md#model-rows)
+13	model-dialog	prompt	/model	quiet	the model selector's options and footer (unverified)
+14	model-pick	keys	Down,Enter	quiet	a model_change entry with provider and modelId (research/pi.md#model-rows) (unverified)
 15	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> provider=<provider> at the model_change entry (research/pi.md#model-rows)
 16	edit	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	-	an edit toolCall with its arguments; no backup copy is kept (research/pi.md#tool-arguments)
 17	export	prompt	/export	-	pi-session-<session file>.html in the project (research/pi.md#html-export)
 18	debug	prompt	/debug	-	pi-debug.log rewritten with the open session's messages (research/pi.md#debug-log-and-crash-log)
-19	bug-dialog	prompt	/bug	quiet	the /bug questions: include the transcript, upload or zip
+19	bug-dialog	prompt	/bug	quiet	the /bug questions: include the transcript, upload or zip (unverified)
 20	bug	pause	Answer /bug through the monitor so that it writes a zip and uploads nothing, detach, then resume	-	a pi.bug-report entry with delivery zip and pi-bug-report-*.zip in the project (research/pi.md#bug-report-entry)
-21	fork-dialog	prompt	/fork	quiet	the fork picker: which message to fork from
-22	fork	keys	Enter	-	a new session file whose header names parentSession; the parent stays (research/pi.md#joins-and-timestamps)
+21	fork-dialog	prompt	/fork	quiet	the fork picker: which message to fork from (unverified)
+22	fork	keys	Enter	-	a new session file whose header names parentSession; the parent stays (research/pi.md#joins-and-timestamps) (unverified)
 23	fork-question	prompt	what is 3 + 4?	-	the forked session's first own entry
 24	exit	prompt	/exit	exit	the session file's last entry; no prompt history file exists (research/pi.md#what-survives-a-delete)
 25	exit-close	stop	-	-	none: closes the terminal session
-26	mcp-config	command	mkdir -p .pi && printf '%s\n' '{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}}}' > .pi/mcp.json	-	a project .pi/mcp.json, a credential file when it holds env or headers (research/pi.md#credentials)
-27	resume	agent	pi --continue	-	a resume reopens the last session file and appends to it (research/pi.md#joins-and-timestamps)
-28	mcp-trust	keys	Enter	quiet	a project-trust question for the project's MCP file, if pi asks one (research/pi.md#project-trust)
+26	mcp-config	command	mkdir -p .pi && printf '%s\n' '{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}}}' > .pi/mcp.json	-	a project .pi/mcp.json, a credential file when it holds env or headers (research/pi.md#credentials) (unverified)
+27	resume	agent	pi --continue	-	a resume reopens the last session file and appends to it (research/pi.md#joins-and-timestamps) (unverified)
+28	mcp-trust	keys	Enter	quiet	a project-trust question for the project's MCP file, if pi asks one (research/pi.md#project-trust) (unverified)
 29	mcp-call	prompt	Use the fs MCP server to list the files in this project.	-	an MCP tool call, mcp.log lines and trust.json (research/pi.md#project-trust)
-30	delete-dialog	prompt	/resume	quiet	the session picker
-31	delete	keys	Ctrl+D	quiet	Ctrl+D in the picker moves the session file to the trash or unlinks it (research/pi.md#what-survives-a-delete)
-32	delete-confirm	keys	Enter	quiet	the delete's confirmation, if it asks one
+30	delete-dialog	prompt	/resume	quiet	the session picker (unverified)
+31	delete	keys	Ctrl+D	quiet	Ctrl+D in the picker moves the session file to the trash or unlinks it (research/pi.md#what-survives-a-delete) (unverified)
+32	delete-confirm	keys	Enter	quiet	the delete's confirmation, if it asks one (unverified)
 33	delete-stop	stop	-	-	none: closes the terminal session
 34	idle	idle	600	-	nothing is written while no agent runs
 35	collect-before-delete	collect	-	-	the collector's rows before the project is removed

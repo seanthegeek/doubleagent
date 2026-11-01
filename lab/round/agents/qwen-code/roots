@@ -8,6 +8,7 @@
 ~/.agents
 ~/.env
 ~/.local/bin/qwen
+~/.config/gh
 linux:~/.config/com.alibaba.qwen-code
 macos:~/Library/Application Support/com.alibaba.qwen-code
 windows:%APPDATA%/com.alibaba.qwen-code

@@ -1325,8 +1325,9 @@ job or lint step runs when one of its categories is set.
 - **sh files** (any `.sh` file, `.githooks/*`): the lint job's shfmt,
   shellcheck and checkbashisms steps.
 - **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
-  `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`):
-  both PowerShell smoke jobs and PSScriptAnalyzer.
+  `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`, the
+  `.ps1` files under `lab/round/`): both PowerShell smoke jobs and
+  PSScriptAnalyzer.
 - **Python** (everything under `analyzer/`, `tools/` and `lab/round/` except
   Markdown and `tools/drift-baseline/`, and `analyzer/docs/output.md`,
   `docs/agents.md`, `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`): the
@@ -1373,7 +1374,7 @@ python3 tools/check_parser_research.py
 python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as tests/run.sh does
 python3 tools/check_code_style.py
 shfmt -ln posix $(shfmt -f .) >/dev/null && shellcheck -s sh $(shfmt -f .) && checkbashisms -p $(shfmt -f .)
-pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
+pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
 ```
 
 For a change to the PowerShell collector, also run the test under real

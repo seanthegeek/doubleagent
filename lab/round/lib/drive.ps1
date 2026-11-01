@@ -28,7 +28,7 @@ if (-not (Test-Path -LiteralPath $tui)) { Write-Error "drive: $tui is missing"; 
 
 function Read-StandardInput { [Console]::In.ReadToEnd() }
 
-function Start-AgentSession([string]$cols, [string]$rows, [string]$directory) {
+function Open-AgentSession([string]$cols, [string]$rows, [string]$directory) {
     $commandLine = (Read-StandardInput).Trim()
     if ($commandLine -eq '') { Write-Error 'drive: no command line on stdin'; exit 2 }
     $runArguments = @('--session', $Session, 'run', '--config', $config, '--cols', $cols,
@@ -77,7 +77,7 @@ function Wait-Idle([int]$quiet, [int]$limit) {
     exit 1
 }
 
-function Stop-AgentSession {
+function Close-AgentSession {
     foreach ($attempt in @('key:Ctrl+C', 'key:Ctrl+C', 'kill:')) {
         $kind, $value = $attempt.Split(':')
         if ($kind -eq 'kill') { & $tui --session $Session kill 2>$null | Out-Null; break }
@@ -89,7 +89,7 @@ function Stop-AgentSession {
 }
 
 switch ($Verb) {
-    'start' { Start-AgentSession $Rest[0] $Rest[1] (Join-Path $env:USERPROFILE $Rest[2]) }
+    'start' { Open-AgentSession $Rest[0] $Rest[1] (Join-Path $env:USERPROFILE $Rest[2]) }
     'keys' { Send-Keys $Rest[0] }
     'type' {
         & $tui --session $Session type ((Read-StandardInput).TrimEnd("`r", "`n"))
@@ -103,7 +103,7 @@ switch ($Verb) {
         exit $LASTEXITCODE
     }
     'log' { & $tui --session $Session get-recording --config $config; exit $LASTEXITCODE }
-    'stop' { Stop-AgentSession }
+    'stop' { Close-AgentSession }
     'selftest' {
         & $tui --version
         $settings = "[recording]`ndirectory = `"recordings`"`n`n" +

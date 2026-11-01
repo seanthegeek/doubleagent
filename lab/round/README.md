@@ -66,11 +66,15 @@ desktop, open a terminal and attach to it:
 ~/lab/tui-test/tui-test --session s02 monitor --interactive
 ```
 
-The session name is in the pause text. Complete the agent's sign-in with
-the throwaway account, the browser part included, then detach with
-Ctrl+] and run `resume`. The pipeline never asks for, stores or prints a
-credential; whatever file the agent writes for it shows in the next
-listing by name, size and mode.
+The session name is in the pause text. This is how the person joins the
+session the pipeline started over `ssh`. Complete the agent's sign-in
+with the throwaway account, the browser part included, then detach with
+Ctrl+] and run `resume`. If attaching fails, sign in from a desktop
+terminal of your own (start the agent there, sign in, exit) and run
+`resume`: the next listing records where the credential landed either
+way. The pipeline never asks for, stores or prints a credential; whatever
+file the agent writes for it shows in the next listing by name, size and
+mode.
 
 ## The step table
 
@@ -80,7 +84,22 @@ Lines starting with `#` and the header line are skipped. `NN` is two or
 three digits rising from `02` (`00-baseline` and `01-install` are the
 listings `start` takes itself), and `NN-name` names the step's listing,
 diff and screen files. `claim` is the statement of the agent's research
-document the step tests, with its section anchor, or `none`.
+document the step tests, with its section anchor, or `none`. A claim
+ending `(unverified)` rests on a guessed value (a dialog's option order, a
+key, a command name, the input marker) that the first run of the table
+confirms or corrects.
+
+Each table follows the step list of
+[Real-install rounds in AGENTS.md](../../AGENTS.md#real-install-rounds).
+An item is left out of an agent's table when its research document says
+the agent lacks that feature, with no step to record the absence:
+Gemini CLI has no scheduled task, no session synced to an account and no
+source-host integration; Qwen Code syncs no session to an account (its
+channel sessions are relays through a messaging platform); pi has no
+permission modes, no scheduled task, no synced session (`/share` is left
+out too) and no source-host integration. A resumed session after a
+relaunch is the same terminal program for all three, so the `/exit` and
+resume steps cover it.
 `python3 -I lab/round/steps.py check lab/round/agents/<agent>` checks a
 table; `start` and `resume` refuse one that fails.
 
@@ -148,6 +167,11 @@ directories, as `top` lines, so a directory no root covers still shows.
 | `collection/<label>/` | The collector's archive, manifest, summary, log and `.sha256`, its stdout, the sha256 check and the extracted archive. |
 | `analysis/<label>/`, `shapes/<label>.txt` | The analyzer's `timeline.jsonl`, `sessions.jsonl` and `inventory.json`, and the shape tool's output with `--enums`. |
 | `report.md` | Per step its status and diff counts, the missed and failed steps, and per collection the rows per status, the error rows, the `skipped_excluded` rows, the unflagged-key rows (collected, not `secret: true`, a file name holding key, token, secret, cred, cookie or auth), the analyzer's rows per numbered session and per row form, the forms an earlier collection lacked, and the `parser:` rows without the line they quote. |
+
+tui-test keeps its own recordings and traces under `~/lab/tui-test` in
+the VM (it keeps a recording only with tracing on). `~/lab` is the
+pipeline's own directory and lies outside every agent's survey roots, so
+neither shows in a diff.
 
 The screens and recordings hold the agent's own output and the
 collection holds its credentials: they stay in the cell directory, which

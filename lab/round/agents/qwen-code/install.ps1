@@ -3,6 +3,11 @@
 # print the `source:` and `bin:` lines round.sh records. Windows PowerShell
 # 5.1. The version line is left to the first launch, since where the
 # installer puts its package on Windows is not yet known.
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '',
+    Justification = 'The vendor command is copied as the README prints it.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '',
+    Justification = 'The vendor installer is run the way the README runs it.')]
+param()
 
 $ErrorActionPreference = 'Stop'
 $sourcePage = 'https://github.com/QwenLM/qwen-code/blob/main/README.md#installation'

@@ -1,4 +1,5 @@
-# PSScriptAnalyzer settings for Collect-AgentArtifacts.ps1 and tests/smoke.ps1.
+# PSScriptAnalyzer settings for Collect-AgentArtifacts.ps1, tests/smoke.ps1 and
+# the round pipeline's guest scripts under lab/round/.
 # Run from the repository root with PSScriptAnalyzer 1.25.0:
 #   Invoke-ScriptAnalyzer -Path collectors/Collect-AgentArtifacts.ps1 -Settings collectors/PSScriptAnalyzerSettings.psd1
 #

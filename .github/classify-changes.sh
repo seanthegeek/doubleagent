@@ -51,7 +51,7 @@ while IFS= read -r path; do
 
   case "$path" in
     collectors/Collect-AgentArtifacts.ps1 | collectors/tests/smoke.ps1 | \
-      collectors/PSScriptAnalyzerSettings.psd1)
+      collectors/PSScriptAnalyzerSettings.psd1 | lab/round/*.ps1)
       powershell=true
       matched=true
       ;;
