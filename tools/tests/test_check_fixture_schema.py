@@ -426,6 +426,123 @@ def test_type_mismatch_met_by_no_row_gives_both_details(tmp_path):
     assert found == {("type:string", line), ("type=system", line)}
 
 
+SCOPED_DOCUMENT = """\
+# beta
+
+## Parsing
+
+### Record schema
+
+#### Index
+
+Each `index/<id>.json` holds one entry.
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | | 1.0 |
+| `count` | number | | 1.0 |
+
+#### Turn lines
+
+`~/.beta/history.jsonl` holds one turn per line.
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `type` | string | `user`, `assistant`, `index.json` | 1.0 |
+
+#### Shared fields
+
+Every store repeats these.
+
+| Key | Type | Values | Builds |
+| --- | --- | --- | --- |
+| `count` | string | | 1.0 |
+"""
+
+
+def scoped_findings(tmp_path, relative, records, document=SCOPED_DOCUMENT):
+    """Return (detail, line) of the type mismatches of one file beside an index file."""
+    write(tmp_path / "research/beta.md", document)
+    parsed = checker.agent_document(tmp_path, tmp_path / "research/beta.md")
+    files = [
+        checker.BuiltFile(relative, "beta", records=records),
+        checker.BuiltFile(".beta/index/a1.json", "beta", records=[{"type": "entry"}]),
+    ]
+    found = checker.agent_findings("beta", files, parsed, [])
+    return {(item.detail, item.line) for item in found if item.kind == "type-mismatch"}
+
+
+def scoped_line(text):
+    """Return the line number of a row of the scoped document."""
+    return SCOPED_DOCUMENT.split("\n").index(text) + 1
+
+
+def test_type_mismatch_consults_only_the_sections_naming_the_file(tmp_path):
+    found = scoped_findings(tmp_path, ".beta/history.jsonl", [{"type": "system"}])
+    turn_row = scoped_line("| `type` | string | `user`, `assistant`, `index.json` | 1.0 |")
+    assert found == {("type=system", turn_row)}
+
+
+def test_type_mismatch_names_the_first_consulted_row(tmp_path):
+    found = scoped_findings(tmp_path, ".beta/history.jsonl", [{"type": "system"}])
+    index_row = scoped_line("| `type` | string | | 1.0 |")
+    assert found, "the named section's closed row rejects the value"
+    assert all(line > index_row for _, line in found), found
+
+
+def test_type_mismatch_consults_every_row_when_no_section_names_the_file(tmp_path):
+    assert scoped_findings(tmp_path, ".beta/other.json", [{"type": "system"}]) == set()
+
+
+def test_type_mismatch_consults_sections_naming_no_built_file(tmp_path):
+    turn_count = "| `count` | number | | 2.0 |"
+    document = SCOPED_DOCUMENT.replace(
+        "`index.json` | 1.0 |", "`index.json` | 1.0 |\n" + turn_count
+    )
+    records: list[object] = [{"count": "three"}]
+    assert scoped_findings(tmp_path, ".beta/history.jsonl", records, document) == set()
+    scoped = document.replace("Every store repeats these.", "`index/<id>.json` too.")
+    found = scoped_findings(tmp_path / "scoped", ".beta/history.jsonl", records, scoped)
+    assert found == {("count:string", scoped.split("\n").index(turn_count) + 1)}
+
+
+def test_section_paths_skip_key_table_cells(tmp_path):
+    write(tmp_path / "doc.md", SCOPED_DOCUMENT)
+    sections = drift_common.research_sections(tmp_path / "doc.md")
+    paths = checker.section_paths(drift_common.within(sections, "Parsing"))
+    assert paths == {
+        "Parsing/Record schema/Index": ["index/<id>.json"],
+        "Parsing/Record schema/Turn lines": ["~/.beta/history.jsonl"],
+        "Parsing/Record schema/Shared fields": [],
+    }
+    rows, _ = checker.key_tables(drift_common.within(sections, "Parsing"))
+    assert [row.section for row in rows["count"]] == [
+        "Parsing/Record schema/Index",
+        "Parsing/Record schema/Shared fields",
+    ]
+
+
+def test_names_file_forms():
+    cases = [
+        ("index/<id>.json", ".beta/index/a1.json", True),
+        ("<id>.json", ".beta/index/a1.json", True),
+        ("*.jsonl", ".beta/history.jsonl", True),
+        ("sessions/*/<id>.jsonl", ".beta/sessions/p/a1.jsonl", True),
+        ("~/.beta/history.jsonl", ".beta/history.jsonl", True),
+        ("<home>/.beta/history.jsonl", ".beta/history.jsonl", True),
+        ("%APPDATA%\\Beta\\state.json", "AppData/Roaming/Beta/state.json", True),
+        ("history.jsonl", ".beta/history.jsonl", True),
+        ("ory.jsonl", ".beta/history.jsonl", False),
+        (".beta/history.jsonl", "x.beta/history.jsonl", False),
+        ("history.jsonl", ".beta/history.jsonl.bak", False),
+        ("index/<id>.json", ".beta/index/sub/a1.json", False),
+        ("<owner>/<repo>", ".beta/history.jsonl", False),
+        ("/model", ".beta/model", False),
+    ]
+    for span, relative, expected in cases:
+        assert checker.names_file(span, relative) is expected, (span, relative)
+
+
 BLOB_DOCUMENT = """\
 # beta
 
