@@ -387,10 +387,14 @@ class QwenCodeTests(ParserBase):
         self.assertEqual({row.timestamp_utc for row in rows}, {to_utc(QWEN_SETTINGS_MTIME)})
         self.assertFalse([row for row in rows if "secret" in row.text])
         self.assertFalse(QwenCodeParser().secondary(self.artifact(rel)))
+        # A whole-file row: no line and no time of its own.
         (self.home / rel).write_text("[1]", encoding="utf-8")
         self.assertEqual(
-            [row.text for row in self.rows_for(QwenCodeParser(), rel)],
-            ["parser: .qwen/settings.json is not a JSON object"],
+            [
+                (row.source_line, row.timestamp_utc, row.text)
+                for row in self.rows_for(QwenCodeParser(), rel)
+            ],
+            [(0, "", "parser: .qwen/settings.json is not a JSON object")],
         )
         # The fixture home's empty settings file yields nothing.
         (self.home / rel).write_text("{}", encoding="utf-8")
