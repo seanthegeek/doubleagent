@@ -3,6 +3,8 @@
 The records follow the Record schema and Other stores of research/qwen-code.md, from
 QwenLM/qwen-code at 835b080 (0.26.4); the session and permission records keep the `version` of
 the 0.24.7 and 0.25.3 builds whose shapes are unchanged (Format versions).
+
+Paths: `/srv/proj/.qwen/worktrees/fix-tests`, `/srv`, `/srv/a,]`, `/srv/b`
 """
 
 from __future__ import annotations
