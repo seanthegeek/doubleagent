@@ -111,6 +111,7 @@ PLACEHOLDER_FILLS = (
     "2026-01-01T00-00-00Z",
     "2026-01-01T00-00-00.000Z",
     "2026-01-01T00-00-00-000Z",
+    "2026-01-01T00-00-00_000Z",
 )
 # The survival row's cells from the third on are searched: the agent and the transcript store
 # cells name no secondary source.
