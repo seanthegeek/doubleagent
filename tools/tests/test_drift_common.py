@@ -66,7 +66,7 @@ def run_with(findings: list[Finding]):
 
 ALPHA = Finding("alpha", "line-unnamed", ".alpha/x", "analyzer/doubleagent/catalog.txt", 3)
 BETA = Finding("beta", "line-unnamed", ".config/beta", "analyzer/doubleagent/catalog.txt", 5)
-NO_AGENT = Finding("-", "exclusion-unreachable", "tmp/x", "analyzer/doubleagent/catalog.txt")
+NO_AGENT = Finding("-", "exclusion-unowned", "tmp/x", "analyzer/doubleagent/catalog.txt")
 
 
 # --- Finding ---------------------------------------------------------------------------------
@@ -191,7 +191,7 @@ def test_update_writes_sorted_keys_per_agent_and_unattributed_file_for_no_agent(
         "check_tables|credential-unflagged|.alpha/auth.json\ncheck_tables|line-unnamed|.alpha/x\n"
     )
     assert baseline_text(tmp_path, "beta") == "check_tables|line-unnamed|.config/beta\n"
-    assert baseline_text(tmp_path, "unattributed") == "check_tables|exclusion-unreachable|tmp/x\n"
+    assert baseline_text(tmp_path, "unattributed") == "check_tables|exclusion-unowned|tmp/x\n"
     assert not (tmp_path / "tools/drift-baseline/-.txt").exists()
     assert drift_common.main_with_baseline("check_tables", run_with(findings), [], tmp_path) == 0
 
@@ -243,7 +243,7 @@ def test_unattributed_file_holds_the_findings_of_no_agent(tmp_path, capsys):
     run = run_with([NO_AGENT])
     assert drift_common.main_with_baseline("check_tables", run, [], tmp_path) == 1
     output = capsys.readouterr().out
-    assert "exclusion-unreachable [-]: tmp/x" in output
+    assert "exclusion-unowned [-]: tmp/x" in output
     assert "from tools/drift-baseline/unattributed.txt" in output
     assert drift_common.baseline_file("-") == "tools/drift-baseline/unattributed.txt"
     assert drift_common.file_agent("unattributed") == "-"

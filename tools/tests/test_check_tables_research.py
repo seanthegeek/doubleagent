@@ -216,7 +216,7 @@ def test_line_unnamed(tmp_path):
         ("alpha", "home .alpha2"),
         ("alpha", "exclude .alpha/logs"),
     ]
-    assert ("-", "stray") in findings(root, "exclusion-unreachable")
+    assert ("-", "stray") in findings(root, "exclusion-unowned")
 
 
 def test_one_glob_unnamed_in_two_tables_gives_two_findings(tmp_path):
@@ -610,17 +610,17 @@ def test_crossing_regex_forms():
     assert checker.secret_samples(".a*/b*") == [".a/b", ".ax/bx"]
 
 
-# --- Rule 4: exclusion-unreachable and secret-unreachable ------------------------------------
+# --- Rule 4: exclusion-unowned and secret-unowned --------------------------------------------
 
 
-def test_exclusion_and_secret_unreachable(tmp_path):
-    assert findings(repository(tmp_path / "clean"), "exclusion-unreachable") == []
+def test_exclusion_and_secret_unowned(tmp_path):
+    assert findings(repository(tmp_path / "clean"), "exclusion-unowned") == []
     beta = BETA.replace(", and `models` there is excluded", "")
     catalog = CATALOG.replace("models\n#", "models\nnowhere/cache\n#")
     catalog = catalog.replace("token.json\n#", "token.json\nstray.key\n#")
     root = repository(tmp_path / "drift", beta=beta, catalog=catalog)
-    assert findings(root, "exclusion-unreachable") == [("-", "models"), ("-", "nowhere/cache")]
-    assert findings(root, "secret-unreachable") == [("-", "stray.key")]
+    assert findings(root, "exclusion-unowned") == [("-", "models"), ("-", "nowhere/cache")]
+    assert findings(root, "secret-unowned") == [("-", "stray.key")]
 
 
 def test_exclusion_below_a_project_entry_is_reachable(tmp_path):
@@ -630,7 +630,7 @@ def test_exclusion_below_a_project_entry_is_reachable(tmp_path):
         "A project keeps `.alpha/`.", "A project keeps `.alpha/` and `.alphaproj/big`."
     )
     root = repository(tmp_path, catalog=catalog, alpha=alpha)
-    assert findings(root, "exclusion-unreachable") == []
+    assert findings(root, "exclusion-unowned") == []
     assert findings(root, "line-unnamed") == []
     assert checker.load(root).glob_agents[".alphaproj/big"] == "alpha"
 
@@ -646,7 +646,7 @@ def test_volume_glob_owned_by_the_volume_subsection_not_an_incidental_mention(tm
     catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
     alpha = ALPHA.replace("`cache` below `.alpha`.", "`cache` below `.alpha`, and `models`.")
     root = repository(tmp_path, catalog=catalog, alpha=alpha)
-    assert findings(root, "exclusion-unreachable") == []
+    assert findings(root, "exclusion-unowned") == []
     assert findings(root, "volume-glob-unnamed") == []
     repo = checker.load(root)
     assert repo.glob_owners["models"] == ["beta"]
@@ -660,7 +660,7 @@ def test_volume_glob_named_in_two_volume_subsections_is_owned_by_both(tmp_path):
         "#### Docker volume\n\nThe `alpha_data` volume holds `models`.\n\n### Credentials",
     )
     root = repository(tmp_path, catalog=catalog, alpha=alpha)
-    assert findings(root, "exclusion-unreachable") == []
+    assert findings(root, "exclusion-unowned") == []
     assert findings(root, "volume-glob-unnamed") == []
     repo = checker.load(root)
     assert repo.glob_owners["models"] == ["alpha", "beta"]
@@ -679,7 +679,7 @@ def test_volume_layout_below_a_path_does_not_own_the_bare_glob(tmp_path):
     root = repository(tmp_path, catalog=catalog, alpha=alpha, beta=beta)
     assert checker.load(root).glob_owners["profiles/*"] == ["beta"]
     assert findings(root, "volume-glob-unnamed") == []
-    assert findings(root, "secret-unreachable") == []
+    assert findings(root, "secret-unowned") == []
 
 
 def test_volume_glob_named_in_no_volume_subsection_falls_back_to_the_collection(tmp_path):
@@ -687,7 +687,7 @@ def test_volume_glob_named_in_no_volume_subsection_falls_back_to_the_collection(
     alpha = ALPHA.replace("`cache` below `.alpha`.", "`cache` below `.alpha`, and `models`.")
     beta = BETA.replace(", and `models` there is excluded", "")
     root = repository(tmp_path, catalog=catalog, alpha=alpha, beta=beta)
-    assert findings(root, "exclusion-unreachable") == []
+    assert findings(root, "exclusion-unowned") == []
     assert checker.load(root).glob_owners["models"] == ["alpha"]
     assert findings(root, "volume-glob-unnamed") == [("alpha", "exclude models")]
 
@@ -700,17 +700,17 @@ def test_volume_glob_several_collections_name_outside_any_volume_subsection_has_
     )
     root = repository(tmp_path, catalog=catalog, alpha=alpha, beta=beta)
     assert checker.load(root).glob_owners["models"] == []
-    found = [finding for finding in checker.run(root) if finding.kind == "exclusion-unreachable"]
+    found = [finding for finding in checker.run(root) if finding.kind == "exclusion-unowned"]
     assert [(finding.agent, finding.detail) for finding in found] == [("-", "models")]
     assert "the documents of beta, alpha all name it, so none owns it" in found[0].message
     assert findings(root, "volume-glob-unnamed") == []
 
 
-def test_volume_glob_no_document_names_is_unreachable(tmp_path):
+def test_volume_glob_no_document_names_is_unowned(tmp_path):
     catalog = CATALOG.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
     beta = BETA.replace(", and `models` there is excluded", "")
     root = repository(tmp_path, catalog=catalog, beta=beta)
-    found = [finding for finding in checker.run(root) if finding.kind == "exclusion-unreachable"]
+    found = [finding for finding in checker.run(root) if finding.kind == "exclusion-unowned"]
     assert [(finding.agent, finding.detail) for finding in found] == [("-", "models")]
     assert "no docker-volume agent's document names it" in found[0].message
     assert checker.load(root).glob_owners["models"] == []
@@ -747,7 +747,7 @@ def test_volume_glob_unnamed(tmp_path):
     found = [finding for finding in checker.run(root) if finding.kind == "volume-glob-unnamed"]
     assert [(finding.agent, finding.detail) for finding in found] == [("beta", "exclude models")]
     assert "looked in: none" in found[0].message
-    assert findings(root, "exclusion-unreachable") == []
+    assert findings(root, "exclusion-unowned") == []
 
 
 def test_is_volume_section_forms(tmp_path):
