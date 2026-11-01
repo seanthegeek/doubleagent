@@ -875,12 +875,12 @@ not a JSON object is one whole-file `parser:` row, and a routes entry that is no
 own row ([Channel routes](#channel-routes), [Permission rows](#permission-rows)).
 Each line of `usage_record.jsonl` that does not decode is its own `parser: unparseable line` row,
 and the lines before and after it are still read. A `settings.json` that is not a JSON object is
-one whole-file `parser:` row. A `settings.json` or `trustedFolders.json` that cannot be read is one
-`parser: unreadable <file>: <reason>` row, distinct from the `parser: <file> is not a JSON object`
-of a file that reads but decodes to something else.
+one whole-file `parser:` row.
 
-A transcript or `usage_record.jsonl` that cannot be read is one whole-file row
-`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+A transcript, `usage_record.jsonl`, `logs.json`, channel routes file, `settings.json` or
+`trustedFolders.json` that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, distinct from
+the `parser: <file> is not a JSON object` of a file that reads but decodes to something else.
 
 #### Fixtures
 

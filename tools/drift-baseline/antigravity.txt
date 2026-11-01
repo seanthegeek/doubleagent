@@ -55,7 +55,6 @@ check_parser_research|key-undocumented|url
 check_parser_research|key-undocumented|user_intent
 check_parser_research|key-undocumented|write_in_response
 check_parser_research|parser-message-undocumented|parser: %d step(s) could not be decoded
-check_parser_research|parser-message-undocumented|parser: unreadable %s
 check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/brain/([^/]+)/\.system_generated/logs/(?:(transcript(?:_full)?)\.jsonl|chunks/(transcript(?:_full)?)/(\d+)\.jsonl)$
 check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/conversation_summaries\.db$
 check_parser_research|pattern-undocumented|^\.gemini/(antigravity(?:-cli|-ide|-backup)?)/conversations/[^/]+\.db$

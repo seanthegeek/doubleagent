@@ -957,7 +957,9 @@ decode gets the same row with the reason prefixed
 `retained_frame child: ` and the child's `record_json` text as the line.
 
 A `session.jsonl` that cannot be read is one whole-file row
-`parser: session.jsonl could not be read (<reason>)` through `error_rows`.
+`parser: session.jsonl could not be read (<reason>)` through `error_rows`; a `tui-history.jsonl` or
+`trust.json` that cannot be read is likewise one row `parser: <file> could not be read (<reason>)`,
+`<file>` its name.
 
 #### Fixtures
 

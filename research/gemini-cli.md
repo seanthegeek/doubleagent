@@ -932,21 +932,25 @@ the defaults: retention on, 30 days.
 
 The parser covers the session file, `logs.json` and `trustedFolders.json`, the last including the
 trailing commas and byte-order mark Qwen Code allows ([Permission rows](#permission-rows)).
-A `logs.json` or legacy JSON session file that does not parse or cannot be read is one whole-file
-`parser:` row.
+A `logs.json` or legacy JSON session file that does not parse is one whole-file `parser:` row.
 In `shell_history` a line that is not valid UTF-8 is a row
 `parser: unparseable line (not valid UTF-8): <line>`, the line decoded with replacement
 characters, and the commands around it are kept. A `/chat save` checkpoint or `/bug` export cut
 mid-write keeps its complete leading items and adds `parser: unparseable record <N> (<reason>):
 <text from the cut item to the end>` or `parser: array cut off after record <N>`; an item that is
 not an object is `parser: unparseable record <N> (not a JSON object): <item>`, and a file that is
-neither form is one `parser: not a chat history: ...` row. The standing files each yield one
-`parser:` row when they cannot be read ([Permission rows](#permission-rows)): `settings.json`,
-`trusted_hooks.json` and `trustedFolders.json` give `parser: unreadable <file>: <reason>`, distinct
-from the `parser: <file> is not a JSON object` of a file that reads but decodes to something else.
+neither form is one `parser: not a chat history: ...` row. A standing file
+([Permission rows](#permission-rows)) that reads but decodes to something else is one
+`parser: <file> is not a JSON object` row, at the file's modification time.
 
-A JSONL session file that cannot be read is one whole-file row
-`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+A session file (JSONL or legacy JSON), `logs.json`, `shell_history`, `/chat save` checkpoint,
+`/bug` export, policy file or standing file (`settings.json`, `trusted_hooks.json`,
+`trustedFolders.json`, `acknowledgments/agents.json`) that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name. A
+`tmp/<slug>/.project_root` or `projects.json` that exists but cannot be read gives every file that
+resolves its project through it one row `parser: <file> could not be read (<reason>)`, `<file>` the
+side file's name, with that file's session id and the project path resolved without the side file;
+one that is absent or does not parse gives no row.
 
 #### Fixtures
 
