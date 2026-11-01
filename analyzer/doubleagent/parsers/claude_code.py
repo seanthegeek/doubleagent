@@ -339,8 +339,8 @@ def read_paste(history: Path, content_hash: str) -> tuple[str | None, str]:
 
     Returns the file's text and ""; `(None, "")` when the name is not a plain hash, the
     file is missing, or the directory or file is a symlink, which is never followed; and
-    `(None, "<message>")` when a file that is there could not be read, since a read
-    failure is evidence, not an absent cache entry.
+    `(None, unreadable_message)` when a file that is there could not be read, since a
+    read failure is evidence, not an absent cache entry.
     """
     if not PASTE_HASH_PATTERN.match(content_hash):
         return None, ""
@@ -351,18 +351,16 @@ def read_paste(history: Path, content_hash: str) -> tuple[str | None, str]:
             return None, ""
         return cache_file.read_bytes().decode("utf-8", errors="replace"), ""
     except OSError as error:
-        return None, "paste-cache/%s.txt unreadable (%s)" % (content_hash, error)
+        return None, unreadable_message(cache_file, error)
 
 
-def expand_pastes(
-    history: Path, display: str, pasted, errors: list | None = None, line: int = 0
-) -> str:
+def expand_pastes(history: Path, display: str, pasted, errors: list | None = None) -> str:
     """Return `display` with each `[Pasted text #<n> ...]` placeholder expanded.
 
     The text is `pastedContents.<n>.content` when the paste is kept inline, else
     `paste-cache/<contentHash>.txt`; a placeholder whose text is in neither place is kept
     as written. A cache file that is there but cannot be read keeps the placeholder too and
-    adds `(line, message, "")` to `errors`, which `error_rows` reports.
+    adds its whole-file entry, at line 0, to `errors`, which `error_rows` reports.
     """
     if not isinstance(pasted, dict) or not pasted:
         return display
@@ -379,7 +377,7 @@ def expand_pastes(
             read_paste(history, content_hash) if isinstance(content_hash, str) else (None, "")
         )
         if problem and errors is not None:
-            errors.append((line, problem, ""))
+            errors.append((0, problem))
         return match.group(0) if text is None else text
 
     return PASTE_PATTERN.sub(replace_paste, display)
@@ -481,7 +479,7 @@ class ClaudeCodeParser(Parser):
             display = record.get("display")
             if isinstance(display, str):
                 display = expand_pastes(
-                    artifact.disk_path, display, record.get("pastedContents"), errors, line_number
+                    artifact.disk_path, display, record.get("pastedContents"), errors
                 )
             row.text = compact(display)
             yield row

@@ -2703,9 +2703,8 @@ beside `history.jsonl` ([Per-user storage](#per-user-storage)). The text is foun
 the entry's `content` is a string or its `contentHash` is a plain alphanumeric name that names a
 regular file in `paste-cache/`, neither the directory nor the file a symlink; any other placeholder
 is kept as written. A cache file that is there but cannot be read keeps the
-placeholder too and adds a `system` row
-`parser: paste-cache/<contentHash>.txt unreadable (<error>)` after the file's rows, `source_line`
-the history line. A prompt then matches with the transcript's `<pasted_content>` wrapper removed
+placeholder too and adds a `system` row `parser: <contentHash>.txt could not be read (<reason>)`
+after the file's rows, `source_line` 0. A prompt then matches with the transcript's `<pasted_content>` wrapper removed
 ([`user` records](#user-records)) and each run of ASCII whitespace collapsed to one space, so an
 expanded history line matches the `user` line whose text is the same once unwrapped, and only a
 history line with no transcript counterpart is a recovered row.

@@ -1781,14 +1781,16 @@ class ClaudeCodeMacTests(ParserBase):
         problems = [
             row for row in rows if row.turn_type == "system" and row.text.startswith("parser:")
         ]
-        self.assertEqual(len(problems), 1)
-        self.assertTrue(
-            problems[0].text.startswith(
-                "parser: paste-cache/%s.txt unreadable (" % CLAUDE_MAC_PASTE_HASH
-            ),
-            problems[0].text,
+        self.assertEqual(
+            [(row.text, row.source_line, row.timestamp_utc) for row in problems],
+            [
+                (
+                    "parser: %s.txt could not be read (Permission denied)" % CLAUDE_MAC_PASTE_HASH,
+                    0,
+                    "",
+                )
+            ],
         )
-        self.assertEqual(problems[0].source_line, 6)
 
     def _primary(self):
         rows = self._rows(self.REL, claude_mac_records())
