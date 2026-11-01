@@ -268,6 +268,155 @@ def test_assigned_constant_reaching_a_row_text_is_a_row_text(tmp_path):
     assert details(repository(tmp_path, alpha, text), "row-text-undocumented") == []
 
 
+RESOLVER_BASE = BASE.replace(
+    "        def secondary(self, artifact):\n            return False\n",
+    "        def secondary(self, artifact):\n            return False\n\n"
+    "        def base_note(self, text):\n            row = self.base_row(None)\n"
+    "            row.text = text\n            return row\n",
+)
+
+# Each function names in its strings whether the resolver should take them: "[yes ...]" is a row
+# text, "[no ...]" is not.
+RESOLVER_MODULE = '''\
+    """Alpha transcripts."""
+
+    import re
+
+    from .base import Parser
+
+    LOG_PATTERN = re.compile(r"^\\.alpha/logs/[^/]+\\.jsonl$")
+
+
+    def make_row(turn, text) -> Row:
+        return Row(turn_type=turn, text=text)
+
+
+    def unannotated(row, text):
+        row.text = text
+        return row
+
+
+    def emit(row, turn, text) -> Row:
+        return row
+
+
+    def first_split(row):
+        def split(text, turn) -> Row:
+            return row
+
+        def nested_emit(row, turn, text) -> Row:
+            return row
+
+        return split, nested_emit
+
+
+    def second_split(row):
+        def split(turn, text) -> Row:
+            return row
+
+        return split
+
+
+    def module_rows(row):
+        text = "[yes module maker]"
+        yield make_row("system", text)
+        plain = "[yes unannotated maker]"
+        yield unannotated(row, plain)
+
+
+    def local_wins(row):
+        def make_row(text, turn) -> Row:
+            return row
+
+        first = "[yes local first]"
+        second = "[no module second]"
+        yield make_row(first, second)
+
+
+    def shadowed(row, factory):
+        make_row = factory
+        value = "[no shadowed by an assignment]"
+        yield make_row("system", value)
+
+
+    def passed_agreeing(row, emit):
+        value = "[yes passed maker that agrees]"
+        yield emit(row, "system", value)
+
+
+    def passed_disagreeing(row, split):
+        value = "[no passed maker that disagrees]"
+        yield split(value, "system")
+
+
+    def unresolved(row):
+        value = "[no unresolved name]"
+        yield nested_emit(row, "system", value)
+
+
+    class Unrelated:
+        def note(self, text, turn):
+            return Row(text=text)
+
+        def stray(self, text) -> Row:
+            return Row(text=text)
+
+
+    class AlphaParser(Parser):
+        agent = "alpha"
+
+        def wants(self, artifact):
+            return bool(LOG_PATTERN.match(artifact.rel))
+
+        def note(self, turn, text) -> Row:
+            return Row(turn_type=turn, text=text)
+
+        def parse(self, artifact, record):
+            label = "[yes own method]"
+            turn = "[no own method turn]"
+            yield self.note(turn, label)
+            inherited = "[yes inherited method]"
+            yield self.base_note(inherited)
+            missing = "[no method of an unrelated class]"
+            yield self.stray(missing)
+            return record.get("type")
+    '''
+
+
+def test_assigned_row_text_resolves_each_call_to_its_definition(tmp_path):
+    root = repository(tmp_path, RESOLVER_MODULE, modules={"base.py": RESOLVER_BASE})
+    found = details(root, "row-text-undocumented")
+    expected = [
+        "[yes inherited method]",
+        "[yes local first]",
+        "[yes module maker]",
+        "[yes own method]",
+        "[yes passed maker that agrees]",
+        "[yes unannotated maker]",
+    ]
+    assert sorted(found) == expected, sorted(found)
+
+
+def test_is_row_maker_forms():
+    makers = (
+        "def f(text) -> Row: pass",
+        "def f(text) -> Iterator[Row]: pass",
+        "def f(text) -> 'Iterator[Row]': pass",
+        "def f(self, text):\n    return Row(text=text)",
+        "def f(self, text):\n    row = self.base_row(None)\n    return row",
+        "def f(row, text):\n    row.text = text",
+    )
+    for source in makers:
+        assert checker.is_row_maker(ast.parse(source).body[0]), source
+    others = (
+        "def f(text) -> str: pass",
+        "def f(row) -> Row: pass",
+        "def f(text):\n    return text",
+    )
+    for source in others:
+        assert not checker.is_row_maker(ast.parse(source).body[0]), source
+
+
 def test_row_text_position_is_the_model_row_field():
     drift_common.catalog_module()
     columns = importlib.import_module("doubleagent.model").TIMELINE_COLUMNS

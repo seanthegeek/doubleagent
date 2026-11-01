@@ -618,10 +618,11 @@ plan, and the parser is written from them.
      of its research document; a literal inherited from another parser's
      module may be named in that parser's document instead
      (`tools/check_parser_research.py` checks this). A row text includes a
-     fixed string assigned to a name that the same function then passes as
-     a row's text (`[redacted]` for an empty redacted thinking block), not
-     only a `<label>: ` literal. A commit that finds
-     the document wrong fixes the document in that commit.
+     fixed string assigned directly to a name that the same function then
+     passes as the `text` of `Row`, of a function that builds one, or
+     stores to `.text` (`[redacted]` for an empty redacted thinking block),
+     not only a `<label>: ` literal. A commit that finds the document wrong
+     fixes the document in that commit.
    - **Survival table.** Update the agent's row in the
      [survival table of `research/README.md`](research/README.md#where-transcripts-live-and-what-survives)
      in the same commit: one short sentence per cell with the file name,
@@ -982,11 +983,12 @@ when the page has one.
      layout is described in a Per-user storage subsection whose heading or
      opening paragraph says "volume" and names the volume in a code span
      (its name, its `DOCKER_VOLUMES` glob or its catalog line), and names
-     each volume-relative exclusion and secret glob. Each table line of the agent is named in
-     the Collection part as its glob, a path it matches or (a home or
-     project line) lies above, its remainder below one of the agent's own
-     catalog entries, or, for a glob opening `*/`, its remainder below the
-     entry it reaches (`tools/check_tables_research.py` checks this).
+     each volume-relative exclusion and secret glob. Each table line of the
+     agent is named in the Collection part as its glob, a path it matches
+     or (a home or project line) lies above, its remainder below one of the
+     agent's own catalog entries, or, for a glob opening `*/`, its
+     remainder below the entry it reaches (`tools/check_tables_research.py`
+     checks this).
    - `### Credentials`: credential files (settings files that hold keys
      among them), keychain use and its file fallback, identity values to
      redact. A credential file is named by its home-relative path on each

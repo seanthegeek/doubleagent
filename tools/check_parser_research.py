@@ -111,6 +111,7 @@ FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 # `test_row_text_position_is_the_model_row_field` keeps in step.
 TEXT_NAME = "text"
 ROW_CLASS = "Row"
+BASE_ROW = "base_row"
 ROW_TEXT_POSITION = 11
 COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
 
@@ -253,16 +254,15 @@ def string_literals(path: pathlib.Path, nodes: Iterable[ast.AST], skip: set[int]
 def assigned_row_texts(index: ModuleIndex, effective: EffectiveSet) -> list[Literal]:
     """Return the strings assigned to a name that the same function passes as a row's text.
 
-    A function's assignment of a string, an f-string or a conditional choosing between them to a
-    plain name, in any branch, counts when that function, outside nested functions, passes the
-    name to a row maker (`row_maker_call`) as `text=` or at its `text` parameter's place, or
-    stores it in `.text`. Only a direct assignment to the name is followed, never a second hop
-    (`b = a`); an f-string's values read `{}`.
+    A string, an f-string or a conditional choosing between them, assigned directly to a plain
+    name in any branch, counts when the same function, outside nested functions, passes the name
+    as the `text` of `Row` or of a row maker (`is_row_maker`, found by `_Resolver.definition`),
+    by keyword or place, or stores it in `.text`. A second hop (`b = a`) is never followed; an
+    f-string's values read `{}`.
     """
     base = index.package / "parsers" / "base.py"
     roots: list[ast.AST] = [index.tree(base)] if base.is_file() else []
     roots.extend(node for nodes in effective.nodes.values() for node in nodes)
-    classes = [node for root in roots for node in ast.walk(root) if isinstance(node, ast.ClassDef)]
     makers: dict[str, list[ast.AST]] = {}
     for root in roots:
         for node in ast.walk(root):
@@ -272,7 +272,7 @@ def assigned_row_texts(index: ModuleIndex, effective: EffectiveSet) -> list[Lite
     for path, nodes in effective.nodes.items():
         for root in nodes:
             for function, enclosing in _functions_with_scopes(root, ()):
-                resolver = _Resolver(index, path, enclosing, classes, makers)
+                resolver = _Resolver(index, path, enclosing, makers)
                 found.extend(_function_row_texts(path, function, resolver))
     return found
 
@@ -293,21 +293,42 @@ def _functions_with_scopes(
 
 
 def is_row_maker(function: ast.AST) -> bool:
-    """Return whether a function is annotated to return a `Row` (`Row`, `Iterator[Row]`, ...)."""
-    returns = getattr(function, "returns", None)
-    if returns is None:
+    """Return whether a function builds a row from a `text` parameter.
+
+    It has a `text` parameter (`_text_place`) and either is annotated to return a `Row`
+    (`Row`, `Iterator[Row]`, a string naming it) or its body calls `Row(...)` or
+    `base_row(...)` (`self.base_row` too) or assigns to a `.text` attribute.
+    """
+    if _text_place(function) is None:
         return False
-    for node in ast.walk(returns):
+    returns = getattr(function, "returns", None)
+    for node in ast.walk(returns) if returns is not None else ():
+        quoted = node.value if isinstance(node, ast.Constant) else None
         if isinstance(node, ast.Name) and node.id == ROW_CLASS:
             return True
-        quoted = node.value if isinstance(node, ast.Constant) else None
         if isinstance(quoted, str) and re.search(r"\b%s\b" % ROW_CLASS, quoted):
+            return True
+    for node in ast.walk(function):
+        if isinstance(node, ast.Call) and _call_name(node) in (ROW_CLASS, BASE_ROW):
+            return True
+        targets = node.targets if isinstance(node, ast.Assign) else []
+        if any(
+            isinstance(target, ast.Attribute) and target.attr == TEXT_NAME for target in targets
+        ):
             return True
     return False
 
 
+def _call_name(call: ast.Call) -> str:
+    """Return the name a call calls: `f` of `f(...)` and the attribute of `x.f(...)`."""
+    function = call.func
+    if isinstance(function, ast.Name):
+        return function.id
+    return function.attr if isinstance(function, ast.Attribute) else ""
+
+
 def _text_place(function: ast.AST) -> int | None:
-    """Return the place of a function's `text` parameter in a call, `self` counted out."""
+    """Return the place of a function's `text` parameter in a call, `self` and `cls` left out."""
     arguments = getattr(function, "args", None)
     if arguments is None:
         return None
@@ -317,71 +338,110 @@ def _text_place(function: ast.AST) -> int | None:
     return names.index(TEXT_NAME) if TEXT_NAME in names else None
 
 
+def _parameters(function: ast.AST) -> set[str]:
+    """Return every parameter name of a function."""
+    arguments = getattr(function, "args", None)
+    if arguments is None:
+        return set()
+    every = arguments.posonlyargs + arguments.args + arguments.kwonlyargs
+    every += [item for item in (arguments.vararg, arguments.kwarg) if item is not None]
+    return {argument.arg for argument in every}
+
+
 class _Resolver:
-    """Find the definition a call in one function names, scope by scope."""
+    """Find the definition a call in one function names, by Python's own name lookup."""
 
     def __init__(
         self,
         index: ModuleIndex,
         path: pathlib.Path,
         enclosing: tuple[ast.AST, ...],
-        classes: list[ast.ClassDef],
         makers: dict[str, list[ast.AST]],
     ) -> None:
-        """Remember the module, the enclosing scopes, every known class and row maker by name."""
+        """Remember the module, the enclosing scopes and every row maker by name."""
         self.index = index
         self.path = path
         self.enclosing = enclosing
-        self.classes = classes
         self.makers = makers
 
     def definition(self, call: ast.Call) -> ast.AST | None:
-        """Return the function or class a call calls, or None when it is not found.
+        """Return the function or class a call calls, or None when it cannot be told.
 
-        A plain name is the nearest enclosing function's local definition, else the module's
-        binding (imports followed), else, for a row maker passed in as a parameter, the row
-        makers of that name when they all put `text` at one place; `self.f` is the enclosing
-        class's method, else the first method `f` of another class of the effective set or
-        `base.py`.
+        A plain name is looked up from the innermost enclosing function out, as Python does:
+        a function's parameter of that name is the row makers of that name when they all put
+        `text` at one place (the maker is passed in), a local `def` is that definition, and any
+        other local binding shadows every outer one; past the functions, the module binding
+        (imports followed). `self.f` is the first `f` along the enclosing class and its bases,
+        depth first and left to right, `base.py`'s classes included.
         """
         function = call.func
         if isinstance(function, ast.Name):
-            for scope in reversed(self.enclosing):
-                if isinstance(scope, ast.ClassDef):
-                    continue
-                for node in _scope_nodes(scope):
-                    for child in ast.iter_child_nodes(node):
-                        if isinstance(child, FUNCTIONS[:2]) and child.name == function.id:
-                            return child
-            bound = self.index.bindings(self.path).get(function.id)
-            if bound:
-                return bound[1]
-            makers = self.makers.get(function.id, [])
-            places = {_text_place(maker) for maker in makers}
-            return makers[0] if len(places) == 1 else None
-        owner = function.value if isinstance(function, ast.Attribute) else None
-        if not (isinstance(owner, ast.Name) and owner.id == "self"):
+            return self._name(function.id)
+        if not isinstance(function, ast.Attribute):
             return None
-        assert isinstance(function, ast.Attribute)
-        own = [scope for scope in self.enclosing if isinstance(scope, ast.ClassDef)]
-        for cls in own[-1:] + self.classes:
-            for statement in cls.body:
-                if isinstance(statement, FUNCTIONS[:2]) and statement.name == function.attr:
+        owner = function.value
+        on_self = isinstance(owner, ast.Name) and owner.id == "self"
+        return self._method(function.attr) if on_self else None
+
+    def _name(self, name: str) -> ast.AST | None:
+        """Return the definition a plain name has in the enclosing scopes or the module."""
+        for scope in reversed(self.enclosing):
+            if isinstance(scope, ast.ClassDef):
+                continue
+            if name in _parameters(scope):
+                makers = self.makers.get(name, [])
+                places = {_text_place(maker) for maker in makers}
+                return makers[0] if len(places) == 1 else None
+            nodes = list(_scope_nodes(scope))
+            for node in nodes:
+                for child in ast.iter_child_nodes(node):
+                    if isinstance(child, FUNCTIONS[:2]) and child.name == name:
+                        return child
+            stores = {
+                node.id
+                for node in nodes
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+            }
+            if name in stores:
+                return None
+        bound = self.index.bindings(self.path).get(name)
+        return bound[1] if bound else None
+
+    def _method(self, name: str) -> ast.AST | None:
+        """Return the first method `name` along the enclosing class and its bases."""
+        classes = [scope for scope in self.enclosing if isinstance(scope, ast.ClassDef)]
+        pending = [(self.path, classes[-1])] if classes else []
+        seen: set[int] = set()
+        while pending:
+            path, node = pending.pop(0)
+            if id(node) in seen:
+                continue
+            seen.add(id(node))
+            for statement in node.body:
+                if isinstance(statement, FUNCTIONS[:2]) and statement.name == name:
                     return statement
+            bases = []
+            for base in node.bases:
+                bound = (
+                    self.index.bindings(path).get(base.id) if isinstance(base, ast.Name) else None
+                )
+                if bound is not None and isinstance(bound[1], ast.ClassDef):
+                    bases.append((bound[0], bound[1]))
+            pending[:0] = bases
         return None
 
 
 def row_maker_call(call: ast.Call, resolver: _Resolver) -> ast.expr | None:
     """Return the expression a call passes as a row's text, or None.
 
-    The call is of `Row` (its `text` keyword or field place) or of a row maker (`is_row_maker`)
-    found by `_Resolver.definition`, at its own `text` parameter; a `text=` keyword of any other
-    callee is not a row's text.
+    The call is of `Row` (resolved, or a name `Row` with no definition) or of a row maker
+    (`is_row_maker`); its `text` keyword, else its argument at the `text` place, is the text.
     """
     definition = resolver.definition(call)
+    named_row = isinstance(call.func, ast.Name) and call.func.id == ROW_CLASS
     if isinstance(definition, ast.ClassDef) and definition.name == ROW_CLASS:
         place: int | None = ROW_TEXT_POSITION
-    elif isinstance(call.func, ast.Name) and call.func.id == ROW_CLASS and definition is None:
+    elif named_row and definition is None:
         place = ROW_TEXT_POSITION
     elif definition is not None and is_row_maker(definition):
         place = _text_place(definition)
