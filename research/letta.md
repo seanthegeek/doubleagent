@@ -202,6 +202,18 @@ No Letta release reads `~/.memgpt`; a grep of 0.4.1, 0.11.7 and the archive head
 What a delete removes and leaves is in
 [What survives a delete](#what-survives-a-delete).
 
+#### Docker volume
+
+A Docker or Podman volume whose name matches `*letta*` is a guess: no source names such a volume,
+and one replacing the home directory would have the layout of `~/.letta` above, with `_data` as
+the base. The volume-relative exclusions are `bin` (downloaded ripgrep and fd,
+[ripgrep-manager.ts:71-75](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/tools/impl/ripgrep-manager.ts#L71-L75)),
+`mod-cache`
+([mods/paths.ts:36-37](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/mods/paths.ts#L36-L37)),
+`tool_execution_dir` (Letta V1 tool sandboxes and virtualenvs) and `chroma` (the V1 embedding
+store, [0.4.1 config.py:67-68](https://github.com/letta-ai/letta/blob/e0442bd6585f4f17fdb9dca207d2ce17ec9e6e92/letta/config.py#L67-L68)).
+The volume form is source-derived; not observed on any real install.
+
 ### Credentials
 
 - Letta Code stores the Letta API key and refresh token in the OS keychain through `Bun.secrets`,

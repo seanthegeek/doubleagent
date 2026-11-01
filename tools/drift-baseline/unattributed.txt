@@ -119,9 +119,6 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor-server/bin
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cursor-server/extensions
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .time_travel
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 AppData/Local/agy
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 bin
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 chroma
-check_smoke_coverage|exclusion-check-missing|smoke.ps1 index
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 usr/workdir/*/node_modules
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 workdir/*/.venv
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 workdir/*/node_modules
@@ -152,9 +149,6 @@ check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor-server/bin
 check_smoke_coverage|exclusion-check-missing|smoke.sh .cursor-server/extensions
 check_smoke_coverage|exclusion-check-missing|smoke.sh .time_travel
 check_smoke_coverage|exclusion-check-missing|smoke.sh AppData/Local/agy
-check_smoke_coverage|exclusion-check-missing|smoke.sh bin
-check_smoke_coverage|exclusion-check-missing|smoke.sh chroma
-check_smoke_coverage|exclusion-check-missing|smoke.sh index
 check_smoke_coverage|exclusion-check-missing|smoke.sh usr/workdir/*/node_modules
 check_smoke_coverage|exclusion-check-missing|smoke.sh workdir/*/.venv
 check_smoke_coverage|exclusion-check-missing|smoke.sh workdir/*/node_modules
@@ -229,9 +223,6 @@ check_tables_research|exclusion-unreachable|.cursor-server/bin
 check_tables_research|exclusion-unreachable|.cursor-server/extensions
 check_tables_research|exclusion-unreachable|.time_travel
 check_tables_research|exclusion-unreachable|AppData/Local/agy
-check_tables_research|exclusion-unreachable|bin
-check_tables_research|exclusion-unreachable|chroma
-check_tables_research|exclusion-unreachable|index
 check_tables_research|exclusion-unreachable|usr/workdir/*/node_modules
 check_tables_research|exclusion-unreachable|workdir/*/.venv
 check_tables_research|exclusion-unreachable|workdir/*/node_modules

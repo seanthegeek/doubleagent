@@ -103,6 +103,18 @@ The webserver (and so the database) runs unless the hidden `--no-webserver` flag
 ([crates/tabby/src/serve.rs:112-114](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby/src/serve.rs#L112-L114),
 [125-145](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby/src/serve.rs#L125-L145)).
 
+#### Docker volume
+
+A Docker or Podman volume whose name matches `*tabby*` holds the server root, since the images
+set `TABBY_ROOT=/data` ([Server root `~/.tabby`](#server-root-tabby)); the collector takes its
+`_data` directory as the base, so the files above arrive without the leading `.tabby/`. The
+volume-relative exclusions are `index` (the Tantivy index, rebuilt from sources), `models`
+(model weights) and `repositories` (clones of indexed remote repositories)
+([path.rs:40-42](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/path.rs#L40-L42),
+[44-50](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/path.rs#L44-L50),
+[config.rs:198-218](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/config.rs#L198-L218)).
+The volume form is source-derived; not observed on any real install.
+
 #### Client `~/.tabby-client/agent`
 
 Used by `tabby-agent`, the language
