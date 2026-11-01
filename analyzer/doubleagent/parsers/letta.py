@@ -42,6 +42,7 @@ from .base import (
     Options,
     Parser,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     setting_value,
@@ -95,12 +96,18 @@ def _args_text(args) -> str:
         return args
 
 
-def read_settings(path) -> dict | None:
-    """Return a Letta settings file as a dict, or None when it is unreadable or not an object."""
+def read_settings(path, errors: list) -> dict | None:
+    """Return a Letta settings file as a dict, or None when it is unreadable or not an object.
+
+    A file that cannot be read is its unreadable entry in `errors` (`file_bytes`); one that
+    is not a JSON object leaves `errors` as it was.
+    """
+    content = file_bytes(path, errors)
+    if content is None:
+        return None
     try:
-        with open(path, "rb") as handle:
-            document = json.loads(handle.read().decode("utf-8", errors="replace"))
-    except (OSError, ValueError):
+        document = json.loads(content.decode("utf-8", errors="replace"))
+    except ValueError:
         return None
     return document if isinstance(document, dict) else None
 
@@ -283,7 +290,8 @@ class LettaParser(Parser):
             or (artifact.home.disk_path / ".letta").is_symlink()
         ):
             return "-"
-        agents = (read_settings(settings_path) or {}).get("agents")
+        # A pre-scan: this parser reports the settings file when it parses that file itself.
+        agents = (read_settings(settings_path, []) or {}).get("agents")
         for entry in agents if isinstance(agents, list) else []:
             if isinstance(entry, dict) and sanitize(str(entry.get("agentId") or "")) == agent_dir:
                 return str(entry.get("baseUrl") or LETTA_CLOUD)
@@ -361,8 +369,12 @@ class LettaParser(Parser):
         legacy file, which Letta reads only for its permissions), then one permission row per entry
         of `permissions`; one `parser:` row when the file is not a JSON object.
         """
-        document = read_settings(artifact.disk_path)
+        errors: list = []
+        document = read_settings(artifact.disk_path, errors)
         project = artifact.home.original if artifact.home.project else ""
+        if errors:
+            yield from error_rows(self, artifact, errors, "", project)
+            return
         timestamp = file_mtime(artifact)
 
         def base() -> Row:
@@ -414,7 +426,11 @@ class LettaParser(Parser):
 
     def _parse_routing(self, artifact: Artifact, channel: str) -> Iterator[Row]:
         """Yield one `session relayed:` row per route, at its `createdAt`, else the file's mtime."""
-        document = read_settings(artifact.disk_path)
+        errors: list = []
+        document = read_settings(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         routes = document.get("routes") if document is not None else None
         if not isinstance(routes, list):
             row = self.base_row(artifact)
@@ -455,7 +471,11 @@ class LettaParser(Parser):
 
     def _parse_crons(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one `scheduled task:` row per task, at its `created_at`, else the file's mtime."""
-        document = read_settings(artifact.disk_path)
+        errors: list = []
+        document = read_settings(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         if document is None:
             row = self.base_row(artifact)
             row.source_line, row.turn_type = 1, "system"
@@ -544,7 +564,11 @@ class LettaParser(Parser):
         `ApprovalReturn`, with `approve`) or a `tool_result` row (a `ToolReturn`, with `status`),
         joined on `tool_call_id`; the record holds no time.
         """
-        document = read_settings(artifact.disk_path)
+        errors: list = []
+        document = read_settings(artifact.disk_path, errors)
+        if errors:
+            yield from error_rows(self, artifact, errors)
+            return
         timestamp = file_mtime(artifact)
         if document is None:
             row = self.base_row(artifact)

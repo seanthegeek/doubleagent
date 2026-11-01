@@ -10,6 +10,7 @@ from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.inputs import open_input
+from doubleagent.parsers import Options
 from doubleagent.parsers.kilo_code import KiloCodeParser
 from doubleagent.parsers.opencode import OpenCodeParser
 from doubleagent.parsers.opencode import tool_summary as opencode_tool_summary
@@ -765,11 +766,50 @@ class OpenCodeTests(ParserBase):
         finally:
             os.chmod(part, 0o644)
         self.assertEqual(rows[0].tool_use_id, "call_r1")
-        bad = rows[-1]
-        self.assertTrue(
-            bad.text.startswith("parser: unparseable part prt_b2 (unreadable: "), bad.text
+        reported = [row for row in rows if row.text.startswith("parser:")]
+        self.assertEqual(
+            [(row.text, row.source_line, row.timestamp_utc) for row in reported],
+            [("parser: prt_b2.json could not be read (Permission denied)", 0, "")],
         )
-        self.assertEqual(bad.source_file, "/alice/" + self.STORAGE + "part/msg_b/prt_b2.json")
+        self.assertEqual(rows[-1], reported[0])
+        self.assertEqual(
+            reported[0].source_file, "/alice/" + self.STORAGE + "part/msg_b/prt_b2.json"
+        )
+        self.assertEqual(reported[0].session_id, OPENCODE_LEGACY_SESSION)
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_session_file_is_one_row(self):
+        parser = OpenCodeParser()
+        target = self.STORAGE + "session/proj_a1/%s.json" % OPENCODE_LEGACY_SESSION
+        others = [
+            artifact
+            for artifact in self.col.artifacts
+            if parser.wants(artifact) and artifact.rel != target
+        ]
+        locked = self.home / target
+        locked.chmod(0)
+        try:
+            rows = self.rows_for(parser, target)
+            later = [row for artifact in others for row in parser.parse(artifact, Options())]
+        finally:
+            locked.chmod(0o600)
+        self.assertEqual(
+            [
+                (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                for row in rows
+            ],
+            [
+                (
+                    "system",
+                    "parser: %s could not be read (Permission denied)" % locked.name,
+                    0,
+                    "",
+                    OPENCODE_LEGACY_SESSION,
+                )
+            ],
+        )
+        self.assertFalse(any("could not be read" in row.text for row in later))
+        self.assertTrue(any(not row.text.startswith("parser:") for row in later))
 
     # -- standing state, past use, scratch directories --------------------------------
     STATE = ".local/state/opencode/"

@@ -878,7 +878,12 @@ gives `parser: unparseable record <N> (not a JSON object): <record>` and the tas
 still read, and a file that is not JSON or has no `tasks` list gives one
 `parser: scheduler tasks file ...` row. `state.json` and the policy files give one whole-file
 `parser:` row when they are not JSON objects. The connector's `.env` gives no bad-line rows: it is
-a secret file, and the connector's own reader skips a line without `=` too.
+a secret file, and the connector's own reader skips a line without `=` too. Any of these files that
+cannot be read is one row `parser: <file> could not be read (<reason>)`, `<file>` its name, a
+`chat.json` row carrying the chat directory's name as its session id. A message file under
+`messages/` that exists but cannot be read gives the same row, naming the message file, at the
+`chat.json` that names it, after the chat's other rows, and its tool result falls back to the
+history or log text.
 
 #### Fixtures
 

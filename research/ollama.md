@@ -886,7 +886,9 @@ at the file's modification time, with empty `session_id`:
   A profile that `--restore` stripped gives no row.
 
 A file of either kind that is not a JSON object becomes one `system` row
-`parser: <path relative to the home> is not a JSON object` (or `is not readable JSON (<error>)`).
+`parser: <path relative to the home> is not a JSON object` (or `is not readable JSON (<error>)`
+when it does not decode as UTF-8 JSON); one that cannot be read is
+`parser: <file> could not be read (<reason>)`, `<file>` its name.
 The rows say what Ollama configured for the other agent; that agent's own parser reads what it
 did with it. The profile's other keys (`coworkEgressAllowedHosts`, the telemetry switches) are not
 read for rows.
@@ -985,7 +987,10 @@ replacement characters and no `parser:` row. Such a line has not been seen on an
 ([`history.go:125-150`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/readline/history.go#L125-L150)).
 A `db.sqlite` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
-is not a SQLite database is `parser: not a SQLite database` ([Fixtures](#fixtures)).
+is not a SQLite database is `parser: not a SQLite database` ([Fixtures](#fixtures)). A
+`.ollama/history` that cannot be read, or fails while being read, is one row
+`parser: history could not be read (<reason>)`, after the rows of the lines read before the
+failure.
 
 #### Fixtures
 

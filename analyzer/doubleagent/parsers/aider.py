@@ -35,7 +35,7 @@ from ..inputs import Artifact
 from ..model import Row, compact
 from ..textlines import ASCII_SPACE
 from ..timeutil import to_utc
-from .base import Options, Parser, error_rows, line_text
+from .base import Options, Parser, error_rows, iter_lines, line_text
 
 CHAT = ".aider.chat.history.md"
 INPUT = ".aider.input.history"
@@ -67,10 +67,9 @@ CONFIRM_PATTERN = re.compile(
 DECISION = {"y": "yes", "n": "no", "a": "all", "s": "skip all", "d": "no, don't ask again"}
 
 
-def _lines(path: Path) -> Iterator[tuple[int, str]]:
-    with open(path, "rb") as handle:
-        for line_number, raw in enumerate(handle, 1):
-            yield line_number, line_text(raw)
+def _lines(path: Path, errors: list) -> Iterator[tuple[int, str]]:
+    for line_number, raw in iter_lines(path, errors):
+        yield line_number, line_text(raw)
 
 
 def _norm(text: str) -> str:
@@ -91,14 +90,15 @@ def project_dir(original: str) -> str:
     return original[:i] if i > 0 else original[: i + 1]
 
 
-def read_input_history(path: Path, errors: list | None = None) -> list[tuple[int, str, str]]:
+def read_input_history(path: Path, errors: list) -> list[tuple[int, str, str]]:
     """Return (line, local timestamp, text) per prompt_toolkit FileHistory entry.
 
     A non-blank line that is neither a timestamp nor a `+` entry line is appended to
-    `errors` as (line, message, the line less its terminator).
+    `errors` as (line, message, the line less its terminator), and a file that cannot be
+    read as its unreadable entry (`iter_lines`).
     """
     out: list[list] = []
-    for line_number, line in _lines(path):
+    for line_number, line in _lines(path, errors):
         match = INPUT_TIMESTAMP_PATTERN.match(line)
         if match:
             out.append([line_number, match.group(1), []])
@@ -106,18 +106,21 @@ def read_input_history(path: Path, errors: list | None = None) -> list[tuple[int
             if not out:
                 out.append([line_number, "", []])
             out[-1][2].append(line[1:])
-        elif line.strip(ASCII_SPACE) and errors is not None:
+        elif line.strip(ASCII_SPACE):
             errors.append((line_number, "unparseable line (not a FileHistory line)", line))
     return [(entry[0], entry[1], "\n".join(entry[2])) for entry in out]
 
 
-def read_headers(path: Path) -> list[str]:
-    """Return the session header timestamps of a chat history, in file order."""
+def read_headers(path: Path, errors: list) -> list[str]:
+    """Return the session header timestamps of a chat history, in file order.
+
+    A file that cannot be read is its unreadable entry in `errors` (`iter_lines`).
+    """
     if not path.is_file() or path.is_symlink():
         return []
     return [
         match.group(1)
-        for _, line in _lines(path)
+        for _, line in _lines(path, errors)
         for match in [HEADER_PATTERN.match(line)]
         if match
     ]
@@ -165,9 +168,10 @@ class AiderParser(Parser):
     def _session_for(self, artifact: Artifact) -> Callable[[str], str]:
         """Return a function mapping a local time to the session of the chat beside it.
 
-        The session is the last chat history header at or before the time.
+        The session is the last chat history header at or before the time. The chat history
+        is a pre-scan: this parser reports its errors when it parses that file in full.
         """
-        headers = sorted(read_headers(artifact.disk_path.parent / CHAT))
+        headers = sorted(read_headers(artifact.disk_path.parent / CHAT, []))
         chat = sibling(artifact.original, CHAT)
 
         def lookup(timestamp: str) -> str:
@@ -181,14 +185,14 @@ class AiderParser(Parser):
     # ---- .aider.chat.history.md ------------------------------------------------
 
     def _parse_chat(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        headers = read_headers(artifact.disk_path)
+        errors: list = []
+        # Pre-scans of this file and of the input history beside it: this parser reports
+        # their errors when it parses each file in full.
+        headers = read_headers(artifact.disk_path, [])
         inputs = []
         input_path = artifact.disk_path.parent / INPUT
         if input_path.is_file() and not input_path.is_symlink():
-            try:
-                inputs = [entry for entry in read_input_history(input_path) if entry[1]]
-            except OSError:
-                inputs = []
+            inputs = [entry for entry in read_input_history(input_path, []) if entry[1]]
         next_input = 0
         models: dict[str, str] = {}
         session_id = ""
@@ -229,7 +233,7 @@ class AiderParser(Parser):
                     artifact, buffer, line_numbers, timestamp, session_id, models
                 )
 
-        for line_number, line in _lines(artifact.disk_path):
+        for line_number, line in _lines(artifact.disk_path, errors):
             match = HEADER_PATTERN.match(line)
             if match:
                 yield from flush()
@@ -262,6 +266,7 @@ class AiderParser(Parser):
             buffer.append(content.rstrip() if new != "assistant" else content)
             line_numbers.append(line_number)
         yield from flush()
+        yield from error_rows(self, artifact, errors, "", project_dir(artifact.original))
 
     def _tool_system_rows(
         self,
@@ -345,7 +350,7 @@ class AiderParser(Parser):
             row.turn_type = "user"
             row.text = compact(text)
             yield row
-        yield from error_rows(self, artifact, errors)
+        yield from error_rows(self, artifact, errors, "", project_dir(artifact.original))
 
     # ---- .aider.llm.history ----------------------------------------------------
 
@@ -399,7 +404,7 @@ class AiderParser(Parser):
             )
             yield row
 
-        for line_number, line in _lines(artifact.disk_path):
+        for line_number, line in _lines(artifact.disk_path, errors):
             match = LLM_PATTERN.match(line)
             if match:
                 yield from emit(block)
@@ -420,7 +425,7 @@ class AiderParser(Parser):
                     )
                 )
         yield from emit(block)
-        yield from error_rows(self, artifact, errors)
+        yield from error_rows(self, artifact, errors, "", project_dir(artifact.original))
 
 
 def _strip_role(line: str, role: str) -> str:

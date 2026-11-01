@@ -31,7 +31,7 @@ from collections.abc import Iterator
 
 from ..inputs import Artifact
 from ..model import Row, compact
-from .base import Options, Parser, error_rows, file_mtime, text_of
+from .base import Options, Parser, error_rows, file_bytes, file_mtime, text_of
 
 CHAT_PATTERN = re.compile(r"(^|/)chat_cache/[^/]+$")
 SGPTRC_PATTERN = re.compile(r"(^|/)\.config/shell_gpt/\.sgptrc$")
@@ -157,8 +157,8 @@ class ShellGptParser(Parser):
     def _parse_sgptrc(self, artifact: Artifact) -> Iterator[Row]:
         timestamp = file_mtime(artifact)
         errors: list = []
-        with open(artifact.disk_path, "rb") as handle:
-            raw = handle.read().decode("utf-8", errors="replace")
+        content = file_bytes(artifact.disk_path, errors)
+        raw = "" if content is None else content.decode("utf-8", errors="replace")
         for key, value in read_sgptrc(raw, errors):
             if key == MODEL_KEY:
                 text = "model: %s (configured default, from %s, file mtime)" % (value, artifact.rel)
@@ -183,8 +183,12 @@ class ShellGptParser(Parser):
         yield self._system(artifact, file_mtime(artifact), text)
 
     def _parse_cache(self, artifact: Artifact) -> Iterator[Row]:
-        with open(artifact.disk_path, "rb") as handle:
-            text = handle.read().decode("utf-8", errors="replace")
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors)
+            return
+        text = content.decode("utf-8", errors="replace")
         if not text.strip():
             return
         row = self.base_row(artifact)
@@ -216,9 +220,12 @@ class ShellGptParser(Parser):
             row.text = compact(text)
             return row
 
-        with open(artifact.disk_path, "rb") as handle:
-            raw = handle.read().decode("utf-8", errors="replace")
-        messages, error = load_messages(raw)
+        errors: list = []
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            yield from error_rows(self, artifact, errors, session_id)
+            return
+        messages, error = load_messages(content.decode("utf-8", errors="replace"))
         if not any("role" in message for message in messages):
             yield make_row(
                 "system", "parser: not a ShellGPT chat file" + (": " + error if error else "")

@@ -1747,12 +1747,16 @@ a forget, all fixture only:
 A legacy `sessions.json` that cannot be read, does not decode or is not a JSON object yields one
 whole-file `system` row in each transcript beside it, after that transcript's line rows, with
 `source_line` 0 and the transcript's `session_id` and `cwd`:
-`parser: sessions.json unreadable (<reason>)`, `parser: sessions.json unparseable (<reason>)` or
-`parser: sessions.json is not a JSON object`; the transcript's own rows are still yielded, without
-the session key. A line that is valid JSON but not an object (an array, a string, a number,
-`null`), in a JSONL file or an archive blob, is its own row like any other bad line,
-`parser: unparseable line (not a JSON object): <line>` (prefixed `archive <name> line <n>: ` inside
-a blob), and the lines around it are still yielded. Fixture only.
+`parser: sessions.json could not be read (<reason>)`, `parser: sessions.json unparseable (<reason>)`
+or `parser: sessions.json is not a JSON object`; the transcript's own rows are still yielded,
+without the session key. A transcript file (the live JSONL, a checkpoint, a `.bak` repair copy or a
+reset or deleted archive, compressed or not) that cannot be read is one row
+`parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0 and the
+session id its name gives, followed by the `sessions.json` row when there is one. A line that is
+valid JSON but not an object (an array, a string, a number, `null`), in a JSONL file or an archive
+blob, is its own row like any other bad line, `parser: unparseable line (not a JSON object): <line>`
+(prefixed `archive <name> line <n>: ` inside a blob), and the lines around it are still yielded.
+Fixture only.
 
 An `openclaw-agent.sqlite` or `state/openclaw.sqlite` that cannot be read, or whose `-wal`, `-shm`
 or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the
