@@ -15,6 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - A Qwen Code session with a `chats/<sessionId>.worktree.json` sidecar gives one `system` row `scratch directory: <worktreePath> (enter_worktree <slug>)` at its first record, with `project_path` the worktree, so `inventory.json` lists the worktree under `scratch_directories`; a sidecar that cannot be read or is not a JSON object is a `parser:` row of the session ([#326]).
 - The bundled catalog copy gains the Qwen Code lines of collector 1.22.0, so detection follows them: the new secret globs (the default MCP token store, the agent host records, the managed local `state.json`, the settings recovery copies in the home, a project and the worker home) and exclusions (the profiles, the managed local workspaces and the worker-home subtrees), and no secret glob on the extension git-credential selector ([#326]).
+- The bundled catalog copy gains the pi lines of the collector's 1.22.0 entry, so detection follows them: a project's `pi-bug-report-*.zip` and `session-[0-9][0-9][0-9][0-9]-*.jsonl` are detected as `pi`, `.pi/agent/install/releases` and `.pi/agent/install/staging` are excluded, the `git` checkout exclusions are written as `git/*/*/node_modules` and `git/*/*/.git`, and the `.pi/agent/auth.json.*` secret glob is gone ([#326]).
 
 ### Changed
 
@@ -23,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- pi: a `.pi/agent/settings.json` that is not a JSON object gives one `parser: .pi/agent/settings.json is not a JSON object` row where it was silent; an experimental session's `meta.json` that is not a JSON object gives `parser: <path> is not a JSON object` in place of the decoder's message; and the `trust.json` row of that form carries no time and `source_line` 0, as other whole-file rows do. A leading byte-order mark is dropped from `trust.json` and `settings.json`, as pi drops it ([#201], [#326]).
+- pi: a `.pi/agent/settings.json` that is not a JSON object gives one `parser: .pi/agent/settings.json is not a JSON object` row where it was silent; an experimental session's `meta.json` that is not a JSON object gives `parser: <path> is not a JSON object`, in place of the decoder's message for one that is not JSON and of an `experimental durable session created:` row with an empty cwd for valid JSON that is not an object (an array); an empty `settings.json`, which pi reads as no settings, still gives no row; and the `trust.json` row of that form carries no time and `source_line` 0, as other whole-file rows do. A leading byte-order mark is dropped from `trust.json` and `settings.json`, as pi drops it ([#201], [#326]).
 - pi: a session file whose first record is not a header reports its unparseable lines even when entries follow, and a `crashes.json` element that is not an object gives `parser: unparseable record <N> (not a JSON object): <element>` where it was skipped ([#201], [#326]).
 
 ## [0.23.0] - 2026-10-31

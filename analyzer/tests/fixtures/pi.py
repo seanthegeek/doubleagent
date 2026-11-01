@@ -208,6 +208,7 @@ def build_pi(home: Path) -> None:
     (home / PI_DEBUG_LOG).write_text(pi_debug_log_text(), encoding="utf-8")
     _json(home / PI_CRASHES, pi_crash_records())
     _jsonl(home / PI_DIR / PI_KINDS_FILE, pi_entry_kinds_records())
+    _jsonl(home / PI_V1_FILE, pi_v1_records())
 
 
 # Secondary and past-use sources beside the sessions (research/pi.md, Debug log and crash log): the `/debug` snapshot of the
@@ -220,7 +221,7 @@ PI_MCP_LOG = ".pi/agent/mcp.log"
 
 
 def pi_debug_log_text():
-    """Return a `/debug` snapshot holding three of the session's messages and one deleted prompt.
+    """Return a `/debug` snapshot: three of the session's messages, a deleted prompt, two summaries.
 
     Source: research/pi.md#debug-log-and-crash-log; source 2c8d1fe
     """
@@ -253,6 +254,19 @@ def pi_debug_log_text():
         },
         # A prompt no collected session holds.
         {"role": "user", "content": PI_DELETED_PROMPT, "timestamp": 1790845300000},
+        # The roles pi builds in memory from summary entries.
+        {
+            "role": "compactionSummary",
+            "summary": "the turns before",
+            "tokensBefore": 40210,
+            "timestamp": 1790845310000,
+        },
+        {
+            "role": "branchSummary",
+            "summary": "the other branch",
+            "fromId": "3c4d5e6f",
+            "timestamp": 1790845320000,
+        },
     ]
     lines = [
         "Debug output at 2026-10-01T09:02:00.000Z",
@@ -366,14 +380,16 @@ def pi_bug_report_records(cwd="/srv/proj"):
     ]
 
 
-# Every other entry type and message role the parser gives a row, and the
-# skipped `usage` entry (research/pi.md, Entries and Message roles).
+# Every other entry type and session-file message role the parser gives a row,
+# the skipped `usage` entry, both stop-reason rows, redacted thinking and a
+# failed `!command` (research/pi.md, Entries and Message roles). The in-memory
+# summary roles are in the debug log.
 PI_KINDS_SESSION = "0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0c4e"
 PI_KINDS_FILE = "2026-10-01T14-00-00-000Z_%s.jsonl" % PI_KINDS_SESSION
 
 
 def pi_entry_kinds_records(cwd="/srv/proj"):
-    """Return a session with each remaining entry type and role, both stop-reason forms.
+    """Return a session with each remaining entry type and session-file role.
 
     Source: research/pi.md#message-roles; source 2c8d1fe
     """
@@ -511,4 +527,66 @@ def pi_entry_kinds_records(cwd="/srv/proj"):
             model="gpt-5.1-codex",
             usage={"input": 10, "output": 0, "totalTokens": 10},
         ),
+        entry(
+            "c100000d",
+            "c100000c",
+            13,
+            message=message(
+                13,
+                role="assistant",
+                content=[
+                    {
+                        "type": "thinking",
+                        "thinking": "",
+                        "thinkingSignature": "c2lnbmF0dXJl",
+                        "redacted": True,
+                    }
+                ],
+                api="openai-responses",
+                provider="openai",
+                model="gpt-5.1-codex",
+                stopReason="aborted",
+            ),
+        ),
+        entry(
+            "c100000e",
+            "c100000d",
+            14,
+            message=message(
+                14,
+                role="bashExecution",
+                command="make test",
+                output="partial",
+                exitCode=2,
+                cancelled=True,
+                truncated=True,
+                fullOutputPath="/tmp/pi-bash-0123456789abcdef.log",
+            ),
+        ),
+    ]
+
+
+# A version 1 file in the legacy location, which no later build resumed: no
+# `version`, no entry ids (research/pi.md, Format versions).
+PI_V1_SESSION = "0199a1b2-7c3d-7e4f-8a5b-6c7d8e9f0d5f"
+PI_V1_FILE = ".pi/agent/2026-09-01T08-00-00-000Z_%s.jsonl" % PI_V1_SESSION
+
+
+def pi_v1_records(cwd="/srv/proj"):
+    """Return a version 1 session: a header with no `version` and one prompt without ids.
+
+    Source: research/pi.md#format-versions; source 2c8d1fe
+    """
+    return [
+        {
+            "type": "session",
+            "id": PI_V1_SESSION,
+            "timestamp": "2026-09-01T08:00:00.000Z",
+            "cwd": cwd,
+        },
+        {
+            "type": "message",
+            "timestamp": "2026-09-01T08:00:05.000Z",
+            "message": {"role": "user", "content": "an old prompt", "timestamp": 1788249605000},
+        },
     ]

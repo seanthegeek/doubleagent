@@ -838,6 +838,8 @@ from .pi import (
     PI_SETTINGS,
     PI_TRUST,
     PI_TRUST_MTIME,
+    PI_V1_FILE,
+    PI_V1_SESSION,
     build_pi,
     pi_bug_report_records,
     pi_crash_records,
@@ -845,6 +847,7 @@ from .pi import (
     pi_entry_kinds_records,
     pi_fork_records,
     pi_session_records,
+    pi_v1_records,
 )
 from .qwen_code import (
     QWEN_ARCHIVED,

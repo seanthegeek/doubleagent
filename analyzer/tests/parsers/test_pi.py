@@ -32,6 +32,8 @@ from fixtures import (
     PI_SESSION,
     PI_SETTINGS,
     PI_TRUST,
+    PI_V1_FILE,
+    PI_V1_SESSION,
     _json,
     _jsonl,
     bad_line_text,
@@ -306,6 +308,17 @@ class PiTests(ParserBase):
                 text,
             )
 
+    def test_empty_settings_gives_no_row_but_empty_trust_does(self):
+        # pi reads an empty settings.json as no settings and rejects an empty
+        # trust.json.
+        (self.home / PI_SETTINGS).write_bytes(b"")
+        (self.home / PI_TRUST).write_bytes(b"")
+        self.assertEqual(self.rows_for(PiParser(), PI_SETTINGS), [])
+        self.assertEqual(
+            [row.text for row in self.rows_for(PiParser(), PI_TRUST)],
+            ["parser: .pi/agent/trust.json is not a JSON object"],
+        )
+
     def test_byte_order_mark_is_dropped(self):
         # pi drops a leading BOM from trust.json and settings.json.
         (self.home / PI_TRUST).write_text('\ufeff{"/srv/proj": true}', encoding="utf-8")
@@ -377,7 +390,7 @@ class PiTests(ParserBase):
             [
                 (
                     "system",
-                    "debug snapshot: /debug wrote 4 message(s) of the open session, which "
+                    "debug snapshot: /debug wrote 6 message(s) of the open session, which "
                     "the log does not name (from .pi/agent/pi-debug.log, Debug output at line)",
                     "2026-10-01T09:02:00.000Z",
                     1,
@@ -392,6 +405,8 @@ class PiTests(ParserBase):
                 ("tool_use", "npm test", "2026-10-01T09:00:02.000Z", 11),
                 ("tool_result", "1 failing", "2026-10-01T09:00:07.000Z", 12),
                 ("user", PI_DELETED_PROMPT, "2026-10-01T09:01:40.000Z", 13),
+                ("system", "compactionSummary: the turns before", "2026-10-01T09:01:50.000Z", 14),
+                ("system", "branchSummary: the other branch", "2026-10-01T09:02:00.000Z", 15),
             ],
         )
         for row in rows:
@@ -408,7 +423,8 @@ class PiTests(ParserBase):
         self.assertEqual(dropped, {"pi": 4})
         survivors = kept[len(primary) :]
         self.assertEqual(
-            [(row.turn_type, row.recovered) for row in survivors], [("system", ""), ("user", "yes")]
+            [(row.turn_type, row.recovered) for row in survivors],
+            [("system", ""), ("user", "yes"), ("system", ""), ("system", "")],
         )
         self.assertEqual(survivors[1].text, PI_DELETED_PROMPT)
 
@@ -542,12 +558,37 @@ class PiTests(ParserBase):
                 ("system", "context_edit target=c1000004: blocked", 10),
                 ("system", "context_edit target=c1000005: omitted from context", 11),
                 ("system", "custom hook: hook text", 12),
+                ("system", "assistant stopReason=aborted", 14),
+                ("tool_use", "make test", 15),
+                ("tool_result", "partial\n[exit 2, cancelled, truncated]", 15),
             ],
         )
+        self.assertEqual((rows[-1].tool_name, rows[-1].tool_use_id), ("bash", "c100000e"))
         self.assertEqual(rows[4].tool_name, "powershell")
         self.assertEqual({row.session_id for row in rows}, {PI_KINDS_SESSION})
         # Not a gate refusal: no permission decision row.
         self.assertFalse(any(row.text.startswith("permission decision:") for row in rows))
+        thinking = [
+            (row.text, row.source_line)
+            for row in self.rows_for(PiParser(), PI_DIR + PI_KINDS_FILE, include_thinking=True)
+            if row.turn_type == "thinking"
+        ]
+        self.assertEqual(thinking, [("[redacted]", 14)])
+
+    def test_version_1_header(self):
+        rows = self.rows_for(PiParser(), PI_V1_FILE)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.session_id, row.timestamp_utc) for row in rows],
+            [
+                (
+                    "system",
+                    "session start: version=1 cwd=/srv/proj",
+                    PI_V1_SESSION,
+                    "2026-09-01T08:00:00.000Z",
+                ),
+                ("user", "an old prompt", PI_V1_SESSION, "2026-09-01T08:00:05.000Z"),
+            ],
+        )
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_file_is_one_row(self):

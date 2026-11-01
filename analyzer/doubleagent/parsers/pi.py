@@ -542,6 +542,8 @@ class PiParser(Parser):
 
     def _parse_settings(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the `defaultProjectTrust` standing row of `settings.json`, at the file's mtime."""
+        if _is_empty(artifact):
+            return  # pi reads an empty settings.json as no settings
         errors: list = []
         doc = json_object(artifact, errors)
         if doc is None:
@@ -646,11 +648,15 @@ class PiParser(Parser):
 
 
 def json_object(artifact: Artifact, errors: list) -> dict | None:
-    """Return a whole-file JSON object, or None after appending its whole-file entry.
+    """Return a whole-file JSON object, its leading byte-order mark dropped as pi drops it.
 
-    A leading byte-order mark is dropped, as pi drops it from `trust.json`
-    and `settings.json`. A file that cannot be read gets `read_text`'s entry;
-    one that is not a JSON object gets `<rel> is not a JSON object`.
+    Args:
+        artifact: the file to read.
+        errors: gets `read_text`'s entry for a file that cannot be read, or
+            `<rel> is not a JSON object` for any other failure.
+
+    Returns:
+        The decoded object, or None when `errors` gained an entry.
     """
     text = read_text(artifact.disk_path, errors)
     if text is None:
@@ -663,6 +669,13 @@ def json_object(artifact: Artifact, errors: list) -> dict | None:
         errors.append((0, "%s is not a JSON object" % artifact.rel))
         return None
     return doc
+
+
+def _is_empty(artifact: Artifact) -> bool:
+    try:
+        return artifact.disk_path.stat().st_size == 0
+    except OSError:
+        return False
 
 
 def _dash(value) -> str:
