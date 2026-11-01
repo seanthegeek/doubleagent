@@ -930,8 +930,9 @@ whole-file `system` row on the conversation's first event file, after the header
 `parser: <file name> could not be read (<reason>)` or `parser: <file name> is not a JSON object`,
 with an empty timestamp and the session id and `project_path` the other file still gives. The
 header then lacks what the file held (title, model, time basis). A missing file is not an error,
-since the CLI writes no `meta.json`. The cut-file shape is not observed on any real install,
-source-derived (OpenHands/software-agent-sdk at
+since the CLI writes no `meta.json`. A `prompt_history.json` that cannot be read is one whole-file
+row `parser: <file name> could not be read (<reason>)` through `error_rows`. The cut-file shape is
+not observed on any real install, source-derived (OpenHands/software-agent-sdk at
 [`33d8aa2`](https://github.com/OpenHands/software-agent-sdk/commit/33d8aa29c3078d074799e2fbf5e847aeb2d71360)).
 
 `prompt_history.json` is read as a JSON array element by element: a record that does not decode

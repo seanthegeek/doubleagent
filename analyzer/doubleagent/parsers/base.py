@@ -93,37 +93,63 @@ class Parser:
         )
 
 
-def iter_jsonl(path, errors: list) -> Iterator[tuple[int, dict]]:
-    """Yield (line_number, record) for each JSON object line of a file.
+def iter_lines(path, errors: list) -> Iterator[tuple[int, bytes]]:
+    r"""Yield (line_number, raw) for every line of a file as read, terminator included.
 
-    A bad line, one that does not decode or decodes to something other than
-    an object, is appended to `errors` as (line_number, message, raw_text)
-    and skipped, so a transcript cut mid-write keeps its earlier turns.
-    `raw_text` is the line as read less its terminator (`line_text`). A file
-    that cannot be opened, or fails while being read, is one whole-file entry
-    (line_number, `unreadable_message`): 0 when it could not be opened, else
-    the last line read; nothing raises.
+    Lines end at LF, so a CRLF line keeps its `\r\n` and a last line without
+    one is yielded as it stands. A file that cannot be opened is one entry
+    (0, `unreadable_message`) in `errors`; one that fails while being read is
+    one entry at the last line read, after the lines before it. Nothing
+    raises.
     """
     line_number = 0
     try:
         with open(path, "rb") as handle:
             for raw in handle:
                 line_number += 1
-                stripped = raw.strip()
-                if not stripped:
-                    continue
-                try:
-                    record = json.loads(stripped.decode("utf-8", errors="replace"))
-                except ValueError as error:
-                    errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
-                    continue
-                if not isinstance(record, dict):
-                    message = "unparseable line (not a JSON object)"
-                    errors.append((line_number, message, line_text(raw)))
-                    continue
-                yield line_number, record
+                yield line_number, raw
     except OSError as error:
         errors.append((line_number, unreadable_message(path, error)))
+
+
+def file_bytes(path, errors: list) -> bytes | None:
+    """Return a file's whole content, or None after appending its unreadable entry.
+
+    The entry is (0, `unreadable_message`) for the OSError that stopped the
+    open or the read. Nothing raises.
+    """
+    try:
+        with open(path, "rb") as handle:
+            return handle.read()
+    except OSError as error:
+        errors.append((0, unreadable_message(path, error)))
+        return None
+
+
+def iter_jsonl(path, errors: list) -> Iterator[tuple[int, dict]]:
+    """Yield (line_number, record) for each JSON object line of a file.
+
+    A bad line, one that does not decode or decodes to something other than
+    an object, is appended to `errors` as (line_number, message, raw_text)
+    and skipped, so a transcript cut mid-write keeps its earlier turns.
+    `raw_text` is the line as read less its terminator (`line_text`). The
+    lines come from `iter_lines`, which reports a file that cannot be opened
+    or read; nothing raises.
+    """
+    for line_number, raw in iter_lines(path, errors):
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        try:
+            record = json.loads(stripped.decode("utf-8", errors="replace"))
+        except ValueError as error:
+            errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
+            continue
+        if not isinstance(record, dict):
+            message = "unparseable line (not a JSON object)"
+            errors.append((line_number, message, line_text(raw)))
+            continue
+        yield line_number, record
 
 
 def line_text(raw: bytes) -> str:

@@ -254,7 +254,7 @@ class LittleCoderParser(Parser):
     def _parse_legacy_history(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the rows of `sessions/history.json`, every session saved at exit."""
         errors: list = []
-        text = read_text(artifact.disk_path)
+        text = read_text(artifact.disk_path, errors)
         document = None
         if text is not None:
             try:
@@ -264,7 +264,6 @@ class LittleCoderParser(Parser):
         if isinstance(document, dict) and isinstance(document.get("sessions"), list):
             sessions = enumerate(document["sessions"], 1)
         elif text is None:
-            errors.append((0, "unreadable", ""))
             sessions = iter(())
         else:
             # Cut mid-write: walk the sessions array as far as it parses.
@@ -290,7 +289,7 @@ class LittleCoderParser(Parser):
     def _parse_legacy_session(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the rows of one saved session file (daily, `/save`, or `session_latest.json`)."""
         errors: list = []
-        text = read_text(artifact.disk_path)
+        text = read_text(artifact.disk_path, errors)
         document = None
         if text is not None:
             try:
@@ -305,9 +304,7 @@ class LittleCoderParser(Parser):
                 str(document.get("session_id") or ""),
                 str(document.get("saved_at") or ""),
             )
-        elif text is None:
-            errors.append((0, "unreadable", ""))
-        else:
+        elif text is not None:
             # Cut mid-write: the keys before `messages` and the messages
             # array as far as it parses.
             match = MESSAGES_KEY_PATTERN.search(text)

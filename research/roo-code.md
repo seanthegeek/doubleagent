@@ -649,7 +649,10 @@ same way. A `global-state.json`, `workspace-state.json`, `cli-settings.json`, `m
 is not a SQLite database `parser: state.vscdb is not a SQLite database`, a damaged one
 `parser: state.vscdb unreadable: <message>`, each of these a whole-file row with no file time, and
 one whose extension row is not JSON one `parser:` row at the file time that never echoes the
-value.
+value. A task file, `history_item.json`, `_index.json`, `cli-history.json` or one of the JSON
+object files above that cannot be read is one whole-file row
+`parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with no file
+time and the task id for a task file or `history_item.json`.
 
 #### Fixtures
 

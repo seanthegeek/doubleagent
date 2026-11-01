@@ -676,7 +676,9 @@ which yields rows for what it loses, with the texts of
 without their `dateCreated` time.
 
 A `dev_data/chat.jsonl` or `dev_data/tokens_generated.jsonl` that cannot be read is one whole-file
-row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
+row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name. So is a
+task file, the output channel log or a `.pearai/sessions/<id>.json` session file that cannot be
+read, with the task id or the session id of the file name.
 
 #### Fixtures
 

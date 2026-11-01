@@ -147,10 +147,11 @@ class RooCodeParser(LegacyTaskParser):
 
     def history_item(self, task_dir: Path, root: Path, task_id: str) -> dict | None:
         """Return the task's `history_item.json`, else its `_index.json` entry, else None."""
-        item = load_json(task_dir / ITEM_FILE)
+        # Pre-scans: the same parser reports both files when it parses them.
+        item = load_json(task_dir / ITEM_FILE, [])
         if isinstance(item, dict):
             return item
-        index = self.cached_json(root / "tasks" / "_index.json")
+        index = self.cached_json(root / "tasks" / "_index.json", [])
         entries = index.get("entries") if isinstance(index, dict) else None
         if isinstance(entries, list):
             for entry in entries:
@@ -164,14 +165,15 @@ class RooCodeParser(LegacyTaskParser):
         if self.task_match(artifact):
             yield from self.parse_task_file(artifact, opts)
         elif ITEM_PATTERN.match(rel):
-            item = load_json(artifact.disk_path)
+            errors: list = []
+            item = load_json(artifact.disk_path, errors)
             if isinstance(item, dict):
                 yield from self._history_rows(artifact, item, 1, opts)
             else:
                 yield from error_rows(
                     self,
                     artifact,
-                    [(0, "history_item.json is not a JSON object", "")],
+                    errors or [(0, "history_item.json is not a JSON object", "")],
                     artifact.disk_path.parent.name,
                 )
         elif INDEX_PATTERN.match(rel):
@@ -183,15 +185,19 @@ class RooCodeParser(LegacyTaskParser):
         elif rel == CLI_SETTINGS_REL:
             yield from self._parse_cli_settings(artifact)
         elif rel == GLOBAL_STATE_REL:
-            state = self._json_object(artifact)
+            errors = []
+            state = self._json_object(artifact, errors)
             if state is None:
-                yield self._bad_file(artifact, "global-state.json is not a JSON object")
+                message = "global-state.json is not a JSON object"
+                yield from self._unusable_rows(artifact, errors, message)
             else:
                 yield from self._global_state_rows(artifact, state, rel)
         elif WORKSPACE_STATE_PATTERN.match(rel):
-            state = self._json_object(artifact)
+            errors = []
+            state = self._json_object(artifact, errors)
             if state is None:
-                yield self._bad_file(artifact, "workspace-state.json is not a JSON object")
+                message = "workspace-state.json is not a JSON object"
+                yield from self._unusable_rows(artifact, errors, message)
             else:
                 yield from self._retry_queue_rows(artifact, state, rel)
         elif STATE_DATABASE_PATTERN.search(rel) or WORKSPACE_DATABASE_PATTERN.search(rel):
@@ -278,15 +284,21 @@ class RooCodeParser(LegacyTaskParser):
 
     def _parse_cli_history(self, artifact: Artifact) -> Iterator[Row]:
         errors: list = []
-        data = load_json(artifact.disk_path)
+        text = read_text(artifact.disk_path, errors)
+        if text is None:
+            yield from error_rows(self, artifact, errors)
+            return
+        try:
+            data = json.loads(text)
+        except ValueError:
+            data = None
         if isinstance(data, dict) and isinstance(data.get("entries"), list):
             entries = enumerate(data["entries"], 1)
         else:
             # Cut mid-write (the CLI rewrites the whole file per prompt): walk
             # the entries array as far as it parses.
-            text = read_text(artifact.disk_path) if data is None else None
-            match = ENTRIES_KEY_PATTERN.search(text) if text is not None else None
-            if match and text is not None:
+            match = ENTRIES_KEY_PATTERN.search(text) if data is None else None
+            if match:
                 entries = iter_array_at(text, match.end(), errors)
             else:
                 errors.append((0, "cli-history.json has no entries array", ""))
@@ -304,9 +316,11 @@ class RooCodeParser(LegacyTaskParser):
         yield from error_rows(self, artifact, errors)
 
     def _parse_index(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        index = load_json(artifact.disk_path)
+        errors: list = []
+        index = load_json(artifact.disk_path, errors)
         if not isinstance(index, dict) or not isinstance(index.get("entries"), list):
-            yield from error_rows(self, artifact, [(0, "_index.json has no entries array", "")])
+            message = "_index.json has no entries array"
+            yield from error_rows(self, artifact, errors or [(0, message, "")])
             return
         tasks = artifact.disk_path.parent
         for position, entry in enumerate(index["entries"], 1):
@@ -320,9 +334,16 @@ class RooCodeParser(LegacyTaskParser):
     # ---- standing settings ----------------------------------------------------
 
     @staticmethod
-    def _json_object(artifact: Artifact) -> dict | None:
-        data = load_json(artifact.disk_path)
+    def _json_object(artifact: Artifact, errors: list) -> dict | None:
+        data = load_json(artifact.disk_path, errors)
         return data if isinstance(data, dict) else None
+
+    def _unusable_rows(self, artifact: Artifact, errors: list, message: str) -> Iterator[Row]:
+        """Yield the unreadable-file row `errors` holds, else `message` as a `_bad_file` row."""
+        if errors:
+            yield from error_rows(self, artifact, errors)
+        else:
+            yield self._bad_file(artifact, message)
 
     def _bad_file(self, artifact: Artifact, message: str) -> Row:
         row = self.base_row(artifact)
@@ -386,9 +407,12 @@ class RooCodeParser(LegacyTaskParser):
                     )
 
     def _parse_cli_settings(self, artifact: Artifact) -> Iterator[Row]:
-        doc = self._json_object(artifact)
+        errors: list = []
+        doc = self._json_object(artifact, errors)
         if doc is None:
-            yield self._bad_file(artifact, "cli-settings.json is not a JSON object")
+            yield from self._unusable_rows(
+                artifact, errors, "cli-settings.json is not a JSON object"
+            )
             return
         yield from self._settings_rows(artifact, doc, CLI_SETTING_KEYS, artifact.rel)
 
@@ -397,9 +421,11 @@ class RooCodeParser(LegacyTaskParser):
 
         Nothing else is read: the server entries can hold `env` and `headers`.
         """
-        doc = self._json_object(artifact)
+        errors: list = []
+        doc = self._json_object(artifact, errors)
         if doc is None:
-            yield self._bad_file(artifact, "%s is not a JSON object" % artifact.disk_path.name)
+            message = "%s is not a JSON object" % artifact.disk_path.name
+            yield from self._unusable_rows(artifact, errors, message)
             return
         project = artifact.home.original if artifact.home.project else ""
         servers = doc.get("mcpServers")

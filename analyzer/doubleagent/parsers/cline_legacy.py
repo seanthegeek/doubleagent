@@ -35,10 +35,20 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
+from ..errors import unreadable_message
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
-from .base import Options, Parser, compact_json, error_rows, tail_text, text_of, track_change
+from .base import (
+    Options,
+    Parser,
+    compact_json,
+    error_rows,
+    file_bytes,
+    tail_text,
+    text_of,
+    track_change,
+)
 from .claude_code import tool_summary
 
 UI_FILE = "ui_messages.json"
@@ -135,27 +145,37 @@ def iter_array_at(
         return
 
 
-def read_text(path: Path) -> str | None:
-    """Return a file's text without a BOM, or None for a symlink or an unreadable file."""
+def read_text(path: Path, errors: list) -> str | None:
+    """Return a file's text without a BOM, or None.
+
+    A file that cannot be read gives None after its `file_bytes` entry in
+    `errors`. A symlink, a missing path and anything but a regular file give
+    None silently: the walk offers only regular files, so only a side file
+    the parser looks for beside an artifact meets them, and an absent side
+    file is optional.
+    """
     file_path = Path(path)
     try:
         if file_path.is_symlink() or not file_path.is_file():
             return None
-        with open(file_path, "rb") as handle:
-            text = handle.read().decode("utf-8", errors="replace")
-    except OSError:
+    except OSError as error:
+        errors.append((0, unreadable_message(file_path, error)))
         return None
+    data = file_bytes(file_path, errors)
+    if data is None:
+        return None
+    text = data.decode("utf-8", errors="replace")
     return text[1:] if text.startswith("\ufeff") else text
 
 
 def iter_json_array(path: Path, errors: list) -> Iterator[tuple[int, object]]:
     """Yield the elements of a file holding one JSON array.
 
-    A truncation and data appended after the array are reported through `errors`.
+    A file that cannot be read, a truncation and data appended after the
+    array are reported through `errors`.
     """
-    text = read_text(path)
+    text = read_text(path, errors)
     if text is None:
-        errors.append((0, "unreadable", ""))
         return
     end: list = []
     count = 0
@@ -166,9 +186,13 @@ def iter_json_array(path: Path, errors: list) -> Iterator[tuple[int, object]]:
         errors.append((count + 1, "unparseable data after the JSON array", ""))
 
 
-def load_json(path: Path):
-    """Return a file parsed as JSON, or None."""
-    text = read_text(path)
+def load_json(path: Path, errors: list):
+    """Return a file parsed as JSON, or None.
+
+    Only a file that cannot be read adds an entry to `errors` (`read_text`);
+    for text that is not JSON the caller writes its own message.
+    """
+    text = read_text(path, errors)
     if text is None:
         return None
     try:
@@ -265,22 +289,32 @@ class LegacyTaskParser(Parser):
             % self.ROOT,
             re.I,
         )
-        self._cache: dict[tuple, object] = {}
+        self._cache: dict[tuple, tuple[object, list]] = {}
 
     def history_item(self, task_dir: Path, root: Path, task_id: str) -> dict | None:
         """Return the task index entry of a task, or None; subclasses implement it."""
         raise NotImplementedError
 
-    def cached_json(self, path: Path):
-        """Return a file parsed as JSON, cached by path, modification time and size."""
+    def cached_json(self, path: Path, errors: list):
+        """Return a file parsed as JSON, cached by path, modification time and size.
+
+        A missing file gives None silently. A file that cannot be read adds
+        its entry to `errors` on every call, the cached ones included.
+        """
         try:
             file_stat = Path(path).lstat()
-        except OSError:
+        except (FileNotFoundError, NotADirectoryError):
+            return None
+        except OSError as error:
+            errors.append((0, unreadable_message(path, error)))
             return None
         key = (str(path), file_stat.st_mtime_ns, file_stat.st_size)
         if key not in self._cache:
-            self._cache[key] = load_json(path)
-        return self._cache[key]
+            read_errors: list = []
+            self._cache[key] = (load_json(path, read_errors), read_errors)
+        value, read_errors = self._cache[key]
+        errors.extend(read_errors)
+        return value
 
     def api_content_rows(
         self, message: dict, position: int, base_turn: str, include_thinking: bool
@@ -301,7 +335,8 @@ class LegacyTaskParser(Parser):
         root = task_dir.parent.parent
         task_id = task_dir.name
         item = self.history_item(task_dir, root, task_id)
-        metadata = load_json(task_dir / METADATA_FILE)
+        # A pre-scan: the same parser reports task_metadata.json when it parses the file.
+        metadata = load_json(task_dir / METADATA_FILE, [])
         return TaskContext(task_id, item, metadata, self.PROJECT_KEY)
 
     def parse_task_file(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
@@ -440,12 +475,13 @@ class LegacyTaskParser(Parser):
     def _parse_metadata(
         self, artifact: Artifact, context: TaskContext, opts: Options
     ) -> Iterator[Row]:
-        data = load_json(artifact.disk_path)
+        errors: list = []
+        data = load_json(artifact.disk_path, errors)
         if not isinstance(data, dict):
             yield from error_rows(
                 self,
                 artifact,
-                [(0, "task_metadata.json is not a JSON object", "")],
+                errors or [(0, "task_metadata.json is not a JSON object", "")],
                 context.task_id,
                 context.project_path,
             )

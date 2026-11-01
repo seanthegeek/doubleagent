@@ -283,9 +283,10 @@ class CodyParser(Parser):
         state = None
         if JETBRAINS_PATTERN.search(artifact.rel):
             line = 1
-            text = read_text(artifact.disk_path)
+            read_errors: list = []
+            text = read_text(artifact.disk_path, read_errors)
             if text is None:
-                yield self._system(artifact, "parser: unreadable history file", line)
+                yield from error_rows(self, artifact, read_errors)
                 return
             history = self._decode(text, problems, recovered_errors)
         else:
@@ -341,9 +342,13 @@ class CodyParser(Parser):
 
     def _prefs_file_rows(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the `model setting:` rows of `JetBrains-globalState/cody-model-preferences`."""
-        text = read_text(artifact.disk_path)
+        errors: list = []
+        text = read_text(artifact.disk_path, errors)
+        if text is None:
+            yield from error_rows(self, artifact, errors)
+            return
         try:
-            preferences = json.loads(text) if text is not None else None
+            preferences = json.loads(text)
         except ValueError:
             preferences = None
         if not isinstance(preferences, dict):

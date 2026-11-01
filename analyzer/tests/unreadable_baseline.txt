@@ -28,15 +28,6 @@ claude-desktop no-reason Library/Application Support/Claude/git-worktrees.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/local_c0c0c0c0-1111-4222-8333-444444444444.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/remote-session-spaces.json
 claude-desktop no-reason Library/Application Support/Claude/local-agent-mode-sessions/aaaaaaaa-0000-4000-8000-000000000001/bbbbbbbb-0000-4000-8000-000000000002/scheduled-tasks.json
-cline no-reason .cline/data/sessions/1791021700000_k3x9q/1791021700000_k3x9q.json
-cline no-reason .cline/data/sessions/1791021700000_k3x9q/1791021700000_k3x9q.messages.json
-cline no-reason .cline/data/state/taskHistory.json
-cline no-reason .cline/data/tasks/1791021300000/api_conversation_history.json
-cline no-reason .config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
-cline no-reason .config/Code/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json
-cline no-reason .config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/1791021600000/task_metadata.json
-cline no-reason .config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/1791021600000/ui_messages.json
-cody no-reason .local/share/Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2
 cody silent .config/Code/User/settings.json
 copilot-cli no-reason .copilot/command-history-state.json
 copilot-cli no-reason .copilot/permissions-config.json
@@ -62,12 +53,7 @@ letta no-reason .letta/crons.json
 letta no-reason .letta/listener-state/0123456789abcdef01234567/agent-1a2b_conv-9f.json
 letta no-reason .letta/settings.json
 little-coder escaped .little-coder/input_history.txt
-little-coder no-reason .little-coder/checkpoints/c0ffee12/snapshots.json
 little-coder no-reason .little-coder/config.json
-little-coder no-reason .little-coder/sessions/daily/2026-09-20/session_101500_a1b2c3d4.json
-little-coder no-reason .little-coder/sessions/history.json
-little-coder no-reason .little-coder/sessions/mr_sessions/session_latest.json
-little-coder no-reason .pi/agent/little-coder-prompt-history.json
 muse-code escaped .local/share/muse/tui-history.jsonl
 muse-code no-reason .config/muse/trust.json
 nanobot escaped .nanobot/history/cli_history
@@ -81,36 +67,14 @@ openclaw escaped .openclaw/agents/main/sessions/7d0c2a8e-1111-4000-8000-00000000
 opencode no-reason .local/share/opencode/storage/message/ses_00LEGACY/msg_a.json
 opencode no-reason .local/share/opencode/storage/message/ses_00LEGACY/msg_b.json
 opencode no-reason .local/share/opencode/storage/session/proj_a1/ses_00LEGACY.json
-openhands no-reason .openhands/projects/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/prompt_history.json
 openhands silent .openhands/sessions/legacy-sid-1/events/0.json
-pearai no-reason .config/PearAI/logs/20261003T130000/window1/exthost/output_logging_20261003T130001/1-PearAI.log
-pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks/1791036000000/api_conversation_history.json
-pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks/1791036000000/task_metadata.json
-pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks/1791039600000/api_conversation_history.json
-pearai no-reason .config/PearAI/User/globalStorage/pearai.pearai-roo-cline/tasks/1791039600000/ui_messages.json
-pearai no-reason .pearai/sessions/9b1c2d3e-0000-4000-8000-000000000001.json
-pearai no-reason .pearai/sessions/9b1c2d3e-0000-4000-8000-000000000002.json
 pi escaped .pi/agent/experimental/sessions/exp-session-1/meta.json
 pi escaped .pi/agent/pi-debug.log
-pi no-reason .pi/agent/crashes.json
 pi no-reason .pi/agent/trust.json
 pi silent .pi/agent/settings.json
 qwen-code escaped .qwen/tmp/3f0a9c0000000000000000000000000000000000000000000000000000000000/logs.json
 qwen-code no-reason .qwen/channels/daemon/9c1d000000000000/routes.json
 qwen-code no-reason .qwen/channels/sessions.json
-roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json
-roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/_index.json
-roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/8f1c2b7e-0000-4000-8000-000000000001/api_conversation_history.json
-roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/8f1c2b7e-0000-4000-8000-000000000001/history_item.json
-roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/8f1c2b7e-0000-4000-8000-000000000001/task_metadata.json
-roo-code no-reason .config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/8f1c2b7e-0000-4000-8000-000000000001/ui_messages.json
-roo-code no-reason .roo/cli-history.json
-roo-code no-reason .roo/cli-settings.json
-roo-code no-reason .roo/mcp.json
-roo-code no-reason .vscode-mock/global-storage/global-state.json
-roo-code no-reason .vscode-mock/global-storage/tasks/8f1c2b7e-0000-4000-8000-000000000002/api_conversation_history.json
-roo-code no-reason .vscode-mock/global-storage/tasks/8f1c2b7e-0000-4000-8000-000000000002/history_item.json
-roo-code no-reason .vscode-mock/workspace-storage/5f3a2c1d/workspace-state.json
 shellgpt escaped .config/shell_gpt/.sgptrc
 shellgpt escaped AppData/Local/Temp/chat_cache/deploy-check
 shellgpt escaped AppData/Local/Temp/shell_gpt/cache/0cc175b9c0f1b6a831c399e269772661

@@ -703,7 +703,7 @@ that does not decode is its own `system` row at the end of the session's rows,
 session's id and `cwd`; a file with no header line gives those rows alone,
 with an empty session id. Every line-by-line reader reports bad lines.
 
-A session file that cannot be read is one whole-file row
+A session file or `crashes.json` that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.
 
 #### Fixtures

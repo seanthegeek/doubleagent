@@ -165,7 +165,8 @@ class ClineParser(LegacyTaskParser):
 
     def history_item(self, task_dir: Path, root: Path, task_id: str) -> dict | None:
         """Return the task's entry in `state/taskHistory.json`, or None."""
-        items = self.cached_json(root / "state" / "taskHistory.json")
+        # A pre-scan: the same parser reports taskHistory.json when it parses the file.
+        items = self.cached_json(root / "state" / "taskHistory.json", [])
         if isinstance(items, list):
             for item in items:
                 if isinstance(item, dict) and str(item.get("id")) == task_id:
@@ -210,14 +211,14 @@ class ClineParser(LegacyTaskParser):
         The row is prefixed `session synced: ` only when the item's status is `synced`;
         `data` and `lastError` are never read into a row.
         """
-        doc = load_json(artifact.disk_path)
+        errors: list = []
+        doc = load_json(artifact.disk_path, errors)
         items = doc.get("items") if isinstance(doc, dict) else None
         if not isinstance(items, dict):
             message = "sync-queue.json is not a JSON object with an items object"
-            yield from error_rows(self, artifact, [(0, message, "")])
+            yield from error_rows(self, artifact, errors or [(0, message, "")])
             return
         root = artifact.disk_path.parent.parent
-        errors: list = []
         for position, (key, item) in enumerate(items.items(), 1):
             if not isinstance(item, dict):
                 errors.append((position, "sync-queue item %s is not a JSON object" % key, ""))
@@ -339,12 +340,13 @@ class ClineParser(LegacyTaskParser):
     END_KEYS = ("status", "exit_code")
 
     def _parse_manifest(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
-        manifest = load_json(artifact.disk_path)
+        errors: list = []
+        manifest = load_json(artifact.disk_path, errors)
         if not isinstance(manifest, dict):
             yield from error_rows(
                 self,
                 artifact,
-                [(0, "session manifest is not a JSON object", "")],
+                errors or [(0, "session manifest is not a JSON object", "")],
                 artifact.disk_path.parent.name,
             )
             return
@@ -367,15 +369,14 @@ class ClineParser(LegacyTaskParser):
 
     def _parse_messages(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         session_id = artifact.disk_path.parent.name
-        manifest = load_json(artifact.disk_path.parent / (session_id + ".json"))
+        # A pre-scan: the same parser reports the manifest when it parses the file.
+        manifest = load_json(artifact.disk_path.parent / (session_id + ".json"), [])
         manifest = manifest if isinstance(manifest, dict) else {}
         project = str(manifest.get("cwd") or manifest.get("workspace_root") or "")
-        raw_text = read_text(artifact.disk_path)
         errors: list = []
+        raw_text = read_text(artifact.disk_path, errors)
         payload = None
-        if raw_text is None:
-            errors.append((0, "unreadable", ""))
-        else:
+        if raw_text is not None:
             try:
                 payload = json.loads(raw_text)
             except ValueError:
@@ -544,10 +545,11 @@ class ClineParser(LegacyTaskParser):
 
     def _json_object(self, artifact: Artifact, what: str) -> tuple[dict | None, list]:
         """Return the file as a JSON object, or None with the whole-file error."""
-        doc = load_json(artifact.disk_path)
+        errors: list = []
+        doc = load_json(artifact.disk_path, errors)
         if isinstance(doc, dict):
             return doc, []
-        return None, [(0, "%s is not a JSON object" % what, "")]
+        return None, errors or [(0, "%s is not a JSON object" % what, "")]
 
     def _parse_global_state(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the standing setting and Cline Cloud rows of `globalState.json`.
@@ -627,13 +629,13 @@ class ClineParser(LegacyTaskParser):
         Each record is `{sessionId, account, endpoint}`; the rows are at the file's
         modification time.
         """
-        doc = load_json(artifact.disk_path)
+        errors: list = []
+        doc = load_json(artifact.disk_path, errors)
         if not isinstance(doc, list):
             message = "cloud pending-start file is not a JSON array"
-            yield from error_rows(self, artifact, [(0, message, "")])
+            yield from error_rows(self, artifact, errors or [(0, message, "")])
             return
         timestamp = file_mtime(artifact)
-        errors: list = []
         for position, record in enumerate(doc, 1):
             if not isinstance(record, dict) or not isinstance(record.get("sessionId"), str):
                 errors.append((position, "pending-start record %d has no sessionId" % position, ""))
@@ -772,8 +774,11 @@ class ClineParser(LegacyTaskParser):
             key=lambda candidate: _ordinal(candidate.get("ordinal")),
         )
         workspace = str((head or (docs[0] if docs else {})).get("workspace_root") or "")
+        # A pre-scan: the same parser reports the manifest when it parses the file.
         manifest = (
-            load_json(sessions_dir / session_id / (session_id + ".json")) if session_id else None
+            load_json(sessions_dir / session_id / (session_id + ".json"), [])
+            if session_id
+            else None
         )
         if isinstance(manifest, dict):
             project = str(manifest.get("cwd") or manifest.get("workspace_root") or "")
