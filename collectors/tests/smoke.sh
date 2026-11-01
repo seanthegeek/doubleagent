@@ -793,6 +793,21 @@ excl||.qwen/managed-local/worker-home/resources
 excl||.qwen/managed-local/worker-home/session-start-perf
 excl||.qwen/managed-local/worker-home/worktrees
 agent|qwen-code|.qwen/extensions/e1/.qwen-extension-git-credentials.json
+excl||.gemini/whisper_models
+excl||.gemini/bin
+excl||.gemini/tmp/bin
+excl||.gemini/extensions/e1/node_modules
+excl||.gemini/extensions/e1/.git
+excl||.gemini/cli-browser-profile
+secret||.gemini/oauth_creds.json
+secret||.gemini/gemini-credentials.json
+secret||.gemini/mcp-oauth-tokens.json
+secret||.gemini/a2a-oauth-tokens.json
+secret||.gemini/.env
+secret||.gemini/integrity.key
+secret||.gemini/.settings.json.4242.1792000000000.0.tmp
+secret||.gemini/extensions/e1/.env
+agent|gemini-cli|.cache/.gemini/mcp-oauth-tokens.json
 '
 ALICE="$ROOT/home/alice"; BOB="$ROOT/Users/bob"
 printf '%s\n' "$CASES_CATALOG" | while IFS='|' read -r _kind _agent _relpath; do
@@ -813,6 +828,8 @@ mkdir -p "$ALICE/.hermes/checkpoints/store/projects" "$ROOT/srv/hermesproj" "$AL
   "$ALICE/.twinny/embeddings/twinproj" "$ROOT/srv/twinproj/src"
 printf '{"workdir":"/srv/hermesproj","created_at":1759536000}\n' >"$ALICE/.hermes/checkpoints/store/projects/0123456789abcdef.json"
 printf '# hermes\n' >"$ROOT/srv/hermesproj/.hermes.md"
+# 2026-11-01 gemini-cli rebuild (#326)
+printf 'dist\n' >"$ROOT/srv/gem/.geminiignore"
 # 2026-10-31 goose rebuild (#326)
 mkdir -p "$ALICE/.local/share/goose/projects" "$ALICE/AppData/Roaming/Block/goose/data/sessions" \
   "$ROOT/srv/gooseproj/.goose/memory" "$ROOT/srv/gooserecipes" "$ROOT/srv/goosewin"
@@ -1834,6 +1851,8 @@ check "little-coder history nested in .pi collected exactly once" "[ \"\$(grep -
 check "hermes installer checkout excluded but its .env kept" "[ \"\$(status_of \"$ALICE/.hermes/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes/hermes-agent/.env\")\" = collected ]"
 check "openclaw .clawdbot rename symlink recorded" "row \"$BOB/.clawdbot\" | grep -q '\"agent\":\"openclaw\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\".openclaw\"'"
 check "hermes checkpoint workdir discovers project" "row \"$ROOT/srv/hermesproj/.hermes.md\" | grep -q '\"user\":\"alice\".*\"status\":\"collected\"'"
+# 2026-11-01 gemini-cli rebuild (#326)
+check "#326 Gemini CLI project .geminiignore collected" "row \"$ROOT/srv/gem/.geminiignore\" | grep -q '\"agent\":\"gemini-cli\".*\"status\":\"collected\"'"
 # 2026-10-31 goose rebuild (#326)
 check "#326 goose projects/<slug>.md workingDirs discovers project" "row \"$ROOT/srv/gooseproj/.goosehints\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
 check "#326 goose project memory file collected" "row \"$ROOT/srv/gooseproj/.goose/memory/dev.txt\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
@@ -2711,7 +2730,7 @@ check "inventory every later line is an agent line, keys in order" "[ \"\$(sed 1
 check "inventory ollama line: history and manifest, excluded blobs not counted" "agent_line inventory ollama ollama | grep -q '\"files\":2,\"bytes\":25,\"first\":\"2026-09-14T00:00:00Z\",\"last\":\"2026-09-15T01:02:03Z\",\"projects\":0,\"evidence\":\".ollama\"}\$'"
 check "inventory claude-code evidence in catalog order" "agent_line inventory alice claude-code | grep -q '\"evidence\":\".claude,.claude.json\\*,.claude-\\*/projects,.claude-\\*/history.jsonl,.claude-\\*/.claude.json\\*,.claude-\\*/.credentials.json,.claude-\\*/sessions/\\*.\\*.key,.claude-\\*/daemon/control.key,.claude-\\*/daemon/roster.json,.claude-\\*/backups/.claude.json.\\*,.claude-\\*/ide/\\*.lock,.claude-\\*/bridge-spawn/\\*/mcp.json,.local/state/claude,.cache/claude,Library/Caches/claude-cli-nodejs,AppData/Local/claude-cli-nodejs/Cache/\\*,AppData/Local/Temp/claude,Applications/Claude Code URL Handler.app\"}\$'"
 check "inventory first and last set for alice claude-code" "agent_line inventory alice claude-code | grep -q '\"first\":\"20[0-9-]*T[0-9:]*Z\",\"last\":\"20[0-9-]*T[0-9:]*Z\"'"
-check "inventory nested entry claimed from the enclosing agent" "agent_line inventory alice antigravity | grep -q '\"evidence\":\"[^\"]*.gemini/antigravity-cli' && agent_line inventory alice gemini-cli | grep -q '\"evidence\":\".gemini\"'"
+check "inventory nested entry claimed from the enclosing agent" "agent_line inventory alice antigravity | grep -q '\"evidence\":\"[^\"]*.gemini/antigravity-cli' && agent_line inventory alice gemini-cli | grep -q '\"evidence\":\".gemini,.cache/.gemini\"'"
 check "inventory: matched directory with no files of its own gives no line" "[ -z \"\$(agent_line inventory bob gemini-cli)\" ] && agent_line inventory bob antigravity | grep -q '\"files\":1,\"bytes\":3,.*\"evidence\":\".gemini/antigravity-cli\"}\$'"
 check "inventory: no agent line has zero files" "! grep -q '\"files\":0,' \"$OUT/inventory.stdout\""
 check "inventory projects counted per user" "agent_line inventory alice claude-code | grep -q '\"projects\":[1-9]'"

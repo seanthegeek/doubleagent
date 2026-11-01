@@ -794,6 +794,21 @@ excl||.qwen/managed-local/worker-home/resources
 excl||.qwen/managed-local/worker-home/session-start-perf
 excl||.qwen/managed-local/worker-home/worktrees
 agent|qwen-code|.qwen/extensions/e1/.qwen-extension-git-credentials.json
+excl||.gemini/whisper_models
+excl||.gemini/bin
+excl||.gemini/tmp/bin
+excl||.gemini/extensions/e1/node_modules
+excl||.gemini/extensions/e1/.git
+excl||.gemini/cli-browser-profile
+secret||.gemini/oauth_creds.json
+secret||.gemini/gemini-credentials.json
+secret||.gemini/mcp-oauth-tokens.json
+secret||.gemini/a2a-oauth-tokens.json
+secret||.gemini/.env
+secret||.gemini/integrity.key
+secret||.gemini/.settings.json.4242.1792000000000.0.tmp
+secret||.gemini/extensions/e1/.env
+agent|gemini-cli|.cache/.gemini/mcp-oauth-tokens.json
 '@
 $CasesCatalog = @($CasesCatalog -split "`r?`n" | Where-Object { $_ -ne '' })
 foreach ($caseLine in $CasesCatalog) {
@@ -802,6 +817,8 @@ foreach ($caseLine in $CasesCatalog) {
 }
 MakeFile 'Users/alice/.hermes/checkpoints/store/projects/0123456789abcdef.json' '{"workdir":"C:\\hermesproj","created_at":1759536000}'
 MakeFile 'hermesproj/.hermes.md' '# hermes'
+# 2026-11-01 gemini-cli rebuild (#326)
+MakeFile 'gem/.geminiignore' "dist`n"
 # 2026-10-31 goose rebuild (#326)
 MakeFile 'Users/alice/.local/share/goose/projects/demo.md' "---`nname: demo`ndescription: ''`nworkingDirs:`n- C:\gooseproj`n---`n"
 MakeFile 'Users/alice/.local/share/goose/schedule.json' "[`n  {`n    `"id`": `"weekly`",`n    `"recipe_base_dir`": `"C:\\gooserecipes`"`n  }`n]`n"
@@ -1840,6 +1857,9 @@ if ($clawLinkOk) {
   Check 'openclaw .clawdbot rename symlink recorded' { $row -and $row.agent -eq 'openclaw' -and $row.type -eq 'symlink' -and $row.status -eq 'symlink' -and $row.target -like '*.openclaw' }
 }
 Check 'hermes checkpoint workdir discovers project' { (StatusOf 'hermesproj/.hermes.md') -eq 'collected' -and (Row 'hermesproj/.hermes.md').user -eq 'alice' }
+# 2026-11-01 gemini-cli rebuild (#326)
+$row = Row 'gem/.geminiignore'
+Check '#326 Gemini CLI project .geminiignore collected' { $row -and $row.agent -eq 'gemini-cli' -and $row.status -eq 'collected' }
 # 2026-10-31 goose rebuild (#326)
 $row = Row 'gooseproj/.goosehints'
 Check '#326 goose projects/<slug>.md workingDirs discovers project' { $row -and $row.agent -eq 'goose' -and $row.status -eq 'collected' }
@@ -2944,7 +2964,7 @@ Check 'Inventory first and last set for alice claude-code' { (InventoryLine 'ali
 Check 'Inventory: matched directory with no files of its own gives no line' { $null -eq (InventoryAgent 'bob' 'gemini-cli') -and ($bobLine = InventoryAgent 'bob' 'antigravity') -and $bobLine.files -eq 1 -and $bobLine.bytes -eq 2 -and $bobLine.evidence -eq '.gemini/antigravity-cli' }
 Check 'Inventory: no agent line has zero files' { -not ($script:Inventory | Where-Object { $_.type -eq 'agent' } | Where-Object { $_.files -eq 0 }) }
 Check 'Inventory projects counted per user' { $row.projects -ge 1 }
-Check 'Inventory nested entry claimed from the enclosing agent' { (InventoryAgent 'alice' 'antigravity').evidence -like '*.gemini/antigravity-cli*' -and (InventoryAgent 'alice' 'gemini-cli').evidence -eq '.gemini' }
+Check 'Inventory nested entry claimed from the enclosing agent' { (InventoryAgent 'alice' 'antigravity').evidence -like '*.gemini/antigravity-cli*' -and (InventoryAgent 'alice' 'gemini-cli').evidence -eq '.gemini,.cache/.gemini' }
 # 2026-10-14 catalog match that is an excluded file (#107)
 # alice's Muse Code file count, compared with the -Full inventory's below.
 $museFiles = -1
