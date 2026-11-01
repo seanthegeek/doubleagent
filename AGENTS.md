@@ -97,7 +97,11 @@ tools/check_parser_research.py  compares each parser's row texts, file patterns 
                                with the Parsing part of its research document
 tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines, files,
                                keys and values with the research documents
-tools/tests/                   pytest suite of the drift checkers, on synthetic inputs
+tools/diff_smoke_rows.py       runs the sh collector of two commits over the smoke
+                               test's fake image and lists the paths whose manifest rows
+                               changed, grouped by the table line responsible
+tools/tests/                   pytest suite of the drift checkers and tools, on synthetic
+                               inputs
 tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
                                disagreements recorded so far, unattributed.txt for
                                those of no agent
@@ -1393,6 +1397,11 @@ The smoke test runs the collector in image mode over a fake disk image
 under `$TMPDIR`, with the given shell for the script and the `find -exec`
 workers (`COLLECTOR_SH`). Every check passes under every shell; a failure
 under one shell is a portability bug.
+
+A change to a table line attaches the output of `tools/diff_smoke_rows.py`
+against its base to its review report, and the reviewer reads every group
+for paths the line was not meant to reach
+([Smoke-row diff in `collectors/docs/testing.md`](collectors/docs/testing.md#smoke-row-diff)).
 
 On Debian and Ubuntu `/usr/bin/ash` is dash, so test busybox with the
 wrapper above. CI installs `busybox-static`, whose `ash` runs busybox's own
