@@ -1390,7 +1390,7 @@ Three stores repeat nothing of the session file in the rows read from them and a
   the CLI adds itself (the environment context, the compression summary and its acknowledgement,
   retry prompts), the event form of a stored stream and when a reply is repeated by the next
   request are left to the real-install round, which records the log before a parser reads turns
-  from it.
+  from it ([issue 410](https://github.com/seanthegeek/doubleagent/issues/410)).
 - `memory/<name>`: `memory file: <name> (from <file>, file mtime)` at the file's modification
   time, no session id, the file's whole text on the lines after it ([memory/](#memory)).
 - `images/clipboard-<epoch ms>.<ext>`:

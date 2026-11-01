@@ -14,7 +14,8 @@ features until a Host exists for their platform
 macOS; on Linux and Windows only `init` and the idle daemon run. It shares its repository and
 lineage with Qwen Code ([`qwen-code.md`](qwen-code.md)), but keeps its own data directory,
 `~/.qwen-live`, and writes one record into Qwen Code's `~/.qwen`. Not parsed yet: the agent is in
-the parser backlog ([Parser plan](#parser-plan)).
+the parser backlog ([Parser plan](#parser-plan);
+[issue 412](https://github.com/seanthegeek/doubleagent/issues/412)).
 
 ## Source and evidence
 
@@ -37,7 +38,8 @@ read with the package's
 - No real install. What stands in is the source review of QwenLM/qwen-code at
   [`835b080`](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b)
   (`qwen-live` 0.1.0, beside release `v0.26.5`); every path and record shape below is
-  source-derived.
+  source-derived. The real-install round is
+  [issue 413](https://github.com/seanthegeek/doubleagent/issues/413).
 
 ### Source reviews
 
