@@ -252,7 +252,7 @@ one directory it creates for work is the `--worktree` checkout inside the projec
   a write copy `.gemini/.settings.json.<pid>.<epoch ms>.<n>.tmp` beside it, renamed over the file;
   when the rename fails the CLI deletes the copy and writes the file directly, so the copy remains
   only when the process stops between writing it and the rename, or when that delete fails
-  ([`cli/src/utils/commentJson.ts:22-45`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/commentJson.ts#L22-L45)).
+  ([`cli/src/utils/commentJson.ts:23-46`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/commentJson.ts#L23-L46)).
 - `.gemini/tmp/<slug>/bug-memory-<epoch ms>.heapsnapshot`, the V8 heap snapshot `/bug-memory`
   writes, is a dump of the CLI process's memory and so holds the access token and API keys in
   use ([Bug reports](#bug-reports)).
@@ -1092,7 +1092,7 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   `modes` table and one row
   `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)`
   per `commands` grant, the keys in file order. On Python 3.10 it gives the same `not read` row
-  as the other policy files, though it holds no `[[rule]]` table. A project's `sandbox.toml` is an
+  as the other policy files. A project's `sandbox.toml` is an
   ordinary policy file.
 - `settings.json`, in the home and in a project: one
   `permission setting: <key>=<value> (from <file>, file mtime)` row per entry of

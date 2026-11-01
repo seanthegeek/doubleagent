@@ -26,8 +26,8 @@ removal rows carry no timestamp of their own and inherit the latest one seen bef
 `project_path` is `tmp/<slug>/.project_root`, else the `projects.json` key mapping to the slug,
 else the key whose sha256 is the legacy hash directory or `projectHash`, else `projectHash`.
 Validated against google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020; the
-v0.66.0 release writes the same shapes the parser reads) with a synthetic fixture; no real install. See
-`research/gemini-cli.md`.
+v0.66.0 release writes the same shapes the parser reads) with a synthetic fixture; no real
+install. See `research/gemini-cli.md`.
 """
 
 from __future__ import annotations
