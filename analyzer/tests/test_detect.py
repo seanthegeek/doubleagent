@@ -17,6 +17,8 @@ from fixtures import (
     PROJECT_GIT_HEAD,
     PROJECT_GIT_REMOTES,
     PROJECT_REMOTE,
+    QWEN_LIVE_LIBRARY_REL,
+    QWEN_LIVE_LOG_REL,
     build_home,
     build_image,
 )
@@ -55,6 +57,7 @@ class LooseDetectTests(unittest.TestCase):
             "vscode",
             "cline",
             "qwen-code",
+            "qwen-live",
             "kiro",
             "crush",
             "goose",
@@ -232,6 +235,31 @@ class LooseDetectTests(unittest.TestCase):
                 if artifact.rel == ".local/share/opencode/flow_states.db"
             ),
             1,
+        )
+
+    def test_qwen_live_detected_beside_qwen_code(self):
+        # Qwen Live keeps its own data directory beside Qwen Code's and writes
+        # its discovery record into ~/.qwen, which stays Qwen Code's; on
+        # Windows its debug recordings sit in the profile's temp directory.
+        home = build_home(self.tmp / "home" / "alice")
+        files = {
+            QWEN_LIVE_LOG_REL: "qwen-live",
+            QWEN_LIVE_LIBRARY_REL: "qwen-live",
+            ".qwen-live/config.json": "qwen-live",
+            ".qwen/live/daemon.json": "qwen-code",
+            "AppData/Local/Temp/qwen-live-monitor-debug/monitor-1-a/monitor.json": "qwen-live",
+        }
+        for rel in files:
+            path = home / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if not path.exists():
+                path.write_text("{}")
+        col = open_input(self.tmp / "home", self.cat)
+        by_rel = {artifact.rel: artifact.agent for artifact in col.artifacts}
+        for rel, agent in files.items():
+            self.assertEqual(by_rel.get(rel), agent, rel)
+        self.assertEqual(
+            sum(1 for artifact in col.artifacts if artifact.rel == QWEN_LIVE_LOG_REL), 1
         )
 
     def test_claude_code_cli_cache_detected(self):

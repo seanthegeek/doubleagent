@@ -853,6 +853,17 @@ their state must be copied by hand.
   holding the port, the workspace path and a per-run auth token. No
   catalog line reaches either on any platform, so copy them by hand
   ([Per-user storage in `research/gemini-cli.md`](../../research/gemini-cli.md#per-user-storage)).
+- **Qwen Live**, run with `--debug`, records each request its visual
+  monitors send to the model in `qwen-live-monitor-debug/` in the system
+  temp directory (`/tmp` or `$TMPDIR`, `%TEMP%` on Windows): the request
+  and response JSON, the screen or camera frames and the microphone
+  audio. On Windows the catalog collects
+  `AppData/Local/Temp/qwen-live-monitor-debug` with the frames
+  (`image-*.jpg`) and audio (`input.wav`) excluded; on Linux and macOS it
+  is outside every home, so copy it by hand. A `memory.dir` setting in
+  `~/.qwen-live/config.json` can move its memory libraries anywhere;
+  copy them from there by hand
+  ([Per-user storage in `research/qwen-live.md`](../../research/qwen-live.md#per-user-storage)).
 - **Muse Code** keeps its launcher state beside the launcher; see below.
 - **Cursor** writes its agent worker's logs and copies of the user's zsh
   startup files to the temp directory; see
@@ -1082,6 +1093,12 @@ the full pattern list.
   copies Qwen Code leaves beside a settings file. A managed data directory
   moved with `qwen serve --managed-data-dir` outside `~/.qwen` is not
   collected.
+- **Qwen Live**, flagged from collector 1.22.0: `~/.qwen-live/config.json`
+  and the `config.json.tmp` and `config.json.<uuid>.tmp` copies written
+  while saving it (the DashScope key, backend tokens and environments), and
+  the discovery record `~/.qwen/live/daemon.json` with its
+  `.daemon.<pid>.<uuid>.tmp` copy, which hold the running voice daemon's
+  bearer token and are attributed to `qwen-code`.
 - **Running-session registries:** Qwen Code's `~/.qwen/sessions/<pid>.json`
   (or `<pid>-<8 hex>.json`), one per running session, whose `ipcToken`
   admits a connection to that session's socket; the file is deleted when

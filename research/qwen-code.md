@@ -217,8 +217,10 @@ transcripts. Its Local Control setting shares the live daemon with a phone on th
 ([`desktop/README.md:17`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/desktop/README.md#L17)).
 
 Qwen Live (`packages/qwen-live`), the voice daemon in the same repository, keeps its state in
-`~/.qwen-live`, a directory of its own, so it is not described here
-([issue 156](https://github.com/seanthegeek/doubleagent/issues/156)).
+`~/.qwen-live`, the catalog agent `qwen-live` ([`qwen-live.md`](qwen-live.md)); the discovery
+record it and `qwen serve`'s built-in Live module write here, `live/daemon.json`, and its temporary
+copy `live/.daemon.<pid>.<uuid>.tmp` hold the daemon's bearer `token`
+([Discovery record in `~/.qwen` in `qwen-live.md`](qwen-live.md#discovery-record-in-qwen)).
 
 ### Credentials
 

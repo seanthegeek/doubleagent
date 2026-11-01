@@ -889,6 +889,24 @@ MakeFile 'tabbyproj/AGENTS.md' '# tabby'
 MakeFile 'srv/tabbyunix/AGENTS.md' '# tabby'
 MakeFile 'Users/alice/.twinny/embeddings/twinproj/manifest.json' '{"files":{"C:\\twinproj\\src\\a.ts":{"hash":"h1"},"C:\\twinproj\\b.ts":{"hash":"h2"}}}'
 MakeFile 'twinproj/AGENTS.md' '# twin'
+# 2026-11-01 qwen-live (#156)
+# Qwen Live's data directory with a call log, a memory library and the configuration with a
+# write's temporary copy, and the discovery record it writes inside ~/.qwen with its own
+# temporary copy.
+$qwenLive = 'Users/alice/.qwen-live'
+MakeFile "$qwenLive/sessions/live-1793520000000-0a1b2c3d.jsonl" '{"ts":1793520000000,"seq":1,"type":"session.start","payload":{"callId":"c1"}}'
+MakeFile "$qwenLive/memories/default/meta.json" '{"version":1,"id":"default","name":"Default"}'
+MakeFile "$qwenLive/memories/default/dialogue.db" 'sqlite'
+MakeFile "$qwenLive/config.json" '{"realtimeApiKey":"x"}'
+MakeFile "$qwenLive/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp" '{"realtimeApiKey":"x"}'
+MakeFile 'Users/alice/.qwen/live/daemon.json' '{"url":"http://127.0.0.1:4242","token":"x"}'
+MakeFile 'Users/alice/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp' '{"url":"http://127.0.0.1:4242","token":"x"}'
+# A debug recording of one monitor request in the Windows temp directory.
+$qwenLiveMonitor = 'Users/alice/AppData/Local/Temp/qwen-live-monitor-debug/monitor-1793520000000-0a1b2c3d-0000-4000-8000-000000000156'
+MakeFile "$qwenLiveMonitor/monitor.json" '{"format":"qwen-live-monitor-debug-v1","createdAt":1793520000000}'
+MakeFile "$qwenLiveMonitor/requests/000001/request.json" '{"format":"qwen-live-monitor-debug-v1","recordingStatus":"saved","request":1}'
+MakeFile "$qwenLiveMonitor/requests/000001/image-0001.jpg" 'jpeg'
+MakeFile "$qwenLiveMonitor/requests/000001/input.wav" 'RIFF'
 # --- 2026-10-04 Docker volumes: a root volume matched to Agent Zero, an unmatched volume,
 # and a rootless volume in alice's profile.
 MakeFile 'var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat.json' '{"id":"ctx1","name":"chat","history":"[]"}'
@@ -2536,6 +2554,13 @@ Check '#326 OpenCode legacy project store discovers project' { IsAgentRow 'ocpro
 foreach ($opencodePath in $opencodeProjectConfigs) {
   Check "#326 OpenCode project config flagged secret: $opencodePath" { IsAgentRow "ocproj/$opencodePath" 'opencode' $true }
 }
+# 2026-11-01 qwen-live (#156)
+Check '#156 Qwen Live call log collected' { IsAgentRow "$qwenLive/sessions/live-1793520000000-0a1b2c3d.jsonl" 'qwen-live' $false }
+Check '#156 Qwen Live memory library collected' { (IsAgentRow "$qwenLive/memories/default/dialogue.db" 'qwen-live' $false) -and (IsAgentRow "$qwenLive/memories/default/meta.json" 'qwen-live' $false) }
+Check '#156 Qwen Live config and its temporary copy flagged secret' { (IsAgentRow "$qwenLive/config.json" 'qwen-live' $true) -and (IsAgentRow "$qwenLive/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp" 'qwen-live' $true) }
+Check '#156 Qwen Live discovery record and its temporary copy flagged secret' { (IsAgentRow 'Users/alice/.qwen/live/daemon.json' 'qwen-code' $true) -and (IsAgentRow 'Users/alice/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp' 'qwen-code' $true) }
+Check '#156 Qwen Live monitor recording JSON collected' { (IsAgentRow "$qwenLiveMonitor/monitor.json" 'qwen-live' $false) -and (IsAgentRow "$qwenLiveMonitor/requests/000001/request.json" 'qwen-live' $false) }
+Check '#156 Qwen Live monitor recording frames and audio excluded' { (StatusOf "$qwenLiveMonitor/requests/000001/image-0001.jpg") -eq 'skipped_excluded' -and (StatusOf "$qwenLiveMonitor/requests/000001/input.wav") -eq 'skipped_excluded' }
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
@@ -2627,6 +2652,9 @@ foreach ($opencodePath in $opencodeProjectConfigs) {
 Check '#326 goose project diagnostics export skipped without secrets' { (StatusOf 'gooseproj/diagnostics_20261030_2.json') -eq 'skipped_secret' }
 # 2026-11-01 qwen-code rebuild (#326)
 Check '#326 Qwen Code project settings and recovery copy skipped without secrets' { (StatusOf 'qwenproj/.qwen/settings.json') -eq 'skipped_secret' -and (StatusOf 'qwenproj/.qwen/settings.json.corrupted') -eq 'skipped_secret' }
+# 2026-11-01 qwen-live (#156)
+Check '#156 Qwen Live config and its temporary copy skipped without secrets' { (StatusOf "$qwenLive/config.json") -eq 'skipped_secret' -and (StatusOf "$qwenLive/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp") -eq 'skipped_secret' }
+Check '#156 Qwen Live discovery record and its temporary copy skipped without secrets' { (StatusOf 'Users/alice/.qwen/live/daemon.json') -eq 'skipped_secret' -and (StatusOf 'Users/alice/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp') -eq 'skipped_secret' }
 # 2026-10-04 catalog cases
 foreach ($caseLine in $CasesCatalog) {
   $fields = @($caseLine -split '\|', 3); $row = Row "Users/alice/$($fields[2])"

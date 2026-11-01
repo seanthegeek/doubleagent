@@ -7,8 +7,9 @@ Claude Code, Gemini CLI, Antigravity, Codex CLI, Copilot CLI, Cursor,
 Windsurf, Aider and VS Code chat extensions; autonomous agents such as
 Hermes, Agent Zero and OpenClaw; agent framework studios and CLIs such as
 AutoGen Studio, CrewAI and MetaGPT; self-hosted agent and workflow
-automation platforms such as n8n, Flowise, Langflow and Dify; Ollama; and
-others. It has two
+automation platforms such as n8n, Flowise, Langflow and Dify; voice
+daemons that hand coding tasks to other agents, such as Qwen Live; Ollama;
+and others. It has two
 parts, kept in separate directories because they run in different places and
 have different dependency rules, and a Docker lab for developers.
 

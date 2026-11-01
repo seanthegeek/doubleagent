@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Qwen Code's `.qwen/session-start-perf`, `.qwen/cpu-profiles` and `.qwen/memory-snapshots` profiles and the managed local mode's scratch directory `.qwen/managed-local/workspaces` are excluded ([#326]).
 - The release copies and staging directory of pi's managed install, `.pi/agent/install/releases` and `.pi/agent/install/staging`, are excluded, while its `managed-install.json` and `current-version` stay collected, and the `/bug` report zip `pi-bug-report-*.zip` and the `/export` JSONL copy `session-<time>.jsonl` (glob `session-[0-9][0-9][0-9][0-9]-*.jsonl`) a session leaves in a project directory are collected as `pi` ([#326]).
 - Gemini CLI's extension integrity key `.gemini/integrity.key`, written when the OS keychain is unavailable, and the write copy `.gemini/.settings.json.<pid>.<ms>.<n>.tmp` a cut settings write leaves beside a home or project `settings.json` (glob `*.gemini/.settings.json.*.tmp`) are flagged `secret: true` ([#326]).
+- Qwen Live, the voice daemon of the Qwen Code repository, as the agent `qwen-live`: its data directory `.qwen-live` (the call logs under `sessions/`, the memory libraries under `memories/` and `config.json`) and, on Windows, its debug recordings `AppData/Local/Temp/qwen-live-monitor-debug`, whose frames (`*/requests/*/image-*.jpg`) and audio (`*/requests/*/input.wav`) are excluded. `.qwen-live/config.json*` (the DashScope key and backend tokens, with the copies written while saving it) and the daemon's discovery record `.qwen/live/daemon.json` with its `.qwen/live/.daemon.*.tmp` copy, collected as `qwen-code`, are flagged `secret: true` ([#156]).
 
 ### Changed
 
@@ -1287,6 +1288,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [#208]: https://github.com/seanthegeek/doubleagent/issues/208
 [#160]: https://github.com/seanthegeek/doubleagent/issues/160
 [#159]: https://github.com/seanthegeek/doubleagent/issues/159
+[#156]: https://github.com/seanthegeek/doubleagent/issues/156
 [#153]: https://github.com/seanthegeek/doubleagent/issues/153
 [#149]: https://github.com/seanthegeek/doubleagent/issues/149
 [#147]: https://github.com/seanthegeek/doubleagent/issues/147

@@ -880,6 +880,14 @@ from .qwen_code import (
     qwen_usage_records,
     qwen_worktree_sidecar,
 )
+from .qwen_live import (
+    QWEN_LIVE_CALL,
+    QWEN_LIVE_LIBRARY_REL,
+    QWEN_LIVE_LOG_REL,
+    QWEN_LIVE_RUN,
+    build_qwen_live,
+    qwen_live_call_records,
+)
 from .roo_code import (
     ROO_CLI_HISTORY_ENTRIES,
     ROO_CLI_TASK,
@@ -1058,6 +1066,7 @@ HOME_BUILDERS: tuple[tuple[Callable[[Path], None], str], ...] = (
     (build_roo_cli_history, ""),
     (build_qwen, ""),
     (build_qwen_channels, ""),
+    (build_qwen_live, ""),
     (build_kiro, ""),
     (build_crush, ""),
     (build_goose, ""),
