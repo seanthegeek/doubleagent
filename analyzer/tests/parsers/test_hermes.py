@@ -2,7 +2,10 @@
 
 import json
 import sqlite3
+import unittest
 from dataclasses import replace as dc_replace
+
+from test_errors import CAN_DENY, DENY_REASON
 
 from doubleagent import cli
 from doubleagent.dedup import deduplicate
@@ -1127,6 +1130,53 @@ class HermesTests(ParserBase):
             ],
         )  # fmt: skip
         self.assertFalse([row for row in rows if "not-real" in row.text])
+
+    @unittest.skipUnless(CAN_DENY, DENY_REASON)
+    def test_unreadable_files_are_one_row(self):
+        # A settings, pastes, pairing, connections or cron file that is there but cannot be read
+        # is one `could not be read` row, never a `did not parse` row or a problem line.
+        from fixtures import HERMES_CONFIG_YAML, HERMES_CONNECTIONS, HERMES_PAIRING
+
+        parser = HermesParser()
+        cron = ".hermes/cron/output/a1b2/2026-10-01_09-00-00.md"
+        cases = (
+            (".hermes/pastes/pending.json", "[]", []),
+            (".hermes/config.yaml", HERMES_CONFIG_YAML, []),
+            (".hermes/pairing/telegram-approved.json", json.dumps(HERMES_PAIRING), []),
+            (".config/Hermes/connections.json", json.dumps(HERMES_CONNECTIONS), []),
+            (cron, "## Prompt\n\nhi\n", ["cron run: job a1b2"]),
+        )
+        for rel, text, kept in cases:
+            path = self.hermes_file(rel, text)
+            path.chmod(0)
+            try:
+                rows = list(parser.parse(self.hermes_art(rel, path), Options()))
+                database = self.rows_for(parser, self.REL)
+            finally:
+                path.chmod(0o600)
+            problems = [row for row in rows if row.text.startswith("parser:")]
+            self.assertEqual(
+                [
+                    (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                    for row in problems
+                ],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % path.name,
+                        0,
+                        "",
+                        "",
+                    )
+                ],
+                rel,
+            )
+            self.assertEqual(problems[0].project_path, "", rel)
+            others = [row.text for row in rows if not row.text.startswith("parser:")]
+            self.assertEqual(len(others), len(kept), rel)
+            for text_start, other in zip(kept, others, strict=True):
+                self.assertTrue(other.startswith(text_start), (rel, other))
+            self.assertTrue(any(not row.text.startswith("parser:") for row in database), rel)
 
     def test_trajectory_file(self):
         from fixtures import _jsonl, hermes_trajectory_records

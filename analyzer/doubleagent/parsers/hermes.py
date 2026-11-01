@@ -47,6 +47,7 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     iter_jsonl,
     line_text,
@@ -932,9 +933,14 @@ class HermesParser(Parser):
         The time is `expire_at` minus the six-hour paste lifetime. A file that is not a JSON list is
         one `parser:` row, and an entry that is not an object with a `url` its own row.
         """
+        read_errors: list = []
+        content = file_bytes(artifact.disk_path, read_errors)
+        if content is None:
+            yield from error_rows(self, artifact, read_errors)
+            return
         try:
-            document = json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+            document = json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             yield from error_rows(
                 self, artifact, [(0, "pastes/pending.json did not parse (%s)" % error, "")]
             )
@@ -970,9 +976,12 @@ class HermesParser(Parser):
 
     def _read_json(self, artifact: Artifact, name: str, errors: list):
         """Return the JSON document of `artifact`, or None with a whole-file entry in `errors`."""
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            return None
         try:
-            return json.loads(artifact.disk_path.read_bytes().decode("utf-8", errors="replace"))
-        except (OSError, ValueError) as error:
+            return json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
             errors.append((0, "%s did not parse (%s)" % (name, error), ""))
             return None
 
@@ -990,11 +999,8 @@ class HermesParser(Parser):
         other construct under the key is one whole-file `parser:` row after the entries before it.
         """
         errors: list = []
-        try:
-            text = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError as error:
-            errors.append((0, "config.yaml could not be read (%s)" % error, ""))
-            text = ""
+        content = file_bytes(artifact.disk_path, errors)
+        text = content.decode("utf-8", errors="replace") if content is not None else ""
         entries, problem = read_flat_list(split_lines(text), "command_allowlist")
         timestamp = file_mtime(artifact) if entries else ""
         for line_number, pattern in entries:
@@ -1069,11 +1075,8 @@ class HermesParser(Parser):
         clock = CRON_TIME_PATTERN.match(match.group(2))
         timestamp = to_utc("%sT%s:%s:%s" % clock.groups()) if clock else ""
         errors: list = []
-        try:
-            document = artifact.disk_path.read_bytes().decode("utf-8", errors="replace")
-        except OSError as error:
-            errors.append((0, "cron run file could not be read (%s)" % error, ""))
-            document = ""
+        content = file_bytes(artifact.disk_path, errors)
+        document = content.decode("utf-8", errors="replace") if content is not None else ""
         rows = [("system", "cron run: job %s (from cron/output, file name time, host-local)")]
         parts = split_cron_doc(document) if document else None
         if parts:

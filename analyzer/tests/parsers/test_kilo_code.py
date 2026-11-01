@@ -542,66 +542,34 @@ class KiloCodeTests(ParserBase):
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_files_are_whole_file_rows(self):
-        # A digest, log or task file that is there but cannot be read is one `parser:` row
-        # carrying what is known of it, never a problem line.
-        self.with_state()
-        cases = (
-            (KILO_DIGEST_REL, "", "/srv/proj"),
-            (self.LOG, "", ""),
-            (self.TASK, KILO_TASK, "/srv/proj"),
-        )
-        for rel, session_id, project in cases:
-            path = self.home / rel
-            path.chmod(0)
-            try:
-                rows = self.rows_for(KiloCodeParser(), rel)
-            finally:
-                path.chmod(0o600)
-            problems = [row for row in rows if row.text.startswith("parser:")]
-            self.assertEqual(len(problems), 1, rel)
-            self.assertTrue(
-                problems[0].text.startswith("parser: %s could not be read (" % rel), rel
-            )
-            self.assertEqual(
-                (problems[0].session_id, problems[0].project_path, problems[0].timestamp_utc),
-                (session_id, project, ""),
-                rel,
-            )
-
-    @unittest.skipUnless(CAN_DENY, DENY_REASON)
-    def test_unreadable_json_files_are_not_misread_as_wrong_shape(self):
-        # Each JSON file that is there but cannot be read gives its own `could not be read` row,
-        # never the `is not a JSON object` row of a file that decodes to something else.
+        # Each file that is there but cannot be read, the parsed file or a side file it reads, is
+        # one `could not be read` row at the parsed file, never a wrong-shape row or a problem.
         self.with_state()
         manifest = str(KILO_DIGEST_REL).split("/sessions/")[0] + "/manifest.json"
         index = self.TASK.rsplit("/", 2)[0] + "/_index.json"
-        cases = (
-            (manifest, KILO_DIGEST_REL, "parser: memory manifest.json could not be read ("),
-            (self.RETENTION, self.RETENTION, "parser: retention/state.json could not be read ("),
-            (self.POLICY, self.POLICY, "parser: %s could not be read (" % self.POLICY),
-            (self.PREFERENCE, self.PREFERENCE, "parser: %s could not be read (" % self.PREFERENCE),
-            (self.CONFIG, self.CONFIG, "parser: %s could not be read (" % self.CONFIG),
-            (
-                KILO_SHARE_REL,
-                KILO_SHARE_REL,
-                "parser: %s could not be read (" % KILO_SHARE_REL.split("kilo/", 1)[1],
-            ),
-            (index, self.TASK, "parser: tasks/_index.json could not be read ("),
+        item = self.TASK.rsplit("/", 1)[0] + "/history_item.json"
+        digest_session = self.rows_for(KiloCodeParser(), KILO_DIGEST_REL)[0].session_id
+        # Without `history_item.json` the task's item comes from `_index.json`.
+        self.assert_unreadable_rows(((index, self.TASK, KILO_TASK, ""),))
+        (self.home / item).write_text(
+            '{"id":"%s","task":"from item","workspace":"/srv/other","ts":1}' % KILO_TASK
         )
-        for locked, parsed, expected in cases:
-            path = self.home / locked
-            path.chmod(0)
-            try:
-                rows = self.rows_for(KiloCodeParser(), parsed)
-            finally:
-                path.chmod(0o600)
-            problems = [row.text for row in rows if row.text.startswith("parser:")]
-            self.assertEqual(len(problems), 1, (locked, problems))
-            self.assertTrue(problems[0].startswith(expected), (locked, problems))
-            self.assertIn("Permission denied", problems[0], locked)
-            self.assertNotIn("is not", problems[0], locked)
-        # The digest and the task keep their own rows beside the side file's.
-        for locked, parsed in ((manifest, KILO_DIGEST_REL), (index, self.TASK)):
+        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+        cases = (
+            (KILO_DIGEST_REL, KILO_DIGEST_REL, "", "/srv/proj"),
+            (manifest, KILO_DIGEST_REL, digest_session, ""),
+            (self.LOG, self.LOG, "", ""),
+            (self.TASK, self.TASK, KILO_TASK, "/srv/other"),
+            (item, self.TASK, KILO_TASK, "/srv/proj"),
+            (self.RETENTION, self.RETENTION, "", ""),
+            (self.POLICY, self.POLICY, "", ""),
+            (self.PREFERENCE, self.PREFERENCE, "", ""),
+            (self.CONFIG, self.CONFIG, "", ""),
+            (KILO_SHARE_REL, KILO_SHARE_REL, KILO_SESSION, ""),
+        )
+        self.assert_unreadable_rows(cases)
+        # The digest and the task keep their own rows beside a side file's.
+        for locked, parsed in ((manifest, KILO_DIGEST_REL), (index, self.TASK), (item, self.TASK)):
             path = self.home / locked
             path.chmod(0)
             try:
@@ -609,6 +577,36 @@ class KiloCodeTests(ParserBase):
             finally:
                 path.chmod(0o600)
             self.assertTrue(any(not row.text.startswith("parser:") for row in rows), locked)
+
+    def assert_unreadable_rows(self, cases):
+        """Assert each locked file gives one shared unreadable row at the parsed file."""
+        for locked, parsed, session_id, project in cases:
+            path = self.home / locked
+            path.chmod(0)
+            try:
+                rows = self.rows_for(KiloCodeParser(), parsed)
+                database = self.rows_for(KiloCodeParser(), self.DATABASE)
+            finally:
+                path.chmod(0o600)
+            problems = [row for row in rows if row.text.startswith("parser:")]
+            self.assertEqual(
+                [
+                    (row.turn_type, row.text, row.source_line, row.timestamp_utc, row.session_id)
+                    for row in problems
+                ],
+                [
+                    (
+                        "system",
+                        "parser: %s could not be read (Permission denied)" % path.name,
+                        0,
+                        "",
+                        session_id,
+                    )
+                ],
+                locked,
+            )
+            self.assertEqual(problems[0].project_path, project, locked)
+            self.assertTrue(any(not row.text.startswith("parser:") for row in database), locked)
 
     def test_memory_notes_not_wanted(self):
         self.with_state()

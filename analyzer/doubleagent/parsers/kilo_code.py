@@ -45,6 +45,7 @@ from .base import (
     Options,
     compact_json,
     error_rows,
+    file_bytes,
     file_mtime,
     line_text,
     setting_value,
@@ -147,30 +148,19 @@ def is_task_file(rel: str) -> bool:
     return match is not None and (match.start() == 0 or rel[match.start() - 1] == "/")
 
 
-def _read_bytes(artifact: Artifact, errors: list) -> bytes | None:
-    """Return a file's bytes, or None after appending its whole-file `could not be read` error."""
-    try:
-        with open(artifact.disk_path, "rb") as handle:
-            return handle.read()
-    except OSError as error:
-        errors.append((0, "%s could not be read (%s)" % (artifact.rel, error.strerror or error)))
-        return None
+def _read_json(path: Path, errors: list) -> tuple[object, bool]:
+    """Return a file's decoded JSON and True, or None and False when it could not be read.
 
-
-def _read_json(path: Path) -> tuple[object, str]:
-    """Return a file's decoded JSON and "", or None and the reason it could not be read.
-
-    A file that reads but does not decode is (None, "").
+    A file that cannot be read appends its `file_bytes` entry to `errors`; one that reads but
+    does not decode is (None, True).
     """
+    data = file_bytes(path, errors)
+    if data is None:
+        return None, False
     try:
-        with open(path, "rb") as handle:
-            data = handle.read()
-    except OSError as error:
-        return None, str(error.strerror or error)
-    try:
-        return json.loads(data.decode("utf-8", errors="replace")), ""
+        return json.loads(data.decode("utf-8", errors="replace")), True
     except ValueError:
-        return None, ""
+        return None, True
 
 
 def _manifest_root(path: Path, errors: list) -> str:
@@ -182,9 +172,8 @@ def _manifest_root(path: Path, errors: list) -> str:
     """
     if not path.is_file() or path.is_symlink():
         return ""
-    document, unreadable = _read_json(path)
-    if unreadable:
-        errors.append((0, "memory manifest.json could not be read (%s)" % unreadable))
+    document, readable = _read_json(path, errors)
+    if not readable:
         return ""
     if not isinstance(document, dict):
         errors.append((0, "memory manifest.json is not a JSON object"))
@@ -272,14 +261,10 @@ class KiloCodeParser(OpenCodeParser):
         delete sentinel. A file that does not decode as JSONC is one `parser:` row.
         """
         timestamp = file_mtime(artifact)
-        try:
-            raw = artifact.disk_path.read_bytes()
-        except OSError as error:
-            yield self._setting_row(
-                artifact,
-                timestamp,
-                "parser: %s could not be read (%s)" % (artifact.rel, error.strerror or error),
-            )
+        errors: list = []
+        raw = file_bytes(artifact.disk_path, errors)
+        if raw is None:
+            yield from error_rows(self, artifact, errors)
             return
         try:
             document = gemini_cli.parse_jsonc(raw)
@@ -330,13 +315,10 @@ class KiloCodeParser(OpenCodeParser):
         """
         timestamp = file_mtime(artifact)
         source = "(from %s, file mtime)" % artifact.rel
-        document, unreadable = _read_json(artifact.disk_path)
-        if unreadable:
-            yield self._setting_row(
-                artifact,
-                timestamp,
-                "parser: %s could not be read (%s)" % (artifact.rel, unreadable),
-            )
+        errors: list = []
+        document, readable = _read_json(artifact.disk_path, errors)
+        if not readable:
+            yield from error_rows(self, artifact, errors)
             return
         if SANDBOX_PREFERENCE_PATTERN.match(artifact.rel):
             if isinstance(document, bool):
@@ -370,10 +352,10 @@ class KiloCodeParser(OpenCodeParser):
         and ` reclaimedBytes=` when present and no `session_id`. A file that is not a JSON object is
         one `parser:` row.
         """
-        document, unreadable = _read_json(artifact.disk_path)
-        if unreadable:
-            text = "parser: retention/state.json could not be read (%s)" % unreadable
-            yield self._setting_row(artifact, file_mtime(artifact), text)
+        errors: list = []
+        document, readable = _read_json(artifact.disk_path, errors)
+        if not readable:
+            yield from error_rows(self, artifact, errors)
             return
         if not isinstance(document, dict):
             yield self._setting_row(
@@ -406,7 +388,7 @@ class KiloCodeParser(OpenCodeParser):
         """
         errors: list = []
         project = _manifest_root(artifact.disk_path.parent.parent / "manifest.json", errors)
-        data = _read_bytes(artifact, errors)
+        data = file_bytes(artifact.disk_path, errors)
         if data is None:
             yield from error_rows(self, artifact, errors, "", project)
             return
@@ -450,7 +432,7 @@ class KiloCodeParser(OpenCodeParser):
         """
         name = artifact.rel.rsplit("/", 1)[-1]
         errors: list = []
-        data = _read_bytes(artifact, errors)
+        data = file_bytes(artifact.disk_path, errors)
         for line_number, raw in enumerate(io.BytesIO(data or b""), 1):
             line = line_text(raw)
             message = next(
@@ -509,15 +491,15 @@ class KiloCodeParser(OpenCodeParser):
 
         A file that is not a JSON object gives one `parser:` row instead.
         """
-        document, unreadable = _read_json(artifact.disk_path)
+        errors: list = []
+        document, readable = _read_json(artifact.disk_path, errors)
+        if not readable:
+            yield from error_rows(self, artifact, errors, session_id)
+            return
         row = self.base_row(artifact)
         row.session_id, row.source_line, row.turn_type = session_id, 1, "system"
         row.timestamp_utc = file_mtime(artifact)
         rel = "storage/session_share/%s.json" % session_id
-        if unreadable:
-            row.text = "parser: %s could not be read (%s)" % (rel, unreadable)
-            yield row
-            return
         if not isinstance(document, dict):
             row.text = "parser: %s is not a JSON object" % rel
             yield row
@@ -543,16 +525,12 @@ class KiloCodeParser(OpenCodeParser):
         item = None
         item_path = task_dir / "history_item.json"
         if item_path.is_file() and not item_path.is_symlink():
-            item, unreadable = _read_json(item_path)
-            if unreadable:
-                errors.append((0, "history_item.json could not be read (%s)" % unreadable))
+            item, _ = _read_json(item_path, errors)
         if not isinstance(item, dict):
             index_path = task_dir.parent / "_index.json"
             data = None
             if index_path.is_file() and not index_path.is_symlink():
-                data, unreadable = _read_json(index_path)
-                if unreadable:
-                    errors.append((0, "tasks/_index.json could not be read (%s)" % unreadable))
+                data, _ = _read_json(index_path, errors)
             entries = data.get("entries") if isinstance(data, dict) else None
             for entry in entries if isinstance(entries, list) else []:
                 if isinstance(entry, dict) and entry.get("id") == task_id:
@@ -602,7 +580,7 @@ class KiloCodeParser(OpenCodeParser):
             )
             yield row
 
-        data = _read_bytes(artifact, errors)
+        data = file_bytes(artifact.disk_path, errors)
         if data is None:
             yield from error_rows(self, artifact, errors, task_id, project)
             return
