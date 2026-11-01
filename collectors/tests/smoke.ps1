@@ -219,25 +219,29 @@ secret||.openhands/.keys
 agent|openhands|.config/OpenHands Agent Canvas/config.json
 agent|openhands|.openhands/conversations/c1/events/event-00000-e1.json
 excl||.pi/agent/bin
+excl||.pi/agent/install/releases
+excl||.pi/agent/install/staging
 excl||.pi/agent/tmp
 excl||.pi/agent/npm/node_modules
-excl||.pi/agent/git/g1/node_modules
-excl||.pi/agent/git/g1/.git
+excl||.pi/agent/git/github.com/o1/node_modules
+excl||.pi/agent/git/github.com/o1/.git
 excl||.pi/npm/node_modules
-excl||.pi/git/g1/node_modules
-excl||.pi/git/g1/.git
+excl||.pi/git/github.com/o1/node_modules
+excl||.pi/git/github.com/o1/.git
 exclf||.pi/agent/tools/fd
 exclf||.pi/agent/tools/rg.exe
 exclf||.pi/server/s1.sock
 secret||.pi/agent/auth.json
-secret||.pi/agent/auth.json.bak
 secret||.pi/agent/mcp-auth.json
 secret||.pi/agent/oauth.json
+secret||.pi/agent/oauth.json.migrated
 secret||.pi/agent/models.json
 secret||.pi/agent/mcp.json
 secret||.pi/mcp.json
 secret||.config/little-coder/models.json
 agent|pi|.pi/agent/settings.json
+agent|pi|.pi/agent/install/managed-install.json
+agent|pi|.pi/agent/install/current-version
 agent|little-coder|.pi/agent/little-coder-prompt-history.json
 agent|little-coder|.little-coder/state.json
 agent|little-coder|.cache/little-coder/log.txt
@@ -790,6 +794,21 @@ excl||.qwen/managed-local/worker-home/resources
 excl||.qwen/managed-local/worker-home/session-start-perf
 excl||.qwen/managed-local/worker-home/worktrees
 agent|qwen-code|.qwen/extensions/e1/.qwen-extension-git-credentials.json
+excl||.gemini/whisper_models
+excl||.gemini/bin
+excl||.gemini/tmp/bin
+excl||.gemini/extensions/e1/node_modules
+excl||.gemini/extensions/e1/.git
+excl||.gemini/cli-browser-profile
+secret||.gemini/oauth_creds.json
+secret||.gemini/gemini-credentials.json
+secret||.gemini/mcp-oauth-tokens.json
+secret||.gemini/a2a-oauth-tokens.json
+secret||.gemini/.env
+secret||.gemini/integrity.key
+secret||.gemini/.settings.json.4242.1792000000000.0.tmp
+secret||.gemini/extensions/e1/.env
+agent|gemini-cli|.cache/.gemini/mcp-oauth-tokens.json
 '@
 $CasesCatalog = @($CasesCatalog -split "`r?`n" | Where-Object { $_ -ne '' })
 foreach ($caseLine in $CasesCatalog) {
@@ -798,6 +817,8 @@ foreach ($caseLine in $CasesCatalog) {
 }
 MakeFile 'Users/alice/.hermes/checkpoints/store/projects/0123456789abcdef.json' '{"workdir":"C:\\hermesproj","created_at":1759536000}'
 MakeFile 'hermesproj/.hermes.md' '# hermes'
+# 2026-11-01 gemini-cli rebuild (#326)
+MakeFile 'gem/.geminiignore' "dist`n"
 # 2026-10-31 goose rebuild (#326)
 MakeFile 'Users/alice/.local/share/goose/projects/demo.md' "---`nname: demo`ndescription: ''`nworkingDirs:`n- C:\gooseproj`n---`n"
 MakeFile 'Users/alice/.local/share/goose/schedule.json' "[`n  {`n    `"id`": `"weekly`",`n    `"recipe_base_dir`": `"C:\\gooserecipes`"`n  }`n]`n"
@@ -835,6 +856,9 @@ MakeFile 'Users/alice/.pi/agent/crashes.json' '[{"cwd":"C:\\picrash","sessionFil
 MakeFile 'picrash/AGENTS.md' '# pi'
 MakeFile 'Users/alice/.pi/agent/experimental/sessions/s1/meta.json' '{"id":"s1","cwd":"C:\\piexp"}'
 MakeFile 'piexp/AGENTS.md' '# pi'
+# 2026-11-01 pi rebuild (#326)
+MakeFile 'pitrust/pi-bug-report-0199a1b2.zip' 'PK'
+MakeFile 'pitrust/session-2026-10-04T00-00-00-000Z.jsonl' '{"type":"session","version":3,"id":"e1","cwd":"C:\\pitrust"}'
 MakeFile 'Users/alice/.openinterpreter/sessions/2026/10/04/rollout-2026-10-04T00-00-00-u1.jsonl' '{"type":"session_meta","payload":{"cwd":"C:\\oiproj"}}'
 MakeFile 'oiproj/.openinterpreter/rules/r.md' 'rule'
 MakeFile 'Users/alice/.openinterpreter/archived_sessions/rollout-2026-10-01T00-00-00-u2.jsonl' '{"type":"session_meta","payload":{"cwd":"C:\\oiarch"}}'
@@ -1833,6 +1857,9 @@ if ($clawLinkOk) {
   Check 'openclaw .clawdbot rename symlink recorded' { $row -and $row.agent -eq 'openclaw' -and $row.type -eq 'symlink' -and $row.status -eq 'symlink' -and $row.target -like '*.openclaw' }
 }
 Check 'hermes checkpoint workdir discovers project' { (StatusOf 'hermesproj/.hermes.md') -eq 'collected' -and (Row 'hermesproj/.hermes.md').user -eq 'alice' }
+# 2026-11-01 gemini-cli rebuild (#326)
+$row = Row 'gem/.geminiignore'
+Check '#326 Gemini CLI project .geminiignore collected' { $row -and $row.agent -eq 'gemini-cli' -and $row.status -eq 'collected' }
 # 2026-10-31 goose rebuild (#326)
 $row = Row 'gooseproj/.goosehints'
 Check '#326 goose projects/<slug>.md workingDirs discovers project' { $row -and $row.agent -eq 'goose' -and $row.status -eq 'collected' }
@@ -1867,6 +1894,11 @@ Check 'pi misplaced session cwd discovers project' { (StatusOf 'piproj2/AGENTS.m
 Check 'pi trust.json keys discover project' { (StatusOf 'pitrust/pi-session-2026-10-04.html') -eq 'collected' }
 Check 'pi crashes.json cwd discovers project' { (StatusOf 'picrash/AGENTS.md') -eq 'collected' }
 Check 'pi experimental meta cwd discovers project' { (StatusOf 'piexp/AGENTS.md') -eq 'collected' }
+# 2026-11-01 pi rebuild (#326)
+$row = Row 'pitrust/pi-bug-report-0199a1b2.zip'
+Check '#326 pi bug-report zip in a project collected' { $row -and $row.agent -eq 'pi' -and $row.status -eq 'collected' }
+$row = Row 'pitrust/session-2026-10-04T00-00-00-000Z.jsonl'
+Check '#326 pi JSONL export in a project collected' { $row -and $row.agent -eq 'pi' -and $row.status -eq 'collected' }
 Check 'open-interpreter rollout cwd discovers project' { (StatusOf 'oiproj/.openinterpreter/rules/r.md') -eq 'collected' }
 Check 'open-interpreter archived rollout cwd discovers project' { (StatusOf 'oiarch/.codewhale/notes.md') -eq 'collected' }
 Check 'openhands workspaces.json path discovers project' { (StatusOf 'ohproj/.openhands/setup.sh') -eq 'collected' }
@@ -2932,7 +2964,7 @@ Check 'Inventory first and last set for alice claude-code' { (InventoryLine 'ali
 Check 'Inventory: matched directory with no files of its own gives no line' { $null -eq (InventoryAgent 'bob' 'gemini-cli') -and ($bobLine = InventoryAgent 'bob' 'antigravity') -and $bobLine.files -eq 1 -and $bobLine.bytes -eq 2 -and $bobLine.evidence -eq '.gemini/antigravity-cli' }
 Check 'Inventory: no agent line has zero files' { -not ($script:Inventory | Where-Object { $_.type -eq 'agent' } | Where-Object { $_.files -eq 0 }) }
 Check 'Inventory projects counted per user' { $row.projects -ge 1 }
-Check 'Inventory nested entry claimed from the enclosing agent' { (InventoryAgent 'alice' 'antigravity').evidence -like '*.gemini/antigravity-cli*' -and (InventoryAgent 'alice' 'gemini-cli').evidence -eq '.gemini' }
+Check 'Inventory nested entry claimed from the enclosing agent' { (InventoryAgent 'alice' 'antigravity').evidence -like '*.gemini/antigravity-cli*' -and (InventoryAgent 'alice' 'gemini-cli').evidence -eq '.gemini,.cache/.gemini' }
 # 2026-10-14 catalog match that is an excluded file (#107)
 # alice's Muse Code file count, compared with the -Full inventory's below.
 $museFiles = -1

@@ -218,25 +218,29 @@ secret||.openhands/.keys
 agent|openhands|.config/OpenHands Agent Canvas/config.json
 agent|openhands|.openhands/conversations/c1/events/event-00000-e1.json
 excl||.pi/agent/bin
+excl||.pi/agent/install/releases
+excl||.pi/agent/install/staging
 excl||.pi/agent/tmp
 excl||.pi/agent/npm/node_modules
-excl||.pi/agent/git/g1/node_modules
-excl||.pi/agent/git/g1/.git
+excl||.pi/agent/git/github.com/o1/node_modules
+excl||.pi/agent/git/github.com/o1/.git
 excl||.pi/npm/node_modules
-excl||.pi/git/g1/node_modules
-excl||.pi/git/g1/.git
+excl||.pi/git/github.com/o1/node_modules
+excl||.pi/git/github.com/o1/.git
 exclf||.pi/agent/tools/fd
 exclf||.pi/agent/tools/rg.exe
 exclf||.pi/server/s1.sock
 secret||.pi/agent/auth.json
-secret||.pi/agent/auth.json.bak
 secret||.pi/agent/mcp-auth.json
 secret||.pi/agent/oauth.json
+secret||.pi/agent/oauth.json.migrated
 secret||.pi/agent/models.json
 secret||.pi/agent/mcp.json
 secret||.pi/mcp.json
 secret||.config/little-coder/models.json
 agent|pi|.pi/agent/settings.json
+agent|pi|.pi/agent/install/managed-install.json
+agent|pi|.pi/agent/install/current-version
 agent|little-coder|.pi/agent/little-coder-prompt-history.json
 agent|little-coder|.little-coder/state.json
 agent|little-coder|.cache/little-coder/log.txt
@@ -789,6 +793,21 @@ excl||.qwen/managed-local/worker-home/resources
 excl||.qwen/managed-local/worker-home/session-start-perf
 excl||.qwen/managed-local/worker-home/worktrees
 agent|qwen-code|.qwen/extensions/e1/.qwen-extension-git-credentials.json
+excl||.gemini/whisper_models
+excl||.gemini/bin
+excl||.gemini/tmp/bin
+excl||.gemini/extensions/e1/node_modules
+excl||.gemini/extensions/e1/.git
+excl||.gemini/cli-browser-profile
+secret||.gemini/oauth_creds.json
+secret||.gemini/gemini-credentials.json
+secret||.gemini/mcp-oauth-tokens.json
+secret||.gemini/a2a-oauth-tokens.json
+secret||.gemini/.env
+secret||.gemini/integrity.key
+secret||.gemini/.settings.json.4242.1792000000000.0.tmp
+secret||.gemini/extensions/e1/.env
+agent|gemini-cli|.cache/.gemini/mcp-oauth-tokens.json
 '
 ALICE="$ROOT/home/alice"; BOB="$ROOT/Users/bob"
 printf '%s\n' "$CASES_CATALOG" | while IFS='|' read -r _kind _agent _relpath; do
@@ -809,6 +828,8 @@ mkdir -p "$ALICE/.hermes/checkpoints/store/projects" "$ROOT/srv/hermesproj" "$AL
   "$ALICE/.twinny/embeddings/twinproj" "$ROOT/srv/twinproj/src"
 printf '{"workdir":"/srv/hermesproj","created_at":1759536000}\n' >"$ALICE/.hermes/checkpoints/store/projects/0123456789abcdef.json"
 printf '# hermes\n' >"$ROOT/srv/hermesproj/.hermes.md"
+# 2026-11-01 gemini-cli rebuild (#326)
+printf 'dist\n' >"$ROOT/srv/gem/.geminiignore"
 # 2026-10-31 goose rebuild (#326)
 mkdir -p "$ALICE/.local/share/goose/projects" "$ALICE/AppData/Roaming/Block/goose/data/sessions" \
   "$ROOT/srv/gooseproj/.goose/memory" "$ROOT/srv/gooserecipes" "$ROOT/srv/goosewin"
@@ -850,6 +871,9 @@ printf '[{"cwd":"/srv/picrash","sessionFile":"x.jsonl"}]\n' >"$ALICE/.pi/agent/c
 printf '# pi\n' >"$ROOT/srv/picrash/AGENTS.md"
 printf '{"id":"s1","cwd":"/srv/piexp"}\n' >"$ALICE/.pi/agent/experimental/sessions/s1/meta.json"
 printf '# pi\n' >"$ROOT/srv/piexp/AGENTS.md"
+# 2026-11-01 pi rebuild (#326)
+printf 'PK\n' >"$ROOT/srv/pitrust/pi-bug-report-0199a1b2.zip"
+printf '{"type":"session","version":3,"id":"e1","cwd":"/srv/pitrust"}\n' >"$ROOT/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl"
 printf '{"type":"session_meta","payload":{"cwd":"/srv/oiproj"}}\n' >"$ALICE/.openinterpreter/sessions/2026/10/04/rollout-2026-10-04T00-00-00-u1.jsonl"
 printf 'rule\n' >"$ROOT/srv/oiproj/.openinterpreter/rules/r.md"
 printf '{"type":"session_meta","payload":{"cwd":"/srv/oiarch"}}\n' >"$ALICE/.openinterpreter/archived_sessions/2026/10/01/rollout-2026-10-01T00-00-00-u2.jsonl"
@@ -1827,6 +1851,8 @@ check "little-coder history nested in .pi collected exactly once" "[ \"\$(grep -
 check "hermes installer checkout excluded but its .env kept" "[ \"\$(status_of \"$ALICE/.hermes/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes/hermes-agent/.env\")\" = collected ]"
 check "openclaw .clawdbot rename symlink recorded" "row \"$BOB/.clawdbot\" | grep -q '\"agent\":\"openclaw\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\".openclaw\"'"
 check "hermes checkpoint workdir discovers project" "row \"$ROOT/srv/hermesproj/.hermes.md\" | grep -q '\"user\":\"alice\".*\"status\":\"collected\"'"
+# 2026-11-01 gemini-cli rebuild (#326)
+check "#326 Gemini CLI project .geminiignore collected" "row \"$ROOT/srv/gem/.geminiignore\" | grep -q '\"agent\":\"gemini-cli\".*\"status\":\"collected\"'"
 # 2026-10-31 goose rebuild (#326)
 check "#326 goose projects/<slug>.md workingDirs discovers project" "row \"$ROOT/srv/gooseproj/.goosehints\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
 check "#326 goose project memory file collected" "row \"$ROOT/srv/gooseproj/.goose/memory/dev.txt\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
@@ -1852,6 +1878,9 @@ check "pi misplaced session cwd discovers project" "[ \"\$(status_of \"$ROOT/srv
 check "pi trust.json keys discover project" "[ \"\$(status_of \"$ROOT/srv/pitrust/pi-session-2026-10-04.html\")\" = collected ]"
 check "pi crashes.json cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/picrash/AGENTS.md\")\" = collected ]"
 check "pi experimental meta cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/piexp/AGENTS.md\")\" = collected ]"
+# 2026-11-01 pi rebuild (#326)
+check "#326 pi bug-report zip in a project collected" "row \"$ROOT/srv/pitrust/pi-bug-report-0199a1b2.zip\" | grep -q '\"agent\":\"pi\".*\"status\":\"collected\"'"
+check "#326 pi JSONL export in a project collected" "row \"$ROOT/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl\" | grep -q '\"agent\":\"pi\".*\"status\":\"collected\"'"
 check "open-interpreter rollout cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/oiproj/.openinterpreter/rules/r.md\")\" = collected ]"
 check "open-interpreter archived rollout cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/oiarch/.codewhale/notes.md\")\" = collected ]"
 check "openhands workspaces.json path discovers project" "[ \"\$(status_of \"$ROOT/srv/ohproj/.openhands/setup.sh\")\" = collected ]"
@@ -2701,7 +2730,7 @@ check "inventory every later line is an agent line, keys in order" "[ \"\$(sed 1
 check "inventory ollama line: history and manifest, excluded blobs not counted" "agent_line inventory ollama ollama | grep -q '\"files\":2,\"bytes\":25,\"first\":\"2026-09-14T00:00:00Z\",\"last\":\"2026-09-15T01:02:03Z\",\"projects\":0,\"evidence\":\".ollama\"}\$'"
 check "inventory claude-code evidence in catalog order" "agent_line inventory alice claude-code | grep -q '\"evidence\":\".claude,.claude.json\\*,.claude-\\*/projects,.claude-\\*/history.jsonl,.claude-\\*/.claude.json\\*,.claude-\\*/.credentials.json,.claude-\\*/sessions/\\*.\\*.key,.claude-\\*/daemon/control.key,.claude-\\*/daemon/roster.json,.claude-\\*/backups/.claude.json.\\*,.claude-\\*/ide/\\*.lock,.claude-\\*/bridge-spawn/\\*/mcp.json,.local/state/claude,.cache/claude,Library/Caches/claude-cli-nodejs,AppData/Local/claude-cli-nodejs/Cache/\\*,AppData/Local/Temp/claude,Applications/Claude Code URL Handler.app\"}\$'"
 check "inventory first and last set for alice claude-code" "agent_line inventory alice claude-code | grep -q '\"first\":\"20[0-9-]*T[0-9:]*Z\",\"last\":\"20[0-9-]*T[0-9:]*Z\"'"
-check "inventory nested entry claimed from the enclosing agent" "agent_line inventory alice antigravity | grep -q '\"evidence\":\"[^\"]*.gemini/antigravity-cli' && agent_line inventory alice gemini-cli | grep -q '\"evidence\":\".gemini\"'"
+check "inventory nested entry claimed from the enclosing agent" "agent_line inventory alice antigravity | grep -q '\"evidence\":\"[^\"]*.gemini/antigravity-cli' && agent_line inventory alice gemini-cli | grep -q '\"evidence\":\".gemini,.cache/.gemini\"'"
 check "inventory: matched directory with no files of its own gives no line" "[ -z \"\$(agent_line inventory bob gemini-cli)\" ] && agent_line inventory bob antigravity | grep -q '\"files\":1,\"bytes\":3,.*\"evidence\":\".gemini/antigravity-cli\"}\$'"
 check "inventory: no agent line has zero files" "! grep -q '\"files\":0,' \"$OUT/inventory.stdout\""
 check "inventory projects counted per user" "agent_line inventory alice claude-code | grep -q '\"projects\":[1-9]'"

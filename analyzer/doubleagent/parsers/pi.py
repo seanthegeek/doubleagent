@@ -1,19 +1,18 @@
 """Parse pi coding agent sessions, trust settings, debug snapshots and crash records.
 
 Follows `research/pi.md`. Validated against source, earendil-works/pi at
-20038712 (coding-agent 1.0.2; v0.83.0 at 845d6ff1 where the schema differs)
-and 5c1736f8 (coding-agent 1.3.0: `defaultProjectTrust`, little-coder's
-permission gate, `pi-debug.log`, `crashes.json`), with a synthetic fixture;
-no real install. Files read:
+2c8d1feb (coding-agent 1.4.0, ahead of tag v1.4.0 at 4a080252), with the
+older shapes of v0.83.0 (845d6ff1) and 1.0.2 (20038712) kept; a synthetic
+fixture, no real install. Files read:
 
 - `.pi/agent/sessions/--<cwd>--/<time>_<id>.jsonl` and legacy
   `.pi/agent/*.jsonl`: a `type: "session"` header (`version`, `id`,
   `timestamp`, `cwd`, `parentSession`), then entries with `type`, `id`,
-  `parentId`, `timestamp`; `message` entries carry `message.role`,
-  `content`, `provider`, `model`, `responseModel`, `stopReason`,
-  `errorMessage`, `toolCallId`, `toolName`, `isError` and the
-  `bashExecution` fields. Rows follow file order, not the active branch. A
-  fork's entries copied from a parent file in the same home are dropped.
+  `timestamp`; `message` entries carry `message.role`, `content`,
+  `provider`, `model`, `responseModel`, `stopReason`, `errorMessage`,
+  `toolCallId`, `toolName`, `isError` and the `bashExecution` fields. Rows
+  follow file order, not the active branch. A fork's entries copied from a
+  parent file in the same home are dropped.
 - `.pi/agent/trust.json` and the `defaultProjectTrust` key of
   `.pi/agent/settings.json`: `permission setting:` rows at the file's time.
 - `.pi/agent/pi-debug.log`, a secondary source (a file repeating the open
@@ -46,7 +45,6 @@ from .base import (
     Parser,
     compact_json,
     error_rows,
-    file_bytes,
     file_mtime,
     iter_jsonl,
     iter_lines,
@@ -55,7 +53,7 @@ from .base import (
     text_of,
     track_change,
 )
-from .cline_legacy import iter_json_array
+from .cline_legacy import iter_json_array, read_text
 
 SESSION_PATTERN = re.compile(r"^\.pi/agent/(?:sessions/[^/]+/)?[^/]+\.jsonl$")
 TRUST_REL = ".pi/agent/trust.json"
@@ -466,8 +464,8 @@ class PiParser(Parser):
         session = read_session(artifact.disk_path)
         header = session.header
         if not header:
-            if not session.entries:
-                yield from error_rows(self, artifact, session.errors)
+            # Not a session file to pi either; only its bad lines are reported.
+            yield from error_rows(self, artifact, session.errors)
             return
         session_id = str(header.get("id") or "")
         cwd = str(header.get("cwd") or "")
@@ -527,21 +525,11 @@ class PiParser(Parser):
     def _parse_trust(self, artifact: Artifact) -> Iterator[Row]:
         """Yield one standing row per project path of `trust.json`, at the file's mtime."""
         errors: list = []
-        content = file_bytes(artifact.disk_path, errors)
-        if content is None:
+        doc = json_object(artifact, errors)
+        if doc is None:
             yield from error_rows(self, artifact, errors)
             return
-        try:
-            doc = json.loads(content.decode("utf-8", errors="replace"))
-        except ValueError:
-            doc = None
         timestamp = file_mtime(artifact)
-        if not isinstance(doc, dict):
-            row = self.base_row(artifact)
-            row.source_line, row.turn_type, row.timestamp_utc = 1, "system", timestamp
-            row.text = "parser: %s is not a JSON object" % TRUST_REL
-            yield row
-            return
         for path, value in doc.items():
             row = self.base_row(artifact)
             row.source_line, row.turn_type, row.timestamp_utc = 1, "system", timestamp
@@ -554,16 +542,14 @@ class PiParser(Parser):
 
     def _parse_settings(self, artifact: Artifact) -> Iterator[Row]:
         """Yield the `defaultProjectTrust` standing row of `settings.json`, at the file's mtime."""
+        if _is_empty(artifact):
+            return  # pi reads an empty settings.json as no settings
         errors: list = []
-        content = file_bytes(artifact.disk_path, errors)
-        if content is None:
+        doc = json_object(artifact, errors)
+        if doc is None:
             yield from error_rows(self, artifact, errors)
             return
-        try:
-            doc = json.loads(content.decode("utf-8", errors="replace"))
-        except ValueError:
-            return  # settings, not a transcript: no standing value to report
-        value = doc.get("defaultProjectTrust") if isinstance(doc, dict) else None
+        value = doc.get("defaultProjectTrust")
         if value in (None, ""):
             return
         row = self.base_row(artifact)
@@ -621,6 +607,8 @@ class PiParser(Parser):
         errors: list = []
         for index, record in iter_json_array(artifact.disk_path, errors):
             if not isinstance(record, dict):
+                message = "unparseable record %d (not a JSON object)" % index
+                errors.append((index, message, compact_json(record)))
                 continue
             session_file = str(record.get("sessionFile") or "")
             match = SESSION_NAME_PATTERN.search(session_file.replace("\\", "/"))
@@ -644,20 +632,12 @@ class PiParser(Parser):
 
     def _parse_meta(self, artifact: Artifact, session_id: str, opts: Options) -> Iterator[Row]:
         errors: list = []
-        content = file_bytes(artifact.disk_path, errors)
-        if content is None:
+        meta = json_object(artifact, errors)
+        if meta is None:
             yield from error_rows(self, artifact, errors, session_id)
             return
         row = self.base_row(artifact)
         row.session_id, row.turn_type, row.source_line = session_id, "system", 1
-        try:
-            meta = json.loads(content.decode("utf-8", errors="replace"))
-        except ValueError as error:
-            row.text = "parser: %s" % error
-            yield row
-            return
-        if not isinstance(meta, dict):
-            meta = {}
         row.timestamp_utc = to_utc(meta.get("createdAt"))
         row.project_path = str(meta.get("cwd") or "")
         row.text = compact(
@@ -665,6 +645,37 @@ class PiParser(Parser):
             "not parsed)" % row.project_path,
         )
         yield row
+
+
+def json_object(artifact: Artifact, errors: list) -> dict | None:
+    """Return a whole-file JSON object, its leading byte-order mark dropped as pi drops it.
+
+    Args:
+        artifact: the file to read.
+        errors: gets `read_text`'s entry for a file that cannot be read, or
+            `<rel> is not a JSON object` for any other failure.
+
+    Returns:
+        The decoded object, or None when `errors` gained an entry.
+    """
+    text = read_text(artifact.disk_path, errors)
+    if text is None:
+        return None
+    try:
+        doc = json.loads(text)
+    except ValueError:
+        doc = None
+    if not isinstance(doc, dict):
+        errors.append((0, "%s is not a JSON object" % artifact.rel))
+        return None
+    return doc
+
+
+def _is_empty(artifact: Artifact) -> bool:
+    try:
+        return artifact.disk_path.stat().st_size == 0
+    except OSError:
+        return False
 
 
 def _dash(value) -> str:

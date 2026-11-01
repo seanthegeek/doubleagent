@@ -1,4 +1,10 @@
-"""Synthetic Gemini CLI state for the analyzer tests."""
+"""Synthetic Gemini CLI state for the analyzer tests.
+
+The records follow the Record schema and Other stores of `research/gemini-cli.md`, at
+google-gemini/gemini-cli 6814e00.
+
+Paths: `/srv/other` (a trusted parent folder).
+"""
 
 from __future__ import annotations
 
@@ -22,12 +28,14 @@ def gemini_session_records():
     """Session JSONL in the chatRecordingTypes.ts shapes.
 
     A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume.
+
+    Source: research/gemini-cli.md#session-jsonl; source 6814e00
     """
     timestamp_format = "2026-10-01T09:00:%s.000Z"
     ls_call = {
-        "id": "list_directory-1759309207000",
+        "id": "list_directory__list_directory_1759309207000_0",
         "name": "list_directory",
-        "args": {"path": "/srv/proj/src"},
+        "args": {"dir_path": "/srv/proj/src"},
         "status": "executing",
         "timestamp": "2026-10-01T09:00:07.100Z",
         "displayName": "ReadFolder",
@@ -39,7 +47,7 @@ def gemini_session_records():
         result=[
             {
                 "functionResponse": {
-                    "id": "list_directory-1759309207000",
+                    "id": "list_directory__list_directory_1759309207000_0",
                     "name": "list_directory",
                     "response": {"output": "main.ts\nutil.ts"},
                 }
@@ -63,16 +71,16 @@ def gemini_session_records():
         "toolCalls": [ls_call],
     }
     read_file_call = {
-        "id": "read_file-1759309222000",
+        "id": "read_file__read_file_1759309222000_0",
         "name": "read_file",
-        "args": {"absolute_path": "/srv/proj/src/util.ts"},
+        "args": {"file_path": "/srv/proj/src/util.ts"},
         "status": "success",
         "timestamp": "2026-10-01T09:00:22.100Z",
         "displayName": "ReadFile",
         "result": [
             {
                 "functionResponse": {
-                    "id": "read_file-1759309222000",
+                    "id": "read_file__read_file_1759309222000_0",
                     "name": "read_file",
                     "response": {"output": "draft"},
                 }
@@ -110,7 +118,7 @@ def gemini_session_records():
             "model": "gemini-2.5-pro",
             "toolCalls": [
                 {
-                    "id": "run_shell_command-1",
+                    "id": "run_shell_command__run_shell_command_1759309211000_0",
                     "name": "run_shell_command",
                     "args": {"command": "rm -rf /srv/proj/*"},
                     "status": "awaiting_approval",
@@ -140,11 +148,11 @@ def gemini_session_records():
                 "content": [{"text": "Here is util.ts."}],
                 "toolCalls": [
                     {
-                        "id": "read_file-1759309222000",
+                        "id": "read_file__read_file_1759309222000_0",
                         "result": [
                             {
                                 "functionResponse": {
-                                    "id": "read_file-1759309222000",
+                                    "id": "read_file__read_file_1759309222000_0",
                                     "name": "read_file",
                                     "response": {"output": "export const x = 1"},
                                 }
@@ -168,7 +176,7 @@ def gemini_session_records():
             "model": "gemini-2.5-flash",
             "toolCalls": [
                 {
-                    "id": "run_shell_command-2",
+                    "id": "run_shell_command__run_shell_command_1759309224000_0",
                     "name": "run_shell_command",
                     "args": {"command": "curl http://x"},
                     "status": "cancelled",
@@ -188,6 +196,10 @@ def gemini_session_records():
 
 
 def gemini_legacy_record():
+    """A legacy single-object `session-*.json` with its `messages` list.
+
+    Source: research/gemini-cli.md#transcript-stores; source 6814e00
+    """
     return {
         "sessionId": GEMINI_LEGACY,
         "projectHash": GEMINI_HASH,
@@ -212,6 +224,10 @@ def gemini_legacy_record():
 
 
 def gemini_logs_records():
+    """The `logs.json` prompt history of the session.
+
+    Source: research/gemini-cli.md#logsjson-records; source 6814e00
+    """
     return [
         {
             "sessionId": GEMINI_SESSION,
@@ -238,6 +254,8 @@ def build_gemini_cli(base: Path) -> None:
 
     ~/.gemini with a slug directory (marker file), a legacy hash directory resolved through
     projects.json, a subagent session and noise.
+
+    Source: research/gemini-cli.md#per-user-storage; source 6814e00
     """
     slug = base / "tmp/proj"
     _jsonl(base / GEMINI_REL[len(".gemini/") :], gemini_session_records())
@@ -269,7 +287,9 @@ def build_gemini_cli(base: Path) -> None:
     (base / "projects.json").write_text(
         json.dumps({"projects": {"/srv/proj": "proj"}}), encoding="utf-8"
     )
-    (base / "oauth_creds.json").write_text('{"access_token": "secret"}', encoding="utf-8")
+    (base / "oauth_creds.json").write_text(
+        json.dumps({"access_token": "secret", "token_type": "Bearer"}), encoding="utf-8"
+    )
     trust = base / "trustedFolders.json"
     trust.write_text(
         json.dumps({"/srv/proj": "TRUST_FOLDER", "/srv/other": "TRUST_PARENT"}, indent=2),
@@ -279,8 +299,8 @@ def build_gemini_cli(base: Path) -> None:
 
 
 # Standing permission files and past-use copies of Gemini CLI, in the shapes
-# of google-gemini/gemini-cli at 3be3d44: settingsSchema.ts,
-# policy/config.ts (createTomlRule), hooks/trustedHooks.ts,
+# of google-gemini/gemini-cli at 6814e00: settingsSchema.ts,
+# policy/config.ts (createTomlRule), policy/sandboxPolicyManager.ts, hooks/trustedHooks.ts,
 # agents/acknowledgedAgents.ts, useShellHistory.ts, core/logger.ts
 # (saveCheckpoint) and bugCommand.ts with historyExportUtils.ts. Not wired
 # into build_home, so the shared timeline counts stay as they are.
@@ -295,6 +315,8 @@ def gemini_settings():
 
     `settings.json` with the permission, sandbox and retention keys, and an MCP server environment
     the parser must not read.
+
+    Source: research/gemini-cli.md#standing-permission-files; source 6814e00
     """
     return {
         "general": {
@@ -319,16 +341,41 @@ def gemini_settings():
 # Two "Allow for all future sessions" grants as @iarna/toml writes them.
 GEMINI_POLICY_TOML = """[[rule]]
 decision = "allow"
-priority = 2.95
+priority = 950
 toolName = "run_shell_command"
 commandPrefix = [ "git", "status" ]
 
 [[rule]]
 decision = "allow"
-priority = 2.95
+priority = 950
 toolName = "search"
 mcpName = "docs"
 modes = [ "autoEdit" ]
+"""
+
+# The sandbox's standing grants after one "allow and save" answer, as
+# SandboxPolicyManager.saveConfig writes the whole config with @iarna/toml.
+GEMINI_SANDBOX_TOML = """[modes.plan]
+network = false
+readonly = true
+approvedTools = [ ]
+allowOverrides = true
+
+[modes.default]
+network = false
+readonly = false
+approvedTools = [ ]
+allowOverrides = true
+
+[modes.accepting_edits]
+network = false
+readonly = false
+approvedTools = [ "sed", "grep" ]
+allowOverrides = true
+
+[commands.cargo]
+allowed_paths = [ "/srv/proj/target", "/srv/proj/.cargo" ]
+allow_network = false
 """
 
 
@@ -337,6 +384,8 @@ def gemini_history_contents():
 
     A prompt, a reply with a function call, its response, a prompt the session rewound, and a reply
     with a thought part.
+
+    Source: research/gemini-cli.md#checkpoint-records; source 6814e00
     """
     return [
         {"role": "user", "parts": [{"text": "list files in src"}]},
@@ -346,9 +395,9 @@ def gemini_history_contents():
                 {"text": "Listing now."},
                 {
                     "functionCall": {
-                        "id": "list_directory-1759309207000",
+                        "id": "list_directory__list_directory_1759309207000_0",
                         "name": "list_directory",
-                        "args": {"path": "/srv/proj/src"},
+                        "args": {"dir_path": "/srv/proj/src"},
                     }
                 },
             ],
@@ -358,7 +407,7 @@ def gemini_history_contents():
             "parts": [
                 {
                     "functionResponse": {
-                        "id": "list_directory-1759309207000",
+                        "id": "list_directory__list_directory_1759309207000_0",
                         "name": "list_directory",
                         "response": {"output": "main.ts\nutil.ts"},
                     }
@@ -375,10 +424,13 @@ def build_gemini_cli_sources(base: Path) -> None:
 
     The standing permission files and the past-use copies under the `.gemini` directory `base`, with
     noise the parser must not want.
+
+    Source: research/gemini-cli.md#standing-permission-files; source 6814e00
     """
     (base / "settings.json").write_text(json.dumps(gemini_settings()), encoding="utf-8")
     (base / "policies").mkdir(parents=True, exist_ok=True)
     (base / "policies/auto-saved.toml").write_text(GEMINI_POLICY_TOML, encoding="utf-8")
+    (base / "policies/sandbox.toml").write_text(GEMINI_SANDBOX_TOML, encoding="utf-8")
     (base / "trusted_hooks.json").write_text(
         json.dumps({"/srv/proj": ["lint:npm run lint"]}, indent=2), encoding="utf-8"
     )
@@ -406,6 +458,7 @@ def build_gemini_cli_sources(base: Path) -> None:
     for rel in (
         "settings.json",
         "policies/auto-saved.toml",
+        "policies/sandbox.toml",
         "trusted_hooks.json",
         "acknowledgments/agents.json",
         "tmp/proj/checkpoint-my%20tag.json",
@@ -414,5 +467,8 @@ def build_gemini_cli_sources(base: Path) -> None:
 
 
 def build_gemini_cli_empty_settings(home: Path) -> None:
-    """An empty Gemini CLI settings.json."""
+    """An empty Gemini CLI settings.json.
+
+    Source: research/gemini-cli.md#standing-permission-files; source 6814e00
+    """
     (home / ".gemini/settings.json").write_text("{}", encoding="utf-8")
