@@ -738,12 +738,12 @@ one `permission setting:` or `session retention:` row per entry at the
 file's modification time; as secondary sources the activity log
 `tmp/<slug>/logs/session-<id>.jsonl` (`console`, `network request`,
 `network response` and `network error` rows with no header value, query
-string or non-model body, and the turns each model request adds), the tool
-checkpoints `tmp/<slug>/checkpoints/*.json` (a `tool checkpoint:` row, then
-the history sent) and an error report
+string or non-chat body, the turns each chat request adds and the last
+reply), the tool checkpoints `tmp/<slug>/checkpoints/*.json` (a
+`tool checkpoint:` row, then the history sent) and an error report
 `gemini-client-error-<type>-<time>.json` the responder copied into
-`.gemini` or `.gemini/tmp/<slug>` (an `error report:` row, then the history
-sent); each `tmp/<slug>/memory/` file as one `memory file:` row with its
+`.gemini` or `.cache/.gemini`, or the `tmp/<slug>` directory of either (an
+`error report:` row, then the history sent); each `tmp/<slug>/memory/` file as one `memory file:` row with its
 text at its modification time, and each clipboard image
 `tmp/<slug>/images/clipboard-<ms>.<ext>` as one `clipboard image:` row
 with its size, never its content.

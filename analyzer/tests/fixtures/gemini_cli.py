@@ -490,91 +490,108 @@ GEMINI_ERROR_REPORT_REL = (
 GEMINI_MEMORY_MTIME = 1790863200  # 1 October 14:00:00 UTC
 GEMINI_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
 CODE_ASSIST_URL = "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse"
+CODE_ASSIST_UTILITY_URL = "https://cloudcode-pa.googleapis.com/v1internal:generateContent"
 GEMINI_API_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:"
+    "streamGenerateContent?alt=sse"
 )
+# The loop detector's internal prompt (loopDetectionService.ts), sent with a trimmed history.
+GEMINI_LOOP_PROMPT = "Please analyze the conversation history to determine the possibility"
 
 
 def _activity_line(kind: str, payload: dict, written: int) -> dict:
     return {"type": kind, "payload": payload, "sessionId": GEMINI_SESSION, "timestamp": written}
 
 
-def gemini_activity_records():
-    """Activity log lines: console, request, chunk, response and error records.
+def gemini_sse_body(*chunks: list, code_assist: bool = False) -> str:
+    """A streamed response body, one `data:` event per chunk of parts.
 
-    Two model requests whose bodies (the Code Assist form, then the Gemini API form) share their
-    first `contents` item, a token refresh whose form body is never decoded, and a request with
-    no body.
+    Source: research/gemini-cli.md#activity-log; source 6814e00
+    """
+    events = []
+    for parts in chunks:
+        chunk = {"candidates": [{"content": {"role": "model", "parts": parts}}]}
+        events.append("data: " + json.dumps({"response": chunk} if code_assist else chunk))
+    return "\n\n".join(events) + "\n\n"
+
+
+def gemini_request(request_id: str, url: str, written: int, body: str | None) -> dict:
+    """The request record of one call, with the headers the activity logger redacts.
+
+    Source: research/gemini-cli.md#activity-log; source 6814e00
+    """
+    payload = {
+        "id": request_id,
+        "timestamp": written,
+        "method": "GET" if body is None else "POST",
+        "url": url,
+        "headers": {"authorization": "[REDACTED]", "content-type": "application/json"},
+        "pending": True,
+    }
+    if body is not None:
+        payload["body"] = body
+    return _activity_line("network", payload, written)
+
+
+def gemini_response(request_id: str, written: int, response: dict) -> dict:
+    """The last record of one call, holding its `response`.
+
+    Source: research/gemini-cli.md#activity-log; source 6814e00
+    """
+    payload = {"id": request_id, "pending": False, "response": response}
+    return _activity_line("network", payload, written)
+
+
+def gemini_activity_records():
+    """Activity log lines: console, chat and utility requests, a chunk, responses and an error.
+
+    A chat request in the Code Assist form and its streamed reply, which the next chat request
+    (in the Gemini API form) repeats; a loop-detection utility request and a token refresh
+    between the two; the last chat reply, which no request repeats; a request with no body.
 
     Source: research/gemini-cli.md#activity-log; source 6814e00
     """
     first, second = 1790845205000, 1790845207200
     history = gemini_history_contents()
-    headers = {"authorization": "[REDACTED]", "content-type": "application/json"}
-    code_assist = {"model": "gemini-2.5-pro", "request": {"contents": history[:1]}}
-    gemini_api = {"contents": history[:3]}
+    code_assist = {
+        "model": "gemini-2.5-pro",
+        "user_prompt_id": GEMINI_SESSION + "########0",
+        "request": {"contents": history[:1], "session_id": GEMINI_SESSION},
+    }
+    loop_check = [history[1], {"role": "user", "parts": [{"text": GEMINI_LOOP_PROMPT}]}]
+    utility = {"model": "gemini-2.5-flash", "request": {"contents": loop_check}}
+    first_reply = gemini_sse_body(
+        [{"text": "Listing "}], [{"text": "now."}, history[1]["parts"][1]], code_assist=True
+    )
+    last_reply = gemini_sse_body([{"text": "Found main.ts "}], [{"text": "and util.ts."}])
     chunk = {"index": 0, "data": "data: {}", "timestamp": first + 400}
-    response = {"status": 200, "headers": {}, "body": "data: {}", "durationMs": 1800}
     return [
         _activity_line("console", {"type": "warn", "content": "Slow response"}, first),
-        _activity_line(
-            "network",
-            {
-                "id": "k3x9q",
-                "timestamp": first,
-                "method": "POST",
-                "url": CODE_ASSIST_URL,
-                "headers": headers,
-                "body": json.dumps(code_assist),
-                "pending": True,
-            },
-            first,
-        ),
+        gemini_request("k3x9q", CODE_ASSIST_URL, first, json.dumps(code_assist)),
         _activity_line("network", {"id": "k3x9q", "pending": True, "chunk": chunk}, first + 400),
-        _activity_line(
-            "network", {"id": "k3x9q", "pending": False, "response": response}, first + 1800
+        gemini_response(
+            "k3x9q",
+            first + 1800,
+            {"status": 200, "headers": {}, "body": first_reply, "durationMs": 1800},
+        ),
+        gemini_request("u5v6w", CODE_ASSIST_UTILITY_URL, first + 1900, json.dumps(utility)),
+        gemini_response("u5v6w", first + 2100, {"status": 200, "headers": {}, "body": "{}"}),
+        gemini_request(
+            "t4r8z",
+            "https://oauth2.googleapis.com/token?key=redacted",
+            first + 2150,
+            "grant_type=refresh_token&refresh_token=redacted",
         ),
         _activity_line(
-            "network",
-            {
-                "id": "p7w2m",
-                "timestamp": second,
-                "method": "POST",
-                "url": GEMINI_API_URL,
-                "headers": headers,
-                "body": json.dumps(gemini_api),
-                "pending": True,
-            },
-            second,
+            "network", {"id": "t4r8z", "pending": False, "error": "socket hang up"}, first + 2190
         ),
-        _activity_line(
-            "network",
-            {
-                "id": "t4r8z",
-                "timestamp": second + 10,
-                "method": "POST",
-                "url": "https://oauth2.googleapis.com/token?key=redacted",
-                "headers": {},
-                "body": "grant_type=refresh_token&refresh_token=redacted",
-                "pending": True,
-            },
-            second + 10,
+        gemini_request("p7w2m", GEMINI_API_URL, second, json.dumps({"contents": history[:3]})),
+        gemini_response(
+            "p7w2m",
+            second + 900,
+            {"status": 200, "headers": {}, "body": last_reply, "durationMs": 900},
         ),
-        _activity_line(
-            "network", {"id": "t4r8z", "pending": False, "error": "socket hang up"}, second + 90
-        ),
-        _activity_line(
-            "network",
-            {
-                "id": "g1h2j",
-                "timestamp": second + 100,
-                "method": "GET",
-                "url": "https://play.googleapis.com/log",
-                "headers": {},
-                "pending": True,
-            },
-            second + 100,
-        ),
+        gemini_request("g1h2j", "https://play.googleapis.com/log", second + 1000, None),
     ]
 
 

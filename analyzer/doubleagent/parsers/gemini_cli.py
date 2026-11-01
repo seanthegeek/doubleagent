@@ -18,7 +18,8 @@ Fields the parser depends on:
   `status`, `timestamp`, `displayName`);
 - `logs.json`: `sessionId`, `timestamp`, `message`; a history copy's `role`, `parts`;
 - activity log: `type`, `payload`, `sessionId`, `timestamp`; payload `content`, `id`, `method`,
-  `url`, `body` (`contents`, `request`), `response` (`status`, `durationMs`), `error`;
+  `url`, `body` (`contents`, `request`), `response` (`status`, `durationMs`, `body` with each
+  chunk's `candidates[0].content`, under `response` for Code Assist), `error`;
 - tool checkpoint `clientHistory`, `commitHash`, `toolCall`, `messageId`; error report `error`
   (`message`, `stack`), `context` (`requestContents`); `sandbox.toml` `modes`, `commands`.
 
@@ -55,7 +56,6 @@ from .base import (
     file_bytes,
     file_mtime,
     iter_jsonl,
-    iter_lines,
     line_text,
     setting_value,
     track_change,
@@ -522,7 +522,7 @@ def request_contents(body: object) -> list:
     """Return the `Content[]` a model request body sends, or [] for any other body.
 
     The Gemini API body holds `contents`, the Code Assist body `request.contents`
-    (`code_assist/converter.ts`); any other body, a token refresh among them, is not decoded.
+    (`code_assist/converter.ts`); any other body, a token refresh among them, yields no rows.
     """
     if not isinstance(body, str) or not body.lstrip().startswith("{"):
         return []
@@ -535,6 +535,115 @@ def request_contents(body: object) -> list:
     inner = document.get("request")
     contents = inner.get("contents") if isinstance(inner, dict) else document.get("contents")
     return contents if isinstance(contents, list) else []
+
+
+def is_chat_request(url: str) -> bool:
+    """Return whether a request URL is a chat turn, the one method `GeminiChat` calls.
+
+    Utility requests (loop detection, routing, next-speaker checks, compression, token counts)
+    call `generateContent` or `countTokens` instead, with a trimmed history and an internal prompt.
+    """
+    return url_without_query(url).endswith(":streamGenerateContent")
+
+
+def reply_content(body: object) -> dict | None:
+    """Return the model reply a chat response body holds as one `Content`, or None.
+
+    The body is the server-sent event stream as received, one `data: <JSON>` line per chunk, or
+    one JSON object. Each chunk is a `GenerateContentResponse`, under `response` for Code Assist
+    (`code_assist/converter.ts`); the parts of the first candidate's `content` of every chunk are
+    joined in order, consecutive text parts of one kind into one.
+    """
+    if not isinstance(body, str):
+        return None
+    stripped = body.strip(" \t\r\n")
+    if stripped.startswith("{"):
+        payloads = [stripped]
+    else:
+        payloads = [line[5:] for line in body.split("\n") if line.startswith("data:")]
+    parts: list = []
+    for payload in payloads:
+        try:
+            chunk = json.loads(payload)
+        except ValueError:
+            continue
+        if isinstance(chunk, dict) and isinstance(chunk.get("response"), dict):
+            chunk = chunk["response"]
+        candidates = chunk.get("candidates") if isinstance(chunk, dict) else None
+        first = candidates[0] if isinstance(candidates, list) and candidates else None
+        content = first.get("content") if isinstance(first, dict) else None
+        for part in _parts(content.get("parts")) if isinstance(content, dict) else []:
+            previous = parts[-1] if parts else None
+            if (
+                isinstance(part, dict)
+                and isinstance(part.get("text"), str)
+                and isinstance(previous, dict)
+                and isinstance(previous.get("text"), str)
+                and bool(previous.get("thought")) == bool(part.get("thought"))
+            ):
+                parts[-1] = dict(previous, text=previous["text"] + part["text"])
+            else:
+                parts.append(part)
+    return {"role": "model", "parts": parts} if parts else None
+
+
+def _or_dash(value: object) -> str:
+    """Return a value as row text, `-` when it is absent."""
+    return "-" if value is None or value == "" else str(value)
+
+
+class _ChatChains:
+    """The turns an activity log's chat requests and replies add, each emitted once.
+
+    A chain is the run of chat requests of one session whose `contents` open with the same
+    item: the main conversation, or one subagent's. A request's items after the longest prefix
+    it shares with the chain's previous request are new; a reply is new unless the chain's next
+    request carries a model item at the position after the previous request's contents.
+    """
+
+    def __init__(self) -> None:
+        self.contents: dict[tuple[str, str], list] = {}  # chain -> its last request's contents
+        self.requests: dict[str, tuple[str, str]] = {}  # request id -> its chain
+        self.pending: dict[tuple[str, str], tuple[int, str, dict]] = {}  # chain -> its reply
+
+    def request(
+        self, request_id: str, session_id: str, line: int, contents: list
+    ) -> list[tuple[int, str, dict]]:
+        """Return (line, session id, item) for each new item of a chat request and its chain."""
+        if not contents:
+            return []
+        chain = (session_id, compact_json(contents[0]))
+        earlier = self.contents.get(chain, [])
+        found = []
+        held = self.pending.pop(chain, None)
+        size = len(earlier)
+        carried = (
+            len(contents) > size
+            and contents[:size] == earlier
+            and isinstance(contents[size], dict)
+            and contents[size].get("role") == "model"
+        )
+        if held is not None and not carried:
+            found.append(held)
+        shared = 0
+        while shared < min(len(contents), size) and contents[shared] == earlier[shared]:
+            shared += 1
+        found += [(line, session_id, item) for item in contents[shared:] if isinstance(item, dict)]
+        self.contents[chain] = contents
+        self.requests[request_id] = chain
+        return found
+
+    def reply(self, request_id: str, session_id: str, line: int, reply: dict) -> None:
+        """Hold the reply to a chat request until the chain's next request shows if it repeats."""
+        chain = self.requests.get(request_id)
+        if chain is not None:
+            self.pending[chain] = (line, session_id, reply)
+
+    def flush(self) -> list[tuple[int, str, dict]]:
+        """Return the replies no later request repeated."""
+        held = list(self.pending.values())
+        self.pending.clear()
+        return held
 
 
 # ---- parser -------------------------------------------------------------------
@@ -883,27 +992,23 @@ class GeminiCliParser(Parser):
         A `console` record is one `console <type>: <content>` row; a `network` record naming
         a method is a `network request:` row, one with a `response` a `network response:` row,
         one with an `error` a `network error:` row, and a streamed `chunk` none. Header values
-        and bodies are never printed; a model request body's `contents` items after the prefix
-        the previous request of the session shared are rows with no time.
+        and non-chat bodies are never printed; the turns of chat requests and replies are item
+        rows with no time (`_ChatChains`).
         """
         errors: list = []
         project = self._project_of(artifact, match, errors)
         requests: dict[str, tuple[str, str]] = {}  # request id -> (method, url)
-        previous: dict[str, list] = {}  # session id -> last request's contents
-        for line_number, raw in iter_lines(artifact.disk_path, errors):
-            stripped = raw.strip()
-            if not stripped:
-                continue
-            try:
-                record = json.loads(stripped.decode("utf-8", errors="replace"))
-            except ValueError as error:
-                errors.append((line_number, "unparseable line (%s)" % error, line_text(raw)))
-                continue
-            payload = record.get("payload") if isinstance(record, dict) else None
-            kind = record.get("type") if isinstance(record, dict) else None
+        chains = _ChatChains()
+
+        def items(found: list[tuple[int, str, dict]]) -> Iterator[Row]:
+            for line, session_id, item in found:
+                yield from self._content_rows(artifact, opts, item, line, project, session_id)
+
+        for line_number, record in iter_jsonl(artifact.disk_path, errors):
+            payload, kind = record.get("payload"), record.get("type")
             if not isinstance(payload, dict) or kind not in ("console", "network"):
                 message = "unparseable line (not an activity log record)"
-                errors.append((line_number, message, line_text(raw)))
+                errors.append((line_number, message, compact_json(record)))
                 continue
             session_id = str(record.get("sessionId") or "")
             where = (artifact, line_number, to_utc(record.get("timestamp")), session_id, project)
@@ -913,27 +1018,18 @@ class GeminiCliParser(Parser):
                 continue
             request_id = str(payload.get("id") or "")
             if isinstance(payload.get("method"), str):
-                method = payload["method"]
-                url = url_without_query(str(payload.get("url") or ""))
-                requests[request_id] = (method, url)
-                text = "network request: %s %s (request %s)" % (method, url, request_id)
+                method, url = payload["method"], str(payload.get("url") or "")
+                requests[request_id] = (method, url_without_query(url))
+                text = "network request: %s %s (request %s)" % (
+                    method,
+                    url_without_query(url),
+                    request_id,
+                )
                 yield self._system(*where, text, opts)
-                contents = request_contents(payload.get("body"))
-                shared = 0
-                earlier = previous.get(session_id, [])
-                while (
-                    shared < len(contents)
-                    and shared < len(earlier)
-                    and contents[shared] == earlier[shared]
-                ):
-                    shared += 1
-                if contents:
-                    previous[session_id] = contents
-                for item in contents[shared:]:
-                    if isinstance(item, dict):
-                        yield from self._content_rows(
-                            artifact, opts, item, line_number, project, session_id
-                        )
+                if is_chat_request(url):
+                    contents = request_contents(payload.get("body"))
+                    found = chains.request(request_id, session_id, line_number, contents)
+                    yield from items(found)
                 continue
             method, url = requests.get(request_id, ("-", "-"))
             response = payload.get("response")
@@ -941,11 +1037,14 @@ class GeminiCliParser(Parser):
                 text = "network response: %s %s status %s in %s ms (request %s)" % (
                     method,
                     url,
-                    response.get("status"),
-                    response.get("durationMs"),
+                    _or_dash(response.get("status")),
+                    _or_dash(response.get("durationMs")),
                     request_id,
                 )
                 yield self._system(*where, text, opts)
+                reply = reply_content(response.get("body"))
+                if reply is not None:
+                    chains.reply(request_id, session_id, line_number, reply)
             elif payload.get("error"):
                 text = "network error: %s %s: %s (request %s)" % (
                     method,
@@ -954,6 +1053,7 @@ class GeminiCliParser(Parser):
                     request_id,
                 )
                 yield self._system(*where, text, opts)
+        yield from items(chains.flush())
         yield from error_rows(self, artifact, errors, match.group("session"), project)
 
     def _json_file(self, artifact: Artifact, errors: list, label: str):
