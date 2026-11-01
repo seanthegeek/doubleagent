@@ -694,7 +694,9 @@ FIXTURE_DEDUPLICATED = {
     "continue": 3,  # input_history.json "rename foo", chatFeedback prompt and reply
     "copilot-cli": 6,  # session-store.db 3, rewind snapshot 1, command history 2
     "cursor": 3,  # agent transcript: two prompts and a reply the bubbles hold
-    "gemini-cli": 1,  # "list files in src"
+    # logs.json "list files in src"; tool checkpoint 4 (the prompt, reply, tool call and
+    # result the session file holds) and error report 1 (the prompt)
+    "gemini-cli": 6,
     "goose": 1,  # history.txt "run the tests", no timestamp
     "hermes": 11,  # snapshot copies and the divert's screenshot prompt
     "kiro": 1,  # .cli_bash_history "list the files here"
@@ -708,7 +710,7 @@ FIXTURE_DEDUPLICATED = {
     "openhands": 1,  # CLI prompt_history.json "list the files"
     "pearai": 4,  # output log and dev_data/chat.jsonl: "add the target" and its reply
     "pi": 4,  # pi-debug.log: prompt, model row, tool_use, tool_result
-    "qwen-code": 1,  # "run the tests"
+    "qwen-code": 3,  # "run the tests" and the two group messages a prompt quotes
     "roo-code": 2,  # cli-history.json "rename the helper" and "yes", no timestamp
     "shellgpt": 1,  # response cache: the answer the chat file holds
     # completion prompt and choice, threads 7 and 3 in the backups, and

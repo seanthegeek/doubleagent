@@ -1,33 +1,33 @@
-"""Parse Gemini CLI sessions, prompt logs, history copies and standing permission files.
+"""Parse Gemini CLI sessions, past-use stores and standing permission files.
 
-Reads, under `~/.gemini` or the macOS sandbox base `~/.cache/.gemini`: the session files
-`tmp/<slug>/chats/**/*.jsonl` and the legacy single-object `.json` (both are parsed when a
-resume migrated one, so their turns appear twice); and as secondary sources with no time of
-their own except `logs.json`, `tmp/<slug>/logs.json`, `shell_history`, `checkpoint-<tag>.json`
-and `bug-report-history-<ms>.json`. Standing grants: `trustedFolders.json`, `settings.json`
-(`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`), `policies/*.toml`,
-`sandbox.toml`, `trusted_hooks.json` and `acknowledgments/agents.json`.
+Reads under `~/.gemini` or `~/.cache/.gemini`: the session files `tmp/<slug>/chats/**/*.jsonl`
+and legacy `.json`; as secondary sources `logs.json`, `shell_history`, `checkpoint-<tag>.json`,
+`bug-report-history-<ms>.json`, the tool checkpoints `checkpoints/*.json` and a copied
+`gemini-client-error-<type>-<time>.json`; as primary stores the activity log
+`logs/session-<id>.jsonl` (its records, not the turns in its bodies), the `memory/` files and
+`images/clipboard-<ms>.<ext>`. Standing grants: `trustedFolders.json`,
+`settings.json` (`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`),
+`policies/*.toml` and `sandbox.toml`, `trusted_hooks.json` and
+`acknowledgments/agents.json`.
 
 Fields the parser depends on:
 
-- session metadata: `sessionId`, `projectHash`, `startTime`, `lastUpdated`, `summary`,
-  `directories`, `kind`; the `$set`, `$patch` (`id`, `content`, `toolCalls`, `updates`,
-  `removeIds`, `orderIds`) and `$rewindTo` operations, replayed as `chatRecordingService.ts`
-  does, the last record per message `id` winning at its first position;
-- message: `id`, `timestamp`, `type`, `content` (parts with `text`, `thought`, `functionCall`,
-  `functionResponse`, `inlineData`, `fileData`), `model`, `thoughts[]` (`subject`,
-  `description`, `timestamp`), `toolCalls[]` (`id`, `name`, `args`, `result`, `status`,
-  `timestamp`, `displayName`);
-- `logs.json`: `sessionId`, `timestamp`, `message`; a history copy's `Content[]` `role`, `parts`;
-- `sandbox.toml`: the `modes` and `commands` tables.
+- session: `sessionId`, `projectHash`, `startTime`, `lastUpdated`, `summary`, `directories`,
+  `kind`; `$set`, `$patch` (`id`, `content`, `toolCalls`, `updates`, `removeIds`, `orderIds`)
+  and `$rewindTo`, replayed as `chatRecordingService.ts` does; message `id`, `timestamp`,
+  `type`, `content`, `model`, `thoughts[]`, `toolCalls[]` (`id`, `name`, `args`, `result`,
+  `status`, `timestamp`, `displayName`);
+- `logs.json`: `sessionId`, `timestamp`, `message`; a history copy's `role`, `parts`;
+- activity log: `type`, `payload`, `sessionId`, `timestamp`; payload `content`, `id`, `method`,
+  `url`, `response` (`status`, `durationMs`), `error`;
+- tool checkpoint `clientHistory`, `commitHash`, `toolCall`, `messageId`; error report `error`
+  (`message`, `stack`), `context` (`requestContents`); `sandbox.toml` `modes`, `commands`.
 
-Each message keeps the `sessionId` in force when it was first written. Rewind, summary and
-removal rows carry no timestamp of their own and inherit the latest one seen before them.
-`project_path` is `tmp/<slug>/.project_root`, else the `projects.json` key mapping to the slug,
-else the key whose sha256 is the legacy hash directory or `projectHash`, else `projectHash`.
-Validated against google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020; the
-v0.66.0 release writes the same shapes the parser reads) with a synthetic fixture; no real
-install. See `research/gemini-cli.md`.
+Rewind, summary and removal rows inherit the latest time seen before them. `project_path` is
+`tmp/<slug>/.project_root`, else the `projects.json` key of the slug, else the key whose sha256
+is the hash directory or `projectHash`, else `projectHash`. Validated against
+google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020; v0.66.0 writes the same
+shapes) with a synthetic fixture; no real install. See `research/gemini-cli.md`.
 """
 
 from __future__ import annotations
@@ -41,6 +41,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import unquote
 
+from ..errors import unreadable_message
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
@@ -69,6 +70,36 @@ TRUSTED_PATTERN = re.compile(BASE + r"trustedFolders\.json$")
 SHELL_PATTERN = re.compile(TEMP_BASE + r"shell_history$")
 CHECKPOINT_PATTERN = re.compile(TEMP_BASE + r"checkpoint-(?P<tag>[^/]+)\.json$")
 BUG_PATTERN = re.compile(TEMP_BASE + r"bug-report-history-(?P<ms>[0-9]+)\.json$")
+# Past-use stores beside the session files. A tool checkpoint's name opens with
+# `new Date().toISOString()`, `:` written `-` and `.` written `_` (checkpointUtils.ts).
+ACTIVITY_PATTERN = re.compile(TEMP_BASE + r"logs/session-(?P<session>[^/]+)\.jsonl$")
+TOOL_CHECKPOINT_PATTERN = re.compile(
+    TEMP_BASE
+    + r"checkpoints/(?P<time>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}_[0-9]{3}Z)-"
+    + r"[^/]+\.json$"
+)
+MEMORY_PATTERN = re.compile(TEMP_BASE + r"memory/(?P<name>.+)$")
+CLIPBOARD_PATTERN = re.compile(
+    TEMP_BASE + r"images/clipboard-(?P<ms>[0-9]+)\.(?:png|jpg|jpeg|webp|heic|heif)$"
+)
+# An error report, which the CLI writes to the system temporary directory; the
+# analyst places a copy in the runtime directory or a project's `tmp/<slug>`. Its
+# name ends with `toISOString()`, `:` and `.` both written `-` (errorReporting.ts).
+ERROR_REPORT_NAME = (
+    r"gemini-client-error-(?P<type>[^/]+)-"
+    r"(?P<time>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{3}Z)\.json$"
+)
+ERROR_REPORT_PATTERN = re.compile(BASE + ERROR_REPORT_NAME)
+PROJECT_ERROR_REPORT_PATTERN = re.compile(TEMP_BASE + ERROR_REPORT_NAME)
+NAME_TIME_PATTERN = re.compile(
+    r"^(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})T(?P<hour>[0-9]{2})-(?P<minute>[0-9]{2})-"
+    r"(?P<second>[0-9]{2})[-_](?P<millisecond>[0-9]{3})Z$"
+)
+# The separator of a prompt id, `<session id>########<prompt count>` (useGeminiStream.ts).
+PROMPT_ID_SEPARATOR = "########"
+# The opening of the environment-context item every chat history starts with
+# (environmentContext.ts), which is no turn of the conversation.
+SESSION_CONTEXT_TAG = "<session_context>"
 # Standing permission files. `settings.json` and the policy files are read in
 # the home's `.gemini` and in a project's; the other two exist only in the home.
 SETTINGS_PATTERN = re.compile(r"^\.gemini/settings\.json$")
@@ -474,6 +505,38 @@ def history_items(text: str, errors: list) -> tuple[list, dict]:
     return [], {}
 
 
+def name_time(text: str) -> str:
+    """Return the timeline time of an ISO time a file name spells with `-` or `_`, or `""`."""
+    match = NAME_TIME_PATTERN.match(text)
+    if not match:
+        return ""
+    return to_utc(
+        "%sT%s:%s:%s.%sZ" % match.group("date", "hour", "minute", "second", "millisecond")
+    )
+
+
+def url_without_query(url: str) -> str:
+    """Return a request URL up to its query string, which can carry an API key."""
+    return url.split("?", 1)[0].split("#", 1)[0]
+
+
+def _or_dash(value: object) -> str:
+    """Return a value as row text, `-` when it is absent."""
+    return "-" if value is None or value == "" else str(value)
+
+
+def _history_start(items: list) -> int:
+    """Return 1 when a history opens with the environment-context item, else 0.
+
+    `getInitialChatHistory` puts it first in every chat; it opens with `<session_context>`
+    (`environmentContext.ts`) and is no turn of the conversation.
+    """
+    first = items[0] if items else None
+    parts = _parts(first.get("parts")) if isinstance(first, dict) else []
+    text = parts[0].get("text") if parts and isinstance(parts[0], dict) else None
+    return 1 if isinstance(text, str) and text.startswith(SESSION_CONTEXT_TAG) else 0
+
+
 # ---- parser -------------------------------------------------------------------
 
 
@@ -498,6 +561,12 @@ class GeminiCliParser(Parser):
             or BUG_PATTERN.match(rel)
             or SETTINGS_PATTERN.match(rel)
             or POLICY_PATTERN.match(rel)
+            or ACTIVITY_PATTERN.match(rel)
+            or TOOL_CHECKPOINT_PATTERN.match(rel)
+            or MEMORY_PATTERN.match(rel)
+            or CLIPBOARD_PATTERN.match(rel)
+            or ERROR_REPORT_PATTERN.match(rel)
+            or PROJECT_ERROR_REPORT_PATTERN.match(rel)
         )
 
     def secondary(self, artifact: Artifact) -> bool:
@@ -508,12 +577,25 @@ class GeminiCliParser(Parser):
             or SHELL_PATTERN.match(rel)
             or CHECKPOINT_PATTERN.match(rel)
             or BUG_PATTERN.match(rel)
+            or TOOL_CHECKPOINT_PATTERN.match(rel)
+            or ERROR_REPORT_PATTERN.match(rel)
+            or PROJECT_ERROR_REPORT_PATTERN.match(rel)
         )
 
     def parse(self, artifact: Artifact, opts: Options) -> Iterator[Row]:
         """Yield the rows of one artifact, by the file it is."""
         rel = artifact.rel
-        if TRUSTED_PATTERN.match(rel):
+        if match := ERROR_REPORT_PATTERN.match(rel) or PROJECT_ERROR_REPORT_PATTERN.match(rel):
+            yield from self._parse_error_report(artifact, opts, match)
+        elif match := ACTIVITY_PATTERN.match(rel):
+            yield from self._parse_activity_log(artifact, opts, match)
+        elif match := TOOL_CHECKPOINT_PATTERN.match(rel):
+            yield from self._parse_tool_checkpoint(artifact, opts, match)
+        elif match := MEMORY_PATTERN.match(rel):
+            yield from self._parse_memory_file(artifact, match)
+        elif match := CLIPBOARD_PATTERN.match(rel):
+            yield from self._parse_clipboard_image(artifact, match)
+        elif TRUSTED_PATTERN.match(rel):
             yield from trusted_folder_rows(self, artifact)
         elif SETTINGS_PATTERN.match(rel):
             yield from self._parse_settings(artifact)
@@ -695,7 +777,13 @@ class GeminiCliParser(Parser):
         yield from error_rows(self, artifact, errors, "", project)
 
     def _content_rows(
-        self, artifact: Artifact, opts: Options, item: dict, index: int, project: str
+        self,
+        artifact: Artifact,
+        opts: Options,
+        item: dict,
+        index: int,
+        project: str,
+        session_id: str = "",
     ) -> Iterator[Row]:
         """Yield the rows of one `Content` ({role, parts}) of a history copy, with no time.
 
@@ -706,6 +794,7 @@ class GeminiCliParser(Parser):
         def row(turn: str, text: str) -> Row:
             new_row = self.base_row(artifact)
             new_row.source_line = index
+            new_row.session_id = session_id
             new_row.project_path = project
             new_row.turn_type = turn
             new_row.text = compact(text)
@@ -772,6 +861,189 @@ class GeminiCliParser(Parser):
         row.turn_type = "system"
         row.text = compact(text)
         return row
+
+    # -- activity log, tool checkpoints, memory, clipboard images and error reports --
+
+    def _project_of(self, artifact: Artifact, match, errors: list) -> str:
+        """Return the project of a file under `tmp/<slug>/`, or `""` for one outside it."""
+        if "slug" not in match.groupdict():
+            return ""
+        return resolve_project(self._base_dir(artifact, match), match.group("slug"), errors)
+
+    def _parse_activity_log(self, artifact: Artifact, opts: Options, match) -> Iterator[Row]:
+        """Yield the rows of an activity log `logs/session-<id>.jsonl`.
+
+        A `console` record is one `console <type>: <content>` row; a `network` record naming
+        a method is a `network request:` row, one with a `response` a `network response:` row,
+        one with an `error` a `network error:` row, and a streamed `chunk` none. Header values
+        and bodies are never read into a row.
+        """
+        errors: list = []
+        project = self._project_of(artifact, match, errors)
+        requests: dict[str, tuple[str, str]] = {}  # request id -> (method, url)
+        for line_number, record in iter_jsonl(artifact.disk_path, errors):
+            payload, kind = record.get("payload"), record.get("type")
+            if not isinstance(payload, dict) or kind not in ("console", "network"):
+                message = "unparseable line (not an activity log record)"
+                errors.append((line_number, message, compact_json(record)))
+                continue
+            session_id = str(record.get("sessionId") or "")
+            where = (artifact, line_number, to_utc(record.get("timestamp")), session_id, project)
+            request_id = str(payload.get("id") or "")
+            response = payload.get("response")
+            if kind == "console":
+                text = "console %s: %s" % (payload.get("type") or "-", payload.get("content") or "")
+            elif isinstance(payload.get("method"), str):
+                method, url = payload["method"], url_without_query(str(payload.get("url") or ""))
+                requests[request_id] = (method, url)
+                text = "network request: %s %s (request %s)" % (method, url, request_id)
+            elif isinstance(response, dict):
+                method, url = requests.get(request_id, ("-", "-"))
+                text = "network response: %s %s status %s in %s ms (request %s)" % (
+                    method,
+                    url,
+                    _or_dash(response.get("status")),
+                    _or_dash(response.get("durationMs")),
+                    request_id,
+                )
+            elif payload.get("error"):
+                method, url = requests.get(request_id, ("-", "-"))
+                text = "network error: %s %s: %s (request %s)" % (
+                    method,
+                    url,
+                    payload["error"],
+                    request_id,
+                )
+            else:
+                continue
+            yield self._system(*where, text, opts)
+        yield from error_rows(self, artifact, errors, match.group("session"), project)
+
+    def _json_file(self, artifact: Artifact, errors: list, label: str):
+        """Return a whole-JSON file's value, or None after appending why it is not one."""
+        content = file_bytes(artifact.disk_path, errors)
+        if content is None:
+            return None
+        try:
+            return json.loads(content.decode("utf-8", errors="replace"))
+        except ValueError as error:
+            errors.append((0, "unparseable %s (%s)" % (label, error), ""))
+            return None
+
+    def _parse_tool_checkpoint(self, artifact: Artifact, opts: Options, match) -> Iterator[Row]:
+        """Yield a `tool checkpoint:` row, then the `clientHistory` items as rows with no time."""
+        errors: list = []
+        project = self._project_of(artifact, match, errors)
+        document = self._json_file(artifact, errors, "tool checkpoint")
+        if document is not None and not isinstance(document, dict):
+            errors.append((0, "not a tool checkpoint: not a JSON object", ""))
+        if not isinstance(document, dict):
+            yield from error_rows(self, artifact, errors, "", project)
+            return
+        prompt_id = str(document.get("messageId") or "")
+        session_id = (
+            prompt_id.split(PROMPT_ID_SEPARATOR)[0] if PROMPT_ID_SEPARATOR in prompt_id else ""
+        )
+        tool_call = document.get("toolCall")
+        tool_call = tool_call if isinstance(tool_call, dict) else {}
+        arguments = tool_call.get("args")
+        file_path = arguments.get("file_path") if isinstance(arguments, dict) else None
+        text = "tool checkpoint: %s %s commit %s prompt %s (from %s, time in the file name)" % (
+            tool_call.get("name") or "-",
+            file_path or "-",
+            document.get("commitHash") or "-",
+            prompt_id or "-",
+            artifact.rel,
+        )
+        yield self._system(
+            artifact, 0, name_time(match.group("time")), session_id, project, text, opts
+        )
+        history = document.get("clientHistory")
+        history = history if isinstance(history, list) else []
+        skip = _history_start(history)
+        for i, item in enumerate(history[skip:], skip + 1):
+            if not isinstance(item, dict):
+                errors.append(
+                    (i, "unparseable record %d (not a JSON object)" % i, compact_json(item))
+                )
+                continue
+            yield from self._content_rows(artifact, opts, item, i, project, session_id)
+        yield from error_rows(self, artifact, errors, session_id, project)
+
+    def _parse_memory_file(self, artifact: Artifact, match) -> Iterator[Row]:
+        """Yield one `memory file:` row holding the file's text, at its modification time."""
+        errors: list = []
+        project = self._project_of(artifact, match, errors)
+        content = file_bytes(artifact.disk_path, errors)
+        if content is not None:
+            try:
+                body = content.decode("utf-8")
+            except UnicodeDecodeError:
+                errors.append((0, "%s is not UTF-8 text" % match.group("name"), ""))
+            else:
+                text = "memory file: %s (from %s, file mtime)\n%s" % (
+                    match.group("name"),
+                    artifact.rel,
+                    body,
+                )
+                yield self._standing(artifact, file_mtime(artifact), project, text)
+        yield from error_rows(self, artifact, errors, "", project)
+
+    def _parse_clipboard_image(self, artifact: Artifact, match) -> Iterator[Row]:
+        """Yield one `clipboard image:` row naming the file and its size, never its content."""
+        errors: list = []
+        project = self._project_of(artifact, match, errors)
+        size = (artifact.manifest or {}).get("size")
+        if not isinstance(size, int) or isinstance(size, bool):
+            try:
+                size = artifact.disk_path.lstat().st_size
+            except OSError as error:
+                errors.append((0, unreadable_message(artifact.disk_path, error)))
+                size = "-"
+        text = "clipboard image: %s %s bytes (from %s, time in the file name)" % (
+            artifact.rel.rsplit("/", 1)[-1],
+            size,
+            artifact.rel,
+        )
+        yield self._standing(artifact, to_utc(int(match.group("ms"))), project, text)
+        yield from error_rows(self, artifact, errors, "", project)
+
+    def _parse_error_report(self, artifact: Artifact, opts: Options, match) -> Iterator[Row]:
+        """Yield an `error report:` row, then the request's history items as rows with no time.
+
+        The `context` is the `Content[]` sent, or an object whose `requestContents` holds it.
+        """
+        errors: list = []
+        project = self._project_of(artifact, match, errors)
+        document = self._json_file(artifact, errors, "error report")
+        error = document.get("error") if isinstance(document, dict) else None
+        if document is not None and not isinstance(error, dict):
+            errors.append((0, "not an error report: no error object", ""))
+        if not isinstance(error, dict):
+            yield from error_rows(self, artifact, errors, "", project)
+            return
+        text = "error report: %s: %s (from %s, time in the file name)" % (
+            match.group("type"),
+            error.get("message") or "",
+            artifact.rel,
+        )
+        if isinstance(error.get("stack"), str) and error["stack"]:
+            text += "\n" + error["stack"]
+        timestamp = name_time(match.group("time"))
+        yield self._system(artifact, 0, timestamp, "", project, text, opts)
+        context = document.get("context") if isinstance(document, dict) else None
+        if isinstance(context, dict):
+            context = context.get("requestContents")
+        context = context if isinstance(context, list) else []
+        skip = _history_start(context)
+        for i, item in enumerate(context[skip:], skip + 1):
+            if not isinstance(item, dict):
+                errors.append(
+                    (i, "unparseable record %d (not a JSON object)" % i, compact_json(item))
+                )
+                continue
+            yield from self._content_rows(artifact, opts, item, i, project)
+        yield from error_rows(self, artifact, errors, "", project)
 
     # -- logs.json --
 

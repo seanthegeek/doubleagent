@@ -52,7 +52,7 @@ agent name in each row links to its subsection.
 | [`dify`](#dify) | backlog | Source | [research](../research/dify.md); [issue 142](https://github.com/seanthegeek/doubleagent/issues/142); sandbox `shellctl.db` and job logs hold shell jobs; chats in PostgreSQL |
 | [`factory-droid`](#factory-droid) | backlog | Shipped binary strings, docs | [research](../research/factory-droid.md); [issue 54](https://github.com/seanthegeek/doubleagent/issues/54); JSONL session transcripts under `.factory/sessions` and a prompt history |
 | [`flowise`](#flowise) | backlog | Source | [research](../research/flowise.md); [issue 68](https://github.com/seanthegeek/doubleagent/issues/68); `database.sqlite` with `chat_message` (tool use and agent reasoning) and `execution` |
-| [`gemini-cli`](#gemini-cli) | parsed | source; fixture only | [research](../research/gemini-cli.md); [issue 394](https://github.com/seanthegeek/doubleagent/issues/394); the activity log, tool checkpoints, memory, clipboard images and error reports are not parsed |
+| [`gemini-cli`](#gemini-cli) | parsed | source; fixture only | [research](../research/gemini-cli.md); [issue 394](https://github.com/seanthegeek/doubleagent/issues/394); [issue 410](https://github.com/seanthegeek/doubleagent/issues/410); the conversation turns in the activity log's request and response bodies are unparsed |
 | [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md); [issue 368](https://github.com/seanthegeek/doubleagent/issues/368); the desktop app's local-storage prompt history is not parsed |
 | [`hermes`](#hermes) | parsed | source; fixture only | [research](../research/hermes.md); [issue 208](https://github.com/seanthegeek/doubleagent/issues/208); the nested `config.yaml` `approvals` settings are not parsed |
 | [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); [issue 221](https://github.com/seanthegeek/doubleagent/issues/221); the session pull request links are not parsed yet |
@@ -71,9 +71,10 @@ agent name in each row links to its subsection.
 | [`opencode`](#opencode) | parsed | source; fixture only | [research](../research/opencode.md); [issue 194](https://github.com/seanthegeek/doubleagent/issues/194); [issue 213](https://github.com/seanthegeek/doubleagent/issues/213); the desktop app's `drafts.sqlite` and the `shell/` command output are not parsed yet |
 | [`openhands`](#openhands) | parsed | source; fixture only | [research](../research/openhands.md); [issue 205](https://github.com/seanthegeek/doubleagent/issues/205); Agent Canvas browser storage (cloud origin, archive) needs a LevelDB reader |
 | [`pearai`](#pearai) | parsed | source; fixture only | [research](../research/pearai.md) |
-| [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md); [issue 395](https://github.com/seanthegeek/doubleagent/issues/395); the session exports, bug report zip and TUI crash log are not parsed |
+| [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md); [issue 395](https://github.com/seanthegeek/doubleagent/issues/395) |
 | [`pydantic-clai`](#pydantic-clai) | backlog | Source, PyPI wheel | [research](../research/pydantic-clai.md); [issue 66](https://github.com/seanthegeek/doubleagent/issues/66); CLAI 2.0 `sessions.db` conversations and the prompt histories |
-| [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); [issue 396](https://github.com/seanthegeek/doubleagent/issues/396); the usage log, channel histories, todo files, project summary and managed-local transcripts are not parsed |
+| [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); [issue 396](https://github.com/seanthegeek/doubleagent/issues/396); the managed local mode's H2 database is not parsed ([issue 411](https://github.com/seanthegeek/doubleagent/issues/411)) |
+| [`qwen-live`](#qwen-live) | backlog | source; fixture only | [research](../research/qwen-live.md); [issue 412](https://github.com/seanthegeek/doubleagent/issues/412); a JSONL call log per daemon run and SQLite memory libraries holding the dialogue |
 | [`roo-code`](#roo-code) | parsed | source; fixture only | [research](../research/roo-code.md) |
 | [`shared`](#shared) | collected | Derived from the per-agent documents | [research](../research/shared.md); cross-agent instruction and skill directories with no transcripts |
 | [`shellgpt`](#shellgpt) | parsed | source; fixture only | [research](../research/shellgpt.md) |
@@ -735,9 +736,19 @@ rules) in the home and in a project, `.gemini/policies/sandbox.toml` (the
 sandbox's saved command grants and mode settings),
 `.gemini/trusted_hooks.json` and `.gemini/acknowledgments/agents.json`,
 one `permission setting:` or `session retention:` row per entry at the
-file's modification time. Not read: the activity log
-`tmp/<slug>/logs/session-*.jsonl`, the tool checkpoints, `memory/`, the
-clipboard images and the error reports in the system temp directory.
+file's modification time; as secondary sources the tool checkpoints
+`tmp/<slug>/checkpoints/*.json` (a `tool checkpoint:` row, then the
+history sent) and an error report `gemini-client-error-<type>-<time>.json`
+the responder copied into `.gemini` or `.cache/.gemini`, or the
+`tmp/<slug>` directory of either (an `error report:` row, then the history
+sent), each without the environment-context item that opens the history;
+the activity log `tmp/<slug>/logs/session-<id>.jsonl` as `console`,
+`network request`, `network response` and `network error` rows with no
+header value, query string or body; each `tmp/<slug>/memory/` file as one
+`memory file:` row with its text at its modification time, and each
+clipboard image `tmp/<slug>/images/clipboard-<ms>.<ext>` as one
+`clipboard image:` row with its size, never its content. Not read: the
+conversation turns in the activity log's request and response bodies.
 
 Validated against: Source at [6814e00](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d) (0.67.0-nightly.20261020) and the v0.66.0 release, which writes the same shapes the parser reads (reviewed 2026-11-01), synthetic fixture; no real install.
 
@@ -1057,8 +1068,15 @@ a `system` row saying so),
 trust decisions, one `permission setting:` row per project),
 `.pi/agent/settings.json` (only `defaultProjectTrust`, one `permission
 setting:` row), `.pi/agent/pi-debug.log` (secondary, the last `/debug`
-snapshot of a session's messages) and `.pi/agent/crashes.json` (one
-`crash:` row per recent crash). A session's
+snapshot of a session's messages), `.pi/agent/crashes.json` (one
+`crash:` row per recent crash), `.pi/agent/pi-tui-crash.log` and the older
+`.pi/agent/pi-crash.log` (one `tui crash:` row with the rendered screen
+lines), and, in a project directory, the `/export` copies
+`pi-session-*.html` (secondary, every entry of every branch, decoded from
+the page's base64 data) and `session-<time>.jsonl` (secondary, one branch)
+and the `/bug` archive `pi-bug-report-*.zip`, read in memory (a `bug
+report:` row from `report.json` and `diagnostics.json`, its crashes,
+`summary.md` or `session.jsonl` (a secondary copy)). A session's
 `pi.bug-report` entry gives a `session synced:` row for a `/bug` upload
 or a `bug report exported:` row for a zip, and a call little-coder's
 permission gate refused a `permission decision: denied` row.
@@ -1090,14 +1108,26 @@ row per `permissions.allow`, `ask` and `deny` rule and one for
 row per session summary, a secondary source that outlives a deleted
 transcript; a session's `chats/<session>.worktree.json` sidecar, one
 `scratch directory: <worktreePath> (enter_worktree <slug>)` row naming the
-worktree the session works in.
+worktree the session works in. The token usage log
+`usage/token-usage-<YYYY-MM>.jsonl`, one `token usage:` row per model
+response; the todo files `todos/<session>.json`, one `todo:` row per item;
+the Web Shell's `projects/<slug>/session-organization.v1.json`, one
+`session organization:` row per grouped or pinned session; the project
+summary `.qwen/PROJECT_SUMMARY.md`, one `project summary` row holding the
+file; a session's `chats/<session>.pr.json` sidecar and the GitHub channel's
+`channels/<scope>/<channel>-<hash>-github-audit.jsonl`, one `source host:`
+row per pull request and per publication; the channels'
+`<channel>-group-history.jsonl`, a secondary source, one `group message:`
+row per message kept as context, dropped when the prompt that quoted it,
+written with the chat's `clear` line, is in a transcript; and the managed
+local mode's transcripts under `.qwen/managed-local/harness/projects/` and
+`.qwen/managed-local/worker-home/projects/` and the workers'
+`.qwen/managed-local/worker-home/usage_record.jsonl`, read as the home's.
 
-Not read ([issue 396](https://github.com/seanthegeek/doubleagent/issues/396)):
-the token usage log `usage/token-usage-<YYYY-MM>.jsonl`, the channels'
-`<channel>-group-history.jsonl`, the todo files `todos/<session>.json`,
-the project summary `.qwen/PROJECT_SUMMARY.md` and the managed local mode's
-transcripts under `.qwen/managed-local/harness/projects/` and
-`.qwen/managed-local/worker-home/`.
+Not read ([issue 411](https://github.com/seanthegeek/doubleagent/issues/411)):
+the managed local mode's H2 database
+`.qwen/managed-local/database/managed.mv.db`, which no standard library
+module decodes.
 
 Validated against: Source at [835b080](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b) (version 0.26.4), synthetic fixture; the shapes of [2c591ec](https://github.com/QwenLM/qwen-code/commit/2c591ecc08a6fa080342f9b1b9f7f43215178cbb) (0.24.7) and [5dcf7c7](https://github.com/QwenLM/qwen-code/commit/5dcf7c7cb162e825d95d531081f67ee60da3c0e1) (0.25.3) still read.
 
@@ -1395,6 +1425,19 @@ and each workspace's `workspace.json`, `token` and `session.log`, with the
 workspaces' clones of remote repositories excluded.
 
 Validated against: Source, PyPI wheel.
+
+### `qwen-live`
+
+Files collected: `.qwen-live/sessions/live-<ms>-<nonce>.jsonl` and its
+rotated parts (the call log of one daemon run: what the user said, what
+the voice model answered, tool calls, permission requests and decisions,
+backend events), `.qwen-live/memories/<id>/dialogue.db` with its WAL
+sidecars and `meta.json` (a memory library: the dialogue turns, the facts
+kept about the user and visual observations), and `config.json` with its
+temporary copies (the DashScope key and backend tokens). The discovery
+record `.qwen/live/daemon.json` is collected under `qwen-code`.
+
+Validated against: Source.
 
 ### `shared`
 

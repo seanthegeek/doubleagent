@@ -7,8 +7,9 @@ Claude Code, Gemini CLI, Antigravity, Codex CLI, Copilot CLI, Cursor,
 Windsurf, Aider and VS Code chat extensions; autonomous agents such as
 Hermes, Agent Zero and OpenClaw; agent framework studios and CLIs such as
 AutoGen Studio, CrewAI and MetaGPT; self-hosted agent and workflow
-automation platforms such as n8n, Flowise, Langflow and Dify; Ollama; and
-others. The [agents page](agents.md) lists every one of them with what the
+automation platforms such as n8n, Flowise, Langflow and Dify; voice
+daemons that hand coding tasks to other agents, such as Qwen Live; Ollama;
+and others. The [agents page](agents.md) lists every one of them with what the
 collector gathers and whether the analyzer parses its transcripts.
 
 DoubleAgent has two parts that run in different places. The collectors run

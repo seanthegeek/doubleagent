@@ -33,9 +33,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 from collections.abc import Iterator
 from pathlib import Path
 
+from ..errors import unreadable_message
 from ..inputs import Artifact
 from ..model import Row, compact
 from ..timeutil import to_utc
@@ -82,29 +84,59 @@ def _regular_files(directory: Path) -> list[os.DirEntry]:
         return []
 
 
+def _lstat(path: Path) -> tuple[os.stat_result | None, OSError | None]:
+    """Return `(lstat result, None)`, `(None, None)` for an absent path, or `(None, error)`."""
+    try:
+        return os.lstat(path), None
+    except (FileNotFoundError, NotADirectoryError):
+        return None, None
+    except OSError as error:
+        return None, error
+
+
+def _is_dir(found: os.stat_result | None) -> bool:
+    """Return whether an lstat result is a directory, a symlink never counting."""
+    return found is not None and stat.S_ISDIR(found.st_mode)
+
+
 def _session_header(home: Path, name: str) -> tuple[dict | None, list]:
     """Return the header of the pi session file `name` in the same home, or None, and its failure.
 
-    The failure is the file's whole-file `errors` entries, one when it exists
-    but cannot be read; its bad lines are left to the pi parser.
+    Every lookup goes through lstat, since pathlib's is_dir and is_file raise
+    a permission error on some Python versions and swallow it on others. The
+    failure is the whole-file `errors` entries: one naming the directory that
+    could not be read, or the file that could not be; the search goes on past
+    an unsearchable project directory and reports it only when no directory
+    held the file, since a session file name belongs to one project.
     """
     sessions = home / ".pi/agent/sessions"
-    if sessions.is_symlink() or not sessions.is_dir():
-        return None, []
-    for directory in sorted(sessions.iterdir()):
-        session_path = directory / name
-        if (
-            not directory.is_symlink()
-            and directory.is_dir()
-            and not session_path.is_symlink()
-            and session_path.is_file()
-        ):
-            session = read_session(session_path)
-            # A two-tuple is a whole-file entry (the file could not be read); a bad
-            # line is a three-tuple the pi parser reports itself.
-            failure = [entry for entry in session.errors if len(entry) == 2]
-            return session.header or None, failure
-    return None, []
+    directories: list[Path] = []
+    found, error = _lstat(sessions)
+    if error is None and _is_dir(found):
+        try:
+            directories = sorted(sessions.iterdir())
+        except OSError as listing_error:
+            error = listing_error
+    if error is not None:
+        return None, [(0, unreadable_message(sessions, error))]
+    first_failure: list = []
+    for directory in directories:
+        found, error = _lstat(directory)
+        if error is None and not _is_dir(found):
+            continue
+        failed = sessions if error is not None else directory
+        if error is None:
+            found, error = _lstat(directory / name)
+        if error is not None:
+            first_failure = first_failure or [(0, unreadable_message(failed, error))]
+            continue
+        if found is None or not stat.S_ISREG(found.st_mode):
+            continue
+        session = read_session(directory / name)
+        # A two-tuple is a whole-file entry (the file could not be read); a bad
+        # line is a three-tuple the pi parser reports itself.
+        return session.header or None, [entry for entry in session.errors if len(entry) == 2]
+    return None, first_failure
 
 
 def _dash(value) -> str:
