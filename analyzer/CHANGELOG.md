@@ -9,6 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-01
+
 ### Added
 
 - A Qwen Code session with a `chats/<sessionId>.worktree.json` sidecar gives one `system` row `scratch directory: <worktreePath> (enter_worktree <slug>)` at its first record, with `project_path` the worktree, so `inventory.json` lists the worktree under `scratch_directories`; a sidecar that cannot be read or is not a JSON object is a `parser:` row of the session ([#326]).
@@ -2153,7 +2155,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--summary-length` (default 400), `--include-thinking` and `--agent`;
   `detect --json` and `--files`; `catalog --agents`.
 
-[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.23.0...HEAD
+[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.24.0...HEAD
+[0.24.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.23.0...analyzer-v0.24.0
 [0.23.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.22.0...analyzer-v0.23.0
 [0.22.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.21.0...analyzer-v0.22.0
 [0.21.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.20.1...analyzer-v0.21.0

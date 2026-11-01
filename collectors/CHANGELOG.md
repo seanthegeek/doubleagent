@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-11-01
+
 ### Added
 
 - Qwen Code's Agent Host registration `.qwen/agent-hosts/*.json`, the managed local mode's `.qwen/managed-local/state.json`, the stores its worker processes write under `.qwen/managed-local/worker-home/` (`oauth_creds.json`, `mcp-oauth-tokens*.json`, `extension-secrets-v1.json`, `.env`, `settings.json` and `sessions/*.json`), and the settings copies `.qwen/settings.json.corrupted` and `.qwen/settings.json.write-*/settings.json.orig` in the home or a project are flagged `secret: true` ([#326]).
@@ -1216,7 +1218,8 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
   overridden by `--full`; credential files collected and flagged
   `secret: true` by default.
 
-[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.21.0...HEAD
+[Unreleased]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.22.0...HEAD
+[1.22.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.21.0...collector-v1.22.0
 [1.21.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.20.0...collector-v1.21.0
 [1.20.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.19.0...collector-v1.20.0
 [1.19.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.18.0...collector-v1.19.0
