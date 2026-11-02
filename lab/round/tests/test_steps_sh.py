@@ -18,6 +18,7 @@ drive() {
   printf '%s\n' "$*" >>"$STUB/drive.log"
   [ ! -f "$STUB/fail" ] || return 1
   [ "$1" != keys ] || stub_keys "$2"
+  [ "$1" != type ] || cat >>"$STUB/typed"
 }
 stub_keys() {
   _sk_rest=$1,
@@ -43,6 +44,7 @@ capture_screen() {
     _cs_cursor=$((_cs_cursor + 1))
   fi
   printf '> Type your message\n'
+  [ ! -f "$STUB/extra" ] || cat "$STUB/extra"
   _cs_index=0
   while IFS= read -r _cs_label; do
     if [ "$_cs_index" -eq "$_cs_cursor" ]; then printf '│ ● %s │\n' "$_cs_label"
@@ -260,3 +262,40 @@ def test_clear_with_a_number_and_a_missed_settle(tmp_path):
         (stub / "wait").write_text("1\n", encoding="utf-8")
         found = run_steps(shell, stub, "STEP_KIND=clear; clear_typed", "3")
         assert found["code"] == "2" and found["drive"] == "keys Backspace,Backspace,Backspace\n"
+
+
+def typed_text(stub: pathlib.Path) -> str:
+    """Return what the stubbed drive was given to type."""
+    typed = stub / "typed"
+    return typed.read_text(encoding="utf-8") if typed.is_file() else ""
+
+
+def test_a_prompt_with_no_dialog_open_types(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, [])
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "what is 3?")
+        assert found["code"] == "0" and found["drive"] == "type\nkeys Enter\n", shell
+        assert typed_text(stub) == "what is 3?", shell
+        (stub / "typed").unlink()
+
+
+def test_a_prompt_with_an_option_dialog_open_types_nothing(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, LABELS)
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
+        assert found["code"] == "2" and found["note"] == "a dialog is open", shell
+        assert found["drive"] == "" and typed_text(stub) == "", shell
+
+
+def test_a_type_step_with_an_input_dialog_open_types_nothing(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, [])
+        footer = "│ (Press Enter to submit, Esc to cancel, Ctrl+C to clear stored key) │\n"
+        (stub / "extra").write_text(footer, encoding="utf-8")
+        script = "AGENT_INPUT_GUARD='clear stored key'; STEP_KIND=type; send_text '' quiet"
+        found = run_steps(shell, stub, script, "/auth ")
+        assert found["code"] == "2" and found["note"] == "a dialog is open", shell
+        assert found["drive"] == "" and typed_text(stub) == "", shell
+        found = run_steps(shell, stub, "STEP_KIND=type; send_text '' quiet", "/auth ")
+        assert found["code"] == "0" and typed_text(stub) == "/auth ", shell
+        (stub / "typed").unlink()

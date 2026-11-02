@@ -197,6 +197,7 @@ start_agent() {
 # The `paste` kind: copy the paste file into the VM, send it as one
 # bracketed paste, type the text after the file name, press Enter and wait.
 send_paste() {
+  input_free || return 2
   _sp_file=${STEP_TEXT%% *}
   _sp_rest=${STEP_TEXT#"$_sp_file"}
   _sp_rest=${_sp_rest# }
@@ -211,15 +212,8 @@ send_paste() {
 # failed and 2 when the step's expectation was not met in time.
 run_kind() {
   case $STEP_KIND in
-    prompt)
-      printf '%s' "$STEP_TEXT" | drive type >/dev/null || return 1
-      drive keys Enter </dev/null >/dev/null || return 1
-      wait_for "$STEP_EXPECT" marker >/dev/null || return 2
-      ;;
-    type)
-      printf '%s' "$STEP_TEXT" | drive type >/dev/null || return 1
-      wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
-      ;;
+    prompt) send_text Enter marker ;;
+    type) send_text '' quiet ;;
     keys) press_step_keys ;;
     options) read_options "$STEP_TEXT" || return 1 ;;
     dialog) answer_dialog ;;

@@ -295,6 +295,15 @@ fails, the `keys` step right after it sends nothing and is `missed` too,
 so no Enter answers with an option the table did not mean. No step
 submits anything to a vendor: a bug report command
 is run only where it writes its report locally.
+
+A `prompt`, `type` or `paste` step reads the screen before it types,
+and when a dialog is open (the agent's `AGENT_OPTION` line, or its
+`AGENT_INPUT_GUARD` pattern for an input dialog with no option line, such
+as Gemini CLI's API key prompt) it types nothing and is `missed` with the
+note `a dialog is open`. The tables answer every dialog with `options`,
+`keys`, `dialog` or `choose` steps, so a prompt never belongs in one, and
+text typed into a key prompt can be stored as the key.
+
 `python3 -I lab/round/steps.py check lab/round/agents/<agent>` checks a
 table; `start` and `resume` refuse one that fails.
 
@@ -342,7 +351,7 @@ table's width; `resume` then runs the copy.
 
 | File | Holds |
 | --- | --- |
-| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box; `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for the three agents); the default waits and the terminal size. |
+| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box; `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for the three agents); `AGENT_INPUT_GUARD`, the pattern of an input dialog with no option line, empty when the agent's research document names none (`clear stored key` for Gemini CLI); while either is on the screen no `prompt`, `type` or `paste` step types; the default waits and the terminal size. |
 | `agents/<agent>/install.sh`, `install.ps1` | The install command copied from the vendor's page, whose URL and fetch date the script prints as its `source:` line, then `bin:` and `version:` lines. The version is read from the package's own record where one exists, so the agent does not run before its first-launch step. |
 | `agents/<agent>/roots` | The survey roots, from the Per-user storage, Credentials and Scratch directories sections of `research/<agent>.md`. |
 | `agents/<agent>/steps.tsv` | The step table. |

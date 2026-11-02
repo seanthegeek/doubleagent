@@ -6,7 +6,8 @@
 # Calls drive, capture_screen, wait_for, state_get, state_set and round_log,
 # which round.sh and vm.sh define and a test replaces with stubs. Reads the
 # globals CELL, STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT,
-# AGENT_OPTION, TURN_SECONDS and ROUND_STOP_AFTER, and sets STEP_NOTE.
+# AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS and ROUND_STOP_AFTER, and
+# sets STEP_NOTE.
 
 # The globals above come from round.sh, which also calls every function.
 # shellcheck disable=SC2153,SC2154,SC2329
@@ -156,6 +157,33 @@ stop_after_reached() {
   [ -n "${ROUND_STOP_AFTER:-}" ] || return 1
   [ "$(number_value "$1")" -eq "$(number_value "$ROUND_STOP_AFTER")" ] || return 1
   round_log "stopped after step $2 (ROUND_STOP_AFTER); resume goes on"
+}
+
+# Succeed when the input is free to type into: no dialog is open, as the
+# agent's AGENT_OPTION pattern (a highlighted option) or AGENT_INPUT_GUARD
+# pattern (an input dialog with no option, such as a key prompt) shows on
+# the screen, box-drawing characters stripped. Otherwise set STEP_NOTE and
+# return 2: a prompt never belongs in a dialog, which the tables answer
+# with their own steps, and one typed into a key prompt can become the key.
+input_free() {
+  _inf_screen=$(capture_screen | strip_box)
+  for _inf_pattern in "${AGENT_OPTION:-}" "${AGENT_INPUT_GUARD:-}"; do
+    [ -n "$_inf_pattern" ] || continue
+    if printf '%s\n' "$_inf_screen" | grep -Eq -- "$_inf_pattern"; then
+      STEP_NOTE='a dialog is open'
+      return 2
+    fi
+  done
+}
+
+# The `prompt` and `type` kinds: when the input is free, type the step's
+# text, press the key $1 after it unless $1 is empty, and wait for the
+# step's expectation, `-` standing for $2.
+send_text() {
+  input_free || return 2
+  printf '%s' "$STEP_TEXT" | drive type >/dev/null || return 1
+  if [ -n "$1" ]; then drive keys "$1" </dev/null >/dev/null || return 1; fi
+  wait_for "$STEP_EXPECT" "$2" >/dev/null || return 2
 }
 
 # Print the text of the last `type` step of the cell's steps.tsv numbered

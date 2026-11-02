@@ -54,7 +54,7 @@ NN	name	kind	text	expect	claim
 54	exit	prompt	/exit	exit	the session file's last state; logs.json keeps every prompt (research/gemini-cli.md#logsjson)
 55	exit-close	stop	-	-	none: closes the terminal session
 56	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
-57	resume	agent	gemini --resume latest	Type your message|clear stored key	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps) (unverified); a key dialog at the resume also ends the wait, so its screen is recorded as this step's after-screen
+57	resume	agent	gemini --resume latest	marker	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps) (unverified)
 58	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation; mcp-server-enablement.json (research/gemini-cli.md#per-user-storage) (unverified)
 59	mcp-options	options	12	quiet	every option of the MCP dialog, one screen per Down until the cursor wraps or stops, then back on the first
 60	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result (unverified)
