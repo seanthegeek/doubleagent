@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Diff two listings of a lab VM and group what one round step wrote.
 
-    python3 -I classify.py [--redact] [--roots ROOTS] listings/03-sign-in.txt listings/04-question.txt
+    python3 -I classify.py [--redact] [--roots ROOTS] BEFORE AFTER
+    python3 -I classify.py --redact --roots roots listings/03-sign-in.txt listings/04-question.txt
 
 Reads the tab-separated lines lib/survey.sh and lib/survey.ps1 print, `<kind> <size> <mode>
 <mtime> <path>`, and prints, grouped by the first two path components under the home (else under
@@ -50,10 +51,9 @@ HOME_TOP_DIRECTORIES = (
     "AppData/Local/Programs",
     "AppData/Local/Packages",
 )
-ROOT_PREFIX_RE = re.compile(r"^(?:linux|macos|unix|windows):")
-VARIABLE_RE = re.compile(r"%[A-Za-z_][A-Za-z0-9_]*%")
-# A glob component standing for a %VARIABLE%, which spans one or more path components.
-ANY_COMPONENTS = "**"
+ROOT_PREFIX_RE = re.compile(r"^(linux|macos|unix|windows):")
+VARIABLE_RE = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%")
+DRIVE_RE = re.compile(r"^[A-Za-z]:/")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -220,46 +220,93 @@ def survey_bases(tops: Iterable[str]) -> tuple[str, list[str]]:
     return home, sorted(parents - home_directories - {""})
 
 
+def listing_platform(home: str) -> str:
+    """Return `windows`, `macos` or `linux` for a listing's home, or "" when there is none."""
+    if DRIVE_RE.match(home):
+        return "windows"
+    if home.startswith("/Users/"):
+        return "macos"
+    if home.startswith("/home/"):
+        return "linux"
+    return ""
+
+
+def platform_entry(line: str, platform: str) -> str | None:
+    """Return a roots line without its platform prefix, or None for another platform's line."""
+    match = ROOT_PREFIX_RE.match(line)
+    if not match:
+        return line
+    prefix = match.group(1)
+    if prefix == platform or (prefix == "unix" and platform in ("linux", "macos")):
+        return line[match.end() :]
+    return None
+
+
+def expand_variables(entry: str, home: str, temporary: list[str]) -> list[str]:
+    """Return a roots path with each Windows `%VARIABLE%` expanded, one path per value.
+
+    `%USERPROFILE%` is the home, `%LOCALAPPDATA%` and `%APPDATA%` its `AppData/Local` and
+    `AppData/Roaming`, `%PROGRAMDATA%` `C:/ProgramData`, and `%TEMP%` and `%TMP%` give one path
+    per temporary directory. A path naming any other variable gives none, since its value cannot
+    be known from the listing.
+    """
+    values = {
+        "USERPROFILE": [home],
+        "LOCALAPPDATA": [home + "/AppData/Local"],
+        "APPDATA": [home + "/AppData/Roaming"],
+        "TEMP": temporary,
+        "TMP": temporary,
+        "PROGRAMDATA": ["C:/ProgramData"],
+    }
+    paths = [entry]
+    for name in VARIABLE_RE.findall(entry):
+        if name.upper() not in values:
+            return []
+        paths = [
+            path.replace("%" + name + "%", value)
+            for path in paths
+            for value in values[name.upper()]
+        ]
+    return paths
+
+
 def root_globs(roots_text: str, home: str, temporary: list[str]) -> list[str]:
     """Return the path globs of a roots file, `~` and `<tmp>` expanded as the survey expands them.
 
-    Every platform's lines are kept, since a listing does not name its platform; a `%VARIABLE%`
-    becomes `ANY_COMPONENTS`, and keychain, process and skip lines name no path.
+    Only the lines of the listing's own platform (from its home: `/home/` is Linux, `/Users/`
+    macOS, a drive letter Windows) are kept, with the unprefixed ones; keychain, process and skip
+    lines name no path, and a line naming a variable `expand_variables` does not know is skipped.
     """
+    platform = listing_platform(home)
     globs: list[str] = []
     for raw in roots_text.split("\n"):
-        entry = ROOT_PREFIX_RE.sub("", raw.strip())
+        entry = platform_entry(raw.strip(), platform)
         if not entry or entry.startswith(("#", "keychain:", "process:", "skip:")):
             continue
-        entry = VARIABLE_RE.sub(ANY_COMPONENTS, entry.replace("\\", "/"))
-        if entry == "~" or entry.startswith("~/"):
-            globs.append(home + entry[1:])
-        elif entry == "<tmp>" or entry.startswith("<tmp>/"):
-            globs += [directory + entry[5:] for directory in temporary]
-        else:
-            globs.append(entry)
+        for path in expand_variables(entry.replace("\\", "/"), home, temporary):
+            if path == "~" or path.startswith("~/"):
+                globs.append(home + path[1:])
+            elif path == "<tmp>" or path.startswith("<tmp>/"):
+                globs += [directory + path[5:] for directory in temporary]
+            else:
+                globs.append(path)
     return [glob.rstrip("/") for glob in globs if glob]
 
 
-def leading_match(parts: list[str], pattern: list[str]) -> bool:
-    """Return True when the glob components match the path components or a leading run of them.
+def covered(path: str, globs: list[str]) -> bool:
+    """Return True when one of the globs matches the path or a leading part of it.
 
     A component matches with `fnmatch.fnmatchcase`, so `*` stays inside one component as in a
-    shell glob; `ANY_COMPONENTS` matches one or more components.
+    shell glob.
     """
-    if not pattern:
-        return True
-    if not parts:
-        return False
-    if pattern[0] == ANY_COMPONENTS:
-        return any(leading_match(parts[skip:], pattern[1:]) for skip in range(1, len(parts) + 1))
-    return fnmatch.fnmatchcase(parts[0], pattern[0]) and leading_match(parts[1:], pattern[1:])
-
-
-def covered(path: str, globs: list[str]) -> bool:
-    """Return True when one of the globs matches the path or a leading part of it."""
     parts = slashed(path).split("/")
-    return any(leading_match(parts, glob.split("/")) for glob in globs)
+    for glob in globs:
+        pattern = glob.split("/")
+        if len(pattern) <= len(parts) and all(
+            fnmatch.fnmatchcase(part, piece) for part, piece in zip(parts, pattern, strict=False)
+        ):
+            return True
+    return False
 
 
 def drop_covered_tops(difference: Difference, after: Listing, roots_text: str) -> Difference:

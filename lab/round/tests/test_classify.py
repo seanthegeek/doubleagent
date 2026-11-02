@@ -147,17 +147,53 @@ def test_survey_bases_find_the_home_and_the_temporary_directories():
     assert classify.survey_bases(tops) == ("/Users/sean", ["/tmp", "/var/folders/ab/T"])
 
 
-def test_a_variable_spans_components_and_a_prefix_counts():
+def test_windows_roots_expand_their_variables_and_a_prefix_counts():
     globs = classify.root_globs(ROOTS, "C:/Users/sean", ["C:/Users/sean/AppData/Local/Temp"])
     cases = [
         ("C:\\Users\\sean\\AppData\\Roaming\\example-agent", True),
+        ("C:\\Users\\sean\\AppData\\Local\\example-agent", False),
         ("C:\\Users\\sean\\.gemini\\settings.json", True),
         ("C:\\Users\\sean\\AppData\\Local\\Temp\\gemini-client-error-1.json", True),
         ("C:\\Users\\sean\\AppData\\Local\\Temp\\gemini-other.json", False),
         ("C:\\Users\\sean\\.geminix", False),
+        ("C:\\Users\\sean\\.local\\share\\keyrings", False),
     ]
     for path, expected in cases:
         assert classify.covered(path, globs) is expected, path
+
+
+def test_each_windows_variable_expands():
+    roots = (
+        "windows:%USERPROFILE%/a\nwindows:%LOCALAPPDATA%/b\nwindows:%APPDATA%/c\n"
+        "windows:%TEMP%/d\nwindows:%TMP%/e\nwindows:%PROGRAMDATA%/f\nwindows:%OTHER%/g\n"
+    )
+    globs = classify.root_globs(roots, "C:/Users/sean", ["C:/T1", "C:/T2"])
+    assert globs == [
+        "C:/Users/sean/a",
+        "C:/Users/sean/AppData/Local/b",
+        "C:/Users/sean/AppData/Roaming/c",
+        "C:/T1/d",
+        "C:/T2/d",
+        "C:/T1/e",
+        "C:/T2/e",
+        "C:/ProgramData/f",
+    ]
+
+
+def test_one_platform_never_covers_another():
+    roots = (
+        "windows:%LOCALAPPDATA%/qwen-code\nlinux:~/.config/only-linux\n"
+        "macos:~/Library/only-mac\nunix:~/.unix-agent\n"
+    )
+    linux = classify.root_globs(roots, "/home/lab", ["/tmp"])
+    macos = classify.root_globs(roots, "/Users/lab", ["/tmp"])
+    windows = classify.root_globs(roots, "C:/Users/lab", ["C:/Users/lab/AppData/Local/Temp"])
+    assert linux == ["/home/lab/.config/only-linux", "/home/lab/.unix-agent"]
+    assert macos == ["/Users/lab/Library/only-mac", "/Users/lab/.unix-agent"]
+    assert windows == ["C:/Users/lab/AppData/Local/qwen-code"]
+    assert not classify.covered("/home/lab/.cache/qwen-code", linux)
+    assert not classify.covered("C:\\Users\\lab\\.config\\only-linux", windows)
+    assert classify.listing_platform("") == ""
 
 
 def test_main_reads_the_roots_file(tmp_path, capsys):
