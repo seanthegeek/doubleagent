@@ -97,3 +97,74 @@ def test_human_size():
     ]
     for size, expected in cases:
         assert classify.human_size(size) == expected, size
+
+
+ROOTS = """# synthetic roots
+~/.gemini
+<tmp>/gemini-client-error-*.json
+linux:~/.local/share/keyrings
+windows:%APPDATA%/example-agent
+keychain:gemini-cli-oauth
+process:gemini
+"""
+TOP_BEFORE = [
+    "top\tdir\t4096\t755\tt\t/home/sean/.config\n",
+    "top\tdir\t4096\t755\tt\t/home/sean/.local/share/applications\n",
+    "top\tdir\t4096\t755\tt\t/tmp/systemd-private\n",
+]
+TOP_AFTER = [
+    *TOP_BEFORE,
+    "top\tfile\t300\t644\tt\t/tmp/gemini-client-error-Turn.run-2026-11-01T10-00-00.json\n",
+    "top\tfile\t300\t644\tt\t/tmp/other-error.json\n",
+    "top\tdir\t4096\t700\tt\t/home/sean/.local/share/keyrings\n",
+    "top\tdir\t4096\t755\tt\t/home/sean/.npm\n",
+    "top\tdir\t4096\t755\tt\t/home/sean/.gemini\n",
+]
+
+
+def test_roots_leave_covered_top_names_out():
+    before = classify.parse_listing(TOP_BEFORE)
+    after = classify.parse_listing(TOP_AFTER)
+    found = classify.drop_covered_tops(classify.compare(before, after), after, ROOTS)
+    assert found.new_tops == ["/home/sean/.npm", "/tmp/other-error.json"]
+    text = classify.render(found, before, after, True)
+    assert "gemini-client-error" not in text and "+ /home/sean/.npm" in text
+
+
+def test_without_roots_every_new_top_name_shows():
+    before = classify.parse_listing(TOP_BEFORE)
+    after = classify.parse_listing(TOP_AFTER)
+    assert len(classify.compare(before, after).new_tops) == 5
+
+
+def test_survey_bases_find_the_home_and_the_temporary_directories():
+    tops = [
+        "/Users/sean/Library/Caches/x",
+        "/Users/sean/.npm",
+        "/var/folders/ab/T/tmp-1",
+        "/tmp/y",
+    ]
+    assert classify.survey_bases(tops) == ("/Users/sean", ["/tmp", "/var/folders/ab/T"])
+
+
+def test_a_variable_spans_components_and_a_prefix_counts():
+    globs = classify.root_globs(ROOTS, "C:/Users/sean", ["C:/Users/sean/AppData/Local/Temp"])
+    cases = [
+        ("C:\\Users\\sean\\AppData\\Roaming\\example-agent", True),
+        ("C:\\Users\\sean\\.gemini\\settings.json", True),
+        ("C:\\Users\\sean\\AppData\\Local\\Temp\\gemini-client-error-1.json", True),
+        ("C:\\Users\\sean\\AppData\\Local\\Temp\\gemini-other.json", False),
+        ("C:\\Users\\sean\\.geminix", False),
+    ]
+    for path, expected in cases:
+        assert classify.covered(path, globs) is expected, path
+
+
+def test_main_reads_the_roots_file(tmp_path, capsys):
+    (tmp_path / "before.txt").write_text("".join(TOP_BEFORE), encoding="utf-8")
+    (tmp_path / "after.txt").write_text("".join(TOP_AFTER), encoding="utf-8")
+    (tmp_path / "roots").write_text(ROOTS, encoding="utf-8")
+    arguments = ["--roots", str(tmp_path / "roots"), str(tmp_path / "before.txt")]
+    assert classify.main([*arguments, str(tmp_path / "after.txt")]) == 0
+    printed = capsys.readouterr().out
+    assert "gemini-client-error" not in printed and "/tmp/other-error.json" in printed

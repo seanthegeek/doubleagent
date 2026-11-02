@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Diff two listings of a lab VM and group what one round step wrote.
 
-    python3 -I classify.py [--redact] listings/03-sign-in.txt listings/04-question.txt
+    python3 -I classify.py [--redact] [--roots ROOTS] listings/03-sign-in.txt listings/04-question.txt
 
 Reads the tab-separated lines lib/survey.sh and lib/survey.ps1 print, `<kind> <size> <mode>
 <mtime> <path>`, and prints, grouped by the first two path components under the home (else under
@@ -10,7 +10,8 @@ the root):
   ADDED    paths only in the later listing
   REMOVED  paths only in the earlier one
   CHANGED  paths whose size, mode or modification time moved; a directory only when its mode did
-  TOP      top-level names that appeared or went away (the `top` lines): a directory no survey root
+  TOP      top-level names that appeared or went away (the `top` lines) that no path of the cell's
+           roots file (--roots) matches, itself or by a leading part: a directory no survey root
            covers, to add to the agent's roots file
   STATE    credential-store items and process counts that changed
 
@@ -23,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import fnmatch
 import re
 import sys
 from collections import defaultdict
@@ -32,6 +34,26 @@ UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{
 HEX_RE = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{32,}(?![0-9a-fA-F])")
 HOME_RE = re.compile(r"^(?:[A-Za-z]:)?/(?:Users|home)/[^/]+/(.*)$")
 STATE_KINDS = frozenset({"keychain", "process"})
+# The home-relative directories whose entries lib/survey.sh and lib/survey.ps1 print as `top`
+# lines; the parent of any other `top` line is a temporary directory.
+HOME_TOP_DIRECTORIES = (
+    "",
+    ".config",
+    ".local/share",
+    ".local/state",
+    ".local/bin",
+    ".cache",
+    "Library/Application Support",
+    "Library/Caches",
+    "AppData/Local",
+    "AppData/Roaming",
+    "AppData/Local/Programs",
+    "AppData/Local/Packages",
+)
+ROOT_PREFIX_RE = re.compile(r"^(?:linux|macos|unix|windows):")
+VARIABLE_RE = re.compile(r"%[A-Za-z_][A-Za-z0-9_]*%")
+# A glob component standing for a %VARIABLE%, which spans one or more path components.
+ANY_COMPONENTS = "**"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -175,6 +197,82 @@ def render_section(
     return lines
 
 
+def slashed(path: str) -> str:
+    """Return a listing path with backslashes as slashes and a link's target removed."""
+    return path.split(" -> ", 1)[0].replace("\\", "/").rstrip("/")
+
+
+def survey_bases(tops: Iterable[str]) -> tuple[str, list[str]]:
+    """Return the home and the temporary directories that the `top` paths of a listing lie in.
+
+    The home is the `/home/<user>` or `/Users/<user>` part of the first path under one; a
+    temporary directory is the parent of a `top` path outside `HOME_TOP_DIRECTORIES`.
+    """
+    paths = [slashed(path) for path in tops]
+    home = ""
+    for path in paths:
+        match = HOME_RE.match(path)
+        if match:
+            home = path[: len(path) - len(match.group(1))].rstrip("/")
+            break
+    home_directories = {("%s/%s" % (home, name)).rstrip("/") for name in HOME_TOP_DIRECTORIES}
+    parents = {path.rsplit("/", 1)[0] for path in paths if "/" in path}
+    return home, sorted(parents - home_directories - {""})
+
+
+def root_globs(roots_text: str, home: str, temporary: list[str]) -> list[str]:
+    """Return the path globs of a roots file, `~` and `<tmp>` expanded as the survey expands them.
+
+    Every platform's lines are kept, since a listing does not name its platform; a `%VARIABLE%`
+    becomes `ANY_COMPONENTS`, and keychain, process and skip lines name no path.
+    """
+    globs: list[str] = []
+    for raw in roots_text.split("\n"):
+        entry = ROOT_PREFIX_RE.sub("", raw.strip())
+        if not entry or entry.startswith(("#", "keychain:", "process:", "skip:")):
+            continue
+        entry = VARIABLE_RE.sub(ANY_COMPONENTS, entry.replace("\\", "/"))
+        if entry == "~" or entry.startswith("~/"):
+            globs.append(home + entry[1:])
+        elif entry == "<tmp>" or entry.startswith("<tmp>/"):
+            globs += [directory + entry[5:] for directory in temporary]
+        else:
+            globs.append(entry)
+    return [glob.rstrip("/") for glob in globs if glob]
+
+
+def leading_match(parts: list[str], pattern: list[str]) -> bool:
+    """Return True when the glob components match the path components or a leading run of them.
+
+    A component matches with `fnmatch.fnmatchcase`, so `*` stays inside one component as in a
+    shell glob; `ANY_COMPONENTS` matches one or more components.
+    """
+    if not pattern:
+        return True
+    if not parts:
+        return False
+    if pattern[0] == ANY_COMPONENTS:
+        return any(leading_match(parts[skip:], pattern[1:]) for skip in range(1, len(parts) + 1))
+    return fnmatch.fnmatchcase(parts[0], pattern[0]) and leading_match(parts[1:], pattern[1:])
+
+
+def covered(path: str, globs: list[str]) -> bool:
+    """Return True when one of the globs matches the path or a leading part of it."""
+    parts = slashed(path).split("/")
+    return any(leading_match(parts, glob.split("/")) for glob in globs)
+
+
+def drop_covered_tops(difference: Difference, after: Listing, roots_text: str) -> Difference:
+    """Return the difference without the `top` paths that a path of the roots file covers."""
+    home, temporary = survey_bases(sorted(after.tops) + difference.gone_tops)
+    globs = root_globs(roots_text, home, temporary)
+    return dataclasses.replace(
+        difference,
+        new_tops=[path for path in difference.new_tops if not covered(path, globs)],
+        gone_tops=[path for path in difference.gone_tops if not covered(path, globs)],
+    )
+
+
 def render(difference: Difference, before: Listing, after: Listing, redacting: bool) -> str:
     """Return the printable diff."""
     lines = render_section("ADDED", difference.added, after.entries, redacting)
@@ -201,12 +299,17 @@ def main(arguments: list[str] | None = None) -> int:
     """Run the command line; return the exit status."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     parser.add_argument("--redact", action="store_true", help="print UUIDs and hex runs as classes")
+    parser.add_argument("--roots", help="the cell's roots file; the TOP hint leaves its paths out")
     parser.add_argument("before")
     parser.add_argument("after")
     options = parser.parse_args(arguments)
     before = load_listing(options.before)
     after = load_listing(options.after)
-    sys.stdout.write(render(compare(before, after), before, after, options.redact))
+    difference = compare(before, after)
+    if options.roots:
+        with open(options.roots, encoding="utf-8") as handle:
+            difference = drop_covered_tops(difference, after, handle.read())
+    sys.stdout.write(render(difference, before, after, options.redact))
     return 0
 
 
