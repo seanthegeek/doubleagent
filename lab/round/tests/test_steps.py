@@ -333,31 +333,69 @@ def test_agent_assignments_are_shell_words(tmp_path):
     text = line("02", "start", "agent", "API_KEY='secret:API_KEY' LABEL='two words'", "-", "c")
     text += line("03", "here", "agent", "in:. A=x\\ y", "-", "c")
     text += line("04", "open", "agent", "A='unterminated gemini", "-", "c")
-    text += line("05", "note", "agent", "KEY='secret:API_KEY' # explanation", "-", "c")
-    text += line("06", "semi", "agent", "KEY='secret:API_KEY' ;", "-", "c")
-    text += line("07", "pipe", "agent", "gemini | tee log", "-", "c")
-    text += line("08", "redirect", "agent", "KEY='secret:API_KEY' >&2", "-", "c")
-    text += line("09", "both", "agent", "KEY='secret:API_KEY' <>/dev/null", "-", "c")
-    text += line("10", "clobber", "agent", "KEY='secret:API_KEY' >|/tmp/x", "-", "c")
-    text += line("11", "dup", "agent", "KEY='secret:API_KEY' <&0", "-", "c")
     assert problems_of(text, tmp_path) == [
         "agent needs a command after LABEL=two words",
         "agent needs a command after A=x y",
         "agent text is not shell words (No closing quotation)",
-        "agent text holds #, an operator or comment the guest's shell would obey",
-        "agent text holds ;, an operator or comment the guest's shell would obey",
-        "agent text holds |, an operator or comment the guest's shell would obey",
-        "agent text holds >&, an operator or comment the guest's shell would obey",
-        "agent text holds <>, an operator or comment the guest's shell would obey",
-        "agent text holds >|, an operator or comment the guest's shell would obey",
-        "agent text holds <&, an operator or comment the guest's shell would obey",
     ]
 
 
+def test_agent_rejects_what_the_shell_would_obey_outside_quotes(tmp_path):
+    accepted = ["gemini -p ';'", "gemini -p '#1 question'", 'gemini -p "a | b"', "gemini -x=a#b"]
+    for text in accepted:
+        steps_text = line("02", "start", "agent", text, "-", "c")
+        assert problems_of(steps_text, tmp_path) == [], text
+    cases = [
+        ("KEY='secret:API_KEY' # explanation", "#"),
+        ("KEY='secret:API_KEY' ;", ";"),
+        ("gemini | tee log", "|"),
+        ("KEY='secret:API_KEY' >&2", ">"),
+        ("KEY='secret:API_KEY' <>/dev/null", "<"),
+        ("KEY='secret:API_KEY' $(true)", "$("),
+        ("KEY='secret:API_KEY' `true`", "`"),
+        ('gemini -p "x$(id)"', "$("),
+        ('gemini -p "x`id`"', "`"),
+    ]
+    for text, found in cases:
+        steps_text = line("02", "start", "agent", text, "-", "c")
+        expected = "agent text holds %s outside quotes, which the guest's shell would obey" % found
+        assert problems_of(steps_text, tmp_path) == [expected], text
+
+
+def test_agent_program_is_not_an_expansion(tmp_path):
+    for text in ("KEY='secret:API_KEY' $CMD", "in:. ${CMD}", "$1 --flag"):
+        steps_text = line("02", "start", "agent", text, "-", "c")
+        word = text.split()[-1 if text.endswith(("CMD", "}")) else -2]
+        expected = "agent needs a program, not %s, which may expand to nothing" % word
+        assert problems_of(steps_text, tmp_path) == [expected], text
+    steps_text = line("02", "start", "agent", "KEY='secret:API_KEY' $HOME/bin/gemini", "-", "c")
+    assert problems_of(steps_text, tmp_path) == []
+
+
+def test_secret_tokens_go_in_single_quotes(tmp_path):
+    text = line("02", "start", "agent", "KEY=secret:API_KEY gemini", "-", "c")
+    text += line("03", "dq", "agent", 'KEY="secret:API_KEY" gemini', "-", "c")
+    text += line("04", "write", "command", "echo secret:API_KEY >f", "-", "c")
+    text += line("05", "fine", "command", "echo 'secret:API_KEY' >f", "-", "c")
+    assert problems_of(text, tmp_path) == [
+        "agent text holds secret: outside single quotes; the token goes in them",
+        "agent text holds secret: outside single quotes; the token goes in them",
+        "command text holds secret: outside single quotes; the token goes in them",
+    ]
+
+
+def test_agent_and_command_texts_parse_under_sh(tmp_path):
+    text = line("02", "write", "command", "printf 'K=%s\\n' 'secret:API_KEY' >", "-", "c")
+    text += line("03", "start", "agent", "gemini --prompt 'a' 'b", "-", "c")
+    found = problems_of(text, tmp_path)
+    assert len(found) == 2 and found[0].startswith("command text fails sh -n ("), found
+    assert found[1] == "agent text is not shell words (No closing quotation)", found
+
+
 def test_secret_tokens_name_an_upper_case_variable(tmp_path):
-    text = line("02", "start", "agent", "KEY=secret:lower gemini", "-", "c")
-    text += line("03", "write", "command", "echo secret:API_KEY secret: >f", "-", "c")
-    text += line("04", "fine", "command", "echo secret:API_KEY_2 >f", "-", "c")
+    text = line("02", "start", "agent", "KEY='secret:lower' gemini", "-", "c")
+    text += line("03", "write", "command", "echo 'secret:API_KEY' 'secret:' >f", "-", "c")
+    text += line("04", "fine", "command", "echo 'secret:API_KEY_2' >f", "-", "c")
     text += line("05", "said", "prompt", "what is secret:lower?", "-", "c")
     assert problems_of(text, tmp_path) == [
         "secret:lower is not the upper-case name of a variable of the credentials file",

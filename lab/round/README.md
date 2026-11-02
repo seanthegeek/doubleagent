@@ -329,11 +329,14 @@ words in the VM, so the token goes in single quotes
 (`'secret:NAME'`); a value holding a single quote stops the run at the
 step, since the guest's shell would echo the broken line into the
 step's output file. `steps.py check` reads an `agent` line as shell
-words and reports one with no command after its assignments, or with
-a word the shell would obey before the program (`;`, `|`, `&`, a
-redirection, a `#` comment), since `env` with no command would print
-the environment, the value in it, into the terminal; it also reports a
-token whose name is not upper case. The pipeline replaces the token just before the step runs and
+words and reports one with no command after its assignments, a
+program that is one parameter expansion (`$CMD`, which may expand to
+nothing), or an operator, a `#` comment or a command substitution
+outside quotes, since `env` with no program would print the
+environment, the value in it, into the terminal; in both kinds it
+reports a token outside single quotes, a token whose name is not upper
+case, and a text `sh -n` rejects, since the guest's bash quotes a
+broken line, by then expanded, into the step's output file. The pipeline replaces the token just before the step runs and
 sends the result over the `ssh` stdin, as a `secret` step's value
 travels: `round.log` shows the line it sent with the token in place of
 the value (for an `agent` step, with `in:<dir>` removed and, on Linux
