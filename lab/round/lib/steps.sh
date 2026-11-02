@@ -4,11 +4,11 @@
 # screen.sh on the analyst machine and by the round pipeline's tests.
 #
 # Calls drive, capture_screen, wait_for, state_get, state_set, round_log,
-# die, guest_copy and paste_source, which round.sh and vm.sh define and a
-# test replaces with stubs. Reads the globals CELL, HERE, STEP_NUMBER,
-# STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT, AGENT_OPTION,
-# AGENT_INPUT_GUARD, TURN_SECONDS, ROUND_STOP_AFTER and ROUND_ENV, and sets
-# STEP_NOTE.
+# die, guest_copy, guest_shell, end_session and paste_source, which round.sh
+# and vm.sh define and a test replaces with stubs. Reads the globals CELL,
+# HERE, GUEST_OS, STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT,
+# AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS, TERMINAL_COLS,
+# TERMINAL_ROWS, ROUND_STOP_AFTER and ROUND_ENV, and sets STEP_NOTE.
 
 # The globals above come from round.sh, which also calls every function.
 # shellcheck disable=SC2153,SC2154,SC2329
@@ -412,12 +412,21 @@ secret_value() {
   sed -n "s/^$1=//p" "$(secrets_file)" | tail -n 1 | tr -d '\r'
 }
 
-# Print the name of every `secret` step of the steps file $1 numbered $2
-# or above whose variable has no value in secrets_file, one per line, so
-# a run stops before its first step rather than at the sign-in.
+# Print the name of every variable that a `secret` step, or a secret:NAME
+# token in an `agent` or `command` step, of the steps file $1 numbered $2
+# or above reads and secrets_file leaves without a value, one per line and
+# once each, so a run stops before its first step rather than at the step.
 missing_secrets() {
-  awk -F '	' -v from="$2" '$0 !~ /^#/ && NF > 0 && $1 != "NN" &&
-    $1 + 0 >= from + 0 && $3 == "secret" { print $4 }' "$1" |
+  awk -F '	' -v from="$2" '$0 !~ /^#/ && NF > 0 && $1 != "NN" && $1 + 0 >= from + 0 {
+    if ($3 == "secret" && !seen[$4]++) print $4
+    if ($3 != "agent" && $3 != "command") next
+    text = $4
+    while (match(text, /secret:[A-Z][A-Z0-9_]*/)) {
+      name = substr(text, RSTART + 7, RLENGTH - 7)
+      if (!seen[name]++) print name
+      text = substr(text, RSTART + RLENGTH)
+    }
+  }' "$1" |
     while IFS= read -r _ms_name; do
       [ -n "$(secret_value "$_ms_name")" ] || printf '%s\n' "$_ms_name"
     done
@@ -456,6 +465,93 @@ send_secret() {
   drive keys Enter </dev/null >/dev/null || return 1
   STEP_NOTE="typed $STEP_TEXT from $(secrets_file)"
   wait_for "$STEP_EXPECT" marker >/dev/null || expectation_missed
+}
+
+# Set _ret_expanded to the text $1 with every secret:NAME token (NAME an
+# upper-case variable of secrets_file) replaced by that variable's value,
+# verbatim; die when a token's variable has no value or holds a single
+# quote, which would end the quotes the table puts around the token and
+# let the guest's shell echo the line into a screen file. The text is
+# split at each token in sh, never by sed, since a value may hold
+# characters a sed pattern or replacement treats as special.
+# Temporaries _exs_.
+expand_secrets() {
+  _exs_rest=$1
+  _ret_expanded=
+  while :; do
+    case $_exs_rest in
+      *secret:*) ;;
+      *) break ;;
+    esac
+    _exs_before=${_exs_rest%%secret:*}
+    _exs_rest=${_exs_rest#*secret:}
+    _exs_name=$(expr "X$_exs_rest" : 'X\([A-Z][A-Z0-9_]*\)')
+    if [ -z "$_exs_name" ]; then
+      _ret_expanded=${_ret_expanded}${_exs_before}secret:
+      continue
+    fi
+    _exs_value=$(secret_value "$_exs_name")
+    [ -n "$_exs_value" ] || die "$_exs_name has no value in $(secrets_file)"
+    case $_exs_value in
+      *\'*) die "the value of $_exs_name in $(secrets_file) holds a single quote" ;;
+    esac
+    _ret_expanded=$_ret_expanded$_exs_before$_exs_value
+    _exs_rest=${_exs_rest#"$_exs_name"}
+  done
+  _ret_expanded=$_ret_expanded$_exs_rest
+}
+
+# Split the `agent` step text $1 into _ret_directory, the directory below
+# the home an opening `in:<dir>` word names (lab/proj without one), and
+# _ret_command, the command line after it. On a guest other than Windows a
+# line opening with a NAME=value word gets `env ` in front, since drive.sh
+# runs the line's first word as the program; a Windows table writes the
+# PowerShell form itself. Reads GUEST_OS; temporaries _acl_.
+agent_command_line() {
+  _ret_directory=lab/proj
+  _ret_command=$1
+  case $_ret_command in
+    in:*)
+      _ret_directory=${_ret_command%% *}
+      _ret_directory=${_ret_directory#in:}
+      _ret_command=${_ret_command#* }
+      _ret_command=${_ret_command#"${_ret_command%%[! ]*}"}
+      ;;
+  esac
+  [ "${GUEST_OS:-}" != windows ] || return 0
+  _acl_word=${_ret_command%% *}
+  case $_acl_word in
+    *=*) ;;
+    *) return 0 ;;
+  esac
+  case ${_acl_word%%=*} in
+    '' | [!A-Za-z_]* | *[!A-Za-z0-9_]*) return 0 ;;
+  esac
+  _ret_command="env $_ret_command"
+}
+
+# The `agent` kind: stop the open session and start the step text $1
+# (agent_command_line) as session s<STEP_NUMBER>. The log keeps the line
+# as written, secret:NAME tokens included; only the drive call's stdin
+# gets their values (expand_secrets), as a `secret` step's value travels.
+start_agent() {
+  agent_command_line "$1"
+  expand_secrets "$_ret_command"
+  end_session
+  state_set session "s$STEP_NUMBER"
+  round_log "start session s$STEP_NUMBER in ~/$_ret_directory: $_ret_command"
+  printf '%s\n' "$_ret_expanded" |
+    drive start "${TERMINAL_COLS:-120}" "${TERMINAL_ROWS:-40}" "$_ret_directory"
+}
+
+# The `command` kind: run STEP_TEXT in the guest's shell, its output saved
+# as screens/<step>.command.txt. The log keeps the text as written; only
+# the shell's stdin gets the secret:NAME values (expand_secrets).
+run_command() {
+  expand_secrets "$STEP_TEXT"
+  round_log "command: $STEP_TEXT"
+  printf '%s\n' "$_ret_expanded" |
+    guest_shell >"$CELL/screens/$STEP_NUMBER-$STEP_NAME.command.txt" 2>&1
 }
 
 # Set _ret_status (done, missed or failed) and _ret_note for the step just

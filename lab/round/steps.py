@@ -14,7 +14,10 @@ the cell's `next` at them. The rules are the ones round.sh relies on: every fiel
 zero-padded to one width and rising from 02 (00 and 01 are the baseline and install listings), a
 known kind with the text it needs (a `dialog` or `choose` pattern grep -E reads), a session open
 for every step that types into one, an expectation grep -E, PowerShell and Python all read the
-same way, and every slash command used after the step that reads its subcommands.
+same way, every slash command used after the step that reads its subcommands, and an `agent` or
+`command` text the guest's shell runs as written (`sh -n` parses it, a credentials token sits in
+single quotes, and an `agent` line names a program after its assignments with nothing outside
+quotes the shell would obey).
 
 Standard library only.
 """
@@ -25,6 +28,8 @@ import argparse
 import dataclasses
 import pathlib
 import re
+import shlex
+import subprocess
 import sys
 
 KINDS = (
@@ -67,6 +72,20 @@ NUMBER_RE = re.compile(r"\d{2,3}")
 NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 # The variable a `secret` step reads from the credentials file.
 VARIABLE_RE = re.compile(r"[A-Z][A-Z0-9_]*")
+# A token of an `agent` or `command` text that round.sh replaces with a credentials file value;
+# the group is checked against VARIABLE_RE, so a lower-case or empty name is reported.
+TOKEN_RE = re.compile(r"secret:([A-Za-z0-9_]*)")
+# An environment assignment word an `agent` text may put before its command.
+ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+# The characters the shell reads as operators outside quotes; with a `#` opening a word, a
+# backtick and `$(`, any of them outside quotes ends or changes the command the drive runs
+# before the program the text names.
+OPERATOR_CHARACTERS = frozenset(";&|<>()")
+# A command word that is one parameter expansion, which the shell may expand to nothing,
+# leaving `env` without a program.
+EXPANSION_WORD_RE = re.compile(
+    r"\$(\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*|[@*#?$!0-9-])"
+)
 # Escapes that grep -E, .NET and Python do not agree on.
 NON_PORTABLE_RE = re.compile(r"\\[dDwWsSbB]")
 # A `type` step that reads a slash command's subcommands: the command and one trailing space.
@@ -133,6 +152,81 @@ def expect_problem(expect: str) -> str | None:
     return pattern_problem(expect, "expect")
 
 
+def shell_words(text: str) -> list[str]:
+    """Return the POSIX shell words of `text`, operators as words and `#` kept.
+
+    Raises:
+        ValueError: when a quote is not closed.
+    """
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    return list(lexer)
+
+
+def shell_hazard(text: str, operators: bool) -> str | None:
+    """Return the first thing in `text` the guest's shell would obey, or None.
+
+    A `secret:` outside single quotes is returned as `secret:`, since the value put in its
+    place must stay one literal word. With `operators` set, an operator character or a `#`
+    opening a word outside quotes, and a backtick or `$(` outside single quotes, are returned
+    as found; a `command` text is a shell command and may hold them.
+    """
+    quote = ""
+    word_start = True
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if quote != "'" and text.startswith("secret:", index):
+            return "secret:"
+        if quote == "'":
+            quote = "" if character == "'" else quote
+        elif character == "\\":
+            index += 1
+        elif quote == '"':
+            if character == '"':
+                quote = ""
+            elif operators and (character == "`" or text.startswith("$(", index)):
+                return "$(" if character == "$" else "`"
+        elif character in "'\"":
+            quote = character
+        elif operators and (character in OPERATOR_CHARACTERS or character == "`"):
+            return character
+        elif operators and text.startswith("$(", index):
+            return "$("
+        elif operators and character == "#" and word_start:
+            return "#"
+        word_start = quote == "" and character in " \t"
+        index += 1
+    return None
+
+
+def shell_syntax_problem(text: str) -> str | None:
+    """Return what `sh -n` says against `text`, its first line, or None when it parses."""
+    result = subprocess.run(["sh", "-n", "-c", text], capture_output=True, text=True, check=False)
+    if result.returncode == 0:
+        return None
+    lines = result.stderr.strip().splitlines()
+    first = lines[0] if lines else "exit %d" % result.returncode
+    return re.sub(r"^sh: (-c: )?(line \d+: )?", "", first)
+
+
+def program_problem(step: Step) -> str | None:
+    """Return why an `agent` text names no program the shell would run, or None."""
+    try:
+        words = shell_words(step.text)
+    except ValueError as error:
+        return "agent text is not shell words (%s)" % error
+    position = 1 if words and words[0].startswith("in:") else 0
+    while position < len(words) and ASSIGNMENT_RE.match(words[position]):
+        position += 1
+    if position == len(words):
+        return "agent needs a command after %s" % (words[-1] if words else "in:")
+    if EXPANSION_WORD_RE.fullmatch(words[position]):
+        return "agent needs a program, not %s, which may expand to nothing" % words[position]
+    return None
+
+
 def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
     """Return why a step's text does not fit its kind, or None when it does."""
     if step.kind in NO_TEXT:
@@ -160,13 +254,27 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
         file_name = step.text.split(" ", 1)[0]
         if not any((directory / file_name).is_file() for directory in paste_dirs):
             return "no paste file %s" % file_name
-    elif step.kind == "secret":
-        if not VARIABLE_RE.fullmatch(step.text):
-            return "secret takes the upper-case name of a variable of the credentials file"
-    elif step.kind == "agent":
-        words = step.text.split()
-        if words[0].startswith("in:") and len(words) < 2:
-            return "agent needs a command after %s" % words[0]
+    elif step.kind == "secret" and not VARIABLE_RE.fullmatch(step.text):
+        return "secret takes the upper-case name of a variable of the credentials file"
+    if step.kind in ("agent", "command"):
+        bad = [name for name in TOKEN_RE.findall(step.text) if not VARIABLE_RE.fullmatch(name)]
+        if bad:
+            return (
+                "secret:%s is not the upper-case name of a variable of the credentials file"
+                % (bad[0])
+            )
+        hazard = shell_hazard(step.text, operators=step.kind == "agent")
+        if hazard == "secret:":
+            return "%s text holds secret: outside single quotes; the token goes in them" % step.kind
+        if hazard is not None:
+            return "agent text holds %s outside quotes, which the guest's shell would obey" % hazard
+        if step.kind == "agent":
+            problem = program_problem(step)
+            if problem is not None:
+                return problem
+        syntax = shell_syntax_problem(step.text)
+        if syntax is not None:
+            return "%s text fails sh -n (%s)" % (step.kind, syntax)
     return None
 
 

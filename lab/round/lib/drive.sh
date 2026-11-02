@@ -23,7 +23,8 @@ set -u
 tui=$HOME/lab/tui-test/tui-test
 # tui-test keeps a session's asciicast only when its config names a
 # recording directory and turns tracing on; relative directories resolve
-# beside the file, so both stay under ~/lab, outside every survey root.
+# beside the file, so both stay under ~/lab/tui-test, which no survey
+# root reaches.
 config=$HOME/lab/tui-test/tui-test.toml
 session=${1:?session}
 verb=${2:?verb}

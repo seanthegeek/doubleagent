@@ -123,9 +123,12 @@ goes in the credentials file `.env` beside `round.sh`, copied from
 `.env.example` and ignored by git, one `NAME=value` line per credential
 with the value as it is; a `secret` step types the named value into the
 agent's dialog over `ssh`, so the ssh sign-in of such an agent needs no
-one at the VM. `start` and `resume` stop before their first step when a
-`secret` step ahead names a variable the file leaves empty. A sign-in
-with a browser part stays a `pause` for the person.
+one at the VM. A credential the agent reads from an environment variable
+or a file instead leaves `.env` through a `secret:NAME` token in an
+`agent` or `command` step ([The step table](#the-step-table)). `start`
+and `resume` stop before their first step when a `secret` step or a token
+ahead names a variable the file leaves empty. A sign-in with a browser
+part stays a `pause` for the person.
 
 ### The cell directory
 
@@ -266,9 +269,14 @@ channel sessions are relays through a messaging platform); pi has no
 permission modes, no scheduled task, no synced session (`/share` is left
 out too) and no source-host integration. A resumed session after a
 relaunch is the same terminal program for all three, so the `/exit` and
-resume steps cover it. Every step that drives the agent over `ssh` comes
-before the sign-out and the desktop sign-in; the reboot and the desktop
-login follow them, and the idle period comes after the delete steps, as
+resume steps cover it. Every step that needs the credential the ssh
+sign-in stored comes before the sign-out; the steps that hand the agent
+a credential another way (an environment variable, a dotfile) follow
+the sign-out, so their listings show it stored nowhere else, and all of
+them come before the desktop sign-in; the reboot and the desktop login
+follow, with a variable that decides between the credential store and
+its file fallback exercised over `ssh` after that login, when the store
+is reachable, and the idle period comes after the delete steps, as
 AGENTS.md lists them. Run `collect` after the last step, before `finish`.
 
 Before its first use, every slash command a table uses has a
@@ -281,7 +289,7 @@ double Escape on an empty input can open a rewind picker. `steps.py
 check` reports a slash command used before that step and a subcommand
 step no `clear` step follows directly.
 
-Every agent that signs in closes the `ssh`-driven part of its table with
+Every agent that signs in ends the use of its stored credential with
 the agent's own sign-out command or dialog option, taken from that
 completion list or its research document and run over `ssh` with a
 listing (Gemini CLI's `/auth signout`, Qwen Code's `/auth` dialog, pi's
@@ -300,6 +308,48 @@ stored credential the way a user would (Passwords and Keys on Ubuntu,
 Keychain Access on macOS, Credential Manager on Windows). An agent that
 only reads a key from the environment or a file the person writes has
 neither step.
+
+An `agent` step may set environment variables for the agent with
+`NAME=value` words before its command (after `in:<dir>` when there is
+one), as a person would type them: the pipeline puts `env` in front of
+the line on Linux and macOS, and `$HOME` in a value expands in the VM.
+The tables are written for the Linux and macOS shells, as their
+`command` steps are, and `steps.py check` reads an `agent` line with
+the POSIX shell's rules; a Windows cell, where the line goes to
+`powershell -Command` unchanged and no `env` is added, has no table
+form yet
+([issue 437](https://github.com/seanthegeek/doubleagent/issues/437)).
+A `secret:NAME`
+token in an `agent` or `command` text
+(`GEMINI_API_KEY='secret:GEMINI_API_KEY' gemini`, or a `printf` that
+writes the key into the agent's dotfile) stands for the value of the
+variable `NAME` of the credentials file ([Accounts](#accounts)),
+inserted as written with no quoting added: both kinds are read as shell
+words in the VM, so the token goes in single quotes
+(`'secret:NAME'`); a value holding a single quote stops the run at the
+step, since the guest's shell would echo the broken line into the
+step's output file. `steps.py check` reads an `agent` line as shell
+words and reports one with no command after its assignments, a
+program that is one parameter expansion (`$CMD`, which may expand to
+nothing), or an operator, a `#` comment or a command substitution
+outside quotes, since `env` with no program would print the
+environment, the value in it, into the terminal; in both kinds it
+reports a token outside single quotes, a token whose name is not upper
+case, and a text `sh -n` rejects, since the guest's bash quotes a
+broken line, by then expanded, into the step's output file. The pipeline replaces the token just before the step runs and
+sends the result over the `ssh` stdin, as a `secret` step's value
+travels: `round.log` shows the line it sent with the token in place of
+the value (for an `agent` step, with `in:<dir>` removed and, on Linux
+and macOS, `env` added), and the files the pipeline writes itself
+(`round.log`, `steps.log`, `report.md` and the step notes) never hold
+the value, and a screen capture holds it only where the agent showed
+it. In the VM the value is part of
+the agent's command line, and so of the processes that start it
+(tui-test, and `env` on Linux and macOS), or of the shell's input; the
+terminal recording and the screen captures hold whatever the terminal
+showed, as for a `secret` step. Write no command whose output shows the
+value: `screens/NN-name.command.txt` keeps what a `command` step
+prints.
 
 An `agent` step that may raise a trust dialog is followed by its steps:
 for Gemini CLI and Qwen Code a start in a directory not yet trusted (the
@@ -381,7 +431,7 @@ table; `start` and `resume` refuse one that fails.
 
 | Kind | `text` | What the step does |
 | --- | --- | --- |
-| `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's. |
+| `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) and `NAME=value` words that set environment variables (Linux and macOS; no Windows table form yet); `secret:NAME` tokens as described above the table | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's; `NAME=value` words run it under `env`. |
 | `prompt` | the prompt | Types the text, presses Enter and waits; a dialog open is closed with Escape first, and with the mark set it types nothing and is `missed`, as described above the table. |
 | `type` | text | Types the text without Enter and waits. |
 | `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started, one Up at a time until the cursor is on the option it started on (`cursor not returned` and the mark set when it never gets there); the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
@@ -391,7 +441,7 @@ table; `start` and `resume` refuse one that fails.
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; keys that include Enter are not sent, and the step is `missed`, while the mark described above the table is set; a failed drive call sets the mark. |
 | `secret` | the upper-case name of a variable of the credentials file ([Accounts](#accounts)) | Types the variable's value into the open input dialog (the agent's `AGENT_INPUT_GUARD` pattern must be on the screen, else nothing is typed and the step is `missed`), presses Enter and waits; the value goes to the typing call's stdin on the analyst's side, is the argument of one short-lived tui-test process in the guest (whose `type` takes its text as an argument), and shows wherever the agent's dialog echoes it; the step log names only the variable. The Enter is held back while the mark is set, as a `keys` step's is. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
-| `command` | a shell command | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`. |
+| `command` | a shell command; `secret:NAME` tokens as described above the table | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`; a token's value goes to the shell's stdin, never to the log. |
 | `stop` | `-` | Saves the session's recording and stops it: Ctrl+C twice, then TERM (not on Windows), then a kill, each with a bounded wait. |
 | `pause` | what the person must do; `{session}` becomes the open session's name | Prints the screen and its joined URLs, snapshots the VM and exits 3, as described above. |
 | `idle` | seconds | Waits that long. |
@@ -460,9 +510,10 @@ directories, as `top` lines, so a directory no root covers still shows.
 | `report.md` | Per step its status and diff counts, the missed and failed steps, and per collection the rows per status, the error rows, the `skipped_excluded` rows, the unflagged-key rows (collected, not `secret: true`, a file name holding key, token, secret, cred, cookie or auth), the analyzer's rows per numbered session and per row form, the forms an earlier collection lacked, and the `parser:` rows without the line they quote. |
 
 tui-test keeps its own recordings and traces under `~/lab/tui-test` in
-the VM (it keeps a recording only with tracing on). `~/lab` is the
-pipeline's own directory and lies outside every agent's survey roots, so
-neither shows in a diff.
+the VM (it keeps a recording only with tracing on), a directory no
+agent's survey roots reach, so neither shows in a diff; a path under
+`~/lab` that a table hands an agent (an alternate home, a log target)
+is a survey root of that agent.
 
 The screens and recordings hold the agent's own output and the
 collection holds its credentials: they stay in the cell directory, which
