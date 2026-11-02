@@ -22,8 +22,6 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 TAB=$(printf '\t')
 TUI_TEST_VERSION=0.1.1
-# The most Down presses a `dialog` or `choose` step makes to read a dialog.
-OPTION_PRESSES=12
 AGENT=${1:?usage: round.sh AGENT VM CELL [start|resume|collect|finish [--force]|status]}
 VM_NAME=${2:?VM name}
 CELL_ARGUMENT=${3:?cell directory}
@@ -35,6 +33,8 @@ HOST_PYTHON=${ROUND_PYTHON:-python3}
 . "$HERE/lib/vm.sh"
 # shellcheck source=lab/round/lib/screen.sh
 . "$HERE/lib/screen.sh"
+# shellcheck source=lab/round/lib/steps.sh
+. "$HERE/lib/steps.sh"
 
 AGENT_DIR=$HERE/agents/$AGENT
 [ -d "$AGENT_DIR" ] || die "no agent definition $AGENT_DIR"
@@ -66,11 +66,6 @@ host_tool() {
   _ht_script=$1
   shift
   python3 -I "$HERE/$_ht_script" "$@"
-}
-
-# Print a step number without its leading zeros, so `08` compares as 8.
-number_value() {
-  printf '%s\n' "$1" | sed 's/^0*\([0-9]\)/\1/'
 }
 
 # The step numbers of the cell's table, in order. The state names steps by
@@ -200,114 +195,6 @@ start_agent() {
     drive start "${TERMINAL_COLS:-120}" "${TERMINAL_ROWS:-40}" "$_sa_directory"
 }
 
-# Press the key $1 $2 times in one drive call and wait for the screen to
-# settle; nothing when $2 is 0.
-press_times() {
-  _pt_count=$2
-  _pt_keys=
-  while [ "$_pt_count" -gt 0 ]; do
-    _pt_keys=${_pt_keys:+$_pt_keys,}$1
-    _pt_count=$((_pt_count - 1))
-  done
-  [ -n "$_pt_keys" ] || return 0
-  drive keys "$_pt_keys" </dev/null >/dev/null || return 1
-  wait_for quiet quiet >/dev/null
-}
-
-# Press Down once, wait for the screen to settle, save the screen as the
-# file $1 and print it.
-press_down_saved() {
-  press_times Down 1 || return 1
-  _pds_screen=$(capture_screen)
-  printf '%s\n' "$_pds_screen" >"$1"
-  printf '%s\n' "$_pds_screen"
-}
-
-# Read every option of the open dialog: press Down, at most $1 times, saving
-# each settled screen as screens/NN-name.option-K.txt, until the screen is
-# the first one again (the cursor wrapped) or the same as before (it
-# stopped), then press Up back to the first option. Sets STEP_NOTE,
-# _ret_options (the number of options read) and _ret_first (the screen on
-# the first option).
-read_options() {
-  _ret_first=$(capture_screen)
-  _rop_previous=$_ret_first
-  _rop_moves=0
-  _rop_end=limit
-  while [ "$_rop_moves" -lt "$1" ]; do
-    _rop_moves=$((_rop_moves + 1))
-    _rop_screen=$(press_down_saved \
-      "$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_rop_moves.txt") || return 1
-    [ "$_rop_screen" != "$_ret_first" ] || _rop_end=wrapped
-    [ "$_rop_screen" != "$_rop_previous" ] || _rop_end=stopped
-    [ "$_rop_end" = limit ] || break
-    _rop_previous=$_rop_screen
-  done
-  # A wrap is back on the first option; a stop is one Up per move that
-  # changed the screen; a limit is one Up per move and one option unread.
-  case $_rop_end in
-    wrapped) _ret_options=$_rop_moves && _rop_back=0 ;;
-    stopped) _ret_options=$_rop_moves && _rop_back=$((_rop_moves - 1)) ;;
-    *) _ret_options=$((_rop_moves + 1)) && _rop_back=$_rop_moves ;;
-  esac
-  press_times Up "$_rop_back" || return 1
-  STEP_NOTE="$_rop_moves presses of Down, the cursor $_rop_end"
-}
-
-# Succeed when the grep -E pattern $1 (`-` for the agent's AGENT_OPTION) is
-# on the current screen, its box-drawing characters stripped.
-dialog_on_screen() {
-  _dos_pattern=$1
-  [ "$_dos_pattern" != - ] || _dos_pattern=${AGENT_OPTION:-}
-  [ -n "$_dos_pattern" ] || return 1
-  capture_screen | strip_box | grep -Eq -- "$_dos_pattern"
-}
-
-# The `dialog` kind: when the step's pattern is on the screen, read the
-# options and answer with the first; otherwise note that no dialog opened,
-# which is a finding and not a miss.
-answer_dialog() {
-  if ! dialog_on_screen "$STEP_TEXT"; then
-    STEP_NOTE='no dialog'
-    return 0
-  fi
-  read_options "$OPTION_PRESSES" || return 1
-  drive keys Enter </dev/null >/dev/null || return 1
-  STEP_NOTE="answered with the first option, $_ret_options options"
-  wait_for "$STEP_EXPECT" marker >/dev/null && return 0
-  STEP_NOTE="$STEP_NOTE; expectation not met within ${TURN_SECONDS:-300}s"
-  return 2
-}
-
-# The `choose` kind: read the open dialog's options, then press Down until
-# the highlighted line matches the step's pattern, leaving the Enter to the
-# next step. Return 2, with the reason in STEP_NOTE and the cursor where it
-# was, when no dialog is open or no option matches.
-choose_option() {
-  dialog_on_screen - || {
-    STEP_NOTE='missed: no dialog open'
-    return 2
-  }
-  read_options "$OPTION_PRESSES" || return 1
-  _co_index=0
-  _co_line=$(printf '%s\n' "$_ret_first" | highlighted_line "${AGENT_OPTION:-}")
-  while ! printf '%s\n' "$_co_line" | grep -Eq -- "$STEP_TEXT"; do
-    _co_index=$((_co_index + 1))
-    if [ "$_co_index" -ge "$_ret_options" ]; then
-      STEP_NOTE="missed: no option matches $STEP_TEXT"
-      return 2
-    fi
-    _co_line=$(highlighted_line "${AGENT_OPTION:-}" \
-      <"$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_co_index.txt")
-  done
-  press_times Down "$_co_index" || return 1
-  _co_line=$(capture_screen | highlighted_line "${AGENT_OPTION:-}")
-  STEP_NOTE="cursor on \"$_co_line\""
-  printf '%s\n' "$_co_line" | grep -Eq -- "$STEP_TEXT" && return 0
-  STEP_NOTE="missed: the cursor ended on \"$_co_line\", not $STEP_TEXT"
-  return 2
-}
-
 # The `paste` kind: copy the paste file into the VM, send it as one
 # bracketed paste, type the text after the file name, press Enter and wait.
 send_paste() {
@@ -319,17 +206,6 @@ send_paste() {
   if [ -n "$_sp_rest" ]; then printf '%s' "$_sp_rest" | drive type >/dev/null || return 1; fi
   drive keys Enter </dev/null >/dev/null || return 1
   wait_for "$STEP_EXPECT" marker >/dev/null || return 2
-}
-
-# The `keys` kind; after a `choose` that missed it sends nothing, since the
-# cursor is not where the table meant the keys to act.
-press_step_keys() {
-  if [ "$(state_get choose_missed)" = yes ]; then
-    STEP_NOTE='missed: no key sent, the choose step before it missed'
-    return 2
-  fi
-  drive keys "$STEP_TEXT" </dev/null >/dev/null || return 1
-  wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
 }
 
 # Run the kind-specific part of the loaded step; return 1 when a command
@@ -389,23 +265,6 @@ pause_for_person() {
   state_set paused_at "$3"
   printf 'round: then run: %s %s %s %s resume\n' "$0" "$AGENT" "$VM_NAME" "$CELL"
   exit 3
-}
-
-# Record in the state whether the step just run was a `choose` that missed
-# (its exit code $1 is 2), so the `keys` step after it sends no Enter to a
-# cursor the choose did not place; any other step clears the mark.
-note_choose() {
-  _nc_missed=
-  [ "$STEP_KIND" = choose ] && [ "$1" -eq 2 ] && _nc_missed=yes
-  [ "$(state_get choose_missed)" = "$_nc_missed" ] || state_set choose_missed "$_nc_missed"
-}
-
-# Succeed, logging so, when ROUND_STOP_AFTER names step number $1 (compared
-# as numbers); $2 is the step's label.
-stop_after_reached() {
-  [ -n "${ROUND_STOP_AFTER:-}" ] || return 1
-  [ "$(number_value "$1")" -eq "$(number_value "$ROUND_STOP_AFTER")" ] || return 1
-  round_log "stopped after step $2 (ROUND_STOP_AFTER); resume goes on"
 }
 
 # Run step number $1: screens, the step, the listing and its diff, and its
