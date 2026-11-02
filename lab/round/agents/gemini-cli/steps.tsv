@@ -8,7 +8,7 @@ NN	name	kind	text	expect	claim
 08	shortcuts	type	?	quiet	the ? shortcut list; nothing is written (none) (unverified)
 09	shortcuts-close	keys	Backspace,Escape	quiet	none
 10	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-11	help-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+11	help-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 12	help	prompt	/help	-	/help is an info item: only info, error and warning items reach the session file (research/gemini-cli.md#session-jsonl) (unverified)
 13	question	prompt	what is 17 + 25?	-	a user and a gemini message with no toolCalls, and the first model: <id> row (research/gemini-cli.md#model-rows)
 14	web-search	prompt	What is the latest release of the npm package @google/gemini-cli? Search the web for it.	Allow once|Apply this change|Type your message	a google_web_search call in toolCalls[] with its result (research/gemini-cli.md#session-jsonl)
@@ -35,7 +35,7 @@ NN	name	kind	text	expect	claim
 35	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB is inline in the user message and its logs.json copy (research/gemini-cli.md#logsjson)
 36	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the session file and logs.json (not stated)
 37	model-subcommands	type	/model 	quiet	the completion list of /model: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-38	model-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+38	model-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 39	model-dialog	prompt	/model	quiet	the model dialog's options and footer (unverified)
 40	model-options	options	12	quiet	every option of the model dialog, one screen per Down until the cursor wraps or stops, then back on the first
 41	model-pick	keys	Down,Enter	quiet	an info message Model set to <name>; model.name in settings.json only with --persist (research/gemini-cli.md#model-rows) (unverified)
@@ -44,13 +44,13 @@ NN	name	kind	text	expect	claim
 44	edit-options	options	12	quiet	every option of the edit dialog, one screen per Down until the cursor wraps or stops, then back on the first
 45	edit	keys	Enter	marker	a replace or write_file call; history/<slug>/ only with checkpointing on (research/gemini-cli.md#tool-checkpoints) (unverified)
 46	chat-subcommands	type	/chat 	quiet	the completion list of /chat: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-47	chat-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+47	chat-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 48	chat-save	prompt	/chat save lab	-	tmp/<slug>/checkpoint-lab.json (research/gemini-cli.md#chat-save-checkpoints)
 49	bug-subcommands	type	/bug 	quiet	the completion list of /bug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-50	bug-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+50	bug-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 51	bug	prompt	/bug lab round export only, nothing is submitted	-	/bug composes a GitHub new-issue URL and writes tmp/<slug>/bug-report-history-<ms>.json; it submits nothing (research/gemini-cli.md#bug-reports)
 52	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-53	exit-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+53	exit-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 54	exit	prompt	/exit	exit	the session file's last state; logs.json keeps every prompt (research/gemini-cli.md#logsjson)
 55	exit-close	stop	-	-	none: closes the terminal session
 56	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
@@ -59,7 +59,7 @@ NN	name	kind	text	expect	claim
 59	mcp-options	options	12	quiet	every option of the MCP dialog, one screen per Down until the cursor wraps or stops, then back on the first
 60	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result (unverified)
 61	clear-subcommands	type	/clear 	quiet	the completion list of /clear: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-62	clear-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+62	clear-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 63	clear	prompt	/clear	marker	/clear starts a new session file and leaves the old one (research/gemini-cli.md#what-survives-a-delete) (unverified)
 64	after-clear	prompt	what is 3 + 4?	-	the first lines of the session after /clear
 65	clear-stop	stop	-	-	none: closes the terminal session
@@ -83,9 +83,13 @@ NN	name	kind	text	expect	claim
 83	idle	idle	600	-	nothing is written while no agent runs
 84	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
 85	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
-86	auth-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+86	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 87	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
-88	auth-stop	stop	-	-	none: closes the terminal session
-89	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
-90	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
-91	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+88	auth-dialog	prompt	/auth	●	after /auth signout the /auth dialog still offers the three methods
+89	auth-key-dialog	keys	Down,Enter	clear stored key	Down onto 2. Use Gemini API Key opens the key dialog, whose footer offers Ctrl+C to clear stored key (observed on 0.66.0)
+90	auth-key-clear	keys	Ctrl+C	quiet	Ctrl+C in the key dialog clears the stored key from the keychain item the Credentials section names; /auth signout alone leaves it (observed on 0.66.0) (research/gemini-cli.md#credentials)
+91	auth-key-close	keys	Escape	marker	Escape closes the key dialog without a key; the listing shows what the clear removed
+92	auth-stop	stop	-	-	none: closes the terminal session
+93	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+94	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
+95	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes

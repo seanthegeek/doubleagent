@@ -80,7 +80,6 @@ next_step_after() {
   awk -F "$TAB" -v after="$1" '$0 !~ /^#/ && NF > 0 && $1 != "NN" && $1 + 0 > after + 0 {
     print $1; found = 1; exit } END { if (!found) print "done" }' "$CELL/steps.tsv"
 }
-
 # Load step $1 into the globals STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT
 # and STEP_EXPECT; the claim is for the reader.
 load_step() {
@@ -225,6 +224,7 @@ run_kind() {
     options) read_options "$STEP_TEXT" || return 1 ;;
     dialog) answer_dialog ;;
     choose) choose_option ;;
+    clear) clear_typed ;;
     paste) send_paste ;;
     command)
       round_log "command: $STEP_TEXT"

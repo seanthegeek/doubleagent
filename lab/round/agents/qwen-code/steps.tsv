@@ -5,7 +5,7 @@ NN	name	kind	text	expect	claim
 005	shortcuts	type	?	quiet	the ? shortcut list; nothing is written (none) (unverified)
 006	shortcuts-close	keys	Backspace,Escape	quiet	none
 007	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-008	help-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+008	help-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 009	help	prompt	/help	-	whether /help writes a system record to the chat file (research/qwen-code.md#system-payloads) (unverified)
 010	question	prompt	what is 17 + 25?	-	user and assistant ChatRecords with uuid, parentUuid, cwd and gitBranch, and the first model: <id> row (research/qwen-code.md#chatrecord)
 011	web-search	prompt	What is the latest release of the npm package @qwen-code/qwen-code? Search the web for it.	Allow once|Type your message	a web search tool call and its result in the chat file, or a missed prompt if no search tool is configured (research/qwen-code.md#chatrecord) (unverified)
@@ -16,7 +16,7 @@ NN	name	kind	text	expect	claim
 016	mode-4	keys	Shift+Tab	quiet	the next approval mode in the cycle (unverified)
 017	mode-5	keys	Shift+Tab	quiet	the cycle back on the mode it started in (unverified)
 018	approval-mode-subcommands	type	/approval-mode 	quiet	the completion list of /approval-mode: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-019	approval-mode-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+019	approval-mode-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 020	mode-ask	prompt	/approval-mode default	quiet	tools.approvalMode defaults to auto, so the asking mode is set before the tool calls: a session_approval_mode record and a permission mode: <old> -> default row (research/qwen-code.md#permission-rows) (unverified)
 021	approve-ask	prompt	Run python3 calc.py 2 3 and tell me what it prints.	Allow once|Type your message	the shell tool's confirmation dialog: its options and footer hints are findings (unverified)
 022	approve-options	options	12	quiet	every option of the shell tool's dialog, one screen per Down until the cursor wraps or stops, then back on the first
@@ -35,7 +35,7 @@ NN	name	kind	text	expect	claim
 035	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB inline in the user record and its logs.json copy (research/qwen-code.md#logsjson)
 036	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the chat file and logs.json (not stated)
 037	model-subcommands	type	/model 	quiet	the completion list of /model: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-038	model-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+038	model-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 039	model-dialog	prompt	/model	quiet	the model dialog's options and footer (unverified)
 040	model-options	options	12	quiet	every option of the model dialog, one screen per Down until the cursor wraps or stops, then back on the first
 041	model-pick	keys	Down,Enter	quiet	a model change: executionContext.modelId on the next prompt (research/qwen-code.md#model-rows) (unverified)
@@ -47,15 +47,15 @@ NN	name	kind	text	expect	claim
 047	edit-options	options	12	quiet	every option of the edit dialog, one screen per Down until the cursor wraps or stops, then back on the first
 048	edit	keys	Enter	marker	file-history/<sessionId>/ holds the pre-edit copy of calc.py (research/qwen-code.md#per-user-storage) (unverified)
 049	summary-subcommands	type	/summary 	quiet	the completion list of /summary: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-050	summary-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+050	summary-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 051	summary	prompt	/summary	-	the project's .qwen/PROJECT_SUMMARY.md and welcome-back-state.json (research/qwen-code.md#project-local-files)
 052	loop-subcommands	type	/loop 	quiet	the completion list of /loop: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-053	loop-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+053	loop-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 054	loop	prompt	/loop 1m say the time in one short line	-	the loop skill's scheduled task in tmp/<sha256(cwd)>/scheduled_tasks.json (research/qwen-code.md#per-user-storage) (unverified)
 055	loop-firings	idle	150	-	each firing is a user record with provenance system and subtype cron, a system row (research/qwen-code.md#system-payloads)
 056	loop-cancel	prompt	Cancel the scheduled task you just created.	-	the task leaves scheduled_tasks.json (unverified)
 057	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-058	exit-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+058	exit-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 059	exit	prompt	/exit	exit	usage_record.jsonl gains the session's summary at exit (research/qwen-code.md#usage_recordjsonl)
 060	exit-close	stop	-	-	none: closes the terminal session
 061	mcp-add	command	qwen mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	a settings.json gains mcpServers.fs, a credential file (research/qwen-code.md#credentials)
@@ -77,7 +77,7 @@ NN	name	kind	text	expect	claim
 077	collect-before-delete	collect	-	-	the collector's rows before the project is removed
 078	delete-start	agent	qwen	marker	a session for the TUI's delete
 079	delete-subcommands	type	/delete 	quiet	the completion list of /delete: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-080	delete-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+080	delete-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 081	delete-dialog	prompt	/delete	quiet	the TUI's delete: its picker or confirmation (research/qwen-code.md#what-survives-a-delete) (unverified)
 082	delete-options	options	12	quiet	every option of the delete dialog, one screen per Down until the cursor wraps or stops, then back on the first
 083	delete	keys	Enter	quiet	the transcript, file-history and session-organization entry go; usage_record.jsonl keeps the summary; logs.json rows purged (research/qwen-code.md#what-survives-a-delete) (unverified)
@@ -90,7 +90,7 @@ NN	name	kind	text	expect	claim
 090	idle	idle	600	-	nothing is written while no agent runs
 091	auth	agent	in:. qwen	marker	a session over ssh for the sign-out
 092	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-093	auth-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+093	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 094	auth-dialog	prompt	/auth	quiet	what /auth offers; the research document names no sign-out command (not stated) (unverified)
 095	auth-options	options	12	quiet	every option of the /auth dialog, one screen per Down until the cursor wraps or stops, then back on the first
 096	sign-out-choose	choose	[Ll]og ?out|[Ss]ign ?out	-	a sign-out option in the /auth dialog, its text a guess; a miss leaves the dialog unanswered and is a finding (unverified)

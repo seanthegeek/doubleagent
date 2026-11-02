@@ -157,3 +157,26 @@ stop_after_reached() {
   [ "$(number_value "$1")" -eq "$(number_value "$ROUND_STOP_AFTER")" ] || return 1
   round_log "stopped after step $2 (ROUND_STOP_AFTER); resume goes on"
 }
+
+# Print the text of the last `type` step of the cell's steps.tsv numbered
+# below $1, its trailing spaces kept, for a `clear` step to count.
+previous_type_text() {
+  awk -F '	' -v before="$1" '$0 !~ /^#/ && NF > 0 && $1 != "NN" &&
+    $1 + 0 < before + 0 && $3 == "type" { text = $4 } END { print text }' "$CELL/steps.tsv"
+}
+
+# The `clear` kind: press Backspace STEP_TEXT times or, for `-`, once per
+# character of the text of the nearest `type` step before this one
+# (previous_type_text), in one drive call, then wait for a settled screen.
+# Backspace, since a double Escape needs two presses closer together than
+# drive sends them, and on an empty input opens a rewind picker.
+clear_typed() {
+  _ct_count=$STEP_TEXT
+  if [ "$_ct_count" = - ]; then
+    _ct_text=$(previous_type_text "$STEP_NUMBER")
+    _ct_count=${#_ct_text}
+  fi
+  press_times Backspace "$_ct_count" || return 1
+  STEP_NOTE="$_ct_count presses of Backspace"
+  wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
+}

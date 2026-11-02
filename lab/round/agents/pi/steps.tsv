@@ -1,12 +1,12 @@
 NN	name	kind	text	expect	claim
 02	launch	agent	pi	quiet	first start writes ~/.pi/agent/settings.json and no session file until a message exists (research/pi.md#per-user-storage) (unverified)
 03	login-subcommands	type	/login 	quiet	the completion list of /login: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-04	login-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+04	login-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 05	ssh-sign-in	pause	For the ssh sign-in, open a terminal of the VM's desktop, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, sign in with /login as pi offers it with the throwaway account (the browser step is yours), detach with Ctrl+], then resume	-	auth.json, mode 0600 in a 0700 directory, holds the provider's api_key or oauth entry; no keychain (research/pi.md#credentials)
 06	shortcuts	type	?	quiet	the ? key: a shortcut list or a typed character (not stated) (unverified)
 07	shortcuts-close	keys	Backspace,Escape	quiet	none
 08	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-09	help-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+09	help-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 10	help	prompt	/help	-	what /help shows; whether it reaches the session file (research/pi.md#entries) (unverified)
 11	question	prompt	what is 17 + 25?	-	the session file appears with its header, a user and an assistant message with model, responseModel and provider; the first model: row (research/pi.md#model-rows) (unverified)
 12	web-search	prompt	What is the latest release of the npm package @earendil-works/pi-coding-agent? Search the web for it.	-	how a fetch or search through the shell tool is stored, pi having no web tool of its own (research/pi.md#message-roles)
@@ -17,32 +17,32 @@ NN	name	kind	text	expect	claim
 17	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB inline in the user message (research/pi.md#message-roles)
 18	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the user message (not stated)
 19	model-subcommands	type	/model 	quiet	the completion list of /model: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-20	model-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+20	model-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 21	model-dialog	prompt	/model	quiet	the model selector's options and footer (unverified)
 22	model-options	options	12	quiet	every option of the model dialog, one screen per Down until the cursor wraps or stops, then back on the first
 23	model-pick	keys	Down,Enter	quiet	a model_change entry with provider and modelId (research/pi.md#model-rows) (unverified)
 24	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> provider=<provider> at the model_change entry (research/pi.md#model-rows)
 25	edit	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	-	an edit toolCall with its arguments; no backup copy is kept (research/pi.md#tool-arguments)
 26	export-subcommands	type	/export 	quiet	the completion list of /export: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-27	export-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+27	export-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 28	export	prompt	/export	-	pi-session-<session file>.html in the project (research/pi.md#html-export)
 29	debug-subcommands	type	/debug 	quiet	the completion list of /debug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-30	debug-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+30	debug-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 31	debug	prompt	/debug	-	pi-debug.log rewritten with the open session's messages (research/pi.md#debug-log-and-crash-log)
 32	bug-subcommands	type	/bug 	quiet	the completion list of /bug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-33	bug-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+33	bug-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 34	bug-dialog	prompt	/bug	quiet	/bug asks whether to include the transcript, then whether to upload or write a zip (research/pi.md#bug-report-archive) (unverified)
 35	bug-transcript	dialog	-	quiet	the transcript question, answered with its first option; the option order is not in the research document (unverified)
 36	bug-zip-choose	choose	[Zz]ip	-	the delivery option that writes a zip and uploads nothing, its text not in the research document; a miss sends no Enter, so nothing is uploaded (research/pi.md#bug-report-entry) (unverified)
 37	bug	keys	Enter	quiet	a pi.bug-report entry with delivery zip and pi-bug-report-*.zip in the project (research/pi.md#bug-report-entry)
 38	fork-subcommands	type	/fork 	quiet	the completion list of /fork: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-39	fork-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+39	fork-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 40	fork-dialog	prompt	/fork	quiet	the fork picker: which message to fork from (unverified)
 41	fork-options	options	12	quiet	every option of the fork picker, one screen per Down until the cursor wraps or stops, then back on the first
 42	fork	keys	Enter	-	a new session file whose header names parentSession; the parent stays (research/pi.md#joins-and-timestamps) (unverified)
 43	fork-question	prompt	what is 3 + 4?	-	the forked session's first own entry
 44	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-45	exit-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+45	exit-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 46	exit	prompt	/exit	exit	the session file's last entry; no prompt history file exists (research/pi.md#what-survives-a-delete)
 47	exit-close	stop	-	-	none: closes the terminal session
 48	mcp-config	command	mkdir -p .pi && printf '%s\n' '{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}}}' > .pi/mcp.json	-	a project .pi/mcp.json, a credential file when it holds env or headers (research/pi.md#credentials) (unverified)
@@ -53,7 +53,7 @@ NN	name	kind	text	expect	claim
 53	collect-before-delete	collect	-	-	the collector's rows before the project is removed
 54	delete-start	agent	pi	-	a session for the picker's delete
 55	resume-subcommands	type	/resume 	quiet	the completion list of /resume: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-56	resume-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+56	resume-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 57	delete-dialog	prompt	/resume	quiet	the session picker (unverified)
 58	delete-options	options	12	quiet	every option of the session picker, one screen per Down until the cursor wraps or stops, then back on the first
 59	delete	keys	Ctrl+D	quiet	Ctrl+D in the picker moves the session file to the trash or unlinks it (research/pi.md#what-survives-a-delete) (unverified)
@@ -68,7 +68,7 @@ NN	name	kind	text	expect	claim
 68	idle	idle	600	-	nothing is written while no agent runs
 69	auth	agent	in:. pi	-	a session for the sign-out
 70	logout-subcommands	type	/logout 	quiet	the completion list of /logout: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-71	logout-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+71	logout-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 72	sign-out-command	prompt	/logout	quiet	/logout as pi offers it; the research document names the command only in this table (unverified)
 73	sign-out	dialog	-	quiet	the provider picker of /logout, answered with its first option, the provider signed in at the ssh sign-in; the entry leaves auth.json (research/pi.md#credentials) (unverified)
 74	auth-stop	stop	-	-	none: closes the terminal session

@@ -30,6 +30,7 @@ import sys
 KINDS = (
     "agent",
     "choose",
+    "clear",
     "collect",
     "command",
     "dialog",
@@ -43,7 +44,7 @@ KINDS = (
     "stop",
     "type",
 )
-NEEDS_SESSION = {"choose", "dialog", "keys", "options", "paste", "prompt", "type"}
+NEEDS_SESSION = {"choose", "clear", "dialog", "keys", "options", "paste", "prompt", "type"}
 NO_TEXT = {"collect", "reboot", "stop"}
 EXPECT_WORDS = {"-", "exit", "marker", "none", "quiet"}
 KEY_NAMES = (
@@ -129,6 +130,9 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
     elif step.kind == "options":
         if not step.text.isdigit() or not 0 < int(step.text) <= 30:
             return "options takes the most Down presses, 1 to 30"
+    elif step.kind == "clear":
+        if step.text != "-" and (not step.text.isdigit() or not 0 < int(step.text) <= 200):
+            return "clear takes `-` or the number of Backspace presses, 1 to 200"
     elif step.kind == "dialog":
         return None if step.text == "-" else pattern_problem(step.text, "dialog pattern")
     elif step.kind == "choose":
@@ -156,6 +160,7 @@ def check_steps(steps: list[Step], paste_dirs: list[pathlib.Path]) -> list[tuple
     previous = 1
     width = 0
     session_open = False
+    typed = False
     for step in steps:
         found: list[str] = []
         if not NUMBER_RE.fullmatch(step.number):
@@ -182,6 +187,9 @@ def check_steps(steps: list[Step], paste_dirs: list[pathlib.Path]) -> list[tuple
             found.append(message)
         if step.kind in NEEDS_SESSION | {"stop"} and not session_open:
             found.append("%s with no agent session open" % step.kind)
+        if step.kind == "clear" and step.text == "-" and not typed:
+            found.append("clear `-` with no `type` step before it")
+        typed = typed or step.kind == "type"
         if step.kind == "agent":
             session_open = True
         elif step.kind in ("stop", "reboot"):

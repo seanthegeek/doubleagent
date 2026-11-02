@@ -228,3 +228,35 @@ def test_stop_after_reached_at_the_paused_step(tmp_path):
             assert found["code"] == expected, (shell, stop_after)
             logged = (stub / "round.log").read_text(encoding="utf-8")
             assert ("stopped after step 09-sign-in" in logged) is (expected == "0"), shell
+
+
+TABLE = (
+    "NN\tname\tkind\ttext\texpect\tclaim\n"
+    "02\tstart\tagent\tgemini\t-\tc\n"
+    "03\tauth-subcommands\ttype\t/auth \tquiet\tc\n"
+    "04\tauth-subcommands-clear\tclear\t-\tquiet\tc\n"
+    "05\tmodel-subcommands\ttype\t/model \tquiet\tc\n"
+    "06\tmodel-subcommands-clear\tclear\t-\tquiet\tc\n"
+)
+
+
+def test_clear_counts_the_nearest_typed_text(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, [])
+        (stub / "steps.tsv").write_text(TABLE, encoding="utf-8")
+        cases = [("04", "6", "/auth "), ("06", "7", "/model ")]
+        for number, count, typed in cases:
+            (stub / "drive.log").write_text("", encoding="utf-8")
+            script = "STEP_KIND=clear; STEP_NUMBER=%s; clear_typed" % number
+            found = run_steps(shell, stub, script)
+            assert found["code"] == "0", (shell, number)
+            assert found["note"] == "%s presses of Backspace" % count, (shell, typed)
+            assert found["drive"] == "keys %s\n" % ",".join(["Backspace"] * int(count)), shell
+
+
+def test_clear_with_a_number_and_a_missed_settle(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, [])
+        (stub / "wait").write_text("1\n", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=clear; clear_typed", "3")
+        assert found["code"] == "2" and found["drive"] == "keys Backspace,Backspace,Backspace\n"

@@ -264,3 +264,19 @@ def test_a_subcommand_step_lets_the_command_through(tmp_path):
 def test_a_type_step_keeps_its_trailing_space():
     parsed, _ = steps.parse_steps(line("02", "auth-subcommands", "type", "/auth ", "quiet", "c"))
     assert parsed[0].text == "/auth "
+
+
+def test_clear_kind(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c")
+    text += line("03", "early-clear", "clear", "-", "-", "c")
+    text += line("04", "typed", "type", "?", "quiet", "c")
+    text += line("05", "after", "clear", "-", "quiet", "c")
+    text += line("06", "counted", "clear", "4", "quiet", "c")
+    text += line("07", "bad", "clear", "many", "quiet", "c")
+    assert problems_of(text, tmp_path) == [
+        "clear `-` with no `type` step before it",
+        "clear takes `-` or the number of Backspace presses, 1 to 200",
+    ]
+    assert problems_of(line("02", "lonely", "clear", "2", "-", "c"), tmp_path) == [
+        "clear with no agent session open"
+    ]
