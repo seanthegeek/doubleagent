@@ -469,9 +469,12 @@ send_secret() {
 
 # Set _ret_expanded to the text $1 with every secret:NAME token (NAME an
 # upper-case variable of secrets_file) replaced by that variable's value,
-# verbatim; die when a token's variable has no value. The text is split at
-# each token in sh, never by sed, since a value may hold characters a sed
-# pattern or replacement treats as special. Temporaries _exs_.
+# verbatim; die when a token's variable has no value or holds a single
+# quote, which would end the quotes the table puts around the token and
+# let the guest's shell echo the line into a screen file. The text is
+# split at each token in sh, never by sed, since a value may hold
+# characters a sed pattern or replacement treats as special.
+# Temporaries _exs_.
 expand_secrets() {
   _exs_rest=$1
   _ret_expanded=
@@ -489,6 +492,9 @@ expand_secrets() {
     fi
     _exs_value=$(secret_value "$_exs_name")
     [ -n "$_exs_value" ] || die "$_exs_name has no value in $(secrets_file)"
+    case $_exs_value in
+      *\'*) die "the value of $_exs_name in $(secrets_file) holds a single quote" ;;
+    esac
     _ret_expanded=$_ret_expanded$_exs_before$_exs_value
     _exs_rest=${_exs_rest#"$_exs_name"}
   done

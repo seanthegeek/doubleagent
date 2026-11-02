@@ -75,7 +75,7 @@ NN	name	kind	text	expect	claim
 075	worktree-stop	stop	-	-	none: closes the terminal session
 076	devtools-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.general=Object.assign(s.general||{},{devtools:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	general.devtools set to true in settings.json (research/gemini-cli.md#activity-log)
 077	devtools	agent	gemini	marker	a session started with general.devtools on
-078	devtools-question	prompt	what is 2 + 9?	-	tmp/<slug>/logs/session-<id>.jsonl with network payloads (research/gemini-cli.md#activity-log)
+078	devtools-question	prompt	what is 2 + 9?	-	no tmp/<slug>/logs/ file: with general.devtools on the logger keeps its records in memory and writes a file only under GEMINI_CLI_ACTIVITY_LOG_TARGET (research/gemini-cli.md#activity-log) (unverified)
 079	devtools-stop	stop	-	-	none: closes the terminal session
 080	activity-target	agent	GEMINI_CLI_ACTIVITY_LOG_TARGET=$HOME/lab/activity.jsonl gemini	Type your message	the activity log goes to the named path, not tmp/<slug>/logs/, which settles whether request bodies are recorded (research/gemini-cli.md#activity-log) (unverified)
 081	activity-question	prompt	what is 4 + 7?	-	one turn's request and response bodies in activity.jsonl (research/gemini-cli.md#activity-log) (unverified)
@@ -124,14 +124,20 @@ NN	name	kind	text	expect	claim
 124	dotenv-question	prompt	what is 8 + 3?	-	a turn under the dotfile (unverified)
 125	dotenv-stop	stop	-	-	none: closes the terminal session
 126	dotenv-removed	command	rm -f "$HOME/.gemini/.env"	-	the dotfile removed so the desktop sign-in that follows still meets the key dialog (research/gemini-cli.md#credentials) (unverified)
-127	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, delete any prefilled value with Backspace, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
-128	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
-129	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
-130	force-file	agent	in:. GEMINI_FORCE_FILE_STORAGE=true gemini	Use Gemini API Key|Type your message	with the keyring reachable after the desktop login, GEMINI_FORCE_FILE_STORAGE=true makes the CLI look only in .gemini/gemini-credentials.json, absent since the file was removed, so the sign-in dialog returns (research/gemini-cli.md#credentials) (unverified)
-131	force-file-choose	choose	Use Gemini API Key	-	the sign-in dialog offers Use Gemini API Key; a miss means the keyring item was used despite the variable (research/gemini-cli.md#credentials) (unverified)
-132	force-file-key	keys	Enter	quiet	Enter on Use Gemini API Key opens its key prompt (unverified)
-133	force-file-sign-in	secret	GEMINI_API_KEY	-	the key lands in .gemini/gemini-credentials.json, mode 600, while the keyring item stays (research/gemini-cli.md#credentials) (unverified)
-134	force-file-stop	stop	-	-	none: closes the terminal session; the listing shows the file fallback written beside the keyring item
-135	force-file-again	agent	in:. GEMINI_FORCE_FILE_STORAGE=true gemini	Type your message	a second start under the variable reads the file fallback and opens at the prompt (research/gemini-cli.md#credentials) (unverified)
-136	force-file-question	prompt	what is 7 + 6?	-	a turn under the variable (unverified)
-137	force-file-again-stop	stop	-	-	none: closes the terminal session
+127	home-dotenv-written	command	printf 'GEMINI_API_KEY=%s\n' 'secret:GEMINI_API_KEY' >"$HOME/.env"	-	~/.env written as a user would: the last file the CLI searches for the key, one it reads but does not own (research/gemini-cli.md#credentials) (unverified)
+128	home-dotenv	agent	in:. gemini	Type your message	no sign-in dialog: the key is read from ~/.env and stored nowhere else (research/gemini-cli.md#credentials) (unverified)
+129	home-dotenv-question	prompt	what is 9 + 2?	-	a turn under the home dotfile (unverified)
+130	home-dotenv-stop	stop	-	-	none: closes the terminal session
+131	home-dotenv-removed	command	rm -f "$HOME/.env"	-	the home dotfile removed so the desktop sign-in that follows still meets the key dialog (research/gemini-cli.md#credentials) (unverified)
+132	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, delete any prefilled value with Backspace, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+133	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
+134	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+135	force-file	agent	in:. GEMINI_FORCE_FILE_STORAGE=true gemini	clear stored key|Use Gemini API Key|Type your message	with the keyring reachable after the desktop login, GEMINI_FORCE_FILE_STORAGE=true makes the CLI look only in .gemini/gemini-credentials.json, absent since the file was removed, so with gemini-api-key selected the key prompt opens directly, as a resume once did (research/gemini-cli.md#credentials) (unverified)
+136	force-file-prompt-sign-in	secret	GEMINI_API_KEY	-	the key typed into the key prompt lands in .gemini/gemini-credentials.json, mode 600, while the keyring item stays; missed when the method dialog opened instead, which the next three steps answer (research/gemini-cli.md#credentials) (unverified)
+137	force-file-choose	choose	Use Gemini API Key	-	the method dialog, when it opened instead of the key prompt, offers Use Gemini API Key; a miss with no dialog open means the key prompt was answered above (research/gemini-cli.md#credentials) (unverified)
+138	force-file-key	keys	Enter	quiet	Enter on Use Gemini API Key opens its key prompt; held back after a missed choose (unverified)
+139	force-file-dialog-sign-in	secret	GEMINI_API_KEY	-	the key typed after the method dialog lands in .gemini/gemini-credentials.json; missed when the key prompt was answered above (research/gemini-cli.md#credentials) (unverified)
+140	force-file-stop	stop	-	-	none: closes the terminal session; the listing shows the file fallback written beside the keyring item
+141	force-file-again	agent	in:. GEMINI_FORCE_FILE_STORAGE=true gemini	Type your message	a second start under the variable reads the file fallback and opens at the prompt (research/gemini-cli.md#credentials) (unverified)
+142	force-file-question	prompt	what is 7 + 6?	-	a turn under the variable (unverified)
+143	force-file-again-stop	stop	-	-	none: closes the terminal session

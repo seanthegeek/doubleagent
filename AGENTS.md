@@ -1266,7 +1266,8 @@ into Format versions.
      was logged in. Then sign out, as its own step with a listing; then the person makes the desktop
      sign-in (the agent's own sign-in from a terminal of the VM's desktop),
      with a listing after, once the last step driven over SSH is done,
-     except the store-or-fallback variable the next bullet names. The
+     except the steps of the store-or-fallback variable the next bullet
+     names. The
      sign-out is the
      agent's own command or dialog option, taken from its completion list
      or its research document and run over SSH;

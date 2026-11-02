@@ -853,6 +853,20 @@ def test_expand_secrets_with_an_empty_value_dies(tmp_path):
         assert logged == "die: API_KEY has no value in %s/env\n" % stub, shell
 
 
+def test_expand_secrets_with_a_single_quote_in_the_value_dies(tmp_path):
+    for shell in SHELLS:
+        stub = token_stub(tmp_path, "API_KEY=ab'cd")
+        try:
+            run_steps(shell, stub, EXPAND, "KEY='secret:API_KEY' gemini")
+        except subprocess.CalledProcessError as error:
+            assert error.returncode == 1, shell
+        else:
+            raise AssertionError("expand_secrets did not die under " + shell)
+        logged = (stub / "round.log").read_text(encoding="utf-8")
+        expected = "die: the value of API_KEY in %s/env holds a single quote\n" % stub
+        assert logged == expected and "cd" not in logged, shell
+
+
 def test_missing_secrets_reads_the_tokens_of_agent_and_command_steps(tmp_path):
     table = (
         "NN\tname\tkind\ttext\texpect\tclaim\n"

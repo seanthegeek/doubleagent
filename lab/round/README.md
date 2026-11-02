@@ -323,19 +323,22 @@ writes the key into the agent's dotfile) stands for the value of the
 variable `NAME` of the credentials file ([Accounts](#accounts)),
 inserted as written with no quoting added: both kinds are read as shell
 words in the VM, so the token goes in single quotes
-(`'secret:NAME'`), and a value holding a single quote cannot travel
-this way. `steps.py check` reports a token whose name is not upper
-case. The pipeline replaces the token just before the step runs and
-sends the result over the `ssh` stdin, as a `secret` step's value
+(`'secret:NAME'`); a value holding a single quote stops the run at the
+step, since the guest's shell would echo the broken line into the
+step's output file. `steps.py check` reports a token whose name is not
+upper case. The pipeline replaces the token just before the step runs
+and sends the result over the `ssh` stdin, as a `secret` step's value
 travels: `round.log` shows the line it sent with the token in place of
-the value (for an `agent` step, with `in:<dir>` removed and `env`
-added), and the pipeline writes the value into neither it nor the step
-log, `report.md` or the screen files. In the VM the value is part of
+the value (for an `agent` step, with `in:<dir>` removed and, on Linux
+and macOS, `env` added), and the files the pipeline writes itself
+(`round.log`, `steps.log`, `report.md`, the step notes and the screen
+captures it takes) never hold the value. In the VM the value is part of
 the agent's command line, and so of the processes that start it
-(tui-test, and `env` on Linux and macOS), or of the shell's input, and
-the terminal recording and screens hold whatever the agent echoes, as
-for a `secret` step. Write no command whose output shows the value:
-`screens/NN-name.command.txt` keeps what a `command` step prints.
+(tui-test, and `env` on Linux and macOS), or of the shell's input; the
+terminal recording and the screen captures hold whatever the terminal
+showed, as for a `secret` step. Write no command whose output shows the
+value: `screens/NN-name.command.txt` keeps what a `command` step
+prints.
 
 An `agent` step that may raise a trust dialog is followed by its steps:
 for Gemini CLI and Qwen Code a start in a directory not yet trusted (the
