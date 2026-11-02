@@ -326,6 +326,29 @@ def test_an_unread_screen_stops_the_step_and_sets_the_mark(tmp_path):
         assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
 
 
+def test_a_dialog_whose_reading_cannot_return_sends_no_enter(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, ["Allow once", "Allow for this session", "No", "Cancel"])
+        (stub / "no_up").write_text("", encoding="utf-8")
+        found = run_steps(shell, stub, "answer_dialog")
+        assert found["code"] == "2" and "Enter" not in found["drive"], shell
+        assert found["note"].endswith("; cursor not returned; not answered"), shell
+        assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
+
+
+def test_an_unread_screen_during_a_reading_fails_it(tmp_path):
+    for shell in SHELLS:
+        for fails_from in ("1", "3"):
+            stub = make_stub(tmp_path, LABELS)
+            (stub / "capture_fails_from").write_text(fails_from + "\n", encoding="utf-8")
+            found = run_steps(shell, stub, "read_options 12")
+            assert found["code"] == "1" and found["note"] == "the screen could not be read", (
+                shell,
+                fails_from,
+            )
+            assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
+
+
 def test_an_unread_screen_fails_the_dialog_choose_and_secret_kinds(tmp_path):
     for shell in SHELLS:
         for script in ("answer_dialog", "choose_option", SECRET):

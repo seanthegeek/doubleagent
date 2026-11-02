@@ -37,10 +37,11 @@ press_times() {
 }
 
 # Press Down once, wait for the screen to settle, save the screen as the
-# file $1 and print it.
+# file $1 and print it; returns 2 on an unread screen, 1 on a failed
+# press, for the caller to note (it runs in a command substitution).
 press_down_saved() {
   press_times Down 1 || return 1
-  _pds_screen=$(capture_screen)
+  _pds_screen=$(capture_screen) || return 2
   printf '%s\n' "$_pds_screen" >"$1"
   printf '%s\n' "$_pds_screen"
 }
@@ -66,9 +67,13 @@ option_key() {
 # stopped), by option_key, then return the cursor where it started
 # (return_to_start). Sets STEP_NOTE, _ret_end (wrapped, stopped or limit),
 # _ret_options (the options read: at the press limit a lower bound, since
-# one more may follow) and _ret_first (the screen at the start).
+# one more may follow), _ret_first (the screen at the start) and
+# _ret_returned (yes when the cursor is back where it started).
 read_options() {
-  _ret_first=$(capture_screen)
+  _ret_first=$(capture_screen) || {
+    screen_unread
+    return 1
+  }
   _rop_first_key=$(printf '%s\n' "$_ret_first" | option_key)
   _rop_previous=$_rop_first_key
   _rop_moves=0
@@ -76,7 +81,15 @@ read_options() {
   while [ "$_rop_moves" -lt "$1" ]; do
     _rop_moves=$((_rop_moves + 1))
     _rop_screen=$(press_down_saved \
-      "$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_rop_moves.txt") || return 1
+      "$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_rop_moves.txt")
+    case $? in
+      0) ;;
+      2)
+        screen_unread
+        return 1
+        ;;
+      *) return 1 ;;
+    esac
     _rop_key=$(printf '%s\n' "$_rop_screen" | option_key)
     [ "$_rop_key" != "$_rop_first_key" ] || _rop_end=wrapped
     [ "$_rop_key" != "$_rop_previous" ] || _rop_end=stopped
@@ -96,20 +109,35 @@ read_options() {
 # the reading started); a count would be wrong for a list that stops at its
 # top or a reading begun below the first option. When the cursor never
 # gets there, append `cursor not returned` to STEP_NOTE and set the
-# choose_missed mark, since it is then on an option nobody chose. Returns 1
-# when a drive call fails.
+# choose_missed mark, since it is then on an option nobody chose; sets
+# _ret_returned. Returns 1 when a drive call fails or a screen cannot be
+# read (screen_unread).
 return_to_start() {
   _rts_left=$1
   _rts_first=$(printf '%s\n' "$_ret_first" | option_key)
-  _rts_key=$(capture_screen | option_key)
+  _ret_returned=no
+  _rts_key=$(cursor_key) || return 1
   while [ "$_rts_key" != "$_rts_first" ] && [ "$_rts_left" -gt 0 ]; do
     press_times Up 1 || return 1
     _rts_left=$((_rts_left - 1))
-    _rts_key=$(capture_screen | option_key)
+    _rts_key=$(cursor_key) || return 1
   done
-  [ "$_rts_key" != "$_rts_first" ] || return 0
+  if [ "$_rts_key" = "$_rts_first" ]; then
+    _ret_returned=yes
+    return 0
+  fi
   STEP_NOTE="$STEP_NOTE; cursor not returned"
   state_set choose_missed yes
+}
+
+# Print the option_key of the current screen; on an unread screen, note it
+# (screen_unread) and return 1.
+cursor_key() {
+  _ck_screen=$(capture_screen) || {
+    screen_unread
+    return 1
+  }
+  printf '%s\n' "$_ck_screen" | option_key
 }
 
 # Return 0 when the grep -E pattern $1 (`-` for the agent's AGENT_OPTION)
@@ -147,6 +175,10 @@ answer_dialog() {
       ;;
   esac
   read_options "$OPTION_PRESSES" || return 1
+  [ "$_ret_returned" = yes ] || {
+    STEP_NOTE="$STEP_NOTE; not answered"
+    return 2
+  }
   drive keys Enter </dev/null >/dev/null || return 1
   _ad_count="$_ret_options options"
   [ "$_ret_end" != limit ] || _ad_count="at least $_ad_count"

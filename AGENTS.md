@@ -1258,10 +1258,12 @@ into Format versions.
      0.66.0 on Linux reached the keyring over SSH while one was, and wrote
      the fallback while none was). On every platform, record where its
      credentials land at the ssh sign-in (the credential entered in the
-     session started over SSH, typed by the pipeline from its credentials
-     file where the agent takes a key at a prompt), made before anyone has
-     logged in to the VM's desktop since the clean snapshot, then sign out,
-     as its own step with a listing; then the person makes the desktop
+     session started over SSH): where the agent takes a key at a prompt,
+     the pipeline types it from its credentials file before anyone has
+     logged in to the VM's desktop since the clean snapshot; where the
+     sign-in has a browser part, the person attaches to that session from
+     the VM's desktop, and the research document says a desktop session
+     was logged in. Then sign out, as its own step with a listing; then the person makes the desktop
      sign-in (the agent's own sign-in from a terminal of the VM's desktop),
      with a listing after, once the last step driven over SSH is done. The
      sign-out is the

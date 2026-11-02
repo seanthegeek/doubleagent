@@ -183,10 +183,14 @@ takes at a prompt from the credentials file (the `secret` kind).
 
 1. **The ssh sign-in**, at the first pause of an agent whose sign-in has
    a browser part: the person completes it in the session the pipeline
-   started over `ssh`, through the monitor below. Its listing shows where
-   the agent stores a credential entered over `ssh`. An agent that takes
-   a key at a prompt (Gemini CLI) has a `secret` step here instead, with
-   the same listing.
+   started over `ssh`, through the monitor below, which needs a desktop
+   login first, so the research document says a desktop session was
+   logged in. Its listing shows where the agent stores a credential
+   entered over `ssh`. An agent that takes a key at a prompt (Gemini CLI)
+   has a `secret` step here instead, typed before anyone has logged in to
+   the desktop since the clean snapshot, with the same listing: whether
+   the agent reaches the OS credential store over `ssh` can turn on that
+   login ([Credentials in `research/gemini-cli.md`](../../research/gemini-cli.md#credentials)).
 2. **The desktop sign-in**, after the pipeline's sign-out over `ssh`: the
    person runs the agent's own sign-in from a terminal of the VM's desktop.
    Its listing shows where the credential lands when the agent runs there,
@@ -381,7 +385,7 @@ table; `start` and `resume` refuse one that fails.
 | `prompt` | the prompt | Types the text, presses Enter and waits; a dialog open is closed with Escape first, and with the mark set it types nothing and is `missed`, as described above the table. |
 | `type` | text | Types the text without Enter and waits. |
 | `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started, one Up at a time until the cursor is on the option it started on (`cursor not returned` and the mark set when it never gets there); the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
-| `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options` (`at least N options` when the presses ran out first). Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
+| `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options` (`at least N options` when the presses ran out first); a reading that could not return its cursor sends no Enter and is `missed` with `not answered`, since the Enter would answer with an option the table did not mean. Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
 | `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. The step is `missed` with the reason when no dialog is open (no key is sent), and, pressing Escape once to close the dialog and logging `Escape sent after the miss`, when no option matches or when the cursor ends on a line the pattern does not match; after any miss or a failed drive call, no `keys` step that includes Enter is sent until the mark is cleared, as described above the table. |
 | `clear` | `-`, or the number of Backspace presses, 1 to 200 | Presses Backspace that many times in one drive call, `-` meaning once per character of the text of the nearest `type` step before it (its trailing space counted), and waits for `expect` (`-` is a settled screen). It deletes a typed slash command after its `-subcommands` step; a dialog open is closed with Escape first, as for the typing kinds. |
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; keys that include Enter are not sent, and the step is `missed`, while the mark described above the table is set; a failed drive call sets the mark. |
