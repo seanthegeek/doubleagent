@@ -56,7 +56,8 @@ versions with its commit.
   project directory removed ([What survives a delete](#what-survives-a-delete)); a start in the
   home ([Per-user storage](#per-user-storage)); `/auth signout` and a sign-in from a terminal on
   the desktop ([Credentials](#credentials)); a 600-second idle period
-  ([What survives a delete](#what-survives-a-delete)); and a reboot. The session file's line
+  ([What survives a delete](#what-survives-a-delete)); and a reboot
+  ([What survives a delete](#what-survives-a-delete)). The session file's line
   types and keys are in [Session JSONL](#session-jsonl). The first run recorded no
   `/chat save` checkpoint. The second run repeated those steps, and what differed (the second
   sign-out's `google_accounts.json` size, the refactor's tool calls, the MCP call) is stated in
@@ -251,11 +252,11 @@ On the Linux install of 0.66.0 the first start in a project created `~/.gemini` 
 (0.66.0, 2026-11-01) is the folder trust dialog ([Permission rows](#permission-rows)); trusting
 the folder wrote `trustedFolders.json` (43 bytes, mode 0600) and restarted the CLI
 ([Transcript stores](#transcript-stores)). Choosing an API key wrote `settings.json`
-([Credentials](#credentials)). A start in the home itself was met by the trust dialog again and
-put its sessions and `logs.json` under a `tmp/<slug>/` named for the home directory, as for any
-project. The sample project's `history/<slug>/` held only `.project_root`, and no
-`shell_history`, `checkpoints/`, `memory/`, `images/`, `logs/` or `tool-outputs/` appeared in its
-`tmp/<slug>/`.
+([Credentials](#credentials)). A start in the home itself (0.66.0, 2026-11-01) was met by the
+trust dialog again and put its sessions and `logs.json` under a `tmp/<slug>/` named for the
+home directory, as for any project. The sample project's `history/<slug>/` held only
+`.project_root`, and no `shell_history`, `checkpoints/`, `memory/`, `images/`, `logs/` or
+`tool-outputs/` appeared in its `tmp/<slug>/`.
 
 #### Scratch directories
 
@@ -318,7 +319,7 @@ setting [Project-local files](#project-local-files) names.
   later request then fails with an invalid-key error ("API key not valid"). Once,
   `gemini --resume latest` over SSH after `/exit` showed this dialog although the key had been
   entered earlier in the same run, while the keyring file measured 105 bytes against 641 before
-  and after; the cause was not determined.
+  and after.
 - `/auth` has the subcommands the completion list for `/auth ` shows and `/help` does not
   list (0.66.0, 2026-11-01): `signin` ("Sign in or change the authentication method") and
   `signout` ("Sign out and clear all cached credentials"). `/auth signout` (0.66.0, 2026-11-01
@@ -494,7 +495,7 @@ trust changes", 0.66.0, 2026-11-01) deleted the first session file and began a n
 `gemini --resume latest` appended to the file of the session it reopened. A short traceback
 paste and a long release-notes paste (0.66.0, 2026-11-02), each sent as one bracketed paste
 (the terminal's markers around pasted text) followed by a typed instruction, were each answered
-with a one-sentence summary; how the session file stores a paste was not read.
+with a one-sentence summary.
 
 The past-use stores beside the session file are in [Other stores](#other-stores).
 
@@ -559,10 +560,10 @@ id and time; `shell_history`, the last 100 shell-mode commands with no time or s
 `bug-report-history-*.json` files from `/bug`, which hold the turns, prompts included, of the
 sessions they were taken from; the shadow git repository under `history/<slug>`; `memory/`; and
 an error report in the system temporary directory, until the system clears that directory (on
-the Linux install the reports in `/tmp` were gone after a reboot, since Ubuntu clears `/tmp` at
-boot). The agent writes no deletion marker, and the requests already sent to Code Assist and
-Clearcut under the session's `sessionId` are server-side records held by Google, which a
-responder can only ask Google for
+the Linux install the reports in `/tmp` were gone after a reboot (0.66.0, 2026-11-02), since
+Ubuntu clears `/tmp` at boot). The agent writes no deletion marker, and the requests already
+sent to Code Assist and Clearcut under the session's `sessionId` are server-side records held
+by Google, which a responder can only ask Google for
 ([Sync, relay and origin rows](#sync-relay-and-origin-rows)). The analyzer reads `logs.json`,
 `shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the tool checkpoints
 and a copied error report as secondary sources
@@ -864,7 +865,8 @@ subagent session to its parent.
 
 No SQLite store exists. `history/<slug>` is a shadow git repository and is treated as binary.
 Each store below is collected under `.gemini`, the error reports excepted, and every one but
-`projects.json` and `state.json` is parsed ([Parser plan](#parser-plan)).
+`projects.json`, `state.json`, `policy_integrity.json` and `extension_integrity.json` is parsed
+([Parser plan](#parser-plan)).
 
 #### logs.json
 
@@ -1217,7 +1219,8 @@ resume. They name no prompt, session or project.
 
 #### Standing permission files
 
-Every file here is parsed ([Permission rows](#permission-rows)).
+Every file here but `policy_integrity.json` and `extension_integrity.json` is parsed
+([Permission rows](#permission-rows)).
 
 `policies/auto-saved.toml`, in `~/.gemini/policies/` for a grant the user saved for every project
 and in `<project>/.gemini/policies/` for one saved for the workspace
@@ -1497,13 +1500,13 @@ and 2026-11-02) unless a date is given:
   option stored a 12-character value under the folder's key in `trustedFolders.json`, the length
   of `TRUST_FOLDER`.
 - A shell call asks `Allow execution of [Shell]?`, a `WebFetch` call "Action Required ... Do you
-  want to proceed?", and an MCP tool `Allow execution of MCP tool "<tool>" from server
-  "<server>"?` ("press Ctrl+O to expand MCP tool details"), each with `1. Allow once`,
-  `2. Allow for this session` and `3. No, suggest changes (esc)`. An edit asks "Apply this
-  change?" with `1. Allow once`, `2. Allow for this session`, `3. Modify with external editor`
-  and `4. No, suggest changes (esc)`; the cursor wraps to the first option after the fourth
-  (0.66.0, 2026-11-02). Allow once applied the edit to `calc.py`, and the agent then ran
-  `python3 calc.py 2 3` through a shell dialog.
+  want to proceed?", and an MCP tool (0.66.0, 2026-11-01) `Allow execution of MCP tool "<tool>"
+  from server "<server>"?` ("press Ctrl+O to expand MCP tool details"), each with
+  `1. Allow once`, `2. Allow for this session` and `3. No, suggest changes (esc)`. An edit asks
+  "Apply this change?" with `1. Allow once`, `2. Allow for this session`,
+  `3. Modify with external editor` and `4. No, suggest changes (esc)`; the cursor wraps to the
+  first option after the fourth (0.66.0, 2026-11-02). Allow once applied the edit to `calc.py`,
+  and the agent then ran `python3 calc.py 2 3` through a shell dialog.
 - `git log --oneline` and `ls -la` ran through the shell tool with no dialog, and so did the file
   searches of the refactor below. Escape on a dialog gave "Request cancelled", the command did
   not run and no dialog remained. On the next request the agent retried the cancelled command,
@@ -1511,15 +1514,13 @@ and 2026-11-02) unless a date is given:
   directory appeared. Which options the dialogs lacked is in
   [Standing permission files](#standing-permission-files).
 - A question needing a web search was answered through the `WebFetch` tool, behind its
-  confirmation dialog; how the call is recorded was not read beyond the shape of the
-  [`toolCalls[]` table](#session-jsonl).
+  confirmation dialog.
 - On the underspecified prompt "refactor this" the agent asked nothing and started a multi-tool
   refactor at once, asking only at each tool's dialog; in the second run (0.66.0, 2026-11-02) it
-  ran
-  `FindFiles '*test*'`, which found no files, and `FindFiles '**/*'` before its first dialog, for
-  `python3 --version`. No sharper prompt was tried.
-- The default mode's footer reads "Shift+Tab to accept edits"; the modes the key cycles through
-  were not read.
+  ran `FindFiles '*test*'`, which found no files, and `FindFiles '**/*'` before its first dialog,
+  for `python3 --version`, where Escape cancelled the turn ("Request cancelled"). No sharper
+  prompt was tried.
+- The default mode's footer reads "Shift+Tab to accept edits".
 
 The standing grants below are each a `system` row at the file's modification time, saying so,
 line 1, no session id ([Standing permission files](#standing-permission-files)):
@@ -1550,9 +1551,11 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
 - `acknowledgments/agents.json`:
   `permission setting: acknowledgedAgents.<agent>=<hash> (from .gemini/acknowledgments/agents.json, file mtime)`
   per entry, `project_path` the project key.
-- `policy_integrity.json` holds one hash per `<scope>:<identifier>` key (a policy scope and, for
-  a project, its path), against which the CLI checks whether a policy directory changed
-  ([`core/src/policy/integrity.ts:27-29`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/policy/integrity.ts#L27-L29)).
+
+`policy_integrity.json`, which gets no row, holds one hash per `<scope>:<identifier>` key (a
+policy scope and, for a project, its path), against which the CLI checks whether a policy
+directory changed
+([`core/src/policy/integrity.ts:27-29`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/policy/integrity.ts#L27-L29)).
 
 #### Model rows
 
@@ -1576,8 +1579,8 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   (Press Tab to toggle)" and the hint "To use a specific Gemini model on startup, use the
   --model flag"; the footer shows `/model Auto`. Manual opens a numbered list of models, among
   them `5. gemini-3.8-flash`, `6. gemma-4-31b-it` and `7. gemma-4-26b-a4b-it`. The `model` key
-  of each `gemini` message is in [Session JSONL](#session-jsonl). No switch was recorded, so a
-  switch's records are source-derived.
+  of each `gemini` message is in [Session JSONL](#session-jsonl). The session files hold no
+  model switch.
 
 #### Past-use rows and secondary sources
 
@@ -1923,10 +1926,9 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
 ## Confidence
 
 - High: every path and record key above is read from constants, types and writers at the cited
-  lines; on Linux, 0.66.0's session file, `logs.json` and `/bug` export match the keys read from
-  them, the trust file held one key per folder with a 12-character value, and the settings keys
-  read were `security.auth.selectedType`, `general.devtools` and `experimental.worktrees`. The
-  error reports were observed by name, size and mode only.
+  lines, and the Linux install's files agree with them where read
+  ([Observed](#observed), [Session JSONL](#session-jsonl), [Permission rows](#permission-rows),
+  [Error reports](#error-reports)).
 - Medium: the `~/.cache/.gemini` contents, which exist only if the user runs the macOS sandbox,
   and the size of `history/*/.git`.
 - Medium: whether a current build ever writes `functionCall` parts into `content` (the reader
@@ -1937,7 +1939,9 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
   `shell_history` copies of one shell-mode command; the keys of a `/chat save` checkpoint; a
   model switch and its `info` message; the permission modes Shift+Tab cycles through and their
   names; an "Allow for all future sessions" grant with `security.enablePermanentToolApproval`
-  on; whether any prompt makes the agent ask the user before acting.
+  on; whether any prompt makes the agent ask the user before acting; how the session file
+  stores a pasted prompt and a `WebFetch` call beyond the [Session JSONL](#session-jsonl) key
+  tables.
 - For a later round: the keyring item's name on Linux; whether the keychain migration on load
   or the refused sign-in removed `oauth_creds.json`; why a resume over SSH once asked for the
   key again while the keyring file measured 105 bytes; the keychain item names on macOS and

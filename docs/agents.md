@@ -742,8 +742,8 @@ history sent) and an error report `gemini-client-error-<type>-<time>.json`
 the responder copied into `.gemini` or `.cache/.gemini`, or the
 `tmp/<slug>` directory of either (an `error report:` row, then the history
 sent), each without the environment-context item that opens the history;
-the activity log at its default path `tmp/<slug>/logs/session-<id>.jsonl`
-(the default path, which no caller writes; see
+the activity log at `tmp/<slug>/logs/session-<id>.jsonl` (the default path,
+which no caller writes; see
 [Activity log](../research/gemini-cli.md#activity-log)) as `console`,
 `network request`, `network response` and `network error` rows with no
 header value, query string or body; each `tmp/<slug>/memory/` file as one
