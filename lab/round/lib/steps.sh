@@ -4,11 +4,11 @@
 # screen.sh on the analyst machine and by the round pipeline's tests.
 #
 # Calls drive, capture_screen, wait_for, state_get, state_set, round_log,
-# guest_copy and paste_source, which round.sh and vm.sh define and a test
-# replaces with stubs. Reads the
-# globals CELL, STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT,
-# AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS and ROUND_STOP_AFTER, and
-# sets STEP_NOTE.
+# die, guest_copy and paste_source, which round.sh and vm.sh define and a
+# test replaces with stubs. Reads the globals CELL, HERE, STEP_NUMBER,
+# STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT, AGENT_OPTION,
+# AGENT_INPUT_GUARD, TURN_SECONDS, ROUND_STOP_AFTER and ROUND_ENV, and sets
+# STEP_NOTE.
 
 # The globals above come from round.sh, which also calls every function.
 # shellcheck disable=SC2153,SC2154,SC2329
@@ -45,26 +45,43 @@ press_down_saved() {
   printf '%s\n' "$_pds_screen"
 }
 
+# Print what places the cursor on the screen read from stdin: every line
+# matching the agent's AGENT_OPTION pattern (the highlighted option), box-
+# drawing characters stripped, or the whole screen when no line matches.
+# Two screens with the same key have the cursor on the same option, so a
+# line outside the dialog that comes and goes (Gemini CLI's true-colour
+# warning, shown at the first screen and gone after a key) changes no
+# reading.
+option_key() {
+  _ok_screen=$(cat)
+  _ok_lines=
+  [ -z "${AGENT_OPTION:-}" ] ||
+    _ok_lines=$(printf '%s\n' "$_ok_screen" | strip_box | grep -E -- "$AGENT_OPTION")
+  if [ -n "$_ok_lines" ]; then printf '%s\n' "$_ok_lines"; else printf '%s\n' "$_ok_screen"; fi
+}
+
 # Read every option of the open dialog: press Down, at most $1 times, saving
-# each settled screen as screens/NN-name.option-K.txt, until the screen is
-# the start one again (the cursor wrapped) or the same as before (it
-# stopped), then return the cursor where it started (return_to_start).
-# Sets STEP_NOTE, _ret_end (wrapped, stopped or limit), _ret_options (the
-# options read: at the press limit a lower bound, since one more may
-# follow) and _ret_first (the screen at the start).
+# each settled screen as screens/NN-name.option-K.txt, until the cursor is
+# on the start option again (it wrapped) or where it was before (it
+# stopped), by option_key, then return the cursor where it started
+# (return_to_start). Sets STEP_NOTE, _ret_end (wrapped, stopped or limit),
+# _ret_options (the options read: at the press limit a lower bound, since
+# one more may follow) and _ret_first (the screen at the start).
 read_options() {
   _ret_first=$(capture_screen)
-  _rop_previous=$_ret_first
+  _rop_first_key=$(printf '%s\n' "$_ret_first" | option_key)
+  _rop_previous=$_rop_first_key
   _rop_moves=0
   _rop_end=limit
   while [ "$_rop_moves" -lt "$1" ]; do
     _rop_moves=$((_rop_moves + 1))
     _rop_screen=$(press_down_saved \
       "$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_rop_moves.txt") || return 1
-    [ "$_rop_screen" != "$_ret_first" ] || _rop_end=wrapped
-    [ "$_rop_screen" != "$_rop_previous" ] || _rop_end=stopped
+    _rop_key=$(printf '%s\n' "$_rop_screen" | option_key)
+    [ "$_rop_key" != "$_rop_first_key" ] || _rop_end=wrapped
+    [ "$_rop_key" != "$_rop_previous" ] || _rop_end=stopped
     [ "$_rop_end" = limit ] || break
-    _rop_previous=$_rop_screen
+    _rop_previous=$_rop_key
   done
   # A limit leaves one option unread at least.
   _ret_options=$_rop_moves
@@ -74,21 +91,23 @@ read_options() {
   return_to_start "$_rop_moves"
 }
 
-# Press Up one press at a time, at most $1 times, until the screen equals
-# _ret_first, the screen where the reading started; a count would be wrong
-# for a list that stops at its top or a reading begun below the first
-# option. When the screen never equals it, append `cursor not returned` to
-# STEP_NOTE and set the choose_missed mark, since the cursor is then on an
-# option nobody chose. Returns 1 when a drive call fails.
+# Press Up one press at a time, at most $1 times, until the cursor is on
+# the option it started on (the option_key of _ret_first, the screen where
+# the reading started); a count would be wrong for a list that stops at its
+# top or a reading begun below the first option. When the cursor never
+# gets there, append `cursor not returned` to STEP_NOTE and set the
+# choose_missed mark, since it is then on an option nobody chose. Returns 1
+# when a drive call fails.
 return_to_start() {
   _rts_left=$1
-  _rts_screen=$(capture_screen)
-  while [ "$_rts_screen" != "$_ret_first" ] && [ "$_rts_left" -gt 0 ]; do
+  _rts_first=$(printf '%s\n' "$_ret_first" | option_key)
+  _rts_key=$(capture_screen | option_key)
+  while [ "$_rts_key" != "$_rts_first" ] && [ "$_rts_left" -gt 0 ]; do
     press_times Up 1 || return 1
     _rts_left=$((_rts_left - 1))
-    _rts_screen=$(capture_screen)
+    _rts_key=$(capture_screen | option_key)
   done
-  [ "$_rts_screen" != "$_ret_first" ] || return 0
+  [ "$_rts_key" != "$_rts_first" ] || return 0
   STEP_NOTE="$STEP_NOTE; cursor not returned"
   state_set choose_missed yes
 }
@@ -274,6 +293,53 @@ send_paste() {
   drive paste "pastes/$_sp_file" </dev/null >/dev/null || return 1
   if [ -n "$_sp_rest" ]; then printf '%s' "$_sp_rest" | drive type >/dev/null || return 1; fi
   drive keys Enter </dev/null >/dev/null || return 1
+  wait_for "$STEP_EXPECT" marker >/dev/null || return 2
+}
+
+# Print the credentials file the `secret` kind reads: ROUND_ENV, else
+# `.env` beside round.sh (HERE), a file of NAME=value lines the operator
+# writes and git ignores.
+secrets_file() {
+  printf '%s\n' "${ROUND_ENV:-${HERE:-.}/.env}"
+}
+
+# Print the value of the variable $1 in secrets_file: the rest of its last
+# `NAME=value` line, as written, a trailing carriage return removed;
+# nothing when the file or the line is absent.
+secret_value() {
+  [ -f "$(secrets_file)" ] || return 0
+  sed -n "s/^$1=//p" "$(secrets_file)" | tail -n 1 | tr -d '\r'
+}
+
+# Print the name of every `secret` step of the steps file $1 numbered $2
+# or above whose variable has no value in secrets_file, one per line, so
+# a run stops before its first step rather than at the sign-in.
+missing_secrets() {
+  awk -F '	' -v from="$2" '$0 !~ /^#/ && NF > 0 && $1 != "NN" &&
+    $1 + 0 >= from + 0 && $3 == "secret" { print $4 }' "$1" |
+    while IFS= read -r _ms_name; do
+      [ -n "$(secret_value "$_ms_name")" ] || printf '%s\n' "$_ms_name"
+    done
+}
+
+# The `secret` kind: type the value of the variable STEP_TEXT names in
+# secrets_file into the open input dialog, press Enter and wait for the
+# step's expectation (`-` is the input marker). The value goes to the
+# drive call's stdin alone, never to a command line, the log or STEP_NOTE.
+# Nothing is typed, and the step is missed, unless the agent's
+# AGENT_INPUT_GUARD pattern shows (the dialog that takes the credential),
+# or while the choose_missed mark blocks Enter (enter_allowed).
+send_secret() {
+  if ! capture_screen | strip_box | grep -Eq -- "${AGENT_INPUT_GUARD:-^$}"; then
+    STEP_NOTE='no input dialog open'
+    return 2
+  fi
+  enter_allowed || return 2
+  _ss_value=$(secret_value "$STEP_TEXT")
+  [ -n "$_ss_value" ] || die "$STEP_TEXT has no value in $(secrets_file)"
+  printf '%s' "$_ss_value" | drive type >/dev/null || return 1
+  drive keys Enter </dev/null >/dev/null || return 1
+  STEP_NOTE="typed $STEP_TEXT from $(secrets_file)"
   wait_for "$STEP_EXPECT" marker >/dev/null || return 2
 }
 

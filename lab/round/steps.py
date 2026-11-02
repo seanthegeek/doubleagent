@@ -41,10 +41,21 @@ KINDS = (
     "pause",
     "prompt",
     "reboot",
+    "secret",
     "stop",
     "type",
 )
-NEEDS_SESSION = {"choose", "clear", "dialog", "keys", "options", "paste", "prompt", "type"}
+NEEDS_SESSION = {
+    "choose",
+    "clear",
+    "dialog",
+    "keys",
+    "options",
+    "paste",
+    "prompt",
+    "secret",
+    "type",
+}
 NO_TEXT = {"collect", "reboot", "stop"}
 EXPECT_WORDS = {"-", "exit", "marker", "none", "quiet"}
 KEY_NAMES = (
@@ -54,6 +65,8 @@ KEY_NAMES = (
 KEY_RE = re.compile(r"(?:(?:Ctrl|Shift|Alt|Meta)\+)*(?:%s)" % KEY_NAMES)
 NUMBER_RE = re.compile(r"\d{2,3}")
 NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+# The variable a `secret` step reads from the credentials file.
+VARIABLE_RE = re.compile(r"[A-Z][A-Z0-9_]*")
 # Escapes that grep -E, .NET and Python do not agree on.
 NON_PORTABLE_RE = re.compile(r"\\[dDwWsSbB]")
 # A `type` step that reads a slash command's subcommands: the command and one trailing space.
@@ -147,6 +160,9 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
         file_name = step.text.split(" ", 1)[0]
         if not any((directory / file_name).is_file() for directory in paste_dirs):
             return "no paste file %s" % file_name
+    elif step.kind == "secret":
+        if not VARIABLE_RE.fullmatch(step.text):
+            return "secret takes the upper-case name of a variable of the credentials file"
     elif step.kind == "agent":
         words = step.text.split()
         if words[0].startswith("in:") and len(words) < 2:

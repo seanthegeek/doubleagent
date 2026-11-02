@@ -84,6 +84,7 @@ def test_kind_and_text_rules(tmp_path):
     text += line("06", "no-paste", "paste", "missing.txt", "-", "c")
     text += line("07", "stop-text", "stop", "now", "-", "c")
     text += line("08", "Bad_Name", "idle", "1", "-", "c")
+    text += line("09", "bad-secret", "secret", "gemini key", "-", "c")
     assert problems_of(text, tmp_path) == [
         "agent needs a command after in:lab/proj",
         "unknown kind 'dance'",
@@ -92,7 +93,16 @@ def test_kind_and_text_rules(tmp_path):
         "no paste file missing.txt",
         "stop takes `-` as its text",
         "name 'Bad_Name' is not lower-case words joined by hyphens",
+        "secret takes the upper-case name of a variable of the credentials file",
+        "secret with no agent session open",
     ]
+
+
+def test_secret_kind(tmp_path):
+    text = line("02", "key", "secret", "GEMINI_API_KEY", "-", "c")
+    assert problems_of(text, tmp_path) == ["secret with no agent session open"]
+    text = line("02", "start", "agent", "gemini", "-", "c") + text.replace("02", "03")
+    assert problems_of(text, tmp_path) == []
 
 
 def test_expect_must_be_portable(tmp_path):
