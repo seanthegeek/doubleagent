@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Diff two listings of a lab VM and group what one round step wrote.
 
-    python3 -I classify.py [--redact] listings/03-sign-in.txt listings/04-question.txt
+    python3 -I classify.py [--redact] [--roots ROOTS] BEFORE AFTER
+    python3 -I classify.py --redact --roots roots listings/03-sign-in.txt listings/04-question.txt
 
 Reads the tab-separated lines lib/survey.sh and lib/survey.ps1 print, `<kind> <size> <mode>
 <mtime> <path>`, and prints, grouped by the first two path components under the home (else under
@@ -10,8 +11,10 @@ the root):
   ADDED    paths only in the later listing
   REMOVED  paths only in the earlier one
   CHANGED  paths whose size, mode or modification time moved; a directory only when its mode did
-  TOP      top-level names that appeared or went away (the `top` lines): a directory no survey root
-           covers, to add to the agent's roots file
+  TOP      top-level names that appeared or went away (the `top` lines) that no path of the cell's
+           roots file (--roots) matches, itself or by a leading part: a directory no survey root
+           covers, to add to the agent's roots file. `<tmp>` is the listing's `base tmp` line;
+           an older listing without one gives `<tmp>` no directory, so no name is hidden
   STATE    credential-store items and process counts that changed
 
 No file content is read. With --redact, UUIDs and runs of 32 or more hex digits in a path print as
@@ -23,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import fnmatch
 import re
 import sys
 from collections import defaultdict
@@ -32,6 +36,9 @@ UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{
 HEX_RE = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{32,}(?![0-9a-fA-F])")
 HOME_RE = re.compile(r"^(?:[A-Za-z]:)?/(?:Users|home)/[^/]+/(.*)$")
 STATE_KINDS = frozenset({"keychain", "process"})
+ROOT_PREFIX_RE = re.compile(r"^(linux|macos|unix|windows):")
+VARIABLE_RE = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%")
+DRIVE_RE = re.compile(r"^[A-Za-z]:/")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -46,11 +53,12 @@ class Entry:
 
 @dataclasses.dataclass
 class Listing:
-    """A parsed listing: the entries by path, the top-level names and the state lines."""
+    """A parsed listing: the entries by path, the top-level names, the state and base lines."""
 
     entries: dict[str, Entry] = dataclasses.field(default_factory=dict)
     tops: set[str] = dataclasses.field(default_factory=set)
     states: dict[tuple[str, str], str] = dataclasses.field(default_factory=dict)
+    bases: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -83,6 +91,8 @@ def parse_listing(lines: Iterable[str]) -> Listing:
         fields = raw.rstrip("\r\n").split("\t")
         if fields[0] == "top" and len(fields) == 6:
             listing.tops.add(fields[5])
+        elif fields[0] == "base" and len(fields) == 3:
+            listing.bases[fields[1]] = fields[2]
         elif fields[0] in STATE_KINDS and len(fields) == 5:
             listing.states[(fields[0], fields[4])] = fields[1]
         elif len(fields) == 5:
@@ -175,6 +185,133 @@ def render_section(
     return lines
 
 
+def slashed(path: str) -> str:
+    """Return a listing path with backslashes as slashes and a link's target removed."""
+    return path.split(" -> ", 1)[0].replace("\\", "/").rstrip("/")
+
+
+def listing_home(paths: Iterable[str]) -> str:
+    """Return the home a listing's paths lie under, or "" when none does.
+
+    The home is the `/home/<user>` or `/Users/<user>` part (a drive letter allowed before it) of
+    the first path under one; a path elsewhere, such as a temporary directory's, is skipped.
+    """
+    for path in (slashed(path) for path in paths):
+        match = HOME_RE.match(path)
+        if match:
+            return path[: len(path) - len(match.group(1))].rstrip("/")
+    return ""
+
+
+def listing_platform(home: str) -> str:
+    """Return `windows`, `macos` or `linux` for a listing's home, or "" when there is none."""
+    if DRIVE_RE.match(home):
+        return "windows"
+    if home.startswith("/Users/"):
+        return "macos"
+    if home.startswith("/home/"):
+        return "linux"
+    return ""
+
+
+def platform_entry(line: str, platform: str) -> str | None:
+    """Return a roots line without its platform prefix, or None for another platform's line."""
+    match = ROOT_PREFIX_RE.match(line)
+    if not match:
+        return line
+    prefix = match.group(1)
+    if prefix == platform or (prefix == "unix" and platform in ("linux", "macos")):
+        return line[match.end() :]
+    return None
+
+
+def expand_variables(entry: str, home: str, temporary: list[str]) -> list[str]:
+    """Return a roots path with each Windows `%VARIABLE%` expanded, one path per value.
+
+    `%USERPROFILE%` is the home, `%LOCALAPPDATA%` and `%APPDATA%` its `AppData/Local` and
+    `AppData/Roaming`, `%PROGRAMDATA%` `C:/ProgramData`, and `%TEMP%` and `%TMP%` give one path
+    per temporary directory. A path naming any other variable gives none, since its value cannot
+    be known from the listing.
+    """
+    values = {
+        "USERPROFILE": [home],
+        "LOCALAPPDATA": [home + "/AppData/Local"],
+        "APPDATA": [home + "/AppData/Roaming"],
+        "TEMP": temporary,
+        "TMP": temporary,
+        "PROGRAMDATA": ["C:/ProgramData"],
+    }
+    paths = [entry]
+    for name in VARIABLE_RE.findall(entry):
+        if name.upper() not in values:
+            return []
+        paths = [
+            path.replace("%" + name + "%", value)
+            for path in paths
+            for value in values[name.upper()]
+        ]
+    return paths
+
+
+def root_globs(roots_text: str, home: str, temporary: list[str]) -> list[str]:
+    """Return the path globs of a roots file, `~` and `<tmp>` expanded as the survey expands them.
+
+    Only the lines of the listing's own platform (from its home: `/home/` is Linux, `/Users/`
+    macOS, a drive letter Windows) are kept, with the unprefixed ones; keychain, process and skip
+    lines name no path, and a line naming a variable `expand_variables` does not know is skipped.
+    """
+    platform = listing_platform(home)
+    globs: list[str] = []
+    for raw in roots_text.split("\n"):
+        entry = platform_entry(raw.strip(), platform)
+        if not entry or entry.startswith(("#", "keychain:", "process:", "skip:")):
+            continue
+        for path in expand_variables(entry.replace("\\", "/"), home, temporary):
+            if path == "~" or path.startswith("~/"):
+                globs.append(home + path[1:])
+            elif path == "<tmp>" or path.startswith("<tmp>/"):
+                globs += [directory + path[5:] for directory in temporary]
+            else:
+                globs.append(path)
+    return [glob.rstrip("/") for glob in globs if glob]
+
+
+def covered(path: str, globs: list[str], fold_case: bool = False) -> bool:
+    """Return True when one of the globs matches the path or a leading part of it.
+
+    A component matches with `fnmatch.fnmatchcase`, so `*` stays inside one component as in a
+    shell glob; with `fold_case`, for the case-insensitive file systems of Windows and macOS,
+    both sides are lower-cased first.
+    """
+    text = slashed(path)
+    parts = (text.lower() if fold_case else text).split("/")
+    for glob in globs:
+        pattern = (glob.lower() if fold_case else glob).split("/")
+        if len(pattern) <= len(parts) and all(
+            fnmatch.fnmatchcase(part, piece) for part, piece in zip(parts, pattern, strict=False)
+        ):
+            return True
+    return False
+
+
+def drop_covered_tops(difference: Difference, after: Listing, roots_text: str) -> Difference:
+    """Return the difference without the `top` paths that a path of the roots file covers.
+
+    `<tmp>` is the directory the listing's `base tmp` line names, as the survey expanded it. A
+    listing without one, from a cell taken before the survey printed it, expands `<tmp>` to no
+    directory, so a `<tmp>` root covers nothing and its names stay in the hint, never hidden.
+    """
+    home = listing_home(sorted(after.tops) + difference.gone_tops)
+    temporary = [slashed(after.bases["tmp"])] if "tmp" in after.bases else []
+    globs = root_globs(roots_text, home, temporary)
+    fold_case = listing_platform(home) in ("windows", "macos")
+    return dataclasses.replace(
+        difference,
+        new_tops=[path for path in difference.new_tops if not covered(path, globs, fold_case)],
+        gone_tops=[path for path in difference.gone_tops if not covered(path, globs, fold_case)],
+    )
+
+
 def render(difference: Difference, before: Listing, after: Listing, redacting: bool) -> str:
     """Return the printable diff."""
     lines = render_section("ADDED", difference.added, after.entries, redacting)
@@ -201,12 +338,17 @@ def main(arguments: list[str] | None = None) -> int:
     """Run the command line; return the exit status."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     parser.add_argument("--redact", action="store_true", help="print UUIDs and hex runs as classes")
+    parser.add_argument("--roots", help="the cell's roots file; the TOP hint leaves its paths out")
     parser.add_argument("before")
     parser.add_argument("after")
     options = parser.parse_args(arguments)
     before = load_listing(options.before)
     after = load_listing(options.after)
-    sys.stdout.write(render(compare(before, after), before, after, options.redact))
+    difference = compare(before, after)
+    if options.roots:
+        with open(options.roots, encoding="utf-8") as handle:
+            difference = drop_covered_tops(difference, after, handle.read())
+    sys.stdout.write(render(difference, before, after, options.redact))
     return 0
 
 

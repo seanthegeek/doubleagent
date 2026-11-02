@@ -888,12 +888,15 @@ before any install.
    reason it does not apply.
 
    A question about the product's surface (where a menu item lives, how a
-   chat is deleted) or its behaviour (when a retention sweep runs) is
-   answered first from the vendor's documentation and forum, found by web
-   search or the documentation index (`llms.txt`) and cited as that source;
-   a VM experiment then tests the documented claim. Grep the bundle only for key names, enum
-   values, record shapes and path strings, or to confirm a string a page
-   names.
+   chat is deleted, what a command offers) is answered during a round first
+   from the running agent's own help, completion lists and dialogs, saved as
+   screens, and the research document is corrected from them. Outside a
+   round, such a question or one about the product's behaviour (when a
+   retention sweep runs) is answered first from the vendor's documentation
+   and forum, found by web search or the documentation index (`llms.txt`)
+   and cited as that source; a VM experiment then tests the documented
+   claim. Grep the bundle only for key names, enum values, record shapes
+   and path strings, or to confirm a string a page names.
 
    For minified bundles and compiled binaries:
 
@@ -1199,6 +1202,10 @@ into Format versions.
    - Before the baseline, check the brief's step table against this list and
      the previous cell's lessons, and fix it. Before the first prompt,
      record the REPL's `?` shortcut list and `/help`.
+   - Before its first use, every slash command the round uses is typed with
+     a trailing space and nothing else (`/auth `), as its own step whose
+     screen saves the agent's completion list of subcommands and their
+     descriptions, and the line is cleared before the next step.
    - The first prompt is a question the model answers without a tool
      (`what is 17 + 25?`), so the round records a turn with no tool call;
      if the agent calls one, the repeat comes before any other prompt.
@@ -1247,12 +1254,17 @@ into Format versions.
    - An agent driven over SSH may fail to reach the OS credential store and
      write a file fallback instead (Claude Code 2.1.310 on macOS:
      `~/.claude/.credentials.json`, mode 0600). On every platform, record
-     where its credentials land over SSH, then sign out, as its own step
-     with a listing; then the person signs in from a terminal in the VM's
-     GUI, with a listing after, once the last step driven over SSH is
-     done. A source-host CLI the agent leans on follows the same order.
-     Once per tool and platform; later cells cite
-     the research document.
+     where its credentials land at the ssh sign-in (the credential entered
+     in the session started over SSH), then sign out, as its own step with
+     a listing; then the person makes the desktop sign-in (the agent's own
+     sign-in from a terminal of the VM's desktop), with a listing after,
+     once the last step driven over SSH is done. The sign-out is the
+     agent's own command or dialog option, taken from its completion list
+     or its research document and run over SSH;
+     where the agent has none, the person removes the stored credential the
+     way a user would, and the research document says the agent offers no
+     sign-out. A source-host CLI the agent leans on follows the same order,
+     once per tool and platform; later cells cite the research document.
    - A session deleted the way a user would (the agent's own delete or
      clear, or the project directory removed). When the delete offers to
      remove the synced copy, take it and record whether a local file still

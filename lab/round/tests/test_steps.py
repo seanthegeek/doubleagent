@@ -205,3 +205,99 @@ def test_options_kind(tmp_path):
     )
     text += line("04", "bad", "options", "many", "-", "c")
     assert problems_of(text, tmp_path) == ["options takes the most Down presses, 1 to 30"]
+
+
+def test_dialog_and_choose_kinds(tmp_path):
+    text = line("02", "start", "agent", "gemini", "Trust folder", "c")
+    text += line("03", "trust", "dialog", "Trust folder", "-", "c")
+    text += line("04", "web", "dialog", "-", "marker", "c")
+    text += line("05", "grant", "choose", "Allow for this session", "-", "c")
+    text += line("06", "grant-enter", "keys", "Enter", "marker", "c")
+    assert problems_of(text, tmp_path) == []
+    text += line("07", "no-text", "choose", "-", "-", "c")
+    text += line("08", "bad-dialog", "dialog", "(open", "-", "c")
+    text += line("09", "bad-choose", "choose", r"\d option", "-", "c")
+    found = problems_of(text, tmp_path)
+    assert found[0] == "choose takes the option's text as a grep -E pattern"
+    assert found[1].startswith("dialog pattern '(open' is not a regular expression")
+    assert found[2] == "choose pattern '\\\\d option' uses an escape grep -E does not read"
+    assert len(found) == 3
+
+
+def test_dialog_and_choose_need_a_session(tmp_path):
+    text = line("02", "early", "dialog", "-", "-", "c") + line(
+        "03", "pick", "choose", "Yes", "-", "c"
+    )
+    assert problems_of(text, tmp_path) == [
+        "dialog with no agent session open",
+        "choose with no agent session open",
+    ]
+
+
+def test_a_slash_command_needs_its_subcommand_step_first(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c")
+    text += line("03", "early", "prompt", "/auth signout", "-", "c")
+    text += line("04", "sign-in", "pause", "sign in with /login, then /exit", "-", "c")
+    text += line("05", "chat", "type", "/chat", "quiet", "c")
+    assert problems_of(text, tmp_path) == [
+        "/auth is used before a `type` step of '/auth ' reads its subcommands",
+        "/login is used before a `type` step of '/login ' reads its subcommands",
+        "/exit is used before a `type` step of '/exit ' reads its subcommands",
+        "/chat is used before a `type` step of '/chat ' reads its subcommands",
+    ]
+
+
+def test_a_subcommand_step_lets_the_command_through(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c") + "".join(
+        line("%02d" % (3 + 2 * offset), name + "-subcommands", "type", "/%s " % name, "quiet", "c")
+        + line("%02d" % (4 + 2 * offset), name + "-subcommands-clear", "clear", "-", "quiet", "c")
+        for offset, name in enumerate(("auth", "login", "exit", "chat"))
+    )
+    text += line("11", "sign-out", "prompt", "/auth signout", "-", "c")
+    text += line(
+        "12", "sign-in", "pause", "run ~/lab/tui-test/tui-test, sign in with /login", "-", "c"
+    )
+    text += line("13", "leave", "pause", "type /exit in $HOME/lab/proj", "-", "c")
+    text += line("14", "chat", "type", "/chat", "quiet", "c")
+    text += line("15", "windows", "pause", "open C:/tools/run, then resume", "-", "c")
+    assert problems_of(text, tmp_path) == []
+
+
+def test_a_subcommand_step_needs_a_clear_step_right_after(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c")
+    text += line("03", "auth-subcommands", "type", "/auth ", "quiet", "c")
+    text += line("04", "help", "prompt", "what is 1 + 1?", "-", "c")
+    text += line("05", "model-subcommands", "type", "/model ", "quiet", "c")
+    assert problems_of(text, tmp_path) == [
+        "'/auth ' is not followed by a `clear` step",
+        "'/model ' is not followed by a `clear` step",
+    ]
+
+
+def test_a_drive_letter_is_no_slash_command(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c")
+    text += line("03", "run", "pause", "open c:/tools and then /users", "-", "c")
+    assert problems_of(text, tmp_path) == [
+        "/users is used before a `type` step of '/users ' reads its subcommands"
+    ]
+
+
+def test_a_type_step_keeps_its_trailing_space():
+    parsed, _ = steps.parse_steps(line("02", "auth-subcommands", "type", "/auth ", "quiet", "c"))
+    assert parsed[0].text == "/auth "
+
+
+def test_clear_kind(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c")
+    text += line("03", "early-clear", "clear", "-", "-", "c")
+    text += line("04", "typed", "type", "?", "quiet", "c")
+    text += line("05", "after", "clear", "-", "quiet", "c")
+    text += line("06", "counted", "clear", "4", "quiet", "c")
+    text += line("07", "bad", "clear", "many", "quiet", "c")
+    assert problems_of(text, tmp_path) == [
+        "clear `-` with no `type` step before it",
+        "clear takes `-` or the number of Backspace presses, 1 to 200",
+    ]
+    assert problems_of(line("02", "lonely", "clear", "2", "-", "c"), tmp_path) == [
+        "clear with no agent session open"
+    ]

@@ -1,0 +1,32 @@
+Open https://a.example.com/path?x=11111111111111111111111111
+%2F222222222222222222222222222222222222222222222222222222222
+#33333333333333333333333333333333333333333333333333333333333
+tail-a
+
+Go to https://b.example.com/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+tail-b then the prose
+
+https://c.example.com/cccccccccccccccccccccccccccccccccccccc
+Enter the code below
+
+See https://d.example.com/docs
+for-help and more
+
+╭──────────────────────────────────────╮
+│ https://f.example.com/?q=fffffffffff │
+│ tail-f                               │
+╰──────────────────────────────────────╯
+
+╭────────────────────────────────────────────────╮
+│  https://g.example.com/?q=ggggggggggggggggggg  │
+│  tail-ggggggggggggggggggggggggggggggggggggggg  │
+╰────────────────────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────╮
+│ Sign in to the example service                           │
+│ https://e.example.com/auth?id=lab&type=ceeeeeeeeeeeeeeee │
+│ pe=code&state=synthetic                                  │
+│                                                          │
+│ ● 1. Allow once                                          │
+│   2. Allow for this session                              │
+╰──────────────────────────────────────────────────────────╯

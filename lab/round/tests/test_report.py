@@ -143,3 +143,18 @@ def test_listings_pair_in_numeric_order(tmp_path):
     names = ["100-c.txt", "99-b.txt", "09-a.txt", "100-finish.txt"]
     paths = sorted((tmp_path / name for name in names), key=report.listing_order)
     assert [path.name for path in paths] == ["09-a.txt", "99-b.txt", "100-c.txt", "100-finish.txt"]
+
+
+def test_listing_summary_leaves_root_covered_tops_out(tmp_path):
+    before = tmp_path / "02-a.txt"
+    after = tmp_path / "03-b.txt"
+    before.write_text("base\ttmp\t/tmp\n", encoding="utf-8")
+    after.write_text(
+        "base\ttmp\t/tmp\n"
+        "top\tfile\t1\t644\tt\t/tmp/gemini-client-error-1.json\n"
+        "top\tdir\t1\t755\tt\t/home/lab/.npm\n",
+        encoding="utf-8",
+    )
+    assert report.listing_summary(before, after)[0] == "+0 -0 ~0 top 2"
+    roots = "<tmp>/gemini-client-error-*.json\n"
+    assert report.listing_summary(before, after, roots)[0] == "+0 -0 ~0 top 1"

@@ -12,8 +12,9 @@ line (`NN` first) are skipped. `check` prints one `<file>:<line>: <problem>` per
 repeat lines (copies of a missed step, numbered like it) after the last step that ran and points
 the cell's `next` at them. The rules are the ones round.sh relies on: every field present, numbers
 zero-padded to one width and rising from 02 (00 and 01 are the baseline and install listings), a
-known kind with the text it needs, a session open for every step that types into one, and an
-expectation grep -E, PowerShell and Python all read the same way.
+known kind with the text it needs (a `dialog` or `choose` pattern grep -E reads), a session open
+for every step that types into one, an expectation grep -E, PowerShell and Python all read the
+same way, and every slash command used after the step that reads its subcommands.
 
 Standard library only.
 """
@@ -28,8 +29,11 @@ import sys
 
 KINDS = (
     "agent",
+    "choose",
+    "clear",
     "collect",
     "command",
+    "dialog",
     "idle",
     "keys",
     "options",
@@ -40,7 +44,7 @@ KINDS = (
     "stop",
     "type",
 )
-NEEDS_SESSION = {"keys", "options", "paste", "prompt", "type"}
+NEEDS_SESSION = {"choose", "clear", "dialog", "keys", "options", "paste", "prompt", "type"}
 NO_TEXT = {"collect", "reboot", "stop"}
 EXPECT_WORDS = {"-", "exit", "marker", "none", "quiet"}
 KEY_NAMES = (
@@ -52,6 +56,10 @@ NUMBER_RE = re.compile(r"\d{2,3}")
 NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 # Escapes that grep -E, .NET and Python do not agree on.
 NON_PORTABLE_RE = re.compile(r"\\[dDwWsSbB]")
+# A `type` step that reads a slash command's subcommands: the command and one trailing space.
+SUBCOMMAND_STEP_RE = re.compile(r"/[a-z][a-z0-9-]* ")
+# A slash command a pause names: a `/word` not preceded by a path character or a drive letter.
+PAUSE_COMMAND_RE = re.compile(r"(?<![\w/~.$-])(?<![A-Za-z]:)/[a-z][a-z0-9-]*")
 REQUIRED_FILES = ("agent.conf", "install.sh", "roots", "steps.tsv")
 
 
@@ -85,21 +93,31 @@ def parse_steps(source: str) -> tuple[list[Step], list[tuple[int, str]]]:
         if len(fields) != 6 or any(not field.strip() for field in fields):
             problems.append((line_number, "want six non-empty tab-separated fields"))
             continue
-        steps.append(Step(line_number, *(field.strip() for field in fields)))
+        fields = [field.strip() for field in fields[:3]] + [
+            # A `type` step's trailing space is part of what it types.
+            fields[3].lstrip() if fields[2].strip() == "type" else fields[3].strip(),
+            *(field.strip() for field in fields[4:]),
+        ]
+        steps.append(Step(line_number, *fields))
     return steps, problems
+
+
+def pattern_problem(pattern: str, field: str) -> str | None:
+    """Return why a grep -E pattern in `field` cannot be used, or None when it can."""
+    if NON_PORTABLE_RE.search(pattern):
+        return "%s %r uses an escape grep -E does not read" % (field, pattern)
+    try:
+        re.compile(pattern)
+    except re.error as error:
+        return "%s %r is not a regular expression: %s" % (field, pattern, error)
+    return None
 
 
 def expect_problem(expect: str) -> str | None:
     """Return why an expectation cannot be used, or None when it can."""
     if expect in EXPECT_WORDS:
         return None
-    if NON_PORTABLE_RE.search(expect):
-        return "expect %r uses an escape grep -E does not read" % expect
-    try:
-        re.compile(expect)
-    except re.error as error:
-        return "expect %r is not a regular expression: %s" % (expect, error)
-    return None
+    return pattern_problem(expect, "expect")
 
 
 def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
@@ -112,6 +130,15 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
     elif step.kind == "options":
         if not step.text.isdigit() or not 0 < int(step.text) <= 30:
             return "options takes the most Down presses, 1 to 30"
+    elif step.kind == "clear":
+        if step.text != "-" and (not step.text.isdigit() or not 0 < int(step.text) <= 200):
+            return "clear takes `-` or the number of Backspace presses, 1 to 200"
+    elif step.kind == "dialog":
+        return None if step.text == "-" else pattern_problem(step.text, "dialog pattern")
+    elif step.kind == "choose":
+        if step.text == "-":
+            return "choose takes the option's text as a grep -E pattern"
+        return pattern_problem(step.text, "choose pattern")
     elif step.kind == "keys":
         bad = [key for key in step.text.split(",") if not KEY_RE.fullmatch(key)]
         if bad:
@@ -133,6 +160,7 @@ def check_steps(steps: list[Step], paste_dirs: list[pathlib.Path]) -> list[tuple
     previous = 1
     width = 0
     session_open = False
+    typed = False
     for step in steps:
         found: list[str] = []
         if not NUMBER_RE.fullmatch(step.number):
@@ -159,11 +187,47 @@ def check_steps(steps: list[Step], paste_dirs: list[pathlib.Path]) -> list[tuple
             found.append(message)
         if step.kind in NEEDS_SESSION | {"stop"} and not session_open:
             found.append("%s with no agent session open" % step.kind)
+        if step.kind == "clear" and step.text == "-" and not typed:
+            found.append("clear `-` with no `type` step before it")
+        typed = typed or step.kind == "type"
         if step.kind == "agent":
             session_open = True
         elif step.kind in ("stop", "reboot"):
             session_open = False
         problems.extend((step.line, message) for message in found)
+    return problems + subcommand_problems(steps)
+
+
+def subcommand_problems(steps: list[Step]) -> list[tuple[int, str]]:
+    """Return the (line, problem) pairs of slash commands used before their subcommands are read.
+
+    A `prompt` or `type` step whose text starts with a slash command, and a `pause` whose text
+    names one, must come after a `type` step whose text is that command and one trailing space,
+    which saves the agent's completion list of its subcommands; a `clear` step must follow that
+    `type` step directly, so the typed command never reaches the next prompt.
+    """
+    problems: list[tuple[int, str]] = []
+    read: set[str] = set()
+    for index, step in enumerate(steps):
+        if step.kind == "type" and SUBCOMMAND_STEP_RE.fullmatch(step.text):
+            read.add(step.text[:-1])
+            if index + 1 == len(steps) or steps[index + 1].kind != "clear":
+                problems.append((step.line, "%r is not followed by a `clear` step" % step.text))
+            continue
+        if step.kind in ("prompt", "type") and step.text.startswith("/"):
+            commands = [step.text.split()[0]]
+        elif step.kind == "pause":
+            commands = PAUSE_COMMAND_RE.findall(step.text)
+        else:
+            continue
+        problems.extend(
+            (
+                step.line,
+                "%s is used before a `type` step of %r reads its subcommands" % (name, name + " "),
+            )
+            for name in commands
+            if name not in read
+        )
     return problems
 
 

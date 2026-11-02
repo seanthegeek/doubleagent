@@ -31,6 +31,10 @@ HOST_PYTHON=${ROUND_PYTHON:-python3}
 
 # shellcheck source=lab/round/lib/vm.sh
 . "$HERE/lib/vm.sh"
+# shellcheck source=lab/round/lib/screen.sh
+. "$HERE/lib/screen.sh"
+# shellcheck source=lab/round/lib/steps.sh
+. "$HERE/lib/steps.sh"
 
 AGENT_DIR=$HERE/agents/$AGENT
 [ -d "$AGENT_DIR" ] || die "no agent definition $AGENT_DIR"
@@ -64,11 +68,6 @@ host_tool() {
   python3 -I "$HERE/$_ht_script" "$@"
 }
 
-# Print a step number without its leading zeros, so `08` compares as 8.
-number_value() {
-  printf '%s\n' "$1" | sed 's/^0*\([0-9]\)/\1/'
-}
-
 # The step numbers of the cell's table, in order. The state names steps by
 # number, never by position, so a repeat step inserted into the cell's copy
 # (see the README) shifts nothing that has run.
@@ -81,7 +80,6 @@ next_step_after() {
   awk -F "$TAB" -v after="$1" '$0 !~ /^#/ && NF > 0 && $1 != "NN" && $1 + 0 > after + 0 {
     print $1; found = 1; exit } END { if (!found) print "done" }' "$CELL/steps.tsv"
 }
-
 # Load step $1 into the globals STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT
 # and STEP_EXPECT; the claim is for the reader.
 load_step() {
@@ -111,8 +109,8 @@ take_listing() {
   tr -d '\r' <"$_tl_file.raw" >"$_tl_file" && rm -f "$_tl_file.raw"
   _tl_previous=$(state_get listing)
   if [ -n "$_tl_previous" ]; then
-    host_tool classify.py --redact "$CELL/listings/$_tl_previous.txt" "$_tl_file" \
-      >"$CELL/diffs/$1.txt"
+    host_tool classify.py --redact --roots "$CELL/roots" "$CELL/listings/$_tl_previous.txt" \
+      "$_tl_file" >"$CELL/diffs/$1.txt"
   fi
   state_set listing "$1"
 }
@@ -196,75 +194,18 @@ start_agent() {
     drive start "${TERMINAL_COLS:-120}" "${TERMINAL_ROWS:-40}" "$_sa_directory"
 }
 
-# Read every option of the open dialog: press Down, at most $1 times, saving
-# each settled screen, until the screen is the first one again (the cursor
-# wrapped) or the same as before (it stopped), then press Up back to the
-# first option. Sets STEP_NOTE to what was read.
-read_options() {
-  _rop_first=$(capture_screen)
-  _rop_previous=$_rop_first
-  _rop_moves=0
-  _rop_end=limit
-  while [ "$_rop_moves" -lt "$1" ]; do
-    drive keys Down </dev/null >/dev/null || return 1
-    wait_for quiet quiet >/dev/null
-    _rop_moves=$((_rop_moves + 1))
-    _rop_screen=$(capture_screen)
-    printf '%s\n' "$_rop_screen" >"$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_rop_moves.txt"
-    if [ "$_rop_screen" = "$_rop_first" ]; then
-      _rop_end=wrapped
-      break
-    fi
-    if [ "$_rop_screen" = "$_rop_previous" ]; then
-      _rop_end=stopped
-      break
-    fi
-    _rop_previous=$_rop_screen
-  done
-  # Back to the first option: none after a wrap, one Up per move that
-  # changed the screen otherwise.
-  _rop_back=$_rop_moves
-  case $_rop_end in
-    wrapped) _rop_back=0 ;;
-    stopped) _rop_back=$((_rop_moves - 1)) ;;
-  esac
-  _rop_keys=
-  while [ "$_rop_back" -gt 0 ]; do
-    _rop_keys=${_rop_keys:+$_rop_keys,}Up
-    _rop_back=$((_rop_back - 1))
-  done
-  if [ -n "$_rop_keys" ]; then drive keys "$_rop_keys" </dev/null >/dev/null || return 1; fi
-  STEP_NOTE="$_rop_moves presses of Down, the cursor $_rop_end"
-}
-
 # Run the kind-specific part of the loaded step; return 1 when a command
 # failed and 2 when the step's expectation was not met in time.
 run_kind() {
   case $STEP_KIND in
-    prompt)
-      printf '%s' "$STEP_TEXT" | drive type >/dev/null || return 1
-      drive keys Enter </dev/null >/dev/null || return 1
-      wait_for "$STEP_EXPECT" marker >/dev/null || return 2
-      ;;
-    type)
-      printf '%s' "$STEP_TEXT" | drive type >/dev/null || return 1
-      wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
-      ;;
-    keys)
-      drive keys "$STEP_TEXT" </dev/null >/dev/null || return 1
-      wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
-      ;;
+    prompt) send_text Enter marker ;;
+    type) send_text '' quiet ;;
+    keys) press_step_keys ;;
     options) read_options "$STEP_TEXT" || return 1 ;;
-    paste)
-      _rk_file=${STEP_TEXT%% *}
-      _rk_rest=${STEP_TEXT#"$_rk_file"}
-      _rk_rest=${_rk_rest# }
-      guest_copy "$(paste_source "$_rk_file")" pastes
-      drive paste "pastes/$_rk_file" </dev/null >/dev/null || return 1
-      if [ -n "$_rk_rest" ]; then printf '%s' "$_rk_rest" | drive type >/dev/null || return 1; fi
-      drive keys Enter </dev/null >/dev/null || return 1
-      wait_for "$STEP_EXPECT" marker >/dev/null || return 2
-      ;;
+    dialog) answer_dialog ;;
+    choose) choose_option ;;
+    clear) clear_typed ;;
+    paste) send_paste ;;
     command)
       round_log "command: $STEP_TEXT"
       printf '%s\n' "$STEP_TEXT" |
@@ -285,6 +226,27 @@ run_kind() {
   esac
 }
 
+# Print the pause of step $1: its screen $2, the URLs on that screen joined
+# into one line each (also saved as screens/$1.urls.txt, since a terminal
+# wraps a long URL and a copy from the wrapped lines loses characters) and
+# the step's text; then snapshot the VM and exit 3. $3 is the start time.
+pause_for_person() {
+  write_screens "$1" "$2"
+  printf '%s\n' "$2"
+  {
+    printf '\nURLs on the screen, joined:\n'
+    printf '%s\n' "$2" | joined_urls "${TERMINAL_COLS:-120}" | sed 's/^/  /'
+  } | tee "$CELL/screens/$1.urls.txt"
+  printf '\nround: step %s needs you:\n  %s\n' "$1" \
+    "$(printf '%s' "$STEP_TEXT" | sed "s/{session}/$(state_get session)/g")"
+  vm_snapshot "claude-$AGENT-$STEP_NUMBER"
+  state_set paused "$STEP_NUMBER"
+  state_set paused_label "$1"
+  state_set paused_at "$3"
+  printf 'round: then run: %s %s %s %s resume\n' "$0" "$AGENT" "$VM_NAME" "$CELL"
+  exit 3
+}
+
 # Run step number $1: screens, the step, the listing and its diff, and its
 # line in steps.log. A pause step snapshots the VM and exits 3.
 run_step() {
@@ -293,34 +255,13 @@ run_step() {
   state_set next "$STEP_NUMBER"
   _rs_started=$(utc_now)
   _rs_before=$(capture_screen)
-  if [ "$STEP_KIND" = pause ]; then
-    write_screens "$_rs_label" "$_rs_before"
-    printf '%s\n' "$_rs_before"
-    printf '\nround: step %s needs you:\n  %s\n' "$_rs_label" \
-      "$(printf '%s' "$STEP_TEXT" | sed "s/{session}/$(state_get session)/g")"
-    vm_snapshot "claude-$AGENT-$STEP_NUMBER"
-    state_set paused "$STEP_NUMBER"
-    state_set paused_label "$_rs_label"
-    state_set paused_at "$_rs_started"
-    printf 'round: then run: %s %s %s %s resume\n' "$0" "$AGENT" "$VM_NAME" "$CELL"
-    exit 3
-  fi
+  [ "$STEP_KIND" != pause ] || pause_for_person "$_rs_label" "$_rs_before" "$_rs_started"
   round_log "step $_rs_label ($STEP_KIND)"
-  _rs_status='done'
-  _rs_note=
   STEP_NOTE=
   run_kind
-  case $? in
-    0) _rs_note=$STEP_NOTE ;;
-    2)
-      _rs_status=missed
-      _rs_note="expectation not met within ${TURN_SECONDS:-300}s"
-      ;;
-    *)
-      _rs_status=failed
-      _rs_note='a command of the step failed; see round.log'
-      ;;
-  esac
+  step_outcome "$?"
+  _rs_status=$_ret_status
+  _rs_note=$_ret_note
   write_screens "$_rs_label" "$_rs_before" "$(capture_screen)"
   take_listing "$_rs_label"
   log_step "$_rs_label" "$STEP_KIND" "$_rs_status" "$_rs_started" "$(utc_now)" "$_rs_note"
@@ -332,15 +273,11 @@ run_step() {
 # ends the run after that step.
 run_steps() {
   _rn_from=$(number_value "$1")
-  _rn_stop=$(number_value "${ROUND_STOP_AFTER:-}")
   # shellcheck disable=SC2046 # step numbers are digits only
   for _rn_number in $(step_numbers); do
     [ "$(number_value "$_rn_number")" -ge "$_rn_from" ] || continue
     run_step "$_rn_number"
-    if [ -n "$_rn_stop" ] && [ "$(number_value "$_rn_number")" -eq "$_rn_stop" ]; then
-      round_log "stopped after step $_rs_label (ROUND_STOP_AFTER); resume goes on"
-      return 0
-    fi
+    if stop_after_reached "$_rn_number" "$_rs_label"; then return 0; fi
   done
   state_set next 'done'
   round_log "all steps done; run collect, then finish"
@@ -552,6 +489,7 @@ resume_cell() {
     state_set paused ''
     state_set paused_label ''
     state_set next "$(next_step_after "$STEP_NUMBER")"
+    if stop_after_reached "$STEP_NUMBER" "$STEP_NUMBER-$STEP_NAME"; then return 0; fi
   fi
   _rsm_next=$(state_get next)
   [ "$_rsm_next" != 'done' ] || {
