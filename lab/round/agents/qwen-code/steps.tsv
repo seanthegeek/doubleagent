@@ -74,28 +74,31 @@ NN	name	kind	text	expect	claim
 074	gh-login-stop	stop	-	-	none: closes gh's terminal session
 075	github-channel	pause	Where offered, set up Qwen Code's GitHub channel for the lab repository with the gh login, as the vendor's channels page describes; run qwen channel start; ask it, from the repository, to describe the repository, change nothing and open no pull request; stop the channel; then resume	-	the channel acts through gh and keeps the login in memory; github-audit.jsonl, the pending deliveries and inbound tasks files, and a session relayed: row from channels/sessions.json (research/qwen-code.md#source-host-rows) (unverified)
 076	gh-logout	command	gh auth logout --hostname github.com	-	the logout removes the local token from hosts.yml; the grant itself stays until revoked in the account
-077	collect-before-delete	collect	-	-	the collector's rows before the project is removed
-078	delete-start	agent	qwen	marker	a session for the TUI's delete
-079	delete-subcommands	type	/delete 	quiet	the completion list of /delete: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-080	delete-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-081	delete-dialog	prompt	/delete	quiet	the TUI's delete: its picker or confirmation (research/qwen-code.md#what-survives-a-delete) (unverified)
-082	delete-options	options	12	quiet	every option of the delete dialog, one screen per Down until the cursor wraps or stops, then back on the first
-083	delete	keys	Enter	quiet	the transcript, file-history and session-organization entry go; usage_record.jsonl keeps the summary; logs.json rows purged (research/qwen-code.md#what-survives-a-delete) (unverified)
-084	delete-stop	stop	-	-	none: closes the terminal session
-085	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: projects/<sanitized cwd>/ and tmp/<sha256>/ stay (research/qwen-code.md#what-survives-a-delete)
-086	home-start	agent	in:. qwen	Trust folder|Type your message	a start from the home after the project is gone; the home is not yet trusted
-087	home-trust	dialog	Trust folder	marker	the home's folder trust dialog, if Qwen Code shows one, answered with its first option (research/qwen-code.md#permission-lists-and-trusted-folders) (unverified)
-088	home-stop	stop	-	-	none: closes the terminal session
-089	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/qwen-code.md#what-survives-a-delete)
-090	idle	idle	600	-	nothing is written while no agent runs
-091	auth	agent	in:. qwen	marker	a session over ssh for the sign-out
-092	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-093	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-094	auth-dialog	prompt	/auth	quiet	what /auth offers; the research document names no sign-out command (not stated) (unverified)
-095	auth-options	options	12	quiet	every option of the /auth dialog, one screen per Down until the cursor wraps or stops, then back on the first
-096	sign-out-choose	choose	[Ll]og ?out|[Ss]ign ?out	-	a sign-out option in the /auth dialog, its text a guess; a miss leaves the dialog unanswered and is a finding (unverified)
-097	sign-out	keys	Enter	quiet	which credential files a sign-out removes or keeps: oauth_creds.json (research/qwen-code.md#credentials) (unverified)
-098	auth-stop	stop	-	-	none: closes the terminal session
-099	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run qwen in the home, sign in, ask what is 1 + 1?, /exit, then resume	-	the desktop sign-in writes the same oauth_creds.json; Qwen keeps no keychain item for it (research/qwen-code.md#credentials)
-100	reboot	reboot	-	-	a reboot: stale sessions/*.json and the temp files
-101	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+077	gh-desktop-sign-in	pause	In a terminal of the VM's desktop run gh auth login --expiring --hostname github.com --git-protocol https --web with the throwaway GitHub account, finish the browser part, then resume	-	where gh's token lands from the desktop (the OS keychain), against the plaintext hosts.yml of the ssh login, by name and mode only (the round's gh rule in AGENTS.md) (unverified)
+078	gh-desktop-logout	command	gh auth logout --hostname github.com	-	the logout removes the desktop login's local token; the grant stays until revoked in the account
+079	collect-before-delete	collect	-	-	the collector's rows before the project is removed
+080	delete-start	agent	qwen	marker	a session for the TUI's delete
+081	delete-subcommands	type	/delete 	quiet	the completion list of /delete: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+082	delete-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+083	delete-dialog	prompt	/delete	quiet	the TUI's delete: its picker or confirmation (research/qwen-code.md#what-survives-a-delete) (unverified)
+084	delete-options	options	12	quiet	every option of the delete dialog, one screen per Down until the cursor wraps or stops, then back on the first
+085	delete	keys	Enter	quiet	the transcript, file-history and session-organization entry go; usage_record.jsonl keeps the summary; logs.json rows purged (research/qwen-code.md#what-survives-a-delete) (unverified)
+086	delete-stop	stop	-	-	none: closes the terminal session
+087	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: projects/<sanitized cwd>/ and tmp/<sha256>/ stay (research/qwen-code.md#what-survives-a-delete)
+088	home-start	agent	in:. qwen	Trust folder|Type your message	a start from the home after the project is gone; the home is not yet trusted
+089	home-trust	dialog	Trust folder	marker	the home's folder trust dialog, if Qwen Code shows one, answered with its first option (research/qwen-code.md#permission-lists-and-trusted-folders) (unverified)
+090	home-stop	stop	-	-	none: closes the terminal session
+091	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/qwen-code.md#what-survives-a-delete)
+092	idle	idle	600	-	nothing is written while no agent runs
+093	auth	agent	in:. qwen	marker	a session over ssh for the sign-out
+094	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+095	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+096	auth-dialog	prompt	/auth	quiet	what /auth offers; the research document names no sign-out command (not stated) (unverified)
+097	auth-options	options	12	quiet	every option of the /auth dialog, one screen per Down until the cursor wraps or stops, then back on the first
+098	sign-out-choose	choose	[Ll]og ?out|[Ss]ign ?out	-	a sign-out option in the /auth dialog, its text a guess; a miss leaves the dialog unanswered and is a finding (unverified)
+099	sign-out	keys	Enter	quiet	which credential files a sign-out removes or keeps: oauth_creds.json (research/qwen-code.md#credentials) (unverified)
+100	sign-out-fallback	pause	If steps.log shows the sign-out-choose step before missed, sign out through the monitor (~/lab/tui-test/tui-test --session {session} monitor --interactive) as the /auth dialog offers, or remove the stored credential the way a user would, then detach; otherwise just resume	-	the agent's sign-out option text is unverified, so a missed choose leaves the sign-out to the person (research/qwen-code.md#credentials)
+101	auth-stop	stop	-	-	none: closes the terminal session
+102	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run qwen in the home, sign in, ask what is 1 + 1?, /exit, then resume	-	the desktop sign-in writes the same oauth_creds.json; Qwen keeps no keychain item for it (research/qwen-code.md#credentials)
+103	reboot	reboot	-	-	a reboot: stale sessions/*.json and the temp files
+104	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
