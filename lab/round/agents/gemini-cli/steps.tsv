@@ -63,28 +63,29 @@ NN	name	kind	text	expect	claim
 63	clear	prompt	/clear	marker	/clear starts a new session file and leaves the old one (research/gemini-cli.md#what-survives-a-delete) (unverified)
 64	after-clear	prompt	what is 3 + 4?	-	the first lines of the session after /clear
 65	clear-stop	stop	-	-	none: closes the terminal session
-66	worktree	agent	gemini --worktree lab	marker	<project>/.gemini/worktrees/lab and a scratch directory: row for its session (research/gemini-cli.md#worktree-sessions)
-67	worktree-question	prompt	what is 5 + 6?	-	the worktree session's .project_root and chat file
-68	worktree-stop	stop	-	-	none: closes the terminal session
-69	devtools-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.general=Object.assign(s.general||{},{devtools:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	general.devtools set to true in settings.json (research/gemini-cli.md#activity-log)
-70	devtools	agent	gemini	marker	a session started with general.devtools on
-71	devtools-question	prompt	what is 2 + 9?	-	tmp/<slug>/logs/session-<id>.jsonl with network payloads (research/gemini-cli.md#activity-log)
-72	devtools-stop	stop	-	-	none: closes the terminal session
-73	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
-74	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
-75	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
-76	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
-77	home-start	agent	in:. gemini	Trust folder	a start in the home, not yet trusted, raises the folder trust dialog; a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
-78	home-trust-options	options	12	quiet	every option of the home's trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
-79	home-trust	keys	Enter	marker	Trust folder for the home: a trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
-80	home-stop	stop	-	-	none: closes the terminal session
-81	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
-82	idle	idle	600	-	nothing is written while no agent runs
-83	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
-84	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
-85	auth-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
-86	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
-87	auth-stop	stop	-	-	none: closes the terminal session
-88	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
-89	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
-90	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+66	worktrees-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.experimental=Object.assign(s.experimental||{},{worktrees:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	--worktree is accepted only with experimental.worktrees on; the setting goes into settings.json (research/gemini-cli.md#project-local-files)
+67	worktree	agent	gemini --worktree lab	marker	<project>/.gemini/worktrees/lab and a scratch directory: row for its session (research/gemini-cli.md#worktree-sessions)
+68	worktree-question	prompt	what is 5 + 6?	-	the worktree session's .project_root and chat file
+69	worktree-stop	stop	-	-	none: closes the terminal session
+70	devtools-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.general=Object.assign(s.general||{},{devtools:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	general.devtools set to true in settings.json (research/gemini-cli.md#activity-log)
+71	devtools	agent	gemini	marker	a session started with general.devtools on
+72	devtools-question	prompt	what is 2 + 9?	-	tmp/<slug>/logs/session-<id>.jsonl with network payloads (research/gemini-cli.md#activity-log)
+73	devtools-stop	stop	-	-	none: closes the terminal session
+74	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
+75	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
+76	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
+77	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
+78	home-start	agent	in:. gemini	Trust folder	a start in the home, not yet trusted, raises the folder trust dialog; a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
+79	home-trust-options	options	12	quiet	every option of the home's trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
+80	home-trust	keys	Enter	marker	Trust folder for the home: a trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
+81	home-stop	stop	-	-	none: closes the terminal session
+82	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
+83	idle	idle	600	-	nothing is written while no agent runs
+84	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
+85	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
+86	auth-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
+87	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
+88	auth-stop	stop	-	-	none: closes the terminal session
+89	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+90	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
+91	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
