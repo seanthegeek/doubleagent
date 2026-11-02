@@ -1253,12 +1253,18 @@ into Format versions.
      the account's authorized OAuth apps.
    - An agent driven over SSH may fail to reach the OS credential store and
      write a file fallback instead (Claude Code 2.1.310 on macOS:
-     `~/.claude/.credentials.json`, mode 0600). On every platform, record
-     where its credentials land at the ssh sign-in (the credential entered
-     in the session started over SSH), then sign out, as its own step with
-     a listing; then the person makes the desktop sign-in (the agent's own
-     sign-in from a terminal of the VM's desktop), with a listing after,
-     once the last step driven over SSH is done. The sign-out is the
+     `~/.claude/.credentials.json`, mode 0600), and whether it fails can
+     turn on a desktop session being logged in at the time (Gemini CLI
+     0.66.0 on Linux reached the keyring over SSH while one was, and wrote
+     the fallback while none was). On every platform, record where its
+     credentials land at the ssh sign-in (the credential entered in the
+     session started over SSH, typed by the pipeline from its credentials
+     file where the agent takes a key at a prompt), made before anyone has
+     logged in to the VM's desktop since the clean snapshot, then sign out,
+     as its own step with a listing; then the person makes the desktop
+     sign-in (the agent's own sign-in from a terminal of the VM's desktop),
+     with a listing after, once the last step driven over SSH is done. The
+     sign-out is the
      agent's own command or dialog option, taken from its completion list
      or its research document and run over SSH;
      where the agent has none, the person removes the stored credential the
