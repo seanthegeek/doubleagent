@@ -95,9 +95,12 @@ drive() {
   guest_tool drive "$(state_get session)" "$@"
 }
 
+# Print the session's screen; return 1 when the drive call fails, so a
+# reader can tell an unread screen from an empty one.
 capture_screen() {
   [ -n "$(state_get session)" ] || return 0
-  drive screen </dev/null 2>/dev/null | tr -d '\r'
+  _cs_text=$(drive screen </dev/null 2>/dev/null) || return 1
+  printf '%s\n' "$_cs_text" | tr -d '\r'
 }
 
 # Take the listing $1 and diff it against the previous one. The survey's
@@ -206,6 +209,7 @@ run_kind() {
     choose) choose_option ;;
     clear) clear_typed ;;
     paste) send_paste ;;
+    secret) send_secret ;;
     command)
       round_log "command: $STEP_TEXT"
       printf '%s\n' "$STEP_TEXT" |
@@ -270,9 +274,12 @@ run_step() {
 }
 
 # Run every step from number $1 on; ROUND_STOP_AFTER, compared as a number,
-# ends the run after that step.
+# ends the run after that step. A `secret` step ahead whose variable has
+# no value in the credentials file stops the run before the first step.
 run_steps() {
   _rn_from=$(number_value "$1")
+  _rn_missing=$(missing_secrets "$CELL/steps.tsv" "$_rn_from" | tr '\n' ' ')
+  [ -z "$_rn_missing" ] || die "no value for ${_rn_missing% } in $(secrets_file)"
   # shellcheck disable=SC2046 # step numbers are digits only
   for _rn_number in $(step_numbers); do
     [ "$(number_value "$_rn_number")" -ge "$_rn_from" ] || continue

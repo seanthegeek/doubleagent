@@ -113,9 +113,19 @@ Gemini CLI signs in with a Gemini API key, since its Google sign-in no
 longer serves individual accounts. Make the key in Google AI Studio under
 the throwaway account, in a project with pay-as-you-go billing enabled:
 the free tier's daily cap on the default model is spent within a few
-turns of a round. Delete the key once the round is over. Where the CLI
+turns of a round. Delete the key once the round is over, and its line in
+`.env` with it. Where the CLI
 stores the key is in
 [Credentials in `research/gemini-cli.md`](../../research/gemini-cli.md#credentials).
+
+A credential the agent takes at a prompt of its own, such as that key,
+goes in the credentials file `.env` beside `round.sh`, copied from
+`.env.example` and ignored by git, one `NAME=value` line per credential
+with the value as it is; a `secret` step types the named value into the
+agent's dialog over `ssh`, so the ssh sign-in of such an agent needs no
+one at the VM. `start` and `resume` stop before their first step when a
+`secret` step ahead names a variable the file leaves empty. A sign-in
+with a browser part stays a `pause` for the person.
 
 ### The cell directory
 
@@ -159,21 +169,28 @@ reason on stderr and in `round.log`.
 | `ROUND_PYTHON` | `python3` | The Python that runs the analyzer: one with `analyzer/requirements.txt` installed. The pipeline's own tools need only the standard library. |
 | `ROUND_KNOWN_HOSTS` | `<cell>/known_hosts` | The known-hosts file of the cell's ssh config. |
 | `ROUND_SSH_KEY` | `~/.ssh/doubleagent_lab` | The lab key, as [SSH access in Lab VMs](../../docs/lab-vms.md#ssh-access) describes it. |
+| `ROUND_ENV` | `.env` beside `round.sh` | The credentials file the `secret` steps read ([Accounts](#accounts)). |
 | `ROUND_STOP_AFTER` | none | A step number, compared as a number (`9` and `09` are the same step), after which `start` or `resume` stops with exit 0; `resume` goes on from the next step. The paused step counts: when `ROUND_STOP_AFTER` names the step a `resume` finishes, it stops right after it. |
 | `TURN_SECONDS`, `QUIET_SECONDS` | the agent's `agent.conf` | How long a step waits for its expectation, and how long the screen must stay unchanged to count as settled. |
 | `PRLCTL` | `prlctl` | The Parallels Desktop command line. |
 
 ## What the person does
 
-The person has three kinds of step, in this order in every table; the
-pipeline reads and answers the agent's dialogs itself over `ssh` (the
-`dialog` and `choose` kinds below).
+The person has three kinds of step at most, in this order in every
+table; the pipeline reads and answers the agent's dialogs itself over
+`ssh` (the `dialog` and `choose` kinds below) and types a key the agent
+takes at a prompt from the credentials file (the `secret` kind).
 
-1. **The ssh sign-in**, at the first pause: the person enters the
-   credential (a pasted key, or the agent's sign-in with its browser part)
-   in the session the pipeline started over `ssh`, through the monitor
-   below. Its listing shows where the agent stores a credential entered
-   over `ssh`.
+1. **The ssh sign-in**, at the first pause of an agent whose sign-in has
+   a browser part: the person completes it in the session the pipeline
+   started over `ssh`, through the monitor below, which needs a desktop
+   login first, so the research document says a desktop session was
+   logged in. Its listing shows where the agent stores a credential
+   entered over `ssh`. An agent that takes a key at a prompt (Gemini CLI)
+   has a `secret` step here instead, typed before anyone has logged in to
+   the desktop since the clean snapshot, with the same listing: whether
+   the agent reaches the OS credential store over `ssh` can turn on that
+   login ([Credentials in `research/gemini-cli.md`](../../research/gemini-cli.md#credentials)).
 2. **The desktop sign-in**, after the pipeline's sign-out over `ssh`: the
    person runs the agent's own sign-in from a terminal of the VM's desktop.
    Its listing shows where the credential lands when the agent runs there,
@@ -211,16 +228,19 @@ terminal of the VM's desktop and attach to it:
 The session name is in the pause text. This is how the person joins the
 session the pipeline started over `ssh`. Complete the agent's sign-in
 with the throwaway account, the browser part included, then detach with
-Ctrl+] and run `resume`. A key the agent asks for (Gemini CLI's API key)
-is pasted at its prompt the same way. If attaching fails, sign in from a
+Ctrl+] and run `resume`. A key the agent asks for at a prompt of its own
+(Gemini CLI's API key) is typed by a `secret` step instead, from the
+credentials file ([Accounts](#accounts)). If attaching fails, sign in from a
 terminal of the VM's desktop instead (start the agent there, sign in,
 exit) and run `resume`, and note in the round's write-up that the ssh
 sign-in was made as a desktop sign-in, since its listing then shows where
-a desktop sign-in lands. The pipeline never asks for a credential or
-types one. It does print the agent's screen at a pause, so a one-time
-code or a sign-in URL the agent shows appears there and in `screens/` and
-`casts/`, and the collection holds the credential files the agent wrote;
-the listings and diffs name such a file by name, size and mode only.
+a desktop sign-in lands. The pipeline never asks for a credential, and
+types one only at a `secret` step, from the credentials file. It does
+print the agent's screen at a pause, so a one-time code or a sign-in URL
+the agent shows appears there and in `screens/` and `casts/`; a key the
+agent's dialog echoes or shows prefilled later is in those files too, and
+the collection holds the credential files the agent wrote. The listings
+and diffs name such a file by name, size and mode only.
 
 ## The step table
 
@@ -300,9 +320,12 @@ before a tool call.
 
 Every dialog is read before it is answered: an `options` step presses Down
 until the cursor wraps or stops, saving each screen, and puts the cursor
-back where it started, pressing Up one press at a time until the screen
-equals the one it started on, at most once per Down; a reading that never
-gets back logs `cursor not returned` and sets the mark described below. A
+back where it started, pressing Up one press at a time until the cursor
+is on the option it started on, at most once per Down; a reading that
+never gets back logs `cursor not returned` and sets the mark described
+below. A reading compares the highlighted option lines of two screens,
+never the whole screens, so a line outside the dialog that comes and goes
+(a warning the agent shows on its first screen only) changes no reading. A
 `dialog` step does the same and then answers with the first option, but
 only when the dialog is on the screen; where a dialog may or may not
 appear (a web tool's confirmation, a trust question), it records
@@ -312,17 +335,19 @@ way and moves the cursor to the option whose text it names (the
 allow-always grant, the zip delivery of pi's `/bug`), so the next `keys`
 step's Enter answers with it.
 
-When a `choose` step misses or fails, a `keys` step's drive call fails
-(what the key did to an open dialog is unknown), or a reading cannot
-return its cursor, the step sets a mark, and no step that presses Enter
-runs while it is set (a `keys` step whose keys include Enter, a `prompt`
-or a `paste`; each is `missed` with the note `the choose step before
-missed`). A later `choose` that places the cursor, a `dialog` step, which
-answers its named dialog regardless of the mark, or an `agent`, `stop` or
-`reboot` step, which opens or closes the session, clears it, so no Enter
-answers with an option the table did not mean; an `options` step does
-not clear it, since its reading leaves the cursor on an option nobody
-chose. A `choose` that misses with a dialog open (no option matches, or
+When a `choose` step misses or fails, a drive call sent to a dialog that
+may be open fails (a `keys` or `secret` step's call, or a typing step's
+recovery Escape: what the key did to the dialog is unknown), or a reading
+cannot return its cursor, the step sets a mark, and no step that presses Enter
+runs while it is set (a `keys` step whose keys include Enter, a `prompt`,
+a `paste` or a `secret`; each is `missed` with the note `the choose step
+before missed`). A later `choose` that places the cursor, a `dialog`
+step, which answers its named dialog regardless of the mark, an `agent`,
+`stop` or `reboot` step, which opens or closes the session, or a typing
+step whose Escape closed the dialog and found the input free (the next
+paragraph), clears it, so no Enter answers with an option the table
+did not mean; an `options` step does not clear it, since its reading
+leaves the cursor on an option nobody chose. A `choose` that misses with a dialog open (no option matches, or
 the cursor ends elsewhere) also presses Escape once to close that dialog
 and logs `Escape sent after the miss`; one that finds no dialog sends
 nothing. No step confirms a dialog that sends a report or a transcript to
@@ -330,12 +355,26 @@ a vendor; prompts and the web-tool confirmations send what the agent
 itself sends.
 
 A `prompt`, `type`, `paste` or `clear` step reads the screen before it
-types, and when a dialog is open (the agent's `AGENT_OPTION` line, or its
+types. When a dialog is open (the agent's `AGENT_OPTION` line, or its
 `AGENT_INPUT_GUARD` pattern for an input dialog with no option line, such
-as Gemini CLI's API key prompt) it types nothing and is `missed` with the
-note `a dialog is open`. The tables answer every dialog with `options`,
-`keys`, `dialog` or `choose` steps, so a prompt never belongs in one, and
-text typed into a key prompt can be stored as the key.
+as Gemini CLI's API key prompt), the table did not foresee it, so the step
+presses Escape once, which cancels a confirmation and grants nothing,
+waits for a settled screen and looks again: with the input free it goes
+on, noting `a dialog was open; Escape closed it`, a finding about the
+agent (a call it chained after an answered one, a dialog a command opens);
+with a dialog still open (Gemini CLI's key prompt gives way to its method
+picker) it types nothing, is `missed` with the note
+`a dialog is open after an Escape` and sets the mark described above, so
+no Enter answers that dialog either; a screen that cannot be read before
+or after the Escape fails the step, types nothing and sets the mark, since
+an unread screen is not an empty one, and so does an unread screen at a
+`dialog`, `choose` or `secret` step. The input freed by the Escape
+clears the mark, since the dialog whose cursor it guarded is closed. So one unforeseen dialog costs its step a note, not every
+typing step after it. The tables still answer every dialog they
+expect with `options`, `keys`, `dialog` or `choose` steps, since a prompt
+never belongs in one and text typed into a key prompt can be stored as
+the key; a prompt whose answer may end in a dialog is followed by a
+`dialog` step, as the Gemini CLI table does after its edit.
 
 `python3 -I lab/round/steps.py check lab/round/agents/<agent>` checks a
 table; `start` and `resume` refuse one that fails.
@@ -343,13 +382,14 @@ table; `start` and `resume` refuse one that fails.
 | Kind | `text` | What the step does |
 | --- | --- | --- |
 | `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's. |
-| `prompt` | the prompt | Types the text, presses Enter and waits; with a dialog open or the mark set it types nothing and is `missed`, as described above the table. |
+| `prompt` | the prompt | Types the text, presses Enter and waits; a dialog open is closed with Escape first, and with the mark set it types nothing and is `missed`, as described above the table. |
 | `type` | text | Types the text without Enter and waits. |
-| `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started, one Up at a time until the screen equals the start screen (`cursor not returned` and the mark set when it never does); the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
-| `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options` (`at least N options` when the presses ran out first). Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
+| `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started, one Up at a time until the cursor is on the option it started on (`cursor not returned` and the mark set when it never gets there); the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
+| `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options` (`at least N options` when the presses ran out first); a reading that could not return its cursor sends no Enter and is `missed` with `not answered`, since the Enter would answer with an option the table did not mean. Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
 | `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. The step is `missed` with the reason when no dialog is open (no key is sent), and, pressing Escape once to close the dialog and logging `Escape sent after the miss`, when no option matches or when the cursor ends on a line the pattern does not match; after any miss or a failed drive call, no `keys` step that includes Enter is sent until the mark is cleared, as described above the table. |
-| `clear` | `-`, or the number of Backspace presses, 1 to 200 | Presses Backspace that many times in one drive call, `-` meaning once per character of the text of the nearest `type` step before it (its trailing space counted), and waits for `expect` (`-` is a settled screen). It deletes a typed slash command after its `-subcommands` step; while a dialog is open it presses nothing and is `missed`, as the typing kinds are. |
+| `clear` | `-`, or the number of Backspace presses, 1 to 200 | Presses Backspace that many times in one drive call, `-` meaning once per character of the text of the nearest `type` step before it (its trailing space counted), and waits for `expect` (`-` is a settled screen). It deletes a typed slash command after its `-subcommands` step; a dialog open is closed with Escape first, as for the typing kinds. |
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; keys that include Enter are not sent, and the step is `missed`, while the mark described above the table is set; a failed drive call sets the mark. |
+| `secret` | the upper-case name of a variable of the credentials file ([Accounts](#accounts)) | Types the variable's value into the open input dialog (the agent's `AGENT_INPUT_GUARD` pattern must be on the screen, else nothing is typed and the step is `missed`), presses Enter and waits; the value goes to the typing call's stdin on the analyst's side, is the argument of one short-lived tui-test process in the guest (whose `type` takes its text as an argument), and shows wherever the agent's dialog echoes it; the step log names only the variable. The Enter is held back while the mark is set, as a `keys` step's is. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
 | `command` | a shell command | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`. |
 | `stop` | `-` | Saves the session's recording and stops it: Ctrl+C twice, then TERM (not on Windows), then a kill, each with a bounded wait. |

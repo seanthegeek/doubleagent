@@ -13,3 +13,6 @@ analyzer/dist/
 venv/
 .claude/
 
+
+# The round pipeline's credentials file (lab/round/README.md)
+lab/round/.env
