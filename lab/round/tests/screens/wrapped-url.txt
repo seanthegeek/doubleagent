@@ -1,0 +1,15 @@
+╭──────────────────────────────────────────────╮
+│ Sign in to the example service               │
+│                                              │
+│ Please visit https://login.example.com/o/aut │
+│ h?client_id=lab-client&response_type=c       │
+│ ode&state=synthetic                          │
+│                                              │
+│ Enter the authorization code:                │
+╰──────────────────────────────────────────────╯
+ See https://example.org/docs for help.
+http://example.net/first/
+part
+> Type your message
+  ● 1. Allow once
+    2. Allow for this session
