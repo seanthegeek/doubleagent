@@ -227,28 +227,42 @@ stop_after_reached() {
   round_log "stopped after step $2 (ROUND_STOP_AFTER); resume goes on"
 }
 
-# Succeed when the input is free to type into: no dialog is open, as the
-# agent's AGENT_OPTION pattern (a highlighted option) or AGENT_INPUT_GUARD
-# pattern (an input dialog with no option, such as a key prompt) shows on
-# the screen, box-drawing characters stripped. Otherwise set STEP_NOTE and
-# return 2: a prompt never belongs in a dialog, which the tables answer
-# with their own steps, and one typed into a key prompt can become the key.
-input_free() {
-  _inf_screen=$(capture_screen | strip_box)
-  for _inf_pattern in "${AGENT_OPTION:-}" "${AGENT_INPUT_GUARD:-}"; do
-    [ -n "$_inf_pattern" ] || continue
-    if printf '%s\n' "$_inf_screen" | grep -Eq -- "$_inf_pattern"; then
-      STEP_NOTE='a dialog is open'
-      return 2
-    fi
+# Succeed when a dialog is open: the agent's AGENT_OPTION pattern (a
+# highlighted option) or AGENT_INPUT_GUARD pattern (an input dialog with no
+# option, such as a key prompt) shows on the screen, box-drawing characters
+# stripped.
+dialog_open() {
+  _do_screen=$(capture_screen | strip_box)
+  for _do_pattern in "${AGENT_OPTION:-}" "${AGENT_INPUT_GUARD:-}"; do
+    [ -n "$_do_pattern" ] || continue
+    printf '%s\n' "$_do_screen" | grep -Eq -- "$_do_pattern" && return 0
   done
+  return 1
+}
+
+# Succeed when the input is free to type into. A dialog the table did not
+# foresee (dialog_open) gets one Escape, which cancels a confirmation and
+# grants nothing, then a settled screen and a second look, so it costs the
+# step a note rather than every step after it its typing; a dialog still
+# open then sets STEP_NOTE and returns 2, since a prompt never belongs in a
+# dialog and one typed into a key prompt can become the key. Returns 1 when
+# the Escape's drive call fails.
+input_free() {
+  dialog_open || return 0
+  drive keys Escape </dev/null >/dev/null || return 1
+  wait_for quiet quiet >/dev/null || :
+  if dialog_open; then
+    STEP_NOTE='a dialog is open'
+    return 2
+  fi
+  STEP_NOTE='a dialog was open; Escape closed it'
 }
 
 # The `prompt` and `type` kinds: when the input is free, type the step's
 # text, press the key $1 after it unless $1 is empty (and then only when
 # enter_allowed), and wait for the step's expectation, `-` standing for $2.
 send_text() {
-  input_free || return 2
+  input_free || return
   if [ -n "$1" ]; then enter_allowed || return 2; fi
   printf '%s' "$STEP_TEXT" | drive type >/dev/null || return 1
   if [ -n "$1" ]; then drive keys "$1" </dev/null >/dev/null || return 1; fi
@@ -269,14 +283,14 @@ previous_type_text() {
 # drive sends them, and on an empty input opens a rewind picker. Nothing is
 # pressed while a dialog is open (input_free).
 clear_typed() {
-  input_free || return 2
+  input_free || return
   _ct_count=$STEP_TEXT
   if [ "$_ct_count" = - ]; then
     _ct_text=$(previous_type_text "$STEP_NUMBER")
     _ct_count=${#_ct_text}
   fi
   press_times Backspace "$_ct_count" || return 1
-  STEP_NOTE="$_ct_count presses of Backspace"
+  STEP_NOTE="${STEP_NOTE:+$STEP_NOTE; }$_ct_count presses of Backspace"
   wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
 }
 
@@ -284,7 +298,7 @@ clear_typed() {
 # paste file into the VM, send it as one bracketed paste, type the text
 # after the file name, press Enter and wait.
 send_paste() {
-  input_free || return 2
+  input_free || return
   enter_allowed || return 2
   _sp_file=${STEP_TEXT%% *}
   _sp_rest=${STEP_TEXT#"$_sp_file"}
@@ -325,12 +339,19 @@ missing_secrets() {
 # The `secret` kind: type the value of the variable STEP_TEXT names in
 # secrets_file into the open input dialog, press Enter and wait for the
 # step's expectation (`-` is the input marker). The value goes to the
-# drive call's stdin alone, never to a command line, the log or STEP_NOTE.
-# Nothing is typed, and the step is missed, unless the agent's
-# AGENT_INPUT_GUARD pattern shows (the dialog that takes the credential),
-# or while the choose_missed mark blocks Enter (enter_allowed).
+# drive call's stdin here, never to a command line, the log or STEP_NOTE;
+# in the guest it is the argument of one short-lived tui-test process,
+# since `type` takes its text as an argument, and the agent's dialog may
+# echo it (lab/round/README.md, "The step table"). Nothing is typed, and
+# the step is missed, unless AGENT_INPUT_GUARD is set and shows on the
+# screen (the dialog that takes the credential), or while the choose_missed
+# mark blocks Enter (enter_allowed).
 send_secret() {
-  if ! capture_screen | strip_box | grep -Eq -- "${AGENT_INPUT_GUARD:-^$}"; then
+  if [ -z "${AGENT_INPUT_GUARD:-}" ]; then
+    STEP_NOTE='no AGENT_INPUT_GUARD pattern to find the input dialog by'
+    return 2
+  fi
+  if ! capture_screen | strip_box | grep -Eq -- "$AGENT_INPUT_GUARD"; then
     STEP_NOTE='no input dialog open'
     return 2
   fi
@@ -339,8 +360,13 @@ send_secret() {
   [ -n "$_ss_value" ] || die "$STEP_TEXT has no value in $(secrets_file)"
   printf '%s' "$_ss_value" | drive type >/dev/null || return 1
   drive keys Enter </dev/null >/dev/null || return 1
-  STEP_NOTE="typed $STEP_TEXT from $(secrets_file)"
-  wait_for "$STEP_EXPECT" marker >/dev/null || return 2
+  _ss_note="typed $STEP_TEXT from $(secrets_file)"
+  if wait_for "$STEP_EXPECT" marker >/dev/null; then
+    STEP_NOTE=$_ss_note
+    return 0
+  fi
+  STEP_NOTE="$_ss_note; expectation not met within ${TURN_SECONDS:-300}s"
+  return 2
 }
 
 # Set _ret_status (done, missed or failed) and _ret_note for the step just
