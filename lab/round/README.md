@@ -314,8 +314,11 @@ Windows table writes the PowerShell form itself
 `command` text (`GEMINI_API_KEY=secret:GEMINI_API_KEY gemini`, or a
 `printf` that writes the key into the agent's dotfile) stands for the
 value of the variable `NAME` of the credentials file
-([Accounts](#accounts)), inserted as written with no quoting added;
-`steps.py check` reports a token whose name is not upper case.
+([Accounts](#accounts)), inserted as written with no quoting added:
+an `agent` line is read as shell words in the VM, so a value holding a
+shell metacharacter needs the token in single quotes
+(`NAME='secret:NAME'`). `steps.py check` reports a token whose name is
+not upper case.
 `round.sh` replaces the token just before the step runs and sends the
 result over the `ssh` stdin, as a `secret` step's value travels:
 `round.log` shows the step's text with the token, and the pipeline
