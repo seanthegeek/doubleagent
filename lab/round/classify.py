@@ -36,22 +36,6 @@ UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{
 HEX_RE = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{32,}(?![0-9a-fA-F])")
 HOME_RE = re.compile(r"^(?:[A-Za-z]:)?/(?:Users|home)/[^/]+/(.*)$")
 STATE_KINDS = frozenset({"keychain", "process"})
-# The home-relative directories whose entries lib/survey.sh and lib/survey.ps1 print as `top`
-# lines; the parent of any other `top` line is a temporary directory.
-HOME_TOP_DIRECTORIES = (
-    "",
-    ".config",
-    ".local/share",
-    ".local/state",
-    ".local/bin",
-    ".cache",
-    "Library/Application Support",
-    "Library/Caches",
-    "AppData/Local",
-    "AppData/Roaming",
-    "AppData/Local/Programs",
-    "AppData/Local/Packages",
-)
 ROOT_PREFIX_RE = re.compile(r"^(linux|macos|unix|windows):")
 VARIABLE_RE = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%")
 DRIVE_RE = re.compile(r"^[A-Za-z]:/")
@@ -206,22 +190,17 @@ def slashed(path: str) -> str:
     return path.split(" -> ", 1)[0].replace("\\", "/").rstrip("/")
 
 
-def survey_bases(tops: Iterable[str]) -> tuple[str, list[str]]:
-    """Return the home and the temporary directories that the `top` paths of a listing lie in.
+def listing_home(paths: Iterable[str]) -> str:
+    """Return the home a listing's paths lie under, or "" when none does.
 
-    The home is the `/home/<user>` or `/Users/<user>` part of the first path under one; a
-    temporary directory is the parent of a `top` path outside `HOME_TOP_DIRECTORIES`.
+    The home is the `/home/<user>` or `/Users/<user>` part (a drive letter allowed before it) of
+    the first path under one; a path elsewhere, such as a temporary directory's, is skipped.
     """
-    paths = [slashed(path) for path in tops]
-    home = ""
-    for path in paths:
+    for path in (slashed(path) for path in paths):
         match = HOME_RE.match(path)
         if match:
-            home = path[: len(path) - len(match.group(1))].rstrip("/")
-            break
-    home_directories = {("%s/%s" % (home, name)).rstrip("/") for name in HOME_TOP_DIRECTORIES}
-    parents = {path.rsplit("/", 1)[0] for path in paths if "/" in path}
-    return home, sorted(parents - home_directories - {""})
+            return path[: len(path) - len(match.group(1))].rstrip("/")
+    return ""
 
 
 def listing_platform(home: str) -> str:
@@ -322,7 +301,7 @@ def drop_covered_tops(difference: Difference, after: Listing, roots_text: str) -
     listing without one, from a cell taken before the survey printed it, expands `<tmp>` to no
     directory, so a `<tmp>` root covers nothing and its names stay in the hint, never hidden.
     """
-    home, _ = survey_bases(sorted(after.tops) + difference.gone_tops)
+    home = listing_home(sorted(after.tops) + difference.gone_tops)
     temporary = [slashed(after.bases["tmp"])] if "tmp" in after.bases else []
     globs = root_globs(roots_text, home, temporary)
     fold_case = listing_platform(home) in ("windows", "macos")

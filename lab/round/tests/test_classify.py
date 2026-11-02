@@ -138,14 +138,15 @@ def test_without_roots_every_new_top_name_shows():
     assert len(classify.compare(before, after).new_tops) == 5
 
 
-def test_survey_bases_find_the_home_and_the_temporary_directories():
-    tops = [
-        "/Users/sean/Library/Caches/x",
-        "/Users/sean/.npm",
-        "/var/folders/ab/T/tmp-1",
-        "/tmp/y",
+def test_listing_home_finds_the_home_past_other_paths():
+    cases = [
+        (["/var/folders/ab/T/tmp-1", "/Users/sean/.npm", "/home/other/x"], "/Users/sean"),
+        (["C:\\Users\\lab\\AppData\\Local\\Temp\\x"], "C:/Users/lab"),
+        (["/tmp/y", "/var/folders/ab/T/tmp-1"], ""),
+        ([], ""),
     ]
-    assert classify.survey_bases(tops) == ("/Users/sean", ["/tmp", "/var/folders/ab/T"])
+    for paths, expected in cases:
+        assert classify.listing_home(paths) == expected, paths
 
 
 def test_windows_roots_expand_their_variables_and_a_prefix_counts():
@@ -252,3 +253,10 @@ def test_case_is_folded_on_windows_and_macos_only():
             classify.compare(classify.Listing(), listing), listing, roots
         )
         assert (found.new_tops == []) is expected, path
+
+
+def test_main_without_roots_shows_every_top_name(tmp_path, capsys):
+    (tmp_path / "before.txt").write_text("".join(TOP_BEFORE), encoding="utf-8")
+    (tmp_path / "after.txt").write_text("".join(TOP_AFTER), encoding="utf-8")
+    assert classify.main([str(tmp_path / "before.txt"), str(tmp_path / "after.txt")]) == 0
+    assert "gemini-client-error" in capsys.readouterr().out
