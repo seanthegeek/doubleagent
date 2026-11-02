@@ -894,6 +894,7 @@ def test_agent_command_line_splits_the_directory_and_prefixes_env(tmp_path):
         ("linux", "in:. gemini", ".", "gemini"),
         ("macos", "A_1=$HOME/x gemini", "lab/proj", "env A_1=$HOME/x gemini"),
         ("linux", "in:lab/b KEY=v X=y gemini", "lab/b", "env KEY=v X=y gemini"),
+        ("linux", "in:.  KEY=v gemini", ".", "env KEY=v gemini"),
         ("linux", "1X=v gemini", "lab/proj", "1X=v gemini"),
         ("linux", "gemini --flag=x", "lab/proj", "gemini --flag=x"),
         ("windows", "in:. $env:KEY='v'; gemini", ".", "$env:KEY='v'; gemini"),

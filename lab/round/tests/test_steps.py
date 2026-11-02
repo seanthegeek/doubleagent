@@ -325,6 +325,21 @@ def test_agent_takes_environment_assignments_before_its_command(tmp_path):
     ]
 
 
+def test_agent_assignments_are_shell_words(tmp_path):
+    accepted = ["A='x y' gemini", 'A="x y" B=1 gemini', "in:. A=x\\ y gemini"]
+    for text in accepted:
+        steps_text = line("02", "start", "agent", text, "-", "c")
+        assert problems_of(steps_text, tmp_path) == [], text
+    text = line("02", "start", "agent", "API_KEY='secret:API_KEY' LABEL='two words'", "-", "c")
+    text += line("03", "here", "agent", "in:. A=x\\ y", "-", "c")
+    text += line("04", "open", "agent", "A='unterminated gemini", "-", "c")
+    assert problems_of(text, tmp_path) == [
+        "agent needs a command after LABEL=two words",
+        "agent needs a command after A=x y",
+        "agent text is not shell words (No closing quotation)",
+    ]
+
+
 def test_secret_tokens_name_an_upper_case_variable(tmp_path):
     text = line("02", "start", "agent", "KEY=secret:lower gemini", "-", "c")
     text += line("03", "write", "command", "echo secret:API_KEY secret: >f", "-", "c")

@@ -85,7 +85,7 @@ NN	name	kind	text	expect	claim
 085	althome-trust	keys	Enter	quiet	althome/.gemini/trustedFolders.json is written (research/gemini-cli.md#per-user-storage) (unverified)
 086	althome-auth-choose	choose	Use Gemini API Key	-	the method dialog opens because settings.json moved with the home and the new one selects no auth type, whatever the keyring or file holds; a miss means settings.json did not move (research/gemini-cli.md#credentials) (unverified)
 087	althome-auth-key	keys	Enter	quiet	Enter on Use Gemini API Key opens its key prompt (unverified)
-088	althome-ssh-sign-in	secret	GEMINI_API_KEY	-	the key lands in althome/.gemini/gemini-credentials.json, mode 600, or the dialog comes prefilled from the keyring, which the home does not move (research/gemini-cli.md#credentials) (unverified)
+088	althome-ssh-sign-in	secret	GEMINI_API_KEY	-	the key prompt opens empty, since the file fallback under the old home is out of reach and the keyring holds no item before the desktop sign-in, and the key lands in althome/.gemini/gemini-credentials.json, mode 600 (research/gemini-cli.md#credentials) (unverified)
 089	althome-stop	stop	-	-	none: closes the terminal session; the listing shows what the sign-in under althome wrote before any turn
 090	althome-again	agent	GEMINI_CLI_HOME=$HOME/lab/althome gemini	Type your message	a second start under althome opens at the prompt: the trust decision and the credential written under althome are read back (research/gemini-cli.md#per-user-storage) (unverified)
 091	althome-question	prompt	what is 6 + 8?	-	the session file under althome/.gemini/tmp/<slug>/ (research/gemini-cli.md#per-user-storage) (unverified)

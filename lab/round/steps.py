@@ -25,6 +25,7 @@ import argparse
 import dataclasses
 import pathlib
 import re
+import shlex
 import sys
 
 KINDS = (
@@ -169,12 +170,18 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
         if not VARIABLE_RE.fullmatch(step.text):
             return "secret takes the upper-case name of a variable of the credentials file"
     elif step.kind == "agent":
-        words = step.text.split()
-        position = 1 if words[0].startswith("in:") else 0
+        # Shell words, not whitespace runs: a quoted space inside an assignment's value
+        # would otherwise pass for the command, and `env` with no command prints the
+        # environment, the credential in it, into the terminal.
+        try:
+            words = shlex.split(step.text)
+        except ValueError as error:
+            return "agent text is not shell words (%s)" % error
+        position = 1 if words and words[0].startswith("in:") else 0
         while position < len(words) and ASSIGNMENT_RE.match(words[position]):
             position += 1
         if position == len(words):
-            return "agent needs a command after %s" % words[-1]
+            return "agent needs a command after %s" % (words[-1] if words else "in:")
     if step.kind in ("agent", "command"):
         bad = [name for name in TOKEN_RE.findall(step.text) if not VARIABLE_RE.fullmatch(name)]
         if bad:

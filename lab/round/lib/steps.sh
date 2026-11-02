@@ -515,6 +515,7 @@ agent_command_line() {
       _ret_directory=${_ret_command%% *}
       _ret_directory=${_ret_directory#in:}
       _ret_command=${_ret_command#* }
+      _ret_command=${_ret_command#"${_ret_command%%[! ]*}"}
       ;;
   esac
   [ "${GUEST_OS:-}" != windows ] || return 0
