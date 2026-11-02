@@ -60,7 +60,19 @@ def test_a_url_wrapped_inside_a_box_is_joined():
     expected = "https://e.example.com/auth?id=lab&type=c%spe=code&state=synthetic" % ("e" * 16)
     for shell in SHELLS:
         found = joined(shell)
-        assert found[4] == expected and len(found) == 5, shell
+        assert found[6] == expected and len(found) == 7, shell
+
+
+def test_a_url_wrapped_in_a_narrower_box_is_joined():
+    expected = "https://f.example.com/?q=%stail-f" % ("f" * 11)
+    for shell in SHELLS:
+        assert joined(shell)[4] == expected, shell
+
+
+def test_a_box_with_two_spaces_of_padding_stops_at_its_bottom_border():
+    expected = "https://g.example.com/?q=%stail-g%s" % ("g" * 19, "g" * 38)
+    for shell in SHELLS:
+        assert joined(shell)[5] == expected, shell
 
 
 def test_joined_urls_print_nothing_without_a_url(tmp_path):

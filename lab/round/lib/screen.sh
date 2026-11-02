@@ -19,46 +19,64 @@ strip_box() {
   unbox | sed -e 's/^ *//' -e 's/ *$//'
 }
 
+# The awk program of joined_urls, over the raw screen in the C locale, so a
+# box-drawing character is a three-byte string and `columns` counts each
+# UTF-8 character once. A URL is open (wrapped) when what follows it on its
+# line is nothing on a line the full `width` wide, or at most two spaces
+# and then a vertical box border, the edge of a dialog box anywhere on the
+# screen. The next line's leading run, after any border and spaces, is then
+# appended whole, and the URL stays open only when that run is open the
+# same way; a URL ending anywhere else is complete.
+# shellcheck disable=SC2016 # the awk program's own variables, not the shell's
+JOINED_URLS_AWK='
+  function columns(text, copy) {
+    copy = text
+    return length(text) - gsub(/[\200-\277]/, "", copy)
+  }
+  function open_after(line, end_byte, rest) {
+    rest = substr(line, end_byte + 1)
+    return (rest == "" && columns(line) == width) || rest ~ /^(  ?)?(│|┃|║)/
+  }
+  function cut(text) {
+    return match(text, /│|┃|║/) ? substr(text, 1, RSTART - 1) : text
+  }
+  function scan(line, from, rest, start, found) {
+    while (match(rest = substr(line, from), /https?:\/\/[^ ]+/)) {
+      start = from + RSTART - 1
+      found = cut(substr(line, start, RLENGTH))
+      from = start + length(found)
+      if (open_after(line, from - 1)) { url = found; open = 1; return }
+      print found
+    }
+  }
+  function continued(line, start, run) {
+    match(line, /^ *((│|┃|║) *)?/)
+    start = RLENGTH + 1
+    if (!match(substr(line, start), /^[^ ]+/)) return 0
+    run = cut(substr(line, start, RLENGTH))
+    if (run == "" || index(run, "://") || run ~ /^(─|━|═|╭|╮|╰|╯|┌|┐|└|┘)/) return 0
+    url = url run
+    return start + length(run)
+  }
+  {
+    from = 1
+    if (open) {
+      open = 0
+      from = continued($0)
+      if (from && open_after($0, from - 1)) { open = 1; next }
+      if (!from) from = 1
+      print url
+    }
+    scan($0, from)
+  }
+  END { if (open) print url }'
+
 # Print every http:// or https:// URL on a screen $1 columns wide as one
-# line. A URL is wrapped, and so open, only when its line is the full width
-# and the URL runs to the right edge or to a box border's padding (at most
-# two columns before it); the next line's leading space-free run is then
-# appended whole, and the URL stays open only when that run reaches the
-# edge the same way. A URL ending anywhere else is complete, whatever the
-# line after it holds; a prose word after a full-width URL line is joined
-# too, so a joined URL is checked against the screen.
+# line, a URL the terminal or a dialog box wrapped joined over its lines as
+# JOINED_URLS_AWK says. A word of prose after a URL that happens to fill its
+# line is joined too, so a joined URL is checked against the screen.
 joined_urls() {
-  unbox | LC_ALL=C awk -v width="$1" '
-    function columns(text, copy) {
-      copy = text
-      return length(text) - gsub(/[\200-\277]/, "", copy)
-    }
-    function at_edge(line, end_byte) {
-      return columns(line) == width && substr(line, end_byte + 1) ~ /^ *$/ &&
-        columns(line) - columns(substr(line, 1, end_byte)) <= 2
-    }
-    function scan(line, from, rest, start) {
-      while (match(rest = substr(line, from), /https?:\/\/[^ ]+/)) {
-        start = from + RSTART - 1
-        from = start + RLENGTH
-        if (at_edge(line, from - 1)) { url = substr(line, start, RLENGTH); open = 1; return }
-        print substr(line, start, RLENGTH)
-      }
-    }
-    {
-      from = 1
-      if (open) {
-        open = 0
-        if (match($0, /[^ ]+/) && index(substr($0, RSTART, RLENGTH), "://") == 0) {
-          url = url substr($0, RSTART, RLENGTH)
-          from = RSTART + RLENGTH
-          if (at_edge($0, from - 1)) { open = 1; next }
-        }
-        print url
-      }
-      scan($0, from)
-    }
-    END { if (open) print url }'
+  LC_ALL=C awk -v width="$1" "$JOINED_URLS_AWK"
 }
 
 # Print the first line of the screen that matches the grep -E pattern $1,
