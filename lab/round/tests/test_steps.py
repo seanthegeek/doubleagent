@@ -336,6 +336,10 @@ def test_agent_assignments_are_shell_words(tmp_path):
     text += line("05", "note", "agent", "KEY='secret:API_KEY' # explanation", "-", "c")
     text += line("06", "semi", "agent", "KEY='secret:API_KEY' ;", "-", "c")
     text += line("07", "pipe", "agent", "gemini | tee log", "-", "c")
+    text += line("08", "redirect", "agent", "KEY='secret:API_KEY' >&2", "-", "c")
+    text += line("09", "both", "agent", "KEY='secret:API_KEY' <>/dev/null", "-", "c")
+    text += line("10", "clobber", "agent", "KEY='secret:API_KEY' >|/tmp/x", "-", "c")
+    text += line("11", "dup", "agent", "KEY='secret:API_KEY' <&0", "-", "c")
     assert problems_of(text, tmp_path) == [
         "agent needs a command after LABEL=two words",
         "agent needs a command after A=x y",
@@ -343,6 +347,10 @@ def test_agent_assignments_are_shell_words(tmp_path):
         "agent text holds #, an operator or comment the guest's shell would obey",
         "agent text holds ;, an operator or comment the guest's shell would obey",
         "agent text holds |, an operator or comment the guest's shell would obey",
+        "agent text holds >&, an operator or comment the guest's shell would obey",
+        "agent text holds <>, an operator or comment the guest's shell would obey",
+        "agent text holds >|, an operator or comment the guest's shell would obey",
+        "agent text holds <&, an operator or comment the guest's shell would obey",
     ]
 
 

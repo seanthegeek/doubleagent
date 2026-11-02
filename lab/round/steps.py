@@ -73,9 +73,10 @@ VARIABLE_RE = re.compile(r"[A-Z][A-Z0-9_]*")
 TOKEN_RE = re.compile(r"secret:([A-Za-z0-9_]*)")
 # An environment assignment word an `agent` text may put before its command.
 ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
-# Words the guest's shell reads as an operator; a word opening `#` is a comment. Either
-# would end the command the drive runs before the program the text names.
-OPERATOR_WORDS = frozenset({";", ";;", "&", "&&", "|", "||", "(", ")", "<", ">", ">>", "<<"})
+# The characters the shell reads as operators; a word made only of them (`;`, `&&`, `>&`,
+# `<>`) is an operator, and a word opening `#` a comment. Either would end the command the
+# drive runs before the program the text names.
+OPERATOR_CHARACTERS = frozenset(";&|<>()")
 # Escapes that grep -E, .NET and Python do not agree on.
 NON_PORTABLE_RE = re.compile(r"\\[dDwWsSbB]")
 # A `type` step that reads a slash command's subcommands: the command and one trailing space.
@@ -154,6 +155,11 @@ def shell_words(text: str) -> list[str]:
     return list(lexer)
 
 
+def is_operator(word: str) -> bool:
+    """Return whether a shell word consists only of operator characters."""
+    return word != "" and all(character in OPERATOR_CHARACTERS for character in word)
+
+
 def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
     """Return why a step's text does not fit its kind, or None when it does."""
     if step.kind in NO_TEXT:
@@ -192,7 +198,7 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
             words = shell_words(step.text)
         except ValueError as error:
             return "agent text is not shell words (%s)" % error
-        stray = next((word for word in words if word in OPERATOR_WORDS or word[:1] == "#"), None)
+        stray = next((word for word in words if is_operator(word) or word[:1] == "#"), None)
         if stray is not None:
             return (
                 "agent text holds %s, an operator or comment the guest's shell would obey" % stray
