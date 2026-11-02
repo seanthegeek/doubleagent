@@ -326,6 +326,23 @@ def test_an_unread_screen_stops_the_step_and_sets_the_mark(tmp_path):
         assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
 
 
+def test_an_unread_screen_fails_the_dialog_choose_and_secret_kinds(tmp_path):
+    for shell in SHELLS:
+        for script in ("answer_dialog", "choose_option", SECRET):
+            stub = (
+                secret_stub(tmp_path, "AIza") if script == SECRET else make_stub(tmp_path, LABELS)
+            )
+            (stub / "typed").unlink(missing_ok=True)
+            (stub / "capture_fails_from").write_text("0\n", encoding="utf-8")
+            found = run_steps(shell, stub, script, "No$")
+            assert found["code"] == "1" and found["note"] == "the screen could not be read", (
+                shell,
+                script,
+            )
+            assert found["drive"] == "" and typed_text(stub) == "", (shell, script)
+            assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
+
+
 def test_a_prompt_closes_an_unforeseen_dialog_with_escape_and_types(tmp_path):
     for shell in SHELLS:
         stub = make_stub(tmp_path, LABELS)

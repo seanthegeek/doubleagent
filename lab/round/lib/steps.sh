@@ -112,23 +112,40 @@ return_to_start() {
   state_set choose_missed yes
 }
 
-# Succeed when the grep -E pattern $1 (`-` for the agent's AGENT_OPTION) is
-# on the current screen, its box-drawing characters stripped.
+# Return 0 when the grep -E pattern $1 (`-` for the agent's AGENT_OPTION)
+# is on the current screen, its box-drawing characters stripped; 1 when it
+# is not; 2 when the screen could not be read.
 dialog_on_screen() {
   _dos_pattern=$1
   [ "$_dos_pattern" != - ] || _dos_pattern=${AGENT_OPTION:-}
   [ -n "$_dos_pattern" ] || return 1
-  capture_screen | strip_box | grep -Eq -- "$_dos_pattern"
+  _dos_screen=$(capture_screen) || return 2
+  printf '%s\n' "$_dos_screen" | strip_box | grep -Eq -- "$_dos_pattern"
+}
+
+# Fail a step that reads a dialog when the screen could not be read:
+# STEP_NOTE says so, the choose_missed mark is set, since the dialog's
+# state is unknown, and the step returns 1 through the caller.
+screen_unread() {
+  STEP_NOTE='the screen could not be read'
+  state_set choose_missed yes
 }
 
 # The `dialog` kind: when the step's pattern is on the screen, read the
 # options and answer with the first; otherwise note that no dialog opened,
 # which is a finding and not a miss.
 answer_dialog() {
-  if ! dialog_on_screen "$STEP_TEXT"; then
-    STEP_NOTE='no dialog'
-    return 0
-  fi
+  dialog_on_screen "$STEP_TEXT"
+  case $? in
+    1)
+      STEP_NOTE='no dialog'
+      return 0
+      ;;
+    2)
+      screen_unread
+      return 1
+      ;;
+  esac
   read_options "$OPTION_PRESSES" || return 1
   drive keys Enter </dev/null >/dev/null || return 1
   _ad_count="$_ret_options options"
@@ -146,10 +163,17 @@ answer_dialog() {
 # pattern does not match; then press Escape once (choose_missed_escape), so
 # the dialog is closed rather than left for a later key.
 choose_option() {
-  dialog_on_screen - || {
-    STEP_NOTE='missed: no dialog open'
-    return 2
-  }
+  dialog_on_screen -
+  case $? in
+    1)
+      STEP_NOTE='missed: no dialog open'
+      return 2
+      ;;
+    2)
+      screen_unread
+      return 1
+      ;;
+  esac
   read_options "$OPTION_PRESSES" || return 1
   _co_index=0
   _co_line=$(printf '%s\n' "$_ret_first" | highlighted_line "${AGENT_OPTION:-}")
@@ -257,7 +281,7 @@ input_free() {
   dialog_open
   case $? in
     1) return 0 ;;
-    2) input_unknown 'the screen could not be read'; return 1 ;;
+    2) screen_unread; return 1 ;;
   esac
   drive keys Escape </dev/null >/dev/null ||
     { input_unknown 'the Escape call failed; its effect on the open dialog is unknown'; return 1; }
@@ -382,10 +406,17 @@ send_secret() {
     STEP_NOTE='no AGENT_INPUT_GUARD pattern to find the input dialog by'
     return 2
   fi
-  if ! capture_screen | strip_box | grep -Eq -- "$AGENT_INPUT_GUARD"; then
-    STEP_NOTE='no input dialog open'
-    return 2
-  fi
+  dialog_on_screen "$AGENT_INPUT_GUARD"
+  case $? in
+    1)
+      STEP_NOTE='no input dialog open'
+      return 2
+      ;;
+    2)
+      screen_unread
+      return 1
+      ;;
+  esac
   enter_allowed || return 2
   _ss_value=$(secret_value "$STEP_TEXT")
   [ -n "$_ss_value" ] || die "$STEP_TEXT has no value in $(secrets_file)"

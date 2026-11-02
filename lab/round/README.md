@@ -363,7 +363,8 @@ picker) it types nothing, is `missed` with the note
 `a dialog is open after an Escape` and sets the mark described above, so
 no Enter answers that dialog either; a screen that cannot be read before
 or after the Escape fails the step, types nothing and sets the mark, since
-an unread screen is not an empty one. The input freed by the Escape
+an unread screen is not an empty one, and so does an unread screen at a
+`dialog`, `choose` or `secret` step. The input freed by the Escape
 clears the mark, since the dialog whose cursor it guarded is closed. So one unforeseen dialog costs its step a note, not every
 typing step after it. The tables still answer every dialog they
 expect with `options`, `keys`, `dialog` or `choose` steps, since a prompt
