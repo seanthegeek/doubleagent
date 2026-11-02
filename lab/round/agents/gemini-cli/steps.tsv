@@ -5,7 +5,7 @@ NN	name	kind	text	expect	claim
 005	auth-options	options	12	quiet	every option of the sign-in dialog; Escape does not close it, so ? and /help wait for the ssh sign-in, one screen per Down until the cursor wraps or stops, then back on the first
 006	auth-key-choose	choose	Use Gemini API Key	-	the sign-in dialog's option 2. Use Gemini API Key, the API key path, since Google sign-in no longer serves individual accounts on 0.66.0
 007	auth-key	keys	Enter	quiet	Enter on Use Gemini API Key opens its key prompt
-008	ssh-sign-in	secret	GEMINI_API_KEY	-	the key dialog drops the spaces of typed text (a prompt typed into it by mistake was stored as the key without its spaces, observed on 0.66.0), so a stray prompt can overwrite the key; the key the dialog takes is stored in the keychain item or the file fallback the Credentials section names (research/gemini-cli.md#credentials) (unverified)
+008	ssh-sign-in	secret	GEMINI_API_KEY	-	over ssh with no desktop session the key lands in the encrypted file fallback .gemini/gemini-credentials.json, mode 600, not in the keyring (observed on 0.66.0, 2026-11-02; research/gemini-cli.md#credentials)
 009	shortcuts	type	?	quiet	the ? shortcut list; nothing is written (none) (unverified)
 010	shortcuts-close	keys	Backspace,Escape	quiet	none
 011	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
@@ -47,54 +47,56 @@ NN	name	kind	text	expect	claim
 047	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> before the next gemini message (research/gemini-cli.md#model-rows)
 048	edit-ask	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	Allow once|Apply this change|Type your message	the edit confirmation dialog and its diff (unverified)
 049	edit-options	options	12	quiet	every option of the edit dialog, one screen per Down until the cursor wraps or stops, then back on the first
-050	edit	keys	Enter	marker	a replace or write_file call; history/<slug>/ only with checkpointing on (research/gemini-cli.md#tool-checkpoints) (unverified)
-051	chat-subcommands	type	/chat 	quiet	the completion list of /chat: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-052	chat-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-053	chat-save	prompt	/chat save lab	-	tmp/<slug>/checkpoint-lab.json (research/gemini-cli.md#chat-save-checkpoints)
-054	bug-subcommands	type	/bug 	quiet	the completion list of /bug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-055	bug-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-056	bug	prompt	/bug lab round export only, nothing is submitted	-	/bug composes a GitHub new-issue URL and writes tmp/<slug>/bug-report-history-<ms>.json; it submits nothing (research/gemini-cli.md#bug-reports)
-057	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-058	exit-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-059	exit	prompt	/exit	exit	the session file's last state; logs.json keeps every prompt (research/gemini-cli.md#logsjson)
-060	exit-close	stop	-	-	none: closes the terminal session
-061	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
-062	resume	agent	gemini --resume latest	marker	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps) (unverified)
-063	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation; mcp-server-enablement.json (research/gemini-cli.md#per-user-storage) (unverified)
-064	mcp-options	options	12	quiet	every option of the MCP dialog, one screen per Down until the cursor wraps or stops, then back on the first
-065	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result (unverified)
-066	clear-subcommands	type	/clear 	quiet	the completion list of /clear: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-067	clear-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-068	clear	prompt	/clear	marker	/clear starts a new session file and leaves the old one (research/gemini-cli.md#what-survives-a-delete) (unverified)
-069	after-clear	prompt	what is 3 + 4?	-	the first lines of the session after /clear
-070	clear-stop	stop	-	-	none: closes the terminal session
-071	worktrees-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.experimental=Object.assign(s.experimental||{},{worktrees:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	--worktree is accepted only with experimental.worktrees on; the setting goes into settings.json (research/gemini-cli.md#project-local-files)
-072	worktree	agent	gemini --worktree lab	marker	<project>/.gemini/worktrees/lab and a scratch directory: row for its session (research/gemini-cli.md#worktree-sessions)
-073	worktree-question	prompt	what is 5 + 6?	-	the worktree session's .project_root and chat file
-074	worktree-stop	stop	-	-	none: closes the terminal session
-075	devtools-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.general=Object.assign(s.general||{},{devtools:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	general.devtools set to true in settings.json (research/gemini-cli.md#activity-log)
-076	devtools	agent	gemini	marker	a session started with general.devtools on
-077	devtools-question	prompt	what is 2 + 9?	-	tmp/<slug>/logs/session-<id>.jsonl with network payloads (research/gemini-cli.md#activity-log)
-078	devtools-stop	stop	-	-	none: closes the terminal session
-079	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
-080	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
-081	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
-082	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
-083	home-start	agent	in:. gemini	Trust folder	a start in the home, not yet trusted, raises the folder trust dialog; a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
-084	home-trust-options	options	12	quiet	every option of the home's trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
-085	home-trust	keys	Enter	marker	Trust folder for the home: a trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
-086	home-stop	stop	-	-	none: closes the terminal session
-087	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
-088	idle	idle	600	-	nothing is written while no agent runs
-089	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
-090	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
-091	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-092	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
-093	auth-dialog	prompt	/auth	●	the method dialog reopens after a sign-out
-094	auth-key-dialog-choose	choose	Use Gemini API Key	-	the method dialog after a sign-out still offers Use Gemini API Key
-095	auth-key-dialog	keys	Enter	clear stored key	the key dialog shows the stored item prefilled, so a sign-out leaves it, and the dialog's own Ctrl+C hint does not remove it (observed on 0.66.0) (research/gemini-cli.md#credentials)
-096	auth-key-close	keys	Escape	●	Escape returns to the method dialog, not to the prompt
-097	auth-stop	stop	-	-	none: closes the terminal session
-098	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
-099	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
-100	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+050	edit	keys	Enter	Allow once|Type your message	a replace or write_file call; history/<slug>/ only with checkpointing on (research/gemini-cli.md#tool-checkpoints) (unverified)
+051	edit-dialog	dialog	-	-	after an accepted edit the agent may propose a verification command in a Shell dialog (python3 calc.py 2 3, observed on 0.66.0, 2026-11-02); answered with Allow once, or no dialog
+052	chat-subcommands	type	/chat 	quiet	the completion list of /chat: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+053	chat-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+054	chat-save	prompt	/chat save lab	-	tmp/<slug>/checkpoint-lab.json (research/gemini-cli.md#chat-save-checkpoints)
+055	bug-subcommands	type	/bug 	quiet	the completion list of /bug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+056	bug-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+057	bug	prompt	/bug lab round export only, nothing is submitted	-	/bug composes a GitHub new-issue URL and writes tmp/<slug>/bug-report-history-<ms>.json; it submits nothing (research/gemini-cli.md#bug-reports)
+058	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+059	exit-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+060	exit	prompt	/exit	exit	the session file's last state; logs.json keeps every prompt (research/gemini-cli.md#logsjson)
+061	exit-close	stop	-	-	none: closes the terminal session
+062	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
+063	resume	agent	gemini --resume latest	marker	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps) (unverified)
+064	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation; mcp-server-enablement.json (research/gemini-cli.md#per-user-storage) (unverified)
+065	mcp-options	options	12	quiet	every option of the MCP dialog, one screen per Down until the cursor wraps or stops, then back on the first
+066	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result (unverified)
+067	clear-subcommands	type	/clear 	quiet	the completion list of /clear: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+068	clear-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+069	clear	prompt	/clear	marker	/clear starts a new session file and leaves the old one (research/gemini-cli.md#what-survives-a-delete) (unverified)
+070	after-clear	prompt	what is 3 + 4?	-	the first lines of the session after /clear
+071	clear-stop	stop	-	-	none: closes the terminal session
+072	worktrees-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.experimental=Object.assign(s.experimental||{},{worktrees:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	--worktree is accepted only with experimental.worktrees on; the setting goes into settings.json (research/gemini-cli.md#project-local-files)
+073	worktree	agent	gemini --worktree lab	marker	<project>/.gemini/worktrees/lab and a scratch directory: row for its session (research/gemini-cli.md#worktree-sessions)
+074	worktree-question	prompt	what is 5 + 6?	-	the worktree session's .project_root and chat file
+075	worktree-stop	stop	-	-	none: closes the terminal session
+076	devtools-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.general=Object.assign(s.general||{},{devtools:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	general.devtools set to true in settings.json (research/gemini-cli.md#activity-log)
+077	devtools	agent	gemini	marker	a session started with general.devtools on
+078	devtools-question	prompt	what is 2 + 9?	-	tmp/<slug>/logs/session-<id>.jsonl with network payloads (research/gemini-cli.md#activity-log)
+079	devtools-stop	stop	-	-	none: closes the terminal session
+080	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
+081	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
+082	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
+083	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
+084	home-start	agent	in:. gemini	Trust folder	a start in the home, not yet trusted, raises the folder trust dialog; a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
+085	home-trust-options	options	12	quiet	every option of the home's trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
+086	home-trust	keys	Enter	marker	Trust folder for the home: a trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
+087	home-stop	stop	-	-	none: closes the terminal session
+088	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
+089	idle	idle	600	-	nothing is written while no agent runs
+090	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
+091	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
+092	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+093	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
+094	sign-out-options	options	12	quiet	the sign-out dialog (You are now signed out; 1. Sign in, 2. Exit, observed on 0.66.0) (research/gemini-cli.md#credentials)
+095	sign-in	keys	Enter	●	Sign in in the sign-out dialog reopens the method dialog
+096	auth-key-dialog-choose	choose	Use Gemini API Key	-	the method dialog after a sign-out still offers Use Gemini API Key
+097	auth-key-dialog	keys	Enter	clear stored key	the key dialog shows the stored item prefilled, so a sign-out leaves it, and the dialog's own Ctrl+C hint does not remove it (observed on 0.66.0) (research/gemini-cli.md#credentials)
+098	auth-key-close	keys	Escape	●	Escape returns to the method dialog, not to the prompt (observed on 0.66.0, 2026-11-02)
+099	auth-stop	stop	-	-	none: closes the terminal session
+100	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+101	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
+102	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
