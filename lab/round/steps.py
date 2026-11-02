@@ -12,8 +12,9 @@ line (`NN` first) are skipped. `check` prints one `<file>:<line>: <problem>` per
 repeat lines (copies of a missed step, numbered like it) after the last step that ran and points
 the cell's `next` at them. The rules are the ones round.sh relies on: every field present, numbers
 zero-padded to one width and rising from 02 (00 and 01 are the baseline and install listings), a
-known kind with the text it needs (a `dialog` or `choose` pattern grep -E reads), a session open for every step that types into one, and an
-expectation grep -E, PowerShell and Python all read the same way.
+known kind with the text it needs (a `dialog` or `choose` pattern grep -E reads), a session open
+for every step that types into one, an expectation grep -E, PowerShell and Python all read the
+same way, and every slash command used after the step that reads its subcommands.
 
 Standard library only.
 """
@@ -54,6 +55,10 @@ NUMBER_RE = re.compile(r"\d{2,3}")
 NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 # Escapes that grep -E, .NET and Python do not agree on.
 NON_PORTABLE_RE = re.compile(r"\\[dDwWsSbB]")
+# A `type` step that reads a slash command's subcommands: the command and one trailing space.
+SUBCOMMAND_STEP_RE = re.compile(r"/[a-z][a-z0-9-]* ")
+# A slash command a pause names: a `/word` not preceded by a path character.
+PAUSE_COMMAND_RE = re.compile(r"(?<![\w/~.$-])/[a-z][a-z0-9-]*")
 REQUIRED_FILES = ("agent.conf", "install.sh", "roots", "steps.tsv")
 
 
@@ -87,7 +92,12 @@ def parse_steps(source: str) -> tuple[list[Step], list[tuple[int, str]]]:
         if len(fields) != 6 or any(not field.strip() for field in fields):
             problems.append((line_number, "want six non-empty tab-separated fields"))
             continue
-        steps.append(Step(line_number, *(field.strip() for field in fields)))
+        fields = [field.strip() for field in fields[:3]] + [
+            # A `type` step's trailing space is part of what it types.
+            fields[3].lstrip() if fields[2].strip() == "type" else fields[3].strip(),
+            *(field.strip() for field in fields[4:]),
+        ]
+        steps.append(Step(line_number, *fields))
     return steps, problems
 
 
@@ -177,6 +187,36 @@ def check_steps(steps: list[Step], paste_dirs: list[pathlib.Path]) -> list[tuple
         elif step.kind in ("stop", "reboot"):
             session_open = False
         problems.extend((step.line, message) for message in found)
+    return problems + subcommand_problems(steps)
+
+
+def subcommand_problems(steps: list[Step]) -> list[tuple[int, str]]:
+    """Return the (line, problem) pairs of slash commands used before their subcommands are read.
+
+    A `prompt` or `type` step whose text starts with a slash command, and a `pause` whose text
+    names one, must come after a `type` step whose text is that command and one trailing space,
+    which saves the agent's completion list of its subcommands.
+    """
+    problems: list[tuple[int, str]] = []
+    read: set[str] = set()
+    for step in steps:
+        if step.kind == "type" and SUBCOMMAND_STEP_RE.fullmatch(step.text):
+            read.add(step.text[:-1])
+            continue
+        if step.kind in ("prompt", "type") and step.text.startswith("/"):
+            commands = [step.text.split()[0]]
+        elif step.kind == "pause":
+            commands = PAUSE_COMMAND_RE.findall(step.text)
+        else:
+            continue
+        problems.extend(
+            (
+                step.line,
+                "%s is used before a `type` step of %r reads its subcommands" % (name, name + " "),
+            )
+            for name in commands
+            if name not in read
+        )
     return problems
 
 

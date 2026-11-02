@@ -1,73 +1,77 @@
 NN	name	kind	text	expect	claim
 02	launch	agent	pi	quiet	first start writes ~/.pi/agent/settings.json and no session file until a message exists (research/pi.md#per-user-storage) (unverified)
-03	sign-in	pause	In the VM desktop open a terminal, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, sign in with /login as pi offers it with the throwaway account (the browser step is yours), detach with Ctrl+], then resume	-	auth.json, mode 0600 in a 0700 directory, holds the provider's api_key or oauth entry; no keychain (research/pi.md#credentials)
-04	shortcuts	type	?	quiet	the ? key: a shortcut list or a typed character (not stated) (unverified)
-05	shortcuts-close	keys	Backspace,Escape	quiet	none
-06	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-07	help-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-08	help	prompt	/help	-	what /help shows; whether it reaches the session file (research/pi.md#entries) (unverified)
-09	question	prompt	what is 17 + 25?	-	the session file appears with its header, a user and an assistant message with model, responseModel and provider; the first model: row (research/pi.md#model-rows) (unverified)
-10	web-search	prompt	What is the latest release of the npm package @earendil-works/pi-coding-agent? Search the web for it.	-	how a fetch or search through the shell tool is stored, pi having no web tool of its own (research/pi.md#message-roles)
-11	tool-call	prompt	Run python3 calc.py 2 3 and tell me what it prints.	-	pi asks nothing before a tool call: a toolCall and a toolResult and no decision record (research/pi.md#permission-rows)
-12	follow-up	prompt	refactor this	-	the agent asks which code and waits: an assistant message with no tool call (a turn that asks the user)
-13	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB inline in the user message (research/pi.md#message-roles)
-14	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the user message (not stated)
-15	model-subcommands	type	/model 	quiet	the completion list of /model: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-16	model-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-17	model-dialog	prompt	/model	quiet	the model selector's options and footer (unverified)
-18	model-options	options	12	quiet	every option of the model dialog, one screen per Down until the cursor wraps or stops, then back on the first
-19	model-pick	keys	Down,Enter	quiet	a model_change entry with provider and modelId (research/pi.md#model-rows) (unverified)
-20	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> provider=<provider> at the model_change entry (research/pi.md#model-rows)
-21	edit	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	-	an edit toolCall with its arguments; no backup copy is kept (research/pi.md#tool-arguments)
-22	export-subcommands	type	/export 	quiet	the completion list of /export: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-23	export-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-24	export	prompt	/export	-	pi-session-<session file>.html in the project (research/pi.md#html-export)
-25	debug-subcommands	type	/debug 	quiet	the completion list of /debug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-26	debug-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-27	debug	prompt	/debug	-	pi-debug.log rewritten with the open session's messages (research/pi.md#debug-log-and-crash-log)
-28	bug-subcommands	type	/bug 	quiet	the completion list of /bug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-29	bug-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-30	bug-dialog	prompt	/bug	quiet	/bug asks whether to include the transcript, then whether to upload or write a zip (research/pi.md#bug-report-archive) (unverified)
-31	bug-transcript	dialog	-	quiet	the transcript question, answered with its first option; the option order is not in the research document (unverified)
-32	bug-zip-choose	choose	[Zz]ip	-	the delivery option that writes a zip and uploads nothing, its text not in the research document; a miss sends no Enter, so nothing is uploaded (research/pi.md#bug-report-entry) (unverified)
-33	bug	keys	Enter	quiet	a pi.bug-report entry with delivery zip and pi-bug-report-*.zip in the project (research/pi.md#bug-report-entry)
-34	fork-subcommands	type	/fork 	quiet	the completion list of /fork: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-35	fork-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-36	fork-dialog	prompt	/fork	quiet	the fork picker: which message to fork from (unverified)
-37	fork-options	options	12	quiet	every option of the fork picker, one screen per Down until the cursor wraps or stops, then back on the first
-38	fork	keys	Enter	-	a new session file whose header names parentSession; the parent stays (research/pi.md#joins-and-timestamps) (unverified)
-39	fork-question	prompt	what is 3 + 4?	-	the forked session's first own entry
-40	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-41	exit-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-42	exit	prompt	/exit	exit	the session file's last entry; no prompt history file exists (research/pi.md#what-survives-a-delete)
-43	exit-close	stop	-	-	none: closes the terminal session
-44	mcp-config	command	mkdir -p .pi && printf '%s\n' '{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}}}' > .pi/mcp.json	-	a project .pi/mcp.json, a credential file when it holds env or headers (research/pi.md#credentials) (unverified)
-45	resume	agent	pi --continue	-	a resume reopens the last session file and appends to it (research/pi.md#joins-and-timestamps) (unverified)
-46	mcp-trust	dialog	-	quiet	the project-trust question for the project's MCP file, answered with its first option, taken to be trust; trust.json gains the project (research/pi.md#project-trust) (unverified)
-47	mcp-call	prompt	Use the fs MCP server to list the files in this project.	-	an MCP tool call, mcp.log lines and trust.json (research/pi.md#project-trust)
-48	mcp-stop	stop	-	-	none: closes the terminal session
-49	collect-before-delete	collect	-	-	the collector's rows before the project is removed
-50	delete-start	agent	pi	-	a session for the picker's delete
-51	resume-subcommands	type	/resume 	quiet	the completion list of /resume: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-52	resume-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-53	delete-dialog	prompt	/resume	quiet	the session picker (unverified)
-54	delete-options	options	12	quiet	every option of the session picker, one screen per Down until the cursor wraps or stops, then back on the first
-55	delete	keys	Ctrl+D	quiet	Ctrl+D in the picker moves the session file to the trash or unlinks it (research/pi.md#what-survives-a-delete) (unverified)
-56	delete-confirm-options	options	12	quiet	every option of the delete confirmation, one screen per Down until the cursor wraps or stops, then back on the first
-57	delete-confirm	keys	Enter	quiet	the delete's confirmation, if it asks one (unverified)
-58	delete-stop	stop	-	-	none: closes the terminal session
-59	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: sessions/--<cwd>--/ stays; the HTML export and bug zip go with the project (research/pi.md#what-survives-a-delete)
-60	home-start	agent	in:. pi	-	a start from the home after the project is gone
-61	home-trust	dialog	[Tt]rust.*(project|folder)	quiet	a project-trust question for the home, if pi asks one, answered with its first option (research/pi.md#project-trust) (unverified)
-62	home-stop	stop	-	-	none: closes the terminal session
-63	collect-after-delete	collect	-	-	the collector's rows after the deletes: pi-debug.log and crashes.json still name the deleted session (research/pi.md#what-survives-a-delete)
-64	idle	idle	600	-	nothing is written while no agent runs
-65	auth	agent	in:. pi	-	a session for the sign-out
-66	logout-subcommands	type	/logout 	quiet	the completion list of /logout: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-67	logout-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-68	sign-out-command	prompt	/logout	quiet	/logout as pi offers it; the research document names the command only in this table (unverified)
-69	sign-out	dialog	-	quiet	the provider picker of /logout, answered with its first option, the provider signed in at the sign-in step; the entry leaves auth.json (research/pi.md#credentials) (unverified)
-70	auth-stop	stop	-	-	none: closes the terminal session
-71	gui-sign-in	pause	In a terminal of the VM desktop: run pi in the home, sign in with /login, ask what is 1 + 1?, /exit, then resume	-	the desktop sign-in writes the same auth.json, pi using no keychain (research/pi.md#credentials)
-72	reboot	reboot	-	-	a reboot clears the pi-* files of /tmp; ~/.pi stays
-73	desktop-login	pause	Log in to the VM desktop after the reboot, then resume	-	the listing after login: what the desktop session writes
+03	login-subcommands	type	/login 	quiet	the completion list of /login: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+04	login-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+05	sign-in	pause	In the VM desktop open a terminal, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, sign in with /login as pi offers it with the throwaway account (the browser step is yours), detach with Ctrl+], then resume	-	auth.json, mode 0600 in a 0700 directory, holds the provider's api_key or oauth entry; no keychain (research/pi.md#credentials)
+06	shortcuts	type	?	quiet	the ? key: a shortcut list or a typed character (not stated) (unverified)
+07	shortcuts-close	keys	Backspace,Escape	quiet	none
+08	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+09	help-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+10	help	prompt	/help	-	what /help shows; whether it reaches the session file (research/pi.md#entries) (unverified)
+11	question	prompt	what is 17 + 25?	-	the session file appears with its header, a user and an assistant message with model, responseModel and provider; the first model: row (research/pi.md#model-rows) (unverified)
+12	web-search	prompt	What is the latest release of the npm package @earendil-works/pi-coding-agent? Search the web for it.	-	how a fetch or search through the shell tool is stored, pi having no web tool of its own (research/pi.md#message-roles)
+13	tool-call	prompt	Run python3 calc.py 2 3 and tell me what it prints.	-	pi asks nothing before a tool call: a toolCall and a toolResult and no decision record (research/pi.md#permission-rows)
+14	follow-up	prompt	refactor this	-	whether the agent asks before acting: an assistant message with no tool call (a turn that asks the user), or tool calls run without asking, pi having no per-call approval (research/pi.md#project-trust)
+15	follow-up-cancel	keys	Escape	marker	Escape cancels a turn still running, the key not in the research document: how the session file stores a cancelled turn (unverified)
+16	follow-up-dialog	dialog	-	marker	a confirmation left open after the cancel, answered with its first option so the next prompt starts at an idle input; no dialog when the agent asked first
+17	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB inline in the user message (research/pi.md#message-roles)
+18	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the user message (not stated)
+19	model-subcommands	type	/model 	quiet	the completion list of /model: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+20	model-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+21	model-dialog	prompt	/model	quiet	the model selector's options and footer (unverified)
+22	model-options	options	12	quiet	every option of the model dialog, one screen per Down until the cursor wraps or stops, then back on the first
+23	model-pick	keys	Down,Enter	quiet	a model_change entry with provider and modelId (research/pi.md#model-rows) (unverified)
+24	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> provider=<provider> at the model_change entry (research/pi.md#model-rows)
+25	edit	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	-	an edit toolCall with its arguments; no backup copy is kept (research/pi.md#tool-arguments)
+26	export-subcommands	type	/export 	quiet	the completion list of /export: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+27	export-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+28	export	prompt	/export	-	pi-session-<session file>.html in the project (research/pi.md#html-export)
+29	debug-subcommands	type	/debug 	quiet	the completion list of /debug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+30	debug-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+31	debug	prompt	/debug	-	pi-debug.log rewritten with the open session's messages (research/pi.md#debug-log-and-crash-log)
+32	bug-subcommands	type	/bug 	quiet	the completion list of /bug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+33	bug-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+34	bug-dialog	prompt	/bug	quiet	/bug asks whether to include the transcript, then whether to upload or write a zip (research/pi.md#bug-report-archive) (unverified)
+35	bug-transcript	dialog	-	quiet	the transcript question, answered with its first option; the option order is not in the research document (unverified)
+36	bug-zip-choose	choose	[Zz]ip	-	the delivery option that writes a zip and uploads nothing, its text not in the research document; a miss sends no Enter, so nothing is uploaded (research/pi.md#bug-report-entry) (unverified)
+37	bug	keys	Enter	quiet	a pi.bug-report entry with delivery zip and pi-bug-report-*.zip in the project (research/pi.md#bug-report-entry)
+38	fork-subcommands	type	/fork 	quiet	the completion list of /fork: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+39	fork-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+40	fork-dialog	prompt	/fork	quiet	the fork picker: which message to fork from (unverified)
+41	fork-options	options	12	quiet	every option of the fork picker, one screen per Down until the cursor wraps or stops, then back on the first
+42	fork	keys	Enter	-	a new session file whose header names parentSession; the parent stays (research/pi.md#joins-and-timestamps) (unverified)
+43	fork-question	prompt	what is 3 + 4?	-	the forked session's first own entry
+44	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+45	exit-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+46	exit	prompt	/exit	exit	the session file's last entry; no prompt history file exists (research/pi.md#what-survives-a-delete)
+47	exit-close	stop	-	-	none: closes the terminal session
+48	mcp-config	command	mkdir -p .pi && printf '%s\n' '{"mcpServers":{"fs":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}}}' > .pi/mcp.json	-	a project .pi/mcp.json, a credential file when it holds env or headers (research/pi.md#credentials) (unverified)
+49	resume	agent	pi --continue	-	a resume reopens the last session file and appends to it (research/pi.md#joins-and-timestamps) (unverified)
+50	mcp-trust	dialog	-	quiet	the project-trust question for the project's MCP file, answered with its first option, taken to be trust; trust.json gains the project (research/pi.md#project-trust) (unverified)
+51	mcp-call	prompt	Use the fs MCP server to list the files in this project.	-	an MCP tool call, mcp.log lines and trust.json (research/pi.md#project-trust)
+52	mcp-stop	stop	-	-	none: closes the terminal session
+53	collect-before-delete	collect	-	-	the collector's rows before the project is removed
+54	delete-start	agent	pi	-	a session for the picker's delete
+55	resume-subcommands	type	/resume 	quiet	the completion list of /resume: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+56	resume-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+57	delete-dialog	prompt	/resume	quiet	the session picker (unverified)
+58	delete-options	options	12	quiet	every option of the session picker, one screen per Down until the cursor wraps or stops, then back on the first
+59	delete	keys	Ctrl+D	quiet	Ctrl+D in the picker moves the session file to the trash or unlinks it (research/pi.md#what-survives-a-delete) (unverified)
+60	delete-confirm-options	options	12	quiet	every option of the delete confirmation, one screen per Down until the cursor wraps or stops, then back on the first
+61	delete-confirm	keys	Enter	quiet	the delete's confirmation, if it asks one (unverified)
+62	delete-stop	stop	-	-	none: closes the terminal session
+63	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: sessions/--<cwd>--/ stays; the HTML export and bug zip go with the project (research/pi.md#what-survives-a-delete)
+64	home-start	agent	in:. pi	-	a start from the home after the project is gone
+65	home-trust	dialog	[Tt]rust.*(project|folder)	quiet	a project-trust question for the home, if pi asks one, answered with its first option (research/pi.md#project-trust) (unverified)
+66	home-stop	stop	-	-	none: closes the terminal session
+67	collect-after-delete	collect	-	-	the collector's rows after the deletes: pi-debug.log and crashes.json still name the deleted session (research/pi.md#what-survives-a-delete)
+68	idle	idle	600	-	nothing is written while no agent runs
+69	auth	agent	in:. pi	-	a session for the sign-out
+70	logout-subcommands	type	/logout 	quiet	the completion list of /logout: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+71	logout-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
+72	sign-out-command	prompt	/logout	quiet	/logout as pi offers it; the research document names the command only in this table (unverified)
+73	sign-out	dialog	-	quiet	the provider picker of /logout, answered with its first option, the provider signed in at the sign-in step; the entry leaves auth.json (research/pi.md#credentials) (unverified)
+74	auth-stop	stop	-	-	none: closes the terminal session
+75	gui-sign-in	pause	In a terminal of the VM desktop: run pi in the home, sign in with /login, ask what is 1 + 1?, /exit, then resume	-	the desktop sign-in writes the same auth.json, pi using no keychain (research/pi.md#credentials)
+76	reboot	reboot	-	-	a reboot clears the pi-* files of /tmp; ~/.pi stays
+77	desktop-login	pause	Log in to the VM desktop after the reboot, then resume	-	the listing after login: what the desktop session writes

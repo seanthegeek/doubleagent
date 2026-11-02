@@ -232,3 +232,35 @@ def test_dialog_and_choose_need_a_session(tmp_path):
         "dialog with no agent session open",
         "choose with no agent session open",
     ]
+
+
+def test_a_slash_command_needs_its_subcommand_step_first(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c")
+    text += line("03", "early", "prompt", "/auth signout", "-", "c")
+    text += line("04", "sign-in", "pause", "sign in with /login, then /exit", "-", "c")
+    text += line("05", "chat", "type", "/chat", "quiet", "c")
+    assert problems_of(text, tmp_path) == [
+        "/auth is used before a `type` step of '/auth ' reads its subcommands",
+        "/login is used before a `type` step of '/login ' reads its subcommands",
+        "/exit is used before a `type` step of '/exit ' reads its subcommands",
+        "/chat is used before a `type` step of '/chat ' reads its subcommands",
+    ]
+
+
+def test_a_subcommand_step_lets_the_command_through(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c") + "".join(
+        line("%02d" % (3 + offset), name + "-subcommands", "type", "/%s " % name, "quiet", "c")
+        for offset, name in enumerate(("auth", "login", "exit", "chat"))
+    )
+    text += line("07", "sign-out", "prompt", "/auth signout", "-", "c")
+    text += line(
+        "08", "sign-in", "pause", "run ~/lab/tui-test/tui-test, sign in with /login", "-", "c"
+    )
+    text += line("09", "leave", "pause", "type /exit in $HOME/lab/proj", "-", "c")
+    text += line("10", "chat", "type", "/chat", "quiet", "c")
+    assert problems_of(text, tmp_path) == []
+
+
+def test_a_type_step_keeps_its_trailing_space():
+    parsed, _ = steps.parse_steps(line("02", "auth-subcommands", "type", "/auth ", "quiet", "c"))
+    assert parsed[0].text == "/auth "
