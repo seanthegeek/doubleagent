@@ -8,7 +8,8 @@ after every step, collects and analyzes, and reverts the VM. One agent on
 one VM is a cell (one platform of one product form, in the round's terms),
 and each run of `round.sh` works on one cell directory. Use it instead of
 driving the agent by hand over `ssh` and `screen` whenever the agent is a
-terminal program; a GUI agent is still driven by the person.
+terminal program; an agent with a graphical interface, such as a desktop
+app, is still driven by the person.
 
 The pipeline drives the agent through
 [microsoft/tui-test](https://github.com/microsoft/tui-test), a headless
@@ -84,8 +85,8 @@ pipeline itself needs from the host, the guests and the operator.
   steps run `npx`) and the agents themselves; the tui-test release is
   downloaded on the host and copied in.
 - **The VM's console** in Parallels Desktop, for the person: a pause step
-  is done there, in a desktop terminal or browser, and the desktop login
-  after a reboot.
+  is done there, in a terminal of the VM's desktop or its browser, and so
+  is the desktop login after a reboot.
 - **Automatic updates and scheduled reboots off** in the clean snapshot,
   as [Why the VMs hold development tools](../../docs/lab-vms.md#why-the-vms-hold-development-tools)
   explains: an update during a cell writes files the agent did not.
@@ -162,9 +163,24 @@ reason on stderr and in `round.log`.
 
 ## What the person does
 
-The person's steps are the credential pastes, the browser sign-ins and
-the steps on the VM's desktop; the pipeline reads and answers the agent's
-dialogs itself over `ssh` (the `dialog` and `choose` kinds below).
+The person has three kinds of step, in this order in every table; the
+pipeline reads and answers the agent's dialogs itself over `ssh` (the
+`dialog` and `choose` kinds below).
+
+1. **The ssh sign-in**, at the first pause: the person enters the
+   credential (a pasted key, or the agent's sign-in with its browser part)
+   in the session the pipeline started over `ssh`, through the monitor
+   below. Its listing shows where the agent stores a credential entered
+   over `ssh`.
+2. **The desktop sign-in**, after the pipeline's sign-out over `ssh`: the
+   person runs the agent's own sign-in from a terminal of the VM's desktop.
+   Its listing shows where the credential lands when the agent runs there,
+   to compare with the ssh sign-in's.
+3. **The desktop login**, after the reboot: the person logs in to the VM's
+   desktop. Its listing shows what logging in to the desktop touches.
+
+A table may hold other pauses for a browser step outside the agent, such
+as a source-host login's device page.
 
 A `pause` step prints the agent's screen, then a block
 `URLs on the screen, joined:` with every `http://` or `https://` URL on
@@ -180,8 +196,8 @@ is joined too: check a joined URL against the screen above it.
 The person does what the text says and runs `resume`, which records the
 screen and the listing after the person's step before going on.
 
-A sign-in happens inside the agent's own terminal session. In the VM's
-desktop, open a terminal and attach to it:
+The ssh sign-in happens inside the agent's own terminal session. Open a
+terminal of the VM's desktop and attach to it:
 
 ```sh
 ~/lab/tui-test/tui-test --session s02 monitor --interactive
@@ -192,9 +208,11 @@ session the pipeline started over `ssh`. Complete the agent's sign-in
 with the throwaway account, the browser part included, then detach with
 Ctrl+] and run `resume`. A key the agent asks for (Gemini CLI's API key)
 is pasted at its prompt the same way. If attaching fails, sign in from a
-desktop terminal of your own (start the agent there, sign in, exit) and run
-`resume`: the next listing records where the credential landed either
-way. The pipeline never asks for a credential or types one. It does
+terminal of the VM's desktop instead (start the agent there, sign in,
+exit) and run `resume`, and note in the round's write-up that the ssh
+sign-in was made as a desktop sign-in, since its listing then shows where
+a desktop sign-in lands. The pipeline never asks for a credential or
+types one. It does
 print the agent's screen at a pause, so a one-time code or a sign-in URL
 the agent shows appears there and in `screens/` and `casts/`, and the
 collection holds the credential files the agent wrote; the listings and
@@ -224,7 +242,8 @@ permission modes, no scheduled task, no synced session (`/share` is left
 out too) and no source-host integration. A resumed session after a
 relaunch is the same terminal program for all three, so the `/exit` and
 resume steps cover it. Every step that drives the agent over `ssh` comes
-before the sign-out and the sign-in from the desktop; the reboot follows
+before the sign-out and the desktop sign-in; the reboot and the desktop
+login follow
 them, and the idle period comes after the delete steps, as AGENTS.md lists
 them. Run `collect` after the last step, before `finish`.
 
@@ -237,9 +256,8 @@ used before that step. Every agent that signs in closes the `ssh`-driven
 part of its table with the agent's own sign-out command or dialog option,
 taken from that completion list or its research document and run over
 `ssh` with a listing (Gemini CLI's `/auth signout`, Qwen Code's `/auth`
-dialog, pi's `/logout`), then a `pause` in which the person signs in again
-from a terminal of the VM's desktop, with a listing, to show whether the
-credential lands somewhere else than it did over `ssh`. Where an agent
+dialog, pi's `/logout`), then the desktop sign-in `pause`, whose listing
+shows whether the credential lands somewhere else than at the ssh sign-in. Where an agent
 offers no sign-out, that step is a `pause` in which the person removes the
 stored credential the way a user would (Passwords and Keys on Ubuntu,
 Keychain Access on macOS, Credential Manager on Windows). An agent that

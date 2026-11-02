@@ -1255,10 +1255,11 @@ into Format versions.
    - An agent driven over SSH may fail to reach the OS credential store and
      write a file fallback instead (Claude Code 2.1.310 on macOS:
      `~/.claude/.credentials.json`, mode 0600). On every platform, record
-     where its credentials land over SSH, then sign out, as its own step
-     with a listing; then the person signs in from a terminal in the VM's
-     GUI, with a listing after, once the last step driven over SSH is
-     done. The sign-out is the agent's own command or dialog option, taken
+     where its credentials land at the ssh sign-in (the credential entered
+     in the session started over SSH), then sign out, as its own step with
+     a listing; then the person makes the desktop sign-in (the agent's own
+     sign-in from a terminal of the VM's desktop), with a listing after,
+     once the last step driven over SSH is done. The sign-out is the agent's own command or dialog option, taken
      from its completion list or its research document and run over SSH;
      where the agent has none, the person removes the stored credential the
      way a user would, and the research document says the agent offers no

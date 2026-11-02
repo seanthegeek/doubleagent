@@ -2,7 +2,7 @@ NN	name	kind	text	expect	claim
 02	launch	agent	pi	quiet	first start writes ~/.pi/agent/settings.json and no session file until a message exists (research/pi.md#per-user-storage) (unverified)
 03	login-subcommands	type	/login 	quiet	the completion list of /login: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
 04	login-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
-05	sign-in	pause	In the VM desktop open a terminal, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, sign in with /login as pi offers it with the throwaway account (the browser step is yours), detach with Ctrl+], then resume	-	auth.json, mode 0600 in a 0700 directory, holds the provider's api_key or oauth entry; no keychain (research/pi.md#credentials)
+05	ssh-sign-in	pause	For the ssh sign-in, open a terminal of the VM's desktop, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, sign in with /login as pi offers it with the throwaway account (the browser step is yours), detach with Ctrl+], then resume	-	auth.json, mode 0600 in a 0700 directory, holds the provider's api_key or oauth entry; no keychain (research/pi.md#credentials)
 06	shortcuts	type	?	quiet	the ? key: a shortcut list or a typed character (not stated) (unverified)
 07	shortcuts-close	keys	Backspace,Escape	quiet	none
 08	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
@@ -70,8 +70,8 @@ NN	name	kind	text	expect	claim
 70	logout-subcommands	type	/logout 	quiet	the completion list of /logout: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
 71	logout-subcommands-clear	keys	Escape	quiet	none: clears the typed command (unverified)
 72	sign-out-command	prompt	/logout	quiet	/logout as pi offers it; the research document names the command only in this table (unverified)
-73	sign-out	dialog	-	quiet	the provider picker of /logout, answered with its first option, the provider signed in at the sign-in step; the entry leaves auth.json (research/pi.md#credentials) (unverified)
+73	sign-out	dialog	-	quiet	the provider picker of /logout, answered with its first option, the provider signed in at the ssh sign-in; the entry leaves auth.json (research/pi.md#credentials) (unverified)
 74	auth-stop	stop	-	-	none: closes the terminal session
-75	gui-sign-in	pause	In a terminal of the VM desktop: run pi in the home, sign in with /login, ask what is 1 + 1?, /exit, then resume	-	the desktop sign-in writes the same auth.json, pi using no keychain (research/pi.md#credentials)
+75	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run pi in the home, sign in with /login, ask what is 1 + 1?, /exit, then resume	-	the desktop sign-in writes the same auth.json, pi using no keychain (research/pi.md#credentials)
 76	reboot	reboot	-	-	a reboot clears the pi-* files of /tmp; ~/.pi stays
-77	desktop-login	pause	Log in to the VM desktop after the reboot, then resume	-	the listing after login: what the desktop session writes
+77	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes

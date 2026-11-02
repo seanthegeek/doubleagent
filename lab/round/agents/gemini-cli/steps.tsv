@@ -2,9 +2,9 @@ NN	name	kind	text	expect	claim
 02	launch	agent	gemini	Trust folder	first start writes installation_id, projects.json, state.json and tmp/<slug>/ with a session file before any prompt; the folder-trust dialog opens (research/gemini-cli.md#per-user-storage)
 03	trust-options	options	12	quiet	every option of the trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
 04	trust	keys	Enter	quiet	Trust folder writes trustedFolders.json: a permission setting: trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
-05	auth-options	options	12	quiet	every option of the sign-in dialog; Escape does not close it, so ? and /help wait for the sign-in, one screen per Down until the cursor wraps or stops, then back on the first
+05	auth-options	options	12	quiet	every option of the sign-in dialog; Escape does not close it, so ? and /help wait for the ssh sign-in, one screen per Down until the cursor wraps or stops, then back on the first
 06	auth-key	keys	Down,Enter	quiet	Down onto 2. Use Gemini API Key and Enter opens its key prompt; Google sign-in no longer serves individual accounts on 0.66.0, so the round signs in with an API key
-07	sign-in	pause	In the VM desktop open a terminal, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, paste the Google AI Studio API key of the throwaway account at the key prompt and press Enter, detach with Ctrl+], then resume; the pipeline never types a credential	-	the key the dialog takes is stored in the keychain item or the file fallback the Credentials section names (research/gemini-cli.md#credentials) (unverified)
+07	ssh-sign-in	pause	For the ssh sign-in, open a terminal of the VM's desktop, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, paste the Google AI Studio API key of the throwaway account at the key prompt and press Enter, detach with Ctrl+], then resume; the pipeline never types a credential	-	the key the dialog takes is stored in the keychain item or the file fallback the Credentials section names (research/gemini-cli.md#credentials) (unverified)
 08	shortcuts	type	?	quiet	the ? shortcut list; nothing is written (none) (unverified)
 09	shortcuts-close	keys	Backspace,Escape	quiet	none
 10	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
@@ -85,6 +85,6 @@ NN	name	kind	text	expect	claim
 85	auth-subcommands-clear	keys	Escape,Escape	quiet	none: clears the typed command (unverified)
 86	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
 87	auth-stop	stop	-	-	none: closes the terminal session
-88	gui-sign-in	pause	In a terminal of the VM desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	from the desktop keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+88	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
 89	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
-90	desktop-login	pause	Log in to the VM desktop after the reboot, then resume	-	the listing after login: what the desktop session writes
+90	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
