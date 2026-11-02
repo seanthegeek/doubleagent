@@ -894,10 +894,9 @@ before any install.
    round, such a question or one about the product's behaviour (when a
    retention sweep runs) is answered first from the vendor's documentation
    and forum, found by web search or the documentation index (`llms.txt`)
-   and cited as that source;
-   a VM experiment then tests the documented claim. Grep the bundle only for key names, enum
-   values, record shapes and path strings, or to confirm a string a page
-   names.
+   and cited as that source; a VM experiment then tests the documented
+   claim. Grep the bundle only for key names, enum values, record shapes
+   and path strings, or to confirm a string a page names.
 
    For minified bundles and compiled binaries:
 
@@ -1259,8 +1258,9 @@ into Format versions.
      in the session started over SSH), then sign out, as its own step with
      a listing; then the person makes the desktop sign-in (the agent's own
      sign-in from a terminal of the VM's desktop), with a listing after,
-     once the last step driven over SSH is done. The sign-out is the agent's own command or dialog option, taken
-     from its completion list or its research document and run over SSH;
+     once the last step driven over SSH is done. The sign-out is the
+     agent's own command or dialog option, taken from its completion list
+     or its research document and run over SSH;
      where the agent has none, the person removes the stored credential the
      way a user would, and the research document says the agent offers no
      sign-out. A source-host CLI the agent leans on follows the same order,
