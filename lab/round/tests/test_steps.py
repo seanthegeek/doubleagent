@@ -205,3 +205,30 @@ def test_options_kind(tmp_path):
     )
     text += line("04", "bad", "options", "many", "-", "c")
     assert problems_of(text, tmp_path) == ["options takes the most Down presses, 1 to 30"]
+
+
+def test_dialog_and_choose_kinds(tmp_path):
+    text = line("02", "start", "agent", "gemini", "Trust folder", "c")
+    text += line("03", "trust", "dialog", "Trust folder", "-", "c")
+    text += line("04", "web", "dialog", "-", "marker", "c")
+    text += line("05", "grant", "choose", "Allow for this session", "-", "c")
+    text += line("06", "grant-enter", "keys", "Enter", "marker", "c")
+    assert problems_of(text, tmp_path) == []
+    text += line("07", "no-text", "choose", "-", "-", "c")
+    text += line("08", "bad-dialog", "dialog", "(open", "-", "c")
+    text += line("09", "bad-choose", "choose", r"\d option", "-", "c")
+    found = problems_of(text, tmp_path)
+    assert found[0] == "choose takes the option's text as a grep -E pattern"
+    assert found[1].startswith("dialog pattern '(open' is not a regular expression")
+    assert found[2] == "choose pattern '\\\\d option' uses an escape grep -E does not read"
+    assert len(found) == 3
+
+
+def test_dialog_and_choose_need_a_session(tmp_path):
+    text = line("02", "early", "dialog", "-", "-", "c") + line(
+        "03", "pick", "choose", "Yes", "-", "c"
+    )
+    assert problems_of(text, tmp_path) == [
+        "dialog with no agent session open",
+        "choose with no agent session open",
+    ]

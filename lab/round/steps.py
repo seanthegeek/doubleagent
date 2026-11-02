@@ -12,7 +12,7 @@ line (`NN` first) are skipped. `check` prints one `<file>:<line>: <problem>` per
 repeat lines (copies of a missed step, numbered like it) after the last step that ran and points
 the cell's `next` at them. The rules are the ones round.sh relies on: every field present, numbers
 zero-padded to one width and rising from 02 (00 and 01 are the baseline and install listings), a
-known kind with the text it needs, a session open for every step that types into one, and an
+known kind with the text it needs (a `dialog` or `choose` pattern grep -E reads), a session open for every step that types into one, and an
 expectation grep -E, PowerShell and Python all read the same way.
 
 Standard library only.
@@ -28,8 +28,10 @@ import sys
 
 KINDS = (
     "agent",
+    "choose",
     "collect",
     "command",
+    "dialog",
     "idle",
     "keys",
     "options",
@@ -40,7 +42,7 @@ KINDS = (
     "stop",
     "type",
 )
-NEEDS_SESSION = {"keys", "options", "paste", "prompt", "type"}
+NEEDS_SESSION = {"choose", "dialog", "keys", "options", "paste", "prompt", "type"}
 NO_TEXT = {"collect", "reboot", "stop"}
 EXPECT_WORDS = {"-", "exit", "marker", "none", "quiet"}
 KEY_NAMES = (
@@ -89,17 +91,22 @@ def parse_steps(source: str) -> tuple[list[Step], list[tuple[int, str]]]:
     return steps, problems
 
 
+def pattern_problem(pattern: str, field: str) -> str | None:
+    """Return why a grep -E pattern in `field` cannot be used, or None when it can."""
+    if NON_PORTABLE_RE.search(pattern):
+        return "%s %r uses an escape grep -E does not read" % (field, pattern)
+    try:
+        re.compile(pattern)
+    except re.error as error:
+        return "%s %r is not a regular expression: %s" % (field, pattern, error)
+    return None
+
+
 def expect_problem(expect: str) -> str | None:
     """Return why an expectation cannot be used, or None when it can."""
     if expect in EXPECT_WORDS:
         return None
-    if NON_PORTABLE_RE.search(expect):
-        return "expect %r uses an escape grep -E does not read" % expect
-    try:
-        re.compile(expect)
-    except re.error as error:
-        return "expect %r is not a regular expression: %s" % (expect, error)
-    return None
+    return pattern_problem(expect, "expect")
 
 
 def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
@@ -112,6 +119,12 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
     elif step.kind == "options":
         if not step.text.isdigit() or not 0 < int(step.text) <= 30:
             return "options takes the most Down presses, 1 to 30"
+    elif step.kind == "dialog":
+        return None if step.text == "-" else pattern_problem(step.text, "dialog pattern")
+    elif step.kind == "choose":
+        if step.text == "-":
+            return "choose takes the option's text as a grep -E pattern"
+        return pattern_problem(step.text, "choose pattern")
     elif step.kind == "keys":
         bad = [key for key in step.text.split(",") if not KEY_RE.fullmatch(key)]
         if bad:
