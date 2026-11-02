@@ -11,7 +11,8 @@
 # `windows:`; `keychain:<service>` and `process:<name>` lines add a
 # credential-store presence line and a process count, and a `skip:<path>`
 # line keeps a directory's entry but none below it. Output lines are
-# tab-separated: <kind> <size> <mode> <mtime> <path>, sorted by path, then
+# tab-separated: first `base tmp <path>`, the directory `<tmp>` expands to,
+# then <kind> <size> <mode> <mtime> <path>, sorted by path, then
 # `top` lines (the entries of the home's and temp directory's top levels, so
 # a directory no root covers still shows in a diff), then the state lines.
 # Symlinks are listed with their target and never followed.
@@ -147,6 +148,7 @@ skip_paths=$(printf '%s\n' "$roots" | while IFS= read -r line; do
   esac
 done)
 
+printf 'base\ttmp\t%s\n' "$temp_dir"
 {
   printf '%s\n' "$roots" | while IFS= read -r line; do
     path=$(root_for_platform "$line")

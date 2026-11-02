@@ -13,7 +13,8 @@ the root):
   CHANGED  paths whose size, mode or modification time moved; a directory only when its mode did
   TOP      top-level names that appeared or went away (the `top` lines) that no path of the cell's
            roots file (--roots) matches, itself or by a leading part: a directory no survey root
-           covers, to add to the agent's roots file
+           covers, to add to the agent's roots file. `<tmp>` is the listing's `base tmp` line,
+           or for an older listing without one the parents of its `top` paths
   STATE    credential-store items and process counts that changed
 
 No file content is read. With --redact, UUIDs and runs of 32 or more hex digits in a path print as
@@ -68,11 +69,12 @@ class Entry:
 
 @dataclasses.dataclass
 class Listing:
-    """A parsed listing: the entries by path, the top-level names and the state lines."""
+    """A parsed listing: the entries by path, the top-level names, the state and base lines."""
 
     entries: dict[str, Entry] = dataclasses.field(default_factory=dict)
     tops: set[str] = dataclasses.field(default_factory=set)
     states: dict[tuple[str, str], str] = dataclasses.field(default_factory=dict)
+    bases: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -105,6 +107,8 @@ def parse_listing(lines: Iterable[str]) -> Listing:
         fields = raw.rstrip("\r\n").split("\t")
         if fields[0] == "top" and len(fields) == 6:
             listing.tops.add(fields[5])
+        elif fields[0] == "base" and len(fields) == 3:
+            listing.bases[fields[1]] = fields[2]
         elif fields[0] in STATE_KINDS and len(fields) == 5:
             listing.states[(fields[0], fields[4])] = fields[1]
         elif len(fields) == 5:
@@ -293,15 +297,17 @@ def root_globs(roots_text: str, home: str, temporary: list[str]) -> list[str]:
     return [glob.rstrip("/") for glob in globs if glob]
 
 
-def covered(path: str, globs: list[str]) -> bool:
+def covered(path: str, globs: list[str], fold_case: bool = False) -> bool:
     """Return True when one of the globs matches the path or a leading part of it.
 
     A component matches with `fnmatch.fnmatchcase`, so `*` stays inside one component as in a
-    shell glob.
+    shell glob; with `fold_case`, for the case-insensitive file systems of Windows and macOS,
+    both sides are lower-cased first.
     """
-    parts = slashed(path).split("/")
+    text = slashed(path)
+    parts = (text.lower() if fold_case else text).split("/")
     for glob in globs:
-        pattern = glob.split("/")
+        pattern = (glob.lower() if fold_case else glob).split("/")
         if len(pattern) <= len(parts) and all(
             fnmatch.fnmatchcase(part, piece) for part, piece in zip(parts, pattern, strict=False)
         ):
@@ -310,13 +316,21 @@ def covered(path: str, globs: list[str]) -> bool:
 
 
 def drop_covered_tops(difference: Difference, after: Listing, roots_text: str) -> Difference:
-    """Return the difference without the `top` paths that a path of the roots file covers."""
+    """Return the difference without the `top` paths that a path of the roots file covers.
+
+    `<tmp>` is the directory the listing's `base tmp` line names, as the survey expanded it; a
+    listing without one, from a cell taken before the survey printed it, falls back to the
+    temporary directories `survey_bases` infers from the `top` paths.
+    """
     home, temporary = survey_bases(sorted(after.tops) + difference.gone_tops)
+    if "tmp" in after.bases:
+        temporary = [slashed(after.bases["tmp"])]
     globs = root_globs(roots_text, home, temporary)
+    fold_case = listing_platform(home) in ("windows", "macos")
     return dataclasses.replace(
         difference,
-        new_tops=[path for path in difference.new_tops if not covered(path, globs)],
-        gone_tops=[path for path in difference.gone_tops if not covered(path, globs)],
+        new_tops=[path for path in difference.new_tops if not covered(path, globs, fold_case)],
+        gone_tops=[path for path in difference.gone_tops if not covered(path, globs, fold_case)],
     )
 
 

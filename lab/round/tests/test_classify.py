@@ -204,3 +204,46 @@ def test_main_reads_the_roots_file(tmp_path, capsys):
     assert classify.main([*arguments, str(tmp_path / "after.txt")]) == 0
     printed = capsys.readouterr().out
     assert "gemini-client-error" not in printed and "/tmp/other-error.json" in printed
+
+
+def test_the_base_line_names_the_temporary_directory():
+    base = "base\ttmp\t/var/folders/ab/T\n"
+    before = classify.parse_listing([base, "top\tdir\t1\t755\tt\t/Users/lab/.npm\n"])
+    after = classify.parse_listing(
+        [
+            base,
+            "top\tdir\t1\t755\tt\t/Users/lab/.npm\n",
+            "top\tdir\t1\t755\tt\t/tmp/gemini\n",
+            "top\tdir\t1\t755\tt\t/var/folders/ab/T/gemini\n",
+        ]
+    )
+    assert after.bases == {"tmp": "/var/folders/ab/T"} and after.entries == {}
+    found = classify.drop_covered_tops(classify.compare(before, after), after, "<tmp>/gemini\n")
+    assert found.new_tops == ["/tmp/gemini"]
+
+
+def test_a_listing_without_a_base_line_falls_back_to_the_top_parents():
+    before = classify.parse_listing(["top\tdir\t1\t755\tt\t/Users/lab/.npm\n"])
+    after = classify.parse_listing(
+        ["top\tdir\t1\t755\tt\t/Users/lab/.npm\n", "top\tdir\t1\t755\tt\t/tmp/gemini\n"]
+    )
+    found = classify.drop_covered_tops(classify.compare(before, after), after, "<tmp>/gemini\n")
+    assert found.new_tops == []
+
+
+def test_case_is_folded_on_windows_and_macos_only():
+    roots = (
+        "windows:%APPDATA%/example-agent\nmacos:~/Library/Application Support/example-agent\n"
+        "linux:~/.config/example-agent\n"
+    )
+    cases = [
+        ("C:\\Users\\lab\\AppData\\Roaming\\Example-Agent", True),
+        ("/Users/lab/Library/Application Support/EXAMPLE-AGENT", True),
+        ("/home/lab/.config/Example-Agent", False),
+    ]
+    for path, expected in cases:
+        listing = classify.parse_listing(["top\tdir\t1\t755\tt\t%s\n" % path])
+        found = classify.drop_covered_tops(
+            classify.compare(classify.Listing(), listing), listing, roots
+        )
+        assert (found.new_tops == []) is expected, path

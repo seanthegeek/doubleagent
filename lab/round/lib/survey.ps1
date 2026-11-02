@@ -10,7 +10,8 @@
 # `macos:` and `unix:` are skipped. `keychain:<name>` looks the name up in
 # Credential Manager (`cmdkey /list`), `process:<name>` counts processes and
 # `skip:<path>` keeps a directory's entry but none below it.
-# Output is survey.sh's: <kind> <size> <mode> <mtime> <path>, tab-separated,
+# Output is survey.sh's, tab-separated: first `base tmp <path>`, the
+# directory `<tmp>` expands to, then <kind> <size> <mode> <mtime> <path>,
 # sorted by path, then the `top` lines, then the state lines. Reparse points
 # are listed with their target and never followed. Nothing is read from a
 # file but its directory entry.
@@ -70,6 +71,7 @@ function Get-ProcessCount([string]$name) {
 }
 
 $rootLines = @([Console]::In.ReadToEnd() -split "`r?`n")
+"base`ttmp`t$tempDir"
 $entries = @()
 $stateLines = @()
 $skipPaths = @()
