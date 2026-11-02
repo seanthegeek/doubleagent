@@ -681,6 +681,22 @@ def test_send_secret_with_the_expectation_missed_keeps_its_note(tmp_path):
         assert found["note"] == expected, shell
 
 
+def test_a_failed_secret_call_sets_the_mark(tmp_path):
+    for call in ("type", "keys Enter"):
+        for shell in SHELLS:
+            stub = secret_stub(tmp_path, "AIza")
+            (stub / "fail_on").write_text(call + "\n", encoding="utf-8")
+            found = run_steps(shell, stub, SECRET + "; note_choose $?")
+            assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), (
+                shell,
+                call,
+            )
+            assert found["drive"].endswith(call + "\n"), (shell, call)
+            stub = secret_stub(tmp_path, "AIza")
+            found = run_steps(shell, stub, SECRET + "; note_choose $?")
+            assert "choose_missed" not in (stub / "state").read_text(encoding="utf-8"), shell
+
+
 def test_send_secret_while_the_mark_is_set_types_nothing(tmp_path):
     for shell in SHELLS:
         stub = secret_stub(tmp_path, "AIza")

@@ -200,15 +200,15 @@ press_step_keys() {
 }
 
 # Keep the state's choose_missed mark after the step just run, whose exit
-# code is $1. A `choose` that did not place the cursor (a miss or a failed
-# drive call) sets it; a `choose` that did, a `dialog` that read and
-# answered a dialog, and an `agent`, `stop` or `reboot` step (a new or
-# closed session) clear it; a `keys` step whose drive call failed (exit
-# code 1) sets it, since what the key did to an open dialog is unknown;
-# a typing step sets or clears it only through input_free (a failed Escape
-# call, or an Escape that closed the dialog); every other step keeps it, an
-# `options` step included, whose reading leaves the cursor on an option
-# nobody chose.
+# code is $1. The rule: a failed drive call sent to a dialog that may be
+# open sets the mark, since what it did to the dialog is unknown; so does a
+# `choose` that did not place the cursor. A `keys` or `secret` step that
+# failed (exit code 1) is such a call, and a typing step's recovery Escape
+# sets it in input_free itself. A `choose` that placed the cursor, a
+# `dialog` that read and answered a dialog, an `agent`, `stop` or `reboot`
+# step (a new or closed session), and a recovery Escape that closed the
+# dialog clear it; every other step keeps it, an `options` step included,
+# whose reading leaves the cursor on an option nobody chose.
 note_choose() {
   _nc_mark=$(state_get choose_missed)
   _nc_new=$_nc_mark
@@ -216,7 +216,7 @@ note_choose() {
     choose) if [ "$1" -eq 0 ]; then _nc_new=; else _nc_new=yes; fi ;;
     dialog) case $STEP_NOTE in answered*) _nc_new= ;; esac ;;
     agent | stop | reboot) _nc_new= ;;
-    keys) [ "$1" -ne 1 ] || _nc_new=yes ;;
+    keys | secret) [ "$1" -ne 1 ] || _nc_new=yes ;;
   esac
   [ "$_nc_mark" = "$_nc_new" ] || state_set choose_missed "$_nc_new"
 }

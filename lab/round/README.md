@@ -331,9 +331,10 @@ way and moves the cursor to the option whose text it names (the
 allow-always grant, the zip delivery of pi's `/bug`), so the next `keys`
 step's Enter answers with it.
 
-When a `choose` step misses or fails, a `keys` step's drive call or a
-typing step's recovery Escape fails (what the key did to an open dialog
-is unknown), or a reading cannot return its cursor, the step sets a mark, and no step that presses Enter
+When a `choose` step misses or fails, a drive call sent to a dialog that
+may be open fails (a `keys` or `secret` step's call, or a typing step's
+recovery Escape: what the key did to the dialog is unknown), or a reading
+cannot return its cursor, the step sets a mark, and no step that presses Enter
 runs while it is set (a `keys` step whose keys include Enter, a `prompt`,
 a `paste` or a `secret`; each is `missed` with the note `the choose step
 before missed`). A later `choose` that places the cursor, a `dialog`
