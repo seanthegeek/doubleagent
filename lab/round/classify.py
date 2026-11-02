@@ -13,8 +13,8 @@ the root):
   CHANGED  paths whose size, mode or modification time moved; a directory only when its mode did
   TOP      top-level names that appeared or went away (the `top` lines) that no path of the cell's
            roots file (--roots) matches, itself or by a leading part: a directory no survey root
-           covers, to add to the agent's roots file. `<tmp>` is the listing's `base tmp` line,
-           or for an older listing without one the parents of its `top` paths
+           covers, to add to the agent's roots file. `<tmp>` is the listing's `base tmp` line;
+           an older listing without one gives `<tmp>` no directory, so no name is hidden
   STATE    credential-store items and process counts that changed
 
 No file content is read. With --redact, UUIDs and runs of 32 or more hex digits in a path print as
@@ -318,13 +318,12 @@ def covered(path: str, globs: list[str], fold_case: bool = False) -> bool:
 def drop_covered_tops(difference: Difference, after: Listing, roots_text: str) -> Difference:
     """Return the difference without the `top` paths that a path of the roots file covers.
 
-    `<tmp>` is the directory the listing's `base tmp` line names, as the survey expanded it; a
-    listing without one, from a cell taken before the survey printed it, falls back to the
-    temporary directories `survey_bases` infers from the `top` paths.
+    `<tmp>` is the directory the listing's `base tmp` line names, as the survey expanded it. A
+    listing without one, from a cell taken before the survey printed it, expands `<tmp>` to no
+    directory, so a `<tmp>` root covers nothing and its names stay in the hint, never hidden.
     """
-    home, temporary = survey_bases(sorted(after.tops) + difference.gone_tops)
-    if "tmp" in after.bases:
-        temporary = [slashed(after.bases["tmp"])]
+    home, _ = survey_bases(sorted(after.tops) + difference.gone_tops)
+    temporary = [slashed(after.bases["tmp"])] if "tmp" in after.bases else []
     globs = root_globs(roots_text, home, temporary)
     fold_case = listing_platform(home) in ("windows", "macos")
     return dataclasses.replace(

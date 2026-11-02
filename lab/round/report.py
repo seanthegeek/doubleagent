@@ -60,11 +60,16 @@ def read_steps(cell: pathlib.Path) -> list[dict[str, str]]:
     return steps
 
 
-def listing_summary(before: pathlib.Path, after: pathlib.Path) -> tuple[str, str]:
-    """Return the counts cell and the top groups cell of one listing diff."""
-    difference = classify.compare(
-        classify.load_listing(str(before)), classify.load_listing(str(after))
-    )
+def listing_summary(before: pathlib.Path, after: pathlib.Path, roots: str = "") -> tuple[str, str]:
+    """Return the counts cell and the top groups cell of one listing diff.
+
+    `roots` is the text of the cell's roots file: with it, the `top` names a root covers are left
+    out of the count, as the diff files leave them out.
+    """
+    later = classify.load_listing(str(after))
+    difference = classify.compare(classify.load_listing(str(before)), later)
+    if roots:
+        difference = classify.drop_covered_tops(difference, later, roots)
     counts = "+%d -%d ~%d" % (
         len(difference.added),
         len(difference.removed),
@@ -94,6 +99,8 @@ def steps_section(cell: pathlib.Path, steps: list[dict[str, str]]) -> list[str]:
     """Return the report lines of the steps table and the missed and failed steps."""
     listings = sorted((cell / "listings").glob("*.txt"), key=listing_order)
     previous = {after.stem: before for before, after in itertools.pairwise(listings)}
+    roots_file = cell / "roots"
+    roots = roots_file.read_text(encoding="utf-8") if roots_file.is_file() else ""
     lines = [
         "## Steps",
         "",
@@ -104,7 +111,7 @@ def steps_section(cell: pathlib.Path, steps: list[dict[str, str]]) -> list[str]:
         counts, top = "", ""
         after = cell / "listings" / (step["label"] + ".txt")
         if after.is_file() and step["label"] in previous:
-            counts, top = listing_summary(previous[step["label"]], after)
+            counts, top = listing_summary(previous[step["label"]], after, roots)
         lines.append(
             "| %s | %s | %s | %s | %s |"
             % (step["label"], step["kind"], step["status"], counts, top)

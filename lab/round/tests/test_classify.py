@@ -108,6 +108,7 @@ keychain:gemini-cli-oauth
 process:gemini
 """
 TOP_BEFORE = [
+    "base\ttmp\t/tmp\n",
     "top\tdir\t4096\t755\tt\t/home/sean/.config\n",
     "top\tdir\t4096\t755\tt\t/home/sean/.local/share/applications\n",
     "top\tdir\t4096\t755\tt\t/tmp/systemd-private\n",
@@ -222,13 +223,17 @@ def test_the_base_line_names_the_temporary_directory():
     assert found.new_tops == ["/tmp/gemini"]
 
 
-def test_a_listing_without_a_base_line_falls_back_to_the_top_parents():
+def test_a_listing_without_a_base_line_hides_no_temporary_name():
     before = classify.parse_listing(["top\tdir\t1\t755\tt\t/Users/lab/.npm\n"])
     after = classify.parse_listing(
-        ["top\tdir\t1\t755\tt\t/Users/lab/.npm\n", "top\tdir\t1\t755\tt\t/tmp/gemini\n"]
+        [
+            "top\tdir\t1\t755\tt\t/Users/lab/.npm\n",
+            "top\tdir\t1\t755\tt\t/tmp/gemini\n",
+            "top\tdir\t1\t755\tt\t/var/folders/ab/T/gemini\n",
+        ]
     )
     found = classify.drop_covered_tops(classify.compare(before, after), after, "<tmp>/gemini\n")
-    assert found.new_tops == []
+    assert found.new_tops == ["/tmp/gemini", "/var/folders/ab/T/gemini"]
 
 
 def test_case_is_folded_on_windows_and_macos_only():
