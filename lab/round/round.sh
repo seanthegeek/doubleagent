@@ -379,7 +379,7 @@ pause_for_person() {
   printf '%s\n' "$2"
   {
     printf '\nURLs on the screen, joined:\n'
-    printf '%s\n' "$2" | joined_urls | sed 's/^/  /'
+    printf '%s\n' "$2" | joined_urls "${TERMINAL_COLS:-120}" | sed 's/^/  /'
   } | tee "$CELL/screens/$1.urls.txt"
   printf '\nround: step %s needs you:\n  %s\n' "$1" \
     "$(printf '%s' "$STEP_TEXT" | sed "s/{session}/$(state_get session)/g")"

@@ -174,6 +174,10 @@ named `claude-<agent>-<NN>` and exits 3. The terminal is 120 columns
 wide, so a long sign-in URL is wrapped over several lines, and a copy
 from the wrapped lines loses the characters at the line ends: copy a URL
 from the joined block, which is also saved as `screens/NN-name.urls.txt`.
+A URL counts as wrapped only when it runs to the terminal's right edge,
+or to a dialog box's border, and the next line's first word is then
+joined to it, so a word of prose after a URL that happens to fill its line
+is joined too: check a joined URL against the screen above it.
 The person does what the text says and runs `resume`, which records the
 screen and the listing after the person's step before going on.
 
