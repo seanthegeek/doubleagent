@@ -183,7 +183,7 @@ choose_missed_escape() {
 # answer a dialog with an option the table did not mean.
 enter_allowed() {
   [ "$(state_get choose_missed)" = yes ] || return 0
-  STEP_NOTE='the choose step before missed'
+  STEP_NOTE="${STEP_NOTE:+$STEP_NOTE; }the choose step before missed"
   return 2
 }
 
@@ -243,19 +243,28 @@ dialog_open() {
 # Succeed when the input is free to type into. A dialog the table did not
 # foresee (dialog_open) gets one Escape, which cancels a confirmation and
 # grants nothing, then a settled screen and a second look, so it costs the
-# step a note rather than every step after it its typing; a dialog still
-# open then sets STEP_NOTE and returns 2, since a prompt never belongs in a
-# dialog and one typed into a key prompt can become the key. Returns 1 when
-# the Escape's drive call fails.
+# step a note rather than every step after it its typing; the input then
+# free also clears the choose_missed mark, since the dialog whose cursor it
+# guarded is closed. A dialog still open sets STEP_NOTE and returns 2: a
+# prompt never belongs in a dialog, and one typed into a key prompt can
+# become the key. Returns 1 when the Escape's drive call fails.
 input_free() {
   dialog_open || return 0
   drive keys Escape </dev/null >/dev/null || return 1
   wait_for quiet quiet >/dev/null || :
   if dialog_open; then
-    STEP_NOTE='a dialog is open'
+    STEP_NOTE='a dialog is open after an Escape'
     return 2
   fi
   STEP_NOTE='a dialog was open; Escape closed it'
+  [ "$(state_get choose_missed)" != yes ] || state_set choose_missed ''
+}
+
+# Append the missed-expectation note to STEP_NOTE and return 2, for a step
+# whose wait ended without its expectation.
+expectation_missed() {
+  STEP_NOTE="${STEP_NOTE:+$STEP_NOTE; }expectation not met within ${TURN_SECONDS:-300}s"
+  return 2
 }
 
 # The `prompt` and `type` kinds: when the input is free, type the step's
@@ -266,7 +275,7 @@ send_text() {
   if [ -n "$1" ]; then enter_allowed || return 2; fi
   printf '%s' "$STEP_TEXT" | drive type >/dev/null || return 1
   if [ -n "$1" ]; then drive keys "$1" </dev/null >/dev/null || return 1; fi
-  wait_for "$STEP_EXPECT" "$2" >/dev/null || return 2
+  wait_for "$STEP_EXPECT" "$2" >/dev/null || expectation_missed
 }
 
 # Print the text of the last `type` step of the cell's steps.tsv numbered
@@ -291,7 +300,7 @@ clear_typed() {
   fi
   press_times Backspace "$_ct_count" || return 1
   STEP_NOTE="${STEP_NOTE:+$STEP_NOTE; }$_ct_count presses of Backspace"
-  wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
+  wait_for "$STEP_EXPECT" quiet >/dev/null || expectation_missed
 }
 
 # The `paste` kind: when the input is free and enter_allowed, copy the
@@ -307,7 +316,7 @@ send_paste() {
   drive paste "pastes/$_sp_file" </dev/null >/dev/null || return 1
   if [ -n "$_sp_rest" ]; then printf '%s' "$_sp_rest" | drive type >/dev/null || return 1; fi
   drive keys Enter </dev/null >/dev/null || return 1
-  wait_for "$STEP_EXPECT" marker >/dev/null || return 2
+  wait_for "$STEP_EXPECT" marker >/dev/null || expectation_missed
 }
 
 # Print the credentials file the `secret` kind reads: ROUND_ENV, else
@@ -360,13 +369,8 @@ send_secret() {
   [ -n "$_ss_value" ] || die "$STEP_TEXT has no value in $(secrets_file)"
   printf '%s' "$_ss_value" | drive type >/dev/null || return 1
   drive keys Enter </dev/null >/dev/null || return 1
-  _ss_note="typed $STEP_TEXT from $(secrets_file)"
-  if wait_for "$STEP_EXPECT" marker >/dev/null; then
-    STEP_NOTE=$_ss_note
-    return 0
-  fi
-  STEP_NOTE="$_ss_note; expectation not met within ${TURN_SECONDS:-300}s"
-  return 2
+  STEP_NOTE="typed $STEP_TEXT from $(secrets_file)"
+  wait_for "$STEP_EXPECT" marker >/dev/null || expectation_missed
 }
 
 # Set _ret_status (done, missed or failed) and _ret_note for the step just

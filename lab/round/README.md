@@ -113,7 +113,8 @@ Gemini CLI signs in with a Gemini API key, since its Google sign-in no
 longer serves individual accounts. Make the key in Google AI Studio under
 the throwaway account, in a project with pay-as-you-go billing enabled:
 the free tier's daily cap on the default model is spent within a few
-turns of a round. Delete the key once the round is over. Where the CLI
+turns of a round. Delete the key once the round is over, and its line in
+`.env` with it. Where the CLI
 stores the key is in
 [Credentials in `research/gemini-cli.md`](../../research/gemini-cli.md#credentials).
 
@@ -333,14 +334,15 @@ step's Enter answers with it.
 When a `choose` step misses or fails, a `keys` step's drive call fails
 (what the key did to an open dialog is unknown), or a reading cannot
 return its cursor, the step sets a mark, and no step that presses Enter
-runs while it is set (a `keys` step whose keys include Enter, a `prompt`
-or a `paste`; each is `missed` with the note `the choose step before
-missed`). A later `choose` that places the cursor, a `dialog` step, which
-answers its named dialog regardless of the mark, or an `agent`, `stop` or
-`reboot` step, which opens or closes the session, clears it, so no Enter
-answers with an option the table did not mean; an `options` step does
-not clear it, since its reading leaves the cursor on an option nobody
-chose. A `choose` that misses with a dialog open (no option matches, or
+runs while it is set (a `keys` step whose keys include Enter, a `prompt`,
+a `paste` or a `secret`; each is `missed` with the note `the choose step
+before missed`). A later `choose` that places the cursor, a `dialog`
+step, which answers its named dialog regardless of the mark, an `agent`,
+`stop` or `reboot` step, which opens or closes the session, or a typing
+step whose Escape closed the dialog and found the input free (described
+below the table), clears it, so no Enter answers with an option the table
+did not mean; an `options` step does not clear it, since its reading
+leaves the cursor on an option nobody chose. A `choose` that misses with a dialog open (no option matches, or
 the cursor ends elsewhere) also presses Escape once to close that dialog
 and logs `Escape sent after the miss`; one that finds no dialog sends
 nothing. No step confirms a dialog that sends a report or a transcript to
@@ -356,8 +358,10 @@ waits for a settled screen and looks again: with the input free it goes
 on, noting `a dialog was open; Escape closed it`, a finding about the
 agent (a call it chained after an answered one, a dialog a command opens);
 with a dialog still open it types nothing and is `missed` with the note
-`a dialog is open`. So one unforeseen dialog costs its step a note, not
-every typing step after it. The tables still answer every dialog they
+`a dialog is open after an Escape`. The input freed this way also clears
+the mark described below, since the dialog whose cursor the mark guarded
+is closed. So one unforeseen dialog costs its step a note, not every
+typing step after it. The tables still answer every dialog they
 expect with `options`, `keys`, `dialog` or `choose` steps, since a prompt
 never belongs in one and text typed into a key prompt can be stored as
 the key; a prompt whose answer may end in a dialog is followed by a
@@ -374,7 +378,7 @@ table; `start` and `resume` refuse one that fails.
 | `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started, one Up at a time until the cursor is on the option it started on (`cursor not returned` and the mark set when it never gets there); the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
 | `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options` (`at least N options` when the presses ran out first). Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
 | `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. The step is `missed` with the reason when no dialog is open (no key is sent), and, pressing Escape once to close the dialog and logging `Escape sent after the miss`, when no option matches or when the cursor ends on a line the pattern does not match; after any miss or a failed drive call, no `keys` step that includes Enter is sent until the mark is cleared, as described above the table. |
-| `clear` | `-`, or the number of Backspace presses, 1 to 200 | Presses Backspace that many times in one drive call, `-` meaning once per character of the text of the nearest `type` step before it (its trailing space counted), and waits for `expect` (`-` is a settled screen). It deletes a typed slash command after its `-subcommands` step; while a dialog is open it presses nothing and is `missed`, as the typing kinds are. |
+| `clear` | `-`, or the number of Backspace presses, 1 to 200 | Presses Backspace that many times in one drive call, `-` meaning once per character of the text of the nearest `type` step before it (its trailing space counted), and waits for `expect` (`-` is a settled screen). It deletes a typed slash command after its `-subcommands` step; a dialog open is closed with Escape first, as for the typing kinds. |
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; keys that include Enter are not sent, and the step is `missed`, while the mark described above the table is set; a failed drive call sets the mark. |
 | `secret` | the upper-case name of a variable of the credentials file ([Accounts](#accounts)) | Types the variable's value into the open input dialog (the agent's `AGENT_INPUT_GUARD` pattern must be on the screen, else nothing is typed and the step is `missed`), presses Enter and waits; the value goes to the typing call's stdin on the analyst's side, is the argument of one short-lived tui-test process in the guest (whose `type` takes its text as an argument), and shows wherever the agent's dialog echoes it; the step log names only the variable. The Enter is held back while the mark is set, as a `keys` step's is. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |

@@ -297,7 +297,7 @@ def test_a_prompt_with_an_option_dialog_open_types_nothing(tmp_path):
     for shell in SHELLS:
         stub = make_stub(tmp_path, LABELS)
         found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
-        assert found["code"] == "2" and found["note"] == "a dialog is open", shell
+        assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
         assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
 
 
@@ -316,6 +316,27 @@ def test_a_prompt_closes_an_unforeseen_dialog_with_escape_and_types(tmp_path):
         assert found["code"] == "0" and "Escape closed it; 4 presses" in found["note"], shell
 
 
+def test_an_escape_that_frees_the_input_clears_the_mark_and_notes_a_miss(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, LABELS)
+        (stub / "typed").unlink(missing_ok=True)
+        (stub / "escape_closes").write_text("", encoding="utf-8")
+        (stub / "state").write_text("choose_missed=yes\n", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
+        assert found["code"] == "0" and typed_text(stub) == "hello", shell
+        assert (stub / "state").read_text(encoding="utf-8").endswith("choose_missed=\n"), shell
+        stub = make_stub(tmp_path, LABELS)
+        (stub / "escape_closes").write_text("", encoding="utf-8")
+        (stub / "wait").write_text("2\n", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
+        expected = "a dialog was open; Escape closed it; expectation not met within 300s"
+        assert found["code"] == "2" and found["note"] == expected, shell
+        stub = make_stub(tmp_path, [])
+        (stub / "state").write_text("choose_missed=yes\n", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
+        assert found["code"] == "2" and found["note"] == "the choose step before missed", shell
+
+
 def test_a_type_step_with_an_input_dialog_open_types_nothing(tmp_path):
     for shell in SHELLS:
         stub = make_stub(tmp_path, [])
@@ -323,7 +344,7 @@ def test_a_type_step_with_an_input_dialog_open_types_nothing(tmp_path):
         (stub / "extra").write_text(footer, encoding="utf-8")
         script = "AGENT_INPUT_GUARD='clear stored key'; STEP_KIND=type; send_text '' quiet"
         found = run_steps(shell, stub, script, "/auth ")
-        assert found["code"] == "2" and found["note"] == "a dialog is open", shell
+        assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
         assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
         found = run_steps(shell, stub, "STEP_KIND=type; send_text '' quiet", "/auth ")
         assert found["code"] == "0" and typed_text(stub) == "/auth ", shell
@@ -381,7 +402,7 @@ def test_answer_dialog_at_the_press_limit_says_at_least(tmp_path):
 def test_clear_with_a_dialog_open_presses_nothing(tmp_path):
     for shell in SHELLS:
         found = run_steps(shell, make_stub(tmp_path, LABELS), "STEP_KIND=clear; clear_typed", "4")
-        assert found["code"] == "2" and found["note"] == "a dialog is open", shell
+        assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
         assert found["drive"] == "keys Escape\n", shell
 
 
@@ -389,7 +410,7 @@ def test_a_paste_with_a_dialog_open_sends_nothing(tmp_path):
     expected = "copy short.txt pastes\npaste pastes/short.txt\ntype\nkeys Enter\n"
     for shell in SHELLS:
         found = run_steps(shell, make_stub(tmp_path, LABELS), "send_paste", "short.txt Sum it.")
-        assert found["code"] == "2" and found["note"] == "a dialog is open", shell
+        assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
         assert found["drive"] == "keys Escape\n", shell
         stub = make_stub(tmp_path, [])
         found = run_steps(shell, stub, "send_paste", "short.txt Sum it.")
@@ -580,6 +601,11 @@ def test_option_key_without_an_option_pattern_is_the_screen(tmp_path):
         assert found["note"].endswith("the cursor limit; cursor not returned"), shell
 
 
+def found_nothing_typed(stub: pathlib.Path) -> bool:
+    """Return whether the stubbed drive received no call at all."""
+    return (stub / "drive.log").read_text(encoding="utf-8") == ""
+
+
 def secret_stub(tmp_path: pathlib.Path, value: str, dialog: bool = True) -> pathlib.Path:
     """Return a stub with the key dialog on the screen and a credentials file holding `value`."""
     stub = make_stub(tmp_path, [])
@@ -653,10 +679,6 @@ def test_send_secret_with_an_empty_value_dies(tmp_path):
         logged = (stub / "round.log").read_text(encoding="utf-8")
         assert logged == "die: GEMINI_API_KEY has no value in %s/env\n" % stub, shell
         assert found_nothing_typed(stub), shell
-
-
-def found_nothing_typed(stub: pathlib.Path) -> bool:
-    return (stub / "drive.log").read_text(encoding="utf-8") == ""
 
 
 def test_missing_secrets_names_the_steps_ahead(tmp_path):
