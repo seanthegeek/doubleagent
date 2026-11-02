@@ -58,8 +58,8 @@ NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 NON_PORTABLE_RE = re.compile(r"\\[dDwWsSbB]")
 # A `type` step that reads a slash command's subcommands: the command and one trailing space.
 SUBCOMMAND_STEP_RE = re.compile(r"/[a-z][a-z0-9-]* ")
-# A slash command a pause names: a `/word` not preceded by a path character.
-PAUSE_COMMAND_RE = re.compile(r"(?<![\w/~.$-])/[a-z][a-z0-9-]*")
+# A slash command a pause names: a `/word` not preceded by a path character or a drive letter.
+PAUSE_COMMAND_RE = re.compile(r"(?<![\w/~.$-])(?<![A-Za-z]:)/[a-z][a-z0-9-]*")
 REQUIRED_FILES = ("agent.conf", "install.sh", "roots", "steps.tsv")
 
 
@@ -203,13 +203,16 @@ def subcommand_problems(steps: list[Step]) -> list[tuple[int, str]]:
 
     A `prompt` or `type` step whose text starts with a slash command, and a `pause` whose text
     names one, must come after a `type` step whose text is that command and one trailing space,
-    which saves the agent's completion list of its subcommands.
+    which saves the agent's completion list of its subcommands; a `clear` step must follow that
+    `type` step directly, so the typed command never reaches the next prompt.
     """
     problems: list[tuple[int, str]] = []
     read: set[str] = set()
-    for step in steps:
+    for index, step in enumerate(steps):
         if step.kind == "type" and SUBCOMMAND_STEP_RE.fullmatch(step.text):
             read.add(step.text[:-1])
+            if index + 1 == len(steps) or steps[index + 1].kind != "clear":
+                problems.append((step.line, "%r is not followed by a `clear` step" % step.text))
             continue
         if step.kind in ("prompt", "type") and step.text.startswith("/"):
             commands = [step.text.split()[0]]

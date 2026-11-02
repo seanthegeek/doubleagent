@@ -249,16 +249,37 @@ def test_a_slash_command_needs_its_subcommand_step_first(tmp_path):
 
 def test_a_subcommand_step_lets_the_command_through(tmp_path):
     text = line("02", "start", "agent", "gemini", "-", "c") + "".join(
-        line("%02d" % (3 + offset), name + "-subcommands", "type", "/%s " % name, "quiet", "c")
+        line("%02d" % (3 + 2 * offset), name + "-subcommands", "type", "/%s " % name, "quiet", "c")
+        + line("%02d" % (4 + 2 * offset), name + "-subcommands-clear", "clear", "-", "quiet", "c")
         for offset, name in enumerate(("auth", "login", "exit", "chat"))
     )
-    text += line("07", "sign-out", "prompt", "/auth signout", "-", "c")
+    text += line("11", "sign-out", "prompt", "/auth signout", "-", "c")
     text += line(
-        "08", "sign-in", "pause", "run ~/lab/tui-test/tui-test, sign in with /login", "-", "c"
+        "12", "sign-in", "pause", "run ~/lab/tui-test/tui-test, sign in with /login", "-", "c"
     )
-    text += line("09", "leave", "pause", "type /exit in $HOME/lab/proj", "-", "c")
-    text += line("10", "chat", "type", "/chat", "quiet", "c")
+    text += line("13", "leave", "pause", "type /exit in $HOME/lab/proj", "-", "c")
+    text += line("14", "chat", "type", "/chat", "quiet", "c")
+    text += line("15", "windows", "pause", "open C:/tools/run, then resume", "-", "c")
     assert problems_of(text, tmp_path) == []
+
+
+def test_a_subcommand_step_needs_a_clear_step_right_after(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c")
+    text += line("03", "auth-subcommands", "type", "/auth ", "quiet", "c")
+    text += line("04", "help", "prompt", "what is 1 + 1?", "-", "c")
+    text += line("05", "model-subcommands", "type", "/model ", "quiet", "c")
+    assert problems_of(text, tmp_path) == [
+        "'/auth ' is not followed by a `clear` step",
+        "'/model ' is not followed by a `clear` step",
+    ]
+
+
+def test_a_drive_letter_is_no_slash_command(tmp_path):
+    text = line("02", "start", "agent", "gemini", "-", "c")
+    text += line("03", "run", "pause", "open c:/tools and then /users", "-", "c")
+    assert problems_of(text, tmp_path) == [
+        "/users is used before a `type` step of '/users ' reads its subcommands"
+    ]
 
 
 def test_a_type_step_keeps_its_trailing_space():
