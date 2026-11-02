@@ -439,7 +439,7 @@ checkout, which is what the tag's argument check gives for the flag without the 
 With `experimental.worktrees` set to `true` in `settings.json` before the start, the same command
 (0.66.0, 2026-11-02) created `<project>/.gemini/worktrees/lab`, holding a `.git` file and the
 project's `calc.py`, `README.md` and `.gitignore`, and `<project>/.git/worktrees/lab` with
-`commondir`, `gitdir` and `HEAD`.
+`commondir`, `gitdir` and `HEAD`; both were still there after the worktree session ended.
 
 On the same install `gemini mcp add <name> <command> <args...>` (0.66.0, 2026-11-01) run in the
 project wrote the project's `.gemini/settings.json` (186 bytes) with `mcpServers.<name>.command`
@@ -1941,7 +1941,7 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
   accepts them, the writer read here does not).
 - For a later round: that a container-sandboxed session leaves no transcript under the host's
   `~/.gemini`; that `sandbox.toml` appears after an "allow and save" sandbox expansion; that a
-  `--worktree` checkout stays after exit and what an edit in it leaves; the `logs.json` and
+  `--worktree` checkout survives an edit made in it; the `logs.json` and
   `shell_history` copies of one shell-mode command; the keys of a `/chat save` checkpoint; a
   model switch and its `info` message; the permission modes Shift+Tab cycles through and their
   names; an "Allow for all future sessions" grant with `security.enablePermanentToolApproval`
