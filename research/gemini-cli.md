@@ -40,10 +40,11 @@ versions with its commit. A claim about what an install wrote rests on the Linux
   command
   ([Install globally with npm](https://github.com/google-gemini/gemini-cli/blob/main/README.md#install-globally-with-npm),
   fetched 2026-11-01) on an Ubuntu lab virtual machine (arm64, GNOME desktop, Node v22.22.1),
-  2026-11-01 22:51 UTC to 2026-11-02 01:50 UTC, driven over SSH in a 120 by 40 terminal with a
-  listing of the agent's directories (names, sizes, modes and times) after every step and a
-  collection before the delete steps, after them and after a reboot. In a sample git project the
-  steps were: the first start and the folder trust dialog
+  run twice on the same build, 2026-11-01 22:51 UTC to 2026-11-02 01:50 UTC and 2026-11-02
+  02:00 to 03:40 UTC, each driven over SSH in a 120 by 40 terminal with a listing of the agent's
+  directories (names, sizes, modes and times) after every step and a collection before the
+  delete steps, after them and after a reboot. In a sample git project the first run's steps
+  were: the first start and the folder trust dialog
   ([Per-user storage](#per-user-storage)); the Google sign-in, which the service refused for a
   personal account, then an API key pasted into the dialog ([Credentials](#credentials)); the `?`
   and `/help` screens; a question answered with no tool call; a question answered through a
@@ -58,16 +59,27 @@ versions with its commit. A claim about what an install wrote rests on the Linux
   home; `/auth signout` and a sign-in from a terminal on the desktop; a 600-second idle period,
   which wrote nothing, and a reboot. The session file's line types and keys are in
   [Session JSONL](#session-jsonl). Two pastes, a `/model` switch, `/chat save` and the
-  permission-mode cycle were typed into the refactor turn while it still ran, so the replies to
-  the pastes, a model switch, a `/chat save` checkpoint and the mode names were not observed; no
-  shell-mode command was typed.
+  permission-mode cycle were typed into the refactor turn while it still ran. The second run
+  repeated the first-run steps with the same results and added: the API-key dialog's text and
+  a second sign-out ([Credentials](#credentials)); the refactor prompt cancelled at its first
+  dialog and the edit dialog read whole ([Permission rows](#permission-rows)); a short
+  traceback paste and a long release-notes paste, each sent as one bracketed paste followed by
+  a typed instruction and each answered with a one-sentence summary; the `/model` Manual list
+  ([Model rows](#model-rows)); `/chat save lab`
+  ([/chat save checkpoints](#chat-save-checkpoints)); and `gemini --worktree lab` with
+  `experimental.worktrees` on ([Project-local files](#project-local-files)). Its MCP steps were
+  typed into the API-key dialog and are no evidence; the first run's are. Not observed in either
+  run: a completed model switch, whose command reached the agent with stray text, and the names
+  of the permission modes; the first run typed no shell-mode command.
 
 ### Source reviews
 
-- 2026-11-02: the Linux CLI round on 0.66.0 ([Observed](#observed)) and `devtoolsService.ts` at
+- 2026-11-02: the Linux CLI round on 0.66.0, run twice ([Observed](#observed)), and
+  `devtoolsService.ts` at
   [`6814e00`](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d)
-  re-read: added what each step wrote, the dialogs' option texts, the observed session keys, the
-  `state.json` keys and the Google sign-in refusal; corrected the activity log's writing
+  re-read: added what each step wrote, the dialogs' texts, the observed session keys, the
+  `state.json` keys, the Google sign-in refusal, a `/chat save` checkpoint and a `--worktree`
+  checkout with its own slug; corrected the activity log's writing
   condition, which `general.devtools` alone does not meet.
 
 - 2026-11-01: `main` at
@@ -298,11 +310,27 @@ one directory it creates for work is the `--worktree` checkout inside the projec
   rewritten 15 seconds later; neither `.gemini/.env` nor `.gemini/gemini-credentials.json` was
   written. The item's name was not read. `settings.json` then held only
   `security.auth.selectedType`, and the banner read "Authenticated with gemini-api-key /auth".
-- `/auth` has the subcommands `signin` ("Sign in or change the authentication method") and
-  `signout` ("Sign out and clear all cached credentials"), which `/help` does not list. On
-  0.66.0 `/auth signout` printed "You are now signed out" and rewrote `google_accounts.json` and
-  `settings.json` but left the keyring item: the next start's API-key prompt came prefilled with
-  the key. A responder therefore finds a signed-out user's API key in the keyring still.
+  A key entered from a terminal on the desktop rewrote the same keyring file (641 bytes).
+- The API-key dialog of 0.66.0 reads "Enter Gemini API Key", "Please enter your Gemini API key.
+  It will be securely stored in your system keychain.",
+  `You can get an API key from https://aistudio.google.com/app/apikey`,
+  "Paste your API key here" and "(Press Enter to submit, Esc to cancel, Ctrl+C to clear stored
+  key)". It drops the spaces of typed text: a prompt typed into it by mistake was stored as the
+  key, as one word, and every later request failed with an invalid-key error ("API key not
+  valid"). Once, `gemini --resume latest` over SSH after `/exit` showed this dialog although the
+  key had been entered earlier in the same run, while the keyring file measured 105 bytes
+  against 641 before and after; the cause was not determined.
+- `/auth` has the subcommands the completion list for `/auth ` shows and `/help` does not
+  list: `signin` ("Sign in or change the authentication method") and `signout` ("Sign out and
+  clear all cached credentials"). On 0.66.0 `/auth signout` printed "You are now signed out" and
+  "Sign in again to continue using Gemini CLI, or exit the application." with `1. Sign in` and
+  `2. Exit`, and rewrote `google_accounts.json` (66 and, in the second run, 33 bytes) and
+  `settings.json` but left the keyring file unchanged. The stored key outlived it: `/auth` then
+  `2. Use Gemini API Key` opened the dialog prefilled with the stored value, Ctrl+C in it left
+  the value in place, Escape returned to the method dialog rather than the prompt, and the next
+  start, from a terminal on the desktop, came prefilled with it again and reported
+  "Authenticated with gemini-api-key". A responder therefore finds a signed-out user's API key
+  in the keyring still.
 - MCP and A2A tokens go through `HybridTokenStorage` (keychain, else that encrypted file;
   [`core/src/mcp/token-storage/hybrid-token-storage.ts:28-41`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/mcp/token-storage/hybrid-token-storage.ts#L28-L41)),
   and the plain writer of `.gemini/mcp-oauth-tokens.json` (`.cache/.gemini/mcp-oauth-tokens.json`
@@ -403,8 +431,11 @@ agent changed there is in the transcript. How a session runs there is in
 [Worktree sessions](#worktree-sessions). On the Linux install of 0.66.0, with
 `experimental.worktrees` unset, `gemini --worktree lab` printed the command's help and created no
 checkout, which is what the tag's argument check gives for the flag without the setting
-([`config.ts` at `v0.66.0`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/config/config.ts#L269-L271)),
-so no install has shown a checkout.
+([`config.ts` at `v0.66.0`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/config/config.ts#L269-L271)).
+With `experimental.worktrees` set to `true` in `settings.json` before the start, the same command
+created `<project>/.gemini/worktrees/lab`, holding a `.git` file and the project's `calc.py`,
+`README.md` and `.gitignore`, and `<project>/.git/worktrees/lab` with `commondir`, `gitdir` and
+`HEAD`.
 
 On the same install `gemini mcp add <name> <command> <args...>` run in the project wrote the
 project's `.gemini/settings.json` (186 bytes) with `mcpServers.<name>.command` and its `args`.
@@ -545,6 +576,10 @@ loaded ([`cli/src/utils/worktreeSetup.ts:21-42`](https://github.com/google-gemin
 [`gemini.tsx:497-506`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/gemini.tsx#L497-L506)), so the session's
 `.project_root` and slug are the worktree's
 ([`core/src/config/config.ts:1323`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/config.ts#L1323)).
+On the Linux install of 0.66.0 the session of `gemini --worktree lab` got the slug `lab`:
+`history/lab/.project_root` and `tmp/lab/.project_root` (41 bytes each), its session file under
+`tmp/lab/chats/` (957 bytes at the start, 2.5 KB after one question), `tmp/lab/logs.json` (2 bytes
+at the start, 184 after) and an empty `tmp/lab/logs/` directory.
 
 #### Driven from Zed
 
@@ -874,7 +909,8 @@ sends before the first prompt
 [`101-108`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L101-L108)). Only
 `/chat delete <tag>` removes it
 ([`logger.ts:393`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/logger.ts#L393)), so it survives the session's
-deletion and expiry; it joins on text.
+deletion and expiry; it joins on text. On the Linux install of 0.66.0 `/chat save lab` wrote
+`tmp/<slug>/checkpoint-lab.json` (63.1 KB).
 
 #### Tool checkpoints
 
@@ -1130,6 +1166,9 @@ On the Linux install of 0.66.0 each failed turn wrote one report to `/tmp`, mode
 Studio key whose project had the Generative Language API disabled for about fifteen minutes
 (403 `SERVICE_DISABLED`), then on the free tier's daily quota for `gemini-3.8-flash` ("Usage
 limit reached for gemini-3.8-flash"), and the session file recorded each as an `error` message.
+A prompt sent with an invalid stored key ([Credentials](#credentials)) wrote
+`gemini-client-error-generateJson-api-<time>.json` (9.3 KB) and
+`gemini-client-error-Turn.run-sendMessageStream-<time>.json` (10.0 KB).
 The reports did not survive a reboot ([What survives a delete](#what-survives-a-delete)).
 
 #### projects.json
@@ -1426,11 +1465,14 @@ The dialogs behind these records on the Linux install of 0.66.0:
   "<server>"?` ("press Ctrl+O to expand MCP tool details"), each with `1. Allow once`,
   `2. Allow for this session` and `3. No, suggest changes (esc)`. An edit asks "Apply this
   change?" with `1. Allow once`, `2. Allow for this session`, `3. Modify with external editor`
-  and `4. No, suggest changes (esc)`.
-- `git log --oneline` and `ls -la` ran through the shell tool with no dialog. Escape on a dialog
-  gave "Request cancelled" and the command did not run. On the next request the agent retried
-  the cancelled command, and "Allow for this session" let both run. No session-wide grant
-  wrote a file: no `policies/` directory appeared.
+  and `4. No, suggest changes (esc)`; the cursor wraps to the first option after the fourth.
+  Allow once applied the edit to `calc.py`, and the agent then ran `python3 calc.py 2 3` through
+  a shell dialog.
+- `git log --oneline` and `ls -la` ran through the shell tool with no dialog, and so did the file
+  searches `FindFiles '*test*'` and `FindFiles '**/*'`. Escape on a dialog gave "Request
+  cancelled", the command did not run and no dialog remained. On the next request the agent
+  retried the cancelled command, and "Allow for this session" let both run. No session-wide
+  grant wrote a file: no `policies/` directory appeared.
 - The default mode's footer reads "Shift+Tab to accept edits"; the modes the key cycles through
   were not read.
 
@@ -1484,10 +1526,12 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   ([`cli/src/ui/hooks/useHistoryManager.ts:91-123`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useHistoryManager.ts#L91-L123)).
 - On the Linux install of 0.66.0 `/model` opened "Select Model" with `1. Auto` ("Let Gemini CLI
   decide the best model for the task: gemini-3.1-pro-preview, gemini-3.8-flash") and
-  `2. Manual`, the toggle "Remember model for future sessions: false (Press Tab to toggle)" and
-  the hint "To use a specific Gemini model on startup, use the --model flag"; the footer shows
-  `/model Auto`. Each `gemini` record of the session named its model. No switch was made, so a
-  switch's records are source-derived.
+  `2. Manual` ("Manually select a model"), the toggle "Remember model for future sessions: false
+  (Press Tab to toggle)" and the hint "To use a specific Gemini model on startup, use the
+  --model flag"; the footer shows `/model Auto`. Manual opens a numbered list of models, among
+  them `5. gemini-3.8-flash`, `6. gemma-4-31b-it` and `7. gemma-4-26b-a4b-it`. Each `gemini`
+  record of the session named its model. No switch was completed, so a switch's records are
+  source-derived.
 
 #### Past-use rows and secondary sources
 
@@ -1838,12 +1882,13 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
 - Medium: whether a current build ever writes `functionCall` parts into `content` (the reader
   accepts them, the writer read here does not).
 - For a later round: that a container-sandboxed session leaves no transcript under the host's
-  `~/.gemini`; that `sandbox.toml` appears after an "allow and save" sandbox expansion; the size
-  and contents of a `--worktree` checkout made with `experimental.worktrees` on and that it
-  stays after exit; the `logs.json` and `shell_history` copies of one shell-mode command; a
-  `/chat save` checkpoint; a model switch and its `info` message; the permission modes
-  Shift+Tab cycles through and their names; an "Allow for all future sessions" grant.
-- For a later round: the keyring item's name on Linux; the keychain item names on macOS and
+  `~/.gemini`; that `sandbox.toml` appears after an "allow and save" sandbox expansion; that a
+  `--worktree` checkout stays after exit and what an edit in it leaves; the `logs.json` and
+  `shell_history` copies of one shell-mode command; the keys of a `/chat save` checkpoint; a
+  model switch and its `info` message; the permission modes Shift+Tab cycles through and their
+  names; an "Allow for all future sessions" grant.
+- For a later round: the keyring item's name on Linux; why a resume over SSH once asked for the
+  key again while the keyring file measured 105 bytes; the keychain item names on macOS and
   Windows; whether the `gemini-credentials.json` fallback is written over SSH with no desktop
   session; the macOS and Windows layouts, which no install has shown.
 - For a later round: the activity log written through `GEMINI_CLI_ACTIVITY_LOG_TARGET`: whether
