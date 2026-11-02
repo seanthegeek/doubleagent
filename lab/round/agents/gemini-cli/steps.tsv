@@ -3,92 +3,94 @@ NN	name	kind	text	expect	claim
 03	trust-options	options	12	quiet	every option of the trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
 04	trust	keys	Enter	quiet	Trust folder writes trustedFolders.json: a permission setting: trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
 05	auth-options	options	12	quiet	every option of the sign-in dialog; Escape does not close it, so ? and /help wait for the ssh sign-in, one screen per Down until the cursor wraps or stops, then back on the first
-06	auth-key	keys	Down,Enter	quiet	Down onto 2. Use Gemini API Key and Enter opens its key prompt; Google sign-in no longer serves individual accounts on 0.66.0, so the round signs in with an API key
-07	ssh-sign-in	pause	For the ssh sign-in, open a terminal of the VM's desktop, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, paste the Google AI Studio API key of the throwaway account at the key prompt and press Enter, detach with Ctrl+], then resume; the pipeline never types a credential	-	the key dialog drops the spaces of typed text (a prompt typed into it by mistake was stored as the key without its spaces, observed on 0.66.0), so a stray prompt can overwrite the key; the key the dialog takes is stored in the keychain item or the file fallback the Credentials section names (research/gemini-cli.md#credentials) (unverified)
-08	shortcuts	type	?	quiet	the ? shortcut list; nothing is written (none) (unverified)
-09	shortcuts-close	keys	Backspace,Escape	quiet	none
-10	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-11	help-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-12	help	prompt	/help	-	/help is an info item: only info, error and warning items reach the session file (research/gemini-cli.md#session-jsonl) (unverified)
-13	question	prompt	what is 17 + 25?	-	a user and a gemini message with no toolCalls, and the first model: <id> row (research/gemini-cli.md#model-rows)
-14	web-search	prompt	What is the latest release of the npm package @google/gemini-cli? Search the web for it.	Allow once|Apply this change|Type your message	a google_web_search call in toolCalls[] with its result (research/gemini-cli.md#session-jsonl)
-15	web-search-dialog	dialog	-	marker	whether the web tool asks first; when it does, its options are read and the first is the answer
-16	approve-ask	prompt	Run python3 calc.py 2 3 and tell me what it prints.	Allow once	the run_shell_command confirmation dialog: its options and footer hints are findings (unverified)
-17	approve-options	options	12	quiet	every option of the shell tool's dialog, one screen per Down until the cursor wraps or stops, then back on the first
-18	approve	keys	Enter	marker	toolCalls[].status success; the session file does not record which answer was given (research/gemini-cli.md#permission-rows) (unverified)
-19	deny-plain	prompt	Run git log --oneline and tell me what it shows.	-	git log --oneline runs with no confirmation dialog on 0.66.0: a run_shell_command call with status success and no decision (research/gemini-cli.md#permission-rows)
-20	deny-ask	prompt	Use the shell to create an empty file named denied.txt in this directory, then tell me whether it worked.	Allow once	a command that creates a file raises the confirmation dialog (touch asked on 0.66.0)
-21	deny-options	options	12	quiet	every option of the second dialog, one screen per Down until the cursor wraps or stops, then back on the first
-22	deny	keys	Escape	quiet	Esc is the No answer: status cancelled gives a permission decision: cancelled row (research/gemini-cli.md#permission-rows) (unverified)
-23	deny-reason	prompt	Do not create the file. Tell me what calc.py does instead, without running anything.	-	the reason is an ordinary user message; no reason field exists (research/gemini-cli.md#permission-rows)
-24	always-plain	prompt	Run ls -la and summarise the listing.	-	ls -la runs with no confirmation dialog on 0.66.0: a run_shell_command call with status success and no decision (research/gemini-cli.md#permission-rows)
-25	always-ask	prompt	Use the shell to create an empty file named allowed.txt in this directory, then tell me whether it worked.	Allow once	a third confirmation dialog, for the grant
-26	always-options	options	12	quiet	every option of the third dialog, one screen per Down until the cursor wraps or stops, then back on the first
-27	always-choose	choose	Allow for this session	-	the dialog offers Allow for this session (observed on 0.66.0); the cursor is placed on it for the next step's Enter
-28	always	keys	Enter	marker	a session grant: the call runs with status success; policies/auto-saved.toml is written only for Allow for all future sessions (research/gemini-cli.md#standing-permission-files) (unverified)
-29	mode-1	keys	Shift+Tab	quiet	the approval mode after default in the cycle, read from the screen; the runtime modes are default, autoEdit and plan, yolo only from the command line (research/gemini-cli.md#standing-permission-files) (unverified)
-30	mode-2	keys	Shift+Tab	quiet	the next approval mode in the cycle, read from the screen (unverified)
-31	mode-3	keys	Shift+Tab	quiet	the cycle back on default, the mode that asks before a tool call (unverified)
-32	follow-up	prompt	refactor this	Allow once|Type your message	whether the agent asks before acting: a gemini message with no toolCalls (a turn that asks the user), or the first confirmation dialog of a turn that acts instead
-33	follow-up-cancel	keys	Escape	marker	Escape cancels a turn still running, as the footer's esc to cancel says: how the session file stores a cancelled turn (unverified)
-34	follow-up-dialog	dialog	-	marker	a confirmation left open after the cancel, answered with its first option so the next prompt starts at an idle input; no dialog when the agent asked first
-35	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB is inline in the user message and its logs.json copy (research/gemini-cli.md#logsjson)
-36	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the session file and logs.json (not stated)
-37	model-subcommands	type	/model 	quiet	the completion list of /model: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-38	model-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-39	model-dialog	prompt	/model	quiet	the model dialog's options and footer (unverified)
-40	model-options	options	12	quiet	every option of the model dialog, one screen per Down until the cursor wraps or stops, then back on the first
-41	model-pick	keys	Down,Enter	quiet	an info message Model set to <name>; model.name in settings.json only with --persist (research/gemini-cli.md#model-rows) (unverified)
-42	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> before the next gemini message (research/gemini-cli.md#model-rows)
-43	edit-ask	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	Allow once|Apply this change|Type your message	the edit confirmation dialog and its diff (unverified)
-44	edit-options	options	12	quiet	every option of the edit dialog, one screen per Down until the cursor wraps or stops, then back on the first
-45	edit	keys	Enter	marker	a replace or write_file call; history/<slug>/ only with checkpointing on (research/gemini-cli.md#tool-checkpoints) (unverified)
-46	chat-subcommands	type	/chat 	quiet	the completion list of /chat: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-47	chat-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-48	chat-save	prompt	/chat save lab	-	tmp/<slug>/checkpoint-lab.json (research/gemini-cli.md#chat-save-checkpoints)
-49	bug-subcommands	type	/bug 	quiet	the completion list of /bug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-50	bug-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-51	bug	prompt	/bug lab round export only, nothing is submitted	-	/bug composes a GitHub new-issue URL and writes tmp/<slug>/bug-report-history-<ms>.json; it submits nothing (research/gemini-cli.md#bug-reports)
-52	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-53	exit-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-54	exit	prompt	/exit	exit	the session file's last state; logs.json keeps every prompt (research/gemini-cli.md#logsjson)
-55	exit-close	stop	-	-	none: closes the terminal session
-56	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
-57	resume	agent	gemini --resume latest	marker	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps) (unverified)
-58	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation; mcp-server-enablement.json (research/gemini-cli.md#per-user-storage) (unverified)
-59	mcp-options	options	12	quiet	every option of the MCP dialog, one screen per Down until the cursor wraps or stops, then back on the first
-60	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result (unverified)
-61	clear-subcommands	type	/clear 	quiet	the completion list of /clear: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
-62	clear-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-63	clear	prompt	/clear	marker	/clear starts a new session file and leaves the old one (research/gemini-cli.md#what-survives-a-delete) (unverified)
-64	after-clear	prompt	what is 3 + 4?	-	the first lines of the session after /clear
-65	clear-stop	stop	-	-	none: closes the terminal session
-66	worktrees-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.experimental=Object.assign(s.experimental||{},{worktrees:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	--worktree is accepted only with experimental.worktrees on; the setting goes into settings.json (research/gemini-cli.md#project-local-files)
-67	worktree	agent	gemini --worktree lab	marker	<project>/.gemini/worktrees/lab and a scratch directory: row for its session (research/gemini-cli.md#worktree-sessions)
-68	worktree-question	prompt	what is 5 + 6?	-	the worktree session's .project_root and chat file
-69	worktree-stop	stop	-	-	none: closes the terminal session
-70	devtools-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.general=Object.assign(s.general||{},{devtools:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	general.devtools set to true in settings.json (research/gemini-cli.md#activity-log)
-71	devtools	agent	gemini	marker	a session started with general.devtools on
-72	devtools-question	prompt	what is 2 + 9?	-	tmp/<slug>/logs/session-<id>.jsonl with network payloads (research/gemini-cli.md#activity-log)
-73	devtools-stop	stop	-	-	none: closes the terminal session
-74	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
-75	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
-76	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
-77	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
-78	home-start	agent	in:. gemini	Trust folder	a start in the home, not yet trusted, raises the folder trust dialog; a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
-79	home-trust-options	options	12	quiet	every option of the home's trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
-80	home-trust	keys	Enter	marker	Trust folder for the home: a trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
-81	home-stop	stop	-	-	none: closes the terminal session
-82	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
-83	idle	idle	600	-	nothing is written while no agent runs
-84	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
-85	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
-86	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-87	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
-88	auth-dialog	prompt	/auth	●	the method dialog reopens after a sign-out
-89	auth-key-dialog	keys	Down,Enter	clear stored key	the key dialog shows the stored item prefilled, so a sign-out leaves it, and the dialog's own Ctrl+C hint does not remove it (observed on 0.66.0) (research/gemini-cli.md#credentials)
-90	auth-key-close	keys	Escape	●	Escape returns to the method dialog, not to the prompt
-91	auth-stop	stop	-	-	none: closes the terminal session
-92	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
-93	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
-94	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+06	auth-key-choose	choose	Use Gemini API Key	-	the sign-in dialog's option 2. Use Gemini API Key, the API key path, since Google sign-in no longer serves individual accounts on 0.66.0
+07	auth-key	keys	Enter	quiet	Enter on Use Gemini API Key opens its key prompt
+08	ssh-sign-in	pause	For the ssh sign-in, open a terminal of the VM's desktop, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, paste the Google AI Studio API key of the throwaway account at the key prompt and press Enter, detach with Ctrl+], then resume; the pipeline never types a credential	-	the key dialog drops the spaces of typed text (a prompt typed into it by mistake was stored as the key without its spaces, observed on 0.66.0), so a stray prompt can overwrite the key; the key the dialog takes is stored in the keychain item or the file fallback the Credentials section names (research/gemini-cli.md#credentials) (unverified)
+09	shortcuts	type	?	quiet	the ? shortcut list; nothing is written (none) (unverified)
+10	shortcuts-close	keys	Backspace,Escape	quiet	none
+11	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+12	help-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+13	help	prompt	/help	-	/help is an info item: only info, error and warning items reach the session file (research/gemini-cli.md#session-jsonl) (unverified)
+14	question	prompt	what is 17 + 25?	-	a user and a gemini message with no toolCalls, and the first model: <id> row (research/gemini-cli.md#model-rows)
+15	web-search	prompt	What is the latest release of the npm package @google/gemini-cli? Search the web for it.	Allow once|Apply this change|Type your message	a google_web_search call in toolCalls[] with its result (research/gemini-cli.md#session-jsonl)
+16	web-search-dialog	dialog	-	marker	whether the web tool asks first; when it does, its options are read and the first is the answer
+17	approve-ask	prompt	Run python3 calc.py 2 3 and tell me what it prints.	Allow once	the run_shell_command confirmation dialog: its options and footer hints are findings (unverified)
+18	approve-options	options	12	quiet	every option of the shell tool's dialog, one screen per Down until the cursor wraps or stops, then back on the first
+19	approve	keys	Enter	marker	toolCalls[].status success; the session file does not record which answer was given (research/gemini-cli.md#permission-rows) (unverified)
+20	deny-plain	prompt	Run git log --oneline and tell me what it shows.	-	git log --oneline runs with no confirmation dialog on 0.66.0: a run_shell_command call with status success and no decision (research/gemini-cli.md#permission-rows)
+21	deny-ask	prompt	Use the shell to create an empty file named denied.txt in this directory, then tell me whether it worked.	Allow once	a command that creates a file raises the confirmation dialog (touch asked on 0.66.0)
+22	deny-options	options	12	quiet	every option of the second dialog, one screen per Down until the cursor wraps or stops, then back on the first
+23	deny	keys	Escape	quiet	Esc is the No answer: status cancelled gives a permission decision: cancelled row (research/gemini-cli.md#permission-rows) (unverified)
+24	deny-reason	prompt	Do not create the file. Tell me what calc.py does instead, without running anything.	-	the reason is an ordinary user message; no reason field exists (research/gemini-cli.md#permission-rows)
+25	always-plain	prompt	Run ls -la and summarise the listing.	-	ls -la runs with no confirmation dialog on 0.66.0: a run_shell_command call with status success and no decision (research/gemini-cli.md#permission-rows)
+26	always-ask	prompt	Use the shell to create an empty file named allowed.txt in this directory, then tell me whether it worked.	Allow once	a third confirmation dialog, for the grant
+27	always-options	options	12	quiet	every option of the third dialog, one screen per Down until the cursor wraps or stops, then back on the first
+28	always-choose	choose	Allow for this session	-	the dialog offers Allow for this session (observed on 0.66.0); the cursor is placed on it for the next step's Enter
+29	always	keys	Enter	marker	a session grant: the call runs with status success; policies/auto-saved.toml is written only for Allow for all future sessions (research/gemini-cli.md#standing-permission-files) (unverified)
+30	mode-1	keys	Shift+Tab	quiet	the approval mode after default in the cycle, read from the screen; the runtime modes are default, autoEdit and plan, yolo only from the command line (research/gemini-cli.md#standing-permission-files) (unverified)
+31	mode-2	keys	Shift+Tab	quiet	the next approval mode in the cycle, read from the screen (unverified)
+32	mode-3	keys	Shift+Tab	quiet	the cycle back on default, the mode that asks before a tool call (unverified)
+33	follow-up	prompt	refactor this	Allow once|Type your message	whether the agent asks before acting: a gemini message with no toolCalls (a turn that asks the user), or the first confirmation dialog of a turn that acts instead
+34	follow-up-cancel	keys	Escape	marker	Escape cancels a turn still running, as the footer's esc to cancel says: how the session file stores a cancelled turn (unverified)
+35	follow-up-dialog	dialog	-	marker	a confirmation left open after the cancel, answered with its first option so the next prompt starts at an idle input; no dialog when the agent asked first
+36	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB is inline in the user message and its logs.json copy (research/gemini-cli.md#logsjson)
+37	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the session file and logs.json (not stated)
+38	model-subcommands	type	/model 	quiet	the completion list of /model: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+39	model-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+40	model-dialog	prompt	/model	quiet	the model dialog's options and footer (unverified)
+41	model-options	options	12	quiet	every option of the model dialog, one screen per Down until the cursor wraps or stops, then back on the first
+42	model-pick	keys	Down,Enter	quiet	an info message Model set to <name>; model.name in settings.json only with --persist (research/gemini-cli.md#model-rows) (unverified)
+43	model-question	prompt	what is 9 times 8?	-	model: <old> -> <new> before the next gemini message (research/gemini-cli.md#model-rows)
+44	edit-ask	prompt	Fix the bug in calc.py so that add() adds, and change nothing else.	Allow once|Apply this change|Type your message	the edit confirmation dialog and its diff (unverified)
+45	edit-options	options	12	quiet	every option of the edit dialog, one screen per Down until the cursor wraps or stops, then back on the first
+46	edit	keys	Enter	marker	a replace or write_file call; history/<slug>/ only with checkpointing on (research/gemini-cli.md#tool-checkpoints) (unverified)
+47	chat-subcommands	type	/chat 	quiet	the completion list of /chat: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+48	chat-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+49	chat-save	prompt	/chat save lab	-	tmp/<slug>/checkpoint-lab.json (research/gemini-cli.md#chat-save-checkpoints)
+50	bug-subcommands	type	/bug 	quiet	the completion list of /bug: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+51	bug-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+52	bug	prompt	/bug lab round export only, nothing is submitted	-	/bug composes a GitHub new-issue URL and writes tmp/<slug>/bug-report-history-<ms>.json; it submits nothing (research/gemini-cli.md#bug-reports)
+53	exit-subcommands	type	/exit 	quiet	the completion list of /exit: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+54	exit-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+55	exit	prompt	/exit	exit	the session file's last state; logs.json keeps every prompt (research/gemini-cli.md#logsjson)
+56	exit-close	stop	-	-	none: closes the terminal session
+57	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
+58	resume	agent	gemini --resume latest	marker	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps) (unverified)
+59	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation; mcp-server-enablement.json (research/gemini-cli.md#per-user-storage) (unverified)
+60	mcp-options	options	12	quiet	every option of the MCP dialog, one screen per Down until the cursor wraps or stops, then back on the first
+61	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result (unverified)
+62	clear-subcommands	type	/clear 	quiet	the completion list of /clear: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
+63	clear-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+64	clear	prompt	/clear	marker	/clear starts a new session file and leaves the old one (research/gemini-cli.md#what-survives-a-delete) (unverified)
+65	after-clear	prompt	what is 3 + 4?	-	the first lines of the session after /clear
+66	clear-stop	stop	-	-	none: closes the terminal session
+67	worktrees-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.experimental=Object.assign(s.experimental||{},{worktrees:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	--worktree is accepted only with experimental.worktrees on; the setting goes into settings.json (research/gemini-cli.md#project-local-files)
+68	worktree	agent	gemini --worktree lab	marker	<project>/.gemini/worktrees/lab and a scratch directory: row for its session (research/gemini-cli.md#worktree-sessions)
+69	worktree-question	prompt	what is 5 + 6?	-	the worktree session's .project_root and chat file
+70	worktree-stop	stop	-	-	none: closes the terminal session
+71	devtools-on	command	node -e "const f=require('os').homedir()+'/.gemini/settings.json';const fs=require('fs');const s=JSON.parse(fs.readFileSync(f,'utf8'));s.general=Object.assign(s.general||{},{devtools:true});fs.writeFileSync(f,JSON.stringify(s,null,2))"	-	general.devtools set to true in settings.json (research/gemini-cli.md#activity-log)
+72	devtools	agent	gemini	marker	a session started with general.devtools on
+73	devtools-question	prompt	what is 2 + 9?	-	tmp/<slug>/logs/session-<id>.jsonl with network payloads (research/gemini-cli.md#activity-log)
+74	devtools-stop	stop	-	-	none: closes the terminal session
+75	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
+76	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
+77	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
+78	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
+79	home-start	agent	in:. gemini	Trust folder	a start in the home, not yet trusted, raises the folder trust dialog; a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
+80	home-trust-options	options	12	quiet	every option of the home's trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
+81	home-trust	keys	Enter	marker	Trust folder for the home: a trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
+82	home-stop	stop	-	-	none: closes the terminal session
+83	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
+84	idle	idle	600	-	nothing is written while no agent runs
+85	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
+86	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
+87	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+88	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
+89	auth-dialog	prompt	/auth	●	the method dialog reopens after a sign-out
+90	auth-key-dialog-choose	choose	Use Gemini API Key	-	the method dialog after a sign-out still offers Use Gemini API Key
+91	auth-key-dialog	keys	Enter	clear stored key	the key dialog shows the stored item prefilled, so a sign-out leaves it, and the dialog's own Ctrl+C hint does not remove it (observed on 0.66.0) (research/gemini-cli.md#credentials)
+92	auth-key-close	keys	Escape	●	Escape returns to the method dialog, not to the prompt
+93	auth-stop	stop	-	-	none: closes the terminal session
+94	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+95	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
+96	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
