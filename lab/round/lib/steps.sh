@@ -47,11 +47,11 @@ press_down_saved() {
 
 # Read every option of the open dialog: press Down, at most $1 times, saving
 # each settled screen as screens/NN-name.option-K.txt, until the screen is
-# the first one again (the cursor wrapped) or the same as before (it
-# stopped), then press Up back to the first option. Sets STEP_NOTE,
-# _ret_end (wrapped, stopped or limit), _ret_options (the options read: at
-# the press limit a lower bound, since one more may follow) and _ret_first
-# (the screen on the first option).
+# the start one again (the cursor wrapped) or the same as before (it
+# stopped), then return the cursor where it started (return_to_start).
+# Sets STEP_NOTE, _ret_end (wrapped, stopped or limit), _ret_options (the
+# options read: at the press limit a lower bound, since one more may
+# follow) and _ret_first (the screen at the start).
 read_options() {
   _ret_first=$(capture_screen)
   _rop_previous=$_ret_first
@@ -66,16 +66,31 @@ read_options() {
     [ "$_rop_end" = limit ] || break
     _rop_previous=$_rop_screen
   done
-  # A wrap is back on the first option; a stop is one Up per move that
-  # changed the screen; a limit is one Up per move and one option unread.
-  case $_rop_end in
-    wrapped) _ret_options=$_rop_moves && _rop_back=0 ;;
-    stopped) _ret_options=$_rop_moves && _rop_back=$((_rop_moves - 1)) ;;
-    *) _ret_options=$((_rop_moves + 1)) && _rop_back=$_rop_moves ;;
-  esac
-  press_times Up "$_rop_back" || return 1
+  # A limit leaves one option unread at least.
+  _ret_options=$_rop_moves
+  [ "$_rop_end" != limit ] || _ret_options=$((_rop_moves + 1))
   _ret_end=$_rop_end
   STEP_NOTE="$_rop_moves presses of Down, the cursor $_rop_end"
+  return_to_start "$_rop_moves"
+}
+
+# Press Up one press at a time, at most $1 times, until the screen equals
+# _ret_first, the screen where the reading started; a count would be wrong
+# for a list that stops at its top or a reading begun below the first
+# option. When the screen never equals it, append `cursor not returned` to
+# STEP_NOTE and set the choose_missed mark, since the cursor is then on an
+# option nobody chose. Returns 1 when a drive call fails.
+return_to_start() {
+  _rts_left=$1
+  _rts_screen=$(capture_screen)
+  while [ "$_rts_screen" != "$_ret_first" ] && [ "$_rts_left" -gt 0 ]; do
+    press_times Up 1 || return 1
+    _rts_left=$((_rts_left - 1))
+    _rts_screen=$(capture_screen)
+  done
+  [ "$_rts_screen" != "$_ret_first" ] || return 0
+  STEP_NOTE="$STEP_NOTE; cursor not returned"
+  state_set choose_missed yes
 }
 
 # Succeed when the grep -E pattern $1 (`-` for the agent's AGENT_OPTION) is
@@ -158,7 +173,10 @@ press_step_keys() {
   case ,$STEP_TEXT, in
     *Enter,*) enter_allowed || return 2 ;;
   esac
-  drive keys "$STEP_TEXT" </dev/null >/dev/null || return 1
+  if ! drive keys "$STEP_TEXT" </dev/null >/dev/null; then
+    STEP_NOTE='the keys call failed; its effect on an open dialog is unknown'
+    return 1
+  fi
   wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
 }
 
@@ -166,8 +184,10 @@ press_step_keys() {
 # code is $1. A `choose` that did not place the cursor (a miss or a failed
 # drive call) sets it; a `choose` that did, a `dialog` that read and
 # answered a dialog, and an `agent`, `stop` or `reboot` step (a new or
-# closed session) clear it; every other step keeps it, an `options` step
-# included, whose reading leaves the cursor on an option nobody chose.
+# closed session) clear it; a `keys` step whose drive call failed (exit
+# code 1) sets it, since what the key did to an open dialog is unknown;
+# every other step keeps it, an `options` step included, whose reading
+# leaves the cursor on an option nobody chose.
 note_choose() {
   _nc_mark=$(state_get choose_missed)
   _nc_new=$_nc_mark
@@ -175,6 +195,7 @@ note_choose() {
     choose) if [ "$1" -eq 0 ]; then _nc_new=; else _nc_new=yes; fi ;;
     dialog) case $STEP_NOTE in answered*) _nc_new= ;; esac ;;
     agent | stop | reboot) _nc_new= ;;
+    keys) [ "$1" -ne 1 ] || _nc_new=yes ;;
   esac
   [ "$_nc_mark" = "$_nc_new" ] || state_set choose_missed "$_nc_new"
 }

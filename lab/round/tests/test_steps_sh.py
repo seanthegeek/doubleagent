@@ -48,6 +48,7 @@ capture_screen() {
   fi
   printf '> Type your message\n'
   [ ! -f "$STUB/extra" ] || cat "$STUB/extra"
+  [ ! -f "$STUB/status" ] || printf 'status %s\n' "$_cs_count"
   _cs_index=0
   while IFS= read -r _cs_label; do
     if [ "$_cs_index" -eq "$_cs_cursor" ]; then printf '│ ● %s │\n' "$_cs_label"
@@ -120,7 +121,7 @@ def test_read_options_after_a_wrap(tmp_path):
 def test_read_options_after_a_stop(tmp_path):
     for shell in SHELLS:
         found = run_steps(shell, make_stub(tmp_path, LABELS), "read_options 12")
-        assert found["options"] == "3" and found["drive"].endswith("keys Up,Up\n"), shell
+        assert found["options"] == "3" and found["drive"].endswith("keys Up\nkeys Up\n"), shell
         assert found["cursor"] == "0" and found["note"].endswith("the cursor stopped"), shell
 
 
@@ -128,7 +129,7 @@ def test_read_options_at_the_limit(tmp_path):
     labels = ["one", "two", "three", "four", "five"]
     for shell in SHELLS:
         found = run_steps(shell, make_stub(tmp_path, labels), "read_options 2")
-        assert found["options"] == "3" and found["drive"].endswith("keys Up,Up\n"), shell
+        assert found["options"] == "3" and found["drive"].endswith("keys Up\nkeys Up\n"), shell
         assert found["cursor"] == "0" and found["note"].endswith("the cursor limit"), shell
 
 
@@ -184,14 +185,14 @@ def test_choose_option_with_no_matching_option(tmp_path):
         found = run_steps(shell, make_stub(tmp_path, LABELS), "choose_option", "Always")
         assert found["code"] == "2" and found["cursor"] == "0", shell
         assert found["note"] == "missed: no option matches Always; Escape sent after the miss"
-        assert found["drive"].endswith("keys Up,Up\nkeys Escape\n"), shell
+        assert found["drive"].endswith("keys Up\nkeys Up\nkeys Escape\n"), shell
 
 
 def test_choose_option_with_the_cursor_ending_elsewhere(tmp_path):
     for shell in SHELLS:
         stub = make_stub(tmp_path, [*LABELS, "Cancel"])
-        # One capture for the dialog check, five while reading: the last one drifts.
-        (stub / "drift").write_text("6\n", encoding="utf-8")
+        # Captures: the dialog check, five while reading, four returning: the next drifts.
+        (stub / "drift").write_text("10\n", encoding="utf-8")
         found = run_steps(shell, stub, "choose_option", "No$")
         assert found["code"] == "2", shell
         note = 'missed: the cursor ended on "● Cancel", not No$; Escape sent after the miss'
@@ -495,3 +496,38 @@ def test_dialog_on_screen_without_an_option_pattern(tmp_path):
         assert run_steps(shell, make_stub(tmp_path, LABELS), script)["code"] == "1", shell
         found = run_steps(shell, make_stub(tmp_path, LABELS), "unset AGENT_OPTION; answer_dialog")
         assert found["note"] == "no dialog" and found["drive"] == "", shell
+
+
+def test_a_failed_enter_after_a_placed_choose_blocks_the_next_enter(tmp_path):
+    script = (
+        "choose_option; note_choose $?\n"
+        'printf "keys Enter\\n" >"$STUB/fail_on"; STEP_KIND=keys; STEP_TEXT=Enter; STEP_NOTE=\n'
+        'press_step_keys; note_choose $?; rm -f "$STUB/fail_on"; : >"$STUB/drive.log"\n'
+        "STEP_NOTE=; press_step_keys"
+    )
+    for shell in SHELLS:
+        found = run_steps(shell, make_stub(tmp_path, LABELS), script, "No$")
+        assert found["code"] == "2" and found["drive"] == "", shell
+        assert found["note"] == "the choose step before missed", shell
+
+
+def test_read_options_returns_to_an_option_below_the_first(tmp_path):
+    labels = ["one", "two", "three", "four"]
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, labels)
+        (stub / "cursor").write_text("1\n", encoding="utf-8")
+        found = run_steps(shell, stub, "read_options 12")
+        assert found["cursor"] == "1" and "cursor not returned" not in found["note"], shell
+        assert found["drive"].endswith("keys Up\nkeys Up\n"), shell
+
+
+def test_a_reading_that_cannot_get_back_sets_the_mark(tmp_path):
+    labels = ["one", "two", "three", "four"]
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, labels)
+        (stub / "cursor").write_text("1\n", encoding="utf-8")
+        (stub / "status").write_text("", encoding="utf-8")
+        found = run_steps(shell, stub, "read_options 3")
+        assert found["note"].endswith("; cursor not returned"), shell
+        assert found["drive"].count("keys Up\n") == 3, shell
+        assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
