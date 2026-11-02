@@ -107,6 +107,14 @@ throwaway GitHub account, whose lab repository is the sample project's
 `origin` in `lib/make-project.sh`. Nothing of the operator's own (an
 account, a token, a key other than the lab key) goes into a VM.
 
+Gemini CLI signs in with a Gemini API key, since its Google sign-in no
+longer serves individual accounts (observed on 0.66.0, 2026-11-01). Make
+the key in Google AI Studio under the throwaway account, in a project with
+pay-as-you-go billing enabled: the free tier's daily cap on the default
+model is spent within a few turns of a round (observed 2026-11-01). Delete
+the key once the round is over. Where the CLI stores the key is in
+[Credentials in `research/gemini-cli.md`](../../research/gemini-cli.md#credentials).
+
 ### The cell directory
 
 The cell directory is the third argument, outside the repository
@@ -149,16 +157,25 @@ reason on stderr and in `round.log`.
 | `ROUND_PYTHON` | `python3` | The Python that runs the analyzer: one with `analyzer/requirements.txt` installed. The pipeline's own tools need only the standard library. |
 | `ROUND_KNOWN_HOSTS` | `<cell>/known_hosts` | The known-hosts file of the cell's ssh config. |
 | `ROUND_SSH_KEY` | `~/.ssh/doubleagent_lab` | The lab key, as [SSH access in Lab VMs](../../docs/lab-vms.md#ssh-access) describes it. |
-| `ROUND_STOP_AFTER` | none | A step number, compared as a number (`9` and `09` are the same step), after which `start` or `resume` stops with exit 0; `resume` goes on from the next step. |
+| `ROUND_STOP_AFTER` | none | A step number, compared as a number (`9` and `09` are the same step), after which `start` or `resume` stops with exit 0; `resume` goes on from the next step. The paused step counts: when `ROUND_STOP_AFTER` names the step a `resume` finishes, it stops right after it. |
 | `TURN_SECONDS`, `QUIET_SECONDS` | the agent's `agent.conf` | How long a step waits for its expectation, and how long the screen must stay unchanged to count as settled. |
 | `PRLCTL` | `prlctl` | The Parallels Desktop command line. |
 
 ## What the person does
 
-A `pause` step prints the agent's screen and the step's text, takes a VM
-snapshot named `claude-<agent>-<NN>` and exits 3. The person does what
-the text says and runs `resume`, which records the screen and the
-listing after the person's step before going on.
+The person's steps are the credential pastes, the browser sign-ins and
+the steps on the VM's desktop; the pipeline reads and answers the agent's
+dialogs itself over `ssh` (the `dialog` and `choose` kinds below).
+
+A `pause` step prints the agent's screen, then a block
+`URLs on the screen, joined:` with every `http://` or `https://` URL on
+that screen as one line, then the step's text; it takes a VM snapshot
+named `claude-<agent>-<NN>` and exits 3. The terminal is 120 columns
+wide, so a long sign-in URL is wrapped over several lines, and a copy
+from the wrapped lines loses the characters at the line ends: copy a URL
+from the joined block, which is also saved as `screens/NN-name.urls.txt`.
+The person does what the text says and runs `resume`, which records the
+screen and the listing after the person's step before going on.
 
 A sign-in happens inside the agent's own terminal session. In the VM's
 desktop, open a terminal and attach to it:
@@ -170,7 +187,8 @@ desktop, open a terminal and attach to it:
 The session name is in the pause text. This is how the person joins the
 session the pipeline started over `ssh`. Complete the agent's sign-in
 with the throwaway account, the browser part included, then detach with
-Ctrl+] and run `resume`. If attaching fails, sign in from a desktop
+Ctrl+] and run `resume`. A key the agent asks for (Gemini CLI's API key)
+is pasted at its prompt the same way. If attaching fails, sign in from a desktop
 terminal of your own (start the agent there, sign in, exit) and run
 `resume`: the next listing records where the credential landed either
 way. The pipeline never asks for a credential or types one. It does
@@ -207,15 +225,40 @@ before the sign-out and the sign-in from the desktop; the reboot follows
 them, and the idle period comes after the delete steps, as AGENTS.md lists
 them. Run `collect` after the last step, before `finish`.
 
+Before its first use, every slash command a table uses has a
+`<command>-subcommands` step, a `type` step whose text is the command and
+one trailing space (`/auth `), so the agent's completion list of
+subcommands and their descriptions is saved as the step's screen; a `keys`
+step after it clears the line. Every agent that signs in ends its table
+the same way: the agent's own sign-out command or dialog option, taken from
+that completion list or its research document and run over `ssh` with a
+listing (Gemini CLI's `/auth signout`, Qwen Code's `/auth` dialog, pi's
+`/logout`), then a
+`pause` in which the person signs in again from a terminal of the VM's
+desktop, with a listing, to show whether the credential lands somewhere
+else than it did over `ssh`. Where an agent offers no sign-out, that step
+is a `pause` in which the person removes the stored credential the way a
+user would (Passwords and Keys on Ubuntu, Keychain Access on macOS,
+Credential Manager on Windows). An agent that only reads a key from the
+environment or a file the person writes has neither step. An `agent` step
+started in a directory not yet trusted (the first start, a start in the
+home) is followed by the trust dialog's steps, and its `expect` is the
+dialog's pattern where the agent is known to show one.
+
 Every dialog is read before it is answered: an `options` step presses Down
 until the cursor wraps or stops, saving each screen, and puts the cursor
-back on the first option. Where the option to choose is not known before a
-first run (the allow-always grant), a `pause` step has the person move the
-cursor there through the monitor, so the next step's Enter answers with
-it. Where a dialog may or may not appear (a web tool's confirmation, pi's
-project trust), a `pause` has the person read and answer it if it is
-there, since a key sent to an absent dialog would type into the agent's
-input.
+back on the first option. A `dialog` step does the same and then answers
+with the first option, but only when the dialog is on the screen; where a
+dialog may or may not appear (a web tool's confirmation, a trust question),
+it records `no dialog` and sends nothing, since a key sent to an absent
+dialog would type into the agent's input. A `choose` step reads the
+options the same way and moves the cursor to the option whose text it
+names (the allow-always grant, the zip delivery of pi's `/bug`), so the
+next `keys` step's Enter answers with it. When a `choose` step misses (no
+dialog, or no option with that text), the `keys` step right after it sends
+nothing and is `missed` too, so no Enter answers with an option the table
+did not mean. No step submits anything to a vendor: a bug report command
+is run only where it writes its report locally.
 `python3 -I lab/round/steps.py check lab/round/agents/<agent>` checks a
 table; `start` and `resume` refuse one that fails.
 
@@ -225,18 +268,20 @@ table; `start` and `resume` refuse one that fails.
 | `prompt` | the prompt | Types the text, presses Enter and waits. |
 | `type` | text | Types the text without Enter and waits. |
 | `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back on the first option; the step log says how many presses and whether the cursor wrapped or stopped. |
-| `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits. |
+| `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options`. Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
+| `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. With no dialog open or no option matching, the step is `missed` with the reason, the cursor stays on the first option, and the next `keys` step sends nothing. |
+| `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; right after a `choose` step that missed, sends nothing and is `missed`. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
 | `command` | a shell command | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`. |
 | `stop` | `-` | Saves the session's recording and stops it: Ctrl+C twice, then TERM (not on Windows), then a kill, each with a bounded wait. |
-| `pause` | what the person must do; `{session}` becomes the open session's name | Snapshots the VM and exits 3, as described above. |
+| `pause` | what the person must do; `{session}` becomes the open session's name | Prints the screen and its joined URLs, snapshots the VM and exits 3, as described above. |
 | `idle` | seconds | Waits that long. |
 | `reboot` | `-` | Ends the session, reboots the VM from inside and waits for a new boot id over `ssh`. |
 | `collect` | `-` | Runs the collector, the analyzer and the shape tool as `collect` does, into `collection/NN-name/`. |
 
 `expect` says what a typing step waits for: `-` for the kind's default
-(the agent's input marker for `agent`, `prompt` and `paste`, a settled
-screen otherwise), `marker` for the input marker, `quiet` for a settled
+(the agent's input marker for `agent`, `prompt`, `paste` and `dialog`, a
+settled screen otherwise), `marker` for the input marker, `quiet` for a settled
 screen, `exit` for the program's end, `none` for nothing, or a `grep -E`
 pattern that must be on the settled screen, such as
 `Allow once|Type your message` for a prompt that may raise a
@@ -260,7 +305,7 @@ table's width; `resume` then runs the copy.
 
 | File | Holds |
 | --- | --- |
-| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box; `AGENT_BUSY`, the pattern shown while a turn runs; the default waits and the terminal size. |
+| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box; `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for the three agents); the default waits and the terminal size. |
 | `agents/<agent>/install.sh`, `install.ps1` | The install command copied from the vendor's page, whose URL and fetch date the script prints as its `source:` line, then `bin:` and `version:` lines. The version is read from the package's own record where one exists, so the agent does not run before its first-launch step. |
 | `agents/<agent>/roots` | The survey roots, from the Per-user storage, Credentials and Scratch directories sections of `research/<agent>.md`. |
 | `agents/<agent>/steps.tsv` | The step table. |
@@ -287,8 +332,8 @@ directories, as `top` lines, so a directory no root covers still shows.
 | `state`, `steps.log`, `round.log` | The cell's state (agent, VM, version, install source, tui-test version and sha256, the step to run next), one line per finished step with its status (`done`, `missed`, `failed`), and every command sent to the VM. |
 | `steps.tsv`, `roots` | The cell's copy of the step table and roots; a fix during the round is made here, as the step table section says. |
 | `listings/NN-name.txt` | One listing: kind, size, mode, UTC modification time and path, tab-separated, never a file's contents. The time's precision is the platform's: fractional seconds from GNU `find` on Linux, whole seconds from BSD `stat` on macOS, milliseconds on Windows. |
-| `diffs/NN-name.txt` | The diff from the previous listing (`classify.py --redact`): added, removed and changed paths grouped by their first two components below the home, new top-level names, and changed credential-store items and process counts, with UUIDs and long hex runs printed as their class. |
-| `screens/NN-name.txt` | The rendered screen before and after the step; `NN-name.command.txt` for a `command` step's output. |
+| `diffs/NN-name.txt` | The diff from the previous listing (`classify.py --redact --roots`): added, removed and changed paths grouped by their first two components below the home, new top-level names that no path of the cell's `roots` covers (the path itself or a leading part of it, `~` and `<tmp>` expanded as the survey expands them), and changed credential-store items and process counts, with UUIDs and long hex runs printed as their class. |
+| `screens/NN-name.txt` | The rendered screen before and after the step; `NN-name.command.txt` for a `command` step's output, `NN-name.option-K.txt` for the screens an `options`, `dialog` or `choose` step read, `NN-name.urls.txt` for a pause's joined URLs. |
 | `casts/s<NN>.cast` | The asciicast of each terminal session. |
 | `install.log`, `tools/` | The install script's output, the tui-test download, its self-test and the sample project's commit. |
 | `collection/<label>/` | The collector's archive, manifest, summary, log and `.sha256`, its stdout, the sha256 check, and under `extract/` the archive's contents. The archive is built from directories the agent controls, so it is never unpacked with `tar` or `unzip`: `extract.py` opens it through the analyzer's safe reader (`extract_archive` in `analyzer/doubleagent/inputs.py`), which creates no link or device and nothing outside `extract/`. The shape tool and the report's manifest counts read that extraction. |
@@ -322,4 +367,6 @@ python3 -m pytest lab/round/tests -q
 ```
 
 The tests cover `classify.py`, the step table checker and `renumber`
-(including every shipped agent's table) and the report.
+(including every shipped agent's table), the report, and the screen
+readers of `lib/screen.sh` (the joined URLs, the highlighted option),
+which they run under `/bin/sh` and `dash` on a saved synthetic screen.
