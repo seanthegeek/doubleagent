@@ -106,7 +106,7 @@ Notes end with the transcript store, where the agent has one.
 | `dify` | [dify.md](dify.md) | source | no, backlog | server state in bind mounts beside its compose file (manual step); agent sandbox named volumes and `difyctl` config collected |
 | `factory-droid` | [factory-droid.md](factory-droid.md) | shipped binary strings, docs | no, backlog | `.factory/cache` holds the session index |
 | `flowise` | [flowise.md](flowise.md) | source | no, backlog | `~/.flowise` on every OS; `encryption.key` decrypts the credentials in `database.sqlite` |
-| `gemini-cli` | [gemini-cli.md](gemini-cli.md) | source | yes | slug project dirs; OAuth moved to keyring with encrypted file fallback. Store: JSONL with `$set`/`$patch`/`$rewindTo` operations |
+| `gemini-cli` | [gemini-cli.md](gemini-cli.md) | real install (Linux, 0.66.0), source | yes | slug project dirs; OAuth moved to keyring with encrypted file fallback. Store: JSONL with `$set`/`$patch`/`$rewindTo` operations |
 | `goose` | [goose.md](goose.md) | source, crate sources | yes | XDG on macOS; token caches under the config dir; the repository moved to `aaif-goose/goose` (`block/goose` redirects). Store: SQLite (WAL), `content_json` arrays |
 | `hermes` | [hermes.md](hermes.md) | source | yes | `~/.hermes` or `AppData/Local/hermes`; profiles are full homes; installer checkout `.env` kept. Store: SQLite (WAL) `state.db`, JSONL fallback transcripts |
 | `kilo-code` | [kilo-code.md](kilo-code.md) | source | yes | OpenCode fork; `kilo.db` embeds tokens. Store: OpenCode-style SQLite (`kilo.db`) |
