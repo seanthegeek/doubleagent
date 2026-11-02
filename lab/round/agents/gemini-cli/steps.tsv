@@ -4,7 +4,7 @@ NN	name	kind	text	expect	claim
 04	trust	keys	Enter	quiet	Trust folder writes trustedFolders.json: a permission setting: trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
 05	auth-options	options	12	quiet	every option of the sign-in dialog; Escape does not close it, so ? and /help wait for the ssh sign-in, one screen per Down until the cursor wraps or stops, then back on the first
 06	auth-key	keys	Down,Enter	quiet	Down onto 2. Use Gemini API Key and Enter opens its key prompt; Google sign-in no longer serves individual accounts on 0.66.0, so the round signs in with an API key
-07	ssh-sign-in	pause	For the ssh sign-in, open a terminal of the VM's desktop, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, paste the Google AI Studio API key of the throwaway account at the key prompt and press Enter, detach with Ctrl+], then resume; the pipeline never types a credential	-	the key the dialog takes is stored in the keychain item or the file fallback the Credentials section names (research/gemini-cli.md#credentials) (unverified)
+07	ssh-sign-in	pause	For the ssh sign-in, open a terminal of the VM's desktop, run ~/lab/tui-test/tui-test --session {session} monitor --interactive, paste the Google AI Studio API key of the throwaway account at the key prompt and press Enter, detach with Ctrl+], then resume; the pipeline never types a credential	-	the key dialog drops the spaces of typed text (a prompt typed into it by mistake was stored as the key without its spaces, observed on 0.66.0), so a stray prompt can overwrite the key; the key the dialog takes is stored in the keychain item or the file fallback the Credentials section names (research/gemini-cli.md#credentials) (unverified)
 08	shortcuts	type	?	quiet	the ? shortcut list; nothing is written (none) (unverified)
 09	shortcuts-close	keys	Backspace,Escape	quiet	none
 10	help-subcommands	type	/help 	quiet	the completion list of /help: its subcommands and their descriptions, saved as the screen before the command's first use (unverified)
@@ -54,7 +54,7 @@ NN	name	kind	text	expect	claim
 54	exit	prompt	/exit	exit	the session file's last state; logs.json keeps every prompt (research/gemini-cli.md#logsjson)
 55	exit-close	stop	-	-	none: closes the terminal session
 56	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
-57	resume	agent	gemini --resume latest	marker	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps) (unverified)
+57	resume	agent	gemini --resume latest	Type your message|clear stored key	a resume appends to the same session file or starts another (research/gemini-cli.md#joins-and-timestamps) (unverified); a key dialog at the resume also ends the wait, so its screen is recorded as this step's after-screen
 58	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation; mcp-server-enablement.json (research/gemini-cli.md#per-user-storage) (unverified)
 59	mcp-options	options	12	quiet	every option of the MCP dialog, one screen per Down until the cursor wraps or stops, then back on the first
 60	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result (unverified)
@@ -85,11 +85,10 @@ NN	name	kind	text	expect	claim
 85	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
 86	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
 87	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
-88	auth-dialog	prompt	/auth	●	after /auth signout the /auth dialog still offers the three methods
-89	auth-key-dialog	keys	Down,Enter	clear stored key	Down onto 2. Use Gemini API Key opens the key dialog, whose footer offers Ctrl+C to clear stored key (observed on 0.66.0)
-90	auth-key-clear	keys	Ctrl+C	quiet	Ctrl+C in the key dialog clears the stored key from the keychain item the Credentials section names; /auth signout alone leaves it (observed on 0.66.0) (research/gemini-cli.md#credentials)
-91	auth-key-close	keys	Escape	marker	Escape closes the key dialog without a key; the listing shows what the clear removed
-92	auth-stop	stop	-	-	none: closes the terminal session
-93	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
-94	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
-95	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+88	auth-dialog	prompt	/auth	●	the method dialog reopens after a sign-out
+89	auth-key-dialog	keys	Down,Enter	clear stored key	the key dialog shows the stored item prefilled, so a sign-out leaves it, and the dialog's own Ctrl+C hint does not remove it (observed on 0.66.0) (research/gemini-cli.md#credentials)
+90	auth-key-close	keys	Escape	●	Escape returns to the method dialog, not to the prompt
+91	auth-stop	stop	-	-	none: closes the terminal session
+92	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+93	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
+94	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes

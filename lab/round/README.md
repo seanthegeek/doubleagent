@@ -259,11 +259,12 @@ check` reports a slash command used before that step.
 Every agent that signs in closes the `ssh`-driven part of its table with
 the agent's own sign-out command or dialog option, taken from that
 completion list or its research document and run over `ssh` with a
-listing (Gemini CLI's `/auth signout`, then Ctrl+C in its API key dialog,
-which clears the stored key that `/auth signout` leaves; Qwen Code's
-`/auth` dialog; pi's `/logout`), then the desktop sign-in `pause`, whose
-listing shows whether the credential lands somewhere else than at the
-ssh sign-in. Where an agent offers no sign-out, that step is a `pause` in
+listing (Gemini CLI's `/auth signout`, Qwen Code's `/auth` dialog, pi's
+`/logout`), then the desktop sign-in `pause`, whose listing shows whether
+the credential lands somewhere else than at the ssh sign-in. The
+sign-out's listing is the evidence of what a sign-out leaves; for Gemini
+CLI so is its API key dialog, opened again after the sign-out, which
+shows a key still stored as its prefilled value. Where an agent offers no sign-out, that step is a `pause` in
 which the person removes the stored credential the way a user would
 (Passwords and Keys on Ubuntu, Keychain Access on macOS, Credential
 Manager on Windows). An agent that only reads a key from the environment
