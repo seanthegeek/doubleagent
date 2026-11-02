@@ -325,9 +325,12 @@ inserted as written with no quoting added: both kinds are read as shell
 words in the VM, so the token goes in single quotes
 (`'secret:NAME'`); a value holding a single quote stops the run at the
 step, since the guest's shell would echo the broken line into the
-step's output file. `steps.py check` reports a token whose name is not
-upper case. The pipeline replaces the token just before the step runs
-and sends the result over the `ssh` stdin, as a `secret` step's value
+step's output file. `steps.py check` reads an `agent` line as shell
+words and reports one with no command after its assignments, since
+`env` with no command would print the environment, the value in it,
+into the terminal; it also reports a token whose name is not upper
+case. The pipeline replaces the token just before the step runs and
+sends the result over the `ssh` stdin, as a `secret` step's value
 travels: `round.log` shows the line it sent with the token in place of
 the value (for an `agent` step, with `in:<dir>` removed and, on Linux
 and macOS, `env` added), and the files the pipeline writes itself
