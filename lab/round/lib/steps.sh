@@ -205,9 +205,10 @@ press_step_keys() {
 # answered a dialog, and an `agent`, `stop` or `reboot` step (a new or
 # closed session) clear it; a `keys` step whose drive call failed (exit
 # code 1) sets it, since what the key did to an open dialog is unknown;
-# a typing step clears it only through input_free, when its Escape closed
-# the dialog; every other step keeps it, an `options` step included, whose
-# reading leaves the cursor on an option nobody chose.
+# a typing step sets or clears it only through input_free (a failed Escape
+# call, or an Escape that closed the dialog); every other step keeps it, an
+# `options` step included, whose reading leaves the cursor on an option
+# nobody chose.
 note_choose() {
   _nc_mark=$(state_get choose_missed)
   _nc_new=$_nc_mark
@@ -248,10 +249,15 @@ dialog_open() {
 # free also clears the choose_missed mark, since the dialog whose cursor it
 # guarded is closed. A dialog still open sets STEP_NOTE and returns 2: a
 # prompt never belongs in a dialog, and one typed into a key prompt can
-# become the key. Returns 1 when the Escape's drive call fails.
+# become the key. A failed Escape call sets the mark and returns 1, since
+# what it did to the dialog is unknown, as for a failed `keys` step.
 input_free() {
   dialog_open || return 0
-  drive keys Escape </dev/null >/dev/null || return 1
+  drive keys Escape </dev/null >/dev/null || {
+    STEP_NOTE='the Escape call failed; its effect on the open dialog is unknown'
+    state_set choose_missed yes
+    return 1
+  }
   wait_for quiet quiet >/dev/null || :
   if dialog_open; then
     STEP_NOTE='a dialog is open after an Escape'

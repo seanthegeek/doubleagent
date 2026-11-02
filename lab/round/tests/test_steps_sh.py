@@ -316,6 +316,23 @@ def test_a_prompt_closes_an_unforeseen_dialog_with_escape_and_types(tmp_path):
         assert found["code"] == "0" and "Escape closed it; 4 presses" in found["note"], shell
 
 
+def test_a_failed_escape_call_sets_the_mark_and_fails_the_step(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, LABELS)
+        (stub / "typed").unlink(missing_ok=True)
+        (stub / "fail_on").write_text("keys Escape\n", encoding="utf-8")
+        script = "STEP_KIND=prompt; send_text Enter marker; _c=$?; note_choose $_c; (exit $_c)"
+        found = run_steps(shell, stub, script, "hello")
+        assert found["code"] == "1" and typed_text(stub) == "", shell
+        expected = "the Escape call failed; its effect on the open dialog is unknown"
+        assert found["note"] == expected, shell
+        assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
+        (stub / "fail_on").unlink()
+        (stub / "escape_closes").write_text("", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
+        assert found["code"] == "0" and typed_text(stub) == "hello", shell
+
+
 def test_an_escape_that_frees_the_input_clears_the_mark_and_notes_a_miss(tmp_path):
     for shell in SHELLS:
         stub = make_stub(tmp_path, LABELS)
