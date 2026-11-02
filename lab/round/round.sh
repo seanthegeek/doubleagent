@@ -194,20 +194,6 @@ start_agent() {
     drive start "${TERMINAL_COLS:-120}" "${TERMINAL_ROWS:-40}" "$_sa_directory"
 }
 
-# The `paste` kind: copy the paste file into the VM, send it as one
-# bracketed paste, type the text after the file name, press Enter and wait.
-send_paste() {
-  input_free || return 2
-  _sp_file=${STEP_TEXT%% *}
-  _sp_rest=${STEP_TEXT#"$_sp_file"}
-  _sp_rest=${_sp_rest# }
-  guest_copy "$(paste_source "$_sp_file")" pastes
-  drive paste "pastes/$_sp_file" </dev/null >/dev/null || return 1
-  if [ -n "$_sp_rest" ]; then printf '%s' "$_sp_rest" | drive type >/dev/null || return 1; fi
-  drive keys Enter </dev/null >/dev/null || return 1
-  wait_for "$STEP_EXPECT" marker >/dev/null || return 2
-}
-
 # Run the kind-specific part of the loaded step; return 1 when a command
 # failed and 2 when the step's expectation was not met in time.
 run_kind() {

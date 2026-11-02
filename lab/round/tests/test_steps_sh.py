@@ -56,6 +56,8 @@ wait_for() { return "$(cat "$STUB/wait")"; }
 state_get() { sed -n "s/^$1=//p" "$STUB/state" | tail -n 1; }
 state_set() { printf '%s=%s\n' "$1" "$2" >>"$STUB/state"; }
 round_log() { printf '%s\n' "$*" >>"$STUB/round.log"; }
+guest_copy() { printf 'copy %s\n' "$*" >>"$STUB/drive.log"; }
+paste_source() { printf '%s\n' "$1"; }
 """
 REPORT = (
     'code=$?; printf "code=%s\\nnote=%s\\noptions=%s\\n" "$code" "$STEP_NOTE" "${_ret_options:-}"'
@@ -298,4 +300,72 @@ def test_a_type_step_with_an_input_dialog_open_types_nothing(tmp_path):
         assert found["drive"] == "" and typed_text(stub) == "", shell
         found = run_steps(shell, stub, "STEP_KIND=type; send_text '' quiet", "/auth ")
         assert found["code"] == "0" and typed_text(stub) == "/auth ", shell
+        (stub / "typed").unlink()
+
+
+def mark_then(shell: str, stub: pathlib.Path, middle: str, keys: str) -> dict[str, str]:
+    """Run a choose that misses, then `middle`, then a keys step pressing `keys`."""
+    script = (
+        "choose_option; note_choose $?\n%s\n"
+        ': >"$STUB/drive.log"; STEP_KIND=keys; STEP_TEXT=%s; STEP_NOTE=; press_step_keys'
+        % (middle, keys)
+    )
+    return run_steps(shell, stub, script, "Always")
+
+
+def test_the_mark_persists_past_other_steps_and_blocks_only_enter(tmp_path):
+    middle = "STEP_KIND=options; STEP_NOTE=; note_choose 0; STEP_KIND=keys; note_choose 0"
+    for shell in SHELLS:
+        found = mark_then(shell, make_stub(tmp_path, LABELS), middle, "Down,Enter")
+        assert found["code"] == "2" and found["drive"] == "", shell
+        found = mark_then(shell, make_stub(tmp_path, LABELS), middle, "Down")
+        assert found["code"] == "0" and found["drive"] == "keys Down\n", shell
+
+
+def test_an_answered_dialog_or_a_new_session_clears_the_mark(tmp_path):
+    clearing = [
+        "STEP_KIND=dialog; STEP_TEXT=-; STEP_NOTE=; answer_dialog; note_choose $?",
+        "STEP_KIND=agent; STEP_NOTE=; note_choose 0",
+        "STEP_KIND=stop; STEP_NOTE=; note_choose 0",
+    ]
+    for shell in SHELLS:
+        for middle in clearing:
+            found = mark_then(shell, make_stub(tmp_path, LABELS), middle, "Enter")
+            assert found["code"] == "0" and found["drive"] == "keys Enter\n", (shell, middle)
+
+
+def test_a_dialog_step_that_found_no_dialog_keeps_the_mark(tmp_path):
+    middle = (
+        'STEP_KIND=dialog; STEP_TEXT=-; : >"$STUB/labels"; STEP_NOTE=; answer_dialog; '
+        "note_choose $?"
+    )
+    for shell in SHELLS:
+        found = mark_then(shell, make_stub(tmp_path, LABELS), middle, "Enter")
+        assert found["code"] == "2" and found["drive"] == "", shell
+
+
+def test_answer_dialog_at_the_press_limit_says_at_least(tmp_path):
+    labels = ["one", "two", "three", "four", "five"]
+    for shell in SHELLS:
+        found = run_steps(shell, make_stub(tmp_path, labels), "OPTION_PRESSES=2; answer_dialog")
+        assert found["note"] == "answered with the first option, at least 3 options", shell
+
+
+def test_clear_with_a_dialog_open_presses_nothing(tmp_path):
+    for shell in SHELLS:
+        found = run_steps(shell, make_stub(tmp_path, LABELS), "STEP_KIND=clear; clear_typed", "4")
+        assert found["code"] == "2" and found["note"] == "a dialog is open", shell
+        assert found["drive"] == "", shell
+
+
+def test_a_paste_with_a_dialog_open_sends_nothing(tmp_path):
+    expected = "copy short.txt pastes\npaste pastes/short.txt\ntype\nkeys Enter\n"
+    for shell in SHELLS:
+        found = run_steps(shell, make_stub(tmp_path, LABELS), "send_paste", "short.txt Sum it.")
+        assert found["code"] == "2" and found["note"] == "a dialog is open", shell
+        assert found["drive"] == "", shell
+        stub = make_stub(tmp_path, [])
+        found = run_steps(shell, stub, "send_paste", "short.txt Sum it.")
+        assert found["code"] == "0" and found["drive"] == expected, shell
+        assert typed_text(stub) == "Sum it.", shell
         (stub / "typed").unlink()

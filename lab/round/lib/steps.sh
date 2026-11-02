@@ -3,8 +3,9 @@
 # step bookkeeping round.sh runs between steps, sourced by round.sh after
 # screen.sh on the analyst machine and by the round pipeline's tests.
 #
-# Calls drive, capture_screen, wait_for, state_get, state_set and round_log,
-# which round.sh and vm.sh define and a test replaces with stubs. Reads the
+# Calls drive, capture_screen, wait_for, state_get, state_set, round_log,
+# guest_copy and paste_source, which round.sh and vm.sh define and a test
+# replaces with stubs. Reads the
 # globals CELL, STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT,
 # AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS and ROUND_STOP_AFTER, and
 # sets STEP_NOTE.
@@ -48,8 +49,9 @@ press_down_saved() {
 # each settled screen as screens/NN-name.option-K.txt, until the screen is
 # the first one again (the cursor wrapped) or the same as before (it
 # stopped), then press Up back to the first option. Sets STEP_NOTE,
-# _ret_options (the number of options read) and _ret_first (the screen on
-# the first option).
+# _ret_end (wrapped, stopped or limit), _ret_options (the options read: at
+# the press limit a lower bound, since one more may follow) and _ret_first
+# (the screen on the first option).
 read_options() {
   _ret_first=$(capture_screen)
   _rop_previous=$_ret_first
@@ -72,6 +74,7 @@ read_options() {
     *) _ret_options=$((_rop_moves + 1)) && _rop_back=$_rop_moves ;;
   esac
   press_times Up "$_rop_back" || return 1
+  _ret_end=$_rop_end
   STEP_NOTE="$_rop_moves presses of Down, the cursor $_rop_end"
 }
 
@@ -94,7 +97,9 @@ answer_dialog() {
   fi
   read_options "$OPTION_PRESSES" || return 1
   drive keys Enter </dev/null >/dev/null || return 1
-  STEP_NOTE="answered with the first option, $_ret_options options"
+  _ad_count="$_ret_options options"
+  [ "$_ret_end" != limit ] || _ad_count="at least $_ad_count"
+  STEP_NOTE="answered with the first option, $_ad_count"
   wait_for "$STEP_EXPECT" marker >/dev/null && return 0
   STEP_NOTE="$STEP_NOTE; expectation not met within ${TURN_SECONDS:-300}s"
   return 2
@@ -130,25 +135,36 @@ choose_option() {
   return 2
 }
 
-# The `keys` kind; after a `choose` that missed or failed it sends nothing,
-# since the cursor is not where the table meant the keys to act.
+# The `keys` kind. While the choose_missed mark is set (see note_choose),
+# keys that include Enter are not sent, since Enter would answer a dialog
+# with an option the table did not mean.
 press_step_keys() {
-  if [ "$(state_get choose_missed)" = yes ]; then
-    STEP_NOTE='missed: no key sent, the choose step before it missed'
-    return 2
-  fi
+  case ,$STEP_TEXT, in
+    *Enter,*)
+      if [ "$(state_get choose_missed)" = yes ]; then
+        STEP_NOTE='missed: no key sent, a choose step missed and no dialog was answered since'
+        return 2
+      fi
+      ;;
+  esac
   drive keys "$STEP_TEXT" </dev/null >/dev/null || return 1
   wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
 }
 
-# Record in the state whether the step just run was a `choose` that did not
-# place the cursor (any exit code $1 but 0: a miss or a failed drive call),
-# so the `keys` step after it sends no Enter to an option the table did not
-# mean; any other step clears the mark.
+# Keep the state's choose_missed mark after the step just run, whose exit
+# code is $1. A `choose` that did not place the cursor (a miss or a failed
+# drive call) sets it; a `choose` that did, a `dialog` that read and
+# answered a dialog, and an `agent`, `stop` or `reboot` step (a new or
+# closed session) clear it; every other step keeps it.
 note_choose() {
-  _nc_missed=
-  [ "$STEP_KIND" = choose ] && [ "$1" -ne 0 ] && _nc_missed=yes
-  [ "$(state_get choose_missed)" = "$_nc_missed" ] || state_set choose_missed "$_nc_missed"
+  _nc_mark=$(state_get choose_missed)
+  _nc_new=$_nc_mark
+  case $STEP_KIND in
+    choose) if [ "$1" -eq 0 ]; then _nc_new=; else _nc_new=yes; fi ;;
+    dialog) case $STEP_NOTE in answered*) _nc_new= ;; esac ;;
+    agent | stop | reboot) _nc_new= ;;
+  esac
+  [ "$_nc_mark" = "$_nc_new" ] || state_set choose_missed "$_nc_new"
 }
 
 # Succeed, logging so, when ROUND_STOP_AFTER names step number $1 (compared
@@ -197,8 +213,10 @@ previous_type_text() {
 # character of the text of the nearest `type` step before this one
 # (previous_type_text), in one drive call, then wait for a settled screen.
 # Backspace, since a double Escape needs two presses closer together than
-# drive sends them, and on an empty input opens a rewind picker.
+# drive sends them, and on an empty input opens a rewind picker. Nothing is
+# pressed while a dialog is open (input_free).
 clear_typed() {
+  input_free || return 2
   _ct_count=$STEP_TEXT
   if [ "$_ct_count" = - ]; then
     _ct_text=$(previous_type_text "$STEP_NUMBER")
@@ -207,4 +225,19 @@ clear_typed() {
   press_times Backspace "$_ct_count" || return 1
   STEP_NOTE="$_ct_count presses of Backspace"
   wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
+}
+
+# The `paste` kind: when the input is free, copy the paste file into the
+# VM, send it as one bracketed paste, type the text after the file name,
+# press Enter and wait.
+send_paste() {
+  input_free || return 2
+  _sp_file=${STEP_TEXT%% *}
+  _sp_rest=${STEP_TEXT#"$_sp_file"}
+  _sp_rest=${_sp_rest# }
+  guest_copy "$(paste_source "$_sp_file")" pastes
+  drive paste "pastes/$_sp_file" </dev/null >/dev/null || return 1
+  if [ -n "$_sp_rest" ]; then printf '%s' "$_sp_rest" | drive type >/dev/null || return 1; fi
+  drive keys Enter </dev/null >/dev/null || return 1
+  wait_for "$STEP_EXPECT" marker >/dev/null || return 2
 }
