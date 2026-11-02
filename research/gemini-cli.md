@@ -60,8 +60,8 @@ versions with its commit.
   ([What survives a delete](#what-survives-a-delete)); `/auth signout` and a sign-in from a
   terminal on the desktop ([Credentials](#credentials)); and a reboot and a desktop login
   ([What survives a delete](#what-survives-a-delete)). The verification run's dialog stayed
-  open, so `/chat save`, `/bug` and `/exit` typed nothing in this run, and the pipeline typed
-  `/auth` into the sign-out dialog, so the stored key's prefilled dialog was not reopened. Two
+  open, so `/chat save`, `/bug` and `/exit` typed nothing in this run, and the stored key's
+  prefilled dialog was not reopened after the sign-out. Two
   earlier runs of the same build, 2026-11-01 22:51 UTC to 2026-11-02 01:50 UTC and 2026-11-02
   02:00 to 03:40 UTC, each had the key entered by the person in the session started over SSH,
   from a terminal of the VM's desktop. They added: the Google sign-in, which the service refused

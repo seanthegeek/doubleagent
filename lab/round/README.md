@@ -339,8 +339,8 @@ a `paste` or a `secret`; each is `missed` with the note `the choose step
 before missed`). A later `choose` that places the cursor, a `dialog`
 step, which answers its named dialog regardless of the mark, an `agent`,
 `stop` or `reboot` step, which opens or closes the session, or a typing
-step whose Escape closed the dialog and found the input free (described
-below the table), clears it, so no Enter answers with an option the table
+step whose Escape closed the dialog and found the input free (the next
+paragraph), clears it, so no Enter answers with an option the table
 did not mean; an `options` step does not clear it, since its reading
 leaves the cursor on an option nobody chose. A `choose` that misses with a dialog open (no option matches, or
 the cursor ends elsewhere) also presses Escape once to close that dialog
@@ -359,7 +359,7 @@ on, noting `a dialog was open; Escape closed it`, a finding about the
 agent (a call it chained after an answered one, a dialog a command opens);
 with a dialog still open it types nothing and is `missed` with the note
 `a dialog is open after an Escape`. The input freed this way also clears
-the mark described below, since the dialog whose cursor the mark guarded
+the mark described above, since the dialog whose cursor the mark guarded
 is closed. So one unforeseen dialog costs its step a note, not every
 typing step after it. The tables still answer every dialog they
 expect with `options`, `keys`, `dialog` or `choose` steps, since a prompt

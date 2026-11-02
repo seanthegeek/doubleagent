@@ -465,7 +465,13 @@ def test_step_outcome_maps_each_exit_code(tmp_path):
         ("0", "read it", "done", "read it"),
         ("2", "", "missed", "expectation not met within 300s"),
         ("2", "a dialog is open", "missed", "a dialog is open"),
-        ("1", "ignored", "failed", "a command of the step failed; see round.log"),
+        ("1", "", "failed", "a command of the step failed; see round.log"),
+        (
+            "1",
+            "a dialog was open; Escape closed it",
+            "failed",
+            "a dialog was open; Escape closed it; a command of the step failed; see round.log",
+        ),
     ]
     for shell in SHELLS:
         for code, note, status, expected in cases:

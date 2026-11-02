@@ -205,8 +205,9 @@ press_step_keys() {
 # answered a dialog, and an `agent`, `stop` or `reboot` step (a new or
 # closed session) clear it; a `keys` step whose drive call failed (exit
 # code 1) sets it, since what the key did to an open dialog is unknown;
-# every other step keeps it, an `options` step included, whose reading
-# leaves the cursor on an option nobody chose.
+# a typing step clears it only through input_free, when its Escape closed
+# the dialog; every other step keeps it, an `options` step included, whose
+# reading leaves the cursor on an option nobody chose.
 note_choose() {
   _nc_mark=$(state_get choose_missed)
   _nc_new=$_nc_mark
@@ -388,7 +389,7 @@ step_outcome() {
       ;;
     *)
       _ret_status=failed
-      _ret_note='a command of the step failed; see round.log'
+      _ret_note="${STEP_NOTE:+$STEP_NOTE; }a command of the step failed; see round.log"
       ;;
   esac
 }
