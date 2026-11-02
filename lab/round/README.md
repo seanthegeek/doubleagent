@@ -269,9 +269,14 @@ channel sessions are relays through a messaging platform); pi has no
 permission modes, no scheduled task, no synced session (`/share` is left
 out too) and no source-host integration. A resumed session after a
 relaunch is the same terminal program for all three, so the `/exit` and
-resume steps cover it. Every step that drives the agent over `ssh` comes
-before the sign-out and the desktop sign-in; the reboot and the desktop
-login follow them, and the idle period comes after the delete steps, as
+resume steps cover it. Every step that needs the credential the ssh
+sign-in stored comes before the sign-out; the steps that hand the agent
+a credential another way (an environment variable, a dotfile) follow
+the sign-out, so their listings show it stored nowhere else, and all of
+them come before the desktop sign-in; the reboot and the desktop login
+follow, with a variable that decides between the credential store and
+its file fallback exercised over `ssh` after that login, when the store
+is reachable, and the idle period comes after the delete steps, as
 AGENTS.md lists them. Run `collect` after the last step, before `finish`.
 
 Before its first use, every slash command a table uses has a
@@ -284,7 +289,7 @@ double Escape on an empty input can open a rewind picker. `steps.py
 check` reports a slash command used before that step and a subcommand
 step no `clear` step follows directly.
 
-Every agent that signs in closes the `ssh`-driven part of its table with
+Every agent that signs in ends the use of its stored credential with
 the agent's own sign-out command or dialog option, taken from that
 completion list or its research document and run over `ssh` with a
 listing (Gemini CLI's `/auth signout`, Qwen Code's `/auth` dialog, pi's
@@ -306,27 +311,31 @@ neither step.
 
 An `agent` step may set environment variables for the agent with
 `NAME=value` words before its command (after `in:<dir>` when there is
-one), as a person would type them: `round.sh` puts `env` in front of the
-line on Linux and macOS, and `$HOME` in a value expands in the VM. A
-Windows table writes the PowerShell form itself
-(`$env:NAME='value'; agent`), since the line goes to
-`powershell -Command` there. A `secret:NAME` token in an `agent` or
-`command` text (`GEMINI_API_KEY=secret:GEMINI_API_KEY gemini`, or a
-`printf` that writes the key into the agent's dotfile) stands for the
-value of the variable `NAME` of the credentials file
-([Accounts](#accounts)), inserted as written with no quoting added:
-an `agent` line is read as shell words in the VM, so a value holding a
-shell metacharacter needs the token in single quotes
-(`NAME='secret:NAME'`). `steps.py check` reports a token whose name is
-not upper case.
-`round.sh` replaces the token just before the step runs and sends the
-result over the `ssh` stdin, as a `secret` step's value travels:
-`round.log` shows the step's text with the token, and the pipeline
-writes the value into neither it nor the step log, `report.md` or the
-screen files. In the VM the value is part of the agent's command line,
-and so of the processes that start it (tui-test, and `env` on Linux and
-macOS), or of the shell's input. Write no command whose output shows the
-value: `screens/NN-name.command.txt` keeps what a `command` step prints.
+one), as a person would type them: the pipeline puts `env` in front of
+the line on Linux and macOS, and `$HOME` in a value expands in the VM.
+The tables are written for the Linux and macOS shells, as their
+`command` steps are; a Windows cell needs the PowerShell form of each
+such line (`$env:NAME='value'; agent`), since the line goes to
+`powershell -Command` there and no `env` is added. A `secret:NAME`
+token in an `agent` or `command` text
+(`GEMINI_API_KEY='secret:GEMINI_API_KEY' gemini`, or a `printf` that
+writes the key into the agent's dotfile) stands for the value of the
+variable `NAME` of the credentials file ([Accounts](#accounts)),
+inserted as written with no quoting added: both kinds are read as shell
+words in the VM, so the token goes in single quotes
+(`'secret:NAME'`), and a value holding a single quote cannot travel
+this way. `steps.py check` reports a token whose name is not upper
+case. The pipeline replaces the token just before the step runs and
+sends the result over the `ssh` stdin, as a `secret` step's value
+travels: `round.log` shows the line it sent with the token in place of
+the value (for an `agent` step, with `in:<dir>` removed and `env`
+added), and the pipeline writes the value into neither it nor the step
+log, `report.md` or the screen files. In the VM the value is part of
+the agent's command line, and so of the processes that start it
+(tui-test, and `env` on Linux and macOS), or of the shell's input, and
+the terminal recording and screens hold whatever the agent echoes, as
+for a `secret` step. Write no command whose output shows the value:
+`screens/NN-name.command.txt` keeps what a `command` step prints.
 
 An `agent` step that may raise a trust dialog is followed by its steps:
 for Gemini CLI and Qwen Code a start in a directory not yet trusted (the

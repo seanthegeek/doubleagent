@@ -897,23 +897,23 @@ def test_start_agent_logs_the_token_and_sends_the_value(tmp_path):
     for shell in SHELLS:
         stub = token_stub(tmp_path, "API_KEY=AIza/&x")
         script = 'ROUND_ENV=$STUB/env; GUEST_OS=linux; start_agent "$STEP_TEXT"'
-        found = run_steps(shell, stub, script, "in:. KEY=secret:API_KEY gemini")
+        found = run_steps(shell, stub, script, "in:. KEY='secret:API_KEY' gemini")
         assert found["code"] == "0" and found["drive"] == "start 120 40 .\n", shell
         started = (stub / "started").read_text(encoding="utf-8")
-        assert started == "env KEY=AIza/&x gemini\n", shell
+        assert started == "env KEY='AIza/&x' gemini\n", shell
         logged = (stub / "round.log").read_text(encoding="utf-8")
-        assert logged == "end session\nstart session s05 in ~/.: env KEY=secret:API_KEY gemini\n"
+        assert logged == "end session\nstart session s05 in ~/.: env KEY='secret:API_KEY' gemini\n"
         assert "AIza" not in logged + (stub / "state").read_text(encoding="utf-8"), shell
 
 
 def test_run_command_logs_the_token_and_sends_the_value(tmp_path):
     for shell in SHELLS:
         stub = token_stub(tmp_path, "API_KEY=AIza/&x")
-        text = "printf 'K=%s\\n' secret:API_KEY >f"
+        text = "printf 'K=%s\\n' 'secret:API_KEY' >f"
         found = run_steps(shell, stub, "ROUND_ENV=$STUB/env; run_command", text)
         assert found["code"] == "0", shell
         shell_input = (stub / "shell").read_text(encoding="utf-8")
-        assert shell_input == "printf 'K=%s\\n' AIza/&x >f\n", shell
+        assert shell_input == "printf 'K=%s\\n' 'AIza/&x' >f\n", shell
         logged = (stub / "round.log").read_text(encoding="utf-8")
         assert logged == "command: " + text + "\n" and "AIza" not in found["note"], shell
         assert (stub / "screens" / "05-pick.command.txt").is_file(), shell

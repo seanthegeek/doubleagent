@@ -86,42 +86,52 @@ NN	name	kind	text	expect	claim
 086	althome-auth-choose	choose	Use Gemini API Key	-	the sign-in dialog returns because the file fallback moved with the home and the keyring item is absent over ssh; a miss means the credential was found (research/gemini-cli.md#credentials) (unverified)
 087	althome-auth-key	keys	Enter	quiet	Enter on Use Gemini API Key opens its key prompt (unverified)
 088	althome-ssh-sign-in	secret	GEMINI_API_KEY	-	where the key lands under althome (research/gemini-cli.md#credentials) (unverified)
-089	althome-question	prompt	what is 6 + 8?	-	the session file under althome/.gemini/tmp/<slug>/ (research/gemini-cli.md#per-user-storage) (unverified)
-090	althome-stop	stop	-	-	none: closes the terminal session
-091	trusted-path	agent	GEMINI_CLI_TRUSTED_FOLDERS_PATH=$HOME/lab/trusted.json gemini	Trust folder	the trust dialog returns and the decision is written to trusted.json (research/gemini-cli.md#per-user-storage) (unverified)
-092	trusted-path-options	options	12	quiet	every option of the trust dialog, one screen per Down until the cursor wraps or stops, then back on the first
-093	trusted-path-trust	keys	Enter	quiet	~/lab/trusted.json is written, not ~/.gemini/trustedFolders.json (research/gemini-cli.md#per-user-storage) (unverified)
-094	trusted-path-question	prompt	what is 5 + 9?	-	the session lands under ~/.gemini as usual (research/gemini-cli.md#per-user-storage) (unverified)
-095	trusted-path-stop	stop	-	-	none: closes the terminal session
-096	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
-097	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
-098	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
-099	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
-100	home-start	agent	in:. gemini	Trust folder	a start in the home, not yet trusted, raises the folder trust dialog; a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
-101	home-trust-options	options	12	quiet	every option of the home's trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
-102	home-trust	keys	Enter	marker	Trust folder for the home: a trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
-103	home-stop	stop	-	-	none: closes the terminal session
-104	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
-105	idle	idle	600	-	nothing is written while no agent runs
-106	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
-107	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
-108	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-109	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
-110	sign-out-options	options	12	quiet	the sign-out dialog (You are now signed out; 1. Sign in, 2. Exit, observed on 0.66.0) (research/gemini-cli.md#credentials)
-111	sign-in	keys	Enter	●	Sign in in the sign-out dialog reopens the method dialog
-112	auth-key-dialog-choose	choose	Use Gemini API Key	-	the method dialog after a sign-out still offers Use Gemini API Key
-113	auth-key-dialog	keys	Enter	clear stored key	the key dialog shows the stored item prefilled, so a sign-out leaves it, and the dialog's own Ctrl+C hint does not remove it (observed on 0.66.0) (research/gemini-cli.md#credentials)
-114	auth-key-close	keys	Escape	●	Escape returns to the method dialog, not to the prompt (observed on 0.66.0, 2026-11-02)
-115	auth-stop	stop	-	-	none: closes the terminal session
-116	key-file-removed	command	rm -f "$HOME/.gemini/gemini-credentials.json"	-	the file fallback removed as a user would, so nothing else holds the key over ssh (research/gemini-cli.md#credentials) (unverified)
-117	key-env	agent	in:. GEMINI_API_KEY=secret:GEMINI_API_KEY gemini	Type your message	no sign-in dialog: the variable is used and stored nowhere, with no gemini-credentials.json and no keyring change (research/gemini-cli.md#credentials) (unverified)
-118	key-env-question	prompt	what is 2 + 5?	-	a turn under the variable (unverified)
-119	key-env-stop	stop	-	-	none: closes the terminal session
-120	dotenv-written	command	printf 'GEMINI_API_KEY=%s\n' secret:GEMINI_API_KEY >"$HOME/.gemini/.env"	-	.gemini/.env written as a user would; it is a credential file (research/gemini-cli.md#credentials) (unverified)
-121	dotenv	agent	in:. gemini	Type your message	no sign-in dialog: the key is read from .gemini/.env and stored nowhere else (research/gemini-cli.md#credentials) (unverified)
-122	dotenv-question	prompt	what is 8 + 3?	-	a turn under the dotfile (unverified)
-123	dotenv-stop	stop	-	-	none: closes the terminal session
-124	dotenv-removed	command	rm -f "$HOME/.gemini/.env"	-	the dotfile removed so the desktop sign-in that follows still meets the key dialog (research/gemini-cli.md#credentials) (unverified)
-125	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, delete any prefilled value with Backspace, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
-126	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
-127	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+089	althome-stop	stop	-	-	none: closes the terminal session; the listing shows what the sign-in under althome wrote before any turn
+090	althome-again	agent	GEMINI_CLI_HOME=$HOME/lab/althome gemini	Type your message	a second start under althome opens at the prompt: the trust decision and the credential written under althome are read back (research/gemini-cli.md#per-user-storage) (unverified)
+091	althome-question	prompt	what is 6 + 8?	-	the session file under althome/.gemini/tmp/<slug>/ (research/gemini-cli.md#per-user-storage) (unverified)
+092	althome-again-stop	stop	-	-	none: closes the terminal session
+093	trusted-path	agent	GEMINI_CLI_TRUSTED_FOLDERS_PATH=$HOME/lab/trusted.json gemini	Trust folder	the trust dialog returns and the decision is written to trusted.json (research/gemini-cli.md#per-user-storage) (unverified)
+094	trusted-path-options	options	12	quiet	every option of the trust dialog, one screen per Down until the cursor wraps or stops, then back on the first
+095	trusted-path-trust	keys	Enter	quiet	~/lab/trusted.json is written, not ~/.gemini/trustedFolders.json (research/gemini-cli.md#per-user-storage) (unverified)
+096	trusted-path-question	prompt	what is 5 + 9?	-	the session lands under ~/.gemini as usual (research/gemini-cli.md#per-user-storage) (unverified)
+097	trusted-path-stop	stop	-	-	none: closes the terminal session
+098	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
+099	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
+100	delete-session	command	gemini --delete-session 1	-	removes the chat file, its activity log, tool-outputs/session-<id>/ and <session id>/ (research/gemini-cli.md#what-survives-a-delete)
+101	project-removed	command	rm -rf "$HOME/lab/proj"	-	the project removed: tmp/<slug>/ and projects.json stay (research/gemini-cli.md#what-survives-a-delete)
+102	home-start	agent	in:. gemini	Trust folder	a start in the home, not yet trusted, raises the folder trust dialog; a start runs cleanupExpiredSessions and registers the home as a project (research/gemini-cli.md#what-survives-a-delete)
+103	home-trust-options	options	12	quiet	every option of the home's trust dialog (Trust folder, Trust parent folder, Don't trust), one screen per Down until the cursor wraps or stops, then back on the first
+104	home-trust	keys	Enter	marker	Trust folder for the home: a trustedFolders.<path>=TRUST_FOLDER row (research/gemini-cli.md#permission-rows)
+105	home-stop	stop	-	-	none: closes the terminal session
+106	collect-after-delete	collect	-	-	the collector's rows after the deletes: what the analyzer still recovers (research/gemini-cli.md#what-survives-a-delete)
+107	idle	idle	600	-	nothing is written while no agent runs
+108	auth	agent	in:. gemini	marker	a session over ssh for the sign-out, in the home trusted above
+109	auth-subcommands	type	/auth 	quiet	the completion list of /auth: its subcommands signin and signout with their descriptions (observed on 0.66.0), saved as the screen before the sign-out
+110	auth-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
+111	sign-out	prompt	/auth signout	quiet	/auth signout (Sign out and clear all cached credentials, observed on 0.66.0): which keychain items and credential files it clears (research/gemini-cli.md#credentials)
+112	sign-out-options	options	12	quiet	the sign-out dialog (You are now signed out; 1. Sign in, 2. Exit, observed on 0.66.0) (research/gemini-cli.md#credentials)
+113	sign-in	keys	Enter	●	Sign in in the sign-out dialog reopens the method dialog
+114	auth-key-dialog-choose	choose	Use Gemini API Key	-	the method dialog after a sign-out still offers Use Gemini API Key
+115	auth-key-dialog	keys	Enter	clear stored key	the key dialog shows the stored item prefilled, so a sign-out leaves it, and the dialog's own Ctrl+C hint does not remove it (observed on 0.66.0) (research/gemini-cli.md#credentials)
+116	auth-key-close	keys	Escape	●	Escape returns to the method dialog, not to the prompt (observed on 0.66.0, 2026-11-02)
+117	auth-stop	stop	-	-	none: closes the terminal session
+118	key-file-removed	command	rm -f "$HOME/.gemini/gemini-credentials.json"	-	the file fallback removed as a user would, so nothing else holds the key over ssh (research/gemini-cli.md#credentials) (unverified)
+119	key-env	agent	in:. GEMINI_API_KEY='secret:GEMINI_API_KEY' gemini	Type your message	no sign-in dialog: the variable is used and stored nowhere, with no gemini-credentials.json and no keyring change (research/gemini-cli.md#credentials) (unverified)
+120	key-env-question	prompt	what is 2 + 5?	-	a turn under the variable (unverified)
+121	key-env-stop	stop	-	-	none: closes the terminal session
+122	dotenv-written	command	printf 'GEMINI_API_KEY=%s\n' 'secret:GEMINI_API_KEY' >"$HOME/.gemini/.env"	-	.gemini/.env written as a user would; it is a credential file (research/gemini-cli.md#credentials) (unverified)
+123	dotenv	agent	in:. gemini	Type your message	no sign-in dialog: the key is read from .gemini/.env and stored nowhere else (research/gemini-cli.md#credentials) (unverified)
+124	dotenv-question	prompt	what is 8 + 3?	-	a turn under the dotfile (unverified)
+125	dotenv-stop	stop	-	-	none: closes the terminal session
+126	dotenv-removed	command	rm -f "$HOME/.gemini/.env"	-	the dotfile removed so the desktop sign-in that follows still meets the key dialog (research/gemini-cli.md#credentials) (unverified)
+127	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, delete any prefilled value with Backspace, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+128	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
+129	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
+130	force-file	agent	in:. GEMINI_FORCE_FILE_STORAGE=true gemini	Use Gemini API Key|Type your message	with the keyring reachable after the desktop login, GEMINI_FORCE_FILE_STORAGE=true makes the CLI look only in .gemini/gemini-credentials.json, absent since the file was removed, so the sign-in dialog returns (research/gemini-cli.md#credentials) (unverified)
+131	force-file-choose	choose	Use Gemini API Key	-	the sign-in dialog offers Use Gemini API Key; a miss means the keyring item was used despite the variable (research/gemini-cli.md#credentials) (unverified)
+132	force-file-key	keys	Enter	quiet	Enter on Use Gemini API Key opens its key prompt (unverified)
+133	force-file-sign-in	secret	GEMINI_API_KEY	-	the key lands in .gemini/gemini-credentials.json, mode 600, while the keyring item stays (research/gemini-cli.md#credentials) (unverified)
+134	force-file-stop	stop	-	-	none: closes the terminal session; the listing shows the file fallback written beside the keyring item
+135	force-file-again	agent	in:. GEMINI_FORCE_FILE_STORAGE=true gemini	Type your message	a second start under the variable reads the file fallback and opens at the prompt (research/gemini-cli.md#credentials) (unverified)
+136	force-file-question	prompt	what is 7 + 6?	-	a turn under the variable (unverified)
+137	force-file-again-stop	stop	-	-	none: closes the terminal session
