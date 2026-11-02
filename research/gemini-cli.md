@@ -59,17 +59,19 @@ versions with its commit.
   ([What survives a delete](#what-survives-a-delete)); and a reboot
   ([What survives a delete](#what-survives-a-delete)). The session file's line
   types and keys are in [Session JSONL](#session-jsonl). The first run recorded no
-  `/chat save` checkpoint. The second run repeated those steps, and what differed (the second
-  sign-out's `google_accounts.json` size, the refactor's tool calls, the MCP call) is stated in
-  the owning sections; it added: the API-key dialog's text and a second sign-out
+  `/chat save` checkpoint ([/chat save checkpoints](#chat-save-checkpoints)). The second run
+  repeated those steps, and what differed (the second sign-out's `google_accounts.json` size,
+  the refactor's tool calls, the MCP call) is stated in the owning sections; it added: the
+  API-key dialog's text and a second sign-out
   ([Credentials](#credentials)); the refactor prompt cancelled at its first dialog and the edit
   dialog read whole ([Permission rows](#permission-rows)); a short and a long paste
   ([Transcript stores](#transcript-stores)); the `/model` Manual list
   ([Model rows](#model-rows)); `/chat save lab`
   ([/chat save checkpoints](#chat-save-checkpoints)); and `gemini --worktree lab` with
   `experimental.worktrees` set ([Project-local files](#project-local-files)). The second run's
-  MCP call is not observed; the first run's is. Not observed in either run: a model switch and
-  the names of the permission modes. Neither run typed a shell-mode command.
+  MCP call is not observed; the first run's is ([Permission rows](#permission-rows)). Not
+  observed in either run: a model switch, and the permission modes' names beyond the footer's
+  "accept edits". Neither run typed a shell-mode command ([shell_history](#shell_history)).
 
 ### Source reviews
 
@@ -249,10 +251,11 @@ On the Linux install of 0.66.0 the first start in a project created `~/.gemini` 
 `installation_id` (36 bytes), `projects.json` ([projects.json](#projectsjson)), `state.json` and
 `state.json.bak` ([state.json](#statejson)), the `.project_root` files of `tmp/<slug>/` and
 `history/<slug>/` (19 bytes each) and a session file of about 1 KB. The first screen
-(0.66.0, 2026-11-01) is the folder trust dialog ([Permission rows](#permission-rows)); trusting
-the folder wrote `trustedFolders.json` (43 bytes, mode 0600) and restarted the CLI
-([Transcript stores](#transcript-stores)). Choosing an API key wrote `settings.json`
-([Credentials](#credentials)). A start in the home itself (0.66.0, 2026-11-01) was met by the
+(0.66.0, 2026-11-01) was the folder trust dialog, whose text is in
+[Permission rows](#permission-rows); trusting the folder wrote `trustedFolders.json` (43 bytes,
+mode 0600), and the restart that followed is in [Transcript stores](#transcript-stores).
+Choosing an API key wrote `settings.json` ([Credentials](#credentials)). A start in the home
+itself (0.66.0, 2026-11-01) was met by the
 trust dialog again and put its sessions and `logs.json` under a `tmp/<slug>/` named for the
 home directory, as for any project. The sample project's `history/<slug>/` held only
 `.project_root`, and no `shell_history`, `checkpoints/`, `memory/`, `images/`, `logs/` or
@@ -303,11 +306,11 @@ setting [Project-local files](#project-local-files) names.
   ([`keychainService.ts:22`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/keychainService.ts#L22),
   [`112-136`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/keychainService.ts#L112-L136);
   [`fileKeychain.ts:19-26`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/fileKeychain.ts#L19-L26)).
-- On the Linux install of 0.66.0, in an SSH session beside a GNOME desktop session, the GNOME
-  login keyring file (`.local/share/keyrings/login.keyring`, a file of the desktop and of no
-  catalog line) was rewritten 15 seconds after an API key was pasted into the authentication
-  dialog, and neither `.gemini/.env` nor `.gemini/gemini-credentials.json` appeared, so the key
-  is taken to be in the GNOME keyring. `settings.json` then held only
+- On the Linux install of 0.66.0, in an SSH session beside a GNOME desktop session, the
+  desktop's login keyring file (`.local/share/keyrings/login.keyring`) was rewritten 15 seconds
+  after an API key was pasted into the authentication dialog, and neither `.gemini/.env` nor
+  `.gemini/gemini-credentials.json` appeared, so the key is taken to be in the GNOME keyring.
+  `settings.json` then held only
   `security.auth.selectedType`, and the banner read "Authenticated with gemini-api-key /auth"
   (0.66.0, 2026-11-01). A key entered from a terminal on the desktop rewrote the same keyring
   file (641 bytes).
@@ -438,8 +441,9 @@ With `experimental.worktrees` set to `true` in `settings.json` before the start,
 project's `calc.py`, `README.md` and `.gitignore`, and `<project>/.git/worktrees/lab` with
 `commondir`, `gitdir` and `HEAD`.
 
-On the same install `gemini mcp add <name> <command> <args...>` run in the project wrote the
-project's `.gemini/settings.json` (186 bytes) with `mcpServers.<name>.command` and its `args`.
+On the same install `gemini mcp add <name> <command> <args...>` (0.66.0, 2026-11-01) run in the
+project wrote the project's `.gemini/settings.json` (186 bytes) with `mcpServers.<name>.command`
+and its `args`.
 
 ### Where the project path is recorded
 
@@ -1117,13 +1121,13 @@ The `v0.66.0` tag has the same code
 So at both reviewed commits no caller writes the default path, the file writer's fallback for an
 empty path, and the file goes where the variable points. On the Linux install of 0.66.0,
 `general.devtools` set to `true` in `settings.json` and a new session with one question wrote no
-`logs/` directory, so the records above are source-derived; the `--worktree` session's
-`tmp/<slug>/` held an empty `logs/` directory and no file
-([Worktree sessions](#worktree-sessions)).
+`logs/` directory, so the records above are source-derived; what the `--worktree` session left
+under `logs/` is in [Worktree sessions](#worktree-sessions).
 
 #### Bug reports
 
-`/bug` opens a GitHub new-issue URL carrying the CLI version and the session id, and, when the
+`/bug` composes a GitHub new-issue URL carrying the CLI version and the session id and opens the
+browser where one is available (over SSH on 0.66.0 it printed the URL), and, when the
 history holds more than the initial context item, writes
 `tmp/<slug>/bug-report-history-<epoch ms>.json` (secondary, parsed) and asks the user to attach it
 by hand
@@ -1243,9 +1247,10 @@ the same lines at `v0.66.0`:
 [`ToolConfirmationMessage.tsx`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx#L158-L160),
 [`338-343`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx#L338-L343),
 [`settingsSchema.ts`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/config/settingsSchema.ts#L1864-L1872)).
-On the Linux install (0.66.0, 2026-11-01 and 2026-11-02), with the setting unset, none of the
-shell, `WebFetch`, MCP and edit dialogs ([Permission rows](#permission-rows)) offered it, so no
-install has written `auto-saved.toml` and the file rests on the reviewed commit's source.
+On the Linux install, with the setting unset, none of the shell, `WebFetch` and edit dialogs
+(0.66.0, 2026-11-01 and 2026-11-02) and the MCP dialog (0.66.0, 2026-11-01)
+([Permission rows](#permission-rows)) offered it, so no install has written `auto-saved.toml`
+and the file rests on the reviewed commit's source.
 The grant's `decision` is `allow` and its `priority` the integer 950, the fraction of the
 always-allow priority scaled to 1000
 ([`config.ts:69`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/policy/config.ts#L69),
@@ -1499,8 +1504,9 @@ and 2026-11-02) unless a date is given:
   `1. Trust folder (<name>)`, `2. Trust parent folder (<parent>)` and `3. Don't trust`; the first
   option stored a 12-character value under the folder's key in `trustedFolders.json`, the length
   of `TRUST_FOLDER`.
-- A shell call asks `Allow execution of [Shell]?`, a `WebFetch` call "Action Required ... Do you
-  want to proceed?", and an MCP tool (0.66.0, 2026-11-01) `Allow execution of MCP tool "<tool>"
+- A shell call the agent does not auto-allow asks `Allow execution of [Shell]?`, a `WebFetch`
+  call "Action Required ... Do you want to proceed?", and an MCP tool (0.66.0, 2026-11-01)
+  `Allow execution of MCP tool "<tool>"
   from server "<server>"?` ("press Ctrl+O to expand MCP tool details"), each with
   `1. Allow once`, `2. Allow for this session` and `3. No, suggest changes (esc)`. An edit asks
   "Apply this change?" with `1. Allow once`, `2. Allow for this session`,
@@ -1637,8 +1643,8 @@ Three stores repeat nothing of the session file in the rows read from them and a
   request `body` and the response `body` are not read: which requests form one chat, which items
   the CLI adds itself (the environment context, the compression summary and its acknowledgement,
   retry prompts), the event form of a stored stream and when a reply is repeated by the next
-  request are open: the Linux round recorded no activity log
-  ([issue 410](https://github.com/seanthegeek/doubleagent/issues/410);
+  request are open: the Linux round recorded no activity log ([Activity log](#activity-log);
+  [issue 410](https://github.com/seanthegeek/doubleagent/issues/410);
   [Confidence](#confidence)).
 - `memory/<name>`: `memory file: <name> (from <file>, file mtime)` at the file's modification
   time, no session id, the file's whole text on the lines after it ([memory/](#memory)).
@@ -1944,7 +1950,7 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
   tables.
 - For a later round: the keyring item's name on Linux; whether the keychain migration on load
   or the refused sign-in removed `oauth_creds.json`; why a resume over SSH once asked for the
-  key again while the keyring file measured 105 bytes; the keychain item names on macOS and
+  key again ([Credentials](#credentials)); the keychain item names on macOS and
   Windows; whether the `gemini-credentials.json` fallback is written over SSH with no desktop
   session; the macOS and Windows layouts, which no install has shown.
 - For a later round: the activity log written through `GEMINI_CLI_ACTIVITY_LOG_TARGET`: whether
@@ -1953,8 +1959,8 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
   session (main and subagent chats, utility requests, a compression and a retry), from which the
   turns could be read; a tool checkpoint after an edit with `general.checkpointing.enabled` on.
 - Not determined: whether a build other than the reviewed commit and the `v0.66.0` tag writes
-  the activity log to its default path, and which writer made the empty `logs/` directory of the
-  `--worktree` session.
+  the activity log to its default path, and which writer made the `--worktree` session's
+  `logs/` directory ([Worktree sessions](#worktree-sessions)).
 - Not determined: how common a `GEMINI_CLI_HOME` relocation is.
 - Not determined: the `tmp/<slug>/<session id>/` layout beyond `plans`, `tracker` and `tasks`.
 - Not determined: the `a2a-server` and `sdk` packages' own storage.
