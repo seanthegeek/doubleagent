@@ -314,9 +314,12 @@ An `agent` step may set environment variables for the agent with
 one), as a person would type them: the pipeline puts `env` in front of
 the line on Linux and macOS, and `$HOME` in a value expands in the VM.
 The tables are written for the Linux and macOS shells, as their
-`command` steps are; a Windows cell needs the PowerShell form of each
-such line (`$env:NAME='value'; agent`), since the line goes to
-`powershell -Command` there and no `env` is added. A `secret:NAME`
+`command` steps are, and `steps.py check` reads an `agent` line with
+the POSIX shell's rules; a Windows cell, where the line goes to
+`powershell -Command` unchanged and no `env` is added, has no table
+form yet
+([issue 437](https://github.com/seanthegeek/doubleagent/issues/437)).
+A `secret:NAME`
 token in an `agent` or `command` text
 (`GEMINI_API_KEY='secret:GEMINI_API_KEY' gemini`, or a `printf` that
 writes the key into the agent's dotfile) stands for the value of the
@@ -326,10 +329,11 @@ words in the VM, so the token goes in single quotes
 (`'secret:NAME'`); a value holding a single quote stops the run at the
 step, since the guest's shell would echo the broken line into the
 step's output file. `steps.py check` reads an `agent` line as shell
-words and reports one with no command after its assignments, since
-`env` with no command would print the environment, the value in it,
-into the terminal; it also reports a token whose name is not upper
-case. The pipeline replaces the token just before the step runs and
+words and reports one with no command after its assignments, or with
+a word the shell would obey before the program (`;`, `|`, `&`, a
+redirection, a `#` comment), since `env` with no command would print
+the environment, the value in it, into the terminal; it also reports a
+token whose name is not upper case. The pipeline replaces the token just before the step runs and
 sends the result over the `ssh` stdin, as a `secret` step's value
 travels: `round.log` shows the line it sent with the token in place of
 the value (for an `agent` step, with `in:<dir>` removed and, on Linux
@@ -424,7 +428,7 @@ table; `start` and `resume` refuse one that fails.
 
 | Kind | `text` | What the step does |
 | --- | --- | --- |
-| `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) and `NAME=value` words that set environment variables (on Linux and macOS; a Windows table writes `$env:NAME='value';` before the command); `secret:NAME` tokens as described above the table | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's; `NAME=value` words run it under `env`. |
+| `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) and `NAME=value` words that set environment variables (Linux and macOS; no Windows table form yet); `secret:NAME` tokens as described above the table | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's; `NAME=value` words run it under `env`. |
 | `prompt` | the prompt | Types the text, presses Enter and waits; a dialog open is closed with Escape first, and with the mark set it types nothing and is `missed`, as described above the table. |
 | `type` | text | Types the text without Enter and waits. |
 | `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started, one Up at a time until the cursor is on the option it started on (`cursor not returned` and the mark set when it never gets there); the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |

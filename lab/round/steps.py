@@ -73,6 +73,9 @@ VARIABLE_RE = re.compile(r"[A-Z][A-Z0-9_]*")
 TOKEN_RE = re.compile(r"secret:([A-Za-z0-9_]*)")
 # An environment assignment word an `agent` text may put before its command.
 ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+# Words the guest's shell reads as an operator; a word opening `#` is a comment. Either
+# would end the command the drive runs before the program the text names.
+OPERATOR_WORDS = frozenset({";", ";;", "&", "&&", "|", "||", "(", ")", "<", ">", ">>", "<<"})
 # Escapes that grep -E, .NET and Python do not agree on.
 NON_PORTABLE_RE = re.compile(r"\\[dDwWsSbB]")
 # A `type` step that reads a slash command's subcommands: the command and one trailing space.
@@ -139,6 +142,18 @@ def expect_problem(expect: str) -> str | None:
     return pattern_problem(expect, "expect")
 
 
+def shell_words(text: str) -> list[str]:
+    """Return the POSIX shell words of `text`, operators as words and `#` kept.
+
+    Raises:
+        ValueError: when a quote is not closed.
+    """
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    return list(lexer)
+
+
 def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
     """Return why a step's text does not fit its kind, or None when it does."""
     if step.kind in NO_TEXT:
@@ -174,9 +189,14 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
         # would otherwise pass for the command, and `env` with no command prints the
         # environment, the credential in it, into the terminal.
         try:
-            words = shlex.split(step.text)
+            words = shell_words(step.text)
         except ValueError as error:
             return "agent text is not shell words (%s)" % error
+        stray = next((word for word in words if word in OPERATOR_WORDS or word[:1] == "#"), None)
+        if stray is not None:
+            return (
+                "agent text holds %s, an operator or comment the guest's shell would obey" % stray
+            )
         position = 1 if words and words[0].startswith("in:") else 0
         while position < len(words) and ASSIGNMENT_RE.match(words[position]):
             position += 1

@@ -333,10 +333,16 @@ def test_agent_assignments_are_shell_words(tmp_path):
     text = line("02", "start", "agent", "API_KEY='secret:API_KEY' LABEL='two words'", "-", "c")
     text += line("03", "here", "agent", "in:. A=x\\ y", "-", "c")
     text += line("04", "open", "agent", "A='unterminated gemini", "-", "c")
+    text += line("05", "note", "agent", "KEY='secret:API_KEY' # explanation", "-", "c")
+    text += line("06", "semi", "agent", "KEY='secret:API_KEY' ;", "-", "c")
+    text += line("07", "pipe", "agent", "gemini | tee log", "-", "c")
     assert problems_of(text, tmp_path) == [
         "agent needs a command after LABEL=two words",
         "agent needs a command after A=x y",
         "agent text is not shell words (No closing quotation)",
+        "agent text holds #, an operator or comment the guest's shell would obey",
+        "agent text holds ;, an operator or comment the guest's shell would obey",
+        "agent text holds |, an operator or comment the guest's shell would obey",
     ]
 
 
