@@ -632,7 +632,8 @@ def found_nothing_typed(stub: pathlib.Path) -> bool:
 def secret_stub(tmp_path: pathlib.Path, value: str, dialog: bool = True) -> pathlib.Path:
     """Return a stub with the key dialog on the screen and a credentials file holding `value`."""
     stub = make_stub(tmp_path, [])
-    (stub / "typed").unlink(missing_ok=True)
+    for leftover in ("typed", "fail_on"):
+        (stub / leftover).unlink(missing_ok=True)
     if dialog:
         (stub / "extra").write_text("Enter your key (clear stored key)\n", encoding="utf-8")
     (stub / "env").write_text("# keys\nOTHER=x\nGEMINI_API_KEY=%s\r\n" % value, encoding="utf-8")
