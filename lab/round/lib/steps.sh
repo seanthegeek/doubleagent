@@ -135,17 +135,19 @@ choose_option() {
   return 2
 }
 
-# The `keys` kind. While the choose_missed mark is set (see note_choose),
-# keys that include Enter are not sent, since Enter would answer a dialog
-# with an option the table did not mean.
+# Succeed unless the choose_missed mark is set (see note_choose); then set
+# STEP_NOTE and return 2, for a step about to press Enter, which would
+# answer a dialog with an option the table did not mean.
+enter_allowed() {
+  [ "$(state_get choose_missed)" = yes ] || return 0
+  STEP_NOTE='the choose step before missed'
+  return 2
+}
+
+# The `keys` kind; keys that include Enter wait for enter_allowed.
 press_step_keys() {
   case ,$STEP_TEXT, in
-    *Enter,*)
-      if [ "$(state_get choose_missed)" = yes ]; then
-        STEP_NOTE='missed: no key sent, a choose step missed and no dialog was answered since'
-        return 2
-      fi
-      ;;
+    *Enter,*) enter_allowed || return 2 ;;
   esac
   drive keys "$STEP_TEXT" </dev/null >/dev/null || return 1
   wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
@@ -154,14 +156,17 @@ press_step_keys() {
 # Keep the state's choose_missed mark after the step just run, whose exit
 # code is $1. A `choose` that did not place the cursor (a miss or a failed
 # drive call) sets it; a `choose` that did, a `dialog` that read and
-# answered a dialog, and an `agent`, `stop` or `reboot` step (a new or
-# closed session) clear it; every other step keeps it.
+# answered a dialog, an `options` step that read one (the cursor wrapped or
+# stopped, so the next Enter is meant for it), and an `agent`, `stop` or
+# `reboot` step (a new or closed session) clear it; every other step keeps
+# it.
 note_choose() {
   _nc_mark=$(state_get choose_missed)
   _nc_new=$_nc_mark
   case $STEP_KIND in
     choose) if [ "$1" -eq 0 ]; then _nc_new=; else _nc_new=yes; fi ;;
     dialog) case $STEP_NOTE in answered*) _nc_new= ;; esac ;;
+    options) case $STEP_NOTE in *wrapped | *stopped) _nc_new= ;; esac ;;
     agent | stop | reboot) _nc_new= ;;
   esac
   [ "$_nc_mark" = "$_nc_new" ] || state_set choose_missed "$_nc_new"
@@ -193,10 +198,11 @@ input_free() {
 }
 
 # The `prompt` and `type` kinds: when the input is free, type the step's
-# text, press the key $1 after it unless $1 is empty, and wait for the
-# step's expectation, `-` standing for $2.
+# text, press the key $1 after it unless $1 is empty (and then only when
+# enter_allowed), and wait for the step's expectation, `-` standing for $2.
 send_text() {
   input_free || return 2
+  if [ -n "$1" ]; then enter_allowed || return 2; fi
   printf '%s' "$STEP_TEXT" | drive type >/dev/null || return 1
   if [ -n "$1" ]; then drive keys "$1" </dev/null >/dev/null || return 1; fi
   wait_for "$STEP_EXPECT" "$2" >/dev/null || return 2
@@ -227,11 +233,12 @@ clear_typed() {
   wait_for "$STEP_EXPECT" quiet >/dev/null || return 2
 }
 
-# The `paste` kind: when the input is free, copy the paste file into the
-# VM, send it as one bracketed paste, type the text after the file name,
-# press Enter and wait.
+# The `paste` kind: when the input is free and enter_allowed, copy the
+# paste file into the VM, send it as one bracketed paste, type the text
+# after the file name, press Enter and wait.
 send_paste() {
   input_free || return 2
+  enter_allowed || return 2
   _sp_file=${STEP_TEXT%% *}
   _sp_rest=${STEP_TEXT#"$_sp_file"}
   _sp_rest=${_sp_rest# }
@@ -240,4 +247,24 @@ send_paste() {
   if [ -n "$_sp_rest" ]; then printf '%s' "$_sp_rest" | drive type >/dev/null || return 1; fi
   drive keys Enter </dev/null >/dev/null || return 1
   wait_for "$STEP_EXPECT" marker >/dev/null || return 2
+}
+
+# Set _ret_status (done, missed or failed) and _ret_note for the step just
+# run, from its exit code $1 (0, 2 for a missed expectation, else failed)
+# and STEP_NOTE, and keep the choose mark (note_choose).
+step_outcome() {
+  note_choose "$1"
+  _ret_status='done'
+  _ret_note=$STEP_NOTE
+  case $1 in
+    0) ;;
+    2)
+      _ret_status=missed
+      _ret_note=${STEP_NOTE:-"expectation not met within ${TURN_SECONDS:-300}s"}
+      ;;
+    *)
+      _ret_status=failed
+      _ret_note='a command of the step failed; see round.log'
+      ;;
+  esac
 }

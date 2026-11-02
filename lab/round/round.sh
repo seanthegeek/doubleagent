@@ -257,23 +257,11 @@ run_step() {
   _rs_before=$(capture_screen)
   [ "$STEP_KIND" != pause ] || pause_for_person "$_rs_label" "$_rs_before" "$_rs_started"
   round_log "step $_rs_label ($STEP_KIND)"
-  _rs_status='done'
-  _rs_note=
   STEP_NOTE=
   run_kind
-  _rs_code=$?
-  note_choose "$_rs_code"
-  case $_rs_code in
-    0) _rs_note=$STEP_NOTE ;;
-    2)
-      _rs_status=missed
-      _rs_note=${STEP_NOTE:-"expectation not met within ${TURN_SECONDS:-300}s"}
-      ;;
-    *)
-      _rs_status=failed
-      _rs_note='a command of the step failed; see round.log'
-      ;;
-  esac
+  step_outcome "$?"
+  _rs_status=$_ret_status
+  _rs_note=$_ret_note
   write_screens "$_rs_label" "$_rs_before" "$(capture_screen)"
   take_listing "$_rs_label"
   log_step "$_rs_label" "$STEP_KIND" "$_rs_status" "$_rs_started" "$(utc_now)" "$_rs_note"

@@ -207,7 +207,7 @@ def test_press_step_keys_after_a_missed_choose_sends_nothing(tmp_path):
     for shell in SHELLS:
         found = keys_after_choose(shell, make_stub(tmp_path, LABELS), "Always", False)
         assert found["code"] == "2" and found["drive"] == "", shell
-        assert found["note"].startswith("missed: no key sent"), shell
+        assert found["note"] == "the choose step before missed", shell
 
 
 def test_press_step_keys_after_a_failed_choose_sends_nothing(tmp_path):
@@ -369,3 +369,65 @@ def test_a_paste_with_a_dialog_open_sends_nothing(tmp_path):
         assert found["code"] == "0" and found["drive"] == expected, shell
         assert typed_text(stub) == "Sum it.", shell
         (stub / "typed").unlink()
+
+
+def test_a_prompt_or_paste_while_the_mark_is_set_sends_nothing(tmp_path):
+    cases = [
+        ("STEP_KIND=prompt; STEP_TEXT=hi; STEP_NOTE=; send_text Enter marker", ""),
+        ("STEP_KIND=paste; STEP_TEXT='short.txt Sum'; STEP_NOTE=; send_paste", ""),
+        ("STEP_KIND=type; STEP_TEXT='/auth '; STEP_NOTE=; send_text '' quiet", "type\n"),
+    ]
+    for shell in SHELLS:
+        for step, drive_log in cases:
+            stub = make_stub(tmp_path, LABELS)
+            script = (
+                'choose_option; note_choose $?; : >"$STUB/labels"; : >"$STUB/drive.log"\n' + step
+            )
+            found = run_steps(shell, stub, script, "Always")
+            assert found["drive"] == drive_log, (shell, step)
+            if not drive_log:
+                assert found["code"] == "2", (shell, step)
+                assert found["note"] == "the choose step before missed", (shell, step)
+
+
+def test_an_options_reading_a_reboot_or_a_placed_choose_clears_the_mark(tmp_path):
+    clearing = [
+        "STEP_KIND=options; STEP_NOTE=; read_options 12; note_choose $?",
+        "STEP_KIND=reboot; STEP_NOTE=; note_choose 0",
+        "STEP_KIND=choose; STEP_TEXT='No$'; STEP_NOTE=; choose_option; note_choose $?",
+    ]
+    for shell in SHELLS:
+        for middle in clearing:
+            found = mark_then(shell, make_stub(tmp_path, LABELS), middle, "Enter")
+            assert found["code"] == "0" and found["drive"] == "keys Enter\n", (shell, middle)
+
+
+def test_an_options_step_that_read_nothing_keeps_the_mark(tmp_path):
+    middle = "STEP_KIND=options; STEP_NOTE='0 presses of Down, the cursor limit'; note_choose 0"
+    for shell in SHELLS:
+        found = mark_then(shell, make_stub(tmp_path, LABELS), middle, "Enter")
+        assert found["code"] == "2" and found["drive"] == "", shell
+
+
+def test_step_outcome_maps_each_exit_code(tmp_path):
+    cases = [
+        ("0", "read it", "done", "read it"),
+        ("2", "", "missed", "expectation not met within 300s"),
+        ("2", "a dialog is open", "missed", "a dialog is open"),
+        ("1", "ignored", "failed", "a command of the step failed; see round.log"),
+    ]
+    for shell in SHELLS:
+        for code, note, status, expected in cases:
+            script = (
+                "STEP_KIND=prompt; STEP_NOTE='%s'; step_outcome %s; "
+                'STEP_NOTE="$_ret_status|$_ret_note"' % (note, code)
+            )
+            found = run_steps(shell, make_stub(tmp_path, []), script)
+            assert found["note"] == "%s|%s" % (status, expected), (shell, code, note)
+
+
+def test_step_outcome_keeps_the_choose_mark(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, [])
+        run_steps(shell, stub, "STEP_KIND=choose; STEP_NOTE=; step_outcome 2")
+        assert (stub / "state").read_text(encoding="utf-8") == "choose_missed=yes\n", shell
