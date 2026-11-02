@@ -108,8 +108,9 @@ answer_dialog() {
 # The `choose` kind: read the open dialog's options, then press Down until
 # the highlighted line matches the step's pattern, leaving the Enter to the
 # next step. Return 2 with the reason in STEP_NOTE when no dialog is open
-# (no key sent), when no option matches (the cursor back on the first) or
-# when the cursor ends on a line the pattern does not match.
+# (no key sent), or when no option matches or the cursor ends on a line the
+# pattern does not match; then press Escape once (choose_missed_escape), so
+# the dialog is closed rather than left for a later key.
 choose_option() {
   dialog_on_screen - || {
     STEP_NOTE='missed: no dialog open'
@@ -121,8 +122,8 @@ choose_option() {
   while ! printf '%s\n' "$_co_line" | grep -Eq -- "$STEP_TEXT"; do
     _co_index=$((_co_index + 1))
     if [ "$_co_index" -ge "$_ret_options" ]; then
-      STEP_NOTE="missed: no option matches $STEP_TEXT"
-      return 2
+      choose_missed_escape "missed: no option matches $STEP_TEXT"
+      return
     fi
     _co_line=$(highlighted_line "${AGENT_OPTION:-}" \
       <"$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_co_index.txt")
@@ -131,7 +132,15 @@ choose_option() {
   _co_line=$(capture_screen | highlighted_line "${AGENT_OPTION:-}")
   STEP_NOTE="cursor on \"$_co_line\""
   printf '%s\n' "$_co_line" | grep -Eq -- "$STEP_TEXT" && return 0
-  STEP_NOTE="missed: the cursor ended on \"$_co_line\", not $STEP_TEXT"
+  choose_missed_escape "missed: the cursor ended on \"$_co_line\", not $STEP_TEXT"
+}
+
+# Close the dialog a `choose` could not place the cursor in with one
+# Escape, set STEP_NOTE to the reason $1 and what was sent, and return 2;
+# return 1 when the drive call fails.
+choose_missed_escape() {
+  drive keys Escape </dev/null >/dev/null || return 1
+  STEP_NOTE="$1; Escape sent after the miss"
   return 2
 }
 
@@ -156,17 +165,15 @@ press_step_keys() {
 # Keep the state's choose_missed mark after the step just run, whose exit
 # code is $1. A `choose` that did not place the cursor (a miss or a failed
 # drive call) sets it; a `choose` that did, a `dialog` that read and
-# answered a dialog, an `options` step that read one (the cursor wrapped or
-# stopped, so the next Enter is meant for it), and an `agent`, `stop` or
-# `reboot` step (a new or closed session) clear it; every other step keeps
-# it.
+# answered a dialog, and an `agent`, `stop` or `reboot` step (a new or
+# closed session) clear it; every other step keeps it, an `options` step
+# included, whose reading leaves the cursor on an option nobody chose.
 note_choose() {
   _nc_mark=$(state_get choose_missed)
   _nc_new=$_nc_mark
   case $STEP_KIND in
     choose) if [ "$1" -eq 0 ]; then _nc_new=; else _nc_new=yes; fi ;;
     dialog) case $STEP_NOTE in answered*) _nc_new= ;; esac ;;
-    options) case $STEP_NOTE in *wrapped | *stopped) _nc_new= ;; esac ;;
     agent | stop | reboot) _nc_new= ;;
   esac
   [ "$_nc_mark" = "$_nc_new" ] || state_set choose_missed "$_nc_new"

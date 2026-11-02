@@ -281,8 +281,11 @@ Keychain Access on macOS, Credential Manager on Windows). An agent that
 only reads a key from the environment or a file the person writes has
 neither step.
 
-An `agent` step started in a directory not yet trusted (the first start,
-a start in the home) is followed by the trust dialog's steps. Gemini CLI's
+An `agent` step that may raise a trust dialog is followed by its steps:
+for Gemini CLI and Qwen Code a start in a directory not yet trusted (the
+first start, a start in the home), for pi a start in a directory with
+project resources, the only one pi asks about (pi 2c8d1feb,
+`packages/coding-agent/src/core/project-trust.ts:51`). Gemini CLI's
 table reads that dialog with `options` and answers it with `keys`, since
 the `agent` step's `expect` is the dialog's pattern and so proves it is
 there; the Qwen Code and pi tables use a `dialog` step, since their
@@ -290,12 +293,14 @@ documents do not say the dialog appears. The follow-up prompt that may
 draw a question (`refactor this`) waits, for an agent with an input
 marker, for that marker or a confirmation dialog; pi, which has neither,
 waits for a settled screen. It is followed by a `keys` step that cancels
-a turn still running and a `dialog` step that answers a confirmation left
-open, so the next prompt starts at an idle input.
+a turn still running and, for Gemini CLI and Qwen Code, a `dialog` step
+that answers a confirmation left open, so the next prompt starts at an
+idle input; pi's table has only the cancel step, since pi asks nothing
+before a tool call.
 
 Every dialog is read before it is answered: an `options` step presses Down
 until the cursor wraps or stops, saving each screen, and puts the cursor
-back on the first option. A `dialog` step does the same and then answers
+back where it started. A `dialog` step does the same and then answers
 with the first option, but only when the dialog is on the screen; where a
 dialog may or may not appear (a web tool's confirmation, a trust question),
 it records `no dialog` and sends nothing, since a key sent to an absent
@@ -306,10 +311,13 @@ next `keys` step's Enter answers with it. When a `choose` step misses or
 fails, no step that presses Enter runs (a `keys` step whose keys include
 Enter, a `prompt` or a `paste`; each is `missed` with the note `the choose
 step before missed`) until a later `choose` places the cursor, a `dialog`
-step reads and answers a dialog, an `options` step reads one (the cursor
-wrapped or stopped, so the next Enter is meant for it), or an `agent`,
-`stop` or `reboot` step opens or closes the session, so no Enter answers
-with an option the table did not mean.
+step reads and answers a dialog, or an `agent`, `stop` or `reboot` step
+opens or closes the session, so no Enter answers with an option the table
+did not mean; an `options` step does not clear it, since its reading
+leaves the cursor on an option nobody chose. A `choose` that misses with
+a dialog open (no option matches, or the cursor ends elsewhere) also
+presses Escape once to close that dialog and logs `Escape sent after the
+miss`; one that finds no dialog sends nothing.
 No step submits anything to a vendor: a bug report command is run only
 where it writes its report locally.
 
@@ -329,9 +337,9 @@ table; `start` and `resume` refuse one that fails.
 | `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's. |
 | `prompt` | the prompt | Types the text, presses Enter and waits; with a dialog open or a missed `choose`'s mark set it types nothing and is `missed`, as described above the table. |
 | `type` | text | Types the text without Enter and waits. |
-| `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back on the first option; the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
+| `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started; the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
 | `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options` (`at least N options` when the presses ran out first). Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
-| `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. The step is `missed` with the reason when no dialog is open (no key is sent), when no option matches (the cursor is back on the first option, where the reading left it) or when the cursor ends on a line the pattern does not match (the cursor stays there); after any miss or a failed drive call, no `keys` step that includes Enter is sent until the mark is cleared, as described above the table. |
+| `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. The step is `missed` with the reason when no dialog is open (no key is sent), and, pressing Escape once to close the dialog and logging `Escape sent after the miss`, when no option matches or when the cursor ends on a line the pattern does not match; after any miss or a failed drive call, no `keys` step that includes Enter is sent until the mark is cleared, as described above the table. |
 | `clear` | `-`, or the number of Backspace presses, 1 to 200 | Presses Backspace that many times in one drive call, `-` meaning once per character of the text of the nearest `type` step before it (its trailing space counted), and waits for `expect` (`-` is a settled screen). It deletes a typed slash command after its `-subcommands` step; while a dialog is open it presses nothing and is `missed`, as the typing kinds are. |
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; keys that include Enter are not sent, and the step is `missed`, while a missed `choose`'s mark is set, as described above the table. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
@@ -435,4 +443,5 @@ readers of `lib/screen.sh` (the joined URLs, the highlighted option),
 which they run under `/bin/sh` and `dash` on a saved synthetic screen,
 and the dialog step kinds of `lib/steps.sh`, which they run under the same
 shells with `drive`, `capture_screen`, `wait_for` and the state functions
-replaced by stubs over a scripted dialog.
+replaced by stubs over a scripted dialog. The step dispatch in `round.sh`
+(`run_kind`) and `resume_cell` are not covered, since they need a VM.
