@@ -123,9 +123,12 @@ goes in the credentials file `.env` beside `round.sh`, copied from
 `.env.example` and ignored by git, one `NAME=value` line per credential
 with the value as it is; a `secret` step types the named value into the
 agent's dialog over `ssh`, so the ssh sign-in of such an agent needs no
-one at the VM. `start` and `resume` stop before their first step when a
-`secret` step ahead names a variable the file leaves empty. A sign-in
-with a browser part stays a `pause` for the person.
+one at the VM. A credential the agent reads from an environment variable
+or a file instead leaves `.env` through a `secret:NAME` token in an
+`agent` or `command` step ([The step table](#the-step-table)). `start`
+and `resume` stop before their first step when a `secret` step or a token
+ahead names a variable the file leaves empty. A sign-in with a browser
+part stays a `pause` for the person.
 
 ### The cell directory
 
@@ -301,6 +304,27 @@ Keychain Access on macOS, Credential Manager on Windows). An agent that
 only reads a key from the environment or a file the person writes has
 neither step.
 
+An `agent` step may set environment variables for the agent with
+`NAME=value` words before its command (after `in:<dir>` when there is
+one), as a person would type them: `round.sh` puts `env` in front of the
+line on Linux and macOS, and `$HOME` in a value expands in the VM. A
+Windows table writes the PowerShell form itself
+(`$env:NAME='value'; agent`), since the line goes to
+`powershell -Command` there. A `secret:NAME` token in an `agent` or
+`command` text (`GEMINI_API_KEY=secret:GEMINI_API_KEY gemini`, or a
+`printf` that writes the key into the agent's dotfile) stands for the
+value of the variable `NAME` of the credentials file
+([Accounts](#accounts)), inserted as written with no quoting added;
+`steps.py check` reports a token whose name is not upper case.
+`round.sh` replaces the token just before the step runs and sends the
+result over the `ssh` stdin, as a `secret` step's value travels:
+`round.log` shows the step's text with the token, and the pipeline
+writes the value into neither it nor the step log, `report.md` or the
+screen files. In the VM the value is part of the agent's command line,
+and so of the processes that start it (tui-test, and `env` on Linux and
+macOS), or of the shell's input. Write no command whose output shows the
+value: `screens/NN-name.command.txt` keeps what a `command` step prints.
+
 An `agent` step that may raise a trust dialog is followed by its steps:
 for Gemini CLI and Qwen Code a start in a directory not yet trusted (the
 first start, a start in the home), for pi a start in a directory with
@@ -381,7 +405,7 @@ table; `start` and `resume` refuse one that fails.
 
 | Kind | `text` | What the step does |
 | --- | --- | --- |
-| `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's. |
+| `agent` | the command line, optionally after `in:<dir>` (a directory below the home, `in:.` for the home; default `lab/proj`) and `NAME=value` words that set environment variables (on Linux and macOS; a Windows table writes `$env:NAME='value';` before the command); `secret:NAME` tokens as described above the table | Stops the open session, if any, and starts the command in a new 120 by 40 terminal session `s<NN>`, inside an interactive login shell so `PATH` is a terminal's; `NAME=value` words run it under `env`. |
 | `prompt` | the prompt | Types the text, presses Enter and waits; a dialog open is closed with Escape first, and with the mark set it types nothing and is `missed`, as described above the table. |
 | `type` | text | Types the text without Enter and waits. |
 | `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started, one Up at a time until the cursor is on the option it started on (`cursor not returned` and the mark set when it never gets there); the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
@@ -391,7 +415,7 @@ table; `start` and `resume` refuse one that fails.
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; keys that include Enter are not sent, and the step is `missed`, while the mark described above the table is set; a failed drive call sets the mark. |
 | `secret` | the upper-case name of a variable of the credentials file ([Accounts](#accounts)) | Types the variable's value into the open input dialog (the agent's `AGENT_INPUT_GUARD` pattern must be on the screen, else nothing is typed and the step is `missed`), presses Enter and waits; the value goes to the typing call's stdin on the analyst's side, is the argument of one short-lived tui-test process in the guest (whose `type` takes its text as an argument), and shows wherever the agent's dialog echoes it; the step log names only the variable. The Enter is held back while the mark is set, as a `keys` step's is. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
-| `command` | a shell command | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`. |
+| `command` | a shell command; `secret:NAME` tokens as described above the table | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`; a token's value goes to the shell's stdin, never to the log. |
 | `stop` | `-` | Saves the session's recording and stops it: Ctrl+C twice, then TERM (not on Windows), then a kill, each with a bounded wait. |
 | `pause` | what the person must do; `{session}` becomes the open session's name | Prints the screen and its joined URLs, snapshots the VM and exits 3, as described above. |
 | `idle` | seconds | Waits that long. |

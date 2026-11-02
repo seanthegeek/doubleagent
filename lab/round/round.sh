@@ -178,25 +178,6 @@ write_screens() {
   } >"$CELL/screens/$1.txt"
 }
 
-# Start the agent with the step's command line; a first word `in:<dir>`
-# names the working directory below the home (`in:.` for the home).
-start_agent() {
-  end_session
-  _sa_directory=lab/proj
-  _sa_line=$1
-  case $_sa_line in
-    in:*)
-      _sa_directory=${_sa_line%% *}
-      _sa_directory=${_sa_directory#in:}
-      _sa_line=${_sa_line#* }
-      ;;
-  esac
-  state_set session "s$STEP_NUMBER"
-  round_log "start session s$STEP_NUMBER in ~/$_sa_directory: $_sa_line"
-  printf '%s\n' "$_sa_line" |
-    drive start "${TERMINAL_COLS:-120}" "${TERMINAL_ROWS:-40}" "$_sa_directory"
-}
-
 # Run the kind-specific part of the loaded step; return 1 when a command
 # failed and 2 when the step's expectation was not met in time.
 run_kind() {
@@ -210,11 +191,7 @@ run_kind() {
     clear) clear_typed ;;
     paste) send_paste ;;
     secret) send_secret ;;
-    command)
-      round_log "command: $STEP_TEXT"
-      printf '%s\n' "$STEP_TEXT" |
-        guest_shell >"$CELL/screens/$STEP_NUMBER-$STEP_NAME.command.txt" 2>&1 || return 1
-      ;;
+    command) run_command || return 1 ;;
     agent)
       start_agent "$STEP_TEXT" >/dev/null || return 1
       wait_for "$STEP_EXPECT" marker >/dev/null || return 2

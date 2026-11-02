@@ -311,3 +311,26 @@ def test_clear_kind(tmp_path):
     assert problems_of(line("02", "lonely", "clear", "2", "-", "c"), tmp_path) == [
         "clear with no agent session open"
     ]
+
+
+def test_agent_takes_environment_assignments_before_its_command(tmp_path):
+    for text in ("NAME=value gemini", "in:. GEMINI_API_KEY=secret:GEMINI_API_KEY gemini"):
+        steps_text = line("02", "start", "agent", text, "-", "c")
+        assert problems_of(steps_text, tmp_path) == [], text
+    text = line("02", "start", "agent", "NAME=value", "-", "c")
+    text += line("03", "here", "agent", "in:. A=1 B=2", "-", "c")
+    assert problems_of(text, tmp_path) == [
+        "agent needs a command after NAME=value",
+        "agent needs a command after B=2",
+    ]
+
+
+def test_secret_tokens_name_an_upper_case_variable(tmp_path):
+    text = line("02", "start", "agent", "KEY=secret:lower gemini", "-", "c")
+    text += line("03", "write", "command", "echo secret:API_KEY secret: >f", "-", "c")
+    text += line("04", "fine", "command", "echo secret:API_KEY_2 >f", "-", "c")
+    text += line("05", "said", "prompt", "what is secret:lower?", "-", "c")
+    assert problems_of(text, tmp_path) == [
+        "secret:lower is not the upper-case name of a variable of the credentials file",
+        "secret: is not the upper-case name of a variable of the credentials file",
+    ]

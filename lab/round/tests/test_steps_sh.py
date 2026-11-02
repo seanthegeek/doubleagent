@@ -1,6 +1,8 @@
 """Tests of lib/steps.sh, the dialog step kinds, run under sh and dash against stubbed calls.
 
-The stubs replace drive, capture_screen, wait_for, state_get, state_set, round_log and die.
+The stubs replace drive, capture_screen, wait_for, state_get, state_set, round_log, die,
+guest_copy, guest_shell, end_session and paste_source; drive and guest_shell keep the text a
+session start or a guest command received on stdin.
 They keep a scripted dialog in a directory: its option labels, the cursor, whether Down wraps
 or stops at the last option, whether Up moves it, whether Escape closes it, a banner shown for
 the first captures only, the capture after which the screen cannot be read, and every drive
@@ -23,6 +25,7 @@ drive() {
   fi
   [ "$1" != keys ] || stub_keys "$2"
   [ "$1" != type ] || cat >>"$STUB/typed"
+  [ "$1" != start ] || cat >>"$STUB/started"
 }
 stub_keys() {
   _sk_rest=$1,
@@ -71,6 +74,8 @@ round_log() { printf '%s\n' "$*" >>"$STUB/round.log"; }
 die() { printf 'die: %s\n' "$*" >>"$STUB/round.log"; exit 1; }
 guest_copy() { printf 'copy %s\n' "$*" >>"$STUB/drive.log"; }
 paste_source() { printf '%s\n' "$1"; }
+guest_shell() { cat >>"$STUB/shell"; }
+end_session() { printf 'end session\n' >>"$STUB/round.log"; }
 """
 REPORT = (
     'code=$?; printf "code=%s\\nnote=%s\\noptions=%s\\n" "$code" "$STEP_NOTE" "${_ret_options:-}"'
@@ -805,3 +810,110 @@ def test_missing_secrets_names_the_steps_ahead(tmp_path):
             shell, stub, 'printf "missing=%s\\n" "$(' + script.replace(" 3 ", " 2 ") + ')"'
         )
         assert found["missing"] == "GEMINI_API_KEY,LATER,", shell
+
+
+def token_stub(tmp_path: pathlib.Path, *lines: str) -> pathlib.Path:
+    """Return a stub whose credentials file holds `lines`, each `NAME=value`."""
+    stub = make_stub(tmp_path, [])
+    for leftover in ("started", "shell"):
+        (stub / leftover).unlink(missing_ok=True)
+    (stub / "env").write_text("".join(line + "\n" for line in lines), encoding="utf-8")
+    return stub
+
+
+EXPAND = (
+    'ROUND_ENV=$STUB/env; expand_secrets "$STEP_TEXT"; printf "expanded=%s\\n" "$_ret_expanded"'
+)
+
+
+def test_expand_secrets_replaces_each_token(tmp_path):
+    cases = [
+        ("gemini", "gemini"),
+        ("KEY=secret:API_KEY gemini", "KEY=a/b&c\\1 gemini"),
+        ("secret:API_KEY:secret:OTHER_2.", "a/b&c\\1:two words."),
+        ("keep secret:lower and secret: alone", "keep secret:lower and secret: alone"),
+    ]
+    for shell in SHELLS:
+        for text, expected in cases:
+            stub = token_stub(tmp_path, "API_KEY=a/b&c\\1", "OTHER_2=two words")
+            found = run_steps(shell, stub, EXPAND, text)
+            assert found["code"] == "0" and found["expanded"] == expected, (shell, text)
+
+
+def test_expand_secrets_with_an_empty_value_dies(tmp_path):
+    for shell in SHELLS:
+        stub = token_stub(tmp_path, "API_KEY=", "OTHER=x")
+        try:
+            run_steps(shell, stub, EXPAND, "secret:OTHER secret:API_KEY")
+        except subprocess.CalledProcessError as error:
+            assert error.returncode == 1, shell
+        else:
+            raise AssertionError("expand_secrets did not die under " + shell)
+        logged = (stub / "round.log").read_text(encoding="utf-8")
+        assert logged == "die: API_KEY has no value in %s/env\n" % stub, shell
+
+
+def test_missing_secrets_reads_the_tokens_of_agent_and_command_steps(tmp_path):
+    table = (
+        "NN\tname\tkind\ttext\texpect\tclaim\n"
+        "02\tstart\tagent\tin:. KEY=secret:AGENT_KEY OTHER=secret:FILLED gemini\t-\tc\n"
+        "03\twrite\tcommand\tprintf '%s %s' secret:COMMAND_KEY secret:AGENT_KEY >f\t-\tc\n"
+        "04\task\tprompt\tsecret:NOT_READ\t-\tc\n"
+    )
+    (tmp_path / "steps.tsv").write_text(table, encoding="utf-8")
+    script = 'ROUND_ENV=$STUB/env; missing_secrets "%s" 2 | tr "\\n" ","' % (tmp_path / "steps.tsv")
+    for shell in SHELLS:
+        stub = token_stub(tmp_path, "FILLED=x")
+        found = run_steps(shell, stub, 'printf "missing=%s\\n" "$(' + script + ')"')
+        assert found["missing"] == "AGENT_KEY,COMMAND_KEY,", shell
+
+
+COMMAND_LINE = (
+    'agent_command_line "$STEP_TEXT"\n'
+    'printf "directory=%s\\ncommand=%s\\n" "$_ret_directory" "$_ret_command"'
+)
+
+
+def test_agent_command_line_splits_the_directory_and_prefixes_env(tmp_path):
+    cases = [
+        ("linux", "gemini --debug", "lab/proj", "gemini --debug"),
+        ("linux", "in:. gemini", ".", "gemini"),
+        ("macos", "A_1=$HOME/x gemini", "lab/proj", "env A_1=$HOME/x gemini"),
+        ("linux", "in:lab/b KEY=v X=y gemini", "lab/b", "env KEY=v X=y gemini"),
+        ("linux", "1X=v gemini", "lab/proj", "1X=v gemini"),
+        ("linux", "gemini --flag=x", "lab/proj", "gemini --flag=x"),
+        ("windows", "in:. $env:KEY='v'; gemini", ".", "$env:KEY='v'; gemini"),
+        ("windows", "KEY=v gemini", "lab/proj", "KEY=v gemini"),
+    ]
+    for shell in SHELLS:
+        for guest, text, directory, command in cases:
+            script = "GUEST_OS=%s; %s" % (guest, COMMAND_LINE)
+            found = run_steps(shell, make_stub(tmp_path, []), script, text)
+            assert found["directory"] == directory, (shell, guest, text)
+            assert found["command"] == command, (shell, guest, text)
+
+
+def test_start_agent_logs_the_token_and_sends_the_value(tmp_path):
+    for shell in SHELLS:
+        stub = token_stub(tmp_path, "API_KEY=AIza/&x")
+        script = 'ROUND_ENV=$STUB/env; GUEST_OS=linux; start_agent "$STEP_TEXT"'
+        found = run_steps(shell, stub, script, "in:. KEY=secret:API_KEY gemini")
+        assert found["code"] == "0" and found["drive"] == "start 120 40 .\n", shell
+        started = (stub / "started").read_text(encoding="utf-8")
+        assert started == "env KEY=AIza/&x gemini\n", shell
+        logged = (stub / "round.log").read_text(encoding="utf-8")
+        assert logged == "end session\nstart session s05 in ~/.: env KEY=secret:API_KEY gemini\n"
+        assert "AIza" not in logged + (stub / "state").read_text(encoding="utf-8"), shell
+
+
+def test_run_command_logs_the_token_and_sends_the_value(tmp_path):
+    for shell in SHELLS:
+        stub = token_stub(tmp_path, "API_KEY=AIza/&x")
+        text = "printf 'K=%s\\n' secret:API_KEY >f"
+        found = run_steps(shell, stub, "ROUND_ENV=$STUB/env; run_command", text)
+        assert found["code"] == "0", shell
+        shell_input = (stub / "shell").read_text(encoding="utf-8")
+        assert shell_input == "printf 'K=%s\\n' AIza/&x >f\n", shell
+        logged = (stub / "round.log").read_text(encoding="utf-8")
+        assert logged == "command: " + text + "\n" and "AIza" not in found["note"], shell
+        assert (stub / "screens" / "05-pick.command.txt").is_file(), shell

@@ -67,6 +67,11 @@ NUMBER_RE = re.compile(r"\d{2,3}")
 NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 # The variable a `secret` step reads from the credentials file.
 VARIABLE_RE = re.compile(r"[A-Z][A-Z0-9_]*")
+# A token of an `agent` or `command` text that round.sh replaces with a credentials file value;
+# the group is checked against VARIABLE_RE, so a lower-case or empty name is reported.
+TOKEN_RE = re.compile(r"secret:([A-Za-z0-9_]*)")
+# An environment assignment word an `agent` text may put before its command.
+ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
 # Escapes that grep -E, .NET and Python do not agree on.
 NON_PORTABLE_RE = re.compile(r"\\[dDwWsSbB]")
 # A `type` step that reads a slash command's subcommands: the command and one trailing space.
@@ -165,8 +170,18 @@ def text_problem(step: Step, paste_dirs: list[pathlib.Path]) -> str | None:
             return "secret takes the upper-case name of a variable of the credentials file"
     elif step.kind == "agent":
         words = step.text.split()
-        if words[0].startswith("in:") and len(words) < 2:
-            return "agent needs a command after %s" % words[0]
+        position = 1 if words[0].startswith("in:") else 0
+        while position < len(words) and ASSIGNMENT_RE.match(words[position]):
+            position += 1
+        if position == len(words):
+            return "agent needs a command after %s" % words[-1]
+    if step.kind in ("agent", "command"):
+        bad = [name for name in TOKEN_RE.findall(step.text) if not VARIABLE_RE.fullmatch(name)]
+        if bad:
+            return (
+                "secret:%s is not the upper-case name of a variable of the credentials file"
+                % (bad[0])
+            )
     return None
 
 
