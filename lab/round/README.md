@@ -358,10 +358,13 @@ presses Escape once, which cancels a confirmation and grants nothing,
 waits for a settled screen and looks again: with the input free it goes
 on, noting `a dialog was open; Escape closed it`, a finding about the
 agent (a call it chained after an answered one, a dialog a command opens);
-with a dialog still open it types nothing and is `missed` with the note
-`a dialog is open after an Escape`. The input freed this way also clears
-the mark described above, since the dialog whose cursor the mark guarded
-is closed. So one unforeseen dialog costs its step a note, not every
+with a dialog still open (Gemini CLI's key prompt gives way to its method
+picker) it types nothing, is `missed` with the note
+`a dialog is open after an Escape` and sets the mark described above, so
+no Enter answers that dialog either; a screen that cannot be read before
+or after the Escape fails the step, types nothing and sets the mark, since
+an unread screen is not an empty one. The input freed by the Escape
+clears the mark, since the dialog whose cursor it guarded is closed. So one unforeseen dialog costs its step a note, not every
 typing step after it. The tables still answer every dialog they
 expect with `options`, `keys`, `dialog` or `choose` steps, since a prompt
 never belongs in one and text typed into a key prompt can be stored as

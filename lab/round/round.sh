@@ -95,9 +95,12 @@ drive() {
   guest_tool drive "$(state_get session)" "$@"
 }
 
+# Print the session's screen; return 1 when the drive call fails, so a
+# reader can tell an unread screen from an empty one.
 capture_screen() {
   [ -n "$(state_get session)" ] || return 0
-  drive screen </dev/null 2>/dev/null | tr -d '\r'
+  _cs_text=$(drive screen </dev/null 2>/dev/null) || return 1
+  printf '%s\n' "$_cs_text" | tr -d '\r'
 }
 
 # Take the listing $1 and diff it against the previous one. The survey's

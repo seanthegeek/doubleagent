@@ -229,12 +229,14 @@ stop_after_reached() {
   round_log "stopped after step $2 (ROUND_STOP_AFTER); resume goes on"
 }
 
-# Succeed when a dialog is open: the agent's AGENT_OPTION pattern (a
+# Return 0 when a dialog is open: the agent's AGENT_OPTION pattern (a
 # highlighted option) or AGENT_INPUT_GUARD pattern (an input dialog with no
 # option, such as a key prompt) shows on the screen, box-drawing characters
-# stripped.
+# stripped; 1 when none does; 2 when the screen could not be read, which
+# is not the same as no dialog.
 dialog_open() {
-  _do_screen=$(capture_screen | strip_box)
+  _do_screen=$(capture_screen) || return 2
+  _do_screen=$(printf '%s\n' "$_do_screen" | strip_box)
   for _do_pattern in "${AGENT_OPTION:-}" "${AGENT_INPUT_GUARD:-}"; do
     [ -n "$_do_pattern" ] || continue
     printf '%s\n' "$_do_screen" | grep -Eq -- "$_do_pattern" && return 0
@@ -247,24 +249,37 @@ dialog_open() {
 # grants nothing, then a settled screen and a second look, so it costs the
 # step a note rather than every step after it its typing; the input then
 # free also clears the choose_missed mark, since the dialog whose cursor it
-# guarded is closed. A dialog still open sets STEP_NOTE and returns 2: a
-# prompt never belongs in a dialog, and one typed into a key prompt can
-# become the key. A failed Escape call sets the mark and returns 1, since
-# what it did to the dialog is unknown, as for a failed `keys` step.
+# guarded is closed. Whatever leaves the dialog's state unknown or a dialog
+# open (a failed Escape call, an unread screen, a dialog still open, as
+# Gemini CLI's key prompt gives way to its method picker) sets the mark, so
+# no Enter answers it, and returns 1 (failed) or 2 (missed).
 input_free() {
-  dialog_open || return 0
-  drive keys Escape </dev/null >/dev/null || {
-    STEP_NOTE='the Escape call failed; its effect on the open dialog is unknown'
-    state_set choose_missed yes
-    return 1
-  }
+  dialog_open
+  case $? in
+    1) return 0 ;;
+    2) input_unknown 'the screen could not be read'; return 1 ;;
+  esac
+  drive keys Escape </dev/null >/dev/null ||
+    { input_unknown 'the Escape call failed; its effect on the open dialog is unknown'; return 1; }
   wait_for quiet quiet >/dev/null || :
-  if dialog_open; then
-    STEP_NOTE='a dialog is open after an Escape'
-    return 2
-  fi
+  dialog_open
+  case $? in
+    0)
+      STEP_NOTE='a dialog is open after an Escape'
+      state_set choose_missed yes
+      return 2
+      ;;
+    2) input_unknown 'the screen could not be read after the Escape'; return 1 ;;
+  esac
   STEP_NOTE='a dialog was open; Escape closed it'
   [ "$(state_get choose_missed)" != yes ] || state_set choose_missed ''
+}
+
+# Set STEP_NOTE to $1 and the choose_missed mark, for a recovery whose
+# outcome on the dialog cannot be known; the caller then returns 1.
+input_unknown() {
+  STEP_NOTE=$1
+  state_set choose_missed yes
 }
 
 # Append the missed-expectation note to STEP_NOTE and return 2, for a step

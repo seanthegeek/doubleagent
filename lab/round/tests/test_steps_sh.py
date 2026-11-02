@@ -3,8 +3,8 @@
 The stubs replace drive, capture_screen, wait_for, state_get, state_set, round_log and die.
 They keep a scripted dialog in a directory: its option labels, the cursor, whether Down wraps
 or stops at the last option, whether Up moves it, whether Escape closes it, a banner shown for
-the first captures only, and every drive call, so a test reads what the step pressed and where
-the cursor ended.
+the first captures only, the capture after which the screen cannot be read, and every drive
+call, so a test reads what the step pressed and where the cursor ended.
 """
 
 from __future__ import annotations
@@ -44,6 +44,9 @@ stub_keys() {
 capture_screen() {
   _cs_count=$(($(cat "$STUB/captures") + 1))
   printf '%s\n' "$_cs_count" >"$STUB/captures"
+  if [ -f "$STUB/capture_fails_from" ] && [ "$_cs_count" -gt "$(cat "$STUB/capture_fails_from")" ]; then
+    return 1
+  fi
   _cs_cursor=$(cat "$STUB/cursor")
   if [ -f "$STUB/drift" ] && [ "$_cs_count" -gt "$(cat "$STUB/drift")" ]; then
     _cs_cursor=$((_cs_cursor + 1))
@@ -299,6 +302,28 @@ def test_a_prompt_with_an_option_dialog_open_types_nothing(tmp_path):
         found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
         assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
         assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
+        assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
+        found = run_steps(shell, stub, "STEP_KIND=keys; STEP_TEXT=Enter; press_step_keys")
+        assert found["code"] == "2" and found["note"] == "the choose step before missed", shell
+
+
+def test_an_unread_screen_stops_the_step_and_sets_the_mark(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, LABELS)
+        (stub / "typed").unlink(missing_ok=True)
+        (stub / "capture_fails_from").write_text("0\n", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
+        assert found["code"] == "1" and found["note"] == "the screen could not be read", shell
+        assert found["drive"] == "" and typed_text(stub) == "", shell
+        assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
+        stub = make_stub(tmp_path, LABELS)
+        (stub / "escape_closes").write_text("", encoding="utf-8")
+        (stub / "capture_fails_from").write_text("1\n", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hello")
+        expected = "the screen could not be read after the Escape"
+        assert found["code"] == "1" and found["note"] == expected, shell
+        assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
+        assert "choose_missed=yes" in (stub / "state").read_text(encoding="utf-8"), shell
 
 
 def test_a_prompt_closes_an_unforeseen_dialog_with_escape_and_types(tmp_path):
