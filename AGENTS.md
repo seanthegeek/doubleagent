@@ -891,9 +891,10 @@ before any install.
    chat is deleted, what a command offers) is answered during a round first
    from the running agent's own help, completion lists and dialogs, saved as
    screens, and the research document is corrected from them. Outside a
-   round, such a question or one about its behaviour (when a retention
-   sweep runs) is answered first from the vendor's documentation and forum, found by web
-   search or the documentation index (`llms.txt`) and cited as that source;
+   round, such a question or one about the product's behaviour (when a
+   retention sweep runs) is answered first from the vendor's documentation
+   and forum, found by web search or the documentation index (`llms.txt`)
+   and cited as that source;
    a VM experiment then tests the documented claim. Grep the bundle only for key names, enum
    values, record shapes and path strings, or to confirm a string a page
    names.

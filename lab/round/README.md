@@ -108,11 +108,10 @@ throwaway GitHub account, whose lab repository is the sample project's
 account, a token, a key other than the lab key) goes into a VM.
 
 Gemini CLI signs in with a Gemini API key, since its Google sign-in no
-longer serves individual accounts (observed on 0.66.0, 2026-11-01). Make
-the key in Google AI Studio under the throwaway account, in a project with
-pay-as-you-go billing enabled: the free tier's daily cap on the default
-model is spent within a few turns of a round (observed 2026-11-01). Delete
-the key once the round is over. Where the CLI stores the key is in
+longer serves individual accounts. Make the key in Google AI Studio under
+the throwaway account, in a project with pay-as-you-go billing enabled:
+the free tier's daily cap on the default model is spent within a few
+turns of a round. Delete the key once the round is over. Where the CLI stores the key is in
 [Credentials in `research/gemini-cli.md`](../../research/gemini-cli.md#credentials).
 
 ### The cell directory
@@ -192,8 +191,8 @@ The session name is in the pause text. This is how the person joins the
 session the pipeline started over `ssh`. Complete the agent's sign-in
 with the throwaway account, the browser part included, then detach with
 Ctrl+] and run `resume`. A key the agent asks for (Gemini CLI's API key)
-is pasted at its prompt the same way. If attaching fails, sign in from a desktop
-terminal of your own (start the agent there, sign in, exit) and run
+is pasted at its prompt the same way. If attaching fails, sign in from a
+desktop terminal of your own (start the agent there, sign in, exit) and run
 `resume`: the next listing records where the credential landed either
 way. The pipeline never asks for a credential or types one. It does
 print the agent's screen at a pause, so a one-time code or a sign-in URL
@@ -233,21 +232,30 @@ Before its first use, every slash command a table uses has a
 `<command>-subcommands` step, a `type` step whose text is the command and
 one trailing space (`/auth `), so the agent's completion list of
 subcommands and their descriptions is saved as the step's screen; a `keys`
-step after it clears the line. Every agent that signs in ends its table
-the same way: the agent's own sign-out command or dialog option, taken from
-that completion list or its research document and run over `ssh` with a
-listing (Gemini CLI's `/auth signout`, Qwen Code's `/auth` dialog, pi's
-`/logout`), then a
-`pause` in which the person signs in again from a terminal of the VM's
-desktop, with a listing, to show whether the credential lands somewhere
-else than it did over `ssh`. Where an agent offers no sign-out, that step
-is a `pause` in which the person removes the stored credential the way a
-user would (Passwords and Keys on Ubuntu, Keychain Access on macOS,
-Credential Manager on Windows). An agent that only reads a key from the
-environment or a file the person writes has neither step. An `agent` step
-started in a directory not yet trusted (the first start, a start in the
-home) is followed by the trust dialog's steps, and its `expect` is the
-dialog's pattern where the agent is known to show one.
+step after it clears the line; `steps.py check` reports a slash command
+used before that step. Every agent that signs in closes the `ssh`-driven
+part of its table with the agent's own sign-out command or dialog option,
+taken from that completion list or its research document and run over
+`ssh` with a listing (Gemini CLI's `/auth signout`, Qwen Code's `/auth`
+dialog, pi's `/logout`), then a `pause` in which the person signs in again
+from a terminal of the VM's desktop, with a listing, to show whether the
+credential lands somewhere else than it did over `ssh`. Where an agent
+offers no sign-out, that step is a `pause` in which the person removes the
+stored credential the way a user would (Passwords and Keys on Ubuntu,
+Keychain Access on macOS, Credential Manager on Windows). An agent that
+only reads a key from the environment or a file the person writes has
+neither step.
+
+An `agent` step started in a directory not yet trusted (the first start,
+a start in the home) is followed by the trust dialog's steps. Gemini CLI's
+table reads that dialog with `options` and answers it with `keys`, since
+the `agent` step's `expect` is the dialog's pattern and so proves it is
+there; the Qwen Code and pi tables use a `dialog` step, since their
+documents do not say the dialog appears. The follow-up prompt that may
+draw a question (`refactor this`) waits for the input marker or a
+confirmation dialog, and is followed by a `keys` step that cancels a turn
+still running and a `dialog` step that answers a confirmation left open,
+so the next prompt starts at an idle input.
 
 Every dialog is read before it is answered: an `options` step presses Down
 until the cursor wraps or stops, saving each screen, and puts the cursor
@@ -258,10 +266,9 @@ it records `no dialog` and sends nothing, since a key sent to an absent
 dialog would type into the agent's input. A `choose` step reads the
 options the same way and moves the cursor to the option whose text it
 names (the allow-always grant, the zip delivery of pi's `/bug`), so the
-next `keys` step's Enter answers with it. When a `choose` step misses (no
-dialog, or no option with that text), the `keys` step right after it sends
-nothing and is `missed` too, so no Enter answers with an option the table
-did not mean. No step submits anything to a vendor: a bug report command
+next `keys` step's Enter answers with it. When a `choose` step misses or
+fails, the `keys` step right after it sends nothing and is `missed` too,
+so no Enter answers with an option the table did not mean. No step submits anything to a vendor: a bug report command
 is run only where it writes its report locally.
 `python3 -I lab/round/steps.py check lab/round/agents/<agent>` checks a
 table; `start` and `resume` refuse one that fails.
@@ -273,7 +280,7 @@ table; `start` and `resume` refuse one that fails.
 | `type` | text | Types the text without Enter and waits. |
 | `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back on the first option; the step log says how many presses and whether the cursor wrapped or stopped. |
 | `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options`. Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
-| `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. With no dialog open or no option matching, the step is `missed` with the reason, the cursor stays on the first option, and the next `keys` step sends nothing. |
+| `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. The step is `missed` with the reason when no dialog is open (no key is sent), when no option matches (the cursor is back on the first option, where the reading left it) or when the cursor ends on a line the pattern does not match (the cursor stays there); after any miss or a failed drive call, the next `keys` step sends nothing. |
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; right after a `choose` step that missed, sends nothing and is `missed`. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
 | `command` | a shell command | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`. |
@@ -373,4 +380,7 @@ python3 -m pytest lab/round/tests -q
 The tests cover `classify.py`, the step table checker and `renumber`
 (including every shipped agent's table), the report, and the screen
 readers of `lib/screen.sh` (the joined URLs, the highlighted option),
-which they run under `/bin/sh` and `dash` on a saved synthetic screen.
+which they run under `/bin/sh` and `dash` on a saved synthetic screen,
+and the dialog step kinds of `lib/steps.sh`, which they run under the same
+shells with `drive`, `capture_screen`, `wait_for` and the state functions
+replaced by stubs over a scripted dialog.
