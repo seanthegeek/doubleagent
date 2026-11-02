@@ -1273,6 +1273,14 @@ into Format versions.
      way a user would, and the research document says the agent offers no
      sign-out. A source-host CLI the agent leans on follows the same order,
      once per tool and platform; later cells cite the research document.
+   - Every environment variable or dotfile the research document names
+     that moves a store, adds one or decides whether a credential is
+     written gets its own steps: a start with it set, one tool-free
+     question, a stop, and a listing diff, its path among the survey
+     roots. A key-carrying one takes its value from the pipeline's
+     credentials file through a token the step log never expands, never
+     typed into the step table. A variable that only changes what the
+     model is told (a system-prompt file) is out.
    - A session deleted the way a user would (the agent's own delete or
      clear, or the project directory removed). When the delete offers to
      remove the synced copy, take it and record whether a local file still

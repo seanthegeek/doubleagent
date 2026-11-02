@@ -1,10 +1,14 @@
 # Survey roots for gemini-cli, from research/gemini-cli.md (Per-user storage,
 # Credentials, Project-local files). The lab project ~/lab/proj is always
-# surveyed, so its .gemini/ and worktrees need no line here.
+# surveyed, so its .gemini/ and worktrees need no line here. The three ~/lab paths
+# are where the steps that set an environment variable send the agent's state.
 ~/.gemini
 ~/.cache/.gemini
 ~/.agents
 ~/.env
+~/lab/althome
+~/lab/activity.jsonl
+~/lab/trusted.json
 <tmp>/gemini
 <tmp>/gemini-client-error-*.json
 <tmp>/gemini-sandbox-*
