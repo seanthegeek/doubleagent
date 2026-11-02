@@ -52,7 +52,7 @@ agent name in each row links to its subsection.
 | [`dify`](#dify) | backlog | Source | [research](../research/dify.md); [issue 142](https://github.com/seanthegeek/doubleagent/issues/142); sandbox `shellctl.db` and job logs hold shell jobs; chats in PostgreSQL |
 | [`factory-droid`](#factory-droid) | backlog | Shipped binary strings, docs | [research](../research/factory-droid.md); [issue 54](https://github.com/seanthegeek/doubleagent/issues/54); JSONL session transcripts under `.factory/sessions` and a prompt history |
 | [`flowise`](#flowise) | backlog | Source | [research](../research/flowise.md); [issue 68](https://github.com/seanthegeek/doubleagent/issues/68); `database.sqlite` with `chat_message` (tool use and agent reasoning) and `execution` |
-| [`gemini-cli`](#gemini-cli) | parsed | source; fixture only | [research](../research/gemini-cli.md); [issue 394](https://github.com/seanthegeek/doubleagent/issues/394); [issue 410](https://github.com/seanthegeek/doubleagent/issues/410); the conversation turns in the activity log's request and response bodies are unparsed |
+| [`gemini-cli`](#gemini-cli) | parsed | real install: Linux (November 2026); source | [research](../research/gemini-cli.md); [issue 394](https://github.com/seanthegeek/doubleagent/issues/394); [issue 410](https://github.com/seanthegeek/doubleagent/issues/410); the conversation turns in the activity log's request and response bodies are unparsed |
 | [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md); [issue 368](https://github.com/seanthegeek/doubleagent/issues/368); the desktop app's local-storage prompt history is not parsed |
 | [`hermes`](#hermes) | parsed | source; fixture only | [research](../research/hermes.md); [issue 208](https://github.com/seanthegeek/doubleagent/issues/208); the nested `config.yaml` `approvals` settings are not parsed |
 | [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); [issue 221](https://github.com/seanthegeek/doubleagent/issues/221); the session pull request links are not parsed yet |
@@ -742,7 +742,9 @@ history sent) and an error report `gemini-client-error-<type>-<time>.json`
 the responder copied into `.gemini` or `.cache/.gemini`, or the
 `tmp/<slug>` directory of either (an `error report:` row, then the history
 sent), each without the environment-context item that opens the history;
-the activity log `tmp/<slug>/logs/session-<id>.jsonl` as `console`,
+the activity log at `tmp/<slug>/logs/session-<id>.jsonl` (the default path,
+which no caller writes; see
+[Activity log](../research/gemini-cli.md#activity-log)) as `console`,
 `network request`, `network response` and `network error` rows with no
 header value, query string or body; each `tmp/<slug>/memory/` file as one
 `memory file:` row with its text at its modification time, and each
@@ -750,7 +752,7 @@ clipboard image `tmp/<slug>/images/clipboard-<ms>.<ext>` as one
 `clipboard image:` row with its size, never its content. Not read: the
 conversation turns in the activity log's request and response bodies.
 
-Validated against: Source at [6814e00](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d) (0.67.0-nightly.20261020) and the v0.66.0 release, which writes the same shapes the parser reads (reviewed 2026-11-01), synthetic fixture; no real install.
+Validated against: Linux, Gemini CLI 0.66.0 (2026-11-01 and 2026-11-02), the session files (a `--worktree` session among them), `logs.json`, the `/bug` export, the trust file and the settings files, with the error reports observed by name, size and mode only and a `/chat save` checkpoint by name and size only; source at [6814e00](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d) (0.67.0-nightly.20261020) and the v0.66.0 release (reviewed 2026-11-01), synthetic fixture, for the stores no install has shown.
 
 ### `goose`
 

@@ -8,12 +8,13 @@ says how far the fork has drifted), Antigravity keeps its own state inside `~/.g
 ([`antigravity.md`](antigravity.md)), and Zed's agent panel can drive it
 ([Driven from Zed](#driven-from-zed)). This document rests on commit
 [`6814e00`](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d)
-(version 0.67.0-nightly.20261020) and the stable release
-[v0.66.0](https://github.com/google-gemini/gemini-cli/releases/tag/v0.66.0). The agent is
-parsed: the `gemini-cli` parser reads the session files, the past-use copies beside them
-(`logs.json`, `shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the
-tool checkpoints and the error reports), the activity log's records but not the conversation
-turns in its bodies, the `memory/` files, the clipboard images and the standing permission files
+(version 0.67.0-nightly.20261020), the stable release
+[v0.66.0](https://github.com/google-gemini/gemini-cli/releases/tag/v0.66.0) and a real install
+of 0.66.0 on Linux ([Observed](#observed)). The agent is parsed: the `gemini-cli` parser reads
+the session files, the past-use copies beside them (`logs.json`, `shell_history`, the
+`/chat save` checkpoints, the `/bug` history exports, the tool checkpoints and the error
+reports), the activity log's records at its default path but not the conversation turns in
+its bodies, the `memory/` files, the clipboard images and the standing permission files
 ([Parser plan](#parser-plan)).
 
 ## Source and evidence
@@ -34,13 +35,50 @@ versions with its commit.
 
 ### Observed
 
-- No real install. The evidence is the source at
-  [`6814e00`](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d)
-  (0.67.0-nightly.20261020) and the `v0.66.0` tag; every row the parser yields is
-  source-derived and its test data is fixture only.
+- **Linux CLI**: Gemini CLI 0.66.0 at `/usr/local/bin/gemini`, installed with the vendor's npm
+  command
+  ([Install globally with npm](https://github.com/google-gemini/gemini-cli/blob/main/README.md#install-globally-with-npm),
+  fetched 2026-11-01) on an Ubuntu lab virtual machine (arm64, GNOME desktop, Node v22.22.1),
+  run twice on the same build, 2026-11-01 22:51 UTC to 2026-11-02 01:50 UTC and 2026-11-02
+  02:00 to 03:40 UTC, each driven over SSH in a 120 by 40 terminal with a listing of the agent's
+  directories (names, sizes, modes and times) after every step. In a sample git project the
+  first run's steps were: the first start and the folder trust dialog
+  ([Per-user storage](#per-user-storage)); the Google sign-in, which the service refused for a
+  personal account, then an API key pasted into the dialog ([Credentials](#credentials)); the `?`
+  and `/help` screens; a question answered with no tool call; a web question, shell calls
+  approved once, cancelled and allowed for the session, an edit dialog, an MCP server's tool and
+  the underspecified prompt "refactor this" ([Permission rows](#permission-rows)); `/model`
+  ([Model rows](#model-rows)); `/bug` ([Bug reports](#bug-reports)); `/exit` and
+  `gemini --resume latest`; `/clear` ([Transcript stores](#transcript-stores));
+  `gemini --worktree lab` with `experimental.worktrees` unset
+  ([Project-local files](#project-local-files)); `general.devtools` on
+  ([Activity log](#activity-log)); `gemini --list-sessions`, `gemini --delete-session` and the
+  project directory removed ([What survives a delete](#what-survives-a-delete)); a start in the
+  home ([Per-user storage](#per-user-storage)); `/auth signout` and a sign-in from a terminal on
+  the desktop ([Credentials](#credentials)); a 600-second idle period
+  ([What survives a delete](#what-survives-a-delete)); and a reboot
+  ([What survives a delete](#what-survives-a-delete)). The session file's line
+  types and keys are in [Session JSONL](#session-jsonl). The first run recorded no
+  `/chat save` checkpoint ([/chat save checkpoints](#chat-save-checkpoints)). The second run
+  repeated those steps, and what differed (the second sign-out's `google_accounts.json` size,
+  the refactor's tool calls, the MCP call) is stated in the owning sections; it added: the
+  API-key dialog's text and a second sign-out
+  ([Credentials](#credentials)); the refactor prompt cancelled at its first dialog and the edit
+  dialog read whole ([Permission rows](#permission-rows)); a short and a long paste
+  ([Transcript stores](#transcript-stores)); the `/model` Manual list
+  ([Model rows](#model-rows)); `/chat save lab`
+  ([/chat save checkpoints](#chat-save-checkpoints)); and `gemini --worktree lab` with
+  `experimental.worktrees` set ([Project-local files](#project-local-files)). The second run's
+  MCP call is not observed; the first run's is ([Permission rows](#permission-rows)). Not
+  observed in either run: a model switch, and the permission modes' names beyond the footer's
+  "accept edits". Neither run typed a shell-mode command ([shell_history](#shell_history)).
 
 ### Source reviews
 
+- 2026-11-02: the Linux CLI round on 0.66.0 ([Observed](#observed)), with `devtoolsService.ts`,
+  `activityLogger.ts` and `nonInteractiveCli.ts` re-read at
+  [`6814e00`](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d)
+  and `v0.66.0`, which corrected where the activity log is written.
 - 2026-11-01: `main` at
   [`6814e00`](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d):
   added the activity log's payload keys and the error report's keys, and the session id inside a
@@ -104,7 +142,7 @@ Always under `~/.gemini`:
 | --- | --- | --- |
 | `settings.json` | user settings, MCP servers included | [`storage.ts:78`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L78) |
 | `.env` | environment values, API keys among them | [`cli/src/config/settings.ts:631`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settings.ts#L631) |
-| `oauth_creds.json` | the legacy Google sign-in token | [`storage.ts:255`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L255) |
+| `oauth_creds.json` | the Google sign-in token ([Credentials](#credentials)) | [`storage.ts:255`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L255) |
 | `gemini-credentials.json` | the encrypted keychain fallback | [`core/src/services/fileKeychain.ts:19-20`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/fileKeychain.ts#L19-L20) |
 | `integrity.key`, `extension_integrity.json` | the extension integrity key's file fallback, and the signed record of installed extensions | [`core/src/config/constants.ts:40-41`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/constants.ts#L40-L41); [`core/src/config/extensions/integrity.ts:49`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/extensions/integrity.ts#L49), [`118`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/extensions/integrity.ts#L118) |
 | `commands/`, `skills/`, `agents/` | user slash commands, skills and subagent definitions | [`storage.ts:138`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L138), [`142`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L142), [`158`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L158) |
@@ -157,7 +195,7 @@ so both forms can exist. Its contents:
 | `logs.json` | the prompt history | [`core/src/core/logger.ts:15`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/logger.ts#L15), [`148-149`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/logger.ts#L148-L149) |
 | `checkpoint-<tag>.json` | `/chat save` checkpoints | [`logger.ts:294`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/logger.ts#L294) |
 | `checkpoints/` | tool checkpoints | [`storage.ts:364`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L364) |
-| `logs/session-<session id>.jsonl` | the activity log | [`cli/src/utils/activityLogger.ts:772-778`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L772-L778) |
+| `logs/session-<session id>.jsonl` | the activity log's default path, which no caller writes; see [Activity log](#activity-log) | [`cli/src/utils/activityLogger.ts:772-778`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L772-L778) |
 | `tool-outputs/`, `tool-outputs/session-<session id>/` | large tool outputs kept out of the transcript | [`core/src/utils/fileUtils.ts:839-857`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/fileUtils.ts#L839-L857) |
 | `plans/`, `tracker/`, `tasks/`, each also under `<session id>/` | plans, task trackers and tasks | [`storage.ts:372-411`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L372-L411) |
 | `memory/` | the memory tool's files ([memory/](#memory)) | [`storage.ts:336`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L336) |
@@ -209,19 +247,51 @@ path and a per-run auth token
 ([`vscode-ide-companion/src/ide-server.ts:82-91`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/vscode-ide-companion/src/ide-server.ts#L82-L91),
 [`362-370`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/vscode-ide-companion/src/ide-server.ts#L362-L370)).
 
+On the Linux install of 0.66.0 the first start in a project created `~/.gemini` (mode 0775) with
+`installation_id` (36 bytes), `projects.json` ([projects.json](#projectsjson)), `state.json` and
+`state.json.bak` ([state.json](#statejson)), the `.project_root` files of `tmp/<slug>/` and
+`history/<slug>/` (19 bytes each) and a session file of about 1 KB. The first screen
+(0.66.0, 2026-11-01) was the folder trust dialog, whose text is in
+[Permission rows](#permission-rows); trusting the folder wrote `trustedFolders.json` (43 bytes,
+mode 0600), and the restart that followed is in [Transcript stores](#transcript-stores).
+Choosing an API key wrote `settings.json` ([Credentials](#credentials)). A start in the home
+itself (0.66.0, 2026-11-01) was met by the
+trust dialog again and put its sessions and `logs.json` under a `tmp/<slug>/` named for the
+home directory, as for any project. The sample project's `history/<slug>/` held only
+`.project_root`, and no `shell_history`, `checkpoints/`, `memory/`, `images/`, `logs/` or
+`tool-outputs/` appeared in its `tmp/<slug>/`.
+
 #### Scratch directories
 
 Gemini CLI has no working directory of its own: it runs in the directory it was started in. The
-one directory it creates for work is the `--worktree` checkout inside the project
-([Project-local files](#project-local-files)).
+one directory it creates for work is the `--worktree` checkout inside the project, under the
+setting [Project-local files](#project-local-files) names.
 
 ### Credentials
 
-- `.gemini/oauth_creds.json` (`%USERPROFILE%\.gemini\oauth_creds.json` on Windows) is the legacy
-  Google sign-in token; on load it is moved into the keychain and deleted
+- `.gemini/oauth_creds.json` (`%USERPROFILE%\.gemini\oauth_creds.json` on Windows) holds the
+  Google sign-in token. The reviewed commit's loader moves a file it finds into the keychain and
+  deletes it
   ([`core/src/code_assist/oauth-credential-storage.ts:16`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/oauth-credential-storage.ts#L16),
-  [`117-153`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/oauth-credential-storage.ts#L117-L153)), so it
-  remains on hosts that never ran a newer build.
+  [`117-153`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/code_assist/oauth-credential-storage.ts#L117-L153)), so a
+  file that no later start has loaded remains. On the Linux install of 0.66.0 the Google sign-in
+  wrote it (1800 bytes, mode 0600), and it was gone by the next listing, ten minutes later,
+  after the refusal below and the choice of the API-key method.
+- The Google sign-in (0.66.0, 2026-11-01) over SSH, with no browser, prints "Please visit the
+  following URL to authorize the application:", an `accounts.google.com` authorization URL
+  whose redirect is `https://codeassist.google.com/authcode`, and "Enter the authorization
+  code:"; a code not entered within five minutes ends it ("Authorization timed out after 5
+  minutes"). For a personal Google account the completed sign-in also wrote
+  `google_accounts.json`, and the CLI then refused it, naming Gemini Code Assist, Google's
+  coding-assistant service behind the Google sign-in: "Failed to sign in. Message: This client
+  is no longer supported for Gemini Code Assist for individuals. To continue using Gemini,
+  please migrate to the Antigravity suite of products". Google's
+  [Gemini Code Assist consumer accounts](https://developers.google.com/gemini-code-assist/docs/deprecations/code-assist-individuals)
+  page (last updated 2026-10-09, fetched 2026-11-01) says that from 2026-06-18 the Gemini Code
+  Assist for individuals, Google AI Pro and Google AI Ultra tiers are no longer served, Gemini CLI
+  included, that those users can move to the Antigravity products, Antigravity CLI among them
+  (`agy`, [`antigravity.md`](antigravity.md)), and that Standard and Enterprise subscriptions are
+  on a separate deprecation schedule.
 - The keychain is `@github/keytar`
   ([`core/src/services/keychainService.ts:176`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/keychainService.ts#L176);
   [`core/package.json:97`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/package.json#L97)), with the services
@@ -236,6 +306,35 @@ one directory it creates for work is the `--worktree` checkout inside the projec
   ([`keychainService.ts:22`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/keychainService.ts#L22),
   [`112-136`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/keychainService.ts#L112-L136);
   [`fileKeychain.ts:19-26`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/fileKeychain.ts#L19-L26)).
+- On the Linux install of 0.66.0, in an SSH session beside a GNOME desktop session, the
+  desktop's login keyring file (`.local/share/keyrings/login.keyring`) was rewritten 15 seconds
+  after an API key was pasted into the authentication dialog, and neither `.gemini/.env` nor
+  `.gemini/gemini-credentials.json` appeared, so the key is taken to be in the GNOME keyring.
+  `settings.json` then held only
+  `security.auth.selectedType`, and the banner read "Authenticated with gemini-api-key /auth"
+  (0.66.0, 2026-11-01). A key entered from a terminal on the desktop rewrote the same keyring
+  file (641 bytes).
+- The API-key dialog (0.66.0, 2026-11-02) reads "Enter Gemini API Key", "Please enter your
+  Gemini API key. It will be securely stored in your system keychain.",
+  `You can get an API key from https://aistudio.google.com/app/apikey`,
+  "Paste your API key here" and "(Press Enter to submit, Esc to cancel, Ctrl+C to clear stored
+  key)". Text typed into the dialog is stored as the key with its spaces removed, and every
+  later request then fails with an invalid-key error ("API key not valid"). Once,
+  `gemini --resume latest` over SSH after `/exit` showed this dialog although the key had been
+  entered earlier in the same run, while the keyring file measured 105 bytes against 641 before
+  and after.
+- `/auth` has the subcommands the completion list for `/auth ` shows and `/help` does not
+  list (0.66.0, 2026-11-01): `signin` ("Sign in or change the authentication method") and
+  `signout` ("Sign out and clear all cached credentials"). `/auth signout` (0.66.0, 2026-11-01
+  and 2026-11-02) printed "You are now signed out" and
+  "Sign in again to continue using Gemini CLI, or exit the application." with `1. Sign in` and
+  `2. Exit`, and rewrote `google_accounts.json` (66 and, in the second run, 33 bytes) and
+  `settings.json` but left the keyring file unchanged. The stored key outlived it (0.66.0,
+  2026-11-02): `/auth` then `2. Use Gemini API Key` opened the dialog prefilled with the stored
+  value, Ctrl+C in it left the value in place, Escape returned to the method dialog rather than
+  the prompt, and the next start, from a terminal on the desktop, came prefilled with it again
+  and reported "Authenticated with gemini-api-key". A responder therefore finds a signed-out
+  user's API key in the keyring still.
 - MCP and A2A tokens go through `HybridTokenStorage` (keychain, else that encrypted file;
   [`core/src/mcp/token-storage/hybrid-token-storage.ts:28-41`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/mcp/token-storage/hybrid-token-storage.ts#L28-L41)),
   and the plain writer of `.gemini/mcp-oauth-tokens.json` (`.cache/.gemini/mcp-oauth-tokens.json`
@@ -268,6 +367,8 @@ one directory it creates for work is the `--worktree` checkout inside the projec
 - `.gemini/google_accounts.json` is not a credential: it names the signed-in Google account's
   email and holds no token
   ([`core/src/utils/userAccountManager.ts:19`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/userAccountManager.ts#L19)).
+  After the refused sign-in on 0.66.0 it held `active` as `null` and `old` as an array of one
+  string.
 - `.gemini/extensions/<name>/.env` holds an extension's settings not marked `sensitive`, which go
   to the keychain instead
   ([Extension reference](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/docs/extensions/reference.md#L204)).
@@ -331,7 +432,18 @@ says the CLI leaves the worktree and branch for the user to remove
 [`186-233`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/worktreeService.ts#L186-L233)). It is a copy of the
 repository with the agent's edits in it, so the `.gemini/worktrees` exclusion skips it; what the
 agent changed there is in the transcript. How a session runs there is in
-[Worktree sessions](#worktree-sessions).
+[Worktree sessions](#worktree-sessions). On the Linux install, with `experimental.worktrees`
+unset, `gemini --worktree lab` (0.66.0, 2026-11-01) printed the command's help and created no
+checkout, which is what the tag's argument check gives for the flag without the setting
+([`config.ts` at `v0.66.0`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/config/config.ts#L269-L271)).
+With `experimental.worktrees` set to `true` in `settings.json` before the start, the same command
+(0.66.0, 2026-11-02) created `<project>/.gemini/worktrees/lab`, holding a `.git` file and the
+project's `calc.py`, `README.md` and `.gitignore`, and `<project>/.git/worktrees/lab` with
+`commondir`, `gitdir` and `HEAD`.
+
+On the same install `gemini mcp add <name> <command> <args...>` (0.66.0, 2026-11-01) run in the
+project wrote the project's `.gemini/settings.json` (186 bytes) with `mcpServers.<name>.command`
+and its `args`.
 
 ### Where the project path is recorded
 
@@ -380,18 +492,37 @@ it ([Per-user storage](#per-user-storage)).
   `session-<session id>/`, one `<tool>_<id>.txt` per output
   ([`fileUtils.ts:839-857`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/fileUtils.ts#L839-L857)).
 
+On the Linux install of 0.66.0 session files took the `session-<YYYY-MM-DDTHH-MM>-<id8>.jsonl`
+form. The restart that follows a folder trust choice ("Gemini CLI is restarting to apply the
+trust changes", 0.66.0, 2026-11-01) deleted the first session file and began a new one.
+`/clear` began a new session file in the same process and kept the old one, and
+`gemini --resume latest` appended to the file of the session it reopened. A short traceback
+paste and a long release-notes paste (0.66.0, 2026-11-02), each sent as one bracketed paste
+(the terminal's markers around pasted text) followed by a typed instruction, were each answered
+with a one-sentence summary.
+
 The past-use stores beside the session file are in [Other stores](#other-stores).
 
 #### What survives a delete
 
 `gemini --delete-session <index or id>` and the `x` key of the `/resume` browser
 ([Session management: Deleting sessions](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/docs/cli/session-management.md#deleting-sessions))
-remove the session's chat file, its activity log `logs/session-<id>.jsonl`, its
-`tool-outputs/session-<id>/` and its `tmp/<slug>/<session id>/` directory of plans, trackers and
-tasks, with its subagent sessions
+remove the session's chat file, an activity log at the default path `logs/session-<id>.jsonl`
+when one exists ([Activity log](#activity-log)), its `tool-outputs/session-<id>/` and its
+`tmp/<slug>/<session id>/` directory of plans, trackers and tasks, with its subagent sessions
 ([`core/src/utils/sessionOperations.ts:58-116`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/sessionOperations.ts#L58-L116),
 [`123-169`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/sessionOperations.ts#L123-L169)). There is no remote copy
 to offer to delete.
+
+On the Linux install `gemini --list-sessions` (0.66.0, 2026-11-01) printed
+`Available sessions for this project (<n>):` and, per session, its number, first prompt, age and
+session id; `gemini --delete-session 1` printed `Deleted session 1: <prompt> (<age>)` and removed
+that session's `chats/session-*.jsonl` (180 KB) and nothing else, the session having no activity
+log, tool outputs or session directory; `logs.json`, the `/bug` export and
+`history/<slug>/.project_root` stayed. Removing the project directory removed what lay under it
+and nothing under `~/.gemini`. A session started and ended with no prompt deleted its own file
+(of about 7.3 KB) on exit, through the exit cleanup listed below, each time on that install. A
+600-second idle period in a running session wrote nothing.
 
 Retention removes more without being asked
 ([`cli/src/utils/sessionCleanup.ts:102-260`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/sessionCleanup.ts#L102-L260);
@@ -427,13 +558,16 @@ so a collection taken after the agent started again holds less than one taken be
   ([Per-user storage](#per-user-storage)).
 
 What remains of a deleted or expired session: the per-project prompt history `logs.json`, which
-neither the delete command nor retention touches; `shell_history`, the last 100 shell-mode
-commands with no time or session id; the `/chat save` checkpoints, removed only by
-`/chat delete <tag>`; the shadow git repository under `history/<slug>`; `memory/`; and the
-`bug-report-history-*.json` files from `/bug`; and an error report in the system temporary
-directory. The agent writes no deletion marker, and the
-requests already sent to Code Assist and Clearcut under the session's `sessionId` are server-side
-records held by Google, which a responder can only ask Google for
+neither the delete command nor retention touches and which keeps every prompt with its session
+id and time; `shell_history`, the last 100 shell-mode commands with no time or session id; the
+`/chat save` checkpoints, removed only by `/chat delete <tag>`, and the
+`bug-report-history-*.json` files from `/bug`, which hold the turns, prompts included, of the
+sessions they were taken from; the shadow git repository under `history/<slug>`; `memory/`; and
+an error report in the system temporary directory, until the system clears that directory (on
+the Linux install the reports in `/tmp` were gone after a reboot (0.66.0, 2026-11-02), since
+Ubuntu clears `/tmp` at boot). The agent writes no deletion marker, and the requests already
+sent to Code Assist and Clearcut under the session's `sessionId` are server-side records held
+by Google, which a responder can only ask Google for
 ([Sync, relay and origin rows](#sync-relay-and-origin-rows)). The analyzer reads `logs.json`,
 `shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the tool checkpoints
 and a copied error report as secondary sources
@@ -455,6 +589,10 @@ loaded ([`cli/src/utils/worktreeSetup.ts:21-42`](https://github.com/google-gemin
 [`gemini.tsx:497-506`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/gemini.tsx#L497-L506)), so the session's
 `.project_root` and slug are the worktree's
 ([`core/src/config/config.ts:1323`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/config.ts#L1323)).
+On the Linux install of 0.66.0 the session of `gemini --worktree lab` got the slug `lab`:
+`history/lab/.project_root` and `tmp/lab/.project_root` (41 bytes each), its session file under
+`tmp/lab/chats/` (957 bytes at the start, 2.5 KB after one question), `tmp/lab/logs.json` (2 bytes
+at the start, 184 after) and an empty `tmp/lab/logs/` directory.
 
 #### Driven from Zed
 
@@ -631,6 +769,13 @@ in `toolCalls`; the reader also accepts `functionCall` and `thought: true` parts
 ([`core/src/utils/sessionUtils.ts:179-185`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/sessionUtils.ts#L179-L185)).
 No working directory and no git branch are stored in the session file.
 
+The main session of the Linux install of 0.66.0 (184,533 bytes) used a subset of these keys: the
+metadata line held `kind`, `lastUpdated`, `projectHash`, `sessionId` and `startTime`; `user`
+messages held `content`, `id`, `timestamp` and `type`, and `gemini` messages those keys with
+`model`, `thoughts`, `tokens` and `toolCalls`; `info` and `error` messages appeared, the errors
+holding the failed turns of [Error reports](#error-reports), and no `warning` message; all three
+update records appeared. Shorter sessions held only `$set` updates.
+
 #### logs.json records
 
 `logs.json` is a JSON array of `LogEntry` objects
@@ -724,7 +869,8 @@ subagent session to its parent.
 
 No SQLite store exists. `history/<slug>` is a shadow git repository and is treated as binary.
 Each store below is collected under `.gemini`, the error reports excepted, and every one but
-`projects.json` is parsed ([Parser plan](#parser-plan)).
+`projects.json`, `state.json`, `policy_integrity.json` and `extension_integrity.json` is parsed
+([Parser plan](#parser-plan)).
 
 #### logs.json
 
@@ -734,8 +880,10 @@ Each store below is collected under `.gemini`, the error reports excepted, and e
 nor retention ([What survives a delete](#what-survives-a-delete)) touches it (`logs.json` and
 `LOG_FILE_NAME` occur in neither
 [`sessionOperations.ts`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/sessionOperations.ts) nor
-[`sessionCleanup.ts`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/sessionCleanup.ts)), so it is the only prompt
-record of an expired or deleted session.
+[`sessionCleanup.ts`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/sessionCleanup.ts))).
+What it keeps of an expired or deleted session, beside the other survivors, is in
+[What survives a delete](#what-survives-a-delete). On the Linux install of 0.66.0 its entries
+had the keys of that table (5,071 bytes for the sample project).
 
 #### shell_history
 
@@ -776,7 +924,8 @@ sends before the first prompt
 [`101-108`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L101-L108)). Only
 `/chat delete <tag>` removes it
 ([`logger.ts:393`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/logger.ts#L393)), so it survives the session's
-deletion and expiry; it joins on text.
+deletion and expiry; it joins on text. On the Linux install of 0.66.0 `/chat save lab` wrote
+`tmp/<slug>/checkpoint-lab.json` (63.1 KB).
 
 #### Tool checkpoints
 
@@ -827,9 +976,11 @@ its path.
 
 #### Activity log
 
+The file `GEMINI_CLI_ACTIVITY_LOG_TARGET` names, a path outside every catalog line unless the
+variable names one under the home. The parser reads the writer's default path
 `tmp/<slug>/logs/session-<session id>.jsonl`
 ([`activityLogger.ts:772-778`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L772-L778))
-(parsed as a store of its own, its records only): one JSON object per line
+as a store of its own, its records only. One JSON object per line
 ([`activityLogger.ts:767-809`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L767-L809)):
 
 | Key | Type | Values | Since |
@@ -951,17 +1102,32 @@ of the reply; the chunks' parts, in order, are the reply the next chat request o
 back as its history item. The reply to a chat's last request is in no later request: for a
 deleted session its response `body` is the only copy of that reply.
 
-It is
-written only in interactive mode with `general.devtools` on (off by default), or to
-`GEMINI_CLI_ACTIVITY_LOG_TARGET` when that is set
+The logger starts in interactive mode with `general.devtools` on (off by default), and in
+headless mode whenever `GEMINI_CLI_ACTIVITY_LOG_TARGET` is set
 ([`gemini.tsx:774-779`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/gemini.tsx#L774-L779);
-[`cli/src/utils/devtoolsService.ts:121-132`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/devtoolsService.ts#L121-L132);
-[`settingsSchema.ts:247-255`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L247-L255)). The
-delete command removes it with the session.
+[`cli/src/nonInteractiveCli.ts:98-103`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/nonInteractiveCli.ts#L98-L103);
+[`settingsSchema.ts:247-255`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L247-L255)),
+but it writes a file only when that variable is set, and then to the path the variable names;
+without it the records stay in memory until the DevTools window (opened with F12) takes them
+over a WebSocket
+([`cli/src/utils/devtoolsService.ts:121-132`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/devtoolsService.ts#L121-L132);
+[`activityLogger.ts:767-780`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L767-L780),
+[`1091-1095`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/activityLogger.ts#L1091-L1095)).
+The `v0.66.0` tag has the same code
+([`devtoolsService.ts` at `v0.66.0`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/utils/devtoolsService.ts#L121-L130);
+[`activityLogger.ts` at `v0.66.0`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/utils/activityLogger.ts#L767-L780),
+[`1092`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/utils/activityLogger.ts#L1092);
+[`nonInteractiveCli.ts` at `v0.66.0`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/nonInteractiveCli.ts#L95-L100)).
+So at both reviewed commits no caller writes the default path, the file writer's fallback for an
+empty path, and the file goes where the variable points. On the Linux install of 0.66.0,
+`general.devtools` set to `true` in `settings.json` and a new session with one question wrote no
+`logs/` directory, so the records above are source-derived; what the `--worktree` session left
+under `logs/` is in [Worktree sessions](#worktree-sessions).
 
 #### Bug reports
 
-`/bug` opens a GitHub new-issue URL carrying the CLI version and the session id, and, when the
+`/bug` composes a GitHub new-issue URL carrying the CLI version and the session id and opens the
+browser where one is available (over SSH on 0.66.0 it printed the URL), and, when the
 history holds more than the initial context item, writes
 `tmp/<slug>/bug-report-history-<epoch ms>.json` (secondary, parsed) and asks the user to attach it
 by hand
@@ -972,7 +1138,11 @@ the conversation in the `exportHistoryToFile` form, the bare `Content[]` array o
 [`cli/src/ui/utils/historyExportUtils.ts:61-70`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/utils/historyExportUtils.ts#L61-L70)),
 so it repeats the session store's turns with no time or session id of its own. It outlives a
 deleted session and says nothing about whether it was uploaded; the epoch milliseconds in its name
-are when `/bug` ran. `/bug-memory` writes the V8 heap snapshot
+are when `/bug` ran. On the Linux install `/bug <text>` (0.66.0, 2026-11-01) printed a
+`https://github.com/google-gemini/gemini-cli/issues/new?...` URL prefilled with the version and
+the text, wrote an export of 86,047 bytes (an array of objects with `role` and `parts[].text`),
+printed "Chat History Exported ... Please consider attaching this file", and opened no browser
+and submitted nothing. `/bug-memory` writes the V8 heap snapshot
 `bug-memory-<epoch ms>.heapsnapshot` to the same directory
 ([`cli/src/ui/commands/bugMemoryCommand.ts:26-41`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/commands/bugMemoryCommand.ts#L26-L41)),
 a dump of the CLI process's memory ([Credentials](#credentials)).
@@ -1013,6 +1183,20 @@ temporary directory, so a collection holds a report only when the responder copi
 directly in a home's runtime directory (`.gemini` or `.cache/.gemini`) or in its `tmp/<slug>/`,
 which gives the report that directory's project.
 
+On the Linux install of 0.66.0 a failed turn wrote one report per failed layer to `/tmp`, mode
+0664: a `gemini-client-error-generateContent-api-<time>.json` (4.5 KB) or
+`gemini-client-error-generateJson-api-<time>.json` (9.3 KB) report for the API call, and a
+`gemini-client-error-Turn.run-sendMessageStream-<time>.json` report (4.5 KB to 12.9 KB) for the
+turn. The first run's turns failed on a new key from AI Studio (Google's developer console for
+Gemini API keys) whose project had the Generative Language API (the Gemini API's Google Cloud
+service name) disabled for about fifteen minutes (403 `SERVICE_DISABLED`), which wrote a
+`generateContent-api` and a `Turn.run-sendMessageStream` report, then on the free tier's daily
+quota for `gemini-3.8-flash` ("Usage limit reached for gemini-3.8-flash", 0.66.0, 2026-11-01),
+which wrote `Turn.run-sendMessageStream` reports alone; the session file recorded each failure
+as an `error` message. In the second run a prompt sent with an invalid stored key
+([Credentials](#credentials)) wrote a `generateJson-api` and a `Turn.run-sendMessageStream`
+report. What a reboot left of them is in [What survives a delete](#what-survives-a-delete).
+
 #### projects.json
 
 `projects.json` maps each absolute project path to its slug, a lower-case string of letters,
@@ -1025,9 +1209,22 @@ through a write copy `projects.json.<uuid>.tmp`
 | --- | --- | --- | --- |
 | `projects` | object | | |
 
+On the Linux install of 0.66.0 the file held one entry (57 bytes) after the first start in the
+sample project and two entries (83 bytes) after a session in the home; the values were not read.
+
+#### state.json
+
+`state.json`, the interface's persistent state
+([`persistentState.ts:11`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/persistentState.ts#L11)),
+and its copy `state.json.bak` (not parsed): on the Linux install of 0.66.0 both appeared at the
+first start with mode 0600 and the keys `startupWarningCounts.home-directory`,
+`startupWarningCounts.true-color` and `tipsShown`, and were rewritten at the sign-in and at a
+resume. They name no prompt, session or project.
+
 #### Standing permission files
 
-Every file here is parsed ([Permission rows](#permission-rows)).
+Every file here but `policy_integrity.json` and `extension_integrity.json` is parsed
+([Permission rows](#permission-rows)).
 
 `policies/auto-saved.toml`, in `~/.gemini/policies/` for a grant the user saved for every project
 and in `<project>/.gemini/policies/` for one saved for the workspace
@@ -1040,6 +1237,20 @@ written through a write copy `auto-saved.toml.<16 hex>.tmp`
 [`795-890`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/policy/config.ts#L795-L890)). An unparseable file is copied to
 `auto-saved.toml.bak` and replaced by a fresh one
 ([`824`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/policy/config.ts#L824)), so the `.bak` holds the grants from before.
+At both the reviewed commit and the `v0.66.0` tag the dialogs offer that option only with
+`security.enablePermanentToolApproval` on, off by default, and `security.disableAlwaysAllow`
+off
+([`ToolConfirmationMessage.tsx:158-160`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx#L158-L160),
+[`338-343`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx#L338-L343);
+[`settingsSchema.ts:1864-1872`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L1864-L1872);
+the same lines at `v0.66.0`:
+[`ToolConfirmationMessage.tsx`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx#L158-L160),
+[`338-343`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx#L338-L343),
+[`settingsSchema.ts`](https://github.com/google-gemini/gemini-cli/blob/970413207732f5d4d8c50540c7fc359c44fdaaf2/packages/cli/src/config/settingsSchema.ts#L1864-L1872)).
+On the Linux install, with the setting unset, none of the shell, `WebFetch` and edit dialogs
+(0.66.0, 2026-11-01 and 2026-11-02) and the MCP dialog (0.66.0, 2026-11-01)
+([Permission rows](#permission-rows)) offered it, so no install has written `auto-saved.toml`
+and the file rests on the reviewed commit's source.
 The grant's `decision` is `allow` and its `priority` the integer 950, the fraction of the
 always-allow priority scaled to 1000
 ([`config.ts:69`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/policy/config.ts#L69),
@@ -1221,7 +1432,9 @@ macOS sandbox): `<base>/tmp/<slug>/chats/<path>.jsonl` and `<base>/tmp/<slug>/ch
 `<path>` a session file name or `<parent session id>/<session id>`;
 `<base>/tmp/<slug>/logs.json`, `<base>/tmp/<slug>/shell_history`,
 `<base>/tmp/<slug>/checkpoint-<tag>.json`, `<base>/tmp/<slug>/bug-report-history-<ms>.json`,
-`<base>/tmp/<slug>/logs/session-<session id>.jsonl`,
+`<base>/tmp/<slug>/logs/session-<session id>.jsonl` (the default path, which no caller writes;
+see [Activity log](#activity-log); open work in
+[issue 410](https://github.com/seanthegeek/doubleagent/issues/410)),
 `<base>/tmp/<slug>/checkpoints/<time>-<file basename>-<tool>.json` (`<time>` in the
 `YYYY-MM-DDTHH-MM-SS_mmmZ` form), `<base>/tmp/<slug>/memory/<name>` (`<name>` any path below
 `memory/`), `<base>/tmp/<slug>/images/clipboard-<epoch ms>.<ext>` (`<ext>` one of the
@@ -1260,10 +1473,10 @@ and a `functionResponse` part its `response`'s `output` or `error`.
 | text | `content` text; for tool_use `displayName` plus args; `summary` on `$set` |
 
 Not read: `compression_state.json`, `policy_integrity.json`, `extension_integrity.json`,
-`mcp-server-enablement.json`, an error report's `requestConfig` and `additionalInfo`, the
-activity log's `chunk` records, `body` and `response.body`, and every `headers` object. A tool
-checkpoint's display list is not read either: its turns are the `clientHistory` items in display
-form.
+`mcp-server-enablement.json`, `state.json`, `state.json.bak`, an error report's
+`requestConfig` and `additionalInfo`, the activity log's `chunk` records, `body` and
+`response.body`, and every `headers` object. A tool checkpoint's display list is not read
+either: its turns are the `clientHistory` items in display form.
 
 #### Permission rows
 
@@ -1282,6 +1495,38 @@ form.
   closing `}` or `]`, outside strings, before decoding; a Gemini CLI file reads as before. A file
   that still does not decode, or is not a JSON object, is one
   `parser: <file> is not a JSON object` row.
+
+The dialogs behind these records on the Linux install, read in both runs (0.66.0, 2026-11-01
+and 2026-11-02) unless a date is given:
+
+- The folder trust dialog, "Do you trust the files in this folder?", lists what the folder
+  configures (for the home, "Setting overrides (2): security, general") and offers
+  `1. Trust folder (<name>)`, `2. Trust parent folder (<parent>)` and `3. Don't trust`; the first
+  option stored a 12-character value under the folder's key in `trustedFolders.json`, the length
+  of `TRUST_FOLDER`.
+- A shell call the agent does not auto-allow asks `Allow execution of [Shell]?`, a `WebFetch`
+  call "Action Required ... Do you want to proceed?", and an MCP tool (0.66.0, 2026-11-01)
+  `Allow execution of MCP tool "<tool>"
+  from server "<server>"?` ("press Ctrl+O to expand MCP tool details"), each with
+  `1. Allow once`, `2. Allow for this session` and `3. No, suggest changes (esc)`. An edit asks
+  "Apply this change?" with `1. Allow once`, `2. Allow for this session`,
+  `3. Modify with external editor` and `4. No, suggest changes (esc)`; the cursor wraps to the
+  first option after the fourth (0.66.0, 2026-11-02). Allow once applied the edit to `calc.py`,
+  and the agent then ran `python3 calc.py 2 3` through a shell dialog.
+- `git log --oneline` and `ls -la` ran through the shell tool with no dialog, and so did the file
+  searches of the refactor below. Escape on a dialog gave "Request cancelled", the command did
+  not run and no dialog remained. On the next request the agent retried the cancelled command,
+  and "Allow for this session" let both run. No session-wide grant wrote a file: no `policies/`
+  directory appeared. Which options the dialogs lacked is in
+  [Standing permission files](#standing-permission-files).
+- A question needing a web search was answered through the `WebFetch` tool, behind its
+  confirmation dialog.
+- On the underspecified prompt "refactor this" the agent asked nothing and started a multi-tool
+  refactor at once, asking only at each tool's dialog; in the second run (0.66.0, 2026-11-02) it
+  ran `FindFiles '*test*'`, which found no files, and `FindFiles '**/*'` before its first dialog,
+  for `python3 --version`, where Escape cancelled the turn ("Request cancelled"). No sharper
+  prompt was tried.
+- The default mode's footer reads "Shift+Tab to accept edits".
 
 The standing grants below are each a `system` row at the file's modification time, saying so,
 line 1, no session id ([Standing permission files](#standing-permission-files)):
@@ -1312,9 +1557,11 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
 - `acknowledgments/agents.json`:
   `permission setting: acknowledgedAgents.<agent>=<hash> (from .gemini/acknowledgments/agents.json, file mtime)`
   per entry, `project_path` the project key.
-- `policy_integrity.json` holds one hash per `<scope>:<identifier>` key (a policy scope and, for
-  a project, its path), against which the CLI checks whether a policy directory changed
-  ([`core/src/policy/integrity.ts:27-29`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/policy/integrity.ts#L27-L29)).
+
+`policy_integrity.json`, which gets no row, holds one hash per `<scope>:<identifier>` key (a
+policy scope and, for a project, its path), against which the CLI checks whether a policy
+directory changed
+([`core/src/policy/integrity.ts:27-29`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/policy/integrity.ts#L27-L29)).
 
 #### Model rows
 
@@ -1331,6 +1578,15 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   ([`cli/src/ui/commands/modelCommand.ts:18-47`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/commands/modelCommand.ts#L18-L47)),
   recorded because `info` items are written to the session
   ([`cli/src/ui/hooks/useHistoryManager.ts:91-123`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useHistoryManager.ts#L91-L123)).
+- On the Linux install `/model` (0.66.0, 2026-11-01 and 2026-11-02; the Manual list
+  2026-11-02) opened "Select Model" with `1. Auto` ("Let Gemini CLI
+  decide the best model for the task: gemini-3.1-pro-preview, gemini-3.8-flash") and
+  `2. Manual` ("Manually select a model"), the toggle "Remember model for future sessions: false
+  (Press Tab to toggle)" and the hint "To use a specific Gemini model on startup, use the
+  --model flag"; the footer shows `/model Auto`. Manual opens a numbered list of models, among
+  them `5. gemini-3.8-flash`, `6. gemma-4-31b-it` and `7. gemma-4-26b-a4b-it`. The `model` key
+  of each `gemini` message is in [Session JSONL](#session-jsonl). The session files hold no
+  model switch.
 
 #### Past-use rows and secondary sources
 
@@ -1375,10 +1631,11 @@ environment-context item, its first part's text opening with `<session_context>`
 Three stores repeat nothing of the session file in the rows read from them and are primary, one
 `system` row per record or file with the project of its `tmp/<slug>` directory:
 
-- `logs/session-<session id>.jsonl`, the activity log ([Activity log](#activity-log)): per
-  line, at the record's `timestamp` and with its `sessionId`, a `console` record is
-  `console <type>: <content>`; a `network` record holding a `method` is
-  `network request: <method> <url> (request <id>)`, one holding a `response`
+- `logs/session-<session id>.jsonl`, the activity log at the default path, which no caller
+  writes; see [Activity log](#activity-log) (open work in
+  [issue 410](https://github.com/seanthegeek/doubleagent/issues/410)). Per line, at the record's `timestamp` and with its
+  `sessionId`, a `console` record is `console <type>: <content>`; a `network` record holding a
+  `method` is `network request: <method> <url> (request <id>)`, one holding a `response`
   `network response: <method> <url> status <status> in <durationMs> ms (request <id>)` and one
   holding an `error` `network error: <method> <url>: <error> (request <id>)`, the method and URL
   from the request record of the same `id` and `-` for a value the file lacks. `<url>` stops
@@ -1386,8 +1643,9 @@ Three stores repeat nothing of the session file in the rows read from them and a
   request `body` and the response `body` are not read: which requests form one chat, which items
   the CLI adds itself (the environment context, the compression summary and its acknowledgement,
   retry prompts), the event form of a stored stream and when a reply is repeated by the next
-  request are left to the real-install round, which records the log before a parser reads turns
-  from it ([issue 410](https://github.com/seanthegeek/doubleagent/issues/410)).
+  request are open: the Linux round recorded no activity log ([Activity log](#activity-log);
+  [issue 410](https://github.com/seanthegeek/doubleagent/issues/410);
+  [Confidence](#confidence)).
 - `memory/<name>`: `memory file: <name> (from <file>, file mtime)` at the file's modification
   time, no session id, the file's whole text on the lines after it ([memory/](#memory)).
 - `images/clipboard-<epoch ms>.<ext>`:
@@ -1472,7 +1730,8 @@ one `system` row `scratch directory: <path> (gemini --worktree <name>)` after th
 
 #### Deletion rows
 
-No row marks a deletion itself; it leaves no marker to read. Each of
+No row marks a deletion itself; it leaves no marker to read, and the delete on the Linux install
+of 0.66.0 wrote none ([What survives a delete](#what-survives-a-delete)). Each of
 `general.sessionRetention.enabled`, `maxAge`, `maxCount` and `minRetention` that a
 `settings.json` sets is one `system` row
 `session retention: general.sessionRetention.<key>=<value> (from <file>, file mtime)` at the
@@ -1495,7 +1754,8 @@ export cut mid-write keeps its complete leading items and adds
 `parser: unparseable record <N> (not a JSON object): <item>`. A file that does not decode and
 starts as neither form is one `parser: unparseable chat history (<reason>)` row, and one that
 decodes to neither form one
-`parser: not a chat history: neither a JSON array nor an object with history` row. A standing
+`parser: not a chat history: neither a JSON array nor an object with history`
+row. A standing
 file ([Permission rows](#permission-rows)) that reads but decodes to something else is one
 `parser: <file> is not a JSON object` row, at the file's modification time.
 
@@ -1505,8 +1765,7 @@ row and one that decodes to something other than an object a
 `network` `type` and an object `payload` is a
 `parser: unparseable line (not an activity log record): <record>` row, the record as compact
 JSON with sorted keys. The records around each are kept, and each row has the session id of the
-file name. A tool
-checkpoint that does not decode is one
+file name. A tool checkpoint that does not decode is one
 `parser: unparseable tool checkpoint (<reason>)` row, one that is not an object
 `parser: not a tool checkpoint: not a JSON object`; an error report that does not decode is one
 `parser: unparseable error report (<reason>)` row, one without an `error` object
@@ -1673,21 +1932,35 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
 ## Confidence
 
 - High: every path and record key above is read from constants, types and writers at the cited
-  lines.
+  lines, and the Linux install's files agree with them where read
+  ([Observed](#observed), [Session JSONL](#session-jsonl), [Permission rows](#permission-rows),
+  [Error reports](#error-reports)).
 - Medium: the `~/.cache/.gemini` contents, which exist only if the user runs the macOS sandbox,
   and the size of `history/*/.git`.
 - Medium: whether a current build ever writes `functionCall` parts into `content` (the reader
   accepts them, the writer read here does not).
-- For the round: that a container-sandboxed session leaves no transcript under the host's
-  `~/.gemini`; that `sandbox.toml` appears after an "allow and save" sandbox expansion; the size
-  and contents of a `--worktree` checkout and that it stays after exit; the `logs.json` and
-  `shell_history` copies of one shell-mode command; the keychain item names on macOS and the
-  `gemini-credentials.json` fallback over SSH; the error report file after a failed request.
-- For the round: the activity log of a session with `general.devtools` on: whether the Code
-  Assist and Gemini API request bodies reach it as strings, whether a header other than the three
-  redacted ones carries a token, and the request and response bodies of a whole session (main
-  and subagent chats, utility requests, a compression and a retry), from which the turns could
-  be read; a tool checkpoint after an edit with `general.checkpointing.enabled` on.
+- For a later round: that a container-sandboxed session leaves no transcript under the host's
+  `~/.gemini`; that `sandbox.toml` appears after an "allow and save" sandbox expansion; that a
+  `--worktree` checkout stays after exit and what an edit in it leaves; the `logs.json` and
+  `shell_history` copies of one shell-mode command; the keys of a `/chat save` checkpoint; a
+  model switch and its `info` message; the permission modes Shift+Tab cycles through and their
+  names; an "Allow for all future sessions" grant with `security.enablePermanentToolApproval`
+  on; whether any prompt makes the agent ask the user before acting; how the session file
+  stores a pasted prompt and a `WebFetch` call beyond the [Session JSONL](#session-jsonl) key
+  tables.
+- For a later round: the keyring item's name on Linux; whether the keychain migration on load
+  or the refused sign-in removed `oauth_creds.json`; why a resume over SSH once asked for the
+  key again ([Credentials](#credentials)); the keychain item names on macOS and
+  Windows; whether the `gemini-credentials.json` fallback is written over SSH with no desktop
+  session; the macOS and Windows layouts, which no install has shown.
+- For a later round: the activity log written through `GEMINI_CLI_ACTIVITY_LOG_TARGET`: whether
+  the Code Assist and Gemini API request bodies reach it as strings, whether a header other than
+  the three redacted ones carries a token, and the request and response bodies of a whole
+  session (main and subagent chats, utility requests, a compression and a retry), from which the
+  turns could be read; a tool checkpoint after an edit with `general.checkpointing.enabled` on.
+- Not determined: whether a build other than the reviewed commit and the `v0.66.0` tag writes
+  the activity log to its default path, and which writer made the `--worktree` session's
+  `logs/` directory ([Worktree sessions](#worktree-sessions)).
 - Not determined: how common a `GEMINI_CLI_HOME` relocation is.
 - Not determined: the `tmp/<slug>/<session id>/` layout beyond `plans`, `tracker` and `tasks`.
 - Not determined: the `a2a-server` and `sdk` packages' own storage.
