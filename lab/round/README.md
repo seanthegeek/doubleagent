@@ -331,8 +331,9 @@ and sends the result over the `ssh` stdin, as a `secret` step's value
 travels: `round.log` shows the line it sent with the token in place of
 the value (for an `agent` step, with `in:<dir>` removed and, on Linux
 and macOS, `env` added), and the files the pipeline writes itself
-(`round.log`, `steps.log`, `report.md`, the step notes and the screen
-captures it takes) never hold the value. In the VM the value is part of
+(`round.log`, `steps.log`, `report.md` and the step notes) never hold
+the value, and a screen capture holds it only where the agent showed
+it. In the VM the value is part of
 the agent's command line, and so of the processes that start it
 (tui-test, and `env` on Linux and macOS), or of the shell's input; the
 terminal recording and the screen captures hold whatever the terminal
@@ -499,9 +500,10 @@ directories, as `top` lines, so a directory no root covers still shows.
 | `report.md` | Per step its status and diff counts, the missed and failed steps, and per collection the rows per status, the error rows, the `skipped_excluded` rows, the unflagged-key rows (collected, not `secret: true`, a file name holding key, token, secret, cred, cookie or auth), the analyzer's rows per numbered session and per row form, the forms an earlier collection lacked, and the `parser:` rows without the line they quote. |
 
 tui-test keeps its own recordings and traces under `~/lab/tui-test` in
-the VM (it keeps a recording only with tracing on). `~/lab` is the
-pipeline's own directory and lies outside every agent's survey roots, so
-neither shows in a diff.
+the VM (it keeps a recording only with tracing on), a directory no
+agent's survey roots reach, so neither shows in a diff; a path under
+`~/lab` that a table hands an agent (an alternate home, a log target)
+is a survey root of that agent.
 
 The screens and recordings hold the agent's own output and the
 collection holds its credentials: they stay in the cell directory, which

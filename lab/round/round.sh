@@ -251,8 +251,9 @@ run_step() {
 }
 
 # Run every step from number $1 on; ROUND_STOP_AFTER, compared as a number,
-# ends the run after that step. A `secret` step ahead whose variable has
-# no value in the credentials file stops the run before the first step.
+# ends the run after that step. A `secret` step, or a secret:NAME token
+# of an `agent` or `command` step, ahead whose variable has no value in
+# the credentials file stops the run before the first step.
 run_steps() {
   _rn_from=$(number_value "$1")
   _rn_missing=$(missing_secrets "$CELL/steps.tsv" "$_rn_from" | tr '\n' ' ')

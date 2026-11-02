@@ -314,7 +314,7 @@ def test_clear_kind(tmp_path):
 
 
 def test_agent_takes_environment_assignments_before_its_command(tmp_path):
-    for text in ("NAME=value gemini", "in:. GEMINI_API_KEY=secret:GEMINI_API_KEY gemini"):
+    for text in ("NAME=value gemini", "in:. GEMINI_API_KEY='secret:GEMINI_API_KEY' gemini"):
         steps_text = line("02", "start", "agent", text, "-", "c")
         assert problems_of(steps_text, tmp_path) == [], text
     text = line("02", "start", "agent", "NAME=value", "-", "c")

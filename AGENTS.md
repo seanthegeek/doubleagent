@@ -1263,17 +1263,15 @@ into Format versions.
      logged in to the VM's desktop since the clean snapshot; where the
      sign-in has a browser part, the person attaches to that session from
      the VM's desktop, and the research document says a desktop session
-     was logged in. Then sign out, as its own step with a listing; then the person makes the desktop
-     sign-in (the agent's own sign-in from a terminal of the VM's desktop),
-     with a listing after, once the last step driven over SSH is done,
-     except the steps of the store-or-fallback variable the next bullet
-     names. The
-     sign-out is the
-     agent's own command or dialog option, taken from its completion list
-     or its research document and run over SSH;
-     where the agent has none, the person removes the stored credential the
-     way a user would, and the research document says the agent offers no
-     sign-out. A source-host CLI the agent leans on follows the same order,
+     was logged in. Then sign out, as its own step with a listing; then
+     the person makes the desktop sign-in (the agent's own sign-in from a
+     terminal of the VM's desktop), with a listing after, once the last
+     step driven over SSH is done, except the steps of the
+     store-or-fallback variable the next bullet names. The sign-out is
+     the agent's own command or dialog option, taken from its completion
+     list or its research document and run over SSH; where the agent has
+     none, the person removes the stored credential the way a user would,
+     and the research document says the agent offers no sign-out. A source-host CLI the agent leans on follows the same order,
      once per tool and platform; later cells cite the research document.
    - Every environment variable or dotfile the research document names
      that moves a store, adds one or decides whether a credential is

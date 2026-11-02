@@ -83,9 +83,9 @@ NN	name	kind	text	expect	claim
 083	althome	agent	GEMINI_CLI_HOME=$HOME/lab/althome gemini	Trust folder	a second .gemini under althome; the trust dialog returns because trustedFolders.json moved with the home (research/gemini-cli.md#per-user-storage) (unverified)
 084	althome-trust-options	options	12	quiet	every option of the trust dialog, one screen per Down until the cursor wraps or stops, then back on the first
 085	althome-trust	keys	Enter	quiet	althome/.gemini/trustedFolders.json is written (research/gemini-cli.md#per-user-storage) (unverified)
-086	althome-auth-choose	choose	Use Gemini API Key	-	the sign-in dialog returns because the file fallback moved with the home and the keyring item is absent over ssh; a miss means the credential was found (research/gemini-cli.md#credentials) (unverified)
+086	althome-auth-choose	choose	Use Gemini API Key	-	the method dialog opens because settings.json moved with the home and the new one selects no auth type, whatever the keyring or file holds; a miss means settings.json did not move (research/gemini-cli.md#credentials) (unverified)
 087	althome-auth-key	keys	Enter	quiet	Enter on Use Gemini API Key opens its key prompt (unverified)
-088	althome-ssh-sign-in	secret	GEMINI_API_KEY	-	where the key lands under althome (research/gemini-cli.md#credentials) (unverified)
+088	althome-ssh-sign-in	secret	GEMINI_API_KEY	-	the key lands in althome/.gemini/gemini-credentials.json, mode 600, or the dialog comes prefilled from the keyring, which the home does not move (research/gemini-cli.md#credentials) (unverified)
 089	althome-stop	stop	-	-	none: closes the terminal session; the listing shows what the sign-in under althome wrote before any turn
 090	althome-again	agent	GEMINI_CLI_HOME=$HOME/lab/althome gemini	Type your message	a second start under althome opens at the prompt: the trust decision and the credential written under althome are read back (research/gemini-cli.md#per-user-storage) (unverified)
 091	althome-question	prompt	what is 6 + 8?	-	the session file under althome/.gemini/tmp/<slug>/ (research/gemini-cli.md#per-user-storage) (unverified)
@@ -120,16 +120,16 @@ NN	name	kind	text	expect	claim
 120	key-env-question	prompt	what is 2 + 5?	-	a turn under the variable (unverified)
 121	key-env-stop	stop	-	-	none: closes the terminal session
 122	dotenv-written	command	printf 'GEMINI_API_KEY=%s\n' 'secret:GEMINI_API_KEY' >"$HOME/.gemini/.env"	-	.gemini/.env written as a user would; it is a credential file (research/gemini-cli.md#credentials) (unverified)
-123	dotenv	agent	in:. gemini	Type your message	no sign-in dialog: the key is read from .gemini/.env and stored nowhere else (research/gemini-cli.md#credentials) (unverified)
+123	dotenv	agent	in:. gemini	Type your message	no sign-in dialog: the key is read from .gemini/.env, which the CLI reads only in a trusted folder, the home trusted above, and stored nowhere else (research/gemini-cli.md#credentials) (unverified)
 124	dotenv-question	prompt	what is 8 + 3?	-	a turn under the dotfile (unverified)
 125	dotenv-stop	stop	-	-	none: closes the terminal session
 126	dotenv-removed	command	rm -f "$HOME/.gemini/.env"	-	the dotfile removed so the desktop sign-in that follows still meets the key dialog (research/gemini-cli.md#credentials) (unverified)
-127	home-dotenv-written	command	printf 'GEMINI_API_KEY=%s\n' 'secret:GEMINI_API_KEY' >"$HOME/.env"	-	~/.env written as a user would: the last file the CLI searches for the key, one it reads but does not own (research/gemini-cli.md#credentials) (unverified)
+127	home-dotenv-written	command	printf 'GEMINI_API_KEY=%s\n' 'secret:GEMINI_API_KEY' >"$HOME/.env"	-	~/.env written as a user would: for a start in the home it is the <cwd>/.env the CLI searches first, a file it reads but does not own (research/gemini-cli.md#credentials) (unverified)
 128	home-dotenv	agent	in:. gemini	Type your message	no sign-in dialog: the key is read from ~/.env and stored nowhere else (research/gemini-cli.md#credentials) (unverified)
 129	home-dotenv-question	prompt	what is 9 + 2?	-	a turn under the home dotfile (unverified)
 130	home-dotenv-stop	stop	-	-	none: closes the terminal session
 131	home-dotenv-removed	command	rm -f "$HOME/.env"	-	the home dotfile removed so the desktop sign-in that follows still meets the key dialog (research/gemini-cli.md#credentials) (unverified)
-132	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home, choose Use Gemini API Key, delete any prefilled value with Backspace, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
+132	desktop-sign-in	pause	For the desktop sign-in, in a terminal of the VM's desktop: run gemini in the home; at the key prompt, which opens directly when the method is still selected, or after choosing Use Gemini API Key in the method dialog, delete any prefilled value with Backspace, paste the Google AI Studio key of the throwaway account, ask what is 1 + 1?, /exit, then resume	-	at the desktop sign-in keytar reaches the Secret Service, so the key lands in the keychain item the Credentials section names and not in a file (research/gemini-cli.md#credentials)
 133	reboot	reboot	-	-	a reboot clears /tmp; ~/.gemini stays
 134	desktop-login	pause	For the desktop login, log in to the VM's desktop after the reboot, then resume	-	the listing after the desktop login: what logging in to the VM's desktop writes
 135	force-file	agent	in:. GEMINI_FORCE_FILE_STORAGE=true gemini	clear stored key|Use Gemini API Key|Type your message	with the keyring reachable after the desktop login, GEMINI_FORCE_FILE_STORAGE=true makes the CLI look only in .gemini/gemini-credentials.json, absent since the file was removed, so with gemini-api-key selected the key prompt opens directly, as a resume once did (research/gemini-cli.md#credentials) (unverified)

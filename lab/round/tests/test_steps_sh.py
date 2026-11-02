@@ -864,7 +864,7 @@ def test_expand_secrets_with_a_single_quote_in_the_value_dies(tmp_path):
             raise AssertionError("expand_secrets did not die under " + shell)
         logged = (stub / "round.log").read_text(encoding="utf-8")
         expected = "die: the value of API_KEY in %s/env holds a single quote\n" % stub
-        assert logged == expected and "cd" not in logged, shell
+        assert logged == expected, shell
 
 
 def test_missing_secrets_reads_the_tokens_of_agent_and_command_steps(tmp_path):
