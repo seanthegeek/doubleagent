@@ -1795,8 +1795,10 @@ directory changed
   2026-11-02) opened "Select Model" with `1. Auto` ("Let Gemini CLI
   decide the best model for the task: gemini-3.1-pro-preview, gemini-3.8-flash") and
   `2. Manual` ("Manually select a model"), the toggle "Remember model for future sessions: false
-  (Press Tab to toggle)", the hint "To use a specific Gemini model on startup, use the
-  --model flag" and, at its foot, "(Press Esc to close)" (2026-11-02); the footer shows
+  (Press Tab to toggle)", the hint, which the source draws below the options as
+  `> To use a specific Gemini model on startup, use the --model flag.`
+  ([`cli/src/ui/components/ModelDialog.tsx:380`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/ModelDialog.tsx#L380)),
+  and, at its foot, "(Press Esc to close)" (2026-11-02); the footer shows
   `/model Auto`. Before that, `/model ` typed with a trailing space (0.66.0, 2026-11-02) showed
   the completion list `manage` ("Opens a dialog to configure the model") and `set` ("Set the
   model to use. Usage: `/model set <model-name> [--persist]`"). Manual opens a second

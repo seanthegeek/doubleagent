@@ -113,7 +113,8 @@ def run_steps(shell: str, stub: pathlib.Path, script: str, text: str = "-") -> d
     setup = (
         '. "$1"; . "$2"; %s\nSTUB=$3; CELL=$3; STEP_NUMBER=05; STEP_NAME=pick; STEP_KIND=choose\n'
         "STEP_TEXT=$4; STEP_EXPECT=-; AGENT_OPTION='^ *● '; OPTION_PRESSES=12\n"
-        "AGENT_LIVE_AFTER='^[>!*] |is restarting to apply the trust changes'\n" % STUBS
+        "AGENT_LIVE_AFTER='^[>!*] |is restarting to apply the trust changes'\n"
+        "AGENT_LIVE_AFTER_NOT='^> To use a specific Gemini model on startup'\n" % STUBS
     )
     result = subprocess.run(
         [
@@ -1122,3 +1123,39 @@ def test_a_yolo_input_line_below_a_dialog_in_the_scrollback_is_free(tmp_path):
             assert run_steps(shell, stub, "dialog_open")["code"] == "1", (shell, typed)
             found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hi")
             assert found["code"] == "0" and found["drive"] == "type\nkeys Enter\n", shell
+
+
+MODEL_FOOTER = (
+    "│ Remember model for future sessions: false (Press Tab to toggle) │\n"
+    "│ > To use a specific Gemini model on startup, use the --model flag. │\n"
+    "│ (Press Esc to close) │\n"
+)
+MODELS = ["1. Auto", "2. Manual"]
+
+
+def model_stub(tmp_path: pathlib.Path, stale: bool) -> pathlib.Path:
+    """Return a stub drawing the live model dialog, its `--model` hint below the options."""
+    stub = stale_stub(tmp_path, MODELS) if stale else make_stub(tmp_path, MODELS)
+    (stub / "extra").write_text("│ Select Model │\n", encoding="utf-8")
+    (stub / "lower_list").write_text(MODEL_FOOTER, encoding="utf-8")
+    return stub
+
+
+def test_the_model_dialog_hint_below_its_options_cuts_nothing(tmp_path):
+    for shell in SHELLS:
+        for stale in (False, True):
+            found = run_steps(shell, model_stub(tmp_path, stale), "dialog_open")
+            assert found["code"] == "0", (shell, stale)
+            found = run_steps(shell, model_stub(tmp_path, stale), "choose_option", "Manual")
+            assert found["code"] == "0" and found["cursor"] == "1", (shell, stale)
+            assert found["note"] == 'cursor on "● 2. Manual"', (shell, stale)
+            found = run_steps(shell, model_stub(tmp_path, stale), "read_options 12")
+            assert found["options"] == "2" and found["cursor"] == "0", (shell, stale)
+
+
+def test_a_model_dialog_in_the_scrollback_above_a_free_input_is_not_open(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, [])
+        box = "│ Select Model │\n│ ● 1. Auto │\n│   2. Manual │\n" + MODEL_FOOTER
+        (stub / "stale").write_text(box, encoding="utf-8")
+        assert run_steps(shell, stub, "dialog_open")["code"] == "1", shell

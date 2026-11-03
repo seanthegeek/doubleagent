@@ -117,3 +117,18 @@ def test_live_screen_keeps_the_raw_lines_after_the_last_input_line(tmp_path):
             screen.write_text(text, encoding="utf-8")
             found = run_reader(shell, "live_screen '%s'" % marker, screen)
             assert found == expected, (shell, marker, text)
+
+
+def test_live_screen_skips_a_dialog_line_named_as_no_boundary(tmp_path):
+    screen = tmp_path / "model.txt"
+    hint = "│ > To use a specific Gemini model on startup, use the --model flag. │\n"
+    dialog = "│ ● 1. Auto │\n│   2. Manual │\n" + hint + "│ (Press Esc to close) │\n"
+    call = "live_screen '^[>!] ' '^> To use a specific Gemini model on startup'"
+    for shell in SHELLS:
+        screen.write_text("│ > what is 3? │\n" + dialog, encoding="utf-8")
+        assert run_reader(shell, call, screen) == dialog, shell
+        screen.write_text(dialog + "│ > Type your message │\ntail\n", encoding="utf-8")
+        assert run_reader(shell, call, screen) == "tail\n", shell
+        screen.write_text("│ > what is 3? │\n" + dialog, encoding="utf-8")
+        found = run_reader(shell, "live_screen '^[>!] '", screen)
+        assert found == "│ (Press Esc to close) │\n", shell

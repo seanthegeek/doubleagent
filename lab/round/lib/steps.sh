@@ -7,9 +7,9 @@
 # die, guest_copy, guest_shell, end_session and paste_source, which round.sh
 # and vm.sh define and a test replaces with stubs. Reads the globals CELL,
 # HERE, GUEST_OS, STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT,
-# AGENT_LIVE_AFTER, AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS,
-# TERMINAL_COLS, TERMINAL_ROWS, ROUND_STOP_AFTER and ROUND_ENV, and sets
-# STEP_NOTE.
+# AGENT_LIVE_AFTER, AGENT_LIVE_AFTER_NOT, AGENT_OPTION, AGENT_INPUT_GUARD,
+# TURN_SECONDS, TERMINAL_COLS, TERMINAL_ROWS, ROUND_STOP_AFTER and
+# ROUND_ENV, and sets STEP_NOTE.
 
 # The globals above come from round.sh, which also calls every function.
 # shellcheck disable=SC2153,SC2154,SC2329
@@ -49,10 +49,11 @@ press_down_saved() {
 
 # Print the live part of the screen read from stdin (live_screen): the
 # lines after the last line matching the agent's AGENT_LIVE_AFTER pattern,
-# the lines that end the scrollback. A dialog's own line that matches it
-# cuts the dialog's lines above it, so only its options and footer stay.
+# the lines that end the scrollback, and not its AGENT_LIVE_AFTER_NOT
+# pattern, a dialog's own line of that form below its options. Any other
+# dialog line that matches cuts the dialog's lines above it.
 live_part() {
-  live_screen "${AGENT_LIVE_AFTER:-}"
+  live_screen "${AGENT_LIVE_AFTER:-}" "${AGENT_LIVE_AFTER_NOT:-}"
 }
 
 # Print what places the cursor on the live part of the screen read from
