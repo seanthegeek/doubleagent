@@ -791,7 +791,8 @@ attribute are the same string.
    table in [`research/README.md`](research/README.md), with its Parser and
    Notes cells; note the tool in
    [`collectors/docs/coverage.md`](collectors/docs/coverage.md) if needed;
-   close the matching issue. Add the agent to the
+   give the matching issue a `Closes #<n>` line in the pull request body.
+   Add the agent to the
    [agents page](docs/agents.md) table as `backlog` (parseable records, with
    a parser issue) or `collected` (nothing to parse, with the reason),
    linked to a new subsection under
@@ -930,10 +931,11 @@ before any install.
      runs the full shell matrix and a live collection (reading the
      `skipped_excluded` and `secret: true` rows), updates the research index
      table and bumps `VERSION`.
-6. **Close the loop on GitHub.** Close each tool's issue with a comment
-   naming the evidence source and commit, the key findings and the catalog
-   changes. Comment on the analyzer parser issue with any SQLite-only
-   sources. File issues for anything out of scope the research surfaced.
+6. **Close the loop on GitHub.** Comment on each tool's issue naming the
+   evidence source and commit, the key findings and the catalog changes,
+   and give it a `Closes #<n>` line in the pull request body. Comment on
+   the analyzer parser issue with any SQLite-only sources. File issues for
+   anything out of scope the research surfaced.
 
 ### Research document structure
 
@@ -1596,7 +1598,8 @@ down.
   force pushes and deletion of `main`, and a merge needs the `CI result`
   job and the CodeQL code-scanning analysis green.
 - Work on a branch named for the change; open the pull request with
-  `gh pr create` (naming the issue, ending with the AI disclosure line),
+  `gh pr create` (naming each issue as the issue bullet below says,
+  ending with the AI disclosure line),
   watch `gh pr checks --watch`, and report it ready. The user merges it
   unless the task's instructions said to merge. An agent never pushes to
   `main`, never merges a pull request unasked, and never asks for a ruleset
@@ -1635,9 +1638,17 @@ down.
   `Fixes` or `Closes`, and each changelog line for it ends with `([#<n>])`.
   GitHub closes an issue for any closing keyword (`close`, `fix`, `resolve`
   and their `-s` and `-d` forms) followed by `#<n>` anywhere in a commit
-  message, so write `the fix for #29`, never `fixes #29`. The issue is
-  closed after the release is tagged, with a comment that explains the fix
-  and names the commit and release.
+  message or a pull request body, so in a commit message, and in a pull
+  request body outside its `Closes #<n>` lines, write `the fix for #29`,
+  never `fixes #29`. The pull request that finishes an issue says
+  `Closes #<n>` in its body, one line per issue, so GitHub closes the issue
+  when the pull request merges; a pull request that advances an issue
+  without finishing it says `Refs #<n>` in its body. An issue still open
+  once the work that finishes it is on `main` (its last pull request said
+  `Refs #<n>`, a round settled it, a comment answered it) is closed by
+  hand with a comment naming the commit or the answer. No issue waits for
+  a release: the changelog entry, not the issue's state, records what a
+  version ships.
 - Evidence lives in the research documents, not in issues: the commit that
   files or acts on an issue recording file names, keys, field values or
   offsets puts those facts, cited, in `research/<agent>.md`; the issue
@@ -1794,6 +1805,22 @@ down.
   version comparison links, in descending order. markdownlint MD052 (with
   `shortcut_syntax` on) fails on a reference without a definition, MD053 on
   a definition nothing cites.
+- Before a tag, every issue closed since the part's last tagged commit
+  has one of these accounts: a `([#<n>])` line in this part's changelog,
+  in the pending entry or in the tagged version it shipped in; a change
+  to nothing this part ships (the other part, documentation, research,
+  tests, development tools), which needs no line; or no change at all (an
+  answered question, a round that settled it, a close as not planned or
+  duplicate). List them, for the analyzer, with
+
+  ```sh
+  gh issue list --state closed --limit 1000 --search "closed:>=$(git for-each-ref \
+    --format='%(*committerdate:iso-strict)' "refs/tags/$(git describe --tags --abbrev=0 --match 'analyzer-v*')")"
+  ```
+
+  and with `collector-v*` for the collector; the count must stay under
+  the limit. In the other direction, every issue a `([#<n>])` line of the
+  pending entry cites is closed.
 - A release requires zero open Dependabot alerts, which CI cannot check.
   Before tagging, run
   `gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/dependabot/alerts?state=open" -q length`
