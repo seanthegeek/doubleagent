@@ -10,7 +10,7 @@ NN	name	kind	text	expect	claim
 010	shortcuts-close	keys	Backspace,Escape	quiet	none
 011	help-subcommands	type	/help 	quiet	/help with a trailing space shows no completion list, since /help has no subcommands; nothing is written (observed on 0.66.0, 2026-11-02)
 012	help-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-013	help	prompt	/help	-	/help prints its command and keyboard-shortcut list and changes only logs.json: the session file is not rewritten and the timeline holds no row for it (research/gemini-cli.md#session-jsonl) (observed on 0.66.0, 2026-11-02)
+013	help	prompt	/help	-	/help prints its command and keyboard-shortcut list and changes only logs.json: the session file is not rewritten (research/gemini-cli.md#logsjson) (observed on 0.66.0, 2026-11-02)
 014	question	prompt	what is 17 + 25?	-	a user and a gemini message with no toolCalls, and the first model: <id> row (research/gemini-cli.md#model-rows)
 015	web-search	prompt	What is the latest release of the npm package @google/gemini-cli? Search the web for it.	Allow once|Apply this change|Type your message	a google_web_search call in toolCalls[] with its result (research/gemini-cli.md#session-jsonl)
 016	web-search-dialog	dialog	-	marker	whether the web tool asks first; when it does, its options are read and the first is the answer
@@ -20,7 +20,7 @@ NN	name	kind	text	expect	claim
 020	deny-plain	prompt	Run git log --oneline and tell me what it shows.	-	git log --oneline runs with no confirmation dialog on 0.66.0: a run_shell_command call with status success and no decision (research/gemini-cli.md#permission-rows)
 021	deny-ask	prompt	Use the shell to create an empty file named denied.txt in this directory, then tell me whether it worked.	Allow once	a command that creates a file raises the confirmation dialog (touch asked on 0.66.0)
 022	deny-options	options	12	quiet	every option of the second dialog, one screen per Down until the cursor wraps or stops, then back on the first
-023	deny	keys	Escape	quiet	Esc is the No answer: the screen reads Request cancelled., the session file gains a $patch removing 2 messages, and no tool_use or permission decision row of the cancelled call remains, only a patch removed 2 message(s) row (research/gemini-cli.md#permission-rows) (observed on 0.66.0, 2026-11-02)
+023	deny	keys	Escape	quiet	Esc is the No answer: the screen reads Request cancelled. and the session file gains a $patch removing 2 messages (research/gemini-cli.md#permission-rows) (observed on 0.66.0, 2026-11-02)
 024	deny-reason	prompt	Do not create the file. Tell me what calc.py does instead, without running anything.	-	the reason is an ordinary user message; no reason field exists (research/gemini-cli.md#permission-rows)
 025	always-plain	prompt	Run ls -la and summarise the listing.	-	ls -la runs with no confirmation dialog on 0.66.0: a run_shell_command call with status success and no decision (research/gemini-cli.md#permission-rows)
 026	always-ask	prompt	Use the shell to create an empty file named allowed.txt in this directory, then tell me whether it worked.	Allow once	a third confirmation dialog, for the grant
@@ -31,13 +31,13 @@ NN	name	kind	text	expect	claim
 031	mode-2	keys	Shift+Tab	quiet	the next approval mode in the cycle is plan (footer: plan Shift+Tab to manual) (observed on 0.66.0, 2026-11-02)
 032	mode-3	keys	Shift+Tab	quiet	the cycle back on default, the mode that asks before a tool call (footer: Shift+Tab to accept edits); leaving plan appends the user message User has manually exited Plan Mode. Switching to Default mode (edits will require confirmation). to the session file (observed on 0.66.0, 2026-11-02)
 033	follow-up	prompt	refactor this	Allow once|Type your message	whether the agent asks before acting: a gemini message with no toolCalls (a turn that asks the user), or the first confirmation dialog of a turn that acts instead
-034	follow-up-cancel	keys	Escape	marker	Escape at the Apply this change? dialog the refactor opened for a new test file cancels the turn: the screen reads Request cancelled., the session file gains a $patch removing 2 messages, and no row of the cancelled call remains, only a patch removed 2 message(s) row (observed on 0.66.0, 2026-11-02)
+034	follow-up-cancel	keys	Escape	marker	Escape at the Apply this change? dialog the refactor opened for a new test file cancels the turn: the screen reads Request cancelled. and the session file gains a $patch removing 2 messages (observed on 0.66.0, 2026-11-02)
 035	follow-up-dialog	dialog	-	marker	a confirmation left open after the cancel, answered with its first option so the next prompt starts at an idle input; no dialog when the agent asked first
 036	paste-short	paste	short.txt Summarise the pasted text in one sentence.	-	a paste under 1 KB is inline in the user message and its logs.json copy (research/gemini-cli.md#logsjson)
 037	paste-long	paste	long.txt Summarise the pasted text in one sentence.	-	a paste over 1 KB: full text or a placeholder in the session file and logs.json (not stated)
 038	model-subcommands	type	/model 	quiet	the completion list of /model: manage (Opens a dialog to configure the model) and set (Set the model to use. Usage: /model set <model-name> [--persist]), saved as the screen before the command's first use (observed on 0.66.0, 2026-11-02)
 039	model-subcommands-clear	clear	-	quiet	none: one Backspace per typed character clears the command
-040	model-dialog	prompt	/model	quiet	the model dialog Select Model with 1. Auto and 2. Manual, the Remember model for future sessions toggle, the --model hint and (Press Esc to close); only logs.json changes (observed on 0.66.0, 2026-11-02)
+040	model-dialog	prompt	/model	quiet	the model dialog Select Model with 1. Auto and 2. Manual, the Remember model for future sessions toggle, the --model hint and (Press Esc to close); only logs.json changes (research/gemini-cli.md#logsjson) (observed on 0.66.0, 2026-11-02)
 041	model-options	options	12	quiet	every option of the model dialog, one screen per Down until the cursor wraps or stops, then back on the first
 042	model-manual	choose	Manual	-	the model dialog's second option opens the Manual list; a miss leaves Auto (0.66.0, 2026-11-02: 1. Auto, 2. Manual, Remember model for future sessions toggle) (research/gemini-cli.md#model-rows)
 043	model-manual-open	keys	Enter	quiet	the Manual list: a numbered list of models with the Remember toggle and the --model hint (research/gemini-cli.md#model-rows)
@@ -61,7 +61,7 @@ NN	name	kind	text	expect	claim
 061	exit-close	stop	-	-	none: closes the terminal session
 062	mcp-add	command	gemini mcp add fs npx -y @modelcontextprotocol/server-filesystem "$HOME/lab/proj"	-	the project's .gemini/settings.json gains mcpServers.fs, a credential file (research/gemini-cli.md#credentials)
 063	resume	agent	gemini --resume latest	marker	a resume appends to the same session file: the reopened session's file is rewritten and no new session file appears (research/gemini-cli.md#joins-and-timestamps) (observed on 0.66.0, 2026-11-02)
-064	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation, headed Action Required, with 1. Allow once, 2. Allow tool for this session, 3. Allow all server tools for this session and 4. No, suggest changes (esc); no mcp-server-enablement.json is written (research/gemini-cli.md#per-user-storage) (observed on 0.66.0, 2026-11-02)
+064	mcp-ask	prompt	Use the fs MCP server to list the files in this project.	Allow once|Apply this change|Type your message	an MCP tool call and its confirmation, headed Action Required, with 1. Allow once, 2. Allow tool for this session, 3. Allow all server tools for this session and 4. No, suggest changes (esc); no mcp-server-enablement.json is written (research/gemini-cli.md#permission-rows) (observed on 0.66.0, 2026-11-02)
 065	mcp-options	options	12	quiet	every option of the MCP dialog, one screen per Down until the cursor wraps or stops, then back on the first
 066	mcp-approve	keys	Enter	marker	the MCP call's toolCalls[] entry and result: an mcp_fs_list_directory tool_use and tool_result in the session file (observed on 0.66.0, 2026-11-02)
 067	clear-subcommands	type	/clear 	quiet	/clear with a trailing space shows no completion list, since /clear has no subcommands (observed on 0.66.0, 2026-11-02)
@@ -93,7 +93,7 @@ NN	name	kind	text	expect	claim
 093	trusted-path	agent	GEMINI_CLI_TRUSTED_FOLDERS_PATH=$HOME/lab/trusted.json gemini	Trust folder	the trust dialog returns and the decision is written to trusted.json (research/gemini-cli.md#per-user-storage) (observed on 0.66.0, 2026-11-02)
 094	trusted-path-options	options	12	quiet	every option of the trust dialog, one screen per Down until the cursor wraps or stops, then back on the first
 095	trusted-path-trust	keys	Enter	quiet	~/lab/trusted.json is written, not ~/.gemini/trustedFolders.json (research/gemini-cli.md#per-user-storage) (observed on 0.66.0, 2026-11-02)
-096	trusted-path-question	prompt	what is 5 + 9?	-	the session lands under ~/.gemini as usual: the restart after the trust step wrote its session file under ~/.gemini/tmp/<slug>/chats/ (research/gemini-cli.md#per-user-storage) (observed on 0.66.0, 2026-11-02); the question itself was not typed, since the restart left the trust dialog in the scrollback
+096	trusted-path-question	prompt	what is 5 + 9?	-	the session lands under ~/.gemini as usual: the restart after the trust step wrote its session file under ~/.gemini/tmp/<slug>/chats/ (research/gemini-cli.md#transcript-stores) (observed on 0.66.0, 2026-11-02); the question itself was not typed, since the restart left the trust dialog in the scrollback
 097	trusted-path-stop	stop	-	-	none: closes the terminal session
 098	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
 099	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
@@ -112,7 +112,7 @@ NN	name	kind	text	expect	claim
 112	sign-out-options	options	12	quiet	the sign-out dialog (You are now signed out; 1. Sign in, 2. Exit, observed on 0.66.0, 2026-11-02) (research/gemini-cli.md#credentials)
 113	sign-in	keys	Enter	●	Sign in in the sign-out dialog reopens the method dialog
 114	auth-key-dialog-choose	choose	Use Gemini API Key	-	the method dialog after a sign-out still offers Use Gemini API Key
-115	auth-key-dialog	keys	Enter	clear stored key	the key dialog shows the stored item prefilled, so a sign-out leaves it, and the dialog's own Ctrl+C hint does not remove it (observed on 0.66.0, 2026-11-02) (research/gemini-cli.md#credentials)
+115	auth-key-dialog	keys	Enter	clear stored key	after /auth signout, Sign in and Use Gemini API Key open the key dialog prefilled with the stored key, which in this run was in the file fallback alone, so a sign-out leaves it (observed on 0.66.0, 2026-11-02) (research/gemini-cli.md#credentials)
 116	auth-key-close	keys	Escape	●	Escape returns to the method dialog, not to the prompt (observed on 0.66.0, 2026-11-02)
 117	auth-stop	stop	-	-	none: closes the terminal session
 118	key-file-removed	command	rm -f "$HOME/.gemini/gemini-credentials.json"	-	the file fallback removed as a user would, so nothing else holds the key over ssh (research/gemini-cli.md#credentials) (observed on 0.66.0, 2026-11-02)
