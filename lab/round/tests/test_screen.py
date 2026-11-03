@@ -85,7 +85,8 @@ def test_joined_urls_print_nothing_without_a_url(tmp_path):
 def test_highlighted_line_is_the_first_marked_option(tmp_path):
     """The first, since a two-list dialog draws its unfocused list's ● line below."""
     screen = tmp_path / "two-lists.txt"
-    screen.write_text("│ ● Allow once │\n│   No │\n│ Apply To │\n│ ● User │\n", encoding="utf-8")
+    text = "│ ● Allow once │\n│   No │\n│   Apply To │\n│ ● User Settings │\n"
+    screen.write_text(text, encoding="utf-8")
     for shell in SHELLS:
         found = run_reader(shell, "highlighted_line '^ *● '")
         assert found == "● 1. Allow once\n", shell

@@ -1642,7 +1642,8 @@ composer
 [`cli/src/ui/components/DialogManager.tsx:138`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L138),
 [`cli/src/ui/components/DialogManager.tsx:230`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L230),
 [`cli/src/ui/components/DialogManager.tsx:241`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L241),
-[`cli/src/ui/components/DialogManager.tsx:288-297`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L288-L297)),
+[`cli/src/ui/components/DialogManager.tsx:297-306`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L297-L306),
+[`cli/src/ui/components/DialogManager.tsx:322-325`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L322-L325)),
 and a tool or command confirmation hides the composer while it waits unless the setting
 `ui.collapseDrawerDuringApproval` is `false`
 ([`cli/src/ui/components/Composer.tsx:85-87`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L85-L87),
@@ -1657,16 +1658,16 @@ search
 [`cli/src/ui/components/InputPrompt.tsx:1858`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/InputPrompt.tsx#L1858)); a past prompt in the history carries the
 same `> ` prefix
 ([`cli/src/ui/components/messages/UserMessage.tsx:26-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/messages/UserMessage.tsx#L26-L27)).
-When a trust choice needs a restart, the folder trust dialog prints
-`Gemini CLI is restarting to apply the trust changes...` below its options
+When a trust choice needs a restart, the folder trust dialog prints a restart notice below its
+options, the one quoted under [Transcript stores](#transcript-stores) with what the restart leaves
+on the screen
 ([`cli/src/ui/components/FolderTrustDialog.tsx:299-304`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/FolderTrustDialog.tsx#L299-L304)) and, a quarter second later,
 exits with the relaunch code
 ([`cli/src/ui/components/FolderTrustDialog.tsx:58-59`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/FolderTrustDialog.tsx#L58-L59),
 [`cli/src/utils/processUtils.ts:92-143`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/processUtils.ts#L92-L143)), on which the parent process starts the CLI
 again
 ([`cli/src/utils/relaunch.ts:20-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/relaunch.ts#L20-L27),
-[`cli/src/utils/relaunch.ts:61`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/relaunch.ts#L61)); what the restart leaves on the screen is under
-[Transcript stores](#transcript-stores).
+[`cli/src/utils/relaunch.ts:61`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/relaunch.ts#L61)).
 The dialogs behind these records on the Linux install, read in the four runs (0.66.0, 2026-11-01
 and 2026-11-02) unless a date is given:
 

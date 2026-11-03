@@ -405,17 +405,21 @@ a vendor; prompts and the web-tool confirmations send what the agent
 itself sends.
 
 A `prompt`, `type`, `paste` or `clear` step reads the screen before it
-types. This step and every step that reads a dialog read one only on the
-live part of the screen: the lines after the last line matching the
-agent's `AGENT_LIVE_AFTER` pattern, the lines a live dialog never sits
-above. For Gemini CLI these are its input line, empty or typed, and the
-past prompts in the history, which carry the same prompt prefix, since it
-draws a dialog in place of its input box; and the notice its trust dialog
-prints before the CLI restarts, below which the restarted CLI draws. A
-dialog box left in the scrollback, as Gemini CLI's trust dialog stays
-after that restart, is therefore not open; the screen of an agent with
-an empty pattern (pi) is read whole. Gemini CLI draws its screen this
-way by its source with its default settings
+types. These steps and every step that reads a dialog read one only on
+the live part of the screen: the lines after the last line matching the
+agent's `AGENT_LIVE_AFTER` pattern, the lines the scrollback ends at. For
+Gemini CLI these are its input line, empty or typed, and the past prompts
+in the history, which share its `> ` prefix, since it draws a dialog in
+place of its input box; and the notice its trust dialog prints before the
+CLI restarts, below which the restarted CLI draws. A dialog's own line of
+that form (Gemini CLI's `> ` focus marker before a section title, or the
+`> ` of a text question) cuts the dialog's lines above it, so a step's
+pattern names the dialog's option lines or footer, not its title. The
+trust dialog's box left in the scrollback after its restart is therefore
+not open; a restart that prints no notice leaves its box in the live part
+until the next prompt. The screen of an agent with an empty pattern (pi)
+is read whole. Gemini CLI draws its screen this way by its source with
+its default settings
 ([Permission rows in `research/gemini-cli.md`](../../research/gemini-cli.md#permission-rows));
 Qwen Code, a fork of Gemini CLI, is taken to follow it until a run reads
 one of its dialogs. When a dialog is open (the agent's
@@ -488,7 +492,7 @@ table's width; `resume` then runs the copy.
 
 | File | Holds |
 | --- | --- |
-| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box, which the steps wait for; `AGENT_LIVE_AFTER`, the pattern, matched once the box-drawing characters and end spaces are removed, of the lines a live dialog never sits above (the input line's prefixes and, for Gemini CLI, its trust restart notice); the lines after the last of them are where a dialog counts as open, and an empty pattern (pi) reads the whole screen; `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for Gemini CLI and Qwen Code, `^ *→ ` for pi, from its source); `AGENT_INPUT_GUARD`, the pattern of an input dialog with no option line, empty when the agent's research document names none (`clear stored key` for Gemini CLI, `What went wrong` for pi's `/bug` hint input); while either is on the live part of the screen no `prompt`, `type`, `paste` or `clear` step types or presses a key; the default waits and the terminal size. |
+| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box, which the steps wait for; `AGENT_LIVE_AFTER`, the pattern, matched once the box-drawing characters and end spaces are removed, of the lines the scrollback ends at (the input line's prefixes and, for Gemini CLI, its trust restart notice); the lines after the last of them are where a dialog counts as open, a dialog's own line that matches cutting its lines above, and an empty pattern (pi) reads the whole screen; `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for Gemini CLI and Qwen Code, `^ *→ ` for pi, from its source); `AGENT_INPUT_GUARD`, the pattern of an input dialog with no option line, empty when the agent's research document names none (`clear stored key` for Gemini CLI, `What went wrong` for pi's `/bug` hint input); while either is on the live part of the screen no `prompt`, `type`, `paste` or `clear` step types or presses a key; the default waits and the terminal size. |
 | `agents/<agent>/install.sh`, `install.ps1` | The install command copied from the vendor's page, whose URL and fetch date the script prints as its `source:` line, then `bin:` and `version:` lines. The version is read from the package's own record where one exists, so the agent does not run before its first-launch step. |
 | `agents/<agent>/roots` | The survey roots, from the Per-user storage, Credentials and Scratch directories sections of `research/<agent>.md`. |
 | `agents/<agent>/steps.tsv` | The step table. |

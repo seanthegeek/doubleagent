@@ -8,10 +8,11 @@ or stops at the last option, whether Up moves it, whether Escape closes it, a ba
 the first captures only, the capture after which the screen cannot be read, and every drive
 call, so a test reads what the step pressed and where the cursor ended. The screen draws the
 input line as Gemini CLI does, `│ > Type your message │` when empty or `│ > <text> │` with the
-text of `typed_input`, its prefix that of `input_prefix` when present, and only while no dialog is live (no labels) and `no_input` is absent,
-since the agents draw a dialog in place of their input box. `stale` holds an old dialog box and
-a past prompt, printed above the rest as a restart leaves them in the scrollback, and
-`lower_list` the unfocused second list a two-list dialog draws below the focused one.
+text of `typed_input`, the prefix that of `input_prefix` when present, and only while no
+dialog is live (no labels), since Gemini CLI draws a dialog in place of its input box. `stale`
+holds an old dialog box and a past prompt, printed above the rest as a restart leaves them in
+the scrollback, `extra` lines above the dialog (a title), and `lower_list` the unfocused second
+list a two-list dialog draws below the focused one.
 """
 
 from __future__ import annotations
@@ -60,11 +61,12 @@ capture_screen() {
     _cs_cursor=$((_cs_cursor + 1))
   fi
   [ ! -f "$STUB/stale" ] || cat "$STUB/stale"
-  if [ ! -s "$STUB/labels" ] && [ ! -f "$STUB/no_input" ]; then
+  if [ ! -s "$STUB/labels" ]; then
     _cs_prefix='>'
+    _cs_text='Type your message'
     [ ! -f "$STUB/input_prefix" ] || _cs_prefix=$(cat "$STUB/input_prefix")
-    if [ -f "$STUB/typed_input" ]; then printf '│ %s %s │\n' "$_cs_prefix" "$(cat "$STUB/typed_input")"
-    else printf '│ %s Type your message │\n' "$_cs_prefix"; fi
+    [ ! -f "$STUB/typed_input" ] || _cs_text=$(cat "$STUB/typed_input")
+    printf '│ %s %s │\n' "$_cs_prefix" "$_cs_text"
   fi
   [ ! -f "$STUB/extra" ] || cat "$STUB/extra"
   if [ -f "$STUB/banner_until" ] && [ "$_cs_count" -le "$(cat "$STUB/banner_until")" ]; then
@@ -111,8 +113,7 @@ def run_steps(shell: str, stub: pathlib.Path, script: str, text: str = "-") -> d
     setup = (
         '. "$1"; . "$2"; %s\nSTUB=$3; CELL=$3; STEP_NUMBER=05; STEP_NAME=pick; STEP_KIND=choose\n'
         "STEP_TEXT=$4; STEP_EXPECT=-; AGENT_OPTION='^ *● '; OPTION_PRESSES=12\n"
-        "AGENT_MARKER='Type your message'; AGENT_LIVE_AFTER='^[>!*] |is restarting to apply the trust changes'\n"
-        % STUBS
+        "AGENT_LIVE_AFTER='^[>!*] |is restarting to apply the trust changes'\n" % STUBS
     )
     result = subprocess.run(
         [
@@ -1016,38 +1017,67 @@ def test_a_live_dialog_below_a_past_prompt_is_read_not_the_stale_box(tmp_path):
         assert found["cursor"] == "0" and found["drive"].endswith("keys Enter\n"), shell
 
 
-LOWER_LIST = "│ Apply To │\n│ ● 1. User Settings │\n│   2. Workspace Settings │\n"
+SETTINGS = ["Vim Mode", "Auto Update", "Hide Banner"]
+SCOPES = ["1. User Settings", "2. Workspace Settings", "3. System Settings"]
+
+
+def settings_stub(tmp_path: pathlib.Path, focus: str) -> pathlib.Path:
+    """Return a stub drawing /settings with the focus on its `settings` or `scope` list.
+
+    The focused section's title carries `> `, the other's two spaces; the settings list has no
+    numbers and marks its item with ● only while focused, the scope list numbers its items only
+    while focused and always marks the selected one.
+    """
+    if focus == "settings":
+        stub = stale_stub(tmp_path, SETTINGS)
+        (stub / "extra").write_text("│ > Settings │\n", encoding="utf-8")
+        lower = "│   Apply To │\n│ ● User Settings │\n│   Workspace Settings │\n"
+        (stub / "lower_list").write_text(lower, encoding="utf-8")
+    else:
+        stub = stale_stub(tmp_path, SCOPES)
+        above = "│   Settings │\n│   Vim Mode │\n│   Auto Update │\n│ > Apply To │\n"
+        (stub / "extra").write_text(above, encoding="utf-8")
+    return stub
 
 
 def test_a_two_list_dialog_is_read_by_its_focused_list(tmp_path):
-    """The unfocused list below keeps its own constant ● line, as /settings draws it."""
+    """The unfocused scope list below keeps its own constant ● line, as /settings draws it."""
     for shell in SHELLS:
-        stub = stale_stub(tmp_path, LABELS)
-        (stub / "lower_list").write_text(LOWER_LIST, encoding="utf-8")
-        found = run_steps(shell, stub, "read_options 12")
+        found = run_steps(shell, settings_stub(tmp_path, "settings"), "read_options 12")
         assert found["options"] == "3" and found["cursor"] == "0", shell
         assert found["note"] == "3 presses of Down, the cursor stopped", shell
-        stub = stale_stub(tmp_path, LABELS)
-        (stub / "lower_list").write_text(LOWER_LIST, encoding="utf-8")
-        found = run_steps(shell, stub, "choose_option", "Allow for this session")
+        found = run_steps(shell, settings_stub(tmp_path, "settings"), "choose_option", "Auto")
         assert found["code"] == "0" and found["cursor"] == "1", shell
-        assert found["note"] == 'cursor on "● Allow for this session"', shell
+        assert found["note"] == 'cursor on "● Auto Update"', shell
+
+
+def test_a_focused_scope_list_is_read_below_its_marker(tmp_path):
+    for shell in SHELLS:
+        found = run_steps(shell, settings_stub(tmp_path, "scope"), "read_options 12")
+        assert found["options"] == "3" and found["cursor"] == "0", shell
+        found = run_steps(shell, settings_stub(tmp_path, "scope"), "choose_option", "Workspace")
+        assert found["code"] == "0" and found["cursor"] == "1", shell
+        assert found["note"] == 'cursor on "● 2. Workspace Settings"', shell
+        found = run_steps(shell, settings_stub(tmp_path, "scope"), "answer_dialog")
+        assert found["note"] == "answered with the first option, 3 options", shell
 
 
 def test_without_a_live_after_pattern_a_dialog_anywhere_counts(tmp_path):
     for shell in SHELLS:
         stub = stale_stub(tmp_path, [])
-        script = "AGENT_LIVE_AFTER=; AGENT_MARKER=; STEP_KIND=prompt; send_text Enter marker"
+        script = "AGENT_LIVE_AFTER=; STEP_KIND=prompt; send_text Enter marker"
         found = run_steps(shell, stub, script, "hello")
         assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
         assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
-        script = "AGENT_LIVE_AFTER=; AGENT_MARKER=; choose_option"
+        script = "AGENT_LIVE_AFTER=; choose_option"
         found = run_steps(shell, stale_stub(tmp_path, []), script, "Trust")
         assert found["code"] == "0" and found["cursor"] == "0", shell
 
 
 RESTART = (
-    "│ ● 1. Trust folder (proj) │\n│   2. Trust parent folder (lab) │\n│   3. Don't trust │\n"
+    "│ ● 1. Trust folder (proj) │\n"
+    "│   2. Trust parent folder (lab) │\n"
+    "│   3. Don't trust │\n"
     " Gemini CLI is restarting to apply the trust changes...\n"
     "  GEMINI CLI banner\n"
 )
