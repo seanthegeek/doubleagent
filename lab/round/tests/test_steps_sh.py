@@ -6,7 +6,9 @@ session start or a guest command received on stdin.
 They keep a scripted dialog in a directory: its option labels, the cursor, whether Down wraps
 or stops at the last option, whether Up moves it, whether Escape closes it, a banner shown for
 the first captures only, the capture after which the screen cannot be read, and every drive
-call, so a test reads what the step pressed and where the cursor ended.
+call, so a test reads what the step pressed and where the cursor ended. The screen shows the
+input marker line above the dialog, the live case; `scrollback` puts the dialog above it, as a
+box left behind by a restart, and `stale` holds old box lines printed before the marker.
 """
 
 from __future__ import annotations
@@ -54,7 +56,8 @@ capture_screen() {
   if [ -f "$STUB/drift" ] && [ "$_cs_count" -gt "$(cat "$STUB/drift")" ]; then
     _cs_cursor=$((_cs_cursor + 1))
   fi
-  printf '> Type your message\n'
+  [ ! -f "$STUB/stale" ] || cat "$STUB/stale"
+  [ -f "$STUB/scrollback" ] || printf '> Type your message\n'
   [ ! -f "$STUB/extra" ] || cat "$STUB/extra"
   if [ -f "$STUB/banner_until" ] && [ "$_cs_count" -le "$(cat "$STUB/banner_until")" ]; then
     printf 'Warning: True color (24-bit) support not detected.\n'
@@ -66,6 +69,7 @@ capture_screen() {
     else printf '│   %s │\n' "$_cs_label"; fi
     _cs_index=$((_cs_index + 1))
   done <"$STUB/labels"
+  [ ! -f "$STUB/scrollback" ] || printf '> Type your message\n'
 }
 wait_for() { return "$(cat "$STUB/wait")"; }
 state_get() { sed -n "s/^$1=//p" "$STUB/state" | tail -n 1; }
@@ -98,7 +102,8 @@ def run_steps(shell: str, stub: pathlib.Path, script: str, text: str = "-") -> d
     """Run `script` after sourcing the libraries and stubs; return its code, note and options."""
     setup = (
         '. "$1"; . "$2"; %s\nSTUB=$3; CELL=$3; STEP_NUMBER=05; STEP_NAME=pick; STEP_KIND=choose\n'
-        "STEP_TEXT=$4; STEP_EXPECT=-; AGENT_OPTION='^ *● '; OPTION_PRESSES=12\n" % STUBS
+        "STEP_TEXT=$4; STEP_EXPECT=-; AGENT_OPTION='^ *● '; OPTION_PRESSES=12\n"
+        "AGENT_MARKER='Type your message'\n" % STUBS
     )
     result = subprocess.run(
         [
@@ -932,3 +937,69 @@ def test_run_command_logs_the_token_and_sends_the_value(tmp_path):
         logged = (stub / "round.log").read_text(encoding="utf-8")
         assert logged == "command: " + text + "\n" and "AIza" not in found["note"], shell
         assert (stub / "screens" / "05-pick.command.txt").is_file(), shell
+
+
+def scrollback_stub(tmp_path: pathlib.Path) -> pathlib.Path:
+    """Return a stub whose dialog box sits above the input marker, in the scrollback."""
+    stub = make_stub(tmp_path, LABELS)
+    (stub / "scrollback").write_text("", encoding="utf-8")
+    (stub / "typed").unlink(missing_ok=True)
+    return stub
+
+
+def test_a_prompt_below_a_dialog_in_the_scrollback_types(tmp_path):
+    for shell in SHELLS:
+        stub = scrollback_stub(tmp_path)
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "what is 5?")
+        assert found["code"] == "0" and found["note"] == "", shell
+        assert found["drive"] == "type\nkeys Enter\n" and typed_text(stub) == "what is 5?", shell
+
+
+def test_choose_and_dialog_find_no_dialog_in_the_scrollback(tmp_path):
+    for shell in SHELLS:
+        found = run_steps(shell, scrollback_stub(tmp_path), "choose_option", "Allow once")
+        assert found["code"] == "2" and found["note"] == "missed: no dialog open", shell
+        assert found["drive"] == "", shell
+        found = run_steps(shell, scrollback_stub(tmp_path), "STEP_KIND=dialog; answer_dialog")
+        assert found["code"] == "0" and found["note"] == "no dialog", shell
+        assert found["drive"] == "", shell
+
+
+def test_a_type_step_with_the_mark_set_and_a_scrollback_dialog_types(tmp_path):
+    for shell in SHELLS:
+        stub = scrollback_stub(tmp_path)
+        (stub / "state").write_text("choose_missed=yes\n", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=type; send_text '' quiet", "/auth ")
+        assert found["code"] == "0" and found["drive"] == "type\n", shell
+        assert typed_text(stub) == "/auth ", shell
+        assert (stub / "state").read_text(encoding="utf-8") == "choose_missed=yes\n", shell
+
+
+STALE = "│ ● Trust folder │\n│   Don't trust │\n"
+
+
+def test_a_stale_dialog_above_the_marker_does_not_place_the_cursor(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, LABELS)
+        (stub / "stale").write_text(STALE, encoding="utf-8")
+        found = run_steps(shell, stub, "choose_option", "No$")
+        assert found["code"] == "0" and found["cursor"] == "2", shell
+        assert found["note"] == 'cursor on "● No"', shell
+        assert found["drive"].endswith("keys Down,Down\n"), shell
+        stub = make_stub(tmp_path, LABELS, "wrap")
+        (stub / "stale").write_text(STALE, encoding="utf-8")
+        found = run_steps(shell, stub, "read_options 12")
+        assert found["options"] == "3" and found["cursor"] == "0", shell
+        option = (stub / "screens" / "05-pick.option-1.txt").read_text(encoding="utf-8")
+        assert option.startswith(STALE), shell
+
+
+def test_without_a_marker_a_dialog_anywhere_counts(tmp_path):
+    for shell in SHELLS:
+        stub = scrollback_stub(tmp_path)
+        script = "AGENT_MARKER=; STEP_KIND=prompt; send_text Enter marker"
+        found = run_steps(shell, stub, script, "hello")
+        assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
+        assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
+        found = run_steps(shell, scrollback_stub(tmp_path), "AGENT_MARKER=; choose_option", "No$")
+        assert found["code"] == "0" and found["cursor"] == "2", shell

@@ -92,3 +92,20 @@ def test_strip_box_removes_the_borders():
     for shell in SHELLS:
         lines = run_reader(shell, "strip_box").split("\n")
         assert lines[-9] == "" and lines[-8] == "Sign in to the example service", shell
+
+
+def test_live_screen_keeps_the_lines_after_the_last_marker(tmp_path):
+    screen = tmp_path / "live.txt"
+    marker = "Type your message"
+    cases = [
+        ("", "old box\n> Type your message\nnew box\n", "old box\n> Type your message\nnew box\n"),
+        (marker, "old box\nbanner\n", "old box\nbanner\n"),
+        (marker, "old box\n> Type your message\nnew box\n", "new box\n"),
+        (marker, "a\n> Type your message\nb\n> Type your message\nc\n", "c\n"),
+        (marker, "old box\n> Type your message\n", ""),
+    ]
+    for shell in SHELLS:
+        for pattern, text, expected in cases:
+            screen.write_text(text, encoding="utf-8")
+            found = run_reader(shell, "live_screen '%s'" % pattern, screen)
+            assert found == expected, (shell, pattern, text)

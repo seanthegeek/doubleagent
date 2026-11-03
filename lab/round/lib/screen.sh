@@ -85,3 +85,21 @@ joined_urls() {
 highlighted_line() {
   strip_box | grep -E -- "$1" | sed -n 1p
 }
+
+# Print the live part of the screen: the lines after the last line that
+# matches the grep -E pattern $1, the agent's input marker. The agents draw
+# a dialog in place of their input box, never below it, so a dialog above
+# that line is scrollback, such as a box a restart left behind. The whole
+# screen when $1 is empty or matches no line; nothing when the last line
+# matches.
+live_screen() {
+  _ls_screen=$(cat)
+  _ls_last=
+  [ -z "$1" ] ||
+    _ls_last=$(printf '%s\n' "$_ls_screen" | grep -n -E -- "$1" | tail -n 1 | cut -d: -f1)
+  if [ -z "$_ls_last" ]; then
+    printf '%s\n' "$_ls_screen"
+  else
+    printf '%s\n' "$_ls_screen" | tail -n +"$((_ls_last + 1))"
+  fi
+}
