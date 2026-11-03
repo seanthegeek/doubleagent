@@ -88,7 +88,7 @@ highlighted_line() {
 
 # Print the live part of the screen, its lines as drawn: those after the
 # last line that matches, after strip_box, the grep -E pattern $1 of the
-# lines the scrollback ends at (an input line, a restart notice), so a
+# lines that end the scrollback (an input line, a restart notice), so a
 # dialog above the last such line is scrollback, such as a box a restart
 # left behind. The whole screen when $1 is empty or matches no line;
 # nothing when the last line matches.

@@ -949,33 +949,39 @@ def test_run_command_logs_the_token_and_sends_the_value(tmp_path):
         assert (stub / "screens" / "05-pick.command.txt").is_file(), shell
 
 
-STALE = (
-    "│ ● 1. Trust folder (proj) │\n│   2. Don't trust │\n"
-    "Gemini CLI is restarting to apply the trust changes...\n"
-    "> what is 3?\n"
-)
+STALE_BOX = "│ ● 1. Trust folder (proj) │\n│   2. Don't trust │\n"
+STALE_NOTICE = "Gemini CLI is restarting to apply the trust changes...\n"
+STALE_PROMPT = "> what is 3?\n"
+STALE = STALE_BOX + STALE_NOTICE + STALE_PROMPT
 
 
-def stale_stub(tmp_path: pathlib.Path, labels: list[str], mode: str = "stop") -> pathlib.Path:
-    """Return a stub with an old dialog box and a past prompt in the scrollback."""
+def stale_stub(
+    tmp_path: pathlib.Path, labels: list[str], mode: str = "stop", scrollback: str = STALE
+) -> pathlib.Path:
+    """Return a stub with `scrollback` (an old dialog box and what followed it) above the screen.
+
+    Each test passes the scrollback whose last line is the one cut it proves: the box alone leaves
+    the input line as the only cut, the box and a past prompt the prompt, the box and the notice
+    the notice.
+    """
     stub = make_stub(tmp_path, labels, mode)
-    (stub / "stale").write_text(STALE, encoding="utf-8")
+    (stub / "stale").write_text(scrollback, encoding="utf-8")
     (stub / "typed").unlink(missing_ok=True)
     return stub
 
 
 def test_a_prompt_below_a_dialog_in_the_scrollback_types(tmp_path):
     for shell in SHELLS:
-        stub = stale_stub(tmp_path, [])
+        stub = stale_stub(tmp_path, [], scrollback=STALE_BOX)
         found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "what is 5?")
         assert found["code"] == "0" and found["note"] == "", shell
         assert found["drive"] == "type\nkeys Enter\n" and typed_text(stub) == "what is 5?", shell
 
 
 def test_a_typed_input_below_a_dialog_in_the_scrollback_is_free(tmp_path):
-    """The placeholder is gone once text is typed; the input line still cuts the scrollback."""
+    """The placeholder is gone once text is typed; the input line alone still cuts the box."""
     for shell in SHELLS:
-        stub = stale_stub(tmp_path, [])
+        stub = stale_stub(tmp_path, [], scrollback=STALE_BOX)
         (stub / "typed_input").write_text("/help ", encoding="utf-8")
         assert run_steps(shell, stub, "dialog_open")["code"] == "1", shell
         found = run_steps(shell, stub, "STEP_KIND=clear; clear_typed", "6")
@@ -1004,15 +1010,18 @@ def test_a_type_step_with_the_mark_set_and_a_scrollback_dialog_types(tmp_path):
 
 
 def test_a_live_dialog_below_a_past_prompt_is_read_not_the_stale_box(tmp_path):
+    """The past prompt alone, no notice above it, cuts the stale box."""
+    scrollback = STALE_BOX + STALE_PROMPT
     for shell in SHELLS:
-        stub = stale_stub(tmp_path, LABELS)
+        stub = stale_stub(tmp_path, LABELS, scrollback=scrollback)
         found = run_steps(shell, stub, "choose_option", "No$")
         assert found["code"] == "0" and found["cursor"] == "2", shell
         assert found["note"] == 'cursor on "● No"', shell
         assert found["drive"].endswith("keys Down,Down\n"), shell
         option = (stub / "screens" / "05-pick.option-1.txt").read_text(encoding="utf-8")
-        assert option.startswith(STALE), shell
-        found = run_steps(shell, stale_stub(tmp_path, LABELS, "wrap"), "answer_dialog")
+        assert option.startswith(scrollback), shell
+        stub = stale_stub(tmp_path, LABELS, "wrap", scrollback=scrollback)
+        found = run_steps(shell, stub, "answer_dialog")
         assert found["note"] == "answered with the first option, 3 options", shell
         assert found["cursor"] == "0" and found["drive"].endswith("keys Enter\n"), shell
 
@@ -1106,8 +1115,7 @@ def test_a_dialog_after_a_trust_restart_is_read_below_the_notice(tmp_path):
 def test_a_yolo_input_line_below_a_dialog_in_the_scrollback_is_free(tmp_path):
     for shell in SHELLS:
         for typed in ("", "/help "):
-            stub = stale_stub(tmp_path, [])
-            (stub / "stale").write_text(STALE.split("Gemini")[0], encoding="utf-8")
+            stub = stale_stub(tmp_path, [], scrollback=STALE_BOX)
             (stub / "input_prefix").write_text("*", encoding="utf-8")
             if typed:
                 (stub / "typed_input").write_text(typed, encoding="utf-8")

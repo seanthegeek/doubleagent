@@ -49,7 +49,7 @@ press_down_saved() {
 
 # Print the live part of the screen read from stdin (live_screen): the
 # lines after the last line matching the agent's AGENT_LIVE_AFTER pattern,
-# the lines the scrollback ends at. A dialog's own line that matches it
+# the lines that end the scrollback. A dialog's own line that matches it
 # cuts the dialog's lines above it, so only its options and footer stay.
 live_part() {
   live_screen "${AGENT_LIVE_AFTER:-}"
