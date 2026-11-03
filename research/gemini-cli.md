@@ -1635,9 +1635,11 @@ either: its turns are the `clientHistory` items in display form.
   that still does not decode, or is not a JSON object, is one
   `parser: <file> is not a JSON object` row.
 
-The CLI draws each dialog in place of its input box: a folder trust, sign-in, settings or model
-dialog replaces the composer, the input box with its placeholder
+The CLI draws its dialogs in place of its input box in two forms: a dialog of its dialog
+manager (folder trust, sign-in, settings or model) replaces the composer
 ([`cli/src/ui/layouts/DefaultAppLayout.tsx:88-94`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/layouts/DefaultAppLayout.tsx#L88-L94)),
+the input box whose placeholder is `Type your message or @path/to/file`
+([`cli/src/ui/components/Composer.tsx:163-170`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L163-L170)),
 and a tool or command confirmation hides the composer while it waits unless the setting
 `ui.collapseDrawerDuringApproval` is `false`
 ([`cli/src/ui/components/Composer.tsx:85-87`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L85-L87),

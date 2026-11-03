@@ -82,10 +82,16 @@ def test_joined_urls_print_nothing_without_a_url(tmp_path):
         assert run_reader(shell, "joined_urls 60", screen) == "", shell
 
 
-def test_highlighted_line_is_the_first_marked_option():
+def test_highlighted_line_is_the_lowest_marked_option(tmp_path):
+    screen = tmp_path / "two-dialogs.txt"
+    screen.write_text(
+        "│ ● 1. Trust folder │\n│   2. Don't trust │\n│ ● Allow once │\n", encoding="utf-8"
+    )
     for shell in SHELLS:
         found = run_reader(shell, "highlighted_line '^ *● '")
         assert found == "● 1. Allow once\n", shell
+        found = run_reader(shell, "highlighted_line '^ *● '", screen)
+        assert found == "● Allow once\n", shell
 
 
 def test_strip_box_removes_the_borders():

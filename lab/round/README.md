@@ -405,13 +405,20 @@ a vendor; prompts and the web-tool confirmations send what the agent
 itself sends.
 
 A `prompt`, `type`, `paste` or `clear` step reads the screen before it
-types. For it and for every step that reads a dialog, a dialog counts as
-open only on the live part of the screen: the lines below the last line
-showing the agent's input marker (`AGENT_MARKER`), since the agents draw
-a dialog in place of their input box. A dialog box left in the scrollback
-above a free input, as Gemini CLI's trust dialog stays after the restart
-that follows the trust choice, is not open; the screen of an agent with
-no marker (pi) is read whole. When a dialog is open (the agent's
+types. The agents draw a dialog in place of their input box, so this
+step and every step that reads a dialog read one only on the live part
+of the screen, the lines below the last line showing the agent's input
+marker (`AGENT_MARKER`). When the marker is on no line, a dialog having
+replaced the input box, they read the whole screen and take the lowest
+dialog on it as the live one, since the scrollback is above it; the
+screen of an agent with no marker (pi) is read whole the same way. A
+dialog box left in the scrollback above a free input, as Gemini CLI's
+trust dialog stays after the restart that follows the trust choice, is
+therefore not open. Gemini CLI draws its dialogs this way by its source
+with its default settings
+([Permission rows in `research/gemini-cli.md`](../../research/gemini-cli.md#permission-rows));
+Qwen Code, a fork of Gemini CLI, is taken to follow that layout until a
+run reads one of its dialogs. When a dialog is open (the agent's
 `AGENT_OPTION` line, or its `AGENT_INPUT_GUARD` pattern for an input
 dialog with no option line, such as Gemini CLI's API key prompt), the
 table did not foresee it, so the step
@@ -481,7 +488,7 @@ table's width; `resume` then runs the copy.
 
 | File | Holds |
 | --- | --- |
-| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box, which the steps wait for and below whose last line a dialog counts as open (empty for pi, whose screen is then read whole); `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for Gemini CLI and Qwen Code, `^ *→ ` for pi, from its source); `AGENT_INPUT_GUARD`, the pattern of an input dialog with no option line, empty when the agent's research document names none (`clear stored key` for Gemini CLI, `What went wrong` for pi's `/bug` hint input); while either is on the live part of the screen no `prompt`, `type`, `paste` or `clear` step types or presses a key; the default waits and the terminal size. |
+| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box, which the steps wait for and below whose last line a dialog counts as open (the whole screen, its lowest dialog live, when no line shows it; empty for pi, whose screen is always read that way); `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for Gemini CLI and Qwen Code, `^ *→ ` for pi, from its source); `AGENT_INPUT_GUARD`, the pattern of an input dialog with no option line, empty when the agent's research document names none (`clear stored key` for Gemini CLI, `What went wrong` for pi's `/bug` hint input); while either is on the live part of the screen no `prompt`, `type`, `paste` or `clear` step types or presses a key; the default waits and the terminal size. |
 | `agents/<agent>/install.sh`, `install.ps1` | The install command copied from the vendor's page, whose URL and fetch date the script prints as its `source:` line, then `bin:` and `version:` lines. The version is read from the package's own record where one exists, so the agent does not run before its first-launch step. |
 | `agents/<agent>/roots` | The survey roots, from the Per-user storage, Credentials and Scratch directories sections of `research/<agent>.md`. |
 | `agents/<agent>/steps.tsv` | The step table. |

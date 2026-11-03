@@ -79,19 +79,21 @@ joined_urls() {
   LC_ALL=C awk -v width="$1" "$JOINED_URLS_AWK"
 }
 
-# Print the first line of the screen that matches the grep -E pattern $1,
+# Print the last line of the screen that matches the grep -E pattern $1,
 # the agent's highlighted-option pattern, after strip_box; nothing when no
-# line does.
+# line does. The last, since a dialog left in the scrollback is above the
+# live one, which is the lowest on the screen.
 highlighted_line() {
-  strip_box | grep -E -- "$1" | sed -n 1p
+  strip_box | grep -E -- "$1" | tail -n 1
 }
 
 # Print the live part of the screen: the lines after the last line that
 # matches the grep -E pattern $1, the agent's input marker. The agents draw
-# a dialog in place of their input box, never below it, so a dialog above
-# that line is scrollback, such as a box a restart left behind. The whole
-# screen when $1 is empty or matches no line; nothing when the last line
-# matches.
+# a dialog in place of their input box, so a dialog above that line is
+# scrollback, such as a box a restart left behind. The whole screen when $1
+# is empty or matches no line (a dialog has replaced the input box; its
+# readers then take the lowest dialog as the live one); nothing when the
+# last line matches.
 live_screen() {
   _ls_screen=$(cat)
   _ls_last=

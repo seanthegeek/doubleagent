@@ -48,23 +48,24 @@ press_down_saved() {
 }
 
 # Print the live part of the screen read from stdin (live_screen) by the
-# agent's input marker AGENT_MARKER, the part where an open dialog is drawn.
+# agent's input marker AGENT_MARKER, the part where an open dialog is drawn,
+# or the whole screen when a dialog has replaced the input box.
 live_part() {
   live_screen "${AGENT_MARKER:-}"
 }
 
 # Print what places the cursor on the live part of the screen read from
-# stdin: every line matching the agent's AGENT_OPTION pattern (the
-# highlighted option), box-drawing characters stripped, or that whole part
-# when no line matches. Two screens with the same key have the cursor on
-# the same option, so a line outside the dialog that comes and goes (Gemini
-# CLI's true-colour warning, shown at the first screen and gone after a
-# key) changes no reading.
+# stdin: its highlighted_line by the agent's AGENT_OPTION pattern, the
+# lowest dialog's highlighted option, or that whole part when no line
+# matches. Two screens with the same key have the cursor on the same
+# option, so a line outside the dialog that comes and goes (Gemini CLI's
+# true-colour warning, shown at the first screen and gone after a key)
+# changes no reading.
 option_key() {
   _ok_screen=$(live_part)
   _ok_lines=
   [ -z "${AGENT_OPTION:-}" ] ||
-    _ok_lines=$(printf '%s\n' "$_ok_screen" | strip_box | grep -E -- "$AGENT_OPTION")
+    _ok_lines=$(printf '%s\n' "$_ok_screen" | highlighted_line "$AGENT_OPTION")
   if [ -n "$_ok_lines" ]; then printf '%s\n' "$_ok_lines"; else printf '%s\n' "$_ok_screen"; fi
 }
 
@@ -197,8 +198,8 @@ answer_dialog() {
 }
 
 # The `choose` kind: read the open dialog's options, then press Down until
-# the highlighted line matches the step's pattern, leaving the Enter to the
-# next step. Return 2 with the reason in STEP_NOTE when no dialog is open
+# the highlighted line of the live part (highlighted_line, the lowest
+# dialog's) matches the step's pattern, leaving the Enter to the next step. Return 2 with the reason in STEP_NOTE when no dialog is open
 # (no key sent), or when no option matches or the cursor ends on a line the
 # pattern does not match; then press Escape once (choose_missed_escape), so
 # the dialog is closed rather than left for a later key.
