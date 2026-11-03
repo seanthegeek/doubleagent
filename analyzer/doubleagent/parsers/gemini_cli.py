@@ -164,7 +164,7 @@ HEX64_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 MESSAGE_TYPES = ("user", "gemini", "info", "error", "warning")
 FAILED_STATUSES = ("error", "cancelled")
-DECISION_STATUSES = ("cancelled", "awaiting_approval")
+DECISION_STATUS = "cancelled"
 
 
 # ---- content helpers ----------------------------------------------------------
@@ -1481,7 +1481,7 @@ class GeminiCliParser(Parser):
                 result_row = row("tool_result", text, when)
                 result_row.tool_name, result_row.tool_use_id = name, call_id
                 out.append(result_row)
-            if status in DECISION_STATUSES:
+            if status == DECISION_STATUS:
                 decision = row("system", "permission decision: %s" % status, when)
                 decision.tool_name, decision.tool_use_id = name, call_id
                 out.append(decision)
