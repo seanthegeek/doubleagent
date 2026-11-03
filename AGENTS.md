@@ -1598,7 +1598,7 @@ down.
   force pushes and deletion of `main`, and a merge needs the `CI result`
   job and the CodeQL code-scanning analysis green.
 - Work on a branch named for the change; open the pull request with
-  `gh pr create` (with a `Closes #<n>` or `Refs #<n>` line per issue,
+  `gh pr create` (naming each issue as the issue bullet below says,
   ending with the AI disclosure line),
   watch `gh pr checks --watch`, and report it ready. The user merges it
   unless the task's instructions said to merge. An agent never pushes to
@@ -1643,11 +1643,12 @@ down.
   never `fixes #29`. The pull request that finishes an issue says
   `Closes #<n>` in its body, one line per issue, so GitHub closes the issue
   when the pull request merges; a pull request that advances an issue
-  without finishing it says `Refs #<n>` in its body. An issue finished
-  without a pull request of its own (a round that settled it, a question a
-  comment answered) is closed by hand with a comment naming the commit or
-  the answer. No issue waits for a release: the changelog entry, not the
-  issue's state, records what a version ships.
+  without finishing it says `Refs #<n>` in its body. An issue still open
+  once the work that finishes it is on `main` (its last pull request said
+  `Refs #<n>`, a round settled it, a comment answered it) is closed by
+  hand with a comment naming the commit or the answer. No issue waits for
+  a release: the changelog entry, not the issue's state, records what a
+  version ships.
 - Evidence lives in the research documents, not in issues: the commit that
   files or acts on an issue recording file names, keys, field values or
   offsets puts those facts, cited, in `research/<agent>.md`; the issue
@@ -1807,11 +1808,10 @@ down.
 - Before a tag, every issue closed since the part's last tagged commit
   has one of these accounts: a `([#<n>])` line in this part's changelog,
   in the pending entry or in the tagged version it shipped in; a change
-  to nothing this part's user runs or reads (the other part,
-  documentation, research, tests, development tools), which needs no
-  line; or no change at all (an answered
-  question, a round that settled it, a close as not planned or duplicate).
-  List them, for the analyzer, with
+  to nothing this part ships (the other part, documentation, research,
+  tests, development tools), which needs no line; or no change at all (an
+  answered question, a round that settled it, a close as not planned or
+  duplicate). List them, for the analyzer, with
 
   ```sh
   gh issue list --state closed --limit 1000 --search "closed:>=$(git for-each-ref \
@@ -1819,7 +1819,8 @@ down.
   ```
 
   and with `collector-v*` for the collector; the count must stay under
-  the limit.
+  the limit. In the other direction, every issue a `([#<n>])` line of the
+  pending entry cites is closed.
 - A release requires zero open Dependabot alerts, which CI cannot check.
   Before tagging, run
   `gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/dependabot/alerts?state=open" -q length`
