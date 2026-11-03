@@ -296,7 +296,9 @@ returned ([Permission rows](#permission-rows)), and trusting the folder wrote
 second start under the variable
 opened at the prompt, rewrote only that `state.json` and wrote its session file and
 `tmp/<slug>/logs.json` (184 bytes after one question) there. The catalog's lines name `.gemini`
-directly below each home, so a relocated store is not collected, and nothing in a home tells
+directly below each home, under `.cache` and in a discovered project, so a relocated store is
+collected only when its `.gemini` lies at one of those places (`GEMINI_CLI_HOME=$HOME/.cache`,
+or a project directory); the store under `~/lab/althome` was not, and nothing in a home tells
 that one exists.
 
 `GEMINI_CLI_TRUSTED_FOLDERS_PATH` moves the trust file alone. Under
@@ -581,7 +583,7 @@ it ([Per-user storage](#per-user-storage)).
 On the Linux install of 0.66.0 session files took the `session-<YYYY-MM-DDTHH-MM>-<id8>.jsonl`
 form. The restart that follows a folder trust choice ("Gemini CLI is restarting to apply the
 trust changes", 0.66.0, 2026-11-01) deleted the first session file and began a new one, and,
-like any start in a project that held an earlier session, wrote that session's summary line
+like other starts in a project that held an earlier session, wrote a summary line into one
 ([Session JSONL](#session-jsonl)); under
 `GEMINI_CLI_TRUSTED_FOLDERS_PATH` (2026-11-02) it did the same and redrew its banner and
 prompt.
@@ -880,8 +882,9 @@ that session; when no key was reachable (a start from the desktop with no stored
 and one under `GEMINI_FORCE_FILE_STORAGE` with only the keyring item;
 [Credentials](#credentials)) the request failed, an error report appeared in `/tmp`
 ([Error reports](#error-reports)), and the line added held no `summary`. A session already
-given the line was not written again. So a session's summary arrives at the next start in its
-project ([Joins and timestamps](#joins-and-timestamps)).
+given the line was not written again. So a session's summary arrives at a later start in its
+project, the next one or a later one, or never when every later start finds a more recent
+session without the line ([Joins and timestamps](#joins-and-timestamps)).
 
 #### logs.json records
 
@@ -970,9 +973,10 @@ keeps the last record per `id` and applies `$patch` and `$rewindTo`. Every time 
 with milliseconds, except the activity log's epoch milliseconds. The project path is the
 `tmp/<slug>/.project_root` content or a reverse lookup in `projects.json`; a hash-named directory
 has no reverse map but matches the SHA-256 of a known path. `kind` and the directory nesting link a
-subagent session to its parent. A session file's modification time is not its last event's: the
-next start in the same project appends that session's summary line
-([Session JSONL](#session-jsonl)), so the time is that start's.
+subagent session to its parent. A session file's modification time is not always its last
+event's: a later start in the same project may append a summary line, with or without a
+`summary` ([Session JSONL](#session-jsonl)), and the time is then that start's, so a start time
+is not read from the modification time alone.
 
 ### Other stores
 
