@@ -50,6 +50,7 @@ from fixtures import (
 )
 from fixtures.gemini_cli import (
     GEMINI_CONTEXT_TEXT,
+    GEMINI_HINTS_TEXT,
     GEMINI_HOOK_TEXT,
     GEMINI_PLAN_EXIT_TEXT,
     GEMINI_PROMPT_HOOK_TEXT,
@@ -211,9 +212,21 @@ class GeminiCliTests(ParserBase):
     def test_subagent_session(self):
         rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
         rows = self.rows_for(GeminiCliParser(), rel)
-        self.assertEqual([row.turn_type for row in rows], ["system", "user"])
+        call_id = "read_file__read_file_1759309230400_0"
+        self.assertEqual(
+            [(row.source_line, row.turn_type, row.text, row.tool_use_id) for row in rows[1:]],
+            [
+                (2, "user", "investigate", ""),
+                (3, "system", "model: gemini-2.5-flash", ""),
+                (3, "tool_use", '{"file_path":"/srv/proj/package-lock.json"}', call_id),
+                (3, "tool_result", "lockfileVersion 3", call_id),
+                # The hints before the tool's response are a context row; the response, which
+                # the call's `result` holds, gives none.
+                (4, "system", "context: user_hints: " + GEMINI_HINTS_TEXT, ""),
+            ],
+        )
         self.assertIn("kind=subagent", rows[0].text)
-        self.assertEqual(rows[1].session_id, GEMINI_SUBAGENT)
+        self.assertEqual({row.session_id for row in rows}, {GEMINI_SUBAGENT})
 
     def test_awaiting_approval_without_result(self):
         rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
@@ -236,9 +249,9 @@ class GeminiCliTests(ParserBase):
             handle.write(json.dumps(message) + "\n")
         rows = self.rows_for(GeminiCliParser(), rel)
         self.assertEqual(
-            [(row.turn_type, row.text) for row in rows[2:]],
+            [(row.turn_type, row.text) for row in rows[6:]],
             [
-                ("system", "model: gemini-2.5-pro"),
+                ("system", "model: gemini-2.5-flash -> gemini-2.5-pro"),
                 ("tool_use", '{"command":"make deploy"}'),
                 ("system", "permission decision: awaiting_approval"),
             ],
@@ -1165,6 +1178,9 @@ class GeminiCliTests(ParserBase):
             (SHELL_TEXT, "shell_command"),
             (GEMINI_STEERING_TEXT, "steering_update"),
             (BACKGROUND_TEXT, "background_update"),
+            (GEMINI_HINTS_TEXT, "user_hints"),
+            ("user hints: lowercase is typed", ""),
+            ("Hints: none", ""),
             ("Please continue.", ""),
             ("/help", ""),
             ("? what changed", ""),
@@ -1216,26 +1232,26 @@ class GeminiCliTests(ParserBase):
         )
         rows = self.rows_for(GeminiCliParser(), rel)
         self.assertEqual(
-            [(row.source_line, row.turn_type, row.text) for row in rows[2:]],
+            [(row.source_line, row.turn_type, row.text) for row in rows[6:]],
             [
-                (3, "system", "context: hook_context: <hook_context>Ticket 42.</hook_context>"),
-                (3, "user", "fix the build"),
-                (4, "system", "context: hook_context: <hook_context>cut off"),
+                (5, "system", "context: hook_context: <hook_context>Ticket 42.</hook_context>"),
+                (5, "user", "fix the build"),
+                (6, "system", "context: hook_context: <hook_context>cut off"),
                 (
-                    5,
+                    7,
                     "user",
                     "look at this\n[inlineData image/png]\n[fileData file:///srv/proj/a.pdf]\n"
                     "and this",
                 ),
                 (
-                    5,
+                    7,
                     "system",
                     "context: hook_context: %s\n%s" % (GEMINI_HOOK_TEXT, GEMINI_PROMPT_HOOK_TEXT),
                 ),
-                (6, "user", ""),
-                (7, "system", "context: shell_command: " + SHELL_TEXT),
-                (8, "system", "context: background_update: " + BACKGROUND_TEXT),
-                (8, "tool_result", "x"),
+                (8, "user", ""),
+                (9, "system", "context: shell_command: " + SHELL_TEXT),
+                (10, "system", "context: background_update: " + BACKGROUND_TEXT),
+                (10, "tool_result", "x"),
             ],
         )
         self.assertEqual((rows[-1].tool_name, rows[-1].tool_use_id), ("grep", "c9"))

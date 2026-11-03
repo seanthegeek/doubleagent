@@ -114,6 +114,7 @@ CONTEXT_OPENINGS = (
     ("ide_context", "Here is a summary of changes in the user's editor context, in JSON format."),
     ("shell_command", "I ran the following shell command:"),
     ("steering_update", "User steering update:"),
+    ("user_hints", "User hints:"),
     ("background_update", "Background execution update:"),
 )
 # The end of a hook's context, which a non-interactive start puts before the prompt in one text.

@@ -730,7 +730,7 @@ message's `model` as `model: <id>` at a session's first and `model: <old>
 `user` text the CLI wrote itself with a known opening (the environment
 context, a hook's context, a compression summary, the plan-mode exit
 notice, the directory and editor context, a shell-mode command, a
-steering or background update) as a `context: <kind>:` row, though
+steering or background update, a subagent's user hints) as a `context: <kind>:` row, though
 `Please continue.` stays a `user` row
 ([Context rows](../research/gemini-cli.md#context-rows));
 `tmp/<slug>/shell_history` (the shell-mode commands),

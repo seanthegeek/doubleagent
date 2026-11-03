@@ -920,6 +920,13 @@ the person did not type record either one text part, which opens as follows, or 
   put before the parts of its next message
   ([`core/src/agents/local-executor.ts:736-743`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L736-L743);
   [`fastAckHelper.ts:90-92`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/fastAckHelper.ts#L90-L92)).
+- `User hints:`: the hints the person typed while a subagent ran, one `- ` line each inside
+  `<user_input>`, then the steering instruction
+  ([`fastAckHelper.ts:72-78`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/fastAckHelper.ts#L72-L78)). The subagent loop puts the text before
+  the query in its first message and before the parts of a later message, its tools'
+  `functionResponse` parts among them
+  ([`local-executor.ts:660`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L660),
+  [`671-682`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L671-L682), [`729-735`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L729-L735)).
 
 `Please continue.` is CLI-written too: the next-speaker check sends it when it judges the
 model should speak again, and it replaces an empty trailing `user` turn
@@ -2226,9 +2233,13 @@ newline. A run of the person's is a `user` row; a run of a text the CLI wrote
 | `shell_command` | `I ran the following shell command:` |
 | `steering_update` | `User steering update:` |
 | `background_update` | `Background execution update:` |
+| `user_hints` | `User hints:` |
 
 `Please continue.`, which the CLI also writes, is not classified, since a person can type the
-same text: it stays a `user` row.
+same text: it stays a `user` row. A `User steering update:` text the CLI submits as a prompt
+on its own, a hint still pending when the agent goes idle with model steering on
+([`cli/src/ui/AppContainer.tsx:2665-2681`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/AppContainer.tsx#L2665-L2681)), is a
+`context: steering_update:` row like the one before a tool response.
 
 A text that opens with `<hook_context>` and holds more after its first `</hook_context>` (the
 non-interactive start) is split there: the hook's context is the `context: hook_context:` row

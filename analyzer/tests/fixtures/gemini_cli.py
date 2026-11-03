@@ -42,6 +42,17 @@ GEMINI_STEERING_TEXT = (
     "User steering update:\n<user_input>\nskip the tests\n</user_input>\n"
     "Internal instruction: Re-evaluate the active plan using this user steering update."
 )
+# Hints the person typed while a subagent ran, as the subagent loop sends them, and its call.
+GEMINI_HINTS_TEXT = (
+    "User hints:\n<user_input>\n- check the lockfile\n</user_input>\n\n"
+    "Internal instruction: Re-evaluate the active plan using this user steering update."
+)
+GEMINI_SUBAGENT_CALL = {
+    "id": "read_file__read_file_1759309230400_0",
+    "name": "read_file",
+    "args": {"file_path": "/srv/proj/package-lock.json"},
+    "timestamp": "2026-10-01T09:00:30.400Z",
+}
 # The message the CLI adds when the person leaves plan mode with Shift+Tab.
 GEMINI_PLAN_EXIT_TEXT = (
     "User has manually exited Plan Mode. Switching to Default mode (edits will require "
@@ -361,7 +372,7 @@ GEMINI_TRUST_MTIME = 1790856000  # 1 October 12:00:00 UTC, trustedFolders.json's
 
 
 def build_gemini_cli(base: Path) -> None:
-    """Write a `~/.gemini` with slug and hash directories, a subagent and noise.
+    """Write a `~/.gemini` with slug and hash directories, a subagent with user hints and noise.
 
     ~/.gemini with a slug directory (marker file), a legacy hash directory resolved through
     projects.json, a subagent session and noise.
@@ -369,6 +380,13 @@ def build_gemini_cli(base: Path) -> None:
     Source: research/gemini-cli.md#per-user-storage; source 6814e00
     """
     slug = base / "tmp/proj"
+    read_response = {
+        "functionResponse": {
+            "id": GEMINI_SUBAGENT_CALL["id"],
+            "name": "read_file",
+            "response": {"output": "lockfileVersion 3"},
+        }
+    }
     _jsonl(base / GEMINI_REL[len(".gemini/") :], gemini_session_records())
     _jsonl(
         slug / "chats" / GEMINI_SESSION / (GEMINI_SUBAGENT + ".jsonl"),
@@ -384,6 +402,21 @@ def build_gemini_cli(base: Path) -> None:
                 "timestamp": "2026-10-01T09:00:30.000Z",
                 "type": "user",
                 "content": "investigate",
+            },
+            {
+                "id": "s-g0",
+                "timestamp": "2026-10-01T09:00:30.400Z",
+                "type": "gemini",
+                "content": "",
+                "model": "gemini-2.5-flash",
+                "toolCalls": [dict(GEMINI_SUBAGENT_CALL, status="success", result=[read_response])],
+            },
+            # The hints the person typed while the subagent worked, before its tools' responses.
+            {
+                "id": "s-u2",
+                "timestamp": "2026-10-01T09:00:30.800Z",
+                "type": "user",
+                "content": [{"text": GEMINI_HINTS_TEXT}, read_response],
             },
         ],
     )
