@@ -199,7 +199,8 @@ answer_dialog() {
 
 # The `choose` kind: read the open dialog's options, then press Down until
 # the highlighted line of the live part (highlighted_line, the lowest
-# dialog's) matches the step's pattern, leaving the Enter to the next step. Return 2 with the reason in STEP_NOTE when no dialog is open
+# dialog's) matches the step's pattern, leaving the Enter to the next
+# step. Return 2 with the reason in STEP_NOTE when no dialog is open
 # (no key sent), or when no option matches or the cursor ends on a line the
 # pattern does not match; then press Escape once (choose_missed_escape), so
 # the dialog is closed rather than left for a later key.
