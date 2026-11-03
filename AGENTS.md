@@ -1638,11 +1638,13 @@ down.
   `Fixes` or `Closes`, and each changelog line for it ends with `([#<n>])`.
   GitHub closes an issue for any closing keyword (`close`, `fix`, `resolve`
   and their `-s` and `-d` forms) followed by `#<n>` anywhere in a commit
-  message or a pull request body, so write `the fix for #29`, never
-  `fixes #29`. The pull request that finishes an issue says `Closes #<n>`
-  in its body, one line per issue and no other closing keyword, so GitHub
-  closes the issue when the pull request merges; one that advances an
-  issue without finishing it says `Refs #<n>` instead. An issue finished
+  message or a pull request body, so in a commit message, and in a pull
+  request body outside its `Closes #<n>` lines, write `the fix for #29`,
+  never `fixes #29`. The pull request that finishes an issue says
+  `Closes #<n>` in its body, one line per issue, so GitHub closes the issue
+  when the pull request merges; a pull request that advances an issue
+  without finishing it says `Refs #<n>` in its body, and its commits say
+  `Refs #<n>` either way. An issue finished
   without a pull request of its own (a round that settled it, a question a
   comment answered) is closed by hand with a comment naming the commit or
   the answer. No issue waits for a release: the changelog entry, not the
@@ -1803,16 +1805,17 @@ down.
   version comparison links, in descending order. markdownlint MD052 (with
   `shortcut_syntax` on) fails on a reference without a definition, MD053 on
   a definition nothing cites.
-- Before a tag, every issue closed since the part's last tag has one of
-  three accounts: a `([#<n>])` line in this part's changelog entry; a
-  change that touched no code of this part (the other part, documentation,
+- Before a tag, every issue closed since the part's last tagged commit
+  has one of these accounts: a `([#<n>])` line in this part's changelog,
+  in the pending entry or in the tagged version it shipped in; a change
+  that touched no code of this part (the other part, documentation,
   research, tooling), which needs none; or no change at all (an answered
   question, a round that settled it, a close as not planned or duplicate).
   List them, for the analyzer, with
 
   ```sh
   gh issue list --state closed --limit 1000 --search "closed:>=$(git for-each-ref \
-    --format='%(taggerdate:iso-strict)' "refs/tags/$(git describe --tags --abbrev=0 --match 'analyzer-v*')")"
+    --format='%(*committerdate:iso-strict)' "refs/tags/$(git describe --tags --abbrev=0 --match 'analyzer-v*')")"
   ```
 
   and with `collector-v*` for the collector; the count must stay under
