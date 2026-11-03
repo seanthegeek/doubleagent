@@ -23,11 +23,11 @@ depends on:
   (`message`, `stack`), `context` (`requestContents`); `sandbox.toml` `modes`, `commands`.
 
 A `user` text the CLI writes itself with an opening of `CONTEXT_OPENINGS` is a `context: <kind>:`
-row. Rewind, summary and removal rows take the latest time seen before them. `project_path` is
-`tmp/<slug>/.project_root`, else the `projects.json` key of the slug, else the key whose sha256
-is the hash directory or `projectHash`, else `projectHash`. Validated against google-gemini/gemini-cli source at 6814e00
-(0.67.0-nightly.20261020; v0.66.0 writes the same shapes, some at lines a few earlier) with a
-synthetic fixture. See `research/gemini-cli.md`.
+row. `project_path` is `tmp/<slug>/.project_root`, else the `projects.json` key of the slug,
+else the key whose sha256 is the hash directory or `projectHash`, else `projectHash`. Validated
+against google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020) with a synthetic
+fixture; v0.66.0 writes the same shapes, from lines a few earlier in `geminiChat.ts`,
+`client.ts`, `useGeminiStream.ts`, `AppContainer.tsx`, `gemini.tsx`. See `research/gemini-cli.md`.
 """
 
 from __future__ import annotations
@@ -115,6 +115,7 @@ CONTEXT_OPENINGS = (
     ("shell_command", "I ran the following shell command:"),
     ("steering_update", "User steering update:"),
     ("user_hints", "User hints:"),
+    ("loaded_context", "<loaded_context>"),
     ("background_update", "Background execution update:"),
 )
 # The end of a hook's context, which a non-interactive start puts before the prompt in one text.
@@ -902,7 +903,11 @@ class GeminiCliParser(Parser):
             if not user:
                 yield row("assistant", text)
             else:
-                yield row("system", "context: %s: %s" % (kind, text)) if kind else row("user", text)
+                yield (
+                    row("system", "context: %s: %s" % (kind, text.strip()))
+                    if kind
+                    else row("user", text)
+                )
         yield from tools
 
     def _base_dir(self, artifact: Artifact, match) -> Path:
@@ -1369,7 +1374,9 @@ class GeminiCliParser(Parser):
             runs, responses = content_runs(content, classify=True)
             for kind, text in runs:
                 out.append(
-                    row("system", "context: %s: %s" % (kind, text)) if kind else row("user", text)
+                    row("system", "context: %s: %s" % (kind, text.strip()))
+                    if kind
+                    else row("user", text)
                 )
             for response in responses:
                 call_id = str(response.get("id") or "")

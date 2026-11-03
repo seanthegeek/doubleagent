@@ -871,11 +871,13 @@ message for every turn not yet recorded
 `setHistory` record a bare `Content` item through `recordSyntheticMessage`
 ([`geminiChat.ts:1345-1357`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1345-L1357),
 [`1386-1397`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1386-L1397);
-[`chatRecordingService.ts:1116-1127`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1116-L1127)). The callers that add a `user` item
-the person did not type record either one text part, which opens as follows, or the
-`functionResponse` parts of a tool round ([`useGeminiStream.ts:2165-2172`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2165-L2172),
+[`chatRecordingService.ts:1116-1127`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1116-L1127)). A `user` message the CLI writes can
+hold its texts, the `functionResponse` parts of a tool round ([`useGeminiStream.ts:2165-2172`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2165-L2172),
 [`2209-2215`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2209-L2215), [`2318-2324`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2318-L2324),
-[`2330-2336`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2330-L2336)):
+[`2330-2336`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2330-L2336)), or both, and a subagent's first message holds
+the project memory, the hints and the query as parts of their own. The texts the parser
+recognises open as follows; [Context rows](#context-rows) names the CLI-written texts it does
+not:
 
 - `<session_context>`: the environment-context item (the date, the platform, the project's
   temporary directory, optionally the directory tree and the session memory), which `startChat`
@@ -927,6 +929,11 @@ the person did not type record either one text part, which opens as follows, or 
   `functionResponse` parts among them
   ([`local-executor.ts:660`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L660),
   [`671-682`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L671-L682), [`729-735`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L729-L735)).
+- `<loaded_context>`: the extension and project memory `getSessionMemory` returns, a newline
+  first ([`core/src/config/config.ts:2624-2643`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/config.ts#L2624-L2643)),
+  which the subagent loop puts as its own text part before the hints and the query of its
+  first message ([`local-executor.ts:663-678`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L663-L678)),
+  recorded with the prompt's other parts ([`geminiChat.ts:561-567`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L561-L567)).
 
 `Please continue.` is CLI-written too: the next-speaker check sends it when it judges the
 model should speak again, and it replaces an empty trailing `user` turn
@@ -946,11 +953,16 @@ and its history view skips the two tags
 
 The function responses `sendMessageStream` sends back after a tool round are recorded as a
 `user` message of `functionResponse` parts
-([`geminiChat.ts:591-596`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L591-L596)), and so are the responses it makes up for
-calls an interruption left unanswered ([`862-875`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L862-L875)). The second step of
-`updateMessagesFromHistory` copies each response into the `result` of its call in the `gemini`
-message, so the file holds it twice
-([`chatRecordingService.ts:1488-1531`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1488-L1531)).
+([`geminiChat.ts:591-596`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L591-L596)), and so are the responses it makes
+up for calls an interruption left unanswered ([`862-875`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L862-L875)). The
+file holds each response twice because `recordCompletedToolCalls` stores the call's response
+parts as its `result` when the call completes, before the responses are sent
+([`geminiChat.ts:1838-1871`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1838-L1871)). The second step of
+`updateMessagesFromHistory` then sets a call's `result` to every part of the `user` turn that
+answers it ([`chatRecordingService.ts:1488-1531`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1488-L1531)), but it
+runs only at `initialize`, `setHistory`, a rollback and the trailing-turn repairs
+([`geminiChat.ts:456`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L456), [`826`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L826), [`837`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L837), [`897`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L897),
+[`926`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L926), [`1380`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1380), [`1402`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1402)).
 
 The main session of the Linux install of 0.66.0 (184,533 bytes) used a subset of these keys: the
 metadata line held `kind`, `lastUpdated`, `projectHash`, `sessionId` and `startTime`; `user`
@@ -1882,11 +1894,11 @@ session file on text, tool rows on `tool_use_id` ([Other stores](#other-stores))
 - `checkpoint-<tag>.json`: a first `system` row
   `chat checkpoint: tag <tag> authType=<authType> (from <file>, file mtime)` at the file's
   modification time (`-` when the file names no `authType`, the tag decoded from the file name),
-  then per `history` item its text parts as one `user` or `assistant` row, a `thinking` row per
+  then per `history` item the rows of its text parts (a `model` item's as one `assistant` row,
+  a `user` item's as the runs of [Context rows](#context-rows)), a `thinking` row per
   thought part when thinking is asked for, and a `tool_use` or `tool_result` row per
   `functionCall` or `functionResponse` part with its `id` and `name`; `source_line` is the item's
-  1-based position. A `user` item's texts give the rows of [Context rows](#context-rows), the
-  environment-context item a `context: session_context:` row.
+  1-based position. The environment-context item is a `context: session_context:` row.
 - `bug-report-history-<epoch ms>.json`: the same item rows after a first `system` row
   `bug report history: exported (from <file>, time in the file name)`, timestamped with the
   milliseconds in the name.
@@ -2220,7 +2232,8 @@ A `user` message or history item gives its parts in order as runs: each text par
 is the person's, and consecutive parts of one class are one run, their texts joined with a
 newline. A run of the person's is a `user` row; a run of a text the CLI wrote
 ([Session JSONL](#session-jsonl)) with one of the openings below is a `system` row
-`context: <kind>: <text>`, the text whole. The kinds and the openings that give them:
+`context: <kind>: <text>`, the text whole less its leading and trailing whitespace. The kinds
+and the openings that give them:
 
 | Kind | Opening of the trimmed text |
 | --- | --- |
@@ -2234,20 +2247,34 @@ newline. A run of the person's is a `user` row; a run of a text the CLI wrote
 | `steering_update` | `User steering update:` |
 | `background_update` | `Background execution update:` |
 | `user_hints` | `User hints:` |
+| `loaded_context` | `<loaded_context>` |
 
-`Please continue.`, which the CLI also writes, is not classified, since a person can type the
-same text: it stays a `user` row. A `User steering update:` text the CLI submits as a prompt
+Some CLI-written `user` texts are not classified and stay `user` rows. `Please continue.` is
+one, since a person can type the same text. The summaries of the opt-in context management
+(`getContextManagementConfig().enabled`; [`client.ts:678-721`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L678-L721)) are others: an
+`<intent_summary>` or its fallback `### [System Note: Conversation History Truncated]`, merged
+into the first kept `user` item ([`agentHistoryProvider.ts:243-270`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/agentHistoryProvider.ts#L243-L270),
+[`309-338`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/agentHistoryProvider.ts#L309-L338), [`379`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/agentHistoryProvider.ts#L379), [`411-412`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/agentHistoryProvider.ts#L411-L412)), a
+text it shortens behind `[Message Normalized: Exceeded size limit]`
+([`145-155`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/agentHistoryProvider.ts#L145-L155)), and the `user` nodes of the rolling-summary and
+state-snapshot processors
+([`core/src/context/processors/rollingSummaryProcessor.ts:115-125`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/processors/rollingSummaryProcessor.ts#L115-L125),
+[`stateSnapshotProcessor.ts:205-215`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/processors/stateSnapshotProcessor.ts#L205-L215)). The parts an
+`@` reference adds to a prompt, `Content from @<path>:` and the
+`--- Content from referenced files ---` block, join the person's `user` row, since the person
+asked for them ([`cli/src/ui/hooks/atCommandProcessor.ts:511`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/atCommandProcessor.ts#L511),
+[`617`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/atCommandProcessor.ts#L617), [`737-762`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/atCommandProcessor.ts#L737-L762)). A `User steering update:` text the CLI submits as a prompt
 on its own, a hint still pending when the agent goes idle with model steering on
 ([`cli/src/ui/AppContainer.tsx:2665-2681`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/AppContainer.tsx#L2665-L2681)), is a
 `context: steering_update:` row like the one before a tool response.
 
 A text that opens with `<hook_context>` and holds more after its first `</hook_context>` (the
-non-interactive start) is split there: the hook's context is the `context: hook_context:` row
-and the rest is classified again. A prompt with a hook part gives its `user` row and the
-`context: hook_context:` row in part order. A text opening with `/` or `?` is the person's and
-stays a `user` row, although Gemini CLI's own reader treats it as no prompt. A tag inside a
-prompt, after its opening, does not count. A `model` item's text is an `assistant` row whatever
-it opens with.
+non-interactive start) is split there: the hook's context is the `context: hook_context:` row and
+the rest is classified again. The split takes the first `</hook_context>`, so a hook context that
+holds that tag itself is split early. A prompt with a hook part gives its `user` row and the
+`context: hook_context:` row in part order. A text opening with `/` or `?` is the person's and stays
+a `user` row, although Gemini CLI's own reader treats it as no prompt. A tag inside a prompt, after
+its opening, does not count. A `model` item's text is an `assistant` row whatever it opens with.
 
 A session file's `user` message of `functionResponse` parts gives a `tool_result` row (the
 response's `name` and `id` as `tool_name` and `tool_use_id`, its text as above) only when no

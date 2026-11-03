@@ -42,6 +42,11 @@ GEMINI_STEERING_TEXT = (
     "User steering update:\n<user_input>\nskip the tests\n</user_input>\n"
     "Internal instruction: Re-evaluate the active plan using this user steering update."
 )
+# The project memory a subagent's first message opens with (`getSessionMemory`).
+GEMINI_LOADED_CONTEXT_TEXT = (
+    "\n<loaded_context>\n<project_context>\nTests run with pnpm.\n</project_context>\n"
+    "</loaded_context>"
+)
 # Hints the person typed while a subagent ran, as the subagent loop sends them, and its call.
 GEMINI_HINTS_TEXT = (
     "User hints:\n<user_input>\n- check the lockfile\n</user_input>\n\n"
@@ -65,8 +70,8 @@ def gemini_session_records():
 
     A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume, and the
     `user` messages the CLI writes itself: the environment context, hook context, tool responses
-    with and without a result or failed status in their call (one after a steering update), a
-    compression summary and a plan-mode exit.
+    with a result, a failed status or a result a `$patch` cleared in their call (one after a
+    steering update), a compression summary and a plan-mode exit.
 
     Source: research/gemini-cli.md#session-jsonl; source 6814e00
     Source: research/gemini-cli.md#context-rows; source 6814e00
@@ -127,12 +132,21 @@ def gemini_session_records():
             }
         ],
     }
-    # A call whose result the file never records, answered by a tool-response message.
+    # A completed call whose `result` a later `$patch` clears, then answered by a tool-response
+    # message; the made-up response to an interrupted call follows the cancelled one.
+    readme_response = {
+        "functionResponse": {
+            "id": "read_file__read_file_1759309225000_0",
+            "name": "read_file",
+            "response": {"output": "# proj"},
+        }
+    }
     readme_call = {
         "id": "read_file__read_file_1759309225000_0",
         "name": "read_file",
         "args": {"file_path": "/srv/proj/README.md"},
-        "status": "executing",
+        "result": [readme_response],
+        "status": "success",
         "timestamp": "2026-10-01T09:00:25.100Z",
         "displayName": "ReadFile",
     }
@@ -274,19 +288,14 @@ def gemini_session_records():
             "model": "gemini-2.5-flash",
             "toolCalls": [readme_call],
         },
+        {"$patch": {"id": "msg-g5", "toolCalls": [{"id": readme_call["id"], "result": None}]}},
         {
             "id": "msg-t2",
             "timestamp": timestamp_format % "26",
             "type": "user",
             "content": [
                 {"text": GEMINI_STEERING_TEXT},
-                {
-                    "functionResponse": {
-                        "id": readme_call["id"],
-                        "name": "read_file",
-                        "response": {"output": "# proj"},
-                    }
-                },
+                readme_response,
             ],
         },
         {
@@ -401,7 +410,7 @@ def build_gemini_cli(base: Path) -> None:
                 "id": "s-u1",
                 "timestamp": "2026-10-01T09:00:30.000Z",
                 "type": "user",
-                "content": "investigate",
+                "content": [{"text": GEMINI_LOADED_CONTEXT_TEXT}, {"text": "investigate"}],
             },
             {
                 "id": "s-g0",

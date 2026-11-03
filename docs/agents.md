@@ -730,7 +730,8 @@ message's `model` as `model: <id>` at a session's first and `model: <old>
 `user` text the CLI wrote itself with a known opening (the environment
 context, a hook's context, a compression summary, the plan-mode exit
 notice, the directory and editor context, a shell-mode command, a
-steering or background update, a subagent's user hints) as a `context: <kind>:` row, though
+steering or background update, a subagent's user hints and loaded
+memory) as a `context: <kind>:` row, though
 `Please continue.` stays a `user` row
 ([Context rows](../research/gemini-cli.md#context-rows));
 `tmp/<slug>/shell_history` (the shell-mode commands),
@@ -744,11 +745,12 @@ sandbox's saved command grants and mode settings),
 one `permission setting:` or `session retention:` row per entry at the
 file's modification time; as secondary sources the tool checkpoints
 `tmp/<slug>/checkpoints/*.json` (a `tool checkpoint:` row, then the
-history sent) and an error report `gemini-client-error-<type>-<time>.json`
-the responder copied into `.gemini` or `.cache/.gemini`, or the
-`tmp/<slug>` directory of either (an `error report:` row, then the history
-sent), the environment-context item that opens the history a `context:`
-row dropped when the session file holds it;
+history sent) and an error report
+`gemini-client-error-<type>-<time>.json` the responder copied into
+`.gemini` or `.cache/.gemini`, or the `tmp/<slug>` directory of either (an
+`error report:` row, then the history sent); in both, the
+environment-context item that opens the history is a `context:` row,
+dropped when the session file holds the same text;
 the activity log at `tmp/<slug>/logs/session-<id>.jsonl` (the default path,
 which no caller writes; see
 [Activity log](../research/gemini-cli.md#activity-log)) as `console`,

@@ -52,6 +52,7 @@ from fixtures.gemini_cli import (
     GEMINI_CONTEXT_TEXT,
     GEMINI_HINTS_TEXT,
     GEMINI_HOOK_TEXT,
+    GEMINI_LOADED_CONTEXT_TEXT,
     GEMINI_PLAN_EXIT_TEXT,
     GEMINI_PROMPT_HOOK_TEXT,
     GEMINI_SESSION_CONTEXT,
@@ -116,12 +117,12 @@ class GeminiCliTests(ParserBase):
                 (16, "tool_result", "[cancelled]"),
                 (16, "system", "permission decision: cancelled"),
                 (18, "tool_use", 'ReadFile: {"file_path":"/srv/proj/README.md"}'),
-                (19, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
-                (19, "tool_result", "# proj"),
-                (20, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
-                (21, "assistant", GEMINI_SNAPSHOT_REPLY),
-                (22, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
-                (24, "user", "resume work"),
+                (20, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
+                (20, "tool_result", "# proj"),
+                (21, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
+                (22, "assistant", GEMINI_SNAPSHOT_REPLY),
+                (23, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
+                (25, "user", "resume work"),
                 (8, "system", "summary: List src files"),
                 (11, "system", "rewind to msg-u2: 2 message(s) dropped"),
             ],
@@ -168,12 +169,12 @@ class GeminiCliTests(ParserBase):
         lsout = by_text[(6, "main.ts\nutil.ts")]
         self.assertEqual(lsout.tool_use_id, "list_directory__list_directory_1759309207000_0")
         # The tool-response messages whose call holds a result or a failed status give no row,
-        # so each of those calls has one result row; the one whose call has neither gives the
-        # result row, joined on the call's id.
+        # so each of those calls has one result row; the one whose call's result a `$patch`
+        # cleared gives the result row, joined on the call's id.
         self.assertFalse([row for row in rows if row.source_line in (7, 17)])
         results = [row.tool_use_id for row in rows if row.turn_type == "tool_result"]
         self.assertEqual(sorted(results), sorted(set(results)))
-        readme = by_text[(19, "# proj")]
+        readme = by_text[(20, "# proj")]
         self.assertEqual(
             (readme.tool_name, readme.tool_use_id, readme.timestamp_utc, readme.model),
             ("read_file", readme_id, "2026-10-01T09:00:26.000Z", ""),
@@ -181,9 +182,9 @@ class GeminiCliTests(ParserBase):
         readme_call = by_text[(18, 'ReadFile: {"file_path":"/srv/proj/README.md"}')]
         self.assertEqual(readme_call.tool_use_id, readme_id)
         self.assertNotIn("delete everything", " ".join(row.text for row in rows))  # rewound
-        self.assertEqual(by_text[(21, GEMINI_SNAPSHOT_REPLY)].model, "")
+        self.assertEqual(by_text[(22, GEMINI_SNAPSHOT_REPLY)].model, "")
         self.assertEqual(
-            by_text[(24, "resume work")].session_id, GEMINI_RESUMED
+            by_text[(25, "resume work")].session_id, GEMINI_RESUMED
         )  # $set.sessionId on resume
         self.assertEqual(by_text[(13, "Here is util.ts.")].session_id, GEMINI_SESSION)
         summary = by_text[(8, "summary: List src files")]
@@ -216,6 +217,7 @@ class GeminiCliTests(ParserBase):
         self.assertEqual(
             [(row.source_line, row.turn_type, row.text, row.tool_use_id) for row in rows[1:]],
             [
+                (2, "system", "context: loaded_context: " + GEMINI_LOADED_CONTEXT_TEXT.strip(), ""),
                 (2, "user", "investigate", ""),
                 (3, "system", "model: gemini-2.5-flash", ""),
                 (3, "tool_use", '{"file_path":"/srv/proj/package-lock.json"}', call_id),
@@ -249,7 +251,7 @@ class GeminiCliTests(ParserBase):
             handle.write(json.dumps(message) + "\n")
         rows = self.rows_for(GeminiCliParser(), rel)
         self.assertEqual(
-            [(row.turn_type, row.text) for row in rows[6:]],
+            [(row.turn_type, row.text) for row in rows[7:]],
             [
                 ("system", "model: gemini-2.5-flash -> gemini-2.5-pro"),
                 ("tool_use", '{"command":"make deploy"}'),
@@ -417,13 +419,13 @@ class GeminiCliTests(ParserBase):
             handle.write("\n" + json.dumps(after) + "\n")
         rows = self.rows_for(GeminiCliParser(), self.REL)
         self.assertEqual(len(rows), 29)
-        added = [row for row in rows if row.source_line == 26]
+        added = [row for row in rows if row.source_line == 27]
         self.assertEqual([(row.turn_type, row.text) for row in added], [("user", "after the cut")])
         self.assertEqual(
             [
                 (row.source_line, row.turn_type, row.text)
                 for row in rows[:-1]
-                if row.source_line != 26
+                if row.source_line != 27
             ],
             [(row.source_line, row.turn_type, row.text) for row in before],
         )
@@ -436,7 +438,7 @@ class GeminiCliTests(ParserBase):
                 rows[-1].text,
             ),
             (
-                25,
+                26,
                 "system",
                 GEMINI_RESUMED,  # the session id in force at the end of the file
                 before[-1].project_path,
@@ -1179,6 +1181,8 @@ class GeminiCliTests(ParserBase):
             (GEMINI_STEERING_TEXT, "steering_update"),
             (BACKGROUND_TEXT, "background_update"),
             (GEMINI_HINTS_TEXT, "user_hints"),
+            (GEMINI_LOADED_CONTEXT_TEXT, "loaded_context"),
+            ("loaded_context: the notes I wrote", ""),
             ("user hints: lowercase is typed", ""),
             ("Hints: none", ""),
             ("Please continue.", ""),
@@ -1232,7 +1236,7 @@ class GeminiCliTests(ParserBase):
         )
         rows = self.rows_for(GeminiCliParser(), rel)
         self.assertEqual(
-            [(row.source_line, row.turn_type, row.text) for row in rows[6:]],
+            [(row.source_line, row.turn_type, row.text) for row in rows[7:]],
             [
                 (5, "system", "context: hook_context: <hook_context>Ticket 42.</hook_context>"),
                 (5, "user", "fix the build"),

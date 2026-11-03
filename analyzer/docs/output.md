@@ -215,7 +215,7 @@ alice          /home/alice                      codex-cli                 8     
 alice          /home/alice                      cursor                   11       100667  yes
 alice          /home/alice                      aider                     4         1379  yes
 alice          /home/alice                      amp                       1           96  detect only
-bob            /home/bob                        gemini-cli               17        14819  yes
+bob            /home/bob                        gemini-cli               17        15186  yes
 bob            /home/bob                        ollama                    6          300  yes
 
 project                                  users          agent                 files        bytes  parser
@@ -302,7 +302,7 @@ example is the output of `detect --json` on
         {
           "agent": "gemini-cli",
           "files": 17,
-          "bytes": 14819,
+          "bytes": 15186,
           "parser": true
         },
         {
@@ -529,7 +529,7 @@ note:      1 manifest rows did not parse
 problem:   /home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection
 dropped:   27 duplicate rows from secondary sources (aider 2, claude-code 2, codex-cli 12, cursor 3, gemini-cli 8)
 agents:    parsed: aider, claude-code, codex-cli, cursor, gemini-cli, ollama; detected but not parsed: amp
-rows:      326 in out/timeline.jsonl
+rows:      327 in out/timeline.jsonl
            aider          assistant    2
            aider          system       11
            aider          tool_result  5
@@ -550,7 +550,7 @@ rows:      326 in out/timeline.jsonl
            cursor         tool_use     5
            cursor         user         6
            gemini-cli     assistant    4
-           gemini-cli     system       34
+           gemini-cli     system       35
            gemini-cli     tool_result  5
            gemini-cli     tool_use     5
            gemini-cli     user         7
@@ -599,7 +599,7 @@ rather than as projects:
   "problems": [
     "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection"
   ],
-  "rows": 326,
+  "rows": 327,
   "sessions": 22,
   "parsed": [
     "aider",
@@ -679,7 +679,7 @@ rather than as projects:
         {
           "agent": "gemini-cli",
           "files": 17,
-          "bytes": 14819,
+          "bytes": 15186,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -777,7 +777,7 @@ rather than as projects:
     },
     "/srv/proj": {
       "status": "collected",
-      "rows": 241,
+      "rows": 242,
       "sessions": 16,
       "agents": {
         "claude-code": {
@@ -820,11 +820,11 @@ rather than as projects:
           "bytes": 0
         },
         "gemini-cli": {
-          "rows": 52,
+          "rows": 53,
           "sessions": 3,
           "turn_types": {
             "assistant": 4,
-            "system": 32,
+            "system": 33,
             "tool_result": 5,
             "tool_use": 5,
             "user": 6
@@ -1481,11 +1481,13 @@ without content kinds, a block that is wholly a harness wrapper such as
 itself with one of the openings the parser knows: the environment and hook
 context (`<session_context>`, `<hook_context>`), a compression's
 `<state_snapshot>`, the notice of leaving plan mode, the directory and
-editor context, a shell-mode command, a steering or background update and
-a subagent's user hints (`Please continue.`, which a person can also type,
-stays a `user` row); the tool responses the CLI records as `user` messages give no row of their own
-when the call's `toolCalls[].result` holds them or the call failed, and a
-`tool_result` row otherwise. These `system` rows start with a lowercase label
+editor context, a shell-mode command, a steering or background update, and
+a subagent's user hints and loaded memory (`Please continue.`, which a
+person can also type, stays a `user` row). In a session file the tool
+responses the CLI records as `user` messages give no row of their own when
+the call's `toolCalls[].result` holds them or the call failed, and a
+`tool_result` row otherwise; in a history copy each response is a
+`tool_result` row. These `system` rows start with a lowercase label
 naming the source, such as `subagent task:`, `task notification:`,
 `slash command:`, `command output:` or `context: <kind>:`, followed by the
 full text. Each line a parser cannot decode, such as a transcript's last
