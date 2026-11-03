@@ -1695,7 +1695,13 @@ row `summary: <summary>` at its `lastUpdated`; a `$rewindTo` is
 `rewind to <message id>: <n> message(s) dropped` and a `$patch` with `removeIds`
 `patch removed <n> message(s)`, each at the latest time seen before it. In a text, an
 `inlineData` part reads `[inlineData <mimeType>]` and a `fileData` part `[fileData <fileUri>]`,
-and a `functionResponse` part its `response`'s `output` or `error`. A `user` text the CLI
+and a `functionResponse` part its `response`'s `output` or `error`. A `tool_result` row of a
+`functionResponse` part in a `user` message or item holds that text, then the text of each
+`inlineData` or `fileData` part after it and before the next `functionResponse` part, one per
+line, since `convertToFunctionResponse` writes a tool's media after its response
+([`generateContentResponseUtilities.ts:23-35`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/generateContentResponseUtilities.ts#L23-L35),
+[`49-182`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/generateContentResponseUtilities.ts#L49-L182)); a response whose call's `result` already gives the row gives no row,
+for its media either. A `user` text the CLI
 writes itself with one of the openings of [Context rows](#context-rows) is a `system` row,
 never a `user` row; `Please continue.` stays a `user` row.
 
@@ -2229,8 +2235,11 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
 
 A `user` message or history item gives its parts in order as runs: each text part (or a string
 `content`) is classified by the opening of its trimmed text, an `inlineData` or `fileData` part
-is the person's, and consecutive parts of one class are one run, their texts joined with a
-newline. A run of the person's is a `user` row; a run of a text the CLI wrote
+before the message's first `functionResponse` part is the person's, and consecutive parts of one
+class are one run, their texts joined with a newline. An `inlineData` or `fileData` part after a
+`functionResponse` part is that tool's, joined to its `tool_result` text
+([`generateContentResponseUtilities.ts:49-182`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/generateContentResponseUtilities.ts#L49-L182);
+[Parser plan](#parser-plan)). A run of the person's is a `user` row; a run of a text the CLI wrote
 ([Session JSONL](#session-jsonl)) with one of the openings below is a `system` row
 `context: <kind>: <text>`, the text whole less its leading and trailing whitespace. The kinds
 and the openings that give them:

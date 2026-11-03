@@ -223,24 +223,51 @@ def context_kind(text: str) -> str:
 
 
 def _classified(text: str) -> list[tuple[str, str]]:
-    """Return a `user` text as (kind, text): one pair, or a hook's context and the text after it."""
-    kind = context_kind(text)
-    head, tag, rest = text.partition(HOOK_CONTEXT_END)
-    if kind == "hook_context" and rest.strip():
-        return [(kind, head + tag), *_classified(rest)]
-    return [(kind, text)]
+    """Return a `user` text as (kind, text): one pair, or each hook's context and the text after.
 
-
-def content_runs(content, classify: bool) -> tuple[list[tuple[str, str]], list[dict]]:
-    """Return the (kind, text) runs of a message's parts and its `functionResponse` objects.
-
-    A text part or string takes its `context_kind` when `classify` is set, else `""`; an
-    `inlineData` or `fileData` part is `""`, read `[inlineData <mimeType>]` or
-    `[fileData <fileUri>]`. Consecutive texts of one kind are one run, joined with a newline;
-    thought parts and empty texts give none.
+    A text opening with a hook's context splits after its closing tag while text follows; each
+    block is classified on its own slice, so the pass stays linear in the text's length.
     """
     pairs: list[tuple[str, str]] = []
-    responses: list[dict] = []
+    content_end = len(text.rstrip())
+    start = 0
+    while True:
+        tag_start = text.find(HOOK_CONTEXT_END, start)
+        tag_end = tag_start + len(HOOK_CONTEXT_END)
+        if tag_start < 0 or tag_end >= content_end:
+            break
+        block = text[start:tag_end]
+        if context_kind(block) != "hook_context":
+            break
+        pairs.append(("hook_context", block))
+        start = tag_end
+    rest = text[start:]
+    pairs.append((context_kind(rest), rest))
+    return pairs
+
+
+def _media_text(part: dict) -> str:
+    """Return the text of an `inlineData` or `fileData` part, or `""` for any other part."""
+    if isinstance(part.get("inlineData"), dict):
+        return "[inlineData %s]" % (part["inlineData"].get("mimeType") or "")
+    if isinstance(part.get("fileData"), dict):
+        return "[fileData %s]" % (part["fileData"].get("fileUri") or "")
+    return ""
+
+
+def content_runs(
+    content, classify: bool
+) -> tuple[list[tuple[str, str]], list[tuple[dict, list[str]]]]:
+    """Return the (kind, text) runs of a message's parts and its responses with their media.
+
+    A text part or string takes its `context_kind` when `classify` is set, else `""`. A media
+    part reads `[inlineData <mimeType>]` or `[fileData <fileUri>]`: before the first
+    `functionResponse` it is a `""` text, after one it joins the nearest preceding response's
+    media list. Consecutive texts of one kind are one run, joined with a newline; thought parts
+    and empty texts give none.
+    """
+    pairs: list[tuple[str, str]] = []
+    responses: list[tuple[dict, list[str]]] = []
     for part in _parts(content):
         if isinstance(part, str):
             pairs += _classified(part) if classify else [("", part)]
@@ -249,20 +276,21 @@ def content_runs(content, classify: bool) -> tuple[list[tuple[str, str]], list[d
         elif isinstance(part.get("text"), str):
             pairs += _classified(part["text"]) if classify else [("", part["text"])]
         elif isinstance(part.get("functionResponse"), dict):
-            responses.append(part["functionResponse"])
-        elif isinstance(part.get("inlineData"), dict):
-            pairs.append(("", "[inlineData %s]" % (part["inlineData"].get("mimeType") or "")))
-        elif isinstance(part.get("fileData"), dict):
-            pairs.append(("", "[fileData %s]" % (part["fileData"].get("fileUri") or "")))
-    runs: list[tuple[str, str]] = []
+            responses.append((part["functionResponse"], []))
+        elif media := _media_text(part):
+            if responses:
+                responses[-1][1].append(media)
+            else:
+                pairs.append(("", media))
+    runs: list[tuple[str, list[str]]] = []
     for kind, text in pairs:
         if not text:
             continue
         if runs and runs[-1][0] == kind:
-            runs[-1] = (kind, runs[-1][1] + "\n" + text)
+            runs[-1][1].append(text)
         else:
-            runs.append((kind, text))
-    return runs, responses
+            runs.append((kind, [text]))
+    return [(kind, "\n".join(chunks)) for kind, chunks in runs], responses
 
 
 def response_text(function_response: dict) -> str:
@@ -276,6 +304,11 @@ def response_text(function_response: dict) -> str:
     if isinstance(response, str):
         return response
     return compact_json(response)
+
+
+def response_result_text(function_response: dict, media: list[str]) -> str:
+    """Return a `tool_result` text: the response's text, then each of its media texts."""
+    return "\n".join(chunk for chunk in (response_text(function_response), *media) if chunk)
 
 
 def result_text(result) -> str:
@@ -856,8 +889,8 @@ class GeminiCliParser(Parser):
 
         A model item's text parts are one `assistant` row, a user item's the runs of
         `content_runs`, each a `user` row or a `context: <kind>:` row; thought parts are
-        `thinking` rows when asked for, and each `functionCall` or `functionResponse` part a
-        `tool_use` or `tool_result` row.
+        `thinking` rows when asked for. Each `functionCall` part is a `tool_use` row and each
+        response of `content_runs` a `tool_result` row with its media, after the runs.
         """
 
         def row(turn: str, text: str) -> Row:
@@ -885,21 +918,21 @@ class GeminiCliParser(Parser):
                     str(function_call.get("id") or ""),
                 )
                 tools.append(tool_row)
-            elif isinstance(part.get("functionResponse"), dict):
-                function_response = part["functionResponse"]
-                tool_row = row("tool_result", response_text(function_response))
-                tool_row.tool_name, tool_row.tool_use_id = (
-                    str(function_response.get("name") or ""),
-                    str(function_response.get("id") or ""),
-                )
-                tools.append(tool_row)
             elif isinstance(part.get("text"), str) and part.get("thought"):
                 thoughts.append(part["text"])
         if opts.include_thinking:
             for thought in thoughts:
                 yield row("thinking", thought)
         user = item.get("role") == "user"
-        for kind, text in content_runs(parts, user)[0]:
+        runs, responses = content_runs(parts, user)
+        for function_response, media in responses:
+            tool_row = row("tool_result", response_result_text(function_response, media))
+            tool_row.tool_name, tool_row.tool_use_id = (
+                str(function_response.get("name") or ""),
+                str(function_response.get("id") or ""),
+            )
+            tools.append(tool_row)
+        for kind, text in runs:
             if not user:
                 yield row("assistant", text)
             else:
@@ -1350,8 +1383,8 @@ class GeminiCliParser(Parser):
         """Return the rows of one replayed message.
 
         A `user` message gives its `content_runs` as `user` and `context: <kind>:` rows, then a
-        `tool_result` row per `functionResponse` part whose call id is not in `answered`; one with
-        neither gives an empty `user` row.
+        `tool_result` row, with its media, per `functionResponse` part whose call id is not in
+        `answered`; one with neither gives an empty `user` row.
         """
         message_type = message.get("type")
         timestamp = to_utc(message.get("timestamp"))
@@ -1378,10 +1411,10 @@ class GeminiCliParser(Parser):
                     if kind
                     else row("user", text)
                 )
-            for response in responses:
+            for response, media in responses:
                 call_id = str(response.get("id") or "")
                 if call_id not in answered:
-                    result_row = row("tool_result", response_text(response))
+                    result_row = row("tool_result", response_result_text(response, media))
                     result_row.tool_name, result_row.tool_use_id = (
                         str(response.get("name") or ""),
                         call_id,

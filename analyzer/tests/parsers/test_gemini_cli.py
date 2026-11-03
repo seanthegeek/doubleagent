@@ -1261,6 +1261,106 @@ class GeminiCliTests(ParserBase):
         self.assertEqual((rows[-1].tool_name, rows[-1].tool_use_id), ("grep", "c9"))
         self.assertEqual({row.session_id for row in rows}, {GEMINI_SUBAGENT})
 
+    def test_many_hook_contexts_in_one_text_give_one_run(self):
+        """Hook blocks far past the recursion limit split off in one pass, then the prompt."""
+        rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
+        blocks = ["<hook_context>h%d</hook_context>" % i for i in range(1500)]
+        # A closing tag in a text that does not open with a hook's context splits nothing.
+        typed = "why does </hook_context> appear? <hook_context>x</hook_context> then"
+        self._append_session_messages(
+            rel, [[{"text": "".join(blocks) + "the prompt"}], [{"text": typed}]]
+        )
+        rows = self.rows_for(GeminiCliParser(), rel)
+        self.assertEqual(
+            [(row.source_line, row.turn_type, row.text) for row in rows[7:]],
+            [
+                (5, "system", "context: hook_context: " + "\n".join(blocks)),
+                (5, "user", "the prompt"),
+                (6, "user", typed),
+            ],
+        )
+
+    def test_tool_response_media_joins_its_result(self):
+        """Media after a `functionResponse` is that tool's; media before the first is the user's.
+
+        A response whose call already holds a `result` gives no row, its media included.
+        """
+        rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
+
+        def response(call_id, output):
+            return {"functionResponse": {"id": call_id, "name": "read", "response": output}}
+
+        png = {"inlineData": {"mimeType": "image/png", "data": "iVBORw0K"}}
+        gif = {"inlineData": {"mimeType": "image/gif", "data": "R0lGOD"}}
+        pdf = {"fileData": {"fileUri": "file:///srv/proj/b.pdf", "mimeType": "application/pdf"}}
+        self._append_session_messages(
+            rel,
+            [
+                [response("c20", {"output": "one"}), png],
+                [gif, response("c21", {"output": "two"}), pdf],
+                [response("c22", {"output": "three"}), png, response("c23", {}), gif, pdf],
+                [response("c24", {"output": "four"}), png],
+            ],
+        )
+        answered = {
+            "id": "x-g1",
+            "timestamp": "2026-10-01T09:00:40.000Z",
+            "type": "gemini",
+            "content": "",
+            "toolCalls": [{"id": "c24", "name": "read", "args": {}, "result": "four"}],
+        }
+        with open(self.home / rel, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(answered) + "\n")
+        rows = self.rows_for(GeminiCliParser(), rel)
+        self.assertEqual(
+            [
+                (row.source_line, row.turn_type, row.tool_use_id, row.text)
+                for row in rows
+                if row.source_line in (5, 6, 7, 8)
+            ],
+            [
+                (5, "tool_result", "c20", "one\n[inlineData image/png]"),
+                (6, "user", "", "[inlineData image/gif]"),
+                (6, "tool_result", "c21", "two\n[fileData file:///srv/proj/b.pdf]"),
+                (7, "tool_result", "c22", "three\n[inlineData image/png]"),
+                (
+                    7,
+                    "tool_result",
+                    "c23",
+                    "{}\n[inlineData image/gif]\n[fileData file:///srv/proj/b.pdf]",
+                ),
+            ],
+        )
+        self.assertEqual(
+            [(row.turn_type, row.tool_use_id) for row in rows if row.source_line == 9],
+            [("tool_use", "c24"), ("tool_result", "c24")],
+        )
+
+    def test_history_tool_response_media_joins_its_result(self):
+        """A history item's media after a `functionResponse` joins that tool's result row."""
+        self.sources()
+        items = [
+            {"role": "model", "parts": [{"functionCall": {"id": "c30", "name": "read"}}]},
+            {
+                "role": "user",
+                "parts": [
+                    {"inlineData": {"mimeType": "image/gif", "data": "R0lGOD"}},
+                    {"functionResponse": {"id": "c30", "name": "read", "response": {}}},
+                    {"inlineData": {"mimeType": "image/png", "data": "iVBORw0K"}},
+                ],
+            },
+        ]
+        (self.home / GEMINI_BUG_REL).write_text(json.dumps(items), "utf-8")
+        rows = self.rows_for(GeminiCliParser(), GEMINI_BUG_REL)
+        self.assertEqual(
+            [(row.source_line, row.turn_type, row.tool_use_id, row.text) for row in rows[1:]],
+            [
+                (1, "tool_use", "c30", ""),
+                (2, "user", "", "[inlineData image/gif]"),
+                (2, "tool_result", "c30", "{}\n[inlineData image/png]"),
+            ],
+        )
+
     def test_context_item_is_a_system_row_in_each_history_copy(self):
         """A context item is a `context:` row in the history copies and the session file.
 
