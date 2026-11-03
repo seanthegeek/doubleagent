@@ -1612,7 +1612,8 @@ down.
   `git merge-base --is-ancestor <merge commit> main` holds.
 - Reproduce a review finding before fixing or declining it. A finding the
   change introduced is fixed in the pull request with a test; a defect in
-  untouched code is filed as an issue, and the reply names the fix commit
+  untouched code is filed as an issue, then fixed in the pull request as
+  the next bullet allows or left open, and the reply names the fix commit
   or the issue. A fix for one side of a symmetric rule (a direction, a
   scope, a write and its read) re-derives and tests the other side in the
   same commit; when fixing one half of a contract (a flag and the summary
@@ -1622,10 +1623,16 @@ down.
   function comment, the code is rewritten from it, and every axis is tested
   before the next push.
 
-- Track outstanding work as GitHub issues; file one for anything out of
-  scope rather than widening a change. Label `bug` behaviour that is wrong,
-  broken or contradicts the documentation, and `enhancement` a new feature,
-  catalog entry or improvement to documented behaviour.
+- Track outstanding work as GitHub issues. A defect or gap found while
+  working on another issue may be fixed in the same pull request once its
+  own issue is filed: the fix is its own commit saying `Refs #<n>`, it
+  gets its own changelog line ending `([#<n>])` when it changes what a
+  part ships, and the pull request body gives it a `Closes #<n>` line and
+  says it was found on the way, so it closes and ships with the rest.
+  What is not fixed in that pull request stays an open issue. Label `bug`
+  behaviour that is wrong, broken or contradicts the documentation, and
+  `enhancement` a new feature, catalog entry or improvement to documented
+  behaviour.
 - An issue filed with `gh issue create` states the part, version and
   platform as the forms under `.github/ISSUE_TEMPLATE/` ask. A
   vulnerability is never an issue: it goes through the private advisory
