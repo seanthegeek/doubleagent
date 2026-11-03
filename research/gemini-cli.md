@@ -1674,10 +1674,14 @@ No file carries a version field. The shapes changed in these ways:
   ([`coreToolScheduler.ts:850-855` at `v0.9.0`](https://github.com/google-gemini/gemini-cli/blob/5e9f60c7ebbfb8494337334b79b30facb0465662/packages/core/src/core/coreToolScheduler.ts#L850-L855),
   [`723-729`](https://github.com/google-gemini/gemini-cli/blob/5e9f60c7ebbfb8494337334b79b30facb0465662/packages/core/src/core/coreToolScheduler.ts#L723-L729),
   [`1012-1017`](https://github.com/google-gemini/gemini-cli/blob/5e9f60c7ebbfb8494337334b79b30facb0465662/packages/core/src/core/coreToolScheduler.ts#L1012-L1017)).
-- Since `v0.65.0`, commit
+- Since `v0.58.0`, commit
+  [`812f7a2`](https://github.com/google-gemini/gemini-cli/commit/812f7a2bcf20b6e80e2e50c3c8fa8e26567bc1e8)
+  (2026-08-24), the interactive CLI rolls back a turn whose every call was cancelled
+  ([Permission rows](#permission-rows)), at first by cutting the history back to its length
+  after the prompt; `v0.65.0`, commit
   [`249d51c`](https://github.com/google-gemini/gemini-cli/commit/249d51c2631ba1a36b71b0f2c50195abbe4100ce)
-  (2026-10-07), the interactive CLI rolls back a turn whose every call was cancelled
-  ([Permission rows](#permission-rows)); before it the recorded turn stayed in the file.
+  (2026-10-07), narrowed the cut to the unanswered model turn, keeping the prompt and the tool
+  rounds completed before it. Before `v0.58.0` the recorded turn stayed in the file.
 - Since `v0.65.0`, commit
   [`204db94`](https://github.com/google-gemini/gemini-cli/commit/204db94ae2a33f70afec7400ebf6b78f1b5e2575)
   (2026-10-13), a cancelled call the interface records with no response parts gets the
@@ -1795,11 +1799,13 @@ either: its turns are the `clientHistory` items in display form.
   cancellation reason ([Session JSONL](#session-jsonl)), so the result row tells a call the user
   declined (`User denied execution.`) from one an abort cancelled
   ([Format versions](#format-versions)); whether No or Escape declined it is not recorded. Since
-  0.65.0 a turn whose every call was cancelled is recorded and then rolled back, since the CLI
+  0.58.0 a turn whose every call was cancelled is recorded and then rolled back, since the CLI
   sends the model no response for it: a `$rewindTo` or a `$patch` with `removeIds` drops the
-  `gemini` message, as the Linux round saw ([Observed](#observed)), so the rows survive only when
-  another call of the batch completed
-  ([`cli/src/ui/hooks/useGeminiStream.ts:2267-2301`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2267-L2301)).
+  `gemini` message, as the Linux round saw ([Observed](#observed)), so the rows survive when
+  another call of the batch completed, or when Escape aborted the turn itself, in which case the
+  CLI appends the cancelled calls' responses as a `user` message and keeps the turn
+  ([`cli/src/ui/hooks/useGeminiStream.ts:2157-2179`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2157-L2179),
+  [`2267-2301`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2267-L2301)).
 - `permission setting: trustedFolders.<path>=<value> (from <file>, file mtime)` (`system`,
   `project_path` the folder, no session id, the file's modification time, line 1), one per key of
   `trustedFolders.json`, the value printed as recorded. The same reader serves Qwen Code's
