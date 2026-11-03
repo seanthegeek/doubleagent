@@ -6,10 +6,12 @@ session start or a guest command received on stdin.
 They keep a scripted dialog in a directory: its option labels, the cursor, whether Down wraps
 or stops at the last option, whether Up moves it, whether Escape closes it, a banner shown for
 the first captures only, the capture after which the screen cannot be read, and every drive
-call, so a test reads what the step pressed and where the cursor ended. As the agents draw a
-dialog in place of their input box, the screen shows the input marker line only while no dialog
-is live (no labels); `stale` holds the lines of an old dialog box, printed above the rest as a
-restart leaves one in the scrollback.
+call, so a test reads what the step pressed and where the cursor ended. The screen draws the
+input line as Gemini CLI does, `│ > Type your message │` when empty or `│ > <text> │` with the
+text of `typed_input`, and only while no dialog is live (no labels) and `no_input` is absent,
+since the agents draw a dialog in place of their input box. `stale` holds an old dialog box and
+a past prompt, printed above the rest as a restart leaves them in the scrollback, and
+`lower_list` the unfocused second list a two-list dialog draws below the focused one.
 """
 
 from __future__ import annotations
@@ -58,7 +60,10 @@ capture_screen() {
     _cs_cursor=$((_cs_cursor + 1))
   fi
   [ ! -f "$STUB/stale" ] || cat "$STUB/stale"
-  [ -s "$STUB/labels" ] || printf '> Type your message\n'
+  if [ ! -s "$STUB/labels" ] && [ ! -f "$STUB/no_input" ]; then
+    if [ -f "$STUB/typed_input" ]; then printf '│ > %s │\n' "$(cat "$STUB/typed_input")"
+    else printf '│ > Type your message │\n'; fi
+  fi
   [ ! -f "$STUB/extra" ] || cat "$STUB/extra"
   if [ -f "$STUB/banner_until" ] && [ "$_cs_count" -le "$(cat "$STUB/banner_until")" ]; then
     printf 'Warning: True color (24-bit) support not detected.\n'
@@ -70,6 +75,7 @@ capture_screen() {
     else printf '│   %s │\n' "$_cs_label"; fi
     _cs_index=$((_cs_index + 1))
   done <"$STUB/labels"
+  [ ! -f "$STUB/lower_list" ] || cat "$STUB/lower_list"
 }
 wait_for() { return "$(cat "$STUB/wait")"; }
 state_get() { sed -n "s/^$1=//p" "$STUB/state" | tail -n 1; }
@@ -103,7 +109,7 @@ def run_steps(shell: str, stub: pathlib.Path, script: str, text: str = "-") -> d
     setup = (
         '. "$1"; . "$2"; %s\nSTUB=$3; CELL=$3; STEP_NUMBER=05; STEP_NAME=pick; STEP_KIND=choose\n'
         "STEP_TEXT=$4; STEP_EXPECT=-; AGENT_OPTION='^ *● '; OPTION_PRESSES=12\n"
-        "AGENT_MARKER='Type your message'\n" % STUBS
+        "AGENT_MARKER='Type your message'; AGENT_INPUT='^[>!] '\n" % STUBS
     )
     result = subprocess.run(
         [
@@ -939,11 +945,15 @@ def test_run_command_logs_the_token_and_sends_the_value(tmp_path):
         assert (stub / "screens" / "05-pick.command.txt").is_file(), shell
 
 
-STALE = "│ ● 1. Trust folder (proj) │\n│   2. Don't trust │\n"
+STALE = (
+    "│ ● 1. Trust folder (proj) │\n│   2. Don't trust │\n"
+    "Gemini CLI is restarting to apply the trust changes...\n"
+    "> what is 3?\n"
+)
 
 
 def stale_stub(tmp_path: pathlib.Path, labels: list[str], mode: str = "stop") -> pathlib.Path:
-    """Return a stub with an old dialog box in the scrollback above the screen's live part."""
+    """Return a stub with an old dialog box and a past prompt in the scrollback."""
     stub = make_stub(tmp_path, labels, mode)
     (stub / "stale").write_text(STALE, encoding="utf-8")
     (stub / "typed").unlink(missing_ok=True)
@@ -956,6 +966,17 @@ def test_a_prompt_below_a_dialog_in_the_scrollback_types(tmp_path):
         found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "what is 5?")
         assert found["code"] == "0" and found["note"] == "", shell
         assert found["drive"] == "type\nkeys Enter\n" and typed_text(stub) == "what is 5?", shell
+
+
+def test_a_typed_input_below_a_dialog_in_the_scrollback_is_free(tmp_path):
+    """The placeholder is gone once text is typed; the input line still cuts the scrollback."""
+    for shell in SHELLS:
+        stub = stale_stub(tmp_path, [])
+        (stub / "typed_input").write_text("/help ", encoding="utf-8")
+        assert run_steps(shell, stub, "dialog_open")["code"] == "1", shell
+        found = run_steps(shell, stub, "STEP_KIND=clear; clear_typed", "6")
+        assert found["code"] == "0" and found["note"] == "6 presses of Backspace", shell
+        assert found["drive"] == "keys %s\n" % ",".join(["Backspace"] * 6), shell
 
 
 def test_choose_and_dialog_find_no_dialog_in_the_scrollback(tmp_path):
@@ -978,32 +999,45 @@ def test_a_type_step_with_the_mark_set_and_a_scrollback_dialog_types(tmp_path):
         assert (stub / "state").read_text(encoding="utf-8") == "choose_missed=yes\n", shell
 
 
-def test_the_lowest_dialog_is_read_when_it_has_replaced_the_input(tmp_path):
-    """A stale box above a live dialog and no marker line: the live dialog's lines decide."""
-    for marker in ("'Type your message'", "''"):
-        for shell in SHELLS:
-            setup = "AGENT_MARKER=%s; " % marker
-            stub = stale_stub(tmp_path, LABELS)
-            found = run_steps(shell, stub, setup + "choose_option", "No$")
-            assert found["code"] == "0" and found["cursor"] == "2", (shell, marker)
-            assert found["note"] == 'cursor on "● No"', (shell, marker)
-            assert found["drive"].endswith("keys Down,Down\n"), (shell, marker)
-            option = (stub / "screens" / "05-pick.option-1.txt").read_text(encoding="utf-8")
-            assert option.startswith(STALE), (shell, marker)
-            found = run_steps(shell, stale_stub(tmp_path, LABELS, "wrap"), setup + "answer_dialog")
-            assert found["note"] == "answered with the first option, 3 options", (shell, marker)
-            assert found["cursor"] == "0" and found["drive"].endswith("keys Enter\n"), shell
-            found = run_steps(shell, stale_stub(tmp_path, LABELS), setup + "read_options 12")
-            assert found["options"] == "3" and found["cursor"] == "0", (shell, marker)
-            assert found["note"] == "3 presses of Down, the cursor stopped", (shell, marker)
+def test_a_live_dialog_below_a_past_prompt_is_read_not_the_stale_box(tmp_path):
+    for shell in SHELLS:
+        stub = stale_stub(tmp_path, LABELS)
+        found = run_steps(shell, stub, "choose_option", "No$")
+        assert found["code"] == "0" and found["cursor"] == "2", shell
+        assert found["note"] == 'cursor on "● No"', shell
+        assert found["drive"].endswith("keys Down,Down\n"), shell
+        option = (stub / "screens" / "05-pick.option-1.txt").read_text(encoding="utf-8")
+        assert option.startswith(STALE), shell
+        found = run_steps(shell, stale_stub(tmp_path, LABELS, "wrap"), "answer_dialog")
+        assert found["note"] == "answered with the first option, 3 options", shell
+        assert found["cursor"] == "0" and found["drive"].endswith("keys Enter\n"), shell
 
 
-def test_without_a_marker_a_dialog_anywhere_counts(tmp_path):
+LOWER_LIST = "│ Apply To │\n│ ● 1. User Settings │\n│   2. Workspace Settings │\n"
+
+
+def test_a_two_list_dialog_is_read_by_its_focused_list(tmp_path):
+    """The unfocused list below keeps its own constant ● line, as /settings draws it."""
+    for shell in SHELLS:
+        stub = stale_stub(tmp_path, LABELS)
+        (stub / "lower_list").write_text(LOWER_LIST, encoding="utf-8")
+        found = run_steps(shell, stub, "read_options 12")
+        assert found["options"] == "3" and found["cursor"] == "0", shell
+        assert found["note"] == "3 presses of Down, the cursor stopped", shell
+        stub = stale_stub(tmp_path, LABELS)
+        (stub / "lower_list").write_text(LOWER_LIST, encoding="utf-8")
+        found = run_steps(shell, stub, "choose_option", "Allow for this session")
+        assert found["code"] == "0" and found["cursor"] == "1", shell
+        assert found["note"] == 'cursor on "● Allow for this session"', shell
+
+
+def test_without_an_input_pattern_a_dialog_anywhere_counts(tmp_path):
     for shell in SHELLS:
         stub = stale_stub(tmp_path, [])
-        script = "AGENT_MARKER=; STEP_KIND=prompt; send_text Enter marker"
+        script = "AGENT_INPUT=; AGENT_MARKER=; STEP_KIND=prompt; send_text Enter marker"
         found = run_steps(shell, stub, script, "hello")
         assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
         assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
-        found = run_steps(shell, stale_stub(tmp_path, []), "AGENT_MARKER=; choose_option", "Trust")
+        script = "AGENT_INPUT=; AGENT_MARKER=; choose_option"
+        found = run_steps(shell, stale_stub(tmp_path, []), script, "Trust")
         assert found["code"] == "0" and found["cursor"] == "0", shell

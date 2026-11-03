@@ -79,26 +79,26 @@ joined_urls() {
   LC_ALL=C awk -v width="$1" "$JOINED_URLS_AWK"
 }
 
-# Print the last line of the screen that matches the grep -E pattern $1,
+# Print the first line of the screen that matches the grep -E pattern $1,
 # the agent's highlighted-option pattern, after strip_box; nothing when no
-# line does. The last, since a dialog left in the scrollback is above the
-# live one, which is the lowest on the screen.
+# line does.
 highlighted_line() {
-  strip_box | grep -E -- "$1" | tail -n 1
+  strip_box | grep -E -- "$1" | sed -n 1p
 }
 
-# Print the live part of the screen: the lines after the last line that
-# matches the grep -E pattern $1, the agent's input marker. The agents draw
-# a dialog in place of their input box, so a dialog above that line is
-# scrollback, such as a box a restart left behind. The whole screen when $1
-# is empty or matches no line (a dialog has replaced the input box; its
-# readers then take the lowest dialog as the live one); nothing when the
+# Print the live part of the screen, its lines as drawn: those after the
+# last line that matches the grep -E pattern $1, the agent's input line,
+# after strip_box. The agents draw a dialog in place of their input box
+# and draw no line of the input line's form below one, so a dialog above
+# the last such line is scrollback, such as a box a restart left behind.
+# The whole screen when $1 is empty or matches no line; nothing when the
 # last line matches.
 live_screen() {
   _ls_screen=$(cat)
   _ls_last=
   [ -z "$1" ] ||
-    _ls_last=$(printf '%s\n' "$_ls_screen" | grep -n -E -- "$1" | tail -n 1 | cut -d: -f1)
+    _ls_last=$(printf '%s\n' "$_ls_screen" | strip_box | grep -n -E -- "$1" |
+      tail -n 1 | cut -d: -f1)
   if [ -z "$_ls_last" ]; then
     printf '%s\n' "$_ls_screen"
   else

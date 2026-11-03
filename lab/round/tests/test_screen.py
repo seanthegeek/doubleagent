@@ -82,11 +82,10 @@ def test_joined_urls_print_nothing_without_a_url(tmp_path):
         assert run_reader(shell, "joined_urls 60", screen) == "", shell
 
 
-def test_highlighted_line_is_the_lowest_marked_option(tmp_path):
-    screen = tmp_path / "two-dialogs.txt"
-    screen.write_text(
-        "│ ● 1. Trust folder │\n│   2. Don't trust │\n│ ● Allow once │\n", encoding="utf-8"
-    )
+def test_highlighted_line_is_the_first_marked_option(tmp_path):
+    """The first, since a two-list dialog draws its unfocused list's ● line below."""
+    screen = tmp_path / "two-lists.txt"
+    screen.write_text("│ ● Allow once │\n│   No │\n│ Apply To │\n│ ● User │\n", encoding="utf-8")
     for shell in SHELLS:
         found = run_reader(shell, "highlighted_line '^ *● '")
         assert found == "● 1. Allow once\n", shell
@@ -100,18 +99,20 @@ def test_strip_box_removes_the_borders():
         assert lines[-9] == "" and lines[-8] == "Sign in to the example service", shell
 
 
-def test_live_screen_keeps_the_lines_after_the_last_marker(tmp_path):
+def test_live_screen_keeps_the_raw_lines_after_the_last_input_line(tmp_path):
     screen = tmp_path / "live.txt"
-    marker = "Type your message"
+    pattern = "^[>!] "
+    whole = "│ ● old │\n│ > Type your message │\n│ ● new │\n"
     cases = [
-        ("", "old box\n> Type your message\nnew box\n", "old box\n> Type your message\nnew box\n"),
-        (marker, "old box\nbanner\n", "old box\nbanner\n"),
-        (marker, "old box\n> Type your message\nnew box\n", "new box\n"),
-        (marker, "a\n> Type your message\nb\n> Type your message\nc\n", "c\n"),
-        (marker, "old box\n> Type your message\n", ""),
+        ("", whole, whole),
+        (pattern, "│ ● old │\nbanner\n", "│ ● old │\nbanner\n"),
+        (pattern, whole, "│ ● new │\n"),
+        (pattern, "> a\n│ x │\n│ ! ls │\n│ ● c │\n", "│ ● c │\n"),
+        (pattern, "│ ● old │\n│ > /help  │\n", ""),
+        (pattern, "│ a > b │\n│ ● c │\n", "│ a > b │\n│ ● c │\n"),
     ]
     for shell in SHELLS:
-        for pattern, text, expected in cases:
+        for marker, text, expected in cases:
             screen.write_text(text, encoding="utf-8")
-            found = run_reader(shell, "live_screen '%s'" % pattern, screen)
-            assert found == expected, (shell, pattern, text)
+            found = run_reader(shell, "live_screen '%s'" % marker, screen)
+            assert found == expected, (shell, marker, text)

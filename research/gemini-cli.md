@@ -1635,16 +1635,28 @@ either: its turns are the `clientHistory` items in display form.
   that still does not decode, or is not a JSON object, is one
   `parser: <file> is not a JSON object` row.
 
-The CLI draws its dialogs in place of its input box in two forms: a dialog of its dialog
-manager (folder trust, sign-in, settings or model) replaces the composer
-([`cli/src/ui/layouts/DefaultAppLayout.tsx:88-94`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/layouts/DefaultAppLayout.tsx#L88-L94)),
-the input box whose placeholder is `Type your message or @path/to/file`
-([`cli/src/ui/components/Composer.tsx:163-170`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L163-L170)),
+The CLI draws its dialogs in place of its input box. A custom dialog, or a dialog of its dialog
+manager (folder trust, settings, model, sign-in and the API key prompt among them), replaces the
+composer
+([`cli/src/ui/layouts/DefaultAppLayout.tsx:86-94`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/layouts/DefaultAppLayout.tsx#L86-L94),
+[`cli/src/ui/components/DialogManager.tsx:138`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L138),
+[`cli/src/ui/components/DialogManager.tsx:230`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L230),
+[`cli/src/ui/components/DialogManager.tsx:241`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L241),
+[`cli/src/ui/components/DialogManager.tsx:288-297`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L288-L297)),
 and a tool or command confirmation hides the composer while it waits unless the setting
 `ui.collapseDrawerDuringApproval` is `false`
 ([`cli/src/ui/components/Composer.tsx:85-87`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L85-L87),
 [`cli/src/ui/hooks/useComposerStatus.ts:99-100`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useComposerStatus.ts#L99-L100),
 [`cli/src/config/settingsSchema.ts:742`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L742)).
+The composer's input line opens with the prefix `> `, whether the input is empty or holds text;
+the prefix is `! ` in shell mode, `* ` in the YOLO approval mode and `(r:) ` during a reverse
+search
+([`cli/src/ui/components/InputPrompt.tsx:1838-1855`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/InputPrompt.tsx#L1838-L1855)), and shows the placeholder
+`Type your message or @path/to/file` only while the input is empty
+([`cli/src/ui/components/Composer.tsx:163-170`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L163-L170),
+[`cli/src/ui/components/InputPrompt.tsx:1858`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/InputPrompt.tsx#L1858)); a past prompt in the history carries the
+same `> ` prefix
+([`cli/src/ui/components/messages/UserMessage.tsx:26-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/messages/UserMessage.tsx#L26-L27)).
 The dialogs behind these records on the Linux install, read in the four runs (0.66.0, 2026-11-01
 and 2026-11-02) unless a date is given:
 

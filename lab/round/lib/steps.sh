@@ -7,7 +7,7 @@
 # die, guest_copy, guest_shell, end_session and paste_source, which round.sh
 # and vm.sh define and a test replaces with stubs. Reads the globals CELL,
 # HERE, GUEST_OS, STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT,
-# AGENT_MARKER, AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS,
+# AGENT_INPUT, AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS,
 # TERMINAL_COLS, TERMINAL_ROWS, ROUND_STOP_AFTER and ROUND_ENV, and sets
 # STEP_NOTE.
 
@@ -47,25 +47,25 @@ press_down_saved() {
   printf '%s\n' "$_pds_screen"
 }
 
-# Print the live part of the screen read from stdin (live_screen) by the
-# agent's input marker AGENT_MARKER, the part where an open dialog is drawn,
-# or the whole screen when a dialog has replaced the input box.
+# Print the live part of the screen read from stdin (live_screen): the
+# lines below the agent's last input line, by its AGENT_INPUT pattern,
+# where an open dialog is drawn.
 live_part() {
-  live_screen "${AGENT_MARKER:-}"
+  live_screen "${AGENT_INPUT:-}"
 }
 
 # Print what places the cursor on the live part of the screen read from
-# stdin: its highlighted_line by the agent's AGENT_OPTION pattern, the
-# lowest dialog's highlighted option, or that whole part when no line
-# matches. Two screens with the same key have the cursor on the same
-# option, so a line outside the dialog that comes and goes (Gemini CLI's
-# true-colour warning, shown at the first screen and gone after a key)
-# changes no reading.
+# stdin: every line matching the agent's AGENT_OPTION pattern (the
+# highlighted option), box-drawing characters stripped, or that whole part
+# when no line matches. Two screens with the same key have the cursor on
+# the same option, so a line outside the dialog that comes and goes (Gemini
+# CLI's true-colour warning, shown at the first screen and gone after a
+# key) changes no reading.
 option_key() {
   _ok_screen=$(live_part)
   _ok_lines=
   [ -z "${AGENT_OPTION:-}" ] ||
-    _ok_lines=$(printf '%s\n' "$_ok_screen" | highlighted_line "$AGENT_OPTION")
+    _ok_lines=$(printf '%s\n' "$_ok_screen" | strip_box | grep -E -- "$AGENT_OPTION")
   if [ -n "$_ok_lines" ]; then printf '%s\n' "$_ok_lines"; else printf '%s\n' "$_ok_screen"; fi
 }
 
@@ -198,12 +198,12 @@ answer_dialog() {
 }
 
 # The `choose` kind: read the open dialog's options, then press Down until
-# the highlighted line of the live part (highlighted_line, the lowest
-# dialog's) matches the step's pattern, leaving the Enter to the next
-# step. Return 2 with the reason in STEP_NOTE when no dialog is open
-# (no key sent), or when no option matches or the cursor ends on a line the
-# pattern does not match; then press Escape once (choose_missed_escape), so
-# the dialog is closed rather than left for a later key.
+# the highlighted line of the live part (live_part) matches the step's
+# pattern, leaving the Enter to the next step. Return 2 with the reason
+# in STEP_NOTE when no dialog is open (no key sent), or when no option
+# matches or the cursor ends on a line the pattern does not match; then
+# press Escape once (choose_missed_escape), so the dialog is closed rather
+# than left for a later key.
 choose_option() {
   dialog_on_screen -
   case $? in
