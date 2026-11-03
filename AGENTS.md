@@ -791,7 +791,8 @@ attribute are the same string.
    table in [`research/README.md`](research/README.md), with its Parser and
    Notes cells; note the tool in
    [`collectors/docs/coverage.md`](collectors/docs/coverage.md) if needed;
-   close the matching issue. Add the agent to the
+   name the matching issue in the pull request's `Closes` line. Add the
+   agent to the
    [agents page](docs/agents.md) table as `backlog` (parseable records, with
    a parser issue) or `collected` (nothing to parse, with the reason),
    linked to a new subsection under
@@ -930,10 +931,11 @@ before any install.
      runs the full shell matrix and a live collection (reading the
      `skipped_excluded` and `secret: true` rows), updates the research index
      table and bumps `VERSION`.
-6. **Close the loop on GitHub.** Close each tool's issue with a comment
-   naming the evidence source and commit, the key findings and the catalog
-   changes. Comment on the analyzer parser issue with any SQLite-only
-   sources. File issues for anything out of scope the research surfaced.
+6. **Close the loop on GitHub.** Comment on each tool's issue naming the
+   evidence source and commit, the key findings and the catalog changes,
+   and name it in the pull request's `Closes` line. Comment on the analyzer
+   parser issue with any SQLite-only sources. File issues for anything out
+   of scope the research surfaced.
 
 ### Research document structure
 
@@ -1635,9 +1637,14 @@ down.
   `Fixes` or `Closes`, and each changelog line for it ends with `([#<n>])`.
   GitHub closes an issue for any closing keyword (`close`, `fix`, `resolve`
   and their `-s` and `-d` forms) followed by `#<n>` anywhere in a commit
-  message, so write `the fix for #29`, never `fixes #29`. The issue is
-  closed after the release is tagged, with a comment that explains the fix
-  and names the commit and release.
+  message, so write `the fix for #29`, never `fixes #29`. The pull request
+  that finishes an issue says `Closes #<n>` in its body, one line per
+  issue, so GitHub closes the issue when the pull request merges; one that
+  advances an issue without finishing it says `Refs #<n>` instead. An
+  issue finished without a pull request of its own (a round that settled
+  it, a question a comment answered) is closed by hand with a comment
+  naming the commit. No issue waits for a release: the changelog entry,
+  not the issue's state, records what a version ships.
 - Evidence lives in the research documents, not in issues: the commit that
   files or acts on an issue recording file names, keys, field values or
   offsets puts those facts, cited, in `research/<agent>.md`; the issue
@@ -1794,6 +1801,12 @@ down.
   version comparison links, in descending order. markdownlint MD052 (with
   `shortcut_syntax` on) fails on a reference without a definition, MD053 on
   a definition nothing cites.
+- Before a tag, every issue closed since the part's last tag by a change
+  to that part has a `([#<n>])` line in the version's changelog entry.
+  List them with
+  `gh issue list --state closed --limit 200 --search "closed:>=$(git log -1 --format=%cs <last tag>)"`
+  and account for each number: a line in the entry, or a fix that touched
+  neither `collectors/` nor `analyzer/`, which needs none.
 - A release requires zero open Dependabot alerts, which CI cannot check.
   Before tagging, run
   `gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/dependabot/alerts?state=open" -q length`
