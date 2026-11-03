@@ -782,11 +782,14 @@ whose statuses are `success`, `cancelled` and `error`
 [`core/src/scheduler/types.ts:205-208`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/scheduler/types.ts#L205-L208)),
 so a recorded call is never in flight or waiting at a dialog. In the interactive and
 non-interactive CLI, a call the scheduler cancels is recorded as `cancelled`, its `result` the
-scheduler's cancellation response, one `functionResponse` part whose `error` reads
-`[Operation Cancelled] Reason: <reason>`
-([`core/src/scheduler/state-manager.ts:514-540`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/scheduler/state-manager.ts#L514-L540)):
-since 0.26.0 `User denied execution.` for the call the user declined at its dialog, with No or
-Escape, `User cancelled operation` for the other calls queued behind it, and
+scheduler's cancellation response, one `functionResponse` part whose `error` opens
+`[Operation Cancelled]`, in the scheduler's form `[Operation Cancelled] Reason: <reason>`
+([`core/src/scheduler/state-manager.ts:514-540`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/scheduler/state-manager.ts#L514-L540))
+or, for a call aborted while it ran, the executor's `[Operation Cancelled] <message>`
+([`core/src/scheduler/tool-executor.ts:176-182`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/scheduler/tool-executor.ts#L176-L182),
+[`408-413`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/scheduler/tool-executor.ts#L408-L413)).
+The reasons include, since 0.26.0, `User denied execution.` for the call the user declined at its
+dialog, with No or Escape, `User cancelled operation` for the other calls queued behind it, and
 `Operation cancelled by user` when the turn is aborted while calls run or wait
 ([`cli/src/ui/components/messages/ToolConfirmationMessage.tsx:255-278`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx#L255-L278),
 [`cli/src/ui/components/messages/ToolConfirmationMessage.tsx:319-324`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx#L319-L324),
@@ -1672,6 +1675,10 @@ No file carries a version field. The shapes changed in these ways:
   [`723-729`](https://github.com/google-gemini/gemini-cli/blob/5e9f60c7ebbfb8494337334b79b30facb0465662/packages/core/src/core/coreToolScheduler.ts#L723-L729),
   [`1012-1017`](https://github.com/google-gemini/gemini-cli/blob/5e9f60c7ebbfb8494337334b79b30facb0465662/packages/core/src/core/coreToolScheduler.ts#L1012-L1017)).
 - Since `v0.65.0`, commit
+  [`249d51c`](https://github.com/google-gemini/gemini-cli/commit/249d51c2631ba1a36b71b0f2c50195abbe4100ce)
+  (2026-10-07), the interactive CLI rolls back a turn whose every call was cancelled
+  ([Permission rows](#permission-rows)); before it the recorded turn stayed in the file.
+- Since `v0.65.0`, commit
   [`204db94`](https://github.com/google-gemini/gemini-cli/commit/204db94ae2a33f70afec7400ebf6b78f1b5e2575)
   (2026-10-13), a cancelled call the interface records with no response parts gets the
   cancellation response
@@ -1787,11 +1794,11 @@ either: its turns are the `clientHistory` items in display form.
   is complete, with its `status` and, when its `result` holds the scheduler's response, the
   cancellation reason ([Session JSONL](#session-jsonl)), so the result row tells a call the user
   declined (`User denied execution.`) from one an abort cancelled
-  ([Format versions](#format-versions)); whether No or Escape declined it is not recorded. A
-  turn whose every call was cancelled is recorded and then rolled back, since the CLI sends the
-  model no response for it: a `$rewindTo` or a `$patch` with `removeIds` drops the `gemini`
-  message, as the Linux round saw ([Observed](#observed)), so the rows survive only when another
-  call of the batch completed
+  ([Format versions](#format-versions)); whether No or Escape declined it is not recorded. Since
+  0.65.0 a turn whose every call was cancelled is recorded and then rolled back, since the CLI
+  sends the model no response for it: a `$rewindTo` or a `$patch` with `removeIds` drops the
+  `gemini` message, as the Linux round saw ([Observed](#observed)), so the rows survive only when
+  another call of the batch completed
   ([`cli/src/ui/hooks/useGeminiStream.ts:2267-2301`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2267-L2301)).
 - `permission setting: trustedFolders.<path>=<value> (from <file>, file mtime)` (`system`,
   `project_path` the folder, no session id, the file's modification time, line 1), one per key of

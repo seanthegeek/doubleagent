@@ -1806,10 +1806,12 @@ message's `model`, for Qwen Code from the `session_model` record, which
 reads `model: <id> auth=<authType>`, and from each assistant record's
 `model`; a Qwen Code `logs.json` `model_switch` entry reads
 `model: <from> -> <to> reason=<reason>`. A Gemini CLI tool call whose
-status is `cancelled`, and a Qwen Code tool result whose status is
-`cancelled` or `awaiting_approval`, keeps its `[<status>]` prefix on the
-`tool_result` row and is followed by `permission decision: <status>`
-with the call's `tool_name` and `tool_use_id`. Each folder in
+status is `error` or `cancelled` keeps its `[<status>]` prefix on the
+`tool_result` row, and a `cancelled` one is followed by
+`permission decision: cancelled`; a Qwen Code tool result whose status
+is `cancelled` or `awaiting_approval` keeps its `[<status>]` prefix and
+is followed by `permission decision: <status>`; each decision row carries
+the call's `tool_name` and `tool_use_id`. Each folder in
 `.gemini/trustedFolders.json` or `.qwen/trustedFolders.json` is one row
 `permission setting: trustedFolders.<path>=<value> (from <file>, file mtime)`,
 where `<value>` is the recorded trust level (`TRUST_FOLDER`,
