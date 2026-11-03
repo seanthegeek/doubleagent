@@ -77,16 +77,16 @@ versions with its commit.
   22:51 UTC to 2026-11-02 01:50 UTC and 2026-11-02 02:00 to 03:40 UTC, each with the key
   entered by the person in the session started over SSH from a terminal of the VM's desktop,
   and 2026-11-02 14:07 to 15:09 UTC, driven by the pipeline as the fourth was, in which the
-  verification run's dialog stayed open, so `/chat save`, `/bug` and `/exit` typed nothing. The
-  first two
-  added: the Google sign-in, which the service refused for a personal account, the API-key
-  dialog's text, two sign-outs and the stored key's prefilled dialog
-  ([Credentials](#credentials)); the edit dialog read whole and a `WebFetch` call
-  ([Permission rows](#permission-rows)); and `gemini --worktree lab` with
-  `experimental.worktrees` unset ([Project-local files](#project-local-files)); the first did not
-  record `/chat save lab`. What a run wrote differently (the sign-outs' `google_accounts.json`
-  sizes, the refactor's tool calls, the MCP dialog, the verification run) is stated in the
-  owning sections. No run typed a shell-mode command ([shell_history](#shell_history)).
+  verification run's dialog stayed open, so `/chat save`, `/bug` and `/exit` typed nothing,
+  and the first run recorded no `/chat save lab`. The first two added: the Google
+  sign-in, which the service refused for a personal account, the API-key dialog's text, two
+  sign-outs and the stored key's prefilled dialog ([Credentials](#credentials)); the edit dialog
+  read whole and a `WebFetch` call ([Permission rows](#permission-rows)); and
+  `gemini --worktree lab` with `experimental.worktrees` unset
+  ([Project-local files](#project-local-files)). What a run wrote differently (the sign-outs'
+  `google_accounts.json` sizes, the refactor's tool calls, the MCP dialog, the verification run)
+  is stated in the owning sections. No run typed a shell-mode command
+  ([shell_history](#shell_history)).
 
 ### Source reviews
 
@@ -265,7 +265,8 @@ path and a per-run auth token
 On the Linux install of 0.66.0 the first start in a project created `~/.gemini` (mode 0775) with
 `installation_id` (36 bytes), `projects.json` ([projects.json](#projectsjson)), `state.json` and
 `state.json.bak` ([state.json](#statejson)), the `.project_root` files of `tmp/<slug>/` and
-`history/<slug>/` (19 bytes each) and a session file of about 1 KB. The first screen
+`history/<slug>/` (19 bytes each) and a session file, whose size before any question is in
+[Session JSONL](#session-jsonl). The first screen
 (0.66.0, 2026-11-01) was the folder trust dialog, whose text is in
 [Permission rows](#permission-rows); trusting the folder wrote `trustedFolders.json` (43 bytes,
 mode 0600), and the restart that followed is in [Transcript stores](#transcript-stores).
@@ -283,7 +284,8 @@ into it during the run ([Activity log](#activity-log)).
 `GEMINI_CLI_HOME` moves the whole store, and the relocated store is a second complete one. On
 the Linux install (0.66.0, 2026-11-02) a start under `GEMINI_CLI_HOME=$HOME/lab/althome` built
 `~/lab/althome/.gemini` as the first start in the home's `.gemini` had: `installation_id`
-(36 bytes, a second id for the same install), `projects.json` (57 bytes), `state.json`
+(36 bytes, a second `installation_id` file for the same install), `projects.json` (57 bytes),
+`state.json`
 (73 bytes) and `state.json.bak` (55 bytes, both mode 0600), the `.project_root` files of
 `history/<slug>/` and `tmp/<slug>/` (19 bytes each), `tmp/<slug>/logs.json`, the empty
 `tmp/<slug>/logs/` and a session file, and changed nothing under `~/.gemini`. The trust dialog
@@ -293,14 +295,14 @@ returned ([Permission rows](#permission-rows)), and trusting the folder wrote
 second start under the variable
 opened at the prompt, rewrote only that `state.json` and wrote its session file and
 `tmp/<slug>/logs.json` (184 bytes after one question) there. The catalog's lines name `.gemini`
-directly below each home, so no collection of the run held the relocated store, and nothing in
-a home tells that one exists.
+directly below each home, so a relocated store is not collected, and nothing in a home tells
+that one exists.
 
 `GEMINI_CLI_TRUSTED_FOLDERS_PATH` moves the trust file alone. Under
 `GEMINI_CLI_TRUSTED_FOLDERS_PATH=$HOME/lab/trusted.json` (0.66.0, 2026-11-02) the trust choice
 wrote `~/lab/trusted.json` (43 bytes, mode 0600) and left `~/.gemini/trustedFolders.json`
-unchanged ([Permission rows](#permission-rows)); no catalog line reaches the moved file, and no
-collection of the run held it.
+unchanged ([Permission rows](#permission-rows)); the catalog's lines name `.gemini` directly
+below a home, so a moved trust file is not collected.
 
 #### Scratch directories
 
@@ -370,8 +372,9 @@ setting [Project-local files](#project-local-files) names.
   label and those attributes, and its Modified property was the keyring file's modification
   time.
 - Under `GEMINI_CLI_HOME` (0.66.0, 2026-11-02, over SSH, no desktop session) the key typed into
-  the dialog landed in `<GEMINI_CLI_HOME>/.gemini/gemini-credentials.json` (526 bytes, mode
-  0600) and nowhere else ([Per-user storage](#per-user-storage)).
+  the dialog, which opened empty, showing only its placeholder "Paste your API key here", landed
+  in `<GEMINI_CLI_HOME>/.gemini/gemini-credentials.json` (526 bytes, mode 0600) and nowhere else
+  ([Per-user storage](#per-user-storage)).
 - Under `GEMINI_FORCE_FILE_STORAGE=true` (0.66.0, 2026-11-02, over SSH after the desktop login,
   with the keyring item in place and no file fallback) the start opened the "Enter Gemini API
   Key" dialog at once, its text unchanged, so its sentence "It will be securely stored in your
@@ -402,8 +405,8 @@ setting [Project-local files](#project-local-files) names.
   unchanged; there, over SSH with no desktop session and the key only in the file fallback,
   `1. Sign in`, `2. Use Gemini API Key` and Enter opened the key dialog prefilled with the
   stored key in clear text, so the dialog prefills from the file fallback as well as from the
-  keyring item. The stored key outlived it (0.66.0,
-  2026-11-02): `/auth` then `2. Use Gemini API Key` opened the dialog prefilled with the stored
+  keyring item. The stored key outlived the sign-out (0.66.0, 2026-11-02): `/auth` then
+  `2. Use Gemini API Key` opened the dialog prefilled with the stored
   value, Ctrl+C in it left the value in place, Escape returned to the method dialog rather than
   the prompt, and the next start, from a terminal on the desktop, came prefilled with it again
   and reported "Authenticated with gemini-api-key". A responder therefore finds a signed-out
@@ -425,13 +428,13 @@ setting [Project-local files](#project-local-files) names.
   [`cli/src/config/auth.ts:22`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/auth.ts#L22),
   [`36`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/auth.ts#L36)).
   On the Linux install (0.66.0, 2026-11-02, starts in the home with no stored key) a
-  `.gemini/.env` and a `~/.env` (69 bytes, mode 0664 each), each written by hand and removed
-  after its session, were each read: the start opened at the prompt with no sign-in dialog and
-  answered a question. For a start in the home, `~/.env` is the `<cwd>/.env` the CLI searches
-  first. No collection ran while either file existed, so the claim that the `*.gemini/.env`
-  secret glob flags `.gemini/.env` rests on the catalog and the smoke test, not on a real install
+  `.gemini/.env` and a `~/.env` (69 bytes, mode 0664 each), each written by a `printf` in a
+  command step, as a user would, and removed after its session, were each read: the start opened
+  at the prompt with no sign-in dialog and answered a question. For a start in the home,
+  `~/.env` is the `<cwd>/.env` the CLI searches first. Whether the collector flags a
+  `.gemini/.env` on a real install is open
   ([issue 439](https://github.com/seanthegeek/doubleagent/issues/439)); no catalog line names
-  `~/.env`, which is not collected.
+  `~/.env`.
 - `GEMINI_API_KEY` set on the command line is used and stored nowhere: a start under it
   (0.66.0, 2026-11-02, in the home with no stored key) opened at the prompt with no sign-in
   dialog, answered a question and wrote no credentials file, no keyring change and no `.env`.
@@ -579,7 +582,8 @@ it ([Per-user storage](#per-user-storage)).
 On the Linux install of 0.66.0 session files took the `session-<YYYY-MM-DDTHH-MM>-<id8>.jsonl`
 form. The restart that follows a folder trust choice ("Gemini CLI is restarting to apply the
 trust changes", 0.66.0, 2026-11-01) deleted the first session file and began a new one, and,
-like any start, wrote an earlier session's summary line ([Session JSONL](#session-jsonl)); under
+like any start in a project that held an earlier session, wrote that session's summary line
+([Session JSONL](#session-jsonl)); under
 `GEMINI_CLI_TRUSTED_FOLDERS_PATH` (2026-11-02) it did the same and redrew its banner and
 prompt.
 `/clear` began a new session file in the same process and kept the old one, and
@@ -607,10 +611,9 @@ session id; `gemini --delete-session 1` printed `Deleted session 1: <prompt> (<a
 that session's `chats/session-*.jsonl` (180 KB) and nothing else, the session having no activity
 log, tool outputs or session directory; `logs.json`, the `/bug` export and
 `history/<slug>/.project_root` stayed. Removing the project directory removed what lay under it
-and nothing under `~/.gemini`. A session started and ended with no prompt deleted its own file
-(of the size [Session JSONL](#session-jsonl) gives for a start) on exit, through the exit
-cleanup listed below, each time on that install. A
-600-second idle period in a running session wrote nothing.
+and nothing under `~/.gemini`. A session started and ended with no prompt deleted its own
+pre-question file ([Session JSONL](#session-jsonl)) on exit, through the exit cleanup listed
+below, each time on that install. A 600-second idle period in a running session wrote nothing.
 
 Retention removes more without being asked
 ([`cli/src/utils/sessionCleanup.ts:102-260`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/sessionCleanup.ts#L102-L260);
@@ -868,8 +871,8 @@ update records appeared. Shorter sessions held only `$set` updates.
 In the fourth run (0.66.0, 2026-11-02) every session file's second line, its first `user`
 message, held the environment-context item, the `<session_context>` text the CLI sends first
 ([Activity log](#activity-log)), written at the start before any question. It lists the
-working directory's tree, so a start in the sample project wrote a session file of about
-1.3 KB before any question and a start in the home one of 7.1 KB. Each start also wrote one more
+working directory's tree, so a session file before any question measured about 1.3 KB in the
+sample project, 7.1 to 7.3 KB in the home. Each start also wrote one more
 `$set` line, at the same second as its own file, into an earlier session file of the same
 project: the most recent one of that project not yet given such a line, which was not always
 the one just before it. When the model request behind it succeeded the line held a `summary` of
@@ -969,8 +972,7 @@ with milliseconds, except the activity log's epoch milliseconds. The project pat
 has no reverse map but matches the SHA-256 of a known path. `kind` and the directory nesting link a
 subagent session to its parent. A session file's modification time is not its last event's: the
 next start in the same project appends that session's summary line
-([Session JSONL](#session-jsonl)), so the time is that start's, while the `summary:` row the
-parser gives the line fell, on every session of the fourth run, at the session's last reply.
+([Session JSONL](#session-jsonl)), so the time is that start's.
 
 ### Other stores
 
@@ -1032,8 +1034,15 @@ sends before the first prompt
 `/chat delete <tag>` removes it
 ([`logger.ts:393`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/logger.ts#L393)), so it survives the session's
 deletion and expiry; it joins on text. On the Linux install of 0.66.0 `/chat save lab` wrote
-`tmp/<slug>/checkpoint-lab.json` (63.1 KB; 52.9 KB in the fourth run, 2026-11-02), an object
-with the keys `history`, an array of items with `role` and `parts`, and `authType`, a string.
+`tmp/<slug>/checkpoint-lab.json` (63.1 KB; 52.9 KB in the fourth run, 2026-11-02, whose keys
+were those of [Checkpoint records](#checkpoint-records)). The completion list for `/chat `
+(0.66.0, 2026-11-02) shows two groups: under `-- auto --`, `list` ("Browse auto-saved chats");
+under `-- checkpoints --`, `resume` ("Resume a conversation from a checkpoint"), `list` ("List
+saved manual conversation checkpoints"), `save` ("Save the current conversation as a
+checkpoint"), `delete` ("Delete a conversation checkpoint"), `share` ("Share the current
+conversation to a markdown or json file") and `debug` ("Export the most recent API request as a
+JSON payload"). The usage lines of `resume`, `save`, `delete` and `share` name `/resume`, not
+`/chat` (`Usage: /resume save <tag>`).
 
 #### Tool checkpoints
 
@@ -1185,8 +1194,8 @@ Each chat request repeats the whole history of its chat up to it, under the reco
 `sessionId`, its items carrying no time of their own. Every chat history opens with the
 environment-context item, a `user` item whose text is a `<session_context>` block (the date, the
 platform, the project's temporary directory, optionally the directory tree and the session
-memory) that the CLI sends, and that the session file of 0.66.0 records as its first `user`
-message ([Session JSONL](#session-jsonl))
+memory) that the CLI sends, and that the session file recorded as its first `user` message
+(0.66.0, 2026-11-02; [Session JSONL](#session-jsonl))
 ([`core/src/utils/environmentContext.ts:68-77`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L68-L77),
 [`84-111`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L84-L111)).
 
@@ -1236,8 +1245,9 @@ first start creates is in [Per-user storage](#per-user-storage)). A start under
 (mode 0664) three seconds after the start and before any question, already 2.8 MB, at the moment
 the start wrote an earlier session's summary line ([Session JSONL](#session-jsonl)); one question
 changed it again (still 2.8 MB at the listing's rounding), and nothing appeared under
-`tmp/<slug>/logs/`. The file was not read, and no collection of the run held it, so the records
-above are source-derived and what the CLI logs before the first prompt is unknown
+`tmp/<slug>/logs/`. The file was not read, and the catalog's lines name `.gemini` directly below
+a home, so an activity log outside `.gemini` is not collected; the records above are
+source-derived and what the CLI logs before the first prompt is unknown
 ([issue 440](https://github.com/seanthegeek/doubleagent/issues/440)).
 
 #### Bug reports
@@ -1256,9 +1266,9 @@ so it repeats the session store's turns with no time or session id of its own. I
 deleted session and says nothing about whether it was uploaded; the epoch milliseconds in its name
 are when `/bug` ran. On the Linux install `/bug <text>` (0.66.0, 2026-11-01) printed a
 `https://github.com/google-gemini/gemini-cli/issues/new?...` URL prefilled with the version and
-the text, wrote an export of 86,047 bytes (51.8 KB in the fourth run, 2026-11-02; an array of
-objects with `role` and `parts[].text`),
-printed "Chat History Exported ... Please consider attaching this file", and opened no browser
+the text, wrote an export of 86,047 bytes (51.8 KB in the fourth run, 2026-11-02, its items
+those of [Checkpoint records](#checkpoint-records)), printed "Chat History Exported ... Please
+consider attaching this file", and opened no browser
 and submitted nothing. `/bug-memory` writes the V8 heap snapshot
 `bug-memory-<epoch ms>.heapsnapshot` to the same directory
 ([`cli/src/ui/commands/bugMemoryCommand.ts:26-41`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/commands/bugMemoryCommand.ts#L26-L41)),
@@ -1315,8 +1325,8 @@ as an `error` message. In the second run a prompt sent with an invalid stored ke
 report. In the fourth run (2026-11-02) two starts with no key reachable, one from a terminal on
 the desktop and one under `GEMINI_FORCE_FILE_STORAGE`, each wrote a `generateContent-api` report
 of 2.5 KB alone before any prompt, at the second the start wrote an earlier session's line
-without a `summary` ([Session JSONL](#session-jsonl)). What a reboot left of them is in
-[What survives a delete](#what-survives-a-delete).
+without a `summary` ([Session JSONL](#session-jsonl)). What the reboot left of the reports
+written before it is in [What survives a delete](#what-survives-a-delete).
 
 #### projects.json
 
@@ -1580,7 +1590,11 @@ row `summary: <summary>` at its `lastUpdated`; a `$rewindTo` is
 `rewind to <message id>: <n> message(s) dropped` and a `$patch` with `removeIds`
 `patch removed <n> message(s)`, each at the latest time seen before it. In a text, an
 `inlineData` part reads `[inlineData <mimeType>]` and a `fileData` part `[fileData <fileUri>]`,
-and a `functionResponse` part its `response`'s `output` or `error`.
+and a `functionResponse` part its `response`'s `output` or `error`. The session file's
+environment-context `user` message ([Session JSONL](#session-jsonl)) and a `user` message the
+CLI writes itself (the plan-mode exit message of [Permission rows](#permission-rows)) each get a
+`user` row like a prompt (open work in
+[issue 441](https://github.com/seanthegeek/doubleagent/issues/441)).
 
 | Column | Source |
 | --- | --- |
@@ -1638,7 +1652,10 @@ and 2026-11-02) unless a date is given:
   run (2026-11-02) the MCP dialog, headed "Action Required", offered four options instead:
   `1. Allow once`, `2. Allow tool for this session`, `3. Allow all server tools for this session`
   and `4. No, suggest changes (esc)`; Allow once ran the tool, in the third and fourth runs,
-  and no `mcp-server-enablement.json` appeared. An edit asks
+  and no `mcp-server-enablement.json` appeared. The dialog and the tool's result showed the call
+  as `list_directory (fs MCP Server)`, while the session file recorded its `toolCalls[].name` as
+  `mcp_fs_list_directory`, the server's name and the tool's behind an `mcp_` prefix (fourth run,
+  2026-11-02). An edit asks
   "Apply this change?" with `1. Allow once`, `2. Allow for this session`,
   `3. Modify with external editor` and `4. No, suggest changes (esc)`; the cursor wraps to the
   first option after the fourth (0.66.0, 2026-11-02). Allow once applied the edit to `calc.py`
@@ -1671,15 +1688,21 @@ and 2026-11-02) unless a date is given:
   run (2026-11-02) it ran `git status` and `git log -p -n 2` with no dialog, announced a plan
   ("Plan and execute the refactoring of calc.py with bug fix, CLI validation, type hints, and
   automated tests."), and stopped at the same first dialog, for `python3 --version`, which
-  Escape cancelled. No sharper prompt was tried.
+  Escape cancelled. In the fourth run (0.66.0, 2026-11-02) it read `README.md` and `.gitignore`
+  with `ReadFile` and no dialog, announced a plan ("Refactor calc.py to fix the addition bug,
+  improve CLI argument handling and type annotations, and add unit test verification."), and
+  stopped at its first dialog, "Apply this change?" for a `WriteFile` of a new `test_calc.py`;
+  Escape cancelled it ("WriteFile test_calc.py → Rejected (+17, -0)", then "Request
+  cancelled."). No sharper prompt was tried.
 - The default mode's footer reads "Shift+Tab to accept edits". Shift+Tab (0.66.0, 2026-11-02)
   cycles through three modes, named in the footer: "auto-accept edits  Shift+Tab to plan", then
   "plan  Shift+Tab to manual", then the default again, manual, whose footer names no mode. The
   `?` list names the key "Shift+Tab cycle mode" beside "Ctrl+Y YOLO mode", and `/help`
   describes them as "Shift+Tab - Toggle auto-accepting edits" and "Ctrl+Y - Toggle YOLO mode".
-  Leaving plan for manual (2026-11-02) appended to the session file a `user` message the CLI
-  wrote itself, "User has manually exited Plan Mode. Switching to Default mode (edits will
-  require confirmation).", which the parser gives a `user` row.
+  Typed with a trailing space (0.66.0, 2026-11-02), `/help `, `/bug `, `/exit ` and `/clear `
+  showed no completion list. Leaving plan for manual (2026-11-02) appended to the session file a
+  `user` message the CLI wrote itself, "User has manually exited Plan Mode. Switching to Default
+  mode (edits will require confirmation)."
 
 The standing grants below are each a `system` row at the file's modification time, saying so,
 line 1, no session id ([Standing permission files](#standing-permission-files)):
@@ -1735,8 +1758,12 @@ directory changed
   2026-11-02) opened "Select Model" with `1. Auto` ("Let Gemini CLI
   decide the best model for the task: gemini-3.1-pro-preview, gemini-3.8-flash") and
   `2. Manual` ("Manually select a model"), the toggle "Remember model for future sessions: false
-  (Press Tab to toggle)" and the hint "To use a specific Gemini model on startup, use the
-  --model flag"; the footer shows `/model Auto`. Manual opens a second "Select Model" list,
+  (Press Tab to toggle)", the hint "To use a specific Gemini model on startup, use the
+  --model flag" and, at its foot, "(Press Esc to close)" (2026-11-02); the footer shows
+  `/model Auto`. Before that, `/model ` typed with a trailing space (0.66.0, 2026-11-02) showed
+  the completion list `manage` ("Opens a dialog to configure the model") and `set` ("Set the
+  model to use. Usage: `/model set <model-name> [--persist]`"). Manual opens a second
+  "Select Model" list,
   `1. gemini-3.1-pro-preview`, `2. gemini-3-flash-preview`, `3. gemini-2.5-pro`,
   `4. gemini-3.5-flash-lite`, `5. gemini-3.8-flash`, `6. gemma-4-31b-it` and
   `7. gemma-4-26b-a4b-it`, with the same toggle and hint. Picking `gemini-3.8-flash` (0.66.0,
@@ -1775,8 +1802,7 @@ Two more secondary sources repeat the turns sent to the model, matched the same 
 `Content` items give the item rows above with an empty `timestamp_utc`, the item's 1-based
 position as `source_line`, and the session id where the file names one. A first item that is the
 environment-context item, its first part's text opening with `<session_context>`
-([Activity log](#activity-log)), gives no row, since it is no turn of the conversation and the
-session file holds its own copy as its first `user` message ([Session JSONL](#session-jsonl)):
+([Activity log](#activity-log)), gives no row, since it is no turn of the conversation:
 
 - `checkpoints/<time>-<file basename>-<tool>.json`, a tool checkpoint
   ([Tool checkpoints](#tool-checkpoints)): a first `system` row
@@ -2112,9 +2138,8 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
 - For a later round: whether the keychain migration on load or the refused sign-in removed
   `oauth_creds.json`; why a resume over SSH once asked for the key again
   ([Credentials](#credentials)); whether the key dialog of a sign-in from the desktop comes
-  prefilled from the file fallback (the fourth run's desktop sign-in had no file to prefill from,
-  and its screen was not recorded); the keychain item names on macOS and Windows; the macOS
-  and Windows layouts, which no install has shown.
+  prefilled from the file fallback; the keychain item names on macOS and Windows; the macOS and
+  Windows layouts, which no install has shown.
 - For a later round: the contents of the activity log the Linux install wrote to the path
   `GEMINI_CLI_ACTIVITY_LOG_TARGET` named, which no step read
   ([issue 440](https://github.com/seanthegeek/doubleagent/issues/440)): what it holds before the
@@ -2127,9 +2152,9 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
   the activity log to its default path, and which writer makes the empty `tmp/<slug>/logs/` a
   project's first start creates ([Per-user storage](#per-user-storage)).
 - Not determined: which writer records the environment-context item as a session file's first
-  `user` message, and which writes the summary line a later start appends, with what the line
-  holds when its request fails ([Session JSONL](#session-jsonl)); the source review recorded
-  neither.
+  `user` message, and which writes the summary line a later start appends, with which keys other
+  than `summary` the line holds when its request fails ([Session JSONL](#session-jsonl)); the
+  source review recorded neither.
 - Not determined: how common a `GEMINI_CLI_HOME` relocation is.
 - Not determined: the `tmp/<slug>/<session id>/` layout beyond `plans`, `tracker` and `tasks`.
 - Not determined: the `a2a-server` and `sdk` packages' own storage.

@@ -752,7 +752,7 @@ clipboard image `tmp/<slug>/images/clipboard-<ms>.<ext>` as one
 `clipboard image:` row with its size, never its content. Not read: the
 conversation turns in the activity log's request and response bodies.
 
-Validated against: Linux, Gemini CLI 0.66.0 (2026-11-01 and 2026-11-02), the session files (a `--worktree` session among them), `logs.json`, the `/bug` export, the trust file and the settings files, with the error reports observed by name, size and mode only and a `/chat save` checkpoint by name and size only; source at [6814e00](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d) (0.67.0-nightly.20261020) and the v0.66.0 release (reviewed 2026-11-01), synthetic fixture, for the stores no install has shown.
+Validated against: Linux, Gemini CLI 0.66.0 (2026-11-01 and 2026-11-02), the session files (a `--worktree` session among them), `logs.json`, the `/bug` export, the trust file and the settings files, with the error reports observed by name, size and mode only and a `/chat save` checkpoint by name, size and key names only; source at [6814e00](https://github.com/google-gemini/gemini-cli/commit/6814e00d6b148c3a1d57244d5d7040f7c541009d) (0.67.0-nightly.20261020) and the v0.66.0 release (reviewed 2026-11-01), synthetic fixture, for the stores no install has shown.
 
 ### `goose`
 
