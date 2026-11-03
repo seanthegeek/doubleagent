@@ -1635,6 +1635,14 @@ either: its turns are the `clientHistory` items in display form.
   that still does not decode, or is not a JSON object, is one
   `parser: <file> is not a JSON object` row.
 
+The CLI draws each dialog in place of its input box: a folder trust, sign-in, settings or model
+dialog replaces the composer, the input box with its placeholder
+([`cli/src/ui/layouts/DefaultAppLayout.tsx:88-94`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/layouts/DefaultAppLayout.tsx#L88-L94)),
+and a tool or command confirmation hides the composer while it waits unless the setting
+`ui.collapseDrawerDuringApproval` is `false`
+([`cli/src/ui/components/Composer.tsx:85-87`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L85-L87),
+[`cli/src/ui/hooks/useComposerStatus.ts:99-100`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useComposerStatus.ts#L99-L100),
+[`cli/src/config/settingsSchema.ts:742`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L742)).
 The dialogs behind these records on the Linux install, read in the four runs (0.66.0, 2026-11-01
 and 2026-11-02) unless a date is given:
 
