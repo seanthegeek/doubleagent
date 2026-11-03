@@ -1785,10 +1785,14 @@ either: its turns are the `clientHistory` items in display form.
   `tool_result` row of a `toolCalls[]` element whose `status` is `cancelled`. The `[cancelled]`
   (and `[error]`) prefix on the result row stays. The session file records a call only once it
   is complete, with its `status` and, when its `result` holds the scheduler's response, the
-  cancellation reason ([Session JSONL](#session-jsonl)), so in a file a build since 0.26.0 wrote
-  the result row tells a call the user declined (`User denied execution.`) from one an abort
-  cancelled ([Format versions](#format-versions)); whether No or Escape declined it is not
-  recorded.
+  cancellation reason ([Session JSONL](#session-jsonl)), so the result row tells a call the user
+  declined (`User denied execution.`) from one an abort cancelled
+  ([Format versions](#format-versions)); whether No or Escape declined it is not recorded. A
+  turn whose every call was cancelled is recorded and then rolled back, since the CLI sends the
+  model no response for it: a `$rewindTo` or a `$patch` with `removeIds` drops the `gemini`
+  message, as the Linux round saw ([Observed](#observed)), so the rows survive only when another
+  call of the batch completed
+  ([`cli/src/ui/hooks/useGeminiStream.ts:2267-2301`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2267-L2301)).
 - `permission setting: trustedFolders.<path>=<value> (from <file>, file mtime)` (`system`,
   `project_path` the folder, no session id, the file's modification time, line 1), one per key of
   `trustedFolders.json`, the value printed as recorded. The same reader serves Qwen Code's

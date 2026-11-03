@@ -71,7 +71,7 @@ def gemini_session_records():
     A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume; the `user`
     messages the CLI writes itself (environment context, hook context, tool responses with a
     result, a failed status or a result a `$patch` cleared in their call, a compression summary,
-    a plan-mode exit); then a failed call and a declined call, each with the recorder's response.
+    a plan-mode exit); then one turn with a failed call and a declined call and their responses.
 
     Source: research/gemini-cli.md#session-jsonl; source 6814e00
     Source: research/gemini-cli.md#context-rows; source 6814e00
@@ -92,8 +92,9 @@ def gemini_session_records():
         ],
         "status": "success",
         "timestamp": "2026-10-01T09:00:07.100Z",
-        "displayName": "ReadFolder",
         "description": "Lists files",
+        "displayName": "ReadFolder",
+        "renderOutputAsMarkdown": True,
     }
     gemini_reply = {
         "id": "msg-g1",
@@ -146,7 +147,8 @@ def gemini_session_records():
         "timestamp": "2026-10-01T09:00:25.100Z",
         "displayName": "ReadFile",
     }
-    # The turns after the resume: a call that failed and a call the person declined at its dialog.
+    # The turn after the resume: a call that failed beside a call the person declined at its
+    # dialog, the batch the CLI still submits.
     turn_tokens = {"input": 150, "output": 10, "cached": 0, "thoughts": 0, "tool": 0, "total": 160}
     failed_call = {
         "id": "read_file__read_file_1759309265000_0",
@@ -190,12 +192,11 @@ def gemini_session_records():
             }
         ],
         "status": "cancelled",
-        "timestamp": "2026-10-01T09:01:06.400Z",
+        "timestamp": "2026-10-01T09:01:05.200Z",
         "description": "make deploy",
         "displayName": "Shell",
         "renderOutputAsMarkdown": True,
     }
-    denied_reply = dict(failed_reply, id="msg-g7", timestamp="2026-10-01T09:01:06.000Z")
     return [
         {
             "sessionId": GEMINI_SESSION,
@@ -382,20 +383,12 @@ def gemini_session_records():
             "content": "resume work",
         },
         failed_reply,
-        dict(failed_reply, tokens=turn_tokens, toolCalls=[failed_call]),
+        dict(failed_reply, tokens=turn_tokens, toolCalls=[failed_call, denied_call]),
         {
             "id": "msg-t6",
             "timestamp": "2026-10-01T09:01:05.300Z",
             "type": "user",
-            "content": failed_call["result"],
-        },
-        denied_reply,
-        dict(denied_reply, tokens=turn_tokens, toolCalls=[denied_call]),
-        {
-            "id": "msg-t7",
-            "timestamp": "2026-10-01T09:01:06.500Z",
-            "type": "user",
-            "content": denied_call["result"],
+            "content": failed_call["result"] + denied_call["result"],
         },
     ]
 

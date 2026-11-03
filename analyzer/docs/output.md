@@ -215,7 +215,7 @@ alice          /home/alice                      codex-cli                 8     
 alice          /home/alice                      cursor                   11       100667  yes
 alice          /home/alice                      aider                     4         1379  yes
 alice          /home/alice                      amp                       1           96  detect only
-bob            /home/bob                        gemini-cli               17        17291  yes
+bob            /home/bob                        gemini-cli               17        16840  yes
 bob            /home/bob                        ollama                    6          300  yes
 
 project                                  users          agent                 files        bytes  parser
@@ -302,7 +302,7 @@ example is the output of `detect --json` on
         {
           "agent": "gemini-cli",
           "files": 17,
-          "bytes": 17291,
+          "bytes": 16840,
           "parser": true
         },
         {
@@ -679,7 +679,7 @@ rather than as projects:
         {
           "agent": "gemini-cli",
           "files": 17,
-          "bytes": 17291,
+          "bytes": 16840,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -3249,7 +3249,7 @@ have no `session_id`, so they belong to no session:
 {"host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T08:00:00.000Z","last_timestamp_utc":"2026-10-01T08:00:10.000Z","models":[],"user_turns":1,"assistant_turns":1,"tool_calls":1,"source_file":"/home/alice/.codex/thread_history_1.sqlite","synced":"no","relayed":"","origin":"","recovered":"yes"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:00.000Z","last_timestamp_utc":"2026-10-01T09:00:45.000Z","models":["gemini-2.5-pro","gemini-2.5-flash"],"user_turns":3,"assistant_turns":4,"tool_calls":4,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"partial"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"c3d4e5f6-0000-4000-8000-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:30.000Z","last_timestamp_utc":"2026-10-01T09:00:30.800Z","models":["gemini-2.5-flash"],"user_turns":1,"assistant_turns":0,"tool_calls":1,"source_file":"/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
-{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-0000000000ff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:01:00.000Z","last_timestamp_utc":"2026-10-01T09:01:06.400Z","models":["gemini-2.5-flash"],"user_turns":1,"assistant_turns":0,"tool_calls":2,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
+{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-0000000000ff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:01:00.000Z","last_timestamp_utc":"2026-10-01T09:01:05.200Z","models":["gemini-2.5-flash"],"user_turns":1,"assistant_turns":0,"tool_calls":2,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:59:00.000Z","last_timestamp_utc":"2026-10-01T10:05:00.000Z","models":["grok-4.6","grok-4.7"],"user_turns":2,"assistant_turns":1,"tool_calls":5,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"partial"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:00.000Z","last_timestamp_utc":"2026-10-01T10:00:20.000Z","models":["claude-fable-5-1"],"user_turns":4,"assistant_turns":2,"tool_calls":5,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:30.000Z","last_timestamp_utc":"2026-10-01T10:00:31.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":1,"tool_calls":0,"source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}

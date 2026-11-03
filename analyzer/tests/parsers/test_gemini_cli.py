@@ -127,9 +127,9 @@ class GeminiCliTests(ParserBase):
                 (27, "system", "model: gemini-2.5-flash"),
                 (27, "tool_use", 'ReadFile: {"file_path":"/srv/proj/missing.ts"}'),
                 (27, "tool_result", "[error] File not found: /srv/proj/missing.ts"),
-                (30, "tool_use", 'Shell: {"command":"make deploy"}'),
-                (30, "tool_result", "[cancelled] " + denied),
-                (30, "system", "permission decision: cancelled"),
+                (27, "tool_use", 'Shell: {"command":"make deploy"}'),
+                (27, "tool_result", "[cancelled] " + denied),
+                (27, "system", "permission decision: cancelled"),
                 (8, "system", "summary: List src files"),
                 (11, "system", "rewind to msg-u2: 2 message(s) dropped"),
             ],
@@ -162,7 +162,7 @@ class GeminiCliTests(ParserBase):
         self.assertEqual(
             [(row.turn_type, row.tool_name, row.timestamp_utc) for row in denied_rows],
             [
-                (kind, "run_shell_command", "2026-10-01T09:01:06.400Z")
+                (kind, "run_shell_command", "2026-10-01T09:01:05.200Z")
                 for kind in ("tool_use", "tool_result", "system")
             ],
         )
@@ -396,13 +396,13 @@ class GeminiCliTests(ParserBase):
             handle.write("\n" + json.dumps(after) + "\n")
         rows = self.rows_for(GeminiCliParser(), self.REL)
         self.assertEqual(len(rows), 35)
-        added = [row for row in rows if row.source_line == 33]
+        added = [row for row in rows if row.source_line == 30]
         self.assertEqual([(row.turn_type, row.text) for row in added], [("user", "after the cut")])
         self.assertEqual(
             [
                 (row.source_line, row.turn_type, row.text)
                 for row in rows[:-1]
-                if row.source_line != 33
+                if row.source_line != 30
             ],
             [(row.source_line, row.turn_type, row.text) for row in before],
         )
@@ -415,7 +415,7 @@ class GeminiCliTests(ParserBase):
                 rows[-1].text,
             ),
             (
-                32,
+                29,
                 "system",
                 GEMINI_RESUMED,  # the session id in force at the end of the file
                 before[-1].project_path,
