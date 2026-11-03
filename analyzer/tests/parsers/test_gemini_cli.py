@@ -95,6 +95,7 @@ class GeminiCliTests(ParserBase):
     def test_rows(self):
         rows = self.rows_for(GeminiCliParser(), self.REL)
         readme_id = "read_file__read_file_1759309225000_0"
+        denied = "[Operation Cancelled] Reason: User denied execution."
         self.assertEqual(
             [(row.source_line, row.turn_type, row.text) for row in rows],
             [
@@ -123,6 +124,12 @@ class GeminiCliTests(ParserBase):
                 (22, "assistant", GEMINI_SNAPSHOT_REPLY),
                 (23, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
                 (25, "user", "resume work"),
+                (27, "system", "model: gemini-2.5-flash"),
+                (27, "tool_use", 'ReadFile: {"file_path":"/srv/proj/missing.ts"}'),
+                (27, "tool_result", "[error] File not found: /srv/proj/missing.ts"),
+                (30, "tool_use", 'Shell: {"command":"make deploy"}'),
+                (30, "tool_result", "[cancelled] " + denied),
+                (30, "system", "permission decision: cancelled"),
                 (8, "system", "summary: List src files"),
                 (11, "system", "rewind to msg-u2: 2 message(s) dropped"),
             ],
@@ -149,6 +156,15 @@ class GeminiCliTests(ParserBase):
                 "run_shell_command__run_shell_command_1759309224000_0",
                 "2026-10-01T09:00:24.000Z",
             ),
+        )
+        denied_id = "run_shell_command__run_shell_command_1759309266000_0"
+        denied_rows = [row for row in rows if row.tool_use_id == denied_id]
+        self.assertEqual(
+            [(row.turn_type, row.tool_name, row.timestamp_utc) for row in denied_rows],
+            [
+                (kind, "run_shell_command", "2026-10-01T09:01:06.400Z")
+                for kind in ("tool_use", "tool_result", "system")
+            ],
         )
         context = by_text[(2, "context: session_context: " + GEMINI_CONTEXT_TEXT)]
         self.assertEqual(
@@ -230,45 +246,6 @@ class GeminiCliTests(ParserBase):
         self.assertIn("kind=subagent", rows[0].text)
         self.assertEqual({row.session_id for row in rows}, {GEMINI_SUBAGENT})
 
-    def test_awaiting_approval_without_result(self):
-        rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
-        call = {
-            "id": "run_shell_command__run_shell_command_1759309299000_0",
-            "name": "run_shell_command",
-            "args": {"command": "make deploy"},
-            "status": "awaiting_approval",
-            "timestamp": "2026-10-01T09:00:32.000Z",
-        }
-        message = {
-            "id": "s-g1",
-            "timestamp": "2026-10-01T09:00:31.000Z",
-            "type": "gemini",
-            "content": "",
-            "model": "gemini-2.5-pro",
-            "toolCalls": [call],
-        }
-        with open(self.home / rel, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(message) + "\n")
-        rows = self.rows_for(GeminiCliParser(), rel)
-        self.assertEqual(
-            [(row.turn_type, row.text) for row in rows[7:]],
-            [
-                ("system", "model: gemini-2.5-flash -> gemini-2.5-pro"),
-                ("tool_use", '{"command":"make deploy"}'),
-                ("system", "permission decision: awaiting_approval"),
-            ],
-        )
-        dec = rows[-1]
-        self.assertEqual(
-            (dec.tool_name, dec.tool_use_id, dec.timestamp_utc, dec.session_id),
-            (
-                "run_shell_command",
-                "run_shell_command__run_shell_command_1759309299000_0",
-                "2026-10-01T09:00:32.000Z",
-                GEMINI_SUBAGENT,
-            ),
-        )
-
     def test_trusted_folders(self):
         rel = ".gemini/trustedFolders.json"
         rows = self.rows_for(GeminiCliParser(), rel)
@@ -307,7 +284,7 @@ class GeminiCliTests(ParserBase):
             ],
         )
         # The session file still yields every row.
-        self.assertEqual(len(self.rows_for(GeminiCliParser(), self.REL)), 27)
+        self.assertEqual(len(self.rows_for(GeminiCliParser(), self.REL)), 33)
 
     def test_history(self):
         rows = self.rows_for(GeminiCliParser(), ".gemini/tmp/proj/logs.json")
@@ -340,7 +317,7 @@ class GeminiCliTests(ParserBase):
             [(0, "system", "parser: logs.json could not be read (Permission denied)", "/srv/proj")],
         )
         # The transcript beside it is still parsed.
-        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 27)
+        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 33)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_legacy_session_is_reported(self):
@@ -351,7 +328,7 @@ class GeminiCliTests(ParserBase):
             [(row.source_line, row.turn_type, row.text, row.project_path) for row in problems],
             [(0, "system", "parser: %s could not be read (Permission denied)" % name, "/srv/proj")],
         )
-        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 27)
+        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 33)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_standing_files_are_not_misread_as_wrong_shape(self):
@@ -369,7 +346,7 @@ class GeminiCliTests(ParserBase):
             ]
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(problems, [(0, "", text)], rel)
-            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 27)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 33)
 
     def test_project_fallbacks(self):
         base = self.home / ".gemini"
@@ -407,7 +384,7 @@ class GeminiCliTests(ParserBase):
         # The bad line is its own row, in full, with the session and
         # project; the rows before it and a line written after it survive.
         before = self.rows_for(GeminiCliParser(), self.REL)
-        self.assertEqual(len(before), 27)
+        self.assertEqual(len(before), 33)
         write_bad_line(self.home / self.REL)
         after = {
             "id": "msg-u9",
@@ -418,14 +395,14 @@ class GeminiCliTests(ParserBase):
         with open(self.home / self.REL, "a", encoding="utf-8") as handle:
             handle.write("\n" + json.dumps(after) + "\n")
         rows = self.rows_for(GeminiCliParser(), self.REL)
-        self.assertEqual(len(rows), 29)
-        added = [row for row in rows if row.source_line == 27]
+        self.assertEqual(len(rows), 35)
+        added = [row for row in rows if row.source_line == 33]
         self.assertEqual([(row.turn_type, row.text) for row in added], [("user", "after the cut")])
         self.assertEqual(
             [
                 (row.source_line, row.turn_type, row.text)
                 for row in rows[:-1]
-                if row.source_line != 27
+                if row.source_line != 33
             ],
             [(row.source_line, row.turn_type, row.text) for row in before],
         )
@@ -438,7 +415,7 @@ class GeminiCliTests(ParserBase):
                 rows[-1].text,
             ),
             (
-                26,
+                32,
                 "system",
                 GEMINI_RESUMED,  # the session id in force at the end of the file
                 before[-1].project_path,
@@ -1629,7 +1606,7 @@ class GeminiCliTests(ParserBase):
             ]
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(problems, [(0, "", text)], rel)
-            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 27)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 33)
 
 
 def _json_reason(text: str) -> str:

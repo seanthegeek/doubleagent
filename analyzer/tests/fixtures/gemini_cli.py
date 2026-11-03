@@ -68,28 +68,20 @@ GEMINI_PLAN_EXIT_TEXT = (
 def gemini_session_records():
     """Session JSONL in the chatRecordingTypes.ts shapes.
 
-    A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume, and the
-    `user` messages the CLI writes itself: the environment context, hook context, tool responses
-    with a result, a failed status or a result a `$patch` cleared in their call (one after a
-    steering update), a compression summary and a plan-mode exit.
+    A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume; the `user`
+    messages the CLI writes itself (environment context, hook context, tool responses with a
+    result, a failed status or a result a `$patch` cleared in their call, a compression summary,
+    a plan-mode exit); then a failed call and a declined call, each with the recorder's response.
 
     Source: research/gemini-cli.md#session-jsonl; source 6814e00
     Source: research/gemini-cli.md#context-rows; source 6814e00
     """
     timestamp_format = "2026-10-01T09:00:%s.000Z"
-    ls_call = {
+    ls_done = {
         "id": "list_directory__list_directory_1759309207000_0",
         "name": "list_directory",
         "args": {"dir_path": "/srv/proj/src"},
-        "status": "executing",
-        "timestamp": "2026-10-01T09:00:07.100Z",
-        "displayName": "ReadFolder",
-        "description": "Lists files",
-    }
-    ls_done = dict(
-        ls_call,
-        status="success",
-        result=[
+        "result": [
             {
                 "functionResponse": {
                     "id": "list_directory__list_directory_1759309207000_0",
@@ -98,7 +90,11 @@ def gemini_session_records():
                 }
             }
         ],
-    )
+        "status": "success",
+        "timestamp": "2026-10-01T09:00:07.100Z",
+        "displayName": "ReadFolder",
+        "description": "Lists files",
+    }
     gemini_reply = {
         "id": "msg-g1",
         "timestamp": timestamp_format % "07",
@@ -111,10 +107,10 @@ def gemini_session_records():
                 "timestamp": "2026-10-01T09:00:06.500Z",
             }
         ],
-        "tokens": {"input": 120, "output": 12, "cached": 0, "thoughts": 8, "tool": 0, "total": 140},
+        "tokens": None,
         "model": "gemini-2.5-pro",
-        "toolCalls": [ls_call],
     }
+    ls_tokens = {"input": 120, "output": 12, "cached": 0, "thoughts": 8, "tool": 0, "total": 140}
     read_file_call = {
         "id": "read_file__read_file_1759309222000_0",
         "name": "read_file",
@@ -150,6 +146,56 @@ def gemini_session_records():
         "timestamp": "2026-10-01T09:00:25.100Z",
         "displayName": "ReadFile",
     }
+    # The turns after the resume: a call that failed and a call the person declined at its dialog.
+    turn_tokens = {"input": 150, "output": 10, "cached": 0, "thoughts": 0, "tool": 0, "total": 160}
+    failed_call = {
+        "id": "read_file__read_file_1759309265000_0",
+        "name": "read_file",
+        "args": {"file_path": "/srv/proj/missing.ts"},
+        "result": [
+            {
+                "functionResponse": {
+                    "id": "read_file__read_file_1759309265000_0",
+                    "name": "read_file",
+                    "response": {"error": "File not found: /srv/proj/missing.ts"},
+                }
+            }
+        ],
+        "status": "error",
+        "timestamp": "2026-10-01T09:01:05.200Z",
+        "description": "missing.ts",
+        "displayName": "ReadFile",
+        "renderOutputAsMarkdown": True,
+    }
+    failed_reply = {
+        "id": "msg-g6",
+        "timestamp": "2026-10-01T09:01:05.000Z",
+        "type": "gemini",
+        "content": "",
+        "thoughts": [],
+        "tokens": None,
+        "model": "gemini-2.5-flash",
+    }
+    denied_call = {
+        "id": "run_shell_command__run_shell_command_1759309266000_0",
+        "name": "run_shell_command",
+        "args": {"command": "make deploy"},
+        "result": [
+            {
+                "functionResponse": {
+                    "id": "run_shell_command__run_shell_command_1759309266000_0",
+                    "name": "run_shell_command",
+                    "response": {"error": "[Operation Cancelled] Reason: User denied execution."},
+                }
+            }
+        ],
+        "status": "cancelled",
+        "timestamp": "2026-10-01T09:01:06.400Z",
+        "description": "make deploy",
+        "displayName": "Shell",
+        "renderOutputAsMarkdown": True,
+    }
+    denied_reply = dict(failed_reply, id="msg-g7", timestamp="2026-10-01T09:01:06.000Z")
     return [
         {
             "sessionId": GEMINI_SESSION,
@@ -177,7 +223,7 @@ def gemini_session_records():
             "content": [{"text": "list files in src"}, {"text": GEMINI_PROMPT_HOOK_TEXT}],
         },
         gemini_reply,
-        dict(gemini_reply, toolCalls=[ls_done]),
+        dict(gemini_reply, tokens=ls_tokens, toolCalls=[ls_done]),
         {
             "id": "msg-t1",
             "timestamp": "2026-10-01T09:00:07.600Z",
@@ -202,7 +248,18 @@ def gemini_session_records():
                     "id": "run_shell_command__run_shell_command_1759309211000_0",
                     "name": "run_shell_command",
                     "args": {"command": "rm -rf /srv/proj/*"},
-                    "status": "awaiting_approval",
+                    "result": [
+                        {
+                            "functionResponse": {
+                                "id": "run_shell_command__run_shell_command_1759309211000_0",
+                                "name": "run_shell_command",
+                                "response": {
+                                    "error": "[Operation Cancelled] Reason: User denied execution."
+                                },
+                            }
+                        }
+                    ],
+                    "status": "cancelled",
                     "timestamp": timestamp_format % "11",
                     "displayName": "Shell",
                 }
@@ -260,6 +317,7 @@ def gemini_session_records():
                     "id": "run_shell_command__run_shell_command_1759309224000_0",
                     "name": "run_shell_command",
                     "args": {"command": "curl http://x"},
+                    "result": None,
                     "status": "cancelled",
                     "timestamp": timestamp_format % "24",
                     "displayName": "Shell",
@@ -322,6 +380,22 @@ def gemini_session_records():
             "timestamp": "2026-10-01T09:01:00.000Z",
             "type": "user",
             "content": "resume work",
+        },
+        failed_reply,
+        dict(failed_reply, tokens=turn_tokens, toolCalls=[failed_call]),
+        {
+            "id": "msg-t6",
+            "timestamp": "2026-10-01T09:01:05.300Z",
+            "type": "user",
+            "content": failed_call["result"],
+        },
+        denied_reply,
+        dict(denied_reply, tokens=turn_tokens, toolCalls=[denied_call]),
+        {
+            "id": "msg-t7",
+            "timestamp": "2026-10-01T09:01:06.500Z",
+            "type": "user",
+            "content": denied_call["result"],
         },
     ]
 

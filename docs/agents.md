@@ -725,8 +725,8 @@ checkout; `.gemini/trustedFolders.json`, one `permission setting:
 trustedFolders.<path>=<value> (from <file>, file mtime)` row per folder at
 the file's modification time with `project_path` the folder; a gemini
 message's `model` as `model: <id>` at a session's first and `model: <old>
--> <new>` on each change; a tool call with status `cancelled` or
-`awaiting_approval` is followed by `permission decision: <status>`; a
+-> <new>` on each change; a tool call with status `cancelled` is
+followed by `permission decision: cancelled`; a
 `user` text the CLI wrote itself with a known opening (the environment
 context, a hook's context, a compression summary, the plan-mode exit
 notice, the directory and editor context, a shell-mode command, a
