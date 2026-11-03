@@ -586,7 +586,7 @@ trust changes", 0.66.0, 2026-11-01) deleted the first session file and began a n
 like other starts in a project that held an earlier session, wrote a summary line into one
 ([Session JSONL](#session-jsonl)); under
 `GEMINI_CLI_TRUSTED_FOLDERS_PATH` (2026-11-02) it did the same and redrew its banner and
-prompt.
+prompt below the old screen, the trust dialog's box left in the scrollback above them.
 `/clear` began a new session file in the same process and kept the old one, and
 `gemini --resume latest` appended to the file of the session it reopened. A short traceback
 paste and a long release-notes paste (0.66.0, 2026-11-02), each sent as one bracketed paste
@@ -1657,6 +1657,16 @@ search
 [`cli/src/ui/components/InputPrompt.tsx:1858`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/InputPrompt.tsx#L1858)); a past prompt in the history carries the
 same `> ` prefix
 ([`cli/src/ui/components/messages/UserMessage.tsx:26-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/messages/UserMessage.tsx#L26-L27)).
+When a trust choice needs a restart, the folder trust dialog prints
+`Gemini CLI is restarting to apply the trust changes...` below its options
+([`cli/src/ui/components/FolderTrustDialog.tsx:299-304`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/FolderTrustDialog.tsx#L299-L304)) and, a quarter second later,
+exits with the relaunch code
+([`cli/src/ui/components/FolderTrustDialog.tsx:58-59`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/FolderTrustDialog.tsx#L58-L59),
+[`cli/src/utils/processUtils.ts:92-143`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/processUtils.ts#L92-L143)), on which the parent process starts the CLI
+again
+([`cli/src/utils/relaunch.ts:20-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/relaunch.ts#L20-L27),
+[`cli/src/utils/relaunch.ts:61`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/relaunch.ts#L61)); what the restart leaves on the screen is under
+[Transcript stores](#transcript-stores).
 The dialogs behind these records on the Linux install, read in the four runs (0.66.0, 2026-11-01
 and 2026-11-02) unless a date is given:
 

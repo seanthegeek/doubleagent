@@ -8,7 +8,7 @@ or stops at the last option, whether Up moves it, whether Escape closes it, a ba
 the first captures only, the capture after which the screen cannot be read, and every drive
 call, so a test reads what the step pressed and where the cursor ended. The screen draws the
 input line as Gemini CLI does, `│ > Type your message │` when empty or `│ > <text> │` with the
-text of `typed_input`, and only while no dialog is live (no labels) and `no_input` is absent,
+text of `typed_input`, its prefix that of `input_prefix` when present, and only while no dialog is live (no labels) and `no_input` is absent,
 since the agents draw a dialog in place of their input box. `stale` holds an old dialog box and
 a past prompt, printed above the rest as a restart leaves them in the scrollback, and
 `lower_list` the unfocused second list a two-list dialog draws below the focused one.
@@ -61,8 +61,10 @@ capture_screen() {
   fi
   [ ! -f "$STUB/stale" ] || cat "$STUB/stale"
   if [ ! -s "$STUB/labels" ] && [ ! -f "$STUB/no_input" ]; then
-    if [ -f "$STUB/typed_input" ]; then printf '│ > %s │\n' "$(cat "$STUB/typed_input")"
-    else printf '│ > Type your message │\n'; fi
+    _cs_prefix='>'
+    [ ! -f "$STUB/input_prefix" ] || _cs_prefix=$(cat "$STUB/input_prefix")
+    if [ -f "$STUB/typed_input" ]; then printf '│ %s %s │\n' "$_cs_prefix" "$(cat "$STUB/typed_input")"
+    else printf '│ %s Type your message │\n' "$_cs_prefix"; fi
   fi
   [ ! -f "$STUB/extra" ] || cat "$STUB/extra"
   if [ -f "$STUB/banner_until" ] && [ "$_cs_count" -le "$(cat "$STUB/banner_until")" ]; then
@@ -109,7 +111,8 @@ def run_steps(shell: str, stub: pathlib.Path, script: str, text: str = "-") -> d
     setup = (
         '. "$1"; . "$2"; %s\nSTUB=$3; CELL=$3; STEP_NUMBER=05; STEP_NAME=pick; STEP_KIND=choose\n'
         "STEP_TEXT=$4; STEP_EXPECT=-; AGENT_OPTION='^ *● '; OPTION_PRESSES=12\n"
-        "AGENT_MARKER='Type your message'; AGENT_INPUT='^[>!] '\n" % STUBS
+        "AGENT_MARKER='Type your message'; AGENT_LIVE_AFTER='^[>!*] |is restarting to apply the trust changes'\n"
+        % STUBS
     )
     result = subprocess.run(
         [
@@ -1031,13 +1034,53 @@ def test_a_two_list_dialog_is_read_by_its_focused_list(tmp_path):
         assert found["note"] == 'cursor on "● Allow for this session"', shell
 
 
-def test_without_an_input_pattern_a_dialog_anywhere_counts(tmp_path):
+def test_without_a_live_after_pattern_a_dialog_anywhere_counts(tmp_path):
     for shell in SHELLS:
         stub = stale_stub(tmp_path, [])
-        script = "AGENT_INPUT=; AGENT_MARKER=; STEP_KIND=prompt; send_text Enter marker"
+        script = "AGENT_LIVE_AFTER=; AGENT_MARKER=; STEP_KIND=prompt; send_text Enter marker"
         found = run_steps(shell, stub, script, "hello")
         assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
         assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
-        script = "AGENT_INPUT=; AGENT_MARKER=; choose_option"
+        script = "AGENT_LIVE_AFTER=; AGENT_MARKER=; choose_option"
         found = run_steps(shell, stale_stub(tmp_path, []), script, "Trust")
         assert found["code"] == "0" and found["cursor"] == "0", shell
+
+
+RESTART = (
+    "│ ● 1. Trust folder (proj) │\n│   2. Trust parent folder (lab) │\n│   3. Don't trust │\n"
+    " Gemini CLI is restarting to apply the trust changes...\n"
+    "  GEMINI CLI banner\n"
+)
+SIGN_IN = ["1. Sign in with Google", "2. Use Gemini API Key", "3. Vertex AI"]
+
+
+def restart_stub(tmp_path: pathlib.Path, mode: str = "stop") -> pathlib.Path:
+    """Return a stub drawn after a trust restart: the old trust box, the notice, a live dialog."""
+    stub = make_stub(tmp_path, SIGN_IN, mode)
+    (stub / "stale").write_text(RESTART, encoding="utf-8")
+    return stub
+
+
+def test_a_dialog_after_a_trust_restart_is_read_below_the_notice(tmp_path):
+    """No input line and no past prompt: the restart notice alone cuts the old trust box."""
+    for shell in SHELLS:
+        assert run_steps(shell, restart_stub(tmp_path), "dialog_open")["code"] == "0", shell
+        found = run_steps(shell, restart_stub(tmp_path), "choose_option", "Gemini API Key")
+        assert found["code"] == "0" and found["cursor"] == "1", shell
+        assert found["note"] == 'cursor on "● 2. Use Gemini API Key"', shell
+        found = run_steps(shell, restart_stub(tmp_path, "wrap"), "answer_dialog")
+        assert found["note"] == "answered with the first option, 3 options", shell
+        assert found["cursor"] == "0" and found["drive"].endswith("keys Enter\n"), shell
+
+
+def test_a_yolo_input_line_below_a_dialog_in_the_scrollback_is_free(tmp_path):
+    for shell in SHELLS:
+        for typed in ("", "/help "):
+            stub = stale_stub(tmp_path, [])
+            (stub / "stale").write_text(STALE.split("Gemini")[0], encoding="utf-8")
+            (stub / "input_prefix").write_text("*", encoding="utf-8")
+            if typed:
+                (stub / "typed_input").write_text(typed, encoding="utf-8")
+            assert run_steps(shell, stub, "dialog_open")["code"] == "1", (shell, typed)
+            found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hi")
+            assert found["code"] == "0" and found["drive"] == "type\nkeys Enter\n", shell

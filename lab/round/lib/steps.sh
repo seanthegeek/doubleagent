@@ -7,7 +7,7 @@
 # die, guest_copy, guest_shell, end_session and paste_source, which round.sh
 # and vm.sh define and a test replaces with stubs. Reads the globals CELL,
 # HERE, GUEST_OS, STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT,
-# AGENT_INPUT, AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS,
+# AGENT_LIVE_AFTER, AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS,
 # TERMINAL_COLS, TERMINAL_ROWS, ROUND_STOP_AFTER and ROUND_ENV, and sets
 # STEP_NOTE.
 
@@ -48,10 +48,10 @@ press_down_saved() {
 }
 
 # Print the live part of the screen read from stdin (live_screen): the
-# lines below the agent's last input line, by its AGENT_INPUT pattern,
-# where an open dialog is drawn.
+# lines after the last line matching the agent's AGENT_LIVE_AFTER pattern,
+# a line no live dialog sits above, so an open dialog is drawn below it.
 live_part() {
-  live_screen "${AGENT_INPUT:-}"
+  live_screen "${AGENT_LIVE_AFTER:-}"
 }
 
 # Print what places the cursor on the live part of the screen read from
