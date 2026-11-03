@@ -727,9 +727,11 @@ the file's modification time with `project_path` the folder; a gemini
 message's `model` as `model: <id>` at a session's first and `model: <old>
 -> <new>` on each change; a tool call with status `cancelled` or
 `awaiting_approval` is followed by `permission decision: <status>`; a
-`user` text the CLI wrote itself (the environment context, a hook's
-context, a compression summary, the plan-mode exit notice, the directory
-and editor context) as a `context: <kind>:` row
+`user` text the CLI wrote itself with a known opening (the environment
+context, a hook's context, a compression summary, the plan-mode exit
+notice, the directory and editor context, a shell-mode command, a
+steering or background update) as a `context: <kind>:` row, though
+`Please continue.` stays a `user` row
 ([Context rows](../research/gemini-cli.md#context-rows));
 `tmp/<slug>/shell_history` (the shell-mode commands),
 `tmp/<slug>/checkpoint-<tag>.json` (`/chat save`) and

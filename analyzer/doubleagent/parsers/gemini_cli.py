@@ -22,10 +22,10 @@ depends on:
 - tool checkpoint `clientHistory`, `commitHash`, `toolCall`, `messageId`; error report `error`
   (`message`, `stack`), `context` (`requestContents`); `sandbox.toml` `modes`, `commands`.
 
-A `user` text the CLI writes itself is a `context: <kind>:` row. Rewind, summary and removal rows
-take the latest time seen before them. `project_path` is `tmp/<slug>/.project_root`, else the
-`projects.json` key of the slug, else the key whose sha256 is the hash directory or
-`projectHash`, else `projectHash`. Validated against google-gemini/gemini-cli source at 6814e00
+A `user` text the CLI writes itself with an opening of `CONTEXT_OPENINGS` is a `context: <kind>:`
+row. Rewind, summary and removal rows take the latest time seen before them. `project_path` is
+`tmp/<slug>/.project_root`, else the `projects.json` key of the slug, else the key whose sha256
+is the hash directory or `projectHash`, else `projectHash`. Validated against google-gemini/gemini-cli source at 6814e00
 (0.67.0-nightly.20261020; v0.66.0 writes the same shapes, some at lines a few earlier) with a
 synthetic fixture. See `research/gemini-cli.md`.
 """
@@ -97,21 +97,25 @@ NAME_TIME_PATTERN = re.compile(
 )
 # The separator of a prompt id, `<session id>########<prompt count>` (useGeminiStream.ts).
 PROMPT_ID_SEPARATOR = "########"
-# The openings of the `user` texts the CLI writes itself, by kind, matched against the trimmed
-# text. The CLI's own reader skips the first two as no prompt (`isIgnoredUserContent`); the rest
-# come from compression, the plan-mode exit, `/directory add` and the IDE companion.
+# A compression summary opens with `<state_snapshot>`, or with the reasoning the compression
+# prompt asks for first in a `<scratchpad>`.
+SCRATCHPAD_TAG = "<scratchpad>"
+STATE_SNAPSHOT_TAG = "<state_snapshot>"
+# The openings of the `user` texts the CLI writes itself that the parser recognises, by kind,
+# matched against the trimmed text. The CLI's own reader skips the first two as no prompt
+# (`isIgnoredUserContent`). `Please continue.` is not among them: a person can type it.
 CONTEXT_OPENINGS = (
     ("session_context", "<session_context>"),
     ("hook_context", "<hook_context>"),
-    ("state_snapshot", "<state_snapshot>"),
+    ("state_snapshot", STATE_SNAPSHOT_TAG),
     ("plan_mode_exit", "User has manually exited Plan Mode. Switching to"),
     ("directory_context", "- **Workspace Directories:**"),
     ("ide_context", "Here is the user's editor context as a JSON object."),
     ("ide_context", "Here is a summary of changes in the user's editor context, in JSON format."),
+    ("shell_command", "I ran the following shell command:"),
+    ("steering_update", "User steering update:"),
+    ("background_update", "Background execution update:"),
 )
-# A compression summary may open with the reasoning the compression prompt asks for first.
-SCRATCHPAD_TAG = "<scratchpad>"
-STATE_SNAPSHOT_TAG = "<state_snapshot>"
 # The end of a hook's context, which a non-interactive start puts before the prompt in one text.
 HOOK_CONTEXT_END = "</hook_context>"
 # Standing permission files. `settings.json` and the policy files are read in
@@ -1265,13 +1269,15 @@ class GeminiCliParser(Parser):
             )
             yield self._system(artifact, line, timestamp, record_session_id, project, text, opts)
         models: dict = {}  # session id -> model in force, for the model rows
-        # The calls whose `result` the file holds, which a tool-response message repeats.
+        # The calls that already give a `tool_result` row (a recorded `result`, or a failed
+        # status), whose response in a tool-response message gives none.
         answered = {
             str(call.get("id") or "")
             for message, _, _ in messages.values()
             if message.get("type") == "gemini"
             for call in message.get("toolCalls") or []
-            if isinstance(call, dict) and call.get("result") is not None
+            if isinstance(call, dict)
+            and (call.get("result") is not None or call.get("status") in FAILED_STATUSES)
         }
         for message, line, record_session_id in messages.values():
             where = (line, record_session_id or session_id, project)

@@ -871,8 +871,11 @@ message for every turn not yet recorded
 `setHistory` record a bare `Content` item through `recordSyntheticMessage`
 ([`geminiChat.ts:1345-1357`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1345-L1357),
 [`1386-1397`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1386-L1397);
-[`chatRecordingService.ts:1116-1127`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1116-L1127)). Each such message's `content` is a
-one-part array holding one text, which opens as follows:
+[`chatRecordingService.ts:1116-1127`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1116-L1127)). The callers that add a `user` item
+the person did not type record either one text part, which opens as follows, or the
+`functionResponse` parts of a tool round ([`useGeminiStream.ts:2165-2172`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2165-L2172),
+[`2209-2215`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2209-L2215), [`2318-2324`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2318-L2324),
+[`2330-2336`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2330-L2336)):
 
 - `<session_context>`: the environment-context item (the date, the platform, the project's
   temporary directory, optionally the directory tree and the session memory), which `startChat`
@@ -882,7 +885,11 @@ one-part array holding one text, which opens as follows:
 - `<state_snapshot>`, or `<scratchpad>` with `<state_snapshot>` after it: a compression's
   summary. The chat restarts with the compressed history, a `user` item holding the summary and
   a `model` item `Got it. Thanks for the additional context!`, and both are recorded as new
-  messages ([`client.ts:1282-1294`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L1282-L1294);
+  messages. The environment-context item keeps its fixed id
+  ([`environmentContext.ts:91-104`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/environmentContext.ts#L91-L104)), so the restart
+  writes the regenerated text as a `$patch` of the existing message's `content`
+  ([`chatRecordingService.ts:1440-1472`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1440-L1472)); after the replay
+  the file holds only the latest text ([`client.ts:1282-1294`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L1282-L1294);
   [`core/src/context/chatCompressionService.ts:664-678`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/chatCompressionService.ts#L664-L678)).
   The summary is the model's answer to the compression prompt, which asks for reasoning in a
   private `<scratchpad>` and then a `<state_snapshot>` XML object
@@ -890,8 +897,9 @@ one-part array holding one text, which opens as follows:
 - `<hook_context>`: a SessionStart hook's context, `<hook_context>...</hook_context>`
   ([`cli/src/ui/AppContainer.tsx:618-628`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/AppContainer.tsx#L618-L628)).
 - `User has manually exited Plan Mode. Switching to`: leaving plan mode for another mode, the
-  text `User has manually exited Plan Mode. Switching to <description>.` with one of the four
-  descriptions of `getApprovalModeDescription`
+  text `User has manually exited Plan Mode. Switching to <description>.` with one of the three
+  descriptions of `getApprovalModeDescription` other than plan's, since the message is written
+  only when the new mode is not plan
   ([`cli/src/ui/hooks/useGeminiStream.ts:2051-2068`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2051-L2068);
   [`core/src/utils/approvalModeUtils.ts:13-40`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/approvalModeUtils.ts#L13-L40)).
 - `- **Workspace Directories:**`: `/directory add`, the workspace directories and their tree
@@ -902,6 +910,21 @@ one-part array holding one text, which opens as follows:
   the last): the IDE companion's editor context, sent before a prompt
   ([`client.ts:501-507`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L501-L507),
   [`611-617`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L611-L617), [`765-776`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L765-L776)).
+- `I ran the following shell command:`: shell mode's record of a command and its output
+  ([shell_history](#shell_history)).
+- `User steering update:`: a hint the person typed while tools ran, rewritten by the CLI and
+  sent as a text part before the tools' `functionResponse` parts in one message
+  ([`useGeminiStream.ts:2341-2349`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useGeminiStream.ts#L2341-L2349);
+  [`core/src/utils/fastAckHelper.ts:67-70`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/fastAckHelper.ts#L67-L70)).
+- `Background execution update:`: a subagent's notice that a backgrounded command finished,
+  put before the parts of its next message
+  ([`core/src/agents/local-executor.ts:736-743`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/agents/local-executor.ts#L736-L743);
+  [`fastAckHelper.ts:90-92`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/fastAckHelper.ts#L90-L92)).
+
+`Please continue.` is CLI-written too: the next-speaker check sends it when it judges the
+model should speak again, and it replaces an empty trailing `user` turn
+([`client.ts:925-935`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L925-L935); [`geminiChat.ts:132`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L132),
+[`882-898`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L882-L898)).
 
 A prompt's own message can hold CLI text too. A BeforeAgent hook's context is appended to the
 prompt as one more text part, `<hook_context>...</hook_context>`, after the person's
@@ -931,9 +954,8 @@ update records appeared. Shorter sessions held only `$set` updates.
 
 In the fourth run (0.66.0, 2026-11-02) every session file's second line, its first `user`
 message, held the environment-context item, written at the start before any question. It lists
-the
-working directory's tree, so a session file before any question measured about 1.3 KB in the
-sample project, 7.1 to 7.3 KB in the home. Each start also wrote one more
+the working directory's tree, so a session file before any question measured about 1.3 KB in
+the sample project, 7.1 to 7.3 KB in the home. Each start also wrote one more
 `$set` line, at the same second as its own file, into an earlier session file of the same
 project: the most recent one of that project not yet given such a line, which was not always
 the one just before it. When the model request behind it succeeded the line held a `summary` of
@@ -1655,7 +1677,8 @@ row `summary: <summary>` at its `lastUpdated`; a `$rewindTo` is
 `patch removed <n> message(s)`, each at the latest time seen before it. In a text, an
 `inlineData` part reads `[inlineData <mimeType>]` and a `fileData` part `[fileData <fileUri>]`,
 and a `functionResponse` part its `response`'s `output` or `error`. A `user` text the CLI
-writes itself is a `system` row, never a `user` row ([Context rows](#context-rows)).
+writes itself with one of the openings of [Context rows](#context-rows) is a `system` row,
+never a `user` row; `Please continue.` stays a `user` row.
 
 | Column | Source |
 | --- | --- |
@@ -1866,8 +1889,10 @@ Two more secondary sources repeat the turns sent to the model, matched the same 
 position as `source_line`, and the session id where the file names one. The environment-context
 item they open with is a `context: session_context:` row like any `user` text the CLI writes
 ([Context rows](#context-rows)); deduplication drops it when the session file holds the same
-text, and keeps one the session file lacks, such as the context regenerated after a compression,
-as a `system` row:
+text and keeps one the session file lacks as a `system` row. A compression rewrites the session
+file's environment-context message with the regenerated text ([Session JSONL](#session-jsonl)),
+so a copy written before it, in a tool checkpoint or an error report, keeps the earlier text
+and its row stays:
 
 - `checkpoints/<time>-<file basename>-<tool>.json`, a tool checkpoint
   ([Tool checkpoints](#tool-checkpoints)): a first `system` row
@@ -2187,8 +2212,8 @@ A `user` message or history item gives its parts in order as runs: each text par
 `content`) is classified by the opening of its trimmed text, an `inlineData` or `fileData` part
 is the person's, and consecutive parts of one class are one run, their texts joined with a
 newline. A run of the person's is a `user` row; a run of a text the CLI wrote
-([Session JSONL](#session-jsonl)) is a `system` row `context: <kind>: <text>`, the text whole.
-The kinds and the openings that give them:
+([Session JSONL](#session-jsonl)) with one of the openings below is a `system` row
+`context: <kind>: <text>`, the text whole. The kinds and the openings that give them:
 
 | Kind | Opening of the trimmed text |
 | --- | --- |
@@ -2198,20 +2223,30 @@ The kinds and the openings that give them:
 | `plan_mode_exit` | `User has manually exited Plan Mode. Switching to` |
 | `directory_context` | `- **Workspace Directories:**` |
 | `ide_context` | `Here is the user's editor context as a JSON object.` or `Here is a summary of changes in the user's editor context, in JSON format.` |
+| `shell_command` | `I ran the following shell command:` |
+| `steering_update` | `User steering update:` |
+| `background_update` | `Background execution update:` |
+
+`Please continue.`, which the CLI also writes, is not classified, since a person can type the
+same text: it stays a `user` row.
 
 A text that opens with `<hook_context>` and holds more after its first `</hook_context>` (the
 non-interactive start) is split there: the hook's context is the `context: hook_context:` row
-and the rest is classified again. A prompt with a hook part gives its `user` row, then the
-`context: hook_context:` row. A text opening with `/` or `?` is the person's and stays a `user`
-row, although Gemini CLI's own reader treats it as no prompt. A tag inside a prompt, after its
-opening, does not count. A `model` item's text is an `assistant` row whatever it opens with.
+and the rest is classified again. A prompt with a hook part gives its `user` row and the
+`context: hook_context:` row in part order. A text opening with `/` or `?` is the person's and
+stays a `user` row, although Gemini CLI's own reader treats it as no prompt. A tag inside a
+prompt, after its opening, does not count. A `model` item's text is an `assistant` row whatever
+it opens with.
 
 A session file's `user` message of `functionResponse` parts gives a `tool_result` row (the
 response's `name` and `id` as `tool_name` and `tool_use_id`, its text as above) only when no
-`toolCalls[]` element of a `gemini` message of the file carries a non-null `result` for that id
-after the replay; otherwise it gives no row, since the `toolCalls[].result` row holds it. A
-`user` message with no text, media or response part gives an empty `user` row. In a history
-copy a `functionResponse` part is a `tool_result` row as before, which deduplication pairs on
+`toolCalls[]` element of a `gemini` message of the file carries, after the replay, a non-null
+`result` or a `status` of `error` or `cancelled` for that id; otherwise it gives no row, since
+the call's own `tool_result` row holds it (for a failed call, the `[error]` or `[cancelled]`
+row, beside which the CLI's made-up response to an interrupted call would be a second). A text
+part in the same message, such as a steering update, gives its row before the `tool_result`
+rows. A `user` message with no text, media or response part gives an empty `user` row. In a
+history copy a `functionResponse` part is a `tool_result` row, which deduplication pairs on
 `tool_use_id`.
 
 ## Confidence

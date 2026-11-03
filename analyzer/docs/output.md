@@ -215,7 +215,7 @@ alice          /home/alice                      codex-cli                 8     
 alice          /home/alice                      cursor                   11       100667  yes
 alice          /home/alice                      aider                     4         1379  yes
 alice          /home/alice                      amp                       1           96  detect only
-bob            /home/bob                        gemini-cli               17        13650  yes
+bob            /home/bob                        gemini-cli               17        13970  yes
 bob            /home/bob                        ollama                    6          300  yes
 
 project                                  users          agent                 files        bytes  parser
@@ -302,7 +302,7 @@ example is the output of `detect --json` on
         {
           "agent": "gemini-cli",
           "files": 17,
-          "bytes": 13650,
+          "bytes": 13970,
           "parser": true
         },
         {
@@ -550,10 +550,10 @@ rows:      322 in out/timeline.jsonl
            cursor         tool_use     5
            cursor         user         6
            gemini-cli     assistant    4
-           gemini-cli     system       31
+           gemini-cli     system       32
            gemini-cli     tool_result  4
            gemini-cli     tool_use     4
-           gemini-cli     user         8
+           gemini-cli     user         7
            ollama         system       3
            ollama         user         1
 sessions:  22 in out/sessions.jsonl (7 synced, 4 remote, 7 recovered)
@@ -679,7 +679,7 @@ rather than as projects:
         {
           "agent": "gemini-cli",
           "files": 17,
-          "bytes": 13650,
+          "bytes": 13970,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
@@ -824,10 +824,10 @@ rather than as projects:
           "sessions": 3,
           "turn_types": {
             "assistant": 4,
-            "system": 29,
+            "system": 30,
             "tool_result": 4,
             "tool_use": 4,
-            "user": 7
+            "user": 6
           },
           "files": 0,
           "bytes": 0
@@ -1478,11 +1478,13 @@ Codex it is `developer` messages and user-role blocks whose content kind
 names harness context rather than `user.*` input, or, in older rollouts
 without content kinds, a block that is wholly a harness wrapper such as
 `<environment_context>`. In Gemini CLI it is a `user` text the CLI writes
-itself, told by its opening: the environment and hook context
-(`<session_context>`, `<hook_context>`), a compression's
-`<state_snapshot>`, the notice of leaving plan mode, and the directory and
-editor context; the tool responses the CLI records as `user` messages give
-no row of their own when the call's `toolCalls[].result` holds them, and a
+itself with one of the openings the parser knows: the environment and hook
+context (`<session_context>`, `<hook_context>`), a compression's
+`<state_snapshot>`, the notice of leaving plan mode, the directory and
+editor context, a shell-mode command and a steering or background update
+(`Please continue.`, which a person can also type, stays a `user` row); the
+tool responses the CLI records as `user` messages give no row of their own
+when the call's `toolCalls[].result` holds them or the call failed, and a
 `tool_result` row otherwise. These `system` rows start with a lowercase label
 naming the source, such as `subagent task:`, `task notification:`,
 `slash command:`, `command output:` or `context: <kind>:`, followed by the
@@ -3245,7 +3247,7 @@ have no `session_id`, so they belong to no session:
 {"host":"wsdev14","user":"alice","agent":"codex-cli","session_id":"aaaaaaaa-bbbb-4ccc-8ddd-000000000006","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T08:00:00.000Z","last_timestamp_utc":"2026-10-01T08:00:10.000Z","models":[],"user_turns":1,"assistant_turns":1,"tool_calls":1,"source_file":"/home/alice/.codex/thread_history_1.sqlite","synced":"no","relayed":"","origin":"","recovered":"yes"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:00.000Z","last_timestamp_utc":"2026-10-01T09:00:45.000Z","models":["gemini-2.5-pro","gemini-2.5-flash"],"user_turns":3,"assistant_turns":4,"tool_calls":4,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"partial"}
 {"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"c3d4e5f6-0000-4000-8000-000000000003","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:00:30.000Z","last_timestamp_utc":"2026-10-01T09:00:30.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/a1b2c3d4-0000-4000-8000-000000000001/c3d4e5f6-0000-4000-8000-000000000003.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
-{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-0000000000ff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:01:00.000Z","last_timestamp_utc":"2026-10-01T09:01:05.000Z","models":[],"user_turns":2,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
+{"host":"wsdev14","user":"bob","agent":"gemini-cli","session_id":"a1b2c3d4-0000-4000-8000-0000000000ff","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:01:00.000Z","last_timestamp_utc":"2026-10-01T09:01:00.000Z","models":[],"user_turns":1,"assistant_turns":0,"tool_calls":0,"source_file":"/home/bob/.gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl","synced":"","relayed":"","origin":"","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"cursor","session_id":"c0000001-0000-4000-8000-000000000001","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T09:59:00.000Z","last_timestamp_utc":"2026-10-01T10:05:00.000Z","models":["grok-4.6","grok-4.7"],"user_turns":2,"assistant_turns":1,"tool_calls":5,"source_file":"/home/alice/.config/Cursor/User/globalStorage/state.vscdb","synced":"no","relayed":"","origin":"local","recovered":"partial"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-555555555555","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:00.000Z","last_timestamp_utc":"2026-10-01T10:00:20.000Z","models":["claude-fable-5-1"],"user_turns":4,"assistant_turns":2,"tool_calls":5,"source_file":"/home/alice/.claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}
 {"host":"wsdev14","user":"alice","agent":"claude-code","session_id":"11111111-2222-4333-8444-666666666666","project_path":"/srv/proj","first_timestamp_utc":"2026-10-01T10:00:30.000Z","last_timestamp_utc":"2026-10-01T10:00:31.000Z","models":["claude-fable-5-1"],"user_turns":1,"assistant_turns":1,"tool_calls":0,"source_file":"/home/alice/.claude-work/projects/-srv-proj/11111111-2222-4333-8444-666666666666.jsonl","synced":"no","relayed":"","origin":"local","recovered":"no"}

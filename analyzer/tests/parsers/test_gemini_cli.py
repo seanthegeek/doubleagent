@@ -56,9 +56,20 @@ from fixtures.gemini_cli import (
     GEMINI_SESSION_CONTEXT,
     GEMINI_SNAPSHOT_REPLY,
     GEMINI_SNAPSHOT_TEXT,
+    GEMINI_STEERING_TEXT,
 )
 
 from .base import ParserBase, kept_rows, parse_with, rel_only, unreadable_rows
+
+# The texts shell mode and a background completion write (useExecutionLifecycle.ts,
+# fastAckHelper.ts).
+SHELL_TEXT = (
+    "I ran the following shell command:\n```sh\nls\n```\n\n"
+    "This produced the following result:\n```\nsrc\n```"
+)
+BACKGROUND_TEXT = (
+    "Background execution update:\n<background_output>\nbuild done\n</background_output>"
+)
 
 
 class GeminiCliTests(ParserBase):
@@ -103,13 +114,13 @@ class GeminiCliTests(ParserBase):
                 (16, "tool_use", 'Shell: {"command":"curl http://x"}'),
                 (16, "tool_result", "[cancelled]"),
                 (16, "system", "permission decision: cancelled"),
-                (17, "tool_use", 'ReadFile: {"file_path":"/srv/proj/README.md"}'),
-                (18, "tool_result", "# proj"),
-                (19, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
-                (20, "assistant", GEMINI_SNAPSHOT_REPLY),
-                (21, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
-                (23, "user", "resume work"),
-                (24, "user", "/help"),
+                (18, "tool_use", 'ReadFile: {"file_path":"/srv/proj/README.md"}'),
+                (19, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
+                (19, "tool_result", "# proj"),
+                (20, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
+                (21, "assistant", GEMINI_SNAPSHOT_REPLY),
+                (22, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
+                (24, "user", "resume work"),
                 (8, "system", "summary: List src files"),
                 (11, "system", "rewind to msg-u2: 2 message(s) dropped"),
             ],
@@ -155,20 +166,23 @@ class GeminiCliTests(ParserBase):
         )
         lsout = by_text[(6, "main.ts\nutil.ts")]
         self.assertEqual(lsout.tool_use_id, "list_directory__list_directory_1759309207000_0")
-        # The tool-response message whose call holds a result gives no row; the one whose
-        # call has none gives the result row, joined on the call's id.
-        self.assertFalse([row for row in rows if row.source_line == 7])
-        readme = by_text[(18, "# proj")]
+        # The tool-response messages whose call holds a result or a failed status give no row,
+        # so each of those calls has one result row; the one whose call has neither gives the
+        # result row, joined on the call's id.
+        self.assertFalse([row for row in rows if row.source_line in (7, 17)])
+        results = [row.tool_use_id for row in rows if row.turn_type == "tool_result"]
+        self.assertEqual(sorted(results), sorted(set(results)))
+        readme = by_text[(19, "# proj")]
         self.assertEqual(
             (readme.tool_name, readme.tool_use_id, readme.timestamp_utc, readme.model),
             ("read_file", readme_id, "2026-10-01T09:00:26.000Z", ""),
         )
-        readme_call = by_text[(17, 'ReadFile: {"file_path":"/srv/proj/README.md"}')]
+        readme_call = by_text[(18, 'ReadFile: {"file_path":"/srv/proj/README.md"}')]
         self.assertEqual(readme_call.tool_use_id, readme_id)
         self.assertNotIn("delete everything", " ".join(row.text for row in rows))  # rewound
-        self.assertEqual(by_text[(20, GEMINI_SNAPSHOT_REPLY)].model, "")
+        self.assertEqual(by_text[(21, GEMINI_SNAPSHOT_REPLY)].model, "")
         self.assertEqual(
-            {row.session_id for row in rows if row.source_line in (23, 24)}, {GEMINI_RESUMED}
+            by_text[(24, "resume work")].session_id, GEMINI_RESUMED
         )  # $set.sessionId on resume
         self.assertEqual(by_text[(13, "Here is util.ts.")].session_id, GEMINI_SESSION)
         summary = by_text[(8, "summary: List src files")]
@@ -1148,6 +1162,10 @@ class GeminiCliTests(ParserBase):
             ("user has manually exited plan mode. switching to default", ""),
             ("Workspace Directories: /srv/proj", ""),
             ("Here is the user's editor context", ""),
+            (SHELL_TEXT, "shell_command"),
+            (GEMINI_STEERING_TEXT, "steering_update"),
+            (BACKGROUND_TEXT, "background_update"),
+            ("Please continue.", ""),
             ("/help", ""),
             ("? what changed", ""),
             ("", ""),
@@ -1187,7 +1205,13 @@ class GeminiCliTests(ParserBase):
                     {"text": ""},
                 ],
                 [],
-                "? what changed",
+                # Shell mode's record of a command, and a background completion sent before a
+                # tool's response, whose call this file does not hold.
+                [{"text": SHELL_TEXT}],
+                [
+                    {"text": BACKGROUND_TEXT},
+                    {"functionResponse": {"id": "c9", "name": "grep", "response": {"output": "x"}}},
+                ],
             ],
         )
         rows = self.rows_for(GeminiCliParser(), rel)
@@ -1209,14 +1233,21 @@ class GeminiCliTests(ParserBase):
                     "context: hook_context: %s\n%s" % (GEMINI_HOOK_TEXT, GEMINI_PROMPT_HOOK_TEXT),
                 ),
                 (6, "user", ""),
-                (7, "user", "? what changed"),
+                (7, "system", "context: shell_command: " + SHELL_TEXT),
+                (8, "system", "context: background_update: " + BACKGROUND_TEXT),
+                (8, "tool_result", "x"),
             ],
         )
+        self.assertEqual((rows[-1].tool_name, rows[-1].tool_use_id), ("grep", "c9"))
         self.assertEqual({row.session_id for row in rows}, {GEMINI_SUBAGENT})
 
-    def test_context_item_is_a_system_row_in_every_reader(self):
-        # The environment context in the first and in a later position, and a hook's context,
-        # each give a `context:` row; a model item opening with a tag stays an assistant row.
+    def test_context_item_is_a_system_row_in_each_history_copy(self):
+        """A context item is a `context:` row in the history copies and the session file.
+
+        The environment context in the first and in a later position, and a hook's context, each
+        give one; a model item opening with a tag stays an assistant row. `logs.json` holds typed
+        prompts only and is not covered.
+        """
         self.sources()
         items = [
             GEMINI_SESSION_CONTEXT,
@@ -1261,20 +1292,21 @@ class GeminiCliTests(ParserBase):
         )
 
     def test_context_row_the_session_file_lacks_is_kept_unrecovered(self):
-        # The copy the session file holds is dropped; a regenerated context it lacks stays, as
-        # a system row never marked recovered.
+        # The copy the session file holds is dropped. A compression patches the session file's
+        # context message with the regenerated text, so a checkpoint written before it keeps an
+        # earlier text the file lacks: that row stays, a system row never marked recovered.
         kept, _ = self._deduplicated(GEMINI_TOOL_CHECKPOINT_REL, self.REL)
         self.assertFalse([row for row in kept if row.text.startswith("context:")])
-        regenerated = GEMINI_CONTEXT_TEXT.replace("linux", "darwin")
+        earlier = GEMINI_CONTEXT_TEXT.replace("linux", "darwin")
         document = gemini_tool_checkpoint()
-        document["clientHistory"][0] = {"role": "user", "parts": [{"text": regenerated}]}
+        document["clientHistory"][0] = {"role": "user", "parts": [{"text": earlier}]}
         (self.home / GEMINI_TOOL_CHECKPOINT_REL).write_text(json.dumps(document), "utf-8")
         kept, dropped = self._deduplicated(GEMINI_TOOL_CHECKPOINT_REL, self.REL)
         self.assertEqual(dropped, 4)
         context = [row for row in kept if row.text.startswith("context:")]
         self.assertEqual(
             [(row.turn_type, row.text, row.recovered) for row in context],
-            [("system", "context: session_context: " + regenerated, "")],
+            [("system", "context: session_context: " + earlier, "")],
         )
 
     def test_error_report_context_item_that_is_no_object_is_one_bad_record(self):

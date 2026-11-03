@@ -37,6 +37,11 @@ GEMINI_SNAPSHOT_TEXT = (
     "    <overall_goal>Review util.ts.</overall_goal>\n</state_snapshot>"
 )
 GEMINI_SNAPSHOT_REPLY = "Got it. Thanks for the additional context!"
+# A steering hint the person typed while tools ran, sent before the tools' responses.
+GEMINI_STEERING_TEXT = (
+    "User steering update:\n<user_input>\nskip the tests\n</user_input>\n"
+    "Internal instruction: Re-evaluate the active plan using this user steering update."
+)
 # The message the CLI adds when the person leaves plan mode with Shift+Tab.
 GEMINI_PLAN_EXIT_TEXT = (
     "User has manually exited Plan Mode. Switching to Default mode (edits will require "
@@ -49,7 +54,8 @@ def gemini_session_records():
 
     A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume, and the
     `user` messages the CLI writes itself: the environment context, hook context, tool responses
-    with and without a result in their call, a compression summary and a plan-mode exit.
+    with and without a result or failed status in their call (one after a steering update), a
+    compression summary and a plan-mode exit.
 
     Source: research/gemini-cli.md#session-jsonl; source 6814e00
     Source: research/gemini-cli.md#context-rows; source 6814e00
@@ -236,6 +242,20 @@ def gemini_session_records():
             ],
         },
         {
+            "id": "msg-t3",
+            "timestamp": "2026-10-01T09:00:24.500Z",
+            "type": "user",
+            "content": [
+                {
+                    "functionResponse": {
+                        "name": "run_shell_command",
+                        "id": "run_shell_command__run_shell_command_1759309224000_0",
+                        "response": {"error": "Response was lost or interrupted."},
+                    }
+                }
+            ],
+        },
+        {
             "id": "msg-g5",
             "timestamp": timestamp_format % "25",
             "type": "gemini",
@@ -248,13 +268,14 @@ def gemini_session_records():
             "timestamp": timestamp_format % "26",
             "type": "user",
             "content": [
+                {"text": GEMINI_STEERING_TEXT},
                 {
                     "functionResponse": {
                         "id": readme_call["id"],
                         "name": "read_file",
                         "response": {"output": "# proj"},
                     }
-                }
+                },
             ],
         },
         {
@@ -281,12 +302,6 @@ def gemini_session_records():
             "timestamp": "2026-10-01T09:01:00.000Z",
             "type": "user",
             "content": "resume work",
-        },
-        {
-            "id": "msg-u5",
-            "timestamp": "2026-10-01T09:01:05.000Z",
-            "type": "user",
-            "content": [{"text": "/help"}],
         },
     ]
 
