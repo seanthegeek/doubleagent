@@ -1625,7 +1625,7 @@ down.
 
 - Track outstanding work as GitHub issues. A defect found while working
   on another issue may be fixed in the same pull request once its own
-  issue is filed: the fix is its own commit saying `Closes #<n>`, it gets
+  issue is filed: the fix is its own commit saying `Refs #<n>`, it gets
   its own changelog line ending `([#<n>])` when it changes what a part
   ships, and the pull request body lists it under a `Found on the way:`
   line with its `Closes #<n>` line, so it closes and ships with the rest.
@@ -1642,12 +1642,10 @@ down.
   behaviour of their own (typos, formatting, a test-only refactor) need
   none.
 - A commit implementing an issue says `Refs #<n>` in its body, never
-  `Fixes` or `Closes`, except a fix found on the way, which says
-  `Closes #<n>` as the issue-tracking bullet above gives; each changelog line
-  for it ends with `([#<n>])`. GitHub closes an issue for any closing
-  keyword (`close`, `fix`, `resolve` and their `-s` and `-d` forms)
-  followed by `#<n>` anywhere in a commit message or a pull request body,
-  so in a commit message other than that `Closes #<n>` line, and in a pull
+  `Fixes` or `Closes`, and each changelog line for it ends with `([#<n>])`.
+  GitHub closes an issue for any closing keyword (`close`, `fix`, `resolve`
+  and their `-s` and `-d` forms) followed by `#<n>` anywhere in a commit
+  message or a pull request body, so in a commit message, and in a pull
   request body outside its `Closes #<n>` lines, write `the fix for #29`,
   never `fixes #29`. The pull request that finishes an issue says
   `Closes #<n>` in its body, one line per issue, so GitHub closes the issue
