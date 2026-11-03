@@ -22,14 +22,59 @@ GEMINI_HASH = (
     "6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972"  # sha256("/srv/proj")
 )
 GEMINI_REL = ".gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl"
+# The environment-context item every chat history opens with (environmentContext.ts).
+GEMINI_CONTEXT_TEXT = (
+    "<session_context>\nThis is the Gemini CLI. We are setting up the context for our chat.\n"
+    "My operating system is: linux\n</session_context>"
+)
+GEMINI_SESSION_CONTEXT = {"role": "user", "parts": [{"text": GEMINI_CONTEXT_TEXT}]}
+# A SessionStart hook's context, and a BeforeAgent hook's part added to a prompt.
+GEMINI_HOOK_TEXT = "<hook_context>Branch main is protected.</hook_context>"
+GEMINI_PROMPT_HOOK_TEXT = "<hook_context>Run npm test after edits.</hook_context>"
+# A compression summary as the compression prompt asks for it, and the reply the CLI adds.
+GEMINI_SNAPSHOT_TEXT = (
+    "<scratchpad>The user listed src and read util.ts.</scratchpad>\n<state_snapshot>\n"
+    "    <overall_goal>Review util.ts.</overall_goal>\n</state_snapshot>"
+)
+GEMINI_SNAPSHOT_REPLY = "Got it. Thanks for the additional context!"
+# A steering hint the person typed while tools ran, sent before the tools' responses.
+GEMINI_STEERING_TEXT = (
+    "User steering update:\n<user_input>\nskip the tests\n</user_input>\n"
+    "Internal instruction: Re-evaluate the active plan using this user steering update."
+)
+# The project memory a subagent's first message opens with (`getSessionMemory`).
+GEMINI_LOADED_CONTEXT_TEXT = (
+    "\n<loaded_context>\n<project_context>\nTests run with pnpm.\n</project_context>\n"
+    "</loaded_context>"
+)
+# Hints the person typed while a subagent ran, as the subagent loop sends them, and its call.
+GEMINI_HINTS_TEXT = (
+    "User hints:\n<user_input>\n- check the lockfile\n</user_input>\n\n"
+    "Internal instruction: Re-evaluate the active plan using this user steering update."
+)
+GEMINI_SUBAGENT_CALL = {
+    "id": "read_file__read_file_1759309230400_0",
+    "name": "read_file",
+    "args": {"file_path": "/srv/proj/package-lock.json"},
+    "timestamp": "2026-10-01T09:00:30.400Z",
+}
+# The message the CLI adds when the person leaves plan mode with Shift+Tab.
+GEMINI_PLAN_EXIT_TEXT = (
+    "User has manually exited Plan Mode. Switching to Default mode (edits will require "
+    "confirmation)."
+)
 
 
 def gemini_session_records():
     """Session JSONL in the chatRecordingTypes.ts shapes.
 
-    A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume.
+    A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume, and the
+    `user` messages the CLI writes itself: the environment context, hook context, tool responses
+    with a result, a failed status or a result a `$patch` cleared in their call (one after a
+    steering update), a compression summary and a plan-mode exit.
 
     Source: research/gemini-cli.md#session-jsonl; source 6814e00
+    Source: research/gemini-cli.md#context-rows; source 6814e00
     """
     timestamp_format = "2026-10-01T09:00:%s.000Z"
     ls_call = {
@@ -87,6 +132,24 @@ def gemini_session_records():
             }
         ],
     }
+    # A completed call whose `result` a later `$patch` clears, then answered by a tool-response
+    # message; the made-up response to an interrupted call follows the cancelled one.
+    readme_response = {
+        "functionResponse": {
+            "id": "read_file__read_file_1759309225000_0",
+            "name": "read_file",
+            "response": {"output": "# proj"},
+        }
+    }
+    readme_call = {
+        "id": "read_file__read_file_1759309225000_0",
+        "name": "read_file",
+        "args": {"file_path": "/srv/proj/README.md"},
+        "result": [readme_response],
+        "status": "success",
+        "timestamp": "2026-10-01T09:00:25.100Z",
+        "displayName": "ReadFile",
+    }
     return [
         {
             "sessionId": GEMINI_SESSION,
@@ -96,13 +159,31 @@ def gemini_session_records():
             "kind": "main",
         },
         {
+            "id": "msg-c1",
+            "timestamp": timestamp_format % "00",
+            "type": "user",
+            "content": [{"text": GEMINI_CONTEXT_TEXT}],
+        },
+        {
+            "id": "msg-h1",
+            "timestamp": timestamp_format % "01",
+            "type": "user",
+            "content": [{"text": GEMINI_HOOK_TEXT}],
+        },
+        {
             "id": "msg-u1",
             "timestamp": timestamp_format % "05",
             "type": "user",
-            "content": [{"text": "list files in src"}],
+            "content": [{"text": "list files in src"}, {"text": GEMINI_PROMPT_HOOK_TEXT}],
         },
         gemini_reply,
         dict(gemini_reply, toolCalls=[ls_done]),
+        {
+            "id": "msg-t1",
+            "timestamp": "2026-10-01T09:00:07.600Z",
+            "type": "user",
+            "content": ls_done["result"],
+        },
         {"$set": {"lastUpdated": timestamp_format % "08", "summary": "List src files"}},
         {
             "id": "msg-u2",
@@ -185,6 +266,56 @@ def gemini_session_records():
                 }
             ],
         },
+        {
+            "id": "msg-t3",
+            "timestamp": "2026-10-01T09:00:24.500Z",
+            "type": "user",
+            "content": [
+                {
+                    "functionResponse": {
+                        "name": "run_shell_command",
+                        "id": "run_shell_command__run_shell_command_1759309224000_0",
+                        "response": {"error": "Response was lost or interrupted."},
+                    }
+                }
+            ],
+        },
+        {
+            "id": "msg-g5",
+            "timestamp": timestamp_format % "25",
+            "type": "gemini",
+            "content": "",
+            "model": "gemini-2.5-flash",
+            "toolCalls": [readme_call],
+        },
+        {"$patch": {"id": "msg-g5", "toolCalls": [{"id": readme_call["id"], "result": None}]}},
+        {
+            "id": "msg-t2",
+            "timestamp": timestamp_format % "26",
+            "type": "user",
+            "content": [
+                {"text": GEMINI_STEERING_TEXT},
+                readme_response,
+            ],
+        },
+        {
+            "id": "msg-s1",
+            "timestamp": timestamp_format % "40",
+            "type": "user",
+            "content": [{"text": GEMINI_SNAPSHOT_TEXT}],
+        },
+        {
+            "id": "msg-a1",
+            "timestamp": timestamp_format % "40",
+            "type": "gemini",
+            "content": [{"text": GEMINI_SNAPSHOT_REPLY}],
+        },
+        {
+            "id": "msg-p1",
+            "timestamp": timestamp_format % "45",
+            "type": "user",
+            "content": [{"text": GEMINI_PLAN_EXIT_TEXT}],
+        },
         {"$set": {"sessionId": GEMINI_RESUMED}},
         {
             "id": "msg-u4",
@@ -250,7 +381,7 @@ GEMINI_TRUST_MTIME = 1790856000  # 1 October 12:00:00 UTC, trustedFolders.json's
 
 
 def build_gemini_cli(base: Path) -> None:
-    """Write a `~/.gemini` with slug and hash directories, a subagent and noise.
+    """Write a `~/.gemini` with slug and hash directories, a subagent with user hints and noise.
 
     ~/.gemini with a slug directory (marker file), a legacy hash directory resolved through
     projects.json, a subagent session and noise.
@@ -258,6 +389,13 @@ def build_gemini_cli(base: Path) -> None:
     Source: research/gemini-cli.md#per-user-storage; source 6814e00
     """
     slug = base / "tmp/proj"
+    read_response = {
+        "functionResponse": {
+            "id": GEMINI_SUBAGENT_CALL["id"],
+            "name": "read_file",
+            "response": {"output": "lockfileVersion 3"},
+        }
+    }
     _jsonl(base / GEMINI_REL[len(".gemini/") :], gemini_session_records())
     _jsonl(
         slug / "chats" / GEMINI_SESSION / (GEMINI_SUBAGENT + ".jsonl"),
@@ -272,7 +410,22 @@ def build_gemini_cli(base: Path) -> None:
                 "id": "s-u1",
                 "timestamp": "2026-10-01T09:00:30.000Z",
                 "type": "user",
-                "content": "investigate",
+                "content": [{"text": GEMINI_LOADED_CONTEXT_TEXT}, {"text": "investigate"}],
+            },
+            {
+                "id": "s-g0",
+                "timestamp": "2026-10-01T09:00:30.400Z",
+                "type": "gemini",
+                "content": "",
+                "model": "gemini-2.5-flash",
+                "toolCalls": [dict(GEMINI_SUBAGENT_CALL, status="success", result=[read_response])],
+            },
+            # The hints the person typed while the subagent worked, before its tools' responses.
+            {
+                "id": "s-u2",
+                "timestamp": "2026-10-01T09:00:30.800Z",
+                "type": "user",
+                "content": [{"text": GEMINI_HINTS_TEXT}, read_response],
             },
         ],
     )
@@ -495,16 +648,6 @@ GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:"
     "streamGenerateContent?alt=sse"
 )
-# The environment-context item every chat history opens with (environmentContext.ts).
-GEMINI_SESSION_CONTEXT = {
-    "role": "user",
-    "parts": [
-        {
-            "text": "<session_context>\nThis is the Gemini CLI. We are setting up the context "
-            "for our chat.\nMy operating system is: linux\n</session_context>"
-        }
-    ],
-}
 # The loop detector's internal prompt (loopDetectionService.ts), sent with a trimmed history.
 GEMINI_LOOP_PROMPT = "Please analyze the conversation history to determine the possibility"
 

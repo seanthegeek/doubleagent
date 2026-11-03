@@ -5,29 +5,29 @@ and legacy `.json`; as secondary sources `logs.json`, `shell_history`, `checkpoi
 `bug-report-history-<ms>.json`, the tool checkpoints `checkpoints/*.json` and a copied
 `gemini-client-error-<type>-<time>.json`; as primary stores the activity log
 `logs/session-<id>.jsonl` (its records, not the turns in its bodies), the `memory/` files and
-`images/clipboard-<ms>.<ext>`. Standing grants: `trustedFolders.json`,
-`settings.json` (`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`),
-`policies/*.toml` and `sandbox.toml`, `trusted_hooks.json` and
-`acknowledgments/agents.json`.
-
-Fields the parser depends on:
+`images/clipboard-<ms>.<ext>`. Standing grants: `trustedFolders.json`, `settings.json`
+(`SETTING_LISTS`, `SETTING_SCALARS`, `general.sessionRetention`), `policies/*.toml` and
+`sandbox.toml`, `trusted_hooks.json` and `acknowledgments/agents.json`. Fields the parser
+depends on:
 
 - session: `sessionId`, `projectHash`, `startTime`, `lastUpdated`, `summary`, `directories`,
   `kind`; `$set`, `$patch` (`id`, `content`, `toolCalls`, `updates`, `removeIds`, `orderIds`)
   and `$rewindTo`, replayed as `chatRecordingService.ts` does; message `id`, `timestamp`,
-  `type`, `content`, `model`, `thoughts[]`, `toolCalls[]` (`id`, `name`, `args`, `result`,
-  `status`, `timestamp`, `displayName`);
+  `type`, `content` (parts `text`, `thought`, `functionResponse`, `inlineData`, `fileData`),
+  `model`, `thoughts[]`, `toolCalls[]` (`id`, `name`, `args`, `result`, `status`, `timestamp`,
+  `displayName`);
 - `logs.json`: `sessionId`, `timestamp`, `message`; a history copy's `role`, `parts`;
 - activity log: `type`, `payload`, `sessionId`, `timestamp`; payload `content`, `id`, `method`,
   `url`, `response` (`status`, `durationMs`), `error`;
 - tool checkpoint `clientHistory`, `commitHash`, `toolCall`, `messageId`; error report `error`
   (`message`, `stack`), `context` (`requestContents`); `sandbox.toml` `modes`, `commands`.
 
-Rewind, summary and removal rows inherit the latest time seen before them. `project_path` is
-`tmp/<slug>/.project_root`, else the `projects.json` key of the slug, else the key whose sha256
-is the hash directory or `projectHash`, else `projectHash`. Validated against
-google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020; v0.66.0 writes the same
-shapes) with a synthetic fixture; no real install. See `research/gemini-cli.md`.
+A `user` text the CLI writes itself with an opening of `CONTEXT_OPENINGS` is a `context: <kind>:`
+row. `project_path` is `tmp/<slug>/.project_root`, else the `projects.json` key of the slug,
+else the key whose sha256 is the hash directory or `projectHash`, else `projectHash`. Validated
+against google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020) with a synthetic
+fixture; v0.66.0 writes the same shapes, from lines a few earlier in `geminiChat.ts`,
+`client.ts`, `useGeminiStream.ts`, `AppContainer.tsx`, `gemini.tsx`. See `research/gemini-cli.md`.
 """
 
 from __future__ import annotations
@@ -97,9 +97,29 @@ NAME_TIME_PATTERN = re.compile(
 )
 # The separator of a prompt id, `<session id>########<prompt count>` (useGeminiStream.ts).
 PROMPT_ID_SEPARATOR = "########"
-# The opening of the environment-context item every chat history starts with
-# (environmentContext.ts), which is no turn of the conversation.
-SESSION_CONTEXT_TAG = "<session_context>"
+# A compression summary opens with `<state_snapshot>`, or with the reasoning the compression
+# prompt asks for first in a `<scratchpad>`.
+SCRATCHPAD_TAG = "<scratchpad>"
+STATE_SNAPSHOT_TAG = "<state_snapshot>"
+# The openings of the `user` texts the CLI writes itself that the parser recognises, by kind,
+# matched against the trimmed text. The CLI's own reader skips the first two as no prompt
+# (`isIgnoredUserContent`). `Please continue.` is not among them: a person can type it.
+CONTEXT_OPENINGS = (
+    ("session_context", "<session_context>"),
+    ("hook_context", "<hook_context>"),
+    ("state_snapshot", STATE_SNAPSHOT_TAG),
+    ("plan_mode_exit", "User has manually exited Plan Mode. Switching to"),
+    ("directory_context", "- **Workspace Directories:**"),
+    ("ide_context", "Here is the user's editor context as a JSON object."),
+    ("ide_context", "Here is a summary of changes in the user's editor context, in JSON format."),
+    ("shell_command", "I ran the following shell command:"),
+    ("steering_update", "User steering update:"),
+    ("user_hints", "User hints:"),
+    ("loaded_context", "<loaded_context>"),
+    ("background_update", "Background execution update:"),
+)
+# The end of a hook's context, which a non-interactive start puts before the prompt in one text.
+HOOK_CONTEXT_END = "</hook_context>"
 # Standing permission files. `settings.json` and the policy files are read in
 # the home's `.gemini` and in a project's; the other two exist only in the home.
 SETTINGS_PATTERN = re.compile(r"^\.gemini/settings\.json$")
@@ -186,6 +206,93 @@ def part_text(content, thoughts: bool = False) -> str:
     return "\n".join(chunk for chunk in out if chunk)
 
 
+def context_kind(text: str) -> str:
+    """Return the kind of a `user` text the CLI wrote itself, or `""` for the person's.
+
+    The text is trimmed and its opening matched against `CONTEXT_OPENINGS`, so a tag typed inside
+    a prompt does not count; a compression summary may instead open with `<scratchpad>` and hold
+    `<state_snapshot>` after it.
+    """
+    body = text.strip()
+    if body.startswith(SCRATCHPAD_TAG) and STATE_SNAPSHOT_TAG in body:
+        return "state_snapshot"
+    for kind, opening in CONTEXT_OPENINGS:
+        if body.startswith(opening):
+            return kind
+    return ""
+
+
+def _classified(text: str) -> list[tuple[str, str]]:
+    """Return a `user` text as (kind, text): one pair, or each hook's context and the text after.
+
+    A text opening with a hook's context splits after its closing tag while text follows; each
+    block is classified on its own slice, so the pass stays linear in the text's length.
+    """
+    pairs: list[tuple[str, str]] = []
+    content_end = len(text.rstrip())
+    start = 0
+    while True:
+        tag_start = text.find(HOOK_CONTEXT_END, start)
+        tag_end = tag_start + len(HOOK_CONTEXT_END)
+        if tag_start < 0 or tag_end >= content_end:
+            break
+        block = text[start:tag_end]
+        if context_kind(block) != "hook_context":
+            break
+        pairs.append(("hook_context", block))
+        start = tag_end
+    rest = text[start:]
+    pairs.append((context_kind(rest), rest))
+    return pairs
+
+
+def _media_text(part: dict) -> str:
+    """Return the text of an `inlineData` or `fileData` part, or `""` for any other part."""
+    if isinstance(part.get("inlineData"), dict):
+        return "[inlineData %s]" % (part["inlineData"].get("mimeType") or "")
+    if isinstance(part.get("fileData"), dict):
+        return "[fileData %s]" % (part["fileData"].get("fileUri") or "")
+    return ""
+
+
+def content_runs(
+    content, classify: bool
+) -> tuple[list[tuple[str, str]], list[tuple[dict, list[str]]]]:
+    """Return the (kind, text) runs of a message's parts and its responses with their media.
+
+    A text part or string takes its `context_kind` when `classify` is set, else `""`. A media
+    part reads `[inlineData <mimeType>]` or `[fileData <fileUri>]`: before the first
+    `functionResponse` it is a `""` text, after one it joins the nearest preceding response's
+    media list. Consecutive texts of one kind are one run, joined with a newline; thought parts
+    and empty texts give none.
+    """
+    pairs: list[tuple[str, str]] = []
+    responses: list[tuple[dict, list[str]]] = []
+    for part in _parts(content):
+        if isinstance(part, str):
+            pairs += _classified(part) if classify else [("", part)]
+        elif not isinstance(part, dict) or part.get("thought"):
+            continue
+        elif isinstance(part.get("text"), str):
+            pairs += _classified(part["text"]) if classify else [("", part["text"])]
+        elif isinstance(part.get("functionResponse"), dict):
+            responses.append((part["functionResponse"], []))
+        elif media := _media_text(part):
+            if responses:
+                responses[-1][1].append(media)
+            else:
+                pairs.append(("", media))
+    runs: list[tuple[str, list[str]]] = []
+    for kind, text in pairs:
+        if not text:
+            continue
+        if runs and runs[-1][0] == kind:
+            runs[-1][1].append(text)
+        else:
+            runs.append((kind, [text]))
+    return [(kind, "\n".join(chunks)) for kind, chunks in runs], responses
+
+
 def response_text(function_response: dict) -> str:
     """Return the text of a `functionResponse`: its `output`, `error` or `content`, else JSON."""
     response = function_response.get("response")
@@ -197,6 +304,11 @@ def response_text(function_response: dict) -> str:
     if isinstance(response, str):
         return response
     return compact_json(response)
+
+
+def response_result_text(function_response: dict, media: list[str]) -> str:
+    """Return a `tool_result` text: the response's text, then each of its media texts."""
+    return "\n".join(chunk for chunk in (response_text(function_response), *media) if chunk)
 
 
 def result_text(result) -> str:
@@ -525,18 +637,6 @@ def _or_dash(value: object) -> str:
     return "-" if value is None or value == "" else str(value)
 
 
-def _history_start(items: list) -> int:
-    """Return 1 when a history opens with the environment-context item, else 0.
-
-    `getInitialChatHistory` puts it first in every chat; it opens with `<session_context>`
-    (`environmentContext.ts`) and is no turn of the conversation.
-    """
-    first = items[0] if items else None
-    parts = _parts(first.get("parts")) if isinstance(first, dict) else []
-    text = parts[0].get("text") if parts and isinstance(parts[0], dict) else None
-    return 1 if isinstance(text, str) and text.startswith(SESSION_CONTEXT_TAG) else 0
-
-
 # ---- parser -------------------------------------------------------------------
 
 
@@ -787,8 +887,10 @@ class GeminiCliParser(Parser):
     ) -> Iterator[Row]:
         """Yield the rows of one `Content` ({role, parts}) of a history copy, with no time.
 
-        The text parts are one `user` or `assistant` row, thought parts `thinking` rows when asked
-        for, and each `functionCall` or `functionResponse` part a `tool_use` or `tool_result` row.
+        A model item's text parts are one `assistant` row, a user item's the runs of
+        `content_runs`, each a `user` row or a `context: <kind>:` row; thought parts are
+        `thinking` rows when asked for. Each `functionCall` part is a `tool_use` row and each
+        response of `content_runs` a `tool_result` row with its media, after the runs.
         """
 
         def row(turn: str, text: str) -> Row:
@@ -801,13 +903,11 @@ class GeminiCliParser(Parser):
             return new_row
 
         parts = _parts(item.get("parts"))
-        texts, thoughts, tools = [], [], []
+        thoughts, tools = [], []
         for part in parts:
-            if isinstance(part, str):
-                texts.append(part)
-            elif not isinstance(part, dict):
+            if not isinstance(part, dict):
                 continue
-            elif isinstance(part.get("functionCall"), dict):
+            if isinstance(part.get("functionCall"), dict):
                 function_call = part["functionCall"]
                 tool_row = row(
                     "tool_use",
@@ -818,26 +918,29 @@ class GeminiCliParser(Parser):
                     str(function_call.get("id") or ""),
                 )
                 tools.append(tool_row)
-            elif isinstance(part.get("functionResponse"), dict):
-                function_response = part["functionResponse"]
-                tool_row = row("tool_result", response_text(function_response))
-                tool_row.tool_name, tool_row.tool_use_id = (
-                    str(function_response.get("name") or ""),
-                    str(function_response.get("id") or ""),
-                )
-                tools.append(tool_row)
-            elif isinstance(part.get("text"), str):
-                (thoughts if part.get("thought") else texts).append(part["text"])
-            elif isinstance(part.get("inlineData"), dict):
-                texts.append("[inlineData %s]" % (part["inlineData"].get("mimeType") or ""))
-            elif isinstance(part.get("fileData"), dict):
-                texts.append("[fileData %s]" % (part["fileData"].get("fileUri") or ""))
+            elif isinstance(part.get("text"), str) and part.get("thought"):
+                thoughts.append(part["text"])
         if opts.include_thinking:
             for thought in thoughts:
                 yield row("thinking", thought)
-        text = "\n".join(chunk for chunk in texts if chunk)
-        if text:
-            yield row("user" if item.get("role") == "user" else "assistant", text)
+        user = item.get("role") == "user"
+        runs, responses = content_runs(parts, user)
+        for function_response, media in responses:
+            tool_row = row("tool_result", response_result_text(function_response, media))
+            tool_row.tool_name, tool_row.tool_use_id = (
+                str(function_response.get("name") or ""),
+                str(function_response.get("id") or ""),
+            )
+            tools.append(tool_row)
+        for kind, text in runs:
+            if not user:
+                yield row("assistant", text)
+            else:
+                yield (
+                    row("system", "context: %s: %s" % (kind, text.strip()))
+                    if kind
+                    else row("user", text)
+                )
         yield from tools
 
     def _base_dir(self, artifact: Artifact, match) -> Path:
@@ -960,8 +1063,7 @@ class GeminiCliParser(Parser):
         )
         history = document.get("clientHistory")
         history = history if isinstance(history, list) else []
-        skip = _history_start(history)
-        for i, item in enumerate(history[skip:], skip + 1):
+        for i, item in enumerate(history, 1):
             if not isinstance(item, dict):
                 errors.append(
                     (i, "unparseable record %d (not a JSON object)" % i, compact_json(item))
@@ -1035,8 +1137,7 @@ class GeminiCliParser(Parser):
         if isinstance(context, dict):
             context = context.get("requestContents")
         context = context if isinstance(context, list) else []
-        skip = _history_start(context)
-        for i, item in enumerate(context[skip:], skip + 1):
+        for i, item in enumerate(context, 1):
             if not isinstance(item, dict):
                 errors.append(
                     (i, "unparseable record %d (not a JSON object)" % i, compact_json(item))
@@ -1207,10 +1308,19 @@ class GeminiCliParser(Parser):
             )
             yield self._system(artifact, line, timestamp, record_session_id, project, text, opts)
         models: dict = {}  # session id -> model in force, for the model rows
+        # The calls that already give a `tool_result` row (a recorded `result`, or a failed
+        # status), whose response in a tool-response message gives none.
+        answered = {
+            str(call.get("id") or "")
+            for message, _, _ in messages.values()
+            if message.get("type") == "gemini"
+            for call in message.get("toolCalls") or []
+            if isinstance(call, dict)
+            and (call.get("result") is not None or call.get("status") in FAILED_STATUSES)
+        }
         for message, line, record_session_id in messages.values():
-            yield from self._message_rows(
-                artifact, opts, message, line, record_session_id or session_id, project, models
-            )
+            where = (line, record_session_id or session_id, project)
+            yield from self._message_rows(artifact, opts, message, *where, models, answered)
         for line, timestamp, record_session_id, text in events:
             yield self._system(artifact, line, timestamp, record_session_id, project, text, opts)
         yield from error_rows(self, artifact, errors, session_id, project)
@@ -1268,7 +1378,14 @@ class GeminiCliParser(Parser):
         session_id: str,
         project: str,
         models: dict,
+        answered: set[str],
     ) -> list[Row]:
+        """Return the rows of one replayed message.
+
+        A `user` message gives its `content_runs` as `user` and `context: <kind>:` rows, then a
+        `tool_result` row, with its media, per `functionResponse` part whose call id is not in
+        `answered`; one with neither gives an empty `user` row.
+        """
         message_type = message.get("type")
         timestamp = to_utc(message.get("timestamp"))
         model = str(message.get("model") or "") if message_type == "gemini" else ""
@@ -1287,7 +1404,24 @@ class GeminiCliParser(Parser):
         out: list[Row] = []
         content = message.get("content")
         if message_type == "user":
-            out.append(row("user", part_text(content)))
+            runs, responses = content_runs(content, classify=True)
+            for kind, text in runs:
+                out.append(
+                    row("system", "context: %s: %s" % (kind, text.strip()))
+                    if kind
+                    else row("user", text)
+                )
+            for response, media in responses:
+                call_id = str(response.get("id") or "")
+                if call_id not in answered:
+                    result_row = row("tool_result", response_result_text(response, media))
+                    result_row.tool_name, result_row.tool_use_id = (
+                        str(response.get("name") or ""),
+                        call_id,
+                    )
+                    out.append(result_row)
+            if not runs and not responses:
+                out.append(row("user", ""))
             return out
         if message_type != "gemini":
             out.append(row("system", "%s: %s" % (message_type or "message", part_text(content))))

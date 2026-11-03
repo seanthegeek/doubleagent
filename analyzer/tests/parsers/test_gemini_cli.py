@@ -15,6 +15,7 @@ from doubleagent.parsers.gemini_cli import (
     HISTORY_OBJECT_PATTERN,
     TOOL_CHECKPOINT_PATTERN,
     GeminiCliParser,
+    context_kind,
     name_time,
     resolve_project,
 )
@@ -47,8 +48,30 @@ from fixtures import (
     gemini_tool_checkpoint,
     write_bad_line,
 )
+from fixtures.gemini_cli import (
+    GEMINI_CONTEXT_TEXT,
+    GEMINI_HINTS_TEXT,
+    GEMINI_HOOK_TEXT,
+    GEMINI_LOADED_CONTEXT_TEXT,
+    GEMINI_PLAN_EXIT_TEXT,
+    GEMINI_PROMPT_HOOK_TEXT,
+    GEMINI_SESSION_CONTEXT,
+    GEMINI_SNAPSHOT_REPLY,
+    GEMINI_SNAPSHOT_TEXT,
+    GEMINI_STEERING_TEXT,
+)
 
 from .base import ParserBase, kept_rows, parse_with, rel_only, unreadable_rows
+
+# The texts shell mode and a background completion write (useExecutionLifecycle.ts,
+# fastAckHelper.ts).
+SHELL_TEXT = (
+    "I ran the following shell command:\n```sh\nls\n```\n\n"
+    "This produced the following result:\n```\nsrc\n```"
+)
+BACKGROUND_TEXT = (
+    "Background execution update:\n<background_output>\nbuild done\n</background_output>"
+)
 
 
 class GeminiCliTests(ParserBase):
@@ -71,120 +94,101 @@ class GeminiCliTests(ParserBase):
 
     def test_rows(self):
         rows = self.rows_for(GeminiCliParser(), self.REL)
-        types = [row.turn_type for row in rows]
+        readme_id = "read_file__read_file_1759309225000_0"
         self.assertEqual(
-            types,
+            [(row.source_line, row.turn_type, row.text) for row in rows],
             [
-                "system",
-                "user",
-                "system",
-                "assistant",
-                "tool_use",
-                "tool_result",
-                "user",
-                "assistant",
-                "tool_use",
-                "tool_result",
-                "system",
-                "system",
-                "tool_use",
-                "tool_result",
-                "system",
-                "user",
-                "system",
-                "system",
+                (1, "system", "session start: kind=main projectHash=" + GEMINI_HASH),
+                (2, "system", "context: session_context: " + GEMINI_CONTEXT_TEXT),
+                (3, "system", "context: hook_context: " + GEMINI_HOOK_TEXT),
+                (4, "user", "list files in src"),
+                (4, "system", "context: hook_context: " + GEMINI_PROMPT_HOOK_TEXT),
+                (6, "system", "model: gemini-2.5-pro"),
+                (6, "assistant", "Listing now."),
+                (6, "tool_use", 'ReadFolder: {"dir_path":"/srv/proj/src"}'),
+                (6, "tool_result", "main.ts\nutil.ts"),
+                (12, "user", "show util.ts"),
+                (13, "assistant", "Here is util.ts."),
+                (13, "tool_use", 'ReadFile: {"file_path":"/srv/proj/src/util.ts"}'),
+                (13, "tool_result", "export const x = 1"),
+                (15, "system", "info: Request cancelled."),
+                (16, "system", "model: gemini-2.5-pro -> gemini-2.5-flash"),
+                (16, "tool_use", 'Shell: {"command":"curl http://x"}'),
+                (16, "tool_result", "[cancelled]"),
+                (16, "system", "permission decision: cancelled"),
+                (18, "tool_use", 'ReadFile: {"file_path":"/srv/proj/README.md"}'),
+                (20, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
+                (20, "tool_result", "# proj"),
+                (21, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
+                (22, "assistant", GEMINI_SNAPSHOT_REPLY),
+                (23, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
+                (25, "user", "resume work"),
+                (8, "system", "summary: List src files"),
+                (11, "system", "rewind to msg-u2: 2 message(s) dropped"),
             ],
         )
         for row in rows:
             self.assertEqual((row.host, row.user, row.agent), ("h1", "alice", "gemini-cli"))
             self.assertEqual((row.project_path, row.git_branch), ("/srv/proj", ""))
             self.assertTrue(row.timestamp_utc.endswith("Z"), row)
-        (
-            start,
-            user1,
-            model1,
-            reply1,
-            listing,
-            lsout,
-            _u3,
-            reply3,
-            read_file,
-            rfout,
-            info,
-            model2,
-            shell,
-            shout,
-            dec,
-            user4,
-            summ,
-            rewind,
-        ) = rows
+        by_text = {(row.source_line, row.text): row for row in rows}
+        model1 = by_text[(6, "model: gemini-2.5-pro")]
         self.assertEqual(
-            (
-                model1.text,
-                model1.model,
-                model1.timestamp_utc,
-                model1.session_id,
-                model1.source_line,
-            ),
-            (
-                "model: gemini-2.5-pro",
-                "gemini-2.5-pro",
-                "2026-10-01T09:00:07.000Z",
-                GEMINI_SESSION,
-                4,
-            ),
+            (model1.model, model1.timestamp_utc, model1.session_id),
+            ("gemini-2.5-pro", "2026-10-01T09:00:07.000Z", GEMINI_SESSION),
         )
+        model2 = by_text[(16, "model: gemini-2.5-pro -> gemini-2.5-flash")]
         self.assertEqual(
-            (model2.text, model2.model, model2.timestamp_utc, model2.source_line),
-            (
-                "model: gemini-2.5-pro -> gemini-2.5-flash",
-                "gemini-2.5-flash",
-                "2026-10-01T09:00:24.000Z",
-                13,
-            ),
+            (model2.model, model2.timestamp_utc), ("gemini-2.5-flash", "2026-10-01T09:00:24.000Z")
         )
+        decision = by_text[(16, "permission decision: cancelled")]
         self.assertEqual(
-            (dec.text, dec.tool_name, dec.tool_use_id, dec.timestamp_utc),
+            (decision.tool_name, decision.tool_use_id, decision.timestamp_utc),
             (
-                "permission decision: cancelled",
                 "run_shell_command",
                 "run_shell_command__run_shell_command_1759309224000_0",
                 "2026-10-01T09:00:24.000Z",
             ),
         )
-        self.assertIn("session start: kind=main", start.text)
-        self.assertEqual((user1.text, user1.session_id), ("list files in src", GEMINI_SESSION))
+        context = by_text[(2, "context: session_context: " + GEMINI_CONTEXT_TEXT)]
         self.assertEqual(
-            (reply1.text, reply1.model, reply1.source_line), ("Listing now.", "gemini-2.5-pro", 4)
-        )  # re-appended record
-        self.assertEqual(
-            (listing.tool_name, listing.tool_use_id),
-            ("list_directory", "list_directory__list_directory_1759309207000_0"),
+            (context.timestamp_utc, context.session_id, context.tool_use_id),
+            ("2026-10-01T09:00:00.000Z", GEMINI_SESSION, ""),
         )
-        self.assertEqual(listing.text, 'ReadFolder: {"dir_path":"/srv/proj/src"}')
-        self.assertEqual(listing.timestamp_utc, "2026-10-01T09:00:07.100Z")
+        user1 = by_text[(4, "list files in src")]
+        self.assertEqual((user1.session_id, user1.model), (GEMINI_SESSION, ""))
+        listing = by_text[(6, 'ReadFolder: {"dir_path":"/srv/proj/src"}')]
         self.assertEqual(
-            (lsout.tool_use_id, lsout.text),
-            ("list_directory__list_directory_1759309207000_0", "main.ts\nutil.ts"),
+            (listing.tool_name, listing.tool_use_id, listing.timestamp_utc),
+            (
+                "list_directory",
+                "list_directory__list_directory_1759309207000_0",
+                "2026-10-01T09:00:07.100Z",
+            ),
         )
+        lsout = by_text[(6, "main.ts\nutil.ts")]
+        self.assertEqual(lsout.tool_use_id, "list_directory__list_directory_1759309207000_0")
+        # The tool-response messages whose call holds a result or a failed status give no row,
+        # so each of those calls has one result row; the one whose call's result a `$patch`
+        # cleared gives the result row, joined on the call's id.
+        self.assertFalse([row for row in rows if row.source_line in (7, 17)])
+        results = [row.tool_use_id for row in rows if row.turn_type == "tool_result"]
+        self.assertEqual(sorted(results), sorted(set(results)))
+        readme = by_text[(20, "# proj")]
+        self.assertEqual(
+            (readme.tool_name, readme.tool_use_id, readme.timestamp_utc, readme.model),
+            ("read_file", readme_id, "2026-10-01T09:00:26.000Z", ""),
+        )
+        readme_call = by_text[(18, 'ReadFile: {"file_path":"/srv/proj/README.md"}')]
+        self.assertEqual(readme_call.tool_use_id, readme_id)
         self.assertNotIn("delete everything", " ".join(row.text for row in rows))  # rewound
-        self.assertEqual(reply3.text, "Here is util.ts.")  # $patch content
-        self.assertEqual(rfout.text, "export const x = 1")  # $patch toolCalls result
-        self.assertEqual(info.text, "info: Request cancelled.")
+        self.assertEqual(by_text[(22, GEMINI_SNAPSHOT_REPLY)].model, "")
         self.assertEqual(
-            (shell.text, shell.model), ('Shell: {"command":"curl http://x"}', "gemini-2.5-flash")
-        )
-        self.assertEqual(shout.text, "[cancelled]")
-        self.assertEqual(user4.session_id, GEMINI_RESUMED)  # $set.sessionId on resume
-        self.assertEqual(read_file.session_id, GEMINI_SESSION)
-        self.assertEqual(
-            (summ.text, summ.timestamp_utc, summ.source_line),
-            ("summary: List src files", "2026-10-01T09:00:08.000Z", 5),
-        )
-        self.assertEqual(
-            (rewind.text, rewind.source_line), ("rewind to msg-u2: 2 message(s) dropped", 8)
-        )
+            by_text[(25, "resume work")].session_id, GEMINI_RESUMED
+        )  # $set.sessionId on resume
+        self.assertEqual(by_text[(13, "Here is util.ts.")].session_id, GEMINI_SESSION)
+        summary = by_text[(8, "summary: List src files")]
+        self.assertEqual(summary.timestamp_utc, "2026-10-01T09:00:08.000Z")
 
     def test_thinking_opt_in(self):
         rows = self.rows_for(GeminiCliParser(), self.REL, include_thinking=True)
@@ -209,9 +213,22 @@ class GeminiCliTests(ParserBase):
     def test_subagent_session(self):
         rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
         rows = self.rows_for(GeminiCliParser(), rel)
-        self.assertEqual([row.turn_type for row in rows], ["system", "user"])
+        call_id = "read_file__read_file_1759309230400_0"
+        self.assertEqual(
+            [(row.source_line, row.turn_type, row.text, row.tool_use_id) for row in rows[1:]],
+            [
+                (2, "system", "context: loaded_context: " + GEMINI_LOADED_CONTEXT_TEXT.strip(), ""),
+                (2, "user", "investigate", ""),
+                (3, "system", "model: gemini-2.5-flash", ""),
+                (3, "tool_use", '{"file_path":"/srv/proj/package-lock.json"}', call_id),
+                (3, "tool_result", "lockfileVersion 3", call_id),
+                # The hints before the tool's response are a context row; the response, which
+                # the call's `result` holds, gives none.
+                (4, "system", "context: user_hints: " + GEMINI_HINTS_TEXT, ""),
+            ],
+        )
         self.assertIn("kind=subagent", rows[0].text)
-        self.assertEqual(rows[1].session_id, GEMINI_SUBAGENT)
+        self.assertEqual({row.session_id for row in rows}, {GEMINI_SUBAGENT})
 
     def test_awaiting_approval_without_result(self):
         rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
@@ -234,9 +251,9 @@ class GeminiCliTests(ParserBase):
             handle.write(json.dumps(message) + "\n")
         rows = self.rows_for(GeminiCliParser(), rel)
         self.assertEqual(
-            [(row.turn_type, row.text) for row in rows[2:]],
+            [(row.turn_type, row.text) for row in rows[7:]],
             [
-                ("system", "model: gemini-2.5-pro"),
+                ("system", "model: gemini-2.5-flash -> gemini-2.5-pro"),
                 ("tool_use", '{"command":"make deploy"}'),
                 ("system", "permission decision: awaiting_approval"),
             ],
@@ -290,7 +307,7 @@ class GeminiCliTests(ParserBase):
             ],
         )
         # The session file still yields every row.
-        self.assertEqual(len(self.rows_for(GeminiCliParser(), self.REL)), 18)
+        self.assertEqual(len(self.rows_for(GeminiCliParser(), self.REL)), 27)
 
     def test_history(self):
         rows = self.rows_for(GeminiCliParser(), ".gemini/tmp/proj/logs.json")
@@ -323,7 +340,7 @@ class GeminiCliTests(ParserBase):
             [(0, "system", "parser: logs.json could not be read (Permission denied)", "/srv/proj")],
         )
         # The transcript beside it is still parsed.
-        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 18)
+        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 27)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_legacy_session_is_reported(self):
@@ -334,7 +351,7 @@ class GeminiCliTests(ParserBase):
             [(row.source_line, row.turn_type, row.text, row.project_path) for row in problems],
             [(0, "system", "parser: %s could not be read (Permission denied)" % name, "/srv/proj")],
         )
-        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 18)
+        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 27)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_standing_files_are_not_misread_as_wrong_shape(self):
@@ -352,7 +369,7 @@ class GeminiCliTests(ParserBase):
             ]
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(problems, [(0, "", text)], rel)
-            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 18)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 27)
 
     def test_project_fallbacks(self):
         base = self.home / ".gemini"
@@ -390,7 +407,7 @@ class GeminiCliTests(ParserBase):
         # The bad line is its own row, in full, with the session and
         # project; the rows before it and a line written after it survive.
         before = self.rows_for(GeminiCliParser(), self.REL)
-        self.assertEqual(len(before), 18)
+        self.assertEqual(len(before), 27)
         write_bad_line(self.home / self.REL)
         after = {
             "id": "msg-u9",
@@ -401,14 +418,14 @@ class GeminiCliTests(ParserBase):
         with open(self.home / self.REL, "a", encoding="utf-8") as handle:
             handle.write("\n" + json.dumps(after) + "\n")
         rows = self.rows_for(GeminiCliParser(), self.REL)
-        self.assertEqual(len(rows), 20)
-        added = [row for row in rows if row.source_line == 17]
+        self.assertEqual(len(rows), 29)
+        added = [row for row in rows if row.source_line == 27]
         self.assertEqual([(row.turn_type, row.text) for row in added], [("user", "after the cut")])
         self.assertEqual(
             [
                 (row.source_line, row.turn_type, row.text)
                 for row in rows[:-1]
-                if row.source_line != 17
+                if row.source_line != 27
             ],
             [(row.source_line, row.turn_type, row.text) for row in before],
         )
@@ -421,7 +438,7 @@ class GeminiCliTests(ParserBase):
                 rows[-1].text,
             ),
             (
-                16,
+                26,
                 "system",
                 GEMINI_RESUMED,  # the session id in force at the end of the file
                 before[-1].project_path,
@@ -1100,16 +1117,19 @@ class GeminiCliTests(ParserBase):
         kept, dropped = self._deduplicated(rel, self.REL)
         self.assertEqual((dropped, {row.project_path for row in kept}), (0, {"/srv/other"}))
         _, dropped = self._deduplicated(GEMINI_ERROR_REPORT_REL, self.REL)
-        self.assertEqual(dropped, 1)
+        self.assertEqual(dropped, 2)
 
     def test_equal_copies_across_files_are_kept_once(self):
         # With the session file gone, the tool checkpoint and the error report both hold the
-        # first prompt with no time; it is kept once, each file's own turns too.
+        # environment context and the first prompt with no time; each is kept once, each file's
+        # own turns too.
         secondary = self.rows_for(GeminiCliParser(), GEMINI_TOOL_CHECKPOINT_REL) + self.rows_for(
             GeminiCliParser(), GEMINI_ERROR_REPORT_REL
         )
         kept, dropped = deduplicate([], [(row, 2.0) for row in secondary])
-        self.assertEqual(dropped["gemini-cli"], 1)
+        self.assertEqual(dropped["gemini-cli"], 2)
+        context = "context: session_context: " + GEMINI_CONTEXT_TEXT
+        self.assertEqual([row.text for row in kept].count(context), 1)
         texts = [row.text for row in kept if row.turn_type in ("user", "assistant")]
         for text in ("list files in src", "Editing util.ts.", "why did the request fail?"):
             self.assertEqual(texts.count(text), 1, text)
@@ -1125,23 +1145,288 @@ class GeminiCliTests(ParserBase):
         self.col = open_input(self.tmp / "home", self.cat, host="h1")
         rel = ".gemini/tmp/moved/checkpoints/" + name
         kept, dropped = self._deduplicated(rel, self.REL)
-        self.assertEqual(dropped, 4)
+        self.assertEqual(dropped, 5)
         self.assertEqual({row.project_path for row in kept}, {"/srv/moved"})
 
-    def test_environment_context_item_is_no_turn(self):
-        # The first history item of a checkpoint and a report is the environment context the
-        # CLI sends; it gives no row there, and an item like it in another position does.
-        context = gemini_tool_checkpoint()["clientHistory"][0]
-        for rel in (GEMINI_TOOL_CHECKPOINT_REL, GEMINI_ERROR_REPORT_REL):
-            texts = [row.text for row in self.rows_for(GeminiCliParser(), rel)]
-            self.assertFalse([text for text in texts if "<session_context>" in text], rel)
-        report = gemini_error_report()
-        report["context"] = [report["context"][1], context]
-        (self.home / GEMINI_ERROR_REPORT_REL).write_text(json.dumps(report), "utf-8")
-        rows = self.rows_for(GeminiCliParser(), GEMINI_ERROR_REPORT_REL)
+    def test_context_kind_of_each_opening(self):
+        directory = "- **Workspace Directories:**\n  - /srv/proj\n- **Directory Structure:**\n"
+        ide_full = (
+            "Here is the user's editor context as a JSON object. This is for your information "
+            'only.\n```json\n{"activeFile": {"path": "/srv/proj/src/util.ts"}}\n```'
+        )
+        ide_delta = (
+            "Here is a summary of changes in the user's editor context, in JSON format. This is "
+            'for your information only.\n```json\n{"changes": {}}\n```'
+        )
+        for text, kind in (
+            (GEMINI_CONTEXT_TEXT, "session_context"),
+            ("  \n" + GEMINI_HOOK_TEXT, "hook_context"),
+            (
+                "<state_snapshot>\n<overall_goal>x</overall_goal>\n</state_snapshot>",
+                "state_snapshot",
+            ),
+            (GEMINI_SNAPSHOT_TEXT, "state_snapshot"),
+            (GEMINI_PLAN_EXIT_TEXT, "plan_mode_exit"),
+            (directory, "directory_context"),
+            (ide_full, "ide_context"),
+            (ide_delta, "ide_context"),
+            # The person's texts, a tag or a phrase typed inside one among them.
+            ("<scratchpad>notes, no snapshot</scratchpad>", ""),
+            ("please explain <session_context> to me", ""),
+            ("Plan approved. Switching to Default mode (edits will require confirmation).", ""),
+            ("user has manually exited plan mode. switching to default", ""),
+            ("Workspace Directories: /srv/proj", ""),
+            ("Here is the user's editor context", ""),
+            (SHELL_TEXT, "shell_command"),
+            (GEMINI_STEERING_TEXT, "steering_update"),
+            (BACKGROUND_TEXT, "background_update"),
+            (GEMINI_HINTS_TEXT, "user_hints"),
+            (GEMINI_LOADED_CONTEXT_TEXT, "loaded_context"),
+            ("loaded_context: the notes I wrote", ""),
+            ("user hints: lowercase is typed", ""),
+            ("Hints: none", ""),
+            ("Please continue.", ""),
+            ("/help", ""),
+            ("? what changed", ""),
+            ("", ""),
+        ):
+            self.assertEqual(context_kind(text), kind, text)
+
+    def _append_session_messages(self, rel, contents):
+        """Append one `user` message per content to the session file `rel`."""
+        with open(self.home / rel, "a", encoding="utf-8") as handle:
+            for i, content in enumerate(contents, 1):
+                message = {
+                    "id": "x-u%d" % i,
+                    "timestamp": "2026-10-01T09:00:3%d.000Z" % i,
+                    "type": "user",
+                    "content": content,
+                }
+                handle.write(json.dumps(message) + "\n")
+
+    def test_user_message_parts_become_runs(self):
+        rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
+        self._append_session_messages(
+            rel,
+            [
+                # A non-interactive start puts a hook's context before the prompt in one text.
+                [{"text": "<hook_context>Ticket 42.</hook_context>\n\nfix the build"}],
+                [{"text": "<hook_context>cut off"}],
+                [
+                    {"text": "look at this"},
+                    {"inlineData": {"mimeType": "image/png", "data": "iVBORw0K"}},
+                    {"fileData": {"fileUri": "file:///srv/proj/a.pdf", "mimeType": "x"}},
+                    7,
+                    {"executableCode": {"code": "print(1)"}},
+                    {"text": "hidden", "thought": True},
+                    {"text": "and this"},
+                    {"text": GEMINI_HOOK_TEXT},
+                    {"text": GEMINI_PROMPT_HOOK_TEXT},
+                    {"text": ""},
+                ],
+                [],
+                # Shell mode's record of a command, and a background completion sent before a
+                # tool's response, whose call this file does not hold.
+                [{"text": SHELL_TEXT}],
+                [
+                    {"text": BACKGROUND_TEXT},
+                    {"functionResponse": {"id": "c9", "name": "grep", "response": {"output": "x"}}},
+                ],
+            ],
+        )
+        rows = self.rows_for(GeminiCliParser(), rel)
         self.assertEqual(
-            [(row.source_line, row.text[:17]) for row in rows[1:]],
-            [(1, "list files in src"), (2, "<session_context>")],
+            [(row.source_line, row.turn_type, row.text) for row in rows[7:]],
+            [
+                (5, "system", "context: hook_context: <hook_context>Ticket 42.</hook_context>"),
+                (5, "user", "fix the build"),
+                (6, "system", "context: hook_context: <hook_context>cut off"),
+                (
+                    7,
+                    "user",
+                    "look at this\n[inlineData image/png]\n[fileData file:///srv/proj/a.pdf]\n"
+                    "and this",
+                ),
+                (
+                    7,
+                    "system",
+                    "context: hook_context: %s\n%s" % (GEMINI_HOOK_TEXT, GEMINI_PROMPT_HOOK_TEXT),
+                ),
+                (8, "user", ""),
+                (9, "system", "context: shell_command: " + SHELL_TEXT),
+                (10, "system", "context: background_update: " + BACKGROUND_TEXT),
+                (10, "tool_result", "x"),
+            ],
+        )
+        self.assertEqual((rows[-1].tool_name, rows[-1].tool_use_id), ("grep", "c9"))
+        self.assertEqual({row.session_id for row in rows}, {GEMINI_SUBAGENT})
+
+    def test_many_hook_contexts_in_one_text_give_one_run(self):
+        """Hook blocks far past the recursion limit split off in one pass, then the prompt."""
+        rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
+        blocks = ["<hook_context>h%d</hook_context>" % i for i in range(1500)]
+        # A closing tag in a text that does not open with a hook's context splits nothing.
+        typed = "why does </hook_context> appear? <hook_context>x</hook_context> then"
+        self._append_session_messages(
+            rel, [[{"text": "".join(blocks) + "the prompt"}], [{"text": typed}]]
+        )
+        rows = self.rows_for(GeminiCliParser(), rel)
+        self.assertEqual(
+            [(row.source_line, row.turn_type, row.text) for row in rows[7:]],
+            [
+                (5, "system", "context: hook_context: " + "\n".join(blocks)),
+                (5, "user", "the prompt"),
+                (6, "user", typed),
+            ],
+        )
+
+    def test_tool_response_media_joins_its_result(self):
+        """Media after a `functionResponse` is that tool's; media before the first is the user's.
+
+        A response whose call already holds a `result` gives no row, its media included.
+        """
+        rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
+
+        def response(call_id, output):
+            return {"functionResponse": {"id": call_id, "name": "read", "response": output}}
+
+        png = {"inlineData": {"mimeType": "image/png", "data": "iVBORw0K"}}
+        gif = {"inlineData": {"mimeType": "image/gif", "data": "R0lGOD"}}
+        pdf = {"fileData": {"fileUri": "file:///srv/proj/b.pdf", "mimeType": "application/pdf"}}
+        self._append_session_messages(
+            rel,
+            [
+                [response("c20", {"output": "one"}), png],
+                [gif, response("c21", {"output": "two"}), pdf],
+                [response("c22", {"output": "three"}), png, response("c23", {}), gif, pdf],
+                [response("c24", {"output": "four"}), png],
+            ],
+        )
+        answered = {
+            "id": "x-g1",
+            "timestamp": "2026-10-01T09:00:40.000Z",
+            "type": "gemini",
+            "content": "",
+            "toolCalls": [{"id": "c24", "name": "read", "args": {}, "result": "four"}],
+        }
+        with open(self.home / rel, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(answered) + "\n")
+        rows = self.rows_for(GeminiCliParser(), rel)
+        self.assertEqual(
+            [
+                (row.source_line, row.turn_type, row.tool_use_id, row.text)
+                for row in rows
+                if row.source_line in (5, 6, 7, 8)
+            ],
+            [
+                (5, "tool_result", "c20", "one\n[inlineData image/png]"),
+                (6, "user", "", "[inlineData image/gif]"),
+                (6, "tool_result", "c21", "two\n[fileData file:///srv/proj/b.pdf]"),
+                (7, "tool_result", "c22", "three\n[inlineData image/png]"),
+                (
+                    7,
+                    "tool_result",
+                    "c23",
+                    "{}\n[inlineData image/gif]\n[fileData file:///srv/proj/b.pdf]",
+                ),
+            ],
+        )
+        self.assertEqual(
+            [(row.turn_type, row.tool_use_id) for row in rows if row.source_line == 9],
+            [("tool_use", "c24"), ("tool_result", "c24")],
+        )
+
+    def test_history_tool_response_media_joins_its_result(self):
+        """A history item's media after a `functionResponse` joins that tool's result row."""
+        self.sources()
+        items = [
+            {"role": "model", "parts": [{"functionCall": {"id": "c30", "name": "read"}}]},
+            {
+                "role": "user",
+                "parts": [
+                    {"inlineData": {"mimeType": "image/gif", "data": "R0lGOD"}},
+                    {"functionResponse": {"id": "c30", "name": "read", "response": {}}},
+                    {"inlineData": {"mimeType": "image/png", "data": "iVBORw0K"}},
+                ],
+            },
+        ]
+        (self.home / GEMINI_BUG_REL).write_text(json.dumps(items), "utf-8")
+        rows = self.rows_for(GeminiCliParser(), GEMINI_BUG_REL)
+        self.assertEqual(
+            [(row.source_line, row.turn_type, row.tool_use_id, row.text) for row in rows[1:]],
+            [
+                (1, "tool_use", "c30", ""),
+                (2, "user", "", "[inlineData image/gif]"),
+                (2, "tool_result", "c30", "{}\n[inlineData image/png]"),
+            ],
+        )
+
+    def test_context_item_is_a_system_row_in_each_history_copy(self):
+        """A context item is a `context:` row in the history copies and the session file.
+
+        The environment context in the first and in a later position, and a hook's context, each
+        give one; a model item opening with a tag stays an assistant row. `logs.json` holds typed
+        prompts only and is not covered.
+        """
+        self.sources()
+        items = [
+            GEMINI_SESSION_CONTEXT,
+            {"role": "user", "parts": [{"text": "list files in src"}]},
+            {"role": "user", "parts": [{"text": GEMINI_HOOK_TEXT}]},
+            {"role": "model", "parts": [{"text": "<session_context> is set."}]},
+            GEMINI_SESSION_CONTEXT,
+            {"role": "user", "parts": ["a string part", GEMINI_HOOK_TEXT]},
+        ]
+        expected = [
+            (1, "system", "context: session_context: " + GEMINI_CONTEXT_TEXT),
+            (2, "user", "list files in src"),
+            (3, "system", "context: hook_context: " + GEMINI_HOOK_TEXT),
+            (4, "assistant", "<session_context> is set."),
+            (5, "system", "context: session_context: " + GEMINI_CONTEXT_TEXT),
+            (6, "user", "a string part"),
+            (6, "system", "context: hook_context: " + GEMINI_HOOK_TEXT),
+        ]
+        checkpoint = dict(gemini_tool_checkpoint(), clientHistory=items)
+        report = dict(gemini_error_report(), context=items)
+        for rel, document in (
+            (GEMINI_CHECKPOINT_REL, {"history": items, "authType": "oauth-personal"}),
+            (GEMINI_BUG_REL, items),
+            (GEMINI_TOOL_CHECKPOINT_REL, checkpoint),
+            (GEMINI_ERROR_REPORT_REL, report),
+        ):
+            (self.home / rel).write_text(json.dumps(document), "utf-8")
+            rows = self.rows_for(GeminiCliParser(), rel)
+            self.assertEqual(
+                [(row.source_line, row.turn_type, row.text) for row in rows[1:]], expected, rel
+            )
+            self.assertEqual({row.timestamp_utc for row in rows[1:]}, {""}, rel)
+        # The session file's own first message gives the same row, at its time.
+        rows = self.rows_for(GeminiCliParser(), self.REL)
+        self.assertEqual(
+            [
+                (row.source_line, row.text)
+                for row in rows
+                if row.text.startswith("context: session_context:")
+            ],
+            [(2, "context: session_context: " + GEMINI_CONTEXT_TEXT)],
+        )
+
+    def test_context_row_the_session_file_lacks_is_kept_unrecovered(self):
+        # The copy the session file holds is dropped. A compression patches the session file's
+        # context message with the regenerated text, so a checkpoint written before it keeps an
+        # earlier text the file lacks: that row stays, a system row never marked recovered.
+        kept, _ = self._deduplicated(GEMINI_TOOL_CHECKPOINT_REL, self.REL)
+        self.assertFalse([row for row in kept if row.text.startswith("context:")])
+        earlier = GEMINI_CONTEXT_TEXT.replace("linux", "darwin")
+        document = gemini_tool_checkpoint()
+        document["clientHistory"][0] = {"role": "user", "parts": [{"text": earlier}]}
+        (self.home / GEMINI_TOOL_CHECKPOINT_REL).write_text(json.dumps(document), "utf-8")
+        kept, dropped = self._deduplicated(GEMINI_TOOL_CHECKPOINT_REL, self.REL)
+        self.assertEqual(dropped, 4)
+        context = [row for row in kept if row.text.startswith("context:")]
+        self.assertEqual(
+            [(row.turn_type, row.text, row.recovered) for row in context],
+            [("system", "context: session_context: " + earlier, "")],
         )
 
     def test_error_report_context_item_that_is_no_object_is_one_bad_record(self):
@@ -1177,6 +1462,7 @@ class GeminiCliTests(ParserBase):
         self.assertEqual(
             [(row.source_line, row.turn_type, row.text) for row in rows[1:]],
             [
+                (1, "system", "context: session_context: " + GEMINI_CONTEXT_TEXT),
                 (2, "user", "list files in src"),
                 (3, "assistant", "Listing now."),
                 (3, "tool_use", '{"dir_path":"/srv/proj/src"}'),
@@ -1189,7 +1475,7 @@ class GeminiCliTests(ParserBase):
         self.assertEqual({row.timestamp_utc for row in rows[1:]}, {""})
         # Deduplicated against the session file: only the reply it lacks stays.
         kept, dropped = self._deduplicated(GEMINI_TOOL_CHECKPOINT_REL, self.REL)
-        self.assertEqual(dropped, 4)
+        self.assertEqual(dropped, 5)
         self.assertEqual(
             [row.text for row in kept if row.turn_type != "system"], ["Editing util.ts."]
         )
@@ -1281,17 +1567,18 @@ class GeminiCliTests(ParserBase):
                 for row in rows[1:]
             ],
             [
+                (1, "", "", "system", "context: session_context: " + GEMINI_CONTEXT_TEXT),
                 (2, "", "", "user", "list files in src"),
                 (3, "", "", "user", "why did the request fail?"),
             ],
         )
-        # The prompt the session file holds is dropped; the failed one, which only the report
-        # keeps, stays.
+        # The context and the prompt the session file holds are dropped; the failed prompt,
+        # which only the report keeps, stays.
         kept, dropped = self._deduplicated(GEMINI_ERROR_REPORT_REL, self.REL)
-        self.assertEqual(dropped, 1)
+        self.assertEqual(dropped, 2)
         self.assertEqual([row.text for row in kept[1:]], ["why did the request fail?"])
         kept, dropped = self._deduplicated(GEMINI_ERROR_REPORT_REL)
-        self.assertEqual((dropped, len(kept)), (0, 3))
+        self.assertEqual((dropped, len(kept)), (0, 4))
 
     def test_error_report_request_contents_and_project(self):
         # A `generateContent-api` report holds its history under `requestContents`; one copied
@@ -1342,7 +1629,7 @@ class GeminiCliTests(ParserBase):
             ]
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(problems, [(0, "", text)], rel)
-            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 18)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 27)
 
 
 def _json_reason(text: str) -> str:
