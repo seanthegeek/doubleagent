@@ -2249,7 +2249,8 @@ and the openings that give them:
 | `user_hints` | `User hints:` |
 | `loaded_context` | `<loaded_context>` |
 
-Some CLI-written `user` texts are not classified and stay `user` rows. `Please continue.` is
+Some CLI-written `user` texts are not classified and stay `user` rows (open work in
+[issue 445](https://github.com/seanthegeek/doubleagent/issues/445)). `Please continue.` is
 one, since a person can type the same text. The summaries of the opt-in context management
 (`getContextManagementConfig().enabled`; [`client.ts:678-721`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/client.ts#L678-L721)) are others: an
 `<intent_summary>` or its fallback `### [System Note: Conversation History Truncated]`, merged
@@ -2281,7 +2282,9 @@ response's `name` and `id` as `tool_name` and `tool_use_id`, its text as above) 
 `toolCalls[]` element of a `gemini` message of the file carries, after the replay, a non-null
 `result` or a `status` of `error` or `cancelled` for that id; otherwise it gives no row, since
 the call's own `tool_result` row holds it (for a failed call, the `[error]` or `[cancelled]`
-row, beside which the CLI's made-up response to an interrupted call would be a second). A text
+row, beside which the CLI's made-up response to an interrupted call would be a second). A
+`result` a history sync rewrote holds the turn's other parts too, which the call's row then repeats
+(open work in [issue 444](https://github.com/seanthegeek/doubleagent/issues/444)). A text
 part in the same message, such as a steering update, gives its row before the `tool_result`
 rows. A `user` message with no text, media or response part gives an empty `user` row. In a
 history copy a `functionResponse` part is a `tool_result` row, which deduplication pairs on
