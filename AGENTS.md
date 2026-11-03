@@ -1643,8 +1643,7 @@ down.
   never `fixes #29`. The pull request that finishes an issue says
   `Closes #<n>` in its body, one line per issue, so GitHub closes the issue
   when the pull request merges; a pull request that advances an issue
-  without finishing it says `Refs #<n>` in its body, and its commits say
-  `Refs #<n>` either way. An issue finished
+  without finishing it says `Refs #<n>` in its body. An issue finished
   without a pull request of its own (a round that settled it, a question a
   comment answered) is closed by hand with a comment naming the commit or
   the answer. No issue waits for a release: the changelog entry, not the
@@ -1808,8 +1807,9 @@ down.
 - Before a tag, every issue closed since the part's last tagged commit
   has one of these accounts: a `([#<n>])` line in this part's changelog,
   in the pending entry or in the tagged version it shipped in; a change
-  that touched no code of this part (the other part, documentation,
-  research, tooling), which needs none; or no change at all (an answered
+  to nothing this part's user runs or reads (the other part,
+  documentation, research, tests, development tools), which needs no
+  line; or no change at all (an answered
   question, a round that settled it, a close as not planned or duplicate).
   List them, for the analyzer, with
 
