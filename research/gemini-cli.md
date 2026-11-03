@@ -39,7 +39,8 @@ versions with its commit.
   command
   ([Install globally with npm](https://github.com/google-gemini/gemini-cli/blob/main/README.md#install-globally-with-npm),
   fetched 2026-11-01) on an Ubuntu lab virtual machine (arm64, GNOME desktop, Node v22.22.1),
-  latest run 2026-11-02 22:36 to 23:55 UTC from the clean snapshot, driven over SSH by the round
+  latest run, the fourth, 2026-11-02 22:36 to 23:55 UTC from the clean snapshot, driven over SSH
+  by the round
   pipeline in a 120 by 40 terminal, with a listing of the agent's directories (names, sizes,
   modes and times) after every step and a collection before the delete steps, one after them
   and one at the end. In a sample git project its steps were: the first start and the folder
@@ -58,7 +59,7 @@ versions with its commit.
   ([Project-local files](#project-local-files)); `general.devtools` on, then
   `GEMINI_CLI_ACTIVITY_LOG_TARGET` set ([Activity log](#activity-log)); `GEMINI_CLI_HOME` set,
   with its own trust choice and key ([Per-user storage](#per-user-storage)), and
-  `GEMINI_CLI_TRUSTED_FOLDERS_PATH` set ([Permission rows](#permission-rows)), each variable
+  `GEMINI_CLI_TRUSTED_FOLDERS_PATH` set ([Per-user storage](#per-user-storage)), each variable
   with its own starts, question and stop; `gemini --list-sessions`, `gemini --delete-session`
   and the project directory removed ([What survives a delete](#what-survives-a-delete)); a start
   in the home ([Per-user storage](#per-user-storage)); a 600-second idle period
@@ -72,11 +73,12 @@ versions with its commit.
   `GEMINI_CLI_TRUSTED_FOLDERS_PATH` asked none, since the restart's screen still showed the
   trust dialog above the prompt, and no account of the desktop sign-in's screen was recorded.
   The session file's line types and what each start writes are in
-  [Session JSONL](#session-jsonl). Three earlier runs of the same build, 2026-11-01 22:51 UTC
-  to 2026-11-02 01:50 UTC and 2026-11-02 02:00 to 03:40 UTC, each with the key entered by the
-  person in the session started over SSH from a terminal of the VM's desktop, and 2026-11-02
-  14:07 to 15:09 UTC, driven by the pipeline as the latest run was, in which the verification
-  run's dialog stayed open, so `/chat save`, `/bug` and `/exit` typed nothing. The first two
+  [Session JSONL](#session-jsonl). Three earlier runs of the same build preceded it: 2026-11-01
+  22:51 UTC to 2026-11-02 01:50 UTC and 2026-11-02 02:00 to 03:40 UTC, each with the key
+  entered by the person in the session started over SSH from a terminal of the VM's desktop,
+  and 2026-11-02 14:07 to 15:09 UTC, driven by the pipeline as the fourth was, in which the
+  verification run's dialog stayed open, so `/chat save`, `/bug` and `/exit` typed nothing. The
+  first two
   added: the Google sign-in, which the service refused for a personal account, the API-key
   dialog's text, two sign-outs and the stored key's prefilled dialog
   ([Credentials](#credentials)); the edit dialog read whole and a `WebFetch` call
@@ -364,9 +366,9 @@ setting [Project-local files](#project-local-files) names.
   `account=default-api-key` and `xdg:schema=org.freedesktop.Secret.Generic`. In the fourth run
   (2026-11-02) the same sign-in from the desktop, with no credential anywhere before it (the
   file fallback removed by hand, the keyring holding no item), rewrote the keyring file
-  (641 bytes, mode 0600) and wrote no credentials file and no `.env`; its one item, at the
-  object path `/org/freedesktop/secrets/collection/login/2`, had that label and those
-  attributes, and its Modified property was the keyring file's modification time.
+  (641 bytes, mode 0600) and wrote no credentials file and no `.env`; its one item had that
+  label and those attributes, and its Modified property was the keyring file's modification
+  time.
 - Under `GEMINI_CLI_HOME` (0.66.0, 2026-11-02, over SSH, no desktop session) the key typed into
   the dialog landed in `<GEMINI_CLI_HOME>/.gemini/gemini-credentials.json` (526 bytes, mode
   0600) and nowhere else ([Per-user storage](#per-user-storage)).
@@ -426,8 +428,8 @@ setting [Project-local files](#project-local-files) names.
   `.gemini/.env` and a `~/.env` (69 bytes, mode 0664 each), each written by hand and removed
   after its session, were each read: the start opened at the prompt with no sign-in dialog and
   answered a question. For a start in the home, `~/.env` is the `<cwd>/.env` the CLI searches
-  first. No collection ran while either file existed, so that the `*.gemini/.env` secret glob
-  flags `.gemini/.env` rests on the catalog and the smoke test, not on a real install
+  first. No collection ran while either file existed, so the claim that the `*.gemini/.env`
+  secret glob flags `.gemini/.env` rests on the catalog and the smoke test, not on a real install
   ([issue 439](https://github.com/seanthegeek/doubleagent/issues/439)); no catalog line names
   `~/.env`, which is not collected.
 - `GEMINI_API_KEY` set on the command line is used and stored nowhere: a start under it
@@ -606,8 +608,8 @@ that session's `chats/session-*.jsonl` (180 KB) and nothing else, the session ha
 log, tool outputs or session directory; `logs.json`, the `/bug` export and
 `history/<slug>/.project_root` stayed. Removing the project directory removed what lay under it
 and nothing under `~/.gemini`. A session started and ended with no prompt deleted its own file
-(about 1.3 KB in the sample project, 7.1 to 7.3 KB in the home; 0.66.0, 2026-11-02) on exit,
-through the exit cleanup listed below, each time on that install. A
+(of the size [Session JSONL](#session-jsonl) gives for a start) on exit, through the exit
+cleanup listed below, each time on that install. A
 600-second idle period in a running session wrote nothing.
 
 Retention removes more without being asked
@@ -678,7 +680,8 @@ loaded ([`cli/src/utils/worktreeSetup.ts:21-42`](https://github.com/google-gemin
 On the Linux install of 0.66.0 the session of `gemini --worktree lab` got the slug `lab`:
 `history/lab/.project_root` and `tmp/lab/.project_root` (41 bytes each), its session file under
 `tmp/lab/chats/` (957 bytes at the start, 2.5 KB after one question), `tmp/lab/logs.json` (2 bytes
-at the start, 184 after) and an empty `tmp/lab/logs/` directory.
+at the start, 184 after) and the empty `tmp/lab/logs/` every first start creates
+([Per-user storage](#per-user-storage)).
 
 #### Driven from Zed
 
@@ -1641,8 +1644,9 @@ and 2026-11-02) unless a date is given:
   first option after the fourth (0.66.0, 2026-11-02). Allow once applied the edit to `calc.py`
   ("Edit calc.py → Accepted (+1, -1)"), and the agent then proposed, unasked, a verification run
   ("Next, I will verify the fix by running calc.py with sample inputs.") of
-  `python3 calc.py 2 3` behind a shell dialog, in the second and third runs alike (0.66.0,
-  2026-11-02). In the second and fourth runs the call ran; in the third the dialog stayed open
+  `python3 calc.py 2 3` behind a shell dialog, in the second, third and fourth runs alike
+  (0.66.0, 2026-11-02). In the second and fourth runs the call ran; in the third the dialog
+  stayed open
   until the session was stopped, and the call was recorded as cancelled.
 - `git log --oneline` and `ls -la` ran through the shell tool with no dialog, and so did the file
   searches of the refactor below. Escape on a dialog gave "Request cancelled", the command did
@@ -2109,9 +2113,8 @@ the Google sign-in and the MCP and A2A server tokens ([Credentials](#credentials
   `oauth_creds.json`; why a resume over SSH once asked for the key again
   ([Credentials](#credentials)); whether the key dialog of a sign-in from the desktop comes
   prefilled from the file fallback (the fourth run's desktop sign-in had no file to prefill from,
-  and its screen was not recorded); whether that sign-in wrote and replaced a first keyring item
-  (the one item's object path ends in `/2` on a keyring that held no other); the keychain item
-  names on macOS and Windows; the macOS and Windows layouts, which no install has shown.
+  and its screen was not recorded); the keychain item names on macOS and Windows; the macOS
+  and Windows layouts, which no install has shown.
 - For a later round: the contents of the activity log the Linux install wrote to the path
   `GEMINI_CLI_ACTIVITY_LOG_TARGET` named, which no step read
   ([issue 440](https://github.com/seanthegeek/doubleagent/issues/440)): what it holds before the
