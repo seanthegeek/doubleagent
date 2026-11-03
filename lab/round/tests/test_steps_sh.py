@@ -6,7 +6,13 @@ session start or a guest command received on stdin.
 They keep a scripted dialog in a directory: its option labels, the cursor, whether Down wraps
 or stops at the last option, whether Up moves it, whether Escape closes it, a banner shown for
 the first captures only, the capture after which the screen cannot be read, and every drive
-call, so a test reads what the step pressed and where the cursor ended.
+call, so a test reads what the step pressed and where the cursor ended. The screen draws the
+input line as Gemini CLI does, `│ > Type your message │` when empty or `│ > <text> │` with the
+text of `typed_input`, the prefix that of `input_prefix` when present, and only while no
+dialog is live (no labels), since Gemini CLI draws a dialog in place of its input box. `stale`
+holds an old dialog box and a past prompt, printed above the rest as a restart leaves them in
+the scrollback, `extra` lines above the dialog (a title), and `lower_list` the unfocused second
+list a two-list dialog draws below the focused one.
 """
 
 from __future__ import annotations
@@ -54,7 +60,14 @@ capture_screen() {
   if [ -f "$STUB/drift" ] && [ "$_cs_count" -gt "$(cat "$STUB/drift")" ]; then
     _cs_cursor=$((_cs_cursor + 1))
   fi
-  printf '> Type your message\n'
+  [ ! -f "$STUB/stale" ] || cat "$STUB/stale"
+  if [ ! -s "$STUB/labels" ]; then
+    _cs_prefix='>'
+    _cs_text='Type your message'
+    [ ! -f "$STUB/input_prefix" ] || _cs_prefix=$(cat "$STUB/input_prefix")
+    [ ! -f "$STUB/typed_input" ] || _cs_text=$(cat "$STUB/typed_input")
+    printf '│ %s %s │\n' "$_cs_prefix" "$_cs_text"
+  fi
   [ ! -f "$STUB/extra" ] || cat "$STUB/extra"
   if [ -f "$STUB/banner_until" ] && [ "$_cs_count" -le "$(cat "$STUB/banner_until")" ]; then
     printf 'Warning: True color (24-bit) support not detected.\n'
@@ -66,6 +79,7 @@ capture_screen() {
     else printf '│   %s │\n' "$_cs_label"; fi
     _cs_index=$((_cs_index + 1))
   done <"$STUB/labels"
+  [ ! -f "$STUB/lower_list" ] || cat "$STUB/lower_list"
 }
 wait_for() { return "$(cat "$STUB/wait")"; }
 state_get() { sed -n "s/^$1=//p" "$STUB/state" | tail -n 1; }
@@ -98,7 +112,9 @@ def run_steps(shell: str, stub: pathlib.Path, script: str, text: str = "-") -> d
     """Run `script` after sourcing the libraries and stubs; return its code, note and options."""
     setup = (
         '. "$1"; . "$2"; %s\nSTUB=$3; CELL=$3; STEP_NUMBER=05; STEP_NAME=pick; STEP_KIND=choose\n'
-        "STEP_TEXT=$4; STEP_EXPECT=-; AGENT_OPTION='^ *● '; OPTION_PRESSES=12\n" % STUBS
+        "STEP_TEXT=$4; STEP_EXPECT=-; AGENT_OPTION='^ *● '; OPTION_PRESSES=12\n"
+        "AGENT_LIVE_AFTER='^[>!*] |is restarting to apply the trust changes'\n"
+        "AGENT_LIVE_AFTER_NOT='^> To use a specific Gemini model on startup'\n" % STUBS
     )
     result = subprocess.run(
         [
@@ -932,3 +948,214 @@ def test_run_command_logs_the_token_and_sends_the_value(tmp_path):
         logged = (stub / "round.log").read_text(encoding="utf-8")
         assert logged == "command: " + text + "\n" and "AIza" not in found["note"], shell
         assert (stub / "screens" / "05-pick.command.txt").is_file(), shell
+
+
+STALE_BOX = "│ ● 1. Trust folder (proj) │\n│   2. Don't trust │\n"
+STALE_NOTICE = "Gemini CLI is restarting to apply the trust changes...\n"
+STALE_PROMPT = "> what is 3?\n"
+STALE = STALE_BOX + STALE_NOTICE + STALE_PROMPT
+
+
+def stale_stub(
+    tmp_path: pathlib.Path, labels: list[str], mode: str = "stop", scrollback: str = STALE
+) -> pathlib.Path:
+    """Return a stub with `scrollback` (an old dialog box and what followed it) above the screen.
+
+    Each test passes the scrollback whose last line is the one cut it proves: the box alone leaves
+    the input line as the only cut, the box and a past prompt the prompt, the box and the notice
+    the notice.
+    """
+    stub = make_stub(tmp_path, labels, mode)
+    (stub / "stale").write_text(scrollback, encoding="utf-8")
+    (stub / "typed").unlink(missing_ok=True)
+    return stub
+
+
+def test_a_prompt_below_a_dialog_in_the_scrollback_types(tmp_path):
+    for shell in SHELLS:
+        stub = stale_stub(tmp_path, [], scrollback=STALE_BOX)
+        found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "what is 5?")
+        assert found["code"] == "0" and found["note"] == "", shell
+        assert found["drive"] == "type\nkeys Enter\n" and typed_text(stub) == "what is 5?", shell
+
+
+def test_a_typed_input_below_a_dialog_in_the_scrollback_is_free(tmp_path):
+    """The placeholder is gone once text is typed; the input line alone still cuts the box."""
+    for shell in SHELLS:
+        stub = stale_stub(tmp_path, [], scrollback=STALE_BOX)
+        (stub / "typed_input").write_text("/help ", encoding="utf-8")
+        assert run_steps(shell, stub, "dialog_open")["code"] == "1", shell
+        found = run_steps(shell, stub, "STEP_KIND=clear; clear_typed", "6")
+        assert found["code"] == "0" and found["note"] == "6 presses of Backspace", shell
+        assert found["drive"] == "keys %s\n" % ",".join(["Backspace"] * 6), shell
+
+
+def test_choose_and_dialog_find_no_dialog_in_the_scrollback(tmp_path):
+    for shell in SHELLS:
+        found = run_steps(shell, stale_stub(tmp_path, []), "choose_option", "Trust folder")
+        assert found["code"] == "2" and found["note"] == "missed: no dialog open", shell
+        assert found["drive"] == "", shell
+        found = run_steps(shell, stale_stub(tmp_path, []), "STEP_KIND=dialog; answer_dialog")
+        assert found["code"] == "0" and found["note"] == "no dialog", shell
+        assert found["drive"] == "", shell
+
+
+def test_a_type_step_with_the_mark_set_and_a_scrollback_dialog_types(tmp_path):
+    for shell in SHELLS:
+        stub = stale_stub(tmp_path, [])
+        (stub / "state").write_text("choose_missed=yes\n", encoding="utf-8")
+        found = run_steps(shell, stub, "STEP_KIND=type; send_text '' quiet", "/auth ")
+        assert found["code"] == "0" and found["drive"] == "type\n", shell
+        assert typed_text(stub) == "/auth ", shell
+        assert (stub / "state").read_text(encoding="utf-8") == "choose_missed=yes\n", shell
+
+
+def test_a_live_dialog_below_a_past_prompt_is_read_not_the_stale_box(tmp_path):
+    """The past prompt alone, no notice above it, cuts the stale box."""
+    scrollback = STALE_BOX + STALE_PROMPT
+    for shell in SHELLS:
+        stub = stale_stub(tmp_path, LABELS, scrollback=scrollback)
+        found = run_steps(shell, stub, "choose_option", "No$")
+        assert found["code"] == "0" and found["cursor"] == "2", shell
+        assert found["note"] == 'cursor on "● No"', shell
+        assert found["drive"].endswith("keys Down,Down\n"), shell
+        option = (stub / "screens" / "05-pick.option-1.txt").read_text(encoding="utf-8")
+        assert option.startswith(scrollback), shell
+        stub = stale_stub(tmp_path, LABELS, "wrap", scrollback=scrollback)
+        found = run_steps(shell, stub, "answer_dialog")
+        assert found["note"] == "answered with the first option, 3 options", shell
+        assert found["cursor"] == "0" and found["drive"].endswith("keys Enter\n"), shell
+
+
+SETTINGS = ["Vim Mode", "Auto Update", "Hide Banner"]
+SCOPES = ["1. User Settings", "2. Workspace Settings", "3. System Settings"]
+
+
+def settings_stub(tmp_path: pathlib.Path, focus: str) -> pathlib.Path:
+    """Return a stub drawing /settings with the focus on its `settings` or `scope` list.
+
+    The focused section's title carries `> `, the other's two spaces; the settings list has no
+    numbers and marks its item with ● only while focused, the scope list numbers its items only
+    while focused and always marks the selected one.
+    """
+    if focus == "settings":
+        stub = stale_stub(tmp_path, SETTINGS)
+        (stub / "extra").write_text("│ > Settings │\n", encoding="utf-8")
+        lower = "│   Apply To │\n│ ● User Settings │\n│   Workspace Settings │\n"
+        (stub / "lower_list").write_text(lower, encoding="utf-8")
+    else:
+        stub = stale_stub(tmp_path, SCOPES)
+        above = "│   Settings │\n│   Vim Mode │\n│   Auto Update │\n│ > Apply To │\n"
+        (stub / "extra").write_text(above, encoding="utf-8")
+    return stub
+
+
+def test_a_two_list_dialog_is_read_by_its_focused_list(tmp_path):
+    """The unfocused scope list below keeps its own constant ● line, as /settings draws it."""
+    for shell in SHELLS:
+        found = run_steps(shell, settings_stub(tmp_path, "settings"), "read_options 12")
+        assert found["options"] == "3" and found["cursor"] == "0", shell
+        assert found["note"] == "3 presses of Down, the cursor stopped", shell
+        found = run_steps(shell, settings_stub(tmp_path, "settings"), "choose_option", "Auto")
+        assert found["code"] == "0" and found["cursor"] == "1", shell
+        assert found["note"] == 'cursor on "● Auto Update"', shell
+
+
+def test_a_focused_scope_list_is_read_below_its_marker(tmp_path):
+    for shell in SHELLS:
+        found = run_steps(shell, settings_stub(tmp_path, "scope"), "read_options 12")
+        assert found["options"] == "3" and found["cursor"] == "0", shell
+        found = run_steps(shell, settings_stub(tmp_path, "scope"), "choose_option", "Workspace")
+        assert found["code"] == "0" and found["cursor"] == "1", shell
+        assert found["note"] == 'cursor on "● 2. Workspace Settings"', shell
+        found = run_steps(shell, settings_stub(tmp_path, "scope"), "answer_dialog")
+        assert found["note"] == "answered with the first option, 3 options", shell
+
+
+def test_without_a_live_after_pattern_a_dialog_anywhere_counts(tmp_path):
+    for shell in SHELLS:
+        stub = stale_stub(tmp_path, [])
+        script = "AGENT_LIVE_AFTER=; STEP_KIND=prompt; send_text Enter marker"
+        found = run_steps(shell, stub, script, "hello")
+        assert found["code"] == "2" and found["note"] == "a dialog is open after an Escape", shell
+        assert found["drive"] == "keys Escape\n" and typed_text(stub) == "", shell
+        script = "AGENT_LIVE_AFTER=; choose_option"
+        found = run_steps(shell, stale_stub(tmp_path, []), script, "Trust")
+        assert found["code"] == "0" and found["cursor"] == "0", shell
+
+
+RESTART = (
+    "│ ● 1. Trust folder (proj) │\n"
+    "│   2. Trust parent folder (lab) │\n"
+    "│   3. Don't trust │\n"
+    " Gemini CLI is restarting to apply the trust changes...\n"
+    "  GEMINI CLI banner\n"
+)
+SIGN_IN = ["1. Sign in with Google", "2. Use Gemini API Key", "3. Vertex AI"]
+
+
+def restart_stub(tmp_path: pathlib.Path, mode: str = "stop") -> pathlib.Path:
+    """Return a stub drawn after a trust restart: the old trust box, the notice, a live dialog."""
+    stub = make_stub(tmp_path, SIGN_IN, mode)
+    (stub / "stale").write_text(RESTART, encoding="utf-8")
+    return stub
+
+
+def test_a_dialog_after_a_trust_restart_is_read_below_the_notice(tmp_path):
+    """No input line and no past prompt: the restart notice alone cuts the old trust box."""
+    for shell in SHELLS:
+        assert run_steps(shell, restart_stub(tmp_path), "dialog_open")["code"] == "0", shell
+        found = run_steps(shell, restart_stub(tmp_path), "choose_option", "Gemini API Key")
+        assert found["code"] == "0" and found["cursor"] == "1", shell
+        assert found["note"] == 'cursor on "● 2. Use Gemini API Key"', shell
+        found = run_steps(shell, restart_stub(tmp_path, "wrap"), "answer_dialog")
+        assert found["note"] == "answered with the first option, 3 options", shell
+        assert found["cursor"] == "0" and found["drive"].endswith("keys Enter\n"), shell
+
+
+def test_a_yolo_input_line_below_a_dialog_in_the_scrollback_is_free(tmp_path):
+    for shell in SHELLS:
+        for typed in ("", "/help "):
+            stub = stale_stub(tmp_path, [], scrollback=STALE_BOX)
+            (stub / "input_prefix").write_text("*", encoding="utf-8")
+            if typed:
+                (stub / "typed_input").write_text(typed, encoding="utf-8")
+            assert run_steps(shell, stub, "dialog_open")["code"] == "1", (shell, typed)
+            found = run_steps(shell, stub, "STEP_KIND=prompt; send_text Enter marker", "hi")
+            assert found["code"] == "0" and found["drive"] == "type\nkeys Enter\n", shell
+
+
+MODEL_FOOTER = (
+    "│ Remember model for future sessions: false (Press Tab to toggle) │\n"
+    "│ > To use a specific Gemini model on startup, use the --model flag. │\n"
+    "│ (Press Esc to close) │\n"
+)
+MODELS = ["1. Auto", "2. Manual"]
+
+
+def model_stub(tmp_path: pathlib.Path, stale: bool) -> pathlib.Path:
+    """Return a stub drawing the live model dialog, its `--model` hint below the options."""
+    stub = stale_stub(tmp_path, MODELS) if stale else make_stub(tmp_path, MODELS)
+    (stub / "extra").write_text("│ Select Model │\n", encoding="utf-8")
+    (stub / "lower_list").write_text(MODEL_FOOTER, encoding="utf-8")
+    return stub
+
+
+def test_the_model_dialog_hint_below_its_options_cuts_nothing(tmp_path):
+    for shell in SHELLS:
+        for stale in (False, True):
+            found = run_steps(shell, model_stub(tmp_path, stale), "dialog_open")
+            assert found["code"] == "0", (shell, stale)
+            found = run_steps(shell, model_stub(tmp_path, stale), "choose_option", "Manual")
+            assert found["code"] == "0" and found["cursor"] == "1", (shell, stale)
+            assert found["note"] == 'cursor on "● 2. Manual"', (shell, stale)
+            found = run_steps(shell, model_stub(tmp_path, stale), "read_options 12")
+            assert found["options"] == "2" and found["cursor"] == "0", (shell, stale)
+
+
+def test_a_model_dialog_in_the_scrollback_above_a_free_input_is_not_open(tmp_path):
+    for shell in SHELLS:
+        stub = make_stub(tmp_path, [])
+        box = "│ Select Model │\n│ ● 1. Auto │\n│   2. Manual │\n" + MODEL_FOOTER
+        (stub / "stale").write_text(box, encoding="utf-8")
+        assert run_steps(shell, stub, "dialog_open")["code"] == "1", shell

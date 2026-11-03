@@ -405,9 +405,31 @@ a vendor; prompts and the web-tool confirmations send what the agent
 itself sends.
 
 A `prompt`, `type`, `paste` or `clear` step reads the screen before it
-types. When a dialog is open (the agent's `AGENT_OPTION` line, or its
-`AGENT_INPUT_GUARD` pattern for an input dialog with no option line, such
-as Gemini CLI's API key prompt), the table did not foresee it, so the step
+types. These steps and every step that reads a dialog read one only on
+the live part of the screen: the lines after the last line matching the
+agent's `AGENT_LIVE_AFTER` pattern, the lines that end the scrollback. For
+Gemini CLI these are its input line, empty or typed, and the past prompts
+in the history, which share its `> ` prefix, since it draws a dialog in
+place of its input box; and the notice its trust dialog prints before the
+CLI restarts, below which the restarted CLI draws. A dialog's own line of
+that form (Gemini CLI's `> ` focus marker before a section title, or the
+`> ` of a text question) cuts the dialog's lines above it, so a step's
+pattern names the dialog's option lines or footer, not its title. A
+dialog's help line below its options that happens to open like the input
+line (Gemini CLI's model dialog hint, `> To use a specific Gemini model
+on startup, use the --model flag.`) is named in `AGENT_LIVE_AFTER_NOT`,
+so it is not read as a boundary. The trust dialog's box left in the scrollback after its restart is therefore
+not open; a restart that prints no notice leaves its box in the live part
+until the next prompt. The screen of an agent with an empty pattern (pi)
+is read whole. A step's `expect` pattern is still matched on the whole
+screen. Gemini CLI draws its screen this way by its source with
+its default settings
+([Permission rows in `research/gemini-cli.md`](../../research/gemini-cli.md#permission-rows));
+Qwen Code, a fork of Gemini CLI, is taken to follow it until a run reads
+one of its dialogs. When a dialog is open (the agent's
+`AGENT_OPTION` line, or its `AGENT_INPUT_GUARD` pattern for an input
+dialog with no option line, such as Gemini CLI's API key prompt), the
+table did not foresee it, so the step
 presses Escape once, which cancels a confirmation and grants nothing,
 waits for a settled screen and looks again: with the input free it goes
 on, noting `a dialog was open; Escape closed it`, a finding about the
@@ -435,11 +457,11 @@ table; `start` and `resume` refuse one that fails.
 | `prompt` | the prompt | Types the text, presses Enter and waits; a dialog open is closed with Escape first, and with the mark set it types nothing and is `missed`, as described above the table. |
 | `type` | text | Types the text without Enter and waits. |
 | `options` | the most Down presses, 1 to 30 | Reads the open dialog as described above the table: one `screens/NN-name.option-K.txt` per press, then back where it started, one Up at a time until the cursor is on the option it started on (`cursor not returned` and the mark set when it never gets there); the step log says how many presses and how the reading ended: `the cursor wrapped`, `the cursor stopped`, or `the cursor limit` when the presses ran out first, which leaves the option count a lower bound. |
-| `dialog` | `-`, or a `grep -E` pattern that must be on the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options` (`at least N options` when the presses ran out first); a reading that could not return its cursor sends no Enter and is `missed` with `not answered`, since the Enter would answer with an option the table did not mean. Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
+| `dialog` | `-`, or a `grep -E` pattern that must be on the live part of the screen for a dialog to count as open; `-` stands for the agent's `AGENT_OPTION` | When the pattern is on the live part of the screen (box-drawing characters and end spaces removed), reads the options as `options` does (at most 12 presses), presses Enter on the first and waits for `expect` (`-` is the input marker), logging `answered with the first option, N options` (`at least N options` when the presses ran out first); a reading that could not return its cursor sends no Enter and is `missed` with `not answered`, since the Enter would answer with an option the table did not mean. Otherwise logs `no dialog`, sends nothing and is `done`: the absence is a finding. |
 | `choose` | the option's text as a `grep -E` pattern, such as `Allow for this session` | Reads the open dialog's options as `dialog` does, then presses Down until the highlighted line (the `AGENT_OPTION` line) matches the pattern, at most once per option, logging `cursor on "<option line>"`; the Enter is the next `keys` step's. The step is `missed` with the reason when no dialog is open (no key is sent), and, pressing Escape once to close the dialog and logging `Escape sent after the miss`, when no option matches or when the cursor ends on a line the pattern does not match; after any miss or a failed drive call, no `keys` step that includes Enter is sent until the mark is cleared, as described above the table. |
 | `clear` | `-`, or the number of Backspace presses, 1 to 200 | Presses Backspace that many times in one drive call, `-` meaning once per character of the text of the nearest `type` step before it (its trailing space counted), and waits for `expect` (`-` is a settled screen). It deletes a typed slash command after its `-subcommands` step; a dialog open is closed with Escape first, as for the typing kinds. |
 | `keys` | key names joined by commas: `Enter`, `Escape`, `Tab`, `Backspace`, `Space`, the arrows, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, `F1` to `F12`, one letter or digit, each optionally after `Ctrl+`, `Shift+`, `Alt+` or `Meta+` | Presses the keys one second apart and waits; keys that include Enter are not sent, and the step is `missed`, while the mark described above the table is set; a failed drive call sets the mark. |
-| `secret` | the upper-case name of a variable of the credentials file ([Accounts](#accounts)) | Types the variable's value into the open input dialog (the agent's `AGENT_INPUT_GUARD` pattern must be on the screen, else nothing is typed and the step is `missed`), presses Enter and waits; the value goes to the typing call's stdin on the analyst's side, is the argument of one short-lived tui-test process in the guest (whose `type` takes its text as an argument), and shows wherever the agent's dialog echoes it; the step log names only the variable. The Enter is held back while the mark is set, as a `keys` step's is. |
+| `secret` | the upper-case name of a variable of the credentials file ([Accounts](#accounts)) | Types the variable's value into the open input dialog (the agent's `AGENT_INPUT_GUARD` pattern must be on the live part of the screen, else nothing is typed and the step is `missed`), presses Enter and waits; the value goes to the typing call's stdin on the analyst's side, is the argument of one short-lived tui-test process in the guest (whose `type` takes its text as an argument), and shows wherever the agent's dialog echoes it; the step log names only the variable. The Enter is held back while the mark is set, as a `keys` step's is. |
 | `paste` | a file name under `agents/<agent>/pastes/` or `pastes/`, then optionally text to type after it | Copies the file into the VM, sends it as one bracketed paste (line feeds as carriage returns, as a terminal sends them), types the text, presses Enter and waits. |
 | `command` | a shell command; `secret:NAME` tokens as described above the table | Runs it in the VM outside the agent, in `~/lab/proj`, under a login shell (bash on Linux, zsh on macOS) or Windows PowerShell 5.1, and saves its output as `screens/NN-name.command.txt`; a token's value goes to the shell's stdin, never to the log. |
 | `stop` | `-` | Saves the session's recording and stops it: Ctrl+C twice, then TERM (not on Windows), then a kill, each with a bounded wait. |
@@ -474,7 +496,7 @@ table's width; `resume` then runs the copy.
 
 | File | Holds |
 | --- | --- |
-| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box; `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for Gemini CLI and Qwen Code, `^ *→ ` for pi, from its source); `AGENT_INPUT_GUARD`, the pattern of an input dialog with no option line, empty when the agent's research document names none (`clear stored key` for Gemini CLI, `What went wrong` for pi's `/bug` hint input); while either is on the screen no `prompt`, `type`, `paste` or `clear` step types or presses a key; the default waits and the terminal size. |
+| `agents/<agent>/agent.conf` | `AGENT_MARKER`, the `grep -E` pattern of the empty input box, which the steps wait for; `AGENT_LIVE_AFTER`, the pattern, matched once the box-drawing characters and end spaces are removed, of the lines that end the scrollback (the input line's prefixes and, for Gemini CLI, its trust restart notice); the lines after the last of them are where a dialog counts as open, a dialog's own line that matches cutting its lines above, and an empty pattern (pi) reads the whole screen; `AGENT_LIVE_AFTER_NOT`, the pattern of the lines of that form that are a dialog's own text below its options and end nothing (Gemini CLI's model dialog hint), empty when none is known; `AGENT_BUSY`, the pattern shown while a turn runs; `AGENT_OPTION`, the pattern of a dialog's highlighted option line once the box-drawing characters and end spaces are removed (`^ *● ` for Gemini CLI and Qwen Code, `^ *→ ` for pi, from its source); `AGENT_INPUT_GUARD`, the pattern of an input dialog with no option line, empty when the agent's research document names none (`clear stored key` for Gemini CLI, `What went wrong` for pi's `/bug` hint input); while either is on the live part of the screen no `prompt`, `type`, `paste` or `clear` step types or presses a key; the default waits and the terminal size. |
 | `agents/<agent>/install.sh`, `install.ps1` | The install command copied from the vendor's page, whose URL and fetch date the script prints as its `source:` line, then `bin:` and `version:` lines. The version is read from the package's own record where one exists, so the agent does not run before its first-launch step. |
 | `agents/<agent>/roots` | The survey roots, from the Per-user storage, Credentials and Scratch directories sections of `research/<agent>.md`. |
 | `agents/<agent>/steps.tsv` | The step table. |

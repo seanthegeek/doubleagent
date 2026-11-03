@@ -85,3 +85,27 @@ joined_urls() {
 highlighted_line() {
   strip_box | grep -E -- "$1" | sed -n 1p
 }
+
+# Print the live part of the screen, its lines as drawn: those after the
+# last line that matches, after strip_box, the grep -E pattern $1 of the
+# lines that end the scrollback (an input line, a restart notice) and not
+# the grep -E pattern $2 of a dialog's own lines of that form, so a dialog
+# above the last such line is scrollback, such as a box a restart left
+# behind. The whole screen when $1 is empty or matches no line; nothing
+# when the last line matches. $2 is tried on each line's text, since an
+# anchored pattern cannot follow grep -n's number.
+live_screen() {
+  _ls_screen=$(cat)
+  _ls_last=
+  [ -z "$1" ] ||
+    _ls_last=$(printf '%s\n' "$_ls_screen" | strip_box | grep -n -E -- "$1" |
+      while IFS= read -r _ls_line; do
+        if [ -n "$2" ] && printf '%s\n' "${_ls_line#*:}" | grep -q -E -- "$2"; then continue; fi
+        printf '%s\n' "${_ls_line%%:*}"
+      done | tail -n 1)
+  if [ -z "$_ls_last" ]; then
+    printf '%s\n' "$_ls_screen"
+  else
+    printf '%s\n' "$_ls_screen" | tail -n +"$((_ls_last + 1))"
+  fi
+}

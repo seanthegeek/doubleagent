@@ -7,8 +7,9 @@
 # die, guest_copy, guest_shell, end_session and paste_source, which round.sh
 # and vm.sh define and a test replaces with stubs. Reads the globals CELL,
 # HERE, GUEST_OS, STEP_NUMBER, STEP_NAME, STEP_KIND, STEP_TEXT, STEP_EXPECT,
-# AGENT_OPTION, AGENT_INPUT_GUARD, TURN_SECONDS, TERMINAL_COLS,
-# TERMINAL_ROWS, ROUND_STOP_AFTER and ROUND_ENV, and sets STEP_NOTE.
+# AGENT_LIVE_AFTER, AGENT_LIVE_AFTER_NOT, AGENT_OPTION, AGENT_INPUT_GUARD,
+# TURN_SECONDS, TERMINAL_COLS, TERMINAL_ROWS, ROUND_STOP_AFTER and
+# ROUND_ENV, and sets STEP_NOTE.
 
 # The globals above come from round.sh, which also calls every function.
 # shellcheck disable=SC2153,SC2154,SC2329
@@ -46,15 +47,24 @@ press_down_saved() {
   printf '%s\n' "$_pds_screen"
 }
 
-# Print what places the cursor on the screen read from stdin: every line
-# matching the agent's AGENT_OPTION pattern (the highlighted option), box-
-# drawing characters stripped, or the whole screen when no line matches.
-# Two screens with the same key have the cursor on the same option, so a
-# line outside the dialog that comes and goes (Gemini CLI's true-colour
-# warning, shown at the first screen and gone after a key) changes no
-# reading.
+# Print the live part of the screen read from stdin (live_screen): the
+# lines after the last line matching the agent's AGENT_LIVE_AFTER pattern,
+# the lines that end the scrollback, and not its AGENT_LIVE_AFTER_NOT
+# pattern, a dialog's own line of that form below its options. Any other
+# dialog line that matches cuts the dialog's lines above it.
+live_part() {
+  live_screen "${AGENT_LIVE_AFTER:-}" "${AGENT_LIVE_AFTER_NOT:-}"
+}
+
+# Print what places the cursor on the live part of the screen read from
+# stdin: every line matching the agent's AGENT_OPTION pattern (the
+# highlighted option), box-drawing characters stripped, or that whole part
+# when no line matches. Two screens with the same key have the cursor on
+# the same option, so a line outside the dialog that comes and goes (Gemini
+# CLI's true-colour warning, shown at the first screen and gone after a
+# key) changes no reading.
 option_key() {
-  _ok_screen=$(cat)
+  _ok_screen=$(live_part)
   _ok_lines=
   [ -z "${AGENT_OPTION:-}" ] ||
     _ok_lines=$(printf '%s\n' "$_ok_screen" | strip_box | grep -E -- "$AGENT_OPTION")
@@ -141,14 +151,15 @@ cursor_key() {
 }
 
 # Return 0 when the grep -E pattern $1 (`-` for the agent's AGENT_OPTION)
-# is on the current screen, its box-drawing characters stripped; 1 when it
-# is not; 2 when the screen could not be read.
+# is on the live part of the current screen (live_part), its box-drawing
+# characters stripped; 1 when it is not; 2 when the screen could not be
+# read.
 dialog_on_screen() {
   _dos_pattern=$1
   [ "$_dos_pattern" != - ] || _dos_pattern=${AGENT_OPTION:-}
   [ -n "$_dos_pattern" ] || return 1
   _dos_screen=$(capture_screen) || return 2
-  printf '%s\n' "$_dos_screen" | strip_box | grep -Eq -- "$_dos_pattern"
+  printf '%s\n' "$_dos_screen" | live_part | strip_box | grep -Eq -- "$_dos_pattern"
 }
 
 # Fail a step that reads a dialog when the screen could not be read:
@@ -189,11 +200,12 @@ answer_dialog() {
 }
 
 # The `choose` kind: read the open dialog's options, then press Down until
-# the highlighted line matches the step's pattern, leaving the Enter to the
-# next step. Return 2 with the reason in STEP_NOTE when no dialog is open
-# (no key sent), or when no option matches or the cursor ends on a line the
-# pattern does not match; then press Escape once (choose_missed_escape), so
-# the dialog is closed rather than left for a later key.
+# the highlighted line of the live part (live_part) matches the step's
+# pattern, leaving the Enter to the next step. Return 2 with the reason
+# in STEP_NOTE when no dialog is open (no key sent), or when no option
+# matches or the cursor ends on a line the pattern does not match; then
+# press Escape once (choose_missed_escape), so the dialog is closed rather
+# than left for a later key.
 choose_option() {
   dialog_on_screen -
   case $? in
@@ -208,18 +220,18 @@ choose_option() {
   esac
   read_options "$OPTION_PRESSES" || return 1
   _co_index=0
-  _co_line=$(printf '%s\n' "$_ret_first" | highlighted_line "${AGENT_OPTION:-}")
+  _co_line=$(printf '%s\n' "$_ret_first" | live_part | highlighted_line "${AGENT_OPTION:-}")
   while ! printf '%s\n' "$_co_line" | grep -Eq -- "$STEP_TEXT"; do
     _co_index=$((_co_index + 1))
     if [ "$_co_index" -ge "$_ret_options" ]; then
       choose_missed_escape "missed: no option matches $STEP_TEXT"
       return
     fi
-    _co_line=$(highlighted_line "${AGENT_OPTION:-}" \
-      <"$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_co_index.txt")
+    _co_line=$(live_part <"$CELL/screens/$STEP_NUMBER-$STEP_NAME.option-$_co_index.txt" |
+      highlighted_line "${AGENT_OPTION:-}")
   done
   press_times Down "$_co_index" || return 1
-  _co_line=$(capture_screen | highlighted_line "${AGENT_OPTION:-}")
+  _co_line=$(capture_screen | live_part | highlighted_line "${AGENT_OPTION:-}")
   STEP_NOTE="cursor on \"$_co_line\""
   printf '%s\n' "$_co_line" | grep -Eq -- "$STEP_TEXT" && return 0
   choose_missed_escape "missed: the cursor ended on \"$_co_line\", not $STEP_TEXT"
@@ -287,12 +299,12 @@ stop_after_reached() {
 
 # Return 0 when a dialog is open: the agent's AGENT_OPTION pattern (a
 # highlighted option) or AGENT_INPUT_GUARD pattern (an input dialog with no
-# option, such as a key prompt) shows on the screen, box-drawing characters
-# stripped; 1 when none does; 2 when the screen could not be read, which
-# is not the same as no dialog.
+# option, such as a key prompt) shows on the live part of the screen
+# (live_part), box-drawing characters stripped; 1 when none does; 2 when
+# the screen could not be read, which is not the same as no dialog.
 dialog_open() {
   _do_screen=$(capture_screen) || return 2
-  _do_screen=$(printf '%s\n' "$_do_screen" | strip_box)
+  _do_screen=$(printf '%s\n' "$_do_screen" | live_part | strip_box)
   for _do_pattern in "${AGENT_OPTION:-}" "${AGENT_INPUT_GUARD:-}"; do
     [ -n "$_do_pattern" ] || continue
     printf '%s\n' "$_do_screen" | grep -Eq -- "$_do_pattern" && return 0
@@ -439,9 +451,9 @@ missing_secrets() {
 # in the guest it is the argument of one short-lived tui-test process,
 # since `type` takes its text as an argument, and the agent's dialog may
 # echo it (lab/round/README.md, "The step table"). Nothing is typed, and
-# the step is missed, unless AGENT_INPUT_GUARD is set and shows on the
-# screen (the dialog that takes the credential), or while the choose_missed
-# mark blocks Enter (enter_allowed).
+# the step is missed, unless AGENT_INPUT_GUARD is set and shows on the live
+# part of the screen (the dialog that takes the credential), or while the
+# choose_missed mark blocks Enter (enter_allowed).
 send_secret() {
   if [ -z "${AGENT_INPUT_GUARD:-}" ]; then
     STEP_NOTE='no AGENT_INPUT_GUARD pattern to find the input dialog by'

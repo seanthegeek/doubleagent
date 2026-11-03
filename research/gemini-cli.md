@@ -586,7 +586,7 @@ trust changes", 0.66.0, 2026-11-01) deleted the first session file and began a n
 like other starts in a project that held an earlier session, wrote a summary line into one
 ([Session JSONL](#session-jsonl)); under
 `GEMINI_CLI_TRUSTED_FOLDERS_PATH` (2026-11-02) it did the same and redrew its banner and
-prompt.
+prompt below the old screen, the trust dialog's box left in the scrollback above them.
 `/clear` began a new session file in the same process and kept the old one, and
 `gemini --resume latest` appended to the file of the session it reopened. A short traceback
 paste and a long release-notes paste (0.66.0, 2026-11-02), each sent as one bracketed paste
@@ -1635,6 +1635,39 @@ either: its turns are the `clientHistory` items in display form.
   that still does not decode, or is not a JSON object, is one
   `parser: <file> is not a JSON object` row.
 
+The CLI draws its dialogs in place of its input box. A custom dialog, or a dialog of its dialog
+manager (folder trust, settings, model, sign-in and the API key prompt among them), replaces the
+composer
+([`cli/src/ui/layouts/DefaultAppLayout.tsx:86-94`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/layouts/DefaultAppLayout.tsx#L86-L94),
+[`cli/src/ui/components/DialogManager.tsx:138`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L138),
+[`cli/src/ui/components/DialogManager.tsx:230`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L230),
+[`cli/src/ui/components/DialogManager.tsx:241`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L241),
+[`cli/src/ui/components/DialogManager.tsx:297-306`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L297-L306),
+[`cli/src/ui/components/DialogManager.tsx:322-325`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/DialogManager.tsx#L322-L325)),
+and a tool or command confirmation hides the composer while it waits unless the setting
+`ui.collapseDrawerDuringApproval` is `false`
+([`cli/src/ui/components/Composer.tsx:85-87`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L85-L87),
+[`cli/src/ui/hooks/useComposerStatus.ts:99-100`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/hooks/useComposerStatus.ts#L99-L100),
+[`cli/src/config/settingsSchema.ts:742`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/config/settingsSchema.ts#L742)).
+The composer's input line opens with the prefix `> `, whether the input is empty or holds text;
+the prefix is `! ` in shell mode, `* ` in the YOLO approval mode and `(r:) ` during a reverse
+search
+([`cli/src/ui/components/InputPrompt.tsx:1838-1855`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/InputPrompt.tsx#L1838-L1855)), and shows the placeholder
+`Type your message or @path/to/file` only while the input is empty
+([`cli/src/ui/components/Composer.tsx:163-170`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/Composer.tsx#L163-L170),
+[`cli/src/ui/components/InputPrompt.tsx:1858`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/InputPrompt.tsx#L1858)); a past prompt in the history carries the
+same `> ` prefix
+([`cli/src/ui/components/messages/UserMessage.tsx:26-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/messages/UserMessage.tsx#L26-L27)).
+When a trust choice needs a restart, the folder trust dialog prints a restart notice below its
+options, the one quoted under [Transcript stores](#transcript-stores) with what the restart leaves
+on the screen
+([`cli/src/ui/components/FolderTrustDialog.tsx:299-304`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/FolderTrustDialog.tsx#L299-L304)) and, a quarter second later,
+exits with the relaunch code
+([`cli/src/ui/components/FolderTrustDialog.tsx:58-59`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/FolderTrustDialog.tsx#L58-L59),
+[`cli/src/utils/processUtils.ts:92-143`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/processUtils.ts#L92-L143)), on which the parent process starts the CLI
+again
+([`cli/src/utils/relaunch.ts:20-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/relaunch.ts#L20-L27),
+[`cli/src/utils/relaunch.ts:61`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/relaunch.ts#L61)).
 The dialogs behind these records on the Linux install, read in the four runs (0.66.0, 2026-11-01
 and 2026-11-02) unless a date is given:
 
@@ -1762,8 +1795,10 @@ directory changed
   2026-11-02) opened "Select Model" with `1. Auto` ("Let Gemini CLI
   decide the best model for the task: gemini-3.1-pro-preview, gemini-3.8-flash") and
   `2. Manual` ("Manually select a model"), the toggle "Remember model for future sessions: false
-  (Press Tab to toggle)", the hint "To use a specific Gemini model on startup, use the
-  --model flag" and, at its foot, "(Press Esc to close)" (2026-11-02); the footer shows
+  (Press Tab to toggle)", the hint, which the source draws below the options as
+  `> To use a specific Gemini model on startup, use the --model flag.`
+  ([`cli/src/ui/components/ModelDialog.tsx:380`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/components/ModelDialog.tsx#L380)),
+  and, at its foot, "(Press Esc to close)" (2026-11-02); the footer shows
   `/model Auto`. Before that, `/model ` typed with a trailing space (0.66.0, 2026-11-02) showed
   the completion list `manage` ("Opens a dialog to configure the model") and `set` ("Set the
   model to use. Usage: `/model set <model-name> [--persist]`"). Manual opens a second

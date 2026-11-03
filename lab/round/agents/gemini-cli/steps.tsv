@@ -93,7 +93,7 @@ NN	name	kind	text	expect	claim
 093	trusted-path	agent	GEMINI_CLI_TRUSTED_FOLDERS_PATH=$HOME/lab/trusted.json gemini	Trust folder	the trust dialog returns and the decision is written to trusted.json (research/gemini-cli.md#per-user-storage) (observed on 0.66.0, 2026-11-02)
 094	trusted-path-options	options	12	quiet	every option of the trust dialog, one screen per Down until the cursor wraps or stops, then back on the first
 095	trusted-path-trust	keys	Enter	quiet	~/lab/trusted.json is written, not ~/.gemini/trustedFolders.json (research/gemini-cli.md#per-user-storage) (observed on 0.66.0, 2026-11-02)
-096	trusted-path-question	prompt	what is 5 + 9?	-	the session lands under ~/.gemini as usual: the restart after the trust step wrote its session file under ~/.gemini/tmp/<slug>/chats/ (research/gemini-cli.md#transcript-stores) (observed on 0.66.0, 2026-11-02); the question itself was not typed, since the restart left the trust dialog in the scrollback
+096	trusted-path-question	prompt	what is 5 + 9?	-	the session lands under ~/.gemini as usual: the restart after the trust step wrote its session file under ~/.gemini/tmp/<slug>/chats/ (research/gemini-cli.md#transcript-stores) (observed on 0.66.0, 2026-11-02); the restart leaves the trust dialog's box in the scrollback above the free prompt (observed on 0.66.0, 2026-11-02)
 097	trusted-path-stop	stop	-	-	none: closes the terminal session
 098	collect-before-delete	collect	-	-	the collector's rows before the delete steps: no error rows, secret: true on every credential file
 099	list-sessions	command	gemini --list-sessions	-	the session index the delete takes
