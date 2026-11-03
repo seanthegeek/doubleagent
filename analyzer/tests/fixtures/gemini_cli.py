@@ -22,14 +22,37 @@ GEMINI_HASH = (
     "6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972"  # sha256("/srv/proj")
 )
 GEMINI_REL = ".gemini/tmp/proj/chats/session-2026-10-01T09-00-a1b2c3d4.jsonl"
+# The environment-context item every chat history opens with (environmentContext.ts).
+GEMINI_CONTEXT_TEXT = (
+    "<session_context>\nThis is the Gemini CLI. We are setting up the context for our chat.\n"
+    "My operating system is: linux\n</session_context>"
+)
+GEMINI_SESSION_CONTEXT = {"role": "user", "parts": [{"text": GEMINI_CONTEXT_TEXT}]}
+# A SessionStart hook's context, and a BeforeAgent hook's part added to a prompt.
+GEMINI_HOOK_TEXT = "<hook_context>Branch main is protected.</hook_context>"
+GEMINI_PROMPT_HOOK_TEXT = "<hook_context>Run npm test after edits.</hook_context>"
+# A compression summary as the compression prompt asks for it, and the reply the CLI adds.
+GEMINI_SNAPSHOT_TEXT = (
+    "<scratchpad>The user listed src and read util.ts.</scratchpad>\n<state_snapshot>\n"
+    "    <overall_goal>Review util.ts.</overall_goal>\n</state_snapshot>"
+)
+GEMINI_SNAPSHOT_REPLY = "Got it. Thanks for the additional context!"
+# The message the CLI adds when the person leaves plan mode with Shift+Tab.
+GEMINI_PLAN_EXIT_TEXT = (
+    "User has manually exited Plan Mode. Switching to Default mode (edits will require "
+    "confirmation)."
+)
 
 
 def gemini_session_records():
     """Session JSONL in the chatRecordingTypes.ts shapes.
 
-    A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume.
+    A re-appended message, $set, $rewindTo, $patch and a $set.sessionId from a resume, and the
+    `user` messages the CLI writes itself: the environment context, hook context, tool responses
+    with and without a result in their call, a compression summary and a plan-mode exit.
 
     Source: research/gemini-cli.md#session-jsonl; source 6814e00
+    Source: research/gemini-cli.md#context-rows; source 6814e00
     """
     timestamp_format = "2026-10-01T09:00:%s.000Z"
     ls_call = {
@@ -87,6 +110,15 @@ def gemini_session_records():
             }
         ],
     }
+    # A call whose result the file never records, answered by a tool-response message.
+    readme_call = {
+        "id": "read_file__read_file_1759309225000_0",
+        "name": "read_file",
+        "args": {"file_path": "/srv/proj/README.md"},
+        "status": "executing",
+        "timestamp": "2026-10-01T09:00:25.100Z",
+        "displayName": "ReadFile",
+    }
     return [
         {
             "sessionId": GEMINI_SESSION,
@@ -96,13 +128,31 @@ def gemini_session_records():
             "kind": "main",
         },
         {
+            "id": "msg-c1",
+            "timestamp": timestamp_format % "00",
+            "type": "user",
+            "content": [{"text": GEMINI_CONTEXT_TEXT}],
+        },
+        {
+            "id": "msg-h1",
+            "timestamp": timestamp_format % "01",
+            "type": "user",
+            "content": [{"text": GEMINI_HOOK_TEXT}],
+        },
+        {
             "id": "msg-u1",
             "timestamp": timestamp_format % "05",
             "type": "user",
-            "content": [{"text": "list files in src"}],
+            "content": [{"text": "list files in src"}, {"text": GEMINI_PROMPT_HOOK_TEXT}],
         },
         gemini_reply,
         dict(gemini_reply, toolCalls=[ls_done]),
+        {
+            "id": "msg-t1",
+            "timestamp": "2026-10-01T09:00:07.600Z",
+            "type": "user",
+            "content": ls_done["result"],
+        },
         {"$set": {"lastUpdated": timestamp_format % "08", "summary": "List src files"}},
         {
             "id": "msg-u2",
@@ -185,12 +235,58 @@ def gemini_session_records():
                 }
             ],
         },
+        {
+            "id": "msg-g5",
+            "timestamp": timestamp_format % "25",
+            "type": "gemini",
+            "content": "",
+            "model": "gemini-2.5-flash",
+            "toolCalls": [readme_call],
+        },
+        {
+            "id": "msg-t2",
+            "timestamp": timestamp_format % "26",
+            "type": "user",
+            "content": [
+                {
+                    "functionResponse": {
+                        "id": readme_call["id"],
+                        "name": "read_file",
+                        "response": {"output": "# proj"},
+                    }
+                }
+            ],
+        },
+        {
+            "id": "msg-s1",
+            "timestamp": timestamp_format % "40",
+            "type": "user",
+            "content": [{"text": GEMINI_SNAPSHOT_TEXT}],
+        },
+        {
+            "id": "msg-a1",
+            "timestamp": timestamp_format % "40",
+            "type": "gemini",
+            "content": [{"text": GEMINI_SNAPSHOT_REPLY}],
+        },
+        {
+            "id": "msg-p1",
+            "timestamp": timestamp_format % "45",
+            "type": "user",
+            "content": [{"text": GEMINI_PLAN_EXIT_TEXT}],
+        },
         {"$set": {"sessionId": GEMINI_RESUMED}},
         {
             "id": "msg-u4",
             "timestamp": "2026-10-01T09:01:00.000Z",
             "type": "user",
             "content": "resume work",
+        },
+        {
+            "id": "msg-u5",
+            "timestamp": "2026-10-01T09:01:05.000Z",
+            "type": "user",
+            "content": [{"text": "/help"}],
         },
     ]
 
@@ -495,16 +591,6 @@ GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:"
     "streamGenerateContent?alt=sse"
 )
-# The environment-context item every chat history opens with (environmentContext.ts).
-GEMINI_SESSION_CONTEXT = {
-    "role": "user",
-    "parts": [
-        {
-            "text": "<session_context>\nThis is the Gemini CLI. We are setting up the context "
-            "for our chat.\nMy operating system is: linux\n</session_context>"
-        }
-    ],
-}
 # The loop detector's internal prompt (loopDetectionService.ts), sent with a trimmed history.
 GEMINI_LOOP_PROMPT = "Please analyze the conversation history to determine the possibility"
 

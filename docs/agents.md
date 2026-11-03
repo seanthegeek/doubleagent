@@ -726,7 +726,11 @@ trustedFolders.<path>=<value> (from <file>, file mtime)` row per folder at
 the file's modification time with `project_path` the folder; a gemini
 message's `model` as `model: <id>` at a session's first and `model: <old>
 -> <new>` on each change; a tool call with status `cancelled` or
-`awaiting_approval` is followed by `permission decision: <status>`;
+`awaiting_approval` is followed by `permission decision: <status>`; a
+`user` text the CLI wrote itself (the environment context, a hook's
+context, a compression summary, the plan-mode exit notice, the directory
+and editor context) as a `context: <kind>:` row
+([Context rows](../research/gemini-cli.md#context-rows));
 `tmp/<slug>/shell_history` (the shell-mode commands),
 `tmp/<slug>/checkpoint-<tag>.json` (`/chat save`) and
 `tmp/<slug>/bug-report-history-<ms>.json` (`/bug`) as secondary sources
@@ -741,7 +745,8 @@ file's modification time; as secondary sources the tool checkpoints
 history sent) and an error report `gemini-client-error-<type>-<time>.json`
 the responder copied into `.gemini` or `.cache/.gemini`, or the
 `tmp/<slug>` directory of either (an `error report:` row, then the history
-sent), each without the environment-context item that opens the history;
+sent), the environment-context item that opens the history a `context:`
+row dropped when the session file holds it;
 the activity log at `tmp/<slug>/logs/session-<id>.jsonl` (the default path,
 which no caller writes; see
 [Activity log](../research/gemini-cli.md#activity-log)) as `console`,
