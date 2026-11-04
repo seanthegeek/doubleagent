@@ -992,7 +992,8 @@ file holds each response twice because `recordCompletedToolCalls` stores the cal
 parts as its `result` when the call completes, before the responses are sent
 ([`geminiChat.ts:1838-1871`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1838-L1871)). The second step of
 `updateMessagesFromHistory` then sets a call's `result` to every part of the `user` turn that
-answers it ([`chatRecordingService.ts:1488-1531`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1488-L1531)), but it
+answers it, and appends the same as a `$patch` `updates[]` element holding `id` and `toolCalls`
+([`chatRecordingService.ts:1488-1531`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1488-L1531)), but it
 runs only at `initialize`, `setHistory`, a rollback and the trailing-turn repairs
 ([`geminiChat.ts:456`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L456), [`826`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L826), [`837`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L837), [`897`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L897),
 [`926`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L926), [`1380`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1380), [`1402`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1402)).
@@ -2406,12 +2407,16 @@ response's `name` and `id` as `tool_name` and `tool_use_id`, its text as above) 
 `result` or a `status` of `error` or `cancelled` for that id; otherwise it gives no row, since
 the call's own `tool_result` row holds it (for a failed call, the `[error]` or `[cancelled]`
 row, beside which the CLI's made-up response to an interrupted call would be a second). A
-`result` a history sync rewrote holds the turn's other parts too, which the call's row then repeats
-(open work in [issue 444](https://github.com/seanthegeek/doubleagent/issues/444)). A text
-part in the same message, such as a steering update, gives its row before the `tool_result`
-rows. A `user` message with no text, media or response part gives an empty `user` row. In a
-history copy a `functionResponse` part is a `tool_result` row, which deduplication pairs on
-`tool_use_id`.
+`result` holding a `functionResponse` part whose `id` is the call's gives the call's
+`tool_result` row that response's text and the media parts after it up to the next
+`functionResponse`, nothing else, so a `result` the history sync of
+[Session JSONL](#session-jsonl) rewrote to the whole answering turn gives the call's own response;
+any other `result` (a string, `null`, parts with no response carrying the call's id) gives every
+part's text, joined, a media part in its `[inlineData <mimeType>]` or `[fileData <fileUri>]`
+form. A text part in the same
+message, such as a steering update, gives its row before the `tool_result` rows. A `user` message
+with no text, media or response part gives an empty `user` row. In a history copy a
+`functionResponse` part is a `tool_result` row, which deduplication pairs on `tool_use_id`.
 
 ## Confidence
 
