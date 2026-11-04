@@ -224,6 +224,7 @@ def gemini_session_records():
         "displayName": "Shell",
         "renderOutputAsMarkdown": False,
     }
+    turn_parts = [{"text": GEMINI_STEERING_TEXT}] + failed_call["result"] + denied_call["result"]
     return [
         {
             "sessionId": GEMINI_SESSION,
@@ -416,7 +417,21 @@ def gemini_session_records():
             "id": "msg-t6",
             "timestamp": "2026-10-01T09:01:05.300Z",
             "type": "user",
-            "content": failed_call["result"] + denied_call["result"],
+            "content": turn_parts,
+        },
+        # The history sync rewrote both calls' results to every part of the answering turn.
+        {
+            "$patch": {
+                "updates": [
+                    {
+                        "id": "msg-g6",
+                        "toolCalls": [
+                            {"id": failed_call["id"], "result": turn_parts},
+                            {"id": denied_call["id"], "result": turn_parts},
+                        ],
+                    }
+                ]
+            }
         },
     ]
 

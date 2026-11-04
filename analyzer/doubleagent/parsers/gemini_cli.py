@@ -22,12 +22,12 @@ depends on:
 - tool checkpoint `clientHistory`, `commitHash`, `toolCall`, `messageId`; error report `error`
   (`message`, `stack`), `context` (`requestContents`); `sandbox.toml` `modes`, `commands`.
 
-A `user` text the CLI writes itself with an opening of `CONTEXT_OPENINGS` is a `context: <kind>:`
-row. `project_path` is `tmp/<slug>/.project_root`, else the `projects.json` key of the slug,
-else the key whose sha256 is the hash directory or `projectHash`, else `projectHash`. Validated
-against google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020) with a synthetic
-fixture; v0.66.0 writes the same shapes, from lines a few earlier in `geminiChat.ts`,
-`client.ts`, `useGeminiStream.ts`, `AppContainer.tsx`, `gemini.tsx`. See `research/gemini-cli.md`.
+A `result` is read as the call's own `functionResponse` (by `id`) and its media when it holds one.
+A `user` text opening with a `CONTEXT_OPENINGS` entry is a `context: <kind>:` row. `project_path` is
+`tmp/<slug>/.project_root`, else the `projects.json` key of the slug, else the key whose sha256
+is the hash directory or `projectHash`, else `projectHash`. Validated against
+google-gemini/gemini-cli source at 6814e00 (0.67.0-nightly.20261020) with a synthetic fixture;
+v0.66.0 writes the same shapes, its source lines a few earlier. See `research/gemini-cli.md`.
 """
 
 from __future__ import annotations
@@ -311,12 +311,22 @@ def response_result_text(function_response: dict, media: list[str]) -> str:
     return "\n".join(chunk for chunk in (response_text(function_response), *media) if chunk)
 
 
-def result_text(result) -> str:
-    """Return the text of a tool call's `result`."""
+def result_text(result, call_id: str) -> str:
+    """Return the text of a tool call's `result`.
+
+    A `result` holding a `functionResponse` whose `id` is `call_id` gives that response's text
+    and the media after it, nothing else: a history sync rewrites `result` to every part of the
+    answering turn. Any other `result` gives every part's text, joined, a media part as its
+    `_media_text`.
+    """
     if result is None:
         return ""
     if isinstance(result, str):
         return result
+    _, responses = content_runs(result, classify=False)
+    for response, media in responses:
+        if str(response.get("id") or "") == call_id:
+            return response_result_text(response, media)
     texts = []
     for part in _parts(result):
         if isinstance(part, dict) and isinstance(part.get("functionResponse"), dict):
@@ -326,7 +336,8 @@ def result_text(result) -> str:
         elif isinstance(part, str):
             texts.append(part)
         else:
-            texts.append(compact_json(part))
+            media = _media_text(part) if isinstance(part, dict) else ""
+            texts.append(media or compact_json(part))
     return "\n".join(chunk for chunk in texts if chunk)
 
 
@@ -1475,7 +1486,7 @@ class GeminiCliParser(Parser):
             out.append(use)
             status = call.get("status") or ""
             if call.get("result") is not None or status in FAILED_STATUSES:
-                text = result_text(call.get("result"))
+                text = result_text(call.get("result"), call_id)
                 if status in FAILED_STATUSES:
                     text = "[%s] %s" % (status, text) if text else "[%s]" % status
                 result_row = row("tool_result", text, when)

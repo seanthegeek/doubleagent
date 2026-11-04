@@ -131,6 +131,7 @@ class GeminiCliTests(ParserBase):
                 (33, "tool_use", 'Shell: {"command":"make deploy"}'),
                 (33, "tool_result", "[cancelled] " + denied),
                 (33, "system", "permission decision: cancelled"),
+                (34, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
                 (8, "system", "summary: List src files"),
                 (13, "system", "rewind to msg-g2: 2 message(s) dropped"),
                 (14, "system", "rewind to msg-u2: 1 message(s) dropped"),
@@ -286,7 +287,7 @@ class GeminiCliTests(ParserBase):
             ],
         )
         # The session file still yields every row.
-        self.assertEqual(len(self.rows_for(GeminiCliParser(), self.REL)), 34)
+        self.assertEqual(len(self.rows_for(GeminiCliParser(), self.REL)), 35)
 
     def test_history(self):
         rows = self.rows_for(GeminiCliParser(), ".gemini/tmp/proj/logs.json")
@@ -319,7 +320,7 @@ class GeminiCliTests(ParserBase):
             [(0, "system", "parser: logs.json could not be read (Permission denied)", "/srv/proj")],
         )
         # The transcript beside it is still parsed.
-        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 34)
+        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 35)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_legacy_session_is_reported(self):
@@ -330,7 +331,7 @@ class GeminiCliTests(ParserBase):
             [(row.source_line, row.turn_type, row.text, row.project_path) for row in problems],
             [(0, "system", "parser: %s could not be read (Permission denied)" % name, "/srv/proj")],
         )
-        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 34)
+        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 35)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_standing_files_are_not_misread_as_wrong_shape(self):
@@ -348,7 +349,7 @@ class GeminiCliTests(ParserBase):
             ]
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(problems, [(0, "", text)], rel)
-            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 34)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 35)
 
     def test_project_fallbacks(self):
         base = self.home / ".gemini"
@@ -386,7 +387,7 @@ class GeminiCliTests(ParserBase):
         # The bad line is its own row, in full, with the session and
         # project; the rows before it and a line written after it survive.
         before = self.rows_for(GeminiCliParser(), self.REL)
-        self.assertEqual(len(before), 34)
+        self.assertEqual(len(before), 35)
         write_bad_line(self.home / self.REL)
         after = {
             "id": "msg-u9",
@@ -397,14 +398,14 @@ class GeminiCliTests(ParserBase):
         with open(self.home / self.REL, "a", encoding="utf-8") as handle:
             handle.write("\n" + json.dumps(after) + "\n")
         rows = self.rows_for(GeminiCliParser(), self.REL)
-        self.assertEqual(len(rows), 36)
-        added = [row for row in rows if row.source_line == 36]
+        self.assertEqual(len(rows), 37)
+        added = [row for row in rows if row.source_line == 37]
         self.assertEqual([(row.turn_type, row.text) for row in added], [("user", "after the cut")])
         self.assertEqual(
             [
                 (row.source_line, row.turn_type, row.text)
                 for row in rows[:-1]
-                if row.source_line != 36
+                if row.source_line != 37
             ],
             [(row.source_line, row.turn_type, row.text) for row in before],
         )
@@ -417,7 +418,7 @@ class GeminiCliTests(ParserBase):
                 rows[-1].text,
             ),
             (
-                35,
+                36,
                 "system",
                 GEMINI_RESUMED,  # the session id in force at the end of the file
                 before[-1].project_path,
@@ -1365,6 +1366,85 @@ class GeminiCliTests(ParserBase):
             [("tool_use", "c24"), ("tool_result", "c24")],
         )
 
+    def test_synced_result_gives_the_calls_own_response(self):
+        """A `result` the sync rewrote to the whole turn gives each call its own response.
+
+        An unsynced `result` (the call's response and its media) and one holding another call's
+        response only read their own parts, a media part in its `[inlineData ...]` form.
+        """
+        rel = ".gemini/tmp/proj/chats/%s/%s.jsonl" % (GEMINI_SESSION, GEMINI_SUBAGENT)
+
+        def response(call_id, output):
+            return {"functionResponse": {"id": call_id, "name": "read", "response": output}}
+
+        png = {"inlineData": {"mimeType": "image/png", "data": "iVBORw0K"}}
+        pdf = {"fileData": {"fileUri": "file:///srv/proj/b.pdf", "mimeType": "application/pdf"}}
+        turn = [
+            {"text": GEMINI_STEERING_TEXT},
+            response("c40", {"output": "one"}),
+            png,
+            response("c41", {"output": "two"}),
+            pdf,
+        ]
+        calls = [{"id": call_id, "name": "read", "args": {}} for call_id in ("c40", "c41", "c42")]
+        calls.append(
+            {"id": "c43", "name": "read", "args": {}, "result": [response("c43", "four"), png]}
+        )
+        records = [
+            {
+                "id": "x-g1",
+                "timestamp": "2026-10-01T09:00:40.000Z",
+                "type": "gemini",
+                "content": "",
+                "toolCalls": calls,
+            },
+            {
+                "$patch": {
+                    "updates": [
+                        {
+                            "id": "x-g1",
+                            "toolCalls": [
+                                {"id": "c40", "result": turn},
+                                {"id": "c41", "result": turn},
+                                {"id": "c42", "result": [response("c99", "other"), pdf]},
+                            ],
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "x-u1",
+                "timestamp": "2026-10-01T09:00:41.000Z",
+                "type": "user",
+                "content": turn,
+            },
+        ]
+        with open(self.home / rel, "a", encoding="utf-8") as handle:
+            for record in records:
+                handle.write(json.dumps(record) + "\n")
+        rows = self.rows_for(GeminiCliParser(), rel)
+        results = {
+            row.tool_use_id: row.text
+            for row in rows
+            if row.turn_type == "tool_result" and row.tool_use_id.startswith("c4")
+        }
+        self.assertEqual(
+            results,
+            {
+                "c40": "one\n[inlineData image/png]",
+                "c41": "two\n[fileData file:///srv/proj/b.pdf]",
+                # Another call's response is no match: every part's text stays.
+                "c42": "other\n[fileData file:///srv/proj/b.pdf]",
+                "c43": "four\n[inlineData image/png]",
+            },
+        )
+        last_line = max(row.source_line for row in rows)
+        user_rows = [row for row in rows if row.source_line == last_line]
+        self.assertEqual(
+            [(row.turn_type, row.text) for row in user_rows],
+            [("system", "context: steering_update: " + GEMINI_STEERING_TEXT)],
+        )
+
     def test_history_tool_response_media_joins_its_result(self):
         """A history item's media after a `functionResponse` joins that tool's result row."""
         self.sources()
@@ -1658,7 +1738,7 @@ class GeminiCliTests(ParserBase):
             ]
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(problems, [(0, "", text)], rel)
-            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 34)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 35)
 
 
 def _json_reason(text: str) -> str:
