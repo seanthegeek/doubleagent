@@ -749,9 +749,11 @@ writers [`chatRecordingService.ts:1064-1110`](https://github.com/google-gemini/g
 
 `toolCalls`, `thoughts`, `tokens` and `model` are on `gemini` messages only; `id` is a UUID and
 `timestamp` ISO 8601 from `toISOString()`. `content` is a `PartListUnion` (a string, a `Part` or
-a `Part[]`). A `gemini` message is written with `thoughts` (often `[]`), `tokens` (`null` until the
-usage arrives) and `model`, and written whole again whenever its tokens or tool calls change
-([`1086-1110`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1086-L1110),
+a `Part[]`). A `gemini` message is written with `thoughts` (often `[]`), `tokens` (the usage the
+stream buffered, which is flushed before the message is written, or `null` when the stream gave
+none) and `model`, and written whole again whenever its tokens or tool calls change
+([`geminiChat.ts:1795-1812`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1795-L1812);
+[`chatRecordingService.ts:1086-1110`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1086-L1110),
 [`1137-1166`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1137-L1166)).
 
 A `toolCalls[]` element
@@ -1794,11 +1796,9 @@ either: its turns are the `clientHistory` items in display form.
 
 - `permission decision: cancelled` (`system`, the call's `tool_name` and `tool_use_id`) after the
   `tool_result` row of a `toolCalls[]` element whose `status` is `cancelled`. The `[cancelled]`
-  (and `[error]`) prefix on the result row stays. The session file records a call only once it
-  is complete, with its `status` and, when its `result` holds the scheduler's response, the
-  cancellation reason ([Session JSONL](#session-jsonl)), so the result row tells a call the user
-  declined (`User denied execution.`) from one an abort cancelled
-  ([Format versions](#format-versions)); whether No or Escape declined it is not recorded. Since
+  (and `[error]`) prefix on the result row stays. The result row's cancellation reason
+  ([Session JSONL](#session-jsonl), [Format versions](#format-versions)) tells a call the user
+  declined from one an abort cancelled; whether No or Escape declined it is not recorded. Since
   0.58.0 a turn whose every call was cancelled is recorded and then rolled back, since the CLI
   sends the model no response for it: a `$rewindTo` or a `$patch` with `removeIds` drops the
   `gemini` message, as the Linux round saw ([Observed](#observed)), so the rows survive when
@@ -2201,12 +2201,14 @@ not parse gives no row.
 
 Session JSONL from `ChatRecordingService` (the metadata line from the start-up writer, a `user`
 message from `recordMessage`, a `gemini` message from `recordMessage` and written again by
-`recordToolCalls`, then the three update records; `tokens` is `null` until the usage arrives):
+`recordToolCalls`, which keeps the tokens of the first write, then the three update records; the
+`$set` of `lastUpdated` that follows each `recordMessage` and the tool-response `user` message
+before the `$set` shown are left out):
 
 ```json
 {"sessionId":"c4e1f0a2-5b6d-4e7f-8a9b-0c1d2e3f4a5b","projectHash":"3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b","startTime":"2026-10-30T14:02:11.402Z","lastUpdated":"2026-10-30T14:02:11.402Z","kind":"main"}
 {"id":"0b6f3c1e-2d4a-4f5b-9c6d-7e8f9a0b1c2d","timestamp":"2026-10-30T14:02:19.118Z","type":"user","content":[{"text":"which files are in src?"}]}
-{"id":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e","timestamp":"2026-10-30T14:02:22.740Z","type":"gemini","content":"Checking the directory.","thoughts":[{"subject":"Listing","description":"I will list the src directory.","timestamp":"2026-10-30T14:02:21.903Z"}],"tokens":null,"model":"gemini-2.5-flash"}
+{"id":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e","timestamp":"2026-10-30T14:02:22.740Z","type":"gemini","content":"Checking the directory.","thoughts":[{"subject":"Listing","description":"I will list the src directory.","timestamp":"2026-10-30T14:02:21.903Z"}],"tokens":{"input":2210,"output":31,"cached":0,"thoughts":44,"tool":0,"total":2285},"model":"gemini-2.5-flash"}
 {"id":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e","timestamp":"2026-10-30T14:02:22.740Z","type":"gemini","content":"Checking the directory.","thoughts":[{"subject":"Listing","description":"I will list the src directory.","timestamp":"2026-10-30T14:02:21.903Z"}],"tokens":{"input":2210,"output":31,"cached":0,"thoughts":44,"tool":0,"total":2285},"model":"gemini-2.5-flash","toolCalls":[{"id":"list_directory__list_directory_1793455342801_0","name":"list_directory","args":{"dir_path":"/srv/proj/src"},"result":[{"functionResponse":{"id":"list_directory__list_directory_1793455342801_0","name":"list_directory","response":{"output":"index.ts\nutil.ts"}}}],"status":"success","timestamp":"2026-10-30T14:02:23.015Z","resultDisplay":{"summary":"Found 2 item(s).","files":["index.ts","util.ts"]},"description":"src","displayName":"ReadFolder","renderOutputAsMarkdown":true}]}
 {"$set":{"lastUpdated":"2026-10-30T14:02:23.020Z"}}
 {"$patch":{"id":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e","toolCalls":[{"id":"list_directory__list_directory_1793455342801_0","result":null}]}}

@@ -24,6 +24,7 @@ from fixtures import (
     GEMINI_ACTIVITY_REL,
     GEMINI_BUG_MS,
     GEMINI_BUG_REL,
+    GEMINI_CANCELLED_ERROR,
     GEMINI_CHECKPOINT_REL,
     GEMINI_CLIPBOARD_MS,
     GEMINI_CLIPBOARD_REL,
@@ -108,30 +109,31 @@ class GeminiCliTests(ParserBase):
                 (6, "assistant", "Listing now."),
                 (6, "tool_use", 'ReadFolder: {"dir_path":"/srv/proj/src"}'),
                 (6, "tool_result", "main.ts\nutil.ts"),
-                (12, "user", "show util.ts"),
-                (13, "assistant", "Here is util.ts."),
-                (13, "tool_use", 'ReadFile: {"file_path":"/srv/proj/src/util.ts"}'),
-                (13, "tool_result", "export const x = 1"),
-                (15, "system", "info: Request cancelled."),
-                (16, "system", "model: gemini-2.5-pro -> gemini-2.5-flash"),
-                (16, "tool_use", 'Shell: {"command":"curl http://x"}'),
-                (16, "tool_result", "[cancelled]"),
-                (16, "system", "permission decision: cancelled"),
-                (18, "tool_use", 'ReadFile: {"file_path":"/srv/proj/README.md"}'),
-                (20, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
-                (20, "tool_result", "# proj"),
-                (21, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
-                (22, "assistant", GEMINI_SNAPSHOT_REPLY),
-                (23, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
-                (25, "user", "resume work"),
-                (27, "system", "model: gemini-2.5-flash"),
-                (27, "tool_use", 'ReadFile: {"file_path":"/srv/proj/missing.ts"}'),
-                (27, "tool_result", "[error] File not found: /srv/proj/missing.ts"),
-                (27, "tool_use", 'Shell: {"command":"make deploy"}'),
-                (27, "tool_result", "[cancelled] " + denied),
-                (27, "system", "permission decision: cancelled"),
+                (15, "user", "show util.ts"),
+                (17, "assistant", "Here is util.ts."),
+                (17, "tool_use", 'ReadFile: {"file_path":"/srv/proj/src/util.ts"}'),
+                (17, "tool_result", "export const x = 1"),
+                (19, "system", "info: Request cancelled."),
+                (21, "system", "model: gemini-2.5-pro -> gemini-2.5-flash"),
+                (21, "tool_use", 'Shell: {"command":"curl http://x"}'),
+                (21, "tool_result", "[cancelled] " + GEMINI_CANCELLED_ERROR),
+                (21, "system", "permission decision: cancelled"),
+                (24, "tool_use", 'ReadFile: {"file_path":"/srv/proj/README.md"}'),
+                (26, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
+                (26, "tool_result", "# proj"),
+                (27, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
+                (28, "assistant", GEMINI_SNAPSHOT_REPLY),
+                (29, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
+                (31, "user", "resume work"),
+                (33, "system", "model: gemini-2.5-flash"),
+                (33, "tool_use", 'ReadFile: {"file_path":"/srv/proj/missing.ts"}'),
+                (33, "tool_result", "[error] File not found: /srv/proj/missing.ts"),
+                (33, "tool_use", 'Shell: {"command":"make deploy"}'),
+                (33, "tool_result", "[cancelled] " + denied),
+                (33, "system", "permission decision: cancelled"),
                 (8, "system", "summary: List src files"),
-                (11, "system", "rewind to msg-u2: 2 message(s) dropped"),
+                (13, "system", "rewind to msg-g2: 2 message(s) dropped"),
+                (14, "system", "rewind to msg-u2: 1 message(s) dropped"),
             ],
         )
         for row in rows:
@@ -144,11 +146,11 @@ class GeminiCliTests(ParserBase):
             (model1.model, model1.timestamp_utc, model1.session_id),
             ("gemini-2.5-pro", "2026-10-01T09:00:07.000Z", GEMINI_SESSION),
         )
-        model2 = by_text[(16, "model: gemini-2.5-pro -> gemini-2.5-flash")]
+        model2 = by_text[(21, "model: gemini-2.5-pro -> gemini-2.5-flash")]
         self.assertEqual(
             (model2.model, model2.timestamp_utc), ("gemini-2.5-flash", "2026-10-01T09:00:24.000Z")
         )
-        decision = by_text[(16, "permission decision: cancelled")]
+        decision = by_text[(21, "permission decision: cancelled")]
         self.assertEqual(
             (decision.tool_name, decision.tool_use_id, decision.timestamp_utc),
             (
@@ -187,22 +189,22 @@ class GeminiCliTests(ParserBase):
         # The tool-response messages whose call holds a result or a failed status give no row,
         # so each of those calls has one result row; the one whose call's result a `$patch`
         # cleared gives the result row, joined on the call's id.
-        self.assertFalse([row for row in rows if row.source_line in (7, 17)])
+        self.assertFalse([row for row in rows if row.source_line in (7, 22)])
         results = [row.tool_use_id for row in rows if row.turn_type == "tool_result"]
         self.assertEqual(sorted(results), sorted(set(results)))
-        readme = by_text[(20, "# proj")]
+        readme = by_text[(26, "# proj")]
         self.assertEqual(
             (readme.tool_name, readme.tool_use_id, readme.timestamp_utc, readme.model),
             ("read_file", readme_id, "2026-10-01T09:00:26.000Z", ""),
         )
-        readme_call = by_text[(18, 'ReadFile: {"file_path":"/srv/proj/README.md"}')]
+        readme_call = by_text[(24, 'ReadFile: {"file_path":"/srv/proj/README.md"}')]
         self.assertEqual(readme_call.tool_use_id, readme_id)
         self.assertNotIn("delete everything", " ".join(row.text for row in rows))  # rewound
-        self.assertEqual(by_text[(22, GEMINI_SNAPSHOT_REPLY)].model, "")
+        self.assertEqual(by_text[(28, GEMINI_SNAPSHOT_REPLY)].model, "")
         self.assertEqual(
-            by_text[(25, "resume work")].session_id, GEMINI_RESUMED
+            by_text[(31, "resume work")].session_id, GEMINI_RESUMED
         )  # $set.sessionId on resume
-        self.assertEqual(by_text[(13, "Here is util.ts.")].session_id, GEMINI_SESSION)
+        self.assertEqual(by_text[(17, "Here is util.ts.")].session_id, GEMINI_SESSION)
         summary = by_text[(8, "summary: List src files")]
         self.assertEqual(summary.timestamp_utc, "2026-10-01T09:00:08.000Z")
 
@@ -284,7 +286,7 @@ class GeminiCliTests(ParserBase):
             ],
         )
         # The session file still yields every row.
-        self.assertEqual(len(self.rows_for(GeminiCliParser(), self.REL)), 33)
+        self.assertEqual(len(self.rows_for(GeminiCliParser(), self.REL)), 34)
 
     def test_history(self):
         rows = self.rows_for(GeminiCliParser(), ".gemini/tmp/proj/logs.json")
@@ -317,7 +319,7 @@ class GeminiCliTests(ParserBase):
             [(0, "system", "parser: logs.json could not be read (Permission denied)", "/srv/proj")],
         )
         # The transcript beside it is still parsed.
-        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 33)
+        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 34)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_legacy_session_is_reported(self):
@@ -328,7 +330,7 @@ class GeminiCliTests(ParserBase):
             [(row.source_line, row.turn_type, row.text, row.project_path) for row in problems],
             [(0, "system", "parser: %s could not be read (Permission denied)" % name, "/srv/proj")],
         )
-        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 33)
+        self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 34)
 
     @unittest.skipUnless(CAN_DENY, DENY_REASON)
     def test_unreadable_standing_files_are_not_misread_as_wrong_shape(self):
@@ -346,7 +348,7 @@ class GeminiCliTests(ParserBase):
             ]
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(problems, [(0, "", text)], rel)
-            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 33)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 34)
 
     def test_project_fallbacks(self):
         base = self.home / ".gemini"
@@ -384,7 +386,7 @@ class GeminiCliTests(ParserBase):
         # The bad line is its own row, in full, with the session and
         # project; the rows before it and a line written after it survive.
         before = self.rows_for(GeminiCliParser(), self.REL)
-        self.assertEqual(len(before), 33)
+        self.assertEqual(len(before), 34)
         write_bad_line(self.home / self.REL)
         after = {
             "id": "msg-u9",
@@ -395,14 +397,14 @@ class GeminiCliTests(ParserBase):
         with open(self.home / self.REL, "a", encoding="utf-8") as handle:
             handle.write("\n" + json.dumps(after) + "\n")
         rows = self.rows_for(GeminiCliParser(), self.REL)
-        self.assertEqual(len(rows), 35)
-        added = [row for row in rows if row.source_line == 30]
+        self.assertEqual(len(rows), 36)
+        added = [row for row in rows if row.source_line == 36]
         self.assertEqual([(row.turn_type, row.text) for row in added], [("user", "after the cut")])
         self.assertEqual(
             [
                 (row.source_line, row.turn_type, row.text)
                 for row in rows[:-1]
-                if row.source_line != 30
+                if row.source_line != 36
             ],
             [(row.source_line, row.turn_type, row.text) for row in before],
         )
@@ -415,7 +417,7 @@ class GeminiCliTests(ParserBase):
                 rows[-1].text,
             ),
             (
-                29,
+                35,
                 "system",
                 GEMINI_RESUMED,  # the session id in force at the end of the file
                 before[-1].project_path,
@@ -655,6 +657,56 @@ class GeminiCliTests(ParserBase):
                 ("2026-10-02T10:00:00.000Z", session_id, worktree, 1),
                 worktree,
             )
+
+    def test_cancelled_call_without_response_of_an_older_build(self):
+        """A build before 0.65.0 recorded a cancelled call with a null or empty `result`."""
+        session_id = "d4e5f6a7-0000-4000-8000-000000000005"
+        calls = [
+            {
+                "id": "run_shell_command__run_shell_command_1759395605000_%d" % index,
+                "name": "run_shell_command",
+                "args": {"command": "make %d" % index},
+                "result": result,
+                "status": "cancelled",
+                "timestamp": "2026-10-02T10:00:05.000Z",
+                "displayName": "Shell",
+            }
+            for index, result in enumerate((None, []))
+        ]
+        records = [
+            {
+                "sessionId": session_id,
+                "projectHash": GEMINI_HASH,
+                "startTime": "2026-10-02T10:00:00.000Z",
+                "lastUpdated": "2026-10-02T10:00:00.000Z",
+            },
+            {
+                "id": "o-g1",
+                "timestamp": "2026-10-02T10:00:05.000Z",
+                "type": "gemini",
+                "content": "",
+                "model": "gemini-2.5-pro",
+                "toolCalls": calls,
+            },
+        ]
+        rel = ".gemini/tmp/proj/chats/session-2026-10-02T10-00-d4e5f6a7.jsonl"
+        (self.home / rel).write_text(
+            "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+        )
+        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+        rows = self.rows_for(GeminiCliParser(), rel)
+        self.assertEqual(
+            [(row.turn_type, row.text, row.tool_use_id) for row in rows if row.tool_use_id],
+            [
+                (kind, text, call["id"])
+                for call in calls
+                for kind, text in (
+                    ("tool_use", 'Shell: {"command":"%s"}' % call["args"]["command"]),
+                    ("tool_result", "[cancelled]"),
+                    ("system", "permission decision: cancelled"),
+                )
+            ],
+        )
 
     def test_project_settings_and_policy(self):
         # A project's .gemini/settings.json and workspace policy file: the
@@ -1606,7 +1658,7 @@ class GeminiCliTests(ParserBase):
             ]
             text = "parser: %s could not be read (Permission denied)" % rel.split("/")[-1]
             self.assertEqual(problems, [(0, "", text)], rel)
-            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 33)
+            self.assertEqual(len([row for row in rows if row.source_file.endswith(self.REL)]), 34)
 
 
 def _json_reason(text: str) -> str:
