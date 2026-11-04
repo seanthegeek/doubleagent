@@ -887,8 +887,15 @@ The `$patch` object:
 | `removeIds` | array | | |
 | `orderIds` | array | | |
 
-A `$patch` `toolCalls[]` element holds `id` and `result`, and an `updates[]` element `id`,
-`content` and `toolCalls`.
+Every `$patch` a build writes carries `updates` (each element `id` with `content`, `toolCalls`
+or both, a `toolCalls[]` element holding `id` and `result`), `removeIds` or `orderIds`, since
+the record's first writer
+([`chatRecordingService.ts:1577-1587`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1577-L1587),
+[`1496-1506` at `d1cc08a`](https://github.com/google-gemini/gemini-cli/blob/d1cc08a8a1898df5b8b0b332b8c6e9b67e7dca9b/packages/core/src/services/chatRecordingService.ts#L1496-L1506)). The top-level
+`id`, `content` and `toolCalls` keys exist in the record type
+([`chatRecordingTypes.ts:138-147`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingTypes.ts#L138-L147)) and the reader, which
+applies them like an `updates[]` element
+([`chatRecordingService.ts:343-355`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L343-L355)); no writer sets them.
 
 The writer records model text only as `content`
 ([`geminiChat.ts:1808-1812`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/core/geminiChat.ts#L1808-L1812)), tool calls
@@ -1692,6 +1699,9 @@ No file carries a version field. The shapes changed in these ways:
   ([Session JSONL](#session-jsonl)), and the calls left in the model's last turn when Ctrl-C
   interrupts it are recorded as cancelled calls with that response; before, such a call's
   `result` was `null` or an empty array, and an interrupted turn's calls were not recorded.
+- The `$patch` record exists since `v0.65.0`, commit
+  [`d1cc08a`](https://github.com/google-gemini/gemini-cli/commit/d1cc08a8a1898df5b8b0b332b8c6e9b67e7dca9b)
+  (2026-10-01), which keeps what [Session JSONL](#session-jsonl) says every build writes in it.
 - The shadow repository's `.gitconfig` `[core] excludesFile` entry and its `.git/info/exclude`
   copy were added in commit
   [`0df3daa`](https://github.com/google-gemini/gemini-cli/commit/0df3daa9f90785e2eac7eaef4c997d5b44b7ac6e)
@@ -2202,9 +2212,13 @@ not parse gives no row.
 
 Session JSONL from `ChatRecordingService` (the metadata line from the start-up writer, a `user`
 message from `recordMessage`, a `gemini` message from `recordMessage` and written again by
-`recordToolCalls`, which keeps the tokens of the first write, then the three update records; the
-`$set` of `lastUpdated` that follows each `recordMessage` and the tool-response `user` message
-before the `$set` shown are left out):
+`recordToolCalls`, which keeps the tokens of the first write, then the three update records, the
+`$patch` being the one the history sync writes when the answering turn differs from the recorded
+`result`, here by a steering text
+([`chatRecordingService.ts:1488-1531`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1488-L1531),
+[`1577-1587`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/services/chatRecordingService.ts#L1577-L1587)); the `$set` of `lastUpdated` that follows
+each `recordMessage` and the tool-response `user` message before the `$set` shown, the steering
+text and the response, are left out):
 
 ```json
 {"sessionId":"c4e1f0a2-5b6d-4e7f-8a9b-0c1d2e3f4a5b","projectHash":"3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b","startTime":"2026-10-30T14:02:11.402Z","lastUpdated":"2026-10-30T14:02:11.402Z","kind":"main"}
@@ -2212,7 +2226,7 @@ before the `$set` shown are left out):
 {"id":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e","timestamp":"2026-10-30T14:02:22.740Z","type":"gemini","content":"Checking the directory.","thoughts":[{"subject":"Listing","description":"I will list the src directory.","timestamp":"2026-10-30T14:02:21.903Z"}],"tokens":{"input":2210,"output":31,"cached":0,"thoughts":44,"tool":0,"total":2285},"model":"gemini-2.5-flash"}
 {"id":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e","timestamp":"2026-10-30T14:02:22.740Z","type":"gemini","content":"Checking the directory.","thoughts":[{"subject":"Listing","description":"I will list the src directory.","timestamp":"2026-10-30T14:02:21.903Z"}],"tokens":{"input":2210,"output":31,"cached":0,"thoughts":44,"tool":0,"total":2285},"model":"gemini-2.5-flash","toolCalls":[{"id":"list_directory__list_directory_1793455342801_0","name":"list_directory","args":{"dir_path":"/srv/proj/src"},"result":[{"functionResponse":{"id":"list_directory__list_directory_1793455342801_0","name":"list_directory","response":{"output":"index.ts\nutil.ts"}}}],"status":"success","timestamp":"2026-10-30T14:02:23.015Z","resultDisplay":{"summary":"Found 2 item(s).","files":["index.ts","util.ts"]},"description":"src","displayName":"ReadFolder","renderOutputAsMarkdown":true}]}
 {"$set":{"lastUpdated":"2026-10-30T14:02:23.020Z"}}
-{"$patch":{"id":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e","toolCalls":[{"id":"list_directory__list_directory_1793455342801_0","result":null}]}}
+{"$patch":{"updates":[{"id":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e","toolCalls":[{"id":"list_directory__list_directory_1793455342801_0","result":[{"text":"User steering update:\n<user_input>\nalso list tests\n</user_input>\nInternal instruction: Re-evaluate the active plan using this user steering update."},{"functionResponse":{"id":"list_directory__list_directory_1793455342801_0","name":"list_directory","response":{"output":"index.ts\nutil.ts"}}}]}]}]}}
 {"$rewindTo":"5d2e9a7b-8c1f-4a3e-b6d0-1f2a3b4c5d6e"}
 ```
 

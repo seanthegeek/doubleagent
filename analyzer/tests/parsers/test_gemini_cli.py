@@ -119,19 +119,19 @@ class GeminiCliTests(ParserBase):
                 (21, "tool_result", "[cancelled] " + GEMINI_CANCELLED_ERROR),
                 (21, "system", "permission decision: cancelled"),
                 (24, "tool_use", 'ReadFile: {"file_path":"/srv/proj/README.md"}'),
-                (26, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
-                (26, "tool_result", "# proj"),
-                (27, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
-                (28, "assistant", GEMINI_SNAPSHOT_REPLY),
-                (29, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
-                (31, "user", "resume work"),
-                (33, "system", "model: gemini-2.5-flash"),
-                (33, "tool_use", 'ReadFile: {"file_path":"/srv/proj/missing.ts"}'),
-                (33, "tool_result", "[error] File not found: /srv/proj/missing.ts"),
-                (33, "tool_use", 'Shell: {"command":"make deploy"}'),
-                (33, "tool_result", "[cancelled] " + denied),
-                (33, "system", "permission decision: cancelled"),
-                (34, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
+                (24, "tool_result", "# proj"),
+                (25, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
+                (26, "system", "context: state_snapshot: " + GEMINI_SNAPSHOT_TEXT),
+                (27, "assistant", GEMINI_SNAPSHOT_REPLY),
+                (28, "system", "context: plan_mode_exit: " + GEMINI_PLAN_EXIT_TEXT),
+                (30, "user", "resume work"),
+                (32, "system", "model: gemini-2.5-flash"),
+                (32, "tool_use", 'ReadFile: {"file_path":"/srv/proj/missing.ts"}'),
+                (32, "tool_result", "[error] File not found: /srv/proj/missing.ts"),
+                (32, "tool_use", 'Shell: {"command":"make deploy"}'),
+                (32, "tool_result", "[cancelled] " + denied),
+                (32, "system", "permission decision: cancelled"),
+                (33, "system", "context: steering_update: " + GEMINI_STEERING_TEXT),
                 (8, "system", "summary: List src files"),
                 (13, "system", "rewind to msg-g2: 2 message(s) dropped"),
                 (14, "system", "rewind to msg-u2: 1 message(s) dropped"),
@@ -187,23 +187,23 @@ class GeminiCliTests(ParserBase):
         )
         lsout = by_text[(6, "main.ts\nutil.ts")]
         self.assertEqual(lsout.tool_use_id, "list_directory__list_directory_1759309207000_0")
-        # The tool-response messages whose call holds a result or a failed status give no row,
-        # so each of those calls has one result row; the one whose call's result a `$patch`
-        # cleared gives the result row, joined on the call's id.
+        # The tool-response messages whose call holds a result or a failed status give no result
+        # row, so each of those calls has one result row, joined on the call's id; the steering
+        # text beside the response in the message at line 25 keeps its `context:` row.
         self.assertFalse([row for row in rows if row.source_line in (7, 22)])
         results = [row.tool_use_id for row in rows if row.turn_type == "tool_result"]
         self.assertEqual(sorted(results), sorted(set(results)))
-        readme = by_text[(26, "# proj")]
+        readme = by_text[(24, "# proj")]
         self.assertEqual(
             (readme.tool_name, readme.tool_use_id, readme.timestamp_utc, readme.model),
-            ("read_file", readme_id, "2026-10-01T09:00:26.000Z", ""),
+            ("read_file", readme_id, "2026-10-01T09:00:25.100Z", "gemini-2.5-flash"),
         )
         readme_call = by_text[(24, 'ReadFile: {"file_path":"/srv/proj/README.md"}')]
         self.assertEqual(readme_call.tool_use_id, readme_id)
         self.assertNotIn("delete everything", " ".join(row.text for row in rows))  # rewound
-        self.assertEqual(by_text[(28, GEMINI_SNAPSHOT_REPLY)].model, "")
+        self.assertEqual(by_text[(27, GEMINI_SNAPSHOT_REPLY)].model, "")
         self.assertEqual(
-            by_text[(31, "resume work")].session_id, GEMINI_RESUMED
+            by_text[(30, "resume work")].session_id, GEMINI_RESUMED
         )  # $set.sessionId on resume
         self.assertEqual(by_text[(17, "Here is util.ts.")].session_id, GEMINI_SESSION)
         summary = by_text[(8, "summary: List src files")]
@@ -399,13 +399,13 @@ class GeminiCliTests(ParserBase):
             handle.write("\n" + json.dumps(after) + "\n")
         rows = self.rows_for(GeminiCliParser(), self.REL)
         self.assertEqual(len(rows), 37)
-        added = [row for row in rows if row.source_line == 37]
+        added = [row for row in rows if row.source_line == 36]
         self.assertEqual([(row.turn_type, row.text) for row in added], [("user", "after the cut")])
         self.assertEqual(
             [
                 (row.source_line, row.turn_type, row.text)
                 for row in rows[:-1]
-                if row.source_line != 37
+                if row.source_line != 36
             ],
             [(row.source_line, row.turn_type, row.text) for row in before],
         )
@@ -418,7 +418,7 @@ class GeminiCliTests(ParserBase):
                 rows[-1].text,
             ),
             (
-                36,
+                35,
                 "system",
                 GEMINI_RESUMED,  # the session id in force at the end of the file
                 before[-1].project_path,

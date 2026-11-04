@@ -153,8 +153,8 @@ def gemini_session_records():
             }
         ],
     }
-    # A completed call whose `result` a later `$patch` clears, then answered by a tool-response
-    # message; the made-up response to an interrupted call follows the cancelled one.
+    # A completed call whose response the CLI also records in the tool-response message beside a
+    # steering text; the made-up response to an interrupted call follows the cancelled one.
     readme_response = {
         "functionResponse": {
             "id": "read_file__read_file_1759309225000_0",
@@ -309,6 +309,7 @@ def gemini_session_records():
         },
         draft_reply,
         dict(draft_reply, toolCalls=[read_file_call]),
+        # A top-level `$patch`: the form the reader accepts, which no build writes.
         {
             "$patch": {
                 "id": "msg-g3",
@@ -376,7 +377,6 @@ def gemini_session_records():
         },
         readme_reply,
         dict(readme_reply, toolCalls=[readme_call]),
-        {"$patch": {"id": "msg-g5", "toolCalls": [{"id": readme_call["id"], "result": None}]}},
         {
             "id": "msg-t2",
             "timestamp": timestamp_format % "26",
