@@ -215,7 +215,7 @@ alice          /home/alice                      codex-cli                 8     
 alice          /home/alice                      cursor                   11       100667  yes
 alice          /home/alice                      aider                     4         1379  yes
 alice          /home/alice                      amp                       1           96  detect only
-bob            /home/bob                        gemini-cli               17        20471  yes
+bob            /home/bob                        gemini-cli               17        20363  yes
 bob            /home/bob                        ollama                    6          300  yes
 
 project                                  users          agent                 files        bytes  parser
@@ -302,7 +302,7 @@ example is the output of `detect --json` on
         {
           "agent": "gemini-cli",
           "files": 17,
-          "bytes": 20471,
+          "bytes": 20363,
           "parser": true
         },
         {
@@ -679,7 +679,7 @@ rather than as projects:
         {
           "agent": "gemini-cli",
           "files": 17,
-          "bytes": 20471,
+          "bytes": 20363,
           "parser": true,
           "synced_sessions": 0,
           "relayed_sessions": 0,
