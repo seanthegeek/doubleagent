@@ -2955,16 +2955,18 @@ if ($zshLinkOk) {
 }
 Check '#454 the sweep gives a startup file its hints once' { (HintsFrom $envScanSummary 'Users/alice/.bash_profile').Count -eq 1 -and (HintsFrom $envScanSummary 'proj/.envrc').Count -eq 1 -and @(HintsFrom $envScanSummary 'Users/alice/.bashrc').Count -eq @(HintsFrom $defaultRunSummary 'Users/alice/.bashrc').Count }
 # One more startup file and one more file only the sweep reaches add one searched file each:
-# the sweep leaves out the startup files already searched. Written without MakeFile, which
-# would expect them to stay.
+# the sweep leaves out the startup files already searched. Both are removed after the run,
+# and from the list Test-Made checks.
 $onceFiles = @('Users/alice/.bashrc.d/once.sh', 'Users/alice/work/once.sh')
-foreach ($onceFile in $onceFiles) {
-  [System.IO.File]::WriteAllText((ExtendedPath (ImagePath $onceFile)), "export CODEX_HOME=/opt/x`n")
-}
+MakeFile 'Users/alice/.bashrc.d/once.sh' "export CODEX_HOME=/opt/x`n"
+MakeFile 'Users/alice/work/once.sh' "export CODEX_HOME=/opt/x`n"
 Run 'envscanonce' @{ EnvScanHome = $true }
 $envScanOnceSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 Check '#454 the sweep counts each file it searches once' { $envScanOnceSummary.relocation.files_searched -eq ($envScanSummary.relocation.files_searched + 2) -and (HintsFrom $envScanOnceSummary $onceFiles[0]).Count -eq 1 -and (HintsFrom $envScanOnceSummary $onceFiles[1]).Count -eq 1 }
-foreach ($onceFile in $onceFiles) { Remove-Item -LiteralPath (ImagePath $onceFile) -Force }
+foreach ($onceFile in $onceFiles) {
+  Remove-Item -LiteralPath (ImagePath $onceFile) -Force
+  [void]$script:Made.Remove((ExtendedPath (ImagePath $onceFile)))
+}
 Run 'envscanbad' @{ EnvScanMaxSizeMB = 'x' }
 Check '#454 an invalid sweep size limit exits 1' { $script:ExitCode -eq 1 -and $script:stdout -match 'Invalid -EnvScanMaxSizeMB' }
 
