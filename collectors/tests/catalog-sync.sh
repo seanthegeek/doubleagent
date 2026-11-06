@@ -11,14 +11,12 @@ PS_COLLECTOR="$HERE/../Collect-AgentArtifacts.ps1"
 ANALYZER_COPY="$HERE/../../analyzer/doubleagent/catalog.txt"
 fail=0
 
-# sh_table NAME -> lines of the sh table (blank lines dropped), with each quote
-# written '\'' inside the single-quoted string read back as the one quote it stands for
-sh_table() {
+sh_table() { # sh_table NAME -> lines of the sh table (blank lines dropped)
   if [ "$1" = SECRET_GLOBS ]; then
     sed -n "/^SECRET_GLOBS='/,/'\$/p" "$SH_COLLECTOR" | sed "1s/^SECRET_GLOBS='//; \$s/'\$//"
   else
     sed -n "/^$1='\$/,/^'\$/p" "$SH_COLLECTOR" | sed '1d;$d'
-  fi | sed "s/'\\\\''/'/g" | grep -v '^$'
+  fi | grep -v '^$'
 }
 ps_table() { # ps_table NAME -> lines of the PowerShell here-string
   sed -n "/^\$$1 = @'/,/^'@/p" "$PS_COLLECTOR" | sed '1d;$d' | tr -d '\r' | grep -v '^$'

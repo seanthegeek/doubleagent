@@ -2242,10 +2242,10 @@ nanobot|*nanobot*
 
 # Environment variables that move agent state, agent|VARIABLE|replaces.
 $RELOCATION_VARS = @'
-# Environment variables that move an agent's state, agent|VARIABLE|replaces, where
-# replaces is the home-relative path the value stands in for (empty when the
-# variable adds a store with no default under the home). The agent's research
-# document lists each variable under "Relocation variables"; a shared line is a
+# Environment variables that move the state of an agent, agent|VARIABLE|replaces,
+# where replaces is the home-relative path the value stands in for (empty when the
+# variable adds a store with no default under the home). The research document of
+# the agent lists each variable under "Relocation variables"; a shared line is a
 # variable many programs honour, a weaker hint. The startup files below are
 # searched for these names; a value is never evaluated.
 agent-zero|A0_COMPUTER_USE_HOST_ARTIFACT_ROOT|
@@ -2412,7 +2412,7 @@ shared|ZSH_CUSTOM|
 
 # Startup and environment files searched for them, scope|glob.
 $STARTUP_FILES = @'
-# Files that set a user's or the system's environment, scope|glob: home (relative
+# Files that set the environment of a user or of the system, scope|glob: home (relative
 # to each home), system (absolute; under the root in image mode) or project
 # (relative to each discovered project). research/shared.md, "Startup and
 # environment files", names each one with its source.
