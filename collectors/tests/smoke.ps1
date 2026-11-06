@@ -1664,6 +1664,179 @@ foreach ($kiloPath in $kiloProjectConfigs) { MakeFile "kilolegacy/$kiloPath" "{`
 MakeFile 'Users/alice/.local/share/opencode/storage/project/p1.json' '{"id":"p1","worktree":"C:\\ocproj","vcs":"git"}'
 $opencodeProjectConfigs = @('.opencode/opencode.json', 'opencode.jsonc')
 foreach ($opencodePath in $opencodeProjectConfigs) { MakeFile "ocproj/$opencodePath" "{`"mcp`":{`"x`":{`"type`":`"local`",`"environment`":{`"TOKEN`":`"t`"}}}}`n" }
+# 2026-11-06 relocation hints (#454)
+# The relocation variables and startup file lines, read from -List so the checks follow the
+# tables.
+function Get-ListedLines([string]$heading, [string]$nextHeading) {
+  $listed = @(); $inSection = $false
+  foreach ($listLine in @(& $Collector -List)) {
+    if ($listLine -eq $heading) { $inSection = $true; continue }
+    if ($nextHeading -and $listLine -eq $nextHeading) { $inSection = $false; continue }
+    if ($inSection -and $listLine -ne '' -and -not $listLine.StartsWith('#')) { $listed += $listLine }
+  }
+  return $listed
+}
+$relocationHeading = '# relocation variables (agent|VARIABLE|home-relative path it replaces)'
+$startupHeading = '# startup files searched for them (scope|glob; scope home, system or project)'
+$listedRelocation = @(Get-ListedLines $relocationHeading $startupHeading)
+$listedStartup = @(Get-ListedLines $startupHeading '')
+$listedVariables = @($listedRelocation | ForEach-Object { ($_ -split '\|')[1] } | Select-Object -Unique)
+# One file naming every variable, one per line.
+$everyVariableText = (@($listedVariables | ForEach-Object { "export $_=/opt/x" }) -join "`n")
+# One fixture per STARTUP_FILES line, as scope|glob|path|text: the path relative to alice's
+# profile (home), the image root (system) or C:\proj (project); the text one assignment in the
+# file's own syntax, ~ standing for a line break. The .bashrc fixture is the every-variable file.
+$startupFixtures = @(
+  'home|.bash_profile|.bash_profile|export CLAUDE_CONFIG_DIR=/opt/x'
+  'home|.bash_login|.bash_login|CODEX_HOME=/opt/x; export CODEX_HOME'
+  'home|.profile|.profile|export COPILOT_HOME=/opt/x'
+  'home|.bashrc|.bashrc|export CODEX_HOME=/opt/x'
+  'home|.bashrc.d/*|.bashrc.d/agents.sh|export GEMINI_CLI_HOME=/opt/x'
+  'system|/etc/profile|etc/profile|# system profile~export CODEX_HOME=/opt/x'
+  'system|/etc/profile.d/*.sh|etc/profile.d/agents.sh|export CODEX_HOME=/opt/x'
+  'system|/etc/profile.d/sh.local|etc/profile.d/sh.local|export CODEX_HOME=/opt/x'
+  'system|/etc/bash.bashrc|etc/bash.bashrc|export CODEX_HOME=/opt/x'
+  'system|/etc/bashrc|etc/bashrc|export CODEX_HOME=/opt/x'
+  'home|.zshenv|.zshenv|export ZDOTDIR=/opt/x'
+  'home|.zprofile|.zprofile|export QWEN_HOME=/opt/x'
+  'home|.zshrc|.zshrc|export KIRO_HOME=/opt/x'
+  'home|.zlogin|.zlogin|export CURSOR_DATA_DIR=/opt/x'
+  'system|/etc/zshenv|etc/zshenv|export CODEX_HOME=/opt/x'
+  'system|/etc/zprofile|etc/zprofile|export CODEX_HOME=/opt/x'
+  'system|/etc/zshrc|etc/zshrc|export CODEX_HOME=/opt/x'
+  'system|/etc/zlogin|etc/zlogin|export CODEX_HOME=/opt/x'
+  'system|/etc/zsh/zshenv|etc/zsh/zshenv|export CODEX_HOME=/opt/x'
+  'system|/etc/zsh/zprofile|etc/zsh/zprofile|export CODEX_HOME=/opt/x'
+  'system|/etc/zsh/zshrc|etc/zsh/zshrc|export CODEX_HOME=/opt/x'
+  'system|/etc/zsh/zlogin|etc/zsh/zlogin|export CODEX_HOME=/opt/x'
+  'system|/usr/local/etc/zshenv|usr/local/etc/zshenv|export CODEX_HOME=/opt/x'
+  'system|/usr/local/etc/zprofile|usr/local/etc/zprofile|export CODEX_HOME=/opt/x'
+  'system|/usr/local/etc/zshrc|usr/local/etc/zshrc|export CODEX_HOME=/opt/x'
+  'system|/usr/local/etc/zlogin|usr/local/etc/zlogin|export CODEX_HOME=/opt/x'
+  'home|.shrc|.shrc|OLLAMA_MODELS=/opt/x; export OLLAMA_MODELS'
+  'home|.shinit|.shinit|export HERMES_HOME=/opt/x'
+  'system|/etc/suid_profile|etc/suid_profile|export CODEX_HOME=/opt/x'
+  'home|.kshrc|.kshrc|export LETTA_HOME=/opt/x'
+  'system|/etc/ksh.kshrc|etc/ksh.kshrc|export CODEX_HOME=/opt/x'
+  'home|.mkshrc|.mkshrc|export AMP_HOME=/opt/x'
+  'home|.config/fish/config.fish|.config/fish/config.fish|set -gx CODEX_HOME /opt/x'
+  'home|.config/fish/conf.d/*.fish|.config/fish/conf.d/agents.fish|set -gx COPILOT_HOME /opt/x'
+  'home|.config/fish/fish_variables|.config/fish/fish_variables|SETUVAR --export CLAUDE_CONFIG_DIR:/opt/x'
+  'home|.config/fish/fishd.*|.config/fish/fishd.0a1b2c3d4e5f|SETUVAR --export GEMINI_CLI_HOME:/opt/x'
+  'home|.local/share/fish/vendor_conf.d/*.fish|.local/share/fish/vendor_conf.d/agents.fish|set -gx KIRO_HOME /opt/x'
+  'system|/etc/fish/config.fish|etc/fish/config.fish|set -gx CODEX_HOME /opt/x'
+  'system|/etc/fish/conf.d/*.fish|etc/fish/conf.d/agents.fish|set -gx CODEX_HOME /opt/x'
+  'system|/usr/share/fish/vendor_conf.d/*.fish|usr/share/fish/vendor_conf.d/agents.fish|set -gx CODEX_HOME /opt/x'
+  'system|/usr/local/share/fish/vendor_conf.d/*.fish|usr/local/share/fish/vendor_conf.d/agents.fish|set -gx CODEX_HOME /opt/x'
+  'system|/usr/local/etc/fish/config.fish|usr/local/etc/fish/config.fish|set -gx CODEX_HOME /opt/x'
+  'system|/usr/local/etc/fish/conf.d/*.fish|usr/local/etc/fish/conf.d/agents.fish|set -gx CODEX_HOME /opt/x'
+  'system|/opt/homebrew/etc/fish/config.fish|opt/homebrew/etc/fish/config.fish|set -gx CODEX_HOME /opt/x'
+  'system|/opt/homebrew/etc/fish/conf.d/*.fish|opt/homebrew/etc/fish/conf.d/agents.fish|set -gx CODEX_HOME /opt/x'
+  'system|/opt/homebrew/share/fish/vendor_conf.d/*.fish|opt/homebrew/share/fish/vendor_conf.d/agents.fish|set -gx CODEX_HOME /opt/x'
+  'home|.tcshrc|.tcshrc|setenv CODEX_HOME /opt/x'
+  'home|.cshrc|.cshrc|setenv QWEN_HOME /opt/x'
+  'home|.login|.login|setenv OPENCLAW_HOME /opt/x'
+  'system|/etc/csh.cshrc|etc/csh.cshrc|setenv CODEX_HOME /opt/x'
+  'system|/etc/csh.login|etc/csh.login|setenv CODEX_HOME /opt/x'
+  'system|/etc/.cshrc|etc/.cshrc|setenv CODEX_HOME /opt/x'
+  'system|/etc/.login|etc/.login|setenv CODEX_HOME /opt/x'
+  'home|.config/nushell/env.nu|.config/nushell/env.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|.config/nushell/config.nu|.config/nushell/config.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|.config/nushell/login.nu|.config/nushell/login.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|.config/nushell/autoload/*.nu|.config/nushell/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|Library/Application Support/nushell/env.nu|Library/Application Support/nushell/env.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|Library/Application Support/nushell/config.nu|Library/Application Support/nushell/config.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|Library/Application Support/nushell/login.nu|Library/Application Support/nushell/login.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|Library/Application Support/nushell/autoload/*.nu|Library/Application Support/nushell/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|AppData/Roaming/nushell/env.nu|AppData/Roaming/nushell/env.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|AppData/Roaming/nushell/config.nu|AppData/Roaming/nushell/config.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|AppData/Roaming/nushell/login.nu|AppData/Roaming/nushell/login.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|AppData/Roaming/nushell/autoload/*.nu|AppData/Roaming/nushell/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|.local/share/nushell/vendor/autoload/*.nu|.local/share/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"'
+  'system|/usr/share/nushell/vendor/autoload/*.nu|usr/share/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"'
+  'system|/usr/local/share/nushell/vendor/autoload/*.nu|usr/local/share/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"'
+  'system|/Library/Application Support/nushell/vendor/autoload/*.nu|Library/Application Support/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"'
+  'system|/ProgramData/nushell/vendor/autoload/*.nu|ProgramData/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"'
+  'home|.xonshrc|.xonshrc|$CODEX_HOME = "/opt/x"'
+  'home|.config/xonsh/rc.xsh|.config/xonsh/rc.xsh|$COPILOT_HOME = "/opt/x"'
+  'home|.config/xonsh/rc.d/*.xsh|.config/xonsh/rc.d/agents.xsh|$CODEX_HOME = "/opt/x"'
+  'home|.config/xonsh/rc.d/*.py|.config/xonsh/rc.d/agents.py|$CODEX_HOME = "/opt/x"'
+  'system|/etc/xonsh/xonshrc|etc/xonsh/xonshrc|$CODEX_HOME = "/opt/x"'
+  'system|/etc/xonsh/rc.d/*.xsh|etc/xonsh/rc.d/agents.xsh|$CODEX_HOME = "/opt/x"'
+  'system|/etc/xonsh/rc.d/*.py|etc/xonsh/rc.d/agents.py|$CODEX_HOME = "/opt/x"'
+  'home|.config/elvish/rc.elv|.config/elvish/rc.elv|set E:CODEX_HOME = /opt/x'
+  'home|.elvish/rc.elv|.elvish/rc.elv|set E:CODEX_HOME = /opt/x'
+  'home|AppData/Roaming/elvish/rc.elv|AppData/Roaming/elvish/rc.elv|set E:CODEX_HOME = /opt/x'
+  'home|Documents/WindowsPowerShell/*.ps1|Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1|$env:CODEX_HOME = "/opt/x"'
+  'home|Documents/PowerShell/*.ps1|Documents/PowerShell/Microsoft.PowerShell_profile.ps1|$env:codex_home = "/opt/x"'
+  'home|.config/powershell/*.ps1|.config/powershell/Microsoft.PowerShell_profile.ps1|$env:COPILOT_HOME = "/opt/x"'
+  'system|/Windows/System32/WindowsPowerShell/v1.0/*.ps1|Windows/System32/WindowsPowerShell/v1.0/profile.ps1|$env:CODEX_HOME = "/opt/x"'
+  'system|/Program Files/PowerShell/7/*.ps1|Program Files/PowerShell/7/profile.ps1|$env:CODEX_HOME = "/opt/x"'
+  'system|/opt/microsoft/powershell/7/*.ps1|opt/microsoft/powershell/7/profile.ps1|$env:CODEX_HOME = "/opt/x"'
+  'system|/usr/local/microsoft/powershell/7/*.ps1|usr/local/microsoft/powershell/7/profile.ps1|$env:CODEX_HOME = "/opt/x"'
+  'system|/etc/environment|etc/environment|CODEX_HOME="/opt/x"'
+  'system|/etc/security/pam_env.conf|etc/security/pam_env.conf|CODEX_HOME DEFAULT=/opt/x'
+  'home|.pam_environment|.pam_environment|CODEX_HOME DEFAULT=/opt/x'
+  'home|.config/environment.d/*.conf|.config/environment.d/agents.conf|CODEX_HOME=/opt/x'
+  'system|/etc/environment.d/*.conf|etc/environment.d/agents.conf|CODEX_HOME=/opt/x'
+  'system|/run/environment.d/*.conf|run/environment.d/agents.conf|CODEX_HOME=/opt/x'
+  'system|/usr/local/lib/environment.d/*.conf|usr/local/lib/environment.d/agents.conf|CODEX_HOME=/opt/x'
+  'system|/usr/lib/environment.d/*.conf|usr/lib/environment.d/agents.conf|CODEX_HOME=/opt/x'
+  'home|.config/plasma-workspace/env/*.sh|.config/plasma-workspace/env/agents.sh|export CODEX_HOME=/opt/x'
+  'system|/etc/xdg/plasma-workspace/env/*.sh|etc/xdg/plasma-workspace/env/agents.sh|export CODEX_HOME=/opt/x'
+  'home|.xsessionrc|.xsessionrc|export CODEX_HOME=/opt/x'
+  'home|Library/LaunchAgents/*.plist|Library/LaunchAgents/com.example.agent.plist|<key>CODEX_HOME</key><string>/opt/x</string>'
+  'system|/Library/LaunchAgents/*.plist|Library/LaunchAgents/com.example.agent.plist|<key>CODEX_HOME</key><string>/opt/x</string>'
+  'system|/Library/LaunchDaemons/*.plist|Library/LaunchDaemons/com.example.agent.plist|<key>CODEX_HOME</key><string>/opt/x</string>'
+  'project|.envrc|.envrc|export CODEX_HOME=/opt/x'
+  'project|.env|.env|CODEX_HOME=/opt/x'
+  'home|.config/direnv/direnvrc|.config/direnv/direnvrc|export CODEX_HOME=/opt/x'
+  'home|.config/direnv/direnv.toml|.config/direnv/direnv.toml|CODEX_HOME = "/opt/x"'
+  'home|.config/direnv/lib/*.sh|.config/direnv/lib/agents.sh|export CODEX_HOME=/opt/x'
+  'project|mise.toml|mise.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|.mise.toml|.mise.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|mise.local.toml|mise.local.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|.mise.local.toml|.mise.local.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|mise/config.toml|mise/config.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|mise/conf.d/*.toml|mise/conf.d/agents.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|.mise/config.toml|.mise/config.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|.mise/conf.d/*.toml|.mise/conf.d/agents.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|.config/mise.toml|.config/mise.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|.config/mise/mise.toml|.config/mise/mise.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|.config/mise/config.toml|.config/mise/config.toml|[env]~CODEX_HOME = "/opt/x"'
+  'project|.config/mise/conf.d/*.toml|.config/mise/conf.d/agents.toml|[env]~CODEX_HOME = "/opt/x"'
+  'home|.config/mise/config.toml|.config/mise/config.toml|[env]~CODEX_HOME = "/opt/x"'
+  'home|.config/mise/conf.d/*.toml|.config/mise/conf.d/agents.toml|[env]~CODEX_HOME = "/opt/x"'
+  'system|/etc/mise/config.toml|etc/mise/config.toml|[env]~CODEX_HOME = "/opt/x"'
+  'system|/etc/mise/conf.d/*.toml|etc/mise/conf.d/agents.toml|[env]~CODEX_HOME = "/opt/x"'
+  'home|.oh-my-zsh/custom/*.zsh|.oh-my-zsh/custom/agents.zsh|export ZSH_CUSTOM=/opt/x'
+  'home|.bash_it/custom/*.bash|.bash_it/custom/agents.bash|export BASH_IT_CUSTOM=/opt/x'
+  'home|.bash_it/custom/*/*.bash|.bash_it/custom/plugins/agents.bash|export BASH_IT_CUSTOM=/opt/x'
+  'home|.config/omf/before.init.fish|.config/omf/before.init.fish|set -gx OMF_CONFIG /opt/x'
+  'home|.config/omf/init.fish|.config/omf/init.fish|set -gx OMF_CONFIG /opt/x'
+)
+foreach ($startupEntry in $startupFixtures) {
+  $startupScope, $startupGlob, $startupPath, $startupText = $startupEntry -split '\|'
+  if ($startupScope -eq 'home') { $startupFile = "Users/alice/$startupPath" }
+  elseif ($startupScope -eq 'project') { $startupFile = "proj/$startupPath" }
+  else { $startupFile = $startupPath }
+  if ($startupGlob -eq '.bashrc') { $startupText = $everyVariableText }
+  MakeFile $startupFile ($startupText.Replace('~', "`n") + "`n")
+}
+# Decoys: a longer name holding a variable's, a symlinked rc file whose target names one, a
+# catalog-collected startup file, a helper deep in the home only the sweep reaches, a file in
+# an excluded directory and a file over the sweep's size limit.
+MakeFile 'Users/alice/.config/fish/conf.d/decoy.fish' "set -gx MY_CODEX_HOME_X /opt/x`n"
+MakeFile 'elsewhere/zshrc' "export CODEX_HOME=/opt/x`n"
+$zshLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.zshrc') -Target (ImagePath 'elsewhere/zshrc') -ErrorAction Stop | Out-Null
+  $zshLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #454 symlinked startup file check skipped' }
+MakeFile 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' "<key>OPENCLAW_STATE_DIR</key><string>/opt/x</string>`n"
+MakeFile 'Users/alice/work/scripts/deep/env-helper.sh' "export QWEN_HOME=/opt/x`n"
+MakeFile 'Users/alice/tools/agent-env.sh' "export CODEX_HOME=/opt/x`n"
+MakeFile 'Users/alice/scripts/big.sh' ("export CODEX_HOME=/opt/x`n" + ('#' * 1200000) + "`n")
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2554,6 +2727,46 @@ Check '#156 Qwen Live call log collected' { IsAgentRow "$qwenLive/sessions/live-
 Check '#156 Qwen Live memory library collected' { (IsAgentRow "$qwenLive/memories/default/dialogue.db" 'qwen-live' $false) -and (IsAgentRow "$qwenLive/memories/default/meta.json" 'qwen-live' $false) }
 Check '#156 Qwen Live config and its temporary copies flagged secret' { (IsAgentRow "$qwenLive/config.json" 'qwen-live' $true) -and (IsAgentRow "$qwenLive/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp" 'qwen-live' $true) -and (IsAgentRow "$qwenLive/config.json.tmp" 'qwen-live' $true) }
 Check '#156 Qwen Live discovery record and its temporary copy flagged secret' { (IsAgentRow 'Users/alice/.qwen/live/daemon.json' 'qwen-code' $true) -and (IsAgentRow 'Users/alice/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp' 'qwen-code' $true) }
+# 2026-11-06 relocation hints (#454)
+# Whether a run's collection.json holds one hint with these fields; the path is relative to
+# the image root.
+function HasHint($summary, [string]$relativePath, [int]$line, [string]$variable, [string]$agent, [string]$user) {
+  $source = ImagePath $relativePath
+  return @($summary.relocation.hints | Where-Object { $_.source -eq $source -and $_.line -eq $line -and $_.variable -eq $variable -and $_.agent -eq $agent -and $_.user -eq $user }).Count -eq 1
+}
+function HintsFrom($summary, [string]$relativePath) { $source = ImagePath $relativePath; return @($summary.relocation.hints | Where-Object { $_.source -eq $source }) }
+function RowsAt([string]$relativePath) { $wanted = ImagePath $relativePath; return @($script:Rows | Where-Object { $_.path -eq $wanted }) }
+$relocationLog = [System.IO.File]::ReadAllText((Get-ChildItem -LiteralPath (Join-Path $Out 'default') -Filter '*.log' | Select-Object -First 1).FullName)
+$startupGlobs = @($startupFixtures | ForEach-Object { $parts = $_ -split '\|'; $parts[0] + '|' + $parts[1] })
+Check '#454 every startup file line has a fixture' { $listedStartup.Count -gt 0 -and ($listedStartup -join "`n") -ceq ($startupGlobs -join "`n") }
+foreach ($startupEntry in $startupFixtures) {
+  $startupScope, $startupGlob, $startupPath, $startupText = $startupEntry -split '\|'
+  if ($startupScope -eq 'home') { $startupFile = "Users/alice/$startupPath" }
+  elseif ($startupScope -eq 'project') { $startupFile = "proj/$startupPath" }
+  else { $startupFile = $startupPath }
+  Check "#454 startup file collected as shared and flagged secret: $startupScope|$startupGlob" { IsAgentRow $startupFile 'shared' $true }
+}
+Check '#454 system file hint carries its line, variable and agent' { HasHint $defaultRunSummary 'etc/profile' 2 'CODEX_HOME' 'codex-cli' '' }
+Check '#454 system file row has no user or home' { $systemRows = RowsAt 'etc/profile'; $systemRows.Count -eq 1 -and $systemRows[0].user -eq '' -and $systemRows[0].home -eq '' }
+Check '#454 project file hint carries the project user' { HasHint $defaultRunSummary 'proj/.envrc' 1 'CODEX_HOME' 'codex-cli' 'alice' }
+Check '#454 project file row has the project as home' { $projectRows = RowsAt 'proj/.envrc'; $projectRows.Count -eq 1 -and $projectRows[0].user -eq 'alice' -and $projectRows[0].home -eq (ImagePath 'proj') }
+Check '#454 a variable of two agents gives one hint per agent' { (HasHint $defaultRunSummary 'Users/alice/.profile' 1 'COPILOT_HOME' 'copilot-cli' 'alice') -and (HasHint $defaultRunSummary 'Users/alice/.profile' 1 'COPILOT_HOME' 'copilot-desktop' 'alice') }
+Check '#454 a lowercase PowerShell variable is a hint' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/Microsoft.PowerShell_profile.ps1' 1 'CODEX_HOME' 'codex-cli' 'alice' }
+Check '#454 the every-variable file hints every relocation variable' {
+  $hinted = @(HintsFrom $defaultRunSummary 'Users/alice/.bashrc' | ForEach-Object { $_.variable } | Sort-Object -Unique)
+  $listedVariables.Count -gt 0 -and ($hinted -join ',') -eq (@($listedVariables | Sort-Object -Unique) -join ',')
+}
+Check '#454 a longer name holding a variable is no hint' { (HintsFrom $defaultRunSummary 'Users/alice/.config/fish/conf.d/decoy.fish').Count -eq 0 -and (RowsAt 'Users/alice/.config/fish/conf.d/decoy.fish').Count -eq 0 }
+if ($zshLinkOk) {
+  Check '#454 a symlinked startup file is not followed' { (HintsFrom $defaultRunSummary 'home/bob/.zshrc').Count -eq 0 -and (RowsAt 'home/bob/.zshrc').Count -eq 0 -and (RowsAt 'elsewhere/zshrc').Count -eq 0 }
+}
+Check '#454 a catalog-collected startup file is hinted and keeps its one catalog row' { $catalogRows = RowsAt 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist'; (HasHint $defaultRunSummary 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' 1 'OPENCLAW_STATE_DIR' 'openclaw' 'alice') -and $catalogRows.Count -eq 1 -and $catalogRows[0].agent -eq 'openclaw' }
+Check '#454 a file only the sweep reaches is not searched by default' { (HintsFrom $defaultRunSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 0 -and (RowsAt 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 0 }
+Check '#454 the log holds the hint lines' { $relocationLog.Contains("Relocation hints in system files") -and $relocationLog.Contains("relocation hint: $(ImagePath 'etc/profile'):2 names CODEX_HOME (codex-cli)") }
+Check '#454 the log never holds an assignment' { -not $relocationLog.Contains('/opt/x') }
+Check '#454 stdout relocation line counts hints and files searched' { $defaultRunSummary.relocation.files_searched -ge $startupFixtures.Count -and $script:stdout -match "(?m)^relocation: $(@($defaultRunSummary.relocation.hints).Count) hints in $($defaultRunSummary.relocation.files_searched) files searched; see collectors/docs/relocation\.md\s*$" }
+Check '#454 options record the sweep settings' { $defaultRunSummary.options.env_scan_home -eq $false -and $defaultRunSummary.options.env_scan_max_size_bytes -eq 1048576 -and $defaultRunSummary.relocation.files_skipped_size -eq 0 }
+Check '#454 every hint has an empty value' { @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }).Count -eq 0 }
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
@@ -2669,6 +2882,16 @@ foreach ($caseLine in $CasesFrameworks) {
     'secret' { Check "no-secrets: $($fields[2])" { $row -and $row.status -eq 'skipped_secret' } }
   }
 }
+# 2026-11-06 relocation hints (#454)
+$noSecretsSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
+foreach ($startupEntry in $startupFixtures) {
+  $startupScope, $startupGlob, $startupPath, $startupText = $startupEntry -split '\|'
+  if ($startupScope -eq 'home') { $startupFile = "Users/alice/$startupPath" }
+  elseif ($startupScope -eq 'project') { $startupFile = "proj/$startupPath" }
+  else { $startupFile = $startupPath }
+  Check "#454 startup file skipped without secrets: $startupScope|$startupGlob" { (StatusOf $startupFile) -eq 'skipped_secret' }
+}
+Check '#454 hints kept without secrets' { (HasHint $noSecretsSummary 'etc/profile' 2 'CODEX_HOME' 'codex-cli' '') -and @($noSecretsSummary.relocation.hints).Count -eq @($defaultRunSummary.relocation.hints).Count }
 
 # ---- -Full ----------------------------------------------------------------
 Run 'full' @{ Full = $true }
@@ -2702,6 +2925,20 @@ Check '#105 image homes found from a directory with home and Users subdirectorie
 $env:NESTED_CLAIMS = ImagePath 'var/lib/docker/volumes/a0_usr/_data/chats'
 try { Run 'claims106' @{ NoProjects = $true } } finally { Remove-Item Env:NESTED_CLAIMS }
 Check '#106 NESTED_CLAIMS in the environment prunes nothing' { $script:ExitCode -eq 0 -and (StatusOf 'var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat.json') -eq 'collected' }
+
+# ---- -EnvScanHome ---------------------------------------------------------
+# 2026-11-06 relocation hints (#454)
+Run 'envscan' @{ EnvScanHome = $true }
+$envScanSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
+Check '#454 EnvScanHome exit 0' { $script:ExitCode -eq 0 }
+Check '#454 EnvScanHome recorded in options' { $envScanSummary.options.env_scan_home -eq $true -and $envScanSummary.options.env_scan_max_size_bytes -eq 1048576 }
+Check '#454 the sweep hints and collects a file deep in the home' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh' 1 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.sh' 'shared' $true) }
+Check '#454 the sweep counts a file over its size limit and leaves it unsearched' { $envScanSummary.relocation.files_skipped_size -ge 1 -and (HintsFrom $envScanSummary 'Users/alice/scripts/big.sh').Count -eq 0 -and (RowsAt 'Users/alice/scripts/big.sh').Count -eq 0 }
+Check '#454 the sweep leaves out an excluded directory' { (HintsFrom $envScanSummary 'Users/alice/tools/agent-env.sh').Count -eq 0 -and (RowsAt 'Users/alice/tools/agent-env.sh').Count -eq 0 }
+Check '#454 the sweep leaves the catalog-collected file its one row' { $catalogRows = RowsAt 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist'; $catalogRows.Count -eq 1 -and $catalogRows[0].agent -eq 'openclaw' }
+Check '#454 the sweep searches more files than the startup list' { $envScanSummary.relocation.files_searched -gt $defaultRunSummary.relocation.files_searched }
+Run 'envscanbad' @{ EnvScanMaxSizeMB = 'x' }
+Check '#454 -EnvScanMaxSizeMB x exits 1' { $script:ExitCode -eq 1 -and $script:stdout -match 'Invalid -EnvScanMaxSizeMB' }
 
 # ---- Docker Desktop note ----------------------------------------------------
 MakeFile 'Users/alice/AppData/Local/Docker/wsl/disk/readme.txt' 'vhdx lives here'
@@ -3021,6 +3258,8 @@ Check 'Inventory without -Quiet: stdout is pure JSON Lines, log on stderr' { $ch
 Check 'Inventory child stdout parses line by line' { @($childOut | Where-Object { $_ -ne '' } | ForEach-Object { try { $null = $_ | ConvertFrom-Json; $true } catch { $false } } | Where-Object { -not $_ }).Count -eq 0 }
 # Windows PowerShell 5.1 wraps redirected error-stream text at the console width, so a long path splits across lines.
 Check 'Inventory -OutputDir noted on stderr' { ((Get-Content -LiteralPath $errFile -Raw) -replace '\s+', ' ') -match 'NOTE: -Inventory writes nothing; -OutputDir .*inv-o ignored' }
+# 2026-11-06 relocation hints (#454)
+Check '#454 Inventory prints no relocation hint' { -not ((Get-Content -LiteralPath $errFile -Raw) -match 'relocation hint|Relocation hints') -and @($childOut | Where-Object { $_ -match 'relocation' }).Count -eq 0 }
 $childQuiet = @(& $self -NoProfile -ExecutionPolicy Bypass -File $Collector -Root $Root -Inventory -Quiet 2>$errFile)
 Check 'Inventory -Quiet leaves stderr empty' { $childQuiet.Count -gt 10 -and -not ((Get-Content -LiteralPath $errFile -Raw) -match '\S') }
 # 2026-10-04 bug round: #29
