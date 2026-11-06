@@ -27,6 +27,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The catalog parser reads the collectors' relocation-variable and startup-file tables into `Catalog.relocation_vars` and `Catalog.startup_files`, so their lines no longer parse as Docker volumes ([#454]).
 - The Qwen Code parser reads a `chats/` file only when its name is a session id, as Qwen Code's own session list does, so sidecars and other files there give no rows ([#326]).
 - A Qwen Code `settings.json` that is not a JSON object gives its `parser:` row with no line and no time, as every other whole-file row ([#326]).
 - The generated examples of `docs/output.md` are built from the test fixtures: `tools/example_collection.py` writes each home with the fixture builders of the agents it shows, so the examples show the records the parsers are tested against; the `timeline.jsonl` example is a filtered run's, and `detect --json` is shown without `--files` ([#337]).
@@ -2205,6 +2206,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#454]: https://github.com/seanthegeek/doubleagent/issues/454
 [#446]: https://github.com/seanthegeek/doubleagent/issues/446
 [#444]: https://github.com/seanthegeek/doubleagent/issues/444
 [#441]: https://github.com/seanthegeek/doubleagent/issues/441
