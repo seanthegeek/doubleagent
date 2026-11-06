@@ -23,7 +23,10 @@ relocation hint: /home/alice/.bashrc:41 names CLAUDE_CONFIG_DIR (claude-code)
 It gives the file, the line number, the variable and the agent. It says:
 
 - The name appears on that line of that file, bounded by characters that
-  cannot be part of a name, without regard to case.
+  cannot be part of a name, in the same case. Shells name variables
+  case-sensitively, so `codex_home` in a shell file is another variable and
+  gives no hint; in a PowerShell file (a name ending in `.ps1`, in any case)
+  the name matches in any case, as PowerShell variable names do.
 - The agent's files may therefore be somewhere the catalog does not look,
   so the collection can be missing them silently.
 
@@ -67,14 +70,17 @@ the form that matches the file's shell:
 
 | Syntax | Used by |
 | --- | --- |
-| `export NAME=value`, or `NAME=value` then `export NAME` | sh, bash, zsh, ksh, dash; `/etc/environment` and `.pam_environment` take `NAME=value` alone |
+| `export NAME=value`, or `NAME=value` then `export NAME` | sh, bash, zsh, ksh, dash |
+| `NAME=value` alone | `/etc/environment`, `environment.d` files and `.env` |
+| `NAME DEFAULT=value` | `pam_env.conf` and `.pam_environment` |
 | `set -gx NAME value`, or `SETUVAR --export NAME:value` in `fish_variables` | fish |
 | `setenv NAME value` | csh and tcsh |
 | `$env.NAME = "value"` | Nushell |
 | `$NAME = "value"` | xonsh |
-| `$env:NAME = "value"`, or `set E:NAME` in older scripts | PowerShell profiles |
+| `set E:NAME = value` | Elvish |
+| `$env:NAME = "value"` | PowerShell profiles |
 | `<key>NAME</key>` with the value in the next `<string>` | launchd property lists |
-| `[env]` table with `NAME = "value"` | `mise.toml` |
+| `[env]` table with `NAME = "value"` | `mise.toml` and the other `mise` configuration files |
 
 Then check three things before you believe the value:
 
@@ -161,6 +167,8 @@ is given with its mount point, as [options.md](options.md) describes.
 Each agent's research document lists its variables, what each moves, and the
 default folder it replaces, in its `Relocation variables` subsection.
 
+| Agent | Variables | Research document |
+| --- | --- | --- |
 | `agent-zero` | `A0_COMPUTER_USE_HOST_ARTIFACT_ROOT` | [agent-zero](../../research/agent-zero.md#relocation-variables) |
 | `aider` | `AIDER_CHAT_HISTORY_FILE`, `AIDER_INPUT_HISTORY_FILE`, `AIDER_LLM_HISTORY_FILE`, `AIDER_ANALYTICS_LOG` | [aider](../../research/aider.md#relocation-variables) |
 | `amp` | `AMP_HOME` | [amp](../../research/amp.md#relocation-variables) |
@@ -224,15 +232,17 @@ startup files, `/etc/environment`, launchd property lists, `.envrc` and
 can also be set in a helper script, a tool-version file or a file the
 catalog collects. `--env-scan-home` (PowerShell: `-EnvScanHome`) adds a sweep
 of every regular file in each home and project that the catalog did not
-already match or an exclusion did not prune, and
-records a hint for each file that names a variable. Symlinks are never
-followed.
+already match, an exclusion did not prune and the startup file search did not
+already read (a project inside a home is swept once, as a project), and records a hint for each file that names a variable, so
+`files_searched` counts each file once. Symlinks are never followed.
 
 The sweep reads many files, so it adds time on a large home. A file bigger
 than `--env-scan-max-size MB` (PowerShell `-EnvScanMaxSizeMB`; whole MiB,
 default `1`, `0` for no limit) is not read and is counted in
-`files_skipped_size` of `collection.json`. Binary files are read like any
-other. The sweep itself only reads; the files it finds hints in are
+`files_skipped_size` of `collection.json`. Binary files are searched like any
+other; the sh collector reads a file holding a NUL byte as text only where
+`grep -a` does so, which `collection.json` records as `capabilities.grep_text`.
+The sweep itself only reads; the files it finds hints in are
 collected under the usual `--max-file-size` cap.
 
 ## Claude Code config homes

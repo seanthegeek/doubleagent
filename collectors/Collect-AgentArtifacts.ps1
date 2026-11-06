@@ -4156,6 +4156,9 @@ $script:RelocationHints = New-Object System.Collections.ArrayList
 $script:RelocationCounts = @{ searched = 0; skippedSize = 0 }
 # The progress header the next hint logs first; '' once it is logged.
 $script:HintHeader = ''
+# The user|file|line|variable|agent keys of the hints recorded, so a file two
+# passes search gives each hint once.
+$script:HintKeys = New-Object 'System.Collections.Generic.HashSet[string]'
 # The sweep's size limit in bytes (0 none), set from -EnvScanMaxSizeMB.
 $script:EnvScanMaxSize = [int64]0
 # RELOCATION_VARS as variable -> its agents in table order, and the variables
@@ -4216,29 +4219,32 @@ function Get-StartupFiles([string]$base, [string]$scope) {
   return @($files)
 }
 
-# Takes one line of a file; returns the RELOCATION_VARS names it holds where
-# the character before and after (when any) cannot continue a name, ignoring
-# case, each once, in table order.
-function Get-BoundedNames([string]$line) {
-  $ignoreCase = [System.StringComparison]::OrdinalIgnoreCase
+# Takes one line of a file and whether case is ignored; returns the
+# RELOCATION_VARS names it holds where the character before and after (when
+# any) cannot continue a name, each once, in table order.
+function Get-BoundedNames([string]$line, [bool]$ignoreCase) {
+  $comparison = [System.StringComparison]::Ordinal
+  if ($ignoreCase) { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
   foreach ($name in $script:RelocationNames) {
-    $start = $line.IndexOf($name, $ignoreCase)
+    $start = $line.IndexOf($name, $comparison)
     while ($start -ge 0) {
       $end = $start + $name.Length
       $openBefore = ($start -eq 0) -or -not $script:NameCharRx.IsMatch([string]$line[$start - 1])
       $openAfter = ($end -ge $line.Length) -or -not $script:NameCharRx.IsMatch([string]$line[$end])
       if ($openBefore -and $openAfter) { $name; break }
-      $start = $line.IndexOf($name, $start + 1, $ignoreCase)
+      $start = $line.IndexOf($name, $start + 1, $comparison)
     }
   }
 }
 
 # Takes the user, a hit file, its line number and the variable; for every
 # RELOCATION_VARS line naming the variable, logs the hint (after
-# $script:HintHeader, once) and adds it to $script:RelocationHints.
+# $script:HintHeader, once) and adds it to $script:RelocationHints, once per
+# record.
 function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$variable) {
-  if ($script:HintHeader) { Write-CollectorLog $script:HintHeader; $script:HintHeader = '' }
   foreach ($agent in $script:RelocationAgents[$variable]) {
+    if (-not $script:HintKeys.Add("$user|$file|$line|$variable|$agent")) { continue }
+    if ($script:HintHeader) { Write-CollectorLog $script:HintHeader; $script:HintHeader = '' }
     Write-CollectorLog "relocation hint: ${file}:$line names $variable ($agent)"
     [void]$script:RelocationHints.Add([ordered]@{
         user = $user; source = $file; line = $line; variable = $variable; agent = $agent
@@ -4260,16 +4266,13 @@ function Add-HintFile([string]$user, [string]$homeDir, [string]$path) {
   Add-CollectedFile $user $homeDir 'shared' $item $true
 }
 
-# Takes the user, home and files of one base; searches them with one
-# Select-String, then records each bounded hit and collects each hit file.
-# Only line numbers and names leave the search; a file that cannot be read is
-# logged.
-function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$files) {
+# Takes files and whether case is ignored; returns the Select-String matches
+# of the RELOCATION_VARS names in them, logging each file that cannot be read.
+function Select-RelocationNames([string[]]$files, [bool]$ignoreCase) {
   if ($files.Count -eq 0) { return }
-  $script:RelocationCounts.searched += $files.Count
   $search = @{
     LiteralPath = @(foreach ($file in $files) { ConvertTo-ExtendedPath $file })
-    Pattern = $script:RelocationNames; SimpleMatch = $true
+    Pattern = $script:RelocationNames; SimpleMatch = $true; CaseSensitive = (-not $ignoreCase)
     ErrorAction = 'SilentlyContinue'; ErrorVariable = 'searchErrors'
   }
   $searchErrors = @(); $found = @()
@@ -4277,12 +4280,31 @@ function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$file
   foreach ($searchError in @($searchErrors)) {
     Write-CollectorLog "read failed: $(ConvertFrom-ExtendedText $searchError.Exception.Message)"
   }
+  return $found
+}
+
+# Takes a path; returns whether it names a PowerShell script (.ps1, any case).
+function Test-PowerShellScript([string]$path) {
+  return $path.EndsWith('.ps1', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+# Takes the user, home and files of one base; searches them, then records each
+# bounded hit and collects each hit file. A name
+# matches in its own case only, since shells name variables case-sensitively,
+# except in a .ps1 file, where PowerShell does not. Only line numbers and names
+# leave the search.
+function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$files) {
+  if ($files.Count -eq 0) { return }
+  $script:RelocationCounts.searched += $files.Count
+  $scripts = @($files | Where-Object { Test-PowerShellScript $_ })
+  $others = @($files | Where-Object { -not (Test-PowerShellScript $_) })
+  $found = @(Select-RelocationNames $others $false) + @(Select-RelocationNames $scripts $true)
   # Each hit file once, in search order, with its hits as @(line, variable).
   $hitFiles = New-Object System.Collections.ArrayList
   $hits = New-Object 'System.Collections.Generic.Dictionary[string,object]' $script:RowPathComparer
   foreach ($match in $found) {
     $path = ConvertFrom-ExtendedPath $match.Path
-    foreach ($name in @(Get-BoundedNames $match.Line)) {
+    foreach ($name in @(Get-BoundedNames $match.Line (Test-PowerShellScript $path))) {
       if (-not $hits.ContainsKey($path)) {
         $hits[$path] = New-Object System.Collections.ArrayList; [void]$hitFiles.Add($path)
       }
@@ -4332,12 +4354,19 @@ function Get-SweepFiles([string]$base, $claimed) {
   return @($files)
 }
 
-# Takes the user, a home or project directory and its catalog table; searches
-# every file under it that no catalog match of the table claims (-EnvScanHome).
-function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$table) {
+# Takes the user, a home or project directory, its catalog table and its
+# startup scope; searches every file under it that no catalog match of the
+# table claims, the fixed list of the scope did not search and no other
+# project holds, as each project is swept on its own (-EnvScanHome).
+function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$table,
+  [string]$scope) {
   [void](Expand-Catalog $homeDir $table)
   $claimed = $script:ClaimedPaths
   $script:ClaimedPaths = Get-ClaimTable
+  foreach ($path in @(Get-StartupFiles $homeDir $scope)) { $claimed[$path] = $true }
+  foreach ($projectDir in $script:ProjectList) {
+    if ($projectDir.path -ne $homeDir) { $claimed[$projectDir.path] = $true }
+  }
   Search-RelocationFiles $user $homeDir @(Get-SweepFiles $homeDir $claimed)
 }
 
@@ -4358,11 +4387,11 @@ function Find-RelocationHints {
   if ($EnvScanHome) {
     foreach ($userHome in $script:UserList) {
       $script:HintHeader = "Relocation hints for $($userHome.user) ($($userHome.home))"
-      Find-RelocationHintsInHome $userHome.user $userHome.home $CATALOG
+      Find-RelocationHintsInHome $userHome.user $userHome.home $CATALOG 'home'
     }
     foreach ($projectDir in $script:ProjectList) {
       $script:HintHeader = "Relocation hints in project $($projectDir.path)"
-      Find-RelocationHintsInHome $projectDir.user $projectDir.path $PROJECT_CATALOG
+      Find-RelocationHintsInHome $projectDir.user $projectDir.path $PROJECT_CATALOG 'project'
     }
   }
   $script:HintHeader = ''

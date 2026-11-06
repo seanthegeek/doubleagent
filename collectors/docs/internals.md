@@ -303,6 +303,11 @@ and records the result in the log and in `collection.json`'s
   and the other fields are 0. `stat_file`, `stat_files` and `file_id`
   branch on it.
 - `WORKER_SH`: see [Worker programs](#worker-programs-sh).
+- `GREP_TEXT`: `-a` when `printf 'x\0CODEX_HOME\n' | grep -a -n CODEX_HOME`
+  prints the numbered line, else empty. Without it `grep -n` reports a file
+  holding a NUL byte only as `Binary file matches`, and the relocation hint
+  in it would be lost. `HINT_SEARCH_WORKER` and `list_bounded_names` pass
+  it to `grep`; `collection.json` records it as `grep_text`.
 
 The main program puts `/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin` ahead
 of the inherited `PATH`, sets `LC_ALL=C` and unsets `CDPATH`, which `cd`
@@ -426,22 +431,31 @@ A new source goes into its group on both sides, at the same position.
 The step searches, per base (each home, the system root and each project), the
 files that the `STARTUP_FILES` globs of that scope match, keeping regular files
 only: a symlink is never followed or read. One `grep -i -l -F` over the
-whole list names the files that hold any `RELOCATION_VARS` name, and one
-`grep -n` and `awk` per such file keeps a hit only where the character before
-and after the name is not a letter, digit or underscore; the PowerShell side
-applies the same test to the matched line. The matched text never reaches the
-log, stdout, a variable that is later printed or a file. Each hit
-becomes one log line and one record per `RELOCATION_VARS` line that names the
-variable (a `shared` line included), which `collection.json` carries as
-`relocation.hints`. The file is then collected once as agent `shared`: the sh
-collector runs the staging worker with the secret pattern forced to match every
-path, and the PowerShell collector passes a forced flag to `Add-CollectedFile`, so
-the size cap, special-file handling and `--no-secrets` apply unchanged. A file
-that the manifest already has a row for keeps that row. With `--env-scan-home`
-a second pass lists every regular file of the base outside the catalog matches
-and `ACTIVE_EXCLUDES`, as `collect_tree` prunes, and searches those up to
-`--env-scan-max-size` the same way. The third field of `RELOCATION_VARS` is
-carried and not read by this step.
+whole list names the files that hold any `RELOCATION_VARS` name in any case,
+and one `grep -n` and `awk` per such file keeps a hit only where the name
+appears in its own case and the character before and after it is not a letter,
+digit or underscore. Shells name variables case-sensitively, so
+`#!/usr/bin/env bash` is no hit on `ENV`; in a file whose name ends in `.ps1`
+(in any case) the name matches in any case, as PowerShell variable names do.
+The PowerShell side runs `Select-String -CaseSensitive` over the other files,
+`Select-String` without it over the `.ps1` files, and applies the same
+boundary test to the matched line. The sh `grep` gets `GREP_TEXT`
+([Capability detection](#capability-detection)), and a NUL byte in a matched
+line becomes a space before `awk`, which would end the line there. The matched
+text never reaches the log, stdout, a variable that is later printed or a
+file. Each hit becomes one log line and one record per `RELOCATION_VARS` line
+that names the variable (a `shared` line included), which `collection.json`
+carries as `relocation.hints`; a record already held is not added again. The
+file is then collected once as agent `shared`: the sh collector runs the
+staging worker with the secret pattern forced to match every path, and the
+PowerShell collector passes a forced flag to `Add-CollectedFile`, so the size
+cap, special-file handling and `--no-secrets` apply unchanged. A file that the
+manifest already has a row for keeps that row. With `--env-scan-home` a second
+pass lists every regular file of the base outside the catalog matches,
+`ACTIVE_EXCLUDES`, the startup files the first pass searched and the other
+projects (each swept on its own), as `collect_tree` prunes, and searches those up to `--env-scan-max-size` the same
+way, so `files_searched` counts each file of a base once. The third field of
+`RELOCATION_VARS` is carried and not read by this step.
 
 ## Inventory mode
 
@@ -558,6 +572,10 @@ PowerShell functions that do their job.
 | Sweep every file of one base (`--env-scan-home`) | `scan_home_for_variables` | `Find-RelocationHintsInHome` |
 | Record one hit: log line and hint record | `record_hint` | `Add-RelocationHint` |
 | Collect one hit file as `shared`, flagged secret | `collect_hint_file` | `Add-HintFile` |
+| List the startup files of one scope under one base | `list_startup_files` | `Get-StartupFiles` |
+| Search files for any relocation variable name | `HINT_SEARCH_WORKER` | `Select-RelocationNames` |
+| Record the hits of the searched files and collect each hit file | `record_search_output`, `record_file_hints` | `Search-RelocationFiles` |
+| The relocation variable names a file (sh) or a line (PowerShell) holds as whole words | `list_bounded_names` | `Get-BoundedNames` |
 | Write the inventory lines (main step) | `write_inventory` | `Write-Inventory` |
 | Format one user's inventory lines | `write_inventory_lines` | `Write-InventoryLines` |
 | Write `collection.json` and stage a copy | `write_summary` | `Write-Summary` |
@@ -594,15 +612,18 @@ PowerShell functions that do their job.
 | `session_cwds` | Project discovery | `cwd` values in rollout files found with `find` |
 | `merge_project_owners`, `keep_project_dirs` | Project discovery | Deduplicates projects; PowerShell uses `Select-UniqueProjects` |
 | `report_missing_projects` | Project discovery | Log line and `error_read` row for a `-p` that is not a directory; PowerShell does this in `Add-Projects` |
+| `set_relocation_names` | Relocation hints | The `RELOCATION_VARS` names as `grep` options and an `awk` list; PowerShell builds `$script:RelocationNames` when the script loads |
+| `search_base_list` | Relocation hints | Runs the fixed list or the sweep over each home or project; PowerShell loops in `Find-RelocationHints` |
 | `aggregate_inventory` | Inventory output | Sums `M\|` and `F\|` lines per agent; PowerShell accumulates with `Get-InventoryEntry`, `Add-InventoryEvidence`, `Add-InventoryFile` |
 | `count_inventory_homes` | Inventory output | Homes scanned and unreadable; PowerShell does this in `Write-Inventory` |
 | `count_status`, `list_active_users`, `sum_collected_bytes` | Summary and archive | Counts read back from the manifest; PowerShell counts in `Write-ManifestRow` |
 | `json_list`, `json_bool` | Summary and archive | JSON arrays and booleans for `collection.json` |
+| `json_relocation` | Summary and archive | The `relocation` object of `collection.json`; PowerShell builds it in `Initialize-Summary` |
 | `tar_gzip` | Summary and archive | The `tar \| gzip` fallback |
 | `usage`, `need_value`, `parse_options` | Main program | Help text and option parsing; PowerShell has `param()` |
 | `set_max_size` | Main program | Validates `--max-file-size` |
 | `check_prerequisites` | Main program | Output directory, `tar` and `find` checks; PowerShell has `Initialize-OutputDir` |
-| `detect_capabilities` | Main program | `HASH_TOOL`, `STAT_MODE`, `WORKER_SH` |
+| `detect_capabilities` | Main program | `HASH_TOOL`, `STAT_MODE`, `WORKER_SH`, `GREP_TEXT` |
 
 ### PowerShell only
 
@@ -621,6 +642,8 @@ PowerShell functions that do their job.
 | `Get-DeniedHomes` | Users | Homes listed by their parent but not reachable |
 | `Write-UnmatchedVolumeRow`, `Find-DockerDesktop` | Docker and Podman volumes | The `skipped_unmatched_volume` row; Docker Desktop notes |
 | `ConvertTo-LocalPath`, `Read-DiscoverySource`, `Get-RegexCaptures`, `Get-FileTexts`, `Select-UniqueProjects` | Project discovery | Value to local path; reading sources; deduplication |
+| `Get-SystemRoot`, `Test-RegularFile`, `Test-PowerShellScript` | Relocation hints | The base of the system scope; whether a path is a regular file; whether a file is a `.ps1` script |
+| `Get-SweepFiles` | Relocation hints | The files the sweep searches and the count it leaves out for size; sh lists them with one `find` in `scan_home_for_variables` |
 | `Get-InventoryEntry`, `Add-InventoryEvidence`, `Format-InventoryTime` | Inventory output | Inventory accumulators and dates |
 | `Initialize-Summary`, `Add-LinkNotes` | Summary and archive | Builds the `collection.json` content |
 | `Close-RunFiles`, `Add-LogLine` | Summary and archive | Closes the writers; log lines after that |

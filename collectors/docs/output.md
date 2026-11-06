@@ -31,13 +31,17 @@ is in the [README](../README.md#quick-start)):
 - The `docker:` line appears only when a Docker or Podman volume directory
   or Docker Desktop data was found; see [docker.md](docker.md).
 
-Progress lines (each user, catalog match, project and relocation hint) go to stderr unless
-`-q` is given. They always go to the log. A `User` line is written only for
-a home with at least one catalog match, just before that match. A hint line is `relocation hint: <file>:<line> names <VARIABLE> (<agent>)`,
-preceded by one header per base searched (`Relocation hints for <user> (<home>)`,
-`Relocation hints in system files`, `Relocation hints in project <path>`);
-the line of the file that matched is never logged. The last
-progress line is `done`; the log file's `done:` line also records the
+Progress lines (each user, catalog match, project and relocation hint) go
+to stderr unless `-q` is given. They always go to the log. A `User` line is
+written only for a home with at least one catalog match, just before that
+match. A hint line is `relocation hint: <file>:<line> names <VARIABLE> (<agent>)`,
+and the first hint of a base in the startup file search, and again in the
+`--env-scan-home` sweep, is preceded by the base's header:
+`Relocation hints for <user> (<home>)`, `Relocation hints in system files` or
+`Relocation hints in project <path>`. The line of the file that matched is
+never logged. The first log lines name the options, `env_scan_home=<0|1>`
+and `env_scan_max_size=<MB>MB` among them. The last progress line is `done`;
+the log file's `done:` line also records the
 archive path, size in bytes and sha256.
 
 A project discovery source (a file the collector reads project paths
@@ -214,12 +218,12 @@ they recognise out of the file counts.
 | `run_as`, `run_as_admin` | PowerShell only: the account the collector ran as, and whether it was elevated. |
 | `started`, `finished` | UTC to the second, `2026-10-03T16:55:31Z`. `finished` is taken before archiving. |
 | `options` | `full`, `no_secrets`, `max_file_size_bytes` (`0` means no limit), `users_filter` (the `-u` string), `no_docker`, `no_projects` (boolean, `--no-projects` or `-NoProjects`), `projects` (array of the `-p`/`--project` or `-Project` values in the order given, resolved against the current directory to absolute paths and de-duplicated, by both collectors, `[]` when none). A value that is not a directory is still listed here. They are recorded even with `no_projects`, which ignores them. After `projects` come `env_scan_home` (boolean, `--env-scan-home` or `-EnvScanHome`) and `env_scan_max_size_bytes` (`0` means no limit; recorded even without `env_scan_home`). |
-| `capabilities` | sh: `hash_tool` (`sha256sum`, `shasum`, `sha256`, `openssl` or `none`), `stat_mode` (`gnu`, `gnu0` for GNU `stat` without birth time, `bsd` or `none`), `worker_shell` and `archiver` (`tar -z` for `tar -czf`, `tar \| gzip` for the pipe, `tar` for the uncompressed `.tar`). PowerShell: `hash_tool` (`System.Security.Cryptography.SHA256`; `Get-FileHash` up to 1.10.1) and `archiver` (`tar.exe` for `tar.exe` or the system `tar`, `PowerShell tar writer` for the script's own tar writer, added after 1.10.2, or `ZipFile` for the zip). `archiver` names the one that wrote the archive. |
+| `capabilities` | sh: `hash_tool` (`sha256sum`, `shasum`, `sha256`, `openssl` or `none`), `stat_mode` (`gnu`, `gnu0` for GNU `stat` without birth time, `bsd` or `none`), `worker_shell`, `archiver` (`tar -z` for `tar -czf`, `tar \| gzip` for the pipe, `tar` for the uncompressed `.tar`) and `grep_text` (`true` when `grep -a` reads a file holding a NUL byte as text, so a relocation variable named in such a file is found; with `false` the relocation search finds no hint in a file `grep` reports as binary). PowerShell, which reads every file as text and has no `grep_text`: `hash_tool` (`System.Security.Cryptography.SHA256`; `Get-FileHash` up to 1.10.1) and `archiver` (`tar.exe` for `tar.exe` or the system `tar`, `PowerShell tar writer` for the script's own tar writer, added after 1.10.2, or `ZipFile` for the zip). `archiver` names the one that wrote the archive. |
 | `users`, `homes` | Parallel lists of every user and home scanned, including homes with no agent state. |
 | `users_with_artifacts` | The users whose home produced at least one manifest row, in the order of `users`. Rows from discovered projects and Docker volumes do not count. The stdout `users:` line is its length. |
 | `projects` | The project directories collected from, discovered or given with `-p`. A `-p` value that is not a directory is left out and has an `error_read` row instead. |
 | `counts` | Rows per status (`collected`, `symlink`, `skipped_excluded`, `skipped_size`, `skipped_secret`, `skipped_special`, `error_copy`, `skipped_unmatched_volume`, `error_read`) and `collected_bytes`. `skipped_special` since collector 1.13.0. |
 | `docker` | `volumes_found`, `volumes_collected`, `unreadable` and `docker_desktop`; see [docker.md](docker.md). |
-| `relocation` | `hints`, `files_searched` and `files_skipped_size`; see [relocation.md](relocation.md). `hints` is an array of objects with `user` (the owner of the home or the project's user, empty for a system file), `source` (the path of the file that names the variable), `line` (its line number), `variable`, `agent` (the catalog agent the table line belongs to, or `shared`) and `value` (always `""`; the collector never evaluates a value). A variable that two agents list gives one hint per agent. `files_searched` counts the files handed to the search, the startup files and, with `--env-scan-home`, the files of the sweep; `files_skipped_size` counts the sweep's files over `--env-scan-max-size`. |
+| `relocation` | `hints`, `files_searched` and `files_skipped_size`; see [relocation.md](relocation.md). `hints` is an array of objects with `user` (the owner of the home or the project's user, empty for a system file), `source` (the path of the file that names the variable), `line` (its line number), `variable`, `agent` (the catalog agent the table line belongs to, or `shared`) and `value` (always `""`; the collector never evaluates a value). A variable that two agents list gives one hint per agent. `files_searched` counts the files handed to the search, the startup files and, with `--env-scan-home`, the files of the sweep, which leaves out the startup files already searched, so each file counts once; `files_skipped_size` counts the sweep's files over `--env-scan-max-size`. |
 | `notes` | Messages about what could not be collected, such as an unreadable or symlinked Docker volume directory, Docker Desktop data, or (PowerShell) symlinks that are not in the archive and why, and (PowerShell) each archiver that failed and the one that was used instead, such as `tar.exe failed (exit code 0xC0000005); fell back to PowerShell tar writer`. |
 | `archive` | The file name of the archive written: `.tar.gz`, `.tar` after the sh collector's uncompressed fallback, or `.zip` from the PowerShell collector after both `tar.exe` and its PowerShell tar writer failed. |

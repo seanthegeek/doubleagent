@@ -1782,7 +1782,7 @@ $startupFixtures = @(
   'system|/run/environment.d/*.conf|run/environment.d/agents.conf|CODEX_HOME=/opt/x'
   'system|/usr/local/lib/environment.d/*.conf|usr/local/lib/environment.d/agents.conf|CODEX_HOME=/opt/x'
   'system|/usr/lib/environment.d/*.conf|usr/lib/environment.d/agents.conf|CODEX_HOME=/opt/x'
-  'home|.config/plasma-workspace/env/*.sh|.config/plasma-workspace/env/agents.sh|export CODEX_HOME=/opt/x'
+  'home|.config/plasma-workspace/env/*.sh|.config/plasma-workspace/env/agents.sh|#!/usr/bin/env bash~export CODEX_HOME=/opt/x'
   'system|/etc/xdg/plasma-workspace/env/*.sh|etc/xdg/plasma-workspace/env/agents.sh|export CODEX_HOME=/opt/x'
   'home|.xsessionrc|.xsessionrc|export CODEX_HOME=/opt/x'
   'home|Library/LaunchAgents/*.plist|Library/LaunchAgents/com.example.agent.plist|<key>CODEX_HOME</key><string>/opt/x</string>'
@@ -1817,9 +1817,11 @@ $startupFixtures = @(
 )
 foreach ($startupEntry in $startupFixtures) {
   $startupScope, $startupGlob, $startupPath, $startupText = $startupEntry -split '\|'
-  if ($startupScope -eq 'home') { $startupFile = "Users/alice/$startupPath" }
-  elseif ($startupScope -eq 'project') { $startupFile = "proj/$startupPath" }
-  else { $startupFile = $startupPath }
+  if ($startupScope -eq 'home') {
+    $startupFile = "Users/alice/$startupPath"
+  } elseif ($startupScope -eq 'project') {
+    $startupFile = "proj/$startupPath"
+  } else { $startupFile = $startupPath }
   if ($startupGlob -eq '.bashrc') { $startupText = $everyVariableText }
   MakeFile $startupFile ($startupText.Replace('~', "`n") + "`n")
 }
@@ -1827,6 +1829,8 @@ foreach ($startupEntry in $startupFixtures) {
 # catalog-collected startup file, a helper deep in the home only the sweep reaches, a file in
 # an excluded directory and a file over the sweep's size limit.
 MakeFile 'Users/alice/.config/fish/conf.d/decoy.fish' "set -gx MY_CODEX_HOME_X /opt/x`n"
+# A variable name in another case is a different variable outside PowerShell.
+MakeFile 'home/bob/.bash_login' "codex_home=/opt/x`n"
 MakeFile 'elsewhere/zshrc' "export CODEX_HOME=/opt/x`n"
 $zshLinkOk = $false
 try {
@@ -2741,9 +2745,11 @@ $startupGlobs = @($startupFixtures | ForEach-Object { $parts = $_ -split '\|'; $
 Check '#454 every startup file line has a fixture' { $listedStartup.Count -gt 0 -and ($listedStartup -join "`n") -ceq ($startupGlobs -join "`n") }
 foreach ($startupEntry in $startupFixtures) {
   $startupScope, $startupGlob, $startupPath, $startupText = $startupEntry -split '\|'
-  if ($startupScope -eq 'home') { $startupFile = "Users/alice/$startupPath" }
-  elseif ($startupScope -eq 'project') { $startupFile = "proj/$startupPath" }
-  else { $startupFile = $startupPath }
+  if ($startupScope -eq 'home') {
+    $startupFile = "Users/alice/$startupPath"
+  } elseif ($startupScope -eq 'project') {
+    $startupFile = "proj/$startupPath"
+  } else { $startupFile = $startupPath }
   Check "#454 startup file collected as shared and flagged secret: $startupScope|$startupGlob" { IsAgentRow $startupFile 'shared' $true }
 }
 Check '#454 system file hint carries its line, variable and agent' { HasHint $defaultRunSummary 'etc/profile' 2 'CODEX_HOME' 'codex-cli' '' }
@@ -2767,6 +2773,11 @@ Check '#454 the log never holds an assignment' { -not $relocationLog.Contains('/
 Check '#454 stdout relocation line counts hints and files searched' { $defaultRunSummary.relocation.files_searched -ge $startupFixtures.Count -and $script:stdout -match "(?m)^relocation: $(@($defaultRunSummary.relocation.hints).Count) hints in $($defaultRunSummary.relocation.files_searched) files searched; see collectors/docs/relocation\.md\s*$" }
 Check '#454 options record the sweep settings' { $defaultRunSummary.options.env_scan_home -eq $false -and $defaultRunSummary.options.env_scan_max_size_bytes -eq 1048576 -and $defaultRunSummary.relocation.files_skipped_size -eq 0 }
 Check '#454 every hint has an empty value' { @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }).Count -eq 0 }
+Check '#454 a fish universal variable is a hint' { HasHint $defaultRunSummary 'Users/alice/.config/fish/fish_variables' 1 'CLAUDE_CONFIG_DIR' 'claude-code' 'alice' }
+Check '#454 a mise [env] table gives a hint on its second line and none for its header' { (HasHint $defaultRunSummary 'Users/alice/.config/mise/config.toml' 2 'CODEX_HOME' 'codex-cli' 'alice') -and @(HintsFrom $defaultRunSummary 'Users/alice/.config/mise/config.toml' | Where-Object { $_.variable -eq 'ENV' }).Count -eq 0 }
+Check '#454 a launchd plist key is a hint' { HasHint $defaultRunSummary 'Users/alice/Library/LaunchAgents/com.example.agent.plist' 1 'CODEX_HOME' 'codex-cli' 'alice' }
+Check '#454 a name in another case is no hint outside a .ps1 file' { (HintsFrom $defaultRunSummary 'home/bob/.bash_login').Count -eq 0 -and (RowsAt 'home/bob/.bash_login').Count -eq 0 }
+Check '#454 an env shebang line gives no ENV hint' { $shebangHints = @(HintsFrom $defaultRunSummary 'Users/alice/.config/plasma-workspace/env/agents.sh'); $shebangHints.Count -eq 1 -and (HasHint $defaultRunSummary 'Users/alice/.config/plasma-workspace/env/agents.sh' 2 'CODEX_HOME' 'codex-cli' 'alice') }
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
@@ -2886,9 +2897,11 @@ foreach ($caseLine in $CasesFrameworks) {
 $noSecretsSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 foreach ($startupEntry in $startupFixtures) {
   $startupScope, $startupGlob, $startupPath, $startupText = $startupEntry -split '\|'
-  if ($startupScope -eq 'home') { $startupFile = "Users/alice/$startupPath" }
-  elseif ($startupScope -eq 'project') { $startupFile = "proj/$startupPath" }
-  else { $startupFile = $startupPath }
+  if ($startupScope -eq 'home') {
+    $startupFile = "Users/alice/$startupPath"
+  } elseif ($startupScope -eq 'project') {
+    $startupFile = "proj/$startupPath"
+  } else { $startupFile = $startupPath }
   Check "#454 startup file skipped without secrets: $startupScope|$startupGlob" { (StatusOf $startupFile) -eq 'skipped_secret' }
 }
 Check '#454 hints kept without secrets' { (HasHint $noSecretsSummary 'etc/profile' 2 'CODEX_HOME' 'codex-cli' '') -and @($noSecretsSummary.relocation.hints).Count -eq @($defaultRunSummary.relocation.hints).Count }
@@ -2930,15 +2943,30 @@ Check '#106 NESTED_CLAIMS in the environment prunes nothing' { $script:ExitCode 
 # 2026-11-06 relocation hints (#454)
 Run 'envscan' @{ EnvScanHome = $true }
 $envScanSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
-Check '#454 EnvScanHome exit 0' { $script:ExitCode -eq 0 }
-Check '#454 EnvScanHome recorded in options' { $envScanSummary.options.env_scan_home -eq $true -and $envScanSummary.options.env_scan_max_size_bytes -eq 1048576 }
+Check '#454 the sweep run exits 0' { $script:ExitCode -eq 0 }
+Check '#454 the sweep run records its options' { $envScanSummary.options.env_scan_home -eq $true -and $envScanSummary.options.env_scan_max_size_bytes -eq 1048576 }
 Check '#454 the sweep hints and collects a file deep in the home' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh' 1 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.sh' 'shared' $true) }
 Check '#454 the sweep counts a file over its size limit and leaves it unsearched' { $envScanSummary.relocation.files_skipped_size -ge 1 -and (HintsFrom $envScanSummary 'Users/alice/scripts/big.sh').Count -eq 0 -and (RowsAt 'Users/alice/scripts/big.sh').Count -eq 0 }
 Check '#454 the sweep leaves out an excluded directory' { (HintsFrom $envScanSummary 'Users/alice/tools/agent-env.sh').Count -eq 0 -and (RowsAt 'Users/alice/tools/agent-env.sh').Count -eq 0 }
 Check '#454 the sweep leaves the catalog-collected file its one row' { $catalogRows = RowsAt 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist'; $catalogRows.Count -eq 1 -and $catalogRows[0].agent -eq 'openclaw' }
 Check '#454 the sweep searches more files than the startup list' { $envScanSummary.relocation.files_searched -gt $defaultRunSummary.relocation.files_searched }
+if ($zshLinkOk) {
+  Check '#454 the sweep never follows a symlink' { (HintsFrom $envScanSummary 'home/bob/.zshrc').Count -eq 0 -and (RowsAt 'home/bob/.zshrc').Count -eq 0 -and (RowsAt 'elsewhere/zshrc').Count -eq 0 }
+}
+Check '#454 the sweep gives a startup file its hints once' { (HintsFrom $envScanSummary 'Users/alice/.bash_profile').Count -eq 1 -and (HintsFrom $envScanSummary 'proj/.envrc').Count -eq 1 -and @(HintsFrom $envScanSummary 'Users/alice/.bashrc').Count -eq @(HintsFrom $defaultRunSummary 'Users/alice/.bashrc').Count }
+# One more startup file and one more file only the sweep reaches add one searched file each:
+# the sweep leaves out the startup files already searched. Written without MakeFile, which
+# would expect them to stay.
+$onceFiles = @('Users/alice/.bashrc.d/once.sh', 'Users/alice/work/once.sh')
+foreach ($onceFile in $onceFiles) {
+  [System.IO.File]::WriteAllText((ExtendedPath (ImagePath $onceFile)), "export CODEX_HOME=/opt/x`n")
+}
+Run 'envscanonce' @{ EnvScanHome = $true }
+$envScanOnceSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
+Check '#454 the sweep counts each file it searches once' { $envScanOnceSummary.relocation.files_searched -eq ($envScanSummary.relocation.files_searched + 2) -and (HintsFrom $envScanOnceSummary $onceFiles[0]).Count -eq 1 -and (HintsFrom $envScanOnceSummary $onceFiles[1]).Count -eq 1 }
+foreach ($onceFile in $onceFiles) { Remove-Item -LiteralPath (ImagePath $onceFile) -Force }
 Run 'envscanbad' @{ EnvScanMaxSizeMB = 'x' }
-Check '#454 -EnvScanMaxSizeMB x exits 1' { $script:ExitCode -eq 1 -and $script:stdout -match 'Invalid -EnvScanMaxSizeMB' }
+Check '#454 an invalid sweep size limit exits 1' { $script:ExitCode -eq 1 -and $script:stdout -match 'Invalid -EnvScanMaxSizeMB' }
 
 # ---- Docker Desktop note ----------------------------------------------------
 MakeFile 'Users/alice/AppData/Local/Docker/wsl/disk/readme.txt' 'vhdx lives here'
@@ -3259,7 +3287,7 @@ Check 'Inventory child stdout parses line by line' { @($childOut | Where-Object 
 # Windows PowerShell 5.1 wraps redirected error-stream text at the console width, so a long path splits across lines.
 Check 'Inventory -OutputDir noted on stderr' { ((Get-Content -LiteralPath $errFile -Raw) -replace '\s+', ' ') -match 'NOTE: -Inventory writes nothing; -OutputDir .*inv-o ignored' }
 # 2026-11-06 relocation hints (#454)
-Check '#454 Inventory prints no relocation hint' { -not ((Get-Content -LiteralPath $errFile -Raw) -match 'relocation hint|Relocation hints') -and @($childOut | Where-Object { $_ -match 'relocation' }).Count -eq 0 }
+Check '#454 inventory prints no relocation hint' { -not ((Get-Content -LiteralPath $errFile -Raw) -match 'relocation hint|Relocation hints') -and @($childOut | Where-Object { $_ -match 'relocation' }).Count -eq 0 }
 $childQuiet = @(& $self -NoProfile -ExecutionPolicy Bypass -File $Collector -Root $Root -Inventory -Quiet 2>$errFile)
 Check 'Inventory -Quiet leaves stderr empty' { $childQuiet.Count -gt 10 -and -not ((Get-Content -LiteralPath $errFile -Raw) -match '\S') }
 # 2026-10-04 bug round: #29

@@ -2997,12 +2997,12 @@ $_ret_heredoc_text"
 
 # HINT_SEARCH_WORKER: prints S|<count> for the files after its first
 # option_count arguments, then the files that one grep with all the arguments
-# lists, so find starts one grep per batch. Arguments: option_count
-# grep_options... files...
+# and GREP_TEXT lists, so find starts one grep per batch. Arguments:
+# option_count grep_options... files...
 heredoc_var <<'EOF_HINT_SEARCH_WORKER'
 option_count=$1; shift
 printf 'S|%s\n' "$(( $# - option_count ))"
-grep "$@" 2>>"$LOG"
+grep ${GREP_TEXT:+"$GREP_TEXT"} "$@" 2>>"$LOG"
 EOF_HINT_SEARCH_WORKER
 HINT_SEARCH_WORKER=$_ret_heredoc_text
 
@@ -3804,14 +3804,19 @@ search_startup_files() {
   record_search_output "$_ssf_user" "$_ssf_home" "$_ssf_output"
 }
 
-# scan_home_for_variables USER HOME TABLE: searches every regular file under
-# HOME with one find(1) that prunes the TABLE matches, ACTIVE_EXCLUDES and the
-# output directory, and counts the files over ENV_SCAN_MAX_SIZE (0, no limit)
-# instead of searching them. Reads OUTDIR, GREP_NAME_OPTIONS, GREP_NAME_COUNT,
-# WORKER_SH, LOG. Temporaries: _shv_.
+# scan_home_for_variables USER HOME TABLE SCOPE: searches every regular file
+# under HOME with one find(1) that prunes the TABLE matches, the SCOPE startup
+# files the fixed list searched, the other projects (each swept on its own),
+# ACTIVE_EXCLUDES and the output directory, and counts the files over
+# ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them. Reads OUTDIR,
+# PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT, WORKER_SH, LOG.
+# Temporaries: _shv_.
 scan_home_for_variables() {
   _shv_user=$1; _shv_home=$2; _shv_option_count=$(( GREP_NAME_COUNT + 4 ))
   _shv_claims=$(expand_catalog "$2" "$3" | grep -v '^#|' | cut -d'|' -f3-)
+  _shv_claims="$_shv_claims
+$(list_startup_files "$2" "$4")
+$(printf '%s\n' "$PROJECT_LIST" | sed 's/^[^:]*://' | grep -v -x -F -e "$2")"
   set -- "$2" '(' -path "$OUTDIR"
   _shv_saved_ifs=$IFS; IFS='
 '
@@ -3849,34 +3854,38 @@ EOF_SEARCH_OUTPUT
 
 # list_bounded_names FILE -> LINE|NAME for each line of FILE and each
 # RELOCATION_VARS name it holds as a whole word: the characters around it, when
-# any, are not letters, digits or _, compared without case. The line's text goes
-# through a pipe only, never to output. Reads GREP_NAME_OPTIONS,
-# RELOCATION_NAMES_CSV, LOG. Temporaries: _lbn_.
+# any, are not letters, digits or _. A name matches in its own case only, since
+# shells name variables case-sensitively, except in a .ps1 file, where PowerShell
+# does not. A NUL byte becomes a space before awk, which ends a line at one. The
+# line's text goes through a pipe only, never to output. Reads GREP_TEXT,
+# GREP_NAME_OPTIONS, RELOCATION_NAMES_CSV, LOG. Temporaries: _lbn_.
 list_bounded_names() {
+  _lbn_file=$1; _lbn_fold=0; _lbn_case=
+  case "$_lbn_file" in (*.[Pp][Ss]1) _lbn_fold=1; _lbn_case=-i ;; esac
   _lbn_saved_ifs=$IFS; IFS='
 '
   set -f
   # shellcheck disable=SC2086 # one grep option per line
-  set -- -i -n -F $GREP_NAME_OPTIONS -- "$1"
+  set -- ${_lbn_case:+"$_lbn_case"} ${GREP_TEXT:+"$GREP_TEXT"} -n -F $GREP_NAME_OPTIONS -- "$_lbn_file"
   set +f; IFS=$_lbn_saved_ifs
-  grep "$@" 2>>"$LOG" | awk -v names="$RELOCATION_NAMES_CSV" '
+  grep "$@" 2>>"$LOG" | tr '\000' ' ' | awk -v names="$RELOCATION_NAMES_CSV" -v fold="$_lbn_fold" '
     function bounded(text, word,   start, offset, at, before, after) {
       start = 1
       while ((offset = index(substr(text, start), word)) > 0) {
         at = start + offset - 1
         before = at > 1 ? substr(text, at - 1, 1) : ""
         after = substr(text, at + length(word), 1)
-        if (before !~ /[a-z0-9_]/ && after !~ /[a-z0-9_]/) return 1
+        if (before !~ /[A-Za-z0-9_]/ && after !~ /[A-Za-z0-9_]/) return 1
         start = at + 1
       }
       return 0
     }
     BEGIN { count = split(names, name, ",")
-      for (i = 1; i <= count; i++) lower[i] = tolower(name[i]) }
+      for (i = 1; i <= count; i++) word[i] = fold ? tolower(name[i]) : name[i] }
     { separator = index($0, ":"); number = substr($0, 1, separator - 1)
       if (separator < 2 || number ~ /[^0-9]/) next
-      text = tolower(substr($0, separator + 1))
-      for (i = 1; i <= count; i++) if (bounded(text, lower[i])) print number "|" name[i] }'
+      text = substr($0, separator + 1); if (fold) text = tolower(text)
+      for (i = 1; i <= count; i++) if (bounded(text, word[i])) print number "|" name[i] }'
 }
 
 # record_file_hints USER HOME FILE: records every bounded name in FILE and,
@@ -3937,7 +3946,7 @@ search_base_list() {
     if [ "$2" = home ]; then HINT_HEADER="Relocation hints for $_sbl_user ($_sbl_base)"
     else HINT_HEADER="Relocation hints in project $_sbl_base"; fi
     if [ "$4" = startup ]; then search_startup_files "$_sbl_user" "$_sbl_base" "$2"
-    else scan_home_for_variables "$_sbl_user" "$_sbl_base" "$3"; fi
+    else scan_home_for_variables "$_sbl_user" "$_sbl_base" "$3" "$2"; fi
   done <<EOF_BASE_LIST
 $1
 EOF_BASE_LIST
@@ -4150,7 +4159,8 @@ write_summary() {
 "projects": $(json_list "$EXTRA_PROJECTS"), "env_scan_home": $(json_bool "$ENV_SCAN_HOME"), \
 "env_scan_max_size_bytes": $ENV_SCAN_MAX_SIZE},
   "capabilities": {"hash_tool": "$HASH_TOOL", "stat_mode": "$STAT_MODE", \
-"worker_shell": "$(json_escape "$WORKER_SH")", "archiver": "$(json_escape "$2")"},
+"worker_shell": "$(json_escape "$WORKER_SH")", "archiver": "$(json_escape "$2")", \
+"grep_text": $(json_bool "${GREP_TEXT:+1}")},
   "users": $(json_list "$(printf '%s\n' "$USER_LIST" | cut -d: -f1)"),
   "homes": $(json_list "$(printf '%s\n' "$USER_LIST" | sed 's/^[^:]*://')"),
   "users_with_artifacts": $(json_list "$(printf '%s\n' "$ACTIVE_USERS" | cut -d: -f1)"),
@@ -4407,9 +4417,11 @@ check_prerequisites() {
   command -v find >/dev/null 2>&1 || { printf 'find not found\n' >&2; exit 2; }
 }
 
-# detect_capabilities: sets HASH_TOOL, STAT_MODE and WORKER_SH once. The workers
-# run under dash when it is installed, as it starts and loops faster than bash;
-# COLLECTOR_SH overrides it. Temporaries: _dc_.
+# detect_capabilities: sets HASH_TOOL, STAT_MODE, WORKER_SH and GREP_TEXT once.
+# The workers run under dash when it is installed, as it starts and loops faster
+# than bash; COLLECTOR_SH overrides it. GREP_TEXT is -a when grep -a prints the
+# numbered line of a file holding a NUL byte, which grep otherwise reports only
+# as a binary match. Temporaries: _dc_.
 detect_capabilities() {
   if command -v sha256sum >/dev/null 2>&1; then HASH_TOOL=sha256sum
   elif command -v shasum >/dev/null 2>&1 && shasum -a 256 /dev/null >/dev/null 2>&1; then
@@ -4426,6 +4438,9 @@ detect_capabilities() {
   if [ -n "${COLLECTOR_SH:-}" ]; then WORKER_SH=$COLLECTOR_SH
   elif command -v dash >/dev/null 2>&1; then WORKER_SH=dash
   else WORKER_SH='sh'; fi
+  _dc_text_probe=$(printf 'x\000CODEX_HOME\n' | grep -a -n CODEX_HOME 2>/dev/null |
+    awk '/^1:/ { found = 1 } END { print found + 0 }')
+  if [ "$_dc_text_probe" = 1 ]; then GREP_TEXT=-a; else GREP_TEXT=; fi
 }
 
 # set_output_names: sets START_TIME, HOST, NAME and the output paths under
@@ -4499,7 +4514,7 @@ compile_secret_pattern
 define_secret_test
 set_output_names
 # exported for the worker programs
-export HASH_TOOL STAT_MODE MAX_SIZE SECRET_PATTERN NO_SECRETS LOG QUIET
+export HASH_TOOL STAT_MODE MAX_SIZE SECRET_PATTERN NO_SECRETS LOG QUIET GREP_TEXT
 trap 'cleanup' EXIT
 trap 'log_line "interrupted"; cleanup; trap - EXIT; exit 130' INT TERM
 create_output_files

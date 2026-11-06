@@ -88,7 +88,7 @@ docker:     4 volumes found, 1 collected, 0 unreadable
 | `--no-docker` | `-NoDocker` | Skip Docker and Podman named volume enumeration. |
 | `--max-file-size MB` | `-MaxFileSizeMB` | Skip files larger than this many MiB. Default 256, `0` disables. |
 | `--env-scan-home` | `-EnvScanHome` | Also search every other file in each home and project for relocation variable names. See [docs/relocation.md](docs/relocation.md). |
-| `--env-scan-max-size MB` | `-EnvScanMaxSizeMB` | With `--env-scan-home`, skip files larger than this many MiB. Default 1, `0` disables. |
+| `--env-scan-max-size MB` | `-EnvScanMaxSizeMB` | With `--env-scan-home`, skip files larger than this whole number of MiB. Default 1, `0` disables. |
 | `-k, --keep-staging` | `-KeepStaging`, `-k` | Keep the staging directory. |
 | `--inventory` | `-Inventory` | Write nothing; print one JSON line per user and agent found. See [docs/inventory.md](docs/inventory.md). |
 | `--list` | `-List` | Print the catalog tables and exit. |
