@@ -1755,6 +1755,177 @@ for _opencode_path in .opencode/opencode.json opencode.jsonc; do
   printf '{"mcp":{"x":{"type":"local","environment":{"TOKEN":"t"}}}}\n' >"$ROOT/srv/ocproj/$_opencode_path"
 done
 
+# 2026-11-06 relocation hints (#454)
+# One file per STARTUP_FILES line, each assigning a variable in its own syntax:
+# alice's home for the home lines, the image root for the system lines, the
+# discovered project /srv/proj for the project lines. A TOML line holds a \n
+# that printf %b writes as a line break.
+# shellcheck disable=SC2016 # the fixtures hold shell variables literally
+CASES_STARTUP_HOME='
+.bash_profile|export CODEX_HOME=/opt/x
+.bash_login|export CODEX_HOME=/opt/x
+.profile|CODEX_HOME=/opt/x; export CODEX_HOME
+.bashrc|export CODEX_HOME=/opt/x
+.bashrc.d/agents|export CODEX_HOME=/opt/x
+.zshenv|export CODEX_HOME=/opt/x
+.zprofile|export CODEX_HOME=/opt/x
+.zshrc|export CODEX_HOME=/opt/x
+.zlogin|export CODEX_HOME=/opt/x
+.shrc|export CODEX_HOME=/opt/x
+.shinit|export CODEX_HOME=/opt/x
+.kshrc|export CODEX_HOME=/opt/x
+.mkshrc|export CODEX_HOME=/opt/x
+.config/fish/config.fish|set -gx CODEX_HOME /opt/x
+.config/fish/conf.d/agents.fish|set -gx CODEX_HOME /opt/x
+.config/fish/fish_variables|SETUVAR --export CODEX_HOME:/opt/x
+.config/fish/fishd.agents|SETUVAR --export CODEX_HOME:/opt/x
+.local/share/fish/vendor_conf.d/agents.fish|set -gx CODEX_HOME /opt/x
+.tcshrc|setenv CODEX_HOME /opt/x
+.cshrc|setenv CODEX_HOME /opt/x
+.login|setenv CODEX_HOME /opt/x
+.config/nushell/env.nu|$env.CODEX_HOME = "/opt/x"
+.config/nushell/config.nu|$env.CODEX_HOME = "/opt/x"
+.config/nushell/login.nu|$env.CODEX_HOME = "/opt/x"
+.config/nushell/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"
+Library/Application Support/nushell/env.nu|$env.CODEX_HOME = "/opt/x"
+Library/Application Support/nushell/config.nu|$env.CODEX_HOME = "/opt/x"
+Library/Application Support/nushell/login.nu|$env.CODEX_HOME = "/opt/x"
+Library/Application Support/nushell/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"
+AppData/Roaming/nushell/env.nu|$env.CODEX_HOME = "/opt/x"
+AppData/Roaming/nushell/config.nu|$env.CODEX_HOME = "/opt/x"
+AppData/Roaming/nushell/login.nu|$env.CODEX_HOME = "/opt/x"
+AppData/Roaming/nushell/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"
+.local/share/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"
+.xonshrc|$CODEX_HOME = "/opt/x"
+.config/xonsh/rc.xsh|$CODEX_HOME = "/opt/x"
+.config/xonsh/rc.d/agents.xsh|$CODEX_HOME = "/opt/x"
+.config/xonsh/rc.d/agents.py|$CODEX_HOME = "/opt/x"
+.config/elvish/rc.elv|set E:CODEX_HOME = /opt/x
+.elvish/rc.elv|set E:CODEX_HOME = /opt/x
+AppData/Roaming/elvish/rc.elv|set E:CODEX_HOME = /opt/x
+Documents/WindowsPowerShell/agents.ps1|$env:CODEX_HOME = "/opt/x"
+Documents/PowerShell/Microsoft.PowerShell_profile.ps1|$env:codex_home = "/opt/x"
+.config/powershell/agents.ps1|$env:CODEX_HOME = "/opt/x"
+.pam_environment|CODEX_HOME DEFAULT=/opt/x
+.config/environment.d/agents.conf|CODEX_HOME=/opt/x
+.config/plasma-workspace/env/agents.sh|export CODEX_HOME=/opt/x
+.xsessionrc|export CODEX_HOME=/opt/x
+Library/LaunchAgents/com.example.agents.plist|<plist><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/x</string></dict></dict></plist>
+.config/direnv/direnvrc|export CODEX_HOME=/opt/x
+.config/direnv/direnv.toml|[global]\nCODEX_HOME = "/opt/x"
+.config/direnv/lib/agents.sh|export CODEX_HOME=/opt/x
+.config/mise/config.toml|[env]\nCODEX_HOME = "/opt/x"
+.config/mise/conf.d/agents.toml|[env]\nCODEX_HOME = "/opt/x"
+.oh-my-zsh/custom/agents.zsh|export CODEX_HOME=/opt/x
+.bash_it/custom/agents.bash|export CODEX_HOME=/opt/x
+.bash_it/custom/agents/agents.bash|export CODEX_HOME=/opt/x
+.config/omf/before.init.fish|set -gx CODEX_HOME /opt/x
+.config/omf/init.fish|set -gx CODEX_HOME /opt/x'
+# shellcheck disable=SC2016 # the fixtures hold shell variables literally
+CASES_STARTUP_SYSTEM='
+etc/profile|export COPILOT_HOME=/opt/x
+etc/profile.d/agents.sh|export CODEX_HOME=/opt/x
+etc/profile.d/sh.local|export CODEX_HOME=/opt/x
+etc/bash.bashrc|export CODEX_HOME=/opt/x
+etc/bashrc|export CODEX_HOME=/opt/x
+etc/zshenv|export CODEX_HOME=/opt/x
+etc/zprofile|export CODEX_HOME=/opt/x
+etc/zshrc|export CODEX_HOME=/opt/x
+etc/zlogin|export CODEX_HOME=/opt/x
+etc/zsh/zshenv|export CODEX_HOME=/opt/x
+etc/zsh/zprofile|export CODEX_HOME=/opt/x
+etc/zsh/zshrc|export CODEX_HOME=/opt/x
+etc/zsh/zlogin|export CODEX_HOME=/opt/x
+usr/local/etc/zshenv|export CODEX_HOME=/opt/x
+usr/local/etc/zprofile|export CODEX_HOME=/opt/x
+usr/local/etc/zshrc|export CODEX_HOME=/opt/x
+usr/local/etc/zlogin|export CODEX_HOME=/opt/x
+etc/suid_profile|export CODEX_HOME=/opt/x
+etc/ksh.kshrc|export CODEX_HOME=/opt/x
+etc/fish/config.fish|set -gx CODEX_HOME /opt/x
+etc/fish/conf.d/agents.fish|set -gx CODEX_HOME /opt/x
+usr/share/fish/vendor_conf.d/agents.fish|set -gx CODEX_HOME /opt/x
+usr/local/share/fish/vendor_conf.d/agents.fish|set -gx CODEX_HOME /opt/x
+usr/local/etc/fish/config.fish|set -gx CODEX_HOME /opt/x
+usr/local/etc/fish/conf.d/agents.fish|set -gx CODEX_HOME /opt/x
+opt/homebrew/etc/fish/config.fish|set -gx CODEX_HOME /opt/x
+opt/homebrew/etc/fish/conf.d/agents.fish|set -gx CODEX_HOME /opt/x
+opt/homebrew/share/fish/vendor_conf.d/agents.fish|set -gx CODEX_HOME /opt/x
+etc/csh.cshrc|setenv CODEX_HOME /opt/x
+etc/csh.login|setenv CODEX_HOME /opt/x
+etc/.cshrc|setenv CODEX_HOME /opt/x
+etc/.login|setenv CODEX_HOME /opt/x
+usr/share/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"
+usr/local/share/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"
+Library/Application Support/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"
+ProgramData/nushell/vendor/autoload/agents.nu|$env.CODEX_HOME = "/opt/x"
+etc/xonsh/xonshrc|$CODEX_HOME = "/opt/x"
+etc/xonsh/rc.d/agents.xsh|$CODEX_HOME = "/opt/x"
+etc/xonsh/rc.d/agents.py|$CODEX_HOME = "/opt/x"
+Windows/System32/WindowsPowerShell/v1.0/agents.ps1|$env:CODEX_HOME = "/opt/x"
+Program Files/PowerShell/7/agents.ps1|$env:CODEX_HOME = "/opt/x"
+opt/microsoft/powershell/7/agents.ps1|$env:CODEX_HOME = "/opt/x"
+usr/local/microsoft/powershell/7/agents.ps1|$env:CODEX_HOME = "/opt/x"
+etc/environment|CODEX_HOME=/opt/x
+etc/security/pam_env.conf|CODEX_HOME DEFAULT=/opt/x
+etc/environment.d/agents.conf|CODEX_HOME=/opt/x
+run/environment.d/agents.conf|CODEX_HOME=/opt/x
+usr/local/lib/environment.d/agents.conf|CODEX_HOME=/opt/x
+usr/lib/environment.d/agents.conf|CODEX_HOME=/opt/x
+etc/xdg/plasma-workspace/env/agents.sh|export CODEX_HOME=/opt/x
+Library/LaunchAgents/com.example.agents.plist|<plist><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/x</string></dict></dict></plist>
+Library/LaunchDaemons/com.example.agents.plist|<plist><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/x</string></dict></dict></plist>
+etc/mise/config.toml|[env]\nCODEX_HOME = "/opt/x"
+etc/mise/conf.d/agents.toml|[env]\nCODEX_HOME = "/opt/x"'
+CASES_STARTUP_PROJECT='
+.envrc|export CLAUDE_CONFIG_DIR=/opt/x
+.env|CODEX_HOME=/opt/x
+mise.toml|[env]\nCODEX_HOME = "/opt/x"
+.mise.toml|[env]\nCODEX_HOME = "/opt/x"
+mise.local.toml|[env]\nCODEX_HOME = "/opt/x"
+.mise.local.toml|[env]\nCODEX_HOME = "/opt/x"
+mise/config.toml|[env]\nCODEX_HOME = "/opt/x"
+mise/conf.d/agents.toml|[env]\nCODEX_HOME = "/opt/x"
+.mise/config.toml|[env]\nCODEX_HOME = "/opt/x"
+.mise/conf.d/agents.toml|[env]\nCODEX_HOME = "/opt/x"
+.config/mise.toml|[env]\nCODEX_HOME = "/opt/x"
+.config/mise/mise.toml|[env]\nCODEX_HOME = "/opt/x"
+.config/mise/config.toml|[env]\nCODEX_HOME = "/opt/x"
+.config/mise/conf.d/agents.toml|[env]\nCODEX_HOME = "/opt/x"'
+printf '%s\n' "$CASES_STARTUP_HOME" >"$WORK/startup-home"
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  case "$_rel" in */*) mkdir -p "$ALICE/${_rel%/*}" ;; esac
+  printf '%b\n' "$_content" >"$ALICE/$_rel"
+done <"$WORK/startup-home"
+printf '%s\n' "$CASES_STARTUP_SYSTEM" >"$WORK/startup-system"
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  case "$_rel" in */*) mkdir -p "$ROOT/${_rel%/*}" ;; esac
+  printf '%b\n' "$_content" >"$ROOT/$_rel"
+done <"$WORK/startup-system"
+printf '%s\n' "$CASES_STARTUP_PROJECT" >"$WORK/startup-project"
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  case "$_rel" in */*) mkdir -p "$ROOT/srv/proj/${_rel%/*}" ;; esac
+  printf '%b\n' "$_content" >"$ROOT/srv/proj/$_rel"
+done <"$WORK/startup-project"
+# bob's .bashrc names every variable of --list, one per line; his .profile only
+# a longer name holding one; his .zshrc is a symlink to a file naming one.
+"$SHELL_UNDER_TEST" "$SCRIPT" --list | awk -F'|' '/^# relocation variables/ { on = 1; next }
+  /^# startup files/ { on = 0 } on && !/^#/ && !seen[$2]++ { print "export " $2 "=/opt/x" }' >"$BOB/.bashrc"
+printf 'export MY_CODEX_HOME_X=/opt/x\n' >"$BOB/.profile"
+mkdir -p "$ROOT/opt/dotfiles"
+printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/opt/dotfiles/zshrc"
+ln -s "$ROOT/opt/dotfiles/zshrc" "$BOB/.zshrc"
+# A startup file a catalog line also matches keeps its catalog row.
+printf '<plist><dict><key>EnvironmentVariables</key><dict><key>OPENCLAW_STATE_DIR</key><string>/opt/x</string></dict></dict></plist>\n' >"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist"
+# Only --env-scan-home reaches these: a helper deep in the home, a file over the
+# search limit, and one inside an excluded directory, which stays unread.
+mkdir -p "$ALICE/scripts/agent-env/deep" "$ALICE/dumps" "$ALICE/AppData/Local/agy"
+printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/scripts/agent-env/deep/helper.sh"
+{ head -c 1100000 /dev/zero; printf '\nexport CODEX_HOME=/opt/x\n'; } >"$ALICE/dumps/oversized-env.txt"
+printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/AppData/Local/agy/agent-env.sh"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
 if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
@@ -2337,6 +2508,45 @@ check "#156 Qwen Live memory library collected" "row \"$QWEN_LIVE/memories/defau
 check "#156 Qwen Live config and its temporary copies flagged secret" "row \"$QWEN_LIVE/config.json\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED' && row \"$QWEN_LIVE/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED' && row \"$QWEN_LIVE/config.json.tmp\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED'"
 check "#156 Qwen Live discovery record and its temporary copy flagged secret" "row \"$ALICE/.qwen/live/daemon.json\" | grep -q '\"agent\":\"qwen-code\".*$SECRET_COLLECTED' && row \"$ALICE/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp\" | grep -q '\"agent\":\"qwen-code\".*$SECRET_COLLECTED'"
 
+# 2026-11-06 relocation hints (#454)
+# hint_line FILE LINE VARIABLE AGENT -> the collection.json hint of FILE:LINE
+# naming VARIABLE for AGENT; listed_variables -> the --list variables, sorted.
+# shellcheck disable=SC2317,SC2329 # called from the eval'd check strings
+hint_line() { grep -F "\"source\": \"$1\", \"line\": $2, \"variable\": \"$3\", \"agent\": \"$4\"," "$SUMMARY"; }
+# shellcheck disable=SC2317,SC2329
+hinted_variables() { grep -F "\"source\": \"$1\"," "$SUMMARY" | sed 's/.*"variable": "\([^"]*\)".*/\1/' | sort -u; }
+# shellcheck disable=SC2317,SC2329
+listed_variables() { "$SHELL_UNDER_TEST" "$SCRIPT" --list | awk -F'|' '/^# relocation variables/ { on = 1; next } /^# startup files/ { on = 0 } on && !/^#/ { print $2 }' | sort -u; }
+# shellcheck disable=SC2317,SC2329
+hint_count() { grep -cF "\"source\": \"$1\"," "$SUMMARY"; }
+RELOCATION_LOG=$(ls "$OUT/default"/*.log 2>/dev/null)
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  check "#454 home startup file collected as shared, flagged secret: $_rel" "row \"$ALICE/$_rel\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+done <"$WORK/startup-home"
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  check "#454 system startup file collected as shared, flagged secret: /$_rel" "row \"$ROOT/$_rel\" | grep -q '\"user\":\"\",\"home\":\"\",\"agent\":\"shared\".*$SECRET_COLLECTED'"
+done <"$WORK/startup-system"
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  check "#454 project startup file collected as shared, flagged secret: $_rel" "row \"$ROOT/srv/proj/$_rel\" | grep -q '\"user\":\"alice\",\"home\":\"$ROOT/srv/proj\",\"agent\":\"shared\".*$SECRET_COLLECTED'"
+done <"$WORK/startup-project"
+check "#454 /etc/profile hint names COPILOT_HOME for both Copilot agents, with no user" "hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | grep -q '\"user\": \"\"' && hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-desktop | grep -q '\"value\": \"\"}'"
+check "#454 project .envrc hint carries the project owner" "hint_line \"$ROOT/srv/proj/.envrc\" 1 CLAUDE_CONFIG_DIR claude-code | grep -q '\"user\": \"alice\"'"
+check "#454 fish universal variable hint" "hint_line \"$ALICE/.config/fish/fish_variables\" 1 CODEX_HOME codex-cli | grep -q ."
+check "#454 mise [env] table hint on its second line" "hint_line \"$ALICE/.config/mise/config.toml\" 2 CODEX_HOME codex-cli | grep -q . && hint_line \"$ALICE/.config/mise/config.toml\" 1 ENV shared | grep -q ."
+check "#454 launchd plist key hint" "hint_line \"$ALICE/Library/LaunchAgents/com.example.agents.plist\" 1 CODEX_HOME codex-cli | grep -q ."
+check "#454 lowercase PowerShell variable name is a hint" "hint_line \"$ALICE/Documents/PowerShell/Microsoft.PowerShell_profile.ps1\" 1 CODEX_HOME codex-cli | grep -q '\"user\": \"alice\"'"
+check "#454 every --list variable is hinted from the file naming them all" "[ -n \"\$(listed_variables)\" ] && [ \"\$(hinted_variables \"$BOB/.bashrc\")\" = \"\$(listed_variables)\" ]"
+check "#454 a longer name holding a variable is no hint and no row" "[ \"\$(hint_count \"$BOB/.profile\")\" = 0 ] && [ -z \"\$(row \"$BOB/.profile\")\" ]"
+check "#454 a symlinked startup file is never read" "[ \"\$(hint_count \"$BOB/.zshrc\")\" = 0 ] && [ -z \"\$(row \"$BOB/.zshrc\")\" ] && ! grep -q 'opt/dotfiles' \"\$MANIFEST\""
+check "#454 a catalog-matched startup file is hinted and keeps its one catalog row" "hint_line \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\" 1 OPENCLAW_STATE_DIR openclaw | grep -q . && [ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && row \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\" | grep -q '\"agent\":\"openclaw\"'"
+check "#454 files only the sweep reaches give no hint by default" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 0 ] && [ -z \"\$(row \"$ALICE/scripts/agent-env/deep/helper.sh\")\" ]"
+check "#454 log holds the hint lines, never the assignment text" "grep -q 'relocation hint: $ROOT/etc/profile:1 names COPILOT_HOME (copilot-cli)\$' \"$RELOCATION_LOG\" && grep -q 'Relocation hints in system files' \"$RELOCATION_LOG\" && [ \"\$(grep -c '/opt/x' \"$RELOCATION_LOG\")\" = 0 ]"
+check "#454 -q keeps the hint lines off stderr" "! grep -q 'relocation hint' \"$OUT/default.stderr\""
+check "#454 stdout relocation line points at the page" "grep -q '^relocation: [1-9][0-9]* hints in [1-9][0-9]* files searched; see collectors/docs/relocation.md\$' \"$OUT/default.stdout\""
+check "#454 summary options and counts without the sweep" "grep -q '\"env_scan_home\": false, \"env_scan_max_size_bytes\": 1048576}' \"\$SUMMARY\" && grep -q '\"files_searched\": [1-9][0-9]*, \"files_skipped_size\": 0}' \"\$SUMMARY\""
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
 check "credentials skipped_secret" "[ \"\$(status_of \"$ROOT/home/alice/.claude/.credentials.json\")\" = skipped_secret ]"
@@ -2455,6 +2665,34 @@ while IFS='|' read -r _kind _agent _relpath; do
   esac
 done <"$WORK/nosecretsfw"
 
+# 2026-11-06 relocation hints (#454)
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  check "#454 home startup file skipped without secrets: $_rel" "[ \"\$(status_of \"$ALICE/$_rel\")\" = skipped_secret ]"
+done <"$WORK/startup-home"
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  check "#454 system startup file skipped without secrets: /$_rel" "[ \"\$(status_of \"$ROOT/$_rel\")\" = skipped_secret ]"
+done <"$WORK/startup-system"
+while IFS='|' read -r _rel _content; do
+  [ -n "$_rel" ] || continue
+  check "#454 project startup file skipped without secrets: $_rel" "[ \"\$(status_of \"$ROOT/srv/proj/$_rel\")\" = skipped_secret ]"
+done <"$WORK/startup-project"
+check "#454 hints recorded without secrets" "hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | grep -q . && hint_line \"$ROOT/srv/proj/.envrc\" 1 CLAUDE_CONFIG_DIR claude-code | grep -q ."
+
+# ---- --env-scan-home ------------------------------------------------------
+# 2026-11-06 relocation hints (#454)
+run envscan --env-scan-home; check "#454 env-scan-home exit 0" "[ $? -eq 0 ]"
+check "#454 sweep hints and collects a helper deep in the home" "hint_line \"$ALICE/scripts/agent-env/deep/helper.sh\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.sh\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+check "#454 sweep counts the file over its limit and leaves it unread" "grep -q '\"files_skipped_size\": [1-9][0-9]*}' \"\$SUMMARY\" && [ \"\$(hint_count \"$ALICE/dumps/oversized-env.txt\")\" = 0 ] && [ -z \"\$(row \"$ALICE/dumps/oversized-env.txt\")\" ]"
+check "#454 sweep prunes excluded directories" "[ \"\$(hint_count \"$ALICE/AppData/Local/agy/agent-env.sh\")\" = 0 ] && [ -z \"\$(row \"$ALICE/AppData/Local/agy/agent-env.sh\")\" ]"
+check "#454 sweep keeps the one catalog row of a catalog-matched startup file" "[ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && [ \"\$(hint_count \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\")\" = 1 ]"
+check "#454 sweep records a startup file it searches again once" "[ \"\$(hint_count \"$ROOT/srv/proj/.envrc\")\" = 1 ] && [ \"\$(grep -c 'srv/proj/.envrc\"' \"\$MANIFEST\")\" = 1 ]"
+check "#454 sweep never follows a symlink" "[ \"\$(hint_count \"$BOB/.zshrc\")\" = 0 ] && ! grep -q 'opt/dotfiles' \"\$MANIFEST\""
+check "#454 summary records the sweep options" "grep -q '\"env_scan_home\": true, \"env_scan_max_size_bytes\": 1048576}' \"\$SUMMARY\""
+mkdir -p "$OUT/envscanbad"
+"$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$OUT/envscanbad" -q --env-scan-max-size x >"$OUT/envscanbad.stdout" 2>"$OUT/envscanbad.stderr"
+check "#454 --env-scan-max-size x exits 1" "[ $? -eq 1 ] && grep -q '^Invalid --env-scan-max-size: x\$' \"$OUT/envscanbad.stderr\""
 # ---- --full ---------------------------------------------------------------
 run full --full; check "full exit 0" "[ $? -eq 0 ]"
 check "cache contents collected with --full" "[ \"\$(status_of \"$ROOT/home/alice/.claude/cache/junk.bin\")\" = collected ]"
@@ -2779,6 +3017,8 @@ inventory_run inventory-o -o "$OUT/inv-o"; check "inventory with -o exit 0" "[ $
 check "inventory with -o creates no output directory" "[ ! -e \"$OUT/inv-o\" ]"
 check "inventory with -o notes it on stderr" "grep -q 'NOTE: --inventory writes nothing; -o .*inv-o ignored' \"$OUT/inventory-o.stderr\""
 check "inventory without -q logs to stderr only" "[ -s \"$OUT/inventory-o.stderr\" ] && [ \"\$(grep -vc '$INVENTORY_HOST_PATTERN' \"$OUT/inventory-o.stdout\" | head -n1)\" = \"\$(grep -c '$INVENTORY_AGENT_PATTERN' \"$OUT/inventory-o.stdout\")\" ]"
+# 2026-11-06 relocation hints (#454)
+check "#454 inventory prints no relocation hint" "! grep -q -e 'relocation hint' -e 'Relocation hints' \"$OUT/inventory-o.stderr\" \"$OUT/inventory-o.stdout\""
 inventory_run inventory-full -q --full
 check "inventory --full counts excluded files" "agent_line inventory-full ollama ollama | grep -q '\"files\":3,\"bytes\":30,'"
 # 2026-10-14 catalog match that is an excluded file (#107)
