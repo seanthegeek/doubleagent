@@ -29,11 +29,12 @@
 # ===========================================================================
 # Reader's guide
 # ===========================================================================
-# The file is in twelve sections, in this order (the PowerShell collector,
+# The file is in thirteen sections, in this order (the PowerShell collector,
 # Collect-AgentArtifacts.ps1, has the same sections under the same titles):
 #    1. Reader's guide       this map
-#    2. Data tables          CATALOG, PROJECT_CATALOG, EXCLUDES, SECRET_GLOBS
-#                            and DOCKER_VOLUMES: what is collected, as data
+#    2. Data tables          CATALOG, PROJECT_CATALOG, EXCLUDES, SECRET_GLOBS,
+#                            DOCKER_VOLUMES, RELOCATION_VARS and STARTUP_FILES:
+#                            what is collected and searched, as data
 #    3. Shared helpers       logging, notes, JSON escaping, number checks and
 #                            the stat, hash and file id wrappers (mostly
 #                            COMMON; add_note and file_id run in the main
@@ -46,9 +47,11 @@
 #    7. Users                enumerating and filtering home directories
 #    8. Docker and Podman volumes
 #    9. Project discovery    project paths read from agent state, and -p
-#   10. Inventory output     the --inventory JSON lines
-#   11. Summary and archive  collection.json, the archivers, the stdout summary
-#   12. Main program         options, setup, then one call per step
+#   10. Relocation hints     the startup files searched for the variables that
+#                            move agent state, and the files that name one
+#   11. Inventory output     the --inventory JSON lines
+#   12. Summary and archive  collection.json, the archivers, the stdout summary
+#   13. Main program         options, setup, then one call per step
 #
 # Data flow: the tables are applied to every home the user enumeration lists.
 # For each home the catalog walk expands every CATALOG entry first and prunes
@@ -64,8 +67,11 @@
 # built from the manifest, and the staging directory, with the manifest, the
 # log and collection.json, becomes the archive. Docker and Podman volumes
 # matched by DOCKER_VOLUMES are collected whole, each as one match; discovered
-# projects are further bases walked with PROJECT_CATALOG. --inventory is the
-# same walk with no writes: the workers only stat, and section 10 prints one
+# projects are further bases walked with PROJECT_CATALOG. Then the
+# STARTUP_FILES of every home, the system and every project are searched for
+# the RELOCATION_VARS names; each naming file is logged, recorded in
+# collection.json and collected as shared, flagged secret. --inventory is the
+# same walk with no writes: the workers only stat, and section 11 prints one
 # JSON line per user and agent.
 #
 # Naming: globals that functions share (configuration, counters, file paths,
@@ -2187,6 +2193,313 @@ hermes|*hermes*
 nanobot|*nanobot*
 '
 
+# Environment variables that move an agent's store, agent|VARIABLE|replaces. A
+# quote inside this and the next table is written '\'' (close, escaped quote,
+# reopen), so the value matches the PowerShell here-string byte for byte.
+RELOCATION_VARS='
+# Environment variables that move an agent'\''s state, agent|VARIABLE|replaces, where
+# replaces is the home-relative path the value stands in for (empty when the
+# variable adds a store with no default under the home). The agent'\''s research
+# document lists each variable under "Relocation variables"; a shared line is a
+# variable many programs honour, a weaker hint. The startup files below are
+# searched for these names; a value is never evaluated.
+agent-zero|A0_COMPUTER_USE_HOST_ARTIFACT_ROOT|
+aider|AIDER_ANALYTICS_LOG|
+aider|AIDER_CHAT_HISTORY_FILE|
+aider|AIDER_INPUT_HISTORY_FILE|
+aider|AIDER_LLM_HISTORY_FILE|
+amp|AMP_HOME|.amp
+augment|AUGMENT_VFS_DIR|.augment/vfs
+autogen-studio|AUTOGENSTUDIO_APPDIR|.autogenstudio
+autogen-studio|AUTOGENSTUDIO_DATABASE_URI|.autogenstudio/autogen04203.db
+camel-ai|CAMEL_LOG_DIR|
+camel-ai|CAMEL_WORKDIR|
+claude-code|CLAUDE_CODE_TMPDIR|AppData/Local/Temp/claude
+claude-code|CLAUDE_CONFIG_DIR|.claude
+claude-desktop|CLAUDE_USER_DATA_DIR|.config/Claude
+cline|CLINE_CONNECTORS_DB_PATH|.cline/data/db/connectors.db
+cline|CLINE_CONNECTOR_DATA_DIR|.cline/data/connectors
+cline|CLINE_CONNECTOR_SETTINGS_PATH|.cline/data/connectors/settings.json
+cline|CLINE_CRON_DB_PATH|.cline/data/db/cron.db
+cline|CLINE_DATA_DIR|.cline/data
+cline|CLINE_DB_DATA_DIR|.cline/data/db
+cline|CLINE_DIR|.cline
+cline|CLINE_GLOBAL_SETTINGS_PATH|.cline/data/settings/global-settings.json
+cline|CLINE_HOOKS_LOG_PATH|.cline/data/logs/hooks.jsonl
+cline|CLINE_MCP_SETTINGS_PATH|.cline/data/settings/cline_mcp_settings.json
+cline|CLINE_PROVIDER_SETTINGS_PATH|.cline/data/settings/providers.json
+cline|CLINE_SESSION_DATA_DIR|.cline/data/sessions
+cline|CLINE_TASKS_DB_PATH|.cline/data/db/tasks.db
+cline|CLINE_TEAM_DATA_DIR|.cline/data/teams
+cline|WORKSPACE_STORAGE_DIR|.cline/data/workspace
+codex-cli|CODEX_HOME|.codex
+codex-cli|CODEX_ROLLOUT_TRACE_ROOT|
+codex-cli|CODEX_SQLITE_HOME|.codex
+codex-cli|CODEX_TUI_SESSION_LOG_PATH|
+continue|CONTINUE_GLOBAL_DIR|.continue
+copilot-cli|COPILOT_CACHE_HOME|.cache/copilot
+copilot-cli|COPILOT_HOME|.copilot
+copilot-cli|COPILOT_PKG_CACHE_HOME|.cache/copilot
+copilot-cli|COPILOT_PROVIDERS_CONFIG|.copilot/providers.json
+copilot-desktop|COPILOT_HOME|.copilot
+copilot-desktop|COPILOT_HOME_OVERRIDE|.copilot
+crewai|CREWAI_STORAGE_DIR|.local/share/<project>
+crush|CRUSH_CACHE_DIR|.cache/crush
+crush|CRUSH_GLOBAL_CONFIG|.config/crush
+crush|CRUSH_GLOBAL_DATA|.local/share/crush
+crush|CRUSH_SKILLS_DIR|.config/crush/skills
+cursor|CURSOR_CONFIG_DIR|.cursor
+cursor|CURSOR_DATA_DIR|.cursor
+cursor|CURSOR_SANDBOX_POLICY_DIR|.cursor/sandbox-policies
+cursor|CURSOR_WORKTREES_ROOT|.cursor/worktrees
+dify|DIFY_CONFIG_DIR|.config/difyctl
+factory-droid|FACTORY_HOME_OVERRIDE|.factory
+factory-droid|FACTORY_LOG_FILE|.factory/logs/droid-log-single.log
+flowise|BLOB_STORAGE_PATH|.flowise/storage
+flowise|DATABASE_PATH|.flowise
+flowise|LOG_PATH|
+flowise|SECRETKEY_PATH|.flowise
+gemini-cli|GEMINI_CLI_ACTIVITY_LOG_TARGET|
+gemini-cli|GEMINI_CLI_HOME|
+gemini-cli|GEMINI_CLI_TRUSTED_FOLDERS_PATH|.gemini/trustedFolders.json
+gemini-cli|GEMINI_CONTEXT_TRACE_DIR|
+gemini-cli|GEMINI_DEBUG_LOG_FILE|
+gemini-cli|GEMINI_WRITE_SYSTEM_MD|
+goose|GOOSE_ADDITIONAL_CONFIG_FILES|
+goose|GOOSE_PATH_ROOT|.config/goose
+goose|GOOSE_RECIPE_PATH|
+hermes|HERMES_DATA_DIR_SUFFIX|.hermes
+hermes|HERMES_DESKTOP_USER_DATA_DIR|.config/Hermes
+hermes|HERMES_HOME|.hermes
+hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
+kilo-code|KILO_CONFIG|
+kilo-code|KILO_CONFIG_DIR|
+kilo-code|KILO_DB|.local/share/kilo/kilo.db
+kiro|KIRO_ACP_RECORD_PATH|
+kiro|KIRO_HOME|.kiro
+langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
+langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox
+langflow|LANGFLOW_KNOWLEDGE_BASES_DIR|.langflow/knowledge_bases
+langflow|LANGFLOW_LOG_FILE|
+letta|LETTA_ARTIFACTS_DIR|.letta/artifacts
+letta|LETTA_DEBUG_FILE|
+letta|LETTA_DIR|.letta
+letta|LETTA_HOME|.letta
+letta|LETTA_LOCAL_BACKEND_DIR|.letta/lc-local-backend
+letta|LETTA_MODS_DIR|.letta/mods
+letta|LETTA_TRANSCRIPT_ROOT|.letta/transcripts
+letta|MEMGPT_CONFIG_PATH|.letta/config
+little-coder|LITTLE_CODER_EXTENSIONS_DIR|.config/little-coder/extensions
+little-coder|LITTLE_CODER_MODELS_FILE|.config/little-coder/models.json
+little-coder|PI_CODING_AGENT_DIR|.pi/agent
+local-deep-research|LDR_DATA_DIR|.local/share/local-deep-research
+metagpt|METAGPT_PROJECT_ROOT|
+muse-code|MUSE_AUTH_PATH|.config/muse/auth.json
+muse-code|MUSE_PROJECTS_HOME|.muse/projects
+n8n|DB_SQLITE_DATABASE|.n8n/database.sqlite
+n8n|N8N_BINARY_DATA_STORAGE_PATH|.n8n/binaryData
+n8n|N8N_EVENTBUS_LOGWRITER_LOGFULLPATH|.n8n/n8nEventLog.log
+n8n|N8N_STORAGE_PATH|.n8n/storage
+n8n|N8N_USER_FOLDER|.n8n
+nanobot|NANOBOT_AGENTS__DEFAULTS__WORKSPACE|.nanobot/workspace
+nanobot|OAUTH_CLI_KIT_TOKEN_PATH|.local/share/nanobot/auth/github-copilot.json
+ollama|OLLAMA_MODELS|.ollama/models
+open-interpreter|CODEX_ROLLOUT_TRACE_ROOT|
+open-interpreter|CODEX_SQLITE_HOME|.openinterpreter
+open-interpreter|INTERPRETER_HOME|.openinterpreter
+open-interpreter|OPEN_INTERPRETER_HOME|.openinterpreter
+openclaw|OPENCLAW_CONFIG_PATH|.openclaw/openclaw.json
+openclaw|OPENCLAW_HOME|.openclaw
+openclaw|OPENCLAW_OAUTH_DIR|.openclaw/credentials
+openclaw|OPENCLAW_PROFILE|.openclaw
+openclaw|OPENCLAW_STATE_DIR|.openclaw
+openclaw|OPENCLAW_WORKSPACE_DIR|.openclaw/workspace
+opencode|OPENCODE_CONFIG_DIR|.config/opencode
+opencode|OPENCODE_DB|.local/share/opencode/opencode.db
+openhands|AUTOMATION_WORKSPACE_BASE|.openhands/agent-canvas/workspaces
+openhands|FILE_STORE_PATH|.openhands
+openhands|LOG_DIR|
+openhands|OH_BASH_EVENTS_DIR|.openhands/agent-canvas/bash_events
+openhands|OH_CANVAS_SAFE_STATE_DIR|.openhands/agent-canvas
+openhands|OH_CONVERSATIONS_PATH|.openhands/agent-canvas/conversations
+openhands|OH_CONVERSATION_WORKTREE_ROOT|
+openhands|OH_PERSISTENCE_DIR|.openhands
+openhands|OH_SECRET_KEY_PATH|.openhands/agent-canvas/secret-key.txt
+openhands|OH_SESSION_API_KEY_PATH|.openhands/agent-canvas/api-key.txt
+openhands|OPENHANDS_CONVERSATIONS_DIR|.openhands/conversations
+openhands|OPENHANDS_PERSISTENCE_DIR|.openhands
+openhands|VITE_WORKING_DIR|.openhands/agent-canvas/workspaces
+pearai|CONTINUE_GLOBAL_DIR|.pearai
+pearai|VSCODE_APPDATA|.config
+pearai|VSCODE_EXTENSIONS|.pearai/extensions
+pearai|VSCODE_PORTABLE|.config/PearAI
+pi|PI_CODING_AGENT_DIR|.pi/agent
+pi|PI_CODING_AGENT_SESSION_DIR|.pi/agent/sessions
+qwen-code|QWEN_CODE_MCP_APPROVALS_PATH|.qwen/mcpApprovals.json
+qwen-code|QWEN_CODE_TRUSTED_FOLDERS_PATH|.qwen/trustedFolders.json
+qwen-code|QWEN_HOME|.qwen
+qwen-code|QWEN_RUNTIME_DIR|.qwen
+qwen-code|WEIXIN_STATE_DIR|.qwen/channels/weixin
+qwen-live|QWEN_LIVE_DATA_DIR|.qwen-live
+qwen-live|QWEN_LIVE_DISCOVERY_DIR|.qwen
+shellgpt|CACHE_PATH|
+shellgpt|CHAT_CACHE_PATH|
+shellgpt|OPENAI_FUNCTIONS_PATH|.config/shell_gpt/functions
+shellgpt|ROLE_STORAGE_PATH|.config/shell_gpt/roles
+tabby|TABBY_MODEL_CACHE_ROOT|.tabby/models
+tabby|TABBY_ROOT|.tabby
+twinny|TWINNY_NODE_DIR|.twinny/node
+vscode|VSCODE_AGENT_FOLDER|.vscode-server
+vscode|VSCODE_APPDATA|.config
+vscode|VSCODE_EXTENSIONS|.vscode/extensions
+vscode|VSCODE_PORTABLE|.config/Code
+shared|BASH_ENV|
+shared|BASH_IT_CUSTOM|
+shared|ENV|
+shared|OMF_CONFIG|
+shared|XDG_CACHE_HOME|.cache
+shared|XDG_CONFIG_HOME|.config
+shared|XDG_DATA_HOME|.local/share
+shared|XDG_STATE_HOME|.local/state
+shared|ZDOTDIR|
+shared|ZSH_CUSTOM|
+'
+
+# Files searched for the relocation variables, scope|glob.
+STARTUP_FILES='
+# Files that set a user'\''s or the system'\''s environment, scope|glob: home (relative
+# to each home), system (absolute; under the root in image mode) or project
+# (relative to each discovered project). research/shared.md, "Startup and
+# environment files", names each one with its source.
+home|.bash_profile
+home|.bash_login
+home|.profile
+home|.bashrc
+home|.bashrc.d/*
+system|/etc/profile
+system|/etc/profile.d/*.sh
+system|/etc/profile.d/sh.local
+system|/etc/bash.bashrc
+system|/etc/bashrc
+home|.zshenv
+home|.zprofile
+home|.zshrc
+home|.zlogin
+system|/etc/zshenv
+system|/etc/zprofile
+system|/etc/zshrc
+system|/etc/zlogin
+system|/etc/zsh/zshenv
+system|/etc/zsh/zprofile
+system|/etc/zsh/zshrc
+system|/etc/zsh/zlogin
+system|/usr/local/etc/zshenv
+system|/usr/local/etc/zprofile
+system|/usr/local/etc/zshrc
+system|/usr/local/etc/zlogin
+home|.shrc
+home|.shinit
+system|/etc/suid_profile
+home|.kshrc
+system|/etc/ksh.kshrc
+home|.mkshrc
+home|.config/fish/config.fish
+home|.config/fish/conf.d/*.fish
+home|.config/fish/fish_variables
+home|.config/fish/fishd.*
+home|.local/share/fish/vendor_conf.d/*.fish
+system|/etc/fish/config.fish
+system|/etc/fish/conf.d/*.fish
+system|/usr/share/fish/vendor_conf.d/*.fish
+system|/usr/local/share/fish/vendor_conf.d/*.fish
+system|/usr/local/etc/fish/config.fish
+system|/usr/local/etc/fish/conf.d/*.fish
+system|/opt/homebrew/etc/fish/config.fish
+system|/opt/homebrew/etc/fish/conf.d/*.fish
+system|/opt/homebrew/share/fish/vendor_conf.d/*.fish
+home|.tcshrc
+home|.cshrc
+home|.login
+system|/etc/csh.cshrc
+system|/etc/csh.login
+system|/etc/.cshrc
+system|/etc/.login
+home|.config/nushell/env.nu
+home|.config/nushell/config.nu
+home|.config/nushell/login.nu
+home|.config/nushell/autoload/*.nu
+home|Library/Application Support/nushell/env.nu
+home|Library/Application Support/nushell/config.nu
+home|Library/Application Support/nushell/login.nu
+home|Library/Application Support/nushell/autoload/*.nu
+home|AppData/Roaming/nushell/env.nu
+home|AppData/Roaming/nushell/config.nu
+home|AppData/Roaming/nushell/login.nu
+home|AppData/Roaming/nushell/autoload/*.nu
+home|.local/share/nushell/vendor/autoload/*.nu
+system|/usr/share/nushell/vendor/autoload/*.nu
+system|/usr/local/share/nushell/vendor/autoload/*.nu
+system|/Library/Application Support/nushell/vendor/autoload/*.nu
+system|/ProgramData/nushell/vendor/autoload/*.nu
+home|.xonshrc
+home|.config/xonsh/rc.xsh
+home|.config/xonsh/rc.d/*.xsh
+home|.config/xonsh/rc.d/*.py
+system|/etc/xonsh/xonshrc
+system|/etc/xonsh/rc.d/*.xsh
+system|/etc/xonsh/rc.d/*.py
+home|.config/elvish/rc.elv
+home|.elvish/rc.elv
+home|AppData/Roaming/elvish/rc.elv
+home|Documents/WindowsPowerShell/*.ps1
+home|Documents/PowerShell/*.ps1
+home|.config/powershell/*.ps1
+system|/Windows/System32/WindowsPowerShell/v1.0/*.ps1
+system|/Program Files/PowerShell/7/*.ps1
+system|/opt/microsoft/powershell/7/*.ps1
+system|/usr/local/microsoft/powershell/7/*.ps1
+system|/etc/environment
+system|/etc/security/pam_env.conf
+home|.pam_environment
+home|.config/environment.d/*.conf
+system|/etc/environment.d/*.conf
+system|/run/environment.d/*.conf
+system|/usr/local/lib/environment.d/*.conf
+system|/usr/lib/environment.d/*.conf
+home|.config/plasma-workspace/env/*.sh
+system|/etc/xdg/plasma-workspace/env/*.sh
+home|.xsessionrc
+home|Library/LaunchAgents/*.plist
+system|/Library/LaunchAgents/*.plist
+system|/Library/LaunchDaemons/*.plist
+project|.envrc
+project|.env
+home|.config/direnv/direnvrc
+home|.config/direnv/direnv.toml
+home|.config/direnv/lib/*.sh
+project|mise.toml
+project|.mise.toml
+project|mise.local.toml
+project|.mise.local.toml
+project|mise/config.toml
+project|mise/conf.d/*.toml
+project|.mise/config.toml
+project|.mise/conf.d/*.toml
+project|.config/mise.toml
+project|.config/mise/mise.toml
+project|.config/mise/config.toml
+project|.config/mise/conf.d/*.toml
+home|.config/mise/config.toml
+home|.config/mise/conf.d/*.toml
+system|/etc/mise/config.toml
+system|/etc/mise/conf.d/*.toml
+home|.oh-my-zsh/custom/*.zsh
+home|.bash_it/custom/*.bash
+home|.bash_it/custom/*/*.bash
+home|.config/omf/before.init.fish
+home|.config/omf/init.fish
+'
+
 
 # ===========================================================================
 # Shared helpers
@@ -2683,6 +2996,17 @@ fi
 EOF_INVENTORY_FILES_WORKER
 INVENTORY_FILES_WORKER="$COMMON
 $_ret_heredoc_text"
+
+# HINT_SEARCH_WORKER: prints S|<count> for the files after its first
+# option_count arguments, then the files that one grep with all the arguments
+# lists, so find starts one grep per batch. Arguments: option_count
+# grep_options... files...
+heredoc_var <<'EOF_HINT_SEARCH_WORKER'
+option_count=$1; shift
+printf 'S|%s\n' "$(( $# - option_count ))"
+grep "$@" 2>>"$LOG"
+EOF_HINT_SEARCH_WORKER
+HINT_SEARCH_WORKER=$_ret_heredoc_text
 
 # ===========================================================================
 # Catalog walk
@@ -3421,6 +3745,223 @@ collect_projects() {
 }
 
 # ===========================================================================
+# Relocation hints
+# ===========================================================================
+# An environment variable can move an agent's store out of the home the
+# catalog walks. The files that set environments are searched for the names
+# of those variables, never evaluated: each naming file is logged, recorded and
+# collected, and the responder reads the value (collectors/docs/relocation.md).
+
+# set_relocation_names: sets RELOCATION_NAMES_CSV, each RELOCATION_VARS name
+# once, comma-separated, for awk, and GREP_NAME_OPTIONS, "-e NAME" for each,
+# one word per line, with its word count GREP_NAME_COUNT. Temporaries: _srn_.
+set_relocation_names() {
+  _srn_names=$(printf '%s\n' "$RELOCATION_VARS" |
+    awk -F'|' 'NF >= 2 && $1 !~ /^#/ && $2 != "" && !seen[$2]++ { print $2 }')
+  RELOCATION_NAMES_CSV=$(printf '%s\n' "$_srn_names" | tr '\n' ',')
+  RELOCATION_NAMES_CSV=${RELOCATION_NAMES_CSV%,}
+  GREP_NAME_OPTIONS=$(printf '%s\n' "$_srn_names" | awk '{ print "-e"; print }')
+  GREP_NAME_COUNT=$(printf '%s\n' "$GREP_NAME_OPTIONS" | grep -c .)
+}
+
+# list_startup_files BASE SCOPE -> the regular files, never a symlink, that the
+# STARTUP_FILES globs of SCOPE match under BASE, one per line; a system glob's
+# leading / is dropped, so it is taken under the root. Reads STARTUP_FILES.
+# Temporaries: _lsf_.
+list_startup_files() {
+  _lsf_saved_ifs=$IFS; IFS='
+'
+  set -f
+  for _lsf_line in $STARTUP_FILES; do
+    case "$_lsf_line" in ("$2|"*) ;; (*) continue ;; esac
+    _lsf_glob=${_lsf_line#*|}; _lsf_glob=${_lsf_glob#/}
+    set +f
+    for _lsf_path in $1/$_lsf_glob; do
+      if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ]; then printf '%s\n' "$_lsf_path"; fi
+    done
+    set -f
+  done
+  set +f; IFS=$_lsf_saved_ifs
+}
+
+# search_startup_files USER HOME SCOPE: searches the SCOPE startup files under
+# HOME (under ROOT for the system scope, whose rows carry an empty HOME) with one
+# grep and records each hit. Reads ROOT, GREP_NAME_OPTIONS, WORKER_SH.
+# Temporaries: _ssf_.
+search_startup_files() {
+  _ssf_user=$1; _ssf_home=$2; _ssf_base=$2
+  [ "$3" != system ] || _ssf_base=$ROOT
+  _ssf_files=$(list_startup_files "$_ssf_base" "$3")
+  [ -n "$_ssf_files" ] || return 0
+  _ssf_saved_ifs=$IFS; IFS='
+'
+  set -f
+  # shellcheck disable=SC2086 # one grep option or file per line
+  set -- -i -l -F $GREP_NAME_OPTIONS --
+  _ssf_option_count=$#
+  # shellcheck disable=SC2086
+  set -- "$@" $_ssf_files
+  set +f; IFS=$_ssf_saved_ifs
+  _ssf_output=$("$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$_ssf_option_count" "$@" </dev/null)
+  record_search_output "$_ssf_user" "$_ssf_home" "$_ssf_output"
+}
+
+# scan_home_for_variables USER HOME TABLE: searches every regular file under
+# HOME with one find(1) that prunes the TABLE matches, ACTIVE_EXCLUDES and the
+# output directory, and counts the files over ENV_SCAN_MAX_SIZE (0, no limit)
+# instead of searching them. Reads OUTDIR, GREP_NAME_OPTIONS, GREP_NAME_COUNT,
+# WORKER_SH, LOG. Temporaries: _shv_.
+scan_home_for_variables() {
+  _shv_user=$1; _shv_home=$2; _shv_option_count=$(( GREP_NAME_COUNT + 4 ))
+  _shv_claims=$(expand_catalog "$2" "$3" | grep -v '^#|' | cut -d'|' -f3-)
+  set -- "$2" '(' -path "$OUTDIR"
+  _shv_saved_ifs=$IFS; IFS='
+'
+  set -f
+  for _shv_claim in $_shv_claims; do set -- "$@" -o -path "$_shv_claim"; done
+  for _shv_exclude in $ACTIVE_EXCLUDES; do
+    if [ -n "$_shv_exclude" ]; then set -- "$@" -o -path "$_shv_home/$_shv_exclude"; fi
+  done
+  set -- "$@" ')' -prune -o -type f
+  [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" '(' -size "-$(( ENV_SCAN_MAX_SIZE + 1 ))c"
+  # shellcheck disable=SC2086 # one grep option per line
+  set -- "$@" -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$_shv_option_count" \
+    -i -l -F $GREP_NAME_OPTIONS -- '{}' +
+  [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" ')' -o -type f -exec printf 'B|%s\n' '{}' +
+  set +f; IFS=$_shv_saved_ifs
+  _shv_output=$(find "$@" 2>>"$LOG")
+  record_search_output "$_shv_user" "$_shv_home" "$_shv_output"
+}
+
+# record_search_output USER HOME OUTPUT: adds the S|<count> lines of OUTPUT to
+# RELOCATION_FILES_SEARCHED and each B| line to RELOCATION_FILES_SKIPPED_SIZE,
+# and records the hits of every file it lists. Temporaries: _rso_.
+record_search_output() {
+  while IFS= read -r _rso_line; do
+    case "$_rso_line" in
+      ('S|'*) _rso_count=$(to_number "${_rso_line#S|}")
+        RELOCATION_FILES_SEARCHED=$(( RELOCATION_FILES_SEARCHED + _rso_count )) ;;
+      ('B|'*) RELOCATION_FILES_SKIPPED_SIZE=$(( RELOCATION_FILES_SKIPPED_SIZE + 1 )) ;;
+      (/*) record_file_hints "$1" "$2" "$_rso_line" ;;
+    esac
+  done <<EOF_SEARCH_OUTPUT
+$3
+EOF_SEARCH_OUTPUT
+}
+
+# list_bounded_names FILE -> LINE|NAME for each line of FILE and each
+# RELOCATION_VARS name it holds as a whole word: the characters around it, when
+# any, are not letters, digits or _, compared without case. The line's text goes
+# through a pipe only, never to output. Reads GREP_NAME_OPTIONS,
+# RELOCATION_NAMES_CSV, LOG. Temporaries: _lbn_.
+list_bounded_names() {
+  _lbn_saved_ifs=$IFS; IFS='
+'
+  set -f
+  # shellcheck disable=SC2086 # one grep option per line
+  set -- -i -n -F $GREP_NAME_OPTIONS -- "$1"
+  set +f; IFS=$_lbn_saved_ifs
+  grep "$@" 2>>"$LOG" | awk -v names="$RELOCATION_NAMES_CSV" '
+    function bounded(text, word,   start, offset, at, before, after) {
+      start = 1
+      while ((offset = index(substr(text, start), word)) > 0) {
+        at = start + offset - 1
+        before = at > 1 ? substr(text, at - 1, 1) : ""
+        after = substr(text, at + length(word), 1)
+        if (before !~ /[a-z0-9_]/ && after !~ /[a-z0-9_]/) return 1
+        start = at + 1
+      }
+      return 0
+    }
+    BEGIN { count = split(names, name, ",")
+      for (i = 1; i <= count; i++) lower[i] = tolower(name[i]) }
+    { separator = index($0, ":"); number = substr($0, 1, separator - 1)
+      if (separator < 2 || number ~ /[^0-9]/) next
+      text = tolower(substr($0, separator + 1))
+      for (i = 1; i <= count; i++) if (bounded(text, lower[i])) print number "|" name[i] }'
+}
+
+# record_file_hints USER HOME FILE: records every bounded name in FILE and,
+# when there is one, collects FILE. Temporaries: _rfh_.
+record_file_hints() {
+  _rfh_hits=$(list_bounded_names "$3")
+  [ -n "$_rfh_hits" ] || return 0
+  while IFS='|' read -r _rfh_line _rfh_name; do
+    record_hint "$1" "$3" "$_rfh_line" "$_rfh_name"
+  done <<EOF_BOUNDED_NAMES
+$_rfh_hits
+EOF_BOUNDED_NAMES
+  collect_hint_file "$1" "$2" "$3"
+}
+
+# record_hint USER FILE LINE VARIABLE: for each RELOCATION_VARS line naming
+# VARIABLE, in table order, logs "relocation hint: FILE:LINE names VARIABLE
+# (agent)", after HINT_HEADER once, and appends user|file|line|VARIABLE|agent to
+# RELOCATION_HINTS, once per record. Temporaries: _rh_.
+record_hint() {
+  _rh_saved_ifs=$IFS; IFS='
+'
+  set -f
+  for _rh_entry in $RELOCATION_VARS; do
+    case "$_rh_entry" in ('#'*) continue ;; esac
+    _rh_rest=${_rh_entry#*|}
+    [ "${_rh_rest%%|*}" = "$4" ] || continue
+    _rh_agent=${_rh_entry%%|*}; _rh_record="$1|$2|$3|$4|$_rh_agent"
+    case "$RELOCATION_HINTS
+" in (*"
+$_rh_record
+"*) continue ;; esac
+    RELOCATION_HINTS="$RELOCATION_HINTS
+$_rh_record"
+    if [ -n "$HINT_HEADER" ]; then log_line "$HINT_HEADER"; HINT_HEADER=; fi
+    log_line "relocation hint: $2:$3 names $4 ($_rh_agent)"
+  done
+  set +f; IFS=$_rh_saved_ifs
+}
+
+# collect_hint_file USER HOME FILE: stages FILE as agent shared, flagged secret,
+# unless the manifest already has its row (a catalog match). Reads MANIFEST,
+# STAGE, ROOT, WORKER_SH. The stage worker runs with SECRET_PATTERN '*', so
+# --no-secrets, the size cap and special files apply as to a catalog match.
+collect_hint_file() {
+  if grep -F -q "\"path\":\"$(json_escape "$3")\"" "$MANIFEST"; then return 0; fi
+  SECRET_PATTERN='*' "$WORKER_SH" -c "$STAGE_FILES_WORKER" sh "$STAGE" "$ROOT" "$1" "$2" \
+    shared "$MANIFEST" "$3" </dev/null
+}
+
+# search_base_list LIST SCOPE TABLE PASS: for each user:base line of LIST (a home
+# when SCOPE is home, else a project), sets HINT_HEADER and searches the base's
+# SCOPE startup files when PASS is startup, else every file outside its TABLE
+# matches. Temporaries: _sbl_.
+search_base_list() {
+  while IFS=: read -r _sbl_user _sbl_base; do
+    [ -n "$_sbl_base" ] || continue
+    if [ "$2" = home ]; then HINT_HEADER="Relocation hints for $_sbl_user ($_sbl_base)"
+    else HINT_HEADER="Relocation hints in project $_sbl_base"; fi
+    if [ "$4" = startup ]; then search_startup_files "$_sbl_user" "$_sbl_base" "$2"
+    else scan_home_for_variables "$_sbl_user" "$_sbl_base" "$3"; fi
+  done <<EOF_BASE_LIST
+$1
+EOF_BASE_LIST
+}
+
+# search_relocation_hints: searches the startup files of every home, of the
+# system and of every project, then, with --env-scan-home, every other file of
+# each home and project. Reads USER_LIST, PROJECT_LIST, ENV_SCAN_HOME; sets
+# RELOCATION_HINTS and the RELOCATION_FILES_* counts, so call it in the main
+# shell.
+search_relocation_hints() {
+  set_relocation_names
+  search_base_list "$USER_LIST" home "" startup
+  HINT_HEADER="Relocation hints in system files"
+  search_startup_files "" "" system
+  search_base_list "$PROJECT_LIST" project "" startup
+  [ "$ENV_SCAN_HOME" = 1 ] || return 0
+  search_base_list "$USER_LIST" home "$CATALOG" sweep
+  search_base_list "$PROJECT_LIST" project "$PROJECT_CATALOG" sweep
+}
+
+# ===========================================================================
 # Inventory output
 # ===========================================================================
 # The host line comes first but its counts are known only after the walk, so
@@ -3564,6 +4105,31 @@ json_list() {
 # json_bool FLAG -> true when FLAG is 1, else false
 json_bool() { if [ "$1" = 1 ]; then printf true; else printf false; fi; }
 
+# json_relocation -> the collection.json relocation object, one hint per line.
+# Reads RELOCATION_HINTS, whose user|file|line|VARIABLE|agent records are split
+# from the right, as only the file may hold a |, and the RELOCATION_FILES_*
+# counts. Temporaries: _jr_.
+json_relocation() {
+  printf '{"hints": ['
+  _jr_separator=
+  while IFS= read -r _jr_record; do
+    [ -n "$_jr_record" ] || continue
+    _jr_agent=${_jr_record##*"|"}; _jr_rest=${_jr_record%"|"*}
+    _jr_variable=${_jr_rest##*"|"}; _jr_rest=${_jr_rest%"|"*}
+    _jr_line=${_jr_rest##*"|"}; _jr_rest=${_jr_rest%"|"*}
+    _jr_source=$(json_escape "${_jr_rest#*"|"}")
+    printf '%s\n    {"user": "%s", "source": "%s", "line": %s, ' "$_jr_separator" \
+      "$(json_escape "${_jr_rest%%"|"*}")" "$_jr_source" "$_jr_line"
+    printf '"variable": "%s", "agent": "%s", "value": ""}' "$_jr_variable" "$_jr_agent"
+    _jr_separator=,
+  done <<EOF_RELOCATION_HINTS
+$RELOCATION_HINTS
+EOF_RELOCATION_HINTS
+  [ -z "$_jr_separator" ] || printf '\n  '
+  printf '], "files_searched": %s, "files_skipped_size": %s}' "$RELOCATION_FILES_SEARCHED" \
+    "$RELOCATION_FILES_SKIPPED_SIZE"
+}
+
 # write_summary ARCHIVE_NAME ARCHIVER: writes collection.json (SUMMARY) and stages
 # a copy; called again before each archive fallback. Reads the run globals and
 # counters. Temporaries: _ws_.
@@ -3583,7 +4149,8 @@ write_summary() {
   "options": {"full": $(json_bool "$FULL"), "no_secrets": $(json_bool "$NO_SECRETS"), \
 "max_file_size_bytes": $MAX_SIZE, "users_filter": "$(json_escape "$USERS")", \
 "no_docker": $(json_bool "$NO_DOCKER"), "no_projects": $(json_bool "$NO_PROJECTS"), \
-"projects": $(json_list "$EXTRA_PROJECTS")},
+"projects": $(json_list "$EXTRA_PROJECTS"), "env_scan_home": $(json_bool "$ENV_SCAN_HOME"), \
+"env_scan_max_size_bytes": $ENV_SCAN_MAX_SIZE},
   "capabilities": {"hash_tool": "$HASH_TOOL", "stat_mode": "$STAT_MODE", \
 "worker_shell": "$(json_escape "$WORKER_SH")", "archiver": "$(json_escape "$2")"},
   "users": $(json_list "$(printf '%s\n' "$USER_LIST" | cut -d: -f1)"),
@@ -3599,6 +4166,7 @@ write_summary() {
 "error_read": $(count_status error_read), "collected_bytes": $BYTES},
   "docker": {"volumes_found": $DOCKER_FOUND, "volumes_collected": $DOCKER_COLLECTED, \
 "unreadable": $DOCKER_UNREADABLE, "docker_desktop": $(json_bool "$DOCKER_DESKTOP")},
+  "relocation": $(json_relocation),
   "notes": $(json_list "$NOTES"),
   "archive": "$(json_escape "$1")"
 }
@@ -3654,7 +4222,8 @@ hash_archive() {
 }
 
 # print_result: the stdout summary, one "name: value" line each, and a docker
-# line when any Docker or Podman data was seen. Temporaries: _pr_.
+# line when any Docker or Podman data was seen. Reads RELOCATION_HINTS and
+# RELOCATION_FILES_SEARCHED. Temporaries: _pr_.
 print_result() {
   printf 'archive:    %s\n' "$ARCHIVE"
   printf 'size:       %s (%s)\n' "$ARCHIVE_SIZE" "$(format_human_size "$ARCHIVE_SIZE")"
@@ -3672,6 +4241,10 @@ print_result() {
   _pr_copy_errors=$(count_status error_copy); _pr_read_errors=$(count_status error_read)
   printf 'errors:     %s (%s error_copy, %s error_read)\n' \
     "$(( _pr_copy_errors + _pr_read_errors ))" "$_pr_copy_errors" "$_pr_read_errors"
+  _pr_hints=$(printf '%s\n' "$RELOCATION_HINTS" | grep -c .)
+  printf 'relocation: %s hints in %s files searched' "$_pr_hints" "$RELOCATION_FILES_SEARCHED"
+  [ "$_pr_hints" = 0 ] || printf '; see collectors/docs/relocation.md'
+  printf '\n'
   if [ "$DOCKER_SEEN" = 1 ]; then
     printf 'docker:     %s volumes found, %s collected, %s unreadable' \
       "$DOCKER_FOUND" "$DOCKER_COLLECTED" "$DOCKER_UNREADABLE"
@@ -3702,6 +4275,11 @@ Usage: $0 [options]
       --no-projects       Skip project-level artifact discovery
       --no-docker         Skip Docker and Podman volume enumeration
       --max-file-size MB  Skip files larger than this (default 256, 0 = none)
+      --env-scan-home     Also search every other file of each home and project
+                          for the relocation variables (slow)
+      --env-scan-max-size MB
+                          Skip files larger than this in that search (default
+                          1, 0 = none)
   -k, --keep-staging      Keep the staging directory after archiving
       --inventory         Write nothing; print one JSON line per user and agent
                           found (file count, bytes, first and last mtime) to
@@ -3726,7 +4304,7 @@ need_value() { [ "$1" -ge 2 ] || { usage >&2; exit 1; }; }
 parse_options() {
   OUTDIR=.; OUTDIR_SET=0; ROOT=; USERS=; EXTRA_PROJECTS=
   FULL=0; NO_SECRETS=0; NO_PROJECTS=0; NO_DOCKER=0; MAX_MB=256
-  KEEP=0; QUIET=0; LIST=0; INVENTORY=0
+  KEEP=0; QUIET=0; LIST=0; INVENTORY=0; ENV_SCAN_HOME=0; ENV_SCAN_MB=1
   while [ $# -gt 0 ]; do
     case "$1" in
       -o|--output)        need_value $#; OUTDIR=$2; OUTDIR_SET=1; shift ;;
@@ -3739,6 +4317,8 @@ $2"; shift ;;
       --no-projects)      NO_PROJECTS=1 ;;
       --no-docker)        NO_DOCKER=1 ;;
       --max-file-size)    need_value $#; MAX_MB=$2; shift ;;
+      --env-scan-home)    ENV_SCAN_HOME=1 ;;
+      --env-scan-max-size) need_value $#; ENV_SCAN_MB=$2; shift ;;
       -k|--keep-staging)  KEEP=1 ;;
       --list)             LIST=1 ;;
       --inventory)        INVENTORY=1 ;;
@@ -3751,7 +4331,7 @@ $2"; shift ;;
   done
 }
 
-# print_catalog: the --list output, the five tables under a heading each,
+# print_catalog: the --list output, the seven tables under a heading each,
 # without blank lines (SECRET_GLOBS has none)
 print_catalog() {
   printf '# home artifacts (agent|glob relative to home)\n%s\n' "$CATALOG" | grep -v '^$'
@@ -3760,15 +4340,24 @@ print_catalog() {
   printf '\n# excluded unless --full\n%s\n' "$EXCLUDES" | grep -v '^$'
   printf '\n# credential files (flagged secret, skipped with --no-secrets)\n%s\n' "$SECRET_GLOBS"
   printf '\n# docker volumes (agent|volume name glob)\n%s\n' "$DOCKER_VOLUMES" | grep -v '^$'
+  printf '\n# relocation variables (agent|VARIABLE|home-relative path it replaces)\n%s\n' \
+    "$RELOCATION_VARS" | grep -v '^$'
+  printf '\n# startup files searched for them (scope|glob; scope home, system or project)\n%s\n' \
+    "$STARTUP_FILES" | grep -v '^$'
 }
 
-# set_max_size: exits 1 when --max-file-size is not a whole number of MiB,
-# else sets MAX_SIZE in bytes (0, no limit)
+# set_max_size: exits 1 when --max-file-size or --env-scan-max-size is not a
+# whole number of MiB, else sets MAX_SIZE and ENV_SCAN_MAX_SIZE in bytes (0, no
+# limit)
 set_max_size() {
   case "$MAX_MB" in
     ''|*[!0-9]*) printf 'Invalid --max-file-size: %s\n' "$MAX_MB" >&2; exit 1 ;;
   esac
+  case "$ENV_SCAN_MB" in
+    ''|*[!0-9]*) printf 'Invalid --env-scan-max-size: %s\n' "$ENV_SCAN_MB" >&2; exit 1 ;;
+  esac
   MAX_SIZE=$(( MAX_MB * 1024 * 1024 ))
+  ENV_SCAN_MAX_SIZE=$(( ENV_SCAN_MB * 1024 * 1024 ))
 }
 
 # resolve_extra_projects: rewrites EXTRA_PROJECTS as absolute paths, each once,
@@ -3887,6 +4476,7 @@ log_start() {
   _ls_mode="mode=$MODE root=${ROOT:-/} uid=$(id -u 2>/dev/null)"
   log_line "$TOOL $VERSION starting on $HOST ($_ls_system) $_ls_mode"
   _ls_options="max_file_size=${MAX_MB}MB full=$FULL no_secrets=$NO_SECRETS no_docker=$NO_DOCKER"
+  _ls_options="$_ls_options env_scan_home=$ENV_SCAN_HOME env_scan_max_size=${ENV_SCAN_MB}MB"
   log_line "hash=$HASH_TOOL stat=$STAT_MODE $_ls_options worker_sh=$WORKER_SH"
   if [ "$MODE" = live ] && [ "$(id -u 2>/dev/null)" != 0 ]; then
     log_line "WARNING: not running as root; other users' homes will probably be unreadable"
@@ -3925,6 +4515,7 @@ DOCKER_SEEN=0; DOCKER_FOUND=0; DOCKER_COLLECTED=0; DOCKER_UNREADABLE=0; DOCKER_D
 DOCKER_INV=
 PROJECT_LIST=
 NESTED_CLAIMS=
+RELOCATION_HINTS=; RELOCATION_FILES_SEARCHED=0; RELOCATION_FILES_SKIPPED_SIZE=0; HINT_HEADER=
 
 USER_LIST=$(get_user_homes)
 [ -n "$USER_LIST" ] || log_line "WARNING: no user home directories found"
@@ -3932,6 +4523,7 @@ USER_LIST=$(get_user_homes)
 [ "$INVENTORY" = 1 ] || collect_user_homes
 [ "$NO_DOCKER" = 1 ] || collect_docker_volumes
 [ "$NO_PROJECTS" = 1 ] || collect_projects
+[ "$INVENTORY" = 1 ] || search_relocation_hints
 if [ "$INVENTORY" = 1 ]; then
   write_inventory
   exit 0
