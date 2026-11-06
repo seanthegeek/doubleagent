@@ -55,6 +55,19 @@ One auxiliary module (ripgrep download) differs: data = `~/.local/share/amp` eve
 
 None known.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `AMP_HOME` | the installer home (`amp-install.sh:5-6`) | `.amp` | `amp` |
+| `XDG_DATA_HOME` | the data directory (`amp.strings16`, `fzt`) | `.local/share` | `shared` |
+| `XDG_CONFIG_HOME` | the config directory (`amp.strings16`, `dzt`) | `.config` | `shared` |
+| `XDG_CACHE_HOME` | the cache and log directory (`amp.strings16`, `F6t`) | `.cache` | `shared` |
+
+Not relocation variables: `AMP_API_KEY` (carries a key).
+Not confirmed: `AMP_SETTINGS_FILE` and `AMP_LOG_FILE`, named in the strings tables but in no
+documentation page checked.
+
 #### Configuration directory
 
 Config `~/.config/amp/` (B+D `cli_settings.md:10-14`):
@@ -110,11 +123,6 @@ Installer home `~/.amp/` (`AMP_HOME`, S `amp-install.sh:5-6`; B `join(home,".amp
 System-wide (not per-user): `/etc/ampcode/`, `/Library/Application Support/ampcode/`,
 `%ProgramData%\ampcode\` holding `managed-settings.json` and `AGENTS.md` (`cli_settings.md:261-263`,
 `customize_agents-md.md:28`).
-
-#### Environment variables
-
-Env relocation: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `AMP_HOME`,
-`AMP_SETTINGS_FILE`, `AMP_LOG_FILE`.
 
 ### Credentials
 

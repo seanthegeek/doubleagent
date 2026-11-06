@@ -156,6 +156,19 @@ Zed has two, and the catalog collects neither:
   catalog line can name it; where it is recorded is in
   [Where the project path is recorded](#where-the-project-path-is-recorded).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `XDG_CONFIG_HOME` | the parent of the `zed` config dir on Linux and FreeBSD, via `dirs::config_dir()` ([`paths.rs:131-136`](https://github.com/zed-industries/zed/blob/a84689073d296dfd39987bc7dd478e43ef76d83a/crates/paths/src/paths.rs#L131-L136), [`lin.rs:9`](https://github.com/dirs-dev/dirs-rs/blob/00511bdc252f491a72ac89f6d6a2463406266fb2/src/lin.rs#L9)) | `.config` | `shared` |
+| `XDG_DATA_HOME` | the parent of the `zed` data dir on Linux and FreeBSD, via `dirs::data_local_dir()` ([`paths.rs:153-157`](https://github.com/zed-industries/zed/blob/a84689073d296dfd39987bc7dd478e43ef76d83a/crates/paths/src/paths.rs#L153-L157), [`lin.rs:11-12`](https://github.com/dirs-dev/dirs-rs/blob/00511bdc252f491a72ac89f6d6a2463406266fb2/src/lin.rs#L11-L12)) | `.local/share` | `shared` |
+| `XDG_CACHE_HOME` | the parent of the `zed` cache dir on Linux and FreeBSD, via `dirs::cache_dir()` ([`paths.rs:209-213`](https://github.com/zed-industries/zed/blob/a84689073d296dfd39987bc7dd478e43ef76d83a/crates/paths/src/paths.rs#L209-L213)) | `.cache` | `shared` |
+
+Not relocation variables: `FLATPAK_XDG_CONFIG_HOME`, `FLATPAK_XDG_DATA_HOME`,
+`FLATPAK_XDG_STATE_HOME` and `FLATPAK_XDG_CACHE_HOME` (set by the Flatpak runtime, not the user),
+`TMPDIR` (`generic`), `ZED_DEVELOPMENT_USE_KEYCHAIN` (behaviour only). The macOS config, data and
+state directories ignore every XDG variable.
+
 ### Credentials
 
 Production builds store credentials only in the OS keychain

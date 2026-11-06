@@ -246,6 +246,21 @@ project. It sits beside the user's repository, outside every catalog line, so it
 collected, and `discover_projects` and `Find-Projects` do not read `vscode.metadata.json`; see
 [`vscode.md`](vscode.md).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `COPILOT_HOME` | the config home, every file of `~/.copilot` (app.js `function dot(e)`) | `.copilot` | `copilot-cli` |
+| `COPILOT_PROVIDERS_CONFIG` | the bring-your-own-key provider registry file (`cli-main.js@4314272`) | `.copilot/providers.json` | `copilot-cli` |
+| `COPILOT_PKG_CACHE_HOME` | the parent of the auto-update package cache `pkg` (sea-loader `Xi()`) | `.cache/copilot` | `copilot-cli` |
+| `COPILOT_CACHE_HOME` | the parent of the auto-update package cache `pkg` (sea-loader `Xi()`) | `.cache/copilot` | `copilot-cli` |
+| `XDG_CACHE_HOME` | the parent of `copilot/pkg` and `copilot-user-cache.json` on Linux (sea-loader `Xi()`) | `.cache` | `shared` |
+| `XDG_STATE_HOME` | the parent of `.copilot`, which older installs kept sessions in (app.js `function CEn(e,t)`) | `.local/state` | `shared` |
+| `XDG_CONFIG_HOME` | the parent of `.copilot`, which older installs kept config in (app.js `function CEn(e,t)`) | `.config` | `shared` |
+
+Not relocation variables: `COPILOT_DISABLE_KEYTAR` (behaviour only), `COPILOT_GITHUB_TOKEN`,
+`GH_TOKEN`, `GITHUB_TOKEN` and `GITHUB_PERSONAL_ACCESS_TOKEN` (carry a key).
+
 #### Inside `~/.copilot`
 
 The docs table plus the bundle:

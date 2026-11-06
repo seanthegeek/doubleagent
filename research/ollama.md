@@ -92,6 +92,19 @@ outside every catalog line. The desktop app's `settings.working_dir`
 is the only working directory it records
 ([Where the project path is recorded](#where-the-project-path-is-recorded)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `OLLAMA_MODELS` | the models directory, holding `manifests/` and `blobs/` ([`envconfig/config.go:111-123`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/envconfig/config.go#L111-L123)) | `.ollama/models` | `ollama` |
+
+Not relocation variables: `OLLAMA_HOME` (does not exist), `OLLAMA_NOHISTORY` (behaviour only),
+`OLLAMA_DEBUG_LOG_REQUESTS` (behaviour only, its target is a temp directory), `OLLAMA_NO_CLOUD`
+(behaviour only), `CODEX_HOME` (another agent's; Ollama never reads it), `XDG_CONFIG_HOME` (read
+only to place Muse's settings, so `muse-code`'s;
+[`cmd/launch/muse.go:230-232`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/cmd/launch/muse.go#L230-L232)),
+`OLLAMA_SKILLS` (read only by the removed built-in agent).
+
 #### CLI and server
 
 All OSes, `os.UserHomeDir()`. On the Linux install of [Observed](#observed), `~/.ollama/` held

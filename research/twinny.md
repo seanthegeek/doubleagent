@@ -80,6 +80,16 @@ system temporary directory, is deleted as soon as the tree is snapshotted
 ([src/extension/chat/command-snapshot.ts:62-80](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/chat/command-snapshot.ts#L62-L80));
 nothing for the catalog to collect or for discovery to drop.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `TWINNY_NODE_DIR` | the `twinny-node` CLI's state directory ([`config.ts:61`](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/node/config.ts#L61)) | `.twinny/node` | `twinny` |
+
+Not relocation variables: `GITHUB_TOKEN` (carries a key), `apiKeyEnv` values (carry a key),
+`TWINNY_NODE_NAME`, `TWINNY_NODE_PORT`, `TWINNY_PORT`, `TWINNY_HOST` and `OLLAMA_HOST` (behaviour
+only). The extension reads no environment variable that moves a store.
+
 #### VS Code `globalState`
 
 Not files: chat history, the provider list and the active providers are

@@ -82,6 +82,18 @@ The path picker's default is `~/pearai-projects/`
 That is the user's new project, reached by project discovery through the task's `workspace`, not a
 scratch directory; no catalog line names `Documents/PearAI`.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CONTINUE_GLOBAL_DIR` | the Continue fork's global directory, which the Roo Code fork's memory file also follows ([`paths.ts:11-12`](https://github.com/trypear/pearai-submodule/blob/51eceef62a90c29f712b3a9607ea70a9dca657e9/core/util/paths.ts#L11-L12), [`memory.ts:40`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/utils/memory.ts#L40)) | `.pearai` | `pearai` |
+| `VSCODE_APPDATA` | the parent of the editor's user data directory ([`userDataPath.js:64`](https://github.com/trypear/pearai-app/blob/d930f0233c14668df9f85c6a78a81828f4251194/src/vs/platform/environment/node/userDataPath.js#L64)) | `.config`, `Library/Application Support`, `AppData/Roaming` | `pearai` |
+| `VSCODE_PORTABLE` | the editor's portable data directory: `user-data` and `extensions` inside it replace the user data directory and `.pearai/extensions`, used when the directory exists ([`userDataPath.js:58-60`](https://github.com/trypear/pearai-app/blob/d930f0233c14668df9f85c6a78a81828f4251194/src/vs/platform/environment/node/userDataPath.js#L58-L60), [`environmentService.ts:145-148`](https://github.com/trypear/pearai-app/blob/d930f0233c14668df9f85c6a78a81828f4251194/src/vs/platform/environment/common/environmentService.ts#L145-L148), [`bootstrap-node.ts:121-141`](https://github.com/trypear/pearai-app/blob/d930f0233c14668df9f85c6a78a81828f4251194/src/bootstrap-node.ts#L121-L141)) | `.config/PearAI`, `Library/Application Support/PearAI`, `.pearai/extensions` | `pearai` |
+| `VSCODE_EXTENSIONS` | the installed extensions directory ([`environmentService.ts:139`](https://github.com/trypear/pearai-app/blob/d930f0233c14668df9f85c6a78a81828f4251194/src/vs/platform/environment/common/environmentService.ts#L139)) | `.pearai/extensions` | `pearai` |
+| `XDG_CONFIG_HOME` | the parent of the editor's user data directory on Linux ([`userDataPath.js:95`](https://github.com/trypear/pearai-app/blob/d930f0233c14668df9f85c6a78a81828f4251194/src/vs/platform/environment/node/userDataPath.js#L95)) | `.config` | `shared` |
+
+Not relocation variables: `SERVER_URL` (names a server address).
+
 #### Editor
 
 `product.json` sets `nameShort` `PearAI`, `dataFolderName` `.pearai` and `serverDataFolderName`

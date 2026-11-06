@@ -88,6 +88,21 @@ repository, deleted when the session ends
 ([Exclusions](#exclusions)) and never recorded as a project; the CLI has no working directory of
 its own.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `KIRO_HOME` | the Kiro CLI home, with its `sessions/` store (kiro.dev docs reference/settings; binary help "Defaults to KIRO_HOME/.kiro/sessions") | `.kiro` | `kiro` |
+| `KIRO_ACP_RECORD_PATH` | adds a JSONL recording of the agent client protocol wire (kiro.dev docs reference/settings) | | `kiro` |
+
+Not relocation variables: `KIRO_API_KEY` (carries a key), `KIRO_LOG_LEVEL` (behaviour only),
+`KIRO_TEST_SESSIONS_DIR` and `KIRO_TEST_SETTINGS_PATH` (test only). Not confirmed: `Q_CLI_DATA_DIR`
+moves the data directory in the unpersisted `crates/agent` core
+([`consts.rs:27`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/agent/src/agent/util/consts.rs#L27)),
+but the shipped `chat-cli` data path
+([`paths.rs:327-331`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/util/paths.rs#L327-L331))
+does not read it.
+
 #### Kiro CLI
 
 Kiro CLI home `~/.kiro` (override `KIRO_HOME`, docs reference/settings; binary help "Defaults to

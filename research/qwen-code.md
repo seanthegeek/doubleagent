@@ -188,6 +188,20 @@ above; how the transcripts record them is in
 creates its own workspaces under `managed-local/workspaces/`
 ([Managed local mode](#managed-local-mode)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `QWEN_HOME` | the global directory, with `~` expanded ([`core/src/config/storage.ts:193-203`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/config/storage.ts#L193-L203)) | `.qwen` | `qwen-code` |
+| `QWEN_RUNTIME_DIR` | the runtime base directory holding `tmp/`, `projects/` and `debug/` ([`storage.ts:166-191`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/core/src/config/storage.ts#L166-L191)) | `.qwen` | `qwen-code` |
+| `QWEN_CODE_TRUSTED_FOLDERS_PATH` | the trusted folders file ([`cli/src/config/trustedFolders.ts:34-43`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/config/trustedFolders.ts#L34-L43)) | `.qwen/trustedFolders.json` | `qwen-code` |
+| `QWEN_CODE_MCP_APPROVALS_PATH` | the MCP server approvals file ([`cli/src/config/mcpApprovals.ts:49-52`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/cli/src/config/mcpApprovals.ts#L49-L52)) | `.qwen/mcpApprovals.json` | `qwen-code` |
+| `WEIXIN_STATE_DIR` | the WeChat adapter's state directory ([`channels/weixin/src/accounts.ts:28-32`](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/channels/weixin/src/accounts.ts#L28-L32)) | `.qwen/channels/weixin` | `qwen-code` |
+
+Not relocation variables: `QWEN_CODE_FORCE_ENCRYPTED_FILE_STORAGE` and
+`QWEN_CODE_FORCE_FILE_STORAGE` (choose the token store, not a path). The agent reads no `XDG_*`
+directory variable for its state.
+
 #### Managed local mode
 
 `qwen serve --managed` runs sessions through the bundled Java managed-session service on loopback

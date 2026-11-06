@@ -305,6 +305,18 @@ remained ([`~/.cursor` as the IDE writes it](#cursor-as-the-ide-writes-it)). The
 `%LOCALAPPDATA%\Temp\cursor-inno-updater-<epoch s>.log` is in
 [Cursor IDE on Windows](#cursor-ide-on-windows). `%LOCALAPPDATA%\Temp` is not collected.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CURSOR_DATA_DIR` | the CLI's data root (`index.js` `../cursor-config/dist/paths.js`, function `c`) | `.cursor` | `cursor` |
+| `CURSOR_CONFIG_DIR` | the CLI's config root, where `cli-config.json` lives (same module, function `a`; [Cursor CLI configuration](https://cursor.com/docs/cli/reference/configuration)) | `.cursor` | `cursor` |
+| `CURSOR_WORKTREES_ROOT` | the CLI's git worktrees directory (`index.js` `./src/project/worktree.ts`) | `.cursor/worktrees` | `cursor` |
+| `CURSOR_SANDBOX_POLICY_DIR` | the CLI's sandbox policies directory (bundle, see [Cursor Agent CLI](#cursor-agent-cli)) | `.cursor/sandbox-policies` | `cursor` |
+| `XDG_CONFIG_HOME` | the parent of the CLI's `cursor` config directory and of its Linux `auth.json` (same module, function `a`; `index.js` `../cli-credentials/dist/index.js`) | `.config` | `shared` |
+
+Not relocation variables: `AGENT_CLI_CREDENTIAL_STORE` (picks keychain or file, behaviour only).
+
 #### Cursor IDE
 
 IDE (VS Code fork; the generic layout is in

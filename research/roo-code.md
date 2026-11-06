@@ -55,6 +55,10 @@ is the only directory Roo Code chooses for itself as a working directory. It is 
 line `roo-code|.roo` and in `EXCLUDES` (`.roo/worktrees`), so its contents are not collected and the
 analyzer classes it as a scratch directory by its catalog rule.
 
+#### Relocation variables
+
+None known.
+
 #### VS Code extension
 
 VS Code extension, globalStorage `rooveterinaryinc.roo-cline/` (same layout on every OS; root is

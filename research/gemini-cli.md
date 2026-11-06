@@ -313,6 +313,23 @@ Gemini CLI has no working directory of its own: it runs in the directory it was 
 one directory it creates for work is the `--worktree` checkout inside the project, under the
 setting [Project-local files](#project-local-files) names.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `GEMINI_CLI_HOME` | the directory that holds `.gemini`, so the whole store ([`paths.ts:22-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/paths.ts#L22-L27)) | | `gemini-cli` |
+| `GEMINI_CLI_TRUSTED_FOLDERS_PATH` | the trust file alone ([`storage.ts:131-136`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L131-L136)) | `.gemini/trustedFolders.json` | `gemini-cli` |
+| `GEMINI_CLI_ACTIVITY_LOG_TARGET` | adds the activity log file at the path it names ([`devtoolsService.ts:121-126`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/devtoolsService.ts#L121-L126)) | | `gemini-cli` |
+| `GEMINI_DEBUG_LOG_FILE` | adds an appended debug log file at the path it names ([`debugLogger.ts:26-31`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/debugLogger.ts#L26-L31)) | | `gemini-cli` |
+| `GEMINI_CONTEXT_TRACE_DIR` | the context trace directory, else `context_trace/<session id>` below the project's temporary directory ([`tracer.ts:27-30`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/context/tracer.ts#L27-L30)) | | `gemini-cli` |
+| `GEMINI_WRITE_SYSTEM_MD` | adds a file the built system prompt is written to ([`promptProvider.ts:324-335`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/prompts/promptProvider.ts#L324-L335)) | | `gemini-cli` |
+
+Not relocation variables: `GEMINI_SYSTEM_MD` (names a prompt file to read, writes no store),
+`GEMINI_FORCE_FILE_STORAGE` (behaviour only, picks file over keyring), `GEMINI_API_KEY`,
+`GOOGLE_API_KEY` and `GITHUB_TOKEN` (carry a key), `GEMINI_CLI_SYSTEM_SETTINGS_PATH` (read-only
+system settings outside every home). The agent reads no `XDG_*` variable and `APPDATA` only to
+find another program's settings ([`terminalSetup.ts:205-208`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/ui/utils/terminalSetup.ts#L205-L208)).
+
 ### Credentials
 
 - `.gemini/oauth_creds.json` (`%USERPROFILE%\.gemini\oauth_creds.json` on Windows) holds the

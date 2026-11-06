@@ -62,6 +62,32 @@ classes them as scratch directories by its catalog rule. No temp root
 outside the home was found (grepped `tmpdir` and `chat-workspace` in
 `sdk/packages/shared/src/storage` and `apps/cli/src/utils`).
 
+#### Relocation variables
+
+Environment variables that move a store; each stands in for the default under `~/.cline`.
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CLINE_DIR` | the whole state home ([`paths.ts:155`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L155)) | `.cline` | `cline` |
+| `CLINE_DATA_DIR` | the data directory every store below sits in ([`paths.ts:180`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L180)) | `.cline/data` | `cline` |
+| `CLINE_SESSION_DATA_DIR` | the SDK session files directory ([`paths.ts:188`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L188)) | `.cline/data/sessions` | `cline` |
+| `CLINE_DB_DATA_DIR` | the directory of the SQLite databases ([`paths.ts:241`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L241)) | `.cline/data/db` | `cline` |
+| `CLINE_TEAM_DATA_DIR` | the teams store directory ([`paths.ts:196`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L196)) | `.cline/data/teams` | `cline` |
+| `CLINE_CONNECTOR_DATA_DIR` | the connectors directory ([`paths.ts:204`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L204)) | `.cline/data/connectors` | `cline` |
+| `CLINE_CONNECTOR_SETTINGS_PATH` | the connector settings file ([`paths.ts:233`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L233)) | `.cline/data/connectors/settings.json` | `cline` |
+| `CLINE_CONNECTORS_DB_PATH` | the connectors database ([`paths.ts:254`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L254)) | `.cline/data/db/connectors.db` | `cline` |
+| `CLINE_CRON_DB_PATH` | the cron database ([`paths.ts:267`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L267)) | `.cline/data/db/cron.db` | `cline` |
+| `CLINE_TASKS_DB_PATH` | the tasks database ([`paths.ts:276`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L276)) | `.cline/data/db/tasks.db` | `cline` |
+| `CLINE_PROVIDER_SETTINGS_PATH` | the provider settings file ([`paths.ts:425`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L425)) | `.cline/data/settings/providers.json` | `cline` |
+| `CLINE_GLOBAL_SETTINGS_PATH` | the global settings file ([`paths.ts:433`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L433)) | `.cline/data/settings/global-settings.json` | `cline` |
+| `CLINE_MCP_SETTINGS_PATH` | the MCP settings file ([`paths.ts:441`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/storage/paths.ts#L441)) | `.cline/data/settings/cline_mcp_settings.json` | `cline` |
+| `CLINE_HOOKS_LOG_PATH` | the hook audit log file ([`hook-file-hooks.ts:646`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks/hook-file-hooks.ts#L646)) | `.cline/data/logs/hooks.jsonl` | `cline` |
+| `WORKSPACE_STORAGE_DIR` | the workspace state directory of standalone hosts, such as JetBrains ([`vscode-context.ts:21`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/standalone/vscode-context.ts#L21)) | `.cline/data/workspace` | `cline` |
+
+Not relocation variables: `CLINE_USER_ID` (an identity value), `CLINE_CLOUD_SESSIONS` (behaviour
+only), `CLINE_TRACE_RECORD_CONTENT` (behaviour only), `USER` (an identity value), `MAX_HISTORY`
+(behaviour only).
+
 #### `~/.cline`
 
 `~/.cline`

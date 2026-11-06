@@ -109,6 +109,20 @@ per-user `os.tmpdir()` directory,
 is outside the home and holds the rolling logs and Logbook's capture directory on the capturing
 device.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `OPENCLAW_STATE_DIR` | the state directory, everything under it ([`state-dir.ts:23-54`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/state-dir.ts#L23-L54)) | `.openclaw` | `openclaw` |
+| `OPENCLAW_HOME` | the home the `.openclaw` default hangs from ([`home-dir.ts:28-52`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/packages/normalization-core/src/home-dir.ts#L28-L52)) | `.openclaw` | `openclaw` |
+| `OPENCLAW_PROFILE` | the state directory to `~/.openclaw-<profile>` for a profile other than `default` ([`profile-utils.ts:26-37`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/cli/profile-utils.ts#L26-L37)) | `.openclaw` | `openclaw` |
+| `OPENCLAW_CONFIG_PATH` | the config file `openclaw.json` ([`config/paths.ts:233-241`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/paths.ts#L233-L241)) | `.openclaw/openclaw.json` | `openclaw` |
+| `OPENCLAW_WORKSPACE_DIR` | the default agent workspace ([`workspace-default-path.ts:8-25`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/workspace-default-path.ts#L8-L25)) | `.openclaw/workspace` | `openclaw` |
+| `OPENCLAW_OAUTH_DIR` | the `credentials/` directory ([`config/paths.ts:315-324`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/paths.ts#L315-L324)) | `.openclaw/credentials` | `openclaw` |
+
+Not relocation variables: `HOME` and `USERPROFILE` (generic), `OPENCLAW_HOME_VOLUME` (names a
+Docker volume).
+
 #### Contents of the state directory
 
 The vendor's state layout table

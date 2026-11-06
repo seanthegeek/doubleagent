@@ -60,6 +60,15 @@ which is the agent's own working directory, not a user project. The
 is the `cwd` column of `shellctl.db`. It is outside every home, so the
 analyzer's home-catalog rule for scratch directories does not apply to it.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `DIFY_CONFIG_DIR` | the difyctl config directory, on every platform ([`store/dir.ts:14-17`](https://github.com/langgenius/dify/blob/519ef8b8c2d75f597b8a1dfff79ef4b8c5013e3e/cli/src/store/dir.ts#L14-L17)) | `.config/difyctl`, `AppData/Roaming/difyctl` | `dify` |
+| `XDG_CONFIG_HOME` | the parent of `difyctl`, on Linux only ([`sys/index.ts:82-87`](https://github.com/langgenius/dify/blob/519ef8b8c2d75f597b8a1dfff79ef4b8c5013e3e/cli/src/sys/index.ts#L82-L87)) | `.config` | `shared` |
+
+Not relocation variables: `LOCALAPPDATA` (generic).
+
 #### Compose bind mounts
 
 The server is deployed with Compose from the clone (`cd dify`, `cd docker`, `docker compose up -d`,

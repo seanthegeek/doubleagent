@@ -140,6 +140,22 @@ and `goose roam share` in its `--cwd` or the directory it was started in
 ([`commands/roam.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose-cli/src/commands/roam.rs#L652-L664)).
 The agent creates no worktree.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `GOOSE_PATH_ROOT` | an absolute value replaces the config, data and state directories with `<root>/config`, `<root>/data`, `<root>/state` and the home's `.agents` with `<root>/.agents` ([`paths.rs:40-46`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/paths.rs#L40-L46)) | `.config/goose`, `.local/share/goose`, `.local/state/goose`, `.agents` | `goose` |
+| `GOOSE_RECIPE_PATH` | adds directories (`:` separated, `;` on Windows) searched for recipes beside `.config/goose/recipes` ([`local_recipes.rs:25`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/recipe/local_recipes.rs#L25)) | | `goose` |
+| `GOOSE_ADDITIONAL_CONFIG_FILES` | adds extra config files read beside `config.yaml` ([`base.rs:175-179`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/base.rs#L175-L179)) | | `goose` |
+| `XDG_CONFIG_HOME` | the parent of the config directory `goose` on Linux and macOS ([`xdg.rs`](https://github.com/lunacookies/etcetera/blob/07b3f54999e4f3ff0f027de0144c9349d820ce80/src/app_strategy/xdg.rs#L197-L216)) | `.config` | `shared` |
+| `XDG_DATA_HOME` | the parent of the data directory `goose` on Linux and macOS ([`xdg.rs`](https://github.com/lunacookies/etcetera/blob/07b3f54999e4f3ff0f027de0144c9349d820ce80/src/app_strategy/xdg.rs#L197-L216)) | `.local/share` | `shared` |
+| `XDG_STATE_HOME` | the parent of the state directory `goose` on Linux and macOS ([`xdg.rs`](https://github.com/lunacookies/etcetera/blob/07b3f54999e4f3ff0f027de0144c9349d820ce80/src/app_strategy/xdg.rs#L197-L216)) | `.local/state` | `shared` |
+| `XDG_CACHE_HOME` | the parent of the cache directory `goose` on Linux and macOS ([`xdg.rs`](https://github.com/lunacookies/etcetera/blob/07b3f54999e4f3ff0f027de0144c9349d820ce80/src/app_strategy/xdg.rs#L197-L216)) | `.cache` | `shared` |
+
+Not relocation variables: `GOOSE_DISABLE_KEYRING` (behaviour only), `GOOSE_RECIPE_GITHUB_REPO`
+(names a repository), `GOOSE_TELEMETRY_OFF` (behaviour only), `LANGFUSE_PUBLIC_KEY` and
+`LANGFUSE_SECRET_KEY` (carry keys), `OTEL_EXPORTER_OTLP_ENDPOINT` (a URL).
+
 #### Config directory
 
 `.config/goose` (Windows `AppData/Roaming/Block/goose/config`) holds:

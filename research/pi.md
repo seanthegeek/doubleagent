@@ -253,6 +253,16 @@ clipboard image is saved as
 ([session-share.ts:58](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/session-share.ts#L58);
 [external-editor.ts:15](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/modes/interactive/external-editor.ts#L15)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `PI_CODING_AGENT_DIR` | the agent directory, every file of this section ([config.ts:630-636](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/config.ts#L630-L636)) | `.pi/agent` | `pi` |
+| `PI_CODING_AGENT_SESSION_DIR` | the session files, flat with no per-cwd subdirectory ([main.ts:702-706](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/main.ts#L702-L706)) | `.pi/agent/sessions` | `pi` |
+
+Not relocation variables: `PI_EXPERIMENTAL`, `PI_OFFLINE` and `PI_TELEMETRY` (behaviour only),
+`TAU_CODING_AGENT_DIR` (a rebranded build's name, not this build's).
+
 #### Experimental stores of older builds
 
 Builds up to 1.0.2 (reviewed at

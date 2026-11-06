@@ -164,6 +164,20 @@ names it. `~/.little-coder/checkpoints/` holds copies of
 project files, not a working directory. What a delete leaves (the checkpoints and the prompt
 history) is in [What survives a delete](#what-survives-a-delete).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `PI_CODING_AGENT_DIR` | pi's agent directory, which holds the sessions, `settings.json` and little-coder's prompt history ([little-coder.mjs:24-35](https://github.com/itayinbarr/little-coder/blob/89d4fa0af864230527ab75d12604ed0eb320e6df/bin/little-coder.mjs#L24-L35), [prompt-history/index.ts:28-35](https://github.com/itayinbarr/little-coder/blob/89d4fa0af864230527ab75d12604ed0eb320e6df/.pi/extensions/prompt-history/index.ts#L28-L35)) | `.pi/agent` | `little-coder` |
+| `LITTLE_CODER_MODELS_FILE` | the user's `models.json` provider override ([little-coder.mjs:46-56](https://github.com/itayinbarr/little-coder/blob/89d4fa0af864230527ab75d12604ed0eb320e6df/bin/little-coder.mjs#L46-L56)) | `.config/little-coder/models.json` | `little-coder` |
+| `LITTLE_CODER_EXTENSIONS_DIR` | the directory of user extensions loaded on every launch ([user-extensions.mjs:37-51](https://github.com/itayinbarr/little-coder/blob/89d4fa0af864230527ab75d12604ed0eb320e6df/bin/user-extensions.mjs#L37-L51)) | `.config/little-coder/extensions` | `little-coder` |
+| `XDG_CONFIG_HOME` | the parent of `little-coder/`, holding `models.json` and `extensions/` ([little-coder.mjs:46-56](https://github.com/itayinbarr/little-coder/blob/89d4fa0af864230527ab75d12604ed0eb320e6df/bin/little-coder.mjs#L46-L56), [user-extensions.mjs:45-47](https://github.com/itayinbarr/little-coder/blob/89d4fa0af864230527ab75d12604ed0eb320e6df/bin/user-extensions.mjs#L45-L47)) | `.config` | `shared` |
+| `XDG_CACHE_HOME` | the parent of `little-coder/version-check.json` ([update-check.mjs:33-37](https://github.com/itayinbarr/little-coder/blob/89d4fa0af864230527ab75d12604ed0eb320e6df/bin/update-check.mjs#L33-L37)) | `.cache` | `shared` |
+
+Not relocation variables: `HOME` and `USERPROFILE` (generic), `PI_CODING_AGENT_SESSION_DIR`
+(read by pi only, not by little-coder; see [`pi.md`](pi.md)), `LITTLE_CODER_PERMISSION_MODE` and
+`LITTLE_CODER_BASH_ALLOW` (behaviour only).
+
 ### Credentials
 
 - `~/.pi/agent/auth.json`, pi's credential store, mode 0600

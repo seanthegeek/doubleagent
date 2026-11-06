@@ -70,6 +70,15 @@ CLI, which uses the [data directory](#data-directory).
 
 `~/.atlarix/tool-outputs/`.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `XDG_CONFIG_HOME` | the parent of the Linux data directory `Atlarix/` ([vendor statement](https://github.com/seanthegeek/doubleagent/issues/60#issuecomment-6430492071)) | `.config` | `shared` |
+
+Not confirmed: `ATLARIX_USER_DATA_DIR`, which the data directory section says names the folder of
+unattended runs; the vendor statement does not mention it and no other source is cited.
+
 ### Credentials
 
 - `supabase-auth.enc` and `supabase-auth-cli.enc` in the data directory: the sign-in sessions.

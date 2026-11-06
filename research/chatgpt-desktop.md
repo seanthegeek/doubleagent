@@ -166,8 +166,6 @@ None.
 
 ### Per-user storage
 
-No environment variable relocates the data on any platform.
-
 #### Scratch directories
 
 The app's own working and temporary directories, apart from the
@@ -187,6 +185,10 @@ profile and package directories of the subsections below:
   sign-in), outside every home, so no catalog line can name them, and a
   `com.openai.codex.<6 chars>/` directory made at each launch in the
   user's temporary directory under `/private/var/folders`.
+
+#### Relocation variables
+
+None known.
 
 #### Windows, OpenAI.Codex package
 

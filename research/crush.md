@@ -129,6 +129,21 @@ which no catalog line reaches; every caller found passes the data directory. Ses
 working directory, so none of these can be mistaken for a project
 ([Scratch directory rows](#scratch-directory-rows)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CRUSH_GLOBAL_CONFIG` | the directory holding the global `crush.json` ([`load.go:1212-1216`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/load.go#L1212-L1216)) | `.config/crush` | `crush` |
+| `CRUSH_GLOBAL_DATA` | the directory holding the data `crush.json` ([`load.go:1259-1281`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/load.go#L1259-L1281)) | `.local/share/crush` | `crush` |
+| `CRUSH_CACHE_DIR` | the cache directory ([`load.go:1235-1250`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/load.go#L1235-L1250)) | `.cache/crush` | `crush` |
+| `CRUSH_SKILLS_DIR` | the only skills directory read, replacing every default ([`load.go:1366-1372`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/load.go#L1366-L1372)) | `.config/crush/skills` | `crush` |
+| `XDG_CONFIG_HOME` | the config root on every OS ([`home.go:26-31`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/home/home.go#L26-L31)) | `.config` | `shared` |
+| `XDG_DATA_HOME` | the data directory, `crush/crush.json` under it ([`load.go:1259-1281`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/load.go#L1259-L1281)) | `.local/share` | `shared` |
+| `XDG_CACHE_HOME` | the cache directory, `crush` under it ([`load.go:1235-1250`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/load.go#L1235-L1250)) | `.cache` | `shared` |
+
+Not relocation variables: `CRUSH_HYPER_API_KEY` (carries a key), `CRUSH_DISABLE_METRICS` and
+`DO_NOT_TRACK` (behaviour only).
+
 ### Credentials
 
 - `~/.local/share/crush/crush.json` (Windows `%LOCALAPPDATA%\crush\crush.json`): the TUI writes

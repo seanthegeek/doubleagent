@@ -84,6 +84,17 @@ None. CrewAI creates no working directory of its
 own; tools and checkpoints write relative to the directory the crew was
 started from, which is the user's project.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CREWAI_STORAGE_DIR` | the run data directory's project name, so the directory is named by the value; an absolute value replaces the directory on Linux and macOS, and `memory/` and `memory/qdrant-edge` use the value directly ([paths.py:11-26](https://github.com/crewAIInc/crewAI/blob/e836a191cfe524feb519c6952a458c9f1e1ff0ef/lib/crewai-core/src/crewai_core/paths.py#L11-L26), [lancedb_storage.py:69-71](https://github.com/crewAIInc/crewAI/blob/e836a191cfe524feb519c6952a458c9f1e1ff0ef/lib/crewai/src/crewai/memory/storage/lancedb_storage.py#L69-L71), [qdrant_edge_storage.py:104-106](https://github.com/crewAIInc/crewAI/blob/e836a191cfe524feb519c6952a458c9f1e1ff0ef/lib/crewai/src/crewai/memory/storage/qdrant_edge_storage.py#L104-L106)) | `.local/share/<project>`, `Library/Application Support/<project>`, `AppData/Local/CrewAI/<project>` | `crewai` |
+| `XDG_DATA_HOME` | the parent of the run data directory on Linux ([appdirs.py:76-93](https://github.com/ActiveState/appdirs/blob/8734277956c1df3b85385e6b308e954910533884/appdirs.py#L76-L93)) | `.local/share` | `shared` |
+
+Not relocation variables: `XDG_CACHE_HOME` (moves only the update-check cache, which is not
+collected), `LOCALAPPDATA` (generic), `CREWAI_TRAINED_AGENTS_FILE` (names a file relative to the
+project, not under the home).
+
 #### Windows
 
 On Windows `%LOCALAPPDATA%\crewai\credentials` and
