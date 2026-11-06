@@ -15,14 +15,14 @@ paths in [windows.md](windows.md).
 ## Layout
 
 Both scripts are one file each, because an EDR (endpoint detection and
-response) console uploads one file and runs it once. Each is in twelve
+response) console uploads one file and runs it once. Each is in thirteen
 sections, in the same order and under the same banner titles, so the two
 files read in parallel:
 
 | # | Section | sh, `collect-agent-artifacts.sh` | PowerShell, `Collect-AgentArtifacts.ps1` |
 | --- | --- | --- | --- |
 | 1 | Reader's guide | A comment block under the licence header: the section map, the data flow, the naming rules. | The same, after `Set-StrictMode`, because the comment-based help and `param()` must come first in a PowerShell script. |
-| 2 | Data tables | `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES` as single-quoted strings. | The same tables as `@'...'@` here-strings, byte-identical (`tests/catalog-sync.sh` checks). |
+| 2 | Data tables | `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`, `RELOCATION_VARS` and `STARTUP_FILES` as single-quoted strings. | The same tables as `@'...'@` here-strings, byte-identical (`tests/catalog-sync.sh` checks). |
 | 3 | Shared helpers | Logging, hashing, `stat`, JSON escaping and number checks, kept as text in `COMMON` (see [Worker programs](#worker-programs-sh)); `heredoc_var`, `add_note` and `file_id` run in the main shell only. | The table reader, logging and notes, JSON escaping, glob-to-regex conversion, extended-length paths and file-system probes that never throw. |
 | 4 | Manifest writer | `write_manifest_row`, the directory-read check and the `error_read` row, also in `COMMON`. | `Write-ManifestRow`, which also keeps the per-status counts, `Get-DirReadError`, `Write-ReadErrorRow`. |
 | 5 | Staging files | The four worker programs `find -exec` runs. | The per-file copy, hash and row (`Add-CollectedFile`), symlink recreation, excluded rows. |
@@ -30,9 +30,10 @@ files read in parallel:
 | 7 | Users | Enumerating and filtering home directories. | The same, from the registry's `ProfileList` and the usual home roots. |
 | 8 | Docker and Podman volumes | Volume directories found on disk, matched against `DOCKER_VOLUMES`. | The same. |
 | 9 | Project discovery | Six source groups, then the per-project walk. | The same six groups. |
-| 10 | Inventory output | The `--inventory` JSON lines. | The `-Inventory` accumulators and JSON lines. |
-| 11 | Summary and archive | `collection.json`, the archiver chain, the archive hash, the stdout summary. | The same, with the PowerShell tar writer and the zip fallback. |
-| 12 | Main program | Option parsing, setup, then one call per step. | Setup functions, then one call per step (the options come from `param()` at the top). |
+| 10 | Relocation hints | Searches the startup files, and with `--env-scan-home` every other file of a base, for the names in `RELOCATION_VARS`, then collects each file that names one. | The same, with `Select-String`. |
+| 11 | Inventory output | The `--inventory` JSON lines. | The `-Inventory` accumulators and JSON lines. |
+| 12 | Summary and archive | `collection.json`, the archiver chain, the archive hash, the stdout summary. | The same, with the PowerShell tar writer and the zip fallback. |
+| 13 | Main program | Option parsing, setup, then one call per step. | Setup functions, then one call per step (the options come from `param()` at the top). |
 
 ## Run flow
 
@@ -45,7 +46,10 @@ every file is stat'ed with `lstat` semantics (the metadata of the file
 itself, never of a symlink's target) before it is copied, a symlink is
 recreated rather than followed, and the staged copy, not the source, is
 hashed. Docker and Podman volumes and the discovered projects are further
-bases for the same walk. Then `collection.json` is written and the staging
+bases for the same walk. After project discovery, the relocation step reads
+the startup files of each home, the system and each project for the names
+of variables that move an agent's state, logs each name it finds and
+collects the file that holds it; it evaluates nothing. Then `collection.json` is written and the staging
 directory becomes the archive.
 
 The steps in the main program, in run order:
@@ -60,6 +64,7 @@ The steps in the main program, in run order:
 | Users | `USER_LIST=$(get_user_homes)`, a warning when it is empty, then `collect_user_homes` unless `--inventory` | `Get-UserHomes`, `Test-Administrator`, `Write-StartLog`, then `Add-UserHomes`, which under `-Inventory` is also the inventory walk |
 | Volumes | `collect_docker_volumes` unless `--no-docker` | `Add-DockerVolumes` unless `-NoDocker` |
 | Projects | `collect_projects` (discovery and walk) unless `--no-projects` | `Find-Projects`, then `Add-Projects`, unless `-NoProjects` |
+| Relocation hints | `search_relocation_hints` unless `--inventory` | `Find-RelocationHints` unless `-Inventory` |
 | Inventory | `write_inventory` (which walks the homes now, after discovery), exit 0 | `Write-Inventory`, exit 0 |
 | Summary | `list_active_users`, `sum_collected_bytes` | `Initialize-Summary`, `Write-Summary`, `Close-RunFiles` |
 | Archive | `write_archive` (writes `collection.json` and stages it with the manifest and log; exit 2 when no archive was written) | `Write-Archive`; exit 2 when no archive was written |
@@ -416,6 +421,28 @@ its caller's `"$@"`), and the PowerShell readers go through
 
 A new source goes into its group on both sides, at the same position.
 
+## Relocation hints
+
+The step searches, per base (each home, the system root and each project), the
+files that the `STARTUP_FILES` globs of that scope match, keeping regular files
+only: a symlink is never followed or read. One `grep -i -l -F` over the
+whole list names the files that hold any `RELOCATION_VARS` name, and one
+`grep -n` and `awk` per such file keeps a hit only where the character before
+and after the name is not a letter, digit or underscore; the PowerShell side
+applies the same test to the matched line. The matched text never reaches the
+log, stdout, a variable that is later printed or a file. Each hit
+becomes one log line and one record per `RELOCATION_VARS` line that names the
+variable (a `shared` line included), which `collection.json` carries as
+`relocation.hints`. The file is then collected once as agent `shared`: the sh
+collector runs the staging worker with the secret pattern forced to match every
+path, and the PowerShell collector passes a forced flag to `Add-CollectedFile`, so
+the size cap, special-file handling and `--no-secrets` apply unchanged. A file
+that the manifest already has a row for keeps that row. With `--env-scan-home`
+a second pass lists every regular file of the base outside the catalog matches
+and `ACTIVE_EXCLUDES`, as `collect_tree` prunes, and searches those up to
+`--env-scan-max-size` the same way. The third field of `RELOCATION_VARS` is
+carried and not read by this step.
+
 ## Inventory mode
 
 `--inventory` / `-Inventory` runs the same walk and writes nothing; the
@@ -459,7 +486,7 @@ sh, which has no `local`:
 PowerShell:
 
 - Script state shared between functions is `$script:PascalCase`, written
-  and read with that prefix; the parameters, the five tables, `$TOOL` and
+  and read with that prefix; the parameters, the tables, `$TOOL` and
   `$ToolVersion` are read by their plain names. Function parameters and
   locals are `$camelCase` and never an automatic variable's name (`$home`,
   `$host`, `$args`, `$input`, `$error`, `$matches`, `$pid`, `$profile`).
@@ -526,6 +553,11 @@ PowerShell functions that do their job.
 | Discovery group 6, editor `User` directories | `find_editor_projects` | `Find-EditorProjects` |
 | Discover every project | `discover_projects` | `Find-Projects` |
 | Collect every project (main step; the sh one also runs discovery) | `collect_projects` | `Add-Projects` |
+| Search every base for relocation variables (main step) | `search_relocation_hints` | `Find-RelocationHints` |
+| Search the startup files of one scope under one base | `search_startup_files` | `Find-StartupFileHits` |
+| Sweep every file of one base (`--env-scan-home`) | `scan_home_for_variables` | `Find-RelocationHintsInHome` |
+| Record one hit: log line and hint record | `record_hint` | `Add-RelocationHint` |
+| Collect one hit file as `shared`, flagged secret | `collect_hint_file` | `Add-HintFile` |
 | Write the inventory lines (main step) | `write_inventory` | `Write-Inventory` |
 | Format one user's inventory lines | `write_inventory_lines` | `Write-InventoryLines` |
 | Write `collection.json` and stage a copy | `write_summary` | `Write-Summary` |
