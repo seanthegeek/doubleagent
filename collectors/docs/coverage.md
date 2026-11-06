@@ -138,36 +138,9 @@ glob is left out of the agent's `evidence`.
 
 ## Claude Code config homes
 
-A second Claude Code config home named `~/.claude-<name>` (such as
-`~/.claude-work`) is collected as `claude-code`, but only by the
-Claude-specific names inside it. One outside the home directory, or not
-named `.claude-<name>`, is not found; collect it by hand.
-
-Claude Code reads its whole config home from `CLAUDE_CONFIG_DIR` when that
-variable is set, and a second account in such a directory is common. The
-names collected there:
-
-| Name | Flagged `secret: true` |
-| --- | --- |
-| `projects/` | no |
-| `file-history/` | no |
-| `history.jsonl` | no |
-| `.claude.json*` | `.claude.json` only |
-| `.credentials.json` | yes |
-| `hfi-auth.json` | yes |
-| `.session_ingress_token` | yes |
-| `remote/.oauth_token` | yes |
-| `remote/.api_key` | yes |
-| `sessions/*.*.key` (the `<pid>.<sha256>.key` session keys) | yes |
-| `daemon/control.key`, `daemon/pipe.key`, `daemon/roster.json` | yes |
-| `backups/.claude.json.*` | yes |
-| `ide/*.lock` | yes |
-| `bridge-spawn/*/mcp.json` | yes |
-
-The rest of a relocated home (`settings.json`, `todos/`, `plans/`,
-`shell-snapshots/` and the other subdirectories) is not collected, because
-a bare `.claude-*` entry would also take other tools' directories such as
-`~/.claude-code-router` and `~/.claude-mem`.
+A second Claude Code config home named `~/.claude-<name>` is collected by
+its Claude-specific names only, listed in
+[relocation.md](relocation.md#claude-code-config-homes).
 
 ## Claude Code CLI cache directory
 

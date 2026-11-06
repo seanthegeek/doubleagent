@@ -44,6 +44,8 @@ start and the option table, then:
   files, the archive layout and the manifest schema.
 - [Coverage](../collectors/docs/coverage.md): what is collected and from
   where, exclusions and credential files.
+- [Relocation warnings](../collectors/docs/relocation.md): what to do when
+  the log names a variable that moves an agent's files.
 - [Docker and Podman](../collectors/docs/docker.md): named volumes that
   belong to known agents.
 - [Privileges](../collectors/docs/privileges.md): what a run without root

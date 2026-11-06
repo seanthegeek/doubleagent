@@ -21,9 +21,11 @@ each script reads; the short table in the
 | `--no-projects` | Skip project-level artifact discovery and `-p`. |
 | `--no-docker` | Skip Docker and Podman named volume enumeration (see [docker.md](docker.md)). |
 | `--max-file-size MB` | Skip individual files larger than this whole number of MiB. Default 256, `0` disables. |
+| `--env-scan-home` | After searching the startup files for relocation variables, also search every regular file in each home and project that the catalog did not match, for the same names. Reads only; symlinks are never followed. See [relocation.md](relocation.md#search-the-whole-home). PowerShell: `-EnvScanHome`. |
+| `--env-scan-max-size MB` | With `--env-scan-home`, skip files larger than this whole number of MiB and count them as `files_skipped_size`. Default 1, `0` disables. Accepted and recorded without `--env-scan-home`. PowerShell: `-EnvScanMaxSizeMB`. |
 | `-k, --keep-staging` | Keep the staging directory, `.stage-<host>_<UTC time>_agent-artifacts` in the output directory, which holds the unpacked archive contents. |
-| `--inventory` | Write nothing: walk the catalog with `lstat` only and print JSON Lines to stdout, one host line and one line per user and agent found. `-o` is ignored, and `-k`, `--no-secrets` and `--max-file-size` have no effect. See [inventory.md](inventory.md). PowerShell: `-Inventory`. |
-| `--list` | Print the five tables (home catalog, project catalog, exclusions, credential patterns, Docker volume names), then exit. |
+| `--inventory` | Write nothing: walk the catalog with `lstat` only and print JSON Lines to stdout, one host line and one line per user and agent found. `-o` is ignored, and `-k`, `--no-secrets`, `--max-file-size`, `--env-scan-home` and `--env-scan-max-size` have no effect, and no relocation hint is searched for. See [inventory.md](inventory.md). PowerShell: `-Inventory`. |
+| `--list` | Print the tables (home catalog, project catalog, exclusions, credential patterns, Docker volume names, relocation variables, startup files), then exit. |
 | `-q, --quiet` | Print only the final summary. Progress lines still go to the log file. |
 | `-V, --version` | Print `collect-agent-artifacts <version>` and exit. PowerShell: `-Version`. |
 | `-h, --help` | Print the usage text and exit. sh only. |
@@ -32,7 +34,7 @@ each script reads; the short table in the
 
 The PowerShell parameters mirror the sh options: `-OutputDir`, `-Root`,
 `-Users`, `-Project`, `-Full`, `-NoSecrets`, `-NoProjects`, `-NoDocker`,
-`-MaxFileSizeMB`, `-KeepStaging`, `-Inventory`, `-List`, `-Quiet`,
+`-MaxFileSizeMB`, `-EnvScanHome`, `-EnvScanMaxSizeMB`, `-KeepStaging`, `-Inventory`, `-List`, `-Quiet`,
 `-Version`. `-o`, `-r`, `-u`, `-p`, `-k` and `-q` are accepted as aliases.
 `-Users` takes one comma-separated string. `-Project` takes a PowerShell
 array (`-Project C:\src\a,C:\src\b`) rather than a repeated parameter. That
@@ -49,7 +51,7 @@ help.
 | Code | Meaning |
 | --- | --- |
 | `0` | An archive was written, even if individual files failed to copy (manifest status `error_copy`) or directories could not be read (`error_read`). With `--inventory`, the walk ran, even if homes or Docker data roots were unreadable. Also `--list`, `--version` and `--help`. |
-| `1` | Usage error: unknown option, missing option value, or a `--max-file-size` that is not a whole number. PowerShell: a negative `-MaxFileSizeMB` or a parameter binding error. |
+| `1` | Usage error: unknown option, missing option value, a `--max-file-size` or `--env-scan-max-size` that is not a whole number (`Invalid --env-scan-max-size: <value>`). PowerShell: a negative `-MaxFileSizeMB` or `-EnvScanMaxSizeMB` (`Invalid -EnvScanMaxSizeMB`) or a parameter binding error. |
 | `2` | Fatal: the root is not a directory (`Root is not a directory: <dir>`), the output directory cannot be created (`Cannot create output dir: <dir>`, also when it is a file or lies under one) or written (`Output dir not writable: <dir>`), `tar` or `find` is missing (sh), the staging directory cannot be created (sh), the `CAC_ARCHIVER` test hook names an unknown archiver or leaves none to try (PowerShell, see [testing.md](testing.md)), or no archive could be written. With `--inventory` only the root and `find` checks apply. |
 | `130` | sh only: interrupted by `INT` or `TERM`. The staging directory is removed unless `-k` is given. |
 

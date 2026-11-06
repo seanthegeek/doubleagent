@@ -24,12 +24,19 @@ is in the [README](../README.md#quick-start)):
   since collector 1.13.0).
 - `errors` is the number of `error_copy` and `error_read` rows together,
   followed by each of the two counts in parentheses.
+- `relocation` is the number of relocation hints and the number of files
+  searched for them, as `relocation: N hints in M files searched`, followed
+  by `; see collectors/docs/relocation.md` when N is above 0. It is printed
+  after `errors` and before `docker`; see [relocation.md](relocation.md).
 - The `docker:` line appears only when a Docker or Podman volume directory
   or Docker Desktop data was found; see [docker.md](docker.md).
 
-Progress lines (each user, catalog match and project) go to stderr unless
+Progress lines (each user, catalog match, project and relocation hint) go to stderr unless
 `-q` is given. They always go to the log. A `User` line is written only for
-a home with at least one catalog match, just before that match. The last
+a home with at least one catalog match, just before that match. A hint line is `relocation hint: <file>:<line> names <VARIABLE> (<agent>)`,
+preceded by one header per base searched (`Relocation hints for <user> (<home>)`,
+`Relocation hints in system files`, `Relocation hints in project <path>`);
+the line of the file that matched is never logged. The last
 progress line is `done`; the log file's `done:` line also records the
 archive path, size in bytes and sha256.
 
@@ -122,7 +129,7 @@ Each manifest row is one JSON object:
 | --- | --- |
 | `user` | Owner of the home the path was found under. For a project file, the user whose agent state referenced the project (empty for a `-p` directory outside every home). `docker` for volume rows. |
 | `home` | The base the path was collected relative to: the home directory, the project directory, or a volume's `_data`, including the `-r` root. |
-| `agent` | Catalog agent name. For a file found through the project catalog, the agent the `PROJECT_CATALOG` line names: the agent that owns the file (`claude-code` for a project's `.claude/`), or `project` for a file several agents read (`AGENTS.md`, `.mcp.json`, the repository's [git metadata](coverage.md#git-metadata) under `.git/` and the other `project` lines in `--list`); before collector 1.12.0 every project row had `project`. For a volume row, the `DOCKER_VOLUMES` agent of the matched volume. Empty for `skipped_unmatched_volume` and for the `error_read` row of a home, project or `-p` directory. |
+| `agent` | Catalog agent name. For a file found through the project catalog, the agent the `PROJECT_CATALOG` line names: the agent that owns the file (`claude-code` for a project's `.claude/`), or `project` for a file several agents read (`AGENTS.md`, `.mcp.json`, the repository's [git metadata](coverage.md#git-metadata) under `.git/` and the other `project` lines in `--list`); before collector 1.12.0 every project row had `project`. For a volume row, the `DOCKER_VOLUMES` agent of the matched volume. Empty for `skipped_unmatched_volume` and for the `error_read` row of a home, project or `-p` directory. `shared` for a startup file collected because it names a relocation variable and that no catalog line matches; it has `secret: true`, `skipped_secret` under `--no-secrets`, and for a system file an empty `user` and `home`. See [relocation.md](relocation.md). |
 | `path` | The original full path, including the `-r` root in image mode. |
 | `archive_path` | Where the file is in the archive: `fs/<original path>`. Set for `collected` rows and for `symlink` rows whose link is in the archive: always from the sh collector, and from the PowerShell collector when the link was recreated and the archive is a tar (see [windows.md](windows.md#symlinks-and-reparse-points)). Empty otherwise. |
 | `type` | `file`, `symlink`, or `dir` (an excluded directory, an unmatched volume, or an `error_read` directory). A `skipped_special` row names the kind of special file instead: `socket` (a Unix domain socket), `fifo` (a named pipe), `device` (a block or character device) or `other`; see [Special files](#special-files). |
@@ -206,12 +213,13 @@ they recognise out of the file counts.
 | `run_as_uid` | sh only: the numeric uid the collector ran as, as a string. |
 | `run_as`, `run_as_admin` | PowerShell only: the account the collector ran as, and whether it was elevated. |
 | `started`, `finished` | UTC to the second, `2026-10-03T16:55:31Z`. `finished` is taken before archiving. |
-| `options` | `full`, `no_secrets`, `max_file_size_bytes` (`0` means no limit), `users_filter` (the `-u` string), `no_docker`, `no_projects` (boolean, `--no-projects` or `-NoProjects`) and `projects` (array of the `-p`/`--project` or `-Project` values in the order given, resolved against the current directory to absolute paths and de-duplicated, by both collectors, `[]` when none). A value that is not a directory is still listed here. They are recorded even with `no_projects`, which ignores them. |
+| `options` | `full`, `no_secrets`, `max_file_size_bytes` (`0` means no limit), `users_filter` (the `-u` string), `no_docker`, `no_projects` (boolean, `--no-projects` or `-NoProjects`), `projects` (array of the `-p`/`--project` or `-Project` values in the order given, resolved against the current directory to absolute paths and de-duplicated, by both collectors, `[]` when none). A value that is not a directory is still listed here. They are recorded even with `no_projects`, which ignores them. After `projects` come `env_scan_home` (boolean, `--env-scan-home` or `-EnvScanHome`) and `env_scan_max_size_bytes` (`0` means no limit; recorded even without `env_scan_home`). |
 | `capabilities` | sh: `hash_tool` (`sha256sum`, `shasum`, `sha256`, `openssl` or `none`), `stat_mode` (`gnu`, `gnu0` for GNU `stat` without birth time, `bsd` or `none`), `worker_shell` and `archiver` (`tar -z` for `tar -czf`, `tar \| gzip` for the pipe, `tar` for the uncompressed `.tar`). PowerShell: `hash_tool` (`System.Security.Cryptography.SHA256`; `Get-FileHash` up to 1.10.1) and `archiver` (`tar.exe` for `tar.exe` or the system `tar`, `PowerShell tar writer` for the script's own tar writer, added after 1.10.2, or `ZipFile` for the zip). `archiver` names the one that wrote the archive. |
 | `users`, `homes` | Parallel lists of every user and home scanned, including homes with no agent state. |
 | `users_with_artifacts` | The users whose home produced at least one manifest row, in the order of `users`. Rows from discovered projects and Docker volumes do not count. The stdout `users:` line is its length. |
 | `projects` | The project directories collected from, discovered or given with `-p`. A `-p` value that is not a directory is left out and has an `error_read` row instead. |
 | `counts` | Rows per status (`collected`, `symlink`, `skipped_excluded`, `skipped_size`, `skipped_secret`, `skipped_special`, `error_copy`, `skipped_unmatched_volume`, `error_read`) and `collected_bytes`. `skipped_special` since collector 1.13.0. |
 | `docker` | `volumes_found`, `volumes_collected`, `unreadable` and `docker_desktop`; see [docker.md](docker.md). |
+| `relocation` | `hints`, `files_searched` and `files_skipped_size`; see [relocation.md](relocation.md). `hints` is an array of objects with `user` (the owner of the home or the project's user, empty for a system file), `source` (the path of the file that names the variable), `line` (its line number), `variable`, `agent` (the catalog agent the table line belongs to, or `shared`) and `value` (always `""`; the collector never evaluates a value). A variable that two agents list gives one hint per agent. `files_searched` counts the files handed to the search, the startup files and, with `--env-scan-home`, the files of the sweep; `files_skipped_size` counts the sweep's files over `--env-scan-max-size`. |
 | `notes` | Messages about what could not be collected, such as an unreadable or symlinked Docker volume directory, Docker Desktop data, or (PowerShell) symlinks that are not in the archive and why, and (PowerShell) each archiver that failed and the one that was used instead, such as `tar.exe failed (exit code 0xC0000005); fell back to PowerShell tar writer`. |
 | `archive` | The file name of the archive written: `.tar.gz`, `.tar` after the sh collector's uncompressed fallback, or `.zip` from the PowerShell collector after both `tar.exe` and its PowerShell tar writer failed. |

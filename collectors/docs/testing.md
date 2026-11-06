@@ -4,7 +4,7 @@ The collectors are tested end to end. `tests/smoke.sh` and `tests/smoke.ps1`
 build a fake disk image with two users, awkward file names, credentials,
 excluded directories, an oversized file and symlinks, run the collector
 over it in image mode and check the manifest rows, the archive and each
-option; `tests/catalog-sync.sh` checks that the five catalog tables agree
+option; `tests/catalog-sync.sh` checks that the catalog tables agree
 between the two scripts and the analyzer's copy. A change to a collector
 runs the sh smoke test under every shell the script must support, the
 PowerShell one under PowerShell 7 and Windows PowerShell 5.1, and the drift
@@ -20,7 +20,7 @@ printf '#!/bin/sh\nexec busybox ash "$@"\n' > /tmp/ash && chmod +x /tmp/ash && t
 printf '#!/bin/sh\nexec zsh --emulate sh "$@"\n' > /tmp/zsh-sh && chmod +x /tmp/zsh-sh && tests/smoke.sh /tmp/zsh-sh
 tests/smoke.sh posh
 shellcheck -s sh -S warning collect-agent-artifacts.sh
-tests/catalog-sync.sh   # the five tables, --list output and the analyzer copy agree
+tests/catalog-sync.sh   # the tables, --list output and the analyzer copy agree
 pwsh -NoProfile -File tests/smoke.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\smoke.ps1   # on Windows
 ```
@@ -47,6 +47,14 @@ with its path printed, when one fails. The exit status is `0` or `1`. With
 and stops before the first collection run: it prints the work directory as
 its last line of stdout, runs no check, exits `0` and leaves the directory,
 whose `root/` is the image, for the caller to remove.
+
+The main image also holds one file per `STARTUP_FILES` line, each assigning
+one relocation variable in its own shell's syntax, and a home file that names
+every `RELOCATION_VARS` variable; the checks cover each file's row, the hints
+in `collection.json`, a lowercase PowerShell match, a symlinked startup file
+(no hint), and that the log never holds an assigned value. A separate
+`envscan` run covers `--env-scan-home`, its size limit and
+`--env-scan-max-size`.
 
 `tests/smoke.ps1` takes `-Collector PATH` to test a copy of the script other
 than the one beside it, which is how the test runs under Windows PowerShell
@@ -109,7 +117,7 @@ copy of the collector forced onto `shasum` writes the same manifest.
 
 ## Table coverage checks
 
-Two checkers compare each line of the five catalog tables with what
+Two checkers compare each line of the catalog tables with what
 should exist for it elsewhere in the repository. Run them from the
 repository root; both use the standard library alone:
 
@@ -132,7 +140,13 @@ a file is
 left unflagged instead of naming its secret glob, a timeline row text or
 record key under Collection, a catalog agent without a research document or
 a row on the [agents page](../../docs/agents.md), and a row on that page
-naming no catalog agent.
+naming no catalog agent. For the relocation tables it reports a
+`RELOCATION_VARS` line whose variable no row of the Relocation variables
+table of its agent's research document names (`research/shared.md` for
+`shared`), a row naming an agent with no such line, a row whose Replaces
+column differs from the line's third field, and a `STARTUP_FILES` glob that no
+code span of the Startup and environment files subsection of
+`research/shared.md` names.
 
 `tools/check_smoke_coverage.py` requires, in both smoke files, a
 default-run check asserting `secret: true` and a `--no-secrets` check
@@ -142,7 +156,10 @@ check asserting `skipped_excluded` for each `EXCLUDES` line, and for each
 the research document gives, and for each agent with a `secret` case in
 the frameworks case list (`CASES_FW` in `smoke.sh`, `$CasesFrameworks` in
 `smoke.ps1`) a `--no-secrets` check asserting `skipped_secret` on one of
-them. It reads both smoke tests as text: keep
+them. It also requires a fixture path that each `STARTUP_FILES` line matches
+(home globs under a home, system globs under the image root, project globs
+under a project) and a default-run check asserting `secret: true` on it.
+It reads both smoke tests as text: keep
 fixture paths and check arguments as literals, variables assigned from
 literals, `kind|agent|path` case lists, or here-document lists read by
 `while read`, and write `Row` and `StatusOf` arguments in `smoke.ps1` from
@@ -206,7 +223,7 @@ or a command cannot be started, such as a `--shell` that does not exist.
 
 ## Catalog drift check and CI
 
-`tests/catalog-sync.sh` extracts the five tables from both scripts and fails
+`tests/catalog-sync.sh` extracts the tables from both scripts and fails
 if they differ or if `analyzer/doubleagent/catalog.txt` is not identical to
 `--list`. When `pwsh` is on the `PATH` it also compares `--list` with
 `-List`. The repository's pre-commit hook in `.githooks/`

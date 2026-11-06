@@ -108,6 +108,7 @@ nav:
       - collectors/docs/options.md
       - collectors/docs/output.md
       - collectors/docs/coverage.md
+      - collectors/docs/relocation.md
       - collectors/docs/docker.md
       - collectors/docs/privileges.md
       - collectors/docs/inventory.md
