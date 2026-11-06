@@ -747,3 +747,115 @@ def test_powershell_run_flags_and_blocks():
     runs = [(run.name, run.no_secrets, run.full) for run in smoke.runs]
     assert runs == [("default", False, False), ("nosecrets", True, False), ("full", False, True)]
     assert smoke.run_at(5) is None
+
+
+# --- The startup files table -------------------------------------------------------------------
+
+STARTUP_TABLE = """\
+# startup files searched for them (scope|glob; scope home, system or project)
+home|.bashrc
+system|/etc/profile
+project|.envrc
+"""
+
+STARTUP_SH = SMOKE_SH.replace(
+    "CASES_FW='",
+    "printf 'export A=/opt/x\\n' >\"$ALICE/.bashrc\"\n"
+    "printf 'export A=/opt/x\\n' >\"$ROOT/etc/profile\"\n"
+    "printf 'export A=/opt/x\\n' >\"$ROOT/srv/proj/.envrc\"\n"
+    "CASES_FW='",
+).replace(
+    "# ---- --no-secrets ----",
+    'check "bashrc flagged" "row \\"$ALICE/.bashrc\\" | grep -q \'\\"secret\\":true\'"\n'
+    'check "profile flagged" "row \\"$ROOT/etc/profile\\" | grep -q \'\\"secret\\":true\'"\n'
+    'check "envrc flagged" "row \\"$ROOT/srv/proj/.envrc\\" | grep -q \'\\"secret\\":true\'"\n'
+    "# ---- --no-secrets ----",
+)
+
+STARTUP_PS1 = SMOKE_PS1.replace(
+    "$CasesFrameworks",
+    "MakeFile 'Users/alice/.bashrc' 'export A=/opt/x'\n"
+    "MakeFile 'etc/profile' 'export A=/opt/x'\n"
+    "MakeFile 'proj/.envrc' 'export A=/opt/x'\n"
+    "$CasesFrameworks",
+).replace(
+    "# ---- -NoSecrets ----",
+    "Check 'bashrc flagged' { IsSecretRow 'Users/alice/.bashrc' }\n"
+    "Check 'profile flagged' { IsSecretRow 'etc/profile' }\n"
+    "Check 'envrc flagged' { IsSecretRow 'proj/.envrc' }\n"
+    "# ---- -NoSecrets ----",
+)
+
+
+def startup_repository(root: pathlib.Path, shell: str = STARTUP_SH, powershell: str = STARTUP_PS1):
+    """Write the synthetic repository with the startup files table and its fixtures."""
+    repository(root, shell, powershell)
+    write(root / "analyzer/doubleagent/catalog.txt", CATALOG_TEXT + STARTUP_TABLE)
+
+
+def startup_kinds(root: pathlib.Path) -> list[tuple[str, str, str]]:
+    """Return (agent, kind, detail) of the startup findings, in run order."""
+    return [
+        (item.agent, item.kind, item.detail)
+        for item in findings(root)
+        if item.kind.startswith("startup-")
+    ]
+
+
+def test_startup_table_with_fixtures_and_checks_has_no_findings(tmp_path):
+    startup_repository(tmp_path)
+    assert findings(tmp_path) == []
+
+
+def test_startup_fixture_missing(tmp_path):
+    startup_repository(
+        tmp_path,
+        without(STARTUP_SH, '>"$ROOT/etc/profile"'),
+        without(STARTUP_PS1, "MakeFile 'proj/.envrc'"),
+    )
+    assert startup_kinds(tmp_path) == [
+        ("shared", "startup-fixture-missing", "smoke.sh /etc/profile"),
+        ("shared", "startup-fixture-missing", "smoke.ps1 .envrc"),
+    ]
+
+
+def test_startup_fixture_under_another_scope_does_not_count(tmp_path):
+    moved = STARTUP_SH.replace('>"$ROOT/srv/proj/.envrc"', '>"$ALICE/.envrc"')
+    moved = moved.replace('>"$ALICE/.bashrc"', '>"$ROOT/srv/proj/.bashrc"')
+    startup_repository(tmp_path, moved)
+    assert startup_kinds(tmp_path) == [
+        ("shared", "startup-fixture-missing", "smoke.sh .bashrc"),
+        ("shared", "startup-fixture-missing", "smoke.sh .envrc"),
+    ]
+
+
+def test_startup_secret_check_missing(tmp_path):
+    startup_repository(
+        tmp_path, without(STARTUP_SH, "bashrc flagged"), without(STARTUP_PS1, "envrc flagged")
+    )
+    assert startup_kinds(tmp_path) == [
+        ("shared", "startup-secret-check-missing", "smoke.sh .bashrc"),
+        ("shared", "startup-secret-check-missing", "smoke.ps1 .envrc"),
+    ]
+
+
+def test_startup_secret_check_in_a_no_secrets_run_does_not_count(tmp_path):
+    moved = without(STARTUP_SH, "profile flagged").replace(
+        'check "alpha auth skipped"',
+        'check "profile here" "row \\"$ROOT/etc/profile\\" | grep -q \'\\"secret\\":true\'"\n'
+        'check "alpha auth skipped"',
+    )
+    startup_repository(tmp_path, moved)
+    assert startup_kinds(tmp_path) == [
+        ("shared", "startup-secret-check-missing", "smoke.sh /etc/profile")
+    ]
+
+
+def test_startup_regex_matches_whole_paths_one_segment_per_star():
+    regex = coverage.startup_regex("/etc/profile.d/*.sh", False)
+    assert regex.fullmatch("etc/profile.d/a.sh")
+    assert not regex.fullmatch("etc/profile.d/sub/a.sh")
+    assert not regex.fullmatch("etc/profile.d")
+    assert coverage.startup_regex("Documents/PowerShell/*.ps1", True).fullmatch(
+        "documents/powershell/profile.PS1"
+    )

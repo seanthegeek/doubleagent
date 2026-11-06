@@ -822,3 +822,47 @@ def test_parser_classes_apply_the_nearest_init_against_the_subclass(tmp_path):
     assert child.reads_agents == ("beta",)
     assert child.bases == ("BetaParser", "Parser")
     assert child.line == 13
+
+
+HINT_TABLES = """\
+# relocation variables (agent|VARIABLE|home-relative path it replaces)
+# Variables that move a store
+alpha|ALPHA_HOME|.alpha
+alpha|ALPHA_LOG|
+shared|XDG_CONFIG_HOME|.config
+# startup files searched for them (scope|glob; scope home, system or project)
+home|.bashrc
+system|/etc/profile.d/*.sh
+project|.envrc
+"""
+
+
+def test_tables_read_the_relocation_and_startup_lines(tmp_path):
+    found = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG_TEXT + HINT_TABLES))
+    assert [(line.agent, line.glob, line.replaces) for line in found.relocation] == [
+        ("alpha", "ALPHA_HOME", ".alpha"),
+        ("alpha", "ALPHA_LOG", ""),
+        ("shared", "XDG_CONFIG_HOME", ".config"),
+    ]
+    assert [(line.agent, line.scope, line.glob) for line in found.startup] == [
+        ("shared", "home", ".bashrc"),
+        ("shared", "system", "/etc/profile.d/*.sh"),
+        ("shared", "project", ".envrc"),
+    ]
+    assert found.relocation[0].comment == ("Variables that move a store",)
+    assert {"relocation", "startup"} <= found.headed
+
+
+def test_hint_tables_leave_the_catalog_tables_alone(tmp_path):
+    plain = drift_common.tables(write(tmp_path / "plain.txt", CATALOG_TEXT))
+    hinted = drift_common.tables(write(tmp_path / "hinted.txt", CATALOG_TEXT + HINT_TABLES))
+    for name in drift_common.GLOB_TABLES:
+        assert hinted.table(name) == plain.table(name), name
+    assert hinted.catalog.docker_volumes == plain.catalog.docker_volumes
+    assert hinted.catalog.secrets == plain.catalog.secrets
+
+
+def test_a_listing_without_hint_tables_heads_neither(tmp_path):
+    found = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG_TEXT))
+    assert found.relocation == [] and found.startup == []
+    assert not {"relocation", "startup"} & found.headed

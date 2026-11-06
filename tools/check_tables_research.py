@@ -4,13 +4,11 @@
 `research/<agent>.md` owns its agent's table lines and `research/shared.md` the `shared` and
 `project` ones; an exclusion or secret glob's owners are `glob_owners`, its agent the first.
 
-- `line-unnamed`: a table line no Collection code span of its owners names (`names_glob`), by
-  its glob or its remainder below an owner's entry (`base_remainders`, `star_remainders`);
-  its detail is `<table> <glob>`, as one glob may be in several tables.
+- `line-unnamed`: a glob table line no Collection span of its owners names (`names_glob`,
+  `base_remainders`, `star_remainders`); detail `<table> <glob>`.
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
-  secret glob flags on its own base or a sibling base of one platform (`sibling_bases`: the same
-  last segment, case kept where `case_distinguishes`), unless a Parsing-part Secrets code span
-  names the path (`secrets_store`) or says it is not a credential (`denies_credential`).
+  secret glob flags on its base or a sibling base (`sibling_bases`), unless a Secrets span
+  names it (`secrets_store`) or says it is not a credential (`denies_credential`).
 - `secret-under-exclusion`: a secret glob each of whose sample paths an exclusion prunes.
 - `exclusion-unowned`, `secret-unowned`: an exclusion or secret glob with no owner
   (`Repository.owners`, `glob_owners`): no entry reaches it, no volume document claims it.
@@ -21,12 +19,14 @@
 - `case-overlap`: two agents' home entries whose first differing segment differs only by case,
   or whose first segments differ and can still match one path (`case_overlap`).
 - `credential-wording`: a `WORDING_PHRASES` phrase in a Credentials section.
-- `document-missing`, `catalog-missing`: a catalog agent with no research document, and back.
-- `agents-row-missing`, `agents-row-orphan`: a catalog agent, `project` aside, with no
-  `docs/agents.md` row, and a row naming no catalog agent.
-- `parsing-fact-under-collection`: a Collection code span that is a row text (`is_row_text`)
-  or a key the Record schema also names (`is_key_span`) and no path names (`path_names`),
-  outside the project-path section.
+- `document-missing`, `catalog-missing`, `agents-row-missing`, `agents-row-orphan`: a catalog
+  agent with no research document or (`project` aside) `docs/agents.md` row, and back.
+- `parsing-fact-under-collection`: a Collection span outside the project-path section that is a
+  row text (`is_row_text`) or a Record schema key (`is_key_span`) no path names (`path_names`).
+- `relocation-line-unnamed`: a `RELOCATION_VARS` line no row of its agent's `#### Relocation
+  variables` table names; `relocation-row-unlined`: a row whose `Table agent` and variable are
+  no line; `relocation-replaces-differs`: a row's `Replaces` first span is not the line's third.
+- `startup-line-unnamed`: a `STARTUP_FILES` glob no span of shared.md's startup files names.
 
 Usage: tools/check_tables_research.py [--update-baseline]
 """
@@ -93,6 +93,9 @@ LINK_TARGET = re.compile(r"\]\([^)]*\)")
 CLAUSE_WORDS = 4
 # The end of a sentence: a stop before whitespace, a blank line or the next list item.
 SENTENCE_END = re.compile(r"[.!?](?=\s|$)|\n[ \t]*\n|\n[ \t]*(?:[-*+]|\d+[.)])[ \t]")
+RELOCATION_HEADER = re.compile(
+    r"^\|\s*Variable\s*\|\s*Moves\s*\|\s*Replaces\s*\|\s*Table agent\s*\|"
+)
 MOUNTED_AT = re.compile(r"\bmounted at\s+(/\S*)")
 # The platform and the kinds of state of a home-relative directory, by its leading segments, so a
 # credential under one form of a tool's directory is expected under its other platforms' forms.
@@ -527,7 +530,9 @@ def unnamed_lines(repository: Repository) -> Iterator[Finding]:
     agents reach equally closely.
     """
     catalog = repository.tables.catalog
-    for line in repository.tables.lines():
+    for line in (
+        line for name in drift_common.GLOB_TABLES for line in repository.tables.table(name)
+    ):
         owners = repository.owners(line)
         documents = [repository.document(owner) for owner in owners]
         if not owners or not all(document in repository.sections for document in documents):
@@ -823,6 +828,112 @@ def parsing_facts(repository: Repository) -> Iterator[Finding]:
                     yield Finding(agent, kind, text, document, line, message)
 
 
+@dataclass(frozen=True)
+class RelocationRow:
+    """One row of a `#### Relocation variables` table: its cells' values and its line."""
+
+    variable: str
+    replaces: str
+    table_agent: str
+    line: int
+
+
+def first_span(cell: str) -> str:
+    """Return a cell's first code span, or the cell itself when it has none."""
+    match = drift_common.FIRST_CODE_SPAN.search(cell)
+    return match.group(1) if match else cell
+
+
+def relocation_rows(sections: dict[str, Section]) -> list[RelocationRow]:
+    """Return the rows of a document's `#### Relocation variables` tables, in order.
+
+    The variable is the first cell's code span, the `Replaces` and `Table agent` cells the
+    last two, so a `|` inside the `Moves` cell moves no column; the first span of each counts,
+    the Linux form where a cell lists several.
+    """
+    found: list[RelocationRow] = []
+    key = "Collection/Per-user storage/Relocation variables"
+    section = sections.get(key)
+    if section is None:
+        return found
+    for offset, cells in drift_common.table_rows(section.text, RELOCATION_HEADER):
+        if len(cells) < 4:
+            continue
+        variable, replaces, agent = (first_span(cells[0]), first_span(cells[-2]), cells[-1])
+        found.append(RelocationRow(variable, replaces, first_span(agent), section.start + offset))
+    return found
+
+
+def _relocation_lines(repository: Repository) -> dict[tuple[str, str], TableLine]:
+    """Return the `RELOCATION_VARS` lines keyed by (agent, variable), the first of a pair kept."""
+    lines: dict[tuple[str, str], TableLine] = {}
+    for line in repository.tables.relocation:
+        lines.setdefault((line.agent, line.glob), line)
+    return lines
+
+
+def relocation_findings(repository: Repository) -> Iterator[Finding]:
+    """Yield `relocation-line-unnamed`, `relocation-row-unlined` and `relocation-replaces-differs`.
+
+    A line belongs to its agent's document, `research/shared.md` for `shared`; one whose
+    document is missing is left to `document-missing`. A row of any document is checked against
+    the line its `Table agent` cell and variable name; its findings go to the document's agent.
+    A listing without the `RELOCATION_VARS` heading gives no finding.
+    """
+    if "relocation" not in repository.tables.headed:
+        return
+    rows = {
+        document: relocation_rows(sections) for document, sections in repository.sections.items()
+    }
+    for line in repository.tables.relocation:
+        document = repository.document(line.agent)
+        if document in rows and not any(row.variable == line.glob for row in rows[document]):
+            message = "no row of the Relocation variables table of %s names it" % document
+            detail = "%s %s" % (line.agent, line.glob)
+            yield Finding(
+                line.agent, "relocation-line-unnamed", detail, CATALOG_PATH, line.line, message
+            )
+    lines = _relocation_lines(repository)
+    for document, document_rows in rows.items():
+        owner = pathlib.PurePosixPath(document).stem
+        for row in document_rows:
+            detail = "%s %s" % (row.table_agent, row.variable)
+            line = lines.get((row.table_agent, row.variable))
+            if line is None:
+                message = "no RELOCATION_VARS line names this agent and variable"
+                yield Finding(owner, "relocation-row-unlined", detail, document, row.line, message)
+            elif line.replaces != row.replaces:
+                message = "the Replaces cell is %r, the table line's third field %r" % (
+                    row.replaces,
+                    line.replaces,
+                )
+                kind = "relocation-replaces-differs"
+                yield Finding(owner, kind, detail, document, row.line, message)
+
+
+def unnamed_startup_files(repository: Repository) -> Iterator[Finding]:
+    """Yield `startup-line-unnamed` for each `STARTUP_FILES` glob `research/shared.md` never names.
+
+    The glob is compared as text with each code span of its `#### Startup and environment
+    files` subsection; without `research/shared.md` the rule is silent.
+    """
+    sections = repository.sections.get(repository.document("shared"))
+    if sections is None:
+        return
+    spans = {
+        span.text
+        for section in drift_common.within(sections, "Collection", "Per-user storage")
+        if section.titles[2:3] == ("Startup and environment files",)
+        for span in section.code_spans
+    }
+    for line in repository.tables.startup:
+        if line.glob not in spans:
+            message = "no code span of the Startup and environment files subsection names it"
+            yield Finding(
+                "shared", "startup-line-unnamed", line.glob, CATALOG_PATH, line.line, message
+            )
+
+
 RULES = (
     unnamed_lines,
     unflagged_credentials,
@@ -834,6 +945,8 @@ RULES = (
     credential_wording,
     presence,
     parsing_facts,
+    relocation_findings,
+    unnamed_startup_files,
 )
 
 

@@ -75,7 +75,7 @@ PLAN_H4 = (
 # Fixed subsections, keyed by the heading they sit under.
 FIXED = {
     "Source and evidence": ("Observed", "Source reviews"),
-    "Per-user storage": ("Scratch directories",),
+    "Per-user storage": ("Scratch directories", "Relocation variables"),
     "Transcript stores": ("What survives a delete",),
     "Parser plan": PLAN_H4,
 }
