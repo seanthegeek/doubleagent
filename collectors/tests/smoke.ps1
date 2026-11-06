@@ -1838,7 +1838,8 @@ try {
   $zshLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #454 symlinked startup file check skipped' }
 MakeFile 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' "<key>OPENCLAW_STATE_DIR</key><string>/opt/x</string>`n"
-MakeFile 'Users/alice/work/scripts/deep/env-helper.sh' "export QWEN_HOME=/opt/x`n"
+MakeFile 'Users/alice/work/scripts/deep/env-helper.sh' "#!/usr/bin/env bash`nexport QWEN_HOME=/opt/x`n"
+MakeFile 'Users/alice/work/scripts/deep/env-helper.ps1' ('$env:qwen_home = "/opt/x"' + "`n")
 MakeFile 'Users/alice/tools/agent-env.sh' "export CODEX_HOME=/opt/x`n"
 MakeFile 'Users/alice/scripts/big.sh' ("export CODEX_HOME=/opt/x`n" + ('#' * 1200000) + "`n")
 $missing = Test-Made
@@ -2945,7 +2946,9 @@ Run 'envscan' @{ EnvScanHome = $true }
 $envScanSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 Check '#454 the sweep run exits 0' { $script:ExitCode -eq 0 }
 Check '#454 the sweep run records its options' { $envScanSummary.options.env_scan_home -eq $true -and $envScanSummary.options.env_scan_max_size_bytes -eq 1048576 }
-Check '#454 the sweep hints and collects a file deep in the home' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh' 1 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.sh' 'shared' $true) }
+Check '#454 the sweep hints and collects a file deep in the home' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh' 2 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.sh' 'shared' $true) }
+Check '#454 an env shebang line in a swept file gives no ENV hint' { (HintsFrom $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 1 }
+Check '#454 the sweep matches a lowercase name in a .ps1 file' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.ps1' 1 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.ps1' 'shared' $true) }
 Check '#454 the sweep counts a file over its size limit and leaves it unsearched' { $envScanSummary.relocation.files_skipped_size -ge 1 -and (HintsFrom $envScanSummary 'Users/alice/scripts/big.sh').Count -eq 0 -and (RowsAt 'Users/alice/scripts/big.sh').Count -eq 0 }
 Check '#454 the sweep leaves out an excluded directory' { (HintsFrom $envScanSummary 'Users/alice/tools/agent-env.sh').Count -eq 0 -and (RowsAt 'Users/alice/tools/agent-env.sh').Count -eq 0 }
 Check '#454 the sweep leaves the catalog-collected file its one row' { $catalogRows = RowsAt 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist'; $catalogRows.Count -eq 1 -and $catalogRows[0].agent -eq 'openclaw' }

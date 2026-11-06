@@ -51,9 +51,9 @@ The file that holds each hint is collected, so you can read the line
 later. It is attributed to the agent `shared` because it belongs to no
 single agent, and it is flagged `secret: true` because startup files
 often hold keys; `--no-secrets` leaves it out as `skipped_secret`, and
-the hint is still recorded. A file the catalog already collects (a
-`settings.json` that names a variable, for example) keeps the catalog's
-row and gets no second one.
+the hint is still recorded. A startup file the catalog already collects
+(a launchd property list an agent installs, for example) keeps the
+catalog's row and gets no second one.
 
 A hint for a `shared` variable (the `XDG_*` names and the variables
 that move the startup files themselves, such as `ZDOTDIR`) is a weaker
@@ -127,17 +127,18 @@ make a second collection by giving the collector a root in which the store
 sits where the agent's default folder would be:
 
 1. Take the agent's default folder from the `Replaces` column of the
-   `Relocation variables` table in the agent's research document
-   (linked from the table below), such as `.claude` for
-   `CLAUDE_CONFIG_DIR`. `--list` prints it as the third field of the
-   variable's line.
+   `Relocation variables` table in the agent's research document, such as
+   `.claude` for `CLAUDE_CONFIG_DIR`. `--list` prints it as the third
+   field of the variable's line.
 2. Make an empty scratch directory outside the evidence and under it the
    path `home/USER/<default folder>`, where `USER` is the user who set the
    variable. On Windows, use `Users\USER\<default folder>`.
-3. Put the moved store there without changing it. On a mounted disk image,
-   copy it from the mount (`cp -a`, or `robocopy /E /COPY:DAT /R:0 /XJ` on
-   Windows). On a live Linux host, mount it read-only instead, which copies
-   nothing: `mount --bind SRC DEST`, then `mount -o remount,bind,ro DEST`.
+3. Copy the moved store there without changing it: `cp -a` on Linux and
+   macOS, `robocopy /E /COPY:DAT /R:0 /XJ` on Windows, from the mounted
+   image or from the live host. Both keep the modification times, which
+   the second manifest then records from the copy; note the original
+   path, owner and change times by hand, since the copy's manifest shows
+   the scratch path and the copying account.
 4. Run the collector with that scratch directory as the root, and a
    second output directory or the same one (every file name carries the
    host name and the time of the run, so the archives stay beside the first):
@@ -164,77 +165,32 @@ is given with its mount point, as [options.md](options.md) describes.
 
 ## Variables the warning covers
 
-Each agent's research document lists its variables, what each moves, and the
-default folder it replaces, in its `Relocation variables` subsection.
-
-| Agent | Variables | Research document |
-| --- | --- | --- |
-| `agent-zero` | `A0_COMPUTER_USE_HOST_ARTIFACT_ROOT` | [agent-zero](../../research/agent-zero.md#relocation-variables) |
-| `aider` | `AIDER_CHAT_HISTORY_FILE`, `AIDER_INPUT_HISTORY_FILE`, `AIDER_LLM_HISTORY_FILE`, `AIDER_ANALYTICS_LOG` | [aider](../../research/aider.md#relocation-variables) |
-| `amp` | `AMP_HOME` | [amp](../../research/amp.md#relocation-variables) |
-| `augment` | `AUGMENT_VFS_DIR` | [augment](../../research/augment.md#relocation-variables) |
-| `autogen-studio` | `AUTOGENSTUDIO_APPDIR`, `AUTOGENSTUDIO_DATABASE_URI` | [autogen-studio](../../research/autogen-studio.md#relocation-variables) |
-| `camel-ai` | `CAMEL_WORKDIR`, `CAMEL_LOG_DIR` | [camel-ai](../../research/camel-ai.md#relocation-variables) |
-| `claude-code` | `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_TMPDIR` | [claude-code](../../research/claude-code.md#relocation-variables) |
-| `claude-desktop` | `CLAUDE_USER_DATA_DIR` | [claude-desktop](../../research/claude-desktop.md#relocation-variables) |
-| `cline` | `CLINE_DIR`, `CLINE_DATA_DIR`, `CLINE_SESSION_DATA_DIR`, `CLINE_DB_DATA_DIR`, `CLINE_TEAM_DATA_DIR`, `CLINE_CONNECTOR_DATA_DIR`, `CLINE_CONNECTOR_SETTINGS_PATH`, `CLINE_CONNECTORS_DB_PATH`, `CLINE_CRON_DB_PATH`, `CLINE_TASKS_DB_PATH`, `CLINE_PROVIDER_SETTINGS_PATH`, `CLINE_GLOBAL_SETTINGS_PATH`, `CLINE_MCP_SETTINGS_PATH`, `CLINE_HOOKS_LOG_PATH`, `WORKSPACE_STORAGE_DIR` | [cline](../../research/cline.md#relocation-variables) |
-| `codex-cli` | `CODEX_HOME`, `CODEX_SQLITE_HOME`, `CODEX_ROLLOUT_TRACE_ROOT`, `CODEX_TUI_SESSION_LOG_PATH` | [codex-cli](../../research/codex-cli.md#relocation-variables) |
-| `continue` | `CONTINUE_GLOBAL_DIR` | [continue](../../research/continue.md#relocation-variables) |
-| `copilot-cli` | `COPILOT_HOME`, `COPILOT_PROVIDERS_CONFIG`, `COPILOT_PKG_CACHE_HOME`, `COPILOT_CACHE_HOME` | [copilot-cli](../../research/copilot-cli.md#relocation-variables) |
-| `copilot-desktop` | `COPILOT_HOME`, `COPILOT_HOME_OVERRIDE` | [copilot-desktop](../../research/copilot-desktop.md#relocation-variables) |
-| `crewai` | `CREWAI_STORAGE_DIR` | [crewai](../../research/crewai.md#relocation-variables) |
-| `crush` | `CRUSH_GLOBAL_CONFIG`, `CRUSH_GLOBAL_DATA`, `CRUSH_CACHE_DIR`, `CRUSH_SKILLS_DIR` | [crush](../../research/crush.md#relocation-variables) |
-| `cursor` | `CURSOR_DATA_DIR`, `CURSOR_CONFIG_DIR`, `CURSOR_WORKTREES_ROOT`, `CURSOR_SANDBOX_POLICY_DIR` | [cursor](../../research/cursor.md#relocation-variables) |
-| `dify` | `DIFY_CONFIG_DIR` | [dify](../../research/dify.md#relocation-variables) |
-| `factory-droid` | `FACTORY_HOME_OVERRIDE`, `FACTORY_LOG_FILE` | [factory-droid](../../research/factory-droid.md#relocation-variables) |
-| `flowise` | `DATABASE_PATH`, `SECRETKEY_PATH`, `BLOB_STORAGE_PATH`, `LOG_PATH` | [flowise](../../research/flowise.md#relocation-variables) |
-| `gemini-cli` | `GEMINI_CLI_HOME`, `GEMINI_CLI_TRUSTED_FOLDERS_PATH`, `GEMINI_CLI_ACTIVITY_LOG_TARGET`, `GEMINI_DEBUG_LOG_FILE`, `GEMINI_CONTEXT_TRACE_DIR`, `GEMINI_WRITE_SYSTEM_MD` | [gemini-cli](../../research/gemini-cli.md#relocation-variables) |
-| `goose` | `GOOSE_PATH_ROOT`, `GOOSE_RECIPE_PATH`, `GOOSE_ADDITIONAL_CONFIG_FILES` | [goose](../../research/goose.md#relocation-variables) |
-| `hermes` | `HERMES_HOME`, `HERMES_DATA_DIR_SUFFIX`, `HERMES_DESKTOP_USER_DATA_DIR`, `TERMINAL_SANDBOX_DIR` | [hermes](../../research/hermes.md#relocation-variables) |
-| `kilo-code` | `KILO_CONFIG_DIR`, `KILO_CONFIG`, `KILO_DB` | [kilo-code](../../research/kilo-code.md#relocation-variables) |
-| `kiro` | `KIRO_HOME`, `KIRO_ACP_RECORD_PATH` | [kiro](../../research/kiro.md#relocation-variables) |
-| `langflow` | `LANGFLOW_CONFIG_DIR`, `LANGFLOW_KNOWLEDGE_BASES_DIR`, `LANGFLOW_FS_TOOL_BASE_DIR`, `LANGFLOW_LOG_FILE` | [langflow](../../research/langflow.md#relocation-variables) |
-| `letta` | `LETTA_HOME`, `LETTA_LOCAL_BACKEND_DIR`, `LETTA_TRANSCRIPT_ROOT`, `LETTA_ARTIFACTS_DIR`, `LETTA_MODS_DIR`, `LETTA_DEBUG_FILE`, `LETTA_DIR`, `MEMGPT_CONFIG_PATH` | [letta](../../research/letta.md#relocation-variables) |
-| `little-coder` | `PI_CODING_AGENT_DIR`, `LITTLE_CODER_MODELS_FILE`, `LITTLE_CODER_EXTENSIONS_DIR` | [little-coder](../../research/little-coder.md#relocation-variables) |
-| `local-deep-research` | `LDR_DATA_DIR` | [local-deep-research](../../research/local-deep-research.md#relocation-variables) |
-| `metagpt` | `METAGPT_PROJECT_ROOT` | [metagpt](../../research/metagpt.md#relocation-variables) |
-| `muse-code` | `MUSE_AUTH_PATH`, `MUSE_PROJECTS_HOME` | [muse-code](../../research/muse-code.md#relocation-variables) |
-| `n8n` | `N8N_USER_FOLDER`, `N8N_STORAGE_PATH`, `N8N_BINARY_DATA_STORAGE_PATH`, `DB_SQLITE_DATABASE`, `N8N_EVENTBUS_LOGWRITER_LOGFULLPATH` | [n8n](../../research/n8n.md#relocation-variables) |
-| `nanobot` | `NANOBOT_AGENTS__DEFAULTS__WORKSPACE`, `OAUTH_CLI_KIT_TOKEN_PATH` | [nanobot](../../research/nanobot.md#relocation-variables) |
-| `ollama` | `OLLAMA_MODELS` | [ollama](../../research/ollama.md#relocation-variables) |
-| `open-interpreter` | `INTERPRETER_HOME`, `CODEX_SQLITE_HOME`, `OPEN_INTERPRETER_HOME`, `CODEX_ROLLOUT_TRACE_ROOT` | [open-interpreter](../../research/open-interpreter.md#relocation-variables) |
-| `openclaw` | `OPENCLAW_STATE_DIR`, `OPENCLAW_HOME`, `OPENCLAW_PROFILE`, `OPENCLAW_CONFIG_PATH`, `OPENCLAW_WORKSPACE_DIR`, `OPENCLAW_OAUTH_DIR` | [openclaw](../../research/openclaw.md#relocation-variables) |
-| `opencode` | `OPENCODE_CONFIG_DIR`, `OPENCODE_DB` | [opencode](../../research/opencode.md#relocation-variables) |
-| `openhands` | `OH_PERSISTENCE_DIR`, `OPENHANDS_PERSISTENCE_DIR`, `OPENHANDS_CONVERSATIONS_DIR`, `FILE_STORE_PATH`, `OH_CANVAS_SAFE_STATE_DIR`, `OH_CONVERSATIONS_PATH`, `OH_BASH_EVENTS_DIR`, `OH_CONVERSATION_WORKTREE_ROOT`, `AUTOMATION_WORKSPACE_BASE`, `VITE_WORKING_DIR`, `OH_SECRET_KEY_PATH`, `OH_SESSION_API_KEY_PATH`, `LOG_DIR` | [openhands](../../research/openhands.md#relocation-variables) |
-| `pearai` | `CONTINUE_GLOBAL_DIR`, `VSCODE_APPDATA`, `VSCODE_PORTABLE`, `VSCODE_EXTENSIONS` | [pearai](../../research/pearai.md#relocation-variables) |
-| `pi` | `PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR` | [pi](../../research/pi.md#relocation-variables) |
-| `qwen-code` | `QWEN_HOME`, `QWEN_RUNTIME_DIR`, `QWEN_CODE_TRUSTED_FOLDERS_PATH`, `QWEN_CODE_MCP_APPROVALS_PATH`, `WEIXIN_STATE_DIR` | [qwen-code](../../research/qwen-code.md#relocation-variables) |
-| `qwen-live` | `QWEN_LIVE_DATA_DIR`, `QWEN_LIVE_DISCOVERY_DIR` | [qwen-live](../../research/qwen-live.md#relocation-variables) |
-| `shellgpt` | `CHAT_CACHE_PATH`, `CACHE_PATH`, `ROLE_STORAGE_PATH`, `OPENAI_FUNCTIONS_PATH` | [shellgpt](../../research/shellgpt.md#relocation-variables) |
-| `tabby` | `TABBY_ROOT`, `TABBY_MODEL_CACHE_ROOT` | [tabby](../../research/tabby.md#relocation-variables) |
-| `twinny` | `TWINNY_NODE_DIR` | [twinny](../../research/twinny.md#relocation-variables) |
-| `vscode` | `VSCODE_PORTABLE`, `VSCODE_APPDATA`, `VSCODE_EXTENSIONS`, `VSCODE_AGENT_FOLDER` | [vscode](../../research/vscode.md#relocation-variables) |
-
-Every agent document that reads a configuration or cache folder through an
-`XDG_*` variable also lists those variables there, as `shared`. The `shared`
+`--list` prints every variable the search looks for, with the agent its
+line belongs to and the default folder it replaces, after the Docker
+volume names. Each agent's research document, listed in the
+[research index](../../research/README.md), explains its variables in its
+`Relocation variables` subsection: what each moves, on which platforms,
+and where in the agent's source or documentation that is said. Every agent
+document that reads a configuration or cache folder through an `XDG_*`
+variable also lists those variables there, as `shared`. The `shared`
 variables are `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`,
 `XDG_CACHE_HOME`, and the variables that move the startup files themselves
 (`ZDOTDIR`, `ENV`, `BASH_ENV`, `ZSH_CUSTOM`, `BASH_IT_CUSTOM`, `OMF_CONFIG`),
 listed in [Relocation variables in `research/shared.md`](../../research/shared.md#relocation-variables).
-`--list` prints the whole table, with the files that are searched for the
-names, after the Docker volume names.
 
 ## Search the whole home
 
 The search reads only the files that set an environment: the shell
-startup files, `/etc/environment`, launchd property lists, `.envrc` and
-`.env` and `mise` configuration in each project, and the like. A variable
-can also be set in a helper script, a tool-version file or a file the
-catalog collects. `--env-scan-home` (PowerShell: `-EnvScanHome`) adds a sweep
-of every regular file in each home and project that the catalog did not
-already match, an exclusion did not prune and the startup file search did not
-already read (a project inside a home is swept once, as a project), and records a hint for each file that names a variable, so
-`files_searched` counts each file once. Symlinks are never followed.
+startup files, `/etc/environment`, launchd property lists, `.envrc`,
+`.env` and the `mise` configuration in each project, and the like. A
+variable can also be set in a helper script those files source, or in a
+tool-version file. `--env-scan-home` (PowerShell: `-EnvScanHome`) adds a
+sweep of every regular file in each home and project that the catalog did
+not match, an exclusion did not prune and the startup file search did not
+already read (a project inside a home is swept once, as a project), and
+records a hint for each file that names a variable, so `files_searched`
+counts each file once. The files the catalog matched are in the archive
+already and are not searched. Symlinks are never followed.
 
 The sweep reads many files, so it adds time on a large home. A file bigger
 than `--env-scan-max-size MB` (PowerShell `-EnvScanMaxSizeMB`; whole MiB,

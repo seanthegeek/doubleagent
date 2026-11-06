@@ -204,8 +204,9 @@ contents to stdout or the log.
 
 **Catalog is data, not code.** Agent paths live in the `CATALOG`,
 `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`,
-`RELOCATION_VARS` and `STARTUP_FILES` tables of both scripts; a new tool is new lines, never new code. Every entry is
-tried against every home directory.
+`RELOCATION_VARS` and `STARTUP_FILES` tables of both scripts; a new tool
+is new lines, never new code. Every entry is tried against every home
+directory.
 
 - The tables are byte-identical between the sh single-quoted strings and
   the PowerShell `@'...'@` here-strings, and `--list` equals `-List`;
@@ -273,10 +274,11 @@ holds the architecture and function tables.
   under these banner titles: Reader's guide, Data tables, Shared helpers,
   Manifest writer, Staging files, Catalog walk, Users, Docker and Podman
   volumes, Project discovery, Relocation hints, Inventory output, Summary
-  and archive, Main program. A section one script lacks keeps its banner and a line saying
-  why. The reader's guide lists the sections, the data flow in one
-  paragraph and the naming rules, and changes with the flow. New code goes
-  in the section owning its step; the main program is one call per step.
+  and archive, Main program. A section one script lacks keeps its banner
+  and a line saying why. The reader's guide lists the sections, the data
+  flow in one paragraph and the naming rules, and changes with the flow.
+  New code goes in the section owning its step; the main program is one
+  call per step.
 - **One comment per function**, directly above it and at most ten lines
   long ([Code style](#code-style)): its purpose, its inputs (in sh, also the
   globals it reads), what it returns, prints or writes, in sh its

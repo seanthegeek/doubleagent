@@ -1924,10 +1924,13 @@ printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/opt/dotfiles/zshrc"
 ln -s "$ROOT/opt/dotfiles/zshrc" "$BOB/.zshrc"
 # A startup file a catalog line also matches keeps its catalog row.
 printf '<plist><dict><key>EnvironmentVariables</key><dict><key>OPENCLAW_STATE_DIR</key><string>/opt/x</string></dict></dict></plist>\n' >"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist"
-# Only --env-scan-home reaches these: a helper deep in the home, a file over the
-# search limit, and one inside an excluded directory, which stays unread.
+# Only --env-scan-home reaches these: a helper deep in the home (its env shebang
+# no ENV hint), a PowerShell helper naming a variable in lower case, a file over
+# the search limit, and one inside an excluded directory, which stays unread.
 mkdir -p "$ALICE/scripts/agent-env/deep" "$ALICE/dumps" "$ALICE/AppData/Local/agy"
-printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/scripts/agent-env/deep/helper.sh"
+printf '#!/usr/bin/env bash\nexport CODEX_HOME=/opt/x\n' >"$ALICE/scripts/agent-env/deep/helper.sh"
+# shellcheck disable=SC2016 # the fixture holds a PowerShell variable literally
+printf '$env:codex_home = "/opt/x"\n' >"$ALICE/scripts/agent-env/deep/helper.ps1"
 { head -c 1100000 /dev/zero; printf '\nexport CODEX_HOME=/opt/x\n'; } >"$ALICE/dumps/oversized-env.txt"
 printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/AppData/Local/agy/agent-env.sh"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
@@ -2708,7 +2711,9 @@ check "#454 hints kept without secrets" "hint_line \"$ROOT/etc/profile\" 1 COPIL
 # 2026-11-06 relocation hints (#454)
 run envscan --env-scan-home; check "#454 the sweep run exits 0" "[ $? -eq 0 ]"
 check "#454 the sweep run records its options" "grep -q '\"env_scan_home\": true, \"env_scan_max_size_bytes\": 1048576}' \"\$SUMMARY\""
-check "#454 the sweep hints and collects a file deep in the home" "hint_line \"$ALICE/scripts/agent-env/deep/helper.sh\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.sh\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+check "#454 the sweep hints and collects a file deep in the home" "hint_line \"$ALICE/scripts/agent-env/deep/helper.sh\" 2 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.sh\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+check "#454 an env shebang line in a swept file gives no ENV hint" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 1 ]"
+check "#454 the sweep matches a lowercase name in a .ps1 file" "hint_line \"$ALICE/scripts/agent-env/deep/helper.ps1\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.ps1\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 check "#454 the sweep counts a file over its size limit and leaves it unsearched" "grep -q '\"files_skipped_size\": [1-9][0-9]*}' \"\$SUMMARY\" && [ \"\$(hint_count \"$ALICE/dumps/oversized-env.txt\")\" = 0 ] && [ -z \"\$(row \"$ALICE/dumps/oversized-env.txt\")\" ]"
 check "#454 the sweep leaves out an excluded directory" "[ \"\$(hint_count \"$ALICE/AppData/Local/agy/agent-env.sh\")\" = 0 ] && [ -z \"\$(row \"$ALICE/AppData/Local/agy/agent-env.sh\")\" ]"
 check "#454 the sweep leaves the catalog-collected file its one row" "[ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && [ \"\$(hint_count \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\")\" = 1 ]"

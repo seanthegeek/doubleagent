@@ -3782,37 +3782,48 @@ list_startup_files() {
   set +f; IFS=$_lsf_saved_ifs
 }
 
+# search_file_list USER HOME CASE_OPTION FILES: searches FILES (one per line)
+# with one grep, -i as CASE_OPTION for .ps1 files and empty for the rest, and
+# records each hit. Reads GREP_NAME_OPTIONS, WORKER_SH. Temporaries: _sfl_.
+search_file_list() {
+  [ -n "$4" ] || return 0
+  _sfl_user=$1; _sfl_home=$2; _sfl_case=$3; _sfl_files=$4
+  _sfl_saved_ifs=$IFS; IFS='
+'
+  set -f
+  # shellcheck disable=SC2086 # one grep option per line
+  set -- ${_sfl_case:+"$_sfl_case"} -l -F $GREP_NAME_OPTIONS --
+  _sfl_option_count=$#
+  # shellcheck disable=SC2086 # one file per line
+  set -- "$@" $_sfl_files
+  set +f; IFS=$_sfl_saved_ifs
+  _sfl_output=$("$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$_sfl_option_count" "$@" </dev/null)
+  record_search_output "$_sfl_user" "$_sfl_home" "$_sfl_output"
+}
+
 # search_startup_files USER HOME SCOPE: searches the SCOPE startup files under
-# HOME (under ROOT for the system scope, whose rows carry an empty HOME) with one
-# grep and records each hit. Reads ROOT, GREP_NAME_OPTIONS, WORKER_SH.
-# Temporaries: _ssf_.
+# HOME (under ROOT for the system scope, whose rows carry an empty HOME) in two
+# parts, the .ps1 files in any case and the rest in their own case, with one
+# grep each. Reads ROOT. Temporaries: _ssf_.
 search_startup_files() {
-  _ssf_user=$1; _ssf_home=$2; _ssf_base=$2
+  _ssf_base=$2
   [ "$3" != system ] || _ssf_base=$ROOT
   _ssf_files=$(list_startup_files "$_ssf_base" "$3")
   [ -n "$_ssf_files" ] || return 0
-  _ssf_saved_ifs=$IFS; IFS='
-'
-  set -f
-  # shellcheck disable=SC2086 # one grep option or file per line
-  set -- -i -l -F $GREP_NAME_OPTIONS --
-  _ssf_option_count=$#
-  # shellcheck disable=SC2086
-  set -- "$@" $_ssf_files
-  set +f; IFS=$_ssf_saved_ifs
-  _ssf_output=$("$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$_ssf_option_count" "$@" </dev/null)
-  record_search_output "$_ssf_user" "$_ssf_home" "$_ssf_output"
+  search_file_list "$1" "$2" "" "$(printf '%s\n' "$_ssf_files" | grep -v -e '\.[Pp][Ss]1$')"
+  search_file_list "$1" "$2" -i "$(printf '%s\n' "$_ssf_files" | grep -e '\.[Pp][Ss]1$')"
 }
 
 # scan_home_for_variables USER HOME TABLE SCOPE: searches every regular file
 # under HOME with one find(1) that prunes the TABLE matches, the SCOPE startup
 # files the fixed list searched, the other projects (each swept on its own),
 # ACTIVE_EXCLUDES and the output directory, and counts the files over
-# ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them. Reads OUTDIR,
-# PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT, WORKER_SH, LOG.
+# ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them; one grep branch
+# takes the .ps1 files in any case, one the rest in their own case. Reads
+# OUTDIR, PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT, WORKER_SH, LOG.
 # Temporaries: _shv_.
 scan_home_for_variables() {
-  _shv_user=$1; _shv_home=$2; _shv_option_count=$(( GREP_NAME_COUNT + 4 ))
+  _shv_user=$1; _shv_home=$2
   _shv_claims=$(expand_catalog "$2" "$3" | grep -v '^#|' | cut -d'|' -f3-)
   _shv_claims="$_shv_claims
 $(list_startup_files "$2" "$4")
@@ -3828,8 +3839,10 @@ $(printf '%s\n' "$PROJECT_LIST" | sed 's/^[^:]*://' | grep -v -x -F -e "$2")"
   set -- "$@" ')' -prune -o -type f
   [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" '(' -size "-$(( ENV_SCAN_MAX_SIZE + 1 ))c"
   # shellcheck disable=SC2086 # one grep option per line
-  set -- "$@" -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$_shv_option_count" \
-    -i -l -F $GREP_NAME_OPTIONS -- '{}' +
+  set -- "$@" '(' -name '*.[Pp][Ss]1' -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh \
+    "$(( GREP_NAME_COUNT + 4 ))" -i -l -F $GREP_NAME_OPTIONS -- '{}' + -o \
+    -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$(( GREP_NAME_COUNT + 3 ))" \
+    -l -F $GREP_NAME_OPTIONS -- '{}' + ')'
   [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" ')' -o -type f -exec printf 'B|%s\n' '{}' +
   set +f; IFS=$_shv_saved_ifs
   _shv_output=$(find "$@" 2>>"$LOG")

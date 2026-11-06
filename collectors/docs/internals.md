@@ -49,8 +49,8 @@ hashed. Docker and Podman volumes and the discovered projects are further
 bases for the same walk. After project discovery, the relocation step reads
 the startup files of each home, the system and each project for the names
 of variables that move an agent's state, logs each name it finds and
-collects the file that holds it; it evaluates nothing. Then `collection.json` is written and the staging
-directory becomes the archive.
+collects the file that holds it; it evaluates nothing. Then
+`collection.json` is written and the staging directory becomes the archive.
 
 The steps in the main program, in run order:
 
@@ -430,16 +430,17 @@ A new source goes into its group on both sides, at the same position.
 
 The step searches, per base (each home, the system root and each project), the
 files that the `STARTUP_FILES` globs of that scope match, keeping regular files
-only: a symlink is never followed or read. One `grep -i -l -F` over the
-whole list names the files that hold any `RELOCATION_VARS` name in any case,
-and one `grep -n` and `awk` per such file keeps a hit only where the name
-appears in its own case and the character before and after it is not a letter,
-digit or underscore. Shells name variables case-sensitively, so
+only: a symlink is never followed or read. One `grep -l -F` over the whole
+list names the files that hold any `RELOCATION_VARS` name, and one `grep -n`
+and `awk` per such file keeps a hit only where the character before and after
+the name is not a letter, digit or underscore. Shells name variables
+case-sensitively, so both passes match a name in its own case, and
 `#!/usr/bin/env bash` is no hit on `ENV`; in a file whose name ends in `.ps1`
-(in any case) the name matches in any case, as PowerShell variable names do.
-The PowerShell side runs `Select-String -CaseSensitive` over the other files,
-`Select-String` without it over the `.ps1` files, and applies the same
-boundary test to the matched line. The sh `grep` gets `GREP_TEXT`
+(in any case) both passes match the name in any case, as PowerShell variable
+names do, so the list is searched in two parts. The PowerShell side runs
+`Select-String -CaseSensitive` over the other files, `Select-String` without
+it over the `.ps1` files, and applies the same boundary test to the matched
+line. The sh `grep` gets `GREP_TEXT`
 ([Capability detection](#capability-detection)), and a NUL byte in a matched
 line becomes a space before `awk`, which would end the line there. The matched
 text never reaches the log, stdout, a variable that is later printed or a
@@ -453,9 +454,11 @@ cap, special-file handling and `--no-secrets` apply unchanged. A file that the
 manifest already has a row for keeps that row. With `--env-scan-home` a second
 pass lists every regular file of the base outside the catalog matches,
 `ACTIVE_EXCLUDES`, the startup files the first pass searched and the other
-projects (each swept on its own), as `collect_tree` prunes, and searches those up to `--env-scan-max-size` the same
-way, so `files_searched` counts each file of a base once. The third field of
-`RELOCATION_VARS` is carried and not read by this step.
+projects (each swept on its own), as `collect_tree` prunes, and searches
+those up to `--env-scan-max-size` the same way (the sh `find` runs one
+`grep` branch for the `.ps1` files and one for the rest), so `files_searched`
+counts each file of a base once. The third field of `RELOCATION_VARS` is
+carried and not read by this step.
 
 ## Inventory mode
 

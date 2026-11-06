@@ -35,7 +35,8 @@ each script reads; the short table in the
 The PowerShell parameters mirror the sh options: `-OutputDir`, `-Root`,
 `-Users`, `-Project`, `-Full`, `-NoSecrets`, `-NoProjects`, `-NoDocker`,
 `-MaxFileSizeMB`, `-EnvScanHome`, `-EnvScanMaxSizeMB`, `-KeepStaging`,
-`-Inventory`, `-List`, `-Quiet`, `-Version`. `-o`, `-r`, `-u`, `-p`, `-k` and `-q` are accepted as aliases.
+`-Inventory`, `-List`, `-Quiet`, `-Version`. `-o`, `-r`, `-u`, `-p`, `-k`
+and `-q` are accepted as aliases.
 `-Users` takes one comma-separated string. `-Project` takes a PowerShell
 array (`-Project C:\src\a,C:\src\b`) rather than a repeated parameter. That
 array form needs the script to be started from PowerShell, for example
