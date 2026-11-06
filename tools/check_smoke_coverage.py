@@ -24,6 +24,9 @@ or a volume's `_data`. Every rule holds in each file; a finding's detail is `<fi
 - `check-path-unresolved`: a variable in a check or fixture path that no assignment from
   literals resolves, once per variable.
 - `check-unparsed`: a check whose name, expression or row argument no reader form accepts.
+- `startup-fixture-missing`, `startup-secret-check-missing`: a `STARTUP_FILES` line no fixture
+  path matches, or no default-run `secret: true` check, below a base of its scope (a home, the
+  image root or a project: `scoped_relatives`).
 
 Usage: tools/check_smoke_coverage.py [--update-baseline]
 """
@@ -2075,21 +2078,29 @@ def suffix_rows(smoke: Smoke) -> set[RowReference]:
     return found
 
 
-def _counted(context: _Context, wanted: Callable[[Assertion, Run], bool]) -> list[list[str]]:
-    """Return the base-relative paths of each assertion `wanted` accepts in its run.
+def _counted_rows(context: _Context, wanted: Callable[[Assertion, Run], bool]) -> list[str]:
+    """Return the image path of each assertion `wanted` accepts in its run.
 
     A negated assertion, one outside every run and one on a row named by a suffix never count.
     """
     suffixes = suffix_rows(context.smoke)
-    paths: list[list[str]] = []
+    paths: list[str] = []
     for check in context.smoke.checks:
         run = context.smoke.run_at(check.line)
         for assertion in check.assertions:
             if run is None or assertion.negated or assertion.row in suffixes:
                 continue
             if wanted(assertion, run):
-                paths.append([base.relative for base in context.bases_of(assertion.row.path)])
+                paths.append(assertion.row.path)
     return paths
+
+
+def _counted(context: _Context, wanted: Callable[[Assertion, Run], bool]) -> list[list[str]]:
+    """Return the base-relative paths of each assertion `wanted` accepts (`_counted_rows`)."""
+    return [
+        [base.relative for base in context.bases_of(path)]
+        for path in _counted_rows(context, wanted)
+    ]
 
 
 def _covered(regex: re.Pattern[str], paths: list[list[str]]) -> bool:
@@ -2151,6 +2162,58 @@ def fixture_findings(context: _Context) -> Iterator[drift_common.Finding]:
                 text = "no fixture path matches this %s line (catalog line %d)" % (table, line.line)
                 subject = "%s %s" % (table, line.glob)
                 yield context.finding(line.agent, "fixture-missing", subject, 0, text)
+
+
+def scoped_relatives(context: _Context, path: str, scope: str) -> list[str]:
+    """Return an image path relative to each base of a `STARTUP_FILES` scope it lies under.
+
+    A `system` path is taken relative to its image root, a `home` or `project` path relative
+    to each base of that kind (`collection_bases`).
+    """
+    if scope == "system":
+        located = image_path(path)
+        return [located[1]] if located else []
+    return [base.relative for base in context.bases_of(path) if base.kind == scope]
+
+
+def startup_regex(glob: str, case_insensitive: bool) -> re.Pattern[str]:
+    """Compile a `STARTUP_FILES` glob to match a whole path, a `system` glob less its `/`."""
+    regexes = segment_regexes(glob.lstrip("/"), case_insensitive)
+    flags = re.IGNORECASE if case_insensitive else 0
+    return re.compile("/".join(regex.pattern for regex in regexes), flags)
+
+
+def _startup_matched(
+    context: _Context, regex: re.Pattern[str], scope: str, paths: Iterable[str]
+) -> bool:
+    """Return whether a compiled startup glob matches some path below a base of its scope."""
+    return any(
+        regex.fullmatch(relative)
+        for path in paths
+        for relative in scoped_relatives(context, path, scope)
+    )
+
+
+def startup_findings(context: _Context) -> Iterator[drift_common.Finding]:
+    """Yield `startup-fixture-missing` and `startup-secret-check-missing`, to `shared`.
+
+    Each `STARTUP_FILES` glob is matched against the fixture paths, and against the rows of
+    the default-run `secret: true` checks, below the bases of its own scope only.
+    """
+    insensitive = context.smoke.case_insensitive
+    flagged = _counted_rows(context, _secret_flagged)
+    for line in context.tables.startup:
+        regex = startup_regex(line.glob, insensitive)
+        if not _startup_matched(context, regex, line.scope, context.smoke.fixtures):
+            text = "no fixture path matches this %s line (catalog line %d)" % (
+                line.scope,
+                line.line,
+            )
+            yield context.finding("shared", "startup-fixture-missing", line.glob, 0, text)
+        if not _startup_matched(context, regex, line.scope, flagged):
+            text = "no default-run check asserts secret on a path it matches (catalog line %d)"
+            kind = "startup-secret-check-missing"
+            yield context.finding("shared", kind, line.glob, 0, text % line.line)
 
 
 def _owner(context: _Context, base: Base) -> str:
@@ -2297,6 +2360,7 @@ RULES = (
     suffix_findings,
     framework_findings,
     reader_findings,
+    startup_findings,
 )
 
 

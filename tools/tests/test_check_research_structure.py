@@ -21,6 +21,10 @@ None.
 
 None known.
 
+#### Relocation variables
+
+None known.
+
 ### Credentials
 
 {credentials}
@@ -173,6 +177,23 @@ def test_hard_rule_still_fails_and_is_never_baselined(tmp_path, capsys):
     assert status == 1
     assert "prose line longer than 100 characters" in output
     assert not (tmp_path / "tools" / "drift-baseline").exists()
+
+
+def test_relocation_variables_subsection_is_required_after_scratch_directories(tmp_path, capsys):
+    clean = document()
+    without = clean.replace("#### Relocation variables\n\nNone known.\n\n", "", 1)
+    write_document(tmp_path, without)
+    status, output = run(tmp_path, capsys)
+    assert status == 1
+    assert "`Per-user storage` lacks the fixed subsection(s): Relocation variables" in output
+    scratch = "#### Scratch directories\n\nNone known.\n\n"
+    relocation = "#### Relocation variables\n\nNone known.\n\n"
+    swapped = clean.replace(scratch + relocation, relocation + scratch, 1)
+    assert swapped != clean
+    write_document(tmp_path, swapped)
+    status, output = run(tmp_path, capsys)
+    assert status == 1
+    assert "`Per-user storage` fixed subsections out of order" in output
 
 
 # --- The rules ---------------------------------------------------------------------------------

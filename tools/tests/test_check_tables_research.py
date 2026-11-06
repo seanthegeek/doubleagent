@@ -1085,3 +1085,161 @@ def test_is_key_span_forms():
         assert checker.is_key_span(span), span
     for span in ("cwd", "mode", "state.db", ".env", "a/b", "API_KEY", "session-id", "x y"):
         assert not checker.is_key_span(span), span
+
+
+# --- The relocation hint tables --------------------------------------------------------------
+
+HINT_TABLES = """\
+# relocation variables (agent|VARIABLE|home-relative path it replaces)
+alpha|ALPHA_HOME|.alpha
+alpha|ALPHA_LOG|
+shared|XDG_CONFIG_HOME|.config
+# startup files searched for them (scope|glob; scope home, system or project)
+home|.bashrc
+system|/etc/profile
+"""
+
+ALPHA_RELOCATION = """\
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `ALPHA_HOME` | the home | `.alpha`, `AppData/Roaming/alpha` | `alpha` |
+| `ALPHA_LOG` | adds a log | | `alpha` |
+| `XDG_CONFIG_HOME` | the settings parent | `.config` | `shared` |
+
+"""
+
+SHARED_HINTS = """\
+# shared
+
+## Collection
+
+### Per-user storage
+
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `XDG_CONFIG_HOME` | the parent of `.config/<tool>` | `.config` | `shared` |
+
+#### Startup and environment files
+
+| Shell or mechanism | Files searched | Scope | Source |
+| --- | --- | --- | --- |
+| bash | `.bashrc` | `home` | the manual |
+| sh | `/etc/profile` | `system` | the manual |
+
+### Project-local files
+
+`AGENTS.md` at the project root.
+"""
+
+
+def hinted(root: pathlib.Path, catalog: str = CATALOG + HINT_TABLES, **changes: str):
+    """Write the synthetic repository with the hint tables and their research subsections."""
+    alpha = ALPHA.replace("### Credentials", ALPHA_RELOCATION + "### Credentials", 1)
+    texts = {"alpha": alpha, "shared": SHARED_HINTS, **changes}
+    return repository(root, catalog=catalog, **texts)
+
+
+def test_hinted_repository_has_no_finding(tmp_path):
+    assert list(checker.run(hinted(tmp_path))) == []
+
+
+def test_relocation_line_unnamed(tmp_path):
+    catalog = CATALOG + HINT_TABLES.replace(
+        "alpha|ALPHA_LOG|\n", "alpha|ALPHA_LOG|\nalpha|ALPHA_GONE|\nshared|ZDOTDIR|\n"
+    )
+    root = hinted(tmp_path, catalog=catalog)
+    assert findings(root, "relocation-line-unnamed") == [
+        ("alpha", "alpha ALPHA_GONE"),
+        ("shared", "shared ZDOTDIR"),
+    ]
+
+
+def test_relocation_line_of_an_agent_without_a_document_is_not_unnamed(tmp_path):
+    catalog = CATALOG + HINT_TABLES.replace("alpha|ALPHA_LOG|\n", "alpha|ALPHA_LOG|\ngamma|G|\n")
+    assert findings(hinted(tmp_path, catalog=catalog), "relocation-line-unnamed") == []
+
+
+def test_relocation_row_unlined(tmp_path):
+    catalog = CATALOG + HINT_TABLES.replace("alpha|ALPHA_LOG|\n", "").replace(
+        "shared|XDG_CONFIG_HOME|.config\n", ""
+    )
+    root = hinted(tmp_path, catalog=catalog)
+    assert sorted(findings(root, "relocation-row-unlined")) == [
+        ("alpha", "alpha ALPHA_LOG"),
+        ("alpha", "shared XDG_CONFIG_HOME"),
+        ("shared", "shared XDG_CONFIG_HOME"),
+    ]
+
+
+def test_relocation_row_under_another_table_agent_is_unlined(tmp_path):
+    alpha = ALPHA.replace(
+        "### Credentials",
+        ALPHA_RELOCATION.replace("| `.alpha`, `AppData/Roaming/alpha` | `alpha` |", "| | `beta` |")
+        + "### Credentials",
+        1,
+    )
+    root = hinted(tmp_path, alpha=alpha)
+    assert findings(root, "relocation-row-unlined") == [("alpha", "beta ALPHA_HOME")]
+
+
+def test_relocation_rules_are_silent_without_the_table(tmp_path):
+    root = hinted(tmp_path, catalog=CATALOG)
+    kinds = {finding.kind for finding in checker.run(root)}
+    assert not {"relocation-row-unlined", "relocation-replaces-differs"} & kinds
+
+
+def test_relocation_replaces_differs(tmp_path):
+    catalog = CATALOG + HINT_TABLES.replace("|ALPHA_HOME|.alpha\n", "|ALPHA_HOME|.alpha2\n")
+    catalog = catalog.replace("alpha|ALPHA_LOG|\n", "alpha|ALPHA_LOG|.log\n")
+    root = hinted(tmp_path, catalog=catalog)
+    assert findings(root, "relocation-replaces-differs") == [
+        ("alpha", "alpha ALPHA_HOME"),
+        ("alpha", "alpha ALPHA_LOG"),
+    ]
+
+
+def test_relocation_replaces_compares_only_the_first_span(tmp_path):
+    catalog = CATALOG + HINT_TABLES.replace(
+        "|ALPHA_HOME|.alpha\n", "|ALPHA_HOME|AppData/Roaming/alpha\n"
+    )
+    root = hinted(tmp_path, catalog=catalog)
+    assert findings(root, "relocation-replaces-differs") == [("alpha", "alpha ALPHA_HOME")]
+
+
+def test_startup_line_unnamed(tmp_path):
+    catalog = CATALOG + HINT_TABLES + "home|.zshrc\nsystem|/etc/zshrc\n"
+    root = hinted(tmp_path, catalog=catalog)
+    assert findings(root, "startup-line-unnamed") == [
+        ("shared", ".zshrc"),
+        ("shared", "/etc/zshrc"),
+    ]
+
+
+def test_startup_line_named_outside_its_subsection_is_unnamed(tmp_path):
+    shared = SHARED_HINTS.replace("`AGENTS.md` at", "`.zshrc` and `AGENTS.md` at")
+    root = hinted(tmp_path, catalog=CATALOG + HINT_TABLES + "home|.zshrc\n", shared=shared)
+    assert findings(root, "startup-line-unnamed") == [("shared", ".zshrc")]
+
+
+def test_startup_glob_is_compared_as_written(tmp_path):
+    shared = SHARED_HINTS.replace("`/etc/profile`", "`etc/profile`")
+    root = hinted(tmp_path, shared=shared)
+    assert findings(root, "startup-line-unnamed") == [("shared", "/etc/profile")]
+
+
+def test_relocation_rows_read_the_last_two_cells(tmp_path):
+    sections = sections_of(
+        tmp_path,
+        "# alpha\n\n## Collection\n\n### Per-user storage\n\n"
+        + ALPHA_RELOCATION.replace("| the home |", "| the home or a | b split |"),
+    )
+    rows = checker.relocation_rows(sections)
+    assert [(row.variable, row.replaces, row.table_agent, row.line) for row in rows] == [
+        ("ALPHA_HOME", ".alpha", "alpha", 11),
+        ("ALPHA_LOG", "", "alpha", 12),
+        ("XDG_CONFIG_HOME", ".config", "shared", 13),
+    ]
