@@ -3879,7 +3879,8 @@ list_bounded_names() {
 '
   set -f
   # shellcheck disable=SC2086 # one grep option per line
-  set -- ${_lbn_case:+"$_lbn_case"} ${GREP_TEXT:+"$GREP_TEXT"} -n -F $GREP_NAME_OPTIONS -- "$_lbn_file"
+  set -- ${_lbn_case:+"$_lbn_case"} ${GREP_TEXT:+"$GREP_TEXT"} -n -F $GREP_NAME_OPTIONS \
+    -- "$_lbn_file"
   set +f; IFS=$_lbn_saved_ifs
   grep "$@" 2>>"$LOG" | tr '\000' ' ' | awk -v names="$RELOCATION_NAMES_CSV" -v fold="$_lbn_fold" '
     function bounded(text, word,   start, offset, at, before, after) {
@@ -3949,16 +3950,33 @@ collect_hint_file() {
     shared "$MANIFEST" "$3" </dev/null
 }
 
+# holds_home BASE -> 0 when a USER_LIST home is BASE or lies under it: a project
+# at / or /home, which a sweep would read whole, pseudo file systems included.
+# Reads USER_LIST. Temporaries: _hh_.
+holds_home() {
+  _hh_prefix=${1%/}/
+  case "
+$(printf '%s\n' "$USER_LIST" | sed 's/^[^:]*://')
+" in (*"
+$1
+"*|*"
+$_hh_prefix"*) return 0 ;; esac
+  return 1
+}
+
 # search_base_list LIST SCOPE TABLE PASS: for each user:base line of LIST (a home
 # when SCOPE is home, else a project), sets HINT_HEADER and searches the base's
 # SCOPE startup files when PASS is startup, else every file outside its TABLE
-# matches. Temporaries: _sbl_.
+# matches; a project that holds a home is logged and not swept. Temporaries:
+# _sbl_.
 search_base_list() {
   while IFS=: read -r _sbl_user _sbl_base; do
     [ -n "$_sbl_base" ] || continue
     if [ "$2" = home ]; then HINT_HEADER="Relocation hints for $_sbl_user ($_sbl_base)"
     else HINT_HEADER="Relocation hints in project $_sbl_base"; fi
     if [ "$4" = startup ]; then search_startup_files "$_sbl_user" "$_sbl_base" "$2"
+    elif [ "$2" = project ] && holds_home "$_sbl_base"; then
+      log_line "sweep skipped: project $_sbl_base holds a home directory"
     else scan_home_for_variables "$_sbl_user" "$_sbl_base" "$3" "$2"; fi
   done <<EOF_BASE_LIST
 $1

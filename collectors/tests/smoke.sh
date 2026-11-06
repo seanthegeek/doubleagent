@@ -2728,6 +2728,15 @@ printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/scripts/once.sh"
 run envscanonce --env-scan-home
 check "#454 the sweep counts each file it searches once" "[ \"\$(searched_in \"\$SUMMARY\")\" = $(( ENVSCAN_SEARCHED + 2 )) ] && [ \"\$(hint_count \"$ALICE/.bashrc.d/once\")\" = 1 ] && [ \"\$(hint_count \"$ALICE/scripts/once.sh\")\" = 1 ]"
 rm -f "$ALICE/.bashrc.d/once" "$ALICE/scripts/once.sh"
+# The sweep never reads the collector's own output directory, whose log names
+# every variable it found, nor a project that holds a home directory, which
+# would be the whole system.
+mkdir -p "$ALICE/collect-out"
+COLLECTOR_SH="$SHELL_UNDER_TEST" "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$ALICE/collect-out" -q --max-file-size 1 --env-scan-home >"$OUT/envscanout.stdout" 2>"$OUT/envscanout.stderr"
+check "#454 the sweep leaves out its own output directory" "[ $? -eq 0 ] && ! grep -q \"\\\"source\\\": \\\"$ALICE/collect-out/\" \"$ALICE\"/collect-out/*.collection.json && [ \"\$(searched_in \"$ALICE\"/collect-out/*.collection.json)\" = $ENVSCAN_SEARCHED ]"
+rm -rf "$ALICE/collect-out"
+run envscanroot --env-scan-home -p "$ROOT/home"
+check "#454 the sweep skips a project that holds a home directory" "grep -q \"sweep skipped: project $ROOT/home holds a home directory\" \"\$(ls \"$OUT/envscanroot\"/*.log)\" && [ \"\$(searched_in \"\$SUMMARY\")\" = $ENVSCAN_SEARCHED ]"
 mkdir -p "$OUT/envscanbad"
 "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$OUT/envscanbad" -q --env-scan-max-size x >"$OUT/envscanbad.stdout" 2>"$OUT/envscanbad.stderr"
 check "#454 an invalid sweep size limit exits 1" "[ $? -eq 1 ] && grep -q '^Invalid --env-scan-max-size: x\$' \"$OUT/envscanbad.stderr\""

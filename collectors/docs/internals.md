@@ -25,7 +25,7 @@ files read in parallel:
 | 2 | Data tables | `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`, `RELOCATION_VARS` and `STARTUP_FILES` as single-quoted strings. | The same tables as `@'...'@` here-strings, byte-identical (`tests/catalog-sync.sh` checks). |
 | 3 | Shared helpers | Logging, hashing, `stat`, JSON escaping and number checks, kept as text in `COMMON` (see [Worker programs](#worker-programs-sh)); `heredoc_var`, `add_note` and `file_id` run in the main shell only. | The table reader, logging and notes, JSON escaping, glob-to-regex conversion, extended-length paths and file-system probes that never throw. |
 | 4 | Manifest writer | `write_manifest_row`, the directory-read check and the `error_read` row, also in `COMMON`. | `Write-ManifestRow`, which also keeps the per-status counts, `Get-DirReadError`, `Write-ReadErrorRow`. |
-| 5 | Staging files | The four worker programs `find -exec` runs. | The per-file copy, hash and row (`Add-CollectedFile`), symlink recreation, excluded rows. |
+| 5 | Staging files | The five worker programs `find -exec` and the relocation step run. | The per-file copy, hash and row (`Add-CollectedFile`), symlink recreation, excluded rows. |
 | 6 | Catalog walk | Glob and catalog expansion, case folding, claimed paths, one match, the `find` walk. | The same steps as functions that walk with `Get-ChildItem`. |
 | 7 | Users | Enumerating and filtering home directories. | The same, from the registry's `ProfileList` and the usual home roots. |
 | 8 | Docker and Podman volumes | Volume directories found on disk, matched against `DOCKER_VOLUMES`. | The same. |
@@ -110,7 +110,7 @@ read from the environment: `HASH_TOOL`, `STAT_MODE`, `MAX_SIZE`,
 `SECRET_GLOBS`, `NO_SECRETS`, `LOG` and `QUIET`. Everything else is passed
 as positional arguments, which the first line of each worker names.
 
-The four workers:
+The five workers:
 
 | Worker | `find` gives it | Arguments | Writes |
 | --- | --- | --- | --- |
@@ -118,6 +118,7 @@ The four workers:
 | `EXCLUDED_PATHS_WORKER` | every pruned `EXCLUDES` match; also run by `collect_path` for an excluded match that is not a directory | `root user home agent manifest paths...` | one `skipped_excluded` row each: a directory's size from `du -sk` with its other metadata 0, a file's from `stat_file` |
 | `UNREADABLE_DIRS_WORKER` | every directory | `user home agent manifest dirs...` | one `error_read` row for each directory `get_dir_read_error_var` says cannot be listed or entered |
 | `INVENTORY_FILES_WORKER` | every regular file, under `--inventory` | `agent files...` | `F\|agent\|size\|mtime` lines on stdout, nothing on disk |
+| `HINT_SEARCH_WORKER` | the files of one `grep` batch: the startup files of a base (run by `search_file_list`) or the sweep's regular files (`find -exec`) | `option_count grep_options... files...` | one `S\|<count>` line for the files it got, then the file names `grep -l` prints, on stdout; nothing on disk. It needs no helper, so `COMMON` is not prepended |
 
 **The stage worker's chunks.** `STAGE_FILES_WORKER` takes its files in
 chunks of at most 256 paths, and stops adding names to a chunk once their
@@ -453,12 +454,16 @@ PowerShell collector passes a forced flag to `Add-CollectedFile`, so the size
 cap, special-file handling and `--no-secrets` apply unchanged. A file that the
 manifest already has a row for keeps that row. With `--env-scan-home` a second
 pass lists every regular file of the base outside the catalog matches,
-`ACTIVE_EXCLUDES`, the startup files the first pass searched and the other
-projects (each swept on its own), as `collect_tree` prunes, and searches
+`ACTIVE_EXCLUDES`, the output directory, the startup files the first pass
+searched and the other projects (each swept on its own), as `collect_tree`
+prunes, and searches
 those up to `--env-scan-max-size` the same way (the sh `find` runs one
 `grep` branch for the `.ps1` files and one for the rest), so `files_searched`
-counts each file of a base once. The third field of `RELOCATION_VARS` is
-carried and not read by this step.
+counts each file of a base once. A project that is or holds a home
+(`holds_home`, `Test-HoldsHome`: a project at `/` or `/home`) is logged as
+skipped and not swept, since the walk would read the whole system, pseudo
+file systems included. The third field of `RELOCATION_VARS` is carried and
+not read by this step.
 
 ## Inventory mode
 

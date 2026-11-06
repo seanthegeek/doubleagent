@@ -37,8 +37,9 @@
 .PARAMETER MaxFileSizeMB
   Skip files larger than this (default 256, 0 = none).
 .PARAMETER EnvScanHome
-  Also search every file under each home and project for the relocation
-  variables, not only the startup files (slow on a large home).
+  Also search every other regular file under each home and project (outside
+  the catalog matches, the exclusions and the startup files) for the
+  relocation variables (slow on a large home).
 .PARAMETER EnvScanMaxSizeMB
   With -EnvScanHome, search only files up to this size (default 1, 0 = none).
 .PARAMETER KeepStaging
@@ -4354,15 +4355,31 @@ function Get-SweepFiles([string]$base, $claimed) {
   return @($files)
 }
 
+# Takes a base directory; returns whether a home of $script:UserList is the
+# base or lies under it: a project at the root or a profiles directory, which
+# a sweep would read whole.
+function Test-HoldsHome([string]$base) {
+  $prefix = $base.TrimEnd($script:Sep) + $script:Sep
+  $comparison = [System.StringComparison]::Ordinal
+  if ($env:OS -eq 'Windows_NT') { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
+  foreach ($userHome in $script:UserList) {
+    if ($script:RowPathComparer.Equals($userHome.home, $base)) { return $true }
+    if ($userHome.home.StartsWith($prefix, $comparison)) { return $true }
+  }
+  return $false
+}
+
 # Takes the user, a home or project directory, its catalog table and its
 # startup scope; searches every file under it that no catalog match of the
 # table claims, the fixed list of the scope did not search and no other
-# project holds, as each project is swept on its own (-EnvScanHome).
+# project holds, as each project is swept on its own, outside the output
+# directory (-EnvScanHome).
 function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$table,
   [string]$scope) {
   [void](Expand-Catalog $homeDir $table)
   $claimed = $script:ClaimedPaths
   $script:ClaimedPaths = Get-ClaimTable
+  $claimed[$script:OutputDir] = $true
   foreach ($path in @(Get-StartupFiles $homeDir $scope)) { $claimed[$path] = $true }
   foreach ($projectDir in $script:ProjectList) {
     if ($projectDir.path -ne $homeDir) { $claimed[$projectDir.path] = $true }
@@ -4372,7 +4389,8 @@ function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$ta
 
 # Main step: searches the startup files of every home, of the system and of
 # every project, then, with -EnvScanHome, every other file of each home and
-# project. Each base's header is logged before its first hint.
+# project, a project that holds a home left out. Each base's header is logged
+# before its first hint.
 function Find-RelocationHints {
   foreach ($userHome in $script:UserList) {
     $script:HintHeader = "Relocation hints for $($userHome.user) ($($userHome.home))"
@@ -4390,6 +4408,10 @@ function Find-RelocationHints {
       Find-RelocationHintsInHome $userHome.user $userHome.home $CATALOG 'home'
     }
     foreach ($projectDir in $script:ProjectList) {
+      if (Test-HoldsHome $projectDir.path) {
+        Write-CollectorLog "sweep skipped: project $($projectDir.path) holds a home directory"
+        continue
+      }
       $script:HintHeader = "Relocation hints in project $($projectDir.path)"
       Find-RelocationHintsInHome $projectDir.user $projectDir.path $PROJECT_CATALOG 'project'
     }

@@ -148,7 +148,8 @@ naming no catalog agent. For the relocation tables it reports a
 `RELOCATION_VARS` line whose variable no row of the Relocation variables
 table of its agent's research document names (`research/shared.md` for
 `shared`), a row naming an agent with no such line, a row whose Replaces
-column differs from the line's third field, and a `STARTUP_FILES` glob that no
+column's first code span differs from the line's third field, and a
+`STARTUP_FILES` glob that no
 code span of the Startup and environment files subsection of
 `research/shared.md` names.
 

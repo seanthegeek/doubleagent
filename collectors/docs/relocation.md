@@ -59,7 +59,9 @@ A hint for a `shared` variable (the `XDG_*` names and the variables
 that move the startup files themselves, such as `ZDOTDIR`) is a weaker
 signal than one naming an agent's own variable. Many programs honour the
 `XDG_*` variables and a user may set them for reasons that have nothing to
-do with any agent, so check what the line says before you act on it.
+do with any agent, so check what the line says before you act on it. `ENV`
+is also the Dockerfile instruction, so under `--env-scan-home` every
+Dockerfile in the home gives an `ENV` hint.
 
 ## Read the assignment in the collected file
 
@@ -128,8 +130,9 @@ sits where the agent's default folder would be:
 
 1. Take the agent's default folder from the `Replaces` column of the
    `Relocation variables` table in the agent's research document, such as
-   `.claude` for `CLAUDE_CONFIG_DIR`. `--list` prints it as the third
-   field of the variable's line.
+   `.claude` for `CLAUDE_CONFIG_DIR`; where the table gives one path per
+   platform, take your platform's. `--list` prints the first of them as
+   the third field of the variable's line.
 2. Make an empty scratch directory outside the evidence and under it the
    path `home/USER/<default folder>`, where `USER` is the user who set the
    variable. On Windows, use `Users\USER\<default folder>`.
@@ -190,7 +193,11 @@ not match, an exclusion did not prune and the startup file search did not
 already read (a project inside a home is swept once, as a project), and
 records a hint for each file that names a variable, so `files_searched`
 counts each file once. The files the catalog matched are in the archive
-already and are not searched. Symlinks are never followed.
+already and are not searched; a project that is or holds a home directory
+(`/`, a user's cwd of `/home`) is not swept, since that would read the
+whole system, and the log says so; the collector's own output directory,
+whose log names every variable found, is never read. Symlinks are never
+followed.
 
 The sweep reads many files, so it adds time on a large home. A file bigger
 than `--env-scan-max-size MB` (PowerShell `-EnvScanMaxSizeMB`; whole MiB,

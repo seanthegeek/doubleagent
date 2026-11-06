@@ -2970,6 +2970,18 @@ foreach ($onceFile in $onceFiles) {
   Remove-Item -LiteralPath (ImagePath $onceFile) -Force
   [void]$script:Made.Remove((ExtendedPath (ImagePath $onceFile)))
 }
+# The sweep never reads the collector's own output directory, whose log names every variable
+# it found, nor a project that holds a home directory, which would be the whole system.
+$collectOut = ImagePath 'Users/alice/collect-out'
+Run 'envscanout' @{ EnvScanHome = $true; OutputDir = $collectOut }
+$envScanOutSummaryFile = Get-ChildItem -LiteralPath $collectOut -Filter '*.collection.json' | Select-Object -First 1
+$envScanOutSummary = Get-Content -LiteralPath $envScanOutSummaryFile.FullName -Raw | ConvertFrom-Json
+Check '#454 the sweep leaves out its own output directory' { $script:ExitCode -eq 0 -and @($envScanOutSummary.relocation.hints | Where-Object { $_.source.StartsWith($collectOut) }).Count -eq 0 -and $envScanOutSummary.relocation.files_searched -eq $envScanSummary.relocation.files_searched }
+Remove-Item -LiteralPath $collectOut -Recurse -Force
+Run 'envscanroot' @{ EnvScanHome = $true; Project = (ImagePath 'home') }
+$envScanRootSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
+$envScanRootLog = [System.IO.File]::ReadAllText((Get-ChildItem -LiteralPath (Join-Path $Out 'envscanroot') -Filter '*.log' | Select-Object -First 1).FullName)
+Check '#454 the sweep skips a project that holds a home directory' { $envScanRootLog.Contains("sweep skipped: project $(ImagePath 'home') holds a home directory") -and $envScanRootSummary.relocation.files_searched -eq $envScanSummary.relocation.files_searched }
 Run 'envscanbad' @{ EnvScanMaxSizeMB = 'x' }
 Check '#454 an invalid sweep size limit exits 1' { $script:ExitCode -eq 1 -and $script:stdout -match 'Invalid -EnvScanMaxSizeMB' }
 
