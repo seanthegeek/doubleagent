@@ -169,7 +169,7 @@ keeps the banner and says so.
 | Glob | Matched against | sh | PowerShell |
 | --- | --- | --- | --- |
 | `CATALOG`, `PROJECT_CATALOG` | the base (home, project), one path segment at a time; `*` and `?` do not cross `/` | shell pathname expansion of `BASE/GLOB` in `expand_glob`, with `IFS` set to newline only so a base with spaces stays one word; a pattern that matches nothing expands to itself and fails the existence test. As in any POSIX shell, `*` does not match a name's leading `.`. | `Expand-Glob` splits the glob on `/`; a wildcard segment lists the directory and matches each name with `Convert-GlobToRegex` (`*` is `[^/]*`, so it matches a leading `.`) and `-match`, which ignores case; a literal segment is tested for existence and respelled as on disk by `Get-OnDiskName`. |
-| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` builds once per base with globbing off, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive |
+| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` rebuilds when the base changes, with globbing off, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive |
 | `SECRET_GLOBS` | the path relative to the base; `*` crosses `/` | one `case` pattern, every glob joined with `\|`, built once by `compile_secret_pattern` and turned into `is_secret` by `define_secret_test`; `is_secret` is called in `plan_chunk` (and in `test_inventory_secret`), case-sensitive | `$script:SecretRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedFile` and `Test-InventorySecret`; case-insensitive |
 | `DOCKER_VOLUMES` | the volume directory's name | a `case` pattern in `get_docker_volume_rule`, with globbing off | `Convert-GlobToRegex` and `-cmatch`, case-sensitive, in `Get-DockerVolumeRule` |
 
@@ -186,12 +186,11 @@ exclusion such as `.claude/worktrees` applies in each. In the sh collector
 the `EXCLUDES` test is part of the `find` expression, so it applies to a
 matched directory and everything under it. `set_exclude_words` builds that
 part of the expression, one `-path` test per glob, when `collect_tree`
-walks under a base other than its last walk's, and `EXCLUDE_WORDS` keeps it
-for the walks that follow under the same base, split into the argument
-list in one pass: appending it glob by glob for each directory copies the
-whole list once per glob. A match that is not a directory is never given to
-`find`, so
-`collect_path` tests it with
+walks under a base other than the one the words were built for, and
+`EXCLUDE_WORDS` keeps it for the walks that follow under the same base,
+split into the argument list in one pass: appending it glob by glob for
+each directory copies the whole list once per glob. A match that is not a
+directory is never given to `find`, so `collect_path` tests it with
 `test_excluded` and gives it to `EXCLUDED_PATHS_WORKER` when it matches. In
 the PowerShell collector `Add-CollectedPath` tests the match itself and
 `Add-CollectedTree` each child.

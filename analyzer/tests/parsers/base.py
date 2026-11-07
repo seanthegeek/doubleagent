@@ -1,6 +1,7 @@
 """The base class and helpers the parser test modules share."""
 
 import copy
+import hashlib
 import json
 import os
 import shutil
@@ -25,16 +26,24 @@ def read_jsonl(path: Path) -> list[dict]:
 
 
 def _snapshot(root: Path) -> list[tuple]:
-    """Return every directory and file under `root` with its mode, size, times and inode.
+    """Return every entry under `root` with its mode, size, times, inode and content digest.
 
-    Links are recorded, never followed, so a test that changed anything under `root` (a write,
-    an append, a chmod, a new file or a removed one) gives a different snapshot.
+    Links are recorded, never followed, and a regular file's bytes are digested, so a test that
+    changed anything under `root` (a write, an append, a chmod, a new file or a removed one)
+    gives a different snapshot.
     """
     entries = []
     for directory, dirnames, filenames in os.walk(root):
         for name in [*dirnames, *filenames]:
             path = os.path.join(directory, name)
             status = os.lstat(path)
+            digest = ""
+            if stat.S_ISREG(status.st_mode):
+                try:
+                    with open(path, "rb") as handle:
+                        digest = hashlib.sha256(handle.read()).hexdigest()
+                except OSError:
+                    digest = "unreadable"
             entries.append(
                 (
                     os.path.relpath(path, root),
@@ -43,6 +52,7 @@ def _snapshot(root: Path) -> list[tuple]:
                     status.st_mtime_ns,
                     status.st_ctime_ns,
                     status.st_ino,
+                    digest,
                 )
             )
     return sorted(entries)
@@ -51,9 +61,8 @@ def _snapshot(root: Path) -> list[tuple]:
 class ParserBase(unittest.TestCase):
     """Build the fixture home and open it as an input, once per class.
 
-    The home is rebuilt before a test when an earlier test changed the tree, the opened input or
-    the catalog.
-    A subclass lists in `extra_builders` the functions that add files to the home before it is
+    The home is rebuilt before a test when an earlier test changed the tree, the opened input
+    or the catalog. A subclass lists in `extra_builders` the functions that add files to the home before it is
     opened, so those files are part of the unchanged tree.
     """
 

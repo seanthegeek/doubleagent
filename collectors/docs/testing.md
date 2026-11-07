@@ -51,7 +51,7 @@ whose `root/` is the image, for the caller to remove.
 Both smoke tests time the collector runs they make through their run
 helpers (`run` and `inventory_run` in the sh test; `Run`, `InventoryRun` and
 `RunLinkImage` in the PowerShell test). After such a run they print
-`== run NAME: Ns`, with `N` the whole seconds the collector took, and before
+`== run NAME: Ns`, with `N` the seconds the collector took, to the second, and before
 the verdict `== N collector runs: Ns; test: Ns`: the number of those runs,
 their total seconds and the seconds the whole test took. A run a test makes
 outside those helpers is not timed.

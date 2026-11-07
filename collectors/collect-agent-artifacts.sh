@@ -3181,7 +3181,7 @@ collect_path() {
 # every ACTIVE_EXCLUDES glob under BASE, one per line, from the opening ( to the
 # last glob, empty when there is none, and EXCLUDE_WORDS_BASE to BASE. Reads
 # ACTIVE_EXCLUDES and NEWLINE. Temporaries: _sew_. collect_tree calls it when the
-# base differs from its last walk's and splits the words in one pass: appending
+# words it holds are for another base and splits them in one pass: appending
 # them glob by glob to its argument list copies the whole list per glob per walk.
 set_exclude_words() {
   EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=$1
@@ -3199,8 +3199,9 @@ set_exclude_words() {
 
 # collect_tree USER HOME AGENT DIR: walks DIR with one find(1) that prunes the
 # claimed and excluded paths and hands the rest to the workers. Reads
-# NESTED_CLAIMS, EXCLUDE_WORDS, EXCLUDE_WORDS_BASE, INVENTORY, MANIFEST, STAGE,
-# ROOT, WORKER_SH, LOG. Temporaries: _ct_.
+# NESTED_CLAIMS, ACTIVE_EXCLUDES, INVENTORY, MANIFEST, STAGE, ROOT, WORKER_SH,
+# LOG; sets EXCLUDE_WORDS and EXCLUDE_WORDS_BASE through set_exclude_words.
+# Temporaries: _ct_.
 collect_tree() {
   _ct_user=$1; _ct_home=$2; _ct_agent=$3
   [ "$EXCLUDE_WORDS_BASE" = "$2" ] || set_exclude_words "$2"
