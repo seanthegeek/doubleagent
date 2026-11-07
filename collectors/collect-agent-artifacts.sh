@@ -3186,6 +3186,7 @@ collect_path() {
 set_exclude_words() {
   EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=$1
   _sew_saved_ifs=$IFS
+  # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
   IFS=$NEWLINE
   set -f
   for _sew_glob in $ACTIVE_EXCLUDES; do
