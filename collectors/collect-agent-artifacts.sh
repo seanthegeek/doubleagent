@@ -2585,7 +2585,9 @@ hash_match() {
   [ "$_hm_name" = "$2" ]
 }
 # The characters json_escape handles, as globals, since POSIX sh has no $'\t'.
-TAB=$(printf '\t'); CARRIAGE_RETURN=$(printf '\r'); NEWLINE='
+TAB_AND_CARRIAGE_RETURN=$(printf '\t\r')
+TAB=${TAB_AND_CARRIAGE_RETURN%?}; CARRIAGE_RETURN=${TAB_AND_CARRIAGE_RETURN#?}
+NEWLINE='
 '
 # json_escape TEXT -> TEXT as a JSON string body (backslash, double quote, tab,
 # carriage return and newline escaped); awk starts only when one is present.
