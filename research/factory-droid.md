@@ -80,6 +80,16 @@ The agent's own working space, all listed above: `~/.factory/worktrees/` (the de
 `repl-runs/<sha256>/` and `temp/` (see [Credentials](#credentials) on `temp/env`). Exclusions
 for them are in [Exclusions](#exclusions).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `FACTORY_HOME_OVERRIDE` | the home that holds `.factory`, ahead of `HOME` and `USERPROFILE` (B, `getFactoryHome`) | `.` | `factory-droid` |
+| `FACTORY_LOG_FILE` | the log file of the `logs/` directory (B, log override) | `.factory/logs/droid-log-single.log` | `factory-droid` |
+
+Not relocation variables: `FACTORY_API_KEY` (carries a key), `FACTORY_LOG_MAX_BYTES` and
+`FACTORY_LOG_MAX_DAYS` (behaviour only: log rotation), `HOME` and `USERPROFILE` (generic).
+
 ### Credentials
 
 All under `~/.factory/` (B, class `Ne`, `IH()` maps list `Uf` onto `join(home,".factory")`):

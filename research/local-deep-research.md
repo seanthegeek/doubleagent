@@ -112,6 +112,16 @@ None. LDR creates no working directory for the model; `research_outputs/` and th
 collected with the data directory; the library is under the collected
 `Documents/LocalDeepResearch` but excluded ([Exclusions](#exclusions)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `LDR_DATA_DIR` | the whole data directory, an absolute path ([paths.py:28-47](https://github.com/LearningCircuit/local-deep-research/blob/3b965431351bb17c523fa38fdcfced4a3f891d49/src/local_deep_research/config/paths.py#L28-L47)) | `.local/share/local-deep-research`, `Library/Application Support/local-deep-research`, `AppData/Local/local-deep-research/local-deep-research` | `local-deep-research` |
+| `XDG_DATA_HOME` | the parent of the data directory on Linux ([platformdirs unix.py:40-42](https://github.com/tox-dev/platformdirs/blob/960ff632eb575deb6f0d5bf49519d5a2ee2098b6/src/platformdirs/unix.py#L40-L42)) | `.local/share` | `shared` |
+
+Not relocation variables: `LDR_ENABLE_FILE_LOGGING` (behaviour only), `SENTENCE_TRANSFORMERS_HOME`
+(moves only the excluded embedding-model cache).
+
 #### Document library
 
 The downloaded-document library defaults to `~/Documents/LocalDeepResearch/Library`, outside the

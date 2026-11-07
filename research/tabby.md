@@ -47,6 +47,16 @@ The clones under `repositories/` ([Server root `~/.tabby`](#server-root-tabby)) 
 working copies of the remote repositories it indexes, not the user's projects; the catalog excludes
 them ([Exclusions](#exclusions)). No session records a local working directory.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `TABBY_ROOT` | the server root, every file of [Server root `~/.tabby`](#server-root-tabby) ([path.rs:5-14](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/path.rs#L5-L14)) | `.tabby` | `tabby` |
+| `TABBY_MODEL_CACHE_ROOT` | the model weights directory only ([path.rs:12-13](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/crates/tabby-common/src/path.rs#L12-L13)) | `.tabby/models` | `tabby` |
+
+Not relocation variables: `TABBY_DISABLE_USAGE_COLLECTION` (behaviour only). The client
+`~/.tabby-client/agent` reads no environment variable for its path.
+
 #### Server root `~/.tabby`
 
 On a developer workstation Tabby runs as that user (state under their home); in Docker the images

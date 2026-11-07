@@ -36,6 +36,12 @@
   inside a WSL virtual disk that this script cannot reach; it only notes that.
 .PARAMETER MaxFileSizeMB
   Skip files larger than this (default 256, 0 = none).
+.PARAMETER EnvScanHome
+  Also search every other regular file under each home and project (outside
+  the catalog matches, the exclusions and the startup files) for the
+  relocation variables (slow on a large home).
+.PARAMETER EnvScanMaxSizeMB
+  With -EnvScanHome, search only files up to this size (default 1, 0 = none).
 .PARAMETER KeepStaging
   Keep the staging directory after archiving.
 .PARAMETER Inventory
@@ -67,6 +73,10 @@ param(
   [switch]$NoProjects,
   [switch]$NoDocker,
   [int]$MaxFileSizeMB = 256,
+  [switch]$EnvScanHome,
+  # A string, so a value that is not a whole number reaches the usage check
+  # below instead of failing parameter binding.
+  [string]$EnvScanMaxSizeMB = '1',
   [Alias('k')][switch]$KeepStaging,
   [switch]$Inventory,
   [switch]$List,
@@ -84,13 +94,14 @@ $TOOL = 'collect-agent-artifacts'
 # ===========================================================================
 # The collector is one file so that an EDR console can upload it and run
 # it once. PowerShell requires the comment-based help and param() above to
-# come first; after this preamble the file reads top to bottom in twelve
+# come first; after this preamble the file reads top to bottom in thirteen
 # sections, the same sections in the same order as the sh collector,
 # collect-agent-artifacts.sh:
 #
 #    1. Reader's guide             this block
 #    2. Data tables                CATALOG, PROJECT_CATALOG, EXCLUDES,
-#                                  SECRET_GLOBS and DOCKER_VOLUMES
+#                                  SECRET_GLOBS, DOCKER_VOLUMES,
+#                                  RELOCATION_VARS and STARTUP_FILES
 #    3. Shared helpers             logging, notes, JSON escaping, glob to
 #                                  regex, extended paths, owner, epoch, hash
 #    4. Manifest writer            the row writer and the error_read row
@@ -100,9 +111,11 @@ $TOOL = 'collect-agent-artifacts'
 #    7. Users                      enumerating and filtering home directories
 #    8. Docker and Podman volumes  named volumes as further bases
 #    9. Project discovery          project paths read from agent state
-#   10. Inventory output           the -Inventory counters and JSON lines
-#   11. Summary and archive        collection.json, the archivers, stdout
-#   12. Main program               setup, then one call per step, in order
+#   10. Relocation hints           startup files searched for the variables
+#                                  that move agent state
+#   11. Inventory output           the -Inventory counters and JSON lines
+#   12. Summary and archive        collection.json, the archivers, stdout
+#   13. Main program               setup, then one call per step, in order
 #
 # Data flow. The tables are data, not code: an agent is added by adding
 # lines to them. Get-UserHomes lists the home directories. For each home,
@@ -121,13 +134,16 @@ $TOOL = 'collect-agent-artifacts'
 # the staging tree is archived (tar.exe, else the PowerShell tar writer,
 # else a zip). Docker and Podman named volumes (DOCKER_VOLUMES) are
 # collected whole, each as one match; the discovered project directories
-# are further bases walked with PROJECT_CATALOG. -Inventory is the same
+# are further bases walked with PROJECT_CATALOG. Find-RelocationHints then
+# searches the STARTUP_FILES of every home, the system and every project for
+# the RELOCATION_VARS names, logs each hint and collects each file naming
+# one as shared and secret, never evaluating a value. -Inventory is the same
 # walk with no writes: each file feeds per-agent counters, and
 # Write-Inventory prints JSON lines.
 #
 # Naming. Script state shared between functions is $script:PascalCase and
 # is written and read with that prefix; the parameters (-Root, -Inventory,
-# ...), the five tables, $TOOL and $ToolVersion are read by their plain
+# ...), the seven tables, $TOOL and $ToolVersion are read by their plain
 # names. Parameters of functions and locals are $camelCase and never take
 # an automatic variable's name ($home, $host, $args, $input, $error,
 # $matches, $pid, $profile). Functions use approved verbs, and a function
@@ -146,8 +162,9 @@ $TOOL = 'collect-agent-artifacts'
 # ===========================================================================
 # CATALOG (agent|glob relative to each home), PROJECT_CATALOG (agent|glob
 # relative to each discovered project), EXCLUDES and SECRET_GLOBS (globs
-# relative to the collection base, where * crosses /) and DOCKER_VOLUMES
-# (agent|volume name glob). Byte-identical to the tables in
+# relative to the collection base, where * crosses /), DOCKER_VOLUMES
+# (agent|volume name glob), RELOCATION_VARS (agent|VARIABLE|replaces) and
+# STARTUP_FILES (scope|glob). Byte-identical to the tables in
 # collect-agent-artifacts.sh; tests/catalog-sync.sh fails if they drift.
 $CATALOG = @'
 # Anthropic
@@ -2224,6 +2241,311 @@ hermes|*hermes*
 nanobot|*nanobot*
 '@
 
+# Environment variables that move agent state, agent|VARIABLE|replaces.
+$RELOCATION_VARS = @'
+# Environment variables that move the state of an agent, agent|VARIABLE|replaces,
+# where replaces is the home-relative path the value stands in for (empty when the
+# variable adds a store with no default under the home). The research document of
+# the agent lists each variable under "Relocation variables"; a shared line is a
+# variable many programs honour, a weaker hint. The startup files below are
+# searched for these names; a value is never evaluated.
+agent-zero|A0_COMPUTER_USE_HOST_ARTIFACT_ROOT|
+aider|AIDER_ANALYTICS_LOG|
+aider|AIDER_CHAT_HISTORY_FILE|
+aider|AIDER_INPUT_HISTORY_FILE|
+aider|AIDER_LLM_HISTORY_FILE|
+amp|AMP_HOME|.amp
+augment|AUGMENT_VFS_DIR|.augment/vfs
+autogen-studio|AUTOGENSTUDIO_APPDIR|.autogenstudio
+autogen-studio|AUTOGENSTUDIO_DATABASE_URI|.autogenstudio/autogen04203.db
+camel-ai|CAMEL_LOG_DIR|
+camel-ai|CAMEL_WORKDIR|
+claude-code|CLAUDE_CODE_TMPDIR|AppData/Local/Temp/claude
+claude-code|CLAUDE_CONFIG_DIR|.claude
+claude-desktop|CLAUDE_USER_DATA_DIR|.config/Claude
+cline|CLINE_CONNECTORS_DB_PATH|.cline/data/db/connectors.db
+cline|CLINE_CONNECTOR_DATA_DIR|.cline/data/connectors
+cline|CLINE_CONNECTOR_SETTINGS_PATH|.cline/data/connectors/settings.json
+cline|CLINE_CRON_DB_PATH|.cline/data/db/cron.db
+cline|CLINE_DATA_DIR|.cline/data
+cline|CLINE_DB_DATA_DIR|.cline/data/db
+cline|CLINE_DIR|.cline
+cline|CLINE_GLOBAL_SETTINGS_PATH|.cline/data/settings/global-settings.json
+cline|CLINE_HOOKS_LOG_PATH|.cline/data/logs/hooks.jsonl
+cline|CLINE_MCP_SETTINGS_PATH|.cline/data/settings/cline_mcp_settings.json
+cline|CLINE_PROVIDER_SETTINGS_PATH|.cline/data/settings/providers.json
+cline|CLINE_SESSION_DATA_DIR|.cline/data/sessions
+cline|CLINE_TASKS_DB_PATH|.cline/data/db/tasks.db
+cline|CLINE_TEAM_DATA_DIR|.cline/data/teams
+cline|WORKSPACE_STORAGE_DIR|.cline/data/workspace
+codex-cli|CODEX_HOME|.codex
+codex-cli|CODEX_ROLLOUT_TRACE_ROOT|
+codex-cli|CODEX_SQLITE_HOME|.codex
+codex-cli|CODEX_TUI_SESSION_LOG_PATH|
+continue|CONTINUE_GLOBAL_DIR|.continue
+copilot-cli|COPILOT_CACHE_HOME|.cache/copilot
+copilot-cli|COPILOT_HOME|.copilot
+copilot-cli|COPILOT_PKG_CACHE_HOME|.cache/copilot
+copilot-cli|COPILOT_PROVIDERS_CONFIG|.copilot/providers.json
+copilot-desktop|COPILOT_HOME|.copilot
+copilot-desktop|COPILOT_HOME_OVERRIDE|.copilot
+crewai|CREWAI_STORAGE_DIR|
+crush|CRUSH_CACHE_DIR|.cache/crush
+crush|CRUSH_GLOBAL_CONFIG|.config/crush
+crush|CRUSH_GLOBAL_DATA|.local/share/crush
+crush|CRUSH_SKILLS_DIR|.config/crush/skills
+cursor|CURSOR_CONFIG_DIR|.cursor
+cursor|CURSOR_DATA_DIR|.cursor
+cursor|CURSOR_SANDBOX_POLICY_DIR|.cursor/sandbox-policies
+cursor|CURSOR_WORKTREES_ROOT|.cursor/worktrees
+dify|DIFY_CONFIG_DIR|.config/difyctl
+factory-droid|FACTORY_HOME_OVERRIDE|.
+factory-droid|FACTORY_LOG_FILE|.factory/logs/droid-log-single.log
+flowise|BLOB_STORAGE_PATH|.flowise/storage
+flowise|DATABASE_PATH|.flowise
+flowise|LOG_PATH|
+flowise|SECRETKEY_PATH|.flowise
+gemini-cli|GEMINI_CLI_ACTIVITY_LOG_TARGET|
+gemini-cli|GEMINI_CLI_HOME|.
+gemini-cli|GEMINI_CLI_TRUSTED_FOLDERS_PATH|.gemini/trustedFolders.json
+gemini-cli|GEMINI_CONTEXT_TRACE_DIR|
+gemini-cli|GEMINI_DEBUG_LOG_FILE|
+gemini-cli|GEMINI_WRITE_SYSTEM_MD|
+goose|GOOSE_ADDITIONAL_CONFIG_FILES|
+goose|GOOSE_PATH_ROOT|.config/goose
+goose|GOOSE_RECIPE_PATH|
+hermes|HERMES_DATA_DIR_SUFFIX|.hermes
+hermes|HERMES_DESKTOP_USER_DATA_DIR|.config/Hermes
+hermes|HERMES_HOME|.hermes
+hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
+kilo-code|KILO_CONFIG|
+kilo-code|KILO_CONFIG_DIR|
+kilo-code|KILO_DB|.local/share/kilo/kilo.db
+kiro|KIRO_HOME|.
+langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
+langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox
+langflow|LANGFLOW_KNOWLEDGE_BASES_DIR|.langflow/knowledge_bases
+langflow|LANGFLOW_LOG_FILE|
+letta|LETTA_ARTIFACTS_DIR|.letta/artifacts
+letta|LETTA_DEBUG_FILE|
+letta|LETTA_DIR|.letta
+letta|LETTA_EXTENSIONS_DIR|.letta/mods
+letta|LETTA_HOME|.letta
+letta|LETTA_LOCAL_BACKEND_DIR|.letta/lc-local-backend
+letta|LETTA_MODS_DIR|.letta/mods
+letta|LETTA_TRANSCRIPT_ROOT|.letta/transcripts
+letta|MEMGPT_CONFIG_PATH|.letta/config
+little-coder|LITTLE_CODER_EXTENSIONS_DIR|.config/little-coder/extensions
+little-coder|LITTLE_CODER_MODELS_FILE|.config/little-coder/models.json
+little-coder|PI_CODING_AGENT_DIR|.pi/agent
+local-deep-research|LDR_DATA_DIR|.local/share/local-deep-research
+metagpt|METAGPT_PROJECT_ROOT|
+muse-code|MUSE_AUTH_PATH|.config/muse/auth.json
+muse-code|MUSE_PROJECTS_HOME|.muse/projects
+n8n|DB_SQLITE_DATABASE|.n8n/database.sqlite
+n8n|N8N_BINARY_DATA_STORAGE_PATH|.n8n/binaryData
+n8n|N8N_EVENTBUS_LOGWRITER_LOGFULLPATH|.n8n/n8nEventLog.log
+n8n|N8N_STORAGE_PATH|.n8n/storage
+n8n|N8N_USER_FOLDER|.
+nanobot|NANOBOT_AGENTS__DEFAULTS__WORKSPACE|.nanobot/workspace
+nanobot|OAUTH_CLI_KIT_TOKEN_PATH|.local/share/nanobot/auth/github-copilot.json
+ollama|OLLAMA_MODELS|.ollama/models
+open-interpreter|CODEX_ROLLOUT_TRACE_ROOT|
+open-interpreter|CODEX_SQLITE_HOME|.openinterpreter
+open-interpreter|INTERPRETER_HOME|.openinterpreter
+open-interpreter|OPEN_INTERPRETER_HOME|.openinterpreter
+openclaw|OPENCLAW_CONFIG_PATH|.openclaw/openclaw.json
+openclaw|OPENCLAW_HOME|.
+openclaw|OPENCLAW_OAUTH_DIR|.openclaw/credentials
+openclaw|OPENCLAW_PROFILE|.openclaw
+openclaw|OPENCLAW_STATE_DIR|.openclaw
+openclaw|OPENCLAW_WORKSPACE_DIR|.openclaw/workspace
+opencode|OPENCODE_CONFIG_DIR|.config/opencode
+opencode|OPENCODE_DB|.local/share/opencode/opencode.db
+openhands|AUTOMATION_WORKSPACE_BASE|.openhands/agent-canvas/workspaces
+openhands|FILE_STORE_PATH|.openhands
+openhands|LOG_DIR|
+openhands|OH_BASH_EVENTS_DIR|.openhands/agent-canvas/bash_events
+openhands|OH_CANVAS_SAFE_STATE_DIR|.openhands/agent-canvas
+openhands|OH_CONVERSATIONS_PATH|.openhands/agent-canvas/conversations
+openhands|OH_CONVERSATION_WORKTREE_ROOT|
+openhands|OH_PERSISTENCE_DIR|.openhands
+openhands|OH_SECRET_KEY_PATH|.openhands/agent-canvas/secret-key.txt
+openhands|OH_SESSION_API_KEY_PATH|.openhands/agent-canvas/api-key.txt
+openhands|OPENHANDS_CONVERSATIONS_DIR|.openhands/conversations
+openhands|OPENHANDS_PERSISTENCE_DIR|.openhands
+openhands|VITE_WORKING_DIR|.openhands/agent-canvas/workspaces
+pearai|CONTINUE_GLOBAL_DIR|.pearai
+pearai|VSCODE_APPDATA|.config
+pearai|VSCODE_EXTENSIONS|.pearai/extensions
+pearai|VSCODE_PORTABLE|.config/PearAI
+pi|PI_CODING_AGENT_DIR|.pi/agent
+pi|PI_CODING_AGENT_SESSION_DIR|.pi/agent/sessions
+qwen-code|QWEN_CODE_MCP_APPROVALS_PATH|.qwen/mcpApprovals.json
+qwen-code|QWEN_CODE_TRUSTED_FOLDERS_PATH|.qwen/trustedFolders.json
+qwen-code|QWEN_HOME|.qwen
+qwen-code|QWEN_RUNTIME_DIR|.qwen
+qwen-code|WEIXIN_STATE_DIR|.qwen/channels/weixin
+qwen-live|QWEN_LIVE_DATA_DIR|.qwen-live
+qwen-live|QWEN_LIVE_DISCOVERY_DIR|.qwen
+shellgpt|CACHE_PATH|
+shellgpt|CHAT_CACHE_PATH|
+shellgpt|OPENAI_FUNCTIONS_PATH|.config/shell_gpt/functions
+shellgpt|ROLE_STORAGE_PATH|.config/shell_gpt/roles
+tabby|TABBY_MODEL_CACHE_ROOT|.tabby/models
+tabby|TABBY_ROOT|.tabby
+twinny|TWINNY_NODE_DIR|.twinny/node
+vscode|VSCODE_AGENT_FOLDER|.vscode-server
+vscode|VSCODE_APPDATA|.config
+vscode|VSCODE_EXTENSIONS|.vscode/extensions
+vscode|VSCODE_PORTABLE|.config/Code
+shared|BASH_ENV|
+shared|BASH_IT_CUSTOM|
+shared|ENV|
+shared|OMF_CONFIG|
+shared|XDG_CACHE_HOME|.cache
+shared|XDG_CONFIG_HOME|.config
+shared|XDG_DATA_HOME|.local/share
+shared|XDG_STATE_HOME|.local/state
+shared|ZDOTDIR|
+shared|ZSH_CUSTOM|
+'@
+
+# Startup and environment files searched for them, scope|glob.
+$STARTUP_FILES = @'
+# Files that set the environment of a user or of the system, scope|glob: home (relative
+# to each home), system (absolute; under the root in image mode) or project
+# (relative to each discovered project). research/shared.md, "Startup and
+# environment files", names each one with its source.
+home|.bash_profile
+home|.bash_login
+home|.profile
+home|.bashrc
+home|.bashrc.d/*
+system|/etc/profile
+system|/etc/profile.d/*.sh
+system|/etc/profile.d/sh.local
+system|/etc/bash.bashrc
+system|/etc/bashrc
+home|.zshenv
+home|.zprofile
+home|.zshrc
+home|.zlogin
+system|/etc/zshenv
+system|/etc/zprofile
+system|/etc/zshrc
+system|/etc/zlogin
+system|/etc/zsh/zshenv
+system|/etc/zsh/zprofile
+system|/etc/zsh/zshrc
+system|/etc/zsh/zlogin
+system|/usr/local/etc/zshenv
+system|/usr/local/etc/zprofile
+system|/usr/local/etc/zshrc
+system|/usr/local/etc/zlogin
+home|.shrc
+home|.shinit
+system|/etc/suid_profile
+home|.kshrc
+system|/etc/ksh.kshrc
+home|.mkshrc
+home|.config/fish/config.fish
+home|.config/fish/conf.d/*.fish
+home|.config/fish/fish_variables
+home|.config/fish/fishd.*
+home|.local/share/fish/vendor_conf.d/*.fish
+system|/etc/fish/config.fish
+system|/etc/fish/conf.d/*.fish
+system|/usr/share/fish/vendor_conf.d/*.fish
+system|/usr/local/share/fish/vendor_conf.d/*.fish
+system|/usr/local/etc/fish/config.fish
+system|/usr/local/etc/fish/conf.d/*.fish
+system|/opt/homebrew/etc/fish/config.fish
+system|/opt/homebrew/etc/fish/conf.d/*.fish
+system|/opt/homebrew/share/fish/vendor_conf.d/*.fish
+home|.tcshrc
+home|.cshrc
+home|.login
+system|/etc/csh.cshrc
+system|/etc/csh.login
+system|/etc/.cshrc
+system|/etc/.login
+home|.config/nushell/env.nu
+home|.config/nushell/config.nu
+home|.config/nushell/login.nu
+home|.config/nushell/autoload/*.nu
+home|Library/Application Support/nushell/env.nu
+home|Library/Application Support/nushell/config.nu
+home|Library/Application Support/nushell/login.nu
+home|Library/Application Support/nushell/autoload/*.nu
+home|AppData/Roaming/nushell/env.nu
+home|AppData/Roaming/nushell/config.nu
+home|AppData/Roaming/nushell/login.nu
+home|AppData/Roaming/nushell/autoload/*.nu
+home|.local/share/nushell/vendor/autoload/*.nu
+system|/usr/share/nushell/vendor/autoload/*.nu
+system|/usr/local/share/nushell/vendor/autoload/*.nu
+system|/Library/Application Support/nushell/vendor/autoload/*.nu
+system|/ProgramData/nushell/vendor/autoload/*.nu
+home|.xonshrc
+home|.config/xonsh/rc.xsh
+home|.config/xonsh/rc.d/*.xsh
+home|.config/xonsh/rc.d/*.py
+system|/etc/xonsh/xonshrc
+system|/etc/xonsh/rc.d/*.xsh
+system|/etc/xonsh/rc.d/*.py
+home|.config/elvish/rc.elv
+home|.elvish/rc.elv
+home|AppData/Roaming/elvish/rc.elv
+home|Documents/WindowsPowerShell/*.ps1
+home|Documents/PowerShell/*.ps1
+home|.config/powershell/*.ps1
+system|/Windows/System32/WindowsPowerShell/v1.0/*.ps1
+system|/Program Files/PowerShell/7/*.ps1
+system|/opt/microsoft/powershell/7/*.ps1
+system|/usr/local/microsoft/powershell/7/*.ps1
+system|/etc/environment
+system|/etc/security/pam_env.conf
+home|.pam_environment
+home|.config/environment.d/*.conf
+system|/etc/environment.d/*.conf
+system|/run/environment.d/*.conf
+system|/usr/local/lib/environment.d/*.conf
+system|/usr/lib/environment.d/*.conf
+home|.config/plasma-workspace/env/*.sh
+system|/etc/xdg/plasma-workspace/env/*.sh
+home|.xsessionrc
+home|Library/LaunchAgents/*.plist
+system|/Library/LaunchAgents/*.plist
+system|/Library/LaunchDaemons/*.plist
+project|.envrc
+project|.env
+home|.config/direnv/direnvrc
+home|.config/direnv/direnv.toml
+home|.config/direnv/lib/*.sh
+project|mise.toml
+project|.mise.toml
+project|mise.local.toml
+project|.mise.local.toml
+project|mise/config.toml
+project|mise/conf.d/*.toml
+project|.mise/config.toml
+project|.mise/conf.d/*.toml
+project|.config/mise.toml
+project|.config/mise/mise.toml
+project|.config/mise/config.toml
+project|.config/mise/conf.d/*.toml
+home|.config/mise/config.toml
+home|.config/mise/conf.d/*.toml
+system|/etc/mise/config.toml
+system|/etc/mise/conf.d/*.toml
+home|.oh-my-zsh/custom/*.zsh
+home|.bash_it/custom/*.bash
+home|.bash_it/custom/*/*.bash
+home|.config/omf/before.init.fish
+home|.config/omf/init.fish
+'@
+
 # ===========================================================================
 # Shared helpers
 # ===========================================================================
@@ -2498,6 +2820,40 @@ function Get-LinkTarget($item) {
   return ''
 }
 
+# Takes a directory path; returns it with every linked component replaced by
+# its target, as realpath does, so a chain of links resolves to where it ends;
+# '' when a component cannot be read or the chain runs past the budget (a loop).
+function Get-PhysicalPath([string]$path) {
+  $full = [System.IO.Path]::GetFullPath($path)
+  $resolved = [System.IO.Path]::GetPathRoot($full).TrimEnd('\', '/')
+  $pending = New-Object System.Collections.Generic.List[string]
+  $rest = [string[]]@($full.Substring($resolved.Length) -split '[\\/]' | Where-Object { $_ })
+  $pending.AddRange($rest)
+  $ordinal = [System.StringComparison]::Ordinal
+  $hops = 0
+  while ($pending.Count -gt 0) {
+    $candidate = $resolved + $script:Sep + $pending[0]
+    $pending.RemoveAt(0)
+    $extended = ConvertTo-ExtendedPath $candidate
+    try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop } catch { return '' }
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) {
+      $resolved = $candidate
+      continue
+    }
+    $hops++
+    $target = Get-LinkTarget $item
+    if (-not $target -or $hops -gt 40) { return '' }
+    if ($target.StartsWith('\\?\', $ordinal)) { $target = $target.Substring(4) }
+    if (-not [System.IO.Path]::IsPathRooted($target)) { $target = Join-PathSafe $resolved $target }
+    $target = [System.IO.Path]::GetFullPath($target)
+    $resolved = [System.IO.Path]::GetPathRoot($target).TrimEnd('\', '/')
+    $rest = [string[]]@($target.Substring($resolved.Length) -split '[\\/]' | Where-Object { $_ })
+    $pending.InsertRange(0, $rest)
+  }
+  if ($resolved) { return $resolved }
+  return $script:Sep
+}
+
 # Takes a path; returns whether it is a reparse point (a symlink or
 # junction), $false when it cannot be read.
 function Test-IsLink([string]$path) {
@@ -2558,6 +2914,14 @@ $script:Counts = @{
 $script:RowHomes = @{}
 # The manifest.jsonl writer, opened by Open-RunFiles unless -Inventory.
 $script:ManifestWriter = $null
+# Every path that has a row, so a relocation hint file a catalog line already
+# collected gets no second row; case-insensitive on Windows only, as
+# $script:ClaimedPaths is.
+$script:RowPathComparer = [System.StringComparer]::Ordinal
+if ($env:OS -eq 'Windows_NT') {
+  $script:RowPathComparer = [System.StringComparer]::OrdinalIgnoreCase
+}
+$script:RowPaths = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
 
 # Takes the manifest fields in order, without uid, gid and mode; writes one JSON
 # line, counts it in $script:Counts and marks its home in $script:RowHomes. Rows
@@ -2589,6 +2953,7 @@ function Write-ManifestRow {
         '","attributes":"', $fields[7], '","sha256":"', $fields[8], '","secret":', $secretJson,
         ',"status":"', $fields[9], '","target":"', $fields[10], '","error":"', $fields[11], '"}')))
   if ($script:Counts.ContainsKey($status)) { $script:Counts[$status]++ }
+  [void]$script:RowPaths.Add($path)
   # The error_read row for an unreadable home itself does not make it a home
   # with artifacts.
   if (-not ($status -eq 'error_read' -and $path -eq $homeDir)) {
@@ -2819,11 +3184,13 @@ function Add-StagedLink($item, [string]$stagePath) {
   return "not recreated in the archive: $why"
 }
 
-# Takes the user, home, agent and the file's Get-Item; stages it and writes its
-# manifest row, or under -Inventory feeds Add-InventoryFile. Runs once per
-# file, so Join-PathSafe and Get-Epoch are inlined and nothing here starts a
-# pipeline or another process.
-function Add-CollectedFile([string]$user, [string]$homeDir, [string]$agent, $item) {
+# Takes the user, home, agent, the file's Get-Item and whether to flag it
+# secret whatever SECRET_GLOBS says (a relocation hint file); stages it and
+# writes its manifest row, or under -Inventory feeds Add-InventoryFile. Runs
+# once per file, so Join-PathSafe and Get-Epoch are inlined and nothing here
+# starts a pipeline or another process.
+function Add-CollectedFile {
+  param([string]$user, [string]$homeDir, [string]$agent, $item, [bool]$forceSecret = $false)
   if ($Inventory) {
     # Regular files only: links and special files are neither followed nor counted.
     if ((Get-ManifestType $item) -eq 'file' -and -not $item.PSIsContainer) {
@@ -2849,7 +3216,7 @@ function Add-CollectedFile([string]$user, [string]$homeDir, [string]$agent, $ite
   }
   $owner = Get-OwnerName $path
   $attributes = [string]$item.Attributes
-  $secret = $script:SecretRegex.IsMatch($homeRel)
+  $secret = $forceSecret -or $script:SecretRegex.IsMatch($homeRel)
   $type = Get-ManifestType $item
   $status = 'collected'; $sha256 = ''; $target = ''; $errorText = ''
   if ($type -eq 'symlink') {
@@ -3809,6 +4176,342 @@ function Add-Projects {
 }
 
 # ===========================================================================
+# Relocation hints
+# ===========================================================================
+# An agent's state moved by an environment variable lies outside every
+# catalog line. The files that set environments are searched for the
+# RELOCATION_VARS names; a hit is logged and recorded for collection.json, and
+# the file is collected as shared and secret. A value is never evaluated and
+# a matched line is never printed; collectors/docs/relocation.md tells the
+# responder what to do with a hint.
+
+# The hints for collection.json, each an ordered hashtable (user, source,
+# line, variable, agent, value), and the files searched and left out for size.
+$script:RelocationHints = New-Object System.Collections.ArrayList
+$script:RelocationCounts = @{ searched = 0; skippedSize = 0 }
+# The progress header the next hint logs first; '' once it is logged.
+$script:HintHeader = ''
+# The user|file|line|variable|agent keys of the hints recorded, so a file two
+# passes search gives each hint once.
+$script:HintKeys = New-Object 'System.Collections.Generic.HashSet[string]'
+# The sweep's size limit in bytes (0 none), set from -EnvScanMaxSizeMB.
+$script:EnvScanMaxSize = [int64]0
+# RELOCATION_VARS as variable -> its agents in table order, and the variables
+# in table order, each once.
+$script:RelocationAgents = [ordered]@{}
+foreach ($line in (Get-TableLines $RELOCATION_VARS)) {
+  $parts = @($line -split '\|', 3)
+  if ($parts.Count -lt 2) { continue }
+  if (-not $script:RelocationAgents.Contains($parts[1])) {
+    $script:RelocationAgents[$parts[1]] = @()
+  }
+  $script:RelocationAgents[$parts[1]] += $parts[0]
+}
+$script:RelocationNames = [string[]]@($script:RelocationAgents.Keys)
+# STARTUP_FILES as @(scope, glob without its leading /), in table order.
+$script:StartupGlobs = @()
+foreach ($line in (Get-TableLines $STARTUP_FILES)) {
+  $parts = @($line -split '\|', 2)
+  if ($parts.Count -lt 2) { continue }
+  $script:StartupGlobs += , @($parts[0], $parts[1].TrimStart('/'))
+}
+# A character that continues a variable name, so CODEX_HOME in MY_CODEX_HOME_X
+# is no hit.
+$script:NameCharRx = New-Object System.Text.RegularExpressions.Regex('[A-Za-z0-9_]')
+
+# Returns the base of the system scope: -Root in image mode, / under
+# PowerShell 7 off Windows, else the system drive, as Add-DockerVolumes does.
+function Get-SystemRoot {
+  if ($script:Mode -eq 'image') { return $Root }
+  if ($script:Sep -eq '/') { return '/' }
+  $drive = $env:SystemDrive; if (-not $drive) { $drive = 'C:' }
+  return $drive + $script:Sep
+}
+
+# Takes a path; returns whether it is a regular file. A link is never
+# followed, and a directory, special file or missing path is not one.
+function Test-RegularFile([string]$path) {
+  try { $item = Get-Item -LiteralPath (ConvertTo-ExtendedPath $path) -Force -ErrorAction Stop }
+  catch { return $false }
+  if ($item.PSIsContainer) { return $false }
+  return ((Get-ManifestType $item) -eq 'file')
+}
+
+# Takes a base and a path under it; returns whether a symlink or junction
+# between them, which the glob followed, leads outside the base once its chain
+# of links is resolved to the end: an image's /etc -> /private/etc would read
+# the analyst's host, while a live macOS /etc stays inside /. A link that
+# cannot be resolved counts as outside.
+function Test-UnderLink([string]$base, [string]$path) {
+  $comparison = [System.StringComparison]::Ordinal
+  if ($env:OS -eq 'Windows_NT') { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
+  $relative = $path.Substring($base.TrimEnd('\', '/').Length).TrimStart('\', '/')
+  $segments = @($relative -split '[\\/]')
+  $directory = $base
+  $root = ''
+  for ($index = 0; $index -lt $segments.Count - 1; $index++) {
+    $directory = Join-PathSafe $directory $segments[$index]
+    $extended = ConvertTo-ExtendedPath $directory
+    try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop } catch { return $true }
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { continue }
+    if (-not $root) {
+      $root = Get-PhysicalPath $base
+      if (-not $root) { return $true }
+      $root = $root.TrimEnd('\', '/') + $script:Sep
+    }
+    $resolved = Get-PhysicalPath $directory
+    if (-not $resolved) { return $true }
+    $resolved = $resolved.TrimEnd('\', '/') + $script:Sep
+    if (-not $resolved.StartsWith($root, $comparison)) { return $true }
+  }
+  return $false
+}
+
+# Takes a base directory and a scope; returns the regular files, none under a
+# linked directory leading out of the base, that the STARTUP_FILES globs of
+# that scope match under the base, each once, in table order.
+function Get-StartupFiles([string]$base, [string]$scope) {
+  $files = New-Object System.Collections.ArrayList
+  $seen = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
+  foreach ($rule in $script:StartupGlobs) {
+    if ($rule[0] -ne $scope) { continue }
+    foreach ($path in @(Expand-Glob $base $rule[1])) {
+      if (-not (Test-RegularFile $path) -or (Test-UnderLink $base $path)) { continue }
+      if ($seen.Add($path)) { [void]$files.Add($path) }
+    }
+  }
+  # A wildcard segment's listing errors are the catalog walk's to report.
+  $script:GlobReadErrors = [ordered]@{}
+  return @($files)
+}
+
+# Takes one line of a file and whether case is ignored (a .ps1 file); returns
+# the RELOCATION_VARS names it holds where the character before and after (when
+# any) cannot continue a name, each once, in table order. In a .ps1 file a name
+# before a colon is a drive or scope qualifier ($env:), no variable.
+function Get-BoundedNames([string]$line, [bool]$ignoreCase) {
+  $comparison = [System.StringComparison]::Ordinal
+  if ($ignoreCase) { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
+  foreach ($name in $script:RelocationNames) {
+    $start = $line.IndexOf($name, $comparison)
+    while ($start -ge 0) {
+      $end = $start + $name.Length
+      $openBefore = ($start -eq 0) -or -not $script:NameCharRx.IsMatch([string]$line[$start - 1])
+      $openAfter = ($end -ge $line.Length) -or -not $script:NameCharRx.IsMatch([string]$line[$end])
+      $qualifier = $ignoreCase -and $end -lt $line.Length -and $line[$end] -eq ':'
+      if ($openBefore -and $openAfter -and -not $qualifier) { $name; break }
+      $start = $line.IndexOf($name, $start + 1, $comparison)
+    }
+  }
+}
+
+# Takes the user, a hit file, its line number and the variable; for every
+# RELOCATION_VARS line naming the variable, logs the hint (after
+# $script:HintHeader, once) and adds it to $script:RelocationHints, once per
+# record.
+function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$variable) {
+  foreach ($agent in $script:RelocationAgents[$variable]) {
+    if (-not $script:HintKeys.Add("$user|$file|$line|$variable|$agent")) { continue }
+    if ($script:HintHeader) { Write-CollectorLog $script:HintHeader; $script:HintHeader = '' }
+    Write-CollectorLog "relocation hint: ${file}:$line names $variable ($agent)"
+    [void]$script:RelocationHints.Add([ordered]@{
+        user = $user; source = $file; line = $line; variable = $variable; agent = $agent
+        value = ''
+      })
+  }
+}
+
+# Takes the user, home and a hit file; unless the file already has a manifest
+# row, stages it as agent shared with the secret flag forced, so -NoSecrets
+# gives skipped_secret and -MaxFileSizeMB applies.
+function Add-HintFile([string]$user, [string]$homeDir, [string]$path) {
+  if ($script:RowPaths.Contains($path)) { return }
+  try { $item = Get-Item -LiteralPath (ConvertTo-ExtendedPath $path) -Force -ErrorAction Stop }
+  catch {
+    Write-CollectorLog "stat failed: ${path}: $(ConvertFrom-ExtendedText $_.Exception.Message)"
+    return
+  }
+  Add-CollectedFile $user $homeDir 'shared' $item $true
+}
+
+# Takes files and whether case is ignored; returns the Select-String matches
+# of the RELOCATION_VARS names in them, logging each file that cannot be read.
+function Select-RelocationNames([string[]]$files, [bool]$ignoreCase) {
+  if ($files.Count -eq 0) { return }
+  $search = @{
+    LiteralPath = @(foreach ($file in $files) { ConvertTo-ExtendedPath $file })
+    Pattern = $script:RelocationNames; SimpleMatch = $true; CaseSensitive = (-not $ignoreCase)
+    ErrorAction = 'SilentlyContinue'; ErrorVariable = 'searchErrors'
+  }
+  $searchErrors = @(); $found = @()
+  try { $found = @(Select-String @search) } catch { $searchErrors = @($_) }
+  foreach ($searchError in @($searchErrors)) {
+    Write-CollectorLog "read failed: $(ConvertFrom-ExtendedText $searchError.Exception.Message)"
+  }
+  return $found
+}
+
+# Takes a path; returns whether it names a PowerShell script (.ps1, any case).
+function Test-PowerShellScript([string]$path) {
+  return $path.EndsWith('.ps1', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+# Takes the user, home and files of one base; searches them, then records each
+# bounded hit and collects each hit file. A name
+# matches in its own case only, since shells name variables case-sensitively,
+# except in a .ps1 file, where PowerShell does not. Only line numbers and names
+# leave the search.
+function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$files) {
+  if ($files.Count -eq 0) { return }
+  $script:RelocationCounts.searched += $files.Count
+  $scripts = @($files | Where-Object { Test-PowerShellScript $_ })
+  $others = @($files | Where-Object { -not (Test-PowerShellScript $_) })
+  $found = @(Select-RelocationNames $others $false) + @(Select-RelocationNames $scripts $true)
+  # Each hit file once, in search order, with its hits as @(line, variable).
+  $hitFiles = New-Object System.Collections.ArrayList
+  $hits = New-Object 'System.Collections.Generic.Dictionary[string,object]' $script:RowPathComparer
+  foreach ($match in $found) {
+    $path = ConvertFrom-ExtendedPath $match.Path
+    foreach ($name in @(Get-BoundedNames $match.Line (Test-PowerShellScript $path))) {
+      if (-not $hits.ContainsKey($path)) {
+        $hits[$path] = New-Object System.Collections.ArrayList; [void]$hitFiles.Add($path)
+      }
+      [void]$hits[$path].Add(@($match.LineNumber, $name))
+    }
+  }
+  foreach ($path in $hitFiles) {
+    foreach ($hit in $hits[$path]) { Add-RelocationHint $user $path $hit[0] $hit[1] }
+    Add-HintFile $user $homeDir $path
+  }
+}
+
+# Takes the user, the home of the rows, the base directory and a scope (home,
+# system or project); searches the base's startup files of that scope.
+function Find-StartupFileHits([string]$user, [string]$homeDir, [string]$base, [string]$scope) {
+  Search-RelocationFiles $user $homeDir @(Get-StartupFiles $base $scope)
+}
+
+# Takes a base directory and its claimed catalog matches; returns every
+# regular file under it outside the matches and EXCLUDES, never entering a
+# link, at or under $script:EnvScanMaxSize, counting the larger ones.
+function Get-SweepFiles([string]$base, $claimed) {
+  $files = New-Object System.Collections.ArrayList
+  $pending = New-Object System.Collections.Stack
+  $pending.Push($base)
+  while ($pending.Count -gt 0) {
+    $dir = $pending.Pop()
+    $listing = @{ LiteralPath = (ConvertTo-ExtendedPath $dir); Force = $true }
+    try { $children = @(Get-ChildItem @listing -ErrorAction Stop) }
+    catch {
+      Write-CollectorLog "read failed: ${dir}: $(ConvertFrom-ExtendedText $_.Exception.Message)"
+      continue
+    }
+    foreach ($child in $children) {
+      $childPath = ConvertFrom-ExtendedPath $child.FullName
+      if ($claimed.ContainsKey($childPath)) { continue }
+      if ($script:ExcludeRegex.IsMatch((Get-RelPath $base $childPath))) { continue }
+      if (($child.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
+      if ($child.PSIsContainer) { $pending.Push($childPath); continue }
+      if ((Get-ManifestType $child) -ne 'file') { continue }
+      if ($script:EnvScanMaxSize -gt 0 -and $child.Length -gt $script:EnvScanMaxSize) {
+        $script:RelocationCounts.skippedSize++; continue
+      }
+      [void]$files.Add($childPath)
+    }
+  }
+  return @($files)
+}
+
+# Takes a base directory; returns whether a home of $script:UserList is the
+# base or lies under it: a project at the root or a profiles directory, which
+# a sweep would read whole.
+function Test-HoldsHome([string]$base) {
+  $prefix = $base.TrimEnd($script:Sep) + $script:Sep
+  $comparison = [System.StringComparison]::Ordinal
+  if ($env:OS -eq 'Windows_NT') { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
+  foreach ($userHome in $script:UserList) {
+    if ($script:RowPathComparer.Equals($userHome.home, $base)) { return $true }
+    if ($userHome.home.StartsWith($prefix, $comparison)) { return $true }
+  }
+  return $false
+}
+
+# Takes a home; returns whether it lies, less the system root, under one of the
+# home roots the image mode lists (home, Users, root, var/root, usr/home,
+# export/home): a service profile or daemon home is walked by the catalog but
+# not swept.
+function Test-UserHomeRoot([string]$homeDir) {
+  $systemRoot = (Get-SystemRoot).TrimEnd('\', '/')
+  $relative = $homeDir
+  if ($systemRoot -ne '' -and $homeDir.StartsWith($systemRoot,
+      [System.StringComparison]::OrdinalIgnoreCase)) {
+    $relative = $homeDir.Substring($systemRoot.Length)
+  }
+  $relative = $relative.Replace('\', '/')
+  return ($relative -match '^/(home|Users|usr/home|export/home)/.+' -or
+    $relative -match '^/(root|var/root)$')
+}
+
+# Takes the user, a home or project directory, its catalog table and its
+# startup scope; searches every file under it that no catalog match of the
+# table claims, the fixed list of the scope did not search and no other home
+# or project holds, as each is swept on its own, and that is not this run's
+# staging directory or an output file (the output directory may be the home)
+# (-EnvScanHome).
+function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$table,
+  [string]$scope) {
+  [void](Expand-Catalog $homeDir $table)
+  $claimed = $script:ClaimedPaths
+  $script:ClaimedPaths = Get-ClaimTable
+  foreach ($name in @(".stage-$($script:RunName)", "$($script:RunName).log",
+      "$($script:RunName).manifest.jsonl", "$($script:RunName).collection.json")) {
+    $claimed[(Join-PathSafe $script:OutputDir $name)] = $true
+  }
+  foreach ($path in @(Get-StartupFiles $homeDir $scope)) { $claimed[$path] = $true }
+  foreach ($other in @($script:UserList | ForEach-Object { $_.home }) +
+      @($script:ProjectList | ForEach-Object { $_.path })) {
+    if ($other -ne $homeDir) { $claimed[$other] = $true }
+  }
+  Search-RelocationFiles $user $homeDir @(Get-SweepFiles $homeDir $claimed)
+}
+
+# Main step: searches the startup files of every home, of the system and of
+# every project, then, with -EnvScanHome, every other file of each home and
+# project, a project that holds a home and a home outside the home roots left
+# out. Each base's header is logged before its first hint.
+function Find-RelocationHints {
+  foreach ($userHome in $script:UserList) {
+    $script:HintHeader = "Relocation hints for $($userHome.user) ($($userHome.home))"
+    Find-StartupFileHits $userHome.user $userHome.home $userHome.home 'home'
+  }
+  $script:HintHeader = 'Relocation hints in system files'
+  Find-StartupFileHits '' '' (Get-SystemRoot) 'system'
+  foreach ($projectDir in $script:ProjectList) {
+    $script:HintHeader = "Relocation hints in project $($projectDir.path)"
+    Find-StartupFileHits $projectDir.user $projectDir.path $projectDir.path 'project'
+  }
+  if ($EnvScanHome) {
+    foreach ($userHome in $script:UserList) {
+      if (-not (Test-UserHomeRoot $userHome.home)) {
+        Write-CollectorLog "sweep skipped: home $($userHome.home) lies outside the user home roots"
+        continue
+      }
+      $script:HintHeader = "Relocation hints for $($userHome.user) ($($userHome.home))"
+      Find-RelocationHintsInHome $userHome.user $userHome.home $CATALOG 'home'
+    }
+    foreach ($projectDir in $script:ProjectList) {
+      if (Test-HoldsHome $projectDir.path) {
+        Write-CollectorLog "sweep skipped: project $($projectDir.path) holds a home directory"
+        continue
+      }
+      $script:HintHeader = "Relocation hints in project $($projectDir.path)"
+      Find-RelocationHintsInHome $projectDir.user $projectDir.path $PROJECT_CATALOG 'project'
+    }
+  }
+  $script:HintHeader = ''
+}
+
+# ===========================================================================
 # Inventory output
 # ===========================================================================
 # Under -Inventory Add-CollectedFile feeds these accumulators instead of
@@ -4240,6 +4943,13 @@ function Format-HumanSize([int64]$bytes) {
   return $value.ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + ' ' + $units[$i]
 }
 
+# Takes a count and a noun; returns "count noun", the noun plural with s
+# unless the count is 1.
+function Format-Count([int64]$count, [string]$noun) {
+  if ($count -eq 1) { return "$count $noun" }
+  return "$count ${noun}s"
+}
+
 # Notes the symlinks that are in the manifest only.
 function Add-LinkNotes {
   if ($script:LinkCounts.zip -gt 0) {
@@ -4274,6 +4984,7 @@ function Initialize-Summary {
       max_file_size_bytes = $script:MaxSize
       users_filter = $Users; no_docker = $NoDocker.IsPresent; no_projects = $NoProjects.IsPresent
       projects = @($Project)
+      env_scan_home = $EnvScanHome.IsPresent; env_scan_max_size_bytes = $script:EnvScanMaxSize
     }
     capabilities = [ordered]@{
       hash_tool = 'System.Security.Cryptography.SHA256'
@@ -4294,6 +5005,11 @@ function Initialize-Summary {
     docker = [ordered]@{
       volumes_found = $script:Docker.found; volumes_collected = $script:Docker.collected
       unreadable = $script:Docker.unreadable; docker_desktop = $script:Docker.desktop
+    }
+    relocation = [ordered]@{
+      hints = @($script:RelocationHints)
+      files_searched = $script:RelocationCounts.searched
+      files_skipped_size = $script:RelocationCounts.skippedSize
     }
     notes = @($script:Notes)
     archive = (Split-Path -Leaf $script:Archive)
@@ -4453,8 +5169,9 @@ function Clear-Staging {
   }
 }
 
-# Main step: prints the summary on stdout: the output files, the counts and,
-# when the volume step saw Docker or Podman, the docker line.
+# Main step: prints the summary on stdout: the output files, the counts, the
+# relocation hints and, when the volume step saw Docker or Podman, the docker
+# line.
 function Write-Result {
   $counts = $script:Counts
   Write-Output "archive:    $($script:Archive)"
@@ -4466,16 +5183,27 @@ function Write-Result {
   Write-Output "users:      $($script:ActiveUsers.Count)"
   Write-Output "projects:   $($script:ProjectList.Count)"
   $collectedSize = Format-HumanSize $counts.bytes
-  Write-Output "collected:  $($counts.collected) files, $($counts.bytes) bytes ($collectedSize)"
+  $collectedFiles = Format-Count $counts.collected 'file'
+  $collectedCounts = "$collectedFiles, $(Format-Count $counts.bytes 'byte')"
+  Write-Output "collected:  $collectedCounts ($collectedSize)"
   $skipped = "$($counts.skipped_excluded) excluded, $($counts.skipped_size) too large"
   $skipped += ", $($counts.skipped_secret) secret, $($counts.skipped_special) special"
   Write-Output "skipped:    $skipped"
   $errorCount = $counts.error_copy + $counts.error_read
   $errorKinds = "$($counts.error_copy) error_copy, $($counts.error_read) error_read"
   Write-Output "errors:     $errorCount ($errorKinds)"
+  $hintCount = $script:RelocationHints.Count
+  $searched = $script:RelocationCounts.searched
+  $hintsSearched = "$(Format-Count $hintCount 'hint') in $(Format-Count $searched 'file')"
+  $relocationLine = "relocation: $hintsSearched searched"
+  $skippedSize = $script:RelocationCounts.skippedSize
+  if ($skippedSize -gt 0) { $relocationLine += ", $skippedSize skipped for size" }
+  if ($hintCount -gt 0) { $relocationLine += '; see collectors/docs/relocation.md' }
+  Write-Output $relocationLine
   if ($script:Docker.seen) {
     $docker = $script:Docker
-    $dockerLine = "docker:     $($docker.found) volumes found, $($docker.collected) collected, "
+    $dockerLine = "docker:     $(Format-Count $docker.found 'volume') found, "
+    $dockerLine += "$($docker.collected) collected, "
     $dockerLine += "$($docker.unreadable) unreadable"
     if ($script:Docker.unreadable -gt 0) { $dockerLine += ' (run as root to collect)' }
     if ($script:Docker.desktop) { $dockerLine += '; Docker Desktop VM disk not collected' }
@@ -4495,7 +5223,7 @@ function Get-NonEmptyLines([string]$table) {
   $table -split "`r?`n" | Where-Object { $_ -ne '' }
 }
 
-# Prints the five tables for -List, each under its header line. The output
+# Prints the seven tables for -List, each under its header line. The output
 # is identical to the sh collector's --list (tests/catalog-sync.sh).
 function Write-CatalogList {
   Write-Output '# home artifacts (agent|glob relative to home)'
@@ -4509,6 +5237,10 @@ function Write-CatalogList {
   Get-NonEmptyLines $SECRET_GLOBS
   Write-Output '# docker volumes (agent|volume name glob)'
   Get-NonEmptyLines $DOCKER_VOLUMES
+  Write-Output '# relocation variables (agent|VARIABLE|home-relative path it replaces)'
+  Get-NonEmptyLines $RELOCATION_VARS
+  Write-Output '# startup files searched for them (scope|glob; scope home, system or project)'
+  Get-NonEmptyLines $STARTUP_FILES
 }
 
 # Sets $script:ExcludeRegex from EXCLUDES (a regex that matches nothing
@@ -4666,8 +5398,10 @@ function Write-StartLog {
   if ($script:ArchiverWhy -and $script:Archivers.Count -gt 0 -and $script:Archivers[0] -ne 'tar') {
     $archiveVia += " ($($script:ArchiverWhy))"
   }
+  $envScanHomeFlag = 0; if ($EnvScanHome) { $envScanHomeFlag = 1 }
   Write-CollectorLog ("archive=$archiveVia max_file_size=${MaxFileSizeMB}MB " +
-    "full=$($Full.IsPresent) no_secrets=$($NoSecrets.IsPresent) no_docker=$($NoDocker.IsPresent)")
+    "full=$($Full.IsPresent) no_secrets=$($NoSecrets.IsPresent) no_docker=$($NoDocker.IsPresent) " +
+    "env_scan_home=$envScanHomeFlag env_scan_max_size=${EnvScanMaxSizeMB}MB")
   if ($Inventory -and $script:OutputDirGiven) {
     Write-CollectorLog "NOTE: -Inventory writes nothing; -OutputDir $OutputDir ignored"
   }
@@ -4690,6 +5424,12 @@ if ($Version) { Write-Output "$TOOL $ToolVersion"; exit 0 }
 if ($List) { Write-CatalogList; exit 0 }
 if ($MaxFileSizeMB -lt 0) { Write-Error 'Invalid -MaxFileSizeMB'; exit 1 }
 $script:MaxSize = [int64]$MaxFileSizeMB * 1024 * 1024
+$envScanMegabytes = 0
+if ($EnvScanMaxSizeMB -notmatch '^[0-9]+$' -or
+  -not [int]::TryParse($EnvScanMaxSizeMB, [ref]$envScanMegabytes)) {
+  Write-Error 'Invalid -EnvScanMaxSizeMB'; exit 1
+}
+$script:EnvScanMaxSize = [int64]$envScanMegabytes * 1024 * 1024
 # $PSBoundParameters inside a function is the function's own, so it is read here.
 $script:OutputDirGiven = $PSBoundParameters.ContainsKey('OutputDir')
 
@@ -4717,11 +5457,12 @@ if (-not $NoProjects) {
   $script:ProjectList = @(Find-Projects)                # 9. Project discovery
   Add-Projects
 }
+if (-not $Inventory) { Find-RelocationHints }           # 10. Relocation hints
 if ($Inventory) {
-  Write-Inventory                                       # 10. Inventory output
+  Write-Inventory                                       # 11. Inventory output
   exit 0
 }
-Initialize-Summary                                      # 11. Summary and archive
+Initialize-Summary                                      # 12. Summary and archive
 Write-Summary
 Close-RunFiles
 Write-Archive

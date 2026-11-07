@@ -265,6 +265,18 @@ each `brain/<uuid>/scratch/` was an empty directory on every install
 ([brain directories](#brain-directories)). Both are collected
 ([Exclusions](#exclusions)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `XDG_CONFIG_HOME` | the parent of the Electron user-data directory on Linux ([Electron app API](https://www.electronjs.org/docs/latest/api/app), `app.getPath('appData')`) | `.config` | `shared` |
+| `XDG_CACHE_HOME` | the parent of the CLI's `antigravity/staging` cache directory on Linux, from Go's [`os.UserCacheDir`](https://pkg.go.dev/os#UserCacheDir) | `.cache` | `shared` |
+
+Not relocation variables: `APPDATA` and `LOCALAPPDATA` (generic), `GEMINI_API_KEY` (carries a key).
+Not confirmed: `ANTIGRAVITY_EXECUTABLE_DATA_DIR`, `AGY_ACCOUNT`, `AGY_ADC_AUTH`,
+`ANTIGRAVITY_PROJECT_ID` and `ANTIGRAVITY_CONVERSATION_ID` appear in the binary, but no source shows
+their effect on a path.
+
 #### Program files and install metadata
 
 The program files and install metadata of each install are binaries, not
@@ -825,10 +837,7 @@ unobserved.
 Enterprise `admin_settings.json` is system-level: `/etc/antigravity/`,
 `/Library/Application Support/Antigravity/`, `...\Antigravity\` (binary).
 
-Relocation env vars: none found for the home dir. `ANTIGRAVITY_EXECUTABLE_DATA_DIR`,
-`AGY_ACCOUNT`, `AGY_ADC_AUTH`, `ANTIGRAVITY_PROJECT_ID`,
-`ANTIGRAVITY_CONVERSATION_ID` exist (binary) but their effect on paths is
-unknown.
+The variables that move a store are in [Relocation variables](#relocation-variables).
 
 ### Credentials
 

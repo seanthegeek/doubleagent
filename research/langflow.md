@@ -84,6 +84,19 @@ Assistant's own file workspace (in the table above); the
 analyzer's home-catalog rule would class it as a scratch directory if a
 parser ever named it as a project. Nothing else is a working directory.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `LANGFLOW_CONFIG_DIR` | the config directory ([paths.py:55-62](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/lfx/src/lfx/services/settings/groups/paths.py#L55-L62)) | `.cache/langflow`, `Library/Caches/langflow`, `AppData/Local/langflow/langflow/Cache` | `langflow` |
+| `LANGFLOW_KNOWLEDGE_BASES_DIR` | the knowledge base directory; the `LANGFLOW_` prefix maps every settings field ([paths.py:13](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/lfx/src/lfx/services/settings/groups/paths.py#L13), [base.py:116](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/lfx/src/lfx/services/settings/base.py#L116)) | `.langflow/knowledge_bases` | `langflow` |
+| `LANGFLOW_FS_TOOL_BASE_DIR` | the Assistant's file workspace ([assistant_workspace.py:63](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/backend/base/langflow/agentic/helpers/assistant_workspace.py#L63)) | `.langflow/fs_tool/fs_sandbox` | `langflow` |
+| `LANGFLOW_LOG_FILE` | adds a log file at the given path ([logger.py:1024](https://github.com/langflow-ai/langflow/blob/504c02fc47e76087b82b0e7cbe4186e9cdd916d4/src/lfx/src/lfx/log/logger.py#L1024)) | | `langflow` |
+| `XDG_CACHE_HOME` | the parent of `langflow` on Linux, through platformdirs (see the Linux bullet above) | `.cache` | `shared` |
+
+Not relocation variables: `LANGFUSE_SECRET_KEY` and `LANGCHAIN_API_KEY` carry a key,
+`AUTO_LOGIN` and `LANGFLOW_NATIVE_TRACING` change behaviour only.
+
 #### OSS database
 
 The OSS database is not under the home: `langflow.db` defaults to the installed package directory

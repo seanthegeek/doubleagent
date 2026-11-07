@@ -406,6 +406,22 @@ The reboot cleared `/private/tmp`, removing the whole temp root with the scratch
 collection taken on macOS after a reboot finds none of it, as on Linux. Neither directory is
 collected ([issue 163](https://github.com/seanthegeek/doubleagent/issues/163)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CLAUDE_CONFIG_DIR` | the config home, every file of this section but `.device-keys.json` (cc:473059, cc:473896, cc:477075) | `.claude` | `claude-code` |
+| `CLAUDE_CODE_TMPDIR` | the temp root holding session scratchpads ([Explore the .claude directory](https://code.claude.com/docs/en/claude-directory.md#cleaned-up-automatically)) | `AppData/Local/Temp/claude` | `claude-code` |
+| `XDG_DATA_HOME` | the parent of `claude/versions` on every platform (claude 2.1.295 linux-arm64 @209969040 `n.XDG_DATA_HOME??o(t,".local","share")`) | `.local/share` | `shared` |
+| `XDG_CACHE_HOME` | the parent of `claude-cli-nodejs` on Linux (cc:206336051) | `.cache` | `shared` |
+| `XDG_STATE_HOME` | the parent of the env-paths log directory of `claude-cli-nodejs` on Linux (cc:206336051) | `.local/state` | `shared` |
+
+Not relocation variables: `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY` and
+`ANTHROPIC_AUTH_TOKEN` (carry a key), `CLAUDE_CODE_REMOTE_SESSION_ID` (behaviour only),
+`OPENCLAW_HOME_VOLUME` (another agent's), `GIT_CONFIG_GLOBAL` (git's). Not confirmed:
+`CLAUDE_CODE_HOST_CREDS_FILE` (names a credentials file path, cc:272494, not read at a verifiable
+offset here) and `TMPDIR` (the vendor page says the Linux temp root follows it).
+
 #### Files that hold evidence
 
 - `projects/<key>/<sessionId>.jsonl`: transcripts, with `<key>` derived from the cwd (cc:473017,

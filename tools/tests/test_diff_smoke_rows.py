@@ -378,3 +378,14 @@ def test_build_image_never_removes_a_printed_path_outside_a_smoke_work_directory
 def test_main_exits_2_when_the_shell_does_not_exist(tmp_path):
     missing = str(tmp_path / "no-such-shell")
     assert diff_smoke_rows.main(["--shell", missing, "main"]) == 2
+
+
+def test_parse_tables_ignores_relocation_and_startup_tables():
+    listing = (
+        LISTING_BEFORE
+        + "# relocation variables (agent|VARIABLE|home-relative path it replaces)\n"
+        + "claude-code|CLAUDE_CONFIG_DIR|.claude\n"
+        + "# startup files searched for them (scope|glob; scope home, system or project)\n"
+        + "home|.bashrc\n"
+    )
+    assert diff_smoke_rows.parse_tables(listing) == diff_smoke_rows.parse_tables(LISTING_BEFORE)

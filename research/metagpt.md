@@ -59,6 +59,14 @@ to delete from.
 generated projects; nothing under the home records it, so no catalog line or discovery source can
 find it.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `METAGPT_PROJECT_ROOT` | the `METAGPT_ROOT` that holds `workspace` and `logs` ([const.py:19-41](https://github.com/FoundationAgents/MetaGPT/blob/11cdf466d042aece04fc6cfd13b28e1a70341b1f/metagpt/const.py#L19-L41)) | | `metagpt` |
+
+Not relocation variables: `METAGPT_REPORTER_URL` (carries a URL).
+
 #### Workspace
 
 Generated projects and serialized team state go to

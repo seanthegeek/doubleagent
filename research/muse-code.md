@@ -156,6 +156,23 @@ the crate's generic table.
 - Git worktrees Muse creates inside a project: `.muse/worktrees/`
   ([Exclusions](#exclusions)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `XDG_CONFIG_HOME` | the parent of the `muse` config root, every OS (L:20-25, S-ps:23-33, W:351696) | `.config` | `shared` |
+| `XDG_DATA_HOME` | the parent of the `muse` data root, every OS (K `read-session/SKILL.md:82`, W:351696) | `.local/share` | `shared` |
+| `MUSE_AUTH_PATH` | the `auth.json` the launchers read (L:25, S-ps:23-33) | `.config/muse/auth.json` | `muse-code` |
+| `MUSE_PROJECTS_HOME` | the coordinator projects directory (K `agents/references/verbs.md:36-37`) | `.muse/projects` | `muse-code` |
+
+Not relocation variables: `MUSE_INSTALL_DIR` (moves the Windows install directory, which holds no
+session evidence), `MUSE_CHANNEL` (behaviour only), `MUSE_SKIP_PROMPT_HISTORY` (behaviour only),
+`MUSE_EXPERIMENTAL_AGENTS` (behaviour only), `MUSE_CUSTOM_HEADERS` (carries a key),
+`TBH_CREDENTIAL_BACKEND` (behaviour only), `TBH_WINDOWS_ELEVATED_SETUP_ROOT` (outside the home),
+`XDG_RUNTIME_DIR` (no store of this section known), `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and
+`GROK_HOME` (another agent's), `HOME`, `USERPROFILE`, `APPDATA` and `LOCALAPPDATA` (generic).
+Not confirmed: whether the binary itself reads `MUSE_AUTH_PATH`; the string does not occur in it.
+
 #### Config root
 
 Path `~/.config/muse/` (I unless stated):
@@ -300,15 +317,6 @@ Not per home, outside the catalog's scope:
   The Linux location of these files is not determined: the Linux strings
   name no `/etc/muse` or other system path for them. A responder collects
   these by hand; a catalog line cannot reach them.
-
-#### Environment relocation
-
-Variables that relocate state: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`,
-`XDG_RUNTIME_DIR` (B), `MUSE_AUTH_PATH` (launchers' view of `auth.json`
-only, L:25, S-ps:23; the string does not occur in the Linux binary),
-`MUSE_PROJECTS_HOME`, `MUSE_CHANNEL` (`muse-stable` or `muse-canary`,
-L:4), `MUSE_INSTALL_DIR` (Windows installer, S-inst:189),
-`MUSE_SKIP_PROMPT_HISTORY` (B).
 
 #### Other agents' state
 

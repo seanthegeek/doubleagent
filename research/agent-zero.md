@@ -110,6 +110,18 @@ on the `container` transport can name its own working directory inside the conta
 ([Host-side companions](#host-side-companions)) is the one scratch location outside `usr/`; it is
 collected only on Windows, where the system temp directory is inside the home.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `A0_COMPUTER_USE_HOST_ARTIFACT_ROOT` | the connector's host-side screenshot directory, in place of `<system temp>/_a0_connector/computer_use` ([`computer_use.py:243-247`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/computer_use.py#L243-L247)) | | `agent-zero` |
+
+The Agent Zero server reads its settings inside the container, where a host shell startup file
+does not reach, so none of its variables is listed. The installer's data directory is the
+`--data-dir` option, not an environment variable.
+Not relocation variables: `AGENT_ZERO_LAST_CONTEXT_ID` and `AGENT_ZERO_LAST_CONTEXT_HOST` (state
+keys of the connector's `.env`, not locations).
+
 #### Contents of usr/
 
 - `chats/<ctxid>/chat.json`, one per chat or scheduled-task context, and

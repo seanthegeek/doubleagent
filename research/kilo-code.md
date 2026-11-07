@@ -97,6 +97,26 @@ gives the same `~/.local/share/kilo/kilo.db` on every platform.
   directory is `/tmp/<SESSION_ID>/` instead. These roots are outside the home, so no home entry
   reaches them; collecting them is a manual step.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `KILO_CONFIG_DIR` | adds a directory searched for config files ([`packages/core/src/flag/flag.ts:140-141`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/flag/flag.ts#L140-L141)) | | `kilo-code` |
+| `KILO_CONFIG` | points at an extra config file to load ([`packages/opencode/src/config/config.ts:766-781`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/opencode/src/config/config.ts#L766-L781)) | | `kilo-code` |
+| `KILO_DB` | overrides the primary database's path ([`packages/core/src/database/database.ts:32`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/database/database.ts#L32); [`packages/core/src/flag/flag.ts:111`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/flag/flag.ts#L111)) | `.local/share/kilo/kilo.db` | `kilo-code` |
+| `XDG_DATA_HOME` | the parent of `.local/share/kilo` ([`packages/core/src/global.ts:12`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/global.ts#L12)) | `.local/share` | `shared` |
+| `XDG_CONFIG_HOME` | the parent of `.config/kilo` ([`packages/core/src/global.ts:12`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/global.ts#L12)) | `.config` | `shared` |
+| `XDG_CACHE_HOME` | the parent of `.cache/kilo` ([`packages/core/src/global.ts:12`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/global.ts#L12)) | `.cache` | `shared` |
+| `XDG_STATE_HOME` | the parent of `.local/state/kilo` ([`packages/core/src/global.ts:12`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/global.ts#L12); [`:26`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/core/src/global.ts#L26)) | `.local/state` | `shared` |
+
+Not relocation variables: `KILO_TEST_HOME` (test only), `KILO_CONFIG_CONTENT` (inlines config
+text, not a path), `KILO_API_KEY` and `KILO_SERVER_PASSWORD` (carry a key),
+`KILO_SESSION_INGEST_URL` (carries a URL), `KILO_CLIENT`, `KILO_DISABLE_CHANNEL_DB`,
+`KILO_DISABLE_SESSION_INGEST`, `KILO_DISABLE_SHARE`, `KILO_EXPERIMENTAL_SHARED_AGENT_BOARD`,
+`KILO_TELEMETRY_LEVEL` and `KILO_REMOTE` (behaviour only), `KILO_MACHINE_ID` (carries an
+install identifier, not a path), `TEMP`, `TMP` and `TMPDIR` (set for child processes rather
+than reads).
+
 #### `~/.local/share/kilo`
 
 `~/.local/share/kilo` (data):

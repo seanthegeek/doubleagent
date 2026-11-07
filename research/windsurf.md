@@ -40,6 +40,15 @@ None.
 
 None known.
 
+#### Relocation variables
+
+None known.
+
+Not relocation variables: `WINDSURF_API_KEY` (carries a key).
+
+Not confirmed: `XDG_CONFIG_HOME` and `XDG_DATA_HOME` for the Devin CLI's `devin/` directories;
+the pages cited under Devin CLI name the paths but not these variables.
+
 #### IDE user data
 
 IDE user data (FAQ): macOS `~/Library/Application Support/Windsurf/` legacy and
@@ -107,7 +116,7 @@ hooks).
 
 #### Environment variables
 
-Env: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `WINDSURF_API_KEY` (docs).
+Env: `WINDSURF_API_KEY` (docs); see [Relocation variables](#relocation-variables).
 
 ### Credentials
 

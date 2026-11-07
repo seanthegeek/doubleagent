@@ -35,6 +35,8 @@ SECTION_HEADINGS = {
     "excluded unless --full": "exclude",
     "credential files (flagged secret, skipped with --no-secrets)": "secret",
     "docker volumes (agent|volume name glob)": "docker",
+    "relocation variables (agent|VARIABLE|home-relative path it replaces)": "relocation",
+    "startup files searched for them (scope|glob; scope home, system or project)": "startup",
 }
 
 
@@ -53,15 +55,38 @@ class Entry:
         return self.segments[0]
 
 
+@dataclass(frozen=True)
+class RelocationVariable:
+    """One `agent|VARIABLE|replaces` line: an environment variable that moves an agent's state.
+
+    `replaces` is the home-relative path the value stands in for, empty when the
+    variable adds a store that has no default under the home.
+    """
+
+    agent: str
+    variable: str
+    replaces: str
+
+
+@dataclass(frozen=True)
+class StartupFile:
+    """One `scope|glob` line: a file that sets an environment, in the scope `home`, `system` or `project`."""
+
+    scope: str
+    glob: str
+
+
 @dataclass
 class Catalog:
-    """The catalog's tables: home and project entries, exclusions, secrets and volumes."""
+    """The catalog's tables: home and project entries, exclusions, secrets, volumes and hints."""
 
     entries: list[Entry] = field(default_factory=list)
     project_entries: list[Entry] = field(default_factory=list)
     excludes: list[str] = field(default_factory=list)
     secrets: list[str] = field(default_factory=list)
     docker_volumes: list[Entry] = field(default_factory=list)  # agent|volume name glob
+    relocation_vars: list[RelocationVariable] = field(default_factory=list)
+    startup_files: list[StartupFile] = field(default_factory=list)
     text: str = ""
 
     @property
@@ -250,6 +275,13 @@ def parse(text: str) -> Catalog:
         elif section == "docker":
             agent, _, glob = line.partition("|")
             catalog.docker_volumes.append(_make_entry(agent, glob))
+        elif section == "relocation":
+            agent, _, rest = line.partition("|")
+            variable, _, replaces = rest.partition("|")
+            catalog.relocation_vars.append(RelocationVariable(agent, variable, replaces))
+        elif section == "startup":
+            scope, _, glob = line.partition("|")
+            catalog.startup_files.append(StartupFile(scope, glob))
         else:
             catalog.secrets.append(line)
     return catalog

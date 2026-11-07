@@ -71,6 +71,17 @@ The agent's own working space is `~/.augment/worktrees/` (its git worktrees, lis
 excluded in [Exclusions](#exclusions)) and, outside the home, `tmpdir()/.augment/...` in the
 system temp directory.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `AUGMENT_VFS_DIR` | the virtual filesystem mirror directory (bundle 0.36.0, `AUGMENT_VFS_DIR` literal) | `.augment/vfs` | `augment` |
+
+Not relocation variables: `AUGMENT_SESSION_AUTH`, `AUGMENT_API_TOKEN`, `AUGMENT_ANTHROPIC_API_KEY`,
+`AUGMENT_OPENAI_API_KEY`, `AUGMENT_FIREWORKS_API_KEY` and `AUGMENT_BEDROCK_API_KEY` carry a key or
+session; `AUGMENT_API_URL` is a URL; `AUGMENT_WORKSPACE_ROOT` names a project, not a store. The
+`augmentCacheDir` that moves `~/.augment` is a config key, not an environment variable.
+
 #### Environment variables
 
 `AUGMENT_SESSION_AUTH` (session JSON inline),

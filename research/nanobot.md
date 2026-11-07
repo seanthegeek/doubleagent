@@ -150,6 +150,17 @@ outside the home holds session state: the only `tempfile` directories are transi
 skill deletes and marketplace installs and an SSH control-socket directory (`nb-ssh-*`,
 [`webui/remote_mux.py:29`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/webui/remote_mux.py#L29)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `NANOBOT_AGENTS__DEFAULTS__WORKSPACE` | the default workspace, through the settings class's `NANOBOT_` prefix and `__` nesting, when `config.json` does not exist ([`config/schema.py:749-752`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/config/schema.py#L749-L752); [`config/loader.py:51-55`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/config/loader.py#L51-L55)) | `.nanobot/workspace` | `nanobot` |
+| `OAUTH_CLI_KIT_TOKEN_PATH` | the OAuth token file of the two OAuth model providers (`oauth_cli_kit/storage.py:29-38`, [Per-user storage](#per-user-storage)) | `.local/share/nanobot/auth/github-copilot.json`, `.local/share/oauth-cli-kit/auth` | `nanobot` |
+| `XDG_DATA_HOME` | the parent of `<app>` for the token files above, on Linux ([`unix.py:37-45`](https://github.com/tox-dev/platformdirs/blob/bc0405cb9c9439e6923b2dc090f91ad5daaf7dec/src/platformdirs/unix.py#L37-L45)) | `.local/share` | `shared` |
+
+Not relocation variables: `LANGFUSE_BASE_URL` (carries a URL), `LANGFUSE_SECRET_KEY` (carries a
+key).
+
 #### Workspace
 
 The **workspace** (default `~/.nanobot/workspace`,

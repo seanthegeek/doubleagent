@@ -206,3 +206,44 @@ def test_bundled_catalog_holds_each_heading_once_in_order():
     lines = catalog.CATALOG_FILE.read_text(encoding="utf-8").split("\n")
     found = [line for line in lines if line in headings]
     assert found == [f"# {text}" for text in catalog.SECTION_HEADINGS]
+
+
+def test_relocation_and_startup_sections_fill_their_lists_only():
+    text = "\n".join(
+        [
+            _heading("docker"),
+            "volume-agent|*volume_data",
+            _heading("relocation"),
+            "# a comment inside the table",
+            "claude-code|CLAUDE_CONFIG_DIR|.claude",
+            "agent-zero|A0_ROOT|",
+            _heading("startup"),
+            "home|.bashrc",
+            "system|/etc/profile.d/*.sh",
+            "project|.envrc",
+        ]
+    )
+    parsed = catalog.parse(text)
+    assert [entry.glob for entry in parsed.docker_volumes] == ["*volume_data"]
+    assert parsed.relocation_vars == [
+        catalog.RelocationVariable("claude-code", "CLAUDE_CONFIG_DIR", ".claude"),
+        catalog.RelocationVariable("agent-zero", "A0_ROOT", ""),
+    ]
+    assert parsed.startup_files == [
+        catalog.StartupFile("home", ".bashrc"),
+        catalog.StartupFile("system", "/etc/profile.d/*.sh"),
+        catalog.StartupFile("project", ".envrc"),
+    ]
+    assert parsed.entries == [] and parsed.secrets == [] and parsed.excludes == []
+
+
+def test_bundled_catalog_hints_are_filled_and_leave_other_tables_alone():
+    parsed = catalog.load()
+    assert parsed.relocation_vars and parsed.startup_files
+    assert all(item.agent and item.variable for item in parsed.relocation_vars)
+    assert {item.scope for item in parsed.startup_files} <= {"home", "system", "project"}
+    hints = {f"{item.agent}|{item.variable}|{item.replaces}" for item in parsed.relocation_vars}
+    hints |= {f"{item.scope}|{item.glob}" for item in parsed.startup_files}
+    tables = [f"{entry.agent}|{entry.glob}" for entry in parsed.docker_volumes] + parsed.secrets
+    tables += [f"{entry.agent}|{entry.glob}" for entry in parsed.entries + parsed.project_entries]
+    assert hints.isdisjoint(tables)

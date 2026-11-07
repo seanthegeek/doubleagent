@@ -155,6 +155,17 @@ The app's own working directories, which are not projects the user works in
 `AppData/Local/Programs/GitHub Copilot`; the last three were the `cwd` of the pool
 and probe sessions the app pre-creates ([Inside `~/.copilot`](#inside-copilot)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `COPILOT_HOME` | the `~/.copilot` home, shared with Copilot CLI (binary: the string beside `session-state`; Windows `github.exe` and `copilot.exe` carry it) | `.copilot` | `copilot-desktop` |
+| `COPILOT_HOME_OVERRIDE` | the app-only override of the same home (binary: `github_app_desktop_services::platform::paths::COPILOT_HOME_OVERRIDE`) | `.copilot` | `copilot-desktop` |
+
+Not relocation variables: `USERPROFILE` (the Windows profile root, never counts).
+Not confirmed: whether the `dirs` crate behind `~/.local/share` and `~/.cache` is bypassed by
+`XDG_DATA_HOME` and `XDG_CACHE_HOME` in the app, and the precedence of the two `COPILOT_HOME` names.
+
 #### Package files
 
 Linux (shipped binary, real install (Linux)):

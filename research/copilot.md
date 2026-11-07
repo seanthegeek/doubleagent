@@ -56,6 +56,13 @@ So macOS and Linux use the XDG config dir `~/.config/github-copilot` (no Library
 None known. The server keeps a rebuildable workspace index in its cache directory
 ([Cache directory](#cache-directory)), which is not a working directory.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `XDG_CONFIG_HOME` | the parent of the token store `github-copilot`, when absolute (`copilot-language-server 1.408.0 dist/main.js @5032324` `function Alt()`) | `.config` | `shared` |
+| `XDG_CACHE_HOME` | the parent of the cache directory `github-copilot`, when absolute (`copilot-language-server 1.408.0 dist/main.js @6043359` `function wEt()`) | `.cache` | `shared` |
+
 #### Token store files
 
 Files written there (same function's caller in

@@ -203,13 +203,25 @@ status and size. Collect credential files by default, flag them
 contents to stdout or the log.
 
 **Catalog is data, not code.** Agent paths live in the `CATALOG`,
-`PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS` and `DOCKER_VOLUMES` tables
-of both scripts; a new tool is new lines, never new code. Every entry is
-tried against every home directory.
+`PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`,
+`RELOCATION_VARS` and `STARTUP_FILES` tables of both scripts; a new tool
+is new lines, never new code. Every catalog entry is tried against every
+home directory, and every `STARTUP_FILES` line against each base of its
+scope.
 
 - The tables are byte-identical between the sh single-quoted strings and
   the PowerShell `@'...'@` here-strings, and `--list` equals `-List`;
   `collectors/tests/catalog-sync.sh` checks both.
+- `RELOCATION_VARS` lists `agent|VARIABLE|replaces`: an environment
+  variable that moves an agent's state, and the home-relative path its value
+  stands in for (empty when it adds a store with no default under the home).
+  A variable many programs honour (`XDG_CONFIG_HOME`, `ZDOTDIR`) is a `shared`
+  line, a weaker hint. A variable two agents read has a line under each.
+  `STARTUP_FILES` lists `scope|glob` for the files that set an environment:
+  scope `home` (relative to each home), `system` (absolute, under the root in
+  image mode) or `project` (relative to each project). The collectors search
+  those files for the variable names and never evaluate a value; a file
+  that names one is collected as agent `shared`, flagged `secret: true`.
 - `DOCKER_VOLUMES` maps a Docker or Podman volume name glob to an agent
   (`agent-zero|*a0_usr`); the first match wins. A matched volume is
   collected whole, its `_data` directory the collection base; an unmatched
@@ -259,14 +271,15 @@ Both collectors are written for a responder to audit before running them
 as root; [`collectors/docs/internals.md`](collectors/docs/internals.md)
 holds the architecture and function tables.
 
-- **One layout.** Both scripts have twelve sections, in this order and
+- **One layout.** Both scripts have thirteen sections, in this order and
   under these banner titles: Reader's guide, Data tables, Shared helpers,
   Manifest writer, Staging files, Catalog walk, Users, Docker and Podman
-  volumes, Project discovery, Inventory output, Summary and archive, Main
-  program. A section one script lacks keeps its banner and a line saying
-  why. The reader's guide lists the sections, the data flow in one
-  paragraph and the naming rules, and changes with the flow. New code goes
-  in the section owning its step; the main program is one call per step.
+  volumes, Project discovery, Relocation hints, Inventory output, Summary
+  and archive, Main program. A section one script lacks keeps its banner
+  and a line saying why. The reader's guide lists the sections, the data
+  flow in one paragraph and the naming rules, and changes with the flow.
+  New code goes in the section owning its step; the main program is one
+  call per step.
 - **One comment per function**, directly above it and at most ten lines
   long ([Code style](#code-style)): its purpose, its inputs (in sh, also the
   globals it reads), what it returns, prints or writes, in sh its
@@ -731,7 +744,10 @@ attribute are the same string.
    path, including the Windows `AppData` location. Regenerate
    `analyzer/doubleagent/catalog.txt`, run `collectors/tests/catalog-sync.sh`,
    and add an `Added` line under `Unreleased` in
-   [`analyzer/CHANGELOG.md`](analyzer/CHANGELOG.md).
+   [`analyzer/CHANGELOG.md`](analyzer/CHANGELOG.md). Add a
+   `RELOCATION_VARS` line for every environment variable the tool reads to
+   place its state, and list it in the research document's
+   `#### Relocation variables` subsection.
 4. Add large or irrelevant subtrees to `EXCLUDES` and credential files to
    `SECRET_GLOBS`.
    - A secret glob covers every copy the agent makes of a credential file
@@ -905,12 +921,19 @@ before any install.
      log lines are usually template literals
      (`${h?"Enabling":"Disabling"} remote control for session ${s}`); "not
      in the bundle" needs a second fragment to miss.
-   - A compiled CLI keeps its source strings at offsets that differ per
-     platform build: cite `<tool> <version> <platform> @<byte offset>` with
-     the literal snippet and record the artifact's sha256 and origin, as
+   - A compiled CLI or a bundle keeps its source strings at offsets that
+     differ per platform build: cite `<tool> <version> <platform> @<byte
+     offset>` with the literal snippet (`<file> @<byte offset>` for a file
+     inside a bundle), the offset the 0-based one `grep -ob` prints for the
+     cited string, the snippet the text around it, as
      [`research/claude-code.md`](research/claude-code.md) does for
-     `claude 2.1.295 linux-arm64`. The `app.asar` form is
-     `app.asar:<path>@<offset>` with the snippet.
+     `claude 2.1.295 linux-arm64`. The artifact's size, sha256 and origin
+     are recorded once, in Source and evidence, never in a citation. Where a
+     table or section cites one build throughout, one
+     sentence above it names the build and its files, and each citation
+     gives only the file and offset with the snippet. A function or
+     identifier name alone (`app.js function dot(e)`) is not a citation.
+     The `app.asar` form is `app.asar:<path>@<offset>` with the snippet.
 5. **Integrate in one commit.**
    - Research agents write only their research documents. One integration
      agent makes every table change after all reports are in, under the
@@ -1006,7 +1029,20 @@ when the page has one.
    - `### Per-user storage`: every directory and file under the home per
      platform, what each holds, sizes where observed; `####` subsections
      per platform or product when layouts differ; the fixed
-     `#### Scratch directories` ("None known." when none). A Docker volume
+     `#### Scratch directories` ("None known." when none) and
+     `#### Relocation variables` after it. The latter is a table with the
+     header `| Variable | Moves | Replaces | Table agent |`: Variable a code
+     span, Moves what it relocates with its source citation, Replaces the
+     home-relative path the value stands in for (`.` when the value stands in
+     for the home itself as the parent of the agent's directory, empty when
+     none), Table
+     agent the `RELOCATION_VARS` agent, `shared` for a generic variable; an
+     agent reading none has the subsection say "None known.". A Moves cell
+     that calls the value the parent of the directory Replaces names is a
+     `tools/check_tables_research.py` finding.
+     `research/shared.md` holds the `shared` rows and a
+     `#### Startup and environment files` subsection naming each
+     `STARTUP_FILES` glob in a code span. A Docker volume
      layout is described in a Per-user storage subsection whose heading or
      opening paragraph says "volume" and names the volume in a code span
      (its name, its `DOCKER_VOLUMES` glob or its catalog line), and names
@@ -1117,6 +1153,10 @@ tests.
 - A library with no platform branching (`xdg-basedir`, `etcetera`,
   `home.Config()`) means `~/.config` and `~/.local/share` on macOS and
   Windows too.
+- A variable that moves a store is a `RELOCATION_VARS` line, found in the
+  agent's paths module or documentation with the grep terms above plus
+  `process.env`, `os.environ`, `getenv` and `env::var`; a path read from the
+  environment is never a `CATALOG` line.
 - Exclusions must not swallow credential files (Continue's
   `index/globalContext.json` sits beside the embedding index).
 - A tool may store sessions inside the repository or gitignore its state

@@ -318,6 +318,19 @@ Inside `$CODEX_HOME`:
   [88-91](https://github.com/openai/codex/blob/4e7b9e285ba4ac6ce18ca452cf9e88d3d75ec857/codex-rs/worktree/src/metadata.rs#L88-L91)),
   which no catalog line names.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CODEX_HOME` | the Codex home, every file of this section under `.codex` ([`utils/home-dir/src/lib.rs:13-56`](https://github.com/openai/codex/blob/3e238776e857eccd3bde6bff3026e2e9798f6524/codex-rs/utils/home-dir/src/lib.rs#L13-L56)) | `.codex` | `codex-cli` |
+| `CODEX_SQLITE_HOME` | the directory of the SQLite state databases, which default to the Codex home ([`core/src/config/mod.rs:272-282`](https://github.com/openai/codex/blob/3e238776e857eccd3bde6bff3026e2e9798f6524/codex-rs/core/src/config/mod.rs#L272-L282)) | `.codex` | `codex-cli` |
+| `CODEX_ROLLOUT_TRACE_ROOT` | adds a directory of local trace bundles, one child per root session, written only while it is set ([`rollout-trace/src/thread.rs:107`](https://github.com/openai/codex/blob/3e238776e857eccd3bde6bff3026e2e9798f6524/codex-rs/rollout-trace/src/thread.rs#L107)) | | `codex-cli` |
+| `CODEX_TUI_SESSION_LOG_PATH` | adds the TUI session log, `session-<time>.jsonl` under the log directory by default, written only while `CODEX_TUI_RECORD_SESSION` is set ([`tui/src/session_log.rs:84-100`](https://github.com/openai/codex/blob/3e238776e857eccd3bde6bff3026e2e9798f6524/codex-rs/tui/src/session_log.rs#L84-L100)) | | `codex-cli` |
+
+Not relocation variables: `OPENAI_API_KEY`, `GH_TOKEN` and `GITHUB_TOKEN` (carry a key),
+`CODEX_APP_TOOLS_PIPE_PATH`, `SSH_AUTH_SOCK`, `HOME`, `USER` and `TMPDIR` (names in a recorded
+environment, not read to place a store).
+
 #### Files written by Ollama
 
 Written by Ollama, not by Codex (Ollama source at `v0.35.1`, commit
