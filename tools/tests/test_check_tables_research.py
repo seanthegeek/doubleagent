@@ -1186,6 +1186,17 @@ def test_relocation_row_under_another_table_agent_is_unlined(tmp_path):
     assert findings(root, "relocation-row-unlined") == [("alpha", "beta ALPHA_HOME")]
 
 
+def test_relocation_line_named_only_under_another_table_agent_is_unnamed(tmp_path):
+    alpha = ALPHA.replace(
+        "### Credentials",
+        ALPHA_RELOCATION.replace("| `.alpha`, `AppData/Roaming/alpha` | `alpha` |", "| | `beta` |")
+        + "### Credentials",
+        1,
+    )
+    root = hinted(tmp_path, alpha=alpha)
+    assert findings(root, "relocation-line-unnamed") == [("alpha", "alpha ALPHA_HOME")]
+
+
 def test_relocation_rules_are_silent_without_the_table(tmp_path):
     root = hinted(tmp_path, catalog=CATALOG)
     kinds = {finding.kind for finding in checker.run(root)}

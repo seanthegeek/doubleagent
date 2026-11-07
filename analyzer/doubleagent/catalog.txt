@@ -2150,6 +2150,7 @@ langflow|LANGFLOW_LOG_FILE|
 letta|LETTA_ARTIFACTS_DIR|.letta/artifacts
 letta|LETTA_DEBUG_FILE|
 letta|LETTA_DIR|.letta
+letta|LETTA_EXTENSIONS_DIR|.letta/mods
 letta|LETTA_HOME|.letta
 letta|LETTA_LOCAL_BACKEND_DIR|.letta/lc-local-backend
 letta|LETTA_MODS_DIR|.letta/mods
