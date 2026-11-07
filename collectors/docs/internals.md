@@ -168,7 +168,7 @@ keeps the banner and says so.
 
 | Glob | Matched against | sh | PowerShell |
 | --- | --- | --- | --- |
-| `CATALOG`, `PROJECT_CATALOG` | the base (home, project), one path segment at a time; `*` and `?` do not cross `/` | shell pathname expansion of `BASE/GLOB` in `expand_catalog` for the catalog tables and in `expand_glob` for the user home and volume globs, with `IFS` set to newline only so a base with spaces stays one word; a pattern that matches nothing expands to itself and fails the existence test. As in any POSIX shell, `*` does not match a name's leading `.`. | `Expand-Glob` splits the glob on `/`; a wildcard segment lists the directory and matches each name with `Convert-GlobToRegex` (`*` is `[^/]*`, so it matches a leading `.`) and `-match`, which ignores case; a literal segment is tested for existence and respelled as on disk by `Get-OnDiskName`. |
+| `CATALOG`, `PROJECT_CATALOG` | the base (home, project), one path segment at a time; `*` and `?` do not cross `/` | shell pathname expansion of `BASE/GLOB` in `expand_catalog`, with `IFS` set to newline only so a base with spaces stays one word; a pattern that matches nothing expands to itself and fails the existence test. As in any POSIX shell, `*` does not match a name's leading `.`. | `Expand-Glob` splits the glob on `/`; a wildcard segment lists the directory and matches each name with `Convert-GlobToRegex` (`*` is `[^/]*`, so it matches a leading `.`) and `-match`, which ignores case; a literal segment is tested for existence and respelled as on disk by `Get-OnDiskName`. |
 | `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` rebuilds when the base changes, with globbing off, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive |
 | `SECRET_GLOBS` | the path relative to the base; `*` crosses `/` | one `case` pattern, every glob joined with `\|`, built once by `compile_secret_pattern` and turned into `is_secret` by `define_secret_test`; `is_secret` is called in `plan_chunk` (and in `test_inventory_secret`), case-sensitive | `$script:SecretRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedFile` and `Test-InventorySecret`; case-insensitive |
 | `DOCKER_VOLUMES` | the volume directory's name | a `case` pattern in `get_docker_volume_rule`, with globbing off | `Convert-GlobToRegex` and `-cmatch`, case-sensitive, in `Get-DockerVolumeRule` |
@@ -569,7 +569,7 @@ PowerShell functions that do their job.
 | Classify a path: file, symlink or special file (`socket`, `fifo`, `device`, `other`) | the `type_N` tests in `plan_chunk` | `Get-ManifestType` |
 | Record an excluded path | `EXCLUDED_PATHS_WORKER` | `Add-ExcludedPath` |
 | Count one file under inventory | `INVENTORY_FILES_WORKER` | `Add-InventoryFile` |
-| Expand one glob under a base | `expand_glob` | `Expand-Glob` |
+| Expand one glob under a base | `expand_glob` (the user home and volume globs; `expand_catalog` expands the catalog globs itself) | `Expand-Glob` |
 | Expand a table against a base: matches, case variants, claims | `expand_catalog` | `Expand-Catalog` |
 | Collect every match of a table under a base | `collect_catalog` | `Add-CatalogMatches` |
 | Collect one matched path | `collect_path` | `Add-CollectedPath` |
