@@ -2778,6 +2778,7 @@ Check '#454 a fish universal variable is a hint' { HasHint $defaultRunSummary 'U
 Check '#454 a mise [env] table gives a hint on its second line and none for its header' { (HasHint $defaultRunSummary 'Users/alice/.config/mise/config.toml' 2 'CODEX_HOME' 'codex-cli' 'alice') -and @(HintsFrom $defaultRunSummary 'Users/alice/.config/mise/config.toml' | Where-Object { $_.variable -eq 'ENV' }).Count -eq 0 }
 Check '#454 a launchd plist key is a hint' { HasHint $defaultRunSummary 'Users/alice/Library/LaunchAgents/com.example.agent.plist' 1 'CODEX_HOME' 'codex-cli' 'alice' }
 Check '#454 a name in another case is no hint outside a .ps1 file' { (HintsFrom $defaultRunSummary 'home/bob/.bash_login').Count -eq 0 -and (RowsAt 'home/bob/.bash_login').Count -eq 0 }
+Check '#454 a PowerShell env: drive prefix gives no ENV hint' { (HintsFrom $defaultRunSummary 'Users/alice/Documents/PowerShell/Microsoft.PowerShell_profile.ps1').Count -eq 1 }
 Check '#454 an env shebang line gives no ENV hint' { $shebangHints = @(HintsFrom $defaultRunSummary 'Users/alice/.config/plasma-workspace/env/agents.sh'); $shebangHints.Count -eq 1 -and (HasHint $defaultRunSummary 'Users/alice/.config/plasma-workspace/env/agents.sh' 2 'CODEX_HOME' 'codex-cli' 'alice') }
 
 # ---- -NoSecrets -----------------------------------------------------------
@@ -2980,6 +2981,14 @@ $envScanOutSummaryFile = Get-ChildItem -LiteralPath $aliceHome -Filter '*.collec
 $envScanOutSummary = Get-Content -LiteralPath $envScanOutSummaryFile.FullName -Raw | ConvertFrom-Json
 Check '#454 the sweep leaves out its own output files when the output directory is a home' { $script:ExitCode -eq 0 -and @($envScanOutSummary.relocation.hints | Where-Object { $_.source -match '[/\\](\.stage-[^/\\]*[/\\]|[^/\\]*_agent-artifacts\.)' }).Count -eq 0 -and $envScanOutSummary.relocation.files_searched -eq $envScanSummary.relocation.files_searched }
 Get-ChildItem -LiteralPath $aliceHome -Force | Where-Object { $_.Name -match '_agent-artifacts' } | Remove-Item -Recurse -Force
+# An output directory whose name holds wildcard characters is still left out.
+$globOut = ImagePath 'home/bob/out [1]'
+[void][System.IO.Directory]::CreateDirectory($globOut)
+Run 'envscanglob' @{ EnvScanHome = $true; OutputDir = $globOut }
+$envScanGlobSummaryFile = Get-ChildItem -LiteralPath $globOut -Filter '*.collection.json' | Select-Object -First 1
+$envScanGlobSummary = Get-Content -LiteralPath $envScanGlobSummaryFile.FullName -Raw | ConvertFrom-Json
+Check '#454 the sweep leaves out its own output files under a name with pattern characters' { $script:ExitCode -eq 0 -and @($envScanGlobSummary.relocation.hints | Where-Object { $_.source.StartsWith($globOut) }).Count -eq 0 -and $envScanGlobSummary.relocation.files_searched -eq $envScanSummary.relocation.files_searched }
+Remove-Item -LiteralPath $globOut -Recurse -Force
 Run 'envscanroot' @{ EnvScanHome = $true; Project = (ImagePath 'home') }
 $envScanRootSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 $envScanRootLog = [System.IO.File]::ReadAllText((Get-ChildItem -LiteralPath (Join-Path $Out 'envscanroot') -Filter '*.log' | Select-Object -First 1).FullName)

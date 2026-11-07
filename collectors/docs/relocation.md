@@ -26,7 +26,9 @@ It gives the file, the line number, the variable and the agent. It says:
   cannot be part of a name, in the same case. Shells name variables
   case-sensitively, so `codex_home` in a shell file is another variable and
   gives no hint; in a PowerShell file (a name ending in `.ps1`, in any case)
-  the name matches in any case, as PowerShell variable names do.
+  the name matches in any case, as PowerShell variable names do, except
+  before a colon, where it is a drive or scope qualifier (`$env:PATH` names
+  no `ENV`).
 - The agent's files may therefore be somewhere the catalog does not look,
   so the collection can be missing them silently.
 

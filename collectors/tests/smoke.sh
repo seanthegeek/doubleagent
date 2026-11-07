@@ -2572,6 +2572,7 @@ check "#454 a fish universal variable is a hint" "hint_line \"$ALICE/.config/fis
 check "#454 a mise [env] table gives a hint on its second line and none for its header" "hint_line \"$ALICE/.config/mise/config.toml\" 2 CODEX_HOME codex-cli | grep -q . && ! grep -qF '\"source\": \"$ALICE/.config/mise/config.toml\", \"line\": 1,' \"\$SUMMARY\""
 check "#454 a launchd plist key is a hint" "hint_line \"$ALICE/Library/LaunchAgents/com.example.agents.plist\" 1 CODEX_HOME codex-cli | grep -q ."
 check "#454 a name in another case is no hint outside a .ps1 file" "[ \"\$(hint_count \"$BOB/.bash_login\")\" = 0 ] && [ -z \"\$(row \"$BOB/.bash_login\")\" ]"
+check "#454 a PowerShell env: drive prefix gives no ENV hint" "[ \"\$(hint_count \"$ALICE/Documents/PowerShell/Microsoft.PowerShell_profile.ps1\")\" = 1 ]"
 check "#454 an env shebang line gives no ENV hint" "[ \"\$(hint_count \"$ALICE/.config/plasma-workspace/env/agents.sh\")\" = 1 ] && hint_line \"$ALICE/.config/plasma-workspace/env/agents.sh\" 2 CODEX_HOME codex-cli | grep -q ."
 check "#454 a binary plist is hinted when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { hint_line \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'; }"
 # ---- --no-secrets ---------------------------------------------------------
@@ -2736,6 +2737,10 @@ rm -f "$ALICE/.bashrc.d/once" "$ALICE/scripts/once.sh"
 COLLECTOR_SH="$SHELL_UNDER_TEST" "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$ALICE" -q --max-file-size 1 --env-scan-home >"$OUT/envscanout.stdout" 2>"$OUT/envscanout.stderr"
 check "#454 the sweep leaves out its own output files when the output directory is a home" "[ $? -eq 0 ] && ! grep -q -e \"\\\"source\\\": \\\"$ALICE/.stage-\" -e \"\\\"source\\\": \\\"$ALICE/[^/]*_agent-artifacts\" \"$ALICE\"/*.collection.json && [ \"\$(searched_in \"$ALICE\"/*.collection.json)\" = $ENVSCAN_SEARCHED ]"
 rm -rf "$ALICE"/.stage-* "$ALICE"/*_agent-artifacts.*
+# An output directory whose name holds find pattern characters is still left out.
+COLLECTOR_SH="$SHELL_UNDER_TEST" "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$BOB/out [1]" -q --max-file-size 1 --env-scan-home >"$OUT/envscanglob.stdout" 2>"$OUT/envscanglob.stderr"
+check "#454 the sweep leaves out its own output files under a name with pattern characters" "[ $? -eq 0 ] && ! grep -F -q \"\\\"source\\\": \\\"$BOB/out [1]/\" \"$BOB/out [1]\"/*.collection.json && [ \"\$(searched_in \"$BOB/out [1]\"/*.collection.json)\" = $ENVSCAN_SEARCHED ]"
+rm -rf "$BOB/out [1]"
 run envscanroot --env-scan-home -p "$ROOT/home"
 check "#454 the sweep skips a project that holds a home directory" "grep -q \"sweep skipped: project $ROOT/home holds a home directory\" \"\$(ls \"$OUT/envscanroot\"/*.log)\" && [ \"\$(searched_in \"\$SUMMARY\")\" = $ENVSCAN_SEARCHED ]"
 mkdir -p "$OUT/envscanbad"

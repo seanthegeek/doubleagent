@@ -2289,7 +2289,7 @@ copilot-cli|COPILOT_PKG_CACHE_HOME|.cache/copilot
 copilot-cli|COPILOT_PROVIDERS_CONFIG|.copilot/providers.json
 copilot-desktop|COPILOT_HOME|.copilot
 copilot-desktop|COPILOT_HOME_OVERRIDE|.copilot
-crewai|CREWAI_STORAGE_DIR|.local/share/<project>
+crewai|CREWAI_STORAGE_DIR|
 crush|CRUSH_CACHE_DIR|.cache/crush
 crush|CRUSH_GLOBAL_CONFIG|.config/crush
 crush|CRUSH_GLOBAL_DATA|.local/share/crush
@@ -4220,9 +4220,10 @@ function Get-StartupFiles([string]$base, [string]$scope) {
   return @($files)
 }
 
-# Takes one line of a file and whether case is ignored; returns the
-# RELOCATION_VARS names it holds where the character before and after (when
-# any) cannot continue a name, each once, in table order.
+# Takes one line of a file and whether case is ignored (a .ps1 file); returns
+# the RELOCATION_VARS names it holds where the character before and after (when
+# any) cannot continue a name, each once, in table order. In a .ps1 file a name
+# before a colon is a drive or scope qualifier ($env:), no variable.
 function Get-BoundedNames([string]$line, [bool]$ignoreCase) {
   $comparison = [System.StringComparison]::Ordinal
   if ($ignoreCase) { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
@@ -4232,7 +4233,8 @@ function Get-BoundedNames([string]$line, [bool]$ignoreCase) {
       $end = $start + $name.Length
       $openBefore = ($start -eq 0) -or -not $script:NameCharRx.IsMatch([string]$line[$start - 1])
       $openAfter = ($end -ge $line.Length) -or -not $script:NameCharRx.IsMatch([string]$line[$end])
-      if ($openBefore -and $openAfter) { $name; break }
+      $qualifier = $ignoreCase -and $end -lt $line.Length -and $line[$end] -eq ':'
+      if ($openBefore -and $openAfter -and -not $qualifier) { $name; break }
       $start = $line.IndexOf($name, $start + 1, $comparison)
     }
   }

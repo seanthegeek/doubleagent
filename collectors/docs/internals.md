@@ -439,7 +439,10 @@ the name is not a letter, digit or underscore. Shells name variables
 case-sensitively, so both passes match a name in its own case, and
 `#!/usr/bin/env bash` is no hit on `ENV`; in a file whose name ends in `.ps1`
 (in any case) both passes match the name in any case, as PowerShell variable
-names do, so the list is searched in two parts. The PowerShell side runs
+names do, so the list is searched in two parts, and a name before a colon
+there is a drive or scope qualifier (`$env:`), not a variable. The paths
+`grep -l` lists count only under the base searched, since a file name
+holding a newline would otherwise name any file. The PowerShell side runs
 `Select-String -CaseSensitive` over the other files, `Select-String` without
 it over the `.ps1` files, and applies the same boundary test to the matched
 line. The sh `grep` gets `GREP_TEXT`
@@ -458,7 +461,8 @@ pass lists every regular file of the base outside the catalog matches,
 `ACTIVE_EXCLUDES`, the run's own staging directory and output files (the
 output directory itself may be the home), the startup files the first pass
 searched and the other projects (each swept on its own), as `collect_tree`
-prunes, and searches
+prunes, each path escaped for `find -path` (`find_pattern_lines`), and
+searches
 those up to `--env-scan-max-size` the same way (the sh `find` runs one
 `grep` branch for the `.ps1` files and one for the rest), so `files_searched`
 counts each file of a base once. A project that is or holds a home
@@ -582,6 +586,7 @@ PowerShell functions that do their job.
 | Sweep every file of one base (`--env-scan-home`) | `scan_home_for_variables` | `Find-RelocationHintsInHome` |
 | Record one hit: log line and hint record | `record_hint` | `Add-RelocationHint` |
 | Collect one hit file as `shared`, flagged secret | `collect_hint_file` | `Add-HintFile` |
+| Tell a project that is or holds a home, which is not swept | `holds_home` | `Test-HoldsHome` |
 | List the startup files of one scope under one base | `list_startup_files` | `Get-StartupFiles` |
 | Search files for any relocation variable name | `HINT_SEARCH_WORKER` | `Select-RelocationNames` |
 | Record the hits of the searched files and collect each hit file | `record_search_output`, `record_file_hints` | `Search-RelocationFiles` |
@@ -624,6 +629,7 @@ PowerShell functions that do their job.
 | `report_missing_projects` | Project discovery | Log line and `error_read` row for a `-p` that is not a directory; PowerShell does this in `Add-Projects` |
 | `set_relocation_names` | Relocation hints | The `RELOCATION_VARS` names as `grep` options and an `awk` list; PowerShell builds `$script:RelocationNames` when the script loads |
 | `search_base_list` | Relocation hints | Runs the fixed list or the sweep over each home or project; PowerShell loops in `Find-RelocationHints` |
+| `search_file_list`, `find_pattern_lines` | Relocation hints | One `grep` over a file list in one case mode; the escaping of a path for `find -path`. PowerShell splits the list in `Search-RelocationFiles` and compares paths exactly |
 | `aggregate_inventory` | Inventory output | Sums `M\|` and `F\|` lines per agent; PowerShell accumulates with `Get-InventoryEntry`, `Add-InventoryEvidence`, `Add-InventoryFile` |
 | `count_inventory_homes` | Inventory output | Homes scanned and unreadable; PowerShell does this in `Write-Inventory` |
 | `count_status`, `list_active_users`, `sum_collected_bytes` | Summary and archive | Counts read back from the manifest; PowerShell counts in `Write-ManifestRow` |

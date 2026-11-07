@@ -2241,7 +2241,7 @@ copilot-cli|COPILOT_PKG_CACHE_HOME|.cache/copilot
 copilot-cli|COPILOT_PROVIDERS_CONFIG|.copilot/providers.json
 copilot-desktop|COPILOT_HOME|.copilot
 copilot-desktop|COPILOT_HOME_OVERRIDE|.copilot
-crewai|CREWAI_STORAGE_DIR|.local/share/<project>
+crewai|CREWAI_STORAGE_DIR|
 crush|CRUSH_CACHE_DIR|.cache/crush
 crush|CRUSH_GLOBAL_CONFIG|.config/crush
 crush|CRUSH_GLOBAL_DATA|.local/share/crush
@@ -3782,12 +3782,13 @@ list_startup_files() {
   set +f; IFS=$_lsf_saved_ifs
 }
 
-# search_file_list USER HOME CASE_OPTION FILES: searches FILES (one per line)
-# with one grep, -i as CASE_OPTION for .ps1 files and empty for the rest, and
-# records each hit. Reads GREP_NAME_OPTIONS, WORKER_SH. Temporaries: _sfl_.
+# search_file_list USER HOME BASE CASE_OPTION FILES: searches FILES (one per
+# line, under BASE) with one grep, -i as CASE_OPTION for .ps1 files and empty
+# for the rest, and records each hit. Reads GREP_NAME_OPTIONS, WORKER_SH.
+# Temporaries: _sfl_.
 search_file_list() {
-  [ -n "$4" ] || return 0
-  _sfl_user=$1; _sfl_home=$2; _sfl_case=$3; _sfl_files=$4
+  [ -n "$5" ] || return 0
+  _sfl_user=$1; _sfl_home=$2; _sfl_base=$3; _sfl_case=$4; _sfl_files=$5
   _sfl_saved_ifs=$IFS; IFS='
 '
   set -f
@@ -3798,7 +3799,7 @@ search_file_list() {
   set -- "$@" $_sfl_files
   set +f; IFS=$_sfl_saved_ifs
   _sfl_output=$("$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$_sfl_option_count" "$@" </dev/null)
-  record_search_output "$_sfl_user" "$_sfl_home" "$_sfl_output"
+  record_search_output "$_sfl_user" "$_sfl_home" "$_sfl_base" "$_sfl_output"
 }
 
 # search_startup_files USER HOME SCOPE: searches the SCOPE startup files under
@@ -3810,8 +3811,10 @@ search_startup_files() {
   [ "$3" != system ] || _ssf_base=$ROOT
   _ssf_files=$(list_startup_files "$_ssf_base" "$3")
   [ -n "$_ssf_files" ] || return 0
-  search_file_list "$1" "$2" "" "$(printf '%s\n' "$_ssf_files" | grep -v -e '\.[Pp][Ss]1$')"
-  search_file_list "$1" "$2" -i "$(printf '%s\n' "$_ssf_files" | grep -e '\.[Pp][Ss]1$')"
+  search_file_list "$1" "$2" "$_ssf_base" "" \
+    "$(printf '%s\n' "$_ssf_files" | grep -v -e '\.[Pp][Ss]1$')"
+  search_file_list "$1" "$2" "$_ssf_base" -i \
+    "$(printf '%s\n' "$_ssf_files" | grep -e '\.[Pp][Ss]1$')"
 }
 
 # scan_home_for_variables USER HOME TABLE SCOPE: searches every regular file
@@ -3821,21 +3824,23 @@ search_startup_files() {
 # output directory, which may be the home), and counts the files over
 # ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them; one grep branch
 # takes the .ps1 files in any case, one the rest in their own case. Reads
-# STAGE, OUTDIR, NAME, PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT,
-# WORKER_SH, LOG. Temporaries: _shv_.
+# OUTDIR, NAME, PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT, WORKER_SH,
+# LOG. Temporaries: _shv_.
 scan_home_for_variables() {
   _shv_user=$1; _shv_home=$2
   _shv_claims=$(expand_catalog "$2" "$3" | grep -v '^#|' | cut -d'|' -f3-)
-  _shv_claims="$_shv_claims
-$(list_startup_files "$2" "$4")
-$(printf '%s\n' "$PROJECT_LIST" | sed 's/^[^:]*://' | grep -v -x -F -e "$2")"
-  set -- "$2" '(' -path "$STAGE" -o -path "$OUTDIR/$NAME.*"
+  _shv_claims=$(printf '%s\n' "$_shv_claims" "$(list_startup_files "$2" "$4")" \
+    "$(printf '%s\n' "$PROJECT_LIST" | sed 's/^[^:]*://' | grep -v -x -F -e "$2")" |
+    find_pattern_lines)
+  _shv_outdir=$(printf '%s\n' "$OUTDIR" | find_pattern_lines)
+  _shv_home_pattern=$(printf '%s\n' "$2" | find_pattern_lines)
+  set -- "$2" '(' -path "$_shv_outdir/.stage-$NAME" -o -path "$_shv_outdir/$NAME.*"
   _shv_saved_ifs=$IFS; IFS='
 '
   set -f
   for _shv_claim in $_shv_claims; do set -- "$@" -o -path "$_shv_claim"; done
   for _shv_exclude in $ACTIVE_EXCLUDES; do
-    if [ -n "$_shv_exclude" ]; then set -- "$@" -o -path "$_shv_home/$_shv_exclude"; fi
+    [ -z "$_shv_exclude" ] || set -- "$@" -o -path "$_shv_home_pattern/$_shv_exclude"
   done
   set -- "$@" ')' -prune -o -type f
   [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" '(' -size "-$(( ENV_SCAN_MAX_SIZE + 1 ))c"
@@ -3847,22 +3852,29 @@ $(printf '%s\n' "$PROJECT_LIST" | sed 's/^[^:]*://' | grep -v -x -F -e "$2")"
   [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" ')' -o -type f -exec printf 'B|%s\n' '{}' +
   set +f; IFS=$_shv_saved_ifs
   _shv_output=$(find "$@" 2>>"$LOG")
-  record_search_output "$_shv_user" "$_shv_home" "$_shv_output"
+  record_search_output "$_shv_user" "$_shv_home" "$_shv_home" "$_shv_output"
 }
 
-# record_search_output USER HOME OUTPUT: adds the S|<count> lines of OUTPUT to
-# RELOCATION_FILES_SEARCHED and each B| line to RELOCATION_FILES_SKIPPED_SIZE,
-# and records the hits of every file it lists. Temporaries: _rso_.
+# find_pattern_lines: stdin paths -> the same with [, ], *, ? and \ escaped, so
+# find -path takes each as the literal path, not a pattern.
+find_pattern_lines() { sed 's/[][*?\\]/\\&/g'; }
+
+# record_search_output USER HOME BASE OUTPUT: adds the S|<count> lines of
+# OUTPUT to RELOCATION_FILES_SEARCHED and each B| line to
+# RELOCATION_FILES_SKIPPED_SIZE, and records the hits of every file it lists
+# under BASE (/ when BASE is empty); a file name holding a newline would
+# otherwise name any file. Temporaries: _rso_.
 record_search_output() {
+  _rso_prefix=${3%/}/
   while IFS= read -r _rso_line; do
     case "$_rso_line" in
       ('S|'*) _rso_count=$(to_number "${_rso_line#S|}")
         RELOCATION_FILES_SEARCHED=$(( RELOCATION_FILES_SEARCHED + _rso_count )) ;;
       ('B|'*) RELOCATION_FILES_SKIPPED_SIZE=$(( RELOCATION_FILES_SKIPPED_SIZE + 1 )) ;;
-      (/*) record_file_hints "$1" "$2" "$_rso_line" ;;
+      ("$_rso_prefix"*) record_file_hints "$1" "$2" "$_rso_line" ;;
     esac
   done <<EOF_SEARCH_OUTPUT
-$3
+$4
 EOF_SEARCH_OUTPUT
 }
 
@@ -3870,7 +3882,8 @@ EOF_SEARCH_OUTPUT
 # RELOCATION_VARS name it holds as a whole word: the characters around it, when
 # any, are not letters, digits or _. A name matches in its own case only, since
 # shells name variables case-sensitively, except in a .ps1 file, where PowerShell
-# does not. A NUL byte becomes a space before awk, which ends a line at one. The
+# does not and a name before a colon is a drive or scope qualifier ($env:), no
+# variable. A NUL byte becomes a space before awk, which ends a line at one. The
 # line's text goes through a pipe only, never to output. Reads GREP_TEXT,
 # GREP_NAME_OPTIONS, RELOCATION_NAMES_CSV, LOG. Temporaries: _lbn_.
 list_bounded_names() {
@@ -3884,14 +3897,15 @@ list_bounded_names() {
     -- "$_lbn_file"
   set +f; IFS=$_lbn_saved_ifs
   grep "$@" 2>>"$LOG" | tr '\000' ' ' | awk -v names="$RELOCATION_NAMES_CSV" -v fold="$_lbn_fold" '
-    function bounded(text, needle,   start, offset, at, before, after) {
+    function bounded(text, needle, powershell,   start, offset, at, before, after) {
       start = 1
       while ((offset = index(substr(text, start), needle)) > 0) {
         at = start + offset - 1
         before = at > 1 ? substr(text, at - 1, 1) : ""
         after = substr(text, at + length(needle), 1)
-        if (before !~ /[A-Za-z0-9_]/ && after !~ /[A-Za-z0-9_]/) return 1
         start = at + 1
+        if (powershell && after == ":") continue
+        if (before !~ /[A-Za-z0-9_]/ && after !~ /[A-Za-z0-9_]/) return 1
       }
       return 0
     }
@@ -3900,7 +3914,7 @@ list_bounded_names() {
     { separator = index($0, ":"); number = substr($0, 1, separator - 1)
       if (separator < 2 || number ~ /[^0-9]/) next
       text = substr($0, separator + 1); if (fold) text = tolower(text)
-      for (i = 1; i <= count; i++) if (bounded(text, word[i])) print number "|" name[i] }'
+      for (i = 1; i <= count; i++) if (bounded(text, word[i], fold)) print number "|" name[i] }'
 }
 
 # record_file_hints USER HOME FILE: records every bounded name in FILE and,
