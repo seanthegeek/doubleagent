@@ -2321,7 +2321,6 @@ hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
 kilo-code|KILO_CONFIG|
 kilo-code|KILO_CONFIG_DIR|
 kilo-code|KILO_DB|.local/share/kilo/kilo.db
-kiro|KIRO_ACP_RECORD_PATH|
 kiro|KIRO_HOME|.kiro
 langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
 langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox
@@ -4371,6 +4370,22 @@ function Test-HoldsHome([string]$base) {
   return $false
 }
 
+# Takes a home; returns whether it lies, less the system root, under one of the
+# home roots the image mode lists (home, Users, root, var/root, usr/home,
+# export/home): a service profile or daemon home is walked by the catalog but
+# not swept.
+function Test-UserHomeRoot([string]$homeDir) {
+  $systemRoot = (Get-SystemRoot).TrimEnd('\', '/')
+  $relative = $homeDir
+  if ($systemRoot -ne '' -and $homeDir.StartsWith($systemRoot,
+      [System.StringComparison]::OrdinalIgnoreCase)) {
+    $relative = $homeDir.Substring($systemRoot.Length)
+  }
+  $relative = $relative.Replace('\', '/')
+  return ($relative -match '^/(home|Users|usr/home|export/home)/.+' -or
+    $relative -match '^/(root|var/root)$')
+}
+
 # Takes the user, a home or project directory, its catalog table and its
 # startup scope; searches every file under it that no catalog match of the
 # table claims, the fixed list of the scope did not search and no other
@@ -4395,8 +4410,8 @@ function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$ta
 
 # Main step: searches the startup files of every home, of the system and of
 # every project, then, with -EnvScanHome, every other file of each home and
-# project, a project that holds a home left out. Each base's header is logged
-# before its first hint.
+# project, a project that holds a home and a home outside the home roots left
+# out. Each base's header is logged before its first hint.
 function Find-RelocationHints {
   foreach ($userHome in $script:UserList) {
     $script:HintHeader = "Relocation hints for $($userHome.user) ($($userHome.home))"
@@ -4410,6 +4425,10 @@ function Find-RelocationHints {
   }
   if ($EnvScanHome) {
     foreach ($userHome in $script:UserList) {
+      if (-not (Test-UserHomeRoot $userHome.home)) {
+        Write-CollectorLog "sweep skipped: home $($userHome.home) lies outside the user home roots"
+        continue
+      }
       $script:HintHeader = "Relocation hints for $($userHome.user) ($($userHome.home))"
       Find-RelocationHintsInHome $userHome.user $userHome.home $CATALOG 'home'
     }
@@ -4849,19 +4868,19 @@ function Clear-LinkArchivePaths([string]$reason) {
 
 # Takes a byte count; returns it human-readable: 512 -> "512 B",
 # 21868755 -> "20.9 MiB".
-# Takes a count and a noun; returns "count noun", the noun plural with s
-# unless the count is 1.
-function Format-Count([int64]$count, [string]$noun) {
-  if ($count -eq 1) { return "$count $noun" }
-  return "$count ${noun}s"
-}
-
 function Format-HumanSize([int64]$bytes) {
   $units = @('B', 'KiB', 'MiB', 'GiB', 'TiB')
   $value = [double]$bytes; $i = 0
   while ($value -ge 1024 -and $i -lt 4) { $value /= 1024; $i++ }
   if ($i -eq 0) { return "$bytes B" }
   return $value.ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + ' ' + $units[$i]
+}
+
+# Takes a count and a noun; returns "count noun", the noun plural with s
+# unless the count is 1.
+function Format-Count([int64]$count, [string]$noun) {
+  if ($count -eq 1) { return "$count $noun" }
+  return "$count ${noun}s"
 }
 
 # Notes the symlinks that are in the manifest only.

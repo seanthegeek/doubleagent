@@ -204,9 +204,16 @@ records a hint for each file that names a variable, so `files_searched`
 counts each file once. The files the catalog matched are in the archive
 already and are not searched; a project that is or holds a home directory
 (`/`, a user's cwd of `/home`) is not swept, since that would read the
-whole system, and the log says so; the run's own log, manifest and
-staging directory, which name every variable found, are never read, even
-when the output directory is the home. Symlinks are never followed.
+whole system, nor is a home outside the usual home roots (`/home`,
+`/Users`, `/root`, `/var/root`, `/usr/home`, `/export/home`: a daemon
+account's home such as `/var/db/diagnostics`), and the log says so for
+each; the run's own log, manifest and staging directory, which name every
+variable found, are never read, even when the output directory is the
+home. Symlinks are never followed, and a file whose name holds a line
+break is not searched. The startup file search covers every home, these
+included. The sh collector searches bytes, so a UTF-16 file (a Windows
+PowerShell profile saved by the ISE) on a mounted Windows image gives it
+no hint; the PowerShell collector reads such a file as text.
 
 The sweep reads many files, so it adds time on a large home. A file bigger
 than `--env-scan-max-size MB` (PowerShell `-EnvScanMaxSizeMB`; whole MiB,

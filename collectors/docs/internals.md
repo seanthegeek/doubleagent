@@ -440,9 +440,11 @@ case-sensitively, so both passes match a name in its own case, and
 `#!/usr/bin/env bash` is no hit on `ENV`; in a file whose name ends in `.ps1`
 (in any case) both passes match the name in any case, as PowerShell variable
 names do, so the list is searched in two parts, and a name before a colon
-there is a drive or scope qualifier (`$env:`), not a variable. The paths
-`grep -l` lists count only under the base searched, since a file name
-holding a newline would otherwise name any file. The PowerShell side runs
+there is a drive or scope qualifier (`$env:`), not a variable. A file
+whose name holds a newline is never searched (`find ! -name`, and
+`list_startup_files` drops it), since `grep -l` prints one path per line
+and such a name would forge a line, and the paths listed count only under
+the base searched. The PowerShell side runs
 `Select-String -CaseSensitive` over the other files, `Select-String` without
 it over the `.ps1` files, and applies the same boundary test to the matched
 line. The sh `grep` gets `GREP_TEXT`
@@ -468,8 +470,10 @@ those up to `--env-scan-max-size` the same way (the sh `find` runs one
 counts each file of a base once. A project that is or holds a home
 (`holds_home`, `Test-HoldsHome`: a project at `/` or `/home`) is logged as
 skipped and not swept, since the walk would read the whole system, pseudo
-file systems included. The third field of `RELOCATION_VARS` is carried and
-not read by this step.
+file systems included; so is a home outside the home roots the image mode
+lists (`under_home_root`, `Test-UserHomeRoot`), a daemon account's home
+the catalog walks but the sweep would read whole. The third field of
+`RELOCATION_VARS` is carried and not read by this step.
 
 ## Inventory mode
 
@@ -587,6 +591,7 @@ PowerShell functions that do their job.
 | Record one hit: log line and hint record | `record_hint` | `Add-RelocationHint` |
 | Collect one hit file as `shared`, flagged secret | `collect_hint_file` | `Add-HintFile` |
 | Tell a project that is or holds a home, which is not swept | `holds_home` | `Test-HoldsHome` |
+| Tell a home under the usual home roots, the only homes swept | `under_home_root` | `Test-UserHomeRoot` |
 | List the startup files of one scope under one base | `list_startup_files` | `Get-StartupFiles` |
 | Search files for any relocation variable name | `HINT_SEARCH_WORKER` | `Select-RelocationNames` |
 | Record the hits of the searched files and collect each hit file | `record_search_output`, `record_file_hints` | `Search-RelocationFiles` |

@@ -2273,7 +2273,6 @@ hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
 kilo-code|KILO_CONFIG|
 kilo-code|KILO_CONFIG_DIR|
 kilo-code|KILO_DB|.local/share/kilo/kilo.db
-kiro|KIRO_ACP_RECORD_PATH|
 kiro|KIRO_HOME|.kiro
 langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
 langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox
@@ -3000,7 +2999,7 @@ $_ret_heredoc_text"
 # and GREP_TEXT lists, so find starts one grep per batch. Arguments:
 # option_count grep_options... files...
 heredoc_var <<'EOF_HINT_SEARCH_WORKER'
-option_count=$1; shift
+option_count=$1; shift # then grep_options... files...
 printf 'S|%s\n' "$(( $# - option_count ))"
 grep ${GREP_TEXT:+"$GREP_TEXT"} "$@" 2>>"$LOG"
 EOF_HINT_SEARCH_WORKER
@@ -3764,7 +3763,8 @@ set_relocation_names() {
 
 # list_startup_files BASE SCOPE -> the regular files, never a symlink, that the
 # STARTUP_FILES globs of SCOPE match under BASE, one per line; a system glob's
-# leading / is dropped, so it is taken under the root. Reads STARTUP_FILES.
+# leading / is dropped, so it is taken under the root, and a name holding a
+# newline is left out, as it would split the list. Reads STARTUP_FILES.
 # Temporaries: _lsf_.
 list_startup_files() {
   _lsf_saved_ifs=$IFS; IFS='
@@ -3775,6 +3775,8 @@ list_startup_files() {
     _lsf_glob=${_lsf_line#*|}; _lsf_glob=${_lsf_glob#/}
     set +f
     for _lsf_path in $1/$_lsf_glob; do
+      # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
+      case "$_lsf_path" in (*"$NEWLINE"*) continue ;; esac
       if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ]; then printf '%s\n' "$_lsf_path"; fi
     done
     set -f
@@ -3821,7 +3823,8 @@ search_startup_files() {
 # under HOME with one find(1) that prunes the TABLE matches, the SCOPE startup
 # files the fixed list searched, the other projects (each swept on its own),
 # ACTIVE_EXCLUDES and this run's staging directory and output files (not the
-# output directory, which may be the home), and counts the files over
+# output directory, which may be the home), leaves out a file whose name holds
+# a newline (it would split the output), and counts the files over
 # ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them; one grep branch
 # takes the .ps1 files in any case, one the rest in their own case. Reads
 # OUTDIR, NAME, PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT, WORKER_SH,
@@ -3842,14 +3845,14 @@ scan_home_for_variables() {
   for _shv_exclude in $ACTIVE_EXCLUDES; do
     [ -z "$_shv_exclude" ] || set -- "$@" -o -path "$_shv_home_pattern/$_shv_exclude"
   done
-  set -- "$@" ')' -prune -o -type f
+  set -- "$@" ')' -prune -o -type f ! -name "*$NEWLINE*"
   [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" '(' -size "-$(( ENV_SCAN_MAX_SIZE + 1 ))c"
   # shellcheck disable=SC2086 # one grep option per line
   set -- "$@" '(' -name '*.[Pp][Ss]1' -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh \
     "$(( GREP_NAME_COUNT + 4 ))" -i -l -F $GREP_NAME_OPTIONS -- '{}' + -o \
     -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$(( GREP_NAME_COUNT + 3 ))" \
     -l -F $GREP_NAME_OPTIONS -- '{}' + ')'
-  [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" ')' -o -type f -exec printf 'B|%s\n' '{}' +
+  [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" -o -exec printf 'B|%s\n' '{}' + ')'
   set +f; IFS=$_shv_saved_ifs
   _shv_output=$(find "$@" 2>>"$LOG")
   record_search_output "$_shv_user" "$_shv_home" "$_shv_home" "$_shv_output"
@@ -3862,8 +3865,7 @@ find_pattern_lines() { sed 's/[][*?\\]/\\&/g'; }
 # record_search_output USER HOME BASE OUTPUT: adds the S|<count> lines of
 # OUTPUT to RELOCATION_FILES_SEARCHED and each B| line to
 # RELOCATION_FILES_SKIPPED_SIZE, and records the hits of every file it lists
-# under BASE (/ when BASE is empty); a file name holding a newline would
-# otherwise name any file. Temporaries: _rso_.
+# under BASE (/ when BASE is empty). Temporaries: _rso_.
 record_search_output() {
   _rso_prefix=${3%/}/
   while IFS= read -r _rso_line; do
@@ -3979,11 +3981,24 @@ $_hh_prefix"*) return 0 ;; esac
   return 1
 }
 
+# under_home_root HOME -> 0 when HOME, less ROOT, lies under one of the home
+# roots the image mode lists (/home, /Users, /root, /var/root, /usr/home,
+# /export/home): a daemon account's home (/var/db/..., /var/lib/postgresql) is
+# walked by the catalog but not swept. Reads ROOT. Temporaries: _uhr_.
+under_home_root() {
+  _uhr_rel=$1
+  [ -z "$ROOT" ] || _uhr_rel=${1#"$ROOT"}
+  case "$_uhr_rel" in
+    (/home/*|/Users/*|/root|/var/root|/usr/home/*|/export/home/*) return 0 ;;
+  esac
+  return 1
+}
+
 # search_base_list LIST SCOPE TABLE PASS: for each user:base line of LIST (a home
 # when SCOPE is home, else a project), sets HINT_HEADER and searches the base's
 # SCOPE startup files when PASS is startup, else every file outside its TABLE
-# matches; a project that holds a home is logged and not swept. Temporaries:
-# _sbl_.
+# matches; a project that holds a home and a home outside the home roots are
+# logged and not swept. Temporaries: _sbl_.
 search_base_list() {
   while IFS=: read -r _sbl_user _sbl_base; do
     [ -n "$_sbl_base" ] || continue
@@ -3992,6 +4007,8 @@ search_base_list() {
     if [ "$4" = startup ]; then search_startup_files "$_sbl_user" "$_sbl_base" "$2"
     elif [ "$2" = project ] && holds_home "$_sbl_base"; then
       log_line "sweep skipped: project $_sbl_base holds a home directory"
+    elif [ "$2" = home ] && ! under_home_root "$_sbl_base"; then
+      log_line "sweep skipped: home $_sbl_base lies outside the user home roots"
     else scan_home_for_variables "$_sbl_user" "$_sbl_base" "$3" "$2"; fi
   done <<EOF_BASE_LIST
 $1

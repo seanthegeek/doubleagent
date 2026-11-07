@@ -924,11 +924,12 @@ before any install.
    - A compiled CLI or a bundle keeps its source strings at offsets that
      differ per platform build: cite `<tool> <version> <platform> @<byte
      offset>` with the literal snippet (`<file> @<byte offset>` for a file
-     inside a bundle), 0-based as `grep -b` prints it, as
+     inside a bundle), the offset the 0-based one `grep -ob` prints for the
+     cited string, the snippet the text around it, as
      [`research/claude-code.md`](research/claude-code.md) does for
-     `claude 2.1.295 linux-arm64`. The artifact's version, platform, size,
-     sha256 and origin are recorded once, in Source and evidence, never in a
-     citation. Where a table or section cites one build throughout, one
+     `claude 2.1.295 linux-arm64`. The artifact's size, sha256 and origin
+     are recorded once, in Source and evidence, never in a citation. Where a
+     table or section cites one build throughout, one
      sentence above it names the build and its files, and each citation
      gives only the file and offset with the snippet. A function or
      identifier name alone (`app.js function dot(e)`) is not a citation.

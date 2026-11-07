@@ -2142,7 +2142,6 @@ hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
 kilo-code|KILO_CONFIG|
 kilo-code|KILO_CONFIG_DIR|
 kilo-code|KILO_DB|.local/share/kilo/kilo.db
-kiro|KIRO_ACP_RECORD_PATH|
 kiro|KIRO_HOME|.kiro
 langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
 langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox

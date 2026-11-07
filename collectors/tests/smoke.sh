@@ -1931,6 +1931,14 @@ mkdir -p "$ALICE/scripts/agent-env/deep" "$ALICE/dumps" "$ALICE/AppData/Local/ag
 printf '#!/usr/bin/env bash\nexport CODEX_HOME=/opt/x\n' >"$ALICE/scripts/agent-env/deep/helper.sh"
 # shellcheck disable=SC2016 # the fixture holds a PowerShell variable literally
 printf '$env:codex_home = "/opt/x"\n' >"$ALICE/scripts/agent-env/deep/helper.ps1"
+# A file whose name holds a newline, the second line naming a file reached
+# through a symlinked directory, is never searched; nor is the service home.
+mkdir -p "$ROOT/opt/outside" "$ALICE/scripts/steer"
+printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/opt/outside/target"
+ln -s "$ROOT/opt/outside" "$ALICE/scripts/steer/lnk"
+printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/scripts/steer/d
+$ALICE/scripts/steer/lnk/target"
+printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/usr/share/ollama/.env-helper.sh"
 { head -c 1100000 /dev/zero; printf '\nexport CODEX_HOME=/opt/x\n'; } >"$ALICE/dumps/oversized-env.txt"
 printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/AppData/Local/agy/agent-env.sh"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
@@ -2715,6 +2723,8 @@ check "#454 stdout relocation line counts the files skipped for size" "grep -q '
 check "#454 the sweep run records its options" "grep -q '\"env_scan_home\": true, \"env_scan_max_size_bytes\": 1048576}' \"\$SUMMARY\""
 check "#454 the sweep hints and collects a file deep in the home" "hint_line \"$ALICE/scripts/agent-env/deep/helper.sh\" 2 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.sh\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 check "#454 an env shebang line in a swept file gives no ENV hint" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 1 ]"
+check "#454 a file name holding a newline steers no read through a symlink" "[ \"\$(hint_count \"$ALICE/scripts/steer/lnk/target\")\" = 0 ] && [ -z \"\$(row \"$ALICE/scripts/steer/lnk/target\")\" ] && [ -z \"\$(row \"$ROOT/opt/outside/target\")\" ] && [ \"\$(grep -c 'scripts/steer/d' \"\$SUMMARY\")\" = 0 ]"
+check "#454 the sweep skips a home outside the user home roots" "grep -q \"sweep skipped: home $ROOT/usr/share/ollama lies outside the user home roots\" \"\$(ls \"$OUT/envscan\"/*.log)\" && [ \"\$(hint_count \"$ROOT/usr/share/ollama/.env-helper.sh\")\" = 0 ]"
 check "#454 the sweep matches a lowercase name in a .ps1 file" "hint_line \"$ALICE/scripts/agent-env/deep/helper.ps1\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.ps1\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 check "#454 the sweep counts a file over its size limit and leaves it unsearched" "grep -q '\"files_skipped_size\": [1-9][0-9]*}' \"\$SUMMARY\" && [ \"\$(hint_count \"$ALICE/dumps/oversized-env.txt\")\" = 0 ] && [ -z \"\$(row \"$ALICE/dumps/oversized-env.txt\")\" ]"
 check "#454 the sweep leaves out an excluded directory" "[ \"\$(hint_count \"$ALICE/AppData/Local/agy/agent-env.sh\")\" = 0 ] && [ -z \"\$(row \"$ALICE/AppData/Local/agy/agent-env.sh\")\" ]"
