@@ -2516,12 +2516,16 @@ heredoc_var() {
 }
 
 heredoc_var <<'EOF_COMMON_HELPERS'
-# utc_timestamp -> the current time in UTC, ISO 8601 to the second
-utc_timestamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+# The date(1) format of the log timestamps and of started and finished in
+# collection.json: UTC, ISO 8601 to the second.
+UTC_TIME_FORMAT='+%Y-%m-%dT%H:%M:%SZ'
+# utc_timestamp -> the current time in UTC_TIME_FORMAT
+utc_timestamp() { date -u "$UTC_TIME_FORMAT"; }
 # log_line TEXT...: appends "TIME TEXT" to $LOG, and TEXT to stderr unless
-# QUIET=1. Reads LOG and QUIET.
+# QUIET=1. Reads LOG, QUIET and UTC_TIME_FORMAT. It runs date itself:
+# utc_timestamp inside $(...) would fork a second time.
 log_line() {
-  printf '%s %s\n' "$(utc_timestamp)" "$*" >>"$LOG"
+  printf '%s %s\n' "$(date -u "$UTC_TIME_FORMAT")" "$*" >>"$LOG"
   [ "${QUIET:-0}" = 1 ] || printf '%s\n' "$*" >&2
 }
 # hash_file FILE -> the sha256 of FILE in lower-case hex, or "" when it cannot be
