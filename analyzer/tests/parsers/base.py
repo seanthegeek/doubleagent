@@ -70,11 +70,11 @@ class ParserBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.cat = catalog.load()
         cls._build()
 
     @classmethod
     def _build(cls):
+        cls.cat = catalog.load()
         cls.tmp = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
         cls.home = build_home(cls.tmp / "home" / "alice")
         for builder in cls.extra_builders:

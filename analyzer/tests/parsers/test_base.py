@@ -3,6 +3,7 @@
 import unittest
 from pathlib import Path
 
+from doubleagent import catalog
 from fixtures import CLAUDE_SESSION, CODEX_GLOBAL_STATE_REL, build_codex_desktop
 
 from .base import ParserBase
@@ -54,6 +55,11 @@ class ParserBaseGuardTests(unittest.TestCase):
     def test_new_file_outside_the_home_rebuilds(self):
         (_GuardedHome.tmp / "out.txt").write_text("x", encoding="utf-8")
         self.assertNotEqual(self._next_test(), self.first_tmp)
+
+    def test_catalog_change_rebuilds_with_a_fresh_catalog(self):
+        _GuardedHome.cat.entries.append(_GuardedHome.cat.entries[0])
+        self.assertNotEqual(self._next_test(), self.first_tmp)
+        self.assertEqual(_GuardedHome.cat, catalog.load())
 
     def test_opened_input_change_rebuilds(self):
         _GuardedHome.col.artifacts[0].rel = "changed"
