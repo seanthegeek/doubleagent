@@ -599,6 +599,7 @@ PowerShell functions that do their job.
 | Remove the staging directory | `cleanup` | `Clear-Staging` |
 | Print the stdout summary (main step) | `print_result` | `Write-Result` |
 | Bytes to `20.9 MiB` | `format_human_size` | `Format-HumanSize` |
+| A count with its noun, singular at 1 | `count_noun` | `Format-Count` |
 | Print the tables for `--list` | `print_catalog` | `Write-CatalogList` |
 | Resolve the extra project arguments | `resolve_extra_projects` | `Resolve-ProjectArgs` |
 | Resolve the root and set the mode | `resolve_root` | `Resolve-RootArg` |

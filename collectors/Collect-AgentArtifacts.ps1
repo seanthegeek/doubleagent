@@ -4849,6 +4849,13 @@ function Clear-LinkArchivePaths([string]$reason) {
 
 # Takes a byte count; returns it human-readable: 512 -> "512 B",
 # 21868755 -> "20.9 MiB".
+# Takes a count and a noun; returns "count noun", the noun plural with s
+# unless the count is 1.
+function Format-Count([int64]$count, [string]$noun) {
+  if ($count -eq 1) { return "$count $noun" }
+  return "$count ${noun}s"
+}
+
 function Format-HumanSize([int64]$bytes) {
   $units = @('B', 'KiB', 'MiB', 'GiB', 'TiB')
   $value = [double]$bytes; $i = 0
@@ -5090,7 +5097,9 @@ function Write-Result {
   Write-Output "users:      $($script:ActiveUsers.Count)"
   Write-Output "projects:   $($script:ProjectList.Count)"
   $collectedSize = Format-HumanSize $counts.bytes
-  Write-Output "collected:  $($counts.collected) files, $($counts.bytes) bytes ($collectedSize)"
+  $collectedFiles = Format-Count $counts.collected 'file'
+  $collectedCounts = "$collectedFiles, $(Format-Count $counts.bytes 'byte')"
+  Write-Output "collected:  $collectedCounts ($collectedSize)"
   $skipped = "$($counts.skipped_excluded) excluded, $($counts.skipped_size) too large"
   $skipped += ", $($counts.skipped_secret) secret, $($counts.skipped_special) special"
   Write-Output "skipped:    $skipped"
@@ -5099,14 +5108,16 @@ function Write-Result {
   Write-Output "errors:     $errorCount ($errorKinds)"
   $hintCount = $script:RelocationHints.Count
   $searched = $script:RelocationCounts.searched
-  $relocationLine = "relocation: $hintCount hints in $searched files searched"
+  $hintsSearched = "$(Format-Count $hintCount 'hint') in $(Format-Count $searched 'file')"
+  $relocationLine = "relocation: $hintsSearched searched"
   $skippedSize = $script:RelocationCounts.skippedSize
   if ($skippedSize -gt 0) { $relocationLine += ", $skippedSize skipped for size" }
   if ($hintCount -gt 0) { $relocationLine += '; see collectors/docs/relocation.md' }
   Write-Output $relocationLine
   if ($script:Docker.seen) {
     $docker = $script:Docker
-    $dockerLine = "docker:     $($docker.found) volumes found, $($docker.collected) collected, "
+    $dockerLine = "docker:     $(Format-Count $docker.found 'volume') found, "
+    $dockerLine += "$($docker.collected) collected, "
     $dockerLine += "$($docker.unreadable) unreadable"
     if ($script:Docker.unreadable -gt 0) { $dockerLine += ' (run as root to collect)' }
     if ($script:Docker.desktop) { $dockerLine += '; Docker Desktop VM disk not collected' }

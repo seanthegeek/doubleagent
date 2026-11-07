@@ -4158,6 +4158,11 @@ json_list() {
 # json_bool FLAG -> true when FLAG is 1, else false
 json_bool() { if [ "$1" = 1 ]; then printf true; else printf false; fi; }
 
+# count_noun COUNT NOUN -> "COUNT NOUN", the noun plural with s unless COUNT is 1
+count_noun() {
+  if [ "$1" = 1 ]; then printf '%s %s' "$1" "$2"; else printf '%s %ss' "$1" "$2"; fi
+}
+
 # json_relocation -> the collection.json relocation object, one hint per line.
 # Reads RELOCATION_HINTS, whose user|file|line|VARIABLE|agent records are split
 # from the right, as only the file may hold a |, and the RELOCATION_FILES_*
@@ -4287,8 +4292,8 @@ print_result() {
   printf 'log:        %s\n' "$LOG"
   printf 'users:      %s\n' "$(printf '%s\n' "$ACTIVE_USERS" | grep -c .)"
   printf 'projects:   %s\n' "$(printf '%s\n' "$PROJECT_LIST" | grep -c .)"
-  printf 'collected:  %s files, %s bytes (%s)\n' "$(count_status collected)" "$BYTES" \
-    "$(format_human_size "$BYTES")"
+  printf 'collected:  %s, %s (%s)\n' "$(count_noun "$(count_status collected)" file)" \
+    "$(count_noun "$BYTES" byte)" "$(format_human_size "$BYTES")"
   printf 'skipped:    %s excluded, %s too large, %s secret, %s special\n' \
     "$(count_status skipped_excluded)" "$(count_status skipped_size)" \
     "$(count_status skipped_secret)" "$(count_status skipped_special)"
@@ -4296,14 +4301,15 @@ print_result() {
   printf 'errors:     %s (%s error_copy, %s error_read)\n' \
     "$(( _pr_copy_errors + _pr_read_errors ))" "$_pr_copy_errors" "$_pr_read_errors"
   _pr_hints=$(printf '%s\n' "$RELOCATION_HINTS" | grep -c .)
-  printf 'relocation: %s hints in %s files searched' "$_pr_hints" "$RELOCATION_FILES_SEARCHED"
+  printf 'relocation: %s in %s searched' "$(count_noun "$_pr_hints" hint)" \
+    "$(count_noun "$RELOCATION_FILES_SEARCHED" file)"
   [ "$RELOCATION_FILES_SKIPPED_SIZE" = 0 ] ||
     printf ', %s skipped for size' "$RELOCATION_FILES_SKIPPED_SIZE"
   [ "$_pr_hints" = 0 ] || printf '; see collectors/docs/relocation.md'
   printf '\n'
   if [ "$DOCKER_SEEN" = 1 ]; then
-    printf 'docker:     %s volumes found, %s collected, %s unreadable' \
-      "$DOCKER_FOUND" "$DOCKER_COLLECTED" "$DOCKER_UNREADABLE"
+    printf 'docker:     %s found, %s collected, %s unreadable' \
+      "$(count_noun "$DOCKER_FOUND" volume)" "$DOCKER_COLLECTED" "$DOCKER_UNREADABLE"
     [ "$DOCKER_UNREADABLE" -gt 0 ] && printf ' (run as root to collect)'
     [ "$DOCKER_DESKTOP" = 1 ] && printf '; Docker Desktop VM disk not collected'
     printf '\n'

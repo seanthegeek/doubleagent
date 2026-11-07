@@ -17,7 +17,7 @@ is in the [README](../README.md#quick-start)):
   and held nothing are left out of the count but stay in `users` there.
 - `projects` counts the project directories collected from.
 - `collected` counts the manifest rows with status `collected` and their
-  bytes, followed by the same total in binary units.
+  bytes, as `N files, N bytes`, followed by the same total in binary units.
 - `skipped` counts the `skipped_excluded`, `skipped_size`,
   `skipped_secret` and `skipped_special` rows, in that order, as
   `N excluded, N too large, N secret, N special` (the `special` count
@@ -31,7 +31,11 @@ is in the [README](../README.md#quick-start)):
   is above 0. It is printed after `errors` and before `docker`; see
   [relocation.md](relocation.md).
 - The `docker:` line appears only when a Docker or Podman volume directory
-  or Docker Desktop data was found; see [docker.md](docker.md).
+  or Docker Desktop data was found, as `N volumes found, N collected,
+  N unreadable`; see [docker.md](docker.md).
+
+On the `collected`, `relocation` and `docker` lines a count of 1 takes the
+singular noun (`1 file`, `1 byte`, `1 hint`, `1 volume found`).
 
 Progress lines (each user, catalog match, project and relocation hint) go
 to stderr unless `-q` is given. They always go to the log. A `User` line is
