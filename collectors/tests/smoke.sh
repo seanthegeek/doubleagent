@@ -2710,6 +2710,7 @@ check "#454 hints kept without secrets" "hint_line \"$ROOT/etc/profile\" 1 COPIL
 # ---- --env-scan-home ------------------------------------------------------
 # 2026-11-06 relocation hints (#454)
 run envscan --env-scan-home; check "#454 the sweep run exits 0" "[ $? -eq 0 ]"
+check "#454 stdout relocation line counts the files skipped for size" "grep -q '^relocation: [0-9]* hints in [0-9]* files searched, [1-9][0-9]* skipped for size; see collectors/docs/relocation.md\$' \"$OUT/envscan.stdout\""
 check "#454 the sweep run records its options" "grep -q '\"env_scan_home\": true, \"env_scan_max_size_bytes\": 1048576}' \"\$SUMMARY\""
 check "#454 the sweep hints and collects a file deep in the home" "hint_line \"$ALICE/scripts/agent-env/deep/helper.sh\" 2 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.sh\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 check "#454 an env shebang line in a swept file gives no ENV hint" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 1 ]"
@@ -2728,13 +2729,13 @@ printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/scripts/once.sh"
 run envscanonce --env-scan-home
 check "#454 the sweep counts each file it searches once" "[ \"\$(searched_in \"\$SUMMARY\")\" = $(( ENVSCAN_SEARCHED + 2 )) ] && [ \"\$(hint_count \"$ALICE/.bashrc.d/once\")\" = 1 ] && [ \"\$(hint_count \"$ALICE/scripts/once.sh\")\" = 1 ]"
 rm -f "$ALICE/.bashrc.d/once" "$ALICE/scripts/once.sh"
-# The sweep never reads the collector's own output directory, whose log names
-# every variable it found, nor a project that holds a home directory, which
-# would be the whole system.
-mkdir -p "$ALICE/collect-out"
-COLLECTOR_SH="$SHELL_UNDER_TEST" "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$ALICE/collect-out" -q --max-file-size 1 --env-scan-home >"$OUT/envscanout.stdout" 2>"$OUT/envscanout.stderr"
-check "#454 the sweep leaves out its own output directory" "[ $? -eq 0 ] && ! grep -q \"\\\"source\\\": \\\"$ALICE/collect-out/\" \"$ALICE\"/collect-out/*.collection.json && [ \"\$(searched_in \"$ALICE\"/collect-out/*.collection.json)\" = $ENVSCAN_SEARCHED ]"
-rm -rf "$ALICE/collect-out"
+# The sweep never reads the run's own log, manifest or staging directory, which
+# name every variable it found, even when the output directory is the home it
+# sweeps (the default -o . run from a home); nor a project that holds a home
+# directory, which would be the whole system.
+COLLECTOR_SH="$SHELL_UNDER_TEST" "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$ALICE" -q --max-file-size 1 --env-scan-home >"$OUT/envscanout.stdout" 2>"$OUT/envscanout.stderr"
+check "#454 the sweep leaves out its own output files when the output directory is a home" "[ $? -eq 0 ] && ! grep -q -e \"\\\"source\\\": \\\"$ALICE/.stage-\" -e \"\\\"source\\\": \\\"$ALICE/[^/]*_agent-artifacts\" \"$ALICE\"/*.collection.json && [ \"\$(searched_in \"$ALICE\"/*.collection.json)\" = $ENVSCAN_SEARCHED ]"
+rm -rf "$ALICE"/.stage-* "$ALICE"/*_agent-artifacts.*
 run envscanroot --env-scan-home -p "$ROOT/home"
 check "#454 the sweep skips a project that holds a home directory" "grep -q \"sweep skipped: project $ROOT/home holds a home directory\" \"\$(ls \"$OUT/envscanroot\"/*.log)\" && [ \"\$(searched_in \"\$SUMMARY\")\" = $ENVSCAN_SEARCHED ]"
 mkdir -p "$OUT/envscanbad"

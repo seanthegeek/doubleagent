@@ -4372,14 +4372,18 @@ function Test-HoldsHome([string]$base) {
 # Takes the user, a home or project directory, its catalog table and its
 # startup scope; searches every file under it that no catalog match of the
 # table claims, the fixed list of the scope did not search and no other
-# project holds, as each project is swept on its own, outside the output
-# directory (-EnvScanHome).
+# project holds, as each project is swept on its own, and that is not this
+# run's staging directory or an output file (the output directory may be the
+# home) (-EnvScanHome).
 function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$table,
   [string]$scope) {
   [void](Expand-Catalog $homeDir $table)
   $claimed = $script:ClaimedPaths
   $script:ClaimedPaths = Get-ClaimTable
-  $claimed[$script:OutputDir] = $true
+  foreach ($name in @(".stage-$($script:RunName)", "$($script:RunName).log",
+      "$($script:RunName).manifest.jsonl", "$($script:RunName).collection.json")) {
+    $claimed[(Join-PathSafe $script:OutputDir $name)] = $true
+  }
   foreach ($path in @(Get-StartupFiles $homeDir $scope)) { $claimed[$path] = $true }
   foreach ($projectDir in $script:ProjectList) {
     if ($projectDir.path -ne $homeDir) { $claimed[$projectDir.path] = $true }
@@ -5094,6 +5098,8 @@ function Write-Result {
   $hintCount = $script:RelocationHints.Count
   $searched = $script:RelocationCounts.searched
   $relocationLine = "relocation: $hintCount hints in $searched files searched"
+  $skippedSize = $script:RelocationCounts.skippedSize
+  if ($skippedSize -gt 0) { $relocationLine += ", $skippedSize skipped for size" }
   if ($hintCount -gt 0) { $relocationLine += '; see collectors/docs/relocation.md' }
   Write-Output $relocationLine
   if ($script:Docker.seen) {

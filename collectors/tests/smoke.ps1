@@ -2945,6 +2945,7 @@ Check '#106 NESTED_CLAIMS in the environment prunes nothing' { $script:ExitCode 
 Run 'envscan' @{ EnvScanHome = $true }
 $envScanSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 Check '#454 the sweep run exits 0' { $script:ExitCode -eq 0 }
+Check '#454 stdout relocation line counts the files skipped for size' { $script:stdout -match '(?m)^relocation: \d+ hints in \d+ files searched, [1-9]\d* skipped for size; see collectors/docs/relocation\.md\s*$' }
 Check '#454 the sweep run records its options' { $envScanSummary.options.env_scan_home -eq $true -and $envScanSummary.options.env_scan_max_size_bytes -eq 1048576 }
 Check '#454 the sweep hints and collects a file deep in the home' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh' 2 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.sh' 'shared' $true) }
 Check '#454 an env shebang line in a swept file gives no ENV hint' { (HintsFrom $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 1 }
@@ -2970,14 +2971,15 @@ foreach ($onceFile in $onceFiles) {
   Remove-Item -LiteralPath (ImagePath $onceFile) -Force
   [void]$script:Made.Remove((ExtendedPath (ImagePath $onceFile)))
 }
-# The sweep never reads the collector's own output directory, whose log names every variable
-# it found, nor a project that holds a home directory, which would be the whole system.
-$collectOut = ImagePath 'Users/alice/collect-out'
-Run 'envscanout' @{ EnvScanHome = $true; OutputDir = $collectOut }
-$envScanOutSummaryFile = Get-ChildItem -LiteralPath $collectOut -Filter '*.collection.json' | Select-Object -First 1
+# The sweep never reads the run's own log, manifest or staging directory, which name every
+# variable it found, even when the output directory is the home it sweeps (the default run from
+# a home); nor a project that holds a home directory, which would be the whole system.
+$aliceHome = ImagePath 'Users/alice'
+Run 'envscanout' @{ EnvScanHome = $true; OutputDir = $aliceHome }
+$envScanOutSummaryFile = Get-ChildItem -LiteralPath $aliceHome -Filter '*.collection.json' | Select-Object -First 1
 $envScanOutSummary = Get-Content -LiteralPath $envScanOutSummaryFile.FullName -Raw | ConvertFrom-Json
-Check '#454 the sweep leaves out its own output directory' { $script:ExitCode -eq 0 -and @($envScanOutSummary.relocation.hints | Where-Object { $_.source.StartsWith($collectOut) }).Count -eq 0 -and $envScanOutSummary.relocation.files_searched -eq $envScanSummary.relocation.files_searched }
-Remove-Item -LiteralPath $collectOut -Recurse -Force
+Check '#454 the sweep leaves out its own output files when the output directory is a home' { $script:ExitCode -eq 0 -and @($envScanOutSummary.relocation.hints | Where-Object { $_.source -match '[/\\](\.stage-[^/\\]*[/\\]|[^/\\]*_agent-artifacts\.)' }).Count -eq 0 -and $envScanOutSummary.relocation.files_searched -eq $envScanSummary.relocation.files_searched }
+Get-ChildItem -LiteralPath $aliceHome -Force | Where-Object { $_.Name -match '_agent-artifacts' } | Remove-Item -Recurse -Force
 Run 'envscanroot' @{ EnvScanHome = $true; Project = (ImagePath 'home') }
 $envScanRootSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 $envScanRootLog = [System.IO.File]::ReadAllText((Get-ChildItem -LiteralPath (Join-Path $Out 'envscanroot') -Filter '*.log' | Select-Object -First 1).FullName)

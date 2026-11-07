@@ -58,7 +58,8 @@ adds a property list holding a NUL byte, hinted when `capabilities.grep_text`
 is true. A separate `envscan` run covers `--env-scan-home` and its size limit,
 an `envscanonce` run with one more startup file and one more swept file checks
 that `files_searched` grows by two, and an invalid `--env-scan-max-size`
-exits with code 1. Both smoke tests give these checks the same names.
+exits with code 1. Both smoke tests give these checks the same names, the
+sh-only `-q` and NUL-byte checks aside.
 
 `tests/smoke.ps1` takes `-Collector PATH` to test a copy of the script other
 than the one beside it, which is how the test runs under Windows PowerShell

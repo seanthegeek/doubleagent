@@ -26,8 +26,10 @@ is in the [README](../README.md#quick-start)):
   followed by each of the two counts in parentheses.
 - `relocation` is the number of relocation hints and the number of files
   searched for them, as `relocation: N hints in M files searched`, followed
-  by `; see collectors/docs/relocation.md` when N is above 0. It is printed
-  after `errors` and before `docker`; see [relocation.md](relocation.md).
+  by `, K skipped for size` when the `--env-scan-home` sweep left K files
+  unread for their size, and by `; see collectors/docs/relocation.md` when N
+  is above 0. It is printed after `errors` and before `docker`; see
+  [relocation.md](relocation.md).
 - The `docker:` line appears only when a Docker or Podman volume directory
   or Docker Desktop data was found; see [docker.md](docker.md).
 
@@ -133,7 +135,7 @@ Each manifest row is one JSON object:
 | --- | --- |
 | `user` | Owner of the home the path was found under. For a project file, the user whose agent state referenced the project (empty for a `-p` directory outside every home). `docker` for volume rows. |
 | `home` | The base the path was collected relative to: the home directory, the project directory, or a volume's `_data`, including the `-r` root. |
-| `agent` | Catalog agent name. For a file found through the project catalog, the agent the `PROJECT_CATALOG` line names: the agent that owns the file (`claude-code` for a project's `.claude/`), or `project` for a file several agents read (`AGENTS.md`, `.mcp.json`, the repository's [git metadata](coverage.md#git-metadata) under `.git/` and the other `project` lines in `--list`); before collector 1.12.0 every project row had `project`. For a volume row, the `DOCKER_VOLUMES` agent of the matched volume. Empty for `skipped_unmatched_volume` and for the `error_read` row of a home, project or `-p` directory. `shared` for a startup file collected because it names a relocation variable and that no catalog line matches; it has `secret: true`, `skipped_secret` under `--no-secrets`, and for a system file an empty `user` and `home`. See [relocation.md](relocation.md). |
+| `agent` | Catalog agent name. For a file found through the project catalog, the agent the `PROJECT_CATALOG` line names: the agent that owns the file (`claude-code` for a project's `.claude/`), or `project` for a file several agents read (`AGENTS.md`, `.mcp.json`, the repository's [git metadata](coverage.md#git-metadata) under `.git/` and the other `project` lines in `--list`); before collector 1.12.0 every project row had `project`. For a volume row, the `DOCKER_VOLUMES` agent of the matched volume. Empty for `skipped_unmatched_volume` and for the `error_read` row of a home, project or `-p` directory. `shared` for a file collected because it names a relocation variable (a startup file, or under `--env-scan-home` any file) and that no catalog line matches; it has `secret: true`, `skipped_secret` under `--no-secrets`, and for a system file an empty `user` and `home`. See [relocation.md](relocation.md). |
 | `path` | The original full path, including the `-r` root in image mode. |
 | `archive_path` | Where the file is in the archive: `fs/<original path>`. Set for `collected` rows and for `symlink` rows whose link is in the archive: always from the sh collector, and from the PowerShell collector when the link was recreated and the archive is a tar (see [windows.md](windows.md#symlinks-and-reparse-points)). Empty otherwise. |
 | `type` | `file`, `symlink`, or `dir` (an excluded directory, an unmatched volume, or an `error_read` directory). A `skipped_special` row names the kind of special file instead: `socket` (a Unix domain socket), `fifo` (a named pipe), `device` (a block or character device) or `other`; see [Special files](#special-files). |

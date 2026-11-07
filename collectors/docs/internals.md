@@ -107,7 +107,8 @@ opening parenthesis, `(pattern)`.
 is set, else to `dash` when it is on the `PATH` (it starts and loops faster
 than bash), else to `sh`. The main program exports the settings the workers
 read from the environment: `HASH_TOOL`, `STAT_MODE`, `MAX_SIZE`,
-`SECRET_GLOBS`, `NO_SECRETS`, `LOG` and `QUIET`. Everything else is passed
+`SECRET_PATTERN`, `NO_SECRETS`, `LOG`, `QUIET` and `GREP_TEXT`. Everything
+else is passed
 as positional arguments, which the first line of each worker names.
 
 The five workers:
@@ -454,7 +455,8 @@ PowerShell collector passes a forced flag to `Add-CollectedFile`, so the size
 cap, special-file handling and `--no-secrets` apply unchanged. A file that the
 manifest already has a row for keeps that row. With `--env-scan-home` a second
 pass lists every regular file of the base outside the catalog matches,
-`ACTIVE_EXCLUDES`, the output directory, the startup files the first pass
+`ACTIVE_EXCLUDES`, the run's own staging directory and output files (the
+output directory itself may be the home), the startup files the first pass
 searched and the other projects (each swept on its own), as `collect_tree`
 prunes, and searches
 those up to `--env-scan-max-size` the same way (the sh `find` runs one

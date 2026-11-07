@@ -3817,18 +3817,19 @@ search_startup_files() {
 # scan_home_for_variables USER HOME TABLE SCOPE: searches every regular file
 # under HOME with one find(1) that prunes the TABLE matches, the SCOPE startup
 # files the fixed list searched, the other projects (each swept on its own),
-# ACTIVE_EXCLUDES and the output directory, and counts the files over
+# ACTIVE_EXCLUDES and this run's staging directory and output files (not the
+# output directory, which may be the home), and counts the files over
 # ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them; one grep branch
 # takes the .ps1 files in any case, one the rest in their own case. Reads
-# OUTDIR, PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT, WORKER_SH, LOG.
-# Temporaries: _shv_.
+# STAGE, OUTDIR, NAME, PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT,
+# WORKER_SH, LOG. Temporaries: _shv_.
 scan_home_for_variables() {
   _shv_user=$1; _shv_home=$2
   _shv_claims=$(expand_catalog "$2" "$3" | grep -v '^#|' | cut -d'|' -f3-)
   _shv_claims="$_shv_claims
 $(list_startup_files "$2" "$4")
 $(printf '%s\n' "$PROJECT_LIST" | sed 's/^[^:]*://' | grep -v -x -F -e "$2")"
-  set -- "$2" '(' -path "$OUTDIR"
+  set -- "$2" '(' -path "$STAGE" -o -path "$OUTDIR/$NAME.*"
   _shv_saved_ifs=$IFS; IFS='
 '
   set -f
@@ -3883,12 +3884,12 @@ list_bounded_names() {
     -- "$_lbn_file"
   set +f; IFS=$_lbn_saved_ifs
   grep "$@" 2>>"$LOG" | tr '\000' ' ' | awk -v names="$RELOCATION_NAMES_CSV" -v fold="$_lbn_fold" '
-    function bounded(text, word,   start, offset, at, before, after) {
+    function bounded(text, needle,   start, offset, at, before, after) {
       start = 1
-      while ((offset = index(substr(text, start), word)) > 0) {
+      while ((offset = index(substr(text, start), needle)) > 0) {
         at = start + offset - 1
         before = at > 1 ? substr(text, at - 1, 1) : ""
-        after = substr(text, at + length(word), 1)
+        after = substr(text, at + length(needle), 1)
         if (before !~ /[A-Za-z0-9_]/ && after !~ /[A-Za-z0-9_]/) return 1
         start = at + 1
       }
@@ -4261,8 +4262,8 @@ hash_archive() {
 }
 
 # print_result: the stdout summary, one "name: value" line each, and a docker
-# line when any Docker or Podman data was seen. Reads RELOCATION_HINTS and
-# RELOCATION_FILES_SEARCHED. Temporaries: _pr_.
+# line when any Docker or Podman data was seen. Reads RELOCATION_HINTS and the
+# RELOCATION_FILES_* counts. Temporaries: _pr_.
 print_result() {
   printf 'archive:    %s\n' "$ARCHIVE"
   printf 'size:       %s (%s)\n' "$ARCHIVE_SIZE" "$(format_human_size "$ARCHIVE_SIZE")"
@@ -4282,6 +4283,8 @@ print_result() {
     "$(( _pr_copy_errors + _pr_read_errors ))" "$_pr_copy_errors" "$_pr_read_errors"
   _pr_hints=$(printf '%s\n' "$RELOCATION_HINTS" | grep -c .)
   printf 'relocation: %s hints in %s files searched' "$_pr_hints" "$RELOCATION_FILES_SEARCHED"
+  [ "$RELOCATION_FILES_SKIPPED_SIZE" = 0 ] ||
+    printf ', %s skipped for size' "$RELOCATION_FILES_SKIPPED_SIZE"
   [ "$_pr_hints" = 0 ] || printf '; see collectors/docs/relocation.md'
   printf '\n'
   if [ "$DOCKER_SEEN" = 1 ]; then

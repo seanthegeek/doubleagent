@@ -32,6 +32,10 @@ It gives the file, the line number, the variable and the agent. It says:
 
 It does not say:
 
+- That the agent is installed. A variable with a generic name (`LOG_DIR`,
+  `LOG_PATH`, `DATABASE_PATH`, `CACHE_PATH`, `WORKSPACE_STORAGE_DIR`) is
+  listed for the one agent known to read it, and another program may set
+  it for its own files.
 - That the variable is set. The line may be a comment, an `unset`, a
   branch of a conditional that did not run, or a mention of the name
   inside a longer command.
@@ -61,7 +65,10 @@ signal than one naming an agent's own variable. Many programs honour the
 `XDG_*` variables and a user may set them for reasons that have nothing to
 do with any agent, so check what the line says before you act on it. `ENV`
 is also the Dockerfile instruction, so under `--env-scan-home` every
-Dockerfile in the home gives an `ENV` hint.
+Dockerfile in the home gives an `ENV` hint. A hint on a variable that moves
+the startup files themselves (`ZDOTDIR`, `ENV`, `BASH_ENV`) means the files
+it points at were not searched, since no value is read: collect them by
+hand and read them the same way.
 
 ## Read the assignment in the collected file
 
@@ -195,9 +202,9 @@ records a hint for each file that names a variable, so `files_searched`
 counts each file once. The files the catalog matched are in the archive
 already and are not searched; a project that is or holds a home directory
 (`/`, a user's cwd of `/home`) is not swept, since that would read the
-whole system, and the log says so; the collector's own output directory,
-whose log names every variable found, is never read. Symlinks are never
-followed.
+whole system, and the log says so; the run's own log, manifest and
+staging directory, which name every variable found, are never read, even
+when the output directory is the home. Symlinks are never followed.
 
 The sweep reads many files, so it adds time on a large home. A file bigger
 than `--env-scan-max-size MB` (PowerShell `-EnvScanMaxSizeMB`; whole MiB,

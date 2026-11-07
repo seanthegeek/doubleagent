@@ -205,8 +205,9 @@ contents to stdout or the log.
 **Catalog is data, not code.** Agent paths live in the `CATALOG`,
 `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`,
 `RELOCATION_VARS` and `STARTUP_FILES` tables of both scripts; a new tool
-is new lines, never new code. Every entry is tried against every home
-directory.
+is new lines, never new code. Every catalog entry is tried against every
+home directory, and every `STARTUP_FILES` line against each base of its
+scope.
 
 - The tables are byte-identical between the sh single-quoted strings and
   the PowerShell `@'...'@` here-strings, and `--list` equals `-List`;
