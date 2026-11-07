@@ -4454,10 +4454,10 @@ function Test-UserHomeRoot([string]$homeDir) {
 
 # Takes the user, a home or project directory, its catalog table and its
 # startup scope; searches every file under it that no catalog match of the
-# table claims, the fixed list of the scope did not search and no other
-# project holds, as each project is swept on its own, and that is not this
-# run's staging directory or an output file (the output directory may be the
-# home) (-EnvScanHome).
+# table claims, the fixed list of the scope did not search and no other home
+# or project holds, as each is swept on its own, and that is not this run's
+# staging directory or an output file (the output directory may be the home)
+# (-EnvScanHome).
 function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$table,
   [string]$scope) {
   [void](Expand-Catalog $homeDir $table)
@@ -4468,8 +4468,9 @@ function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$ta
     $claimed[(Join-PathSafe $script:OutputDir $name)] = $true
   }
   foreach ($path in @(Get-StartupFiles $homeDir $scope)) { $claimed[$path] = $true }
-  foreach ($projectDir in $script:ProjectList) {
-    if ($projectDir.path -ne $homeDir) { $claimed[$projectDir.path] = $true }
+  foreach ($other in @($script:UserList | ForEach-Object { $_.home }) +
+      @($script:ProjectList | ForEach-Object { $_.path })) {
+    if ($other -ne $homeDir) { $claimed[$other] = $true }
   }
   Search-RelocationFiles $user $homeDir @(Get-SweepFiles $homeDir $claimed)
 }

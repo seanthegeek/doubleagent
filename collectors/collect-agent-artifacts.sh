@@ -3853,19 +3853,20 @@ search_startup_files() {
 
 # scan_home_for_variables USER HOME TABLE SCOPE: searches every regular file
 # under HOME with one find(1) that prunes the TABLE matches, the SCOPE startup
-# files the fixed list searched, the other projects (each swept on its own),
-# ACTIVE_EXCLUDES and this run's staging directory and output files (not the
-# output directory, which may be the home), leaves out a file whose name holds
-# a newline (it would split the output), and counts the files over
+# files the fixed list searched, the other homes and projects (each swept on
+# its own), ACTIVE_EXCLUDES and this run's staging directory and output files
+# (not the output directory, which may be the home), leaves out a file whose
+# name holds a newline (it would split the output), and counts the files over
 # ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them. Both -exec
 # primaries stay at the top level, since busybox find never runs a batched
-# -exec inside parentheses. Reads OUTDIR, NAME, PROJECT_LIST, WORKER_SH, LOG.
-# Temporaries: _shv_.
+# -exec inside parentheses. Reads OUTDIR, NAME, USER_LIST, PROJECT_LIST,
+# WORKER_SH, LOG. Temporaries: _shv_.
 scan_home_for_variables() {
   _shv_user=$1; _shv_home=$2
   _shv_claims=$(expand_catalog "$2" "$3" | grep -v '^#|' | cut -d'|' -f3-)
-  _shv_claims=$(printf '%s\n' "$_shv_claims" "$(list_startup_files "$2" "$4")" \
-    "$(printf '%s\n' "$PROJECT_LIST" | sed 's/^[^:]*://' | grep -v -x -F -e "$2")" |
+  _shv_others=$(printf '%s\n' "$USER_LIST" "$PROJECT_LIST" | sed 's/^[^:]*://' |
+    grep -v -x -F -e "$2")
+  _shv_claims=$(printf '%s\n' "$_shv_claims" "$(list_startup_files "$2" "$4")" "$_shv_others" |
     find_pattern_lines)
   _shv_outdir=$(printf '%s\n' "$OUTDIR" | find_pattern_lines)
   _shv_home_pattern=$(printf '%s\n' "$2" | find_pattern_lines)

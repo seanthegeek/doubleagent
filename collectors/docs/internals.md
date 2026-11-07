@@ -470,7 +470,8 @@ manifest already has a row for keeps that row. With `--env-scan-home` a second
 pass lists every regular file of the base outside the catalog matches,
 `ACTIVE_EXCLUDES`, the run's own staging directory and output files (the
 output directory itself may be the home), the startup files the first pass
-searched and the other projects (each swept on its own), as `collect_tree`
+searched and the other homes and projects (each swept on its own, so a home
+listed inside another home is searched once), as `collect_tree`
 prunes, each path escaped for `find -path` (`find_pattern_lines`), and
 searches those up to `--env-scan-max-size` the same way (the worker splits
 each batch into `.ps1` files and the rest; both `-exec` primaries stay at the

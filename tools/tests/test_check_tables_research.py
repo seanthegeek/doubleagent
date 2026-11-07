@@ -1222,6 +1222,35 @@ def test_relocation_replaces_differs(tmp_path):
     ]
 
 
+def test_relocation_replaces_parent(tmp_path):
+    for moves in (
+        "the parent of `.alpha`",
+        "the home that holds `.alpha` on Linux",
+        "the home the `.alpha` default hangs from",
+    ):
+        subsection = ALPHA_RELOCATION.replace("| the home |", "| %s |" % moves)
+        alpha = ALPHA.replace("### Credentials", subsection + "### Credentials", 1)
+        root = hinted(tmp_path, alpha=alpha)
+        assert findings(root, "relocation-replaces-parent") == [("alpha", "alpha ALPHA_HOME")], (
+            moves
+        )
+
+
+def test_relocation_replaces_parent_is_silent_for_another_directory_or_a_dot(tmp_path):
+    for moves, replaces, line in (
+        ("the parent of `.alpha/sub`", ".alpha", ".alpha"),
+        ("the parent of `.alpha`", ".", "."),
+        ("the settings parent of `.config/<tool>`", ".config", ".config"),
+    ):
+        catalog = CATALOG + HINT_TABLES.replace("|ALPHA_HOME|.alpha\n", "|ALPHA_HOME|%s\n" % line)
+        subsection = ALPHA_RELOCATION.replace(
+            "| the home | `.alpha`, `AppData/Roaming/alpha` |", "| %s | `%s` |" % (moves, replaces)
+        )
+        alpha = ALPHA.replace("### Credentials", subsection + "### Credentials", 1)
+        root = hinted(tmp_path, catalog=catalog, alpha=alpha)
+        assert findings(root, "relocation-replaces-parent") == [], moves
+
+
 def test_relocation_replaces_compares_only_the_first_span(tmp_path):
     catalog = CATALOG + HINT_TABLES.replace(
         "|ALPHA_HOME|.alpha\n", "|ALPHA_HOME|AppData/Roaming/alpha\n"

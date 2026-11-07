@@ -23,9 +23,9 @@
   agent with no research document or (`project` aside) `docs/agents.md` row, and back.
 - `parsing-fact-under-collection`: a Collection span outside the project-path section that is a
   row text (`is_row_text`) or a Record schema key (`is_key_span`) no path names (`path_names`).
-- `relocation-line-unnamed`: a `RELOCATION_VARS` line no row of its agent's `#### Relocation
-  variables` table names; `relocation-row-unlined`: a row whose `Table agent` and variable are
-  no line; `relocation-replaces-differs`: a row's `Replaces` first span is not the line's third.
+- `relocation-line-unnamed`, `relocation-row-unlined`, `relocation-replaces-differs`,
+  `relocation-replaces-parent`: a table line no row of its agent names, a row no line matches,
+  a `Replaces` span unlike the line's, a `Moves` cell calling the value the parent of that span.
 - `startup-line-unnamed`: a `STARTUP_FILES` glob no span of shared.md's startup files names.
 
 Usage: tools/check_tables_research.py [--update-baseline]
@@ -845,9 +845,27 @@ class RelocationRow:
     """One row of a `#### Relocation variables` table: its cells' values and its line."""
 
     variable: str
+    moves: str
     replaces: str
     table_agent: str
     line: int
+
+
+# A Moves cell describing the value as the parent of a directory: the span it
+# names is the directory, so a Replaces cell equal to it names the wrong level.
+PARENT_PHRASES = (
+    re.compile(r"(?:parent of|holds|holding|above)\s+`([^`]+)`"),
+    re.compile(r"`([^`]+)`\s+(?:default\s+)?hangs from"),
+)
+
+
+def parent_of(moves: str) -> str:
+    """Return the directory a Moves cell calls the value the parent of, or '' when none."""
+    for phrase in PARENT_PHRASES:
+        match = phrase.search(moves)
+        if match:
+            return match.group(1)
+    return ""
 
 
 def first_span(cell: str) -> str:
@@ -860,8 +878,8 @@ def relocation_rows(sections: dict[str, Section]) -> list[RelocationRow]:
     """Return the rows of a document's `#### Relocation variables` tables, in order.
 
     The variable is the first cell's code span, the `Replaces` and `Table agent` cells the
-    last two, so a `|` inside the `Moves` cell moves no column; the first span of each counts,
-    the Linux form where a cell lists several.
+    last two, so a `|` inside the `Moves` cell moves no column (the cells between are the
+    `Moves` text); the first span of each counts, the Linux form where a cell lists several.
     """
     found: list[RelocationRow] = []
     key = "Collection/Per-user storage/Relocation variables"
@@ -872,7 +890,9 @@ def relocation_rows(sections: dict[str, Section]) -> list[RelocationRow]:
         if len(cells) < 4:
             continue
         variable, replaces, agent = (first_span(cells[0]), first_span(cells[-2]), cells[-1])
-        found.append(RelocationRow(variable, replaces, first_span(agent), section.start + offset))
+        moves = " | ".join(cells[1:-2])
+        row = RelocationRow(variable, moves, replaces, first_span(agent), section.start + offset)
+        found.append(row)
     return found
 
 
@@ -885,12 +905,13 @@ def _relocation_lines(repository: Repository) -> dict[tuple[str, str], TableLine
 
 
 def relocation_findings(repository: Repository) -> Iterator[Finding]:
-    """Yield `relocation-line-unnamed`, `relocation-row-unlined` and `relocation-replaces-differs`.
+    """Yield the `relocation-line-unnamed`, `relocation-row-unlined` and `relocation-replaces-*` findings.
 
     A line belongs to its agent's document, `research/shared.md` for `shared`; one whose
     document is missing is left to `document-missing`. A row of any document is checked against
-    the line its `Table agent` cell and variable name; its findings go to the document's agent.
-    A listing without the `RELOCATION_VARS` heading gives no finding.
+    the line its `Table agent` cell and variable name, and its `Moves` cell against its
+    `Replaces` cell (`parent_of`); its findings go to the document's agent. A listing without
+    the `RELOCATION_VARS` heading gives no finding.
     """
     if "relocation" not in repository.tables.headed:
         return
@@ -928,6 +949,12 @@ def relocation_findings(repository: Repository) -> Iterator[Finding]:
                     line.replaces,
                 )
                 kind = "relocation-replaces-differs"
+                yield Finding(owner, kind, detail, document, row.line, message)
+            if row.replaces and parent_of(row.moves) == row.replaces:
+                message = "the Moves cell calls the value the parent of %r, so Replaces is `.`" % (
+                    row.replaces,
+                )
+                kind = "relocation-replaces-parent"
                 yield Finding(owner, kind, detail, document, row.line, message)
 
 

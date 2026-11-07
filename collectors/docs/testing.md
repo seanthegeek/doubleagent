@@ -59,9 +59,9 @@ is true. A separate `envscan` run covers `--env-scan-home` and its size limit,
 an `envscanonce` run with one more startup file and one more swept file checks
 that `files_searched` grows by two, and an invalid `--env-scan-max-size`
 exits with code 1. Both smoke tests give these checks the same names, the
-sh-only `-q`, NUL-byte, newline-name and service-home checks aside (the
-PowerShell test's image has no `etc/passwd` service home, and Windows
-allows no newline in a name).
+sh-only `-q`, NUL-byte, newline-name, service-home and nested-home checks
+aside (the PowerShell test's image has no `etc/passwd` service home or nested
+home, and Windows allows no newline in a name).
 
 `tests/smoke.ps1` takes `-Collector PATH` to test a copy of the script other
 than the one beside it, which is how the test runs under Windows PowerShell

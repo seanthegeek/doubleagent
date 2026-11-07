@@ -1037,7 +1037,9 @@ when the page has one.
      for the home itself as the parent of the agent's directory, empty when
      none), Table
      agent the `RELOCATION_VARS` agent, `shared` for a generic variable; an
-     agent reading none has the subsection say "None known.".
+     agent reading none has the subsection say "None known.". A Moves cell
+     that calls the value the parent of the directory Replaces names is a
+     `tools/check_tables_research.py` finding.
      `research/shared.md` holds the `shared` rows and a
      `#### Startup and environment files` subsection naming each
      `STARTUP_FILES` glob in a code span. A Docker volume
