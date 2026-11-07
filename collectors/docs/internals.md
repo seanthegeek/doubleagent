@@ -107,8 +107,8 @@ opening parenthesis, `(pattern)`.
 is set, else to `dash` when it is on the `PATH` (it starts and loops faster
 than bash), else to `sh`. The main program exports the settings the workers
 read from the environment: `HASH_TOOL`, `STAT_MODE`, `MAX_SIZE`,
-`SECRET_PATTERN`, `NO_SECRETS`, `LOG`, `QUIET` and `GREP_TEXT`. Everything
-else is passed
+`SECRET_PATTERN`, `NO_SECRETS`, `LOG`, `QUIET`, `GREP_TEXT` and, once the
+relocation step sets it, `GREP_NAME_OPTIONS`. Everything else is passed
 as positional arguments, which the first line of each worker names.
 
 The five workers:
@@ -119,7 +119,7 @@ The five workers:
 | `EXCLUDED_PATHS_WORKER` | every pruned `EXCLUDES` match; also run by `collect_path` for an excluded match that is not a directory | `root user home agent manifest paths...` | one `skipped_excluded` row each: a directory's size from `du -sk` with its other metadata 0, a file's from `stat_file` |
 | `UNREADABLE_DIRS_WORKER` | every directory | `user home agent manifest dirs...` | one `error_read` row for each directory `get_dir_read_error_var` says cannot be listed or entered |
 | `INVENTORY_FILES_WORKER` | every regular file, under `--inventory` | `agent files...` | `F\|agent\|size\|mtime` lines on stdout, nothing on disk |
-| `HINT_SEARCH_WORKER` | the files of one `grep` batch: the startup files of a base (run by `search_file_list`) or the sweep's regular files (`find -exec`) | `option_count grep_options... files...` | one `S\|<count>` line for the files it got, then the file names `grep -l` prints, on stdout; nothing on disk. It needs no helper, so `COMMON` is not prepended |
+| `HINT_SEARCH_WORKER` | the files of one batch: the startup files of a base (run by `search_file_list`) or the sweep's regular files (`find -exec`) | `files...`; the `grep` name options come from `GREP_NAME_OPTIONS` in the environment | one `S\|<count>` line for the files it got, then the file names `grep -l` prints, the `.ps1` files searched in any case and the rest in their own, on stdout; nothing on disk. It needs no helper, so `COMMON` is not prepended |
 
 **The stage worker's chunks.** `STAGE_FILES_WORKER` takes its files in
 chunks of at most 256 paths, and stops adding names to a chunk once their
@@ -305,11 +305,13 @@ and records the result in the log and in `collection.json`'s
   and the other fields are 0. `stat_file`, `stat_files` and `file_id`
   branch on it.
 - `WORKER_SH`: see [Worker programs](#worker-programs-sh).
-- `GREP_TEXT`: `-a` when `printf 'x\0CODEX_HOME\n' | grep -a -n CODEX_HOME`
+- `GREP_TEXT`: `-a` when `printf 'x\0CODEX_HOME\n' | grep -a -n -F -e CODEX_HOME`
   prints the numbered line, else empty. Without it `grep -n` reports a file
   holding a NUL byte only as `Binary file matches`, and the relocation hint
-  in it would be lost. `HINT_SEARCH_WORKER` and `list_bounded_names` pass
-  it to `grep`; `collection.json` records it as `grep_text`.
+  in it would be lost; busybox `grep -F` stops at the NUL byte even with
+  `-a`, so the probe fails there and `grep_text` is false.
+  `HINT_SEARCH_WORKER` and `list_bounded_names` pass it to `grep`;
+  `collection.json` records it as `grep_text`.
 
 The main program puts `/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin` ahead
 of the inherited `PATH`, sets `LC_ALL=C` and unsets `CDPATH`, which `cd`
@@ -439,7 +441,7 @@ the name is not a letter, digit or underscore. Shells name variables
 case-sensitively, so both passes match a name in its own case, and
 `#!/usr/bin/env bash` is no hit on `ENV`; in a file whose name ends in `.ps1`
 (in any case) both passes match the name in any case, as PowerShell variable
-names do, so the list is searched in two parts, and a name before a colon
+names do, so the worker searches a list in two parts, and a name before a colon
 there is a drive or scope qualifier (`$env:`), not a variable. A file
 whose name holds a newline is never searched (`find ! -name`, and
 `list_startup_files` drops it), since `grep -l` prints one path per line
@@ -464,10 +466,11 @@ pass lists every regular file of the base outside the catalog matches,
 output directory itself may be the home), the startup files the first pass
 searched and the other projects (each swept on its own), as `collect_tree`
 prunes, each path escaped for `find -path` (`find_pattern_lines`), and
-searches
-those up to `--env-scan-max-size` the same way (the sh `find` runs one
-`grep` branch for the `.ps1` files and one for the rest), so `files_searched`
-counts each file of a base once. A project that is or holds a home
+searches those up to `--env-scan-max-size` the same way (the worker splits
+each batch into `.ps1` files and the rest; both `-exec` primaries stay at the
+top level of the `find` expression, since busybox `find` never runs a batched
+`-exec` inside parentheses), so `files_searched` counts each file of a base
+once. A project that is or holds a home
 (`holds_home`, `Test-HoldsHome`: a project at `/` or `/home`) is logged as
 skipped and not swept, since the walk would read the whole system, pseudo
 file systems included; so is a home outside the home roots the image mode

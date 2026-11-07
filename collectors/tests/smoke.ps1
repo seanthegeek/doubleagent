@@ -2739,8 +2739,10 @@ function HasHint($summary, [string]$relativePath, [int]$line, [string]$variable,
   $source = ImagePath $relativePath
   return @($summary.relocation.hints | Where-Object { $_.source -eq $source -and $_.line -eq $line -and $_.variable -eq $variable -and $_.agent -eq $agent -and $_.user -eq $user }).Count -eq 1
 }
-function HintsFrom($summary, [string]$relativePath) { $source = ImagePath $relativePath; return @($summary.relocation.hints | Where-Object { $_.source -eq $source }) }
-function RowsAt([string]$relativePath) { $wanted = ImagePath $relativePath; return @($script:Rows | Where-Object { $_.path -eq $wanted }) }
+# Both return an array even for zero or one match (the comma keeps it), so .Count works under
+# Set-StrictMode 2 on Windows PowerShell 5.1.
+function HintsFrom($summary, [string]$relativePath) { $source = ImagePath $relativePath; return , @($summary.relocation.hints | Where-Object { $_.source -eq $source }) }
+function RowsAt([string]$relativePath) { $wanted = ImagePath $relativePath; return , @($script:Rows | Where-Object { $_.path -eq $wanted }) }
 $relocationLog = [System.IO.File]::ReadAllText((Get-ChildItem -LiteralPath (Join-Path $Out 'default') -Filter '*.log' | Select-Object -First 1).FullName)
 $startupGlobs = @($startupFixtures | ForEach-Object { $parts = $_ -split '\|'; $parts[0] + '|' + $parts[1] })
 Check '#454 every startup file line has a fixture' { $listedStartup.Count -gt 0 -and ($listedStartup -join "`n") -ceq ($startupGlobs -join "`n") }

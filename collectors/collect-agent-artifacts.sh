@@ -2995,14 +2995,30 @@ EOF_INVENTORY_FILES_WORKER
 INVENTORY_FILES_WORKER="$COMMON
 $_ret_heredoc_text"
 
-# HINT_SEARCH_WORKER: prints S|<count> for the files after its first
-# option_count arguments, then the files that one grep with all the arguments
-# and GREP_TEXT lists, so find starts one grep per batch. Arguments:
-# option_count grep_options... files...
+# HINT_SEARCH_WORKER: prints S|<count> for its files, then the files that
+# grep -l -F with the GREP_NAME_OPTIONS names lists, in two batches: the .ps1
+# files in any case, the rest in their own case, so find starts at most two
+# greps per batch of files. A name holding a newline never reaches it. Reads
+# GREP_NAME_OPTIONS, GREP_TEXT and LOG from the environment. Arguments:
+# files...
 heredoc_var <<'EOF_HINT_SEARCH_WORKER'
-option_count=$1; shift # then grep_options... files...
-printf 'S|%s\n' "$(( $# - option_count ))"
-grep ${GREP_TEXT:+"$GREP_TEXT"} "$@" 2>>"$LOG"
+printf 'S|%s\n' "$#" # files...
+newline='
+'
+scripts=; others=
+for file in "$@"; do
+  case "$file" in
+    (*.[Pp][Ss]1) scripts="$scripts$file$newline" ;;
+    (*) others="$others$file$newline" ;;
+  esac
+done
+IFS=$newline; set -f
+# shellcheck disable=SC2086 # one grep option or file per line
+[ -z "$others" ] ||
+  grep ${GREP_TEXT:+"$GREP_TEXT"} -l -F $GREP_NAME_OPTIONS -- $others 2>>"$LOG"
+# shellcheck disable=SC2086
+[ -z "$scripts" ] ||
+  grep ${GREP_TEXT:+"$GREP_TEXT"} -i -l -F $GREP_NAME_OPTIONS -- $scripts 2>>"$LOG"
 EOF_HINT_SEARCH_WORKER
 HINT_SEARCH_WORKER=$_ret_heredoc_text
 
@@ -3752,14 +3768,14 @@ collect_projects() {
 
 # set_relocation_names: sets RELOCATION_NAMES_CSV, each RELOCATION_VARS name
 # once, comma-separated, for awk, and GREP_NAME_OPTIONS, "-e NAME" for each,
-# one word per line, with its word count GREP_NAME_COUNT. Temporaries: _srn_.
+# one word per line, exported for HINT_SEARCH_WORKER. Temporaries: _srn_.
 set_relocation_names() {
   _srn_names=$(printf '%s\n' "$RELOCATION_VARS" |
     awk -F'|' 'NF >= 2 && $1 !~ /^#/ && $2 != "" && !seen[$2]++ { print $2 }')
   RELOCATION_NAMES_CSV=$(printf '%s\n' "$_srn_names" | tr '\n' ',')
   RELOCATION_NAMES_CSV=${RELOCATION_NAMES_CSV%,}
   GREP_NAME_OPTIONS=$(printf '%s\n' "$_srn_names" | awk '{ print "-e"; print }')
-  GREP_NAME_COUNT=$(printf '%s\n' "$GREP_NAME_OPTIONS" | grep -c .)
+  export GREP_NAME_OPTIONS
 }
 
 # list_startup_files BASE SCOPE -> the regular files, never a symlink, that the
@@ -3785,39 +3801,29 @@ list_startup_files() {
   set +f; IFS=$_lsf_saved_ifs
 }
 
-# search_file_list USER HOME BASE CASE_OPTION FILES: searches FILES (one per
-# line, under BASE) with one grep, -i as CASE_OPTION for .ps1 files and empty
-# for the rest, and records each hit. Reads GREP_NAME_OPTIONS, WORKER_SH.
-# Temporaries: _sfl_.
+# search_file_list USER HOME BASE FILES: searches FILES (one per line, under
+# BASE) with one run of HINT_SEARCH_WORKER and records each hit. Reads
+# WORKER_SH. Temporaries: _sfl_.
 search_file_list() {
-  [ -n "$5" ] || return 0
-  _sfl_user=$1; _sfl_home=$2; _sfl_base=$3; _sfl_case=$4; _sfl_files=$5
+  [ -n "$4" ] || return 0
+  _sfl_user=$1; _sfl_home=$2; _sfl_base=$3; _sfl_files=$4
   _sfl_saved_ifs=$IFS; IFS='
 '
   set -f
-  # shellcheck disable=SC2086 # one grep option per line
-  set -- ${_sfl_case:+"$_sfl_case"} -l -F $GREP_NAME_OPTIONS --
-  _sfl_option_count=$#
   # shellcheck disable=SC2086 # one file per line
-  set -- "$@" $_sfl_files
+  set -- $_sfl_files
   set +f; IFS=$_sfl_saved_ifs
-  _sfl_output=$("$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$_sfl_option_count" "$@" </dev/null)
+  _sfl_output=$("$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$@" </dev/null)
   record_search_output "$_sfl_user" "$_sfl_home" "$_sfl_base" "$_sfl_output"
 }
 
 # search_startup_files USER HOME SCOPE: searches the SCOPE startup files under
-# HOME (under ROOT for the system scope, whose rows carry an empty HOME) in two
-# parts, the .ps1 files in any case and the rest in their own case, with one
-# grep each. Reads ROOT. Temporaries: _ssf_.
+# HOME (under ROOT for the system scope, whose rows carry an empty HOME) with
+# one worker run. Reads ROOT. Temporaries: _ssf_.
 search_startup_files() {
   _ssf_base=$2
   [ "$3" != system ] || _ssf_base=$ROOT
-  _ssf_files=$(list_startup_files "$_ssf_base" "$3")
-  [ -n "$_ssf_files" ] || return 0
-  search_file_list "$1" "$2" "$_ssf_base" "" \
-    "$(printf '%s\n' "$_ssf_files" | grep -v -e '\.[Pp][Ss]1$')"
-  search_file_list "$1" "$2" "$_ssf_base" -i \
-    "$(printf '%s\n' "$_ssf_files" | grep -e '\.[Pp][Ss]1$')"
+  search_file_list "$1" "$2" "$_ssf_base" "$(list_startup_files "$_ssf_base" "$3")"
 }
 
 # scan_home_for_variables USER HOME TABLE SCOPE: searches every regular file
@@ -3826,10 +3832,10 @@ search_startup_files() {
 # ACTIVE_EXCLUDES and this run's staging directory and output files (not the
 # output directory, which may be the home), leaves out a file whose name holds
 # a newline (it would split the output), and counts the files over
-# ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them; one grep branch
-# takes the .ps1 files in any case, one the rest in their own case. Reads
-# OUTDIR, NAME, PROJECT_LIST, GREP_NAME_OPTIONS, GREP_NAME_COUNT, WORKER_SH,
-# LOG. Temporaries: _shv_.
+# ENV_SCAN_MAX_SIZE (0, no limit) instead of searching them. Both -exec
+# primaries stay at the top level, since busybox find never runs a batched
+# -exec inside parentheses. Reads OUTDIR, NAME, PROJECT_LIST, WORKER_SH, LOG.
+# Temporaries: _shv_.
 scan_home_for_variables() {
   _shv_user=$1; _shv_home=$2
   _shv_claims=$(expand_catalog "$2" "$3" | grep -v '^#|' | cut -d'|' -f3-)
@@ -3844,16 +3850,16 @@ scan_home_for_variables() {
   set -f
   for _shv_claim in $_shv_claims; do set -- "$@" -o -path "$_shv_claim"; done
   for _shv_exclude in $ACTIVE_EXCLUDES; do
-    [ -z "$_shv_exclude" ] || set -- "$@" -o -path "$_shv_home_pattern/$_shv_exclude"
+    if [ -n "$_shv_exclude" ]; then
+      set -- "$@" -o -path "$_shv_home_pattern/$_shv_exclude"
+    fi
   done
   set -- "$@" ')' -prune -o -type f ! -name "*$NEWLINE*"
-  [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" '(' -size "-$(( ENV_SCAN_MAX_SIZE + 1 ))c"
-  # shellcheck disable=SC2086 # one grep option per line
-  set -- "$@" '(' -name '*.[Pp][Ss]1' -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh \
-    "$(( GREP_NAME_COUNT + 4 ))" -i -l -F $GREP_NAME_OPTIONS -- '{}' + -o \
-    -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh "$(( GREP_NAME_COUNT + 3 ))" \
-    -l -F $GREP_NAME_OPTIONS -- '{}' + ')'
-  [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" -o -exec printf 'B|%s\n' '{}' + ')'
+  [ "$ENV_SCAN_MAX_SIZE" = 0 ] || set -- "$@" -size "-$(( ENV_SCAN_MAX_SIZE + 1 ))c"
+  set -- "$@" -exec "$WORKER_SH" -c "$HINT_SEARCH_WORKER" sh '{}' +
+  if [ "$ENV_SCAN_MAX_SIZE" != 0 ]; then
+    set -- "$@" -o -type f ! -name "*$NEWLINE*" -exec printf 'B|%s\n' '{}' +
+  fi
   set +f; IFS=$_shv_saved_ifs
   _shv_output=$(find "$@" 2>>"$LOG")
   record_search_output "$_shv_user" "$_shv_home" "$_shv_home" "$_shv_output"
@@ -4190,12 +4196,12 @@ json_relocation() {
   _jr_separator=
   while IFS= read -r _jr_record; do
     [ -n "$_jr_record" ] || continue
-    _jr_agent=${_jr_record##*"|"}; _jr_rest=${_jr_record%"|"*}
-    _jr_variable=${_jr_rest##*"|"}; _jr_rest=${_jr_rest%"|"*}
-    _jr_line=${_jr_rest##*"|"}; _jr_rest=${_jr_rest%"|"*}
-    _jr_source=$(json_escape "${_jr_rest#*"|"}")
+    _jr_agent=${_jr_record##*|}; _jr_rest=${_jr_record%|*}
+    _jr_variable=${_jr_rest##*|}; _jr_rest=${_jr_rest%|*}
+    _jr_line=${_jr_rest##*|}; _jr_rest=${_jr_rest%|*}
+    _jr_source=$(json_escape "${_jr_rest#*|}")
     printf '%s\n    {"user": "%s", "source": "%s", "line": %s, ' "$_jr_separator" \
-      "$(json_escape "${_jr_rest%%"|"*}")" "$_jr_source" "$_jr_line"
+      "$(json_escape "${_jr_rest%%|*}")" "$_jr_source" "$_jr_line"
     printf '"variable": "%s", "agent": "%s", "value": ""}' "$_jr_variable" "$_jr_agent"
     _jr_separator=,
   done <<EOF_RELOCATION_HINTS
@@ -4491,9 +4497,9 @@ check_prerequisites() {
 
 # detect_capabilities: sets HASH_TOOL, STAT_MODE, WORKER_SH and GREP_TEXT once.
 # The workers run under dash when it is installed, as it starts and loops faster
-# than bash; COLLECTOR_SH overrides it. GREP_TEXT is -a when grep -a prints the
-# numbered line of a file holding a NUL byte, which grep otherwise reports only
-# as a binary match. Temporaries: _dc_.
+# than bash; COLLECTOR_SH overrides it. GREP_TEXT is -a when grep -a -F finds a
+# name past a NUL byte, which grep otherwise reports only as a binary match, and
+# busybox grep not at all. Temporaries: _dc_.
 detect_capabilities() {
   if command -v sha256sum >/dev/null 2>&1; then HASH_TOOL=sha256sum
   elif command -v shasum >/dev/null 2>&1 && shasum -a 256 /dev/null >/dev/null 2>&1; then
@@ -4510,7 +4516,7 @@ detect_capabilities() {
   if [ -n "${COLLECTOR_SH:-}" ]; then WORKER_SH=$COLLECTOR_SH
   elif command -v dash >/dev/null 2>&1; then WORKER_SH=dash
   else WORKER_SH='sh'; fi
-  _dc_text_probe=$(printf 'x\000CODEX_HOME\n' | grep -a -n CODEX_HOME 2>/dev/null |
+  _dc_text_probe=$(printf 'x\000CODEX_HOME\n' | grep -a -n -F -e CODEX_HOME 2>/dev/null |
     awk '/^1:/ { found = 1 } END { print found + 0 }')
   if [ "$_dc_text_probe" = 1 ]; then GREP_TEXT=-a; else GREP_TEXT=; fi
 }
