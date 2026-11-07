@@ -16,6 +16,9 @@ $Work = Join-Path ([System.IO.Path]::GetTempPath()) ("cac-smoke-" + [guid]::NewG
 $Root = Join-Path $Work 'root'
 $Out = Join-Path $Work 'out'
 $script:fail = 0
+$script:SmokeStarted = [System.Diagnostics.Stopwatch]::StartNew()
+$script:RunSeconds = 0
+$script:RunCount = 0
 function Pass([string]$message) { Write-Output "ok   $message" }
 function FailCheck([string]$message) { Write-Output "FAIL $message"; $script:fail = 1 }
 function Check([string]$name, [scriptblock]$condition) {
@@ -1878,8 +1881,13 @@ function Run([string]$name, [hashtable]$extra) {
   $cargs = @{ Root = $Root; OutputDir = $outputDir; Quiet = $true; MaxFileSizeMB = 1 }
   foreach ($k in $extra.Keys) { $cargs[$k] = $extra[$k] }
   $global:LASTEXITCODE = 0
+  $runTimer = [System.Diagnostics.Stopwatch]::StartNew()
   $script:stdout = & $Collector @cargs 2>&1 | Out-String
   $script:ExitCode = $LASTEXITCODE
+  $runElapsed = [int][Math]::Floor($runTimer.Elapsed.TotalSeconds)
+  Write-Output "== run ${name}: ${runElapsed}s"
+  $script:RunSeconds += $runElapsed
+  $script:RunCount += 1
   $script:Manifest = Get-ChildItem -LiteralPath $outputDir -Filter '*.manifest.jsonl' | Select-Object -First 1
   $script:Archive = Get-ChildItem -LiteralPath $outputDir | Where-Object { $_.Name -match '\.(tar\.gz|zip)$' } | Select-Object -First 1
   $script:Summary = Get-ChildItem -LiteralPath $outputDir -Filter '*.collection.json' | Select-Object -First 1
@@ -3284,8 +3292,13 @@ function InventoryRun([hashtable]$extra) {
   $cargs = @{ Root = $Root; Inventory = $true; Quiet = $true }
   foreach ($k in $extra.Keys) { $cargs[$k] = $extra[$k] }
   $global:LASTEXITCODE = 0
+  $runTimer = [System.Diagnostics.Stopwatch]::StartNew()
   $script:InventoryLines = @(& $Collector @cargs 2>$null | ForEach-Object { [string]$_ })
   $script:ExitCode = $LASTEXITCODE
+  $runElapsed = [int][Math]::Floor($runTimer.Elapsed.TotalSeconds)
+  Write-Output "== run inventory: ${runElapsed}s"
+  $script:RunSeconds += $runElapsed
+  $script:RunCount += 1
   $script:Inventory = @($script:InventoryLines | ForEach-Object { $_ | ConvertFrom-Json })
 }
 function InventoryAgent([string]$user, [string]$agent) { return ($script:Inventory | Where-Object { $_.type -eq 'agent' } | Where-Object { $_.user -eq $user -and $_.agent -eq $agent } | Select-Object -First 1) }
@@ -3498,8 +3511,13 @@ function RunLinkImage([string]$name) {
   $outputDir = Join-Path $Out $name
   New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
   $global:LASTEXITCODE = 0
+  $runTimer = [System.Diagnostics.Stopwatch]::StartNew()
   $script:stdout = & $Collector -Root $LinkRoot -OutputDir $outputDir -Quiet -NoDocker 2>&1 | Out-String
   $script:ExitCode = $LASTEXITCODE
+  $runElapsed = [int][Math]::Floor($runTimer.Elapsed.TotalSeconds)
+  Write-Output "== run ${name}: ${runElapsed}s"
+  $script:RunSeconds += $runElapsed
+  $script:RunCount += 1
   $script:Manifest = Get-ChildItem -LiteralPath $outputDir -Filter '*.manifest.jsonl' | Select-Object -First 1
   $script:Archive = Get-ChildItem -LiteralPath $outputDir | Where-Object { $_.Name -match '\.(tar\.gz|zip)$' } | Select-Object -First 1
   $script:Summary = Get-ChildItem -LiteralPath $outputDir -Filter '*.collection.json' | Select-Object -First 1
@@ -3782,6 +3800,8 @@ try {
   Check '#73 Full collects the Packages claude.exe and Cache' { (StatusOf "$msixPackage/claude-code/2.1.295/abc/claude.exe") -eq 'collected' -and (StatusOf "$msixPackage/Cache/data_0") -eq 'collected' }
 } finally { $Root = $savedRoot }
 
+$testSeconds = [int][Math]::Floor($script:SmokeStarted.Elapsed.TotalSeconds)
+Write-Output "== $($script:RunCount) collector runs: $($script:RunSeconds)s; test: ${testSeconds}s"
 if ($script:fail -eq 0) { Write-Output "ALL PASSED ($($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion))"; Remove-Item -LiteralPath (ExtendedPath $Work) -Recurse -Force -ErrorAction SilentlyContinue }
 else { Write-Output "FAILURES; work dir kept: $Work" }
 exit $script:fail

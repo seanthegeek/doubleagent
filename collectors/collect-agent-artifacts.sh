@@ -3177,12 +3177,35 @@ collect_path() {
   fi
 }
 
+# set_exclude_words BASE: sets EXCLUDE_WORDS to the find(1) words that match
+# every ACTIVE_EXCLUDES glob under BASE, one per line, from the opening ( to the
+# last glob, empty when there is none, and EXCLUDE_WORDS_BASE to BASE. Reads
+# ACTIVE_EXCLUDES and NEWLINE. Temporaries: _sew_. collect_tree calls it when
+# EXCLUDE_WORDS was built for another base and splits the words in one pass:
+# appending them glob by glob to its argument list copies the list per glob.
+set_exclude_words() {
+  EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=$1
+  _sew_saved_ifs=$IFS
+  # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
+  IFS=$NEWLINE
+  set -f
+  for _sew_glob in $ACTIVE_EXCLUDES; do
+    [ -n "$_sew_glob" ] || continue
+    if [ -z "$EXCLUDE_WORDS" ]; then EXCLUDE_WORDS="($NEWLINE-path$NEWLINE$1/$_sew_glob"
+    else EXCLUDE_WORDS="$EXCLUDE_WORDS$NEWLINE-o$NEWLINE-path$NEWLINE$1/$_sew_glob"; fi
+  done
+  set +f
+  IFS=$_sew_saved_ifs
+}
+
 # collect_tree USER HOME AGENT DIR: walks DIR with one find(1) that prunes the
 # claimed and excluded paths and hands the rest to the workers. Reads
-# NESTED_CLAIMS, ACTIVE_EXCLUDES, INVENTORY, MANIFEST, STAGE, ROOT, WORKER_SH,
-# LOG. Temporaries: _ct_.
+# NESTED_CLAIMS, EXCLUDE_WORDS, EXCLUDE_WORDS_BASE, INVENTORY, MANIFEST, STAGE,
+# ROOT, WORKER_SH, LOG; rebuilds the EXCLUDE_WORDS pair with set_exclude_words
+# when it was built for another base. Temporaries: _ct_.
 collect_tree() {
   _ct_user=$1; _ct_home=$2; _ct_agent=$3
+  [ "$EXCLUDE_WORDS_BASE" = "$2" ] || set_exclude_words "$2"
   set -- "$4"
   _ct_saved_ifs=$IFS
   IFS='
@@ -3196,16 +3219,12 @@ collect_tree() {
     else set -- "$@" -o -path "$_ct_claim"; fi
   done
   if [ "$_ct_first" = 0 ]; then set -- "$@" ')' -prune -o; fi
-  _ct_first=1
-  for _ct_exclude in $ACTIVE_EXCLUDES; do
-    [ -n "$_ct_exclude" ] || continue
-    if [ "$_ct_first" = 1 ]; then set -- "$@" '(' -path "$_ct_home/$_ct_exclude"; _ct_first=0
-    else set -- "$@" -o -path "$_ct_home/$_ct_exclude"; fi
-  done
+  # shellcheck disable=SC2086 # one word per line, split on newline with globbing off
+  set -- "$@" $EXCLUDE_WORDS
   IFS=$_ct_saved_ifs; set +f
-  if [ "$_ct_first" = 0 ] && [ "$INVENTORY" = 1 ]; then
+  if [ -n "$EXCLUDE_WORDS" ] && [ "$INVENTORY" = 1 ]; then
     set -- "$@" ')' -prune -o
-  elif [ "$_ct_first" = 0 ]; then
+  elif [ -n "$EXCLUDE_WORDS" ]; then
     set -- "$@" ')' -prune -exec "$WORKER_SH" -c "$EXCLUDED_PATHS_WORKER" sh "$ROOT" \
       "$_ct_user" "$_ct_home" "$_ct_agent" "$MANIFEST" '{}' + -o
   fi
@@ -4625,13 +4644,14 @@ create_output_files
 if [ "$FULL" = 1 ]; then ACTIVE_EXCLUDES=; else ACTIVE_EXCLUDES=$EXCLUDES; fi
 log_start
 
-# Globals the steps fill. NESTED_CLAIMS is cleared so the volume walks never
-# prune paths an inherited environment variable named.
+# Globals the steps fill. NESTED_CLAIMS and the EXCLUDE_WORDS pair are cleared
+# so no walk prunes paths an inherited environment variable named.
 NOTES=
 DOCKER_SEEN=0; DOCKER_FOUND=0; DOCKER_COLLECTED=0; DOCKER_UNREADABLE=0; DOCKER_DESKTOP=0
 DOCKER_INV=
 PROJECT_LIST=
 NESTED_CLAIMS=
+EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=
 RELOCATION_HINTS=; RELOCATION_FILES_SEARCHED=0; RELOCATION_FILES_SKIPPED_SIZE=0; HINT_HEADER=
 
 USER_LIST=$(get_user_homes)

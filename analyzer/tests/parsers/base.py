@@ -1,17 +1,20 @@
 """The base class and helpers the parser test modules share."""
 
+import copy
 import json
+import os
 import shutil
 import stat
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import ClassVar, cast
 
 from doubleagent import catalog
 from doubleagent.cli import parsers_for
-from doubleagent.inputs import Artifact, open_input
+from doubleagent.inputs import Artifact, Collection, open_input
 from doubleagent.parsers import Options, by_agent
 from fixtures import build_home
 
@@ -21,17 +24,80 @@ def read_jsonl(path: Path) -> list[dict]:
         return [json.loads(line) for line in handle]
 
 
+def _snapshot(root: Path) -> list[tuple]:
+    """Return every directory and file under `root` with its mode, size, times and inode.
+
+    Links are recorded, never followed. A test that changed anything under `root` (a write,
+    an append, a chmod, a new file or a removed one) gives a different snapshot: a write moves
+    the change time, which the kernel sets and a test cannot set back, and the snapshot is
+    taken long after the build, so no write shares the build's timestamp.
+    """
+    entries = []
+    for directory, dirnames, filenames in os.walk(root):
+        for name in [*dirnames, *filenames]:
+            path = os.path.join(directory, name)
+            status = os.lstat(path)
+            entries.append(
+                (
+                    os.path.relpath(path, root),
+                    status.st_mode,
+                    status.st_size,
+                    status.st_mtime_ns,
+                    status.st_ctime_ns,
+                    status.st_ino,
+                )
+            )
+    return sorted(entries)
+
+
 class ParserBase(unittest.TestCase):
-    """Build the fixture home and open it as an input for each test."""
+    """Build the fixture home and open it as an input, once per class.
+
+    The home is rebuilt before a test when an earlier test changed the tree, the opened input
+    or the catalog. A subclass lists in `extra_builders` the functions that add files to the
+    home before it is opened, so those files are part of the unchanged tree.
+    """
+
+    extra_builders: ClassVar[tuple[Callable[[Path], None], ...]] = ()
+    cat: catalog.Catalog
+    tmp: Path
+    home: Path
+    col: Collection
+    _pristine: ClassVar[list[tuple]]
+    _pristine_col: ClassVar[Collection]
+    _pristine_cat: ClassVar[catalog.Catalog]
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._build()
+
+    @classmethod
+    def _build(cls):
+        cls.cat = catalog.load()
+        cls.tmp = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
+        cls.home = build_home(cls.tmp / "home" / "alice")
+        for builder in cls.extra_builders:
+            builder(cls.home)
+        cls.col = open_input(cls.tmp / "home", cls.cat, host="h1")
+        cls._pristine = _snapshot(cls.tmp)
+        cls._pristine_col = copy.deepcopy(cls.col)
+        cls._pristine_cat = copy.deepcopy(cls.cat)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+        super().tearDownClass()
 
     def setUp(self):
-        self.cat = catalog.load()
-        self.tmp = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
-        self.home = build_home(self.tmp / "home" / "alice")
-        self.col = open_input(self.tmp / "home", self.cat, host="h1")
-
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
+        cls = type(self)
+        if (
+            cls.col != cls._pristine_col
+            or cls.cat != cls._pristine_cat
+            or _snapshot(cls.tmp) != cls._pristine
+        ):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+            cls._build()
 
     def artifact(self, rel):
         return next(artifact for artifact in self.col.artifacts if artifact.rel == rel)

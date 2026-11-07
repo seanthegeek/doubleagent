@@ -522,7 +522,10 @@ The analyzer runs on the analyst's workstation, never on the host.
   `analyzer/requirements-dev.txt`, never among the package's dependencies,
   and no test module imports it, since the pyright gate runs without it: a
   list of cases is a loop with the case in each assertion's message, never
-  `pytest.mark.parametrize`.
+  `pytest.mark.parametrize`. pytest-xdist is listed beside pytest in
+  `analyzer/requirements-dev.txt`, and `tests/run.sh` runs the suite across
+  the cores when it is installed; `tools/check_branch_coverage.py` runs the
+  suite in one process.
 - **Tests.** `analyzer/tests/run.sh`, which runs pytest, passes. Every
   parser has a fixture and a test class, every new input shape a detection
   test. A proximity join of two record kinds is bounded by the next record
@@ -1652,9 +1655,9 @@ down.
   `git merge-base --is-ancestor <merge commit> main` holds.
 - Reproduce a review finding before fixing or declining it. A finding the
   change introduced is fixed in the pull request with a test; a defect in
-  untouched code is filed as an issue, then fixed in the pull request as
-  the issue-tracking bullet below allows or left open, and the reply names
-  the fix commit or the issue. A fix for one side of a symmetric rule (a direction, a
+  untouched code is filed as an issue and fixed in the pull request as
+  the issue-tracking bullet below says, and the reply names the fix
+  commit, or the issue when the work is split off. A fix for one side of a symmetric rule (a direction, a
   scope, a write and its read) re-derives and tests the other side in the
   same commit; when fixing one half of a contract (a flag and the summary
   it feeds, a docstring guarantee and its scope), grep for the other half.
@@ -1663,13 +1666,15 @@ down.
   function comment, the code is rewritten from it, and every axis is tested
   before the next push.
 
-- Track outstanding work as GitHub issues. A defect found while working
-  on another issue may be fixed in the same pull request once its own
-  issue is filed: the fix is its own commit saying `Refs #<n>`, it gets
-  its own changelog line ending `([#<n>])` when it changes what a part
-  ships, and the pull request body lists it under a `Found on the way:`
-  line with its `Closes #<n>` line, so it closes and ships with the rest.
-  Other out-of-scope work gets its own issue and pull request. Label `bug`
+- Track outstanding work as GitHub issues. Anything found while working
+  on an issue that the same change can fix (a defect, a gap, an unfinished
+  case of the issue's own topic) is filed as its own issue and fixed in
+  the same pull request: the fix is its own commit saying `Refs #<n>`, it
+  gets its own changelog line ending `([#<n>])` when it changes what a
+  part ships, and the pull request body lists it under a
+  `Found on the way:` line with its `Closes #<n>` line, so it closes and
+  ships with the rest. Only work that needs its own plan gets its own
+  issue and pull request, and the pull request body names it. Label `bug`
   behaviour that is wrong, broken or contradicts the documentation, and
   `enhancement` a new feature, catalog entry or improvement to documented
   behaviour.

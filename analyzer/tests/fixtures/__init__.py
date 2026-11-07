@@ -6,6 +6,7 @@ parser's module docstring cites.
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 
@@ -1098,6 +1099,19 @@ def build_image(root: Path) -> Path:
     (root / "etc").mkdir(parents=True, exist_ok=True)
     (root / "etc/passwd").write_text("alice:x:1000:1000::/home/alice:/bin/sh\n", encoding="utf-8")
     return root
+
+
+# The sh collector the round-trip tests run.
+COLLECTOR = Path(__file__).resolve().parents[3] / "collectors" / "collect-agent-artifacts.sh"
+
+
+def collector_command() -> list[str]:
+    """Return the shell and script that run the sh collector: dash when installed, else sh.
+
+    Dash because the script's shell sets the speed of a run, and the collector already runs its
+    `find -exec` workers under dash when it is installed.
+    """
+    return [shutil.which("dash") or "sh", str(COLLECTOR)]
 
 
 # The builders build_home runs, in order, each with the directory under the

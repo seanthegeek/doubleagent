@@ -26,6 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - pi's package checkout exclusions are written against the `git/<host>/<path>` layout pi uses, as `.pi/agent/git/*/*/node_modules`, `.pi/agent/git/*/*/.git` and the same under a project's `.pi/git`; every checkout pi writes was already excluded by the earlier globs ([#326]).
+- The sh collector builds the `find` exclusion expression when the collection base (a home, a project or a volume's `_data`) changes instead of once per matched directory, so a run over a host with many matched directories is faster; the manifest, log, `collection.json` and archive are unchanged ([#461]).
 
 ### Removed
 
@@ -1258,6 +1259,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#461]: https://github.com/seanthegeek/doubleagent/issues/461
 [#457]: https://github.com/seanthegeek/doubleagent/issues/457
 [#454]: https://github.com/seanthegeek/doubleagent/issues/454
 [#333]: https://github.com/seanthegeek/doubleagent/issues/333

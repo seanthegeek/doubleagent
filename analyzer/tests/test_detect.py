@@ -11,11 +11,13 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from typing import ClassVar
 
 from doubleagent import catalog, cli, inputs, model
 from doubleagent.errors import InputError
 from doubleagent.inputs import open_input
 from fixtures import (
+    COLLECTOR,
     PROJECT_GIT_CONFIG,
     PROJECT_GIT_HEAD,
     PROJECT_GIT_REMOTES,
@@ -24,10 +26,8 @@ from fixtures import (
     QWEN_LIVE_LOG_REL,
     build_home,
     build_image,
+    collector_command,
 )
-
-REPO = Path(__file__).resolve().parents[2]
-COLLECTOR = REPO / "collectors" / "collect-agent-artifacts.sh"
 
 
 class LooseDetectTests(unittest.TestCase):
@@ -438,31 +438,43 @@ class GitDetectTests(unittest.TestCase):
 class ArchiveTests(unittest.TestCase):
     """Round trip through the sh collector when a POSIX shell is available.
 
-    Collector archive in, attributed artifacts and timeline out.
+    Collector archive in, attributed artifacts and timeline out. The collector runs once for the
+    class; each test checks its exit code and archive and writes its own outputs under `work`.
     """
 
-    def setUp(self):
-        self.cat = catalog.load()
-        self.tmp = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
+    tmp: ClassVar[Path]
+    out: ClassVar[Path]
+    result: ClassVar[subprocess.CompletedProcess[str]]
+    archives: ClassVar[list[Path]]
 
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
-
-    def _collect(self):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
         if not COLLECTOR.exists() or shutil.which("sh") is None or shutil.which("tar") is None:
-            self.skipTest("collector or sh/tar not available")
-        root = build_image(self.tmp / "image")
-        out = self.tmp / "out"
-        out.mkdir()
-        result = subprocess.run(
-            ["sh", str(COLLECTOR), "-r", str(root), "-o", str(out), "-q"],
+            raise unittest.SkipTest("collector or sh/tar not available")
+        cls.tmp = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
+        cls.addClassCleanup(shutil.rmtree, cls.tmp, ignore_errors=True)
+        root = build_image(cls.tmp / "image")
+        cls.out = cls.tmp / "out"
+        cls.out.mkdir()
+        cls.result = subprocess.run(
+            [*collector_command(), "-r", str(root), "-o", str(cls.out), "-q"],
             capture_output=True,
             text=True,
         )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        archives = list(out.glob("*.tar.gz"))
-        self.assertEqual(len(archives), 1, list(out.iterdir()))
-        return archives[0], out
+        cls.archives = list(cls.out.glob("*.tar.gz"))
+
+    def setUp(self):
+        self.cat = catalog.load()
+        self.work = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.work, ignore_errors=True)
+
+    def _collect(self):
+        self.assertEqual(self.result.returncode, 0, self.result.stdout + self.result.stderr)
+        self.assertEqual(len(self.archives), 1, list(self.out.iterdir()))
+        return self.archives[0], self.out
 
     def test_archive_attribution_comes_from_manifest(self):
         archive, _out = self._collect()
@@ -487,7 +499,7 @@ class ArchiveTests(unittest.TestCase):
 
     def test_extracted_directory_and_timeline_cli(self):
         archive, _out = self._collect()
-        extracted = self.tmp / "extracted"
+        extracted = self.work / "extracted"
         extracted.mkdir()
         with tarfile.open(archive) as archive_file:
             if hasattr(tarfile, "data_filter"):
@@ -501,24 +513,24 @@ class ArchiveTests(unittest.TestCase):
 
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
-            exit_code = cli.main(["timeline", str(extracted), "-o", str(self.tmp / "tl")])
+            exit_code = cli.main(["timeline", str(extracted), "-o", str(self.work / "tl")])
         self.assertEqual(exit_code, 0, buffer.getvalue())
-        lines = (self.tmp / "tl" / "timeline.jsonl").read_text(encoding="utf-8").split("\n")
+        lines = (self.work / "tl" / "timeline.jsonl").read_text(encoding="utf-8").split("\n")
         self.assertEqual(lines[-1], "")
         rows = [json.loads(line) for line in lines[:-1]]
         self.assertGreater(len(rows), 20)
         self.assertEqual(list(rows[0]), model.TIMELINE_COLUMNS)
         self.assertIsInstance(rows[0]["source_line"], int)
-        sessions = (self.tmp / "tl" / "sessions.jsonl").read_text(encoding="utf-8").splitlines()
+        sessions = (self.work / "tl" / "sessions.jsonl").read_text(encoding="utf-8").splitlines()
         self.assertEqual(list(json.loads(sessions[0])), model.SESSION_COLUMNS)
-        self.assertTrue((self.tmp / "tl" / "inventory.json").exists())
+        self.assertTrue((self.work / "tl" / "inventory.json").exists())
         # No detect.json: inventory.json holds what it held.
-        self.assertFalse((self.tmp / "tl" / "detect.json").exists())
+        self.assertFalse((self.work / "tl" / "detect.json").exists())
         # host comes from collection.json, users from the manifest
         self.assertLessEqual({row["user"] for row in rows}, {"alice", "bob", "carol"})
         # The collector gathers /srv/proj's repository files, and the
         # agents' own records of its remote join them.
-        inv = json.loads((self.tmp / "tl" / "inventory.json").read_text(encoding="utf-8"))
+        inv = json.loads((self.work / "tl" / "inventory.json").read_text(encoding="utf-8"))
         project = inv["projects"]["/srv/proj"]
         self.assertEqual(project["status"], "collected")
         self.assertEqual(

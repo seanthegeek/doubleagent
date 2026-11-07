@@ -11,10 +11,7 @@ import unittest
 from pathlib import Path
 
 from doubleagent import cli, inventory
-from fixtures import build_image
-
-REPO = Path(__file__).resolve().parents[2]
-COLLECTOR = REPO / "collectors" / "collect-agent-artifacts.sh"
+from fixtures import build_image, collector_command
 
 # Captured stdout of two hosts, in the shapes collect-agent-artifacts.sh and
 # Collect-AgentArtifacts.ps1 print with --inventory / -Inventory (1.6.0).
@@ -196,7 +193,7 @@ class InventoryTests(unittest.TestCase):
         cap.mkdir()
         with open(cap / "image.txt", "w", encoding="utf-8") as handle:
             result = subprocess.run(
-                ["sh", str(COLLECTOR), "-r", str(root), "--inventory", "-q"],
+                [*collector_command(), "-r", str(root), "--inventory", "-q"],
                 stdout=handle,
                 stderr=subprocess.PIPE,
             )

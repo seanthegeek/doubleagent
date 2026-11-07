@@ -13,7 +13,9 @@ SQLite, and the parsers share one decoder and one opener for them.
 ## Testing
 
 The suite runs under pytest, which the development requirements add to
-the analyzer's own. When the system Python is newer than the minimum the
+the analyzer's own, with pytest-xdist; `tests/run.sh` uses every core when
+it is installed (`-n 0` runs one process). When the system Python is newer
+than the minimum the
 analyzer supports, [uv](https://docs.astral.sh/uv/) installs that version
 and makes a venv for it (`uv python install 3.11`, then
 `uv venv --python 3.11 venv311` and `uv pip install --python
@@ -37,7 +39,8 @@ have no module of their own: `cline_legacy.py` is tested through the Cline
 and Roo Code tests, and `codex_state.py` through the Codex tests in
 `test_codex.py`.
 `tests/parsers/base.py` holds the `ParserBase` class the test classes
-extend, which builds the fixture home for each test, and the helpers
+extend, which builds the fixture home once per class and rebuilds it
+after a test that changed it, and the helpers
 several modules use; `tests/parsers/test_shared.py` holds the tests of the
 helpers the parsers share and of the outputs and routing across parsers.
 The fixture builders are one module per catalog agent,

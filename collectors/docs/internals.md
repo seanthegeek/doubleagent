@@ -60,7 +60,7 @@ The steps in the main program, in run order:
 | Resolve options | `resolve_extra_projects`, `resolve_root` (exit 2 when `-r` is not a directory) | `Initialize-TableRegexes`, `Resolve-ProjectArgs`, `Resolve-RootArg` (exit 2) |
 | Output directory and tools | `check_prerequisites`: outside `--inventory`, the output directory is created and must be writable and `tar` must exist; `find` must exist (exit 2) | `Initialize-OutputDir` outside `-Inventory` (exit 2) |
 | Capabilities and names | `detect_capabilities`, `compile_secret_pattern`, `define_secret_test`, `set_output_names` | `Initialize-RunNames`, `Initialize-Archivers` (exit 2 on a bad `CAC_ARCHIVER`) |
-| Open outputs | exports the worker settings, sets the `EXIT`, `INT` and `TERM` traps, `create_output_files`, sets `ACTIVE_EXCLUDES` (empty under `--full`), `log_start`, then clears the globals the steps fill (`NOTES`, the `DOCKER_*` counters, `DOCKER_INV`, `PROJECT_LIST`, `NESTED_CLAIMS`) so no value comes from the environment | `Open-RunFiles` |
+| Open outputs | exports the worker settings, sets the `EXIT`, `INT` and `TERM` traps, `create_output_files`, sets `ACTIVE_EXCLUDES` (empty under `--full`), `log_start`, then clears the globals the steps fill (`NOTES`, the `DOCKER_*` counters, `DOCKER_INV`, `PROJECT_LIST`, `NESTED_CLAIMS`, `EXCLUDE_WORDS`, `EXCLUDE_WORDS_BASE`) so no value comes from the environment | `Open-RunFiles` |
 | Users | `USER_LIST=$(get_user_homes)`, a warning when it is empty, then `collect_user_homes` unless `--inventory` | `Get-UserHomes`, `Test-Administrator`, `Write-StartLog`, then `Add-UserHomes`, which under `-Inventory` is also the inventory walk |
 | Volumes | `collect_docker_volumes` unless `--no-docker` | `Add-DockerVolumes` unless `-NoDocker` |
 | Projects | `collect_projects` (discovery and walk) unless `--no-projects` | `Find-Projects`, then `Add-Projects`, unless `-NoProjects` |
@@ -169,7 +169,7 @@ keeps the banner and says so.
 | Glob | Matched against | sh | PowerShell |
 | --- | --- | --- | --- |
 | `CATALOG`, `PROJECT_CATALOG` | the base (home, project), one path segment at a time; `*` and `?` do not cross `/` | shell pathname expansion of `BASE/GLOB` in `expand_glob`, with `IFS` set to newline only so a base with spaces stays one word; a pattern that matches nothing expands to itself and fails the existence test. As in any POSIX shell, `*` does not match a name's leading `.`. | `Expand-Glob` splits the glob on `/`; a wildcard segment lists the directory and matches each name with `Convert-GlobToRegex` (`*` is `[^/]*`, so it matches a leading `.`) and `-match`, which ignores case; a literal segment is tested for existence and respelled as on disk by `Get-OnDiskName`. |
-| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, which splits the table with globbing off, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive |
+| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` rebuilds when the base changes, with globbing off, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive |
 | `SECRET_GLOBS` | the path relative to the base; `*` crosses `/` | one `case` pattern, every glob joined with `\|`, built once by `compile_secret_pattern` and turned into `is_secret` by `define_secret_test`; `is_secret` is called in `plan_chunk` (and in `test_inventory_secret`), case-sensitive | `$script:SecretRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedFile` and `Test-InventorySecret`; case-insensitive |
 | `DOCKER_VOLUMES` | the volume directory's name | a `case` pattern in `get_docker_volume_rule`, with globbing off | `Convert-GlobToRegex` and `-cmatch`, case-sensitive, in `Get-DockerVolumeRule` |
 
@@ -184,10 +184,15 @@ matches nothing.
 The base is the home, the project or the volume's `_data` directory, so one
 exclusion such as `.claude/worktrees` applies in each. In the sh collector
 the `EXCLUDES` test is part of the `find` expression, so it applies to a
-matched directory and everything under it; a match that is not a directory
-is never given to `find`, so `collect_path` tests it with `test_excluded`
-and gives it to `EXCLUDED_PATHS_WORKER` when it matches. In the PowerShell
-collector `Add-CollectedPath` tests the match itself and
+matched directory and everything under it. `set_exclude_words` builds that
+part of the expression, one `-path` test per glob, when `collect_tree`
+walks under a base other than the one the words were built for, and
+`EXCLUDE_WORDS` keeps it for the walks that follow under the same base,
+split into the argument list in one pass: appending it glob by glob for
+each directory copies the whole list once per glob. A match that is not a
+directory is never given to `find`, so `collect_path` tests it with
+`test_excluded` and gives it to `EXCLUDED_PATHS_WORKER` when it matches. In
+the PowerShell collector `Add-CollectedPath` tests the match itself and
 `Add-CollectedTree` each child.
 
 ## Claimed paths and case variants
@@ -638,6 +643,7 @@ PowerShell functions that do their job.
 | `UNREADABLE_DIRS_WORKER` | Staging files | `error_read` rows for directories inside a walk; PowerShell does this in `Add-CollectedTree` |
 | `print_file_rows` | Staging files | Inside `INVENTORY_FILES_WORKER`: the `F\|` lines from one `stat` call |
 | `classify_case_matches`, `fold_case_matches` | Catalog walk | Case-variant folding; PowerShell uses `Get-OnDiskName` |
+| `set_exclude_words` | Catalog walk | The `find` words that prune every `EXCLUDES` glob under one base, rebuilt for `collect_tree` when the base changes; PowerShell compiles `$script:ExcludeRegex` once per run in `Initialize-TableRegexes` |
 | `test_excluded` | Catalog walk | Whether a match that is not a directory is excluded; PowerShell tests `$script:ExcludeRegex` in `Add-CollectedPath` |
 | `filter_users` | Users | Drops system and shared homes, applies `-u`, keeps each home once; PowerShell does this in `Get-UserHomes` |
 | `find_errors_since` | Docker and Podman volumes | `find:` log lines since a given line |
