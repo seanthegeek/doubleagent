@@ -435,8 +435,10 @@ A new source goes into its group on both sides, at the same position.
 The step searches, per base (each home, the system root and each project), the
 files that the `STARTUP_FILES` globs of that scope match, keeping regular files
 only: a symlink is never followed or read, nor a file under a symlinked
-directory (`under_symlink`, `Test-UnderLink`), which the glob expansion would
-have followed and which in image mode may point at the analyst's host. One
+directory whose target lies outside the base (`under_symlink`,
+`Test-UnderLink`): the glob expansion follows such a link, and in image mode an
+image's `/etc -> /private/etc` would read the analyst's host, while a live
+macOS `/etc` stays inside `/` and is read. One
 `grep -l -F` over the whole
 list names the files that hold any `RELOCATION_VARS` name, and one `grep -n`
 and `awk` per such file keeps a hit only where the character before and after
@@ -599,7 +601,7 @@ PowerShell functions that do their job.
 | Tell a project that is or holds a home, which is not swept | `holds_home` | `Test-HoldsHome` |
 | Tell a home under the usual home roots, the only homes swept | `under_home_root` | `Test-UserHomeRoot` |
 | List the startup files of one scope under one base | `list_startup_files` | `Get-StartupFiles` |
-| Tell a path under a symlinked directory, which is not read | `under_symlink` | `Test-UnderLink` |
+| Tell a path under a symlinked directory leading out of the base, which is not read | `under_symlink` | `Test-UnderLink` |
 | Search files for any relocation variable name | `HINT_SEARCH_WORKER` | `Select-RelocationNames` |
 | Record the hits of the searched files and collect each hit file | `record_search_output`, `record_file_hints` | `Search-RelocationFiles` |
 | The relocation variable names a file (sh) or a line (PowerShell) holds as whole words | `list_bounded_names` | `Get-BoundedNames` |

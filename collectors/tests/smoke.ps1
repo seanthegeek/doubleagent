@@ -1844,6 +1844,15 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.oh-my-zsh') -Target (ImagePath 'elsewhere/omz') -ErrorAction Stop | Out-Null
   $omzLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #454 symlinked directory check skipped' }
+# A linked directory that stays inside the home is read, like a live /etc that points at
+# /private/etc.
+MakeFile 'home/bob/dotfiles/direnv/direnvrc' "export CODEX_HOME=/opt/x`n"
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'home/bob/.config'))
+$direnvLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.config/direnv') -Target (ImagePath 'home/bob/dotfiles/direnv') -ErrorAction Stop | Out-Null
+  $direnvLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #454 linked-within-home check skipped' }
 MakeFile 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' "<key>OPENCLAW_STATE_DIR</key><string>/opt/x</string>`n"
 MakeFile 'Users/alice/work/scripts/deep/env-helper.sh' "#!/usr/bin/env bash`nexport QWEN_HOME=/opt/x`n"
 MakeFile 'Users/alice/work/scripts/deep/env-helper.ps1' ('$env:qwen_home = "/opt/x"' + "`n")
@@ -2773,6 +2782,9 @@ Check '#454 the every-variable file hints every relocation variable' {
   $listedVariables.Count -gt 0 -and ($hinted -join ',') -eq (@($listedVariables | Sort-Object -Unique) -join ',')
 }
 Check '#454 a longer name holding a variable is no hint' { (HintsFrom $defaultRunSummary 'Users/alice/.config/fish/conf.d/decoy.fish').Count -eq 0 -and (RowsAt 'Users/alice/.config/fish/conf.d/decoy.fish').Count -eq 0 }
+if ($direnvLinkOk) {
+  Check '#454 a startup file under a directory linked within the home is read' { (HasHint $defaultRunSummary 'home/bob/.config/direnv/direnvrc' 1 'CODEX_HOME' 'codex-cli' 'bob') -and (IsAgentRow 'home/bob/.config/direnv/direnvrc' 'shared' $true) }
+}
 if ($omzLinkOk) {
   Check '#454 a startup file under a symlinked directory is not read' { (HintsFrom $defaultRunSummary 'home/bob/.oh-my-zsh/custom/agents.zsh').Count -eq 0 -and (RowsAt 'home/bob/.oh-my-zsh/custom/agents.zsh').Count -eq 0 -and (RowsAt 'elsewhere/omz/custom/agents.zsh').Count -eq 0 }
 }

@@ -3778,21 +3778,31 @@ set_relocation_names() {
   export GREP_NAME_OPTIONS
 }
 
-# under_symlink BASE PATH -> 0 when a directory between BASE and PATH is a
-# symlink: the shell's glob followed it, where the catalog walk's find never
-# descends one, and in image mode it may point at the analyst's own host.
-# Temporaries: _us_.
+# under_symlink BASE PATH -> 0 when a symlinked directory between BASE and
+# PATH, which the shell's glob followed, leads outside BASE (/ when BASE is
+# empty): an image's /etc -> /private/etc would read the analyst's own host,
+# while a live macOS /etc stays inside /. PATH's leading components are counted
+# off against BASE's, since posh does not strip a quoted parameter inside a
+# pattern. Temporaries: _us_.
 under_symlink() {
-  _us_rel=${2#"$1"/}; _us_dir=$1
-  while case "$_us_rel" in (*/*) true ;; (*) false ;; esac; do
+  _us_base=$1/; _us_rel=$2; _us_dir=$1
+  while [ "${_us_base#*/}" != "$_us_base" ]; do
+    _us_base=${_us_base#*/}; _us_rel=${_us_rel#*/}
+  done
+  _us_root=$(cd -P "${1:-/}" 2>/dev/null && pwd -P) || return 0
+  _us_root=${_us_root%/}/
+  while [ "${_us_rel#*/}" != "$_us_rel" ]; do
     _us_dir="$_us_dir/${_us_rel%%/*}"; _us_rel=${_us_rel#*/}
-    [ ! -L "$_us_dir" ] || return 0
+    [ -L "$_us_dir" ] || continue
+    _us_real=$(cd -P "$_us_dir" 2>/dev/null && pwd -P) || return 0
+    case "$_us_real/" in ("$_us_root"*) ;; (*) return 0 ;; esac
   done
   return 1
 }
 
 # list_startup_files BASE SCOPE -> the regular files, never a symlink nor under
-# one, that the STARTUP_FILES globs of SCOPE match under BASE, one per line; a
+# one leading out of BASE, that the STARTUP_FILES globs of SCOPE match under
+# BASE, one per line; a
 # system glob's leading / is dropped, so it is taken under the root, and a name
 # holding a newline is left out, as it would split the list. Reads
 # STARTUP_FILES. Temporaries: _lsf_.

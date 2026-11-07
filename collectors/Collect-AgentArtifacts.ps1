@@ -4203,10 +4203,14 @@ function Test-RegularFile([string]$path) {
   return ((Get-ManifestType $item) -eq 'file')
 }
 
-# Takes a base and a path under it; returns whether a directory between them is
-# a reparse point (a symlink or junction), which the glob followed and the
-# catalog walk never descends; in image mode it may point at the analyst's host.
+# Takes a base and a path under it; returns whether a symlink or junction
+# between them, which the glob followed, leads outside the base: an image's
+# /etc -> /private/etc would read the analyst's host, while a live macOS /etc
+# stays inside /. A link whose target cannot be read counts as outside.
 function Test-UnderLink([string]$base, [string]$path) {
+  $comparison = [System.StringComparison]::Ordinal
+  if ($env:OS -eq 'Windows_NT') { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
+  $root = [System.IO.Path]::GetFullPath($base).TrimEnd('\', '/') + $script:Sep
   $relative = $path.Substring($base.TrimEnd('\', '/').Length).TrimStart('\', '/')
   $segments = @($relative -split '[\\/]')
   $directory = $base
@@ -4214,14 +4218,21 @@ function Test-UnderLink([string]$base, [string]$path) {
     $directory = Join-PathSafe $directory $segments[$index]
     $extended = ConvertTo-ExtendedPath $directory
     try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop } catch { return $true }
-    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { return $true }
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { continue }
+    $target = Get-LinkTarget $item
+    if (-not $target) { return $true }
+    if (-not [System.IO.Path]::IsPathRooted($target)) {
+      $target = Join-PathSafe (Split-Path -Parent $directory) $target
+    }
+    $resolved = [System.IO.Path]::GetFullPath($target).TrimEnd('\', '/') + $script:Sep
+    if (-not $resolved.StartsWith($root, $comparison)) { return $true }
   }
   return $false
 }
 
 # Takes a base directory and a scope; returns the regular files, none under a
-# linked directory, that the STARTUP_FILES globs of that scope match under the
-# base, each once, in table order.
+# linked directory leading out of the base, that the STARTUP_FILES globs of
+# that scope match under the base, each once, in table order.
 function Get-StartupFiles([string]$base, [string]$scope) {
   $files = New-Object System.Collections.ArrayList
   $seen = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
