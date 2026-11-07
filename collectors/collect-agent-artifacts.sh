@@ -2674,14 +2674,9 @@ write_manifest_row() {
     "$_wmr_size" "$_wmr_mtime" "$_wmr_atime" "$_wmr_ctime" "$_wmr_btime" "$_wmr_uid" \
     "$_wmr_gid" "${15}" "${16}" "${17}" "${18}" "$_wmr_target" "$_wmr_error" >>"$1"
 }
-# get_dir_read_error DIR -> prints why DIR cannot be listed or entered and
-# returns 0, else returns 1. test(1) decides; the text is ls(1)'s OS error.
-get_dir_read_error() {
-  get_dir_read_error_var "$1" || return 1
-  printf '%s' "$_ret_dir_error"
-}
-# get_dir_read_error_var DIR: get_dir_read_error, assigned to _ret_dir_error, so
-# the per-directory check forks only when it fails.
+# get_dir_read_error_var DIR: sets _ret_dir_error to why DIR cannot be listed or
+# entered and returns 0, else returns 1. test(1) decides; the text is ls(1)'s OS
+# error. Forks only when the directory fails, since ls supplies the message.
 get_dir_read_error_var() {
   if [ ! -d "$1" ]; then
     if [ -e "$1" ] || [ -L "$1" ]; then
@@ -3174,9 +3169,9 @@ collect_path() {
     # not from the walk: BSD find applies no expression to a starting point
     # it cannot read and GNU find does, so the pre-check gives both one row
     # and never two.
-    if [ "$INVENTORY" != 1 ] && _cp_dir_error=$(get_dir_read_error "$_cp_match"); then
+    if [ "$INVENTORY" != 1 ] && get_dir_read_error_var "$_cp_match"; then
       write_read_error_row "$MANIFEST" "$_cp_user" "$_cp_home" "$_cp_agent" "$_cp_match" \
-        "$_cp_dir_error"
+        "$_ret_dir_error"
       return 0
     fi
     collect_tree "$_cp_user" "$_cp_home" "$_cp_agent" "$_cp_match"
@@ -3317,9 +3312,9 @@ get_user_homes() {
 collect_user_homes() {
   printf '%s\n' "$USER_LIST" | while IFS=: read -r _cuh_user _cuh_home; do
     [ -n "$_cuh_home" ] || continue
-    if _cuh_dir_error=$(get_dir_read_error "$_cuh_home"); then
+    if get_dir_read_error_var "$_cuh_home"; then
       write_read_error_row "$MANIFEST" "$_cuh_user" "$_cuh_home" "" "$_cuh_home" \
-        "$_cuh_dir_error"
+        "$_ret_dir_error"
     fi
     collect_catalog "$_cuh_user" "$_cuh_home" "$CATALOG" "User $_cuh_user ($_cuh_home)"
   done
@@ -3768,7 +3763,8 @@ $USER_LIST" in (*":$_kpd_project
 report_missing_projects() {
   printf '%s\n' "$EXTRA_PROJECTS" | while IFS= read -r _rmp_project; do
     if [ -z "$_rmp_project" ] || [ -d "$_rmp_project" ]; then continue; fi
-    _rmp_error=$(get_dir_read_error "$_rmp_project")
+    _rmp_error=
+    if get_dir_read_error_var "$_rmp_project"; then _rmp_error=$_ret_dir_error; fi
     log_line "WARNING: project given with -p is not a directory: $_rmp_project: $_rmp_error"
     [ "$INVENTORY" = 1 ] || write_manifest_row "$MANIFEST" \
       "$(get_project_owner "$_rmp_project")" "$_rmp_project" "" "$_rmp_project" "" dir \
@@ -3785,9 +3781,9 @@ collect_projects() {
     [ -n "$_cpr_line" ] || continue
     _cpr_owner=${_cpr_line%%:*}; _cpr_project=${_cpr_line#*:}
     log_line "Project ${_cpr_owner:+[$_cpr_owner] }$_cpr_project"
-    if _cpr_error=$(get_dir_read_error "$_cpr_project"); then
+    if get_dir_read_error_var "$_cpr_project"; then
       write_read_error_row "$MANIFEST" "$_cpr_owner" "$_cpr_project" "" "$_cpr_project" \
-        "$_cpr_error"
+        "$_ret_dir_error"
     fi
     collect_catalog "$_cpr_owner" "$_cpr_project" "$PROJECT_CATALOG"
   done

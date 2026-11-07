@@ -88,7 +88,7 @@ form passes many paths to one process.
 Shared helpers: `utc_timestamp`, `log_line`, `hash_file`, `stat_file`,
 `stat_files`, `hash_files`, `hash_match`, `json_escape`, `to_number` and
 their `_var` forms; from Manifest writer: `write_manifest_row`,
-`get_dir_read_error`, `get_dir_read_error_var`, `write_read_error_row`)
+`get_dir_read_error_var`, `write_read_error_row`)
 are text, read from two here-documents
 (`EOF_COMMON_HELPERS`, `EOF_COMMON_MANIFEST`) into the variable `COMMON`.
 The main shell `eval`s that text, and each worker program is the text of
@@ -563,7 +563,7 @@ PowerShell functions that do their job.
 | JSON-escape a string | `json_escape`, `json_escape_var` | `ConvertTo-JsonEscaped` |
 | SHA-256 of one file | `hash_file` | `Get-FileSha256` |
 | Write one manifest row | `write_manifest_row` | `Write-ManifestRow` |
-| Why a directory cannot be walked | `get_dir_read_error`, `get_dir_read_error_var` | `Get-DirReadError` |
+| Why a directory cannot be walked | `get_dir_read_error_var` | `Get-DirReadError` |
 | Write an `error_read` row | `write_read_error_row` | `Write-ReadErrorRow` |
 | Stage one file: metadata, symlink or copy, hash, row | `STAGE_FILES_WORKER` | `Add-CollectedFile` |
 | Classify a path: file, symlink or special file (`socket`, `fifo`, `device`, `other`) | the `type_N` tests in `plan_chunk` | `Get-ManifestType` |
