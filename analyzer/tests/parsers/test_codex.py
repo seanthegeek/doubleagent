@@ -1113,10 +1113,7 @@ class CodexDesktopTests(ParserBase):
     PROFILE = '{"file_system":{"type":"restricted"},"network":"restricted","type":"managed"}'
     WORKSPACE_WRITE = '{"type":"workspace-write"}'
 
-    def setUp(self):
-        super().setUp()
-        build_codex_desktop(self.home)
-        self.col = open_input(self.tmp / "home", self.cat, host="h1")
+    extra_builders = (build_codex_desktop,)
 
     def mode(self, approval, sandbox, profile, reviewer, profile_id) -> str:
         return "approval=%s sandbox=%s profile=%s network=- reviewer=%s profile_id=%s" % (

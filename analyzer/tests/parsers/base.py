@@ -7,6 +7,7 @@ import shutil
 import stat
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import ClassVar, cast
@@ -51,8 +52,11 @@ class ParserBase(unittest.TestCase):
     """Build the fixture home and open it as an input, once per class.
 
     The home is rebuilt before a test when an earlier test changed the tree or the opened input.
+    A subclass lists in `extra_builders` the functions that add files to the home before it is
+    opened, so those files are part of the unchanged tree.
     """
 
+    extra_builders: ClassVar[tuple[Callable[[Path], None], ...]] = ()
     cat: catalog.Catalog
     tmp: Path
     home: Path
@@ -70,6 +74,8 @@ class ParserBase(unittest.TestCase):
     def _build(cls):
         cls.tmp = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
         cls.home = build_home(cls.tmp / "home" / "alice")
+        for builder in cls.extra_builders:
+            builder(cls.home)
         cls.col = open_input(cls.tmp / "home", cls.cat, host="h1")
         cls._pristine = _snapshot(cls.tmp)
         cls._pristine_col = copy.deepcopy(cls.col)
