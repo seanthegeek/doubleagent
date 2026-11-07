@@ -921,12 +921,18 @@ before any install.
      log lines are usually template literals
      (`${h?"Enabling":"Disabling"} remote control for session ${s}`); "not
      in the bundle" needs a second fragment to miss.
-   - A compiled CLI keeps its source strings at offsets that differ per
-     platform build: cite `<tool> <version> <platform> @<byte offset>` with
-     the literal snippet and record the artifact's sha256 and origin, as
+   - A compiled CLI or a bundle keeps its source strings at offsets that
+     differ per platform build: cite `<tool> <version> <platform> @<byte
+     offset>` with the literal snippet (`<file> @<byte offset>` for a file
+     inside a bundle), 0-based as `grep -b` prints it, as
      [`research/claude-code.md`](research/claude-code.md) does for
-     `claude 2.1.295 linux-arm64`. The `app.asar` form is
-     `app.asar:<path>@<offset>` with the snippet.
+     `claude 2.1.295 linux-arm64`. The artifact's version, platform, size,
+     sha256 and origin are recorded once, in Source and evidence, never in a
+     citation. Where a table or section cites one build throughout, one
+     sentence above it names the build and its files, and each citation
+     gives only the file and offset with the snippet. A function or
+     identifier name alone (`app.js function dot(e)`) is not a citation.
+     The `app.asar` form is `app.asar:<path>@<offset>` with the snippet.
 5. **Integrate in one commit.**
    - Research agents write only their research documents. One integration
      agent makes every table change after all reports are in, under the
