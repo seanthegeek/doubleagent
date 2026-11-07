@@ -185,11 +185,12 @@ The base is the home, the project or the volume's `_data` directory, so one
 exclusion such as `.claude/worktrees` applies in each. In the sh collector
 the `EXCLUDES` test is part of the `find` expression, so it applies to a
 matched directory and everything under it. `set_exclude_words` builds that
-part of the expression, one `-path` test per glob, the first time
-`collect_tree` walks under a base, and `EXCLUDE_WORDS` keeps it for every
-later directory under the same base, split into the argument list in one
-pass: appending it glob by glob for each directory copies the whole list
-once per glob. A match that is not a directory is never given to `find`, so
+part of the expression, one `-path` test per glob, when `collect_tree`
+walks under a base other than its last walk's, and `EXCLUDE_WORDS` keeps it
+for the walks that follow under the same base, split into the argument
+list in one pass: appending it glob by glob for each directory copies the
+whole list once per glob. A match that is not a directory is never given to
+`find`, so
 `collect_path` tests it with
 `test_excluded` and gives it to `EXCLUDED_PATHS_WORKER` when it matches. In
 the PowerShell collector `Add-CollectedPath` tests the match itself and
@@ -643,7 +644,7 @@ PowerShell functions that do their job.
 | `UNREADABLE_DIRS_WORKER` | Staging files | `error_read` rows for directories inside a walk; PowerShell does this in `Add-CollectedTree` |
 | `print_file_rows` | Staging files | Inside `INVENTORY_FILES_WORKER`: the `F\|` lines from one `stat` call |
 | `classify_case_matches`, `fold_case_matches` | Catalog walk | Case-variant folding; PowerShell uses `Get-OnDiskName` |
-| `set_exclude_words` | Catalog walk | The `find` words that prune every `EXCLUDES` glob under one base, built once per base for `collect_tree`; PowerShell compiles `$script:ExcludeRegex` once per run in `Initialize-TableRegexes` |
+| `set_exclude_words` | Catalog walk | The `find` words that prune every `EXCLUDES` glob under one base, rebuilt for `collect_tree` when the base changes; PowerShell compiles `$script:ExcludeRegex` once per run in `Initialize-TableRegexes` |
 | `test_excluded` | Catalog walk | Whether a match that is not a directory is excluded; PowerShell tests `$script:ExcludeRegex` in `Add-CollectedPath` |
 | `filter_users` | Users | Drops system and shared homes, applies `-u`, keeps each home once; PowerShell does this in `Get-UserHomes` |
 | `find_errors_since` | Docker and Podman volumes | `find:` log lines since a given line |

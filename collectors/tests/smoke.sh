@@ -19,8 +19,9 @@ WORK=$(mktemp -d "${_tmpdir%/}/cac-smoke.XXXXXX") && WORK=$(cd "$WORK" && pwd -P
 ROOT="$WORK/root"
 OUT="$WORK/out"
 SMOKE_STARTED=$(date +%s)
-RUN_SECONDS=0
-RUN_COUNT=0
+# One line per timed collector run, so a run made in a subshell still counts.
+RUN_TIMES="$WORK/run-times"
+: >"$RUN_TIMES"
 fail=0
 pass()       { printf 'ok   %s\n' "$1"; }
 fail_check() { printf 'FAIL %s\n' "$1"; fail=1; }
@@ -1979,8 +1980,7 @@ run() { # run NAME ARGS...
   _exit_code=$?
   _run_elapsed=$(($(date +%s) - _run_started))
   printf '== run %s: %ss\n' "$_name" "$_run_elapsed"
-  RUN_SECONDS=$((RUN_SECONDS + _run_elapsed))
-  RUN_COUNT=$((RUN_COUNT + 1))
+  printf '%s\n' "$_run_elapsed" >>"$RUN_TIMES"
   MANIFEST=$(ls "$OUT/$_name"/*.manifest.jsonl 2>/dev/null)
   # shellcheck disable=SC2034 # ARCHIVE and SUMMARY are read by the eval'd check strings
   ARCHIVE=$(ls "$OUT/$_name"/*.tar.gz 2>/dev/null)
@@ -3082,8 +3082,7 @@ inventory_run() { # inventory_run NAME ARGS... -> $OUT/NAME.stdout and $OUT/NAME
   _exit_code=$?
   _run_elapsed=$(($(date +%s) - _run_started))
   printf '== run %s: %ss\n' "$_name" "$_run_elapsed"
-  RUN_SECONDS=$((RUN_SECONDS + _run_elapsed))
-  RUN_COUNT=$((RUN_COUNT + 1))
+  printf '%s\n' "$_run_elapsed" >>"$RUN_TIMES"
   return "$_exit_code"
 }
 # shellcheck disable=SC2317,SC2329 # called from the eval'd check strings
@@ -3094,10 +3093,7 @@ TZ=UTC0 touch -t 202609150102.03 "$ROOT/home/ollama/.ollama/history"
 mkdir -p "$OUT/invcwd" "$BOB/.gemini/antigravity-cli/conversations"
 # bob's ~/.gemini holds only the nested antigravity-cli entry: no gemini-cli line.
 printf 'db\n' >"$BOB/.gemini/antigravity-cli/conversations/b1.db"
-_saved_pwd_inventory=$PWD
-cd "$OUT/invcwd" && inventory_run inventory -q; _exit_inventory=$?
-cd "$_saved_pwd_inventory" || exit 1
-check "inventory exit 0" "[ $_exit_inventory -eq 0 ]"
+(cd "$OUT/invcwd" && inventory_run inventory -q); check "inventory exit 0" "[ $? -eq 0 ]"
 check "inventory writes nothing in the current directory" "[ -z \"\$(ls -A \"$OUT/invcwd\")\" ]"
 check "inventory -q leaves stderr empty" "[ ! -s \"$OUT/inventory.stderr\" ]"
 check "inventory first line is the host line, keys in order" "head -n1 \"$OUT/inventory.stdout\" | grep -q '$INVENTORY_HOST_PATTERN'"
@@ -3446,7 +3442,7 @@ check "#73 --full run exit 0" "[ $_exit_msix -eq 0 ]"
 check "#73 --full collects the Packages claude.exe and Cache" "[ \"\$(status_of \"$MSIX_PACKAGE/claude-code/2.1.295/abc/claude.exe\")\" = collected ] && [ \"\$(status_of \"$MSIX_PACKAGE/Cache/data_0\")\" = collected ]"
 ROOT=$_saved_root_msix
 
-printf '== %s collector runs: %ss; test: %ss\n' "$RUN_COUNT" "$RUN_SECONDS" \
-  "$(($(date +%s) - SMOKE_STARTED))"
+printf '== %s collector runs: %ss; test: %ss\n' "$(grep -c '' "$RUN_TIMES")" \
+  "$(awk '{ total += $1 } END { print total + 0 }' "$RUN_TIMES")" "$(($(date +%s) - SMOKE_STARTED))"
 if [ "$fail" = 0 ]; then printf 'ALL PASSED (%s)\n' "$SHELL_UNDER_TEST"; rm -rf "$WORK"; else printf 'FAILURES (%s); work dir kept: %s\n' "$SHELL_UNDER_TEST" "$WORK"; fi
 exit "$fail"

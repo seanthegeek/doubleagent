@@ -51,7 +51,8 @@ def _snapshot(root: Path) -> list[tuple]:
 class ParserBase(unittest.TestCase):
     """Build the fixture home and open it as an input, once per class.
 
-    The home is rebuilt before a test when an earlier test changed the tree or the opened input.
+    The home is rebuilt before a test when an earlier test changed the tree, the opened input or
+    the catalog.
     A subclass lists in `extra_builders` the functions that add files to the home before it is
     opened, so those files are part of the unchanged tree.
     """
@@ -63,6 +64,7 @@ class ParserBase(unittest.TestCase):
     col: Collection
     _pristine: ClassVar[list[tuple]]
     _pristine_col: ClassVar[Collection]
+    _pristine_cat: ClassVar[catalog.Catalog]
 
     @classmethod
     def setUpClass(cls):
@@ -79,6 +81,7 @@ class ParserBase(unittest.TestCase):
         cls.col = open_input(cls.tmp / "home", cls.cat, host="h1")
         cls._pristine = _snapshot(cls.tmp)
         cls._pristine_col = copy.deepcopy(cls.col)
+        cls._pristine_cat = copy.deepcopy(cls.cat)
 
     @classmethod
     def tearDownClass(cls):
@@ -87,7 +90,11 @@ class ParserBase(unittest.TestCase):
 
     def setUp(self):
         cls = type(self)
-        if cls.col != cls._pristine_col or _snapshot(cls.tmp) != cls._pristine:
+        if (
+            cls.col != cls._pristine_col
+            or cls.cat != cls._pristine_cat
+            or _snapshot(cls.tmp) != cls._pristine
+        ):
             shutil.rmtree(cls.tmp, ignore_errors=True)
             cls._build()
 

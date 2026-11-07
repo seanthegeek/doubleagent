@@ -3180,9 +3180,9 @@ collect_path() {
 # set_exclude_words BASE: sets EXCLUDE_WORDS to the find(1) words that match
 # every ACTIVE_EXCLUDES glob under BASE, one per line, from the opening ( to the
 # last glob, empty when there is none, and EXCLUDE_WORDS_BASE to BASE. Reads
-# ACTIVE_EXCLUDES and NEWLINE. Temporaries: _sew_. collect_tree calls it once per
-# base and splits the words in one pass: appending them glob by glob to its
-# argument list copies the whole list for every glob of every directory walked.
+# ACTIVE_EXCLUDES and NEWLINE. Temporaries: _sew_. collect_tree calls it when the
+# base differs from its last walk's and splits the words in one pass: appending
+# them glob by glob to its argument list copies the whole list per glob per walk.
 set_exclude_words() {
   EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=$1
   _sew_saved_ifs=$IFS

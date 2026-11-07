@@ -1657,7 +1657,7 @@ down.
   change introduced is fixed in the pull request with a test; a defect in
   untouched code is filed as an issue and fixed in the pull request as
   the issue-tracking bullet below says, and the reply names the fix
-  commit. A fix for one side of a symmetric rule (a direction, a
+  commit, or the issue when the work is split off. A fix for one side of a symmetric rule (a direction, a
   scope, a write and its read) re-derives and tests the other side in the
   same commit; when fixing one half of a contract (a flag and the summary
   it feeds, a docstring guarantee and its scope), grep for the other half.
