@@ -3094,13 +3094,29 @@ fold_case_matches() {
 
 # expand_catalog BASE TABLE -> agent|glob|path for every match of TABLE under
 # BASE, in table order, case variants folded, plus #|message lines to log.
-# Temporaries: _ec_.
+# Reads NEWLINE. Temporaries: _ec_. The glob is expanded inline, as expand_glob
+# does it, because a pipeline per table line forked twice per line per base; a
+# matched name holding a newline gives one line per line of it, empty ones
+# included, as the read loop it replaces did.
 expand_catalog() {
   printf '%s\n' "$2" | while IFS='|' read -r _ec_agent _ec_glob; do
     case "$_ec_agent" in (''|'#'*) continue ;; esac
-    expand_glob "$1" "$_ec_glob" | while IFS= read -r _ec_match; do
-      printf '%s|%s|%s\n' "$_ec_agent" "$_ec_glob" "$_ec_match"
+    _ec_saved_ifs=$IFS
+    # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
+    IFS=$NEWLINE
+    for _ec_match in $1/$_ec_glob; do
+      [ -e "$_ec_match" ] || [ -L "$_ec_match" ] || continue
+      _ec_rest=$_ec_match
+      while :; do
+        case "$_ec_rest" in
+          (*"$NEWLINE"*)
+            printf '%s|%s|%s\n' "$_ec_agent" "$_ec_glob" "${_ec_rest%%"$NEWLINE"*}"
+            _ec_rest=${_ec_rest#*"$NEWLINE"} ;;
+          (*) printf '%s|%s|%s\n' "$_ec_agent" "$_ec_glob" "$_ec_rest"; break ;;
+        esac
+      done
     done
+    IFS=$_ec_saved_ifs
   done | classify_case_matches | fold_case_matches
 }
 
