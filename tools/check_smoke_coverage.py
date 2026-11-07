@@ -1928,8 +1928,9 @@ def subtree_glob_regex(glob: str, case_insensitive: bool) -> re.Pattern[str]:
     """Compile an `EXCLUDES` or `SECRET_GLOBS` glob, whose `*` and `?` also match `/`.
 
     Both collectors match these globs against the whole path below a collection base (`find
-    -path` and a `case` pattern in sh, `-like` in PowerShell, which ignores case); a `[...]`
-    class passes through with `!` as negation.
+    -path` and a `case` pattern in sh, a regex compiled with `IgnoreCase` in PowerShell); a
+    `[...]` class passes through with `!` as negation. On the sh side `*` and `?` also match a
+    newline in a path (`_glob_flags`); the PowerShell regex does not.
     """
     out: list[str] = []
     index = 0
@@ -1948,7 +1949,17 @@ def subtree_glob_regex(glob: str, case_insensitive: bool) -> re.Pattern[str]:
         else:
             out.append(re.escape(character))
         index += 1
-    return re.compile("".join(out), re.IGNORECASE if case_insensitive else 0)
+    return re.compile("".join(out), _glob_flags(case_insensitive))
+
+
+def _glob_flags(case_insensitive: bool) -> int:
+    """Return the regex flags of a subtree glob: ignore case for PowerShell, else DOTALL.
+
+    The sh collector matches these globs with `find -path` and a `case` pattern, whose `*` and
+    `?` cross a newline; the PowerShell collector compiles them with `IgnoreCase` only, so its
+    `.` stops at one.
+    """
+    return re.IGNORECASE if case_insensitive else re.DOTALL
 
 
 def segment_regexes(glob: str, case_insensitive: bool) -> list[re.Pattern[str]]:
@@ -2261,7 +2272,7 @@ def _exclusion_regex(context: _Context) -> re.Pattern[str] | None:
     if not patterns:
         return None
     combined = "|".join("(?:%s)" % pattern for pattern in patterns)
-    return re.compile(combined, re.IGNORECASE if insensitive else 0)
+    return re.compile(combined, _glob_flags(insensitive))
 
 
 def name_findings(context: _Context) -> Iterator[drift_common.Finding]:
