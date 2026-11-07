@@ -18,6 +18,9 @@ _tmpdir=${TMPDIR:-/tmp}
 WORK=$(mktemp -d "${_tmpdir%/}/cac-smoke.XXXXXX") && WORK=$(cd "$WORK" && pwd -P) || exit 1
 ROOT="$WORK/root"
 OUT="$WORK/out"
+SMOKE_STARTED=$(date +%s)
+RUN_SECONDS=0
+RUN_COUNT=0
 fail=0
 pass()       { printf 'ok   %s\n' "$1"; }
 fail_check() { printf 'FAIL %s\n' "$1"; fail=1; }
@@ -1971,8 +1974,13 @@ fi
 run() { # run NAME ARGS...
   _name=$1; shift
   mkdir -p "$OUT/$_name"
+  _run_started=$(date +%s)
   COLLECTOR_SH="$SHELL_UNDER_TEST" "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$OUT/$_name" -q --max-file-size 1 "$@" >"$OUT/$_name.stdout" 2>"$OUT/$_name.stderr"
   _exit_code=$?
+  _run_elapsed=$(($(date +%s) - _run_started))
+  printf '== run %s: %ss\n' "$_name" "$_run_elapsed"
+  RUN_SECONDS=$((RUN_SECONDS + _run_elapsed))
+  RUN_COUNT=$((RUN_COUNT + 1))
   MANIFEST=$(ls "$OUT/$_name"/*.manifest.jsonl 2>/dev/null)
   # shellcheck disable=SC2034 # ARCHIVE and SUMMARY are read by the eval'd check strings
   ARCHIVE=$(ls "$OUT/$_name"/*.tar.gz 2>/dev/null)
@@ -3069,7 +3077,14 @@ rm -rf "$VOLUMES/n8n_data" "$VOLUMES/n8n_n8n-data" "$VOLUMES/langflow_langflow-d
 # Stat-only fleet inventory: JSON Lines on stdout, nothing written anywhere.
 inventory_run() { # inventory_run NAME ARGS... -> $OUT/NAME.stdout and $OUT/NAME.stderr
   _name=$1; shift
+  _run_started=$(date +%s)
   COLLECTOR_SH="$SHELL_UNDER_TEST" "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" --inventory "$@" >"$OUT/$_name.stdout" 2>"$OUT/$_name.stderr"
+  _exit_code=$?
+  _run_elapsed=$(($(date +%s) - _run_started))
+  printf '== run %s: %ss\n' "$_name" "$_run_elapsed"
+  RUN_SECONDS=$((RUN_SECONDS + _run_elapsed))
+  RUN_COUNT=$((RUN_COUNT + 1))
+  return "$_exit_code"
 }
 # shellcheck disable=SC2317,SC2329 # called from the eval'd check strings
 agent_line() { grep -F "\"user\":\"$2\",\"agent\":\"$3\"," "$OUT/$1.stdout" | head -n1; }
@@ -3428,5 +3443,7 @@ check "#73 --full run exit 0" "[ $_exit_msix -eq 0 ]"
 check "#73 --full collects the Packages claude.exe and Cache" "[ \"\$(status_of \"$MSIX_PACKAGE/claude-code/2.1.295/abc/claude.exe\")\" = collected ] && [ \"\$(status_of \"$MSIX_PACKAGE/Cache/data_0\")\" = collected ]"
 ROOT=$_saved_root_msix
 
+printf '== %s collector runs: %ss; test: %ss\n' "$RUN_COUNT" "$RUN_SECONDS" \
+  "$(($(date +%s) - SMOKE_STARTED))"
 if [ "$fail" = 0 ]; then printf 'ALL PASSED (%s)\n' "$SHELL_UNDER_TEST"; rm -rf "$WORK"; else printf 'FAILURES (%s); work dir kept: %s\n' "$SHELL_UNDER_TEST" "$WORK"; fi
 exit "$fail"
