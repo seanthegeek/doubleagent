@@ -887,9 +887,14 @@ def relocation_findings(repository: Repository) -> Iterator[Finding]:
     }
     for line in repository.tables.relocation:
         document = repository.document(line.agent)
-        named = any(
-            row.variable == line.glob and row.table_agent == line.agent for row in rows[document]
-        ) if document in rows else True
+        named = (
+            any(
+                row.variable == line.glob and row.table_agent == line.agent
+                for row in rows[document]
+            )
+            if document in rows
+            else True
+        )
         if not named:
             message = "no row of the Relocation variables table of %s names it" % document
             detail = "%s %s" % (line.agent, line.glob)
