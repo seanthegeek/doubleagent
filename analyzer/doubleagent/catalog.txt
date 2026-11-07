@@ -2120,7 +2120,7 @@ cursor|CURSOR_DATA_DIR|.cursor
 cursor|CURSOR_SANDBOX_POLICY_DIR|.cursor/sandbox-policies
 cursor|CURSOR_WORKTREES_ROOT|.cursor/worktrees
 dify|DIFY_CONFIG_DIR|.config/difyctl
-factory-droid|FACTORY_HOME_OVERRIDE|.factory
+factory-droid|FACTORY_HOME_OVERRIDE|.
 factory-droid|FACTORY_LOG_FILE|.factory/logs/droid-log-single.log
 flowise|BLOB_STORAGE_PATH|.flowise/storage
 flowise|DATABASE_PATH|.flowise
@@ -2167,7 +2167,7 @@ n8n|DB_SQLITE_DATABASE|.n8n/database.sqlite
 n8n|N8N_BINARY_DATA_STORAGE_PATH|.n8n/binaryData
 n8n|N8N_EVENTBUS_LOGWRITER_LOGFULLPATH|.n8n/n8nEventLog.log
 n8n|N8N_STORAGE_PATH|.n8n/storage
-n8n|N8N_USER_FOLDER|.n8n
+n8n|N8N_USER_FOLDER|.
 nanobot|NANOBOT_AGENTS__DEFAULTS__WORKSPACE|.nanobot/workspace
 nanobot|OAUTH_CLI_KIT_TOKEN_PATH|.local/share/nanobot/auth/github-copilot.json
 ollama|OLLAMA_MODELS|.ollama/models
@@ -2176,7 +2176,7 @@ open-interpreter|CODEX_SQLITE_HOME|.openinterpreter
 open-interpreter|INTERPRETER_HOME|.openinterpreter
 open-interpreter|OPEN_INTERPRETER_HOME|.openinterpreter
 openclaw|OPENCLAW_CONFIG_PATH|.openclaw/openclaw.json
-openclaw|OPENCLAW_HOME|.openclaw
+openclaw|OPENCLAW_HOME|.
 openclaw|OPENCLAW_OAUTH_DIR|.openclaw/credentials
 openclaw|OPENCLAW_PROFILE|.openclaw
 openclaw|OPENCLAW_STATE_DIR|.openclaw

@@ -114,7 +114,7 @@ device.
 | Variable | Moves | Replaces | Table agent |
 | --- | --- | --- | --- |
 | `OPENCLAW_STATE_DIR` | the state directory, everything under it ([`state-dir.ts:23-54`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/state-dir.ts#L23-L54)) | `.openclaw` | `openclaw` |
-| `OPENCLAW_HOME` | the home the `.openclaw` default hangs from ([`home-dir.ts:28-52`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/packages/normalization-core/src/home-dir.ts#L28-L52)) | `.openclaw` | `openclaw` |
+| `OPENCLAW_HOME` | the home the `.openclaw` default hangs from ([`home-dir.ts:28-52`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/packages/normalization-core/src/home-dir.ts#L28-L52)) | `.` | `openclaw` |
 | `OPENCLAW_PROFILE` | the state directory to `~/.openclaw-<profile>` for a profile other than `default` ([`profile-utils.ts:26-37`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/cli/profile-utils.ts#L26-L37)) | `.openclaw` | `openclaw` |
 | `OPENCLAW_CONFIG_PATH` | the config file `openclaw.json` ([`config/paths.ts:233-241`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/config/paths.ts#L233-L241)) | `.openclaw/openclaw.json` | `openclaw` |
 | `OPENCLAW_WORKSPACE_DIR` | the default agent workspace ([`workspace-default-path.ts:8-25`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/agents/workspace-default-path.ts#L8-L25)) | `.openclaw/workspace` | `openclaw` |

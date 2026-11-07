@@ -435,8 +435,9 @@ A new source goes into its group on both sides, at the same position.
 The step searches, per base (each home, the system root and each project), the
 files that the `STARTUP_FILES` globs of that scope match, keeping regular files
 only: a symlink is never followed or read, nor a file under a symlinked
-directory whose target lies outside the base (`under_symlink`,
-`Test-UnderLink`): the glob expansion follows such a link, and in image mode an
+directory whose target, with every link in its chain resolved, lies outside the
+base (`under_symlink`, `Test-UnderLink`): the glob expansion follows such a
+link, and in image mode an
 image's `/etc -> /private/etc` would read the analyst's host, while a live
 macOS `/etc` stays inside `/` and is read. One
 `grep -l -F` over the whole
@@ -664,6 +665,7 @@ PowerShell functions that do their job.
 | `Convert-GlobToRegex`, `ConvertTo-TableRegex` | Shared helpers | Glob to anchored regex; one regex per table |
 | `ConvertTo-ExtendedPath`, `ConvertFrom-ExtendedPath`, `ConvertFrom-ExtendedText` | Shared helpers | Extended-length paths and back |
 | `Test-PathQuiet`, `Test-IsLink`, `Test-DirReadable` | Shared helpers | File-system probes that never throw |
+| `Get-PhysicalPath` | Shared helpers | A directory with its chain of links resolved, as `cd -P` gives sh |
 | `Join-PathSafe`, `Get-RelPath` | Shared helpers | Path joining and relative paths |
 | `Get-Epoch`, `Get-OwnerName`, `Get-DirSize`, `Get-LinkTarget` | Shared helpers | Metadata for rows |
 | `Get-ArchivePath` | Staging files | `fs/<original path>` for a source path |

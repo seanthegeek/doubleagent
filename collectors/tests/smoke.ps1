@@ -1844,6 +1844,15 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.oh-my-zsh') -Target (ImagePath 'elsewhere/omz') -ErrorAction Stop | Out-Null
   $omzLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #454 symlinked directory check skipped' }
+# A chain of links is followed to its end: .bash_it -> helper -> outside the home, where only
+# the second hop leaves the base.
+MakeFile 'elsewhere/bashit/custom/agents.bash' "export CODEX_HOME=/opt/x`n"
+$bashItLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/helper') -Target (ImagePath 'elsewhere/bashit') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.bash_it') -Target (ImagePath 'home/bob/helper') -ErrorAction Stop | Out-Null
+  $bashItLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #454 chained links check skipped' }
 # A linked directory that stays inside the home is read, like a live /etc that points at
 # /private/etc.
 MakeFile 'home/bob/dotfiles/direnv/direnvrc' "export CODEX_HOME=/opt/x`n"
@@ -2784,6 +2793,9 @@ Check '#454 the every-variable file hints every relocation variable' {
 Check '#454 a longer name holding a variable is no hint' { (HintsFrom $defaultRunSummary 'Users/alice/.config/fish/conf.d/decoy.fish').Count -eq 0 -and (RowsAt 'Users/alice/.config/fish/conf.d/decoy.fish').Count -eq 0 }
 if ($direnvLinkOk) {
   Check '#454 a startup file under a directory linked within the home is read' { (HasHint $defaultRunSummary 'home/bob/.config/direnv/direnvrc' 1 'CODEX_HOME' 'codex-cli' 'bob') -and (IsAgentRow 'home/bob/.config/direnv/direnvrc' 'shared' $true) }
+}
+if ($bashItLinkOk) {
+  Check '#454 a startup file under a chain of links leaving the home is not read' { (HintsFrom $defaultRunSummary 'home/bob/.bash_it/custom/agents.bash').Count -eq 0 -and (RowsAt 'home/bob/.bash_it/custom/agents.bash').Count -eq 0 -and (RowsAt 'elsewhere/bashit/custom/agents.bash').Count -eq 0 }
 }
 if ($omzLinkOk) {
   Check '#454 a startup file under a symlinked directory is not read' { (HintsFrom $defaultRunSummary 'home/bob/.oh-my-zsh/custom/agents.zsh').Count -eq 0 -and (RowsAt 'home/bob/.oh-my-zsh/custom/agents.zsh').Count -eq 0 -and (RowsAt 'elsewhere/omz/custom/agents.zsh').Count -eq 0 }

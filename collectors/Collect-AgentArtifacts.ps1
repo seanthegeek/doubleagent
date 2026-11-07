@@ -2299,7 +2299,7 @@ cursor|CURSOR_DATA_DIR|.cursor
 cursor|CURSOR_SANDBOX_POLICY_DIR|.cursor/sandbox-policies
 cursor|CURSOR_WORKTREES_ROOT|.cursor/worktrees
 dify|DIFY_CONFIG_DIR|.config/difyctl
-factory-droid|FACTORY_HOME_OVERRIDE|.factory
+factory-droid|FACTORY_HOME_OVERRIDE|.
 factory-droid|FACTORY_LOG_FILE|.factory/logs/droid-log-single.log
 flowise|BLOB_STORAGE_PATH|.flowise/storage
 flowise|DATABASE_PATH|.flowise
@@ -2346,7 +2346,7 @@ n8n|DB_SQLITE_DATABASE|.n8n/database.sqlite
 n8n|N8N_BINARY_DATA_STORAGE_PATH|.n8n/binaryData
 n8n|N8N_EVENTBUS_LOGWRITER_LOGFULLPATH|.n8n/n8nEventLog.log
 n8n|N8N_STORAGE_PATH|.n8n/storage
-n8n|N8N_USER_FOLDER|.n8n
+n8n|N8N_USER_FOLDER|.
 nanobot|NANOBOT_AGENTS__DEFAULTS__WORKSPACE|.nanobot/workspace
 nanobot|OAUTH_CLI_KIT_TOKEN_PATH|.local/share/nanobot/auth/github-copilot.json
 ollama|OLLAMA_MODELS|.ollama/models
@@ -2355,7 +2355,7 @@ open-interpreter|CODEX_SQLITE_HOME|.openinterpreter
 open-interpreter|INTERPRETER_HOME|.openinterpreter
 open-interpreter|OPEN_INTERPRETER_HOME|.openinterpreter
 openclaw|OPENCLAW_CONFIG_PATH|.openclaw/openclaw.json
-openclaw|OPENCLAW_HOME|.openclaw
+openclaw|OPENCLAW_HOME|.
 openclaw|OPENCLAW_OAUTH_DIR|.openclaw/credentials
 openclaw|OPENCLAW_PROFILE|.openclaw
 openclaw|OPENCLAW_STATE_DIR|.openclaw
@@ -2818,6 +2818,40 @@ function Get-LinkTarget($item) {
     }
   } catch { }
   return ''
+}
+
+# Takes a directory path; returns it with every linked component replaced by
+# its target, as realpath does, so a chain of links resolves to where it ends;
+# '' when a component cannot be read or the chain runs past the budget (a loop).
+function Get-PhysicalPath([string]$path) {
+  $full = [System.IO.Path]::GetFullPath($path)
+  $resolved = [System.IO.Path]::GetPathRoot($full).TrimEnd('\', '/')
+  $pending = New-Object System.Collections.Generic.List[string]
+  $rest = [string[]]@($full.Substring($resolved.Length) -split '[\\/]' | Where-Object { $_ })
+  $pending.AddRange($rest)
+  $ordinal = [System.StringComparison]::Ordinal
+  $hops = 0
+  while ($pending.Count -gt 0) {
+    $candidate = $resolved + $script:Sep + $pending[0]
+    $pending.RemoveAt(0)
+    $extended = ConvertTo-ExtendedPath $candidate
+    try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop } catch { return '' }
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) {
+      $resolved = $candidate
+      continue
+    }
+    $hops++
+    $target = Get-LinkTarget $item
+    if (-not $target -or $hops -gt 40) { return '' }
+    if ($target.StartsWith('\\?\', $ordinal)) { $target = $target.Substring(4) }
+    if (-not [System.IO.Path]::IsPathRooted($target)) { $target = Join-PathSafe $resolved $target }
+    $target = [System.IO.Path]::GetFullPath($target)
+    $resolved = [System.IO.Path]::GetPathRoot($target).TrimEnd('\', '/')
+    $rest = [string[]]@($target.Substring($resolved.Length) -split '[\\/]' | Where-Object { $_ })
+    $pending.InsertRange(0, $rest)
+  }
+  if ($resolved) { return $resolved }
+  return $script:Sep
 }
 
 # Takes a path; returns whether it is a reparse point (a symlink or
@@ -4204,27 +4238,30 @@ function Test-RegularFile([string]$path) {
 }
 
 # Takes a base and a path under it; returns whether a symlink or junction
-# between them, which the glob followed, leads outside the base: an image's
-# /etc -> /private/etc would read the analyst's host, while a live macOS /etc
-# stays inside /. A link whose target cannot be read counts as outside.
+# between them, which the glob followed, leads outside the base once its chain
+# of links is resolved to the end: an image's /etc -> /private/etc would read
+# the analyst's host, while a live macOS /etc stays inside /. A link that
+# cannot be resolved counts as outside.
 function Test-UnderLink([string]$base, [string]$path) {
   $comparison = [System.StringComparison]::Ordinal
   if ($env:OS -eq 'Windows_NT') { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
-  $root = [System.IO.Path]::GetFullPath($base).TrimEnd('\', '/') + $script:Sep
   $relative = $path.Substring($base.TrimEnd('\', '/').Length).TrimStart('\', '/')
   $segments = @($relative -split '[\\/]')
   $directory = $base
+  $root = ''
   for ($index = 0; $index -lt $segments.Count - 1; $index++) {
     $directory = Join-PathSafe $directory $segments[$index]
     $extended = ConvertTo-ExtendedPath $directory
     try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop } catch { return $true }
     if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { continue }
-    $target = Get-LinkTarget $item
-    if (-not $target) { return $true }
-    if (-not [System.IO.Path]::IsPathRooted($target)) {
-      $target = Join-PathSafe (Split-Path -Parent $directory) $target
+    if (-not $root) {
+      $root = Get-PhysicalPath $base
+      if (-not $root) { return $true }
+      $root = $root.TrimEnd('\', '/') + $script:Sep
     }
-    $resolved = [System.IO.Path]::GetFullPath($target).TrimEnd('\', '/') + $script:Sep
+    $resolved = Get-PhysicalPath $directory
+    if (-not $resolved) { return $true }
+    $resolved = $resolved.TrimEnd('\', '/') + $script:Sep
     if (-not $resolved.StartsWith($root, $comparison)) { return $true }
   }
   return $false

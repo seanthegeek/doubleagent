@@ -84,7 +84,7 @@ for them are in [Exclusions](#exclusions).
 
 | Variable | Moves | Replaces | Table agent |
 | --- | --- | --- | --- |
-| `FACTORY_HOME_OVERRIDE` | the home that holds `.factory`, ahead of `HOME` and `USERPROFILE` (B, `getFactoryHome`) | `.factory` | `factory-droid` |
+| `FACTORY_HOME_OVERRIDE` | the home that holds `.factory`, ahead of `HOME` and `USERPROFILE` (B, `getFactoryHome`) | `.` | `factory-droid` |
 | `FACTORY_LOG_FILE` | the log file of the `logs/` directory (B, log override) | `.factory/logs/droid-log-single.log` | `factory-droid` |
 
 Not relocation variables: `FACTORY_API_KEY` (carries a key), `FACTORY_LOG_MAX_BYTES` and
