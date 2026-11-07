@@ -82,6 +82,15 @@ repository is. Both are recorded in
 `workspace.json` (`path`, `root`) and in a session's `metadata.workspace`
 and `checkout.root`.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `XDG_CONFIG_HOME` | the parent of the CLAI 2.0 folder, on every OS ([settings_store.py:60-62](https://github.com/pydantic/pydantic-ai/blob/62b7bf0aeac9a03066263469e650f40957d84cae/src/pydantic_clai2/pydantic_clai2/config/settings_store.py#L60-L62), [credential_store.py:40](https://github.com/pydantic/pydantic-ai/blob/62b7bf0aeac9a03066263469e650f40957d84cae/src/pydantic_clai2/pydantic_clai2/config/credential_store.py#L40)) | `.config` | `shared` |
+| `XDG_STATE_HOME` | the parent of the state directory when absolute ([config/settings_store.py:65-69](https://github.com/pydantic/pydantic-ai/blob/62b7bf0aeac9a03066263469e650f40957d84cae/src/pydantic_clai2/pydantic_clai2/config/settings_store.py#L65-L69)) | `.local/state` | `shared` |
+
+Not relocation variables: `GITHUB_TOKEN` (carries a key).
+
 #### State directory
 
 At [`62b7bf0`](https://github.com/pydantic/pydantic-ai/commit/62b7bf0aeac9a03066263469e650f40957d84cae) CLAI 2.0 keeps state

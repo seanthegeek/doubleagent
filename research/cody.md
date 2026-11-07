@@ -73,6 +73,18 @@ command, whose `cody-bench-` worktree sits in the system temp directory
 The `symf/indexroot/<path>` directories are indexes named after real workspaces, not working
 directories.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `XDG_DATA_HOME` | the parent of `Cody-nodejs` data on Linux, where the JetBrains plugin and CLI keep chat history ([env-paths `index.js:40`](https://github.com/sindresorhus/env-paths/blob/62d4ec8cd42f1a419e00856fab949ca8286773f6/index.js#L40)) | `.local/share` | `shared` |
+| `XDG_CONFIG_HOME` | the parent of `Cody-nodejs` config on Linux, where `user-settings.json` lives ([env-paths `index.js:41`](https://github.com/sindresorhus/env-paths/blob/62d4ec8cd42f1a419e00856fab949ca8286773f6/index.js#L41)) | `.config` | `shared` |
+| `XDG_STATE_HOME` | the parent of `Cody-nodejs` logs on Linux ([env-paths `index.js:44`](https://github.com/sindresorhus/env-paths/blob/62d4ec8cd42f1a419e00856fab949ca8286773f6/index.js#L44)) | `.local/state` | `shared` |
+| `XDG_CACHE_HOME` | the parent of `Cody-nodejs` cache on Linux ([env-paths `index.js:42`](https://github.com/sindresorhus/env-paths/blob/62d4ec8cd42f1a419e00856fab949ca8286773f6/index.js#L42)) | `.cache` | `shared` |
+
+Not relocation variables: `CODY_AGENT_TRACE_PATH` (debug trace file of the JSON-RPC harness),
+`CODY_TESTING_SYMF_DIR` (test only), `CODY_RECORDING_DIRECTORY` (recording harness).
+
 #### VS Code extension
 
 - Global state: `localStorage.setStorage(context.globalState)`

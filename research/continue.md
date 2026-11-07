@@ -136,6 +136,15 @@ before collection. Nothing in the path or the session marks it as the agent's ow
 command with no workspace runs in the home directory
 ([`core/tools/implementations/runTerminalCommand.ts:81-87`](https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/core/tools/implementations/runTerminalCommand.ts#L81-L87)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CONTINUE_GLOBAL_DIR` | the global directory every store of this section lives under; a relative value resolves against the working directory ([`core/util/paths.ts:27-35`](https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/core/util/paths.ts#L27-L35), [`extensions/cli/src/env.ts:10-11`](https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/extensions/cli/src/env.ts#L10-L11)) | `.continue` | `continue` |
+
+Not relocation variables: `CONTINUE_API_BASE` (a URL), `GITHUB_TOKEN` (carries a token),
+`OTEL_METRICS_EXPORTER` (behaviour only).
+
 #### Editor extensions
 
 VS Code `globalStorage/continue.continue/`: `<key>.bin` AES-GCM blobs written by the extension's own

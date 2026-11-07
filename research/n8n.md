@@ -73,6 +73,19 @@ started from, in that order
 ([settings-store.ts:135](https://github.com/n8n-io/n8n/blob/967591041e508802f6cf77a1b1651ec48175f680/packages/@n8n/computer-use/src/settings-store.ts#L135)):
 a directory the user chose, not one the agent made.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `N8N_USER_FOLDER` | the parent of `.n8n`, so every `.n8n/` path above and `.cache/n8n` ([utils.ts:9-10](https://github.com/n8n-io/n8n/blob/0e1c7549997f43053fda83534b597875b0310df6/packages/@n8n/config/src/utils/utils.ts#L9-L10), [instance-settings.ts:49](https://github.com/n8n-io/n8n/blob/0e1c7549997f43053fda83534b597875b0310df6/packages/core/src/instance-settings/instance-settings.ts#L49)) | `.n8n` | `n8n` |
+| `N8N_STORAGE_PATH` | the binary and execution data directory ([storage.config.ts:27](https://github.com/n8n-io/n8n/blob/0e1c7549997f43053fda83534b597875b0310df6/packages/core/src/storage.config.ts#L27)) | `.n8n/storage` | `n8n` |
+| `N8N_BINARY_DATA_STORAGE_PATH` | the same directory under its deprecated name ([binary-data.config.ts:31](https://github.com/n8n-io/n8n/blob/0e1c7549997f43053fda83534b597875b0310df6/packages/core/src/binary-data/binary-data.config.ts#L31)) | `.n8n/binaryData` | `n8n` |
+| `DB_SQLITE_DATABASE` | the SQLite database file; an absolute value leaves `.n8n` ([db-connection-options.ts:82](https://github.com/n8n-io/n8n/blob/0e1c7549997f43053fda83534b597875b0310df6/packages/@n8n/db/src/connection/db-connection-options.ts#L82), [database.config.ts:124](https://github.com/n8n-io/n8n/blob/0e1c7549997f43053fda83534b597875b0310df6/packages/@n8n/config/src/configs/database.config.ts#L124)) | `.n8n/database.sqlite` | `n8n` |
+| `N8N_EVENTBUS_LOGWRITER_LOGFULLPATH` | the audit event log file and its rotated copies ([event-bus.config.ts:29](https://github.com/n8n-io/n8n/blob/0e1c7549997f43053fda83534b597875b0310df6/packages/@n8n/config/src/configs/event-bus.config.ts#L29)) | `.n8n/n8nEventLog.log` | `n8n` |
+
+Not relocation variables: `HOME` and `USERPROFILE` (generic), `NODES_EXCLUDE` and
+`N8N_INSTANCE_AI_MODEL` (behaviour only).
+
 #### Docker
 
 The named volume `n8n_data` is mounted at `/home/node/.n8n`

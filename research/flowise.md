@@ -63,6 +63,18 @@ uploads and generated files go to per-chatflow, per-chat directories
 under `.flowise/storage`, which the `.flowise` line collects; no row names
 them as a project.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `DATABASE_PATH` | the directory holding `database.sqlite`, with the default SQLite database ([DataSource.ts:23](https://github.com/FlowiseAI/Flowise/blob/9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb/packages/server/src/DataSource.ts#L23)) | `.flowise` | `flowise` |
+| `SECRETKEY_PATH` | the directory holding `encryption.key` and the auth signing secrets ([utils/index.ts:1670](https://github.com/FlowiseAI/Flowise/blob/9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb/packages/server/src/utils/index.ts#L1670), [1584-1585](https://github.com/FlowiseAI/Flowise/blob/9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb/packages/server/src/utils/index.ts#L1584-L1585)) | `.flowise` | `flowise` |
+| `BLOB_STORAGE_PATH` | the chat storage directory, and `uploads` beneath it ([storageUtils.ts:51-53](https://github.com/FlowiseAI/Flowise/blob/9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb/packages/components/src/storageUtils.ts#L51-L53), [utils/index.ts:2019-2021](https://github.com/FlowiseAI/Flowise/blob/9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb/packages/server/src/utils/index.ts#L2019-L2021)) | `.flowise/storage`, `.flowise/uploads` | `flowise` |
+| `LOG_PATH` | the log directory ([utils/config.ts:10](https://github.com/FlowiseAI/Flowise/blob/9291856d1ea4a4ceea9f8fef8ce14f4f6c81e8eb/packages/server/src/utils/config.ts#L10)) | | `flowise` |
+
+Not relocation variables: `E2B_APIKEY` (carries a key), `DATABASE_TYPE` (behaviour only),
+`HOME` and `USERPROFILE` (generic).
+
 #### Docker
 
 The README compose bind-mounts the host's `~/.flowise` to

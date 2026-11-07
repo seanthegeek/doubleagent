@@ -22,7 +22,8 @@ ps_table() { # ps_table NAME -> lines of the PowerShell here-string
   sed -n "/^\$$1 = @'/,/^'@/p" "$PS_COLLECTOR" | sed '1d;$d' | tr -d '\r' | grep -v '^$'
 }
 
-for table in CATALOG PROJECT_CATALOG EXCLUDES SECRET_GLOBS DOCKER_VOLUMES; do
+for table in CATALOG PROJECT_CATALOG EXCLUDES SECRET_GLOBS DOCKER_VOLUMES RELOCATION_VARS \
+  STARTUP_FILES; do
   sh_lines=$(sh_table "$table"); ps_lines=$(ps_table "$table")
   line_count=$(printf '%s\n' "$sh_lines" | grep -c .)
   if [ "$line_count" -lt 5 ]; then printf 'FAIL %s: could not extract table from sh (%s lines)\n' "$table" "$line_count"; fail=1; continue; fi

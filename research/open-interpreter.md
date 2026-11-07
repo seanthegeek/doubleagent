@@ -245,6 +245,17 @@ The default location is excluded ([Exclusions](#exclusions)); project discovery 
 configured `git-worktree-root` is discovered as a project. The `.zcode/cli/artifacts` spill
 directory is the agent's own output, under the catalog line.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `INTERPRETER_HOME` | the home, every file of this section ([`utils/home-dir/src/lib.rs:5-36`](https://github.com/openinterpreter/openinterpreter/blob/2767e5f20d6927500b8f1938c773c61afb823245/codex-rs/utils/home-dir/src/lib.rs#L5-L36)) | `.openinterpreter` | `open-interpreter` |
+| `CODEX_SQLITE_HOME` | the directory of the SQLite state databases ([`core/src/config/mod.rs:268-278`](https://github.com/openinterpreter/openinterpreter/blob/2767e5f20d6927500b8f1938c773c61afb823245/codex-rs/core/src/config/mod.rs#L268-L278)) | `.openinterpreter` | `open-interpreter` |
+| `OPEN_INTERPRETER_HOME` | the home of the hash and todo caches, ahead of `INTERPRETER_HOME` ([`harness_aliases.rs:1460-1465`](https://github.com/openinterpreter/openinterpreter/blob/2767e5f20d6927500b8f1938c773c61afb823245/codex-rs/core/src/tools/handlers/harness_aliases.rs#L1460-L1465)) | `.openinterpreter` | `open-interpreter` |
+| `CODEX_ROLLOUT_TRACE_ROOT` | adds a directory of trace bundles, written only while it is set ([`rollout-trace/src/thread.rs:107`](https://github.com/openinterpreter/openinterpreter/blob/2767e5f20d6927500b8f1938c773c61afb823245/codex-rs/rollout-trace/src/thread.rs#L107)) | | `open-interpreter` |
+
+Not relocation variables: `CODEX_HOME` (another agent's; the runtime ignores it).
+
 ### Credentials
 
 - `auth.json`: OpenAI API key and ChatGPT OAuth tokens

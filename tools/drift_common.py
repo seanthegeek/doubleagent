@@ -57,7 +57,15 @@ RESEARCH_INDEX = pathlib.PurePosixPath("research/README.md")
 PARSERS = pathlib.PurePosixPath("analyzer/doubleagent/parsers")
 # Files under research/ that are not one catalog agent's document.
 NOT_AGENT_DOCUMENTS = frozenset({"README.md", "frameworks.md", "shared.md"})
-TABLE_NAMES = ("home", "project", "exclude", "secret", "docker")
+# The tables of paths and globs the catalog walk reads, then the relocation hint tables.
+GLOB_TABLES = ("home", "project", "exclude", "secret", "docker")
+TABLE_NAMES = (*GLOB_TABLES, "relocation", "startup")
+# The listing headings of the relocation hint tables, read here as well as by `catalog.parse` so
+# a listing is split the same way whether or not the analyzer knows them.
+HINT_HEADINGS = {
+    "relocation variables (agent|VARIABLE|home-relative path it replaces)": "relocation",
+    "startup files searched for them (scope|glob; scope home, system or project)": "startup",
+}
 # The parser class attributes `agents()` resolves; see `ParserClass`.
 PARSER_ATTRIBUTES = (
     "agent",
@@ -429,8 +437,10 @@ class TableLine:
     """One line of a catalog table.
 
     `table` is one of `TABLE_NAMES`; `agent` is "" in the `exclude` and `secret` tables, whose
-    line is the glob itself. `comment` holds the last run of comment lines above the line in its
-    table, less their `# `, with other table lines allowed between; the table heading is not one.
+    line is the glob itself. A `relocation` line `agent|VARIABLE|replaces` keeps the variable in
+    `glob` and its third field in `replaces`; a `startup` line `scope|glob` has the agent
+    `shared` and its scope in `scope`. `comment` holds the last run of comment lines above the
+    line in its table, less their `# `, with other table lines allowed between.
     """
 
     table: str
@@ -438,11 +448,17 @@ class TableLine:
     glob: str
     line: int
     comment: tuple[str, ...]
+    replaces: str = ""
+    scope: str = ""
 
 
 @dataclass
 class Tables:
-    """The five catalog tables, each a list in file order, and the parsed `Catalog`."""
+    """The catalog tables, each a list in file order, and the parsed `Catalog`.
+
+    `headed` holds the tables whose heading the listing has, so a rule can tell a table the
+    listing lacks from an empty one.
+    """
 
     catalog: Catalog
     home: list[TableLine] = field(default_factory=list)
@@ -450,6 +466,9 @@ class Tables:
     exclude: list[TableLine] = field(default_factory=list)
     secret: list[TableLine] = field(default_factory=list)
     docker: list[TableLine] = field(default_factory=list)
+    relocation: list[TableLine] = field(default_factory=list)
+    startup: list[TableLine] = field(default_factory=list)
+    headed: set[str] = field(default_factory=set)
 
     def table(self, name: str) -> list[TableLine]:
         """Return the table named `name`, one of `TABLE_NAMES`."""
@@ -465,12 +484,15 @@ class Tables:
 def tables(path: pathlib.Path | None = None) -> Tables:
     """Parse a catalog listing, by default `analyzer/doubleagent/catalog.txt`, into its tables.
 
-    A comment equal to a heading of `catalog.SECTION_HEADINGS` switches the table, as
-    `catalog.parse` does; other comments and blank lines belong to no table.
+    A comment equal to a heading of `catalog.SECTION_HEADINGS` or `HINT_HEADINGS` switches the
+    table, as `catalog.parse` does; other comments and blank lines belong to no table. The
+    `Catalog` is parsed without the hint tables' lines when the analyzer does not know their
+    headings, which would otherwise read them as the table above.
     """
     catalog = catalog_module()
     text = (path or ROOT / CATALOG_TEXT).read_text(encoding="utf-8")
-    found = Tables(catalog=catalog.parse(text))
+    headings = {**HINT_HEADINGS, **catalog.SECTION_HEADINGS}
+    found = Tables(catalog=catalog.parse(_known_sections(text, catalog.SECTION_HEADINGS)))
     table = "home"
     comment: list[str] = []
     after_line = False
@@ -479,18 +501,44 @@ def tables(path: pathlib.Path | None = None) -> Tables:
         if not line.strip():
             continue
         if line.startswith("#"):
-            heading = catalog.SECTION_HEADINGS.get(line.removeprefix("# "))
+            heading = headings.get(line.removeprefix("# "))
             if heading is not None:
                 table, comment, after_line = heading, [], False
+                found.headed.add(heading)
                 continue
             if after_line:
                 comment, after_line = [], False
             comment.append(line.removeprefix("#").removeprefix(" "))
             continue
-        agent, glob = ("", line) if table in ("exclude", "secret") else line.split("|", 1)
-        found.table(table).append(TableLine(table, agent, glob, number, tuple(comment)))
+        found.table(table).append(_table_line(table, line, number, tuple(comment)))
         after_line = True
     return found
+
+
+def _table_line(table: str, line: str, number: int, comment: tuple[str, ...]) -> TableLine:
+    """Return one listing line of a table as a `TableLine`, in the form its table gives."""
+    if table in ("exclude", "secret"):
+        return TableLine(table, "", line, number, comment)
+    if table == "startup":
+        scope, _, glob = line.partition("|")
+        return TableLine(table, "shared", glob, number, comment, scope=scope)
+    agent, _, rest = line.partition("|")
+    if table == "relocation":
+        variable, _, replaces = rest.partition("|")
+        return TableLine(table, agent, variable, number, comment, replaces=replaces)
+    return TableLine(table, agent, rest, number, comment)
+
+
+def _known_sections(text: str, known: dict[str, str]) -> str:
+    """Return a listing with the lines of each hint table `known` lacks blanked, lines kept."""
+    kept: list[str] = []
+    skipping = False
+    for line in text.split("\n"):
+        heading = line.rstrip("\r").removeprefix("# ") if line.startswith("# ") else None
+        if heading in HINT_HEADINGS or heading in known:
+            skipping = heading not in known
+        kept.append("" if skipping else line)
+    return "\n".join(kept)
 
 
 @functools.cache

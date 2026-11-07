@@ -168,6 +168,27 @@ collects them and the analyzer classes a path there as a scratch directory, as i
 [src/tools/impl/opencode-server.ts:51-66](https://github.com/letta-ai/letta-code/blob/2a46615d16babb06cf5450b8e57ecb9bdbf2f436/src/tools/impl/opencode-server.ts#L51-L66))
 run in the same cwd and write to their own directories, which their own catalog lines collect.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `LETTA_HOME` | the Letta Code home for `crons.json`, its `runs/` and lock directory, and the listener's `skills/`; other stores keep `~/.letta` ([cron-file.ts:136-139](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/cron/cron-file.ts#L136-L139)) | `.letta` | `letta` |
+| `LETTA_LOCAL_BACKEND_DIR` | the local-backend storage directory ([local-backend-paths.ts:18-26](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/utils/local-backend-paths.ts#L18-L26)) | `.letta/lc-local-backend` | `letta` |
+| `LETTA_TRANSCRIPT_ROOT` | the root of the reflection transcripts ([transcript-paths.ts:15-22](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/utils/transcript-paths.ts#L15-L22)) | `.letta/transcripts` | `letta` |
+| `LETTA_ARTIFACTS_DIR` | the artifacts directory ([artifact-files.ts:44-48](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/tools/impl/artifact-files.ts#L44-L48)) | `.letta/artifacts` | `letta` |
+| `LETTA_MODS_DIR` | the global mods directory ([mods/paths.ts:18-26](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/mods/paths.ts#L18-L26)) | `.letta/mods` | `letta` |
+| `LETTA_EXTENSIONS_DIR` | the global mods directory too, the legacy name read when `LETTA_MODS_DIR` is empty ([mods/paths.ts:22-26](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/mods/paths.ts#L22-L26)) | `.letta/mods` | `letta` |
+| `LETTA_DEBUG_FILE` | a file the debug lines go to when debugging is on, beside `logs/debug/` ([debug.ts:41-44](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/utils/debug.ts#L41-L44)) | | `letta` |
+| `XDG_CONFIG_HOME` | the parent of the legacy `letta/settings.json` ([permissions/loader.ts:48-62](https://github.com/letta-ai/letta-code/blob/77faf36e34378946c8e69c0bfaa5595a7be4c326/src/permissions/loader.ts#L48-L62)) | `.config` | `shared` |
+| `LETTA_DIR` | the V1 server's `logs/Letta.log`, at the archive head ([settings.py:281](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/settings.py#L281), [log.py:188](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/log.py#L188)) | `.letta` | `letta` |
+| `MEMGPT_CONFIG_PATH` | the V1 `config` file ([config.py:42](https://github.com/letta-ai/letta/blob/56ba9c25552605eec89de8ed3dc6394b625c1993/letta/config.py#L42)) | `.letta/config` | `letta` |
+
+Not relocation variables: `LETTA_BASE_URL` (a server URL), `LETTA_CODE_TELEM` and `DO_NOT_TRACK`
+(telemetry switches), `LETTA_ENABLE_WINDOWS_AUTO_REFLECTION` (behaviour only),
+`LETTA_MEMORY_DIR` and `MEMORY_DIR` (set for child processes), `LETTA_LISTENER_PERF_FILE` and
+`LETTA_TUI_PERF_FILE` (performance traces, off by default), `LETTA_LOCAL_BACKEND_EXPERIMENTAL`
+(behaviour only) and `LETTA_API_KEY` (carries a key).
+
 #### Letta V1 server
 
 The Letta V1 server used `~/.letta` too (`LETTA_DIR`,

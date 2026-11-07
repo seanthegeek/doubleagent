@@ -145,6 +145,17 @@ state directory, where its catalog entry collects them; Qoder CLI has no catalog
 
 None known.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `QWEN_LIVE_DATA_DIR` | the data directory of the daemon, so `config.json`, `sessions/` and the default `memories/` ([src/config.ts:864-869](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/config.ts#L864-L869)) | `.qwen-live` | `qwen-live` |
+| `QWEN_LIVE_DISCOVERY_DIR` | the directory holding the discovery record `live/daemon.json` the daemon publishes ([src/config.ts:912-915](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/config.ts#L912-L915)) | `.qwen` | `qwen-live` |
+
+Not relocation variables: `QWEN_RUNTIME_DIR` and `QWEN_HOME` (read by `qwen serve` and Qwen Code,
+not by the daemon, so `qwen-code`'s rows), `QWEN_LIVE_LOG_LEVEL` (behaviour only),
+`DASHSCOPE_API_KEY` and `QWEN_LIVE_REALTIME_API_KEY` (carry a key), `PATH` (generic).
+
 ### Credentials
 
 | Path | Holds |

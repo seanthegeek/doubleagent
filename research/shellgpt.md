@@ -52,6 +52,21 @@ None. ShellGPT runs commands in the caller's
 working directory and creates no directory of its own to work in
 (`--install-functions` writes only into `functions/`).
 
+#### Relocation variables
+
+An environment variable named like a setting overrides the `.sgptrc` value
+([`config.py:89-94`](https://github.com/TheR1D/shell_gpt/blob/a082bd5327ce0c4ef5a0284d9060e833be9444a6/sgpt/config.py#L89-L94)).
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CHAT_CACHE_PATH` | the chat session directory ([`config.py:20`](https://github.com/TheR1D/shell_gpt/blob/a082bd5327ce0c4ef5a0284d9060e833be9444a6/sgpt/config.py#L20)) | | `shellgpt` |
+| `CACHE_PATH` | the response cache directory ([`config.py:21`](https://github.com/TheR1D/shell_gpt/blob/a082bd5327ce0c4ef5a0284d9060e833be9444a6/sgpt/config.py#L21)) | | `shellgpt` |
+| `ROLE_STORAGE_PATH` | the roles directory ([`config.py:28`](https://github.com/TheR1D/shell_gpt/blob/a082bd5327ce0c4ef5a0284d9060e833be9444a6/sgpt/config.py#L28)) | `.config/shell_gpt/roles` | `shellgpt` |
+| `OPENAI_FUNCTIONS_PATH` | the function store ([`config.py:32`](https://github.com/TheR1D/shell_gpt/blob/a082bd5327ce0c4ef5a0284d9060e833be9444a6/sgpt/config.py#L32)) | `.config/shell_gpt/functions` | `shellgpt` |
+
+Not relocation variables: `OPENAI_API_KEY` and `API_BASE_URL` (carry a key or URL), `TMPDIR`,
+`TEMP` and `TMP` (generic; the default chat and cache directories follow `tempfile.gettempdir()`).
+
 #### Configuration folder
 
 The config folder is `os.path.expanduser("~/.config")/shell_gpt` on every OS, Windows included:

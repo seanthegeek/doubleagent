@@ -119,6 +119,16 @@ sessions the extension creates git worktrees at `<repo parent>/<repo>.worktrees/
 they sit beside the user's repository wherever it is, so no catalog line can collect them, and they
 are recorded in the Copilot CLI's `session-state` (see [`copilot-cli.md`](copilot-cli.md)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `VSCODE_PORTABLE` | the user data dir (`user-data`) and extensions dir move under this directory ([`userDataPath.ts:52`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/platform/environment/node/userDataPath.ts#L52), [`environmentService.ts:142`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/platform/environment/common/environmentService.ts#L142)) | `.config/Code`, `Library/Application Support/Code`, `.vscode/extensions` | `vscode` |
+| `VSCODE_APPDATA` | the parent of the user data dir `<nameShort>` ([`userDataPath.ts:58`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/platform/environment/node/userDataPath.ts#L58)) | `.config`, `Library/Application Support` | `vscode` |
+| `VSCODE_EXTENSIONS` | the extensions directory ([`environmentService.ts:137`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/platform/environment/common/environmentService.ts#L137)) | `.vscode/extensions` | `vscode` |
+| `VSCODE_AGENT_FOLDER` | the remote server's data folder ([`server.main.ts:41`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/server/node/server.main.ts#L41)) | `.vscode-server` | `vscode` |
+| `XDG_CONFIG_HOME` | the parent of `<nameShort>` on Linux ([`userDataPath.ts:99`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/platform/environment/node/userDataPath.ts#L99)) | `.config` | `shared` |
+
 #### User data directory
 
 Inside the user data dir

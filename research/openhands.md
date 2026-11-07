@@ -118,6 +118,29 @@ OpenHands has three, all chosen by the agent rather than the user:
 The first two are under the `.openhands` catalog entry, so the analyzer's catalog rule classes them
 as scratch directories; the third is not.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `OH_PERSISTENCE_DIR` | the whole `.openhands` root for the SDK and Agent Server ([`path.py:50`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-sdk/openhands/sdk/utils/path.py#L50)) | `.openhands` | `openhands` |
+| `OPENHANDS_PERSISTENCE_DIR` | the CLI's settings and data root ([`locations.py:5-14`](https://github.com/OpenHands/OpenHands-CLI/blob/954f2ba646e8d749261a8f2b2b7e3031fa39be9f/openhands_cli/locations.py#L5-L14)) | `.openhands` | `openhands` |
+| `OPENHANDS_CONVERSATIONS_DIR` | the CLI's conversations directory alone ([`locations.py:16-23`](https://github.com/OpenHands/OpenHands-CLI/blob/954f2ba646e8d749261a8f2b2b7e3031fa39be9f/openhands_cli/locations.py#L16-L23)) | `.openhands/conversations` | `openhands` |
+| `FILE_STORE_PATH` | the 1.x app's root, read only when `OH_PERSISTENCE_DIR` is unset ([`config.py:75-89`](https://github.com/OpenHands/OpenHands/blob/11ca68ab2e15dcd85c21e4d7d3409e7a259369ac/openhands/app_server/config.py#L75-L89)) | `.openhands` | `openhands` |
+| `OH_CANVAS_SAFE_STATE_DIR` | Canvas's state directory: conversations, bash events, workspaces, logs ([`dev-safe.mjs:643-647`](https://github.com/OpenHands/OpenHands/blob/a6bba78ffd5a8b31620770f52383b1a2c0477fcd/scripts/dev-safe.mjs#L643-L647), [`logger.mjs:21-26`](https://github.com/OpenHands/OpenHands/blob/a6bba78ffd5a8b31620770f52383b1a2c0477fcd/scripts/logger.mjs#L21-L26)) | `.openhands/agent-canvas` | `openhands` |
+| `OH_CONVERSATIONS_PATH` | the Agent Server's conversations directory ([`config.py:256-261`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-agent-server/openhands/agent_server/config.py#L256-L261), [`docker/entrypoint.sh:177`](https://github.com/OpenHands/OpenHands/blob/a6bba78ffd5a8b31620770f52383b1a2c0477fcd/docker/entrypoint.sh#L177)) | `.openhands/agent-canvas/conversations` | `openhands` |
+| `OH_BASH_EVENTS_DIR` | the Agent Server's bash events directory ([`config.py:276-282`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-agent-server/openhands/agent_server/config.py#L276-L282)) | `.openhands/agent-canvas/bash_events` | `openhands` |
+| `OH_CONVERSATION_WORKTREE_ROOT` | the git worktree root outside the home ([`config.py:268-275`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-agent-server/openhands/agent_server/config.py#L268-L275)) | | `openhands` |
+| `AUTOMATION_WORKSPACE_BASE` | where automation runs unpack ([`dev-with-automation.mjs:1066-1070`](https://github.com/OpenHands/OpenHands/blob/a6bba78ffd5a8b31620770f52383b1a2c0477fcd/scripts/dev-with-automation.mjs#L1066-L1070)) | `.openhands/agent-canvas/workspaces`, `.openhands/workspaces` | `openhands` |
+| `VITE_WORKING_DIR` | the working directory of a Canvas conversation opened on no project ([`dev-safe.mjs:703`](https://github.com/OpenHands/OpenHands/blob/a6bba78ffd5a8b31620770f52383b1a2c0477fcd/scripts/dev-safe.mjs#L703)) | `.openhands/agent-canvas/workspaces` | `openhands` |
+| `OH_SECRET_KEY_PATH` | the file holding Canvas's master key ([`dev-safe.mjs:654`](https://github.com/OpenHands/OpenHands/blob/a6bba78ffd5a8b31620770f52383b1a2c0477fcd/scripts/dev-safe.mjs#L654)) | `.openhands/agent-canvas/secret-key.txt` | `openhands` |
+| `OH_SESSION_API_KEY_PATH` | the file holding Canvas's session API key ([`dev-safe.mjs:665`](https://github.com/OpenHands/OpenHands/blob/a6bba78ffd5a8b31620770f52383b1a2c0477fcd/scripts/dev-safe.mjs#L665)) | `.openhands/agent-canvas/api-key.txt` | `openhands` |
+| `LOG_DIR` | the SDK's file log directory, written only when `LOG_TO_FILE` is true; relative to the working directory by default ([`logger.py:35-36`](https://github.com/OpenHands/software-agent-sdk/blob/b347047e2dcdd8f4b2be810aa8bc6632bc756d41/openhands-sdk/openhands/sdk/logger/logger.py#L35-L36)) | | `openhands` |
+
+Not relocation variables: `OH_SECRET_KEY` (carries a key), `OPENHANDS_WORK_DIR` (the project
+directory, not a store), `TMUX_TMPDIR` (tmux's own socket directory), `OH_AGENT_SERVER_LOCAL_PATH`
+and `OH_AUTOMATION_LOCAL_PATH` (development source checkouts), `SANDBOX_VOLUMES` (a sandbox mount,
+not a store).
+
 #### Agent Canvas
 
 Agent Canvas (`agent-canvas`, `npm install -g @openhands/agent-canvas`, or the Electron app) runs

@@ -20,7 +20,10 @@ exports, prompt history, agent configurations and delegate records ([Parser plan
   Cited as `Q paths.rs:N`.
 - L1 binary strings: Kiro CLI 2.27.1, `kirocli-x86_64-linux.zip` from
   `desktop-release.q.us-east-1.amazonaws.com/latest/` (BUILD_HASH 7c1a246f, 2026-10-02), extracted
-  to `scratchpad/npm/kiro/kirocli/`. `bin/kiro-cli-chat` is the agent (crate `chat-cli-v2`);
+  to `scratchpad/npm/kiro/kirocli/`; the same URL path with `2.27.1/` in place of `latest/` still
+  serves the build (161118272 bytes, sha256
+  `e68927fe0bffb752746a573010cb68792b0f3e97be3a6ce73792c9cc02f08007`, re-downloaded and read
+  without running it). `bin/kiro-cli-chat` is the agent (crate `chat-cli-v2`);
   `bin/kiro-cli` is the autocomplete shell wrapper. Strings in
   `scratchpad/npm/kiro/chat-strings.txt`.
 - L2 kiro.dev docs: `reference/settings`, `configuration`, `permissions`,
@@ -88,6 +91,24 @@ repository, deleted when the session ends
 ([Exclusions](#exclusions)) and never recorded as a project; the CLI has no working directory of
 its own.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `KIRO_HOME` | the parent of `.kiro`, the Kiro CLI home with its `sessions/` store, so the value stands in for the home itself ([Settings, Environment variables](https://kiro.dev/docs/reference/settings/#environment-variables); kiro 2.27.1 linux-x86_64 `bin/kiro-cli-chat` @99590959 `KIRO_HOME/.kiro/sessions`, in the help text "Defaults to KIRO_HOME/.kiro/sessions") | `.` | `kiro` |
+
+Not relocation variables: `KIRO_API_KEY` (carries a key), `KIRO_LOG_LEVEL` (behaviour only),
+`KIRO_TEST_SESSIONS_DIR` and `KIRO_TEST_SETTINGS_PATH` (test only). Not confirmed:
+`KIRO_ACP_RECORD_PATH`, said to add a JSONL recording of the agent client protocol wire, is on
+no [Settings](https://kiro.dev/docs/reference/settings/) page and in neither the 2.27.1 nor the
+3.1.0 binary, which hold `KIRO_RECORD_API_REQUESTS_PATH` and `KIRO_RECORD_API_RESPONSES_PATH`
+instead; `Q_CLI_DATA_DIR`
+moves the data directory in the unpersisted `crates/agent` core
+([`consts.rs:27`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/agent/src/agent/util/consts.rs#L27)),
+but the shipped `chat-cli` data path
+([`paths.rs:327-331`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/util/paths.rs#L327-L331))
+does not read it.
+
 #### Kiro CLI
 
 Kiro CLI home `~/.kiro` (override `KIRO_HOME`, docs reference/settings; binary help "Defaults to
@@ -148,8 +169,9 @@ across 31 hash dirs). Extensions in `~/.kiro/extensions` share the CLI's home.
 
 #### Environment variables
 
-Env: `KIRO_HOME`, `KIRO_API_KEY`, `KIRO_LOG_LEVEL`, `KIRO_ACP_RECORD_PATH` (JSONL ACP wire
-recording, docs reference/settings), `KIRO_TEST_SESSIONS_DIR`, `KIRO_TEST_SETTINGS_PATH` (binary).
+Env: `KIRO_HOME`, `KIRO_API_KEY`, `KIRO_LOG_LEVEL`, `KIRO_TEST_SESSIONS_DIR`,
+`KIRO_TEST_SETTINGS_PATH` (binary); see [Relocation variables](#relocation-variables) for the
+unconfirmed `KIRO_ACP_RECORD_PATH`.
 
 ### Credentials
 

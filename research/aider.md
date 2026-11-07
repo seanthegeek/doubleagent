@@ -80,8 +80,10 @@ Home-level files, all optional:
   ([`args.py:271-276`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/args.py#L271-L276)),
   so `~/.aider.chat.history.md` and friends exist only for sessions started in the home directory.
 
-No relocation environment variable; everything is `--option` or config-file driven. `pip`/`uv`
-install directories are out of scope.
+Aider has no home-wide relocation variable; options are `--option` or config-file driven, and
+each option also reads an `AIDER_`-prefixed variable
+([Relocation variables](#relocation-variables)).
+`pip`/`uv` install directories are out of scope.
 
 #### Scratch directories
 
@@ -90,6 +92,22 @@ only directory it creates is a system temporary directory for an image pasted wi
 ([`aider/commands.py:1295-1298`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/commands.py#L1295-L1298)),
 outside every catalog line. `/clear` and `/reset` delete no file; what remains is in
 [What survives a delete](#what-survives-a-delete).
+
+#### Relocation variables
+
+Every command-line option also reads an environment variable named `AIDER_` plus the option name
+upper-cased with underscores, because the argument parser is built with
+`auto_env_var_prefix="AIDER_"`
+([`args.py:36-42`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/args.py#L36-L42)).
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `AIDER_CHAT_HISTORY_FILE` | the chat history file ([`args.py:274-288`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/args.py#L274-L288)) | | `aider` |
+| `AIDER_INPUT_HISTORY_FILE` | the input history file ([`args.py:271-282`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/args.py#L271-L282)) | | `aider` |
+| `AIDER_LLM_HISTORY_FILE` | adds the LLM history log, off by default ([`args.py:296-301`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/args.py#L296-L301)) | | `aider` |
+| `AIDER_ANALYTICS_LOG` | adds the analytics event log ([`args.py:575-579`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/args.py#L575-L579)) | | `aider` |
+
+Not relocation variables: `GITHUB_COPILOT_TOKEN` (carries a key).
 
 ### Credentials
 

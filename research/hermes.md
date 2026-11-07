@@ -135,6 +135,20 @@ removes the directory
 ([`hermes_cli/worktree_ops.py:1111-1122`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_cli/worktree_ops.py#L1111-L1122)). The project
 catalog collects the repository's `.hermes/` files, not `.worktrees/`.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `HERMES_HOME` | the whole home, instead of the platform default ([`hermes_constants.py:194-201`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_constants.py#L194-L201)) | `.hermes`, `AppData/Local/hermes` | `hermes` |
+| `HERMES_DATA_DIR_SUFFIX` | text appended to the default home, never to an explicit `HERMES_HOME` ([`hermes_constants.py:57-64`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_constants.py#L57-L64)) | `.hermes`, `AppData/Local/hermes` | `hermes` |
+| `HERMES_DESKTOP_USER_DATA_DIR` | the desktop app's `userData` directory ([`data-paths.mjs:35-39`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/apps/desktop/electron/data-paths.mjs#L35-L39)) | `.config/Hermes`, `Library/Application Support/Hermes`, `AppData/Roaming/Hermes` | `hermes` |
+| `TERMINAL_SANDBOX_DIR` | the container backends' sandbox root ([`tools/environments/base.py:187-191`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/environments/base.py#L187-L191)) | `.hermes/sandboxes` | `hermes` |
+
+Not relocation variables: `LOCALAPPDATA` (generic, read directly on Windows at
+[`hermes_constants.py:61`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/hermes_constants.py#L61)),
+`TMPDIR` (set for child processes), `CODEX_HOME` and `CLAUDE_CONFIG_DIR` (another agent's),
+`HERMES_YOLO_MODE` (behaviour only), `GH_TOKEN`, `GITHUB_TOKEN` and `HF_TOKEN` (carry a key).
+
 #### Profiles
 
 Named profiles are complete homes under `<root>/profiles/<name>/`

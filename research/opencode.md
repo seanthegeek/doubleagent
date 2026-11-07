@@ -105,6 +105,22 @@ Windows. `opencode debug paths` prints the roots and the database path
   [Where the project path is recorded](#where-the-project-path-is-recorded) names the table that
   lists them.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `OPENCODE_CONFIG_DIR` | the config root ([`global.ts:79`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/util/src/global.ts#L79)) | `.config/opencode` | `opencode` |
+| `OPENCODE_DB` | the database file name, a relative value resolving under the data directory ([`database-path.ts:6-12`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/cli/src/database-path.ts#L6-L12)) | `.local/share/opencode/opencode.db` | `opencode` |
+| `XDG_DATA_HOME` | the parent of the data directory ([`global-roots.ts:5`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/util/src/global-roots.ts#L5)) | `.local/share` | `shared` |
+| `XDG_CONFIG_HOME` | the parent of the config directory ([`global-roots.ts:7`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/util/src/global-roots.ts#L7)) | `.config` | `shared` |
+| `XDG_STATE_HOME` | the parent of the state directory ([`global-roots.ts:8`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/util/src/global-roots.ts#L8)) | `.local/state` | `shared` |
+| `XDG_CACHE_HOME` | the parent of the cache directory ([`global-roots.ts:6`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/util/src/global-roots.ts#L6)) | `.cache` | `shared` |
+
+Not relocation variables: `OPENCODE_TEST_HOME` (test only), `OPENCODE_DISABLE_CHANNEL_DB` (picks
+the database name by channel, behaviour only), `OPENCODE_DIRECT_TRACE` (a flag that turns on a
+trace under the existing log directory), `OPENCODE_DESKTOP_ISOLATED_SERVER` (development build
+only), `OPENCODE_AUTO_SHARE` (behaviour only).
+
 #### Data directory
 
 `~/.local/share/opencode`:

@@ -114,6 +114,19 @@ directories.
 Claude Code CLI temp roots that `git-shadow/cli-temp-roots.json` lists (`/tmp/claude-<uid>` on
 Linux) are outside every home and not collected ([`git-shadow`](#git-shadow)).
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CLAUDE_USER_DATA_DIR` | the app-data directory and its logs, anywhere (`app.asar:.vite/build/index.pre.js@887429`, [Windows data directories](#windows-data-directories)) | `.config/Claude`, `Library/Application Support/Claude` | `claude-desktop` |
+| `XDG_CONFIG_HOME` | the parent of `Claude` on Linux, where Electron puts the app-data directory ([Electron `app.getPath`](https://www.electronjs.org/docs/latest/api/app#appgetpathname)) | `.config` | `shared` |
+
+Not relocation variables: `CLAUDE_CONFIG_DIR` (another agent's: the desktop reads it only to find
+the Claude Code store beside the app, `<CLAUDE_CONFIG_DIR or ~/.claude>/projects`, which is the
+`claude-code` row; the app sets it for each Cowork session's own `.claude` directory),
+`CLAUDE_CODE_PROJECT_DIR_NAME` (set for child processes), `CLAUDE_CODE_ENTRYPOINT` (behaviour only).
+Not confirmed: that `XDG_CONFIG_HOME` moves the data directory was not observed on a real install.
+
 #### Standard build on macOS
 
 - Observed 2026-10-11, 2.31226.1: the data directory is `~/Library/Application Support/Claude/` and

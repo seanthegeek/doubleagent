@@ -68,6 +68,7 @@ projects:   12
 collected:  5985 files, 110669230 bytes (105.5 MiB)
 skipped:    7 excluded, 0 too large, 0 secret, 0 special
 errors:     2 (2 error_copy, 0 error_read)
+relocation: 1 hint in 214 files searched; see collectors/docs/relocation.md
 docker:     4 volumes found, 1 collected, 0 unreadable
 ```
 
@@ -86,9 +87,11 @@ docker:     4 volumes found, 1 collected, 0 unreadable
 | `--no-projects` | `-NoProjects` | Skip project-level artifact discovery and `-p`. |
 | `--no-docker` | `-NoDocker` | Skip Docker and Podman named volume enumeration. |
 | `--max-file-size MB` | `-MaxFileSizeMB` | Skip files larger than this many MiB. Default 256, `0` disables. |
+| `--env-scan-home` | `-EnvScanHome` | Also search every other file in each home and project for relocation variable names. See [docs/relocation.md](docs/relocation.md). |
+| `--env-scan-max-size MB` | `-EnvScanMaxSizeMB` | With `--env-scan-home`, skip files larger than this whole number of MiB. Default 1, `0` disables. |
 | `-k, --keep-staging` | `-KeepStaging`, `-k` | Keep the staging directory. |
 | `--inventory` | `-Inventory` | Write nothing; print one JSON line per user and agent found. See [docs/inventory.md](docs/inventory.md). |
-| `--list` | `-List` | Print the five catalog tables and exit. |
+| `--list` | `-List` | Print the catalog tables and exit. |
 | `-q, --quiet` | `-Quiet`, `-q` | Print only the final summary. |
 | `-V, --version` | `-Version` | Print `collect-agent-artifacts <version>` and exit. |
 | `-h, --help` | none | Print the usage text and exit. |
@@ -124,6 +127,7 @@ one document per agent, listed in the [research index](../research/README.md).
 | [docs/options.md](docs/options.md) | Full option semantics, exit codes, environment variables, PowerShell parameter details |
 | [docs/output.md](docs/output.md) | The stdout summary, output files, archive layout, manifest fields and statuses, `collection.json` |
 | [docs/coverage.md](docs/coverage.md) | What is collected and from where: homes, projects, nested and case-variant entries, exclusions, credentials |
+| [docs/relocation.md](docs/relocation.md) | What a relocation hint means, how to read and confirm it, and how to collect a moved store |
 | [docs/docker.md](docs/docker.md) | Docker and Podman named volumes, Docker Desktop |
 | [docs/privileges.md](docs/privileges.md) | What a run without root or Administrator still collects and records |
 | [docs/inventory.md](docs/inventory.md) | Inventory mode and its JSON Lines fields |

@@ -86,6 +86,16 @@ agent's own scratch space, created in the working directory
 [file_toolkit.py:73](https://github.com/camel-ai/camel/blob/797296a718ce856d9c9476e4bb69fedb71ab6382/camel/toolkits/file_toolkit.py#L73)), unrecorded and under no
 CAMEL-specific name, so no catalog line can find them.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `CAMEL_WORKDIR` | the working directory of the terminal and file toolkits, in place of `./workspace` and `./camel_working_dir` ([terminal_toolkit.py:191](https://github.com/camel-ai/camel/blob/797296a718ce856d9c9476e4bb69fedb71ab6382/camel/toolkits/terminal_toolkit/terminal_toolkit.py#L191), [file_toolkit.py:69](https://github.com/camel-ai/camel/blob/797296a718ce856d9c9476e4bb69fedb71ab6382/camel/toolkits/file_toolkit.py#L69)) | | `camel-ai` |
+| `CAMEL_LOG_DIR` | the model log directory, read when `CAMEL_MODEL_LOG_ENABLED` is set, default `camel_logs` ([base_model.py:295](https://github.com/camel-ai/camel/blob/797296a718ce856d9c9476e4bb69fedb71ab6382/camel/models/base_model.py#L295)) | | `camel-ai` |
+
+Not relocation variables: `CAMEL_MODEL_LOG_ENABLED` (behaviour only), `MINIMAX_MCP_BASE_PATH`
+(output directory of a third-party MCP server the toolkit launches).
+
 #### Name collision
 
 Apache Camel JBang also uses `~/.camel`

@@ -73,6 +73,17 @@ the home, it is `~/.coding`, which no catalog line collects; started
 elsewhere, it is outside the home. Nothing in the database records it, so
 neither project discovery nor the analyzer can name it.
 
+#### Relocation variables
+
+| Variable | Moves | Replaces | Table agent |
+| --- | --- | --- | --- |
+| `AUTOGENSTUDIO_APPDIR` | the app directory, so the database, `files/`, `configs/` and `.env` ([initialization.py:41-45](https://github.com/microsoft/autogen/blob/027ecf0a379bcc1d09956d46d12d44a3ad9cee14/python/packages/autogen-studio/autogenstudio/web/initialization.py#L41-L45)) | `.autogenstudio` | `autogen-studio` |
+| `AUTOGENSTUDIO_DATABASE_URI` | the database, when the URI names a SQLite file elsewhere ([initialization.py:47-51](https://github.com/microsoft/autogen/blob/027ecf0a379bcc1d09956d46d12d44a3ad9cee14/python/packages/autogen-studio/autogenstudio/web/initialization.py#L47-L51)) | `.autogenstudio/autogen04203.db` | `autogen-studio` |
+
+Not relocation variables: `AUTOGENSTUDIO_AUTH_CONFIG` (names a user-written auth file, carries
+secrets), `AUTOGENSTUDIO_TEAM_FILE` (input file, set for the server by the command),
+`AUTOGENSTUDIO_HOST` and `AUTOGENSTUDIO_PORT` (behaviour only).
+
 #### Docker
 
 No compose file and no named volume. The Studio Dockerfile sets
