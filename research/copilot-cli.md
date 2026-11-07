@@ -249,7 +249,7 @@ collected, and `discover_projects` and `Find-Projects` do not read `vscode.metad
 #### Relocation variables
 
 The byte offsets below are into `cli-main.js` and `sea-loader.js` of the 1.0.98 darwin-arm64
-build ([Source and evidence](#source-and-evidence)), 0-based.
+build ([Source and evidence](#source-and-evidence)), 0-based, of the variable name.
 
 | Variable | Moves | Replaces | Table agent |
 | --- | --- | --- | --- |

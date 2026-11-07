@@ -13,11 +13,15 @@ binary's name for its sandbox environment). Its parser is in the backlog
   the Linux binary is `@ampcode/cli-linux-x64/amp`, a bun-compiled ELF (128 MB). Evidence level
   **B** is strings from that binary: `strings -n 8` (cited as `amp.strings`) and `strings -el`
   UTF-16 (`amp.strings16`); the UTF-16 table holds the minified application code and is where the
-  path joins live.
+  path joins live. The cited binary is `amp` from npm `@ampcode/cli-linux-x64`
+  0.0.1791060199-g5bacb8 (linux-x64), 133764576 bytes, sha256
+  `9eb4311859a492a675c4a7387fc4ad263e799cbdcb5dc9b8b392f804f387f04b`; a citation `amp @<offset>`
+  is a 0-based byte offset into that file, where the quoted UTF-16 text starts.
 - Evidence level **D** is the official docs, fetched as Markdown from
   `https://ampcode.com/docs/markdown/<page>` (index `https://ampcode.com/llms.txt`).
 - Evidence level **S** is the install script `https://ampcode.com/install.sh`, cited as
-  `amp-install.sh`.
+  `amp-install.sh`; the copy read (fetched 2026-11-06) is 13614 bytes, sha256
+  `83b0a61b09cb653b92e47e039e3aba8bda60c62c0eea6e1467c1b1b12c258cc9`.
 - Thread transcripts are server-side: the bug-report bundler writes "The full thread is stored
   server-side and can be fetched by a site admin" (`amp.strings` near `thread/full.json`); docs say
   remote MCP definitions and threads are "stored by ampcode.com" (`customize_mcp.md:15,301`). No
@@ -57,12 +61,15 @@ None known.
 
 #### Relocation variables
 
+Each `amp @<offset>` below is the 0-based offset of the variable name in the binary named in
+[Source and evidence](#source-and-evidence), and the snippet is its minified UTF-16 text. The data directory is that path plus `amp`.
+
 | Variable | Moves | Replaces | Table agent |
 | --- | --- | --- | --- |
-| `AMP_HOME` | the installer home (`amp-install.sh:5-6`) | `.amp` | `amp` |
-| `XDG_DATA_HOME` | the data directory (`amp.strings16`, `fzt`) | `.local/share` | `shared` |
-| `XDG_CONFIG_HOME` | the config directory (`amp.strings16`, `dzt`) | `.config` | `shared` |
-| `XDG_CACHE_HOME` | the cache and log directory (`amp.strings16`, `F6t`) | `.cache` | `shared` |
+| `AMP_HOME` | the installer home ([install.sh lines 5-6](https://ampcode.com/install.sh): `AMP_HOME="${AMP_HOME:-$HOME/.amp}"`) | `.amp` | `amp` |
+| `XDG_DATA_HOME` | the data directory (`amp @124386424` `fzt=process.env.XDG_DATA_HOME\|\|gl.join(PUe(),".local/share")`) | `.local/share` | `shared` |
+| `XDG_CONFIG_HOME` | the config directory (`amp @124386546` `dzt=process.env.XDG_CONFIG_HOME\|\|gl.join(PUe(),".config")`) | `.config` | `shared` |
+| `XDG_CACHE_HOME` | the cache and log directory (`amp @124244258` `F6t=IW.join(process.env.XDG_CACHE_HOME??IW.join(gUe(),".cache"),"amp")`; logs under it, `amp @124994480` `KGe=Yp.join(us,"logs")`) | `.cache` | `shared` |
 
 Not relocation variables: `AMP_API_KEY` (carries a key).
 Not confirmed: `AMP_SETTINGS_FILE` and `AMP_LOG_FILE`, named in the strings tables but in no

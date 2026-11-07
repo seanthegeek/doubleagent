@@ -37,10 +37,15 @@ shown:
 - L1 shipped bundles. The IDE: Cursor 3.25.9 and 3.26.13 for macOS,
   `Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.glass.main.js`, grepped for
   literal strings, cited below as `workbench.glass.main.js` with the snippet (byte offsets were
-  not recorded). The CLI: Cursor Agent CLI `2026.10.01-e373342`, `agent-cli-package.tar.gz` from
-  `downloads.cursor.com/lab/.../linux/x64/` (the URL is in the install script
-  `https://cursor.com/install`, lines 78-131). Minified webpack chunks keep module names, so
-  citations are `<chunk>.js` plus the original module path. The real install ran the newer
+  not recorded). The CLI: Cursor Agent CLI `2026.10.01-e373342` for linux/x64, the
+  `agent-cli-package.tar.gz` (182,613,962 bytes, sha256
+  `a79726c6e644520e993970be4c45775a6889802b67abe461a677a53219ae28e8`) downloaded read-only from
+  `https://downloads.cursor.com/lab/2026.10.01-e373342/linux/x64/agent-cli-package.tar.gz` (the
+  URL pattern is in the install script `https://cursor.com/install`, lines 78-131); its
+  `dist-package/index.js` is 7,549,254 bytes, sha256
+  `39218adfc45db4c75727b3a19c61ac12ff671aa4417c94591a1b1469658c59ea`. Minified webpack chunks
+  keep module names, so older citations are `<chunk>.js` plus the original module path; the
+  relocation variables are cited by byte offset into `index.js`. The real install ran the newer
   2026.10.19-6bbf2c4, the build the IDE's worker directory held.
 - L2 official docs: [Cursor CLI configuration](https://cursor.com/docs/cli/reference/configuration),
   [Cursor CLI parameters](https://cursor.com/docs/cli/reference/parameters) (fetched 2026-10-20),
@@ -307,13 +312,16 @@ remained ([`~/.cursor` as the IDE writes it](#cursor-as-the-ide-writes-it)). The
 
 #### Relocation variables
 
+The byte offsets below are into `index.js` of the 2026.10.01-e373342 linux/x64 build
+([Source and evidence](#source-and-evidence)), 0-based, of the variable name.
+
 | Variable | Moves | Replaces | Table agent |
 | --- | --- | --- | --- |
-| `CURSOR_DATA_DIR` | the CLI's data root (`index.js` `../cursor-config/dist/paths.js`, function `c`) | `.cursor` | `cursor` |
-| `CURSOR_CONFIG_DIR` | the CLI's config root, where `cli-config.json` lives (same module, function `a`; [Cursor CLI configuration](https://cursor.com/docs/cli/reference/configuration)) | `.cursor` | `cursor` |
-| `CURSOR_WORKTREES_ROOT` | the CLI's git worktrees directory (`index.js` `./src/project/worktree.ts`) | `.cursor/worktrees` | `cursor` |
-| `CURSOR_SANDBOX_POLICY_DIR` | the CLI's sandbox policies directory (bundle, see [Cursor Agent CLI](#cursor-agent-cli)) | `.cursor/sandbox-policies` | `cursor` |
-| `XDG_CONFIG_HOME` | the parent of the CLI's `cursor` config directory and of its Linux `auth.json` (same module, function `a`; `index.js` `../cli-credentials/dist/index.js`) | `.config` | `shared` |
+| `CURSOR_DATA_DIR` | the CLI's data root (`index.js` @3732850 `process.env.CURSOR_DATA_DIR;return e?.trim()?e:(0,i.join)((0,s.homedir)(),".cursor")`) | `.cursor` | `cursor` |
+| `CURSOR_CONFIG_DIR` | the CLI's config root, where `cli-config.json` lives (`index.js` @3732663 `process.env.CURSOR_CONFIG_DIR;if(e?.trim())return e;`; [Cursor CLI configuration](https://cursor.com/docs/cli/reference/configuration)) | `.cursor` | `cursor` |
+| `CURSOR_WORKTREES_ROOT` | the CLI's git worktrees directory (`index.js` @2156124 `process.env.CURSOR_WORKTREES_ROOT??a().join((0,i.homedir)(),".cursor","worktrees")`) | `.cursor/worktrees` | `cursor` |
+| `CURSOR_SANDBOX_POLICY_DIR` | the CLI's sandbox policies directory (`index.js` @7194766 `process.env.CURSOR_SANDBOX_POLICY_DIR?.trim();return e?n.resolve(e):n.resolve(n.join(o.homedir(),".cursor","sandbox-policies"))`) | `.cursor/sandbox-policies` | `cursor` |
+| `XDG_CONFIG_HOME` | the parent of the CLI's `cursor` config directory and of its Linux `auth.json` (`index.js` @3732723 `process.env.XDG_CONFIG_HOME;return t?.trim()?(0,i.join)(t,"cursor")`; the Linux `auth.json`, @3678006 `process.env.XDG_CONFIG_HOME\|\|(0,i.join)((0,n.homedir)(),".config");return(0,i.join)(t,e,"auth.json")`) | `.config` | `shared` |
 
 Not relocation variables: `AGENT_CLI_CREDENTIAL_STORE` (picks keychain or file, behaviour only).
 
