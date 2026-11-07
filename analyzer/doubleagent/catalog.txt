@@ -2127,7 +2127,7 @@ flowise|DATABASE_PATH|.flowise
 flowise|LOG_PATH|
 flowise|SECRETKEY_PATH|.flowise
 gemini-cli|GEMINI_CLI_ACTIVITY_LOG_TARGET|
-gemini-cli|GEMINI_CLI_HOME|
+gemini-cli|GEMINI_CLI_HOME|.
 gemini-cli|GEMINI_CLI_TRUSTED_FOLDERS_PATH|.gemini/trustedFolders.json
 gemini-cli|GEMINI_CONTEXT_TRACE_DIR|
 gemini-cli|GEMINI_DEBUG_LOG_FILE|
@@ -2142,7 +2142,7 @@ hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
 kilo-code|KILO_CONFIG|
 kilo-code|KILO_CONFIG_DIR|
 kilo-code|KILO_DB|.local/share/kilo/kilo.db
-kiro|KIRO_HOME|.kiro
+kiro|KIRO_HOME|.
 langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
 langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox
 langflow|LANGFLOW_KNOWLEDGE_BASES_DIR|.langflow/knowledge_bases

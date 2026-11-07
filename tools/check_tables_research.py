@@ -774,7 +774,11 @@ def credential_wording(repository: Repository) -> Iterator[Finding]:
 
 
 def presence(repository: Repository) -> Iterator[Finding]:
-    """Yield the presence findings: documents, table lines and agents-page rows."""
+    """Yield the presence findings: documents, table lines and agents-page rows.
+
+    A `RELOCATION_VARS` agent with no other table line and no document is `document-missing`
+    too, once, so a misspelt agent cannot ship hints without a finding.
+    """
     agents = repository.agents
     for agent, lines in agents.catalog.items():
         document = repository.document(agent)
@@ -784,6 +788,14 @@ def presence(repository: Repository) -> Iterator[Finding]:
         if agent not in agents.rows and agent not in ROWLESS_AGENTS:
             message = "the catalog agent has no row in the agents page table"
             yield Finding(agent, "agents-row-missing", agent, CATALOG_PATH, lines[0].line, message)
+    for line in repository.tables.relocation:
+        document = repository.document(line.agent)
+        if line.agent not in agents.catalog and document not in repository.sections:
+            agents.catalog[line.agent] = [line]
+            message = "the relocation agent has no %s" % document
+            yield Finding(
+                line.agent, "document-missing", document, CATALOG_PATH, line.line, message
+            )
     for agent, path in agents.documents.items():
         if agent not in agents.catalog:
             relative = path.relative_to(repository.root).as_posix()

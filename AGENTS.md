@@ -1033,7 +1033,9 @@ when the page has one.
      `#### Relocation variables` after it. The latter is a table with the
      header `| Variable | Moves | Replaces | Table agent |`: Variable a code
      span, Moves what it relocates with its source citation, Replaces the
-     home-relative path the value stands in for (empty when none), Table
+     home-relative path the value stands in for (`.` when the value stands in
+     for the home itself as the parent of the agent's directory, empty when
+     none), Table
      agent the `RELOCATION_VARS` agent, `shared` for a generic variable; an
      agent reading none has the subsection say "None known.".
      `research/shared.md` holds the `shared` rows and a

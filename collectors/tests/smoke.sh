@@ -1922,6 +1922,11 @@ printf 'bplist00\000\001<key>CODEX_HOME</key>\n' >"$ALICE/Library/LaunchAgents/c
 mkdir -p "$ROOT/opt/dotfiles"
 printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/opt/dotfiles/zshrc"
 ln -s "$ROOT/opt/dotfiles/zshrc" "$BOB/.zshrc"
+# A startup file under a symlinked directory is not read either: in image mode
+# the link may point at the analyst's own host.
+mkdir -p "$ROOT/opt/dotfiles2/custom"
+printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/opt/dotfiles2/custom/agents.zsh"
+ln -s "$ROOT/opt/dotfiles2" "$BOB/.oh-my-zsh"
 # A startup file a catalog line also matches keeps its catalog row.
 printf '<plist><dict><key>EnvironmentVariables</key><dict><key>OPENCLAW_STATE_DIR</key><string>/opt/x</string></dict></dict></plist>\n' >"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist"
 # Only --env-scan-home reaches these: a helper deep in the home (its env shebang
@@ -2567,6 +2572,7 @@ check "#454 a variable of two agents gives one hint per agent" "[ \"\$(hint_line
 check "#454 a lowercase PowerShell variable is a hint" "hint_line \"$ALICE/Documents/PowerShell/Microsoft.PowerShell_profile.ps1\" 1 CODEX_HOME codex-cli | grep -q '\"user\": \"alice\"'"
 check "#454 the every-variable file hints every relocation variable" "[ -n \"\$(listed_variables)\" ] && [ \"\$(hinted_variables \"$BOB/.bashrc\")\" = \"\$(listed_variables)\" ]"
 check "#454 a longer name holding a variable is no hint" "[ \"\$(hint_count \"$BOB/.profile\")\" = 0 ] && [ -z \"\$(row \"$BOB/.profile\")\" ]"
+check "#454 a startup file under a symlinked directory is not read" "[ \"\$(hint_count \"$BOB/.oh-my-zsh/custom/agents.zsh\")\" = 0 ] && [ -z \"\$(row \"$BOB/.oh-my-zsh/custom/agents.zsh\")\" ] && ! grep -q 'opt/dotfiles2' \"\$MANIFEST\""
 check "#454 a symlinked startup file is not followed" "[ \"\$(hint_count \"$BOB/.zshrc\")\" = 0 ] && [ -z \"\$(row \"$BOB/.zshrc\")\" ] && ! grep -q 'opt/dotfiles' \"\$MANIFEST\""
 check "#454 a catalog-collected startup file is hinted and keeps its one catalog row" "hint_line \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\" 1 OPENCLAW_STATE_DIR openclaw | grep -q . && [ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && row \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\" | grep -q '\"agent\":\"openclaw\"'"
 check "#454 a file only the sweep reaches is not searched by default" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 0 ] && [ -z \"\$(row \"$ALICE/scripts/agent-env/deep/helper.sh\")\" ]"

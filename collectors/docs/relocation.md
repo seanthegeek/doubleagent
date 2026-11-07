@@ -141,7 +141,9 @@ sits where the agent's default folder would be:
    `Relocation variables` table in the agent's research document, such as
    `.claude` for `CLAUDE_CONFIG_DIR`; where the table gives one path per
    platform, take your platform's. `--list` prints the first of them as
-   the third field of the variable's line.
+   the third field of the variable's line. A `.` there means the value
+   stands in for the home itself (`GEMINI_CLI_HOME` holds a `.gemini`
+   directory): copy the value's contents into `home/USER`.
 2. Make an empty scratch directory outside the evidence and under it the
    path `home/USER/<default folder>`, where `USER` is the user who set the
    variable. On Windows, use `Users\USER\<default folder>`.

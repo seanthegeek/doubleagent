@@ -2306,7 +2306,7 @@ flowise|DATABASE_PATH|.flowise
 flowise|LOG_PATH|
 flowise|SECRETKEY_PATH|.flowise
 gemini-cli|GEMINI_CLI_ACTIVITY_LOG_TARGET|
-gemini-cli|GEMINI_CLI_HOME|
+gemini-cli|GEMINI_CLI_HOME|.
 gemini-cli|GEMINI_CLI_TRUSTED_FOLDERS_PATH|.gemini/trustedFolders.json
 gemini-cli|GEMINI_CONTEXT_TRACE_DIR|
 gemini-cli|GEMINI_DEBUG_LOG_FILE|
@@ -2321,7 +2321,7 @@ hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
 kilo-code|KILO_CONFIG|
 kilo-code|KILO_CONFIG_DIR|
 kilo-code|KILO_DB|.local/share/kilo/kilo.db
-kiro|KIRO_HOME|.kiro
+kiro|KIRO_HOME|.
 langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
 langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox
 langflow|LANGFLOW_KNOWLEDGE_BASES_DIR|.langflow/knowledge_bases
@@ -4203,16 +4203,33 @@ function Test-RegularFile([string]$path) {
   return ((Get-ManifestType $item) -eq 'file')
 }
 
-# Takes a base directory and a scope; returns the regular files the
-# STARTUP_FILES globs of that scope match under the base, each once, in table
-# order.
+# Takes a base and a path under it; returns whether a directory between them is
+# a reparse point (a symlink or junction), which the glob followed and the
+# catalog walk never descends; in image mode it may point at the analyst's host.
+function Test-UnderLink([string]$base, [string]$path) {
+  $relative = $path.Substring($base.TrimEnd('\', '/').Length).TrimStart('\', '/')
+  $segments = @($relative -split '[\\/]')
+  $directory = $base
+  for ($index = 0; $index -lt $segments.Count - 1; $index++) {
+    $directory = Join-PathSafe $directory $segments[$index]
+    $extended = ConvertTo-ExtendedPath $directory
+    try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop } catch { return $true }
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { return $true }
+  }
+  return $false
+}
+
+# Takes a base directory and a scope; returns the regular files, none under a
+# linked directory, that the STARTUP_FILES globs of that scope match under the
+# base, each once, in table order.
 function Get-StartupFiles([string]$base, [string]$scope) {
   $files = New-Object System.Collections.ArrayList
   $seen = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
   foreach ($rule in $script:StartupGlobs) {
     if ($rule[0] -ne $scope) { continue }
     foreach ($path in @(Expand-Glob $base $rule[1])) {
-      if ((Test-RegularFile $path) -and $seen.Add($path)) { [void]$files.Add($path) }
+      if (-not (Test-RegularFile $path) -or (Test-UnderLink $base $path)) { continue }
+      if ($seen.Add($path)) { [void]$files.Add($path) }
     }
   }
   # A wildcard segment's listing errors are the catalog walk's to report.

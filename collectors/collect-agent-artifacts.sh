@@ -2258,7 +2258,7 @@ flowise|DATABASE_PATH|.flowise
 flowise|LOG_PATH|
 flowise|SECRETKEY_PATH|.flowise
 gemini-cli|GEMINI_CLI_ACTIVITY_LOG_TARGET|
-gemini-cli|GEMINI_CLI_HOME|
+gemini-cli|GEMINI_CLI_HOME|.
 gemini-cli|GEMINI_CLI_TRUSTED_FOLDERS_PATH|.gemini/trustedFolders.json
 gemini-cli|GEMINI_CONTEXT_TRACE_DIR|
 gemini-cli|GEMINI_DEBUG_LOG_FILE|
@@ -2273,7 +2273,7 @@ hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
 kilo-code|KILO_CONFIG|
 kilo-code|KILO_CONFIG_DIR|
 kilo-code|KILO_DB|.local/share/kilo/kilo.db
-kiro|KIRO_HOME|.kiro
+kiro|KIRO_HOME|.
 langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
 langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox
 langflow|LANGFLOW_KNOWLEDGE_BASES_DIR|.langflow/knowledge_bases
@@ -3778,11 +3778,24 @@ set_relocation_names() {
   export GREP_NAME_OPTIONS
 }
 
-# list_startup_files BASE SCOPE -> the regular files, never a symlink, that the
-# STARTUP_FILES globs of SCOPE match under BASE, one per line; a system glob's
-# leading / is dropped, so it is taken under the root, and a name holding a
-# newline is left out, as it would split the list. Reads STARTUP_FILES.
-# Temporaries: _lsf_.
+# under_symlink BASE PATH -> 0 when a directory between BASE and PATH is a
+# symlink: the shell's glob followed it, where the catalog walk's find never
+# descends one, and in image mode it may point at the analyst's own host.
+# Temporaries: _us_.
+under_symlink() {
+  _us_rel=${2#"$1"/}; _us_dir=$1
+  while case "$_us_rel" in (*/*) true ;; (*) false ;; esac; do
+    _us_dir="$_us_dir/${_us_rel%%/*}"; _us_rel=${_us_rel#*/}
+    [ ! -L "$_us_dir" ] || return 0
+  done
+  return 1
+}
+
+# list_startup_files BASE SCOPE -> the regular files, never a symlink nor under
+# one, that the STARTUP_FILES globs of SCOPE match under BASE, one per line; a
+# system glob's leading / is dropped, so it is taken under the root, and a name
+# holding a newline is left out, as it would split the list. Reads
+# STARTUP_FILES. Temporaries: _lsf_.
 list_startup_files() {
   _lsf_saved_ifs=$IFS; IFS='
 '
@@ -3794,7 +3807,9 @@ list_startup_files() {
     for _lsf_path in $1/$_lsf_glob; do
       # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
       case "$_lsf_path" in (*"$NEWLINE"*) continue ;; esac
-      if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ]; then printf '%s\n' "$_lsf_path"; fi
+      if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ] && ! under_symlink "$1" "$_lsf_path"; then
+        printf '%s\n' "$_lsf_path"
+      fi
     done
     set -f
   done

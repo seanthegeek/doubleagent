@@ -95,7 +95,7 @@ its own.
 
 | Variable | Moves | Replaces | Table agent |
 | --- | --- | --- | --- |
-| `KIRO_HOME` | the Kiro CLI home, with its `sessions/` store ([Settings, Environment variables](https://kiro.dev/docs/reference/settings/#environment-variables); kiro 2.27.1 linux-x86_64 `bin/kiro-cli-chat` @99590959 `KIRO_HOME/.kiro/sessions`, in the help text "Defaults to KIRO_HOME/.kiro/sessions") | `.kiro` | `kiro` |
+| `KIRO_HOME` | the parent of `.kiro`, the Kiro CLI home with its `sessions/` store, so the value stands in for the home itself ([Settings, Environment variables](https://kiro.dev/docs/reference/settings/#environment-variables); kiro 2.27.1 linux-x86_64 `bin/kiro-cli-chat` @99590959 `KIRO_HOME/.kiro/sessions`, in the help text "Defaults to KIRO_HOME/.kiro/sessions") | `.` | `kiro` |
 
 Not relocation variables: `KIRO_API_KEY` (carries a key), `KIRO_LOG_LEVEL` (behaviour only),
 `KIRO_TEST_SESSIONS_DIR` and `KIRO_TEST_SETTINGS_PATH` (test only). Not confirmed:

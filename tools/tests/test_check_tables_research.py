@@ -1163,6 +1163,15 @@ def test_relocation_line_of_an_agent_without_a_document_is_not_unnamed(tmp_path)
     assert findings(hinted(tmp_path, catalog=catalog), "relocation-line-unnamed") == []
 
 
+def test_relocation_line_of_an_unknown_agent_is_document_missing(tmp_path):
+    catalog = CATALOG + HINT_TABLES.replace(
+        "alpha|ALPHA_LOG|\n", "alpha|ALPHA_LOG|\ngamma|G|\ngamma|G2|\n"
+    )
+    assert findings(hinted(tmp_path, catalog=catalog), "document-missing") == [
+        ("gamma", "research/gamma.md")
+    ]
+
+
 def test_relocation_row_unlined(tmp_path):
     catalog = CATALOG + HINT_TABLES.replace("alpha|ALPHA_LOG|\n", "").replace(
         "shared|XDG_CONFIG_HOME|.config\n", ""

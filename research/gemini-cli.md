@@ -317,7 +317,7 @@ setting [Project-local files](#project-local-files) names.
 
 | Variable | Moves | Replaces | Table agent |
 | --- | --- | --- | --- |
-| `GEMINI_CLI_HOME` | the directory that holds `.gemini`, so the whole store ([`paths.ts:22-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/paths.ts#L22-L27)) | | `gemini-cli` |
+| `GEMINI_CLI_HOME` | the directory that holds `.gemini`, so the whole store; the value stands in for the home itself ([`paths.ts:22-27`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/paths.ts#L22-L27)) | `.` | `gemini-cli` |
 | `GEMINI_CLI_TRUSTED_FOLDERS_PATH` | the trust file alone ([`storage.ts:131-136`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/config/storage.ts#L131-L136)) | `.gemini/trustedFolders.json` | `gemini-cli` |
 | `GEMINI_CLI_ACTIVITY_LOG_TARGET` | adds the activity log file at the path it names ([`devtoolsService.ts:121-126`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/cli/src/utils/devtoolsService.ts#L121-L126)) | | `gemini-cli` |
 | `GEMINI_DEBUG_LOG_FILE` | adds an appended debug log file at the path it names ([`debugLogger.ts:26-31`](https://github.com/google-gemini/gemini-cli/blob/6814e00d6b148c3a1d57244d5d7040f7c541009d/packages/core/src/utils/debugLogger.ts#L26-L31)) | | `gemini-cli` |
