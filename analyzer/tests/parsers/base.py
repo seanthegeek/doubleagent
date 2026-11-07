@@ -1,7 +1,6 @@
 """The base class and helpers the parser test modules share."""
 
 import copy
-import hashlib
 import json
 import os
 import shutil
@@ -26,24 +25,18 @@ def read_jsonl(path: Path) -> list[dict]:
 
 
 def _snapshot(root: Path) -> list[tuple]:
-    """Return every entry under `root` with its mode, size, times, inode and content digest.
+    """Return every directory and file under `root` with its mode, size, times and inode.
 
-    Links are recorded, never followed, and a regular file's bytes are digested, so a test that
-    changed anything under `root` (a write, an append, a chmod, a new file or a removed one)
-    gives a different snapshot.
+    Links are recorded, never followed. A test that changed anything under `root` (a write,
+    an append, a chmod, a new file or a removed one) gives a different snapshot: a write moves
+    the change time, which the kernel sets and a test cannot set back, and the snapshot is
+    taken long after the build, so no write shares the build's timestamp.
     """
     entries = []
     for directory, dirnames, filenames in os.walk(root):
         for name in [*dirnames, *filenames]:
             path = os.path.join(directory, name)
             status = os.lstat(path)
-            digest = ""
-            if stat.S_ISREG(status.st_mode):
-                try:
-                    with open(path, "rb") as handle:
-                        digest = hashlib.sha256(handle.read()).hexdigest()
-                except OSError:
-                    digest = "unreadable"
             entries.append(
                 (
                     os.path.relpath(path, root),
@@ -52,7 +45,6 @@ def _snapshot(root: Path) -> list[tuple]:
                     status.st_mtime_ns,
                     status.st_ctime_ns,
                     status.st_ino,
-                    digest,
                 )
             )
     return sorted(entries)
@@ -62,8 +54,8 @@ class ParserBase(unittest.TestCase):
     """Build the fixture home and open it as an input, once per class.
 
     The home is rebuilt before a test when an earlier test changed the tree, the opened input
-    or the catalog. A subclass lists in `extra_builders` the functions that add files to the home before it is
-    opened, so those files are part of the unchanged tree.
+    or the catalog. A subclass lists in `extra_builders` the functions that add files to the
+    home before it is opened, so those files are part of the unchanged tree.
     """
 
     extra_builders: ClassVar[tuple[Callable[[Path], None], ...]] = ()
