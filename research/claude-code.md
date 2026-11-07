@@ -412,7 +412,7 @@ collected ([issue 163](https://github.com/seanthegeek/doubleagent/issues/163)).
 | --- | --- | --- | --- |
 | `CLAUDE_CONFIG_DIR` | the config home, every file of this section but `.device-keys.json` (cc:473059, cc:473896, cc:477075) | `.claude` | `claude-code` |
 | `CLAUDE_CODE_TMPDIR` | the temp root holding session scratchpads ([Explore the .claude directory](https://code.claude.com/docs/en/claude-directory.md#cleaned-up-automatically)) | `AppData/Local/Temp/claude` | `claude-code` |
-| `XDG_DATA_HOME` | the parent of `claude/versions` on Linux (native installer, cc "versions" context) | `.local/share` | `shared` |
+| `XDG_DATA_HOME` | the parent of `claude/versions` on every platform (claude 2.1.295 linux-arm64 @209969040 `n.XDG_DATA_HOME??o(t,".local","share")`) | `.local/share` | `shared` |
 | `XDG_CACHE_HOME` | the parent of `claude-cli-nodejs` on Linux (cc:206336051) | `.cache` | `shared` |
 | `XDG_STATE_HOME` | the parent of the env-paths log directory of `claude-cli-nodejs` on Linux (cc:206336051) | `.local/state` | `shared` |
 

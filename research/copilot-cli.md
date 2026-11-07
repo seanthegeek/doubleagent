@@ -248,15 +248,18 @@ collected, and `discover_projects` and `Find-Projects` do not read `vscode.metad
 
 #### Relocation variables
 
+The byte offsets below are into `cli-main.js` and `sea-loader.js` of the 1.0.98 darwin-arm64
+build ([Source and evidence](#source-and-evidence)), 0-based.
+
 | Variable | Moves | Replaces | Table agent |
 | --- | --- | --- | --- |
-| `COPILOT_HOME` | the config home, every file of `~/.copilot` (app.js `function dot(e)`) | `.copilot` | `copilot-cli` |
-| `COPILOT_PROVIDERS_CONFIG` | the bring-your-own-key provider registry file (`cli-main.js@4314272`) | `.copilot/providers.json` | `copilot-cli` |
-| `COPILOT_PKG_CACHE_HOME` | the parent of the auto-update package cache `pkg` (sea-loader `Xi()`) | `.cache/copilot` | `copilot-cli` |
-| `COPILOT_CACHE_HOME` | the parent of the auto-update package cache `pkg` (sea-loader `Xi()`) | `.cache/copilot` | `copilot-cli` |
-| `XDG_CACHE_HOME` | the parent of `copilot/pkg` and `copilot-user-cache.json` on Linux (sea-loader `Xi()`) | `.cache` | `shared` |
-| `XDG_STATE_HOME` | the parent of `.copilot`, which older installs kept sessions in (app.js `function CEn(e,t)`) | `.local/state` | `shared` |
-| `XDG_CONFIG_HOME` | the parent of `.copilot`, which older installs kept config in (app.js `function CEn(e,t)`) | `.config` | `shared` |
+| `COPILOT_HOME` | the config home, every file of `~/.copilot` (cli-main.js @140773 `process.env.COPILOT_HOME??null`) | `.copilot` | `copilot-cli` |
+| `COPILOT_PROVIDERS_CONFIG` | the bring-your-own-key provider registry file, `providers.json` under the config home by default (cli-main.js @4314246 `Vwr="COPILOT_PROVIDERS_CONFIG"`, read by `O3`) | `.copilot/providers.json` | `copilot-cli` |
+| `COPILOT_PKG_CACHE_HOME` | the parent of the auto-update package cache `pkg` (sea-loader.js @27692 `process.env.COPILOT_PKG_CACHE_HOME&&e.push`) | `.cache/copilot` | `copilot-cli` |
+| `COPILOT_CACHE_HOME` | the parent of the auto-update package cache `pkg` (sea-loader.js @27789 `process.env.COPILOT_CACHE_HOME&&e.push`) | `.cache/copilot` | `copilot-cli` |
+| `XDG_CACHE_HOME` | the parent of `copilot/pkg` and `copilot-user-cache.json` on Linux (sea-loader.js @27006 `process.env.XDG_CACHE_HOME`) | `.cache` | `shared` |
+| `XDG_STATE_HOME` | the parent of `.copilot`, which older installs kept sessions in (cli-main.js @7952310 `t5n("XDG_STATE_HOME",B4o)`) | `.local/state` | `shared` |
+| `XDG_CONFIG_HOME` | the parent of `.copilot`, which older installs kept config in (cli-main.js @7952336 `t5n("XDG_CONFIG_HOME",F4o)`) | `.config` | `shared` |
 
 Not relocation variables: `COPILOT_DISABLE_KEYTAR` (behaviour only), `COPILOT_GITHUB_TOKEN`,
 `GH_TOKEN`, `GITHUB_TOKEN` and `GITHUB_PERSONAL_ACCESS_TOKEN` (carry a key).
