@@ -269,8 +269,9 @@ def regenerate(document: Path = DOCUMENT) -> None:
         RunError: The `detect` or `timeline` run failed.
     """
     document = document.resolve()
-    text = render(_read(document), generate())
-    _write(document, text)
+    text = _read(document)
+    _spans(text)
+    _write(document, render(text, generate()))
 
 
 def main(argv: list[str] | None = None) -> int:

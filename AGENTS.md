@@ -522,7 +522,10 @@ The analyzer runs on the analyst's workstation, never on the host.
   `analyzer/requirements-dev.txt`, never among the package's dependencies,
   and no test module imports it, since the pyright gate runs without it: a
   list of cases is a loop with the case in each assertion's message, never
-  `pytest.mark.parametrize`.
+  `pytest.mark.parametrize`. pytest-xdist is listed beside pytest in
+  `analyzer/requirements-dev.txt`, and `tests/run.sh` runs the suite across
+  the cores when it is installed; `tools/check_branch_coverage.py` runs the
+  suite in one process.
 - **Tests.** `analyzer/tests/run.sh`, which runs pytest, passes. Every
   parser has a fixture and a test class, every new input shape a detection
   test. A proximity join of two record kinds is bounded by the next record

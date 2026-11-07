@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import importlib.util
 import io
 import itertools
@@ -14,6 +15,12 @@ import unittest
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parents[1] / "tools"
+
+
+@functools.cache
+def generated() -> dict[str, str]:
+    """Return one shared `examples.generate()` run, for the tests that only read it."""
+    return examples.generate()
 
 
 def load_tool(name: str):
@@ -100,7 +107,7 @@ def test_every_marker_fault_fails_and_writes_nothing(tmp_path):
 
 
 def test_generated_blocks_have_their_fence_and_jsonl_lines_parse():
-    blocks = examples.generate()
+    blocks = generated()
     assert list(blocks) == list(examples.BLOCKS)
     for name, block in blocks.items():
         language = "text" if name in ("detect-text", "timeline-stdout") else "json"
@@ -128,7 +135,7 @@ def test_shown_timeline_rows_pass_the_filters():
         if flag == "--agent"
     }
     pattern = re.compile(examples.TIMELINE_FILTERS[examples.TIMELINE_FILTERS.index("--match") + 1])
-    rows = jsonl_block(examples.generate()["timeline-jsonl"])
+    rows = jsonl_block(generated()["timeline-jsonl"])
     matched = {row["tool_use_id"] for row in rows if pattern.search(row["text"])}
     for row in rows:
         assert row["agent"] in agents, row
@@ -142,7 +149,7 @@ def jsonl_block(block: str) -> list[dict]:
 
 
 def test_example_collection_shows_every_documented_row_form():
-    blocks = examples.generate()
+    blocks = generated()
     rows = jsonl_block(blocks["timeline-jsonl"])
     sessions = jsonl_block(blocks["sessions-jsonl"])
     results = {row["tool_use_id"] for row in rows if row["turn_type"] == "tool_result"}

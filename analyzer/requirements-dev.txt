@@ -4,6 +4,9 @@
 # The test runner; it runs the suite's unittest classes as they are.
 pytest
 
+# Runs the suite on every core; tests/run.sh passes -n auto when it is installed.
+pytest-xdist
+
 # Branch coverage for tools/check_branch_coverage.py, pinned because the gate's findings
 # follow its branch analysis.
 coverage==7.17.0

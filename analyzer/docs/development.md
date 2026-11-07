@@ -13,7 +13,8 @@ SQLite, and the parsers share one decoder and one opener for them.
 ## Testing
 
 The suite runs under pytest, which the development requirements add to
-the analyzer's own. When the system Python is newer than the minimum the
+the analyzer's own, with pytest-xdist; `tests/run.sh` uses every core when it is installed
+(`-n 0` runs one process). When the system Python is newer than the minimum the
 analyzer supports, [uv](https://docs.astral.sh/uv/) installs that version
 and makes a venv for it (`uv python install 3.11`, then
 `uv venv --python 3.11 venv311` and `uv pip install --python
