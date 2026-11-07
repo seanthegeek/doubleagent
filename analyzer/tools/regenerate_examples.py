@@ -270,6 +270,7 @@ def regenerate(document: Path = DOCUMENT) -> None:
     """
     document = document.resolve()
     text = _read(document)
+    # Bad markers fail here, before the analyzer runs that render needs.
     _spans(text)
     _write(document, render(text, generate()))
 

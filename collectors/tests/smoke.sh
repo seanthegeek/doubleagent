@@ -3094,7 +3094,10 @@ TZ=UTC0 touch -t 202609150102.03 "$ROOT/home/ollama/.ollama/history"
 mkdir -p "$OUT/invcwd" "$BOB/.gemini/antigravity-cli/conversations"
 # bob's ~/.gemini holds only the nested antigravity-cli entry: no gemini-cli line.
 printf 'db\n' >"$BOB/.gemini/antigravity-cli/conversations/b1.db"
-(cd "$OUT/invcwd" && inventory_run inventory -q); check "inventory exit 0" "[ $? -eq 0 ]"
+_saved_pwd_inventory=$PWD
+cd "$OUT/invcwd" && inventory_run inventory -q; _exit_inventory=$?
+cd "$_saved_pwd_inventory" || exit 1
+check "inventory exit 0" "[ $_exit_inventory -eq 0 ]"
 check "inventory writes nothing in the current directory" "[ -z \"\$(ls -A \"$OUT/invcwd\")\" ]"
 check "inventory -q leaves stderr empty" "[ ! -s \"$OUT/inventory.stderr\" ]"
 check "inventory first line is the host line, keys in order" "head -n1 \"$OUT/inventory.stdout\" | grep -q '$INVENTORY_HOST_PATTERN'"

@@ -1885,7 +1885,7 @@ function Run([string]$name, [hashtable]$extra) {
   $script:stdout = & $Collector @cargs 2>&1 | Out-String
   $script:ExitCode = $LASTEXITCODE
   $runElapsed = [int][Math]::Floor($runTimer.Elapsed.TotalSeconds)
-  Write-Output "== run $name: ${runElapsed}s"
+  Write-Output "== run ${name}: ${runElapsed}s"
   $script:RunSeconds += $runElapsed
   $script:RunCount += 1
   $script:Manifest = Get-ChildItem -LiteralPath $outputDir -Filter '*.manifest.jsonl' | Select-Object -First 1
@@ -3515,7 +3515,7 @@ function RunLinkImage([string]$name) {
   $script:stdout = & $Collector -Root $LinkRoot -OutputDir $outputDir -Quiet -NoDocker 2>&1 | Out-String
   $script:ExitCode = $LASTEXITCODE
   $runElapsed = [int][Math]::Floor($runTimer.Elapsed.TotalSeconds)
-  Write-Output "== run $name: ${runElapsed}s"
+  Write-Output "== run ${name}: ${runElapsed}s"
   $script:RunSeconds += $runElapsed
   $script:RunCount += 1
   $script:Manifest = Get-ChildItem -LiteralPath $outputDir -Filter '*.manifest.jsonl' | Select-Object -First 1

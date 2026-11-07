@@ -187,9 +187,10 @@ the `EXCLUDES` test is part of the `find` expression, so it applies to a
 matched directory and everything under it. `set_exclude_words` builds that
 part of the expression, one `-path` test per glob, the first time
 `collect_tree` walks under a base, and `EXCLUDE_WORDS` keeps it for every
-later directory under the same base: appended glob by glob for each
-directory, the argument list was copied once per glob. A match that is not
-a directory is never given to `find`, so `collect_path` tests it with
+later directory under the same base, split into the argument list in one
+pass: appending it glob by glob for each directory copies the whole list
+once per glob. A match that is not a directory is never given to `find`, so
+`collect_path` tests it with
 `test_excluded` and gives it to `EXCLUDED_PATHS_WORKER` when it matches. In
 the PowerShell collector `Add-CollectedPath` tests the match itself and
 `Add-CollectedTree` each child.

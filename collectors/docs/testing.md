@@ -48,9 +48,13 @@ and stops before the first collection run: it prints the work directory as
 its last line of stdout, runs no check, exits `0` and leaves the directory,
 whose `root/` is the image, for the caller to remove.
 
-Both smoke tests time each collector run. After a run they print `== run NAME: Ns`, with `N` the
-whole seconds the collector took, and before the verdict they print `== N collector runs: Ns;
-test: Ns`, the number of runs, their total seconds and the seconds the whole test took.
+Both smoke tests time the collector runs they make through their run helpers (`run` and
+`inventory_run` in the sh test; `Run`, `InventoryRun` and `RunLinkImage` in the PowerShell
+test). After such a run they print `== run NAME: Ns`, with `N` the whole seconds the collector
+took, and before the verdict `== N collector runs: Ns; test: Ns`: the number of those runs, their
+total seconds and the seconds the whole test took. The few runs a test makes directly, to check
+an option error, a live run without a user, an output directory inside a home or under a file, a
+read-only output directory or a relative root, are not timed.
 
 The main image also holds one file per `STARTUP_FILES` line, each assigning
 one relocation variable in its own shell's syntax, and a home file that names

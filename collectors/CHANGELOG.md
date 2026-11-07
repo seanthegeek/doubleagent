@@ -26,7 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - pi's package checkout exclusions are written against the `git/<host>/<path>` layout pi uses, as `.pi/agent/git/*/*/node_modules`, `.pi/agent/git/*/*/.git` and the same under a project's `.pi/git`; every checkout pi writes was already excluded by the earlier globs ([#326]).
-- The sh collector builds the `find` exclusion expression once per collection base (a home, a project or a volume's `_data`) instead of once per matched directory, so a run over a host with many matches finishes in well under half the time; the manifest, log, `collection.json` and archive are unchanged ([#461]).
+- The sh collector builds the `find` exclusion expression once per collection base (a home, a project or a volume's `_data`) instead of once per matched directory, which took most of a run's time on a host with many matches; the manifest, log, `collection.json` and archive are unchanged ([#461]).
 
 ### Removed
 

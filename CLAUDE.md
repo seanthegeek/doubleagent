@@ -22,7 +22,7 @@ Notes for Claude Code on this workstation:
   `analyzer/tests/run.sh` fails at import. Make a venv in the scratchpad
   (`python3 -m venv venv && venv/bin/pip install -r analyzer/requirements-dev.txt
   ruff==0.16.10 pyright==1.1.414`), run the suite from `analyzer/` with
-  `venv/bin/python -m pytest -n auto`, and pyright with
+  `venv/bin/python -m pytest -n auto --dist loadscope`, and pyright with
   `--pythonpath venv/bin/python`. Run `tools/check_fixture_schema.py` and
   `-m pytest tools/tests` from the repository root with that venv's
   python. `uv` (Homebrew) installs any CPython the analyzer supports: to run
