@@ -57,7 +57,6 @@ check_smoke_coverage|exclusion-check-missing|smoke.ps1 .local/share/claude/versi
 check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/chrome
 check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/local/node_modules
-check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/plugins/*/node_modules
 check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/plugins/cache
 check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/plugins/marketplaces
 check_smoke_coverage|exclusion-check-missing|smoke.sh .claude/worktrees

@@ -29,6 +29,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The sh collector builds the `find` exclusion expression when the collection base (a home, a project or a volume's `_data`) changes instead of once per matched directory, so a run over a host with many matched directories is faster; the manifest, log, `collection.json` and archive are unchanged ([#461]).
 - The sh collector expands the catalog tables without starting two processes per table line and base, so a run over a host with many projects is faster; the manifest, log, `collection.json` and archive are unchanged ([#470]).
 
+### Fixed
+
+- The sh collector's `skipped_excluded` row of an excluded directory whose path holds a newline recorded `size` 0, since `du` prints the path after the size and the name's second line spoiled the number; the row now records the directory's size ([#471]).
+
 ### Removed
 
 - Qwen Code's extension git-credential selector, `.qwen/extensions/*/.qwen-extension-git-credentials.json`, which only names the store holding the credential, is no longer flagged `secret: true` ([#326]).
@@ -1260,6 +1264,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#471]: https://github.com/seanthegeek/doubleagent/issues/471
 [#470]: https://github.com/seanthegeek/doubleagent/issues/470
 [#461]: https://github.com/seanthegeek/doubleagent/issues/461
 [#457]: https://github.com/seanthegeek/doubleagent/issues/457

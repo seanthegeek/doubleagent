@@ -2935,9 +2935,8 @@ heredoc_var <<'EOF_EXCLUDED_PATHS_WORKER'
 root=$1; user=$2; home=$3; agent=$4; manifest=$5; shift 5
 for path in "$@"; do
   if [ -d "$path" ]; then
-    type=dir; size_kib=$(du -sk "$path" 2>/dev/null)
-    # du prints the path after the size; a path holding a newline leaves the size unread.
-    case $size_kib in (*"$NEWLINE"*) size_kib= ;; (*) size_kib=${size_kib%%[!0-9]*} ;; esac
+    # du prints the path after the size, so only the leading digits are the size.
+    type=dir; size_kib=$(du -sk "$path" 2>/dev/null); size_kib=${size_kib%%[!0-9]*}
     to_number_var "$size_kib"; size=$((_ret_number * 1024))
     stat_line='0 0 0 0 0 0 0 0'
   else

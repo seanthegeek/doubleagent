@@ -124,11 +124,13 @@ on a POSIX host not run as root, that an unreadable home is counted in
 The sh test also runs a small separate image through the batched stage
 worker, which lstats, copies and hashes up to 256 files at a time: names
 with a newline, a backslash and a carriage return, an unreadable file
-between readable ones (not when run as root), and 300 files, more than one
-chunk. It checks the hashes against the archived bytes, the `error_copy`
-row and log line, that a run with `CAC_NO_BATCH=1` (the per-file path)
-writes the same manifest in the same order apart from `atime`, and that a
-copy of the collector forced onto `shasum` writes the same manifest.
+between readable ones (not when run as root), an excluded directory whose
+path holds a newline, and 300 files, more than one chunk. It checks the
+hashes against the archived bytes, the `error_copy` row and log line, the
+size in the excluded directory's row, that a run with `CAC_NO_BATCH=1` (the
+per-file path) writes the same manifest in the same order apart from
+`atime`, and that a copy of the collector forced onto `shasum` writes the
+same manifest.
 
 ## Table coverage checks
 
