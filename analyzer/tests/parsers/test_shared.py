@@ -3,6 +3,7 @@
 import io
 import json
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,7 @@ from fixtures import (
     CODEX_SESSION,
     CODY_VSCDB_REL,
     CODY_VSCODE_CHAT,
+    COLLECTOR,
     CRUSH_SESSION,
     GEMINI_LEGACY,
     GEMINI_RESUMED,
@@ -40,6 +42,7 @@ from fixtures import (
     ZED_THREAD,
     _vscdb,
     cody_vscode_state,
+    collector_command,
 )
 
 from .base import ParserBase, read_jsonl
@@ -202,48 +205,55 @@ class ProjectRoutingTests(unittest.TestCase):
     directory as their home, marked `project`. Their agent is the one the project
     catalog names (re-attributed by the analyzer for a collection that says
     `project`), so Crush and Aider rows come out of them; a shared file such as
-    `AGENTS.md` keeps agent `project`.
+    `AGENTS.md` keeps agent `project`. The collector runs once for the class; each test checks
+    its exit code and archive and writes its own outputs under `work`.
     """
 
-    def setUp(self):
-        self.cat = catalog.load()
-        self.tmp = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
+    tmp: ClassVar[Path]
+    out: ClassVar[Path]
+    result: ClassVar[subprocess.CompletedProcess[str]]
+    archives: ClassVar[list[Path]]
 
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
-
-    def _collect(self) -> Path:
-        import subprocess
-
-        collector = (
-            Path(__file__).resolve().parents[3] / "collectors" / "collect-agent-artifacts.sh"
-        )
-        if not collector.exists() or shutil.which("sh") is None or shutil.which("tar") is None:
-            self.skipTest("collector or sh/tar not available")
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        if not COLLECTOR.exists() or shutil.which("sh") is None or shutil.which("tar") is None:
+            raise unittest.SkipTest("collector or sh/tar not available")
         from fixtures import CRUSH_SCHEMA, _wal_database, build_aider, build_image, crush_records
 
-        root = build_image(self.tmp / "image")
+        cls.tmp = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
+        cls.addClassCleanup(shutil.rmtree, cls.tmp, ignore_errors=True)
+        root = build_image(cls.tmp / "image")
         # Claude Code's history names /srv/proj, so the collector discovers it.
         project = root / "srv/proj"
         build_aider(project)
         _wal_database(project / ".crush/crush.db", CRUSH_SCHEMA, crush_records())
         (project / "AGENTS.md").write_text("# shared instructions\n", encoding="utf-8")
-        out = self.tmp / "out"
-        out.mkdir()
-        result = subprocess.run(
-            ["sh", str(collector), "-r", str(root), "-o", str(out), "-q"],
+        cls.out = cls.tmp / "out"
+        cls.out.mkdir()
+        cls.result = subprocess.run(
+            [*collector_command(), "-r", str(root), "-o", str(cls.out), "-q"],
             capture_output=True,
             text=True,
         )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        archives = list(out.glob("*.tar.gz"))
-        self.assertEqual(len(archives), 1, list(out.iterdir()))
-        return archives[0]
+        cls.archives = list(cls.out.glob("*.tar.gz"))
+
+    def setUp(self):
+        self.cat = catalog.load()
+        self.work = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.work, ignore_errors=True)
+
+    def _collect(self) -> Path:
+        self.assertEqual(self.result.returncode, 0, self.result.stdout + self.result.stderr)
+        self.assertEqual(len(self.archives), 1, list(self.out.iterdir()))
+        return self.archives[0]
 
     def _timeline(self, archive: Path, *extra: str):
         import contextlib
 
-        out = self.tmp / ("tl%d" % len(list(self.tmp.glob("tl*"))))
+        out = self.work / ("tl%d" % len(list(self.work.glob("tl*"))))
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
             exit_code = cli.main(["timeline", str(archive), "-o", str(out), *list(extra)])

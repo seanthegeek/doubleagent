@@ -37,7 +37,8 @@ have no module of their own: `cline_legacy.py` is tested through the Cline
 and Roo Code tests, and `codex_state.py` through the Codex tests in
 `test_codex.py`.
 `tests/parsers/base.py` holds the `ParserBase` class the test classes
-extend, which builds the fixture home for each test, and the helpers
+extend, which builds the fixture home once per class and rebuilds it
+after a test that changed it, and the helpers
 several modules use; `tests/parsers/test_shared.py` holds the tests of the
 helpers the parsers share and of the outputs and routing across parsers.
 The fixture builders are one module per catalog agent,
