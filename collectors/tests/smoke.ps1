@@ -1906,7 +1906,7 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.cache') -Target (ImagePath 'elsewhere/linkedcache') -ErrorAction Stop | Out-Null
   $cacheLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #467 symlinked directory checks skipped' }
-MakeFile 'elsewhere/linkedpi/approved-plan.md' 'x'
+MakeFile 'elsewhere/linkedpi/agent/little-coder-prompt-history.json' '[]'
 $piLinkOk = $false
 try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.pi') -Target (ImagePath 'elsewhere/linkedpi') -ErrorAction Stop | Out-Null
@@ -2949,7 +2949,7 @@ if ($dotdotLinkOk) {
   Check '#467 a link target whose .. follows a link out of the home leads out of the home' { $dotdotRows = RowsAt 'home/u1/.cache'; $dotdotRows.Count -eq 1 -and $dotdotRows[0].agent -eq 'crush' -and $dotdotRows[0].status -eq 'symlink' -and @($script:Rows | Where-Object { $_.path.StartsWith($dotdotCache + $Separator) }).Count -eq 0 }
 }
 if ($piLinkOk) {
-  Check '#467 a symlinked directory that is itself a match has one row, its own agent' { $piRows = RowsAt 'home/bob/.pi'; $piRows.Count -eq 1 -and $piRows[0].agent -eq 'pi' -and $piRows[0].status -eq 'symlink' -and (RowsAt 'home/bob/.pi/approved-plan.md').Count -eq 0 }
+  Check '#467 a symlinked directory that is itself a match has one row, its own agent' { $piRows = RowsAt 'home/bob/.pi'; $piRows.Count -eq 1 -and $piRows[0].agent -eq 'pi' -and $piRows[0].status -eq 'symlink' -and (RowsAt 'home/bob/.pi/agent/little-coder-prompt-history.json').Count -eq 0 -and $defaultLog.Contains("[little-coder] $(ImagePath 'home/bob/.pi/agent/little-coder-prompt-history.json'): under the symlinked directory $(ImagePath 'home/bob/.pi'), which leads out of the base; not walked") }
 }
 if ($camelLinkOk) {
   Check '#467 a catalog entry under a directory linked within the home is walked' { IsAgentRow 'home/bob/.camel/skills/s1/SKILL.md' 'camel-ai' $false }

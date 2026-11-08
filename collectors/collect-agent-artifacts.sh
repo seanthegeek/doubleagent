@@ -3045,10 +3045,11 @@ HINT_SEARCH_WORKER=$_ret_heredoc_text
 # expand_glob BASE PATTERN -> BASE/<match> for each match of PATTERN in BASE
 # that exists or is a symlink, one per line. PATTERN is expanded inside BASE
 # (/ when empty), so BASE is never a pattern; the cd relies on every caller
-# running it in a subshell. IFS is newline only, so a match with spaces stays
+# running it in a subshell, and is physical so a .. after a link in BASE lands
+# where BASE/<match> does. IFS is newline only, so a match with spaces stays
 # one word. Temporaries: _eg_.
 expand_glob() {
-  cd "${1:-/}" 2>/dev/null || return 0
+  cd -P "${1:-/}" 2>/dev/null || return 0
   _eg_saved_ifs=$IFS
   IFS='
 '
@@ -3113,11 +3114,12 @@ fold_case_matches() {
 # expand_catalog BASE TABLE -> agent|glob|path for every match of TABLE under
 # BASE, in table order, case variants folded, plus #|message lines to log.
 # Reads NEWLINE. Temporaries: _ec_. Each glob is expanded inline inside BASE,
-# in the pipeline's subshell, so BASE is never a pattern and no table line
+# entered physically in the pipeline's subshell, so BASE is never a pattern, a
+# .. after a link in BASE lands where BASE/<match> does, and no table line
 # starts a pipeline; a matched name holding a newline gives one line per line
 # of it, empty ones included.
 expand_catalog() {
-  printf '%s\n' "$2" | { cd "${1:-/}" 2>/dev/null || exit 0
+  printf '%s\n' "$2" | { cd -P "${1:-/}" 2>/dev/null || exit 0
   while IFS='|' read -r _ec_agent _ec_glob; do
     case "$_ec_agent" in (''|'#'*) continue ;; esac
     _ec_saved_ifs=$IFS
@@ -3915,11 +3917,12 @@ set_relocation_names() {
 # one leading out of BASE, that the STARTUP_FILES globs of SCOPE match under
 # BASE, one per line; a system glob's leading / is dropped, so it is taken
 # under the root, and a name holding a newline is left out, as it would split
-# the list. The globs are expanded inside BASE (/ when empty), so BASE is never
-# a pattern; the cd relies on every caller running it in a subshell. Reads
-# STARTUP_FILES. Temporaries: _lsf_.
+# the list. The globs are expanded inside BASE (/ when empty), entered
+# physically, so BASE is never a pattern and a .. after a link in BASE lands
+# where BASE/<match> does; the cd relies on every caller running it in a
+# subshell. Reads STARTUP_FILES. Temporaries: _lsf_.
 list_startup_files() {
-  cd "${1:-/}" 2>/dev/null || return 0
+  cd -P "${1:-/}" 2>/dev/null || return 0
   _lsf_saved_ifs=$IFS; IFS='
 '
   set -f

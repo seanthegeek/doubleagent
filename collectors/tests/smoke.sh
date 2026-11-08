@@ -1982,11 +1982,11 @@ ln -s "tgt${NEWLINE}" "$ALICE/.claude/nl-target-link"
 # The glob follows .cache out of the home, so only the link is recorded, once
 # for the two entries under it; .pi is a match itself with a nested entry under
 # it; .camel stays inside the home and is walked under its linked path.
-mkdir -p "$ROOT/opt/linked-cache/crush" "$ROOT/opt/linked-cache/claude" "$ROOT/opt/linked-pi" \
+mkdir -p "$ROOT/opt/linked-cache/crush" "$ROOT/opt/linked-cache/claude" "$ROOT/opt/linked-pi/agent" \
   "$BOB/dotfiles/camel/skills/s1"
 printf '{}\n' >"$ROOT/opt/linked-cache/crush/crush.json"
 printf '{}\n' >"$ROOT/opt/linked-cache/claude/settings.json"
-printf 'x\n' >"$ROOT/opt/linked-pi/approved-plan.md"
+printf '[]\n' >"$ROOT/opt/linked-pi/agent/little-coder-prompt-history.json"
 ln -s ../../opt/linked-cache "$BOB/.cache"
 ln -s ../../opt/linked-pi "$BOB/.pi"
 # A link to the sibling directory named like the home plus a newline leads out
@@ -2001,6 +2001,12 @@ mkdir -p "$ROOT/opt/escape" "$ROOT/opt/cache/crush" "$ROOT/home/u1/cache"
 printf '{}\n' >"$ROOT/opt/cache/crush/crush.json"
 ln -s ../../opt/escape "$ROOT/home/u1/dotfiles"
 ln -s dotfiles/../cache "$ROOT/home/u1/.cache"
+# A passwd home whose path has a .. after a link names its files through the
+# link, where a logical cd would look beside it; smoke.ps1 has no passwd file.
+mkdir -p "$ROOT/opt/frank/.gemini"
+printf '{}\n' >"$ROOT/opt/frank/.gemini/settings.json"
+ln -s ../opt/escape "$ROOT/srv/dotlink"
+printf 'frank:x:1003:1003::/srv/dotlink/../frank:/bin/sh\n' >>"$ROOT/etc/passwd"
 printf 'x\n' >"$BOB/dotfiles/camel/skills/s1/SKILL.md"
 ln -s dotfiles/camel "$BOB/.camel"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
@@ -2689,7 +2695,8 @@ check "#467 the symlinked directory is recorded once, as a symlink with its targ
 check "#467 the log names each match under the symlinked directory" "grep -qF '[claude-code] $BOB/.cache/claude: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\" && grep -qF '[crush] $BOB/.cache/crush: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\""
 check "#467 a link to a sibling named like the home plus a newline leads out of the home" "! grep -qF '\"path\":\"$NL_HOME/.cache/' \"\$MANIFEST\" && row \"$NL_HOME/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\"'"
 check "#467 a link target whose .. follows a link out of the home leads out of the home" "! grep -qF '\"path\":\"$ROOT/home/u1/.cache/' \"\$MANIFEST\" && row \"$ROOT/home/u1/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\"'"
-check "#467 a symlinked directory that is itself a match has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.pi\" | contains '\"agent\":\"pi\".*\"status\":\"symlink\"' && [ -z \"\$(row \"$BOB/.pi/approved-plan.md\")\" ]"
+check "#467 a symlinked directory that is itself a match has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.pi\" | contains '\"agent\":\"pi\".*\"status\":\"symlink\"' && [ -z \"\$(row \"$BOB/.pi/agent/little-coder-prompt-history.json\")\" ] && grep -qF '[little-coder] $BOB/.pi/agent/little-coder-prompt-history.json: under the symlinked directory $BOB/.pi, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#467 a passwd home with a .. after a link is expanded where its files are" "row \"$ROOT/srv/dotlink/../frank/.gemini/settings.json\" | contains '\"user\":\"frank\".*\"status\":\"collected\"'"
 check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"'"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 check "#465 a nested entry under a home holding [ has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\"' \"\$MANIFEST\")\" = 1 ] && row \"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
