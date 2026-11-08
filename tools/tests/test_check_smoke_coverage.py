@@ -764,6 +764,80 @@ def test_powershell_if_runs_a_decided_branch_or_every_branch():
     assert sorted(path.rsplit("/", 1)[1] for path in smoke.fixtures) == ["b", "c", "d", "e", "f"]
 
 
+def _fixture_names(source: str) -> list[str]:
+    """Return the sorted last path segments of the fixtures a PowerShell source writes."""
+    smoke = coverage.read_powershell_smoke(textwrap.dedent(source))
+    return sorted(path.rsplit("/", 1)[1] for path in smoke.fixtures)
+
+
+def test_powershell_chain_on_one_line_or_split_across_lines():
+    one_line = """\
+        $Root = Join-Path $Work 'root'
+        $kind = 'b'
+        if ($kind -eq 'a') { MakeFile 'Users/u/a' 'x' } elseif ($kind -eq 'b') {
+            MakeFile 'Users/u/b' 'x'
+        } else { MakeFile 'Users/u/c' 'x' }
+        """
+    split = """\
+        $Root = Join-Path $Work 'root'
+        $kind = 'b'
+        if ($kind -eq 'a') { MakeFile 'Users/u/a' 'x' }
+        elseif ($kind -eq 'b') { MakeFile 'Users/u/b' 'x' }
+        else { MakeFile 'Users/u/c' 'x' }
+        """
+    assert _fixture_names(one_line) == ["b"]
+    assert _fixture_names(split) == ["b"]
+    assert _fixture_names(split.replace("$kind = 'b'", "$kind = 'z'")) == ["c"]
+    assert _fixture_names(split.replace("$kind = 'b'\n", "")) == ["a", "b", "c"]
+
+
+def test_powershell_catch_and_finally_on_their_own_lines():
+    source = """\
+        $Root = Join-Path $Work 'root'
+        try { MakeFile 'Users/u/a' 'x' }
+        catch { MakeFile 'Users/u/b' 'x' }
+        finally { MakeFile 'Users/u/c' 'x' }
+        MakeFile 'Users/u/d' 'x'
+        """
+    assert _fixture_names(source) == ["a", "b", "c", "d"]
+
+
+def test_powershell_statements_join_continuations_only():
+    def first_words(source: str) -> list[str]:
+        nodes: list[coverage.PowerShellNode] = [*coverage.powershell_tokens(source)]
+        words = []
+        for statement in coverage.powershell_statements(nodes):
+            first = statement[0]
+            assert isinstance(first, coverage.PowerShellToken)
+            words.append(first.text.lower())
+        return words
+
+    chain = "if ($a) { 1 }\nelseif ($b) { 2 }\nelse { 3 }\nWrite-Host 4\n"
+    assert first_words(chain) == ["if", "write-host"]
+    assert first_words("if ($a) { 1 }\nElse { 3 }\n") == ["if"]
+    assert first_words("if ($a) { 1 }\nwrite-host 2\n") == ["if", "write-host"]
+    assert first_words("else { 3 }\n") == ["else"]
+    assert first_words("if ($a) { 1 }\ncatch { 2 }\n") == ["if", "catch"]
+    assert first_words("try { 1 }\nelse { 2 }\n") == ["try", "else"]
+
+
+def test_powershell_switch_arm_labelled_with_a_chain_keyword_stays_an_arm():
+    source = """\
+        $Root = Join-Path $Work 'root'
+        switch ($kind) {
+          'normal' { MakeFile 'Users/u/a' 'x' }
+          catch { MakeFile 'Users/u/b' 'x' }
+          else { MakeFile 'Users/u/c' 'x' }
+          if { MakeFile 'Users/u/d' 'x' }
+          else { MakeFile 'Users/u/e' 'x' }
+          try { MakeFile 'Users/u/f' 'x' }
+          catch { MakeFile 'Users/u/g' 'x' }
+        }
+        """
+    assert _fixture_names(source) == ["a", "b", "c", "d", "e", "f", "g"]
+    assert _fixture_names("$kind = 'normal'\n" + source) == ["a"]
+
+
 def test_powershell_run_flags_and_blocks():
     smoke = coverage.read_powershell_smoke(
         "Run 'default' @{}\nRun 'nosecrets' @{ NoSecrets = $true }\n"

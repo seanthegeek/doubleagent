@@ -1205,8 +1205,21 @@ def powershell_groups(tokens: list[PowerShellToken]) -> list[PowerShellNode]:
     return root
 
 
-def powershell_statements(nodes: list[PowerShellNode]) -> list[list[PowerShellNode]]:
-    """Split a node list into statements at newlines and semicolons outside groups."""
+# The keywords that continue a statement, each with the keyword that statement must open with.
+CHAIN_OPENERS = {"elseif": "if", "else": "if", "catch": "try", "finally": "try"}
+
+
+def powershell_statements(
+    nodes: list[PowerShellNode], join_chains: bool = True
+) -> list[list[PowerShellNode]]:
+    """Split a node list into statements, keeping an `if` or `try` chain as one statement.
+
+    Statements end at newlines and semicolons outside groups. With `join_chains`, a statement
+    opening with `elseif` or `else` continues an `if` statement before it, and one opening
+    with `catch` or `finally` a `try`, so a chain is one statement whether its keyword follows
+    the `}` or starts a line. The arms of a `switch` are split without it, since a bare label
+    may spell any word.
+    """
     statements: list[list[PowerShellNode]] = [[]]
     for node in nodes:
         is_token = isinstance(node, PowerShellToken)
@@ -1214,7 +1227,16 @@ def powershell_statements(nodes: list[PowerShellNode]) -> list[list[PowerShellNo
             statements.append([])
             continue
         statements[-1].append(node)
-    return [statement for statement in statements if statement]
+    joined: list[list[PowerShellNode]] = []
+    for statement in statements:
+        if not statement:
+            continue
+        opener = CHAIN_OPENERS.get(_word_text(statement[0]), "") if join_chains else ""
+        if opener and joined and _word_text(joined[-1][0]) == opener:
+            joined[-1].extend(statement)
+        else:
+            joined.append(statement)
+    return joined
 
 
 @dataclass(frozen=True)
@@ -1598,7 +1620,7 @@ class _PowerShellReader:
         if len(groups) < 2:
             return
         subject = self.evaluate(groups[0].children)
-        for arm in powershell_statements(groups[1].children):
+        for arm in powershell_statements(groups[1].children, join_chains=False):
             label = self.evaluate(arm[:1])
             body = arm[-1]
             if not isinstance(body, PowerShellGroup):
