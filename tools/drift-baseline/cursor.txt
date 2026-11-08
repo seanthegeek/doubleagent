@@ -70,7 +70,6 @@ check_smoke_coverage|secret-check-missing|smoke.ps1 .cursor/projects/*/mcp-auth.
 check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Roaming/Cursor/auth.json
 check_smoke_coverage|secret-check-missing|smoke.sh .config/cursor/auth.json
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Roaming/Cursor/auth.json
-check_tables_research|credential-unflagged|.cursor/cli-config.json
 check_tables_research|credential-wording|collected unflagged `ItemTable`
 check_tables_research|line-unnamed|home .config/Cursor/logs
 check_tables_research|line-unnamed|home .config/Cursor/update-supervisor
