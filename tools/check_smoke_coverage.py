@@ -1206,7 +1206,12 @@ def powershell_groups(tokens: list[PowerShellToken]) -> list[PowerShellNode]:
 
 
 def powershell_statements(nodes: list[PowerShellNode]) -> list[list[PowerShellNode]]:
-    """Split a node list into statements at newlines and semicolons outside groups."""
+    """Split a node list into statements, keeping an `if` or `try` chain as one statement.
+
+    Statements end at newlines and semicolons outside groups. A statement opening with
+    `elseif`, `else`, `catch` or `finally` continues the statement before it, so a chain is one
+    statement whether its keyword follows the `}` or starts a line.
+    """
     statements: list[list[PowerShellNode]] = [[]]
     for node in nodes:
         is_token = isinstance(node, PowerShellToken)
@@ -1214,7 +1219,21 @@ def powershell_statements(nodes: list[PowerShellNode]) -> list[list[PowerShellNo
             statements.append([])
             continue
         statements[-1].append(node)
-    return [statement for statement in statements if statement]
+    joined: list[list[PowerShellNode]] = []
+    for statement in statements:
+        if not statement:
+            continue
+        first = statement[0]
+        continues = (
+            isinstance(first, PowerShellToken)
+            and first.kind == "word"
+            and first.text.lower() in ("elseif", "else", "catch", "finally")
+        )
+        if continues and joined:
+            joined[-1].extend(statement)
+        else:
+            joined.append(statement)
+    return joined
 
 
 @dataclass(frozen=True)
