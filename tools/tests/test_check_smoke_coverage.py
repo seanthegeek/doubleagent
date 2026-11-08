@@ -669,9 +669,7 @@ def test_subtree_glob_regex_forms():
     assert coverage.subtree_glob_regex("a?c", False).fullmatch("a/c")
     newline = ".claude/plugins/nl\nname/node_modules"
     assert coverage.subtree_glob_regex(".claude/plugins/*/node_modules", False).fullmatch(newline)
-    assert not coverage.subtree_glob_regex(".claude/plugins/*/node_modules", True).fullmatch(
-        newline
-    )
+    assert coverage.subtree_glob_regex(".claude/plugins/*/node_modules", True).fullmatch(newline)
     assert coverage.subtree_glob_regex("a?c", False).fullmatch("a\nc")
 
 

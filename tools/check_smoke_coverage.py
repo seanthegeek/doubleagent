@@ -1928,9 +1928,9 @@ def subtree_glob_regex(glob: str, case_insensitive: bool) -> re.Pattern[str]:
     """Compile an `EXCLUDES` or `SECRET_GLOBS` glob, whose `*` and `?` also match `/`.
 
     Both collectors match these globs against the whole path below a collection base (`find
-    -path` and a `case` pattern in sh, a regex compiled with `IgnoreCase` in PowerShell); a
-    `[...]` class passes through with `!` as negation. On the sh side `*` and `?` also match a
-    newline in a path (`_glob_flags`); the PowerShell regex does not.
+    -path` and a `case` pattern in sh, a regex compiled with `IgnoreCase` and `Singleline` in
+    PowerShell); a `[...]` class passes through with `!` as negation. `*` and `?` also match a
+    newline in a path on both sides (`_glob_flags`).
     """
     out: list[str] = []
     index = 0
@@ -1953,13 +1953,13 @@ def subtree_glob_regex(glob: str, case_insensitive: bool) -> re.Pattern[str]:
 
 
 def _glob_flags(case_insensitive: bool) -> int:
-    """Return the regex flags of a subtree glob: ignore case for PowerShell, else DOTALL.
+    """Return the regex flags of a subtree glob: DOTALL, and ignore case for PowerShell.
 
     The sh collector matches these globs with `find -path` and a `case` pattern, whose `*` and
-    `?` cross a newline; the PowerShell collector compiles them with `IgnoreCase` only, so its
-    `.` stops at one.
+    `?` cross a newline; the PowerShell collector compiles them with `Singleline`, so its `.`
+    does too.
     """
-    return re.IGNORECASE if case_insensitive else re.DOTALL
+    return re.DOTALL | re.IGNORECASE if case_insensitive else re.DOTALL
 
 
 def segment_regexes(glob: str, case_insensitive: bool) -> list[re.Pattern[str]]:

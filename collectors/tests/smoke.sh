@@ -1965,6 +1965,13 @@ x"
 printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/usr/share/ollama/.env-helper.sh"
 { head -c 1100000 /dev/zero; printf '\nexport CODEX_HOME=/opt/x\n'; } >"$ALICE/dumps/oversized-env.txt"
 printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/AppData/Local/agy/agent-env.sh"
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+# The * of an exclusion or secret glob crosses the newline, as the PowerShell collector's does.
+NEWLINE='
+'
+mkdir -p "$ALICE/.claude/plugins/nl${NEWLINE}name/node_modules" "$ALICE/.claude/bridge-spawn/nl${NEWLINE}name"
+printf 'x\n' >"$ALICE/.claude/plugins/nl${NEWLINE}name/node_modules/f.js"
+printf '{}\n' >"$ALICE/.claude/bridge-spawn/nl${NEWLINE}name/mcp.json"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
 if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
@@ -2614,6 +2621,11 @@ check "#454 a name in another case is no hint outside a .ps1 file" "[ \"\$(hint_
 check "#454 a PowerShell env: drive prefix gives no ENV hint" "[ \"\$(hint_count \"$ALICE/Documents/PowerShell/Microsoft.PowerShell_profile.ps1\")\" = 1 ]"
 check "#454 an env shebang line gives no ENV hint" "[ \"\$(hint_count \"$ALICE/.config/plasma-workspace/env/agents.sh\")\" = 1 ] && hint_line \"$ALICE/.config/plasma-workspace/env/agents.sh\" 2 CODEX_HOME codex-cli | grep -q ."
 check "#454 a binary plist is hinted when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { hint_line \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'; }"
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+check "#473 .claude/plugins/*/node_modules excludes a directory across a newline" "row \"$ALICE/.claude/plugins/nl\\\\nname/node_modules\" | grep -q '\"size\":[1-9][0-9]*,.*\"status\":\"skipped_excluded\"'"
+check "#473 nothing under the newline plugin directory is collected" "[ -z \"\$(row \"$ALICE/.claude/plugins/nl\\\\nname/node_modules/f.js\")\" ]"
+check "#473 .claude/bridge-spawn/*/mcp.json flags a credential across a newline" "row \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
 check "credentials skipped_secret" "[ \"\$(status_of \"$ROOT/home/alice/.claude/.credentials.json\")\" = skipped_secret ]"
@@ -2746,6 +2758,9 @@ while IFS='|' read -r _glob _rel _content; do
   check "#454 startup file skipped without secrets: project|$_glob" "[ \"\$(status_of \"$ROOT/srv/proj/$_rel\")\" = skipped_secret ]"
 done <"$WORK/startup-project"
 check "#454 hints kept without secrets" "hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | grep -q . && [ \"\$(hint_total \"\$SUMMARY\")\" = \"\$(hint_total \"$OUT/default/\"*.collection.json)\" ]"
+
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+check "#473 NoSecrets skips .claude/bridge-spawn/*/mcp.json across a newline" "[ \"\$(status_of \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\")\" = skipped_secret ]"
 
 # ---- --env-scan-home ------------------------------------------------------
 # 2026-11-06 relocation hints (#454)

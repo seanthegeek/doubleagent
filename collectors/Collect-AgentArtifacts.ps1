@@ -2640,9 +2640,10 @@ function Convert-GlobToRegex([string]$glob, [bool]$starCrossesSeparator) {
   $builder.ToString()
 }
 
-# Takes the globs of one table; returns one case-insensitive Regex matching a
-# relative path when any glob does, so each path costs one IsMatch. An empty
-# table matches nothing; RegexOptions.Compiled is off, being slower on 5.1.
+# Takes the globs of one table; returns one case-insensitive, single-line Regex
+# matching a relative path when any glob does, so each path costs one IsMatch
+# and * and ? cross a newline as the sh patterns do. An empty table matches
+# nothing.
 function ConvertTo-TableRegex([string[]]$globs) {
   $bodies = @(foreach ($glob in $globs) {
       $globRegex = Convert-GlobToRegex $glob $true
@@ -2650,7 +2651,8 @@ function ConvertTo-TableRegex([string[]]$globs) {
     })
   $pattern = '(?!)'
   if ($bodies.Count -gt 0) { $pattern = '^(?:' + ($bodies -join '|') + ')$' }
-  $options = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+  $options = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor
+    [System.Text.RegularExpressions.RegexOptions]::Singleline
   return (New-Object System.Text.RegularExpressions.Regex($pattern, $options))
 }
 

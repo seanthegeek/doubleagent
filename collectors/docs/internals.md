@@ -169,8 +169,8 @@ keeps the banner and says so.
 | Glob | Matched against | sh | PowerShell |
 | --- | --- | --- | --- |
 | `CATALOG`, `PROJECT_CATALOG` | the base (home, project), one path segment at a time; `*` and `?` do not cross `/` | shell pathname expansion of `BASE/GLOB` in `expand_catalog`, with `IFS` set to newline only so a base with spaces stays one word; a pattern that matches nothing expands to itself and fails the existence test. As in any POSIX shell, `*` does not match a name's leading `.`. | `Expand-Glob` splits the glob on `/`; a wildcard segment lists the directory and matches each name with `Convert-GlobToRegex` (`*` is `[^/]*`, so it matches a leading `.`) and `-match`, which ignores case; a literal segment is tested for existence and respelled as on disk by `Get-OnDiskName`. |
-| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` rebuilds when the base changes, with globbing off, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive |
-| `SECRET_GLOBS` | the path relative to the base; `*` crosses `/` | one `case` pattern, every glob joined with `\|`, built once by `compile_secret_pattern` and turned into `is_secret` by `define_secret_test`; `is_secret` is called in `plan_chunk` (and in `test_inventory_secret`), case-sensitive | `$script:SecretRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedFile` and `Test-InventorySecret`; case-insensitive |
+| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` rebuilds when the base changes, with globbing off, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive, single-line mode so `*` and `?` cross a newline as in sh |
+| `SECRET_GLOBS` | the path relative to the base; `*` crosses `/` | one `case` pattern, every glob joined with `\|`, built once by `compile_secret_pattern` and turned into `is_secret` by `define_secret_test`; `is_secret` is called in `plan_chunk` (and in `test_inventory_secret`), case-sensitive | `$script:SecretRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedFile` and `Test-InventorySecret`; case-insensitive, single-line mode so `*` and `?` cross a newline as in sh |
 | `DOCKER_VOLUMES` | the volume directory's name | a `case` pattern in `get_docker_volume_rule`, with globbing off | `Convert-GlobToRegex` and `-cmatch`, case-sensitive, in `Get-DockerVolumeRule` |
 
 `[...]` classes and `[!...]` negated classes work everywhere: sh `case`,
@@ -179,7 +179,8 @@ pathname expansion and `find -path` take them natively, and
 `ConvertTo-TableRegex` joins one table's per-glob regexes into a single
 anchored alternation, `^(?:b1|b2|...)$`, tested with one `IsMatch` per
 path; an empty table (`EXCLUDES` under `-Full`) becomes `(?!)`, which
-matches nothing.
+matches nothing. The regex is not built with `RegexOptions.Compiled`, which is
+slower on 5.1.
 
 The base is the home, the project or the volume's `_data` directory, so one
 exclusion such as `.claude/worktrees` applies in each. In the sh collector

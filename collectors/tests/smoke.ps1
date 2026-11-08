@@ -1870,6 +1870,15 @@ MakeFile 'Users/alice/work/scripts/deep/env-helper.sh' "#!/usr/bin/env bash`nexp
 MakeFile 'Users/alice/work/scripts/deep/env-helper.ps1' ('$env:qwen_home = "/opt/x"' + "`n")
 MakeFile 'Users/alice/tools/agent-env.sh' "export CODEX_HOME=/opt/x`n"
 MakeFile 'Users/alice/scripts/big.sh' ("export CODEX_HOME=/opt/x`n" + ('#' * 1200000) + "`n")
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+# The * of an exclusion or secret glob must cross the newline, as the sh patterns do.
+$newlineDir = "nl`nname"
+$newlineChar = "`n"
+if ($env:OS -ne 'Windows_NT') {
+  MakeFile "Users/alice/.claude/plugins/$newlineDir/node_modules/f.js" 'x'
+  MakeFile "Users/alice/.claude/bridge-spawn/$newlineDir/mcp.json" '{}'
+} else { Write-Output 'note: #473 newline-in-path checks skipped (no newline in a Windows name)' }
+
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2825,6 +2834,17 @@ Check '#454 a name in another case is no hint outside a .ps1 file' { (HintsFrom 
 Check '#454 a PowerShell env: drive prefix gives no ENV hint' { (HintsFrom $defaultRunSummary 'Users/alice/Documents/PowerShell/Microsoft.PowerShell_profile.ps1').Count -eq 1 }
 Check '#454 an env shebang line gives no ENV hint' { $shebangHints = @(HintsFrom $defaultRunSummary 'Users/alice/.config/plasma-workspace/env/agents.sh'); $shebangHints.Count -eq 1 -and (HasHint $defaultRunSummary 'Users/alice/.config/plasma-workspace/env/agents.sh' 2 'CODEX_HOME' 'codex-cli' 'alice') }
 
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+if ($env:OS -ne 'Windows_NT') {
+  $newlineExcluded = ImagePath "Users/alice/.claude/plugins/$newlineDir/node_modules"
+  $newlineSecret = ImagePath "Users/alice/.claude/bridge-spawn/$newlineDir/mcp.json"
+  $row = $script:Rows | Where-Object { $_.path -ceq $newlineExcluded } | Select-Object -First 1
+  Check '#473 .claude/plugins/*/node_modules excludes a directory across a newline' { $row -and $row.status -eq 'skipped_excluded' -and $row.size -gt 0 }
+  Check '#473 nothing under the newline plugin directory is collected' { -not ($script:Rows | Where-Object { $_.path -ceq (ImagePath "Users/alice/.claude/plugins/$newlineDir/node_modules/f.js") }) }
+  $row = $script:Rows | Where-Object { $_.path -ceq $newlineSecret } | Select-Object -First 1
+  Check '#473 .claude/bridge-spawn/*/mcp.json flags a credential across a newline' { $row -and $row.status -eq 'collected' -and $row.secret -eq $true }
+}
+
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
 Check 'NoSecrets exit 0' { $script:ExitCode -eq 0 }
@@ -2951,6 +2971,13 @@ foreach ($startupEntry in $startupFixtures) {
   Check "#454 startup file skipped without secrets: $startupScope|$startupGlob" { (StatusOf $startupFile) -eq 'skipped_secret' }
 }
 Check '#454 hints kept without secrets' { (HasHint $noSecretsSummary 'etc/profile' 2 'CODEX_HOME' 'codex-cli' '') -and @($noSecretsSummary.relocation.hints).Count -eq @($defaultRunSummary.relocation.hints).Count }
+
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+if ($env:OS -ne 'Windows_NT') {
+  $newlineSecret = ImagePath "Users/alice/.claude/bridge-spawn/$newlineDir/mcp.json"
+  $row = $script:Rows | Where-Object { $_.path -ceq $newlineSecret } | Select-Object -First 1
+  Check '#473 NoSecrets skips .claude/bridge-spawn/*/mcp.json across a newline' { $row -and $row.status -eq 'skipped_secret' }
+}
 
 # ---- -Full ----------------------------------------------------------------
 Run 'full' @{ Full = $true }
