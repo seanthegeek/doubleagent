@@ -24,6 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A documentation page, [`docs/relocation.md`](docs/relocation.md), for the responder who sees a relocation hint: what it means, how to read and confirm the assignment, and how to collect the moved store ([#457]).
 - The OAuth model provider tokens of Agent Zero's bundled `_oauth` plugin, `usr/plugins/_oauth/<provider>/auth.json` (GitHub Copilot, Gemini and xAI Grok), are flagged `secret: true` in a home install (`agent-zero*/usr/plugins/_oauth/*/auth.json`, `Desktop/agent-zero*/usr/plugins/_oauth/*/auth.json`) and in a Docker volume (`plugins/_oauth/*/auth.json`, `usr/plugins/_oauth/*/auth.json`) ([#246]).
 - The OAuth token files of nanobot's GitHub Copilot and OpenAI Codex model providers, which the `oauth-cli-kit` library keeps outside `.nanobot*`, are collected as `nanobot` (`.local/share/nanobot/auth`, `Library/Application Support/nanobot/auth`, `AppData/Local/nanobot/auth`, and the library's default `.local/share/oauth-cli-kit/auth`, `Library/Application Support/oauth-cli-kit/auth` and `AppData/Local/oauth-cli-kit/auth`), every file under them flagged `secret: true` by a `<directory>/*` secret glob ([#247]).
+- Amp's IDE connection records `.local/share/amp/ide/*`, which hold the connection's `authToken`, are flagged `secret: true` ([#333]).
 
 ### Changed
 

@@ -1693,6 +1693,7 @@ AppData/Roaming/Zed/global_settings.json
 .var/app/dev.zed.Zed*/config/zed/settings.json
 .var/app/dev.zed.Zed*/config/zed/development_credentials
 .local/share/amp/secrets.json
+.local/share/amp/ide/*
 .local/share/amp/accounts.json
 .local/share/amp/accounts/*/secrets.json
 .amp/oauth/*

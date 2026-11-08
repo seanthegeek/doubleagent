@@ -562,6 +562,7 @@ secret||AppData/Local/nanobot/auth/github-copilot.json
 secret||.local/share/oauth-cli-kit/auth/codex.json
 secret||Library/Application Support/oauth-cli-kit/auth/codex.json
 secret||AppData/Local/oauth-cli-kit/auth/codex.json
+secret||.local/share/amp/ide/c1.json
 excl||agent-zero/.venv
 excl||Desktop/agent-zero/.conda
 excl||agent-zero/main/.git
