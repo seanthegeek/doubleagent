@@ -2825,17 +2825,28 @@ function Get-LinkTarget($item) {
 # Takes a directory path; returns it with every linked component replaced by
 # its target, as realpath does, so a chain of links resolves to where it ends;
 # '' when a component cannot be read or the chain runs past the budget (a loop).
+# A target's . and .. are applied to the components resolved so far, never
+# folded away first: dotfiles/../cache goes through the link dotfiles.
 function Get-PhysicalPath([string]$path) {
   $full = [System.IO.Path]::GetFullPath($path)
   $resolved = [System.IO.Path]::GetPathRoot($full).TrimEnd('\', '/')
+  $rootLength = $resolved.Length
   $pending = New-Object System.Collections.Generic.List[string]
   $rest = [string[]]@($full.Substring($resolved.Length) -split '[\\/]' | Where-Object { $_ })
   $pending.AddRange($rest)
   $ordinal = [System.StringComparison]::Ordinal
+  $separators = [char[]]@('\', '/')
   $hops = 0
   while ($pending.Count -gt 0) {
-    $candidate = $resolved + $script:Sep + $pending[0]
+    $segment = $pending[0]
     $pending.RemoveAt(0)
+    if ($segment -eq '.') { continue }
+    if ($segment -eq '..') {
+      $cut = $resolved.LastIndexOfAny($separators)
+      if ($cut -ge $rootLength) { $resolved = $resolved.Substring(0, $cut) }
+      continue
+    }
+    $candidate = $resolved + $script:Sep + $segment
     $extended = ConvertTo-ExtendedPath $candidate
     try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop } catch { return '' }
     if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) {
@@ -2846,10 +2857,12 @@ function Get-PhysicalPath([string]$path) {
     $target = Get-LinkTarget $item
     if (-not $target -or $hops -gt 40) { return '' }
     if ($target.StartsWith('\\?\', $ordinal)) { $target = $target.Substring(4) }
-    if (-not [System.IO.Path]::IsPathRooted($target)) { $target = Join-PathSafe $resolved $target }
-    $target = [System.IO.Path]::GetFullPath($target)
-    $resolved = [System.IO.Path]::GetPathRoot($target).TrimEnd('\', '/')
-    $rest = [string[]]@($target.Substring($resolved.Length) -split '[\\/]' | Where-Object { $_ })
+    if ([System.IO.Path]::IsPathRooted($target)) {
+      $resolved = [System.IO.Path]::GetPathRoot($target).TrimEnd('\', '/')
+      $rootLength = $resolved.Length
+      $target = $target.Substring($resolved.Length)
+    }
+    $rest = [string[]]@($target -split '[\\/]' | Where-Object { $_ })
     $pending.InsertRange(0, $rest)
   }
   if ($resolved) { return $resolved }

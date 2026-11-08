@@ -1922,6 +1922,17 @@ if ($env:OS -ne 'Windows_NT') {
     $newlineSiblingLinkOk = $true
   } catch { Write-Output 'note: symlink creation not permitted here, #467 newline sibling check skipped' }
 } else { Write-Output 'note: #467 newline sibling check skipped (no newline in a Windows name)' }
+# A link target whose .. follows a link out of the home resolves outside it, though folding
+# the .. away first would name the home's own cache directory.
+MakeFile 'elsewhere/cache/crush/crush.json' '{}'
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'elsewhere/escape'))
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'home/u1/cache'))
+$dotdotLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/u1/dotfiles') -Target (ImagePath 'elsewhere/escape') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/u1/.cache') -Target ('dotfiles' + $Separator + '..' + $Separator + 'cache') -ErrorAction Stop | Out-Null
+  $dotdotLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #467 dot-dot link target check skipped' }
 MakeFile 'home/bob/dotfiles/camel/skills/s1/SKILL.md' 'x'
 $camelLinkOk = $false
 try {
@@ -2932,6 +2943,10 @@ if ($cacheLinkOk) {
 if ($newlineSiblingLinkOk) {
   $newlineSiblingCache = ImagePath 'home/nl/.cache'
   Check '#467 a link to a sibling named like the home plus a newline leads out of the home' { $siblingRows = RowsAt 'home/nl/.cache'; $siblingRows.Count -eq 1 -and $siblingRows[0].agent -eq 'crush' -and $siblingRows[0].status -eq 'symlink' -and @($script:Rows | Where-Object { $_.path.StartsWith($newlineSiblingCache + $Separator) }).Count -eq 0 }
+}
+if ($dotdotLinkOk) {
+  $dotdotCache = ImagePath 'home/u1/.cache'
+  Check '#467 a link target whose .. follows a link out of the home leads out of the home' { $dotdotRows = RowsAt 'home/u1/.cache'; $dotdotRows.Count -eq 1 -and $dotdotRows[0].agent -eq 'crush' -and $dotdotRows[0].status -eq 'symlink' -and @($script:Rows | Where-Object { $_.path.StartsWith($dotdotCache + $Separator) }).Count -eq 0 }
 }
 if ($piLinkOk) {
   Check '#467 a symlinked directory that is itself a match has one row, its own agent' { $piRows = RowsAt 'home/bob/.pi'; $piRows.Count -eq 1 -and $piRows[0].agent -eq 'pi' -and $piRows[0].status -eq 'symlink' -and (RowsAt 'home/bob/.pi/approved-plan.md').Count -eq 0 }
