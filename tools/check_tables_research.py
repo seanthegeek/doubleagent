@@ -117,13 +117,7 @@ BASE_FORMS = (
 # A dot directory directly under the home is the tool's directory on Linux and macOS alike.
 PLATFORMS_COVERED = {"unix": {"linux", "macos"}}
 # The kinds of state a vendor-form entry's third segment names (`Block/goose/config`).
-VENDOR_KINDS = {
-    "config": {"config"},
-    "data": {"data"},
-    "state": {"state"},
-    "cache": {"cache"},
-    "logs": {"logs"},
-}
+VENDOR_KINDS = frozenset({"config", "data", "state", "cache", "logs"})
 
 
 # --- Heuristics ------------------------------------------------------------------------------
@@ -189,13 +183,13 @@ def base_segment(glob: str, keep_case: bool) -> str:
 def vendor_form(glob: str, keep_case: bool) -> tuple[str, set[str]]:
     """Return the tool's segment and kinds of state of a home entry in the vendor form.
 
-    The vendor form is a platform directory a `BASE_FORMS` pattern matches, then two segments,
-    taken as the maker's and the tool's (`Library/Application Support/Block/goose`), or three
-    where the third names a kind of state in `VENDOR_KINDS`
-    (`AppData/Roaming/Block/goose/config`). The tool's segment comes back with a leading `.`
-    dropped, case-folded unless kept, with the third segment's kind or, without one, the
-    platform directory's kinds. Any other entry (`.config/goose`,
-    `AppData/Local/Block/goose/cache/*`, `AppData/Roaming/Block/goose/other`) gives `""`.
+    The vendor form is a platform directory a `BASE_FORMS` pattern matches, then two segments
+    (`Library/Application Support/Block/goose`), or three where the third names a kind of state
+    in `VENDOR_KINDS` (`AppData/Roaming/Block/goose/config`); the second segment is read as the
+    tool's, whatever the first holds. It comes back with a leading `.` dropped, case-folded
+    unless kept, with the third segment's kind or, without one, the platform directory's kinds.
+    Any other entry (`.config/goose`, `AppData/Local/Block/goose/cache/*`,
+    `AppData/Roaming/Block/goose/other`) gives `""`.
     """
     for pattern, _platform, kinds in BASE_FORMS:
         match = pattern.match(glob)
@@ -204,7 +198,8 @@ def vendor_form(glob: str, keep_case: bool) -> tuple[str, set[str]]:
         below = [part for part in glob[match.end() :].split("/") if part]
         form_kinds = set(kinds)
         if len(below) == 3:
-            form_kinds = set(VENDOR_KINDS.get(below[2].casefold(), set()))
+            kind = below[2].casefold()
+            form_kinds = {kind} if kind in VENDOR_KINDS else set()
         if len(below) not in (2, 3) or not form_kinds:
             return "", set()
         segment = below[1].lstrip(".")
