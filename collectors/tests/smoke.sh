@@ -3369,6 +3369,8 @@ _index=0
 while [ "$_index" -lt 300 ]; do printf 'v%s\n' "$_index" >"$BATCH_ROOT/home/carol/.claude/file-history/s1/f$_index@v1"; _index=$((_index + 1)); done
 BATCH_LOCKED=no
 if [ "$(id -u)" != 0 ]; then chmod 000 "$BATCH_DIR/m-locked.jsonl"; BATCH_LOCKED=yes; fi
+# 2026-11-08 a symlink target ending in a newline, without stat (#480)
+ln -s "tgt${NEWLINE}" "$BATCH_ROOT/home/carol/.claude/nl-target-link"
 # 2026-11-07 excluded directory whose path holds a newline (#471)
 # du prints the path after the size, so a newline in the path starts a second line.
 BATCH_NEWLINE_DIR="$BATCH_ROOT/home/carol/.claude/plugins/nl${NEWLINE}name/node_modules"
@@ -3421,6 +3423,27 @@ if shasum -a 256 /dev/null >/dev/null 2>&1; then
   check "#71 shasum run: manifest matches the sha256sum run" "without_atime \"\$MANIFEST\" | cmp -s - \"$WORK/nb71.txt\""
 else
   printf 'skip #71 shasum path (no shasum)\n'
+fi
+# 2026-11-08 a symlink target ending in a newline, without stat (#480)
+# A shim stat that fails makes the collector probe STAT_MODE=none, where the size
+# fallback measures the referent, not the link. A busybox with a stat applet runs
+# it before searching PATH, so a probe says whether the shim can run at all.
+NOSTAT_DIR="$WORK/nostat480"; mkdir -p "$NOSTAT_DIR"
+printf '#!/bin/sh\necho cac-stat-shim-ran\n' >"$NOSTAT_DIR/stat"; chmod +x "$NOSTAT_DIR/stat"
+case "$(PATH="$NOSTAT_DIR:$PATH" "$SHELL_UNDER_TEST" -c 'stat /' 2>/dev/null)" in
+  (cac-stat-shim-ran) STAT_SHIM_RUNS=yes ;;
+  (*) STAT_SHIM_RUNS=no ;;
+esac
+if [ "$STAT_SHIM_RUNS" = yes ]; then
+  printf '#!/bin/sh\nexit 1\n' >"$NOSTAT_DIR/stat"
+  sed "s|^PATH=\"/usr/bin:|PATH=\"$NOSTAT_DIR:/usr/bin:|" "$SCRIPT" >"$NOSTAT_DIR/collector.sh"
+  _saved_script_nostat=$SCRIPT; SCRIPT="$NOSTAT_DIR/collector.sh"
+  run nostat480 --no-docker; _exit_batch=$?
+  SCRIPT=$_saved_script_nostat
+  check "#480 no-stat run: exit 0, stat_mode none" "[ $_exit_batch -eq 0 ] && grep -q '\"stat_mode\": \"none\"' \"\$SUMMARY\""
+  check "#480 a symlink target ending in a newline is recorded whole without stat" "row \"$BATCH_ROOT/home/carol/.claude/nl-target-link\" | grep -q '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
+else
+  printf 'skip #480 no-stat path (the shell runs its own stat applet)\n'
 fi
 ROOT=$_saved_root_batch
 [ "$BATCH_LOCKED" = no ] || chmod 600 "$BATCH_DIR/m-locked.jsonl"
