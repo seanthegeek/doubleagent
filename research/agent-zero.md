@@ -298,13 +298,15 @@ These are home-relative:
   ([`helpers/config.py:47`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/config.py#L47);
   [`default_config.yaml:5-7`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/default_config.yaml#L5-L7)).
   The plugin refuses the Codex CLI's own `~/.codex/auth.json` and `~/.chatgpt-local/auth.json`,
-  and the `auth.json` under `CODEX_HOME` or `CHATGPT_LOCAL_HOME`, as that path
+  and the `auth.json` under `CODEX_HOME` or `CHATGPT_LOCAL_HOME`, as that path, and any file with
+  more than one hard link
   ([`helpers/codex.py:1381-1393`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L1381-L1393),[`1403-1411`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L1403-L1411)).
   Each write goes to a copy in the same directory that is then renamed over `auth.json`:
   `.auth.json.<pid>.<16 hex digits>.tmp` for Codex
-  ([`helpers/codex.py:1340-1356`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L1340-L1356)) and
+  ([`helpers/codex.py:1340-1367`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L1340-L1367)) and
   `.auth.json.<random>.tmp` from `tempfile.mkstemp` for the other three ([`helpers/providers/base.py:197-216`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/base.py#L197-L216)),
-  so a write cut short leaves a copy holding the credential. The files and the copies are collected
+  both removing the copy on an ordinary failure, so only a write interrupted by a crash or a kill
+  leaves a copy holding the credential. The files and the copies are collected
   with `usr/` and flagged by the secret globs `agent-zero*/usr/plugins/_oauth/*/auth.json`,
   `agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp`,
   `Desktop/agent-zero*/usr/plugins/_oauth/*/auth.json`,

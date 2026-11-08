@@ -1971,7 +1971,7 @@ MakeFile 'home/u[1]/.profile' "CODEX_HOME=/opt/x; export CODEX_HOME`n"
 # each Agent Zero base (two home installs and both forms of the a0_usr volume), and
 # the Codex provider's token file under the home installs.
 $agentZeroOauth = 'plugins/_oauth/github_copilot/auth.json'
-$agentZeroOauthStaged = 'plugins/_oauth/github_copilot/.auth.json.4242.0a1b2c3d4e5f6071.tmp'
+$agentZeroOauthStaged = 'plugins/_oauth/github_copilot/.auth.json.a1b2c3d4.tmp'
 $agentZeroCodex = 'plugins/_oauth/codex/auth.json'
 $agentZeroOauthBases = @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop/agent-zero/usr',
   'var/lib/docker/volumes/a0_usr/_data', 'var/lib/docker/volumes/a0_usr/_data/usr')

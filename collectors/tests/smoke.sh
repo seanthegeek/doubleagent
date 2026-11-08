@@ -2046,7 +2046,7 @@ printf 'CODEX_HOME=/opt/x; export CODEX_HOME\n' >"$BRACKET_HOME/.profile"
 # each Agent Zero base (two home installs and both forms of the a0_usr volume), and
 # the Codex provider's token file under the home installs.
 AGENT_ZERO_OAUTH=plugins/_oauth/github_copilot/auth.json
-AGENT_ZERO_OAUTH_STAGED=plugins/_oauth/github_copilot/.auth.json.4242.0a1b2c3d4e5f6071.tmp
+AGENT_ZERO_OAUTH_STAGED=plugins/_oauth/github_copilot/.auth.json.a1b2c3d4.tmp
 AGENT_ZERO_CODEX=plugins/_oauth/codex/auth.json
 for _oauth_base in "$ALICE/agent-zero/main/usr" "$ALICE/Desktop/agent-zero/usr" "$VOLUMES/a0_usr/_data" \
   "$VOLUMES/a0_usr/_data/usr"; do
