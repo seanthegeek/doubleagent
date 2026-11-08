@@ -4,4 +4,4 @@
 # directory order moves them by a few tenths of a percent. The numbers move only in the
 # commit that changes the cost, whose body gives the measured cause.
 forks_per_row 5.63
-execs_per_row 4.23
+execs_per_row 4.24
