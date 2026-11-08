@@ -828,9 +828,13 @@ def test_powershell_switch_arm_labelled_with_a_chain_keyword_stays_an_arm():
           'normal' { MakeFile 'Users/u/a' 'x' }
           catch { MakeFile 'Users/u/b' 'x' }
           else { MakeFile 'Users/u/c' 'x' }
+          if { MakeFile 'Users/u/d' 'x' }
+          else { MakeFile 'Users/u/e' 'x' }
+          try { MakeFile 'Users/u/f' 'x' }
+          catch { MakeFile 'Users/u/g' 'x' }
         }
         """
-    assert _fixture_names(source) == ["a", "b", "c"]
+    assert _fixture_names(source) == ["a", "b", "c", "d", "e", "f", "g"]
     assert _fixture_names("$kind = 'normal'\n" + source) == ["a"]
 
 

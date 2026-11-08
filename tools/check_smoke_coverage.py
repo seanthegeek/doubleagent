@@ -1209,13 +1209,16 @@ def powershell_groups(tokens: list[PowerShellToken]) -> list[PowerShellNode]:
 CHAIN_OPENERS = {"elseif": "if", "else": "if", "catch": "try", "finally": "try"}
 
 
-def powershell_statements(nodes: list[PowerShellNode]) -> list[list[PowerShellNode]]:
+def powershell_statements(
+    nodes: list[PowerShellNode], join_chains: bool = True
+) -> list[list[PowerShellNode]]:
     """Split a node list into statements, keeping an `if` or `try` chain as one statement.
 
-    Statements end at newlines and semicolons outside groups. A statement opening with
-    `elseif` or `else` continues an `if` statement before it, and one opening with `catch` or
-    `finally` a `try`, so a chain is one statement whether its keyword follows the `}` or starts
-    a line; a `switch` arm labelled with one of those words stays its own arm.
+    Statements end at newlines and semicolons outside groups. With `join_chains`, a statement
+    opening with `elseif` or `else` continues an `if` statement before it, and one opening
+    with `catch` or `finally` a `try`, so a chain is one statement whether its keyword follows
+    the `}` or starts a line. The arms of a `switch` are split without it, since a bare label
+    may spell any word.
     """
     statements: list[list[PowerShellNode]] = [[]]
     for node in nodes:
@@ -1228,7 +1231,7 @@ def powershell_statements(nodes: list[PowerShellNode]) -> list[list[PowerShellNo
     for statement in statements:
         if not statement:
             continue
-        opener = CHAIN_OPENERS.get(_word_text(statement[0]), "")
+        opener = CHAIN_OPENERS.get(_word_text(statement[0]), "") if join_chains else ""
         if opener and joined and _word_text(joined[-1][0]) == opener:
             joined[-1].extend(statement)
         else:
@@ -1617,7 +1620,7 @@ class _PowerShellReader:
         if len(groups) < 2:
             return
         subject = self.evaluate(groups[0].children)
-        for arm in powershell_statements(groups[1].children):
+        for arm in powershell_statements(groups[1].children, join_chains=False):
             label = self.evaluate(arm[:1])
             body = arm[-1]
             if not isinstance(body, PowerShellGroup):
