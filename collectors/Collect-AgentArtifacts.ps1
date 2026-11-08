@@ -2611,7 +2611,7 @@ function ConvertTo-JsonEscaped([string]$text) {
 
 # Takes a glob and whether * and ? may cross /; returns an anchored regex.
 # Catalog globs match one path segment at a time; exclusion and secret globs a
-# whole relative path.
+# whole relative path. It ends in \z, since $ also matches before a final newline.
 function Convert-GlobToRegex([string]$glob, [bool]$starCrossesSeparator) {
   $builder = New-Object System.Text.StringBuilder
   [void]$builder.Append('^')
@@ -2636,7 +2636,7 @@ function Convert-GlobToRegex([string]$glob, [bool]$starCrossesSeparator) {
     }
     $i++
   }
-  [void]$builder.Append('$')
+  [void]$builder.Append('\z')
   $builder.ToString()
 }
 
@@ -2647,10 +2647,10 @@ function Convert-GlobToRegex([string]$glob, [bool]$starCrossesSeparator) {
 function ConvertTo-TableRegex([string[]]$globs) {
   $bodies = @(foreach ($glob in $globs) {
       $globRegex = Convert-GlobToRegex $glob $true
-      $globRegex.Substring(1, $globRegex.Length - 2)
+      $globRegex.Substring(1, $globRegex.Length - 3)
     })
   $pattern = '(?!)'
-  if ($bodies.Count -gt 0) { $pattern = '^(?:' + ($bodies -join '|') + ')$' }
+  if ($bodies.Count -gt 0) { $pattern = '^(?:' + ($bodies -join '|') + ')\z' }
   $options = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor
     [System.Text.RegularExpressions.RegexOptions]::Singleline
   return (New-Object System.Text.RegularExpressions.Regex($pattern, $options))

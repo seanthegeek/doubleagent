@@ -1880,7 +1880,9 @@ if ($env:OS -ne 'Windows_NT') {
 } else { Write-Output 'note: #473 newline-in-path checks skipped (no newline in a Windows name)' }
 
 # 2026-11-08 a name ending in a newline (#478)
+# $ also matches before a final newline; the globs end at the end of the path.
 if ($env:OS -ne 'Windows_NT') {
+  MakeFile "Users/alice/.claude/plugins/cache$newlineChar/settings.json" 'x'
   MakeFile "Users/alice/.claude/.credentials.json$newlineChar" '{}'
 } else { Write-Output 'note: #478 newline-ending-name checks skipped (no newline in a Windows name)' }
 $missing = Test-Made
@@ -2851,7 +2853,10 @@ if ($env:OS -ne 'Windows_NT') {
 
 # 2026-11-08 a name ending in a newline (#478)
 if ($env:OS -ne 'Windows_NT') {
+  $newlineCache = ImagePath "Users/alice/.claude/plugins/cache$newlineChar/settings.json"
   $newlineCredential = ImagePath "Users/alice/.claude/.credentials.json$newlineChar"
+  $row = $script:Rows | Where-Object { $_.path -ceq $newlineCache } | Select-Object -First 1
+  Check '#478 a directory named cache plus a newline is not excluded as cache' { $row -and $row.status -eq 'collected' }
   $row = $script:Rows | Where-Object { $_.path -ceq $newlineCredential } | Select-Object -First 1
   Check '#478 a file named .credentials.json plus a newline is not flagged as the credential' { $row -and $row.status -eq 'collected' -and $row.secret -ne $true }
 }

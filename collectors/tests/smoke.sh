@@ -1973,6 +1973,8 @@ mkdir -p "$ALICE/.claude/plugins/nl${NEWLINE}name/node_modules" "$ALICE/.claude/
 printf 'x\n' >"$ALICE/.claude/plugins/nl${NEWLINE}name/node_modules/f.js"
 printf '{}\n' >"$ALICE/.claude/bridge-spawn/nl${NEWLINE}name/mcp.json"
 # 2026-11-08 a name ending in a newline (#478)
+mkdir -p "$ALICE/.claude/plugins/cache${NEWLINE}"
+printf 'x\n' >"$ALICE/.claude/plugins/cache${NEWLINE}/settings.json"
 printf '{}' >"$ALICE/.claude/.credentials.json${NEWLINE}"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
@@ -2629,6 +2631,7 @@ check "#473 nothing under the newline plugin directory is collected" "[ -z \"\$(
 check "#473 .claude/bridge-spawn/*/mcp.json flags a credential across a newline" "row \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
 
 # 2026-11-08 a name ending in a newline (#478)
+check "#478 a directory named cache plus a newline is not excluded as cache" "[ \"\$(status_of \"$ALICE/.claude/plugins/cache\\\\n/settings.json\")\" = collected ]"
 check "#478 a file named .credentials.json plus a newline is not flagged as the credential" "row \"$ALICE/.claude/.credentials.json\\\\n\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
 
 # ---- --no-secrets ---------------------------------------------------------
