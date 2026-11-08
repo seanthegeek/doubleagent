@@ -28,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - pi's package checkout exclusions are written against the `git/<host>/<path>` layout pi uses, as `.pi/agent/git/*/*/node_modules`, `.pi/agent/git/*/*/.git` and the same under a project's `.pi/git`; every checkout pi writes was already excluded by the earlier globs ([#326]).
 - The sh collector builds the `find` exclusion expression when the collection base (a home, a project or a volume's `_data`) changes instead of once per matched directory, so a run over a host with many matched directories is faster; the manifest, log, `collection.json` and archive are unchanged ([#461]).
 - The sh collector expands the catalog tables without starting two processes per table line and base, and starts fewer processes per log line, per worker, per excluded directory and per directory checked for readability, so a run over a host with many projects is faster; the manifest, log, `collection.json` and archive are unchanged ([#470]).
+- The sh collector starts fewer processes per worker and per file or batch of files it stats or hashes, so a run over a host with many files is faster; the manifest, log, `collection.json` and archive are unchanged ([#476]).
 
 ### Fixed
 
@@ -1271,6 +1272,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [#480]: https://github.com/seanthegeek/doubleagent/issues/480
 [#479]: https://github.com/seanthegeek/doubleagent/issues/479
 [#478]: https://github.com/seanthegeek/doubleagent/issues/478
+[#476]: https://github.com/seanthegeek/doubleagent/issues/476
 [#473]: https://github.com/seanthegeek/doubleagent/issues/473
 [#471]: https://github.com/seanthegeek/doubleagent/issues/471
 [#470]: https://github.com/seanthegeek/doubleagent/issues/470

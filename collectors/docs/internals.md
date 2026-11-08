@@ -107,8 +107,12 @@ opening parenthesis, `(pattern)`.
 is set, else to `dash` when it is on the `PATH` (it starts and loops faster
 than bash), else to `sh`. The main program exports the settings the workers
 read from the environment: `HASH_TOOL`, `STAT_MODE`, `MAX_SIZE`,
-`SECRET_PATTERN`, `NO_SECRETS`, `LOG`, `QUIET`, `GREP_TEXT` and, once the
-relocation step sets it, `GREP_NAME_OPTIONS`. Everything else is passed
+`SECRET_PATTERN`, `NO_SECRETS`, `LOG`, `QUIET`, `GREP_TEXT`,
+`TAB_AND_CARRIAGE_RETURN` (the tab and carriage return `json_escape` tests
+for, which `COMMON` computes with `printf` only when the variable is empty;
+the main shell empties it before its own `eval`, so a caller's value is never
+used, and a worker starts no process for it) and, once the relocation step sets
+it, `GREP_NAME_OPTIONS`. Everything else is passed
 as positional arguments, which the first line of each worker names.
 
 The five workers:
@@ -127,7 +131,8 @@ lengths add up to 65,536 bytes, so no argument list it builds is much
 longer than the one `find` passed. Each chunk goes through five passes, in
 this order, which keeps the per-file order of the forensic rules:
 
-1. `lstat_chunk` stats every file with one `stat_files` call; when that
+1. `lstat_chunk` stats every file with one `stat_files` call, which
+   `exec`s `stat` inside its `$(...)` so the call is one process; when that
    output does not have one line per file (a file vanished, `stat` failed,
    or there is no `stat`), it falls back to `stat_file` per file.
 2. `plan_chunk` creates the staging directories with one `mkdir -p`,
@@ -143,7 +148,8 @@ this order, which keeps the per-file order of the forensic rules:
    one `cp -p`; a run whose `cp` fails or prints anything is redone per
    file, so each failing file gets its own error text and `copy failed`
    log line.
-4. `hash_chunk` hashes the staged copies with one `hash_files` call; a
+4. `hash_chunk` hashes the staged copies with one `hash_files` call,
+   which `exec`s the hasher inside its `$(...)` so the call is one process; a
    name the hashers would escape (one holding a backslash, newline or
    carriage return) or a file missing from their output is hashed alone
    with `hash_file`, which gives an empty hash when the copy is
