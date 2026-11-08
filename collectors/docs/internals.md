@@ -203,6 +203,21 @@ directory is never given to `find`, so `collect_path` tests it with
 the PowerShell collector `Add-CollectedPath` tests the match itself and
 `Add-CollectedTree` each child.
 
+Pathname expansion, and `Get-ChildItem` or `Test-Path` on the PowerShell
+side, follow a symlinked directory in the middle of a glob, though the walk
+from a match never descends one. `collect_catalog` and `Add-CatalogMatches`
+therefore apply `linked_parent` (`Get-LinkedParent`) to each match before it
+is logged, inventoried or walked: when a directory between the base and the
+match is a link whose target lies outside the base, or cannot be resolved,
+the match is logged and skipped, and the link is collected through
+`collect_path` (`Add-CollectedPath`), which records it as a `symlink` row,
+once per call and only when `test_claimed_path` (`Test-ClaimedPath`) finds
+it neither claimed nor inside a claimed path, whose walk records it
+([coverage.md](coverage.md#paths-through-a-symlinked-directory)).
+`linked_parent` tests each component with `[ -L ]` and runs `cd -P` only
+from the first link on, so a match with no link in its path costs no
+process.
+
 ## Claimed paths and case variants
 
 A catalog line nested inside another line's match
@@ -449,7 +464,7 @@ The step searches, per base (each home, the system root and each project), the
 files that the `STARTUP_FILES` globs of that scope match, keeping regular files
 only: a symlink is never followed or read, nor a file under a symlinked
 directory whose target, with every link in its chain resolved, lies outside the
-base (`under_symlink`, `Test-UnderLink`): the glob expansion follows such a
+base (`linked_parent`, `Get-LinkedParent`): the glob expansion follows such a
 link, and in image mode an
 image's `/etc -> /private/etc` would read the analyst's host, while a live
 macOS `/etc` stays inside `/` and is read. One
@@ -579,6 +594,8 @@ PowerShell functions that do their job.
 | Count one file under inventory | `INVENTORY_FILES_WORKER` | `Add-InventoryFile` |
 | Expand one glob under a base | `expand_glob` (the user home and volume globs; `expand_catalog` expands the catalog globs itself) | `Expand-Glob` |
 | Expand a table against a base: matches, case variants, claims | `expand_catalog` | `Expand-Catalog` |
+| The first symlinked directory between a base and a path that leads out of the base: a catalog match under it is not walked, a startup file under it not read | `linked_parent` | `Get-LinkedParent` |
+| Tell a path that is or lies under a claimed path, whose walk records it | `test_claimed_path` | `Test-ClaimedPath` |
 | Collect every match of a table under a base | `collect_catalog` | `Add-CatalogMatches` |
 | Collect one matched path | `collect_path` | `Add-CollectedPath` |
 | Walk a matched directory | `collect_tree` | `Add-CollectedTree` |
@@ -616,7 +633,6 @@ PowerShell functions that do their job.
 | Tell a project that is or holds a home, which is not swept | `holds_home` | `Test-HoldsHome` |
 | Tell a home under the usual home roots, the only homes swept | `under_home_root` | `Test-UserHomeRoot` |
 | List the startup files of one scope under one base | `list_startup_files` | `Get-StartupFiles` |
-| Tell a path under a symlinked directory leading out of the base, which is not read | `under_symlink` | `Test-UnderLink` |
 | Search files for any relocation variable name | `HINT_SEARCH_WORKER` | `Select-RelocationNames` |
 | Record the hits of the searched files and collect each hit file | `record_search_output`, `record_file_hints` | `Search-RelocationFiles` |
 | The relocation variable names a file (sh) or a line (PowerShell) holds as whole words | `list_bounded_names` | `Get-BoundedNames` |

@@ -3391,12 +3391,58 @@ function Write-GlobErrorRows([string]$user, [string]$base, $globErrors) {
   }
 }
 
+# Takes a base and a path under it; returns the first symlinked or junctioned
+# directory between them, which the glob followed, that leads outside the base
+# once its chain of links is resolved to the end or cannot be resolved, or ''
+# when there is none. The base is resolved only once a link is met. An image's
+# /etc -> /private/etc would read the analyst's host, while a live macOS /etc
+# stays inside /.
+function Get-LinkedParent([string]$base, [string]$path) {
+  $comparison = [System.StringComparison]::Ordinal
+  if ($env:OS -eq 'Windows_NT') { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
+  $relative = $path.Substring($base.TrimEnd('\', '/').Length).TrimStart('\', '/')
+  $segments = @($relative -split '[\\/]')
+  $directory = $base
+  $root = ''
+  for ($index = 0; $index -lt $segments.Count - 1; $index++) {
+    $directory = Join-PathSafe $directory $segments[$index]
+    $extended = ConvertTo-ExtendedPath $directory
+    try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop }
+    catch { return $directory }
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { continue }
+    if (-not $root) {
+      $root = Get-PhysicalPath $base
+      if (-not $root) { return $directory }
+      $root = $root.TrimEnd('\', '/') + $script:Sep
+    }
+    $resolved = Get-PhysicalPath $directory
+    if (-not $resolved) { return $directory }
+    $resolved = $resolved.TrimEnd('\', '/') + $script:Sep
+    if (-not $resolved.StartsWith($root, $comparison)) { return $directory }
+  }
+  return ''
+}
+
+# Takes a path and the base it lies under; returns whether it is, or lies
+# under, a path of $script:ClaimedPaths, whose own walk records it.
+function Test-ClaimedPath([string]$path, [string]$base) {
+  $baseLength = $base.TrimEnd('\', '/').Length
+  $separators = [char[]]@('\', '/')
+  while ($path.Length -gt $baseLength) {
+    if ($script:ClaimedPaths.ContainsKey($path)) { return $true }
+    $path = $path.Substring(0, [Math]::Max(0, $path.LastIndexOfAny($separators)))
+  }
+  return $false
+}
+
 # Takes the user, a base directory, a table and an optional progress header;
 # collects every match of the table under the base, logging the header before
-# the first one.
+# the first one. A match under a symlinked directory leading out of the base is
+# not walked; the link is collected once instead, unless Test-ClaimedPath holds.
 function Add-CatalogMatches([string]$user, [string]$base, [string]$table, [string]$header = '') {
   $expansion = Expand-Catalog $base $table
   Write-GlobErrorRows $user $base $expansion.GlobErrors
+  $linksSeen = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
   foreach ($entry in $expansion.Entries) {
     $agent = $entry[0]; $matchPath = $entry[1]
     if (-not $agent) {
@@ -3405,6 +3451,15 @@ function Add-CatalogMatches([string]$user, [string]$base, [string]$table, [strin
       $lineText = "catalog line $($duplicate[1]) names the same path as an earlier line"
       Write-CollectorLog ("  [$($duplicate[0])] ${matchPath}: $lineText" +
         ' (case-insensitive filesystem), collected there')
+      continue
+    }
+    $link = Get-LinkedParent $base $matchPath
+    if ($link) {
+      if ($header) { Write-CollectorLog $header; $header = '' }
+      $note = "under the symlinked directory $link, which leads out of the base"
+      Write-CollectorLog "  [$agent] ${matchPath}: $note; not walked"
+      if (-not $linksSeen.Add($link) -or (Test-ClaimedPath $link $base)) { continue }
+      Add-CollectedPath $user $base $agent $link
       continue
     }
     if ($Inventory) {
@@ -4239,36 +4294,6 @@ function Test-RegularFile([string]$path) {
   return ((Get-ManifestType $item) -eq 'file')
 }
 
-# Takes a base and a path under it; returns whether a symlink or junction
-# between them, which the glob followed, leads outside the base once its chain
-# of links is resolved to the end: an image's /etc -> /private/etc would read
-# the analyst's host, while a live macOS /etc stays inside /. A link that
-# cannot be resolved counts as outside.
-function Test-UnderLink([string]$base, [string]$path) {
-  $comparison = [System.StringComparison]::Ordinal
-  if ($env:OS -eq 'Windows_NT') { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
-  $relative = $path.Substring($base.TrimEnd('\', '/').Length).TrimStart('\', '/')
-  $segments = @($relative -split '[\\/]')
-  $directory = $base
-  $root = ''
-  for ($index = 0; $index -lt $segments.Count - 1; $index++) {
-    $directory = Join-PathSafe $directory $segments[$index]
-    $extended = ConvertTo-ExtendedPath $directory
-    try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop } catch { return $true }
-    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { continue }
-    if (-not $root) {
-      $root = Get-PhysicalPath $base
-      if (-not $root) { return $true }
-      $root = $root.TrimEnd('\', '/') + $script:Sep
-    }
-    $resolved = Get-PhysicalPath $directory
-    if (-not $resolved) { return $true }
-    $resolved = $resolved.TrimEnd('\', '/') + $script:Sep
-    if (-not $resolved.StartsWith($root, $comparison)) { return $true }
-  }
-  return $false
-}
-
 # Takes a base directory and a scope; returns the regular files, none under a
 # linked directory leading out of the base, that the STARTUP_FILES globs of
 # that scope match under the base, each once, in table order.
@@ -4278,7 +4303,7 @@ function Get-StartupFiles([string]$base, [string]$scope) {
   foreach ($rule in $script:StartupGlobs) {
     if ($rule[0] -ne $scope) { continue }
     foreach ($path in @(Expand-Glob $base $rule[1])) {
-      if (-not (Test-RegularFile $path) -or (Test-UnderLink $base $path)) { continue }
+      if (-not (Test-RegularFile $path) -or (Get-LinkedParent $base $path)) { continue }
       if ($seen.Add($path)) { [void]$files.Add($path) }
     }
   }

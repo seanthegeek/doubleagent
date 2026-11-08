@@ -1978,6 +1978,14 @@ printf 'x\n' >"$ALICE/.claude/plugins/cache${NEWLINE}/settings.json"
 printf '{}' >"$ALICE/.claude/.credentials.json${NEWLINE}"
 # 2026-11-08 a symlink target ending in a newline (#480)
 ln -s "tgt${NEWLINE}" "$ALICE/.claude/nl-target-link"
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+# The glob follows .cache out of the home, so only the link is recorded; .camel
+# stays inside the home and is walked under its linked path.
+mkdir -p "$ROOT/opt/linked-cache/crush" "$BOB/dotfiles/camel/skills/s1"
+printf '{}\n' >"$ROOT/opt/linked-cache/crush/crush.json"
+ln -s ../../opt/linked-cache "$BOB/.cache"
+printf 'x\n' >"$BOB/dotfiles/camel/skills/s1/SKILL.md"
+ln -s dotfiles/camel "$BOB/.camel"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
 if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
@@ -2642,6 +2650,11 @@ check "#478 a directory named cache plus a newline is not excluded as cache" "[ 
 check "#478 a file named .credentials.json plus a newline is not flagged as the credential" "row \"$ALICE/.claude/.credentials.json\\\\n\" | contains '\"secret\":false,\"status\":\"collected\"'"
 # 2026-11-08 a symlink target ending in a newline (#480)
 check "#480 a symlink target ending in a newline is recorded whole" "row \"$ALICE/.claude/nl-target-link\" | contains '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+check "#467 a catalog entry under a symlinked directory leaving the home is not walked" "! grep -qF '\"path\":\"$BOB/.cache/' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$ROOT/opt/linked-cache' \"\$MANIFEST\""
+check "#467 the symlinked directory is recorded as a symlink with its target" "row \"$BOB/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\",\"target\":\"../../opt/linked-cache\"'"
+check "#467 the log names the match under the symlinked directory" "grep -qF '[crush] $BOB/.cache/crush: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"'"
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
@@ -3144,6 +3157,8 @@ check "inventory shared not inventoried" "! grep -q '\"agent\":\"\\(shared\\|pro
 check "inventory prints no path below a home" "! grep -q '$ROOT' \"$OUT/inventory.stdout\""
 # 2026-10-19 Codex projectless output directories (#149)
 check "#149 inventory codex-cli evidence names Documents/Codex" "agent_line inventory bob codex-cli | contains '\"evidence\":\"[^\"]*Documents/Codex'"
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+check "#467 inventory counts no entry under a symlinked directory leaving the home" "[ -z \"\$(agent_line inventory bob crush)\" ] && agent_line inventory bob camel-ai | contains '\"evidence\":\".camel/skills\"}\$'"
 if command -v python3 >/dev/null 2>&1; then
   check "inventory stdout is valid JSON Lines" "python3 -c 'import json,sys; [json.loads(line) for line in open(sys.argv[1])]' \"$OUT/inventory.stdout\""
 fi

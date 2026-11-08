@@ -3133,12 +3133,55 @@ expand_catalog() {
   done | classify_case_matches | fold_case_matches
 }
 
+# linked_parent BASE PATH: true when a symlinked directory between BASE and
+# PATH, which the shell's glob followed, leads outside BASE (/ when BASE is
+# empty) once its chain of links is resolved, or cannot be resolved; sets
+# _ret_linked_parent to the first such directory, empty when there is none.
+# BASE is resolved only once a link is met. An image's /etc -> /private/etc
+# would read the analyst's own host, while a live macOS /etc stays inside /.
+# PATH's leading components are counted off against BASE's, since posh does
+# not strip a quoted parameter inside a pattern. Temporaries: _lp_.
+linked_parent() {
+  _ret_linked_parent=; _lp_base=$1/; _lp_rel=$2; _lp_dir=$1; _lp_root=
+  while [ "${_lp_base#*/}" != "$_lp_base" ]; do
+    _lp_base=${_lp_base#*/}; _lp_rel=${_lp_rel#*/}
+  done
+  while [ "${_lp_rel#*/}" != "$_lp_rel" ]; do
+    _lp_dir="$_lp_dir/${_lp_rel%%/*}"; _lp_rel=${_lp_rel#*/}
+    [ -L "$_lp_dir" ] || continue
+    _ret_linked_parent=$_lp_dir
+    if [ -z "$_lp_root" ]; then
+      _lp_root=$(cd -P "${1:-/}" 2>/dev/null && pwd -P) || return 0
+      _lp_root=${_lp_root%/}/
+    fi
+    _lp_real=$(cd -P "$_lp_dir" 2>/dev/null && pwd -P) || return 0
+    case "$_lp_real/" in ("$_lp_root"*) ;; (*) return 0 ;; esac
+  done
+  _ret_linked_parent=
+  return 1
+}
+
+# test_claimed_path PATH BASE: true when PATH, under BASE, is or lies under a
+# path of NESTED_CLAIMS, whose own walk records it. Reads NESTED_CLAIMS and
+# NEWLINE. Temporaries: _tcp_.
+test_claimed_path() {
+  _tcp_path=$1
+  # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
+  while [ "${#_tcp_path}" -gt "${#2}" ]; do
+    case "$NEWLINE$NESTED_CLAIMS$NEWLINE" in (*"$NEWLINE$_tcp_path$NEWLINE"*) return 0 ;; esac
+    _tcp_path=${_tcp_path%/*}
+  done
+  return 1
+}
+
 # collect_catalog USER BASE TABLE [HEADER]: collects every match of TABLE under
-# BASE, logging HEADER before the first one. Reads INVENTORY; sets NESTED_CLAIMS
-# while it runs, so a match inside another is collected once, under its own
-# agent. Temporaries: _cc_.
+# BASE, logging HEADER before the first one. Reads INVENTORY and NEWLINE; sets
+# NESTED_CLAIMS while it runs, so a match inside another is collected once,
+# under its own agent. A match under a symlinked directory leading out of BASE
+# is not walked; the link is collected once instead, unless test_claimed_path
+# holds. Temporaries: _cc_.
 collect_catalog() {
-  _cc_header=${4:-}
+  _cc_header=${4:-}; _cc_links=
   _cc_matches=$(expand_catalog "$2" "$3")
   NESTED_CLAIMS=$(printf '%s\n' "$_cc_matches" | grep -v '^#|' | cut -d'|' -f3-)
   printf '%s\n' "$_cc_matches" | while IFS='|' read -r _cc_agent _cc_glob _cc_match; do
@@ -3146,6 +3189,18 @@ collect_catalog() {
     if [ "$_cc_agent" = '#' ]; then
       if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
       if [ -n "$_cc_match" ]; then log_line "$_cc_glob|$_cc_match"; else log_line "$_cc_glob"; fi
+      continue
+    fi
+    # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
+    if linked_parent "$2" "$_cc_match"; then
+      if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
+      _cc_link=$_ret_linked_parent
+      _cc_note="under the symlinked directory $_cc_link, which leads out of the base"
+      log_line "  [$_cc_agent] $_cc_match: $_cc_note; not walked"
+      case "$_cc_links$NEWLINE" in (*"$NEWLINE$_cc_link$NEWLINE"*) continue ;; esac
+      _cc_links="$_cc_links$NEWLINE$_cc_link"
+      test_claimed_path "$_cc_link" "$2" && continue
+      collect_path "$1" "$2" "$_cc_agent" "$_cc_link" </dev/null
       continue
     fi
     if [ "$INVENTORY" = 1 ]; then
@@ -3828,28 +3883,6 @@ set_relocation_names() {
   export GREP_NAME_OPTIONS
 }
 
-# under_symlink BASE PATH -> 0 when a symlinked directory between BASE and
-# PATH, which the shell's glob followed, leads outside BASE (/ when BASE is
-# empty): an image's /etc -> /private/etc would read the analyst's own host,
-# while a live macOS /etc stays inside /. PATH's leading components are counted
-# off against BASE's, since posh does not strip a quoted parameter inside a
-# pattern. Temporaries: _us_.
-under_symlink() {
-  _us_base=$1/; _us_rel=$2; _us_dir=$1
-  while [ "${_us_base#*/}" != "$_us_base" ]; do
-    _us_base=${_us_base#*/}; _us_rel=${_us_rel#*/}
-  done
-  _us_root=$(cd -P "${1:-/}" 2>/dev/null && pwd -P) || return 0
-  _us_root=${_us_root%/}/
-  while [ "${_us_rel#*/}" != "$_us_rel" ]; do
-    _us_dir="$_us_dir/${_us_rel%%/*}"; _us_rel=${_us_rel#*/}
-    [ -L "$_us_dir" ] || continue
-    _us_real=$(cd -P "$_us_dir" 2>/dev/null && pwd -P) || return 0
-    case "$_us_real/" in ("$_us_root"*) ;; (*) return 0 ;; esac
-  done
-  return 1
-}
-
 # list_startup_files BASE SCOPE -> the regular files, never a symlink nor under
 # one leading out of BASE, that the STARTUP_FILES globs of SCOPE match under
 # BASE, one per line; a
@@ -3867,7 +3900,7 @@ list_startup_files() {
     for _lsf_path in $1/$_lsf_glob; do
       # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
       case "$_lsf_path" in (*"$NEWLINE"*) continue ;; esac
-      if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ] && ! under_symlink "$1" "$_lsf_path"; then
+      if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ] && ! linked_parent "$1" "$_lsf_path"; then
         printf '%s\n' "$_lsf_path"
       fi
     done

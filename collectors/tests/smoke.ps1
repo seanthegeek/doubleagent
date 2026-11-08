@@ -1894,6 +1894,22 @@ if ($env:OS -ne 'Windows_NT') {
     $newlineLinkOk = $true
   } catch { Write-Output 'note: symlink creation not permitted here, #480 newline symlink target check skipped' }
 } else { Write-Output 'note: #480 newline symlink target check skipped (no newline in a Windows target)' }
+
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+# The glob follows .cache out of the home, so only the link is recorded; .camel stays inside
+# the home and is walked under its linked path.
+MakeFile 'elsewhere/linkedcache/crush/crush.json' '{}'
+$cacheLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.cache') -Target (ImagePath 'elsewhere/linkedcache') -ErrorAction Stop | Out-Null
+  $cacheLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #467 symlinked directory checks skipped' }
+MakeFile 'home/bob/dotfiles/camel/skills/s1/SKILL.md' 'x'
+$camelLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.camel') -Target (ImagePath 'home/bob/dotfiles/camel') -ErrorAction Stop | Out-Null
+  $camelLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #467 linked-within-home check skipped' }
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2875,6 +2891,17 @@ if ($newlineLinkOk) {
   $row = Row 'Users/alice/.claude/nl-target-link'
   Check '#480 a symlink target ending in a newline is recorded whole' { $row -and $row.status -eq 'symlink' -and $row.target -ceq "tgt$newlineChar" }
 }
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+if ($cacheLinkOk) {
+  $linkedCache = ImagePath 'home/bob/.cache'
+  $linkedCacheTarget = ImagePath 'elsewhere/linkedcache'
+  Check '#467 a catalog entry under a symlinked directory leaving the home is not walked' { @($script:Rows | Where-Object { $_.path.StartsWith($linkedCache + $Separator) -or $_.path.StartsWith($linkedCacheTarget) }).Count -eq 0 }
+  Check '#467 the symlinked directory is recorded as a symlink with its target' { $linkRows = RowsAt 'home/bob/.cache'; $linkRows.Count -eq 1 -and $linkRows[0].agent -eq 'crush' -and $linkRows[0].status -eq 'symlink' -and ($linkRows[0].target -replace '\\', '/') -like '*/elsewhere/linkedcache' }
+  Check '#467 the log names the match under the symlinked directory' { $defaultLog.Contains("[crush] $(ImagePath 'home/bob/.cache/crush'): under the symlinked directory ${linkedCache}, which leads out of the base; not walked") }
+}
+if ($camelLinkOk) {
+  Check '#467 a catalog entry under a directory linked within the home is walked' { IsAgentRow 'home/bob/.camel/skills/s1/SKILL.md' 'camel-ai' $false }
+}
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
@@ -3399,6 +3426,10 @@ Check 'Inventory rootless docker volume line' { $row -and $row.files -eq 1 -and 
 Check 'Inventory shared not inventoried' { -not ($script:Inventory | Where-Object { $_.type -eq 'agent' } | Where-Object { @('shared', 'project', 'live') -contains $_.agent }) }
 # 2026-10-19 Codex projectless output directories (#149)
 Check '#149 inventory codex-cli evidence names Documents/Codex' { (InventoryAgent 'bob' 'codex-cli').evidence -like '*Documents/Codex*' }
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+if ($cacheLinkOk -and $camelLinkOk) {
+  Check '#467 inventory counts no entry under a symlinked directory leaving the home' { $null -eq (InventoryAgent 'bob' 'crush') -and (InventoryAgent 'bob' 'camel-ai').evidence -eq '.camel/skills' }
+}
 Check 'Inventory prints no path below a home' { -not ($script:InventoryLines | Where-Object { $_.Contains($Root) -or $_.Contains($Root.Replace('\', '\\')) }) }
 $inventoryOutput = Join-Path $Out 'inv-o'
 InventoryRun @{ OutputDir = $inventoryOutput }

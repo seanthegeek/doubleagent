@@ -37,6 +37,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The PowerShell collector, under PowerShell 7 on Linux and macOS, matched a name ending in a newline as if it lacked the newline: the exclusion `.claude/plugins/cache` excluded a directory named `cache<newline>`, and the secret glob `.claude/.credentials.json` flagged a file named `.credentials.json<newline>`; neither matches in the sh collector, and now neither does in PowerShell, which anchors every glob it compiles (exclusions, secret globs, catalog segments and Docker volume names) at the end of the name ([#478]).
 - The sh collector wrote a manifest path that ends in a newline without that newline, so the row named a file the archive does not hold; the path is now written whole ([#479]).
 - The sh collector recorded a symlink target that ends in a newline, and recreated the link in the archive, without that newline; the target is now kept whole ([#480]).
+- Both collectors walked a catalog match reached through a symlinked directory in the middle of its path (a home whose `.config` links to a directory elsewhere), so files outside the home were collected under the home's path and, in image mode, an absolute link read the analyst's own host. A match under a link whose target lies outside the home, project or volume directory, or cannot be resolved, is now logged and not walked, and the link is recorded as one `symlink` row with its target under the agent whose entry reached through it; a link that stays inside the home is walked as before ([#467]).
 
 ### Removed
 
@@ -1276,6 +1277,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [#473]: https://github.com/seanthegeek/doubleagent/issues/473
 [#471]: https://github.com/seanthegeek/doubleagent/issues/471
 [#470]: https://github.com/seanthegeek/doubleagent/issues/470
+[#467]: https://github.com/seanthegeek/doubleagent/issues/467
 [#461]: https://github.com/seanthegeek/doubleagent/issues/461
 [#457]: https://github.com/seanthegeek/doubleagent/issues/457
 [#454]: https://github.com/seanthegeek/doubleagent/issues/454
