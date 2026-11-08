@@ -384,9 +384,12 @@ def test_credential_named_by_its_windows_path_expects_the_linux_copy(tmp_path):
     alpha = ALPHA.replace(
         "on macOS.", "on macOS and `~/AppData/Roaming/Vendor/alpha/config` on Windows."
     ).replace(
-        "- `~/.config/alpha/token.json` holds the token.",
-        "- `~/AppData/Roaming/Vendor/alpha/config/token.json` holds the token.",
+        "- `~/.config/alpha/token.json` holds the refresh token, on macOS in\n"
+        "  `~/Library/Application Support/alpha/token.json`.",
+        "- `~/AppData/Roaming/Vendor/alpha/config/token.json` holds the refresh token.",
     )
+    assert "AppData/Roaming/Vendor/alpha/config/token.json` holds" in alpha
+    assert ".config/alpha/token.json` holds" not in alpha
     flagged = catalog.replace(
         ".config/alpha/token.json\n",
         ".config/alpha/token.json\nAppData/Roaming/Vendor/alpha/config/token.json\n",
@@ -538,6 +541,8 @@ def test_vendor_form_forms():
         ("AppData/Roaming/Vendor/Deep/goose/config", False, "", set()),
         ("AppData/Local/langflow/langflow/Cache", False, "langflow", {"cache"}),
         ("AppData/Local/Temp/Vendor/tool", False, "", set()),
+        ("AppData/Local/Temp/Vendor/tool/config", False, "", set()),
+        ("AppData/Local/Programs/Vendor/tool/data", False, "", set()),
         (".config/goose", False, "", set()),
         (".config/Code/User", False, "user", {"config"}),
         (".var/app/dev.zed.Zed/config/zed", False, "", set()),
@@ -653,6 +658,14 @@ def test_sibling_bases_keep_case():
             ],
             ["AppData/Roaming/Block/goose/config"],
         ),
+        (
+            [
+                ".config/goose",
+                "AppData/Roaming/Block/goose/config",
+                "AppData/Roaming/Block/Goose/config",
+            ],
+            ["AppData/Roaming/Block/goose/config"],
+        ),
     ]
     for globs, expected in cases:
         entries = [line(glob) for glob in globs]
@@ -664,6 +677,8 @@ def test_case_distinguishes_forms():
     cases = [
         ([".hermes", "AppData/Local/hermes", "AppData/Roaming/Hermes"], True),
         ([".config/goose", ".config/Goose"], True),
+        (["AppData/Roaming/Block/goose/config", "AppData/Roaming/Block/Goose/config"], True),
+        (["AppData/Roaming/Block/goose/config", "AppData/Roaming/Block/goose/data"], False),
         ([".ollama", "AppData/Local/Ollama"], False),
         ([".config/zed", "Library/Application Support/Zed", "AppData/Local/Zed"], False),
         (["Claude", "Documents/claude"], False),

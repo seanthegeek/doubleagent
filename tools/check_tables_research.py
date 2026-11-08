@@ -197,17 +197,19 @@ def vendor_form(glob: str, keep_case: bool) -> tuple[str, set[str]]:
     tool's, whatever the first holds. It comes back with a leading `.` dropped, case-folded
     unless kept, with the third segment's kind or, without one, the platform directory's kinds.
     Any other entry (`.config/goose`, `AppData/Local/Block/goose/cache/*`,
-    `AppData/Roaming/Block/goose/other`) gives `""`.
+    `AppData/Roaming/Block/goose/other`, `AppData/Local/Temp/Vendor/tool/config`) gives `""`.
     """
     for pattern, _platform, kinds in BASE_FORMS:
         match = pattern.match(glob)
         if not match:
             continue
         below = [part for part in glob[match.end() :].split("/") if part]
+        if not kinds or len(below) not in (2, 3):
+            return "", set()
         form_kinds = set(kinds)
         if len(below) == 3:
             form_kinds = set(VENDOR_KINDS.get(below[2].casefold(), ()))
-        if len(below) not in (2, 3) or not form_kinds:
+        if not form_kinds:
             return "", set()
         segment = below[1].lstrip(".")
         return (segment if keep_case else segment.casefold()), form_kinds
@@ -230,17 +232,18 @@ def tool_form(glob: str, keep_case: bool) -> tuple[str, set[str]]:
 def case_distinguishes(entries: Iterable[TableLine]) -> bool:
     """Return whether case tells an agent's base directories apart.
 
-    It does when two home entries on one platform (`base_form`) end in segments equal
-    case-folded but not as written (`AppData/Local/hermes` beside `AppData/Roaming/Hermes`),
-    the way the catalog separates surfaces; otherwise Windows capitalises what POSIX spells
-    lower (`.ollama`, `AppData/Local/Ollama`) and siblings compare case-folded.
+    It does when two home entries on one platform (`base_form`) have tool segments
+    (`tool_form`) equal case-folded but not as written (`AppData/Local/hermes` beside
+    `AppData/Roaming/Hermes`, `Block/goose/config` beside `Block/Goose/config`), the way the
+    catalog separates surfaces; otherwise Windows capitalises what POSIX spells lower
+    (`.ollama`, `AppData/Local/Ollama`) and siblings compare case-folded.
     """
     forms: dict[tuple[str, str], set[str]] = {}
     for entry in entries:
         platform = base_form(entry.glob)[0]
         if not platform:
             continue
-        segment = base_segment(entry.glob, True)
+        segment = tool_form(entry.glob, True)[0]
         seen = forms.setdefault((platform, segment.casefold()), set())
         seen.add(segment)
         if len(seen) > 1:
