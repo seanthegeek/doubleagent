@@ -239,6 +239,57 @@ reach. The exit status is `0`; with `--fail` it is `1` when any row changed;
 it is `2` when a step (the image build, `git show`, a collector run) fails
 or a command cannot be started, such as a `--shell` that does not exist.
 
+## Fork budget
+
+The sh collector spends its time forking processes: every `$(...)`,
+pipeline element and external command is one, and a function that runs a
+program inside `$(...)` forks twice. Wall time on a shared machine varies
+from run to run, but the number of processes the collector forks over a
+fixed image under a fixed shell does not, so `tools/check_fork_budget.py`
+counts them. It needs `strace`, so it runs on Linux (CI, or the Ubuntu lab
+VM from a Mac), never on macOS and never beside a smoke test:
+
+```sh
+python3 tools/check_fork_budget.py                    # the working tree's collector under dash
+python3 tools/check_fork_budget.py --base origin/main # and the change per class against main
+python3 tools/check_fork_budget.py --update-budget    # rewrite the budget from this run
+```
+
+It builds the main fake image of the sh smoke test with `SMOKE_IMAGE_ONLY=1`,
+runs the working tree's collector over it with the smoke test's command
+line under `strace -f -e trace=execve,clone,clone3,vfork,fork`, and removes
+the image and the output when it ends. With `--base REF` it runs the
+collector of that commit the same way. It prints:
+
+| Part | What it holds |
+| --- | --- |
+| first line | the processes forked, the programs executed, the fork-only subshells (forked, never executed), the manifest rows, and the two ratios `forks per row` and `execs per row`; with `--base`, a second line with the same totals of that commit's run |
+| class table | one row per class of process with its total and its count in each phase of the run (startup, homes, docker, projects, hints, archive, done), read from the timestamps of the collector's log; with `--base`, also the change against that commit. A class is a program by name, a worker shell by kind, a short `sh -c` program, `printf` by format, or a fork-only subshell by the programs its children ran (`fork->stat`), by having only fork-only children, or else by its parent |
+| double forks | the fork-only processes whose one child executed a program, by program: a function that runs a program inside `$(...)` |
+| verdict | `budget: ok` with each ratio and its budget; one line per ratio that is over or stale; `budget: collectors/tests/fork-budget.txt is missing` when the file is absent; `budget: wrote ...` after `--update-budget`; `budget: defined for dash, not compared under SHELL` under another shell |
+
+`collectors/tests/fork-budget.txt` holds `forks_per_row` and
+`execs_per_row`. A ratio more than 2 % above its budget is over, and one
+more than 2 % below it is stale, so an improvement is recorded as
+deliberately as a regression: run `--update-budget` and commit the file
+with the change that moved it, the measured cause in the commit body. The
+budget is defined for dash; under another `--shell` the tool prints the
+report and skips the comparison, with exit status `0`. The phase columns
+come from the log's second-precision timestamps, so a process born in the
+same second as a phase boundary can land on either side of it between runs;
+a phase starts at its first logged line (a user's header is written at
+the user's first match). The budget reads the totals. The exit status is `0` when the budget holds, `1` when a ratio is over or stale or
+the budget file is missing, and `2` when a step cannot run (no `strace`,
+the shell is missing, the budget file is malformed, `--update-budget` is
+given under another shell, the image build, the `git show` of the `--base`
+commit or a collector run fails, or a run leaves no manifest or log).
+
+CI's `sh collector (fork budget)` job runs the tool against `main` on each
+pull request that touches the collector, the smoke test, the budget, the
+tool or a module it imports, on the `ubuntu-24.04` runner whose dash the
+budget counts, so the class table of the change is in the job log; read
+it for a class that grew.
+
 ## Catalog drift check and CI
 
 `tests/catalog-sync.sh` extracts the tables from both scripts and fails
@@ -252,10 +303,11 @@ copy is stale or the tables differ; the linters run in CI only.
 CI (`.github/workflows/ci.yml`) runs the drift test and shellcheck, the sh
 smoke test under sh, dash, bash, busybox ash, zsh and posh, the drift test
 and the sh smoke test under dash on macOS, where the tools are the BSD
-ones, a lint job that also runs the table coverage checks, the
-PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell 5.1
-on Windows, and the analyzer tests, then a `CI result` job that fails when
-any of them failed. Every push to `main` runs all of them; a pull request
-runs only the jobs that read a file it changed, as
+ones, the fork budget job on Linux, a lint job that also runs the table
+coverage checks, the PowerShell smoke test under PowerShell 7 on Linux and
+Windows PowerShell 5.1 on Windows, and the analyzer tests, then a
+`CI result` job that fails when any of them failed. Every push to `main`
+runs all of them; a pull request runs only the jobs that read a file it
+changed, as
 [Validation and testing in `AGENTS.md`](../../AGENTS.md#validation-and-testing)
 lists.

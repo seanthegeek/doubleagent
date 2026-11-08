@@ -16,6 +16,9 @@ Notes for Claude Code on this workstation:
 - Run `tools/diff_smoke_rows.py` with `--shell dash`: it runs the collector
   twice, and its default `/bin/sh` is the slow bash 3.2 here. Never run it
   beside a VM or another smoke test.
+- `tools/check_fork_budget.py` needs strace, which this Mac lacks: run it on
+  the Ubuntu lab VM (`sudo apt-get install dash strace`) or read CI's fork budget
+  job; never beside a smoke test, and with no other VM running.
 - A live collection here gathers the author's own agent credentials: write
   it under the scratchpad and delete it afterwards.
 - This Mac's `python3` is 3.14 without `zstandard` or `python-dateutil`, so
