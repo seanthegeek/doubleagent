@@ -1916,6 +1916,12 @@ try {
 MakeFile 'home/u[1]/.gemini/settings.json' '{}'
 MakeFile 'home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db' 'x'
 MakeFile 'home/u[1]/.gemini/tmp/bin/rg' 'x'
+# 2026-11-08 a home path read as a pattern (#486)
+# Read as a pattern, u[1] matches the home u1 beside it: each home keeps its
+# own files, and wildcard entries and startup files still match under u[1].
+MakeFile 'home/u1/.gemini/projects.json' '{}'
+MakeFile 'home/u[1]/.claude.json.backup' '{}'
+MakeFile 'home/u[1]/.profile' "CODEX_HOME=/opt/x; export CODEX_HOME`n"
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2911,6 +2917,28 @@ if ($camelLinkOk) {
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 Check '#465 a nested entry under a home holding [ has one row, its own agent' { $nestedRows = RowsAt 'home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db'; $nestedRows.Count -eq 1 -and $nestedRows[0].agent -eq 'antigravity' -and $nestedRows[0].status -eq 'collected' }
 Check '#465 an exclusion applies under a home holding [' { $excludedRows = RowsAt 'home/u[1]/.gemini/tmp/bin'; $excludedRows.Count -eq 1 -and $excludedRows[0].status -eq 'skipped_excluded' -and (RowsAt 'home/u[1]/.gemini/tmp/bin/rg').Count -eq 0 }
+# 2026-11-08 a home path read as a pattern (#486)
+Check '#486 a home holding [ keeps its own file beside a home its pattern matches' { $ownRows = RowsAt 'home/u[1]/.gemini/settings.json'; $ownRows.Count -eq 1 -and $ownRows[0].user -ceq 'u[1]' }
+$patternHomePrefix = (ImagePath 'home/u1') + $Separator
+Check '#486 no row of the home holding [ lies under the home its pattern matches' { @($script:Rows | Where-Object { $_.user -ceq 'u[1]' -and $_.path.StartsWith($patternHomePrefix, [System.StringComparison]::OrdinalIgnoreCase) }).Count -eq 0 }
+Check '#486 the home its pattern matches keeps its own file' { $patternRows = RowsAt 'home/u1/.gemini/projects.json'; $patternRows.Count -eq 1 -and $patternRows[0].user -ceq 'u1' }
+Check '#486 a wildcard entry matches under a home holding [' { IsAgentRow 'home/u[1]/.claude.json.backup' 'claude-code' $true }
+Check '#486 a startup file under a home holding [ is searched' { IsAgentRow 'home/u[1]/.profile' 'shared' $true }
+# An image root holding [ finds its homes through home, with no passwd file.
+$PatternRoot = [System.IO.Path]::Combine($Work, 'r[1]')
+$PatternDir = [System.IO.Path]::Combine($PatternRoot, 'home', 'carol', '.gemini')
+$PatternFile = [System.IO.Path]::Combine($PatternDir, 'projects.json')
+[void][System.IO.Directory]::CreateDirectory($PatternDir)
+[System.IO.File]::WriteAllText($PatternFile, '{}', (New-Object System.Text.UTF8Encoding $false))
+$patternOutput = Join-Path $Out 'root486'
+New-Item -ItemType Directory -Path $patternOutput -Force | Out-Null
+$patternArgs = @{ Root = $PatternRoot; OutputDir = $patternOutput; Quiet = $true; NoDocker = $true; NoProjects = $true }
+$global:LASTEXITCODE = 0
+& $Collector @patternArgs *> $null
+$patternExit = $LASTEXITCODE
+$patternManifest = Read-ManifestLines (Get-ChildItem -LiteralPath $patternOutput -Filter '*.manifest.jsonl' | Select-Object -First 1).FullName
+Check '#486 an image root holding [ run exit 0' { $patternExit -eq 0 }
+Check '#486 a catalog file under an image root holding [ is collected' { @($patternManifest.rows | Where-Object { $_.path -eq $PatternFile -and $_.status -eq 'collected' }).Count -eq 1 }
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }

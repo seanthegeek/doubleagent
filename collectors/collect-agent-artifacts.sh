@@ -3042,14 +3042,18 @@ HINT_SEARCH_WORKER=$_ret_heredoc_text
 # A table is expanded in full before anything is walked, so a match nested in
 # another (.gemini/antigravity-cli in .gemini) is pruned from the outer walk.
 
-# expand_glob BASE PATTERN -> the paths matching BASE/PATTERN that exist or are
-# symlinks, one per line. IFS is newline only, so a BASE with spaces stays one
-# word. Temporaries: _eg_.
+# expand_glob BASE PATTERN -> BASE/<match> for each match of PATTERN in BASE
+# that exists or is a symlink, one per line. PATTERN is expanded inside BASE
+# (/ when empty), so BASE is never a pattern; the cd relies on every caller
+# running it in a subshell. IFS is newline only, so a match with spaces stays
+# one word. Temporaries: _eg_.
 expand_glob() {
+  cd "${1:-/}" 2>/dev/null || return 0
   _eg_saved_ifs=$IFS
   IFS='
 '
-  for _eg_match in $1/$2; do
+  for _eg_match in $2; do
+    _eg_match=$1/$_eg_match
     if [ -e "$_eg_match" ] || [ -L "$_eg_match" ]; then printf '%s\n' "$_eg_match"; fi
   done
   IFS=$_eg_saved_ifs
@@ -3108,16 +3112,19 @@ fold_case_matches() {
 
 # expand_catalog BASE TABLE -> agent|glob|path for every match of TABLE under
 # BASE, in table order, case variants folded, plus #|message lines to log.
-# Reads NEWLINE. Temporaries: _ec_. Each glob is expanded inline, not through
-# expand_glob, so no table line starts a pipeline; a matched name holding a
-# newline gives one line per line of it, empty ones included.
+# Reads NEWLINE. Temporaries: _ec_. Each glob is expanded inline inside BASE,
+# in the pipeline's subshell, so BASE is never a pattern and no table line
+# starts a pipeline; a matched name holding a newline gives one line per line
+# of it, empty ones included.
 expand_catalog() {
-  printf '%s\n' "$2" | while IFS='|' read -r _ec_agent _ec_glob; do
+  printf '%s\n' "$2" | { cd "${1:-/}" 2>/dev/null || exit 0
+  while IFS='|' read -r _ec_agent _ec_glob; do
     case "$_ec_agent" in (''|'#'*) continue ;; esac
     _ec_saved_ifs=$IFS
     # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
     IFS=$NEWLINE
-    for _ec_match in $1/$_ec_glob; do
+    for _ec_match in $_ec_glob; do
+      _ec_match=$1/$_ec_match
       [ -e "$_ec_match" ] || [ -L "$_ec_match" ] || continue
       _ec_rest=$_ec_match
       while :; do
@@ -3130,7 +3137,7 @@ expand_catalog() {
       done
     done
     IFS=$_ec_saved_ifs
-  done | classify_case_matches | fold_case_matches
+  done; } | classify_case_matches | fold_case_matches
 }
 
 # linked_parent BASE PATH: true when a symlinked directory between BASE and
@@ -3901,11 +3908,13 @@ set_relocation_names() {
 
 # list_startup_files BASE SCOPE -> the regular files, never a symlink nor under
 # one leading out of BASE, that the STARTUP_FILES globs of SCOPE match under
-# BASE, one per line; a
-# system glob's leading / is dropped, so it is taken under the root, and a name
-# holding a newline is left out, as it would split the list. Reads
+# BASE, one per line; a system glob's leading / is dropped, so it is taken
+# under the root, and a name holding a newline is left out, as it would split
+# the list. The globs are expanded inside BASE (/ when empty), so BASE is never
+# a pattern; the cd relies on every caller running it in a subshell. Reads
 # STARTUP_FILES. Temporaries: _lsf_.
 list_startup_files() {
+  cd "${1:-/}" 2>/dev/null || return 0
   _lsf_saved_ifs=$IFS; IFS='
 '
   set -f
@@ -3913,7 +3922,8 @@ list_startup_files() {
     case "$_lsf_line" in ("$2|"*) ;; (*) continue ;; esac
     _lsf_glob=${_lsf_line#*|}; _lsf_glob=${_lsf_glob#/}
     set +f
-    for _lsf_path in $1/$_lsf_glob; do
+    for _lsf_path in $_lsf_glob; do
+      _lsf_path=$1/$_lsf_path
       # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
       case "$_lsf_path" in (*"$NEWLINE"*) continue ;; esac
       if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ] && ! linked_parent "$1" "$_lsf_path"; then

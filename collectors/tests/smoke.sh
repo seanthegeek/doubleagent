@@ -1994,6 +1994,14 @@ mkdir -p "$BRACKET_HOME/.gemini/antigravity-cli/conversations" "$BRACKET_HOME/.g
 printf '{}\n' >"$BRACKET_HOME/.gemini/settings.json"
 printf 'x\n' >"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db"
 printf 'x\n' >"$BRACKET_HOME/.gemini/tmp/bin/rg"
+# 2026-11-08 a home path read as a pattern (#486)
+# Read as a pattern, u[1] matches the home u1 beside it: each home keeps its
+# own files, and wildcard entries and startup files still match under u[1].
+PATTERN_HOME="$ROOT/home/u1"
+mkdir -p "$PATTERN_HOME/.gemini"
+printf '{}\n' >"$PATTERN_HOME/.gemini/projects.json"
+printf '{}\n' >"$BRACKET_HOME/.claude.json.backup"
+printf 'CODEX_HOME=/opt/x; export CODEX_HOME\n' >"$BRACKET_HOME/.profile"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
 if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
@@ -2666,6 +2674,21 @@ check "#467 a catalog entry under a directory linked within the home is walked" 
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 check "#465 a nested entry under a home holding [ has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\"' \"\$MANIFEST\")\" = 1 ] && row \"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
 check "#465 an exclusion applies under a home holding [" "row \"$BRACKET_HOME/.gemini/tmp/bin\" | contains '\"status\":\"skipped_excluded\"' && [ -z \"\$(row \"$BRACKET_HOME/.gemini/tmp/bin/rg\")\" ]"
+# 2026-11-08 a home path read as a pattern (#486)
+check "#486 a home holding [ keeps its own file beside a home its pattern matches" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/settings.json\"' \"\$MANIFEST\")\" -eq 1 ] && row \"$BRACKET_HOME/.gemini/settings.json\" | contains -F '\"user\":\"u[1]\",'"
+check "#486 no row of the home holding [ lies under the home its pattern matches" "[ -z \"\$(grep -F '\"user\":\"u[1]\",' \"\$MANIFEST\" | grep -F '\"path\":\"$PATTERN_HOME/')\" ]"
+check "#486 the home its pattern matches keeps its own file" "[ \"\$(grep -cF '\"path\":\"$PATTERN_HOME/.gemini/projects.json\"' \"\$MANIFEST\")\" -eq 1 ] && row \"$PATTERN_HOME/.gemini/projects.json\" | contains -F '\"user\":\"u1\",'"
+check "#486 a wildcard entry matches under a home holding [" "row \"$BRACKET_HOME/.claude.json.backup\" | contains '\"agent\":\"claude-code\".*$SECRET_COLLECTED'"
+check "#486 a startup file under a home holding [ is searched" "row \"$BRACKET_HOME/.profile\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+# An image root holding [ finds its homes through home/*, with no passwd file.
+PATTERN_ROOT="$WORK/r[1]"
+mkdir -p "$PATTERN_ROOT/home/carol/.gemini"
+printf '{}\n' >"$PATTERN_ROOT/home/carol/.gemini/projects.json"
+_saved_root_pattern=$ROOT; ROOT=$PATTERN_ROOT
+run root486 --no-docker --no-projects; _exit_pattern_root=$?
+check "#486 an image root holding [ run exit 0" "[ $_exit_pattern_root -eq 0 ]"
+check "#486 a catalog file under an image root holding [ is collected" "[ \"\$(status_of \"$PATTERN_ROOT/home/carol/.gemini/projects.json\")\" = collected ]"
+ROOT=$_saved_root_pattern
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
