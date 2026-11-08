@@ -2611,7 +2611,7 @@ function ConvertTo-JsonEscaped([string]$text) {
 
 # Takes a glob and whether * and ? may cross /; returns an anchored regex.
 # Catalog globs match one path segment at a time; exclusion and secret globs a
-# whole relative path.
+# whole relative path. It ends in \z, since $ also matches before a final newline.
 function Convert-GlobToRegex([string]$glob, [bool]$starCrossesSeparator) {
   $builder = New-Object System.Text.StringBuilder
   [void]$builder.Append('^')
@@ -2636,21 +2636,23 @@ function Convert-GlobToRegex([string]$glob, [bool]$starCrossesSeparator) {
     }
     $i++
   }
-  [void]$builder.Append('$')
+  [void]$builder.Append('\z')
   $builder.ToString()
 }
 
-# Takes the globs of one table; returns one case-insensitive Regex matching a
-# relative path when any glob does, so each path costs one IsMatch. An empty
-# table matches nothing; RegexOptions.Compiled is off, being slower on 5.1.
+# Takes the globs of one table; returns one case-insensitive, single-line Regex
+# matching a relative path when any glob does, so each path costs one IsMatch
+# and * and ? cross a newline as the sh patterns do. An empty table matches
+# nothing.
 function ConvertTo-TableRegex([string[]]$globs) {
   $bodies = @(foreach ($glob in $globs) {
       $globRegex = Convert-GlobToRegex $glob $true
-      $globRegex.Substring(1, $globRegex.Length - 2)
+      $globRegex.Substring(1, $globRegex.Length - 3)
     })
   $pattern = '(?!)'
-  if ($bodies.Count -gt 0) { $pattern = '^(?:' + ($bodies -join '|') + ')$' }
-  $options = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+  if ($bodies.Count -gt 0) { $pattern = '^(?:' + ($bodies -join '|') + ')\z' }
+  $options = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor
+    [System.Text.RegularExpressions.RegexOptions]::Singleline
   return (New-Object System.Text.RegularExpressions.Regex($pattern, $options))
 }
 

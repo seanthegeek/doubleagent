@@ -1965,6 +1965,19 @@ x"
 printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/usr/share/ollama/.env-helper.sh"
 { head -c 1100000 /dev/zero; printf '\nexport CODEX_HOME=/opt/x\n'; } >"$ALICE/dumps/oversized-env.txt"
 printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/AppData/Local/agy/agent-env.sh"
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+# The * of an exclusion or secret glob crosses the newline, as the PowerShell collector's does.
+NEWLINE='
+'
+mkdir -p "$ALICE/.claude/plugins/nl${NEWLINE}name/node_modules" "$ALICE/.claude/bridge-spawn/nl${NEWLINE}name"
+printf 'x\n' >"$ALICE/.claude/plugins/nl${NEWLINE}name/node_modules/f.js"
+printf '{}\n' >"$ALICE/.claude/bridge-spawn/nl${NEWLINE}name/mcp.json"
+# 2026-11-08 a name ending in a newline (#478)
+mkdir -p "$ALICE/.claude/plugins/cache${NEWLINE}"
+printf 'x\n' >"$ALICE/.claude/plugins/cache${NEWLINE}/settings.json"
+printf '{}' >"$ALICE/.claude/.credentials.json${NEWLINE}"
+# 2026-11-08 a symlink target ending in a newline (#480)
+ln -s "tgt${NEWLINE}" "$ALICE/.claude/nl-target-link"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
 if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
@@ -2614,10 +2627,21 @@ check "#454 a name in another case is no hint outside a .ps1 file" "[ \"\$(hint_
 check "#454 a PowerShell env: drive prefix gives no ENV hint" "[ \"\$(hint_count \"$ALICE/Documents/PowerShell/Microsoft.PowerShell_profile.ps1\")\" = 1 ]"
 check "#454 an env shebang line gives no ENV hint" "[ \"\$(hint_count \"$ALICE/.config/plasma-workspace/env/agents.sh\")\" = 1 ] && hint_line \"$ALICE/.config/plasma-workspace/env/agents.sh\" 2 CODEX_HOME codex-cli | grep -q ."
 check "#454 a binary plist is hinted when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { hint_line \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'; }"
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+check "#473 .claude/plugins/*/node_modules excludes a directory across a newline" "row \"$ALICE/.claude/plugins/nl\\\\nname/node_modules\" | grep -q '\"size\":[1-9][0-9]*,.*\"status\":\"skipped_excluded\"'"
+check "#473 nothing under the newline plugin directory is collected" "[ -z \"\$(row \"$ALICE/.claude/plugins/nl\\\\nname/node_modules/f.js\")\" ]"
+check "#473 .claude/bridge-spawn/*/mcp.json flags a credential across a newline" "row \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+
+# 2026-11-08 a name ending in a newline (#478)
+check "#478 a directory named cache plus a newline is not excluded as cache" "[ \"\$(status_of \"$ALICE/.claude/plugins/cache\\\\n/settings.json\")\" = collected ]"
+check "#478 a file named .credentials.json plus a newline is not flagged as the credential" "row \"$ALICE/.claude/.credentials.json\\\\n\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
+# 2026-11-08 a symlink target ending in a newline (#480)
+check "#480 a symlink target ending in a newline is recorded whole" "row \"$ALICE/.claude/nl-target-link\" | grep -q '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
+
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
 check "credentials skipped_secret" "[ \"\$(status_of \"$ROOT/home/alice/.claude/.credentials.json\")\" = skipped_secret ]"
-check "credentials absent from archive" "! tar -tzf \"\$ARCHIVE\" | grep -q '\.claude/\.credentials\.json'"
+check "credentials absent from archive" "! tar -xzOf \"\$ARCHIVE\" \"./fs/home/alice/.claude/.credentials.json\" >/dev/null 2>&1 && tar -xzOf \"\$ARCHIVE\" \"./fs/home/alice/.claude/.credentials.json${NEWLINE}\" >/dev/null 2>&1"
 # 2026-10-11 Claude Desktop Linux deb and Claude Code 2.1.295 session keys (#73, #76)
 check "#73 #76 --no-secrets skips link-key and the session key" "[ \"\$(status_of \"$CLAUDE_LINUX_CONFIG/spaces-present/0a0a0a0a/0b0b0b0b/link-key\")\" = skipped_secret ] && [ \"\$(status_of \"$SESSION_KEY\")\" = skipped_secret ]"
 # 2026-10-13 Antigravity desktop app (#83, #84)
@@ -2746,6 +2770,9 @@ while IFS='|' read -r _glob _rel _content; do
   check "#454 startup file skipped without secrets: project|$_glob" "[ \"\$(status_of \"$ROOT/srv/proj/$_rel\")\" = skipped_secret ]"
 done <"$WORK/startup-project"
 check "#454 hints kept without secrets" "hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | grep -q . && [ \"\$(hint_total \"\$SUMMARY\")\" = \"\$(hint_total \"$OUT/default/\"*.collection.json)\" ]"
+
+# 2026-11-08 exclusion and secret globs across a newline in a path (#473)
+check "#473 NoSecrets skips .claude/bridge-spawn/*/mcp.json across a newline" "[ \"\$(status_of \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\")\" = skipped_secret ]"
 
 # ---- --env-scan-home ------------------------------------------------------
 # 2026-11-06 relocation hints (#454)
@@ -3342,6 +3369,8 @@ _index=0
 while [ "$_index" -lt 300 ]; do printf 'v%s\n' "$_index" >"$BATCH_ROOT/home/carol/.claude/file-history/s1/f$_index@v1"; _index=$((_index + 1)); done
 BATCH_LOCKED=no
 if [ "$(id -u)" != 0 ]; then chmod 000 "$BATCH_DIR/m-locked.jsonl"; BATCH_LOCKED=yes; fi
+# 2026-11-08 a symlink target ending in a newline, without stat (#480)
+ln -s "tgt${NEWLINE}" "$BATCH_ROOT/home/carol/.claude/nl-target-link"
 # 2026-11-07 excluded directory whose path holds a newline (#471)
 # du prints the path after the size, so a newline in the path starts a second line.
 BATCH_NEWLINE_DIR="$BATCH_ROOT/home/carol/.claude/plugins/nl${NEWLINE}name/node_modules"
@@ -3360,7 +3389,7 @@ run batch71 --no-docker; _exit_batch=$?; BATCH_MANIFEST=$MANIFEST
 BATCH_EXTRACT="$WORK/x71"; mkdir -p "$BATCH_EXTRACT"; tar -xzf "$ARCHIVE" -C "$BATCH_EXTRACT" 2>/dev/null
 # shellcheck disable=SC2034 # read by the eval'd check expression below
 BACKSLASH_FILE="$BATCH_EXTRACT/fs/home/carol/.claude/projects/-srv-p71/back\\slash.jsonl"
-check "#71 batched run exit 0, 307 rows" "[ $_exit_batch -eq 0 ] && [ \"\$(wc -l <\"\$MANIFEST\")\" -eq 307 ]"
+check "#71 batched run exit 0, 308 rows" "[ $_exit_batch -eq 0 ] && [ \"\$(wc -l <\"\$MANIFEST\")\" -eq 308 ]"
 check "#71 plain name in the batch hashed" "[ \"\$(sha256_of_row \"$BATCH_DIR/a.jsonl\")\" = \"\$(hash_of_text 'first\\n')\" ]"
 check "#71 newline name hashed" "[ \"\$(sha256_of_row \"$BATCH_DIR/nl\\\\nname.jsonl\")\" = \"\$(hash_of_text 'newline name\\n')\" ]"
 check "#71 newline name: hash matches the archived bytes" "[ \"\$(tar -xzOf \"\$ARCHIVE\" \"./fs/home/carol/.claude/projects/-srv-p71/nl${NEWLINE}name.jsonl\" | sha256sum | cut -d' ' -f1)\" = \"\$(sha256_of_row \"$BATCH_DIR/nl\\\\nname.jsonl\")\" ]"
@@ -3394,6 +3423,27 @@ if shasum -a 256 /dev/null >/dev/null 2>&1; then
   check "#71 shasum run: manifest matches the sha256sum run" "without_atime \"\$MANIFEST\" | cmp -s - \"$WORK/nb71.txt\""
 else
   printf 'skip #71 shasum path (no shasum)\n'
+fi
+# 2026-11-08 a symlink target ending in a newline, without stat (#480)
+# A shim stat that fails makes the collector probe STAT_MODE=none, where the size
+# fallback measures the referent, not the link. A busybox with a stat applet runs
+# it before searching PATH, so a probe says whether the shim can run at all.
+NOSTAT_DIR="$WORK/nostat480"; mkdir -p "$NOSTAT_DIR"
+printf '#!/bin/sh\necho cac-stat-shim-ran\n' >"$NOSTAT_DIR/stat"; chmod +x "$NOSTAT_DIR/stat"
+case "$(PATH="$NOSTAT_DIR:$PATH" "$SHELL_UNDER_TEST" -c 'stat /' 2>/dev/null)" in
+  (cac-stat-shim-ran) STAT_SHIM_RUNS=yes ;;
+  (*) STAT_SHIM_RUNS=no ;;
+esac
+if [ "$STAT_SHIM_RUNS" = yes ]; then
+  printf '#!/bin/sh\nexit 1\n' >"$NOSTAT_DIR/stat"
+  sed "s|^PATH=\"/usr/bin:|PATH=\"$NOSTAT_DIR:/usr/bin:|" "$SCRIPT" >"$NOSTAT_DIR/collector.sh"
+  _saved_script_nostat=$SCRIPT; SCRIPT="$NOSTAT_DIR/collector.sh"
+  run nostat480 --no-docker; _exit_batch=$?
+  SCRIPT=$_saved_script_nostat
+  check "#480 no-stat run: exit 0, stat_mode none" "[ $_exit_batch -eq 0 ] && grep -q '\"stat_mode\": \"none\"' \"\$SUMMARY\""
+  check "#480 a symlink target ending in a newline is recorded whole without stat" "row \"$BATCH_ROOT/home/carol/.claude/nl-target-link\" | grep -q '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
+else
+  printf 'skip #480 no-stat path (the shell runs its own stat applet)\n'
 fi
 ROOT=$_saved_root_batch
 [ "$BATCH_LOCKED" = no ] || chmod 600 "$BATCH_DIR/m-locked.jsonl"

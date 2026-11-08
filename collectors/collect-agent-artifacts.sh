@@ -2590,13 +2590,14 @@ TAB=${TAB_AND_CARRIAGE_RETURN%?}; CARRIAGE_RETURN=${TAB_AND_CARRIAGE_RETURN#?}
 NEWLINE='
 '
 # json_escape TEXT -> TEXT as a JSON string body (backslash, double quote, tab,
-# carriage return and newline escaped); awk starts only when one is present.
+# carriage return and newline escaped); awk starts only when one is present,
+# fed one added newline, since it drops the text's last one.
 json_escape() {
   case "$1" in
     *\\*|*'"'*|*"$TAB"*|*"$CARRIAGE_RETURN"*|*"$NEWLINE"*) ;;
     *) printf '%s' "$1"; return ;;
   esac
-  printf '%s' "$1" | awk 'BEGIN{ORS=""} NR>1{printf "\\n"} {
+  printf '%s\n' "$1" | awk 'BEGIN{ORS=""} NR>1{printf "\\n"} {
     count=length($0)
     for(i=1;i<=count;i++){ char=substr($0,i,1)
       if(char=="\\") printf "\\\\"; else if(char=="\"") printf "\\\"";
@@ -2786,6 +2787,12 @@ plan_chunk() {
     if [ -L "$path" ]; then
       status=symlink; type=symlink
       target=$(readlink "$path" 2>/dev/null)
+      # $(...) strips a newline ending the target; the link's size counts the bytes,
+      # but without stat the size is the referent's, so every target is read whole.
+      if [ "$STAT_MODE" = none ] || [ "${#target}" -lt "$1" ]; then
+        whole_target=$(readlink -n "$path" 2>/dev/null; printf x); whole_target=${whole_target%x}
+        [ -z "$whole_target" ] || target=$whole_target
+      fi
       ln -s "$target" "$stage_dir/fs${path#"$root"}" 2>/dev/null
     elif [ -e "$path" ] && [ ! -f "$path" ]; then
       status=skipped_special
