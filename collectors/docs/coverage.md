@@ -142,15 +142,15 @@ A catalog path can run through a symbolic link (on Windows also a junction)
 to a directory: a home whose `.config` is a link to a dotfiles checkout
 matches `.config/<tool>` through it. The collectors never descend a link,
 but matching a path through one does follow it, so both check every
-directory between the home (or the project or volume directory being
-collected) and the matched path.
+directory between the home (or the project directory being collected) and
+the matched path.
 
 - When the link's target, with every link in its chain resolved, lies
   outside that directory, or cannot be resolved, nothing under the link is
   walked. The manifest records the link itself as one `symlink` row with its
   target, attributed to the agent of the first catalog line that reached
-  through it, unless the link lies inside another match, whose walk records
-  it. In image mode this matters most: an absolute link inside the image
+  through it, unless the link is itself a match or lies inside one, whose
+  walk records it. In image mode this matters most: an absolute link inside the image
   resolves against the analyst's own host.
 - The log names each match left unwalked, with a line such as
   `[crush] /home/bob/.cache/crush: under the symlinked directory /home/bob/.cache, which leads out of the base; not walked`.

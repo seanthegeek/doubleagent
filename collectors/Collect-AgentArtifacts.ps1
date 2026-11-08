@@ -3394,7 +3394,8 @@ function Write-GlobErrorRows([string]$user, [string]$base, $globErrors) {
 # Takes a base and a path under it; returns the first symlinked or junctioned
 # directory between them, which the glob followed, that leads outside the base
 # once its chain of links is resolved to the end or cannot be resolved, or ''
-# when there is none. The base is resolved only once a link is met. An image's
+# when there is none; a directory that cannot be read is no link, as sh's
+# lstat test says. The base is resolved only once a link is met. An image's
 # /etc -> /private/etc would read the analyst's host, while a live macOS /etc
 # stays inside /.
 function Get-LinkedParent([string]$base, [string]$path) {
@@ -3408,7 +3409,7 @@ function Get-LinkedParent([string]$base, [string]$path) {
     $directory = Join-PathSafe $directory $segments[$index]
     $extended = ConvertTo-ExtendedPath $directory
     try { $item = Get-Item -LiteralPath $extended -Force -ErrorAction Stop }
-    catch { return $directory }
+    catch { continue }
     if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { continue }
     if (-not $root) {
       $root = Get-PhysicalPath $base

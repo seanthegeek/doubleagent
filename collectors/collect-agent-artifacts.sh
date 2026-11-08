@@ -3137,10 +3137,9 @@ expand_catalog() {
 # PATH, which the shell's glob followed, leads outside BASE (/ when BASE is
 # empty) once its chain of links is resolved, or cannot be resolved; sets
 # _ret_linked_parent to the first such directory, empty when there is none.
-# BASE is resolved only once a link is met. An image's /etc -> /private/etc
-# would read the analyst's own host, while a live macOS /etc stays inside /.
-# PATH's leading components are counted off against BASE's, since posh does
-# not strip a quoted parameter inside a pattern. Temporaries: _lp_.
+# BASE is resolved only once a link is met. PATH's leading components are
+# counted off against BASE's, since posh does not strip a quoted parameter
+# inside a pattern. Temporaries: _lp_.
 linked_parent() {
   _ret_linked_parent=; _lp_base=$1/; _lp_rel=$2; _lp_dir=$1; _lp_root=
   while [ "${_lp_base#*/}" != "$_lp_base" ]; do
@@ -3191,12 +3190,12 @@ collect_catalog() {
       if [ -n "$_cc_match" ]; then log_line "$_cc_glob|$_cc_match"; else log_line "$_cc_glob"; fi
       continue
     fi
-    # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
     if linked_parent "$2" "$_cc_match"; then
       if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
       _cc_link=$_ret_linked_parent
       _cc_note="under the symlinked directory $_cc_link, which leads out of the base"
       log_line "  [$_cc_agent] $_cc_match: $_cc_note; not walked"
+      # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
       case "$_cc_links$NEWLINE" in (*"$NEWLINE$_cc_link$NEWLINE"*) continue ;; esac
       _cc_links="$_cc_links$NEWLINE$_cc_link"
       test_claimed_path "$_cc_link" "$2" && continue
