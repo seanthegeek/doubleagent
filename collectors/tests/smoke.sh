@@ -3389,7 +3389,7 @@ run batch71 --no-docker; _exit_batch=$?; BATCH_MANIFEST=$MANIFEST
 BATCH_EXTRACT="$WORK/x71"; mkdir -p "$BATCH_EXTRACT"; tar -xzf "$ARCHIVE" -C "$BATCH_EXTRACT" 2>/dev/null
 # shellcheck disable=SC2034 # read by the eval'd check expression below
 BACKSLASH_FILE="$BATCH_EXTRACT/fs/home/carol/.claude/projects/-srv-p71/back\\slash.jsonl"
-check "#71 batched run exit 0, 307 rows" "[ $_exit_batch -eq 0 ] && [ \"\$(wc -l <\"\$MANIFEST\")\" -eq 307 ]"
+check "#71 batched run exit 0, 308 rows" "[ $_exit_batch -eq 0 ] && [ \"\$(wc -l <\"\$MANIFEST\")\" -eq 308 ]"
 check "#71 plain name in the batch hashed" "[ \"\$(sha256_of_row \"$BATCH_DIR/a.jsonl\")\" = \"\$(hash_of_text 'first\\n')\" ]"
 check "#71 newline name hashed" "[ \"\$(sha256_of_row \"$BATCH_DIR/nl\\\\nname.jsonl\")\" = \"\$(hash_of_text 'newline name\\n')\" ]"
 check "#71 newline name: hash matches the archived bytes" "[ \"\$(tar -xzOf \"\$ARCHIVE\" \"./fs/home/carol/.claude/projects/-srv-p71/nl${NEWLINE}name.jsonl\" | sha256sum | cut -d' ' -f1)\" = \"\$(sha256_of_row \"$BATCH_DIR/nl\\\\nname.jsonl\")\" ]"
