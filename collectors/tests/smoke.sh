@@ -2042,13 +2042,21 @@ printf '{}\n' >"$BRACKET_HOME/.claude.json.backup"
 printf 'CODEX_HOME=/opt/x; export CODEX_HOME\n' >"$BRACKET_HOME/.profile"
 
 # 2026-11-08 credential sweep (#246)
-# One OAuth provider token file under each Agent Zero base: two home installs and
-# both forms of the a0_usr volume.
+# One OAuth provider token file and the staged copy a cut-short write leaves under
+# each Agent Zero base (two home installs and both forms of the a0_usr volume), and
+# the Codex provider's token file under the home installs.
 AGENT_ZERO_OAUTH=plugins/_oauth/github_copilot/auth.json
+AGENT_ZERO_OAUTH_STAGED=plugins/_oauth/github_copilot/.auth.json.4242.0a1b2c3d4e5f6071.tmp
+AGENT_ZERO_CODEX=plugins/_oauth/codex/auth.json
 for _oauth_base in "$ALICE/agent-zero/main/usr" "$ALICE/Desktop/agent-zero/usr" "$VOLUMES/a0_usr/_data" \
   "$VOLUMES/a0_usr/_data/usr"; do
   mkdir -p "$_oauth_base/${AGENT_ZERO_OAUTH%/*}"
   printf '{"access":"x","refresh":"x"}\n' >"$_oauth_base/$AGENT_ZERO_OAUTH"
+  printf '{"access":"x","refresh":"x"}\n' >"$_oauth_base/$AGENT_ZERO_OAUTH_STAGED"
+done
+for _oauth_base in "$ALICE/agent-zero/main/usr" "$ALICE/Desktop/agent-zero/usr"; do
+  mkdir -p "$_oauth_base/${AGENT_ZERO_CODEX%/*}"
+  printf '{"tokens":{"access_token":"x"}}\n' >"$_oauth_base/$AGENT_ZERO_CODEX"
 done
 
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
@@ -2736,6 +2744,9 @@ check "#486 a startup file under a home holding [ is searched" "row \"$BRACKET_H
 # 2026-11-08 credential sweep (#246)
 check "#246 Agent Zero OAuth provider auth.json flagged secret" "row \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_OAUTH\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_OAUTH\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED'"
 check "#246 Agent Zero volume OAuth provider auth.json flagged secret" "row \"$VOLUMES/a0_usr/_data/$AGENT_ZERO_OAUTH\" | contains '\"user\":\"docker\".*\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$VOLUMES/a0_usr/_data/usr/$AGENT_ZERO_OAUTH\" | contains '\"user\":\"docker\".*\"agent\":\"agent-zero\".*$SECRET_COLLECTED'"
+check "#246 Agent Zero OAuth provider staged auth.json copy flagged secret" "row \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_OAUTH_STAGED\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_OAUTH_STAGED\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED'"
+check "#246 Agent Zero volume OAuth provider staged auth.json copy flagged secret" "row \"$VOLUMES/a0_usr/_data/$AGENT_ZERO_OAUTH_STAGED\" | contains '\"user\":\"docker\".*\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$VOLUMES/a0_usr/_data/usr/$AGENT_ZERO_OAUTH_STAGED\" | contains '\"user\":\"docker\".*\"agent\":\"agent-zero\".*$SECRET_COLLECTED'"
+check "#246 Agent Zero Codex provider auth.json flagged secret" "row \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_CODEX\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_CODEX\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED'"
 # 2026-11-08 credential sweep (#249)
 check "#249 Tabby volume config.toml flagged secret" "row \"$ALICE/.local/share/docker/volumes/tabby_data/_data/config.toml\" | contains '\"user\":\"docker\".*\"agent\":\"tabby\".*$SECRET_COLLECTED'"
 # An image root holding [ finds its homes through home/*, with no passwd file.
@@ -2887,6 +2898,9 @@ check "#473 NoSecrets skips .claude/bridge-spawn/*/mcp.json across a newline" "[
 # 2026-11-08 credential sweep (#246)
 check "#246 Agent Zero OAuth provider auth.json skipped without secrets" "[ \"\$(status_of \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_OAUTH\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_OAUTH\")\" = skipped_secret ]"
 check "#246 Agent Zero volume OAuth provider auth.json skipped without secrets" "[ \"\$(status_of \"$VOLUMES/a0_usr/_data/$AGENT_ZERO_OAUTH\")\" = skipped_secret ] && [ \"\$(status_of \"$VOLUMES/a0_usr/_data/usr/$AGENT_ZERO_OAUTH\")\" = skipped_secret ]"
+check "#246 Agent Zero OAuth provider staged auth.json copy skipped without secrets" "[ \"\$(status_of \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_OAUTH_STAGED\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_OAUTH_STAGED\")\" = skipped_secret ]"
+check "#246 Agent Zero volume OAuth provider staged auth.json copy skipped without secrets" "[ \"\$(status_of \"$VOLUMES/a0_usr/_data/$AGENT_ZERO_OAUTH_STAGED\")\" = skipped_secret ] && [ \"\$(status_of \"$VOLUMES/a0_usr/_data/usr/$AGENT_ZERO_OAUTH_STAGED\")\" = skipped_secret ]"
+check "#246 Agent Zero Codex provider auth.json skipped without secrets" "[ \"\$(status_of \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_CODEX\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_CODEX\")\" = skipped_secret ]"
 # 2026-11-08 credential sweep (#249)
 check "#249 Tabby volume config.toml skipped without secrets" "[ \"\$(status_of \"$ALICE/.local/share/docker/volumes/tabby_data/_data/config.toml\")\" = skipped_secret ]"
 
@@ -3249,7 +3263,7 @@ check "inventory nested entry claimed from the enclosing agent" "agent_line inve
 check "inventory: matched directory with no files of its own gives no line" "[ -z \"\$(agent_line inventory bob gemini-cli)\" ] && agent_line inventory bob antigravity | contains '\"files\":1,\"bytes\":3,.*\"evidence\":\".gemini/antigravity-cli\"}\$'"
 check "inventory: no agent line has zero files" "! grep -q '\"files\":0,' \"$OUT/inventory.stdout\""
 check "inventory projects counted per user" "agent_line inventory alice claude-code | contains '\"projects\":[1-9]'"
-check "inventory docker volume line" "agent_line inventory docker agent-zero | contains '\"files\":7,\"bytes\":152,.*\"projects\":0,\"evidence\":\"\\*a0_usr\"}\$'"
+check "inventory docker volume line" "agent_line inventory docker agent-zero | contains '\"files\":9,\"bytes\":210,.*\"projects\":0,\"evidence\":\"\\*a0_usr\"}\$'"
 check "inventory rootless docker volume line" "agent_line inventory docker tabby | contains '\"files\":2,\"bytes\":55,.*\"evidence\":\"\\*tabby\\*\"}\$'"
 check "inventory shared not inventoried" "! grep -q '\"agent\":\"\\(shared\\|project\\|live\\)\"' \"$OUT/inventory.stdout\""
 check "inventory prints no path below a home" "! grep -q '$ROOT' \"$OUT/inventory.stdout\""

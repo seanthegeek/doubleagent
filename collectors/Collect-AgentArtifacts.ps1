@@ -2017,7 +2017,9 @@ Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
 agent-zero*/usr/plugins/*/config.json
 Desktop/agent-zero*/usr/plugins/*/config.json
 agent-zero*/usr/plugins/_oauth/*/auth.json
+agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp
 Desktop/agent-zero*/usr/plugins/_oauth/*/auth.json
+Desktop/agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp
 agent-zero*/tmp/whatsapp/session/*
 Desktop/agent-zero*/tmp/whatsapp/session/*
 .agent-zero/.env
@@ -2071,6 +2073,7 @@ plugins/_desktop/profiles/*/.ssh/*
 plugins/_desktop/profiles/*/.gnupg/*
 plugins/*/config.json
 plugins/_oauth/*/auth.json
+plugins/_oauth/*/.auth.json.*.tmp
 usr/.env
 usr/secrets.env
 usr/settings.json
@@ -2079,6 +2082,7 @@ usr/plugins/_desktop/profiles/*/.ssh/*
 usr/plugins/_desktop/profiles/*/.gnupg/*
 usr/plugins/*/config.json
 usr/plugins/_oauth/*/auth.json
+usr/plugins/_oauth/*/.auth.json.*.tmp
 tmp/secrets.env
 tmp/settings.json
 tmp/whatsapp/session/*
