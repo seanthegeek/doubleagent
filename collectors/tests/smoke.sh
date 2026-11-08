@@ -1989,6 +1989,12 @@ printf '{}\n' >"$ROOT/opt/linked-cache/claude/settings.json"
 printf 'x\n' >"$ROOT/opt/linked-pi/approved-plan.md"
 ln -s ../../opt/linked-cache "$BOB/.cache"
 ln -s ../../opt/linked-pi "$BOB/.pi"
+# A link to the sibling directory named like the home plus a newline leads out
+# of the home: the resolved path keeps its final newline.
+NL_HOME="$ROOT/home/nl"
+mkdir -p "$NL_HOME" "$ROOT/home/nl${NEWLINE}/crush"
+printf '{}\n' >"$ROOT/home/nl${NEWLINE}/crush/crush.json"
+ln -s "../nl${NEWLINE}" "$NL_HOME/.cache"
 printf 'x\n' >"$BOB/dotfiles/camel/skills/s1/SKILL.md"
 ln -s dotfiles/camel "$BOB/.camel"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
@@ -2675,6 +2681,7 @@ check "#480 a symlink target ending in a newline is recorded whole" "row \"$ALIC
 check "#467 a catalog entry under a symlinked directory leaving the home is not walked" "! grep -qF '\"path\":\"$BOB/.cache/' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$ROOT/opt/linked-cache' \"\$MANIFEST\""
 check "#467 the symlinked directory is recorded once, as a symlink with its target, under the first agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.cache\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.cache\" | contains '\"agent\":\"claude-code\".*\"status\":\"symlink\",\"target\":\"../../opt/linked-cache\"'"
 check "#467 the log names each match under the symlinked directory" "grep -qF '[claude-code] $BOB/.cache/claude: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\" && grep -qF '[crush] $BOB/.cache/crush: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#467 a link to a sibling named like the home plus a newline leads out of the home" "! grep -qF '\"path\":\"$NL_HOME/.cache/' \"\$MANIFEST\" && row \"$NL_HOME/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\"'"
 check "#467 a symlinked directory that is itself a match has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.pi\" | contains '\"agent\":\"pi\".*\"status\":\"symlink\"' && [ -z \"\$(row \"$BOB/.pi/approved-plan.md\")\" ]"
 check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"'"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)

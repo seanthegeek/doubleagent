@@ -3144,7 +3144,8 @@ expand_catalog() {
 # PATH, which the shell's glob followed, leads outside BASE (/ when BASE is
 # empty) once its chain of links is resolved, or cannot be resolved; sets
 # _ret_linked_parent to the first such directory, empty when there is none.
-# BASE is resolved only once a link is met. PATH's leading components are
+# BASE is resolved only once a link is met; a sentinel keeps a final newline
+# of a resolved path, which $(...) would drop. PATH's leading components are
 # counted off against BASE's, since posh does not strip a quoted parameter
 # inside a pattern. Temporaries: _lp_.
 linked_parent() {
@@ -3157,10 +3158,11 @@ linked_parent() {
     [ -L "$_lp_dir" ] || continue
     _ret_linked_parent=$_lp_dir
     if [ -z "$_lp_root" ]; then
-      _lp_root=$(cd -P "${1:-/}" 2>/dev/null && pwd -P) || return 0
-      _lp_root=${_lp_root%/}/
+      _lp_root=$(cd -P "${1:-/}" 2>/dev/null && pwd -P && printf x) || return 0
+      _lp_root=${_lp_root%x}; _lp_root=${_lp_root%?}; _lp_root=${_lp_root%/}/
     fi
-    _lp_real=$(cd -P "$_lp_dir" 2>/dev/null && pwd -P) || return 0
+    _lp_real=$(cd -P "$_lp_dir" 2>/dev/null && pwd -P && printf x) || return 0
+    _lp_real=${_lp_real%x}; _lp_real=${_lp_real%?}
     case "$_lp_real/" in ("$_lp_root"*) ;; (*) return 0 ;; esac
   done
   _ret_linked_parent=

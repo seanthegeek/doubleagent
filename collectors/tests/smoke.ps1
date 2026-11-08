@@ -1912,6 +1912,16 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.pi') -Target (ImagePath 'elsewhere/linkedpi') -ErrorAction Stop | Out-Null
   $piLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #467 linked-match check skipped' }
+# A link to the sibling directory named like the home plus a newline leads out of the home.
+$newlineSiblingLinkOk = $false
+if ($env:OS -ne 'Windows_NT') {
+  MakeFile "home/nl$newlineChar/crush/crush.json" '{}'
+  [void][System.IO.Directory]::CreateDirectory((ImagePath 'home/nl'))
+  try {
+    New-Item -ItemType SymbolicLink -Path (ImagePath 'home/nl/.cache') -Target "../nl$newlineChar" -ErrorAction Stop | Out-Null
+    $newlineSiblingLinkOk = $true
+  } catch { Write-Output 'note: symlink creation not permitted here, #467 newline sibling check skipped' }
+} else { Write-Output 'note: #467 newline sibling check skipped (no newline in a Windows name)' }
 MakeFile 'home/bob/dotfiles/camel/skills/s1/SKILL.md' 'x'
 $camelLinkOk = $false
 try {
@@ -2918,6 +2928,10 @@ if ($cacheLinkOk) {
   Check '#467 a catalog entry under a symlinked directory leaving the home is not walked' { @($script:Rows | Where-Object { $_.path.StartsWith($linkedCache + $Separator) -or $_.path.StartsWith($linkedCacheTarget) }).Count -eq 0 }
   Check '#467 the symlinked directory is recorded once, as a symlink with its target, under the first agent' { $linkRows = RowsAt 'home/bob/.cache'; $linkRows.Count -eq 1 -and $linkRows[0].agent -eq 'claude-code' -and $linkRows[0].status -eq 'symlink' -and ($linkRows[0].target -replace '\\', '/') -like '*/elsewhere/linkedcache' }
   Check '#467 the log names each match under the symlinked directory' { $defaultLog.Contains("[claude-code] $(ImagePath 'home/bob/.cache/claude'): under the symlinked directory ${linkedCache}, which leads out of the base; not walked") -and $defaultLog.Contains("[crush] $(ImagePath 'home/bob/.cache/crush'): under the symlinked directory ${linkedCache}, which leads out of the base; not walked") }
+}
+if ($newlineSiblingLinkOk) {
+  $newlineSiblingCache = ImagePath 'home/nl/.cache'
+  Check '#467 a link to a sibling named like the home plus a newline leads out of the home' { $siblingRows = RowsAt 'home/nl/.cache'; $siblingRows.Count -eq 1 -and $siblingRows[0].agent -eq 'crush' -and $siblingRows[0].status -eq 'symlink' -and @($script:Rows | Where-Object { $_.path.StartsWith($newlineSiblingCache + $Separator) }).Count -eq 0 }
 }
 if ($piLinkOk) {
   Check '#467 a symlinked directory that is itself a match has one row, its own agent' { $piRows = RowsAt 'home/bob/.pi'; $piRows.Count -eq 1 -and $piRows[0].agent -eq 'pi' -and $piRows[0].status -eq 'symlink' -and (RowsAt 'home/bob/.pi/approved-plan.md').Count -eq 0 }
