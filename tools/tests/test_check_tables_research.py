@@ -361,10 +361,6 @@ def test_credential_sibling_below_a_vendor_directory(tmp_path):
         "alpha|Library/Application Support/alpha\n",
         "alpha|Library/Application Support/alpha\nalpha|AppData/Roaming/Vendor/alpha/config\n",
     )
-    # `.alpha` pairs with the Windows directory as well, so its `auth.json` is flagged there.
-    catalog = catalog.replace(
-        ".alpha/auth.json\n", ".alpha/auth.json\nAppData/Roaming/Vendor/alpha/config/auth.json\n"
-    )
     alpha = ALPHA.replace(
         "on macOS.", "on macOS and `~/AppData/Roaming/Vendor/alpha/config` on Windows."
     )
@@ -507,24 +503,31 @@ def test_base_form_forms():
         assert checker.base_form(glob) == form, glob
 
 
-def test_vendor_segment_forms():
+def test_vendor_form_forms():
+    windows = {"home", "config", "data", "cache"}
+    macos = {"home", "config", "data", "state"}
     cases = [
-        ("AppData/Roaming/Block/goose/config", False, "goose"),
-        ("AppData/Roaming/Block/goose/data", False, "goose"),
-        ("Library/Application Support/Block/goose", False, "goose"),
-        ("AppData/Local/Block/goose/cache/*", False, ""),
-        ("AppData/Roaming/Vendor/Deep/goose/config", False, ""),
-        ("AppData/Local/langflow/langflow/Cache", False, "langflow"),
-        (".config/goose", False, ""),
-        (".var/app/dev.zed.Zed/config/zed", False, ""),
-        (".ollama", False, ""),
-        ("Claude", False, ""),
-        ("AppData/Roaming/Block/Goose/config", False, "goose"),
-        ("AppData/Roaming/Block/Goose/config", True, "Goose"),
-        ("Library/Application Support/Vendor/.tool", False, "tool"),
+        ("AppData/Roaming/Block/goose/config", False, "goose", {"config"}),
+        ("AppData/Roaming/Block/goose/data", False, "goose", {"data"}),
+        ("AppData/Roaming/Block/goose/Logs", False, "goose", {"logs"}),
+        ("AppData/Roaming/Block/goose/other", False, "", set()),
+        ("Library/Application Support/Block/goose", False, "goose", macos),
+        ("AppData/Local/Block/goose/cache/*", False, "", set()),
+        ("AppData/Roaming/Vendor/Deep/goose/config", False, "", set()),
+        ("AppData/Local/langflow/langflow/Cache", False, "langflow", {"cache"}),
+        ("AppData/Local/Temp/Vendor/tool", False, "", set()),
+        (".config/goose", False, "", set()),
+        (".config/Code/User", False, "user", {"config"}),
+        (".var/app/dev.zed.Zed/config/zed", False, "", set()),
+        (".ollama", False, "", set()),
+        ("Claude", False, "", set()),
+        ("AppData/Roaming/Block/Goose/config", False, "goose", {"config"}),
+        ("AppData/Roaming/Block/Goose/config", True, "Goose", {"config"}),
+        ("Library/Application Support/Vendor/.tool", False, "tool", macos),
+        ("AppData/Local/Vendor/tool", False, "tool", windows),
     ]
-    for glob, keep_case, expected in cases:
-        assert checker.vendor_segment(glob, keep_case) == expected, glob
+    for glob, keep_case, segment, kinds in cases:
+        assert checker.vendor_form(glob, keep_case) == (segment, kinds), glob
 
 
 def test_sibling_bases_forms():
@@ -569,11 +572,12 @@ def test_sibling_bases_forms():
     found = checker.sibling_bases(goose[0], goose, named)
     assert [entry.glob for entry in found] == [
         "AppData/Roaming/Block/goose/config",
-        "AppData/Roaming/Block/goose/data",
         "Library/Application Support/Block/goose",
     ]
     state = [line(".local/state/goose"), line("AppData/Roaming/Block/goose/data")]
     assert checker.sibling_bases(state[0], state, ["AppData/Roaming/Block/goose/data"]) == []
+    cache = [line(".langflow"), line("AppData/Local/langflow/langflow/Cache")]
+    assert checker.sibling_bases(cache[0], cache, ["AppData/Local/langflow/langflow/Cache"]) == []
 
 
 def test_sibling_bases_keep_case():
@@ -662,7 +666,6 @@ def test_credential_paths_forms():
         [".config/alpha/token.json"],
         [
             "AppData/Roaming/Vendor/alpha/config/token.json",
-            "AppData/Roaming/Vendor/alpha/data/token.json",
         ],
     ]
 

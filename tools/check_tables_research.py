@@ -116,6 +116,14 @@ BASE_FORMS = (
 )
 # A dot directory directly under the home is the tool's directory on Linux and macOS alike.
 PLATFORMS_COVERED = {"unix": {"linux", "macos"}}
+# The kinds of state a vendor-form entry's third segment names (`Block/goose/config`).
+VENDOR_KINDS = {
+    "config": {"config"},
+    "data": {"data"},
+    "state": {"state"},
+    "cache": {"cache"},
+    "logs": {"logs"},
+}
 
 
 # --- Heuristics ------------------------------------------------------------------------------
@@ -178,25 +186,30 @@ def base_segment(glob: str, keep_case: bool) -> str:
     return segment if keep_case else segment.casefold()
 
 
-def vendor_segment(glob: str, keep_case: bool) -> str:
-    """Return the tool's segment of a home entry below a vendor directory, or `""`.
+def vendor_form(glob: str, keep_case: bool) -> tuple[str, set[str]]:
+    """Return the tool's segment and kinds of state of a home entry in the vendor form.
 
-    Below the platform directory a `BASE_FORMS` pattern matches, such an entry holds the
-    maker's segment, the tool's and at most one more; the tool's is returned with a leading
-    `.` dropped, case-folded unless kept: `AppData/Roaming/Block/goose/config` and
-    `Library/Application Support/Block/goose` give `goose`. An entry with no vendor directory
-    (`.config/goose`) or deeper below the tool's (`AppData/Local/Block/goose/cache/*`) gives
-    `""`, since a path derived from it would not be the tool's directory.
+    The vendor form is a platform directory a `BASE_FORMS` pattern matches, then two segments,
+    taken as the maker's and the tool's (`Library/Application Support/Block/goose`), or three
+    where the third names a kind of state in `VENDOR_KINDS`
+    (`AppData/Roaming/Block/goose/config`). The tool's segment comes back with a leading `.`
+    dropped, case-folded unless kept, with the third segment's kind or, without one, the
+    platform directory's kinds. Any other entry (`.config/goose`,
+    `AppData/Local/Block/goose/cache/*`, `AppData/Roaming/Block/goose/other`) gives `""`.
     """
-    for pattern, _platform, _kinds in BASE_FORMS:
+    for pattern, _platform, kinds in BASE_FORMS:
         match = pattern.match(glob)
-        if match:
-            below = [part for part in glob[match.end() :].split("/") if part]
-            if len(below) not in (2, 3):
-                return ""
-            segment = below[1].lstrip(".")
-            return segment if keep_case else segment.casefold()
-    return ""
+        if not match:
+            continue
+        below = [part for part in glob[match.end() :].split("/") if part]
+        form_kinds = set(kinds)
+        if len(below) == 3:
+            form_kinds = set(VENDOR_KINDS.get(below[2].casefold(), set()))
+        if len(below) not in (2, 3) or not form_kinds:
+            return "", set()
+        segment = below[1].lstrip(".")
+        return (segment if keep_case else segment.casefold()), form_kinds
+    return "", set()
 
 
 def case_distinguishes(entries: Iterable[TableLine]) -> bool:
@@ -225,13 +238,13 @@ def sibling_bases(
 ) -> list[TableLine]:
     """Return the other platform forms of a base directory among an agent's home entries.
 
-    A sibling ends in the base's last segment with a leading `.` dropped, or holds it below a
-    vendor directory (`vendor_segment`), as written when case tells the agent's directories
-    apart (`case_distinguishes`); it is on a platform the base's does not cover
-    (`PLATFORMS_COVERED`), shares a kind of state (`base_form`) and a Per-user storage span
-    names it (`names_glob`). `.config/Claude` has `Library/Application Support/Claude`,
-    `.config/goose` has `AppData/Roaming/Block/goose/config`; `.config/zed` has no
-    `.local/share/zed`.
+    A sibling ends in the base's last segment with a leading `.` dropped, or holds it as the
+    tool's segment of the vendor form (`vendor_form`), compared as written when case tells the
+    agent's directories apart (`case_distinguishes`) and case-folded otherwise; it is on a
+    platform the base's does not cover (`PLATFORMS_COVERED`), shares a kind of state with the
+    base (`base_form`, or the vendor form's kinds) and a Per-user storage span names it
+    (`names_glob`). `.config/Claude` has `Library/Application Support/Claude`, `.config/goose`
+    has `AppData/Roaming/Block/goose/config` but not `.../goose/data` or `.local/share/goose`.
     """
     spans = list(named)
     entries = list(entries)
@@ -241,9 +254,13 @@ def sibling_bases(
     covered = PLATFORMS_COVERED.get(platform, {platform})
     found: list[TableLine] = []
     for entry in entries:
-        if last not in (base_segment(entry.glob, keep_case), vendor_segment(entry.glob, keep_case)):
+        plain = base_segment(entry.glob, keep_case) == last
+        vendor, vendor_kinds = vendor_form(entry.glob, keep_case)
+        if not plain and vendor != last:
             continue
         other_platform, other_kinds = base_form(entry.glob)
+        if not plain:
+            other_kinds = vendor_kinds
         if covered & PLATFORMS_COVERED.get(other_platform, {other_platform}):
             continue
         if kinds & other_kinds and names_glob(entry.glob, spans):
