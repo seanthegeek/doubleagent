@@ -1628,7 +1628,7 @@ down.
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
-| branch coverage of changed parser lines | coverage.py 7.17.0 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
+| branch coverage of changed parser lines | coverage.py 7.17.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
 | fork budget | none pinned: the `ubuntu-24.04` runner's dash and strace | `python3 tools/check_fork_budget.py --base origin/main` | `collectors/tests/fork-budget.txt`; `--update-budget` rewrites it |
 | code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
