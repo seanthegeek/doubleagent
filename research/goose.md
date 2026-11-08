@@ -117,7 +117,9 @@ the built-in MCP servers ignore it and keep the cache directory
 The comment at
 [`paths.rs:19-21`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/config/paths.rs#L19-L21)
 names `Library/Application Support/Block/goose` as a legacy macOS location; no code at the
-reviewed commit reads or migrates it.
+reviewed commit reads or migrates it. The comment calls it an earlier config and data
+directory; which files an older build left there is shown by no source read, and no secret
+glob names a file under it.
 
 #### Scratch directories
 

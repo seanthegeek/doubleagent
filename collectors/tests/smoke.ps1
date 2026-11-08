@@ -554,6 +554,20 @@ secret||.nanobot-work/whatsapp-auth/a1
 secret||.nanobot/matrix-store/s1
 agent|nanobot|.nanobot-work/sessions/0123456789abcdef0123456789abcdef/Y2xpOmRpcmVjdA.jsonl
 agent|nanobot|Library/LaunchAgents/ai.nanobot.gateway.plist
+secret||.local/share/nanobot/auth/github-copilot.json
+secret||Library/Application Support/nanobot/auth/github-copilot.json
+secret||AppData/Local/nanobot/auth/github-copilot.json
+secret||.local/share/oauth-cli-kit/auth/codex.json
+secret||Library/Application Support/oauth-cli-kit/auth/codex.json
+secret||AppData/Local/oauth-cli-kit/auth/codex.json
+secret||.local/share/amp/ide/c1.json
+agent|nanobot|.local/share/nanobot/auth/github-copilot.json
+agent|nanobot|Library/Application Support/nanobot/auth/github-copilot.json
+agent|nanobot|AppData/Local/nanobot/auth/github-copilot.json
+agent|nanobot|.local/share/oauth-cli-kit/auth/codex.json
+agent|nanobot|Library/Application Support/oauth-cli-kit/auth/codex.json
+agent|nanobot|AppData/Local/oauth-cli-kit/auth/codex.json
+agent|amp|.local/share/amp/ide/c1.json
 excl||agent-zero/.venv
 excl||Desktop/agent-zero/.conda
 excl||agent-zero/main/.git
@@ -913,6 +927,7 @@ MakeFile 'var/lib/docker/volumes/a0_usr/_data/tmp/playwright/junk' 'junk'
 MakeFile 'var/lib/docker/volumes/pgdata/_data/x' 'pg'
 MakeFile 'var/lib/docker/volumes/metadata.db' 'metadata'
 MakeFile 'Users/alice/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json' '{"event":"completion"}'
+MakeFile 'Users/alice/.local/share/docker/volumes/tabby_data/_data/config.toml' "[model.chat.http]`napi_key = `"x`"`n"
 # --- 2026-10-04 Muse Code
 $CasesMuse = @'
 excl||.local/share/muse/plugins/cache/builtin
@@ -1951,6 +1966,22 @@ MakeFile 'home/u[1]/.gemini/tmp/bin/rg' 'x'
 MakeFile 'home/u1/.gemini/projects.json' '{}'
 MakeFile 'home/u[1]/.claude.json.backup' '{}'
 MakeFile 'home/u[1]/.profile' "CODEX_HOME=/opt/x; export CODEX_HOME`n"
+# 2026-11-08 credential sweep (#246)
+# One OAuth provider token file and the staged copy a cut-short write leaves under
+# each Agent Zero base (two home installs and both forms of the a0_usr volume), and
+# the Codex provider's token file under the home installs.
+$agentZeroOauth = 'plugins/_oauth/github_copilot/auth.json'
+$agentZeroOauthStaged = 'plugins/_oauth/github_copilot/.auth.json.a1b2c3d4.tmp'
+$agentZeroCodex = 'plugins/_oauth/codex/auth.json'
+$agentZeroOauthBases = @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop/agent-zero/usr',
+  'var/lib/docker/volumes/a0_usr/_data', 'var/lib/docker/volumes/a0_usr/_data/usr')
+foreach ($oauthBase in $agentZeroOauthBases) {
+  MakeFile "$oauthBase/$agentZeroOauth" '{"access":"x","refresh":"x"}'
+  MakeFile "$oauthBase/$agentZeroOauthStaged" '{"access":"x","refresh":"x"}'
+}
+foreach ($oauthBase in @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop/agent-zero/usr')) {
+  MakeFile "$oauthBase/$agentZeroCodex" '{"tokens":{"access_token":"x"}}'
+}
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2964,6 +2995,15 @@ Check '#486 no row of the home holding [ lies under the home its pattern matches
 Check '#486 the home its pattern matches keeps its own file' { $patternRows = RowsAt 'home/u1/.gemini/projects.json'; $patternRows.Count -eq 1 -and $patternRows[0].user -ceq 'u1' }
 Check '#486 a wildcard entry matches under a home holding [' { IsAgentRow 'home/u[1]/.claude.json.backup' 'claude-code' $true }
 Check '#486 a startup file under a home holding [ is searched' { IsAgentRow 'home/u[1]/.profile' 'shared' $true }
+# 2026-11-08 credential sweep (#246)
+Check '#246 Agent Zero OAuth provider auth.json flagged secret' { (IsAgentRow "Users/alice/agent-zero/main/usr/$agentZeroOauth" 'agent-zero' $true) -and (IsAgentRow "Users/alice/Desktop/agent-zero/usr/$agentZeroOauth" 'agent-zero' $true) }
+Check '#246 Agent Zero volume OAuth provider auth.json flagged secret' { (IsAgentRow "$agentZeroVolume/$agentZeroOauth" 'agent-zero' $true) -and (Row "$agentZeroVolume/$agentZeroOauth").user -eq 'docker' -and (IsAgentRow "$agentZeroVolume/usr/$agentZeroOauth" 'agent-zero' $true) -and (Row "$agentZeroVolume/usr/$agentZeroOauth").user -eq 'docker' }
+Check '#246 Agent Zero OAuth provider staged auth.json copy flagged secret' { (IsAgentRow "Users/alice/agent-zero/main/usr/$agentZeroOauthStaged" 'agent-zero' $true) -and (IsAgentRow "Users/alice/Desktop/agent-zero/usr/$agentZeroOauthStaged" 'agent-zero' $true) }
+Check '#246 Agent Zero volume OAuth provider staged auth.json copy flagged secret' { (IsAgentRow "$agentZeroVolume/$agentZeroOauthStaged" 'agent-zero' $true) -and (Row "$agentZeroVolume/$agentZeroOauthStaged").user -eq 'docker' -and (IsAgentRow "$agentZeroVolume/usr/$agentZeroOauthStaged" 'agent-zero' $true) -and (Row "$agentZeroVolume/usr/$agentZeroOauthStaged").user -eq 'docker' }
+Check '#246 Agent Zero Codex provider auth.json flagged secret' { (IsAgentRow "Users/alice/agent-zero/main/usr/$agentZeroCodex" 'agent-zero' $true) -and (IsAgentRow "Users/alice/Desktop/agent-zero/usr/$agentZeroCodex" 'agent-zero' $true) }
+# 2026-11-08 credential sweep (#249)
+$tabbyVolumeConfig = 'Users/alice/.local/share/docker/volumes/tabby_data/_data/config.toml'
+Check '#249 Tabby volume config.toml flagged secret' { (IsAgentRow $tabbyVolumeConfig 'tabby' $true) -and (Row $tabbyVolumeConfig).user -eq 'docker' }
 # An image root holding [ finds its homes through home, with no passwd file.
 $PatternRoot = [System.IO.Path]::Combine($Work, 'r[1]')
 $PatternDir = [System.IO.Path]::Combine($PatternRoot, 'home', 'carol', '.gemini')
@@ -3114,6 +3154,15 @@ if ($env:OS -ne 'Windows_NT') {
   $row = $script:Rows | Where-Object { $_.path -ceq $newlineSecret } | Select-Object -First 1
   Check '#473 NoSecrets skips .claude/bridge-spawn/*/mcp.json across a newline' { $row -and $row.status -eq 'skipped_secret' }
 }
+
+# 2026-11-08 credential sweep (#246)
+Check '#246 Agent Zero OAuth provider auth.json skipped without secrets' { (StatusOf "Users/alice/agent-zero/main/usr/$agentZeroOauth") -eq 'skipped_secret' -and (StatusOf "Users/alice/Desktop/agent-zero/usr/$agentZeroOauth") -eq 'skipped_secret' }
+Check '#246 Agent Zero volume OAuth provider auth.json skipped without secrets' { (StatusOf "$agentZeroVolume/$agentZeroOauth") -eq 'skipped_secret' -and (StatusOf "$agentZeroVolume/usr/$agentZeroOauth") -eq 'skipped_secret' }
+Check '#246 Agent Zero OAuth provider staged auth.json copy skipped without secrets' { (StatusOf "Users/alice/agent-zero/main/usr/$agentZeroOauthStaged") -eq 'skipped_secret' -and (StatusOf "Users/alice/Desktop/agent-zero/usr/$agentZeroOauthStaged") -eq 'skipped_secret' }
+Check '#246 Agent Zero volume OAuth provider staged auth.json copy skipped without secrets' { (StatusOf "$agentZeroVolume/$agentZeroOauthStaged") -eq 'skipped_secret' -and (StatusOf "$agentZeroVolume/usr/$agentZeroOauthStaged") -eq 'skipped_secret' }
+Check '#246 Agent Zero Codex provider auth.json skipped without secrets' { (StatusOf "Users/alice/agent-zero/main/usr/$agentZeroCodex") -eq 'skipped_secret' -and (StatusOf "Users/alice/Desktop/agent-zero/usr/$agentZeroCodex") -eq 'skipped_secret' }
+# 2026-11-08 credential sweep (#249)
+Check '#249 Tabby volume config.toml skipped without secrets' { (StatusOf $tabbyVolumeConfig) -eq 'skipped_secret' }
 
 # ---- -Full ----------------------------------------------------------------
 Run 'full' @{ Full = $true }
@@ -3497,9 +3546,9 @@ $museFiles = -1
 $row = InventoryAgent 'alice' 'muse-code'
 if ($row) { $museFiles = $row.files }
 $row = InventoryAgent 'docker' 'agent-zero'
-Check 'Inventory docker volume line' { $row -and $row.files -eq 5 -and $row.bytes -eq 89 -and $row.projects -eq 0 -and $row.evidence -eq '*a0_usr' }
+Check 'Inventory docker volume line' { $row -and $row.files -eq 9 -and $row.bytes -eq 201 -and $row.projects -eq 0 -and $row.evidence -eq '*a0_usr' }
 $row = InventoryAgent 'docker' 'tabby'
-Check 'Inventory rootless docker volume line' { $row -and $row.files -eq 1 -and $row.bytes -eq 22 -and $row.evidence -eq '*tabby*' }
+Check 'Inventory rootless docker volume line' { $row -and $row.files -eq 2 -and $row.bytes -eq 54 -and $row.evidence -eq '*tabby*' }
 Check 'Inventory shared not inventoried' { -not ($script:Inventory | Where-Object { $_.type -eq 'agent' } | Where-Object { @('shared', 'project', 'live') -contains $_.agent }) }
 # 2026-10-19 Codex projectless output directories (#149)
 Check '#149 inventory codex-cli evidence names Documents/Codex' { (InventoryAgent 'bob' 'codex-cli').evidence -like '*Documents/Codex*' }

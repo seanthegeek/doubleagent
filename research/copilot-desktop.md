@@ -1080,7 +1080,8 @@ Windows build, `cliVersion.d.ts` and `sdkProtocolVersion.d.ts`).
 
 ### Secrets
 
-- `accounts.access_token` and `settings.github_access_token` (with
+- In the store `.copilot/data.db`, `accounts.access_token` and
+  `settings.github_access_token` (with
   `github_token_type`, `github_scope` and `github_token_updated_at`) can
   hold a GitHub token; both were NULL on both installs, the token being in
   the OS keyring ([Credentials](#credentials)). The binary also carries an

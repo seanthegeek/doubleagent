@@ -567,6 +567,14 @@ nanobot|.nanobot
 nanobot|.nanobot-*
 nanobot|Library/LaunchAgents/ai.nanobot.*
 nanobot|.config/systemd/user/nanobot-*
+nanobot|.local/share/nanobot/auth
+nanobot|Library/Application Support/nanobot/auth
+nanobot|AppData/Local/nanobot/auth
+# The default data directory of the oauth-cli-kit library, which the OpenAI Codex
+# provider of nanobot writes (the only catalog agent known to use the library)
+nanobot|.local/share/oauth-cli-kit/auth
+nanobot|Library/Application Support/oauth-cli-kit/auth
+nanobot|AppData/Local/oauth-cli-kit/auth
 # Agent Zero (state is under the install dir, not a dot dir: installer and launcher
 # default ~/agent-zero/<instance>/usr, or a clone in ~/agent-zero or ~/Desktop/agent-zero)
 agent-zero|agent-zero
@@ -1686,6 +1694,7 @@ AppData/Roaming/Zed/global_settings.json
 .var/app/dev.zed.Zed*/config/zed/settings.json
 .var/app/dev.zed.Zed*/config/zed/development_credentials
 .local/share/amp/secrets.json
+.local/share/amp/ide/*
 .local/share/amp/accounts.json
 .local/share/amp/accounts/*/secrets.json
 .amp/oauth/*
@@ -1930,6 +1939,12 @@ AppData/Roaming/Hermes*/connection*.json*
 .config/openclaw/gateway.env
 .nanobot*/config.json
 .nanobot*/auth/*
+.local/share/nanobot/auth/*
+Library/Application Support/nanobot/auth/*
+AppData/Local/nanobot/auth/*
+.local/share/oauth-cli-kit/auth/*
+Library/Application Support/oauth-cli-kit/auth/*
+AppData/Local/oauth-cli-kit/auth/*
 .nanobot*/whatsapp-auth/*
 .nanobot*/matrix-store/*
 .nanobot*/webui/remote-pairing/*/identity
@@ -1954,6 +1969,10 @@ agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
 Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
 agent-zero*/usr/plugins/*/config.json
 Desktop/agent-zero*/usr/plugins/*/config.json
+agent-zero*/usr/plugins/_oauth/*/auth.json
+agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp
+Desktop/agent-zero*/usr/plugins/_oauth/*/auth.json
+Desktop/agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp
 agent-zero*/tmp/whatsapp/session/*
 Desktop/agent-zero*/tmp/whatsapp/session/*
 .agent-zero/.env
@@ -2006,6 +2025,8 @@ projects/*/.a0proj/secrets.env
 plugins/_desktop/profiles/*/.ssh/*
 plugins/_desktop/profiles/*/.gnupg/*
 plugins/*/config.json
+plugins/_oauth/*/auth.json
+plugins/_oauth/*/.auth.json.*.tmp
 usr/.env
 usr/secrets.env
 usr/settings.json
@@ -2013,6 +2034,8 @@ usr/projects/*/.a0proj/secrets.env
 usr/plugins/_desktop/profiles/*/.ssh/*
 usr/plugins/_desktop/profiles/*/.gnupg/*
 usr/plugins/*/config.json
+usr/plugins/_oauth/*/auth.json
+usr/plugins/_oauth/*/.auth.json.*.tmp
 tmp/secrets.env
 tmp/settings.json
 tmp/whatsapp/session/*

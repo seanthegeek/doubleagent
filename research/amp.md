@@ -140,7 +140,9 @@ System-wide (not per-user): `/etc/ampcode/`, `/Library/Application Support/ampco
 - `accounts.json` lists saved accounts (email, server) — identity evidence, not a token.
 - `~/.amp/oauth/*-client.json`: OAuth client info; `clientSecret` is stripped to secret storage
   before writing (`let{clientSecret:t,...r}=e`). (B)
-- `~/.local/share/amp/ide/*` IDE connection records include `authToken`. (B)
+- `~/.local/share/amp/ide/*` IDE connection records include `authToken` (`amp @124393700`
+  `AAH=zpH.join(Oo,"ide")`, `amp @124393488` `ideName:R(),authToken:R(),pid:GH()`), so the
+  secret glob `.local/share/amp/ide/*` flags every file there from collector 1.22.0. (B)
 - `settings.json` can embed MCP server `env`/headers (`amp.mcpServers`, `customize_mcp.md:244-245`),
   so `settings.json` and its `settings.jsonc` fallback are flagged (`.config/amp/settings.json*`).
   A project's `.amp/settings.json` is the workspace scope of the same `amp.mcpServers` setting,

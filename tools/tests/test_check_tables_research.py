@@ -356,6 +356,51 @@ def test_credential_sibling_on_one_platform_suffices(tmp_path):
     assert findings(root, "credential-unflagged") == []
 
 
+def test_credential_sibling_below_a_vendor_directory(tmp_path):
+    catalog = CATALOG.replace(
+        "alpha|Library/Application Support/alpha\n",
+        "alpha|Library/Application Support/alpha\nalpha|AppData/Roaming/Vendor/alpha/config\n",
+    )
+    alpha = ALPHA.replace(
+        "on macOS.", "on macOS and `~/AppData/Roaming/Vendor/alpha/config` on Windows."
+    )
+    flagged = catalog.replace(
+        ".config/alpha/token.json\n",
+        ".config/alpha/token.json\nAppData/Roaming/Vendor/alpha/config/token.json\n",
+    )
+    root = repository(tmp_path / "flagged", catalog=flagged, alpha=alpha)
+    assert findings(root, "credential-unflagged") == []
+    root = repository(tmp_path / "unflagged", catalog=catalog, alpha=alpha)
+    assert findings(root, "credential-unflagged") == [
+        ("alpha", "AppData/Roaming/Vendor/alpha/config/token.json")
+    ]
+
+
+def test_credential_named_by_its_windows_path_expects_the_linux_copy(tmp_path):
+    catalog = CATALOG.replace(
+        "alpha|Library/Application Support/alpha\n",
+        "alpha|Library/Application Support/alpha\nalpha|AppData/Roaming/Vendor/alpha/config\n",
+    )
+    alpha = ALPHA.replace(
+        "on macOS.", "on macOS and `~/AppData/Roaming/Vendor/alpha/config` on Windows."
+    ).replace(
+        "- `~/.config/alpha/token.json` holds the refresh token, on macOS in\n"
+        "  `~/Library/Application Support/alpha/token.json`.",
+        "- `~/AppData/Roaming/Vendor/alpha/config/token.json` holds the refresh token.",
+    )
+    assert "AppData/Roaming/Vendor/alpha/config/token.json` holds" in alpha
+    assert ".config/alpha/token.json` holds" not in alpha
+    flagged = catalog.replace(
+        ".config/alpha/token.json\n",
+        ".config/alpha/token.json\nAppData/Roaming/Vendor/alpha/config/token.json\n",
+    )
+    root = repository(tmp_path / "flagged", catalog=flagged, alpha=alpha)
+    assert findings(root, "credential-unflagged") == []
+    unflagged = flagged.replace(".config/alpha/token.json\n", "")
+    root = repository(tmp_path / "unflagged", catalog=unflagged, alpha=alpha)
+    assert findings(root, "credential-unflagged") == [("alpha", ".config/alpha/token.json")]
+
+
 def test_credential_named_in_secrets_is_not_reported(tmp_path):
     catalog = CATALOG.replace(".alpha/auth.json\n", "")
     secrets = "### Secrets\n\n`~/.alpha/auth.json` holds `token`; redact it.\n\n"
@@ -483,6 +528,35 @@ def test_base_form_forms():
         assert checker.base_form(glob) == form, glob
 
 
+def test_vendor_form_forms():
+    windows = {"home", "config", "data", "cache"}
+    macos = {"home", "config", "data", "state"}
+    cases = [
+        ("AppData/Roaming/Block/goose/config", False, "goose", {"config"}),
+        ("AppData/Roaming/Block/goose/data", False, "goose", {"data", "state"}),
+        ("AppData/Roaming/Block/goose/Logs", False, "goose", {"logs"}),
+        ("AppData/Roaming/Block/goose/other", False, "", set()),
+        ("Library/Application Support/Block/goose", False, "goose", macos),
+        ("AppData/Local/Block/goose/cache/*", False, "", set()),
+        ("AppData/Roaming/Vendor/Deep/goose/config", False, "", set()),
+        ("AppData/Local/langflow/langflow/Cache", False, "langflow", {"cache"}),
+        ("AppData/Local/Temp/Vendor/tool", False, "", set()),
+        ("AppData/Local/Temp/Vendor/tool/config", False, "", set()),
+        ("AppData/Local/Programs/Vendor/tool/data", False, "", set()),
+        (".config/goose", False, "", set()),
+        (".config/Code/User", False, "user", {"config"}),
+        (".var/app/dev.zed.Zed/config/zed", False, "", set()),
+        (".ollama", False, "", set()),
+        ("Claude", False, "", set()),
+        ("AppData/Roaming/Block/Goose/config", False, "goose", {"config"}),
+        ("AppData/Roaming/Block/Goose/config", True, "Goose", {"config"}),
+        ("Library/Application Support/Vendor/.tool", False, "tool", macos),
+        ("AppData/Local/Vendor/tool", False, "tool", windows),
+    ]
+    for glob, keep_case, segment, kinds in cases:
+        assert checker.vendor_form(glob, keep_case) == (segment, kinds), glob
+
+
 def test_sibling_bases_forms():
     entries = [
         line(".config/Claude"),
@@ -512,6 +586,34 @@ def test_sibling_bases_forms():
     homes = [line(".agent-zero"), line("agent-zero"), line("AppData/Local/agent-zero")]
     found = checker.sibling_bases(homes[0], homes, ["agent-zero", "AppData/Local/agent-zero"])
     assert [entry.glob for entry in found] == ["AppData/Local/agent-zero"]
+    goose = [
+        line(".config/goose"),
+        line("AppData/Roaming/Block/goose/config"),
+        line("AppData/Roaming/Block/goose/data"),
+        line("AppData/Local/Block/goose/cache/*"),
+        line("Library/Application Support/Block/goose"),
+        line("AppData/Roaming/Vendor/Deep/goose/config"),
+        line("AppData/Roaming/Block/goose/config/unnamed"),
+    ]
+    named = [entry.glob for entry in goose[1:-1]]
+    found = checker.sibling_bases(goose[0], goose, named)
+    assert [entry.glob for entry in found] == [
+        "AppData/Roaming/Block/goose/config",
+        "Library/Application Support/Block/goose",
+    ]
+    state = [line(".local/state/goose"), line("AppData/Roaming/Block/goose/data")]
+    found = checker.sibling_bases(state[0], state, ["AppData/Roaming/Block/goose/data"])
+    assert [entry.glob for entry in found] == ["AppData/Roaming/Block/goose/data"]
+    cache = [line(".langflow"), line("AppData/Local/langflow/langflow/Cache")]
+    assert checker.sibling_bases(cache[0], cache, ["AppData/Local/langflow/langflow/Cache"]) == []
+    named = [entry.glob for entry in goose if entry.glob != "AppData/Roaming/Block/goose/config"]
+    found = checker.sibling_bases(goose[1], goose, named)
+    assert [entry.glob for entry in found] == [
+        ".config/goose",
+        "Library/Application Support/Block/goose",
+    ]
+    found = checker.sibling_bases(goose[2], goose, named)
+    assert [entry.glob for entry in found] == ["Library/Application Support/Block/goose"]
 
 
 def test_sibling_bases_keep_case():
@@ -547,6 +649,23 @@ def test_sibling_bases_keep_case():
             [".config/zed", "AppData/Roaming/Zed", "AppData/Local/Zed"],
             ["AppData/Roaming/Zed", "AppData/Local/Zed"],
         ),
+        (
+            [
+                ".config/goose",
+                ".config/Goose",
+                "AppData/Roaming/Block/goose/config",
+                "AppData/Roaming/Block/Goose/config",
+            ],
+            ["AppData/Roaming/Block/goose/config"],
+        ),
+        (
+            [
+                ".config/goose",
+                "AppData/Roaming/Block/goose/config",
+                "AppData/Roaming/Block/Goose/config",
+            ],
+            ["AppData/Roaming/Block/goose/config"],
+        ),
     ]
     for globs, expected in cases:
         entries = [line(glob) for glob in globs]
@@ -558,6 +677,8 @@ def test_case_distinguishes_forms():
     cases = [
         ([".hermes", "AppData/Local/hermes", "AppData/Roaming/Hermes"], True),
         ([".config/goose", ".config/Goose"], True),
+        (["AppData/Roaming/Block/goose/config", "AppData/Roaming/Block/Goose/config"], True),
+        (["AppData/Roaming/Block/goose/config", "AppData/Roaming/Block/goose/data"], False),
         ([".ollama", "AppData/Local/Ollama"], False),
         ([".config/zed", "Library/Application Support/Zed", "AppData/Local/Zed"], False),
         (["Claude", "Documents/claude"], False),
@@ -581,6 +702,25 @@ def test_credential_paths_forms():
     assert checker.credential_paths(".other/auth.json", entries, named) == []
     files = [line(".alpha.json"), line(".alpha")]
     assert checker.credential_paths(".alpha.json", files, []) == [[".alpha.json"]]
+    vendor = [
+        line(".config/alpha"),
+        line("AppData/Roaming/Vendor/alpha/config"),
+        line("AppData/Roaming/Vendor/alpha/data"),
+    ]
+    named = ["AppData/Roaming/Vendor/alpha/config", "AppData/Roaming/Vendor/alpha/data"]
+    assert checker.credential_paths(".config/alpha/token.json", vendor, named) == [
+        [".config/alpha/token.json"],
+        [
+            "AppData/Roaming/Vendor/alpha/config/token.json",
+        ],
+    ]
+    windows_first = [".config/alpha", "AppData/Roaming/Vendor/alpha/config"]
+    assert checker.credential_paths(
+        "AppData/Roaming/Vendor/alpha/config/token.json", vendor, windows_first
+    ) == [
+        ["AppData/Roaming/Vendor/alpha/config/token.json"],
+        [".config/alpha/token.json"],
+    ]
 
 
 # --- Rule 3: secret-under-exclusion ----------------------------------------------------------

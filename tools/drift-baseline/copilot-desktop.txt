@@ -68,7 +68,6 @@ check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/com.github.g
 check_smoke_coverage|nosecrets-check-missing|smoke.sh AppData/Local/com.github.githubapp/EBWebView/Local State
 check_smoke_coverage|secret-check-missing|smoke.ps1 AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
 check_smoke_coverage|secret-check-missing|smoke.sh AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
-check_tables_research|credential-unflagged|.copilot/data.db
 check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/BrowserMetrics-spare.pma
 check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/CertificateRevocation
 check_tables_research|line-unnamed|exclude AppData/Local/com.github.githubapp/EBWebView/Default/Code Cache

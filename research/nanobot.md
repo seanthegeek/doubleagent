@@ -132,11 +132,15 @@ on Linux, `~/Library/Application Support/<app>` on macOS and `AppData/Local/<app
 platformdirs 4.3.6). The GitHub Copilot provider uses `app_name` `nanobot` and the file
 `github-copilot.json`, so `~/.local/share/nanobot/auth/github-copilot.json` on Linux
 ([`providers/github_copilot_provider.py:38`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/providers/github_copilot_provider.py#L38),[`53-58`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/providers/github_copilot_provider.py#L53-L58));
-the OpenAI Codex provider keeps the default `app_name`, so its token is under
-`oauth-cli-kit/auth/`
+the OpenAI Codex provider keeps the default `app_name` and the library's file name `codex.json`
+(`oauth_cli_kit/providers/openai_codex.py:18` in the wheel), so its token is
+`~/.local/share/oauth-cli-kit/auth/codex.json` on Linux
 ([`providers/openai_codex_provider.py:769`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/providers/openai_codex_provider.py#L769)).
-The catalog has no line for either directory, so neither token is collected
-([Credentials](#credentials)).
+The catalog collects both directories on each platform, `.local/share/nanobot/auth`,
+`Library/Application Support/nanobot/auth`, `AppData/Local/nanobot/auth`,
+`.local/share/oauth-cli-kit/auth`, `Library/Application Support/oauth-cli-kit/auth` and
+`AppData/Local/oauth-cli-kit/auth`, as agent `nanobot`, the only catalog agent known to use the
+library ([Credentials](#credentials)).
 
 #### Scratch directories
 
@@ -246,9 +250,13 @@ so the home entry collects both and no `DOCKER_VOLUMES` line is needed.
   account_id}` with mode 0600, `account_id` being the GitHub `login` of the signed-in account
   ([`providers/github_copilot_provider.py:37`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/providers/github_copilot_provider.py#L37),[`193-204`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/providers/github_copilot_provider.py#L193-L204);
   `oauth_cli_kit/storage.py:56-70` in the wheel named in
-  [Per-user storage](#per-user-storage)), and the OpenAI Codex provider's token beside the
-  library's own data directory. Both live outside `.nanobot*`, where that section places them, and
-  are not collected.
+  [Per-user storage](#per-user-storage)), and the OpenAI Codex provider's token `codex.json` in
+  the same shape under the library's own data directory. Both live outside `.nanobot*`, where that
+  section places them, and every file under the two `auth` directories is flagged by the secret
+  globs `.local/share/nanobot/auth/*`, `Library/Application Support/nanobot/auth/*`,
+  `AppData/Local/nanobot/auth/*`, `.local/share/oauth-cli-kit/auth/*`,
+  `Library/Application Support/oauth-cli-kit/auth/*` and `AppData/Local/oauth-cli-kit/auth/*` from
+  collector 1.22.0.
 - `pairing.json`, the approved chat senders, is at [`909b277`](https://github.com/HKUDS/nanobot/commit/909b277e7a5a7ecd2aebdba9611e5febe86988d9)
   `{"approved": {<channel>: [<sender_id>...]}, "pending": {<code>: {channel, sender_id, created_at, expires_at, delivery_status}}}`,
   the code an `ABCD-EFGH` value that lives ten minutes and only lets an operator approve that sender
@@ -1039,8 +1047,8 @@ The agent records a source-host token but no connected account, so the parser yi
   only.
 - The GitHub Copilot model provider's sign-in (`nanobot provider login github-copilot`, a
   device-code OAuth flow with scope `read:user`) serves model calls, not repository access; its
-  token and the account's login are in `github-copilot.json` outside `.nanobot*`, which the
-  catalog does not collect ([Credentials](#credentials), [Per-user storage](#per-user-storage)).
+  token and the account's login are in `github-copilot.json` outside `.nanobot*`
+  ([Credentials](#credentials), [Per-user storage](#per-user-storage)).
 
 The bundled `github` skill drives the user's own `gh` CLI and its login
 ([`skills/github/SKILL.md:1-10`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/skills/github/SKILL.md#L1-L10)),

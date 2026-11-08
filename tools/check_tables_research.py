@@ -116,6 +116,16 @@ BASE_FORMS = (
 )
 # A dot directory directly under the home is the tool's directory on Linux and macOS alike.
 PLATFORMS_COVERED = {"unix": {"linux", "macos"}}
+# The kinds of state a vendor-form entry's third segment names (`Block/goose/config`); a `data`
+# directory also holds state, since Windows has no state directory and etcetera and platformdirs
+# fall back to the data directory there.
+VENDOR_KINDS = {
+    "config": {"config"},
+    "data": {"data", "state"},
+    "state": {"state"},
+    "cache": {"cache"},
+    "logs": {"logs"},
+}
 
 
 # --- Heuristics ------------------------------------------------------------------------------
@@ -178,20 +188,62 @@ def base_segment(glob: str, keep_case: bool) -> str:
     return segment if keep_case else segment.casefold()
 
 
+def vendor_form(glob: str, keep_case: bool) -> tuple[str, set[str]]:
+    """Return the tool's segment and kinds of state of a home entry in the vendor form.
+
+    The vendor form is a platform directory a `BASE_FORMS` pattern matches, then two segments
+    (`Library/Application Support/Block/goose`), or three where the third names a kind of state
+    in `VENDOR_KINDS` (`AppData/Roaming/Block/goose/config`); the second segment is read as the
+    tool's, whatever the first holds. It comes back with a leading `.` dropped, case-folded
+    unless kept, with the third segment's kind or, without one, the platform directory's kinds.
+    Any other entry (`.config/goose`, `AppData/Local/Block/goose/cache/*`,
+    `AppData/Roaming/Block/goose/other`, `AppData/Local/Temp/Vendor/tool/config`) gives `""`.
+    """
+    for pattern, _platform, kinds in BASE_FORMS:
+        match = pattern.match(glob)
+        if not match:
+            continue
+        below = [part for part in glob[match.end() :].split("/") if part]
+        if not kinds or len(below) not in (2, 3):
+            return "", set()
+        form_kinds = set(kinds)
+        if len(below) == 3:
+            form_kinds = set(VENDOR_KINDS.get(below[2].casefold(), ()))
+        if not form_kinds:
+            return "", set()
+        segment = below[1].lstrip(".")
+        return (segment if keep_case else segment.casefold()), form_kinds
+    return "", set()
+
+
+def tool_form(glob: str, keep_case: bool) -> tuple[str, set[str]]:
+    """Return the tool's segment and kinds of state of a home entry, in either form.
+
+    The vendor form (`vendor_form`) when the entry has one, else the last segment
+    (`base_segment`) with the kinds of its platform directory (`base_form`), so a base and a
+    candidate sibling compare by the same rule whichever form each has.
+    """
+    segment, kinds = vendor_form(glob, keep_case)
+    if segment:
+        return segment, kinds
+    return base_segment(glob, keep_case), base_form(glob)[1]
+
+
 def case_distinguishes(entries: Iterable[TableLine]) -> bool:
     """Return whether case tells an agent's base directories apart.
 
-    It does when two home entries on one platform (`base_form`) end in segments equal
-    case-folded but not as written (`AppData/Local/hermes` beside `AppData/Roaming/Hermes`),
-    the way the catalog separates surfaces; otherwise Windows capitalises what POSIX spells
-    lower (`.ollama`, `AppData/Local/Ollama`) and siblings compare case-folded.
+    It does when two home entries on one platform (`base_form`) have tool segments
+    (`tool_form`) equal case-folded but not as written (`AppData/Local/hermes` beside
+    `AppData/Roaming/Hermes`, `Block/goose/config` beside `Block/Goose/config`), the way the
+    catalog separates surfaces; otherwise Windows capitalises what POSIX spells lower
+    (`.ollama`, `AppData/Local/Ollama`) and siblings compare case-folded.
     """
     forms: dict[tuple[str, str], set[str]] = {}
     for entry in entries:
         platform = base_form(entry.glob)[0]
         if not platform:
             continue
-        segment = base_segment(entry.glob, True)
+        segment = tool_form(entry.glob, True)[0]
         seen = forms.setdefault((platform, segment.casefold()), set())
         seen.add(segment)
         if len(seen) > 1:
@@ -204,25 +256,26 @@ def sibling_bases(
 ) -> list[TableLine]:
     """Return the other platform forms of a base directory among an agent's home entries.
 
-    A sibling ends in the base's last segment with a leading `.` dropped, compared as written
-    when case tells the agent's directories apart (`case_distinguishes`) and case-folded
-    otherwise; it is on a platform the base's does not cover (`PLATFORMS_COVERED`), shares a
-    kind of state with the base (`base_form`), and is named by a span of the Per-user storage
-    section (`names_glob`): `.config/Claude` and `Library/Application Support/Claude` are
-    siblings, and `.ollama` and `AppData/Local/Ollama`; `.config/zed` and `.local/share/zed` are
-    not, nor `.hermes` and `AppData/Roaming/Hermes` beside `AppData/Local/hermes`.
+    A sibling has the base's tool segment (`tool_form`: the last segment with a leading `.`
+    dropped, or the tool's segment of the vendor form), compared as written when case tells the
+    agent's directories apart (`case_distinguishes`) and case-folded otherwise; it is on a
+    platform the base's does not cover (`PLATFORMS_COVERED`), shares a kind of state with the
+    base and a Per-user storage span names it (`names_glob`). The rule is symmetric:
+    `.config/goose` has `AppData/Roaming/Block/goose/config` and that entry has `.config/goose`;
+    neither has `AppData/Roaming/Block/goose/data`, and `.config/zed` has no `.local/share/zed`.
     """
     spans = list(named)
     entries = list(entries)
     keep_case = case_distinguishes(entries)
-    last = base_segment(base.glob, keep_case)
-    platform, kinds = base_form(base.glob)
+    last, kinds = tool_form(base.glob, keep_case)
+    platform = base_form(base.glob)[0]
     covered = PLATFORMS_COVERED.get(platform, {platform})
     found: list[TableLine] = []
     for entry in entries:
-        if base_segment(entry.glob, keep_case) != last:
+        other, other_kinds = tool_form(entry.glob, keep_case)
+        if other != last:
             continue
-        other_platform, other_kinds = base_form(entry.glob)
+        other_platform = base_form(entry.glob)[0]
         if covered & PLATFORMS_COVERED.get(other_platform, {other_platform}):
             continue
         if kinds & other_kinds and names_glob(entry.glob, spans):

@@ -91,12 +91,18 @@ Where that lands on the host depends on how it was started:
 | `docker/run/docker-compose.yml` | `./agent-zero` beside the compose file, mounted as all of `/a0` ([`docker-compose.yml:5-6`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/docker/run/docker-compose.yml#L5-L6)) |
 | Native ("development") run | the git clone, anywhere; the docs example is `~/Desktop/agent-zero` ([`docs/setup/dev-setup.md:34-37`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/docs/setup/dev-setup.md#L34-L37)); native means not `--dockerized` ([`helpers/runtime.py:59-64`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/helpers/runtime.py#L59-L64)) |
 
+Only the native run has `usr/` and `tmp/` beside the source, a `.venv` or `.conda`, and a legacy
+root `.env`.
+
+#### Docker volumes
+
 Named volumes live under the Docker data root (or inside the Docker Desktop
 VM), outside any home, and are not reachable by a home-relative catalog;
 since collector 1.5.0 the `DOCKER_VOLUMES` table collects `*a0_usr` and
-`a0-launcher-*-usr` volumes with usr-relative exclusions and secret globs. Only
-the native run has `usr/` and `tmp/` beside the source, a `.venv` or
-`.conda`, and a legacy root `.env`.
+`a0-launcher-*-usr` volumes with usr-relative exclusions and secret globs, among them the OAuth
+provider token globs `plugins/_oauth/*/auth.json` and `plugins/_oauth/*/.auth.json.*.tmp` (the
+`a0_usr` volume's base is `usr` itself) and `usr/plugins/_oauth/*/auth.json` and
+`usr/plugins/_oauth/*/.auth.json.*.tmp` ([Credentials](#credentials)).
 
 #### Scratch directories
 
@@ -275,7 +281,8 @@ These are home-relative:
   `Desktop/agent-zero*/tmp/whatsapp/session/*` and the volume-relative `tmp/whatsapp/session/*`
   (no other `DOCKER_VOLUMES` layout has a `tmp/whatsapp/`). The bridge had it at [`e3051fb`](https://github.com/agent0ai/agent-zero/commit/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec) already.
 - OAuth model providers: the bundled `_oauth` plugin signs in to GitHub Copilot (a GitHub device
-  flow with the scope `read:user`), Gemini and xAI Grok and keeps each provider's tokens in
+  flow with the scope `read:user`), Gemini, xAI Grok and ChatGPT Codex and keeps the first three
+  providers' tokens in
   `usr/plugins/_oauth/<provider>/auth.json` (`github_copilot`, `gemini_api`, `xai_grok`), written
   with mode 0600
   ([`plugins/_oauth/helpers/providers/base.py:151-173`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/base.py#L151-L173),[`197-216`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/base.py#L197-L216);
@@ -283,8 +290,30 @@ These are home-relative:
   [`plugins/_oauth/helpers/providers/gemini_api.py:59`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/gemini_api.py#L59);
   [`plugins/_oauth/helpers/providers/xai_grok.py:60`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/xai_grok.py#L60)).
   The Copilot file holds the GitHub token as `refresh` and the Copilot token as `access`. The
-  files are collected with `usr/` and no secret glob flags them: `plugins/*/config.json` names
-  only the configuration file.
+  plugin's ChatGPT Codex provider keeps its tokens in `usr/plugins/_oauth/codex/auth.json`, under
+  `tokens` (`id_token`, `access_token`, `refresh_token`, `account_id`) beside `OPENAI_API_KEY`
+  ([`helpers/codex.py:39`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L39),[`204-216`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L204-L216),[`1264-1271`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L1264-L1271)).
+  A non-empty `auth_file_path` in the `codex` section of the plugin's configuration moves that file
+  anywhere, and outside the directories the catalog reaches the collector misses it; it is a plugin
+  setting, not an environment variable
+  ([`helpers/config.py:47`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/config.py#L47);
+  [`default_config.yaml:5-7`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/default_config.yaml#L5-L7)).
+  The plugin refuses the Codex CLI's own `~/.codex/auth.json` and `~/.chatgpt-local/auth.json`,
+  and the `auth.json` under `CODEX_HOME` or `CHATGPT_LOCAL_HOME`, as that path, and any file with
+  more than one hard link
+  ([`helpers/codex.py:1381-1393`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L1381-L1393),[`1403-1411`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L1403-L1411)).
+  Each write goes to a copy in the same directory that is then renamed over `auth.json`:
+  `.auth.json.<pid>.<16 hex digits>.tmp` for Codex
+  ([`helpers/codex.py:1340-1367`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/codex.py#L1340-L1367)) and
+  `.auth.json.<random>.tmp` from `tempfile.mkstemp` for the other three ([`helpers/providers/base.py:197-216`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/base.py#L197-L216)),
+  both removing the copy on an ordinary failure, so only a write interrupted by a crash or a kill
+  leaves a copy holding the credential. The files and the copies are collected
+  with `usr/` and flagged by the secret globs `agent-zero*/usr/plugins/_oauth/*/auth.json`,
+  `agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp`,
+  `Desktop/agent-zero*/usr/plugins/_oauth/*/auth.json`,
+  `Desktop/agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp` and the volume-relative globs of
+  [Docker volumes](#docker-volumes), from collector 1.22.0. No other `DOCKER_VOLUMES` layout has a
+  `plugins/_oauth/`.
 - The connector's `.env` also holds `AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN`
   ([`config.py:22`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L22)),
   already covered by the `.agent-zero/.env` glob.
