@@ -3176,6 +3176,7 @@ collect_path() {
     # it cannot read and GNU find does, so the pre-check gives both one row
     # and never two.
     if [ "$INVENTORY" != 1 ] && get_dir_read_error_var "$_cp_match"; then
+      # shellcheck disable=SC2154 # _ret_dir_error is set in COMMON, which the main shell evals
       write_read_error_row "$MANIFEST" "$_cp_user" "$_cp_home" "$_cp_agent" "$_cp_match" \
         "$_ret_dir_error"
       return 0
