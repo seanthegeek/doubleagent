@@ -281,7 +281,8 @@ These are home-relative:
   `Desktop/agent-zero*/tmp/whatsapp/session/*` and the volume-relative `tmp/whatsapp/session/*`
   (no other `DOCKER_VOLUMES` layout has a `tmp/whatsapp/`). The bridge had it at [`e3051fb`](https://github.com/agent0ai/agent-zero/commit/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec) already.
 - OAuth model providers: the bundled `_oauth` plugin signs in to GitHub Copilot (a GitHub device
-  flow with the scope `read:user`), Gemini and xAI Grok and keeps each provider's tokens in
+  flow with the scope `read:user`), Gemini, xAI Grok and ChatGPT Codex and keeps the first three
+  providers' tokens in
   `usr/plugins/_oauth/<provider>/auth.json` (`github_copilot`, `gemini_api`, `xai_grok`), written
   with mode 0600
   ([`plugins/_oauth/helpers/providers/base.py:151-173`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/base.py#L151-L173),[`197-216`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/base.py#L197-L216);
