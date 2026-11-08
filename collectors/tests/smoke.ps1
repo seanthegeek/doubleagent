@@ -1894,6 +1894,63 @@ if ($env:OS -ne 'Windows_NT') {
     $newlineLinkOk = $true
   } catch { Write-Output 'note: symlink creation not permitted here, #480 newline symlink target check skipped' }
 } else { Write-Output 'note: #480 newline symlink target check skipped (no newline in a Windows target)' }
+
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+# The glob follows .cache out of the home, so only the link is recorded, once for the two
+# entries under it; .pi is a match itself with a nested entry under it; .camel stays inside
+# the home and is walked under its linked path.
+MakeFile 'elsewhere/linkedcache/crush/crush.json' '{}'
+MakeFile 'elsewhere/linkedcache/claude/settings.json' '{}'
+$cacheLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.cache') -Target (ImagePath 'elsewhere/linkedcache') -ErrorAction Stop | Out-Null
+  $cacheLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #467 symlinked directory checks skipped' }
+MakeFile 'elsewhere/linkedpi/agent/little-coder-prompt-history.json' '[]'
+$piLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.pi') -Target (ImagePath 'elsewhere/linkedpi') -ErrorAction Stop | Out-Null
+  $piLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #467 linked-match check skipped' }
+# A link to the sibling directory named like the home plus a newline leads out of the home.
+$newlineSiblingLinkOk = $false
+if ($env:OS -ne 'Windows_NT') {
+  MakeFile "home/nl$newlineChar/crush/crush.json" '{}'
+  [void][System.IO.Directory]::CreateDirectory((ImagePath 'home/nl'))
+  try {
+    New-Item -ItemType SymbolicLink -Path (ImagePath 'home/nl/.cache') -Target "../nl$newlineChar" -ErrorAction Stop | Out-Null
+    $newlineSiblingLinkOk = $true
+  } catch { Write-Output 'note: symlink creation not permitted here, #467 newline sibling check skipped' }
+} else { Write-Output 'note: #467 newline sibling check skipped (no newline in a Windows name)' }
+# A link target whose .. follows a link out of the home resolves outside it, though folding
+# the .. away first would name the home's own cache directory.
+MakeFile 'elsewhere/cache/crush/crush.json' '{}'
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'elsewhere/escape'))
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'home/u1/cache'))
+$dotdotLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/u1/dotfiles') -Target (ImagePath 'elsewhere/escape') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/u1/.cache') -Target ('dotfiles' + $Separator + '..' + $Separator + 'cache') -ErrorAction Stop | Out-Null
+  $dotdotLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #467 dot-dot link target check skipped' }
+MakeFile 'home/bob/dotfiles/camel/skills/s1/SKILL.md' 'x'
+$camelLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.camel') -Target (ImagePath 'home/bob/dotfiles/camel') -ErrorAction Stop | Out-Null
+  $camelLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #467 linked-within-home check skipped' }
+
+# 2026-11-08 nested entries and exclusions under a home holding [ (#465)
+# The home's [1] is a class in a pattern: claims and exclusions must still prune under it.
+MakeFile 'home/u[1]/.gemini/settings.json' '{}'
+MakeFile 'home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db' 'x'
+MakeFile 'home/u[1]/.gemini/tmp/bin/rg' 'x'
+# 2026-11-08 a home path read as a pattern (#486)
+# Read as a pattern, u[1] matches the home u1 beside it: each home keeps its
+# own files, and wildcard entries and startup files still match under u[1].
+MakeFile 'home/u1/.gemini/projects.json' '{}'
+MakeFile 'home/u[1]/.claude.json.backup' '{}'
+MakeFile 'home/u[1]/.profile' "CODEX_HOME=/opt/x; export CODEX_HOME`n"
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2019,7 +2076,7 @@ Check 'secret collected and flagged' { $row -and $row.secret -eq $true -and $row
 Check 'antigravity token flagged secret' { (Row 'antigravity-cli/antigravity-oauth-token').secret -eq $true }
 $row = Row 'Users/alice/.gemini/antigravity-cli/conversations/c1.db'
 Check 'nested entry attributed to its own agent' { $row -and $row.agent -eq 'antigravity' }
-Check 'nested entry collected exactly once' { @($script:Rows | Where-Object { $_.path -like '*antigravity-cli*conversations*c1.db' }).Count -eq 1 }
+Check 'nested entry collected exactly once' { $nestedPath = ImagePath 'Users/alice/.gemini/antigravity-cli/conversations/c1.db'; @($script:Rows | Where-Object { $_.path -eq $nestedPath }).Count -eq 1 }
 $row = Row 'Users/alice/.gemini/projects.json'
 Check 'enclosing entry still attributed to gemini-cli' { $row -and $row.agent -eq 'gemini-cli' }
 $row = Row 'Users/alice/AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json'
@@ -2875,6 +2932,53 @@ if ($newlineLinkOk) {
   $row = Row 'Users/alice/.claude/nl-target-link'
   Check '#480 a symlink target ending in a newline is recorded whole' { $row -and $row.status -eq 'symlink' -and $row.target -ceq "tgt$newlineChar" }
 }
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+if ($cacheLinkOk) {
+  $linkedCache = ImagePath 'home/bob/.cache'
+  $linkedCacheTarget = ImagePath 'elsewhere/linkedcache'
+  Check '#467 a catalog entry under a symlinked directory leaving the home is not walked' { @($script:Rows | Where-Object { $_.path.StartsWith($linkedCache + $Separator) -or $_.path.StartsWith($linkedCacheTarget) }).Count -eq 0 }
+  Check '#467 the symlinked directory is recorded once, as a symlink with its target, under the first agent' { $linkRows = RowsAt 'home/bob/.cache'; $linkRows.Count -eq 1 -and $linkRows[0].agent -eq 'claude-code' -and $linkRows[0].status -eq 'symlink' -and ($linkRows[0].target -replace '\\', '/') -like '*/elsewhere/linkedcache' }
+  Check '#467 the log names each match under the symlinked directory' { $defaultLog.Contains("[claude-code] $(ImagePath 'home/bob/.cache/claude'): under the symlinked directory ${linkedCache}, which leads out of the base; not walked") -and $defaultLog.Contains("[crush] $(ImagePath 'home/bob/.cache/crush'): under the symlinked directory ${linkedCache}, which leads out of the base; not walked") }
+}
+if ($newlineSiblingLinkOk) {
+  $newlineSiblingCache = ImagePath 'home/nl/.cache'
+  Check '#467 a link to a sibling named like the home plus a newline leads out of the home' { $siblingRows = RowsAt 'home/nl/.cache'; $siblingRows.Count -eq 1 -and $siblingRows[0].agent -eq 'crush' -and $siblingRows[0].status -eq 'symlink' -and @($script:Rows | Where-Object { $_.path.StartsWith($newlineSiblingCache + $Separator) }).Count -eq 0 }
+}
+if ($dotdotLinkOk) {
+  $dotdotCache = ImagePath 'home/u1/.cache'
+  Check '#467 a link target whose .. follows a link out of the home leads out of the home' { $dotdotRows = RowsAt 'home/u1/.cache'; $dotdotRows.Count -eq 1 -and $dotdotRows[0].agent -eq 'crush' -and $dotdotRows[0].status -eq 'symlink' -and @($script:Rows | Where-Object { $_.path.StartsWith($dotdotCache + $Separator) }).Count -eq 0 }
+}
+if ($piLinkOk) {
+  Check '#467 a symlinked directory that is itself a match has one row, its own agent' { $piRows = RowsAt 'home/bob/.pi'; $piRows.Count -eq 1 -and $piRows[0].agent -eq 'pi' -and $piRows[0].status -eq 'symlink' -and (RowsAt 'home/bob/.pi/agent/little-coder-prompt-history.json').Count -eq 0 -and $defaultLog.Contains("[little-coder] $(ImagePath 'home/bob/.pi/agent/little-coder-prompt-history.json'): under the symlinked directory $(ImagePath 'home/bob/.pi'), which leads out of the base; not walked") }
+}
+if ($camelLinkOk) {
+  Check '#467 a catalog entry under a directory linked within the home is walked' { IsAgentRow 'home/bob/.camel/skills/s1/SKILL.md' 'camel-ai' $false }
+}
+# 2026-11-08 nested entries and exclusions under a home holding [ (#465)
+Check '#465 a nested entry under a home holding [ has one row, its own agent' { $nestedRows = RowsAt 'home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db'; $nestedRows.Count -eq 1 -and $nestedRows[0].agent -eq 'antigravity' -and $nestedRows[0].status -eq 'collected' }
+Check '#465 an exclusion applies under a home holding [' { $excludedRows = RowsAt 'home/u[1]/.gemini/tmp/bin'; $excludedRows.Count -eq 1 -and $excludedRows[0].status -eq 'skipped_excluded' -and (RowsAt 'home/u[1]/.gemini/tmp/bin/rg').Count -eq 0 }
+# 2026-11-08 a home path read as a pattern (#486)
+Check '#486 a home holding [ keeps its own file beside a home its pattern matches' { $ownRows = RowsAt 'home/u[1]/.gemini/settings.json'; $ownRows.Count -eq 1 -and $ownRows[0].user -ceq 'u[1]' }
+$patternHomePrefix = (ImagePath 'home/u1') + $Separator
+Check '#486 no row of the home holding [ lies under the home its pattern matches' { @($script:Rows | Where-Object { $_.user -ceq 'u[1]' -and $_.path.StartsWith($patternHomePrefix, [System.StringComparison]::OrdinalIgnoreCase) }).Count -eq 0 }
+Check '#486 the home its pattern matches keeps its own file' { $patternRows = RowsAt 'home/u1/.gemini/projects.json'; $patternRows.Count -eq 1 -and $patternRows[0].user -ceq 'u1' }
+Check '#486 a wildcard entry matches under a home holding [' { IsAgentRow 'home/u[1]/.claude.json.backup' 'claude-code' $true }
+Check '#486 a startup file under a home holding [ is searched' { IsAgentRow 'home/u[1]/.profile' 'shared' $true }
+# An image root holding [ finds its homes through home, with no passwd file.
+$PatternRoot = [System.IO.Path]::Combine($Work, 'r[1]')
+$PatternDir = [System.IO.Path]::Combine($PatternRoot, 'home', 'carol', '.gemini')
+$PatternFile = [System.IO.Path]::Combine($PatternDir, 'projects.json')
+[void][System.IO.Directory]::CreateDirectory($PatternDir)
+[System.IO.File]::WriteAllText($PatternFile, '{}', (New-Object System.Text.UTF8Encoding $false))
+$patternOutput = Join-Path $Out 'root486'
+New-Item -ItemType Directory -Path $patternOutput -Force | Out-Null
+$patternArgs = @{ Root = $PatternRoot; OutputDir = $patternOutput; Quiet = $true; NoDocker = $true; NoProjects = $true }
+$global:LASTEXITCODE = 0
+& $Collector @patternArgs *> $null
+$patternExit = $LASTEXITCODE
+$patternManifest = Read-ManifestLines (Get-ChildItem -LiteralPath $patternOutput -Filter '*.manifest.jsonl' | Select-Object -First 1).FullName
+Check '#486 an image root holding [ run exit 0' { $patternExit -eq 0 }
+Check '#486 a catalog file under an image root holding [ is collected' { @($patternManifest.rows | Where-Object { $_.path -eq $PatternFile -and $_.status -eq 'collected' }).Count -eq 1 }
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
@@ -3399,6 +3503,10 @@ Check 'Inventory rootless docker volume line' { $row -and $row.files -eq 1 -and 
 Check 'Inventory shared not inventoried' { -not ($script:Inventory | Where-Object { $_.type -eq 'agent' } | Where-Object { @('shared', 'project', 'live') -contains $_.agent }) }
 # 2026-10-19 Codex projectless output directories (#149)
 Check '#149 inventory codex-cli evidence names Documents/Codex' { (InventoryAgent 'bob' 'codex-cli').evidence -like '*Documents/Codex*' }
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+if ($cacheLinkOk -and $camelLinkOk) {
+  Check '#467 inventory counts no entry under a symlinked directory leaving the home' { $null -eq (InventoryAgent 'bob' 'crush') -and (InventoryAgent 'bob' 'camel-ai').evidence -eq '.camel/skills' }
+}
 Check 'Inventory prints no path below a home' { -not ($script:InventoryLines | Where-Object { $_.Contains($Root) -or $_.Contains($Root.Replace('\', '\\')) }) }
 $inventoryOutput = Join-Path $Out 'inv-o'
 InventoryRun @{ OutputDir = $inventoryOutput }

@@ -136,6 +136,35 @@ Linux keeps `.config/cursor/User` and `.config/Cursor/User` apart. With
 `--inventory` (`-Inventory`) the same folding applies, and the dropped line's
 glob is left out of the agent's `evidence`.
 
+## Paths through a symlinked directory
+
+A catalog path can run through a symbolic link (on Windows also a junction)
+to a directory: a home whose `.config` is a link to a dotfiles checkout
+matches `.config/<tool>` through it. The collectors never descend a link,
+but matching a path through one does follow it, so both check every
+directory between the home (or the project directory being collected) and
+the matched path.
+
+- When the link's target, with every link in its chain resolved, lies
+  outside that directory, or cannot be resolved, nothing under the link is
+  walked. The manifest records the link itself, the first link of a chain,
+  as one `symlink` row with the target it stores, attributed to the agent of
+  the first catalog line that reached through it, unless the link is itself
+  a match or lies inside one, whose walk records it (a link inside a matched
+  directory that is itself a link is logged but not recorded,
+  [issue 488](https://github.com/seanthegeek/doubleagent/issues/488)). The
+  row and the log line appear only when a catalog path matches through the
+  link. In image
+  mode this matters most: an absolute link inside the image resolves against
+  the analyst's own host, and one whose target that host lacks matches
+  nothing and leaves no row.
+- The log names each match left unwalked, with a line such as
+  `[crush] /home/bob/.cache/crush: under the symlinked directory /home/bob/.cache, which leads out of the base; not walked`.
+  With `--inventory` (`-Inventory`) the match is not counted and its glob is
+  left out of the agent's `evidence`.
+- A link whose target stays inside the home is walked, and its files are
+  recorded under the linked path, not the target's.
+
 ## Claude Code config homes
 
 A second Claude Code config home named `~/.claude-<name>` is collected by

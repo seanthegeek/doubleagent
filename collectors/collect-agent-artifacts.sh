@@ -3042,14 +3042,19 @@ HINT_SEARCH_WORKER=$_ret_heredoc_text
 # A table is expanded in full before anything is walked, so a match nested in
 # another (.gemini/antigravity-cli in .gemini) is pruned from the outer walk.
 
-# expand_glob BASE PATTERN -> the paths matching BASE/PATTERN that exist or are
-# symlinks, one per line. IFS is newline only, so a BASE with spaces stays one
-# word. Temporaries: _eg_.
+# expand_glob BASE PATTERN -> BASE/<match> for each match of PATTERN in BASE
+# that exists or is a symlink, one per line. PATTERN is expanded inside BASE
+# (/ when empty), so BASE is never a pattern; the cd relies on every caller
+# running it in a subshell, and is physical so a .. after a link in BASE lands
+# where BASE/<match> does. IFS is newline only, so a match with spaces stays
+# one word. Temporaries: _eg_.
 expand_glob() {
+  cd -P "${1:-/}" 2>/dev/null || return 0
   _eg_saved_ifs=$IFS
   IFS='
 '
-  for _eg_match in $1/$2; do
+  for _eg_match in $2; do
+    _eg_match=$1/$_eg_match
     if [ -e "$_eg_match" ] || [ -L "$_eg_match" ]; then printf '%s\n' "$_eg_match"; fi
   done
   IFS=$_eg_saved_ifs
@@ -3108,16 +3113,20 @@ fold_case_matches() {
 
 # expand_catalog BASE TABLE -> agent|glob|path for every match of TABLE under
 # BASE, in table order, case variants folded, plus #|message lines to log.
-# Reads NEWLINE. Temporaries: _ec_. Each glob is expanded inline, not through
-# expand_glob, so no table line starts a pipeline; a matched name holding a
-# newline gives one line per line of it, empty ones included.
+# Reads NEWLINE. Temporaries: _ec_. Each glob is expanded inline inside BASE,
+# entered physically in the pipeline's subshell, so BASE is never a pattern, a
+# .. after a link in BASE lands where BASE/<match> does, and no table line
+# starts a pipeline; a matched name holding a newline gives one line per line
+# of it, empty ones included.
 expand_catalog() {
-  printf '%s\n' "$2" | while IFS='|' read -r _ec_agent _ec_glob; do
+  printf '%s\n' "$2" | { cd -P "${1:-/}" 2>/dev/null || exit 0
+  while IFS='|' read -r _ec_agent _ec_glob; do
     case "$_ec_agent" in (''|'#'*) continue ;; esac
     _ec_saved_ifs=$IFS
     # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
     IFS=$NEWLINE
-    for _ec_match in $1/$_ec_glob; do
+    for _ec_match in $_ec_glob; do
+      _ec_match=$1/$_ec_match
       [ -e "$_ec_match" ] || [ -L "$_ec_match" ] || continue
       _ec_rest=$_ec_match
       while :; do
@@ -3130,15 +3139,59 @@ expand_catalog() {
       done
     done
     IFS=$_ec_saved_ifs
-  done | classify_case_matches | fold_case_matches
+  done; } | classify_case_matches | fold_case_matches
+}
+
+# linked_parent BASE PATH: true when a symlinked directory between BASE and
+# PATH, which the shell's glob followed, leads outside BASE (/ when BASE is
+# empty) once its chain of links is resolved, or cannot be resolved; sets
+# _ret_linked_parent to the first such directory, empty when there is none.
+# BASE is resolved only once a link is met; a sentinel keeps a final newline
+# of a resolved path, which $(...) would drop. PATH's leading components are
+# counted off against BASE's, since posh does not strip a quoted parameter
+# inside a pattern. Temporaries: _lp_.
+linked_parent() {
+  _ret_linked_parent=; _lp_base=$1/; _lp_rel=$2; _lp_dir=$1; _lp_root=
+  while [ "${_lp_base#*/}" != "$_lp_base" ]; do
+    _lp_base=${_lp_base#*/}; _lp_rel=${_lp_rel#*/}
+  done
+  while [ "${_lp_rel#*/}" != "$_lp_rel" ]; do
+    _lp_dir="$_lp_dir/${_lp_rel%%/*}"; _lp_rel=${_lp_rel#*/}
+    [ -L "$_lp_dir" ] || continue
+    _ret_linked_parent=$_lp_dir
+    if [ -z "$_lp_root" ]; then
+      _lp_root=$(cd -P "${1:-/}" 2>/dev/null && pwd -P && printf x) || return 0
+      _lp_root=${_lp_root%x}; _lp_root=${_lp_root%?}; _lp_root=${_lp_root%/}/
+    fi
+    _lp_real=$(cd -P "$_lp_dir" 2>/dev/null && pwd -P && printf x) || return 0
+    _lp_real=${_lp_real%x}; _lp_real=${_lp_real%?}
+    case "$_lp_real/" in ("$_lp_root"*) ;; (*) return 0 ;; esac
+  done
+  _ret_linked_parent=
+  return 1
+}
+
+# test_claimed_path PATH BASE: true when PATH, under BASE, is or lies under a
+# path of NESTED_CLAIMS, whose own walk records it. Reads NESTED_CLAIMS and
+# NEWLINE. Temporaries: _tcp_.
+test_claimed_path() {
+  _tcp_path=$1
+  # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
+  while [ "${#_tcp_path}" -gt "${#2}" ]; do
+    case "$NEWLINE$NESTED_CLAIMS$NEWLINE" in (*"$NEWLINE$_tcp_path$NEWLINE"*) return 0 ;; esac
+    _tcp_path=${_tcp_path%/*}
+  done
+  return 1
 }
 
 # collect_catalog USER BASE TABLE [HEADER]: collects every match of TABLE under
-# BASE, logging HEADER before the first one. Reads INVENTORY; sets NESTED_CLAIMS
-# while it runs, so a match inside another is collected once, under its own
-# agent. Temporaries: _cc_.
+# BASE, logging HEADER before the first one. Reads INVENTORY and NEWLINE; sets
+# NESTED_CLAIMS while it runs, so a match inside another is collected once,
+# under its own agent. A match under a symlinked directory leading out of BASE
+# is not walked; the link is collected once instead, unless test_claimed_path
+# holds. Temporaries: _cc_.
 collect_catalog() {
-  _cc_header=${4:-}
+  _cc_header=${4:-}; _cc_links=
   _cc_matches=$(expand_catalog "$2" "$3")
   NESTED_CLAIMS=$(printf '%s\n' "$_cc_matches" | grep -v '^#|' | cut -d'|' -f3-)
   printf '%s\n' "$_cc_matches" | while IFS='|' read -r _cc_agent _cc_glob _cc_match; do
@@ -3146,6 +3199,18 @@ collect_catalog() {
     if [ "$_cc_agent" = '#' ]; then
       if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
       if [ -n "$_cc_match" ]; then log_line "$_cc_glob|$_cc_match"; else log_line "$_cc_glob"; fi
+      continue
+    fi
+    if linked_parent "$2" "$_cc_match"; then
+      if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
+      _cc_link=$_ret_linked_parent
+      _cc_note="under the symlinked directory $_cc_link, which leads out of the base"
+      log_line "  [$_cc_agent] $_cc_match: $_cc_note; not walked"
+      # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
+      case "$_cc_links$NEWLINE" in (*"$NEWLINE$_cc_link$NEWLINE"*) continue ;; esac
+      _cc_links="$_cc_links$NEWLINE$_cc_link"
+      test_claimed_path "$_cc_link" "$2" && continue
+      collect_path "$1" "$2" "$_cc_agent" "$_cc_link" </dev/null
       continue
     fi
     if [ "$INVENTORY" = 1 ]; then
@@ -3207,22 +3272,41 @@ collect_path() {
   fi
 }
 
+# find_pattern_lines: stdin paths -> the same with [, ], *, ? and \ escaped, so
+# find -path takes each as the literal path, not a pattern.
+find_pattern_lines() { sed 's/[][*?\\]/\\&/g'; }
+
+# escape_find_pattern PATH: sets _ret_pattern to PATH escaped as
+# find_pattern_lines does, starting it only when PATH holds one of those
+# characters, so an ordinary path costs no process. sed does the escaping
+# rather than a builtin walk over the characters: taking one character off
+# the front of such a path needs a quoted parameter inside a pattern, which
+# posh reads as a pattern.
+escape_find_pattern() {
+  case "$1" in
+    (*'['*|*']'*|*'*'*|*'?'*|*\\*) _ret_pattern=$(printf '%s\n' "$1" | find_pattern_lines) ;;
+    (*) _ret_pattern=$1 ;;
+  esac
+}
+
 # set_exclude_words BASE: sets EXCLUDE_WORDS to the find(1) words that match
 # every ACTIVE_EXCLUDES glob under BASE, one per line, from the opening ( to the
-# last glob, empty when there is none, and EXCLUDE_WORDS_BASE to BASE. Reads
-# ACTIVE_EXCLUDES and NEWLINE. Temporaries: _sew_. collect_tree calls it when
-# EXCLUDE_WORDS was built for another base and splits the words in one pass:
-# appending them glob by glob to its argument list copies the list per glob.
+# last glob, empty when there is none, and EXCLUDE_WORDS_BASE to BASE, which the
+# words hold escaped and the globs as patterns. Reads ACTIVE_EXCLUDES and
+# NEWLINE. Temporaries: _sew_. collect_tree calls it when EXCLUDE_WORDS was
+# built for another base and splits the words in one pass: appending them glob
+# by glob to its argument list copies the list per glob.
 set_exclude_words() {
   EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=$1
+  escape_find_pattern "$1"; _sew_base=$_ret_pattern
   _sew_saved_ifs=$IFS
   # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
   IFS=$NEWLINE
   set -f
   for _sew_glob in $ACTIVE_EXCLUDES; do
     [ -n "$_sew_glob" ] || continue
-    if [ -z "$EXCLUDE_WORDS" ]; then EXCLUDE_WORDS="($NEWLINE-path$NEWLINE$1/$_sew_glob"
-    else EXCLUDE_WORDS="$EXCLUDE_WORDS$NEWLINE-o$NEWLINE-path$NEWLINE$1/$_sew_glob"; fi
+    if [ -z "$EXCLUDE_WORDS" ]; then EXCLUDE_WORDS="($NEWLINE-path$NEWLINE$_sew_base/$_sew_glob"
+    else EXCLUDE_WORDS="$EXCLUDE_WORDS$NEWLINE-o$NEWLINE-path$NEWLINE$_sew_base/$_sew_glob"; fi
   done
   set +f
   IFS=$_sew_saved_ifs
@@ -3245,8 +3329,9 @@ collect_tree() {
   _ct_first=1
   for _ct_claim in $NESTED_CLAIMS; do
     case "$_ct_claim" in "$1"/*) ;; *) continue ;; esac
-    if [ "$_ct_first" = 1 ]; then set -- "$@" '(' -path "$_ct_claim"; _ct_first=0
-    else set -- "$@" -o -path "$_ct_claim"; fi
+    escape_find_pattern "$_ct_claim"
+    if [ "$_ct_first" = 1 ]; then set -- "$@" '(' -path "$_ret_pattern"; _ct_first=0
+    else set -- "$@" -o -path "$_ret_pattern"; fi
   done
   if [ "$_ct_first" = 0 ]; then set -- "$@" ')' -prune -o; fi
   # shellcheck disable=SC2086 # one word per line, split on newline with globbing off
@@ -3828,35 +3913,16 @@ set_relocation_names() {
   export GREP_NAME_OPTIONS
 }
 
-# under_symlink BASE PATH -> 0 when a symlinked directory between BASE and
-# PATH, which the shell's glob followed, leads outside BASE (/ when BASE is
-# empty): an image's /etc -> /private/etc would read the analyst's own host,
-# while a live macOS /etc stays inside /. PATH's leading components are counted
-# off against BASE's, since posh does not strip a quoted parameter inside a
-# pattern. Temporaries: _us_.
-under_symlink() {
-  _us_base=$1/; _us_rel=$2; _us_dir=$1
-  while [ "${_us_base#*/}" != "$_us_base" ]; do
-    _us_base=${_us_base#*/}; _us_rel=${_us_rel#*/}
-  done
-  _us_root=$(cd -P "${1:-/}" 2>/dev/null && pwd -P) || return 0
-  _us_root=${_us_root%/}/
-  while [ "${_us_rel#*/}" != "$_us_rel" ]; do
-    _us_dir="$_us_dir/${_us_rel%%/*}"; _us_rel=${_us_rel#*/}
-    [ -L "$_us_dir" ] || continue
-    _us_real=$(cd -P "$_us_dir" 2>/dev/null && pwd -P) || return 0
-    case "$_us_real/" in ("$_us_root"*) ;; (*) return 0 ;; esac
-  done
-  return 1
-}
-
 # list_startup_files BASE SCOPE -> the regular files, never a symlink nor under
 # one leading out of BASE, that the STARTUP_FILES globs of SCOPE match under
-# BASE, one per line; a
-# system glob's leading / is dropped, so it is taken under the root, and a name
-# holding a newline is left out, as it would split the list. Reads
-# STARTUP_FILES. Temporaries: _lsf_.
+# BASE, one per line; a system glob's leading / is dropped, so it is taken
+# under the root, and a name holding a newline is left out, as it would split
+# the list. The globs are expanded inside BASE (/ when empty), entered
+# physically, so BASE is never a pattern and a .. after a link in BASE lands
+# where BASE/<match> does; the cd relies on every caller running it in a
+# subshell. Reads STARTUP_FILES. Temporaries: _lsf_.
 list_startup_files() {
+  cd -P "${1:-/}" 2>/dev/null || return 0
   _lsf_saved_ifs=$IFS; IFS='
 '
   set -f
@@ -3864,10 +3930,11 @@ list_startup_files() {
     case "$_lsf_line" in ("$2|"*) ;; (*) continue ;; esac
     _lsf_glob=${_lsf_line#*|}; _lsf_glob=${_lsf_glob#/}
     set +f
-    for _lsf_path in $1/$_lsf_glob; do
+    for _lsf_path in $_lsf_glob; do
+      _lsf_path=$1/$_lsf_path
       # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
       case "$_lsf_path" in (*"$NEWLINE"*) continue ;; esac
-      if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ] && ! under_symlink "$1" "$_lsf_path"; then
+      if [ -f "$_lsf_path" ] && [ ! -L "$_lsf_path" ] && ! linked_parent "$1" "$_lsf_path"; then
         printf '%s\n' "$_lsf_path"
       fi
     done
@@ -3940,10 +4007,6 @@ scan_home_for_variables() {
   _shv_output=$(find "$@" 2>>"$LOG")
   record_search_output "$_shv_user" "$_shv_home" "$_shv_home" "$_shv_output"
 }
-
-# find_pattern_lines: stdin paths -> the same with [, ], *, ? and \ escaped, so
-# find -path takes each as the literal path, not a pattern.
-find_pattern_lines() { sed 's/[][*?\\]/\\&/g'; }
 
 # record_search_output USER HOME BASE OUTPUT: adds the S|<count> lines of
 # OUTPUT to RELOCATION_FILES_SEARCHED and each B| line to

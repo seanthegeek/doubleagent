@@ -1978,6 +1978,53 @@ printf 'x\n' >"$ALICE/.claude/plugins/cache${NEWLINE}/settings.json"
 printf '{}' >"$ALICE/.claude/.credentials.json${NEWLINE}"
 # 2026-11-08 a symlink target ending in a newline (#480)
 ln -s "tgt${NEWLINE}" "$ALICE/.claude/nl-target-link"
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+# The glob follows .cache out of the home, so only the link is recorded, once
+# for the two entries under it; .pi is a match itself with a nested entry under
+# it; .camel stays inside the home and is walked under its linked path.
+mkdir -p "$ROOT/opt/linked-cache/crush" "$ROOT/opt/linked-cache/claude" "$ROOT/opt/linked-pi/agent" \
+  "$BOB/dotfiles/camel/skills/s1"
+printf '{}\n' >"$ROOT/opt/linked-cache/crush/crush.json"
+printf '{}\n' >"$ROOT/opt/linked-cache/claude/settings.json"
+printf '[]\n' >"$ROOT/opt/linked-pi/agent/little-coder-prompt-history.json"
+ln -s ../../opt/linked-cache "$BOB/.cache"
+ln -s ../../opt/linked-pi "$BOB/.pi"
+# A link to the sibling directory named like the home plus a newline leads out
+# of the home: the resolved path keeps its final newline.
+NL_HOME="$ROOT/home/nl"
+mkdir -p "$NL_HOME" "$ROOT/home/nl${NEWLINE}/crush"
+printf '{}\n' >"$ROOT/home/nl${NEWLINE}/crush/crush.json"
+ln -s "../nl${NEWLINE}" "$NL_HOME/.cache"
+# A link target whose .. follows a link out of the home resolves outside it,
+# though folding the .. away first would name the home's own cache directory.
+mkdir -p "$ROOT/opt/escape" "$ROOT/opt/cache/crush" "$ROOT/home/u1/cache"
+printf '{}\n' >"$ROOT/opt/cache/crush/crush.json"
+ln -s ../../opt/escape "$ROOT/home/u1/dotfiles"
+ln -s dotfiles/../cache "$ROOT/home/u1/.cache"
+# A passwd home whose path has a .. after a link names its files through the
+# link, where a logical cd would look beside it; smoke.ps1 has no passwd file.
+mkdir -p "$ROOT/opt/frank/.gemini"
+printf '{}\n' >"$ROOT/opt/frank/.gemini/settings.json"
+ln -s ../opt/escape "$ROOT/srv/dotlink"
+printf 'frank:x:1003:1003::/srv/dotlink/../frank:/bin/sh\n' >>"$ROOT/etc/passwd"
+printf 'x\n' >"$BOB/dotfiles/camel/skills/s1/SKILL.md"
+ln -s dotfiles/camel "$BOB/.camel"
+# 2026-11-08 nested entries and exclusions under a home holding [ (#465)
+# The home's [1] is a class in a find -path pattern: claims and exclusions must
+# still prune under it.
+BRACKET_HOME="$ROOT/home/u[1]"
+mkdir -p "$BRACKET_HOME/.gemini/antigravity-cli/conversations" "$BRACKET_HOME/.gemini/tmp/bin"
+printf '{}\n' >"$BRACKET_HOME/.gemini/settings.json"
+printf 'x\n' >"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db"
+printf 'x\n' >"$BRACKET_HOME/.gemini/tmp/bin/rg"
+# 2026-11-08 a home path read as a pattern (#486)
+# Read as a pattern, u[1] matches the home u1 beside it: each home keeps its
+# own files, and wildcard entries and startup files still match under u[1].
+PATTERN_HOME="$ROOT/home/u1"
+mkdir -p "$PATTERN_HOME/.gemini"
+printf '{}\n' >"$PATTERN_HOME/.gemini/projects.json"
+printf '{}\n' >"$BRACKET_HOME/.claude.json.backup"
+printf 'CODEX_HOME=/opt/x; export CODEX_HOME\n' >"$BRACKET_HOME/.profile"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
 if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
@@ -2027,7 +2074,7 @@ check "antigravity token flagged secret" "row \"$ROOT/home/alice/.gemini/antigra
 check "cache dir skipped_excluded with size" "row \"$ROOT/home/alice/.claude/cache\" | contains '\"type\":\"dir\",\"size\":[1-9][0-9]*.*\"status\":\"skipped_excluded\"'"
 check "cache contents not collected" "! grep -q 'cache/junk.bin' \"\$MANIFEST\""
 check "nested entry attributed to its own agent" "row \"$ROOT/home/alice/.gemini/antigravity-cli/conversations/c1.db\" | contains '\"agent\":\"antigravity\"'"
-check "nested entry collected exactly once" "[ \"\$(grep -c 'antigravity-cli/conversations/c1.db' \"\$MANIFEST\")\" = 1 ]"
+check "nested entry collected exactly once" "[ \"\$(grep -cF '\"path\":\"$ROOT/home/alice/.gemini/antigravity-cli/conversations/c1.db\"' \"\$MANIFEST\")\" = 1 ]"
 check "enclosing entry still attributed to gemini-cli" "row \"$ROOT/home/alice/.gemini/projects.json\" | contains '\"agent\":\"gemini-cli\"'"
 check "antigravity bin excluded" "[ \"\$(status_of \"$ROOT/home/alice/.gemini/antigravity-cli/bin\")\" = skipped_excluded ]"
 check "ollama model blobs excluded" "[ \"\$(status_of \"$ROOT/home/ollama/.ollama/models/blobs\")\" = skipped_excluded ]"
@@ -2642,6 +2689,33 @@ check "#478 a directory named cache plus a newline is not excluded as cache" "[ 
 check "#478 a file named .credentials.json plus a newline is not flagged as the credential" "row \"$ALICE/.claude/.credentials.json\\\\n\" | contains '\"secret\":false,\"status\":\"collected\"'"
 # 2026-11-08 a symlink target ending in a newline (#480)
 check "#480 a symlink target ending in a newline is recorded whole" "row \"$ALICE/.claude/nl-target-link\" | contains '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+check "#467 a catalog entry under a symlinked directory leaving the home is not walked" "! grep -qF '\"path\":\"$BOB/.cache/' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$ROOT/opt/linked-cache' \"\$MANIFEST\""
+check "#467 the symlinked directory is recorded once, as a symlink with its target, under the first agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.cache\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.cache\" | contains '\"agent\":\"claude-code\".*\"status\":\"symlink\",\"target\":\"../../opt/linked-cache\"'"
+check "#467 the log names each match under the symlinked directory" "grep -qF '[claude-code] $BOB/.cache/claude: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\" && grep -qF '[crush] $BOB/.cache/crush: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#467 a link to a sibling named like the home plus a newline leads out of the home" "! grep -qF '\"path\":\"$NL_HOME/.cache/' \"\$MANIFEST\" && row \"$NL_HOME/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\"'"
+check "#467 a link target whose .. follows a link out of the home leads out of the home" "! grep -qF '\"path\":\"$ROOT/home/u1/.cache/' \"\$MANIFEST\" && row \"$ROOT/home/u1/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\"'"
+check "#467 a symlinked directory that is itself a match has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.pi\" | contains '\"agent\":\"pi\".*\"status\":\"symlink\"' && [ -z \"\$(row \"$BOB/.pi/agent/little-coder-prompt-history.json\")\" ] && grep -qF '[little-coder] $BOB/.pi/agent/little-coder-prompt-history.json: under the symlinked directory $BOB/.pi, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#467 a passwd home with a .. after a link is expanded where its files are" "row \"$ROOT/srv/dotlink/../frank/.gemini/settings.json\" | contains '\"user\":\"frank\".*\"status\":\"collected\"'"
+check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"'"
+# 2026-11-08 nested entries and exclusions under a home holding [ (#465)
+check "#465 a nested entry under a home holding [ has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\"' \"\$MANIFEST\")\" = 1 ] && row \"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
+check "#465 an exclusion applies under a home holding [" "row \"$BRACKET_HOME/.gemini/tmp/bin\" | contains '\"status\":\"skipped_excluded\"' && [ -z \"\$(row \"$BRACKET_HOME/.gemini/tmp/bin/rg\")\" ]"
+# 2026-11-08 a home path read as a pattern (#486)
+check "#486 a home holding [ keeps its own file beside a home its pattern matches" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/settings.json\"' \"\$MANIFEST\")\" -eq 1 ] && row \"$BRACKET_HOME/.gemini/settings.json\" | contains -F '\"user\":\"u[1]\",'"
+check "#486 no row of the home holding [ lies under the home its pattern matches" "[ -z \"\$(grep -F '\"user\":\"u[1]\",' \"\$MANIFEST\" | grep -F '\"path\":\"$PATTERN_HOME/')\" ]"
+check "#486 the home its pattern matches keeps its own file" "[ \"\$(grep -cF '\"path\":\"$PATTERN_HOME/.gemini/projects.json\"' \"\$MANIFEST\")\" -eq 1 ] && row \"$PATTERN_HOME/.gemini/projects.json\" | contains -F '\"user\":\"u1\",'"
+check "#486 a wildcard entry matches under a home holding [" "row \"$BRACKET_HOME/.claude.json.backup\" | contains '\"agent\":\"claude-code\".*$SECRET_COLLECTED'"
+check "#486 a startup file under a home holding [ is searched" "row \"$BRACKET_HOME/.profile\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+# An image root holding [ finds its homes through home/*, with no passwd file.
+PATTERN_ROOT="$WORK/r[1]"
+mkdir -p "$PATTERN_ROOT/home/carol/.gemini"
+printf '{}\n' >"$PATTERN_ROOT/home/carol/.gemini/projects.json"
+_saved_root_pattern=$ROOT; ROOT=$PATTERN_ROOT
+run root486 --no-docker --no-projects; _exit_pattern_root=$?
+check "#486 an image root holding [ run exit 0" "[ $_exit_pattern_root -eq 0 ]"
+check "#486 a catalog file under an image root holding [ is collected" "[ \"\$(status_of \"$PATTERN_ROOT/home/carol/.gemini/projects.json\")\" = collected ]"
+ROOT=$_saved_root_pattern
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
@@ -3144,6 +3218,8 @@ check "inventory shared not inventoried" "! grep -q '\"agent\":\"\\(shared\\|pro
 check "inventory prints no path below a home" "! grep -q '$ROOT' \"$OUT/inventory.stdout\""
 # 2026-10-19 Codex projectless output directories (#149)
 check "#149 inventory codex-cli evidence names Documents/Codex" "agent_line inventory bob codex-cli | contains '\"evidence\":\"[^\"]*Documents/Codex'"
+# 2026-11-08 catalog entries under a symlinked directory (#467)
+check "#467 inventory counts no entry under a symlinked directory leaving the home" "[ -z \"\$(agent_line inventory bob crush)\" ] && agent_line inventory bob camel-ai | contains '\"evidence\":\".camel/skills\"}\$'"
 if command -v python3 >/dev/null 2>&1; then
   check "inventory stdout is valid JSON Lines" "python3 -c 'import json,sys; [json.loads(line) for line in open(sys.argv[1])]' \"$OUT/inventory.stdout\""
 fi

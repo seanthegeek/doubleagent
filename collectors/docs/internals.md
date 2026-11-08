@@ -174,8 +174,8 @@ keeps the banner and says so.
 
 | Glob | Matched against | sh | PowerShell |
 | --- | --- | --- | --- |
-| `CATALOG`, `PROJECT_CATALOG` | the base (home, project), one path segment at a time; `*` and `?` do not cross `/` | shell pathname expansion of `BASE/GLOB` in `expand_catalog`, with `IFS` set to newline only so a base with spaces stays one word; a pattern that matches nothing expands to itself and fails the existence test. As in any POSIX shell, `*` does not match a name's leading `.`. | `Expand-Glob` splits the glob on `/`; a wildcard segment lists the directory and matches each name with `Convert-GlobToRegex` (`*` is `[^/]*`, so it matches a leading `.`) and `-match`, which ignores case; a literal segment is tested for existence and respelled as on disk by `Get-OnDiskName`; the regex is anchored with `\z`. |
-| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` rebuilds when the base changes, with globbing off, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive, single-line mode so `*` and `?` cross a newline as in sh |
+| `CATALOG`, `PROJECT_CATALOG` | the base (home, project), one path segment at a time; `*` and `?` do not cross `/` | shell pathname expansion of `GLOB` in `expand_catalog`, inside the base (`cd` into it in the pipeline's subshell), so the base is a literal path and only the glob a pattern, with `IFS` set to newline only so a match with spaces stays one word; each match is rebuilt as `BASE/<match>`, and a base that cannot be entered gives no match. `expand_glob` (homes, volumes) and `list_startup_files` expand their globs the same way; a pattern that matches nothing expands to itself and fails the existence test. As in any POSIX shell, `*` does not match a name's leading `.`. | `Expand-Glob` splits the glob on `/`; a wildcard segment lists the directory and matches each name with `Convert-GlobToRegex` (`*` is `[^/]*`, so it matches a leading `.`) and `-match`, which ignores case; a literal segment is tested for existence and respelled as on disk by `Get-OnDiskName`; the regex is anchored with `\z`. |
+| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` rebuilds when the base changes, with globbing off and the base escaped by `escape_find_pattern`, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive, single-line mode so `*` and `?` cross a newline as in sh |
 | `SECRET_GLOBS` | the path relative to the base; `*` crosses `/` | one `case` pattern, every glob joined with `\|`, built once by `compile_secret_pattern` and turned into `is_secret` by `define_secret_test`; `is_secret` is called in `plan_chunk` (and in `test_inventory_secret`), case-sensitive | `$script:SecretRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedFile` and `Test-InventorySecret`; case-insensitive, single-line mode so `*` and `?` cross a newline as in sh |
 | `DOCKER_VOLUMES` | the volume directory's name | a `case` pattern in `get_docker_volume_rule`, with globbing off | `Convert-GlobToRegex` (anchored with `\z`) and `-cmatch`, case-sensitive, in `Get-DockerVolumeRule` |
 
@@ -203,6 +203,21 @@ directory is never given to `find`, so `collect_path` tests it with
 the PowerShell collector `Add-CollectedPath` tests the match itself and
 `Add-CollectedTree` each child.
 
+Pathname expansion, and `Get-ChildItem` or `Test-Path` on the PowerShell
+side, follow a symlinked directory in the middle of a glob, though the walk
+from a match never descends one. `collect_catalog` and `Add-CatalogMatches`
+therefore apply `linked_parent` (`Get-LinkedParent`) to each match before it
+is logged, inventoried or walked: when a directory between the base and the
+match is a link whose target lies outside the base, or cannot be resolved,
+the match is logged and skipped, and the link is collected through
+`collect_path` (`Add-CollectedPath`), which records it as a `symlink` row,
+once per call and only when `test_claimed_path` (`Test-ClaimedPath`) finds
+it neither claimed nor inside a claimed path, whose walk records it
+([coverage.md](coverage.md#paths-through-a-symlinked-directory)).
+`linked_parent` tests each component with `[ -L ]` and runs `cd -P` only
+from the first link on, so a match with no link in its path costs no
+process.
+
 ## Claimed paths and case variants
 
 A catalog line nested inside another line's match
@@ -214,7 +229,9 @@ whole table before anything is walked:
   order. `collect_catalog` sets `NESTED_CLAIMS` to the matched paths for
   the duration of the call, and `collect_tree` adds one
   `( -path CLAIM -o ... ) -prune -o` group to the `find` expression for the
-  claims inside the directory being walked. The main program clears
+  claims inside the directory being walked, each escaped by
+  `escape_find_pattern`, so a `[`, `*` or `?` in a claimed path or its home
+  stays a literal character. The main program clears
   `NESTED_CLAIMS` before the first step, so a walk that does not go
   through `collect_catalog` (a Docker volume's) prunes no claim, whatever
   the environment held.
@@ -449,7 +466,7 @@ The step searches, per base (each home, the system root and each project), the
 files that the `STARTUP_FILES` globs of that scope match, keeping regular files
 only: a symlink is never followed or read, nor a file under a symlinked
 directory whose target, with every link in its chain resolved, lies outside the
-base (`under_symlink`, `Test-UnderLink`): the glob expansion follows such a
+base (`linked_parent`, `Get-LinkedParent`): the glob expansion follows such a
 link, and in image mode an
 image's `/etc -> /private/etc` would read the analyst's host, while a live
 macOS `/etc` stays inside `/` and is read. One
@@ -579,6 +596,8 @@ PowerShell functions that do their job.
 | Count one file under inventory | `INVENTORY_FILES_WORKER` | `Add-InventoryFile` |
 | Expand one glob under a base | `expand_glob` (the user home and volume globs; `expand_catalog` expands the catalog globs itself) | `Expand-Glob` |
 | Expand a table against a base: matches, case variants, claims | `expand_catalog` | `Expand-Catalog` |
+| The first symlinked directory between a base and a path that leads out of the base: a catalog match under it is not walked, a startup file under it not read | `linked_parent` | `Get-LinkedParent` |
+| Tell a path that is or lies under a claimed path, whose walk records it | `test_claimed_path` | `Test-ClaimedPath` |
 | Collect every match of a table under a base | `collect_catalog` | `Add-CatalogMatches` |
 | Collect one matched path | `collect_path` | `Add-CollectedPath` |
 | Walk a matched directory | `collect_tree` | `Add-CollectedTree` |
@@ -616,7 +635,6 @@ PowerShell functions that do their job.
 | Tell a project that is or holds a home, which is not swept | `holds_home` | `Test-HoldsHome` |
 | Tell a home under the usual home roots, the only homes swept | `under_home_root` | `Test-UserHomeRoot` |
 | List the startup files of one scope under one base | `list_startup_files` | `Get-StartupFiles` |
-| Tell a path under a symlinked directory leading out of the base, which is not read | `under_symlink` | `Test-UnderLink` |
 | Search files for any relocation variable name | `HINT_SEARCH_WORKER` | `Select-RelocationNames` |
 | Record the hits of the searched files and collect each hit file | `record_search_output`, `record_file_hints` | `Search-RelocationFiles` |
 | The relocation variable names a file (sh) or a line (PowerShell) holds as whole words | `list_bounded_names` | `Get-BoundedNames` |
@@ -652,6 +670,7 @@ PowerShell functions that do their job.
 | `print_file_rows` | Staging files | Inside `INVENTORY_FILES_WORKER`: the `F\|` lines from one `stat` call |
 | `classify_case_matches`, `fold_case_matches` | Catalog walk | Case-variant folding; PowerShell uses `Get-OnDiskName` |
 | `set_exclude_words` | Catalog walk | The `find` words that prune every `EXCLUDES` glob under one base, rebuilt for `collect_tree` when the base changes; PowerShell compiles `$script:ExcludeRegex` once per run in `Initialize-TableRegexes` |
+| `escape_find_pattern`, `find_pattern_lines` | Catalog walk | The escaping of one path, or of each line of a list, for `find -path`; `escape_find_pattern` starts `find_pattern_lines` only for a path holding `[`, `]`, `*`, `?` or `\`. PowerShell compares paths exactly |
 | `test_excluded` | Catalog walk | Whether a match that is not a directory is excluded; PowerShell tests `$script:ExcludeRegex` in `Add-CollectedPath` |
 | `filter_users` | Users | Drops system and shared homes, applies `-u`, keeps each home once; PowerShell does this in `Get-UserHomes` |
 | `find_errors_since` | Docker and Podman volumes | `find:` log lines since a given line |
@@ -660,7 +679,7 @@ PowerShell functions that do their job.
 | `report_missing_projects` | Project discovery | Log line and `error_read` row for a `-p` that is not a directory; PowerShell does this in `Add-Projects` |
 | `set_relocation_names` | Relocation hints | The `RELOCATION_VARS` names as `grep` options and an `awk` list; PowerShell builds `$script:RelocationNames` when the script loads |
 | `search_base_list` | Relocation hints | Runs the fixed list or the sweep over each home or project; PowerShell loops in `Find-RelocationHints` |
-| `search_file_list`, `find_pattern_lines` | Relocation hints | One `grep` over a file list in one case mode; the escaping of a path for `find -path`. PowerShell splits the list in `Search-RelocationFiles` and compares paths exactly |
+| `search_file_list` | Relocation hints | One `grep` over a file list in one case mode; PowerShell splits the list in `Search-RelocationFiles` |
 | `aggregate_inventory` | Inventory output | Sums `M\|` and `F\|` lines per agent; PowerShell accumulates with `Get-InventoryEntry`, `Add-InventoryEvidence`, `Add-InventoryFile` |
 | `count_inventory_homes` | Inventory output | Homes scanned and unreadable; PowerShell does this in `Write-Inventory` |
 | `count_status`, `list_active_users`, `sum_collected_bytes` | Summary and archive | Counts read back from the manifest; PowerShell counts in `Write-ManifestRow` |

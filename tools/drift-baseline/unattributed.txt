@@ -10,7 +10,6 @@ check_smoke_coverage|check-by-suffix|smoke.ps1 */x-5d404e14/.keep
 check_smoke_coverage|check-by-suffix|smoke.ps1 *Application Support/Codex/component_crx_cache*
 check_smoke_coverage|check-by-suffix|smoke.ps1 *ConsoleHost_history.txt
 check_smoke_coverage|check-by-suffix|smoke.ps1 *Roaming*Code*User*globalStorage*saoudrizwan.claude-dev*taskHistory.json
-check_smoke_coverage|check-by-suffix|smoke.ps1 *antigravity-cli*conversations*c1.db
 check_smoke_coverage|check-by-suffix|smoke.ps1 *docker/volumes*
 check_smoke_coverage|check-by-suffix|smoke.ps1 *globalStorage/rjmacarthy.twinny/twinny-providers.json
 check_smoke_coverage|check-by-suffix|smoke.ps1 *little-coder-prompt-history.json
