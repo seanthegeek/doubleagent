@@ -563,6 +563,13 @@ secret||.local/share/oauth-cli-kit/auth/codex.json
 secret||Library/Application Support/oauth-cli-kit/auth/codex.json
 secret||AppData/Local/oauth-cli-kit/auth/codex.json
 secret||.local/share/amp/ide/c1.json
+agent|nanobot|.local/share/nanobot/auth/github-copilot.json
+agent|nanobot|Library/Application Support/nanobot/auth/github-copilot.json
+agent|nanobot|AppData/Local/nanobot/auth/github-copilot.json
+agent|nanobot|.local/share/oauth-cli-kit/auth/codex.json
+agent|nanobot|Library/Application Support/oauth-cli-kit/auth/codex.json
+agent|nanobot|AppData/Local/oauth-cli-kit/auth/codex.json
+agent|amp|.local/share/amp/ide/c1.json
 excl||agent-zero/.venv
 excl||Desktop/agent-zero/.conda
 excl||agent-zero/main/.git
@@ -2034,7 +2041,7 @@ printf '{}\n' >"$PATTERN_HOME/.gemini/projects.json"
 printf '{}\n' >"$BRACKET_HOME/.claude.json.backup"
 printf 'CODEX_HOME=/opt/x; export CODEX_HOME\n' >"$BRACKET_HOME/.profile"
 
-# 2026-11-09 credential sweep (#246)
+# 2026-11-08 credential sweep (#246)
 # One OAuth provider token file under each Agent Zero base: two home installs and
 # both forms of the a0_usr volume.
 AGENT_ZERO_OAUTH=plugins/_oauth/github_copilot/auth.json
@@ -2726,10 +2733,10 @@ check "#486 no row of the home holding [ lies under the home its pattern matches
 check "#486 the home its pattern matches keeps its own file" "[ \"\$(grep -cF '\"path\":\"$PATTERN_HOME/.gemini/projects.json\"' \"\$MANIFEST\")\" -eq 1 ] && row \"$PATTERN_HOME/.gemini/projects.json\" | contains -F '\"user\":\"u1\",'"
 check "#486 a wildcard entry matches under a home holding [" "row \"$BRACKET_HOME/.claude.json.backup\" | contains '\"agent\":\"claude-code\".*$SECRET_COLLECTED'"
 check "#486 a startup file under a home holding [ is searched" "row \"$BRACKET_HOME/.profile\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
-# 2026-11-09 credential sweep (#246)
+# 2026-11-08 credential sweep (#246)
 check "#246 Agent Zero OAuth provider auth.json flagged secret" "row \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_OAUTH\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_OAUTH\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED'"
 check "#246 Agent Zero volume OAuth provider auth.json flagged secret" "row \"$VOLUMES/a0_usr/_data/$AGENT_ZERO_OAUTH\" | contains '\"user\":\"docker\".*\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$VOLUMES/a0_usr/_data/usr/$AGENT_ZERO_OAUTH\" | contains '\"user\":\"docker\".*\"agent\":\"agent-zero\".*$SECRET_COLLECTED'"
-# 2026-11-09 credential sweep (#249)
+# 2026-11-08 credential sweep (#249)
 check "#249 Tabby volume config.toml flagged secret" "row \"$ALICE/.local/share/docker/volumes/tabby_data/_data/config.toml\" | contains '\"user\":\"docker\".*\"agent\":\"tabby\".*$SECRET_COLLECTED'"
 # An image root holding [ finds its homes through home/*, with no passwd file.
 PATTERN_ROOT="$WORK/r[1]"
@@ -2877,10 +2884,10 @@ check "#454 hints kept without secrets" "hint_line \"$ROOT/etc/profile\" 1 COPIL
 # 2026-11-08 exclusion and secret globs across a newline in a path (#473)
 check "#473 NoSecrets skips .claude/bridge-spawn/*/mcp.json across a newline" "[ \"\$(status_of \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\")\" = skipped_secret ]"
 
-# 2026-11-09 credential sweep (#246)
+# 2026-11-08 credential sweep (#246)
 check "#246 Agent Zero OAuth provider auth.json skipped without secrets" "[ \"\$(status_of \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_OAUTH\")\" = skipped_secret ] && [ \"\$(status_of \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_OAUTH\")\" = skipped_secret ]"
 check "#246 Agent Zero volume OAuth provider auth.json skipped without secrets" "[ \"\$(status_of \"$VOLUMES/a0_usr/_data/$AGENT_ZERO_OAUTH\")\" = skipped_secret ] && [ \"\$(status_of \"$VOLUMES/a0_usr/_data/usr/$AGENT_ZERO_OAUTH\")\" = skipped_secret ]"
-# 2026-11-09 credential sweep (#249)
+# 2026-11-08 credential sweep (#249)
 check "#249 Tabby volume config.toml skipped without secrets" "[ \"\$(status_of \"$ALICE/.local/share/docker/volumes/tabby_data/_data/config.toml\")\" = skipped_secret ]"
 
 # ---- --env-scan-home ------------------------------------------------------

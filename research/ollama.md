@@ -253,8 +253,8 @@ The desktop app's code is under `app/`.
   no token file is written. `id_ed25519.pub` identifies the device.
 - No keychain use anywhere in the tree (grep `keychain|Keychain` in cmd, auth, server, app: none).
 - `~/.ollama/config.json` holds no credentials, and `server.json` holds no credentials.
-  `~/.ollama/backup/*` holds
-  copies of other tools' settings files, which can hold API keys, and
+  `~/.ollama/backup/*` holds copies of other tools' settings files, which can hold API keys,
+  and
   `launch/muse-config/muse/settings.json` is a copy of Muse's flagged `settings.json`
   ([Launch state](#launch-state)); both are flagged (`.ollama/backup/*`,
   `.ollama/launch/muse-config/muse/settings.json`). The Docker image starts the server

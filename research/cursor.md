@@ -2111,8 +2111,7 @@ and `agentData.cacheStorage.glass.repoSlashInventory.v2.origin.cursor.com%2Fgit%
 The CLI on macOS keeps its tokens in the login keychain ([Credentials](#credentials)).
 `.cursor/cli-config.json` holds, while signed in, `authInfo` (the email, the display name, the
 numeric user id and the `auth0|user_<id>` id) and the 42-character `authCacheKey` of
-`serverConfigCache` and
-`autoReviewAvailabilityCache`, whose derivation is not known. In the chat
+`serverConfigCache` and `autoReviewAvailabilityCache`, whose derivation is not known. In the chat
 store, `meta.0.blobEncryptionKey` (64 hex digits) sits beside blobs that were not encrypted with
 it, and the reasoning blocks' `signature` strings are opaque. User content in the chat store: the
 context prompts, an edit's `beforeFullFileContent` and `afterFullFileContent`, command output,

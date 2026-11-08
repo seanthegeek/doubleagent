@@ -458,7 +458,8 @@ nanobot|.config/systemd/user/nanobot-*
 nanobot|.local/share/nanobot/auth
 nanobot|Library/Application Support/nanobot/auth
 nanobot|AppData/Local/nanobot/auth
-# The default data directory of the oauth-cli-kit library, which the OpenAI Codex provider of nanobot writes (the only catalog agent known to use the library)
+# The default data directory of the oauth-cli-kit library, which the OpenAI Codex
+# provider of nanobot writes (the only catalog agent known to use the library)
 nanobot|.local/share/oauth-cli-kit/auth
 nanobot|Library/Application Support/oauth-cli-kit/auth
 nanobot|AppData/Local/oauth-cli-kit/auth
