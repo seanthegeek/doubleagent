@@ -33,6 +33,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The sh collector's `skipped_excluded` row of an excluded directory whose path holds a newline recorded `size` 0, since `du` prints the path after the size and the name's second line spoiled the number; the row now records the directory's size ([#471]).
 - The PowerShell collector, under PowerShell 7 on Linux and macOS, collected a path holding a newline unexcluded or unflagged when an exclusion or secret glob's `*` or `?` had to cross the newline (`.claude/plugins/*/node_modules` did not exclude `.claude/plugins/nl<newline>name/node_modules`); it now excludes or flags it, as the sh collector does ([#473]).
+- The sh collector wrote a manifest path that ends in a newline without that newline, so the row named a file the archive does not hold; the path is now written whole ([#479]).
 
 ### Removed
 
@@ -1265,6 +1266,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#479]: https://github.com/seanthegeek/doubleagent/issues/479
 [#473]: https://github.com/seanthegeek/doubleagent/issues/473
 [#471]: https://github.com/seanthegeek/doubleagent/issues/471
 [#470]: https://github.com/seanthegeek/doubleagent/issues/470

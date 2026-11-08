@@ -2590,13 +2590,14 @@ TAB=${TAB_AND_CARRIAGE_RETURN%?}; CARRIAGE_RETURN=${TAB_AND_CARRIAGE_RETURN#?}
 NEWLINE='
 '
 # json_escape TEXT -> TEXT as a JSON string body (backslash, double quote, tab,
-# carriage return and newline escaped); awk starts only when one is present.
+# carriage return and newline escaped); awk starts only when one is present,
+# fed one added newline, since it drops the text's last one.
 json_escape() {
   case "$1" in
     *\\*|*'"'*|*"$TAB"*|*"$CARRIAGE_RETURN"*|*"$NEWLINE"*) ;;
     *) printf '%s' "$1"; return ;;
   esac
-  printf '%s' "$1" | awk 'BEGIN{ORS=""} NR>1{printf "\\n"} {
+  printf '%s\n' "$1" | awk 'BEGIN{ORS=""} NR>1{printf "\\n"} {
     count=length($0)
     for(i=1;i<=count;i++){ char=substr($0,i,1)
       if(char=="\\") printf "\\\\"; else if(char=="\"") printf "\\\"";

@@ -1879,6 +1879,10 @@ if ($env:OS -ne 'Windows_NT') {
   MakeFile "Users/alice/.claude/bridge-spawn/$newlineDir/mcp.json" '{}'
 } else { Write-Output 'note: #473 newline-in-path checks skipped (no newline in a Windows name)' }
 
+# 2026-11-08 a name ending in a newline (#478)
+if ($env:OS -ne 'Windows_NT') {
+  MakeFile "Users/alice/.claude/.credentials.json$newlineChar" '{}'
+} else { Write-Output 'note: #478 newline-ending-name checks skipped (no newline in a Windows name)' }
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2845,11 +2849,19 @@ if ($env:OS -ne 'Windows_NT') {
   Check '#473 .claude/bridge-spawn/*/mcp.json flags a credential across a newline' { $row -and $row.status -eq 'collected' -and $row.secret -eq $true }
 }
 
+# 2026-11-08 a name ending in a newline (#478)
+if ($env:OS -ne 'Windows_NT') {
+  $newlineCredential = ImagePath "Users/alice/.claude/.credentials.json$newlineChar"
+  $row = $script:Rows | Where-Object { $_.path -ceq $newlineCredential } | Select-Object -First 1
+  Check '#478 a file named .credentials.json plus a newline is not flagged as the credential' { $row -and $row.status -eq 'collected' -and $row.secret -ne $true }
+}
+
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
 Check 'NoSecrets exit 0' { $script:ExitCode -eq 0 }
 Check 'credentials skipped_secret' { (StatusOf 'Users/alice/.claude/.credentials.json') -eq 'skipped_secret' }
-Check 'credentials absent from archive' { -not (ArchiveEntries | Where-Object { $_ -match '\.claude/\.credentials\.json$' }) }
+$memberNames = if ($script:Archive.Name -like '*.tar.gz') { @((Read-TarGz $script:Archive.FullName).members | ForEach-Object { $_.name }) } else { @(ArchiveEntries) }
+Check 'credentials absent from archive' { @($memberNames | Where-Object { $_ -match '\.claude/\.credentials\.json\z' }).Count -eq 0 -and ($env:OS -eq 'Windows_NT' -or @($memberNames | Where-Object { $_ -match "\.credentials\.json`n\z" }).Count -eq 1) }
 # 2026-10-11 Claude Desktop Linux deb and Claude Code 2.1.295 session keys (#73, #76)
 Check '#73 #76 NoSecrets skips link-key and the session key' { (StatusOf $linkKey) -eq 'skipped_secret' -and (StatusOf $sessionKey) -eq 'skipped_secret' }
 # 2026-10-13 Antigravity desktop app (#83, #84)
