@@ -975,7 +975,9 @@ def shell_test(arguments: list[str]) -> bool | None:
 
 
 SHELL_ARGUMENT = r"""(?:"[^"]*"|[^\s|"';&)]+)"""
-ROW_GREP = re.compile(r"""(!\s*)?\brow\s+(%s)\s*\|\s*grep\s+-qF?\s+'([^']*)'""" % SHELL_ARGUMENT)
+ROW_GREP = re.compile(
+    r"""(!\s*)?\brow\s+(%s)\s*\|\s*contains(?:\s+-F)?\s+'([^']*)'""" % SHELL_ARGUMENT
+)
 STATUS_COMPARE = re.compile(r"""\$\(status_of\s+(%s)\)"\s*(!?=)\s*([a-z_]+)""" % SHELL_ARGUMENT)
 ROW_ABSENT = re.compile(r"""\[\s+-z\s+"\$\((?:row|status_of)\s+(%s)\)"\s+\]""" % SHELL_ARGUMENT)
 ROW_READ = re.compile(r"""\brow\s+(%s)\s*\|\s*sed\b""" % SHELL_ARGUMENT)
@@ -985,7 +987,7 @@ ROW_CALL = re.compile(r"\b(?:row|status_of)\s+")
 def shell_check_assertions(expression: str) -> tuple[list[Assertion], bool]:
     """Return what a smoke.sh check expression asserts, and whether a row call was unread.
 
-    Accepted forms: `row "P" | grep -q 'PATTERN'` (a leading `!` negates it),
+    Accepted forms: `row "P" | contains 'PATTERN'` or `contains -F` (a leading `!` negates it),
     `"$(status_of "P")" = STATUS` or `!=`, `[ -z "$(row "P")" ]` (an absence, asserting
     nothing), and `row "P" | sed` (a value read). A `row` or `status_of` call in any other form
     makes the check unparsed. Each path is expanded again, as the check's `eval` would.

@@ -45,11 +45,11 @@ CASES_FW='
 secret||.alpha/auth.json
 '
 run() { # run NAME ARGS...
-  check "inside a function, never read" "row \"$ALICE/none\" | grep -q '\"secret\":true'"
+  check "inside a function, never read" "row \"$ALICE/none\" | contains '\"secret\":true'"
 }
 # ---- default run ----
 run default
-check "alpha auth flagged" "row \"$ALICE/.alpha/auth.json\" | grep -q '\"secret\":true'"
+check "alpha auth flagged" "row \"$ALICE/.alpha/auth.json\" | contains '\"secret\":true'"
 check "alpha cache excluded" "[ \"\$(status_of \"$ALICE/.alpha/cache\")\" = skipped_excluded ]"
 # ---- --no-secrets ----
 run nosecrets --no-secrets
@@ -133,7 +133,7 @@ def test_secret_check_missing(tmp_path):
 def test_secret_check_in_a_no_secrets_run_does_not_count(tmp_path):
     moved = SMOKE_SH.replace(
         'check "alpha auth skipped"',
-        'check "flagged here" "row \\"$ALICE/.alpha/auth.json\\" | grep -q \'\\"secret\\":true\'"\n'
+        'check "flagged here" "row \\"$ALICE/.alpha/auth.json\\" | contains \'\\"secret\\":true\'"\n'
         'check "alpha auth skipped"',
     )
     repository(tmp_path, without(moved, "alpha auth flagged"))
@@ -265,8 +265,8 @@ def test_framework_nosecrets_missing(tmp_path):
 def test_check_path_unresolved_once_per_variable(tmp_path):
     unresolved = SMOKE_SH.replace(
         "# ---- --no-secrets",
-        'check "a" "row \\"$NOWHERE/x\\" | grep -q \'\\"secret\\":true\'"\n'
-        'check "b" "row \\"$NOWHERE/y\\" | grep -q \'\\"secret\\":true\'"\n'
+        'check "a" "row \\"$NOWHERE/x\\" | contains \'\\"secret\\":true\'"\n'
+        'check "b" "row \\"$NOWHERE/y\\" | contains \'\\"secret\\":true\'"\n'
         "# ---- --no-secrets",
     )
     repository(tmp_path, unresolved)
@@ -277,7 +277,7 @@ def test_check_path_unresolved_once_per_variable(tmp_path):
 def test_check_unparsed(tmp_path):
     odd = SMOKE_SH.replace(
         "# ---- --no-secrets",
-        'check "only a name"\ncheck "odd row" "row $(echo x) | grep -q y"\n# ---- --no-secrets',
+        'check "only a name"\ncheck "odd row" "row $(echo x) | contains y"\n# ---- --no-secrets',
     )
     odd_powershell = SMOKE_PS1.replace(
         "# ---- -NoSecrets",
@@ -291,6 +291,15 @@ def test_check_unparsed(tmp_path):
         "smoke.ps1 odd status",
         "smoke.ps1 no block",
     ]
+
+
+def test_old_grep_form_is_unparsed(tmp_path):
+    old = SMOKE_SH.replace(
+        "# ---- --no-secrets",
+        'check "old form" "row \\"$ALICE/x\\" | grep -q \'x\'"\n# ---- --no-secrets',
+    )
+    repository(tmp_path, old)
+    assert "smoke.sh old form" in details(tmp_path, "check-unparsed")
 
 
 # --- Baseline ----------------------------------------------------------------------------------
@@ -373,12 +382,12 @@ def test_shell_test_forms():
 
 def test_shell_check_assertion_forms():
     expression = (
-        'row "/r/a" | grep -q \'"agent":"x".*"secret":true,"status":"collected"\''
-        ' && ! row "/r/b" | grep -q \'"secret":true\''
+        'row "/r/a" | contains \'"agent":"x".*"secret":true,"status":"collected"\''
+        ' && ! row "/r/b" | contains \'"secret":true\''
         ' && [ "$(status_of "/r/c")" = skipped_excluded ]'
         ' && [ "$(status_of "/r/d")" != skipped_secret ]'
         ' && [ -z "$(row "/r/e")" ] && [ "$(row "/r/f" | sed s/x/y/)" = z ]'
-        " && row /r/g | grep -qF 'skipped_secret'"
+        " && row /r/g | contains -F 'skipped_secret'"
     )
     assertions, unparsed = coverage.shell_check_assertions(expression)
     assert not unparsed
@@ -444,7 +453,7 @@ def test_shell_loops_and_case_on_a_row():
             EOF
             run default
             while IFS='|' read -r _path _agent; do
-              check "flagged: $_path" "row \\"$ROOT/home/u/$_path\\" | grep -q '\\"secret\\":true'"
+              check "flagged: $_path" "row \\"$ROOT/home/u/$_path\\" | contains '\\"secret\\":true'"
             done <"$WORK/list"
             printf '%s\\n' "$LIST" >"$WORK/cases"
             while IFS='|' read -r _kind _agent _relpath; do
@@ -478,7 +487,7 @@ def test_shell_loops_and_case_on_a_row():
 
 def test_shell_while_with_unknown_data_is_unresolved():
     smoke = coverage.read_shell_smoke(
-        'while read -r _x; do check "c" "row \\"$_x\\" | grep -q y"; done <"$ELSEWHERE"\n'
+        'while read -r _x; do check "c" "row \\"$_x\\" | contains y"; done <"$ELSEWHERE"\n'
     )
     assert smoke.unresolved == {'"$ELSEWHERE"': 1}
     assert smoke.checks == []
@@ -782,9 +791,9 @@ STARTUP_SH = SMOKE_SH.replace(
     "CASES_FW='",
 ).replace(
     "# ---- --no-secrets ----",
-    'check "bashrc flagged" "row \\"$ALICE/.bashrc\\" | grep -q \'\\"secret\\":true\'"\n'
-    'check "profile flagged" "row \\"$ROOT/etc/profile\\" | grep -q \'\\"secret\\":true\'"\n'
-    'check "envrc flagged" "row \\"$ROOT/srv/proj/.envrc\\" | grep -q \'\\"secret\\":true\'"\n'
+    'check "bashrc flagged" "row \\"$ALICE/.bashrc\\" | contains \'\\"secret\\":true\'"\n'
+    'check "profile flagged" "row \\"$ROOT/etc/profile\\" | contains \'\\"secret\\":true\'"\n'
+    'check "envrc flagged" "row \\"$ROOT/srv/proj/.envrc\\" | contains \'\\"secret\\":true\'"\n'
     "# ---- --no-secrets ----",
 )
 
@@ -858,7 +867,7 @@ def test_startup_secret_check_missing(tmp_path):
 def test_startup_secret_check_in_a_no_secrets_run_does_not_count(tmp_path):
     moved = without(STARTUP_SH, "profile flagged").replace(
         'check "alpha auth skipped"',
-        'check "profile here" "row \\"$ROOT/etc/profile\\" | grep -q \'\\"secret\\":true\'"\n'
+        'check "profile here" "row \\"$ROOT/etc/profile\\" | contains \'\\"secret\\":true\'"\n'
         'check "alpha auth skipped"',
     )
     startup_repository(tmp_path, moved)
