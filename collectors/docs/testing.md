@@ -245,9 +245,15 @@ The sh collector spends its time forking processes: every `$(...)`,
 pipeline element and external command is one, and a function that runs a
 program inside `$(...)` forks twice. Wall time on a shared machine varies
 from run to run, but the number of processes the collector forks over a
-fixed image under a fixed shell does not, so `tools/check_fork_budget.py`
-counts them. It needs `strace`, so it runs on Linux (CI, or the Ubuntu lab
-VM from a Mac), never on macOS and never beside a smoke test:
+fixed image under a fixed shell on one filesystem does not, so
+`tools/check_fork_budget.py` counts them. The count does depend on the
+order the filesystem lists a directory's entries: the stage worker copies
+each run of consecutive files of one directory with one `cp`, and where the
+listing puts a subdirectory between two files, the run splits in two. An
+ext4 and a tmpfs image of the same tree differ by a few tenths of a
+percent, inside the tolerance, and the budget is the count on the CI
+runner. The tool needs `strace`, so it runs on Linux (CI, or the Ubuntu
+lab VM from a Mac), never on macOS and never beside a smoke test:
 
 ```sh
 python3 tools/check_fork_budget.py                    # the working tree's collector under dash
@@ -271,9 +277,11 @@ collector of that commit the same way. It prints:
 `collectors/tests/fork-budget.txt` holds `forks_per_row` and
 `execs_per_row`. A ratio more than 2 % above its budget is over, and one
 more than 2 % below it is stale, so an improvement is recorded as
-deliberately as a regression: run `--update-budget` and commit the file
-with the change that moved it, the measured cause in the commit body. The
-budget is defined for dash; under another `--shell` the tool prints the
+deliberately as a regression: commit the moved budget with the change that
+moved it, the measured cause in the commit body. Its numbers are the CI
+job's `forks per row` and `execs per row`, since `--update-budget` writes
+the count of the filesystem it runs on and the lab VM's differs from the
+runner's. The budget is defined for dash; under another `--shell` the tool prints the
 report and skips the comparison, with exit status `0`. The phase columns
 come from the log's second-precision timestamps, so a process born in the
 same second as a phase boundary can land on either side of it between runs;

@@ -18,7 +18,10 @@ Notes for Claude Code on this workstation:
   beside a VM or another smoke test.
 - `tools/check_fork_budget.py` needs strace, which this Mac lacks: run it on
   the Ubuntu lab VM (`sudo apt-get install dash strace`) or read CI's fork budget
-  job; never beside a smoke test, and with no other VM running.
+  job; never beside a smoke test, and with no other VM running. The budget
+  is the runner's count, and the VM's differs by its filesystem's directory
+  order: write a moved budget from the job's totals line, not from
+  `--update-budget` on the VM.
 - A live collection here gathers the author's own agent credentials: write
   it under the scratchpad and delete it afterwards.
 - This Mac's `python3` is 3.14 without `zstandard` or `python-dateutil`, so

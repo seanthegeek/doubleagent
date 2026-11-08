@@ -54,8 +54,9 @@ BUDGET_KEYS = ("forks_per_row", "execs_per_row")
 BUDGET_HEADER = (
     "# The sh collector's fork budget: the processes it forks (forks_per_row) and the programs\n"
     "# it executes (execs_per_row) per manifest row, under dash over the sh smoke test's main\n"
-    "# image, as tools/check_fork_budget.py measures them. The numbers move only in the commit\n"
-    "# that changes the cost, whose body gives the measured cause.\n"
+    "# image, as tools/check_fork_budget.py counts them on the CI runner; another filesystem's\n"
+    "# directory order moves them by a few tenths of a percent. The numbers move only in the\n"
+    "# commit that changes the cost, whose body gives the measured cause.\n"
 )
 TOLERANCE = 0.02
 TRACED_CALLS = "trace=execve,clone,clone3,vfork,fork"
