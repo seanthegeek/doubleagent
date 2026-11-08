@@ -141,6 +141,62 @@ def test_a_pid_reused_after_its_process_ended_is_a_second_process():
     assert processes[0].children == processes[1:]
 
 
+def test_a_pid_reused_after_a_child_that_exited_before_the_fork_result_is_a_second_process():
+    processes = trace(
+        execve(1, 0, "/usr/bin/dash", ["dash", "c.sh"]),
+        line(1, 0.1, f"{FORK}, child_tidptr=0xe <unfinished ...>"),
+        end(2, 0.2),
+        line(1, 0.3, "<... clone resumed>) = 2"),
+        execve(2, 0.4, "/usr/bin/mv", ["mv"]),
+        fork(1, 0.5, 2),
+    )
+    assert [process.process_id for process in processes] == [1, 2, 2]
+    assert [process.program for process in processes[1:]] == ["", "/usr/bin/mv"]
+
+
+def test_a_thread_id_reused_by_a_process_after_the_thread_exited_is_a_process():
+    processes = trace(
+        execve(1, 0, "/usr/bin/dash", ["dash", "c.sh"]),
+        line(1, 0.1, f"{THREAD}, 88) = 4"),
+        end(4, 0.2),
+        execve(4, 0.3, "/usr/bin/true", ["true"]),
+        fork(1, 0.4, 4),
+    )
+    assert [process.process_id for process in processes] == [1, 4]
+    assert processes[1].program == "/usr/bin/true" and processes[1].parent is processes[0]
+
+
+def test_a_thread_that_exited_before_its_clone_result_frees_its_id():
+    before_any_line = [line(1, 0.1, f"{THREAD} <unfinished ...>"), end(4, 0.2)]
+    after_a_signal = [
+        line(1, 0.1, f"{THREAD} <unfinished ...>"),
+        line(4, 0.15, "--- SIGCHLD {si_signo=SIGCHLD} ---"),
+        end(4, 0.2),
+    ]
+    for case in (before_any_line, after_a_signal):
+        processes = trace(
+            execve(1, 0, "/usr/bin/dash", ["dash", "c.sh"]),
+            *case,
+            line(1, 0.3, "<... clone3 resumed>, 88) = 4"),
+            execve(4, 0.4, "/usr/bin/true", ["true"]),
+            fork(1, 0.5, 4),
+        )
+        assert [process.process_id for process in processes] == [1, 4], case
+        assert processes[1].program == "/usr/bin/true", case
+
+
+def test_a_short_call_padded_to_the_result_column_is_read():
+    processes = trace(
+        execve(1, 0, "/usr/bin/dash", ["dash", "c.sh"]),
+        line(1, 0.1, "vfork()" + " " * 33 + "= 2"),
+        line(1, 0.2, "fork()" + " " * 34 + "= 3"),
+        line(1, 0.3, "vfork()" + " " * 33 + "= -1 EAGAIN (Resource temporarily unavailable)"),
+    )
+    assert [process.process_id for process in processes] == [1, 2, 3]
+    assert check_fork_budget.call_result("exit(0) = ?") is None
+    assert check_fork_budget.call_result("<... clone resumed>) = 2") == 2
+
+
 def test_a_child_that_exited_before_the_fork_result_is_one_process():
     processes = trace(
         execve(1, 0, "/usr/bin/dash", ["dash", "c.sh"]),

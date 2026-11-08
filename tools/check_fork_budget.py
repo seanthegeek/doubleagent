@@ -68,6 +68,7 @@ END_CALLS = ("+++ ",)
 UNFINISHED = " <unfinished ...>"
 # strace pads the pid to the width of the widest pid seen so far.
 TRACE_LINE = re.compile(r"(\d+) +(\d+(?:\.\d+)?) (.*)")
+RESULT = re.compile(r"\)\s+=\s+(\S+)")
 SHELLS = frozenset({"ash", "bash", "busybox", "dash", "ksh", "mksh", "posh", "sh", "zsh"})
 LONG_PROGRAM = 100
 MAIN_SHELL = "main shell"
@@ -131,7 +132,8 @@ class TraceReader:
 
     A pid names a new process at every fork returning it, so a reused pid is a second
     process. A child's lines, its exit included, can precede the parent's fork result; such
-    a child is adopted when the result arrives. A thread (`CLONE_THREAD`) is not a process.
+    a child is adopted when the result arrives. A thread (`CLONE_THREAD`) is not a process,
+    and its id is a process's again once it has exited.
     """
 
     def __init__(self) -> None:
@@ -140,6 +142,8 @@ class TraceReader:
         self.current: dict[int, Process] = {}
         self.pending: dict[int, _PendingCall] = {}
         self.threads: set[int] = set()
+        # Ids whose exit line came before any other line of theirs.
+        self.exited: set[int] = set()
 
     def feed(self, line: str) -> None:
         """Read one trace line, `PID TIMESTAMP CALL`, joining a call split in two."""
@@ -164,6 +168,9 @@ class TraceReader:
             process = self.current.get(process_id)
             if process is not None:
                 process.ended = True
+            elif process_id not in self.threads:
+                self.exited.add(process_id)
+            self.threads.discard(process_id)
             return
         name = call.partition("(")[0]
         result = call_result(call)
@@ -186,13 +193,17 @@ class TraceReader:
             process = Process(process_id, start)
             self.processes.append(process)
             self.current[process_id] = process
+            self.exited.discard(process_id)
         return process
 
     def _thread(self, thread_id: int) -> None:
-        self.threads.add(thread_id)
         early = self.current.pop(thread_id, None)
         if early is not None and early.parent is None and early is not self.processes[0]:
             self.processes.remove(early)
+        exited_before = thread_id in self.exited or (early is not None and early.ended)
+        self.exited.discard(thread_id)
+        if not exited_before:
+            self.threads.add(thread_id)
 
     def _fork(self, parent_id: int, child_id: int, start: float) -> None:
         parent = self._process(parent_id, start)
@@ -203,8 +214,10 @@ class TraceReader:
         root = self.processes[0]
         if child is None or child.parent is not None or child is root:
             child = Process(child_id, start)
+            child.ended = child_id in self.exited
             self.processes.append(child)
             self.current[child_id] = child
+        self.exited.discard(child_id)
         child.parent = parent
         child.birth = min(child.birth, start)
         parent.children.append(child)
@@ -219,13 +232,16 @@ def read_trace(text: str) -> list[Process]:
 
 
 def call_result(call: str) -> int | None:
-    """Return the number a finished call returned, None for `?` or no result."""
-    _, separator, tail = call.rpartition(") = ")
-    if not separator:
+    """Return the number a finished call returned, None for `?` or no result.
+
+    strace pads a short call such as `vfork()` out to its result column, so any run of
+    spaces may stand between the `)` and the `=`; the last result on the line is the call's.
+    """
+    results = RESULT.findall(call)
+    if not results:
         return None
-    token = tail.split(" ", 1)[0]
     try:
-        return int(token)
+        return int(results[-1])
     except ValueError:
         return None
 
