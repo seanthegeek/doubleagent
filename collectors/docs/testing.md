@@ -71,8 +71,10 @@ sh-only `-q`, NUL-byte, newline-name, service-home and nested-home checks
 aside (the PowerShell test's image has no `etc/passwd` service home or nested
 home, and the newline-name hint, hash and size checks have no PowerShell
 counterpart). Only the `#473` and `#478` checks for names holding or ending
-in a newline run in both tests; the PowerShell test skips them on Windows,
-where a name cannot hold a newline, and prints a `note:` line.
+in a newline and the `#480` check for a symlink target ending in one run in
+both tests; the PowerShell test skips them on Windows, where a name cannot
+hold a newline, and where it cannot create the symlink, and prints a `note:`
+line each time.
 
 `tests/smoke.ps1` takes `-Collector PATH` to test a copy of the script other
 than the one beside it, which is how the test runs under Windows PowerShell

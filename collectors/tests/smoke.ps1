@@ -1885,6 +1885,15 @@ if ($env:OS -ne 'Windows_NT') {
   MakeFile "Users/alice/.claude/plugins/cache$newlineChar/settings.json" 'x'
   MakeFile "Users/alice/.claude/.credentials.json$newlineChar" '{}'
 } else { Write-Output 'note: #478 newline-ending-name checks skipped (no newline in a Windows name)' }
+
+# 2026-11-08 a symlink target ending in a newline (#480)
+$newlineLinkOk = $false
+if ($env:OS -ne 'Windows_NT') {
+  try {
+    New-Item -ItemType SymbolicLink -Path (ImagePath 'Users/alice/.claude/nl-target-link') -Target "tgt$newlineChar" -ErrorAction Stop | Out-Null
+    $newlineLinkOk = $true
+  } catch { Write-Output 'note: symlink creation not permitted here, #480 newline symlink target check skipped' }
+} else { Write-Output 'note: #480 newline symlink target check skipped (no newline in a Windows target)' }
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2859,6 +2868,12 @@ if ($env:OS -ne 'Windows_NT') {
   Check '#478 a directory named cache plus a newline is not excluded as cache' { $row -and $row.status -eq 'collected' }
   $row = $script:Rows | Where-Object { $_.path -ceq $newlineCredential } | Select-Object -First 1
   Check '#478 a file named .credentials.json plus a newline is not flagged as the credential' { $row -and $row.status -eq 'collected' -and $row.secret -ne $true }
+}
+
+# 2026-11-08 a symlink target ending in a newline (#480)
+if ($newlineLinkOk) {
+  $row = Row 'Users/alice/.claude/nl-target-link'
+  Check '#480 a symlink target ending in a newline is recorded whole' { $row -and $row.status -eq 'symlink' -and $row.target -ceq "tgt$newlineChar" }
 }
 
 # ---- -NoSecrets -----------------------------------------------------------

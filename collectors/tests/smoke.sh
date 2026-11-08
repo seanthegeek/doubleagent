@@ -1976,6 +1976,8 @@ printf '{}\n' >"$ALICE/.claude/bridge-spawn/nl${NEWLINE}name/mcp.json"
 mkdir -p "$ALICE/.claude/plugins/cache${NEWLINE}"
 printf 'x\n' >"$ALICE/.claude/plugins/cache${NEWLINE}/settings.json"
 printf '{}' >"$ALICE/.claude/.credentials.json${NEWLINE}"
+# 2026-11-08 a symlink target ending in a newline (#480)
+ln -s "tgt${NEWLINE}" "$ALICE/.claude/nl-target-link"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
 if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
@@ -2633,6 +2635,8 @@ check "#473 .claude/bridge-spawn/*/mcp.json flags a credential across a newline"
 # 2026-11-08 a name ending in a newline (#478)
 check "#478 a directory named cache plus a newline is not excluded as cache" "[ \"\$(status_of \"$ALICE/.claude/plugins/cache\\\\n/settings.json\")\" = collected ]"
 check "#478 a file named .credentials.json plus a newline is not flagged as the credential" "row \"$ALICE/.claude/.credentials.json\\\\n\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
+# 2026-11-08 a symlink target ending in a newline (#480)
+check "#480 a symlink target ending in a newline is recorded whole" "row \"$ALICE/.claude/nl-target-link\" | grep -q '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"

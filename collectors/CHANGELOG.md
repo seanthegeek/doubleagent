@@ -35,6 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The PowerShell collector, under PowerShell 7 on Linux and macOS, collected a path holding a newline unexcluded or unflagged when an exclusion or secret glob's `*` or `?` had to cross the newline (`.claude/plugins/*/node_modules` did not exclude `.claude/plugins/nl<newline>name/node_modules`); it now excludes or flags it, as the sh collector does ([#473]).
 - The PowerShell collector, under PowerShell 7 on Linux and macOS, matched a name ending in a newline as if it lacked the newline: the exclusion `.claude/plugins/cache` excluded a directory named `cache<newline>`, and the secret glob `.claude/.credentials.json` flagged a file named `.credentials.json<newline>`; neither matches in the sh collector, and now neither does in PowerShell, which anchors every glob it compiles (exclusions, secret globs, catalog segments and Docker volume names) at the end of the name ([#478]).
 - The sh collector wrote a manifest path that ends in a newline without that newline, so the row named a file the archive does not hold; the path is now written whole ([#479]).
+- The sh collector recorded a symlink target that ends in a newline, and recreated the link in the archive, without that newline; the target is now kept whole ([#480]).
 
 ### Removed
 
@@ -1267,6 +1268,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#480]: https://github.com/seanthegeek/doubleagent/issues/480
 [#479]: https://github.com/seanthegeek/doubleagent/issues/479
 [#478]: https://github.com/seanthegeek/doubleagent/issues/478
 [#473]: https://github.com/seanthegeek/doubleagent/issues/473

@@ -2787,6 +2787,11 @@ plan_chunk() {
     if [ -L "$path" ]; then
       status=symlink; type=symlink
       target=$(readlink "$path" 2>/dev/null)
+      # $(...) strips a newline ending the target; the link's size counts the bytes.
+      if [ "${#target}" -lt "$1" ]; then
+        whole_target=$(readlink -n "$path" 2>/dev/null; printf x); whole_target=${whole_target%x}
+        [ -z "$whole_target" ] || target=$whole_target
+      fi
       ln -s "$target" "$stage_dir/fs${path#"$root"}" 2>/dev/null
     elif [ -e "$path" ] && [ ! -f "$path" ]; then
       status=skipped_special
