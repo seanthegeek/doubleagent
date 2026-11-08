@@ -91,12 +91,17 @@ Where that lands on the host depends on how it was started:
 | `docker/run/docker-compose.yml` | `./agent-zero` beside the compose file, mounted as all of `/a0` ([`docker-compose.yml:5-6`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/docker/run/docker-compose.yml#L5-L6)) |
 | Native ("development") run | the git clone, anywhere; the docs example is `~/Desktop/agent-zero` ([`docs/setup/dev-setup.md:34-37`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/docs/setup/dev-setup.md#L34-L37)); native means not `--dockerized` ([`helpers/runtime.py:59-64`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/helpers/runtime.py#L59-L64)) |
 
+Only the native run has `usr/` and `tmp/` beside the source, a `.venv` or `.conda`, and a legacy
+root `.env`.
+
+#### Docker volumes
+
 Named volumes live under the Docker data root (or inside the Docker Desktop
 VM), outside any home, and are not reachable by a home-relative catalog;
 since collector 1.5.0 the `DOCKER_VOLUMES` table collects `*a0_usr` and
-`a0-launcher-*-usr` volumes with usr-relative exclusions and secret globs. Only
-the native run has `usr/` and `tmp/` beside the source, a `.venv` or
-`.conda`, and a legacy root `.env`.
+`a0-launcher-*-usr` volumes with usr-relative exclusions and secret globs, among them the OAuth
+provider token globs `plugins/_oauth/*/auth.json` (the `a0_usr` volume's base is `usr` itself) and
+`usr/plugins/_oauth/*/auth.json` ([Credentials](#credentials)).
 
 #### Scratch directories
 
@@ -283,8 +288,10 @@ These are home-relative:
   [`plugins/_oauth/helpers/providers/gemini_api.py:59`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/gemini_api.py#L59);
   [`plugins/_oauth/helpers/providers/xai_grok.py:60`](https://github.com/agent0ai/agent-zero/blob/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a/plugins/_oauth/helpers/providers/xai_grok.py#L60)).
   The Copilot file holds the GitHub token as `refresh` and the Copilot token as `access`. The
-  files are collected with `usr/` and no secret glob flags them: `plugins/*/config.json` names
-  only the configuration file.
+  files are collected with `usr/` and flagged by the secret globs
+  `agent-zero*/usr/plugins/_oauth/*/auth.json`, `Desktop/agent-zero*/usr/plugins/_oauth/*/auth.json`
+  and the volume-relative `plugins/_oauth/*/auth.json` and `usr/plugins/_oauth/*/auth.json` from
+  collector 1.22.0. No other `DOCKER_VOLUMES` layout has a `plugins/_oauth/`.
 - The connector's `.env` also holds `AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN`
   ([`config.py:22`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L22)),
   already covered by the `.agent-zero/.env` glob.
