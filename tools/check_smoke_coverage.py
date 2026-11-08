@@ -1205,12 +1205,17 @@ def powershell_groups(tokens: list[PowerShellToken]) -> list[PowerShellNode]:
     return root
 
 
+# The keywords that continue a statement, each with the keyword that statement must open with.
+CHAIN_OPENERS = {"elseif": "if", "else": "if", "catch": "try", "finally": "try"}
+
+
 def powershell_statements(nodes: list[PowerShellNode]) -> list[list[PowerShellNode]]:
     """Split a node list into statements, keeping an `if` or `try` chain as one statement.
 
     Statements end at newlines and semicolons outside groups. A statement opening with
-    `elseif`, `else`, `catch` or `finally` continues the statement before it, so a chain is one
-    statement whether its keyword follows the `}` or starts a line.
+    `elseif` or `else` continues an `if` statement before it, and one opening with `catch` or
+    `finally` a `try`, so a chain is one statement whether its keyword follows the `}` or starts
+    a line; a `switch` arm labelled with one of those words stays its own arm.
     """
     statements: list[list[PowerShellNode]] = [[]]
     for node in nodes:
@@ -1223,13 +1228,8 @@ def powershell_statements(nodes: list[PowerShellNode]) -> list[list[PowerShellNo
     for statement in statements:
         if not statement:
             continue
-        first = statement[0]
-        continues = (
-            isinstance(first, PowerShellToken)
-            and first.kind == "word"
-            and first.text.lower() in ("elseif", "else", "catch", "finally")
-        )
-        if continues and joined:
+        opener = CHAIN_OPENERS.get(_word_text(statement[0]), "")
+        if opener and joined and _word_text(joined[-1][0]) == opener:
             joined[-1].extend(statement)
         else:
             joined.append(statement)

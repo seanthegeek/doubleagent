@@ -817,6 +817,21 @@ def test_powershell_statements_join_continuations_only():
     assert first_words("if ($a) { 1 }\nElse { 3 }\n") == ["if"]
     assert first_words("if ($a) { 1 }\nwrite-host 2\n") == ["if", "write-host"]
     assert first_words("else { 3 }\n") == ["else"]
+    assert first_words("if ($a) { 1 }\ncatch { 2 }\n") == ["if", "catch"]
+    assert first_words("try { 1 }\nelse { 2 }\n") == ["try", "else"]
+
+
+def test_powershell_switch_arm_labelled_with_a_chain_keyword_stays_an_arm():
+    source = """\
+        $Root = Join-Path $Work 'root'
+        switch ($kind) {
+          'normal' { MakeFile 'Users/u/a' 'x' }
+          catch { MakeFile 'Users/u/b' 'x' }
+          else { MakeFile 'Users/u/c' 'x' }
+        }
+        """
+    assert _fixture_names(source) == ["a", "b", "c"]
+    assert _fixture_names("$kind = 'normal'\n" + source) == ["a"]
 
 
 def test_powershell_run_flags_and_blocks():
