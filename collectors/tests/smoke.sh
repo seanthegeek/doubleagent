@@ -2006,6 +2006,11 @@ run() { # run NAME ARGS...
 row() {
   if [ "$CASE_INSENSITIVE" = 1 ]; then grep -iF "\"path\":\"$1\"" "$MANIFEST"; else grep -F "\"path\":\"$1\"" "$MANIFEST"; fi | head -n1
 }
+# `grep -q` exits at its first match and closes the pipe, so the writer before it reports
+# "Broken pipe" on stderr when SIGPIPE is ignored; without `-q` grep reads to the end and
+# the exit status is the same.
+# shellcheck disable=SC2317,SC2329 # called from the eval'd check strings
+contains() { grep "$@" >/dev/null; }
 # shellcheck disable=SC2317,SC2329 # called from the eval'd check strings
 status_of() { row "$1" | sed 's/.*"status":"\([^"]*\)".*/\1/'; }
 
@@ -2017,69 +2022,69 @@ check "archive exists" "[ -s \"\$ARCHIVE\" ]"
 check "sha256 sidecar matches" "[ \"\$(cut -d' ' -f1 \"\$ARCHIVE.sha256\")\" = \"\$(sha256sum \"\$ARCHIVE\" | cut -d' ' -f1)\" ]"
 check "transcript collected" "[ \"\$(status_of \"$ROOT/home/alice/.claude/projects/-srv-proj/s1.jsonl\")\" = collected ]"
 check "transcript hash correct" "[ \"\$(row \"$ROOT/home/alice/.claude/projects/-srv-proj/s1.jsonl\" | sed 's/.*\"sha256\":\"\([^\"]*\)\".*/\1/')\" = \"\$(sha256sum \"$ROOT/home/alice/.claude/projects/-srv-proj/s1.jsonl\" | cut -d' ' -f1)\" ]"
-check "secret collected and flagged" "row \"$ROOT/home/alice/.claude/.credentials.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "antigravity token flagged secret" "row \"$ROOT/home/alice/.gemini/antigravity-cli/antigravity-oauth-token\" | grep -q '\"secret\":true'"
-check "cache dir skipped_excluded with size" "row \"$ROOT/home/alice/.claude/cache\" | grep -q '\"type\":\"dir\",\"size\":[1-9][0-9]*.*\"status\":\"skipped_excluded\"'"
+check "secret collected and flagged" "row \"$ROOT/home/alice/.claude/.credentials.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "antigravity token flagged secret" "row \"$ROOT/home/alice/.gemini/antigravity-cli/antigravity-oauth-token\" | contains '\"secret\":true'"
+check "cache dir skipped_excluded with size" "row \"$ROOT/home/alice/.claude/cache\" | contains '\"type\":\"dir\",\"size\":[1-9][0-9]*.*\"status\":\"skipped_excluded\"'"
 check "cache contents not collected" "! grep -q 'cache/junk.bin' \"\$MANIFEST\""
-check "nested entry attributed to its own agent" "row \"$ROOT/home/alice/.gemini/antigravity-cli/conversations/c1.db\" | grep -q '\"agent\":\"antigravity\"'"
+check "nested entry attributed to its own agent" "row \"$ROOT/home/alice/.gemini/antigravity-cli/conversations/c1.db\" | contains '\"agent\":\"antigravity\"'"
 check "nested entry collected exactly once" "[ \"\$(grep -c 'antigravity-cli/conversations/c1.db' \"\$MANIFEST\")\" = 1 ]"
-check "enclosing entry still attributed to gemini-cli" "row \"$ROOT/home/alice/.gemini/projects.json\" | grep -q '\"agent\":\"gemini-cli\"'"
+check "enclosing entry still attributed to gemini-cli" "row \"$ROOT/home/alice/.gemini/projects.json\" | contains '\"agent\":\"gemini-cli\"'"
 check "antigravity bin excluded" "[ \"\$(status_of \"$ROOT/home/alice/.gemini/antigravity-cli/bin\")\" = skipped_excluded ]"
 check "ollama model blobs excluded" "[ \"\$(status_of \"$ROOT/home/ollama/.ollama/models/blobs\")\" = skipped_excluded ]"
 check "ollama history collected (service account home)" "[ \"\$(status_of \"$ROOT/home/ollama/.ollama/history\")\" = collected ]"
 check "oversized file skipped_size" "[ \"\$(status_of \"$ROOT/Users/bob/Library/Application Support/Cursor/User/globalStorage/state.vscdb\")\" = skipped_size ]"
 check "ms-python globalStorage excluded" "[ \"\$(status_of \"$ROOT/Users/bob/Library/Application Support/Cursor/User/globalStorage/ms-python.python\")\" = skipped_excluded ]"
-check "symlink recorded with target" "row \"$ROOT/home/alice/.gemini/antigravity-cli/cli.log\" | grep -q '\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\"log/cli-1.log\"'"
-check "symlink present in archive" "tar -tzf \"\$ARCHIVE\" | grep -q 'antigravity-cli/cli.log'"
+check "symlink recorded with target" "row \"$ROOT/home/alice/.gemini/antigravity-cli/cli.log\" | contains '\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\"log/cli-1.log\"'"
+check "symlink present in archive" "tar -tzf \"\$ARCHIVE\" | contains 'antigravity-cli/cli.log'"
 check "weird filename collected" "grep -q 'weird \\\\\"name\\\\\" with spaces \\\\\\\\ bs.txt.*\"status\":\"collected\"' \"\$MANIFEST\""
 check "project from history.jsonl collected" "[ \"\$(status_of \"$ROOT/srv/proj/CLAUDE.md\")\" = collected ]"
 check "project .claude settings collected" "[ \"\$(status_of \"$ROOT/srv/proj/.claude/settings.local.json\")\" = collected ]"
-check "project owner attributed" "row \"$ROOT/srv/proj/CLAUDE.md\" | grep -q '\"user\":\"alice\"'"
+check "project owner attributed" "row \"$ROOT/srv/proj/CLAUDE.md\" | contains '\"user\":\"alice\"'"
 # 2026-10-14 project files attributed to their agent (#104)
-check "project .claude file attributed to claude-code" "row \"$ROOT/srv/proj/.claude/settings.local.json\" | grep -q '\"home\":\"$ROOT/srv/proj\",\"agent\":\"claude-code\".*\"status\":\"collected\"'"
-check "shared project AGENTS.md keeps agent project" "row \"$ROOT/srv/droid/AGENTS.md\" | grep -q '\"home\":\"$ROOT/srv/droid\",\"agent\":\"project\".*\"status\":\"collected\"'"
+check "project .claude file attributed to claude-code" "row \"$ROOT/srv/proj/.claude/settings.local.json\" | contains '\"home\":\"$ROOT/srv/proj\",\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "shared project AGENTS.md keeps agent project" "row \"$ROOT/srv/droid/AGENTS.md\" | contains '\"home\":\"$ROOT/srv/droid\",\"agent\":\"project\".*\"status\":\"collected\"'"
 check "project from cursor workspace.json collected" "[ \"\$(status_of \"$ROOT/Users/bob/Documents/app/.cursorrules\")\" = collected ]"
 check "bob (no passwd entry) found via /Users glob" "grep -q '\"user\":\"bob\"' \"\$MANIFEST\""
 check "nobody home skipped" "! grep -q '\"home\":\"$ROOT/nonexistent\"' \"\$MANIFEST\""
 check "shell history not collected" "! grep -q '.bash_history' \"\$MANIFEST\""
 check "continue sessions.json discovers project" "[ \"\$(status_of \"$ROOT/srv/cont/.continuerc.json\")\" = collected ]"
-check "continue globalContext flagged secret" "row \"$ROOT/home/alice/.continue/index/globalContext.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "continue globalContext flagged secret" "row \"$ROOT/home/alice/.continue/index/globalContext.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "continue lancedb excluded" "[ \"\$(status_of \"$ROOT/home/alice/.continue/index/lancedb\")\" = skipped_excluded ]"
 check "crush projects.json discovers project-local crush.db" "[ \"\$(status_of \"$ROOT/srv/crushproj/.crush/crush.db\")\" = collected ]"
 check "gemini projects.json / .project_root discovers project" "[ \"\$(status_of \"$ROOT/srv/gem/GEMINI.md\")\" = collected ]"
 check "cline session cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/clineproj/.clinerules\")\" = collected ]"
-check "cline providers.json flagged secret" "row \"$ROOT/home/alice/.cline/data/settings/providers.json\" | grep -q '\"secret\":true'"
-check "opencode auth.json flagged secret" "row \"$ROOT/home/alice/.local/share/opencode/auth.json\" | grep -q '\"secret\":true'"
+check "cline providers.json flagged secret" "row \"$ROOT/home/alice/.cline/data/settings/providers.json\" | contains '\"secret\":true'"
+check "opencode auth.json flagged secret" "row \"$ROOT/home/alice/.local/share/opencode/auth.json\" | contains '\"secret\":true'"
 check "home .env not collected" "[ -z \"\$(row \"$ROOT/home/alice/.env\")\" ]"
-check "claude desktop config.json flagged secret" "row \"$ROOT/Users/bob/Library/Application Support/Claude/config.json\" | grep -q '\"secret\":true'"
-check "claude desktop mcp config flagged secret" "row \"$ROOT/Users/bob/Library/Application Support/Claude/claude_desktop_config.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "claude desktop config.json flagged secret" "row \"$ROOT/Users/bob/Library/Application Support/Claude/config.json\" | contains '\"secret\":true'"
+check "claude desktop mcp config flagged secret" "row \"$ROOT/Users/bob/Library/Application Support/Claude/claude_desktop_config.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "claude desktop Cache excluded" "[ \"\$(status_of \"$ROOT/Users/bob/Library/Application Support/Claude/Cache\")\" = skipped_excluded ]"
 check "zed extensions excluded via [Zz]ed glob" "[ \"\$(status_of \"$ROOT/Users/bob/Library/Application Support/Zed/extensions\")\" = skipped_excluded ]"
 check "zed threads.db collected" "[ \"\$(status_of \"$ROOT/Users/bob/Library/Application Support/Zed/threads/threads.db\")\" = collected ]"
-check "zed settings.json flagged secret" "row \"$ROOT/Users/bob/.config/zed/settings.json\" | grep -q '\"secret\":true'"
-check "cline globalStorage attributed to cline, not cursor" "row \"$ROOT/Users/bob/Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json\" | grep -q '\"agent\":\"cline\"'"
+check "zed settings.json flagged secret" "row \"$ROOT/Users/bob/.config/zed/settings.json\" | contains '\"secret\":true'"
+check "cline globalStorage attributed to cline, not cursor" "row \"$ROOT/Users/bob/Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json\" | contains '\"agent\":\"cline\"'"
 check "cline globalStorage collected exactly once" "[ \"\$(grep -c 'Cursor/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json' \"\$MANIFEST\")\" = 1 ]"
-check "cursor state.vscdb still attributed to cursor" "row \"$ROOT/Users/bob/Library/Application Support/Cursor/User/globalStorage/state.vscdb\" | grep -q '\"agent\":\"cursor\"'"
+check "cursor state.vscdb still attributed to cursor" "row \"$ROOT/Users/bob/Library/Application Support/Cursor/User/globalStorage/state.vscdb\" | contains '\"agent\":\"cursor\"'"
 check "factory session index not swallowed by cache exclusion" "[ \"\$(status_of \"$ROOT/home/alice/.factory/cache/session-index/index.db\")\" = collected ]"
 check "factory cache sounds excluded" "[ \"\$(status_of \"$ROOT/home/alice/.factory/cache/sounds\")\" = skipped_excluded ]"
 check "factory session cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/droid/AGENTS.md\")\" = collected ]"
-check "kiro power mcp.json collected and flagged" "row \"$ROOT/home/alice/.kiro/powers/installed/p1/mcp.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "kiro power mcp.json collected and flagged" "row \"$ROOT/home/alice/.kiro/powers/installed/p1/mcp.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "kiro cli session cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/kiroproj/.kiroignore\")\" = collected ]"
-check "vscode-server User dir collected as vscode" "row \"$ROOT/home/alice/.vscode-server/data/User/globalStorage/state.vscdb\" | grep -q '\"agent\":\"vscode\"'"
-check "cline inside vscode-server attributed to cline" "row \"$ROOT/home/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json\" | grep -q '\"agent\":\"cline\"'"
+check "vscode-server User dir collected as vscode" "row \"$ROOT/home/alice/.vscode-server/data/User/globalStorage/state.vscdb\" | contains '\"agent\":\"vscode\"'"
+check "cline inside vscode-server attributed to cline" "row \"$ROOT/home/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json\" | contains '\"agent\":\"cline\"'"
 check "vscode-server taskHistory discovers project" "[ \"\$(status_of \"$ROOT/srv/remoteproj/.clinerules\")\" = collected ]"
-check "antigravity-ide attributed to antigravity" "row \"$ROOT/home/alice/.gemini/antigravity-ide/conversations/i1.db\" | grep -q '\"agent\":\"antigravity\"'"
-check "gemini config dir attributed to antigravity" "row \"$ROOT/home/alice/.gemini/config/mcp_config.json\" | grep -q '\"agent\":\"antigravity\"'"
+check "antigravity-ide attributed to antigravity" "row \"$ROOT/home/alice/.gemini/antigravity-ide/conversations/i1.db\" | contains '\"agent\":\"antigravity\"'"
+check "gemini config dir attributed to antigravity" "row \"$ROOT/home/alice/.gemini/config/mcp_config.json\" | contains '\"agent\":\"antigravity\"'"
 check "antigravity history workspace discovers project" "[ \"\$(status_of \"$ROOT/srv/agyproj/.antigravityignore\")\" = collected ]"
-check "cursor auth.json flagged secret" "row \"$ROOT/home/alice/.cursor/auth.json\" | grep -q '\"secret\":true'"
-check "cursor project mcp-auth.json flagged secret" "row \"$ROOT/home/alice/.cursor/projects/-srv-proj/mcp-auth.json\" | grep -q '\"secret\":true'"
+check "cursor auth.json flagged secret" "row \"$ROOT/home/alice/.cursor/auth.json\" | contains '\"secret\":true'"
+check "cursor project mcp-auth.json flagged secret" "row \"$ROOT/home/alice/.cursor/projects/-srv-proj/mcp-auth.json\" | contains '\"secret\":true'"
 check "copilot pkg excluded" "[ \"\$(status_of \"$ROOT/home/alice/.copilot/pkg\")\" = skipped_excluded ]"
-check "copilot config.json flagged secret" "row \"$ROOT/home/alice/.copilot/config.json\" | grep -q '\"secret\":true'"
+check "copilot config.json flagged secret" "row \"$ROOT/home/alice/.copilot/config.json\" | contains '\"secret\":true'"
 check "copilot workspace.yaml cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/copproj/AGENTS.md\")\" = collected ]"
-check "claude device keys flagged secret" "row \"$ROOT/home/alice/.claude/.device-keys.json\" | grep -q '\"secret\":true'"
+check "claude device keys flagged secret" "row \"$ROOT/home/alice/.claude/.device-keys.json\" | contains '\"secret\":true'"
 check "claude image-cache excluded" "[ \"\$(status_of \"$ROOT/home/alice/.claude/image-cache\")\" = skipped_excluded ]"
 check "amp history cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/ampproj/.amp/settings.json\")\" = collected ]"
-check "windsurf transcripts collected" "row \"$ROOT/home/alice/.windsurf/transcripts/t1.jsonl\" | grep -q '\"agent\":\"windsurf\".*\"status\":\"collected\"'"
+check "windsurf transcripts collected" "row \"$ROOT/home/alice/.windsurf/transcripts/t1.jsonl\" | contains '\"agent\":\"windsurf\".*\"status\":\"collected\"'"
 check "project-level kilo worktrees excluded" "[ \"\$(status_of \"$ROOT/srv/kiloproj/.kilo/worktrees\")\" = skipped_excluded ]"
 check "ollama desktop app dir collected" "[ \"\$(status_of \"$ROOT/Users/bob/Library/Application Support/Ollama/db.sqlite\")\" = collected ]"
 check "cline taskHistory in globalStorage discovers project" "[ \"\$(status_of \"$ROOT/Users/bob/clineproj/.clinerules\")\" = collected ]"
@@ -2100,29 +2105,29 @@ check "cody nested globalStorage collected exactly once" "[ \"\$(grep -c 'source
 check "twinny nested globalStorage collected exactly once" "[ \"\$(grep -c 'globalStorage/rjmacarthy.twinny/twinny-providers.json' \"\$MANIFEST\")\" = 1 ]"
 check "little-coder history nested in .pi collected exactly once" "[ \"\$(grep -c 'little-coder-prompt-history.json' \"\$MANIFEST\")\" = 1 ]"
 check "hermes installer checkout excluded but its .env kept" "[ \"\$(status_of \"$ALICE/.hermes/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes/hermes-agent/.env\")\" = collected ]"
-check "openclaw .clawdbot rename symlink recorded" "row \"$BOB/.clawdbot\" | grep -q '\"agent\":\"openclaw\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\".openclaw\"'"
-check "hermes checkpoint workdir discovers project" "row \"$ROOT/srv/hermesproj/.hermes.md\" | grep -q '\"user\":\"alice\".*\"status\":\"collected\"'"
+check "openclaw .clawdbot rename symlink recorded" "row \"$BOB/.clawdbot\" | contains '\"agent\":\"openclaw\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\".openclaw\"'"
+check "hermes checkpoint workdir discovers project" "row \"$ROOT/srv/hermesproj/.hermes.md\" | contains '\"user\":\"alice\".*\"status\":\"collected\"'"
 # 2026-11-01 gemini-cli rebuild (#326)
-check "#326 Gemini CLI project .geminiignore collected" "row \"$ROOT/srv/gem/.geminiignore\" | grep -q '\"agent\":\"gemini-cli\".*\"status\":\"collected\"'"
+check "#326 Gemini CLI project .geminiignore collected" "row \"$ROOT/srv/gem/.geminiignore\" | contains '\"agent\":\"gemini-cli\".*\"status\":\"collected\"'"
 # 2026-10-31 goose rebuild (#326)
-check "#326 goose projects/<slug>.md workingDirs discovers project" "row \"$ROOT/srv/gooseproj/.goosehints\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
-check "#326 goose project memory file collected" "row \"$ROOT/srv/gooseproj/.goose/memory/dev.txt\" | grep -q '\"agent\":\"goose\".*\"status\":\"collected\"'"
-check "#326 goose project diagnostics export flagged secret" "row \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\" | grep -q '\"agent\":\"goose\".*\"secret\":true,\"status\":\"collected\"'"
+check "#326 goose projects/<slug>.md workingDirs discovers project" "row \"$ROOT/srv/gooseproj/.goosehints\" | contains '\"agent\":\"goose\".*\"status\":\"collected\"'"
+check "#326 goose project memory file collected" "row \"$ROOT/srv/gooseproj/.goose/memory/dev.txt\" | contains '\"agent\":\"goose\".*\"status\":\"collected\"'"
+check "#326 goose project diagnostics export flagged secret" "row \"$ROOT/srv/gooseproj/diagnostics_20261030_2.json\" | contains '\"agent\":\"goose\".*\"secret\":true,\"status\":\"collected\"'"
 check "#326 goose schedule.json recipe_base_dir discovers project" "[ \"\$(status_of \"$ROOT/srv/gooserecipes/.goosehints\")\" = collected ]"
 check "#326 goose Windows legacy session working_dir discovers project" "[ \"\$(status_of \"$ROOT/srv/goosewin/.goosehints\")\" = collected ]"
 check "#326 goose quoted projects/<slug>.md workingDirs item discovers project" "[ \"\$(status_of \"$ROOT/srv/goosequoted/.goosehints\")\" = collected ]"
 # 2026-10-30 hermes rebuild (#326)
 for _hermes_file in HERMES.md .hermes/environment.json trajectory_samples.jsonl failed_trajectories.jsonl; do
-  check "#326 Hermes project file collected: $_hermes_file" "row \"$ROOT/srv/hermesproj/$_hermes_file\" | grep -q '\"agent\":\"hermes\".*\"status\":\"collected\"'"
+  check "#326 Hermes project file collected: $_hermes_file" "row \"$ROOT/srv/hermesproj/$_hermes_file\" | contains '\"agent\":\"hermes\".*\"status\":\"collected\"'"
 done
 # 2026-11-01 qwen-code rebuild (#326)
-check "#326 Qwen Code session cwd discovers project" "row \"$ROOT/srv/qwenproj/QWEN.md\" | grep -q '\"agent\":\"qwen-code\".*\"secret\":false,\"status\":\"collected\"'"
-check "#326 Qwen Code project .qwenignore collected" "row \"$ROOT/srv/qwenproj/.qwenignore\" | grep -q '\"agent\":\"qwen-code\".*\"status\":\"collected\"'"
-check "#326 Qwen Code project settings flagged secret" "row \"$ROOT/srv/qwenproj/.qwen/settings.json\" | grep -q '\"agent\":\"qwen-code\".*\"secret\":true,\"status\":\"collected\"'"
-check "#326 Qwen Code project settings recovery copy flagged secret" "row \"$ROOT/srv/qwenproj/.qwen/settings.json.corrupted\" | grep -q '\"agent\":\"qwen-code\".*\"secret\":true,\"status\":\"collected\"'"
-check "#326 Qwen Code extension git-credential selector not flagged" "row \"$ALICE/.qwen/extensions/e1/.qwen-extension-git-credentials.json\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
+check "#326 Qwen Code session cwd discovers project" "row \"$ROOT/srv/qwenproj/QWEN.md\" | contains '\"agent\":\"qwen-code\".*\"secret\":false,\"status\":\"collected\"'"
+check "#326 Qwen Code project .qwenignore collected" "row \"$ROOT/srv/qwenproj/.qwenignore\" | contains '\"agent\":\"qwen-code\".*\"status\":\"collected\"'"
+check "#326 Qwen Code project settings flagged secret" "row \"$ROOT/srv/qwenproj/.qwen/settings.json\" | contains '\"agent\":\"qwen-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#326 Qwen Code project settings recovery copy flagged secret" "row \"$ROOT/srv/qwenproj/.qwen/settings.json.corrupted\" | contains '\"agent\":\"qwen-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#326 Qwen Code extension git-credential selector not flagged" "row \"$ALICE/.qwen/extensions/e1/.qwen-extension-git-credentials.json\" | contains '\"secret\":false,\"status\":\"collected\"'"
 check "letta sessions.jsonl project discovers project" "[ \"\$(status_of \"$ROOT/srv/lettaproj/.letta/settings.json\")\" = collected ]"
-check "project .letta/settings.json flagged secret (accepted overmatch)" "row \"$ROOT/srv/lettaproj/.letta/settings.json\" | grep -q '\"secret\":true'"
+check "project .letta/settings.json flagged secret (accepted overmatch)" "row \"$ROOT/srv/lettaproj/.letta/settings.json\" | contains '\"secret\":true'"
 check "letta local backend messages cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/lettaproj2/AGENTS.md\")\" = collected ]"
 check "pi session cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/piproj/.pi/settings.json\")\" = collected ]"
 check "pi misplaced session cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/piproj2/AGENTS.md\")\" = collected ]"
@@ -2130,8 +2135,8 @@ check "pi trust.json keys discover project" "[ \"\$(status_of \"$ROOT/srv/pitrus
 check "pi crashes.json cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/picrash/AGENTS.md\")\" = collected ]"
 check "pi experimental meta cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/piexp/AGENTS.md\")\" = collected ]"
 # 2026-11-01 pi rebuild (#326)
-check "#326 pi bug-report zip in a project collected" "row \"$ROOT/srv/pitrust/pi-bug-report-0199a1b2.zip\" | grep -q '\"agent\":\"pi\".*\"status\":\"collected\"'"
-check "#326 pi JSONL export in a project collected" "row \"$ROOT/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl\" | grep -q '\"agent\":\"pi\".*\"status\":\"collected\"'"
+check "#326 pi bug-report zip in a project collected" "row \"$ROOT/srv/pitrust/pi-bug-report-0199a1b2.zip\" | contains '\"agent\":\"pi\".*\"status\":\"collected\"'"
+check "#326 pi JSONL export in a project collected" "row \"$ROOT/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl\" | contains '\"agent\":\"pi\".*\"status\":\"collected\"'"
 check "open-interpreter rollout cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/oiproj/.openinterpreter/rules/r.md\")\" = collected ]"
 check "open-interpreter archived rollout cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/oiarch/.codewhale/notes.md\")\" = collected ]"
 check "openhands workspaces.json path discovers project" "[ \"\$(status_of \"$ROOT/srv/ohproj/.openhands/setup.sh\")\" = collected ]"
@@ -2139,7 +2144,7 @@ check "openhands canvas dev conversation discovers project" "[ \"\$(status_of \"
 check "openhands canvas conversation discovers project" "[ \"\$(status_of \"$ROOT/srv/ohcanvas/AGENTS.md\")\" = collected ]"
 check "openhands cli base_state discovers project" "[ \"\$(status_of \"$ROOT/srv/ohcli/AGENTS.md\")\" = collected ]"
 check "pearai sessions.json discovers project" "[ \"\$(status_of \"$ROOT/srv/pearproj/.pearairc.json\")\" = collected ]"
-check "project .pearai-agent/mcp.json flagged secret" "row \"$ROOT/srv/pearproj/.pearai-agent/mcp.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "project .pearai-agent/mcp.json flagged secret" "row \"$ROOT/srv/pearproj/.pearai-agent/mcp.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "openclaw JSON5 workspace discovers project" "[ \"\$(status_of \"$ROOT/srv/clawws/SOUL.md\")\" = collected ]"
 check "openclaw JSON5 agentDir discovers project" "[ \"\$(status_of \"$ROOT/srv/clawagent/AGENTS.md\")\" = collected ]"
 check "openclaw legacy clawdbot.json discovers project" "[ \"\$(status_of \"$ROOT/srv/clawlegacy/IDENTITY.md\")\" = collected ]"
@@ -2150,21 +2155,21 @@ check "tabby config.toml file:// git_url discovers project" "[ \"\$(status_of \"
 check "twinny manifest common prefix discovers project" "[ \"\$(status_of \"$ROOT/srv/twinproj/AGENTS.md\")\" = collected ]"
 # 2026-10-04 Docker volumes
 AGENT_ZERO_VOLUME="$VOLUMES/a0_usr/_data"
-check "docker volume file collected as agent-zero, user docker" "row \"$AGENT_ZERO_VOLUME/chats/ctx1/chat.json\" | grep -q '\"user\":\"docker\",\"home\":\"$AGENT_ZERO_VOLUME\",\"agent\":\"agent-zero\".*\"status\":\"collected\"'"
-check "docker volume file archived under fs/<original path>" "tar -tzf \"\$ARCHIVE\" | grep -q '^./fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat.json\$'"
-check "docker volume .env flagged secret (volume-relative)" "row \"$AGENT_ZERO_VOLUME/.env\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "docker volume file collected as agent-zero, user docker" "row \"$AGENT_ZERO_VOLUME/chats/ctx1/chat.json\" | contains '\"user\":\"docker\",\"home\":\"$AGENT_ZERO_VOLUME\",\"agent\":\"agent-zero\".*\"status\":\"collected\"'"
+check "docker volume file archived under fs/<original path>" "tar -tzf \"\$ARCHIVE\" | contains '^./fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat.json\$'"
+check "docker volume .env flagged secret (volume-relative)" "row \"$AGENT_ZERO_VOLUME/.env\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "docker volume tmp/playwright excluded (volume-relative)" "[ \"\$(status_of \"$AGENT_ZERO_VOLUME/tmp/playwright\")\" = skipped_excluded ]"
-check "unmatched volume recorded skipped_unmatched_volume with size" "row \"$VOLUMES/pgdata/_data\" | grep -q '\"user\":\"docker\".*\"type\":\"dir\",\"size\":[1-9][0-9]*.*\"status\":\"skipped_unmatched_volume\"'"
+check "unmatched volume recorded skipped_unmatched_volume with size" "row \"$VOLUMES/pgdata/_data\" | contains '\"user\":\"docker\".*\"type\":\"dir\",\"size\":[1-9][0-9]*.*\"status\":\"skipped_unmatched_volume\"'"
 check "unmatched volume contents not collected" "! grep -q 'pgdata/_data/x' \"\$MANIFEST\""
 check "volumes dir metadata.db not collected" "! grep -q 'volumes/metadata.db' \"\$MANIFEST\""
-check "rootless volume collected as tabby" "row \"$ALICE/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json\" | grep -q '\"user\":\"docker\".*\"agent\":\"tabby\".*\"status\":\"collected\"'"
+check "rootless volume collected as tabby" "row \"$ALICE/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json\" | contains '\"user\":\"docker\".*\"agent\":\"tabby\".*\"status\":\"collected\"'"
 check "summary counts skipped_unmatched_volume" "grep -q '\"skipped_unmatched_volume\": 1' \"\$SUMMARY\""
 check "summary docker counts" "grep -q '\"docker\": {\"volumes_found\": 4, \"volumes_collected\": 3, \"unreadable\": 0' \"\$SUMMARY\""
 check "summary no_docker option false" "grep -q '\"no_docker\": false' \"\$SUMMARY\""
 check "stdout docker line" "grep -q '^docker:     4 volumes found, 3 collected, 0 unreadable\$' \"$OUT/default.stdout\""
 # 2026-10-04 summary: only homes with manifest rows are counted and logged; sizes are also human-readable
-check "home without artifacts still listed in users" "tr -d '\n' <\"\$SUMMARY\" | grep -q '\"users\": \\[[^]]*\"dave\"'"
-check "home without artifacts not in users_with_artifacts" "grep -q '\"users_with_artifacts\": \\[\"' \"\$SUMMARY\" && ! grep '\"users_with_artifacts\"' \"\$SUMMARY\" | grep -q dave"
+check "home without artifacts still listed in users" "tr -d '\n' <\"\$SUMMARY\" | contains '\"users\": \\[[^]]*\"dave\"'"
+check "home without artifacts not in users_with_artifacts" "grep -q '\"users_with_artifacts\": \\[\"' \"\$SUMMARY\" && ! grep '\"users_with_artifacts\"' \"\$SUMMARY\" | contains dave"
 check "stdout users counts users_with_artifacts" "[ \"\$(sed -n 's/^users: *//p' \"$OUT/default.stdout\")\" = \"\$(grep '\"users_with_artifacts\"' \"\$SUMMARY\" | tr ',' '\\n' | grep -c '\"')\" ]"
 check "log has no progress line for a home without artifacts" "! grep -q 'User dave' \"$OUT\"/default/*.log && grep -q 'User alice' \"$OUT\"/default/*.log"
 check "stdout size is human-readable" "grep -q '^size:       [0-9]* ([0-9.]* \\(B\\|KiB\\|MiB\\))\$' \"$OUT/default.stdout\""
@@ -2181,24 +2186,24 @@ while IFS='|' read -r _kind _agent _relpath; do
     agent) case "$_row" in *"\"agent\":\"$_agent\""*'"status":"collected"'*) pass "$_agent: $_relpath" ;; *) fail_check "$_agent: $_relpath" ;; esac ;;
   esac
 done <"$WORK/casesmuse"
-check "muse windows binary excluded with its size" "row \"$ALICE/AppData/Local/Programs/muse/muse-bin-1.4.2-R1.exe\" | grep -q '\"type\":\"file\",\"size\":2,.*\"status\":\"skipped_excluded\"'"
+check "muse windows binary excluded with its size" "row \"$ALICE/AppData/Local/Programs/muse/muse-bin-1.4.2-R1.exe\" | contains '\"type\":\"file\",\"size\":2,.*\"status\":\"skipped_excluded\"'"
 check "muse .local/bin glob leaves other tools alone" "! grep -q '/.local/bin/othertool\"' \"\$MANIFEST\""
-check "muse trust.json projects key discovers project" "row \"$ROOT/srv/musetrust/AGENTS.md\" | grep -q '\"user\":\"alice\".*\"status\":\"collected\"'"
-check "muse session.jsonl workspace_root discovers project" "row \"$ROOT/srv/museproj/.muse/hooks.json\" | grep -q '\"user\":\"alice\",\"home\":\"$ROOT/srv/museproj\",\"agent\":\"muse-code\".*\"status\":\"collected\"'"
+check "muse trust.json projects key discovers project" "row \"$ROOT/srv/musetrust/AGENTS.md\" | contains '\"user\":\"alice\".*\"status\":\"collected\"'"
+check "muse session.jsonl workspace_root discovers project" "row \"$ROOT/srv/museproj/.muse/hooks.json\" | contains '\"user\":\"alice\",\"home\":\"$ROOT/srv/museproj\",\"agent\":\"muse-code\".*\"status\":\"collected\"'"
 check "muse project .muse/worktrees excluded" "[ \"\$(status_of \"$ROOT/srv/museproj/.muse/worktrees\")\" = skipped_excluded ]"
 # 2026-10-04 relocated Claude Code home
-check "relocated claude home session collected as claude-code" "row \"$CLAUDE_WORK_SESSION\" | grep -q '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
-check "relocated claude home history collected as claude-code" "row \"$CLAUDE_WORK/history.jsonl\" | grep -q '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
-check "relocated claude home credentials flagged secret" "row \"$CLAUDE_WORK/.credentials.json\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
-check "relocated claude home .claude.json flagged secret" "row \"$CLAUDE_WORK/.claude.json\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "relocated claude home session collected as claude-code" "row \"$CLAUDE_WORK_SESSION\" | contains '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "relocated claude home history collected as claude-code" "row \"$CLAUDE_WORK/history.jsonl\" | contains '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "relocated claude home credentials flagged secret" "row \"$CLAUDE_WORK/.credentials.json\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "relocated claude home .claude.json flagged secret" "row \"$CLAUDE_WORK/.claude.json\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
 # 2026-10-23 (#256)
-check "#256 relocated claude home session key, daemon files and backup flagged secret" "row \"$CLAUDE_WORK_KEY\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/daemon/control.key\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/daemon/roster.json\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/backups/.claude.json.backup.1792800000000\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#256 relocated claude home session key, daemon files and backup flagged secret" "row \"$CLAUDE_WORK_KEY\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/daemon/control.key\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/daemon/roster.json\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/backups/.claude.json.backup.1792800000000\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
 check "claude-code-router not collected" "! grep -q '/.claude-code-router/' \"\$MANIFEST\""
-check "relocated .claude.json projects key discovers project" "row \"$ROOT/srv/ccwork/.claude/settings.json\" | grep -q '\"user\":\"alice\".*\"agent\":\"claude-code\".*\"status\":\"collected\"'"
-check "relocated history.jsonl discovers project" "row \"$ROOT/srv/cchist/.claude/settings.json\" | grep -q '\"user\":\"alice\".*\"agent\":\"claude-code\".*\"status\":\"collected\"'"
-check "no live snapshot directory" "! tar -tzf \"\$ARCHIVE\" | grep -q '^./live/'"
+check "relocated .claude.json projects key discovers project" "row \"$ROOT/srv/ccwork/.claude/settings.json\" | contains '\"user\":\"alice\".*\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "relocated history.jsonl discovers project" "row \"$ROOT/srv/cchist/.claude/settings.json\" | contains '\"user\":\"alice\".*\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "no live snapshot directory" "! tar -tzf \"\$ARCHIVE\" | contains '^./live/'"
 check "summary has no no_live option" "! grep -q no_live \"\$SUMMARY\""
-check "manifest and summary inside archive" "tar -tzf \"\$ARCHIVE\" | grep -q '^./manifest.jsonl' && tar -tzf \"\$ARCHIVE\" | grep -q '^./collection.json'"
+check "manifest and summary inside archive" "tar -tzf \"\$ARCHIVE\" | contains '^./manifest.jsonl' && tar -tzf \"\$ARCHIVE\" | contains '^./collection.json'"
 check "staging removed" "[ -z \"\$(ls -d \"$OUT/default\"/.stage-* 2>/dev/null)\" ]"
 check "no copy errors" "grep -q '\"error_copy\": 0' \"\$SUMMARY\""
 if command -v python3 >/dev/null 2>&1; then
@@ -2229,14 +2234,14 @@ if [ "$CASE_INSENSITIVE" = 1 ]; then
   check "#29 dropped variant logged" "grep -q '/.config/pearai/User: same file as .*/.config/PearAI/User (case-insensitive filesystem)' \"$OUT\"/default/*.log"
 else
   check "#29 PearAI and pearai are distinct here and both collected" "[ \"\$(status_of \"$ALICE/.config/PearAI/User/case29-upper.json\")\" = collected ] && [ \"\$(status_of \"$ALICE/.config/pearai/User/case29-lower.json\")\" = collected ] && [ \"\$(count_of case29-upper.json)\" = 1 ] && [ \"\$(count_of case29-lower.json)\" = 1 ]"
-  check "#29 nested Cursor/User distinct from cursor and both collected" "row \"$ALICE/.config/cursor/case29-cli.json\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"' && row \"$ALICE/.config/Cursor/User/case29-editor.json\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"' && [ \"\$(count_of case29-editor.json)\" = 1 ]"
+  check "#29 nested Cursor/User distinct from cursor and both collected" "row \"$ALICE/.config/cursor/case29-cli.json\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"' && row \"$ALICE/.config/Cursor/User/case29-editor.json\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"' && [ \"\$(count_of case29-editor.json)\" = 1 ]"
   check "#29 nothing folded on a case-sensitive filesystem" "! grep -q 'case-insensitive filesystem' \"$OUT\"/default/*.log"
 fi
 
 # 2026-10-06 Ollama (#44)
-check "ollama model manifest collected" "row \"$OLLAMA_MANIFEST\" | grep -q '\"agent\":\"ollama\".*\"status\":\"collected\"'"
+check "ollama model manifest collected" "row \"$OLLAMA_MANIFEST\" | contains '\"agent\":\"ollama\".*\"status\":\"collected\"'"
 check "ollama blob not collected" "! grep -q 'blobs/sha256-abc' \"\$MANIFEST\""
-check "ollama /usr/share/ollama home from passwd collected" "row \"$ROOT/usr/share/ollama/.ollama/history\" | grep -q '\"user\":\"svc-ollama\",\"home\":\"$ROOT/usr/share/ollama\",\"agent\":\"ollama\".*\"status\":\"collected\"'"
+check "ollama /usr/share/ollama home from passwd collected" "row \"$ROOT/usr/share/ollama/.ollama/history\" | contains '\"user\":\"svc-ollama\",\"home\":\"$ROOT/usr/share/ollama\",\"agent\":\"ollama\".*\"status\":\"collected\"'"
 check "ollama /usr/share/ollama blobs excluded" "[ \"\$(status_of \"$ROOT/usr/share/ollama/.ollama/models/blobs\")\" = skipped_excluded ]"
 
 # 2026-10-06 frameworks sweep (#64)
@@ -2251,41 +2256,41 @@ while IFS='|' read -r _kind _agent _relpath; do
   esac
 done <"$WORK/casesfw"
 check "crewai mid-path wildcard leaves other files in the project dir alone" "! grep -q '/.local/share/myproj/unrelated.txt\"' \"\$MANIFEST\""
-check "crewai lowercase AppData/Local/crewai collected through the class" "row \"$BOB/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db\" | grep -q '\"agent\":\"crewai\".*\"status\":\"collected\"'"
-check "crewai lowercase credentials flagged secret through the class" "row \"$BOB/AppData/Local/crewai/credentials/tokens.enc\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "crewai lowercase AppData/Local/crewai collected through the class" "row \"$BOB/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db\" | contains '\"agent\":\"crewai\".*\"status\":\"collected\"'"
+check "crewai lowercase credentials flagged secret through the class" "row \"$BOB/AppData/Local/crewai/credentials/tokens.enc\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "camel-ai narrow lines leave Apache Camel JBang files alone" "! grep -q '/.camel/4242-status.json\"' \"\$MANIFEST\""
 check "legacy open-interpreter space-named dir collected once" "[ \"\$(grep -c '/.config/Open Interpreter Terminal/conversations/old.json\"' \"\$MANIFEST\")\" = 1 ]"
 
 # 2026-10-11 Claude Desktop Linux deb and Claude Code 2.1.295 session keys (#73, #76)
-check "#73 Linux spaces-present link-key flagged secret" "row \"$CLAUDE_LINUX_CONFIG/spaces-present/0a0a0a0a/0b0b0b0b/link-key\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":true,\"status\":\"collected\"'"
-check "#76 Claude Code sessions/<pid>.<hash>.key flagged secret" "row \"$SESSION_KEY\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
-check "#76 Claude Code sessions/<pid>.json collected, not secret" "row \"$ALICE/.claude/sessions/4242.json\" | grep -q '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"'"
-check "#73 Linux git-shadow/cli-temp-roots.json collected as claude-desktop" "row \"$CLAUDE_LINUX_CONFIG/git-shadow/cli-temp-roots.json\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
-check "#73 Linux logs/main.log inside the data dir collected as claude-desktop" "row \"$CLAUDE_LINUX_CONFIG/logs/main.log\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
-check "#73 Linux Code-tab session record collected as claude-desktop" "row \"$CLAUDE_LINUX_CONFIG/claude-code-sessions/$SPACE_IDS/local_76767676-7676-4676-8676-767676767676.json\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
+check "#73 Linux spaces-present link-key flagged secret" "row \"$CLAUDE_LINUX_CONFIG/spaces-present/0a0a0a0a/0b0b0b0b/link-key\" | contains '\"agent\":\"claude-desktop\".*\"secret\":true,\"status\":\"collected\"'"
+check "#76 Claude Code sessions/<pid>.<hash>.key flagged secret" "row \"$SESSION_KEY\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#76 Claude Code sessions/<pid>.json collected, not secret" "row \"$ALICE/.claude/sessions/4242.json\" | contains '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"'"
+check "#73 Linux git-shadow/cli-temp-roots.json collected as claude-desktop" "row \"$CLAUDE_LINUX_CONFIG/git-shadow/cli-temp-roots.json\" | contains '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
+check "#73 Linux logs/main.log inside the data dir collected as claude-desktop" "row \"$CLAUDE_LINUX_CONFIG/logs/main.log\" | contains '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
+check "#73 Linux Code-tab session record collected as claude-desktop" "row \"$CLAUDE_LINUX_CONFIG/claude-code-sessions/$SPACE_IDS/local_76767676-7676-4676-8676-767676767676.json\" | contains '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
 check "#73 Linux claude-code excluded, downloaded CLI not in the manifest" "[ \"\$(status_of \"$CLAUDE_LINUX_CONFIG/claude-code\")\" = skipped_excluded ] && ! grep -q '/9b32b47ec4b3/' \"\$MANIFEST\""
 
 # 2026-10-11 Claude Code CLI cache directory (#81)
-check "#81 Claude Code CLI cache MCP log collected as claude-code" "row \"$CLI_CACHE_LOG\" | grep -q '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
-check "#81 Claude Code CLI cache MCP log not secret" "row \"$CLI_CACHE_LOG\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
-check "#81 Claude Code CLI cache Windows Cache child collected as claude-code" "row \"$CLI_CACHE_LOG_WINDOWS\" | grep -q '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "#81 Claude Code CLI cache MCP log collected as claude-code" "row \"$CLI_CACHE_LOG\" | contains '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "#81 Claude Code CLI cache MCP log not secret" "row \"$CLI_CACHE_LOG\" | contains '\"secret\":false,\"status\":\"collected\"'"
+check "#81 Claude Code CLI cache Windows Cache child collected as claude-code" "row \"$CLI_CACHE_LOG_WINDOWS\" | contains '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
 
 # 2026-10-13 Antigravity desktop app (#83, #84)
-check "#83 Antigravity app conversation collected as antigravity" "row \"$ANTIGRAVITY_DATA/conversations/a1.db\" | grep -q '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
+check "#83 Antigravity app conversation collected as antigravity" "row \"$ANTIGRAVITY_DATA/conversations/a1.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
 check "#83 Antigravity app crashes/ collected" "[ \"\$(status_of \"$ANTIGRAVITY_DATA/crashes/crash_1.log\")\" = collected ]"
-check "#84 Antigravity plugin token.json flagged secret" "row \"$ANTIGRAVITY_DATA/plugin_data/gdocs/token.json\" | grep -q '\"agent\":\"antigravity\".*\"secret\":true,\"status\":\"collected\"'"
+check "#84 Antigravity plugin token.json flagged secret" "row \"$ANTIGRAVITY_DATA/plugin_data/gdocs/token.json\" | contains '\"agent\":\"antigravity\".*\"secret\":true,\"status\":\"collected\"'"
 check "#83 Antigravity plugin binary excluded" "[ \"\$(status_of \"$ANTIGRAVITY_DATA/plugin_data/gdocs/bin\")\" = skipped_excluded ] && ! grep -q 'gdocs/bin/gdocs-1\"' \"\$MANIFEST\""
 check "#83 Antigravity app bin excluded" "[ \"\$(status_of \"$ANTIGRAVITY_DATA/bin\")\" = skipped_excluded ] && ! grep -q 'antigravity/bin/webm_encoder\"' \"\$MANIFEST\""
 check "#83 Antigravity marketplace cache excluded, other cache files collected" "[ \"\$(status_of \"$ANTIGRAVITY_DATA/cache/marketplaces\")\" = skipped_excluded ] && [ \"\$(status_of \"$ANTIGRAVITY_DATA/cache/last_conversations.json\")\" = collected ]"
-check "#83 Antigravity Electron app_storage.json collected as antigravity" "row \"$ANTIGRAVITY_ELECTRON/app_storage.json\" | grep -q '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
+check "#83 Antigravity Electron app_storage.json collected as antigravity" "row \"$ANTIGRAVITY_ELECTRON/app_storage.json\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
 check "#83 Antigravity Electron Cache and Code Cache excluded" "[ \"\$(status_of \"$ANTIGRAVITY_ELECTRON/Cache\")\" = skipped_excluded ] && [ \"\$(status_of \"$ANTIGRAVITY_ELECTRON/Code Cache\")\" = skipped_excluded ] && ! grep -q 'Antigravity/Cache/data_0\"' \"\$MANIFEST\" && ! grep -q 'Antigravity/Code Cache/js/x\"' \"\$MANIFEST\""
-check "#83 Antigravity Library/Logs main.log collected as antigravity" "row \"$ALICE/Library/Logs/Antigravity/main.log\" | grep -q '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
-check "#83 Antigravity Windows app_storage.json collected as antigravity" "row \"$ANTIGRAVITY_WINDOWS/app_storage.json\" | grep -q '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
+check "#83 Antigravity Library/Logs main.log collected as antigravity" "row \"$ALICE/Library/Logs/Antigravity/main.log\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
+check "#83 Antigravity Windows app_storage.json collected as antigravity" "row \"$ANTIGRAVITY_WINDOWS/app_storage.json\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
 check "#83 Antigravity Windows Electron Cache excluded" "[ \"\$(status_of \"$ANTIGRAVITY_WINDOWS/Cache\")\" = skipped_excluded ]"
 check "#83 Antigravity data dir cache/ not pruned by the Electron Cache exclusion" "[ \"\$(status_of \"$ANTIGRAVITY_DATA/cache/last_conversations.json\")\" = collected ] && [ \"\$(status_of \"$ANTIGRAVITY_DATA/cache\")\" != skipped_excluded ]"
 
 # 2026-10-13 Antigravity Linux round (#83, #90, #91)
-check "#90 Antigravity CLI plugin-secrets.json flagged secret" "row \"$ALICE/.config/antigravity/plugin-secrets.json\" | grep -q '\"agent\":\"antigravity\".*\"secret\":true,\"status\":\"collected\"'"
+check "#90 Antigravity CLI plugin-secrets.json flagged secret" "row \"$ALICE/.config/antigravity/plugin-secrets.json\" | contains '\"agent\":\"antigravity\".*\"secret\":true,\"status\":\"collected\"'"
 check "#90 Antigravity CLI plugin-secrets.json collected once" "[ \"\$(grep -c 'plugin-secrets.json\"' \"\$MANIFEST\")\" = 1 ]"
 check "#83 Antigravity Electron Dictionaries excluded" "[ \"\$(status_of \"$ANTIGRAVITY_ELECTRON/Dictionaries\")\" = skipped_excluded ] && ! grep -q 'en-US-10-1.bdic\"' \"\$MANIFEST\""
 check "#83 Antigravity app sidecar SDK under lib/node_modules excluded" "[ \"\$(status_of \"$ANTIGRAVITY_DATA/lib/node_modules\")\" = skipped_excluded ] && ! grep -q 'antigravity/lib/node_modules/sidecar_sdk/index.mjs\"' \"\$MANIFEST\""
@@ -2293,182 +2298,182 @@ check "#83 Antigravity config/node_modules excluded" "[ \"\$(status_of \"$ALICE/
 check "#91 Antigravity project folderUri discovers project" "[ \"\$(status_of \"$ROOT/srv/agyapp/.antigravityignore\")\" = collected ]"
 check "#91 Antigravity drive-letter folderUri discovers project" "[ \"\$(status_of \"$ROOT/srv/agywin/.antigravityignore\")\" = collected ]"
 # 2026-10-14 catalog match that is an excluded file (#107)
-check "#107 excluded file match gets a skipped_excluded row with its size" "row \"$ALICE/.local/bin/.muse-update.107.exe\" | grep -q '^{\"user\":\"alice\",\"home\":\"$ALICE\",\"agent\":\"muse-code\",\"path\":\"[^\"]*\",\"archive_path\":\"\",\"type\":\"file\",\"size\":5,.*\"sha256\":\"\",\"secret\":false,\"status\":\"skipped_excluded\",\"target\":\"\",\"error\":\"\"}\$'"
-check "#107 excluded file match not archived" "! tar -tzf \"\$ARCHIVE\" | grep -q 'muse-update.107.exe'"
+check "#107 excluded file match gets a skipped_excluded row with its size" "row \"$ALICE/.local/bin/.muse-update.107.exe\" | contains '^{\"user\":\"alice\",\"home\":\"$ALICE\",\"agent\":\"muse-code\",\"path\":\"[^\"]*\",\"archive_path\":\"\",\"type\":\"file\",\"size\":5,.*\"sha256\":\"\",\"secret\":false,\"status\":\"skipped_excluded\",\"target\":\"\",\"error\":\"\"}\$'"
+check "#107 excluded file match not archived" "! tar -tzf \"\$ARCHIVE\" | contains 'muse-update.107.exe'"
 # 2026-10-14 Antigravity on Windows (#83)
-check "#83 Antigravity Windows staging file collected as antigravity" "row \"$ALICE_LOCAL_APPDATA/antigravity/staging/s1\" | grep -q '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
+check "#83 Antigravity Windows staging file collected as antigravity" "row \"$ALICE_LOCAL_APPDATA/antigravity/staging/s1\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
 check "#83 Antigravity installer and program directory not collected" "! grep -q 'antigravity-updater/installer.exe\"' \"\$MANIFEST\" && ! grep -q 'Programs/antigravity/Antigravity.exe\"' \"\$MANIFEST\""
 # 2026-10-15 ChatGPT desktop as the OpenAI.Codex package (#113)
-check "#113 ChatGPT profile Local Storage collected as chatgpt-desktop" "row \"$CHATGPT_PROFILE/Default/Local Storage/leveldb/000003.log\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"secret\":false,\"status\":\"collected\"'"
-check "#113 ChatGPT Local State flagged secret" "row \"$CHATGPT_PROFILE/Local State\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"secret\":true,\"status\":\"collected\"'"
-check "#113 ChatGPT profile and partition cookies flagged secret" "row \"$CHATGPT_PROFILE/Default/Network/Cookies\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$CHATGPT_PARTITION/Network/Cookies\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "#113 ChatGPT Login Data flagged secret" "row \"$CHATGPT_PROFILE/Default/Login Data\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "#113 ChatGPT profile Local Storage collected as chatgpt-desktop" "row \"$CHATGPT_PROFILE/Default/Local Storage/leveldb/000003.log\" | contains '\"agent\":\"chatgpt-desktop\".*\"secret\":false,\"status\":\"collected\"'"
+check "#113 ChatGPT Local State flagged secret" "row \"$CHATGPT_PROFILE/Local State\" | contains '\"agent\":\"chatgpt-desktop\".*\"secret\":true,\"status\":\"collected\"'"
+check "#113 ChatGPT profile and partition cookies flagged secret" "row \"$CHATGPT_PROFILE/Default/Network/Cookies\" | contains '\"secret\":true,\"status\":\"collected\"' && row \"$CHATGPT_PARTITION/Network/Cookies\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "#113 ChatGPT Login Data flagged secret" "row \"$CHATGPT_PROFILE/Default/Login Data\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "#113 ChatGPT profile and partition Cache excluded" "[ \"\$(status_of \"$CHATGPT_PROFILE/Default/Cache\")\" = skipped_excluded ] && [ \"\$(status_of \"$CHATGPT_PARTITION/Cache\")\" = skipped_excluded ] && ! grep -q 'Cache/data_0\"' \"\$MANIFEST\""
 check "#113 ChatGPT component cache beside the profile not in the manifest" "! grep -q 'web/Codex/component_crx_cache' \"\$MANIFEST\""
-check "#113 ChatGPT app log collected as chatgpt-desktop" "row \"$CHATGPT_PACKAGE/LocalCache/Local/Codex/Logs/2026/10/15/codex-desktop-x.log\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
-check "#113 ChatGPT MSIX settings hive collected" "row \"$CHATGPT_PACKAGE/Settings/settings.dat\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
+check "#113 ChatGPT app log collected as chatgpt-desktop" "row \"$CHATGPT_PACKAGE/LocalCache/Local/Codex/Logs/2026/10/15/codex-desktop-x.log\" | contains '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
+check "#113 ChatGPT MSIX settings hive collected" "row \"$CHATGPT_PACKAGE/Settings/settings.dat\" | contains '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
 check "#116 Codex plugin app-server binaries excluded" "[ \"\$(status_of \"$BOB/.codex/plugins/.plugin-appserver\")\" = skipped_excluded ] && ! grep -q '.plugin-appserver/codex.exe\"' \"\$MANIFEST\""
-check "#115 Codex desktop global state flagged secret" "row \"$BOB/.codex/.codex-global-state.json\" | grep -q '\"agent\":\"codex-cli\".*\"secret\":true,\"status\":\"collected\"'"
+check "#115 Codex desktop global state flagged secret" "row \"$BOB/.codex/.codex-global-state.json\" | contains '\"agent\":\"codex-cli\".*\"secret\":true,\"status\":\"collected\"'"
 # 2026-10-15 ChatGPT desktop on macOS (#121)
-check "#121 ChatGPT macOS Local Storage collected as chatgpt-desktop" "row \"$CHATGPT_MAC/Default/Local Storage/leveldb/000003.log\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"secret\":false,\"status\":\"collected\"'"
-check "#121 ChatGPT macOS profile and partition cookies flagged secret" "row \"$CHATGPT_MAC/Default/Cookies\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$CHATGPT_MAC_PARTITION/Cookies\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "#121 ChatGPT macOS Login Data flagged secret" "row \"$CHATGPT_MAC/Default/Login Data\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "#121 ChatGPT macOS Local Storage collected as chatgpt-desktop" "row \"$CHATGPT_MAC/Default/Local Storage/leveldb/000003.log\" | contains '\"agent\":\"chatgpt-desktop\".*\"secret\":false,\"status\":\"collected\"'"
+check "#121 ChatGPT macOS profile and partition cookies flagged secret" "row \"$CHATGPT_MAC/Default/Cookies\" | contains '\"secret\":true,\"status\":\"collected\"' && row \"$CHATGPT_MAC_PARTITION/Cookies\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "#121 ChatGPT macOS Login Data flagged secret" "row \"$CHATGPT_MAC/Default/Login Data\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "#121 ChatGPT macOS profile and partition Cache excluded" "[ \"\$(status_of \"$CHATGPT_MAC/Default/Cache\")\" = skipped_excluded ] && [ \"\$(status_of \"$CHATGPT_MAC_PARTITION/Cache\")\" = skipped_excluded ] && ! grep -q 'Codex/Default/Cache/data_0\"' \"\$MANIFEST\" && ! grep -q 'codex-browser-app/Cache/data_0\"' \"\$MANIFEST\""
-check "#121 ChatGPT macOS MCP server script excluded, manifest collected" "[ \"\$(status_of \"$CHATGPT_MAC/executor-plugins/codex-app-tools/server.mjs\")\" = skipped_excluded ] && row \"$CHATGPT_MAC/executor-plugins/codex-app-tools/.mcp.json\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
+check "#121 ChatGPT macOS MCP server script excluded, manifest collected" "[ \"\$(status_of \"$CHATGPT_MAC/executor-plugins/codex-app-tools/server.mjs\")\" = skipped_excluded ] && row \"$CHATGPT_MAC/executor-plugins/codex-app-tools/.mcp.json\" | contains '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
 check "#121 ChatGPT macOS component cache not in the manifest" "! grep -q 'Application Support/Codex/component_crx_cache' \"\$MANIFEST\""
-check "#121 ChatGPT macOS app log collected as chatgpt-desktop" "row \"$BOB/Library/Logs/com.openai.codex/2026/10/15/codex-desktop-x.log\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
-check "#121 ChatGPT macOS preferences collected" "row \"$BOB/Library/Preferences/com.openai.codex.plist\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
-check "#121 ChatGPT macOS binary cookies flagged secret" "row \"$BOB/Library/HTTPStorages/com.openai.codex.binarycookies\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"secret\":true,\"status\":\"collected\"'"
-check "#121 ChatGPT computer-use group container collected" "row \"$CUA_GROUP_CONTAINER/IPC/computeruse.sock.lock\" | grep -q '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
-check "#121 Codex computer-use app bundle excluded, config collected" "[ \"\$(status_of \"$COMPUTER_USE/Codex Computer Use.app\")\" = skipped_excluded ] && ! grep -q 'Computer Use.app/Contents/Info.plist\"' \"\$MANIFEST\" && row \"$COMPUTER_USE/config.json\" | grep -q '\"agent\":\"codex-cli\".*\"status\":\"collected\"'"
+check "#121 ChatGPT macOS app log collected as chatgpt-desktop" "row \"$BOB/Library/Logs/com.openai.codex/2026/10/15/codex-desktop-x.log\" | contains '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
+check "#121 ChatGPT macOS preferences collected" "row \"$BOB/Library/Preferences/com.openai.codex.plist\" | contains '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
+check "#121 ChatGPT macOS binary cookies flagged secret" "row \"$BOB/Library/HTTPStorages/com.openai.codex.binarycookies\" | contains '\"agent\":\"chatgpt-desktop\".*\"secret\":true,\"status\":\"collected\"'"
+check "#121 ChatGPT computer-use group container collected" "row \"$CUA_GROUP_CONTAINER/IPC/computeruse.sock.lock\" | contains '\"agent\":\"chatgpt-desktop\".*\"status\":\"collected\"'"
+check "#121 Codex computer-use app bundle excluded, config collected" "[ \"\$(status_of \"$COMPUTER_USE/Codex Computer Use.app\")\" = skipped_excluded ] && ! grep -q 'Computer Use.app/Contents/Info.plist\"' \"\$MANIFEST\" && row \"$COMPUTER_USE/config.json\" | contains '\"agent\":\"codex-cli\".*\"status\":\"collected\"'"
 # 2026-10-15 special files (#120)
 # shellcheck disable=SC2034 # read by the eval'd check strings
 SPECIAL_COUNT=$((1 + HAVE_SOCKET))
-check "#120 FIFO recorded as skipped_special, not copied" "row \"$SPECIAL_DIR/ipc/ipc.fifo\" | grep -q '\"archive_path\":\"\",\"type\":\"fifo\".*\"sha256\":\"\",\"secret\":false,\"status\":\"skipped_special\",\"target\":\"\",\"error\":\"\"'"
+check "#120 FIFO recorded as skipped_special, not copied" "row \"$SPECIAL_DIR/ipc/ipc.fifo\" | contains '\"archive_path\":\"\",\"type\":\"fifo\".*\"sha256\":\"\",\"secret\":false,\"status\":\"skipped_special\",\"target\":\"\",\"error\":\"\"'"
 if [ "$HAVE_SOCKET" = 1 ]; then
-  check "#120 socket recorded as skipped_special, not copied" "row \"$SPECIAL_DIR/app-server-daemon/daemon-updater.sock\" | grep -q '\"archive_path\":\"\",\"type\":\"socket\".*\"sha256\":\"\",\"secret\":false,\"status\":\"skipped_special\",\"target\":\"\",\"error\":\"\"'"
+  check "#120 socket recorded as skipped_special, not copied" "row \"$SPECIAL_DIR/app-server-daemon/daemon-updater.sock\" | contains '\"archive_path\":\"\",\"type\":\"socket\".*\"sha256\":\"\",\"secret\":false,\"status\":\"skipped_special\",\"target\":\"\",\"error\":\"\"'"
 fi
-check "#120 special files not in the archive" "! tar -tzf \"\$ARCHIVE\" | grep -q 'ipc.fifo\\|daemon-updater.sock'"
+check "#120 special files not in the archive" "! tar -tzf \"\$ARCHIVE\" | contains 'ipc.fifo\\|daemon-updater.sock'"
 check "#120 summary counts skipped_special" "grep -q '\"skipped_special\": $SPECIAL_COUNT,' \"\$SUMMARY\""
 check "#120 stdout skipped line counts special files" "grep -q '^skipped:    [0-9]* excluded, [0-9]* too large, [0-9]* secret, $SPECIAL_COUNT special\$' \"$OUT/default.stdout\""
-check "#120 no symlink row targets its own path" "! grep '\"status\":\"symlink\"' \"\$MANIFEST\" | sed 's/.*\"path\":\"\([^\"]*\)\".*\"target\":\"\([^\"]*\)\".*/\1|\2/' | grep -q '^\\(.*\\)|\\1\$'"
+check "#120 no symlink row targets its own path" "! grep '\"status\":\"symlink\"' \"\$MANIFEST\" | sed 's/.*\"path\":\"\([^\"]*\)\".*\"target\":\"\([^\"]*\)\".*/\1|\2/' | contains '^\\(.*\\)|\\1\$'"
 
 # 2026-10-16 GitHub Copilot Desktop (#147)
-check "#147 Copilot Desktop data.db collected as copilot-desktop" "row \"$COPILOT/data.db\" | grep -q '\"agent\":\"copilot-desktop\".*\"secret\":false,\"status\":\"collected\"' && row \"$COPILOT/data.db-wal\" | grep -q '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
-check "#147 Copilot Desktop github-app log collected as copilot-desktop" "row \"$COPILOT/logs/github-app.1.log\" | grep -q '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
-check "#147 Copilot Desktop localstorage collected as copilot-desktop" "row \"$COPILOT_DESKTOP_DATA/localstorage/tauri_localhost_0.localstorage\" | grep -q '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
-check "#147 Foundry Local log collected as copilot-desktop" "row \"$ROOT/home/alice/.github-copilot-cli/logs/foundry.core20261016.log\" | grep -q '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
-check "#147 Copilot Desktop session workspace.yaml stays copilot-cli" "row \"$COPILOT/session-state/s2/workspace.yaml\" | grep -q '\"agent\":\"copilot-cli\".*\"status\":\"collected\"'"
-check "#147 Copilot Desktop ws.token flagged secret" "row \"$COPILOT/run/ws.token\" | grep -q '\"agent\":\"copilot-desktop\".*\"secret\":true,\"status\":\"collected\"'"
-check "#147 Copilot Desktop checkpoint ref and HEAD collected as copilot-desktop" "row \"$COPILOT_CHECKPOINT_REF/e0000000-0000-4000-8000-000000000020\" | grep -q '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"' && row \"$COPILOT_CLONE_GIT/HEAD\" | grep -q '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
+check "#147 Copilot Desktop data.db collected as copilot-desktop" "row \"$COPILOT/data.db\" | contains '\"agent\":\"copilot-desktop\".*\"secret\":false,\"status\":\"collected\"' && row \"$COPILOT/data.db-wal\" | contains '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
+check "#147 Copilot Desktop github-app log collected as copilot-desktop" "row \"$COPILOT/logs/github-app.1.log\" | contains '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
+check "#147 Copilot Desktop localstorage collected as copilot-desktop" "row \"$COPILOT_DESKTOP_DATA/localstorage/tauri_localhost_0.localstorage\" | contains '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
+check "#147 Foundry Local log collected as copilot-desktop" "row \"$ROOT/home/alice/.github-copilot-cli/logs/foundry.core20261016.log\" | contains '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
+check "#147 Copilot Desktop session workspace.yaml stays copilot-cli" "row \"$COPILOT/session-state/s2/workspace.yaml\" | contains '\"agent\":\"copilot-cli\".*\"status\":\"collected\"'"
+check "#147 Copilot Desktop ws.token flagged secret" "row \"$COPILOT/run/ws.token\" | contains '\"agent\":\"copilot-desktop\".*\"secret\":true,\"status\":\"collected\"'"
+check "#147 Copilot Desktop checkpoint ref and HEAD collected as copilot-desktop" "row \"$COPILOT_CHECKPOINT_REF/e0000000-0000-4000-8000-000000000020\" | contains '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"' && row \"$COPILOT_CLONE_GIT/HEAD\" | contains '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
 check "#147 Copilot Desktop repos working tree, worktrees, objects and index excluded" "[ \"\$(status_of \"$COPILOT/repos\")\" = skipped_excluded ] && [ \"\$(status_of \"$COPILOT_CLONE_GIT/objects\")\" = skipped_excluded ] && [ \"\$(status_of \"$COPILOT_CLONE_GIT/index\")\" = skipped_excluded ] && ! grep -q 'repos/proj/README.md\"' \"\$MANIFEST\" && ! grep -q 'alice-x/AGENTS.md\"' \"\$MANIFEST\" && ! grep -q 'cdef0123\"' \"\$MANIFEST\""
 check "#147 Copilot Desktop app-skills excluded" "[ \"\$(status_of \"$COPILOT_DESKTOP_DATA/app-skills\")\" = skipped_excluded ] && ! grep -q 'app-skills/af/SKILL.md\"' \"\$MANIFEST\""
 check "#147 Copilot Desktop chat directory and worktree not projects" "! grep -q 'Project .*/\.copilot/' \"$OUT\"/default/*.log && ! grep -q '\"home\":\"$COPILOT/' \"\$MANIFEST\" && ! grep -q '\.copilot/chats' \"\$SUMMARY\" && ! grep -q 'copilot-worktrees' \"\$SUMMARY\""
-check "#147 Copilot Desktop chat directory file collected once as copilot-desktop" "[ \"\$(grep -c 'x-5d404e14/.keep\"' \"\$MANIFEST\")\" = 1 ] && row \"$COPILOT/chats/2026-10-16/x-5d404e14/.keep\" | grep -q '\"agent\":\"copilot-desktop\"'"
+check "#147 Copilot Desktop chat directory file collected once as copilot-desktop" "[ \"\$(grep -c 'x-5d404e14/.keep\"' \"\$MANIFEST\")\" = 1 ] && row \"$COPILOT/chats/2026-10-16/x-5d404e14/.keep\" | contains '\"agent\":\"copilot-desktop\"'"
 # 2026-10-17 Copilot Desktop Windows round (#147)
-check "#147 WebView2 Local Storage collected as copilot-desktop" "row \"$COPILOT_WEBVIEW/Default/Local Storage/leveldb/000003.log\" | grep -q '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
-check "#147 WebView2 cookies and Local State flagged secret" "row \"$COPILOT_WEBVIEW/Default/Network/Cookies\" | grep -q '\"agent\":\"copilot-desktop\".*\"secret\":true,\"status\":\"collected\"' && row \"$COPILOT_WEBVIEW/Local State\" | grep -q '\"agent\":\"copilot-desktop\".*\"secret\":true,\"status\":\"collected\"'"
+check "#147 WebView2 Local Storage collected as copilot-desktop" "row \"$COPILOT_WEBVIEW/Default/Local Storage/leveldb/000003.log\" | contains '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"'"
+check "#147 WebView2 cookies and Local State flagged secret" "row \"$COPILOT_WEBVIEW/Default/Network/Cookies\" | contains '\"agent\":\"copilot-desktop\".*\"secret\":true,\"status\":\"collected\"' && row \"$COPILOT_WEBVIEW/Local State\" | contains '\"agent\":\"copilot-desktop\".*\"secret\":true,\"status\":\"collected\"'"
 check "#147 WebView2 Cache and component_crx_cache excluded" "[ \"\$(status_of \"$COPILOT_WEBVIEW/Default/Cache\")\" = skipped_excluded ] && [ \"\$(status_of \"$COPILOT_WEBVIEW/component_crx_cache\")\" = skipped_excluded ] && ! grep -q 'Cache_Data/x\"' \"\$MANIFEST\" && ! grep -q 'component_crx_cache/x\"' \"\$MANIFEST\""
-check "#147 Copilot Desktop chat project collected less node_modules" "row \"$COPILOT_CHAT_PROJECT/package.json\" | grep -q '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"' && [ \"\$(status_of \"$COPILOT_CHAT_PROJECT/node_modules\")\" = skipped_excluded ] && ! grep -q 'node_modules/m/index.js\"' \"\$MANIFEST\""
+check "#147 Copilot Desktop chat project collected less node_modules" "row \"$COPILOT_CHAT_PROJECT/package.json\" | contains '\"agent\":\"copilot-desktop\".*\"status\":\"collected\"' && [ \"\$(status_of \"$COPILOT_CHAT_PROJECT/node_modules\")\" = skipped_excluded ] && ! grep -q 'node_modules/m/index.js\"' \"\$MANIFEST\""
 check "#131 Copilot CLI marketplaces excluded" "[ \"\$(status_of \"$COPILOT_MARKETPLACES\")\" = skipped_excluded ] && ! grep -q 'marketplaces/m/.git/HEAD\"' \"\$MANIFEST\""
 check "#147 Copilot pool session cwd not a project" "[ -z \"\$(status_of \"$ROOT/srv/coppool/AGENTS.md\")\" ] && ! grep -q 'coppool' \"\$SUMMARY\""
 
 # 2026-10-17 session sync round (#153)
 SECRET_COLLECTED='"secret":true,"status":"collected"'
-check "#153 nanobot remote pairing identity and exchange keys flagged secret" "row \"$NANOBOT_PAIRING/identity\" | grep -q '\"agent\":\"nanobot\".*$SECRET_COLLECTED' && row \"$NANOBOT_PAIRING/exchange\" | grep -q '$SECRET_COLLECTED' && row \"$NANOBOT_PAIRING/request\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
-check "#153 Agent Zero plugin config.json flagged secret" "row \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_PLUGIN_CONFIG\" | grep -q '\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_PLUGIN_CONFIG\" | grep -q '$SECRET_COLLECTED'"
-check "#153 Agent Zero volume plugin config.json flagged secret" "row \"$VOLUMES/a0_usr/_data/$AGENT_ZERO_PLUGIN_CONFIG\" | grep -q '\"user\":\"docker\".*$SECRET_COLLECTED' && row \"$VOLUMES/a0_usr/_data/usr/$AGENT_ZERO_PLUGIN_CONFIG\" | grep -q '$SECRET_COLLECTED'"
-check "#153 Cline cached remote config flagged secret" "row \"$CLINE_REMOTE_CACHE/remote_config_org1.json\" | grep -q '\"agent\":\"cline\".*$SECRET_COLLECTED'"
-check "#153 Cline globalStorage cache collected" "row \"$CLINE_REMOTE_CACHE/sync-queue.json\" | grep -q '\"agent\":\"cline\".*\"secret\":false,\"status\":\"collected\"' && [ -z \"\$(status_of \"$CLINE_REMOTE_CACHE\")\" ]"
-check "#153 Cline webhook_config.json flagged secret" "row \"$ALICE/Documents/Cline/webhook_config.json\" | grep -q '\"agent\":\"cline\".*$SECRET_COLLECTED'"
-check "#153 Gemini CLI bug-memory heap snapshot flagged secret" "row \"$ALICE/.gemini/tmp/gem/bug-memory-1792000000000.heapsnapshot\" | grep -q '\"agent\":\"gemini-cli\".*$SECRET_COLLECTED'"
-check "#153 little-coder legacy config.json flagged secret" "row \"$ALICE/.little-coder/config.json\" | grep -q '\"agent\":\"little-coder\".*$SECRET_COLLECTED'"
-check "#153 Qwen Code channel credentials flagged secret" "row \"$ALICE/.qwen/channels/qqbot-credentials.json\" | grep -q '\"agent\":\"qwen-code\".*$SECRET_COLLECTED' && row \"$ALICE/.qwen/channels/weixin/account.json\" | grep -q '$SECRET_COLLECTED'"
-check "#153 Qwen Code channel routing files not flagged" "row \"$ALICE/.qwen/channels/sessions.json\" | grep -q '\"secret\":false,\"status\":\"collected\"' && row \"$ALICE/.qwen/channels/daemon/0123abcd/routes.json\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
-check "#153 Kilo log directory collected" "row \"$ALICE/.local/share/kilo/log/2026-10-17T120000.log\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
+check "#153 nanobot remote pairing identity and exchange keys flagged secret" "row \"$NANOBOT_PAIRING/identity\" | contains '\"agent\":\"nanobot\".*$SECRET_COLLECTED' && row \"$NANOBOT_PAIRING/exchange\" | contains '$SECRET_COLLECTED' && row \"$NANOBOT_PAIRING/request\" | contains '\"secret\":false,\"status\":\"collected\"'"
+check "#153 Agent Zero plugin config.json flagged secret" "row \"$ALICE/agent-zero/main/usr/$AGENT_ZERO_PLUGIN_CONFIG\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$ALICE/Desktop/agent-zero/usr/$AGENT_ZERO_PLUGIN_CONFIG\" | contains '$SECRET_COLLECTED'"
+check "#153 Agent Zero volume plugin config.json flagged secret" "row \"$VOLUMES/a0_usr/_data/$AGENT_ZERO_PLUGIN_CONFIG\" | contains '\"user\":\"docker\".*$SECRET_COLLECTED' && row \"$VOLUMES/a0_usr/_data/usr/$AGENT_ZERO_PLUGIN_CONFIG\" | contains '$SECRET_COLLECTED'"
+check "#153 Cline cached remote config flagged secret" "row \"$CLINE_REMOTE_CACHE/remote_config_org1.json\" | contains '\"agent\":\"cline\".*$SECRET_COLLECTED'"
+check "#153 Cline globalStorage cache collected" "row \"$CLINE_REMOTE_CACHE/sync-queue.json\" | contains '\"agent\":\"cline\".*\"secret\":false,\"status\":\"collected\"' && [ -z \"\$(status_of \"$CLINE_REMOTE_CACHE\")\" ]"
+check "#153 Cline webhook_config.json flagged secret" "row \"$ALICE/Documents/Cline/webhook_config.json\" | contains '\"agent\":\"cline\".*$SECRET_COLLECTED'"
+check "#153 Gemini CLI bug-memory heap snapshot flagged secret" "row \"$ALICE/.gemini/tmp/gem/bug-memory-1792000000000.heapsnapshot\" | contains '\"agent\":\"gemini-cli\".*$SECRET_COLLECTED'"
+check "#153 little-coder legacy config.json flagged secret" "row \"$ALICE/.little-coder/config.json\" | contains '\"agent\":\"little-coder\".*$SECRET_COLLECTED'"
+check "#153 Qwen Code channel credentials flagged secret" "row \"$ALICE/.qwen/channels/qqbot-credentials.json\" | contains '\"agent\":\"qwen-code\".*$SECRET_COLLECTED' && row \"$ALICE/.qwen/channels/weixin/account.json\" | contains '$SECRET_COLLECTED'"
+check "#153 Qwen Code channel routing files not flagged" "row \"$ALICE/.qwen/channels/sessions.json\" | contains '\"secret\":false,\"status\":\"collected\"' && row \"$ALICE/.qwen/channels/daemon/0123abcd/routes.json\" | contains '\"secret\":false,\"status\":\"collected\"'"
+check "#153 Kilo log directory collected" "row \"$ALICE/.local/share/kilo/log/2026-10-17T120000.log\" | contains '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
 # 2026-10-18 Codex shell snapshots (#160)
-check "#160 Codex shell snapshot flagged secret" "row \"$CODEX_SHELL_SNAPSHOT\" | grep -q '\"agent\":\"codex-cli\".*$SECRET_COLLECTED'"
+check "#160 Codex shell snapshot flagged secret" "row \"$CODEX_SHELL_SNAPSHOT\" | contains '\"agent\":\"codex-cli\".*$SECRET_COLLECTED'"
 # 2026-10-19 Codex projectless output directories (#149)
-check "#149 Codex projectless output collected" "row \"$CODEX_OUTPUT_DIR/outputs/report.md\" | grep -q '\"home\":\"$BOB\",\"agent\":\"codex-cli\".*\"status\":\"collected\"'"
-check "#149 Codex projectless dir not a project" "! grep '^  \"projects\"' \"\$SUMMARY\" | grep -q 'Documents/Codex' && ! grep -q '\"home\":\"$BOB/Documents/Codex' \"\$MANIFEST\" && ! grep -q 'Project .*/Documents/Codex' \"$OUT\"/default/*.log"
-check "#149 Codex rollout cwd still a project" "grep '^  \"projects\"' \"\$SUMMARY\" | grep -qF '\"$BOB/Documents/app\"'"
+check "#149 Codex projectless output collected" "row \"$CODEX_OUTPUT_DIR/outputs/report.md\" | contains '\"home\":\"$BOB\",\"agent\":\"codex-cli\".*\"status\":\"collected\"'"
+check "#149 Codex projectless dir not a project" "! grep '^  \"projects\"' \"\$SUMMARY\" | contains 'Documents/Codex' && ! grep -q '\"home\":\"$BOB/Documents/Codex' \"\$MANIFEST\" && ! grep -q 'Project .*/Documents/Codex' \"$OUT\"/default/*.log"
+check "#149 Codex rollout cwd still a project" "grep '^  \"projects\"' \"\$SUMMARY\" | contains -F '\"$BOB/Documents/app\"'"
 
 # 2026-10-20 Cursor IDE round on macOS (#6)
-check "#6 Cursor AgentStores sync index collected" "row \"$CURSOR_MAC/AgentStores/cursor_agent_stores/u1/.sync/index.sqlite\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
-check "#6 Cursor AgentStores pin collected" "row \"$CURSOR_MAC/AgentStores/cursor_agent_stores/.control/u1/pins/1-x.json\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
-check "#6 Cursor update-supervisor events collected" "row \"$CURSOR_MAC/update-supervisor/33333333-3333-4333-8333-333333333333/events.jsonl\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#6 Cursor AgentStores sync index collected" "row \"$CURSOR_MAC/AgentStores/cursor_agent_stores/u1/.sync/index.sqlite\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#6 Cursor AgentStores pin collected" "row \"$CURSOR_MAC/AgentStores/cursor_agent_stores/.control/u1/pins/1-x.json\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#6 Cursor update-supervisor events collected" "row \"$CURSOR_MAC/update-supervisor/33333333-3333-4333-8333-333333333333/events.jsonl\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
 check "#6 Cursor update-supervisor binary excluded" "[ \"\$(status_of \"$CURSOR_MAC/update-supervisor/33333333-3333-4333-8333-333333333333/cursor-update-supervisor\")\" = skipped_excluded ]"
 check "#6 Cursor embedded agent CLI excluded" "[ \"\$(status_of \"$CURSOR_MAC_WORKER/agent-cli\")\" = skipped_excluded ] && ! grep -qF 'agent-cli/.local/share/x' \"\$MANIFEST\""
-check "#6 Cursor agent worker log collected" "row \"$CURSOR_MAC_WORKER/cursor-agent-worker-1.log\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#6 Cursor agent worker log collected" "row \"$CURSOR_MAC_WORKER/cursor-agent-worker-1.log\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
 check "#6 Cursor canvases node_modules excluded" "[ \"\$(status_of \"$BOB/.cursor/projects/p/canvases/node_modules\")\" = skipped_excluded ] && ! grep -qF 'node_modules/x.d.ts' \"\$MANIFEST\""
-check "#6 Cursor agent transcript collected" "row \"$BOB/.cursor/projects/p/agent-transcripts/u/u.jsonl\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#6 Cursor agent transcript collected" "row \"$BOB/.cursor/projects/p/agent-transcripts/u/u.jsonl\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
 check "#6 Cursor statsig cache excluded" "[ \"\$(status_of \"$BOB/.cursor/statsig-cache.json\")\" = skipped_excluded ]"
 
 # 2026-10-20 Cursor IDE round on Ubuntu (#236)
-check "#236 Cursor Linux agent-stores collected" "row \"$CURSOR_LINUX_STORES/u1/.sync/index.sqlite\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"' && row \"$CURSOR_LINUX_STORES/.control/u1/pins/1-x.json\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#236 Cursor Linux agent-stores collected" "row \"$CURSOR_LINUX_STORES/u1/.sync/index.sqlite\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"' && row \"$CURSOR_LINUX_STORES/.control/u1/pins/1-x.json\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
 
 # 2026-10-21 Cursor IDE round on Windows (#236)
-check "#236 Cursor Windows agent-stores collected" "row \"$CURSOR_WINDOWS_STORES/u1/.sync/index.sqlite\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"' && row \"$CURSOR_WINDOWS_STORES/.control/u1/pins/1-x.json\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#236 Cursor Windows agent-stores collected" "row \"$CURSOR_WINDOWS_STORES/u1/.sync/index.sqlite\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"' && row \"$CURSOR_WINDOWS_STORES/.control/u1/pins/1-x.json\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
 check "#236 Cursor Windows embedded agent CLI excluded" "[ \"\$(status_of \"$CURSOR_WINDOWS_WORKER/agent-cli\")\" = skipped_excluded ] && ! grep -qF 'anysphere.cursor-agent-worker/agent-cli/x' \"\$MANIFEST\""
-check "#236 Cursor Windows agent worker log collected" "row \"$CURSOR_WINDOWS_WORKER/cursor-agent-worker-1.log\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#236 Cursor Windows agent worker log collected" "row \"$CURSOR_WINDOWS_WORKER/cursor-agent-worker-1.log\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
 check "#236 Cursor plugin cache excluded" "[ \"\$(status_of \"$CURSOR_PLUGINS/cache\")\" = skipped_excluded ] && ! grep -qF 'cache/cursor-public/x/0123abcd/mcp.json' \"\$MANIFEST\""
-check "#236 Cursor local plugins collected" "row \"$CURSOR_PLUGINS/local/x.json\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#236 Cursor local plugins collected" "row \"$CURSOR_PLUGINS/local/x.json\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
 check "#236 Cursor Windows inno updater excluded" "[ \"\$(status_of \"$CURSOR_UPDATE_SUPERVISOR/inno_updater.exe\")\" = skipped_excluded ]"
-check "#236 Cursor Windows update-supervisor state collected" "row \"$CURSOR_UPDATE_SUPERVISOR/app-ready.json\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"' && row \"$CURSOR_UPDATE_SUPERVISOR/state.json\" | grep -q '\"agent\":\"cursor\".*\"status\":\"collected\"'"
+check "#236 Cursor Windows update-supervisor state collected" "row \"$CURSOR_UPDATE_SUPERVISOR/app-ready.json\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"' && row \"$CURSOR_UPDATE_SUPERVISOR/state.json\" | contains '\"agent\":\"cursor\".*\"status\":\"collected\"'"
 # 2026-10-21 OpenHands Agent Canvas credentials and workspaces (#218)
 OPENHANDS_SECRET='"agent":"openhands".*"secret":true,"status":"collected"'
-check "#218 OpenHands Agent Canvas mars-credentials.json flagged secret" "row \"$CANVAS_CREDENTIALS_LINUX\" | grep -q '$OPENHANDS_SECRET' && row \"$CANVAS_CREDENTIALS_MAC\" | grep -q '$OPENHANDS_SECRET' && row \"$CANVAS_CREDENTIALS_WINDOWS\" | grep -q '$OPENHANDS_SECRET'"
+check "#218 OpenHands Agent Canvas mars-credentials.json flagged secret" "row \"$CANVAS_CREDENTIALS_LINUX\" | contains '$OPENHANDS_SECRET' && row \"$CANVAS_CREDENTIALS_MAC\" | contains '$OPENHANDS_SECRET' && row \"$CANVAS_CREDENTIALS_WINDOWS\" | contains '$OPENHANDS_SECRET'"
 check "#218 OpenHands automation workspaces excluded" "[ \"\$(status_of \"$ALICE/.openhands/workspaces\")\" = skipped_excluded ] && ! grep -qF '.openhands/workspaces/run1/f' \"\$MANIFEST\""
 check "#218 OpenHands workspaces.json beside the excluded workspaces collected" "[ \"\$(status_of \"$ALICE/.openhands/workspaces.json\")\" = collected ]"
 
 # 2026-10-21 Agent Zero source review (#217)
-check "#217 Agent Zero WhatsApp session flagged secret" "row \"$ALICE/agent-zero/main/$WHATSAPP_CREDS\" | grep -q '\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$ALICE/Desktop/agent-zero/$WHATSAPP_CREDS\" | grep -q '$SECRET_COLLECTED' && row \"$VOLUMES/a0_usr/_data/$WHATSAPP_CREDS\" | grep -q '\"user\":\"docker\".*$SECRET_COLLECTED'"
+check "#217 Agent Zero WhatsApp session flagged secret" "row \"$ALICE/agent-zero/main/$WHATSAPP_CREDS\" | contains '\"agent\":\"agent-zero\".*$SECRET_COLLECTED' && row \"$ALICE/Desktop/agent-zero/$WHATSAPP_CREDS\" | contains '$SECRET_COLLECTED' && row \"$VOLUMES/a0_usr/_data/$WHATSAPP_CREDS\" | contains '\"user\":\"docker\".*$SECRET_COLLECTED'"
 check "#217 Agent Zero ACP workspace and extra folder discovered" "[ \"\$(status_of \"$ROOT/srv/a0acp/AGENTS.md\")\" = collected ] && [ \"\$(status_of \"$ROOT/srv/a0extra/AGENTS.md\")\" = collected ]"
-check "#217 Agent Zero connector screen capture collected" "row \"$AGENT_ZERO_CAPTURE/0000.png\" | grep -q '\"agent\":\"agent-zero\".*\"status\":\"collected\"'"
+check "#217 Agent Zero connector screen capture collected" "row \"$AGENT_ZERO_CAPTURE/0000.png\" | contains '\"agent\":\"agent-zero\".*\"status\":\"collected\"'"
 
 # 2026-10-21 framework catalog gaps (#223, #224, #225)
-check "#223 CrewAI project .crewai collected" "row \"$ROOT/srv/proj/.crewai/last_run.json\" | grep -q '\"home\":\"$ROOT/srv/proj\",\"agent\":\"crewai\".*\"status\":\"collected\"'"
-check "#224 difyctl login-pending.yml flagged secret" "row \"$ALICE/.config/difyctl/login-pending.yml\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/AppData/Roaming/difyctl/login-pending.yml\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/AppData/Local/difyctl/login-pending.yml\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "#225 CLAI 2.0 state directory collected" "row \"$CLAI_STATE/orchestrator.json\" | grep -q '\"agent\":\"pydantic-clai\".*\"status\":\"collected\"' && row \"$CLAI_STATE/workspaces/registry/ws1/workspace.json\" | grep -q '\"agent\":\"pydantic-clai\".*\"status\":\"collected\"' && row \"$CLAI_STATE/workspaces/registry/ws1/session.log\" | grep -q '\"agent\":\"pydantic-clai\".*\"status\":\"collected\"'"
-check "#225 CLAI 2.0 workspace token flagged secret" "row \"$CLAI_STATE/workspaces/registry/ws1/token\" | grep -q '\"agent\":\"pydantic-clai\".*\"secret\":true,\"status\":\"collected\"'"
+check "#223 CrewAI project .crewai collected" "row \"$ROOT/srv/proj/.crewai/last_run.json\" | contains '\"home\":\"$ROOT/srv/proj\",\"agent\":\"crewai\".*\"status\":\"collected\"'"
+check "#224 difyctl login-pending.yml flagged secret" "row \"$ALICE/.config/difyctl/login-pending.yml\" | contains '\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/AppData/Roaming/difyctl/login-pending.yml\" | contains '\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/AppData/Local/difyctl/login-pending.yml\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "#225 CLAI 2.0 state directory collected" "row \"$CLAI_STATE/orchestrator.json\" | contains '\"agent\":\"pydantic-clai\".*\"status\":\"collected\"' && row \"$CLAI_STATE/workspaces/registry/ws1/workspace.json\" | contains '\"agent\":\"pydantic-clai\".*\"status\":\"collected\"' && row \"$CLAI_STATE/workspaces/registry/ws1/session.log\" | contains '\"agent\":\"pydantic-clai\".*\"status\":\"collected\"'"
+check "#225 CLAI 2.0 workspace token flagged secret" "row \"$CLAI_STATE/workspaces/registry/ws1/token\" | contains '\"agent\":\"pydantic-clai\".*\"secret\":true,\"status\":\"collected\"'"
 check "#225 CLAI 2.0 workspace clones excluded" "[ \"\$(status_of \"$CLAI_STATE/workspaces/clones\")\" = skipped_excluded ] && ! grep -qF 'repo-0123456789/.git/HEAD' \"\$MANIFEST\""
 
 # 2026-10-21 Codex worktree cwds and archived threads (#222)
-check "#222 Codex archived rollout cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/codexarch/AGENTS.md\")\" = collected ] && grep '^  \"projects\"' \"\$SUMMARY\" | grep -qF '\"$ROOT/srv/codexarch\"'"
-check "#222 Codex worktree cwd not a project" "! grep '^  \"projects\"' \"\$SUMMARY\" | grep -q '\.codex/worktrees' && [ \"\$(status_of \"$BOB/.codex/worktrees\")\" = skipped_excluded ] && ! grep -qF 'worktrees/a1b2/repo/AGENTS.md' \"\$MANIFEST\""
-check "#222 Open Interpreter worktree cwd not a project" "! grep '^  \"projects\"' \"\$SUMMARY\" | grep -q '\.openinterpreter/worktrees' && ! grep -qF 'worktrees/c3d4/repo/AGENTS.md' \"\$MANIFEST\""
+check "#222 Codex archived rollout cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/codexarch/AGENTS.md\")\" = collected ] && grep '^  \"projects\"' \"\$SUMMARY\" | contains -F '\"$ROOT/srv/codexarch\"'"
+check "#222 Codex worktree cwd not a project" "! grep '^  \"projects\"' \"\$SUMMARY\" | contains '\.codex/worktrees' && [ \"\$(status_of \"$BOB/.codex/worktrees\")\" = skipped_excluded ] && ! grep -qF 'worktrees/a1b2/repo/AGENTS.md' \"\$MANIFEST\""
+check "#222 Open Interpreter worktree cwd not a project" "! grep '^  \"projects\"' \"\$SUMMARY\" | contains '\.openinterpreter/worktrees' && ! grep -qF 'worktrees/c3d4/repo/AGENTS.md' \"\$MANIFEST\""
 
 # 2026-10-21 Cody JetBrains plugin files (#214)
-check "#214 Cody JetBrains options files collected" "row \"$JETBRAINS_OPTIONS/cody.xml\" | grep -q '\"agent\":\"cody\".*\"secret\":true,\"status\":\"collected\"' && row \"$JETBRAINS_OPTIONS/cody_application_settings.xml\" | grep -q '\"agent\":\"cody\".*\"status\":\"collected\"'"
-check "#214 Cody cody_accounts.xml flagged secret" "row \"$JETBRAINS_OPTIONS/cody_accounts.xml\" | grep -q '\"agent\":\"cody\".*\"secret\":true,\"status\":\"collected\"'"
-check "#214 Cody cody_accounts_settings.xml not flagged" "row \"$JETBRAINS_OPTIONS/cody_accounts_settings.xml\" | grep -q '\"agent\":\"cody\".*\"secret\":false,\"status\":\"collected\"'"
-check "#214 Cody home .sourcegraph collected" "row \"$ALICE/.sourcegraph/cody_settings.json\" | grep -q '\"agent\":\"cody\".*\"secret\":true,\"status\":\"collected\"'"
-check "#214 Cody project .idea files collected" "row \"$ROOT/srv/proj/.idea/cody_history.xml\" | grep -q '\"agent\":\"cody\".*\"status\":\"collected\"' && row \"$ROOT/srv/proj/.idea/.sourcegraph/cody_settings.json\" | grep -q '\"agent\":\"cody\".*\"secret\":true,\"status\":\"collected\"'"
+check "#214 Cody JetBrains options files collected" "row \"$JETBRAINS_OPTIONS/cody.xml\" | contains '\"agent\":\"cody\".*\"secret\":true,\"status\":\"collected\"' && row \"$JETBRAINS_OPTIONS/cody_application_settings.xml\" | contains '\"agent\":\"cody\".*\"status\":\"collected\"'"
+check "#214 Cody cody_accounts.xml flagged secret" "row \"$JETBRAINS_OPTIONS/cody_accounts.xml\" | contains '\"agent\":\"cody\".*\"secret\":true,\"status\":\"collected\"'"
+check "#214 Cody cody_accounts_settings.xml not flagged" "row \"$JETBRAINS_OPTIONS/cody_accounts_settings.xml\" | contains '\"agent\":\"cody\".*\"secret\":false,\"status\":\"collected\"'"
+check "#214 Cody home .sourcegraph collected" "row \"$ALICE/.sourcegraph/cody_settings.json\" | contains '\"agent\":\"cody\".*\"secret\":true,\"status\":\"collected\"'"
+check "#214 Cody project .idea files collected" "row \"$ROOT/srv/proj/.idea/cody_history.xml\" | contains '\"agent\":\"cody\".*\"status\":\"collected\"' && row \"$ROOT/srv/proj/.idea/.sourcegraph/cody_settings.json\" | contains '\"agent\":\"cody\".*\"secret\":true,\"status\":\"collected\"'"
 
 # 2026-10-21 agent worktrees inside a project (#216)
 check "#216 Gemini CLI and Qwen Code project worktrees excluded" "[ \"\$(status_of \"$GEMINI_PROJECT/.gemini/worktrees\")\" = skipped_excluded ] && [ \"\$(status_of \"$GEMINI_PROJECT/.qwen/worktrees\")\" = skipped_excluded ] && ! grep -qF 'gem/.gemini/worktrees/w1' \"\$MANIFEST\" && ! grep -qF 'gem/.qwen/worktrees/w1' \"\$MANIFEST\""
-check "#216 Gemini CLI project settings beside the worktrees collected" "row \"$GEMINI_PROJECT/.gemini/settings.json\" | grep -q '\"agent\":\"gemini-cli\".*\"status\":\"collected\"'"
+check "#216 Gemini CLI project settings beside the worktrees collected" "row \"$GEMINI_PROJECT/.gemini/settings.json\" | contains '\"agent\":\"gemini-cli\".*\"status\":\"collected\"'"
 
 # 2026-10-21 Hermes quick snapshots and desktop connections (#123, #208)
-check "#123 Hermes quick snapshot state.db collected" "row \"$HERMES_SNAPSHOT/state.db\" | grep -q '\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"' && row \"$HERMES_SNAPSHOT/manifest.json\" | grep -q '\"secret\":false,\"status\":\"collected\"' && row \"$HERMES_SNAPSHOT_WINDOWS/state.db\" | grep -q '\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"' && [ -z \"\$(status_of \"$ALICE/.hermes/state-snapshots\")\" ]"
-check "#123 Hermes quick snapshot credentials flagged secret" "row \"$HERMES_SNAPSHOT/.env\" | grep -q '$SECRET_COLLECTED' && row \"$HERMES_SNAPSHOT/auth.json\" | grep -q '$SECRET_COLLECTED' && row \"$HERMES_SNAPSHOT/pairing/telegram-approved.json\" | grep -q '$SECRET_COLLECTED'"
-check "#208 Hermes desktop connection files flagged secret" "row \"$ALICE/.config/Hermes/connections.json\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED' && row \"$ALICE/.config/Hermes/connection.json\" | grep -q '$SECRET_COLLECTED'"
+check "#123 Hermes quick snapshot state.db collected" "row \"$HERMES_SNAPSHOT/state.db\" | contains '\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"' && row \"$HERMES_SNAPSHOT/manifest.json\" | contains '\"secret\":false,\"status\":\"collected\"' && row \"$HERMES_SNAPSHOT_WINDOWS/state.db\" | contains '\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"' && [ -z \"\$(status_of \"$ALICE/.hermes/state-snapshots\")\" ]"
+check "#123 Hermes quick snapshot credentials flagged secret" "row \"$HERMES_SNAPSHOT/.env\" | contains '$SECRET_COLLECTED' && row \"$HERMES_SNAPSHOT/auth.json\" | contains '$SECRET_COLLECTED' && row \"$HERMES_SNAPSHOT/pairing/telegram-approved.json\" | contains '$SECRET_COLLECTED'"
+check "#208 Hermes desktop connection files flagged secret" "row \"$ALICE/.config/Hermes/connections.json\" | contains '\"agent\":\"hermes\".*$SECRET_COLLECTED' && row \"$ALICE/.config/Hermes/connection.json\" | contains '$SECRET_COLLECTED'"
 
 # 2026-10-21 nanobot workspace cron and triggers (#220)
-check "#220 nanobot workspace cron jobs and runs collected" "row \"$NANOBOT_WORKSPACE/cron/jobs.json\" | grep -q '\"agent\":\"nanobot\".*\"status\":\"collected\"' && row \"$NANOBOT_WORKSPACE/cron/runs/j1_1_ab.json\" | grep -q '\"agent\":\"nanobot\".*\"status\":\"collected\"'"
-check "#220 nanobot workspace triggers and runs collected" "row \"$NANOBOT_WORKSPACE/triggers/triggers.json\" | grep -q '\"agent\":\"nanobot\".*\"status\":\"collected\"' && row \"$NANOBOT_WORKSPACE/triggers/runs/d1.json\" | grep -q '\"agent\":\"nanobot\".*\"status\":\"collected\"'"
+check "#220 nanobot workspace cron jobs and runs collected" "row \"$NANOBOT_WORKSPACE/cron/jobs.json\" | contains '\"agent\":\"nanobot\".*\"status\":\"collected\"' && row \"$NANOBOT_WORKSPACE/cron/runs/j1_1_ab.json\" | contains '\"agent\":\"nanobot\".*\"status\":\"collected\"'"
+check "#220 nanobot workspace triggers and runs collected" "row \"$NANOBOT_WORKSPACE/triggers/triggers.json\" | contains '\"agent\":\"nanobot\".*\"status\":\"collected\"' && row \"$NANOBOT_WORKSPACE/triggers/runs/d1.json\" | contains '\"agent\":\"nanobot\".*\"status\":\"collected\"'"
 check "#220 nanobot trigger queue not collected" "! grep -qF 'nanows/triggers/inbox' \"\$MANIFEST\""
 
 # 2026-10-21 OpenClaw source review (#219)
-check "#219 OpenClaw exec-approvals.json flagged secret" "row \"$OPENCLAW/exec-approvals.json\" | grep -q '\"agent\":\"openclaw\".*$SECRET_COLLECTED'"
-check "#219 OpenClaw auth-profile secrets directory flagged secret" "row \"$ALICE/.openclaw-auth-profile-secrets/gateway.env\" | grep -q '\"agent\":\"openclaw\".*$SECRET_COLLECTED'"
+check "#219 OpenClaw exec-approvals.json flagged secret" "row \"$OPENCLAW/exec-approvals.json\" | contains '\"agent\":\"openclaw\".*$SECRET_COLLECTED'"
+check "#219 OpenClaw auth-profile secrets directory flagged secret" "row \"$ALICE/.openclaw-auth-profile-secrets/gateway.env\" | contains '\"agent\":\"openclaw\".*$SECRET_COLLECTED'"
 check "#219 OpenClaw Gateway clone excluded" "[ \"\$(status_of \"$OPENCLAW/projects/$OPENCLAW_CLONE_ID\")\" = skipped_excluded ] && [ -z \"\$(row \"$OPENCLAW/projects/$OPENCLAW_CLONE_ID/repo/README.md\")\" ]"
-check "#219 OpenClaw projects entry that is no clone collected" "row \"$OPENCLAW/projects/notes/todo.md\" | grep -q '\"agent\":\"openclaw\".*\"status\":\"collected\"'"
+check "#219 OpenClaw projects entry that is no clone collected" "row \"$OPENCLAW/projects/notes/todo.md\" | contains '\"agent\":\"openclaw\".*\"status\":\"collected\"'"
 # 2026-10-30 openclaw rebuild (#326)
 check "openclaw JSON5 agent cwd discovers project" "[ \"\$(status_of \"$ROOT/srv/clawcwd/TOOLS.md\")\" = collected ]"
 check "openclaw legacy .clawdbot/openclaw.json discovers project" "[ \"\$(status_of \"$ROOT/srv/clawold/BOOTSTRAP.md\")\" = collected ]"
 check "openclaw Moltbot .moltbot/moltbot.json discovers project" "[ \"\$(status_of \"$ROOT/srv/moltws/.openclaw/worktree-setup.sh\")\" = collected ]"
 check "openclaw Moltbot .clawdbot/moltbot.json discovers project" "[ \"\$(status_of \"$ROOT/srv/moltold/SOUL.md\")\" = collected ]"
-check "openclaw_home volume .claude.json flagged secret as claude-code" "row \"$OPENCLAW_HOME_VOLUME/.claude.json\" | grep -q '\"user\":\"docker\".*\"agent\":\"claude-code\".*$SECRET_COLLECTED'"
-check "openclaw_home volume .claude file collected as claude-code" "row \"$OPENCLAW_HOME_VOLUME/.claude/history.jsonl\" | grep -q '\"user\":\"docker\".*\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "openclaw_home volume .claude.json flagged secret as claude-code" "row \"$OPENCLAW_HOME_VOLUME/.claude.json\" | contains '\"user\":\"docker\".*\"agent\":\"claude-code\".*$SECRET_COLLECTED'"
+check "openclaw_home volume .claude file collected as claude-code" "row \"$OPENCLAW_HOME_VOLUME/.claude/history.jsonl\" | contains '\"user\":\"docker\".*\"agent\":\"claude-code\".*\"status\":\"collected\"'"
 
 # 2026-10-21 OpenCode and Kilo Code source review (#213, #221)
-check "#213 OpenCode service.json flagged secret" "row \"$ALICE/.config/opencode/service.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED' && row \"$ALICE/.local/state/opencode/service-local.json\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
-check "#213 OpenCode desktop data collected" "row \"$OPENCODE_DESKTOP/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"' && row \"$ALICE/.config/ai.opencode.desktop.beta/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"' && row \"$BOB/AppData/Roaming/ai.opencode.desktop/drafts.sqlite\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
+check "#213 OpenCode service.json flagged secret" "row \"$ALICE/.config/opencode/service.json\" | contains '\"agent\":\"opencode\".*$SECRET_COLLECTED' && row \"$ALICE/.local/state/opencode/service-local.json\" | contains '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
+check "#213 OpenCode desktop data collected" "row \"$OPENCODE_DESKTOP/drafts.sqlite\" | contains '\"agent\":\"opencode\".*\"status\":\"collected\"' && row \"$ALICE/.config/ai.opencode.desktop.beta/drafts.sqlite\" | contains '\"agent\":\"opencode\".*\"status\":\"collected\"' && row \"$BOB/AppData/Roaming/ai.opencode.desktop/drafts.sqlite\" | contains '\"agent\":\"opencode\".*\"status\":\"collected\"'"
 check "#213 OpenCode desktop compile-cache excluded" "[ \"\$(status_of \"$OPENCODE_DESKTOP/compile-cache\")\" = skipped_excluded ] && ! grep -qF 'compile-cache/x' \"\$MANIFEST\""
-check "#213 OpenCode Windows temp root collected" "row \"$BOB/AppData/Local/Temp/opencode/uploads/u1/notes.txt\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
-check "#221 Kilo sandbox policy and preference collected" "row \"$KILO_SANDBOX_POLICY/bb.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"' && row \"$ALICE/.local/state/kilo-sandbox-preference/bb.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
+check "#213 OpenCode Windows temp root collected" "row \"$BOB/AppData/Local/Temp/opencode/uploads/u1/notes.txt\" | contains '\"agent\":\"opencode\".*\"status\":\"collected\"'"
+check "#221 Kilo sandbox policy and preference collected" "row \"$KILO_SANDBOX_POLICY/bb.json\" | contains '\"agent\":\"kilo-code\".*\"status\":\"collected\"' && row \"$ALICE/.local/state/kilo-sandbox-preference/bb.json\" | contains '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
 
 # 2026-10-21 Qwen Code session registry (#230)
-check "#230 Qwen Code session registry flagged secret" "row \"$ALICE/.qwen/sessions/4242.json\" | grep -q '\"agent\":\"qwen-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.qwen/sessions/4243-0123abcd.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "#230 Qwen Code session registry flagged secret" "row \"$ALICE/.qwen/sessions/4242.json\" | contains '\"agent\":\"qwen-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.qwen/sessions/4243-0123abcd.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
 
 # 2026-10-21 Roo Code CLI cloud credentials (#159)
-check "#159 roo cli-credentials.json flagged secret" "row \"$ALICE/.roo/cli-credentials.json\" | grep -q '\"agent\":\"roo-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#159 roo cli-credentials.json flagged secret" "row \"$ALICE/.roo/cli-credentials.json\" | contains '\"agent\":\"roo-code\".*\"secret\":true,\"status\":\"collected\"'"
 
 # 2026-10-21 Twinny workspace storage (#215)
-check "#215 twinny workspaceStorage agent-changes attributed to twinny" "row \"$TWINNY_WORKSPACE/rjmacarthy.twinny/agent-changes/c1.json\" | grep -q '\"agent\":\"twinny\".*\"status\":\"collected\"'"
-check "#215 twinny workspaceStorage neighbour stays vscode" "row \"$TWINNY_WORKSPACE/workspace.json\" | grep -q '\"agent\":\"vscode\".*\"status\":\"collected\"'"
-check "#215 twinny-server forge repos.json flagged secret" "row \"$ALICE/.twinny/server/plugins/github/repos.json\" | grep -q '\"agent\":\"twinny\".*\"secret\":true,\"status\":\"collected\"'"
+check "#215 twinny workspaceStorage agent-changes attributed to twinny" "row \"$TWINNY_WORKSPACE/rjmacarthy.twinny/agent-changes/c1.json\" | contains '\"agent\":\"twinny\".*\"status\":\"collected\"'"
+check "#215 twinny workspaceStorage neighbour stays vscode" "row \"$TWINNY_WORKSPACE/workspace.json\" | contains '\"agent\":\"vscode\".*\"status\":\"collected\"'"
+check "#215 twinny-server forge repos.json flagged secret" "row \"$ALICE/.twinny/server/plugins/github/repos.json\" | contains '\"agent\":\"twinny\".*\"secret\":true,\"status\":\"collected\"'"
 
 # 2026-10-21 project git metadata (#253)
 # git_files_collected FILE...: each file under the project's .git has a collected row
@@ -2477,7 +2482,7 @@ check "#215 twinny-server forge repos.json flagged secret" "row \"$ALICE/.twinny
 # shellcheck disable=SC2317,SC2329 # called from the eval'd check strings
 git_files_collected() {
   for _git_path in "$@"; do
-    row "$PROJECT_GIT/$_git_path" | grep -q "\"home\":\"$ROOT/srv/proj\",\"agent\":\"project\".*\"status\":\"collected\"" || return 1
+    row "$PROJECT_GIT/$_git_path" | contains "\"home\":\"$ROOT/srv/proj\",\"agent\":\"project\".*\"status\":\"collected\"" || return 1
   done
 }
 # shellcheck disable=SC2317,SC2329
@@ -2493,76 +2498,76 @@ check "#253 project git linked worktree index excluded" "[ \"\$(status_of \"$PRO
 check "#253 project git linked worktree submodules excluded" "[ \"\$(status_of \"$PROJECT_GIT/worktrees/wt1/modules\")\" = skipped_excluded ] && no_git_rows worktrees/wt1/modules/sub"
 check "#253 project git linked worktree index.lock and sharedindex excluded" "[ \"\$(status_of \"$PROJECT_GIT/worktrees/wt1/index.lock\")\" = skipped_excluded ] && [ \"\$(status_of \"$PROJECT_GIT/worktrees/wt1/sharedindex.3333333333333333333333333333333333333333\")\" = skipped_excluded ]"
 check "#253 project git objects, index, hooks, lfs and modules have no row" "no_git_rows objects index hooks lfs modules"
-check "#253 project git config not flagged secret" "row \"$PROJECT_GIT/config\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
+check "#253 project git config not flagged secret" "row \"$PROJECT_GIT/config\" | contains '\"secret\":false,\"status\":\"collected\"'"
 
 # 2026-10-23 claude-code Windows round (#256)
-check "#256 Claude Code Windows temp root collected as claude-code" "row \"$CLAUDE_TEMP_SESSION/scratchpad/notes.txt\" | grep -q '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"' && row \"$CLAUDE_TEMP_SESSION/tasks/b256b256b.output\" | grep -q '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
-check "#256 home-level .claude.json.backup flagged secret" "row \"$ALICE/.claude.json.backup\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
-check "#256 Claude Code daemon keys and roster flagged secret" "row \"$ALICE/.claude/daemon/control.key\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/daemon/pipe.key\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/daemon/roster.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "#256 Claude Code .claude.json backup flagged secret" "row \"$ALICE/.claude/backups/.claude.json.backup.1792800000000\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
-check "#256 Claude Code corrupted .claude.json copy flagged secret" "row \"$ALICE/.claude/backups/.claude.json.corrupted.2026-10-23T17-00-00-000Z\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
-check "#256 Claude Code paste-cache collected" "row \"$ALICE/.claude/paste-cache/0123456789abcdef.txt\" | grep -q '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"'"
+check "#256 Claude Code Windows temp root collected as claude-code" "row \"$CLAUDE_TEMP_SESSION/scratchpad/notes.txt\" | contains '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"' && row \"$CLAUDE_TEMP_SESSION/tasks/b256b256b.output\" | contains '\"agent\":\"claude-code\".*\"status\":\"collected\"'"
+check "#256 home-level .claude.json.backup flagged secret" "row \"$ALICE/.claude.json.backup\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#256 Claude Code daemon keys and roster flagged secret" "row \"$ALICE/.claude/daemon/control.key\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/daemon/pipe.key\" | contains '\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/daemon/roster.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "#256 Claude Code .claude.json backup flagged secret" "row \"$ALICE/.claude/backups/.claude.json.backup.1792800000000\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#256 Claude Code corrupted .claude.json copy flagged secret" "row \"$ALICE/.claude/backups/.claude.json.corrupted.2026-10-23T17-00-00-000Z\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#256 Claude Code paste-cache collected" "row \"$ALICE/.claude/paste-cache/0123456789abcdef.txt\" | contains '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"'"
 check "#256 Claude Code plugin directory cache excluded" "[ \"\$(status_of \"$ALICE/.claude/plugins/plugin-directory-cache-v2.json\")\" = skipped_excluded ]"
 check "#256 project git info/exclude collected as project" "git_files_collected info/exclude"
 
 # 2026-10-26 claude-code Linux round (#256)
-check "#256 Claude Code version lock collected as claude-code" "row \"$ALICE/.local/state/claude/locks/2.1.310.lock\" | grep -q '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"'"
-check "#256 Claude Code cache staging collected as claude-code" "row \"$ALICE/.cache/claude/staging/entry\" | grep -q '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"'"
+check "#256 Claude Code version lock collected as claude-code" "row \"$ALICE/.local/state/claude/locks/2.1.310.lock\" | contains '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"'"
+check "#256 Claude Code cache staging collected as claude-code" "row \"$ALICE/.cache/claude/staging/entry\" | contains '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"'"
 
 # 2026-10-26 claude-code macOS round (#256)
-check "#256 Claude Code URL handler bundle collected as claude-code" "row \"$URL_HANDLER/Info.plist\" | grep -q '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"' && row \"$URL_HANDLER/MacOS/claude\" | grep -q '\"agent\":\"claude-code\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\"/home/alice/.local/bin/claude\"'"
-check "#256 Claude Code IDE lock and bridge-spawn mcp.json flagged secret" "row \"$ALICE/.claude/ide/53256.lock\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/$BRIDGE_SPAWN/mcp.json\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/$BRIDGE_SPAWN/append-system-prompt.txt\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
-check "#256 relocated claude home IDE lock and bridge-spawn mcp.json flagged secret" "row \"$CLAUDE_WORK/ide/53256.lock\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/$BRIDGE_SPAWN/mcp.json\" | grep -q '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
+check "#256 Claude Code URL handler bundle collected as claude-code" "row \"$URL_HANDLER/Info.plist\" | contains '\"agent\":\"claude-code\".*\"secret\":false,\"status\":\"collected\"' && row \"$URL_HANDLER/MacOS/claude\" | contains '\"agent\":\"claude-code\".*\"type\":\"symlink\".*\"status\":\"symlink\",\"target\":\"/home/alice/.local/bin/claude\"'"
+check "#256 Claude Code IDE lock and bridge-spawn mcp.json flagged secret" "row \"$ALICE/.claude/ide/53256.lock\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/$BRIDGE_SPAWN/mcp.json\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$ALICE/.claude/$BRIDGE_SPAWN/append-system-prompt.txt\" | contains '\"secret\":false,\"status\":\"collected\"'"
+check "#256 relocated claude home IDE lock and bridge-spawn mcp.json flagged secret" "row \"$CLAUDE_WORK/ide/53256.lock\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"' && row \"$CLAUDE_WORK/$BRIDGE_SPAWN/mcp.json\" | contains '\"agent\":\"claude-code\".*\"secret\":true,\"status\":\"collected\"'"
 
 # 2026-10-29 drift sweep credential gaps (#248)
 while IFS='|' read -r _drift_path _drift_agent; do
-  check "#248 home file flagged secret: $_drift_path" "row \"$ALICE/$_drift_path\" | grep -q '\"agent\":\"$_drift_agent\".*$SECRET_COLLECTED'"
+  check "#248 home file flagged secret: $_drift_path" "row \"$ALICE/$_drift_path\" | contains '\"agent\":\"$_drift_agent\".*$SECRET_COLLECTED'"
 done <"$DRIFT_HOME_SECRETS"
 while IFS='|' read -r _drift_path _drift_agent; do
-  check "#248 project file flagged secret: $_drift_path" "row \"$ROOT/srv/proj/$_drift_path\" | grep -q '\"agent\":\"$_drift_agent\".*$SECRET_COLLECTED'"
+  check "#248 project file flagged secret: $_drift_path" "row \"$ROOT/srv/proj/$_drift_path\" | contains '\"agent\":\"$_drift_agent\".*$SECRET_COLLECTED'"
 done <"$DRIFT_PROJECT_SECRETS"
-check "#322 Factory temp/env dump flagged secret" "row \"$FACTORY_ENV_DUMP\" | grep -q '\"agent\":\"factory-droid\".*$SECRET_COLLECTED'"
+check "#322 Factory temp/env dump flagged secret" "row \"$FACTORY_ENV_DUMP\" | contains '\"agent\":\"factory-droid\".*$SECRET_COLLECTED'"
 check "#322 Factory temp entries not starting with e excluded" "[ \"\$(status_of \"$ALICE/.factory/temp/run1\")\" = skipped_excluded ] && ! grep -qF 'temp/run1/out.txt' \"\$MANIFEST\""
 check "#322 Amp cache outside the catalog not collected" "! grep -qE '\.cache/amp/(runner-desktop|desktop|bin|obelisk-runs)/' \"\$MANIFEST\""
 check "#322 Ollama Library/Caches outside the catalog not collected" "! grep -qF '/Library/Caches/ollama' \"\$MANIFEST\" && ! grep -qF '/Library/Caches/com.electron.ollama' \"\$MANIFEST\""
 check "#321 Windsurf AppData/Local/devin/bin outside the catalog not collected" "! grep -qiF 'AppData/Local/devin' \"\$MANIFEST\""
-check "#324 Hermes suffixed home collected as hermes" "row \"$ALICE/.hermes-canary/state.db\" | grep -q '\"agent\":\"hermes\".*\"status\":\"collected\"' && row \"$ALICE/.hermes-canary/config.yaml\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
-check "#324 Hermes suffixed Windows home config.yaml flagged secret" "row \"$ALICE/AppData/Local/hermes-canary/config.yaml\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
-check "#324 Hermes suffixed home installer checkout excluded, its .env kept" "[ \"\$(status_of \"$ALICE/.hermes-canary/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes-canary/hermes-agent/.git\")\" = skipped_excluded ] && row \"$ALICE/.hermes-canary/hermes-agent/.env\" | grep -q '$SECRET_COLLECTED'"
-check "#324 Hermes suffixed Windows home installer checkout excluded, its .env kept" "[ \"\$(status_of \"$ALICE/AppData/Local/hermes-canary/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/AppData/Local/hermes-canary/hermes-agent/.git\")\" = skipped_excluded ] && row \"$ALICE/AppData/Local/hermes-canary/hermes-agent/.env\" | grep -q '$SECRET_COLLECTED'"
+check "#324 Hermes suffixed home collected as hermes" "row \"$ALICE/.hermes-canary/state.db\" | contains '\"agent\":\"hermes\".*\"status\":\"collected\"' && row \"$ALICE/.hermes-canary/config.yaml\" | contains '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+check "#324 Hermes suffixed Windows home config.yaml flagged secret" "row \"$ALICE/AppData/Local/hermes-canary/config.yaml\" | contains '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+check "#324 Hermes suffixed home installer checkout excluded, its .env kept" "[ \"\$(status_of \"$ALICE/.hermes-canary/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/.hermes-canary/hermes-agent/.git\")\" = skipped_excluded ] && row \"$ALICE/.hermes-canary/hermes-agent/.env\" | contains '$SECRET_COLLECTED'"
+check "#324 Hermes suffixed Windows home installer checkout excluded, its .env kept" "[ \"\$(status_of \"$ALICE/AppData/Local/hermes-canary/hermes-agent/hermes_cli\")\" = skipped_excluded ] && [ \"\$(status_of \"$ALICE/AppData/Local/hermes-canary/hermes-agent/.git\")\" = skipped_excluded ] && row \"$ALICE/AppData/Local/hermes-canary/hermes-agent/.env\" | contains '$SECRET_COLLECTED'"
 check "#324 Hermes updater cache excluded" "[ \"\$(status_of \"$ALICE/AppData/Local/hermes-updater\")\" = skipped_excluded ] && ! grep -qF 'hermes-setup.exe' \"\$MANIFEST\""
 while IFS= read -r _drift_path; do
-  check "#324 Hermes suffixed desktop connections flagged: $_drift_path" "row \"$ALICE/$_drift_path/connections.json\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+  check "#324 Hermes suffixed desktop connections flagged: $_drift_path" "row \"$ALICE/$_drift_path/connections.json\" | contains '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
   for _drift_leaf in Cache "Code Cache" GPUCache; do
     check "#324 Hermes suffixed desktop cache excluded: $_drift_path/$_drift_leaf" "[ \"\$(status_of \"$ALICE/$_drift_path/$_drift_leaf\")\" = skipped_excluded ]"
   done
 done <"$DRIFT_HERMES_DESKTOP"
-check "#321 Devin CLI files collected as windsurf and flagged" "row \"$ALICE/AppData/Roaming/devin/mcp_config.json\" | grep -q '\"agent\":\"windsurf\".*$SECRET_COLLECTED' && row \"$ALICE/AppData/Roaming/devin/credentials.toml\" | grep -q '\"agent\":\"windsurf\".*$SECRET_COLLECTED'"
-check "#321 Devin IDE cache not collected, its User directory collected" "! grep -qiF 'Roaming/Devin/Cache' \"\$MANIFEST\" && row \"$ALICE/AppData/Roaming/Devin/User/settings.json\" | grep -q '\"agent\":\"windsurf\".*\"status\":\"collected\"'"
-check "#323 Crush Windows projects.json discovers project" "row \"$ROOT/srv/crushwin/crushrc\" | grep -q '\"agent\":\"crush\"'"
+check "#321 Devin CLI files collected as windsurf and flagged" "row \"$ALICE/AppData/Roaming/devin/mcp_config.json\" | contains '\"agent\":\"windsurf\".*$SECRET_COLLECTED' && row \"$ALICE/AppData/Roaming/devin/credentials.toml\" | contains '\"agent\":\"windsurf\".*$SECRET_COLLECTED'"
+check "#321 Devin IDE cache not collected, its User directory collected" "! grep -qiF 'Roaming/Devin/Cache' \"\$MANIFEST\" && row \"$ALICE/AppData/Roaming/Devin/User/settings.json\" | contains '\"agent\":\"windsurf\".*\"status\":\"collected\"'"
+check "#323 Crush Windows projects.json discovers project" "row \"$ROOT/srv/crushwin/crushrc\" | contains '\"agent\":\"crush\"'"
 for _drift_path in crushrc .crushrc crush.json .crush.json; do
-  check "#323 Crush project file flagged secret: $_drift_path" "row \"$ROOT/srv/crushwin/$_drift_path\" | grep -q '\"agent\":\"crush\".*$SECRET_COLLECTED'"
+  check "#323 Crush project file flagged secret: $_drift_path" "row \"$ROOT/srv/crushwin/$_drift_path\" | contains '\"agent\":\"crush\".*$SECRET_COLLECTED'"
 done
 # 2026-10-30 kilo-code rebuild (#326)
-check "#326 Kilo memory manifest discovers project" "row \"$ROOT/srv/kilomem/.kilocodeignore\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
-check "#326 Kilo legacy project store discovers project" "row \"$ROOT/srv/kilolegacy/.kilocoderules\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
+check "#326 Kilo memory manifest discovers project" "row \"$ROOT/srv/kilomem/.kilocodeignore\" | contains '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
+check "#326 Kilo legacy project store discovers project" "row \"$ROOT/srv/kilolegacy/.kilocoderules\" | contains '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
 for _kilo_path in kilomem/.kilocode/rules/style.md kilomem/.kilocodemodes; do
-  check "#326 Kilo project file collected: $_kilo_path" "row \"$ROOT/srv/$_kilo_path\" | grep -q '\"agent\":\"kilo-code\".*\"secret\":false,\"status\":\"collected\"'"
+  check "#326 Kilo project file collected: $_kilo_path" "row \"$ROOT/srv/$_kilo_path\" | contains '\"agent\":\"kilo-code\".*\"secret\":false,\"status\":\"collected\"'"
 done
 for _kilo_path in kilo.json .kilo/kilo.jsonc .kilo/opencode.json .kilocode/kilo.json .kilocode/opencode.jsonc; do
-  check "#326 Kilo project config flagged secret: $_kilo_path" "row \"$ROOT/srv/kilolegacy/$_kilo_path\" | grep -q '\"agent\":\"kilo-code\".*$SECRET_COLLECTED'"
+  check "#326 Kilo project config flagged secret: $_kilo_path" "row \"$ROOT/srv/kilolegacy/$_kilo_path\" | contains '\"agent\":\"kilo-code\".*$SECRET_COLLECTED'"
 done
-check "#326 Kilo memory manifest collected" "row \"$KILO_MEMORY/manifest.json\" | grep -q '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
+check "#326 Kilo memory manifest collected" "row \"$KILO_MEMORY/manifest.json\" | contains '\"agent\":\"kilo-code\".*\"status\":\"collected\"'"
 # 2026-10-31 opencode rebuild (#326)
-check "#326 OpenCode legacy project store discovers project" "row \"$ROOT/srv/ocproj/opencode.jsonc\" | grep -q '\"agent\":\"opencode\".*\"status\":\"collected\"'"
+check "#326 OpenCode legacy project store discovers project" "row \"$ROOT/srv/ocproj/opencode.jsonc\" | contains '\"agent\":\"opencode\".*\"status\":\"collected\"'"
 for _opencode_path in .opencode/opencode.json opencode.jsonc; do
-  check "#326 OpenCode project config flagged secret: $_opencode_path" "row \"$ROOT/srv/ocproj/$_opencode_path\" | grep -q '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
+  check "#326 OpenCode project config flagged secret: $_opencode_path" "row \"$ROOT/srv/ocproj/$_opencode_path\" | contains '\"agent\":\"opencode\".*$SECRET_COLLECTED'"
 done
 # 2026-11-01 qwen-live (#156)
-check "#156 Qwen Live call log collected" "row \"$QWEN_LIVE/sessions/live-1793520000000-0a1b2c3d.jsonl\" | grep -q '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"'"
-check "#156 Qwen Live memory library collected" "row \"$QWEN_LIVE/memories/default/dialogue.db\" | grep -q '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"' && row \"$QWEN_LIVE/memories/default/meta.json\" | grep -q '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"'"
-check "#156 Qwen Live config and its temporary copies flagged secret" "row \"$QWEN_LIVE/config.json\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED' && row \"$QWEN_LIVE/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED' && row \"$QWEN_LIVE/config.json.tmp\" | grep -q '\"agent\":\"qwen-live\".*$SECRET_COLLECTED'"
-check "#156 Qwen Live discovery record and its temporary copy flagged secret" "row \"$ALICE/.qwen/live/daemon.json\" | grep -q '\"agent\":\"qwen-code\".*$SECRET_COLLECTED' && row \"$ALICE/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp\" | grep -q '\"agent\":\"qwen-code\".*$SECRET_COLLECTED'"
+check "#156 Qwen Live call log collected" "row \"$QWEN_LIVE/sessions/live-1793520000000-0a1b2c3d.jsonl\" | contains '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"'"
+check "#156 Qwen Live memory library collected" "row \"$QWEN_LIVE/memories/default/dialogue.db\" | contains '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"' && row \"$QWEN_LIVE/memories/default/meta.json\" | contains '\"agent\":\"qwen-live\".*\"secret\":false,\"status\":\"collected\"'"
+check "#156 Qwen Live config and its temporary copies flagged secret" "row \"$QWEN_LIVE/config.json\" | contains '\"agent\":\"qwen-live\".*$SECRET_COLLECTED' && row \"$QWEN_LIVE/config.json.0a1b2c3d-0000-4000-8000-000000000156.tmp\" | contains '\"agent\":\"qwen-live\".*$SECRET_COLLECTED' && row \"$QWEN_LIVE/config.json.tmp\" | contains '\"agent\":\"qwen-live\".*$SECRET_COLLECTED'"
+check "#156 Qwen Live discovery record and its temporary copy flagged secret" "row \"$ALICE/.qwen/live/daemon.json\" | contains '\"agent\":\"qwen-code\".*$SECRET_COLLECTED' && row \"$ALICE/.qwen/live/.daemon.4242.0a1b2c3d-0000-4000-8000-000000000156.tmp\" | contains '\"agent\":\"qwen-code\".*$SECRET_COLLECTED'"
 
 # 2026-11-06 relocation hints (#454)
 # hint_line FILE LINE VARIABLE AGENT -> the collection.json hint of FILE:LINE
@@ -2590,29 +2595,29 @@ fixture_startup() { for _scope in home system project; do sed -n "s/^\([^|]*\)|.
 check "#454 every startup file line has a fixture" "[ -n \"\$(listed_startup)\" ] && [ \"\$(listed_startup)\" = \"\$(fixture_startup)\" ]"
 while IFS='|' read -r _glob _rel _content; do
   [ -n "$_rel" ] || continue
-  check "#454 startup file collected as shared and flagged secret: home|$_glob" "row \"$ALICE/$_rel\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+  check "#454 startup file collected as shared and flagged secret: home|$_glob" "row \"$ALICE/$_rel\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 done <"$WORK/startup-home"
 while IFS='|' read -r _glob _rel _content; do
   [ -n "$_rel" ] || continue
-  check "#454 startup file collected as shared and flagged secret: system|$_glob" "row \"$ROOT/$_rel\" | grep -q '\"user\":\"\",\"home\":\"\",\"agent\":\"shared\".*$SECRET_COLLECTED'"
+  check "#454 startup file collected as shared and flagged secret: system|$_glob" "row \"$ROOT/$_rel\" | contains '\"user\":\"\",\"home\":\"\",\"agent\":\"shared\".*$SECRET_COLLECTED'"
 done <"$WORK/startup-system"
 while IFS='|' read -r _glob _rel _content; do
   [ -n "$_rel" ] || continue
-  check "#454 startup file collected as shared and flagged secret: project|$_glob" "row \"$ROOT/srv/proj/$_rel\" | grep -q '\"user\":\"alice\",\"home\":\"$ROOT/srv/proj\",\"agent\":\"shared\".*$SECRET_COLLECTED'"
+  check "#454 startup file collected as shared and flagged secret: project|$_glob" "row \"$ROOT/srv/proj/$_rel\" | contains '\"user\":\"alice\",\"home\":\"$ROOT/srv/proj\",\"agent\":\"shared\".*$SECRET_COLLECTED'"
 done <"$WORK/startup-project"
-check "#454 system file hint carries its line, variable and agent" "hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | grep -q '\"user\": \"\"'"
-check "#454 system file row has no user or home" "row \"$ROOT/etc/profile\" | grep -q '\"user\":\"\",\"home\":\"\",'"
-check "#454 project file hint carries the project user" "hint_line \"$ROOT/srv/proj/.envrc\" 1 CLAUDE_CONFIG_DIR claude-code | grep -q '\"user\": \"alice\"'"
-check "#454 project file row has the project as home" "row \"$ROOT/srv/proj/.envrc\" | grep -q '\"user\":\"alice\",\"home\":\"$ROOT/srv/proj\",'"
+check "#454 system file hint carries its line, variable and agent" "hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | contains '\"user\": \"\"'"
+check "#454 system file row has no user or home" "row \"$ROOT/etc/profile\" | contains '\"user\":\"\",\"home\":\"\",'"
+check "#454 project file hint carries the project user" "hint_line \"$ROOT/srv/proj/.envrc\" 1 CLAUDE_CONFIG_DIR claude-code | contains '\"user\": \"alice\"'"
+check "#454 project file row has the project as home" "row \"$ROOT/srv/proj/.envrc\" | contains '\"user\":\"alice\",\"home\":\"$ROOT/srv/proj\",'"
 check "#454 a variable of two agents gives one hint per agent" "[ \"\$(hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | grep -c .)\" = 1 ] && [ \"\$(hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-desktop | grep -c .)\" = 1 ]"
-check "#454 a lowercase PowerShell variable is a hint" "hint_line \"$ALICE/Documents/PowerShell/Microsoft.PowerShell_profile.ps1\" 1 CODEX_HOME codex-cli | grep -q '\"user\": \"alice\"'"
+check "#454 a lowercase PowerShell variable is a hint" "hint_line \"$ALICE/Documents/PowerShell/Microsoft.PowerShell_profile.ps1\" 1 CODEX_HOME codex-cli | contains '\"user\": \"alice\"'"
 check "#454 the every-variable file hints every relocation variable" "[ -n \"\$(listed_variables)\" ] && [ \"\$(hinted_variables \"$BOB/.bashrc\")\" = \"\$(listed_variables)\" ]"
 check "#454 a longer name holding a variable is no hint" "[ \"\$(hint_count \"$BOB/.profile\")\" = 0 ] && [ -z \"\$(row \"$BOB/.profile\")\" ]"
 check "#454 a startup file under a symlinked directory is not read" "[ \"\$(hint_count \"$BOB/.oh-my-zsh/custom/agents.zsh\")\" = 0 ] && [ -z \"\$(row \"$BOB/.oh-my-zsh/custom/agents.zsh\")\" ] && ! grep -q 'opt/dotfiles2' \"\$MANIFEST\""
 check "#454 a startup file under a chain of links leaving the home is not read" "[ \"\$(hint_count \"$BOB/.bash_it/custom/agents.bash\")\" = 0 ] && [ -z \"\$(row \"$BOB/.bash_it/custom/agents.bash\")\" ] && ! grep -q 'opt/dotfiles3' \"\$MANIFEST\""
-check "#454 a startup file under a directory linked within the home is read" "hint_line \"$BOB/.config/direnv/direnvrc\" 1 CODEX_HOME codex-cli | grep -q . && row \"$BOB/.config/direnv/direnvrc\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+check "#454 a startup file under a directory linked within the home is read" "hint_line \"$BOB/.config/direnv/direnvrc\" 1 CODEX_HOME codex-cli | contains . && row \"$BOB/.config/direnv/direnvrc\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 check "#454 a symlinked startup file is not followed" "[ \"\$(hint_count \"$BOB/.zshrc\")\" = 0 ] && [ -z \"\$(row \"$BOB/.zshrc\")\" ] && ! grep -q 'opt/dotfiles' \"\$MANIFEST\""
-check "#454 a catalog-collected startup file is hinted and keeps its one catalog row" "hint_line \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\" 1 OPENCLAW_STATE_DIR openclaw | grep -q . && [ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && row \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\" | grep -q '\"agent\":\"openclaw\"'"
+check "#454 a catalog-collected startup file is hinted and keeps its one catalog row" "hint_line \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\" 1 OPENCLAW_STATE_DIR openclaw | contains . && [ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && row \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\" | contains '\"agent\":\"openclaw\"'"
 check "#454 a file only the sweep reaches is not searched by default" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 0 ] && [ -z \"\$(row \"$ALICE/scripts/agent-env/deep/helper.sh\")\" ]"
 check "#454 the log holds the hint lines" "grep -q 'relocation hint: $ROOT/etc/profile:1 names COPILOT_HOME (copilot-cli)\$' \"$RELOCATION_LOG\" && grep -q 'Relocation hints in system files' \"$RELOCATION_LOG\""
 check "#454 the log never holds an assignment" "[ \"\$(grep -c '/opt/x' \"$RELOCATION_LOG\")\" = 0 ]"
@@ -2620,23 +2625,23 @@ check "#454 -q keeps the hint lines off stderr" "! grep -q 'relocation hint' \"$
 check "#454 stdout relocation line counts hints and files searched" "[ \"\$(hint_total \"\$SUMMARY\")\" -gt 0 ] && grep -q \"^relocation: \$(hint_total \"\$SUMMARY\") hints in \$(searched_in \"\$SUMMARY\") files searched; see collectors/docs/relocation.md\\\$\" \"$OUT/default.stdout\""
 check "#454 options record the sweep settings" "grep -q '\"env_scan_home\": false, \"env_scan_max_size_bytes\": 1048576}' \"\$SUMMARY\" && grep -q '\"files_skipped_size\": 0}' \"\$SUMMARY\""
 check "#454 every hint has an empty value" "[ \"\$(grep -c '\"value\": \"\"}' \"\$SUMMARY\")\" = \"\$(hint_total \"\$SUMMARY\")\" ]"
-check "#454 a fish universal variable is a hint" "hint_line \"$ALICE/.config/fish/fish_variables\" 1 CODEX_HOME codex-cli | grep -q ."
-check "#454 a mise [env] table gives a hint on its second line and none for its header" "hint_line \"$ALICE/.config/mise/config.toml\" 2 CODEX_HOME codex-cli | grep -q . && ! grep -qF '\"source\": \"$ALICE/.config/mise/config.toml\", \"line\": 1,' \"\$SUMMARY\""
-check "#454 a launchd plist key is a hint" "hint_line \"$ALICE/Library/LaunchAgents/com.example.agents.plist\" 1 CODEX_HOME codex-cli | grep -q ."
+check "#454 a fish universal variable is a hint" "hint_line \"$ALICE/.config/fish/fish_variables\" 1 CODEX_HOME codex-cli | contains ."
+check "#454 a mise [env] table gives a hint on its second line and none for its header" "hint_line \"$ALICE/.config/mise/config.toml\" 2 CODEX_HOME codex-cli | contains . && ! grep -qF '\"source\": \"$ALICE/.config/mise/config.toml\", \"line\": 1,' \"\$SUMMARY\""
+check "#454 a launchd plist key is a hint" "hint_line \"$ALICE/Library/LaunchAgents/com.example.agents.plist\" 1 CODEX_HOME codex-cli | contains ."
 check "#454 a name in another case is no hint outside a .ps1 file" "[ \"\$(hint_count \"$BOB/.bash_login\")\" = 0 ] && [ -z \"\$(row \"$BOB/.bash_login\")\" ]"
 check "#454 a PowerShell env: drive prefix gives no ENV hint" "[ \"\$(hint_count \"$ALICE/Documents/PowerShell/Microsoft.PowerShell_profile.ps1\")\" = 1 ]"
-check "#454 an env shebang line gives no ENV hint" "[ \"\$(hint_count \"$ALICE/.config/plasma-workspace/env/agents.sh\")\" = 1 ] && hint_line \"$ALICE/.config/plasma-workspace/env/agents.sh\" 2 CODEX_HOME codex-cli | grep -q ."
-check "#454 a binary plist is hinted when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { hint_line \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'; }"
+check "#454 an env shebang line gives no ENV hint" "[ \"\$(hint_count \"$ALICE/.config/plasma-workspace/env/agents.sh\")\" = 1 ] && hint_line \"$ALICE/.config/plasma-workspace/env/agents.sh\" 2 CODEX_HOME codex-cli | contains ."
+check "#454 a binary plist is hinted when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { hint_line \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli | contains . && row \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'; }"
 # 2026-11-08 exclusion and secret globs across a newline in a path (#473)
-check "#473 .claude/plugins/*/node_modules excludes a directory across a newline" "row \"$ALICE/.claude/plugins/nl\\\\nname/node_modules\" | grep -q '\"size\":[1-9][0-9]*,.*\"status\":\"skipped_excluded\"'"
+check "#473 .claude/plugins/*/node_modules excludes a directory across a newline" "row \"$ALICE/.claude/plugins/nl\\\\nname/node_modules\" | contains '\"size\":[1-9][0-9]*,.*\"status\":\"skipped_excluded\"'"
 check "#473 nothing under the newline plugin directory is collected" "[ -z \"\$(row \"$ALICE/.claude/plugins/nl\\\\nname/node_modules/f.js\")\" ]"
-check "#473 .claude/bridge-spawn/*/mcp.json flags a credential across a newline" "row \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "#473 .claude/bridge-spawn/*/mcp.json flags a credential across a newline" "row \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
 
 # 2026-11-08 a name ending in a newline (#478)
 check "#478 a directory named cache plus a newline is not excluded as cache" "[ \"\$(status_of \"$ALICE/.claude/plugins/cache\\\\n/settings.json\")\" = collected ]"
-check "#478 a file named .credentials.json plus a newline is not flagged as the credential" "row \"$ALICE/.claude/.credentials.json\\\\n\" | grep -q '\"secret\":false,\"status\":\"collected\"'"
+check "#478 a file named .credentials.json plus a newline is not flagged as the credential" "row \"$ALICE/.claude/.credentials.json\\\\n\" | contains '\"secret\":false,\"status\":\"collected\"'"
 # 2026-11-08 a symlink target ending in a newline (#480)
-check "#480 a symlink target ending in a newline is recorded whole" "row \"$ALICE/.claude/nl-target-link\" | grep -q '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
+check "#480 a symlink target ending in a newline is recorded whole" "row \"$ALICE/.claude/nl-target-link\" | contains '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
@@ -2769,7 +2774,7 @@ while IFS='|' read -r _glob _rel _content; do
   [ -n "$_rel" ] || continue
   check "#454 startup file skipped without secrets: project|$_glob" "[ \"\$(status_of \"$ROOT/srv/proj/$_rel\")\" = skipped_secret ]"
 done <"$WORK/startup-project"
-check "#454 hints kept without secrets" "hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | grep -q . && [ \"\$(hint_total \"\$SUMMARY\")\" = \"\$(hint_total \"$OUT/default/\"*.collection.json)\" ]"
+check "#454 hints kept without secrets" "hint_line \"$ROOT/etc/profile\" 1 COPILOT_HOME copilot-cli | contains . && [ \"\$(hint_total \"\$SUMMARY\")\" = \"\$(hint_total \"$OUT/default/\"*.collection.json)\" ]"
 
 # 2026-11-08 exclusion and secret globs across a newline in a path (#473)
 check "#473 NoSecrets skips .claude/bridge-spawn/*/mcp.json across a newline" "[ \"\$(status_of \"$ALICE/.claude/bridge-spawn/nl\\\\nname/mcp.json\")\" = skipped_secret ]"
@@ -2779,13 +2784,13 @@ check "#473 NoSecrets skips .claude/bridge-spawn/*/mcp.json across a newline" "[
 run envscan --env-scan-home; check "#454 the sweep run exits 0" "[ $? -eq 0 ]"
 check "#454 stdout relocation line counts the files skipped for size" "grep -q '^relocation: [0-9]* hints in [0-9]* files searched, [1-9][0-9]* skipped for size; see collectors/docs/relocation.md\$' \"$OUT/envscan.stdout\""
 check "#454 the sweep run records its options" "grep -q '\"env_scan_home\": true, \"env_scan_max_size_bytes\": 1048576}' \"\$SUMMARY\""
-check "#454 the sweep hints and collects a file deep in the home" "hint_line \"$ALICE/scripts/agent-env/deep/helper.sh\" 2 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.sh\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+check "#454 the sweep hints and collects a file deep in the home" "hint_line \"$ALICE/scripts/agent-env/deep/helper.sh\" 2 CODEX_HOME codex-cli | contains . && row \"$ALICE/scripts/agent-env/deep/helper.sh\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 check "#454 an env shebang line in a swept file gives no ENV hint" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 1 ]"
 check "#454 a file name holding a newline steers no read through a symlink" "[ \"\$(hint_count \"$ALICE/scripts/steer/d\")\" = 0 ] && [ -z \"\$(row \"$ALICE/scripts/steer/d\")\" ] && [ -z \"\$(row \"$ROOT/opt/outside/target\")\" ] && [ \"\$(grep -c 'scripts/steer/d' \"\$SUMMARY\")\" = 0 ] && [ -f \"$ALICE/scripts/steer/d
 x\" ]"
 check "#454 the sweep skips a home outside the user home roots" "grep -q \"sweep skipped: home $ROOT/usr/share/ollama lies outside the user home roots\" \"\$(ls \"$OUT/envscan\"/*.log)\" && [ \"\$(hint_count \"$ROOT/usr/share/ollama/.env-helper.sh\")\" = 0 ]"
 check "#454 the sweep searches a home nested in another home once, as its own" "[ \"\$(hint_count \"$ALICE/nested/deep/helper.sh\")\" = 1 ] && grep -qF \"\\\"user\\\": \\\"nested\\\", \\\"source\\\": \\\"$ALICE/nested/deep/helper.sh\\\",\" \"\$SUMMARY\""
-check "#454 the sweep matches a lowercase name in a .ps1 file" "hint_line \"$ALICE/scripts/agent-env/deep/helper.ps1\" 1 CODEX_HOME codex-cli | grep -q . && row \"$ALICE/scripts/agent-env/deep/helper.ps1\" | grep -q '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+check "#454 the sweep matches a lowercase name in a .ps1 file" "hint_line \"$ALICE/scripts/agent-env/deep/helper.ps1\" 1 CODEX_HOME codex-cli | contains . && row \"$ALICE/scripts/agent-env/deep/helper.ps1\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 check "#454 the sweep counts a file over its size limit and leaves it unsearched" "grep -q '\"files_skipped_size\": [1-9][0-9]*}' \"\$SUMMARY\" && [ \"\$(hint_count \"$ALICE/dumps/oversized-env.txt\")\" = 0 ] && [ -z \"\$(row \"$ALICE/dumps/oversized-env.txt\")\" ]"
 check "#454 the sweep leaves out an excluded directory" "[ \"\$(hint_count \"$ALICE/AppData/Local/agy/agent-env.sh\")\" = 0 ] && [ -z \"\$(row \"$ALICE/AppData/Local/agy/agent-env.sh\")\" ]"
 check "#454 the sweep leaves the catalog-collected file its one row" "[ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && [ \"\$(hint_count \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\")\" = 1 ]"
@@ -3053,37 +3058,37 @@ printf '[]\n' >"$VOLUMES/hermes_home/_data/profiles/work/pastes/pending.json"
 printf 'model = "x"\n' >"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000"
 printf '{}\n' >"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json"
 run fwvolumes; check "frameworks volumes exit 0" "[ $? -eq 0 ]"
-check "n8n_data volume collected as n8n" "row \"$N8N_VOLUME/database.sqlite\" | grep -q '\"user\":\"docker\",\"home\":\"$N8N_VOLUME\",\"agent\":\"n8n\".*\"status\":\"collected\"'"
-check "n8n volume config flagged secret (volume-relative)" "row \"$N8N_VOLUME/config\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "n8n volume ssh key flagged secret (volume-relative)" "row \"$N8N_VOLUME/ssh/key\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "n8n_data volume collected as n8n" "row \"$N8N_VOLUME/database.sqlite\" | contains '\"user\":\"docker\",\"home\":\"$N8N_VOLUME\",\"agent\":\"n8n\".*\"status\":\"collected\"'"
+check "n8n volume config flagged secret (volume-relative)" "row \"$N8N_VOLUME/config\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "n8n volume ssh key flagged secret (volume-relative)" "row \"$N8N_VOLUME/ssh/key\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "n8n volume nodes/node_modules excluded (volume-relative)" "[ \"\$(status_of \"$N8N_VOLUME/nodes/node_modules\")\" = skipped_excluded ]"
 check "n8n volume node-definitions excluded (volume-relative)" "[ \"\$(status_of \"$N8N_VOLUME/node-definitions\")\" = skipped_excluded ]"
 check "n8n volume n8n-sdk-templates excluded (volume-relative)" "[ \"\$(status_of \"$N8N_VOLUME/n8n-sdk-templates\")\" = skipped_excluded ]"
-check "n8n_n8n-data volume collected as n8n" "row \"$VOLUMES/n8n_n8n-data/_data/database.sqlite\" | grep -q '\"agent\":\"n8n\".*\"status\":\"collected\"'"
-check "langflow-data volume secret_key flagged (volume-relative)" "row \"$VOLUMES/langflow_langflow-data/_data/secret_key\" | grep -q '\"agent\":\"langflow\".*\"secret\":true,\"status\":\"collected\"'"
-check "langflow-data volume cache_secret_key flagged (volume-relative)" "row \"$VOLUMES/langflow_langflow-data/_data/cache_secret_key\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "n8n_n8n-data volume collected as n8n" "row \"$VOLUMES/n8n_n8n-data/_data/database.sqlite\" | contains '\"agent\":\"n8n\".*\"status\":\"collected\"'"
+check "langflow-data volume secret_key flagged (volume-relative)" "row \"$VOLUMES/langflow_langflow-data/_data/secret_key\" | contains '\"agent\":\"langflow\".*\"secret\":true,\"status\":\"collected\"'"
+check "langflow-data volume cache_secret_key flagged (volume-relative)" "row \"$VOLUMES/langflow_langflow-data/_data/cache_secret_key\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "langflow-data volume profile_pictures excluded (volume-relative)" "[ \"\$(status_of \"$VOLUMES/langflow_langflow-data/_data/profile_pictures\")\" = skipped_excluded ]"
-check "dify sandbox home volume collected as dify" "row \"$VOLUMES/docker_dify_agent_local_sandbox_home/_data/.local/share/shellctl/shellctl.db\" | grep -q '\"agent\":\"dify\".*\"status\":\"collected\"'"
-check "dify sandbox workspace volume collected as dify" "row \"$VOLUMES/docker_dify_agent_local_sandbox_workspace/_data/out.txt\" | grep -q '\"agent\":\"dify\".*\"status\":\"collected\"'"
+check "dify sandbox home volume collected as dify" "row \"$VOLUMES/docker_dify_agent_local_sandbox_home/_data/.local/share/shellctl/shellctl.db\" | contains '\"agent\":\"dify\".*\"status\":\"collected\"'"
+check "dify sandbox workspace volume collected as dify" "row \"$VOLUMES/docker_dify_agent_local_sandbox_workspace/_data/out.txt\" | contains '\"agent\":\"dify\".*\"status\":\"collected\"'"
 # 2026-10-21 Hermes quick snapshots and desktop connections (#123, #208)
-check "#123 Hermes volume quick snapshot collected, credentials flagged (volume-relative)" "row \"$HERMES_VOLUME_SNAPSHOT/state.db\" | grep -q '\"user\":\"docker\".*\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/.env\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/auth.json\" | grep -q '\"secret\":true,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/pairing/telegram-approved.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "#123 Hermes volume quick snapshot collected, credentials flagged (volume-relative)" "row \"$HERMES_VOLUME_SNAPSHOT/state.db\" | contains '\"user\":\"docker\".*\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/.env\" | contains '\"secret\":true,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/auth.json\" | contains '\"secret\":true,\"status\":\"collected\"' && row \"$HERMES_VOLUME_SNAPSHOT/pairing/telegram-approved.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
 # 2026-10-30 hermes rebuild (#326)
 while IFS='|' read -r _hermes_kind _hermes_path; do
   case "$_hermes_kind" in
     excl) check "#326 Hermes volume excluded: $_hermes_path" "[ \"\$(status_of \"$HERMES_VOLUME/$_hermes_path\")\" = skipped_excluded ]" ;;
-    plain) check "#326 Hermes volume collected, not secret: $_hermes_path" "row \"$HERMES_VOLUME/$_hermes_path\" | grep -q '\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"'" ;;
-    *) check "#326 Hermes volume flagged: $_hermes_path" "row \"$HERMES_VOLUME/$_hermes_path\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'" ;;
+    plain) check "#326 Hermes volume collected, not secret: $_hermes_path" "row \"$HERMES_VOLUME/$_hermes_path\" | contains '\"agent\":\"hermes\".*\"secret\":false,\"status\":\"collected\"'" ;;
+    *) check "#326 Hermes volume flagged: $_hermes_path" "row \"$HERMES_VOLUME/$_hermes_path\" | contains '\"agent\":\"hermes\".*$SECRET_COLLECTED'" ;;
   esac
 done <"$HERMES_VOLUME_CASES"
 # 2026-10-29 drift sweep credential gaps (#248)
-check "#248 langflow-data volume _mcp_servers file flagged (volume-relative)" "row \"$LANGFLOW_VOLUME_MCP\" | grep -q '\"agent\":\"langflow\".*$SECRET_COLLECTED'"
-check "#248 Hermes volume config.yaml flagged (volume-relative)" "row \"$VOLUMES/hermes_home/_data/config.yaml\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
-check "#248 OpenHands volume conversation acp/codex/auth.json flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/conversations/c1/acp/codex/auth.json\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED' && row \"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex/auth.json\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
+check "#248 langflow-data volume _mcp_servers file flagged (volume-relative)" "row \"$LANGFLOW_VOLUME_MCP\" | contains '\"agent\":\"langflow\".*$SECRET_COLLECTED'"
+check "#248 Hermes volume config.yaml flagged (volume-relative)" "row \"$VOLUMES/hermes_home/_data/config.yaml\" | contains '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+check "#248 OpenHands volume conversation acp/codex/auth.json flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/conversations/c1/acp/codex/auth.json\" | contains '\"agent\":\"openhands\".*$SECRET_COLLECTED' && row \"$OPENHANDS_VOLUME/agent-canvas/conversations/c2/acp/codex/auth.json\" | contains '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
 # 2026-10-30 hermes rebuild (#326)
-check "#326 OpenHands volume LLM profile flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/profiles/p1.json\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
-check "#326 OpenHands volume interrupted profile save flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/profiles/tmpabc123.tmp\" | grep -q '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
-check "#326 Hermes volume profile pastes/pending.json flagged by profiles/*.json (accepted overmatch)" "row \"$VOLUMES/hermes_home/_data/profiles/work/pastes/pending.json\" | grep -q '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
-check "#320 Ollama volume backup and Muse copy flagged (volume-relative)" "row \"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000\" | grep -q '\"agent\":\"ollama\".*$SECRET_COLLECTED' && row \"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json\" | grep -q '\"agent\":\"ollama\".*$SECRET_COLLECTED'"
+check "#326 OpenHands volume LLM profile flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/profiles/p1.json\" | contains '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
+check "#326 OpenHands volume interrupted profile save flagged (volume-relative)" "row \"$OPENHANDS_VOLUME/profiles/tmpabc123.tmp\" | contains '\"agent\":\"openhands\".*$SECRET_COLLECTED'"
+check "#326 Hermes volume profile pastes/pending.json flagged by profiles/*.json (accepted overmatch)" "row \"$VOLUMES/hermes_home/_data/profiles/work/pastes/pending.json\" | contains '\"agent\":\"hermes\".*$SECRET_COLLECTED'"
+check "#320 Ollama volume backup and Muse copy flagged (volume-relative)" "row \"$OLLAMA_VOLUME/backup/codex/config.toml.1792800000\" | contains '\"agent\":\"ollama\".*$SECRET_COLLECTED' && row \"$OLLAMA_VOLUME/launch/muse-config/muse/settings.json\" | contains '\"agent\":\"ollama\".*$SECRET_COLLECTED'"
 run fwvolumesnosecrets --no-secrets; check "#248 frameworks volumes no-secrets exit 0" "[ $? -eq 0 ]"
 check "#248 langflow-data volume _mcp_servers file skipped without secrets (volume-relative)" "[ \"\$(status_of \"$LANGFLOW_VOLUME_MCP\")\" = skipped_secret ]"
 check "#248 Hermes volume config.yaml skipped without secrets (volume-relative)" "[ \"\$(status_of \"$VOLUMES/hermes_home/_data/config.yaml\")\" = skipped_secret ]"
@@ -3123,22 +3128,22 @@ printf 'db\n' >"$BOB/.gemini/antigravity-cli/conversations/b1.db"
 (cd "$OUT/invcwd" && inventory_run inventory -q); check "inventory exit 0" "[ $? -eq 0 ]"
 check "inventory writes nothing in the current directory" "[ -z \"\$(ls -A \"$OUT/invcwd\")\" ]"
 check "inventory -q leaves stderr empty" "[ ! -s \"$OUT/inventory.stderr\" ]"
-check "inventory first line is the host line, keys in order" "head -n1 \"$OUT/inventory.stdout\" | grep -q '$INVENTORY_HOST_PATTERN'"
-check "inventory host line counts" "head -n1 \"$OUT/inventory.stdout\" | grep -q '\"users_unreadable\":0,\"docker_volumes\":4}\$'"
+check "inventory first line is the host line, keys in order" "head -n1 \"$OUT/inventory.stdout\" | contains '$INVENTORY_HOST_PATTERN'"
+check "inventory host line counts" "head -n1 \"$OUT/inventory.stdout\" | contains '\"users_unreadable\":0,\"docker_volumes\":4}\$'"
 check "inventory every later line is an agent line, keys in order" "[ \"\$(sed 1d \"$OUT/inventory.stdout\" | grep -vc '$INVENTORY_AGENT_PATTERN')\" = 0 ] && [ \"\$(grep -c . \"$OUT/inventory.stdout\")\" -gt 10 ]"
-check "inventory ollama line: history and manifest, excluded blobs not counted" "agent_line inventory ollama ollama | grep -q '\"files\":2,\"bytes\":25,\"first\":\"2026-09-14T00:00:00Z\",\"last\":\"2026-09-15T01:02:03Z\",\"projects\":0,\"evidence\":\".ollama\"}\$'"
-check "inventory claude-code evidence in catalog order" "agent_line inventory alice claude-code | grep -q '\"evidence\":\".claude,.claude.json\\*,.claude-\\*/projects,.claude-\\*/history.jsonl,.claude-\\*/.claude.json\\*,.claude-\\*/.credentials.json,.claude-\\*/sessions/\\*.\\*.key,.claude-\\*/daemon/control.key,.claude-\\*/daemon/roster.json,.claude-\\*/backups/.claude.json.\\*,.claude-\\*/ide/\\*.lock,.claude-\\*/bridge-spawn/\\*/mcp.json,.local/state/claude,.cache/claude,Library/Caches/claude-cli-nodejs,AppData/Local/claude-cli-nodejs/Cache/\\*,AppData/Local/Temp/claude,Applications/Claude Code URL Handler.app\"}\$'"
-check "inventory first and last set for alice claude-code" "agent_line inventory alice claude-code | grep -q '\"first\":\"20[0-9-]*T[0-9:]*Z\",\"last\":\"20[0-9-]*T[0-9:]*Z\"'"
-check "inventory nested entry claimed from the enclosing agent" "agent_line inventory alice antigravity | grep -q '\"evidence\":\"[^\"]*.gemini/antigravity-cli' && agent_line inventory alice gemini-cli | grep -q '\"evidence\":\".gemini,.cache/.gemini\"'"
-check "inventory: matched directory with no files of its own gives no line" "[ -z \"\$(agent_line inventory bob gemini-cli)\" ] && agent_line inventory bob antigravity | grep -q '\"files\":1,\"bytes\":3,.*\"evidence\":\".gemini/antigravity-cli\"}\$'"
+check "inventory ollama line: history and manifest, excluded blobs not counted" "agent_line inventory ollama ollama | contains '\"files\":2,\"bytes\":25,\"first\":\"2026-09-14T00:00:00Z\",\"last\":\"2026-09-15T01:02:03Z\",\"projects\":0,\"evidence\":\".ollama\"}\$'"
+check "inventory claude-code evidence in catalog order" "agent_line inventory alice claude-code | contains '\"evidence\":\".claude,.claude.json\\*,.claude-\\*/projects,.claude-\\*/history.jsonl,.claude-\\*/.claude.json\\*,.claude-\\*/.credentials.json,.claude-\\*/sessions/\\*.\\*.key,.claude-\\*/daemon/control.key,.claude-\\*/daemon/roster.json,.claude-\\*/backups/.claude.json.\\*,.claude-\\*/ide/\\*.lock,.claude-\\*/bridge-spawn/\\*/mcp.json,.local/state/claude,.cache/claude,Library/Caches/claude-cli-nodejs,AppData/Local/claude-cli-nodejs/Cache/\\*,AppData/Local/Temp/claude,Applications/Claude Code URL Handler.app\"}\$'"
+check "inventory first and last set for alice claude-code" "agent_line inventory alice claude-code | contains '\"first\":\"20[0-9-]*T[0-9:]*Z\",\"last\":\"20[0-9-]*T[0-9:]*Z\"'"
+check "inventory nested entry claimed from the enclosing agent" "agent_line inventory alice antigravity | contains '\"evidence\":\"[^\"]*.gemini/antigravity-cli' && agent_line inventory alice gemini-cli | contains '\"evidence\":\".gemini,.cache/.gemini\"'"
+check "inventory: matched directory with no files of its own gives no line" "[ -z \"\$(agent_line inventory bob gemini-cli)\" ] && agent_line inventory bob antigravity | contains '\"files\":1,\"bytes\":3,.*\"evidence\":\".gemini/antigravity-cli\"}\$'"
 check "inventory: no agent line has zero files" "! grep -q '\"files\":0,' \"$OUT/inventory.stdout\""
-check "inventory projects counted per user" "agent_line inventory alice claude-code | grep -q '\"projects\":[1-9]'"
-check "inventory docker volume line" "agent_line inventory docker agent-zero | grep -q '\"files\":5,\"bytes\":94,.*\"projects\":0,\"evidence\":\"\\*a0_usr\"}\$'"
-check "inventory rootless docker volume line" "agent_line inventory docker tabby | grep -q '\"files\":1,\"bytes\":23,.*\"evidence\":\"\\*tabby\\*\"}\$'"
+check "inventory projects counted per user" "agent_line inventory alice claude-code | contains '\"projects\":[1-9]'"
+check "inventory docker volume line" "agent_line inventory docker agent-zero | contains '\"files\":5,\"bytes\":94,.*\"projects\":0,\"evidence\":\"\\*a0_usr\"}\$'"
+check "inventory rootless docker volume line" "agent_line inventory docker tabby | contains '\"files\":1,\"bytes\":23,.*\"evidence\":\"\\*tabby\\*\"}\$'"
 check "inventory shared not inventoried" "! grep -q '\"agent\":\"\\(shared\\|project\\|live\\)\"' \"$OUT/inventory.stdout\""
 check "inventory prints no path below a home" "! grep -q '$ROOT' \"$OUT/inventory.stdout\""
 # 2026-10-19 Codex projectless output directories (#149)
-check "#149 inventory codex-cli evidence names Documents/Codex" "agent_line inventory bob codex-cli | grep -q '\"evidence\":\"[^\"]*Documents/Codex'"
+check "#149 inventory codex-cli evidence names Documents/Codex" "agent_line inventory bob codex-cli | contains '\"evidence\":\"[^\"]*Documents/Codex'"
 if command -v python3 >/dev/null 2>&1; then
   check "inventory stdout is valid JSON Lines" "python3 -c 'import json,sys; [json.loads(line) for line in open(sys.argv[1])]' \"$OUT/inventory.stdout\""
 fi
@@ -3149,7 +3154,7 @@ check "inventory without -q logs to stderr only" "[ -s \"$OUT/inventory-o.stderr
 # 2026-11-06 relocation hints (#454)
 check "#454 inventory prints no relocation hint" "! grep -q -e 'relocation hint' -e 'Relocation hints' \"$OUT/inventory-o.stderr\" \"$OUT/inventory-o.stdout\""
 inventory_run inventory-full -q --full
-check "inventory --full counts excluded files" "agent_line inventory-full ollama ollama | grep -q '\"files\":3,\"bytes\":30,'"
+check "inventory --full counts excluded files" "agent_line inventory-full ollama ollama | contains '\"files\":3,\"bytes\":30,'"
 # 2026-10-14 catalog match that is an excluded file (#107)
 # --full adds one file for each excl and exclf case of CASES_MUSE, plus the
 # updater file, which the default inventory must not count either.
@@ -3158,12 +3163,12 @@ inventory_files() { agent_line "$1" alice muse-code | sed 's/.*"files":\([0-9]*\
 check "#107 inventory counts an excluded file match only with --full" "[ \"\$(( \$(inventory_files inventory-full) - \$(inventory_files inventory) ))\" = \"\$(( \$(printf '%s\\n' \"\$CASES_MUSE\" | grep -c '^excl') + 1 ))\" ]"
 inventory_run inventory-u -q -u bob --no-docker
 check "inventory -u keeps one user" "! grep -q '\"user\":\"alice\"' \"$OUT/inventory-u.stdout\" && grep -q '\"user\":\"bob\"' \"$OUT/inventory-u.stdout\""
-check "inventory --no-docker: no volumes, no docker lines" "head -n1 \"$OUT/inventory-u.stdout\" | grep -q '\"users_scanned\":1,\"users_unreadable\":0,\"docker_volumes\":0}' && ! grep -q '\"user\":\"docker\"' \"$OUT/inventory-u.stdout\""
+check "inventory --no-docker: no volumes, no docker lines" "head -n1 \"$OUT/inventory-u.stdout\" | contains '\"users_scanned\":1,\"users_unreadable\":0,\"docker_volumes\":0}' && ! grep -q '\"user\":\"docker\"' \"$OUT/inventory-u.stdout\""
 # 2026-10-04 bug round: #29
 if [ "$CASE_INSENSITIVE" = 1 ]; then
-  check "#29 inventory evidence keeps only the first spelling" "agent_line inventory alice pearai | grep -q '\"evidence\":\"[^\"]*.config/PearAI/User' && ! agent_line inventory alice pearai | grep -q '.config/pearai/User'"
+  check "#29 inventory evidence keeps only the first spelling" "agent_line inventory alice pearai | contains '\"evidence\":\"[^\"]*.config/PearAI/User' && ! agent_line inventory alice pearai | contains '.config/pearai/User'"
 else
-  check "#29 inventory evidence keeps both distinct spellings" "agent_line inventory alice pearai | grep -q '.config/PearAI/User,.config/pearai/User'"
+  check "#29 inventory evidence keeps both distinct spellings" "agent_line inventory alice pearai | contains '.config/PearAI/User,.config/pearai/User'"
 fi
 rm -rf "$BOB/.gemini"
 if [ "$(id -u)" != 0 ]; then
@@ -3171,7 +3176,7 @@ if [ "$(id -u)" != 0 ]; then
   chmod 000 "$ROOT/home/carol"
   inventory_run inventory-perm -q; check "inventory unreadable home exit 0" "[ $? -eq 0 ]"
   chmod 700 "$ROOT/home/carol"
-  check "inventory counts the unreadable home" "head -n1 \"$OUT/inventory-perm.stdout\" | grep -q '\"users_unreadable\":1,'"
+  check "inventory counts the unreadable home" "head -n1 \"$OUT/inventory-perm.stdout\" | contains '\"users_unreadable\":1,'"
   check "inventory scanned count includes it" "[ \"\$(head -n1 \"$OUT/inventory-perm.stdout\" | sed 's/.*\"users_scanned\":\\([0-9]*\\).*/\\1/')\" = \"\$(( \$(head -n1 \"$OUT/inventory.stdout\" | sed 's/.*\"users_scanned\":\\([0-9]*\\).*/\\1/') + 1 ))\" ]"
   rm -rf "$ROOT/home/carol"
 else
@@ -3183,14 +3188,14 @@ mkdir -p "$OUT/livehost"
 COLLECTOR_SH="$SHELL_UNDER_TEST" "$SHELL_UNDER_TEST" "$SCRIPT" -o "$OUT/livehost" -q -u no-such-user-cac --no-docker --no-projects >/dev/null 2>&1
 check "live mode exit 0" "[ $? -eq 0 ]"
 LIVE_ARCHIVE=$(ls "$OUT/livehost"/*.tar.gz 2>/dev/null)
-check "live mode writes no live directory" "! tar -tzf \"$LIVE_ARCHIVE\" | grep -q '^./live/'"
-check "live mode manifest has no live rows" "! tar -xzOf \"$LIVE_ARCHIVE\" ./manifest.jsonl | grep -q '\"agent\":\"live\"'"
-check "live mode collection.json has hostname and no no_live" "tar -xzOf \"$LIVE_ARCHIVE\" ./collection.json | grep -q '\"hostname\": \"[^\"]' && ! tar -xzOf \"$LIVE_ARCHIVE\" ./collection.json | grep -q no_live"
+check "live mode writes no live directory" "! tar -tzf \"$LIVE_ARCHIVE\" | contains '^./live/'"
+check "live mode manifest has no live rows" "! tar -xzOf \"$LIVE_ARCHIVE\" ./manifest.jsonl | contains '\"agent\":\"live\"'"
+check "live mode collection.json has hostname and no no_live" "tar -xzOf \"$LIVE_ARCHIVE\" ./collection.json | contains '\"hostname\": \"[^\"]' && ! tar -xzOf \"$LIVE_ARCHIVE\" ./collection.json | contains no_live"
 check "--no-live is no longer an option" "! \"$SHELL_UNDER_TEST\" \"$SCRIPT\" --no-live -o \"$OUT/nolive\" -q >/dev/null 2>&1"
 
 # ---- --list ---------------------------------------------------------------
-check "--list prints catalog" "\"$SHELL_UNDER_TEST\" \"$SCRIPT\" --list | grep -q '^claude-code|.claude$'"
-check "--list prints docker volume table" "\"$SHELL_UNDER_TEST\" \"$SCRIPT\" --list | grep -q '^agent-zero|\\*a0_usr$'"
+check "--list prints catalog" "\"$SHELL_UNDER_TEST\" \"$SCRIPT\" --list | contains '^claude-code|.claude$'"
+check "--list prints docker volume table" "\"$SHELL_UNDER_TEST\" \"$SCRIPT\" --list | contains '^agent-zero|\\*a0_usr$'"
 
 # 2026-10-04 bug round: #31
 # collection.json names the archive and archiver actually used, and records
@@ -3248,7 +3253,7 @@ fi
 # behind: the collector falls through to the plain .tar. The shim rejects -z,
 # writes some bytes and exits 1 for -cf -, and runs the real tar otherwise;
 # gzip is the real one. The forced-failure checks reuse the probe above.
-check "#40 tar | gzip success leaves no tar status file" "! ls -a \"$OUT/tgz31\" | grep -q 'tar-status'"
+check "#40 tar | gzip success leaves no tar status file" "! ls -a \"$OUT/tgz31\" | contains 'tar-status'"
 if [ "$SHIMS_RUN" = yes ]; then
   FAILING_TAR_SHIM="$WORK/shim40"; mkdir -p "$FAILING_TAR_SHIM"
   # shellcheck disable=SC2016 # $1, $2 and $@ belong to the shim, not to this script
@@ -3263,7 +3268,7 @@ if [ "$SHIMS_RUN" = yes ]; then
   check "#40 tar failure in the pipe: summary names .tar and tar" "grep -q '\"archiver\": \"tar\"' \"\$SUMMARY\" && grep -q \"\\\"archive\\\": \\\"\${FAILED_TAR##*/}\\\"\" \"\$SUMMARY\""
   check "#40 tar failure in the pipe: archived summary matches on-disk" "tar -xOf \"$FAILED_TAR\" ./collection.json | cmp -s - \"\$SUMMARY\""
   check "#40 tar failure in the pipe: logged" "grep -q 'tar | gzip: tar exited 1\$' \"$OUT\"/tarfail40/*.log"
-  check "#40 tar status file neither left nor archived" "! ls -a \"$OUT/tarfail40\" | grep -q 'tar-status' && ! tar -tf \"$FAILED_TAR\" | grep -q 'tar-status'"
+  check "#40 tar status file neither left nor archived" "! ls -a \"$OUT/tarfail40\" | contains 'tar-status' && ! tar -tf \"$FAILED_TAR\" | contains 'tar-status'"
 else
   printf 'skip #40 forced tar failure in tar | gzip checks (the shell runs its own tar applet before PATH)\n'
 fi
@@ -3281,9 +3286,9 @@ cd "$_cwd" || exit 1
 check "-p arguments exit 0" "[ $_exit_code -eq 0 ]"
 check "relative -p resolved against the current directory" "[ \"\$(status_of \"$ROOT/srv/relproj/AGENTS.md\")\" = collected ] && grep -q '\"projects\": \\[.*\"$ROOT/srv/relproj\"' \"\$SUMMARY\""
 check "#31 x #39 options.projects records the resolved -p values" "grep -q '\"no_projects\": false, \"projects\": \\[\"$ROOT/srv/relproj\",\"/nonexistent-cac/proj\"\\]' \"\$SUMMARY\""
-check "missing -p gets one error_read dir row" "[ \"\$(grep -c '\"path\":\"/nonexistent-cac/proj\"' \"\$MANIFEST\")\" = 1 ] && row /nonexistent-cac/proj | grep -q '\"home\":\"/nonexistent-cac/proj\",\"agent\":\"\",.*\"archive_path\":\"\",\"type\":\"dir\".*\"status\":\"error_read\",\"target\":\"\",\"error\":\"[^\"]*No such file or directory\"'"
+check "missing -p gets one error_read dir row" "[ \"\$(grep -c '\"path\":\"/nonexistent-cac/proj\"' \"\$MANIFEST\")\" = 1 ] && row /nonexistent-cac/proj | contains '\"home\":\"/nonexistent-cac/proj\",\"agent\":\"\",.*\"archive_path\":\"\",\"type\":\"dir\".*\"status\":\"error_read\",\"target\":\"\",\"error\":\"[^\"]*No such file or directory\"'"
 check "missing -p logged" "grep -q 'WARNING: project given with -p is not a directory: /nonexistent-cac/proj: ' \"$OUT\"/projargs/*.log"
-check "missing -p not listed in projects" "grep -q '^  \"projects\": \\[\"' \"\$SUMMARY\" && ! grep '^  \"projects\"' \"\$SUMMARY\" | grep -q nonexistent-cac"
+check "missing -p not listed in projects" "grep -q '^  \"projects\": \\[\"' \"\$SUMMARY\" && ! grep '^  \"projects\"' \"\$SUMMARY\" | contains nonexistent-cac"
 check "missing -p counted as error_read" "grep -q '\"error_read\": 1,' \"\$SUMMARY\" && grep -q '^errors:     1 (0 error_copy, 1 error_read)\$' \"$OUT/projargs.stdout\""
 check "default run has no error_read rows" "grep -q '\"error_read\": 0,' \"$OUT\"/default/*.collection.json && grep -q '^errors:     0 (0 error_copy, 0 error_read)\$' \"$OUT/default.stdout\""
 rm -rf "$ROOT/srv/relproj"
@@ -3301,9 +3306,9 @@ if [ "$(id -u)" != 0 ]; then
   run readperm; _exit_code=$?
   chmod 700 "$ROOT/home/erin" "$ALICE/.claude/locked" "$ALICE/.claude/noenter"
   check "unreadable paths exit 0" "[ $_exit_code -eq 0 ]"
-  check "unreadable home gets one error_read row" "[ \"\$(grep -c '\"path\":\"$ROOT/home/erin\"' \"\$MANIFEST\")\" = 1 ] && row \"$ROOT/home/erin\" | grep -q '\"user\":\"erin\",\"home\":\"$ROOT/home/erin\",\"agent\":\"\",.*\"archive_path\":\"\",\"type\":\"dir\",\"size\":0,.*\"status\":\"error_read\",\"target\":\"\",\"error\":\"[^\"]*Permission denied\"'"
-  check "unreadable home stays in users, not in users_with_artifacts" "tr -d '\n' <\"\$SUMMARY\" | grep -q '\"users\": \\[[^]]*\"erin\"' && ! grep '\"users_with_artifacts\"' \"\$SUMMARY\" | grep -q erin"
-  check "unlistable directory in a walk gets an error_read row" "row \"$ALICE/.claude/locked\" | grep -q '\"user\":\"alice\",\"home\":\"$ALICE\",\"agent\":\"claude-code\",.*\"type\":\"dir\",.*\"status\":\"error_read\",.*\"error\":\"[^\"]*Permission denied\"'"
+  check "unreadable home gets one error_read row" "[ \"\$(grep -c '\"path\":\"$ROOT/home/erin\"' \"\$MANIFEST\")\" = 1 ] && row \"$ROOT/home/erin\" | contains '\"user\":\"erin\",\"home\":\"$ROOT/home/erin\",\"agent\":\"\",.*\"archive_path\":\"\",\"type\":\"dir\",\"size\":0,.*\"status\":\"error_read\",\"target\":\"\",\"error\":\"[^\"]*Permission denied\"'"
+  check "unreadable home stays in users, not in users_with_artifacts" "tr -d '\n' <\"\$SUMMARY\" | contains '\"users\": \\[[^]]*\"erin\"' && ! grep '\"users_with_artifacts\"' \"\$SUMMARY\" | contains erin"
+  check "unlistable directory in a walk gets an error_read row" "row \"$ALICE/.claude/locked\" | contains '\"user\":\"alice\",\"home\":\"$ALICE\",\"agent\":\"claude-code\",.*\"type\":\"dir\",.*\"status\":\"error_read\",.*\"error\":\"[^\"]*Permission denied\"'"
   check "directory that cannot be entered gets an error_read row" "[ \"\$(status_of \"$ALICE/.claude/noenter\")\" = error_read ]"
   check "rest of the home still collected" "[ \"\$(status_of \"$ROOT/home/alice/.claude/projects/-srv-proj/s1.jsonl\")\" = collected ]"
   check "unreadable paths counted" "grep -q '\"error_read\": 3,' \"\$SUMMARY\" && grep -q '^errors:     3 (0 error_copy, 3 error_read)\$' \"$OUT/readperm.stdout\""
@@ -3319,7 +3324,7 @@ check "#108 output dir under a file exits 2 with only the create error" "[ $? -e
 # 2026-10-14 exclusion globs and the working directory (#109)
 (cd "$WORK/cwd109" && run cwd109 --no-docker --no-projects); _exit_glob_cwd=$?
 MANIFEST_GLOB_CWD=$(ls "$OUT/cwd109"/*.manifest.jsonl 2>/dev/null)
-check "#109 wildcard exclusion holds from a directory with a matching tree" "[ $_exit_glob_cwd -eq 0 ] && grep -F '\"path\":\"$ALICE/.claude/plugins/y/node_modules\"' \"$MANIFEST_GLOB_CWD\" | grep -q '\"status\":\"skipped_excluded\"' && ! grep -q 'node_modules/f.js' \"$MANIFEST_GLOB_CWD\""
+check "#109 wildcard exclusion holds from a directory with a matching tree" "[ $_exit_glob_cwd -eq 0 ] && grep -F '\"path\":\"$ALICE/.claude/plugins/y/node_modules\"' \"$MANIFEST_GLOB_CWD\" | contains '\"status\":\"skipped_excluded\"' && ! grep -q 'node_modules/f.js' \"$MANIFEST_GLOB_CWD\""
 
 # 2026-10-14 CDPATH in the environment (#110)
 # sh only: a relative -r with CDPATH naming the directory that holds the decoy
@@ -3399,14 +3404,14 @@ check "#71 carriage return name hashed" "[ \"\$(sha256_of_row \"$BATCH_DIR/cr\\\
 check "#71 file after the odd names hashed" "[ \"\$(sha256_of_row \"$BATCH_DIR/z.jsonl\")\" = \"\$(hash_of_text 'last\\n')\" ]"
 check "#71 files across two chunks all collected and hashed" "[ \"\$(grep -c '/file-history/s1/f[0-9]*@v1\",.*\"sha256\":\"[0-9a-f]\\{64\\}\",\"secret\":false,\"status\":\"collected\"' \"\$MANIFEST\")\" -eq 300 ] && [ \"\$(sha256_of_row \"$BATCH_ROOT/home/carol/.claude/file-history/s1/f299@v1\")\" = \"\$(hash_of_text 'v299\\n')\" ]"
 if [ "$BATCH_LOCKED" = yes ]; then
-  check "#71 unreadable file in the batch: error_copy row with its error" "row \"$BATCH_DIR/m-locked.jsonl\" | grep -q '\"archive_path\":\"\",\"type\":\"file\",\"size\":7,.*\"sha256\":\"\",\"secret\":false,\"status\":\"error_copy\",\"target\":\"\",\"error\":\"[^\"]*Permission denied\"'"
+  check "#71 unreadable file in the batch: error_copy row with its error" "row \"$BATCH_DIR/m-locked.jsonl\" | contains '\"archive_path\":\"\",\"type\":\"file\",\"size\":7,.*\"sha256\":\"\",\"secret\":false,\"status\":\"error_copy\",\"target\":\"\",\"error\":\"[^\"]*Permission denied\"'"
   check "#71 unreadable file in the batch: logged once" "[ \"\$(grep -c 'copy failed: .*/m-locked.jsonl: ' \"$OUT\"/batch71/*.log)\" = 1 ]"
-  check "#71 unreadable file in the batch: the rest collected" "[ \"\$(grep -c '\"status\":\"collected\"' \"\$MANIFEST\")\" -eq 305 ] && ! tar -tzf \"\$ARCHIVE\" | grep -q m-locked"
+  check "#71 unreadable file in the batch: the rest collected" "[ \"\$(grep -c '\"status\":\"collected\"' \"\$MANIFEST\")\" -eq 305 ] && ! tar -tzf \"\$ARCHIVE\" | contains m-locked"
 else
   printf 'skip #71 unreadable file in a batch (running as root)\n'
 fi
 # 2026-11-07 excluded directory whose path holds a newline (#471)
-check "#471 excluded directory whose path holds a newline keeps its size" "row \"$BATCH_ROOT/home/carol/.claude/plugins/nl\\\\nname/node_modules\" | grep -q '\"size\":[1-9][0-9]*,.*\"status\":\"skipped_excluded\"'"
+check "#471 excluded directory whose path holds a newline keeps its size" "row \"$BATCH_ROOT/home/carol/.claude/plugins/nl\\\\nname/node_modules\" | contains '\"size\":[1-9][0-9]*,.*\"status\":\"skipped_excluded\"'"
 export CAC_NO_BATCH=1
 run nobatch71 --no-docker; _exit_batch=$?
 unset CAC_NO_BATCH
@@ -3441,7 +3446,7 @@ if [ "$STAT_SHIM_RUNS" = yes ]; then
   run nostat480 --no-docker; _exit_batch=$?
   SCRIPT=$_saved_script_nostat
   check "#480 no-stat run: exit 0, stat_mode none" "[ $_exit_batch -eq 0 ] && grep -q '\"stat_mode\": \"none\"' \"\$SUMMARY\""
-  check "#480 a symlink target ending in a newline is recorded whole without stat" "row \"$BATCH_ROOT/home/carol/.claude/nl-target-link\" | grep -q '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
+  check "#480 a symlink target ending in a newline is recorded whole without stat" "row \"$BATCH_ROOT/home/carol/.claude/nl-target-link\" | contains '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
 else
   printf 'skip #480 no-stat path (the shell runs its own stat applet)\n'
 fi
@@ -3476,17 +3481,17 @@ printf '{"oauth:tokenCache":"enc"}\n' >"$MSIX_DATA/config.json"
 _saved_root_msix=$ROOT; ROOT=$MSIX_ROOT
 run store73 --no-docker; _exit_msix=$?
 check "#73 MSIX build run exit 0" "[ $_exit_msix -eq 0 ]"
-check "#73 Packages Code-tab session record collected as claude-desktop" "row \"$MSIX_PACKAGE/claude-code-sessions/$MSIX_SPACE_IDS/local_44444444-4444-4444-8444-444444444444.json\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
+check "#73 Packages Code-tab session record collected as claude-desktop" "row \"$MSIX_PACKAGE/claude-code-sessions/$MSIX_SPACE_IDS/local_44444444-4444-4444-8444-444444444444.json\" | contains '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
 check "#73 Packages session record collected exactly once" "[ \"\$(grep -c 'local_44444444-4444-4444-8444-444444444444.json' \"\$MANIFEST\")\" = 1 ]"
-check "#73 Packages remote-session-spaces.json collected" "row \"$MSIX_PACKAGE/local-agent-mode-sessions/$MSIX_SPACE_IDS/remote-session-spaces.json\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
-check "#73 AppData/Local/Claude logs collected as claude-desktop" "row \"$MSIX_LOGS/logs/main.log\" | grep -q '\"agent\":\"claude-desktop\".*\"status\":\"collected\"'"
-check "#73 Packages config.json flagged secret (Packages/Claude_* glob)" "row \"$MSIX_PACKAGE/config.json\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":true,\"status\":\"collected\"'"
-check "#73 Packages Network/Cookies flagged secret (Packages/Claude_* glob)" "row \"$MSIX_PACKAGE/Network/Cookies\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "#73 AnthropicPBC family config.json flagged secret" "row \"$MSIX_PBC_PACKAGE/config.json\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":true,\"status\":\"collected\"'"
-check "#73 Claude-Data config.json flagged secret (AppData/Local/Claude* glob)" "row \"$MSIX_DATA/config.json\" | grep -q '\"agent\":\"claude-desktop\".*\"secret\":true,\"status\":\"collected\"'"
-check "#73 Packages Local State flagged secret (*/Claude*/Local State)" "row \"$MSIX_PACKAGE/Local State\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "#73 Packages claude_desktop_config.json flagged secret (*/Claude*/claude_desktop_config.json)" "row \"$MSIX_PACKAGE/claude_desktop_config.json\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
-check "#73 Packages .audit-key flagged secret (*/Claude*/local-agent-mode-sessions/*/.audit-key)" "row \"$MSIX_PACKAGE/local-agent-mode-sessions/$MSIX_SPACE_IDS/local_33333333-3333-4333-8333-333333333333/.audit-key\" | grep -q '\"secret\":true,\"status\":\"collected\"'"
+check "#73 Packages remote-session-spaces.json collected" "row \"$MSIX_PACKAGE/local-agent-mode-sessions/$MSIX_SPACE_IDS/remote-session-spaces.json\" | contains '\"agent\":\"claude-desktop\".*\"secret\":false,\"status\":\"collected\"'"
+check "#73 AppData/Local/Claude logs collected as claude-desktop" "row \"$MSIX_LOGS/logs/main.log\" | contains '\"agent\":\"claude-desktop\".*\"status\":\"collected\"'"
+check "#73 Packages config.json flagged secret (Packages/Claude_* glob)" "row \"$MSIX_PACKAGE/config.json\" | contains '\"agent\":\"claude-desktop\".*\"secret\":true,\"status\":\"collected\"'"
+check "#73 Packages Network/Cookies flagged secret (Packages/Claude_* glob)" "row \"$MSIX_PACKAGE/Network/Cookies\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "#73 AnthropicPBC family config.json flagged secret" "row \"$MSIX_PBC_PACKAGE/config.json\" | contains '\"agent\":\"claude-desktop\".*\"secret\":true,\"status\":\"collected\"'"
+check "#73 Claude-Data config.json flagged secret (AppData/Local/Claude* glob)" "row \"$MSIX_DATA/config.json\" | contains '\"agent\":\"claude-desktop\".*\"secret\":true,\"status\":\"collected\"'"
+check "#73 Packages Local State flagged secret (*/Claude*/Local State)" "row \"$MSIX_PACKAGE/Local State\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "#73 Packages claude_desktop_config.json flagged secret (*/Claude*/claude_desktop_config.json)" "row \"$MSIX_PACKAGE/claude_desktop_config.json\" | contains '\"secret\":true,\"status\":\"collected\"'"
+check "#73 Packages .audit-key flagged secret (*/Claude*/local-agent-mode-sessions/*/.audit-key)" "row \"$MSIX_PACKAGE/local-agent-mode-sessions/$MSIX_SPACE_IDS/local_33333333-3333-4333-8333-333333333333/.audit-key\" | contains '\"secret\":true,\"status\":\"collected\"'"
 check "#73 Packages claude-code excluded (*/Claude*/claude-code)" "[ \"\$(status_of \"$MSIX_PACKAGE/claude-code\")\" = skipped_excluded ] && ! grep -q 'claude.exe' \"\$MANIFEST\""
 check "#73 Packages Cache excluded (*/Claude*/Cache)" "[ \"\$(status_of \"$MSIX_PACKAGE/Cache\")\" = skipped_excluded ] && ! grep -q 'Cache/data_0' \"\$MANIFEST\""
 run nosecrets73 --no-docker --no-secrets; _exit_msix=$?
