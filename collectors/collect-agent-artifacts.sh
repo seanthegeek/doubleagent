@@ -2541,35 +2541,37 @@ hash_file() {
   esac
 }
 # stat_file FILE -> "size mtime atime ctime btime uid gid mode" of FILE itself
-# (lstat), or nothing when stat fails. Reads STAT_MODE.
+# (lstat), or nothing when stat fails, run only inside $(...): its stat branches
+# exec stat there, so the substitution forks once. Reads STAT_MODE.
 stat_file() {
   case "$STAT_MODE" in
-    gnu)  stat -c '%s %Y %X %Z %W %u %g %a' "$1" 2>/dev/null ;;
-    gnu0) stat -c '%s %Y %X %Z 0 %u %g %a' "$1" 2>/dev/null ;;
-    bsd)  stat -f '%z %m %a %c %B %u %g %Lp' "$1" 2>/dev/null ;;
+    gnu)  exec stat -c '%s %Y %X %Z %W %u %g %a' "$1" 2>/dev/null ;;
+    gnu0) exec stat -c '%s %Y %X %Z 0 %u %g %a' "$1" 2>/dev/null ;;
+    bsd)  exec stat -f '%z %m %a %c %B %u %g %Lp' "$1" 2>/dev/null ;;
     *)    printf '%s 0 0 0 0 0 0 0\n' "$(wc -c <"$1" 2>/dev/null | tr -d ' ')" ;;
   esac
 }
-# stat_files FILE... -> one stat_file line per FILE from a single stat call, or
-# return 1 when there is no stat. Reads STAT_MODE. A file stat cannot read prints
-# no line, so callers check the line count.
+# stat_files FILE... -> one stat_file line per FILE from a single stat call that
+# it execs, run only inside $(...), or return 1 when there is no stat. Reads
+# STAT_MODE. A file stat cannot read prints no line, so callers check the count.
 stat_files() {
   case "$STAT_MODE" in
-    gnu)  stat -c '%s %Y %X %Z %W %u %g %a' "$@" 2>/dev/null ;;
-    gnu0) stat -c '%s %Y %X %Z 0 %u %g %a' "$@" 2>/dev/null ;;
-    bsd)  stat -f '%z %m %a %c %B %u %g %Lp' "$@" 2>/dev/null ;;
+    gnu)  exec stat -c '%s %Y %X %Z %W %u %g %a' "$@" 2>/dev/null ;;
+    gnu0) exec stat -c '%s %Y %X %Z 0 %u %g %a' "$@" 2>/dev/null ;;
+    bsd)  exec stat -f '%z %m %a %c %B %u %g %Lp' "$@" 2>/dev/null ;;
     *)    return 1 ;;
   esac
 }
 # hash_files FILE... -> one "hash name" line per readable FILE from a single
-# hasher call, or return 1 when HASH_TOOL is none. The hashers escape a name
-# holding a backslash, newline or carriage return, so such names use hash_file.
+# hasher call that it execs, run only inside $(...), or return 1 when HASH_TOOL
+# is none. The hashers escape a name holding a backslash, newline or carriage
+# return, so such names use hash_file.
 hash_files() {
   case "$HASH_TOOL" in
-    sha256sum) sha256sum "$@" 2>/dev/null ;;
-    shasum)    shasum -a 256 "$@" 2>/dev/null ;;
-    sha256)    sha256 -r "$@" 2>/dev/null ;;
-    openssl)   openssl dgst -sha256 -r "$@" 2>/dev/null ;;
+    sha256sum) exec sha256sum "$@" 2>/dev/null ;;
+    shasum)    exec shasum -a 256 "$@" 2>/dev/null ;;
+    sha256)    exec sha256 -r "$@" 2>/dev/null ;;
+    openssl)   exec openssl dgst -sha256 -r "$@" 2>/dev/null ;;
     *)         return 1 ;;
   esac
 }
@@ -2584,8 +2586,9 @@ hash_match() {
   [ "$HASH_TOOL" = sha256 ] || _hm_name=${_hm_name#?}
   [ "$_hm_name" = "$2" ]
 }
-# The characters json_escape handles, as globals, since POSIX sh has no $'\t'.
-TAB_AND_CARRIAGE_RETURN=$(printf '\t\r')
+# The characters json_escape handles, as globals, since POSIX sh has no $'\t';
+# the main shell exports the pair, so a worker runs no printf.
+[ -n "${TAB_AND_CARRIAGE_RETURN:-}" ] || TAB_AND_CARRIAGE_RETURN=$(printf '\t\r')
 TAB=${TAB_AND_CARRIAGE_RETURN%?}; CARRIAGE_RETURN=${TAB_AND_CARRIAGE_RETURN#?}
 NEWLINE='
 '
@@ -2623,6 +2626,8 @@ define_secret_test() {
 }
 EOF_COMMON_HELPERS
 COMMON=$_ret_heredoc_text
+# Emptied first, so the main shell sets the pair itself, never from the caller's environment.
+TAB_AND_CARRIAGE_RETURN=
 eval "$COMMON"
 
 # add_note TEXT: appends TEXT to NOTES (collection.json "notes") and logs it.
@@ -4664,6 +4669,7 @@ define_secret_test
 set_output_names
 # exported for the worker programs
 export HASH_TOOL STAT_MODE MAX_SIZE SECRET_PATTERN NO_SECRETS LOG QUIET GREP_TEXT
+export TAB_AND_CARRIAGE_RETURN
 trap 'cleanup' EXIT
 trap 'log_line "interrupted"; cleanup; trap - EXIT; exit 130' INT TERM
 create_output_files
