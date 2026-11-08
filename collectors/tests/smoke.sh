@@ -1986,6 +1986,14 @@ printf '{}\n' >"$ROOT/opt/linked-cache/crush/crush.json"
 ln -s ../../opt/linked-cache "$BOB/.cache"
 printf 'x\n' >"$BOB/dotfiles/camel/skills/s1/SKILL.md"
 ln -s dotfiles/camel "$BOB/.camel"
+# 2026-11-08 nested entries and exclusions under a home holding [ (#465)
+# The home's [1] is a class in a find -path pattern: claims and exclusions must
+# still prune under it.
+BRACKET_HOME="$ROOT/home/u[1]"
+mkdir -p "$BRACKET_HOME/.gemini/antigravity-cli/conversations" "$BRACKET_HOME/.gemini/tmp/bin"
+printf '{}\n' >"$BRACKET_HOME/.gemini/settings.json"
+printf 'x\n' >"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db"
+printf 'x\n' >"$BRACKET_HOME/.gemini/tmp/bin/rg"
 # The image alone, for tools/diff_smoke_rows.py to run two collectors over: its
 # last stdout line is the work directory, which the caller removes.
 if [ "${SMOKE_IMAGE_ONLY:-0}" = 1 ]; then
@@ -2035,7 +2043,7 @@ check "antigravity token flagged secret" "row \"$ROOT/home/alice/.gemini/antigra
 check "cache dir skipped_excluded with size" "row \"$ROOT/home/alice/.claude/cache\" | contains '\"type\":\"dir\",\"size\":[1-9][0-9]*.*\"status\":\"skipped_excluded\"'"
 check "cache contents not collected" "! grep -q 'cache/junk.bin' \"\$MANIFEST\""
 check "nested entry attributed to its own agent" "row \"$ROOT/home/alice/.gemini/antigravity-cli/conversations/c1.db\" | contains '\"agent\":\"antigravity\"'"
-check "nested entry collected exactly once" "[ \"\$(grep -c 'antigravity-cli/conversations/c1.db' \"\$MANIFEST\")\" = 1 ]"
+check "nested entry collected exactly once" "[ \"\$(grep -cF '\"path\":\"$ROOT/home/alice/.gemini/antigravity-cli/conversations/c1.db\"' \"\$MANIFEST\")\" = 1 ]"
 check "enclosing entry still attributed to gemini-cli" "row \"$ROOT/home/alice/.gemini/projects.json\" | contains '\"agent\":\"gemini-cli\"'"
 check "antigravity bin excluded" "[ \"\$(status_of \"$ROOT/home/alice/.gemini/antigravity-cli/bin\")\" = skipped_excluded ]"
 check "ollama model blobs excluded" "[ \"\$(status_of \"$ROOT/home/ollama/.ollama/models/blobs\")\" = skipped_excluded ]"
@@ -2655,6 +2663,9 @@ check "#467 a catalog entry under a symlinked directory leaving the home is not 
 check "#467 the symlinked directory is recorded as a symlink with its target" "row \"$BOB/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\",\"target\":\"../../opt/linked-cache\"'"
 check "#467 the log names the match under the symlinked directory" "grep -qF '[crush] $BOB/.cache/crush: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\""
 check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"'"
+# 2026-11-08 nested entries and exclusions under a home holding [ (#465)
+check "#465 a nested entry under a home holding [ has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\"' \"\$MANIFEST\")\" = 1 ] && row \"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
+check "#465 an exclusion applies under a home holding [" "row \"$BRACKET_HOME/.gemini/tmp/bin\" | contains '\"status\":\"skipped_excluded\"' && [ -z \"\$(row \"$BRACKET_HOME/.gemini/tmp/bin/rg\")\" ]"
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"

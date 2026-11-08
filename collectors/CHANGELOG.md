@@ -38,6 +38,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The sh collector wrote a manifest path that ends in a newline without that newline, so the row named a file the archive does not hold; the path is now written whole ([#479]).
 - The sh collector recorded a symlink target that ends in a newline, and recreated the link in the archive, without that newline; the target is now kept whole ([#480]).
 - Both collectors walked a catalog match reached through a symlinked directory in the middle of its path (a home whose `.config` links to a directory elsewhere), so files outside the home were collected under the home's path and, in image mode, an absolute link read the analyst's own host. A match under a link whose target lies outside the home, project or volume directory, or cannot be resolved, is now logged and not walked, and the link is recorded as one `symlink` row with its target under the agent whose entry reached through it; a link that stays inside the home is walked as before ([#467]).
+- The sh collector read a `[`, `*` or `?` in a home's path or in the path of a catalog entry inside another entry's match as a pattern when it pruned the walk, so under a home such as `/home/u[1]` the files of `.gemini/antigravity-cli` were collected twice, under both agents, and an exclusion did not apply; those paths are now matched literally ([#465]).
 
 ### Removed
 
@@ -1278,6 +1279,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [#471]: https://github.com/seanthegeek/doubleagent/issues/471
 [#470]: https://github.com/seanthegeek/doubleagent/issues/470
 [#467]: https://github.com/seanthegeek/doubleagent/issues/467
+[#465]: https://github.com/seanthegeek/doubleagent/issues/465
 [#461]: https://github.com/seanthegeek/doubleagent/issues/461
 [#457]: https://github.com/seanthegeek/doubleagent/issues/457
 [#454]: https://github.com/seanthegeek/doubleagent/issues/454

@@ -3262,22 +3262,38 @@ collect_path() {
   fi
 }
 
+# find_pattern_lines: stdin paths -> the same with [, ], *, ? and \ escaped, so
+# find -path takes each as the literal path, not a pattern.
+find_pattern_lines() { sed 's/[][*?\\]/\\&/g'; }
+
+# escape_find_pattern PATH: sets _ret_pattern to PATH escaped as
+# find_pattern_lines does, starting it only when PATH holds one of those
+# characters, so an ordinary path costs no process.
+escape_find_pattern() {
+  case "$1" in
+    (*'['*|*']'*|*'*'*|*'?'*|*'\'*) _ret_pattern=$(printf '%s\n' "$1" | find_pattern_lines) ;;
+    (*) _ret_pattern=$1 ;;
+  esac
+}
+
 # set_exclude_words BASE: sets EXCLUDE_WORDS to the find(1) words that match
 # every ACTIVE_EXCLUDES glob under BASE, one per line, from the opening ( to the
-# last glob, empty when there is none, and EXCLUDE_WORDS_BASE to BASE. Reads
-# ACTIVE_EXCLUDES and NEWLINE. Temporaries: _sew_. collect_tree calls it when
-# EXCLUDE_WORDS was built for another base and splits the words in one pass:
-# appending them glob by glob to its argument list copies the list per glob.
+# last glob, empty when there is none, and EXCLUDE_WORDS_BASE to BASE, which the
+# words hold escaped and the globs as patterns. Reads ACTIVE_EXCLUDES and
+# NEWLINE. Temporaries: _sew_. collect_tree calls it when EXCLUDE_WORDS was
+# built for another base and splits the words in one pass: appending them glob
+# by glob to its argument list copies the list per glob.
 set_exclude_words() {
   EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=$1
+  escape_find_pattern "$1"; _sew_base=$_ret_pattern
   _sew_saved_ifs=$IFS
   # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
   IFS=$NEWLINE
   set -f
   for _sew_glob in $ACTIVE_EXCLUDES; do
     [ -n "$_sew_glob" ] || continue
-    if [ -z "$EXCLUDE_WORDS" ]; then EXCLUDE_WORDS="($NEWLINE-path$NEWLINE$1/$_sew_glob"
-    else EXCLUDE_WORDS="$EXCLUDE_WORDS$NEWLINE-o$NEWLINE-path$NEWLINE$1/$_sew_glob"; fi
+    if [ -z "$EXCLUDE_WORDS" ]; then EXCLUDE_WORDS="($NEWLINE-path$NEWLINE$_sew_base/$_sew_glob"
+    else EXCLUDE_WORDS="$EXCLUDE_WORDS$NEWLINE-o$NEWLINE-path$NEWLINE$_sew_base/$_sew_glob"; fi
   done
   set +f
   IFS=$_sew_saved_ifs
@@ -3300,8 +3316,9 @@ collect_tree() {
   _ct_first=1
   for _ct_claim in $NESTED_CLAIMS; do
     case "$_ct_claim" in "$1"/*) ;; *) continue ;; esac
-    if [ "$_ct_first" = 1 ]; then set -- "$@" '(' -path "$_ct_claim"; _ct_first=0
-    else set -- "$@" -o -path "$_ct_claim"; fi
+    escape_find_pattern "$_ct_claim"
+    if [ "$_ct_first" = 1 ]; then set -- "$@" '(' -path "$_ret_pattern"; _ct_first=0
+    else set -- "$@" -o -path "$_ret_pattern"; fi
   done
   if [ "$_ct_first" = 0 ]; then set -- "$@" ')' -prune -o; fi
   # shellcheck disable=SC2086 # one word per line, split on newline with globbing off
@@ -3973,10 +3990,6 @@ scan_home_for_variables() {
   _shv_output=$(find "$@" 2>>"$LOG")
   record_search_output "$_shv_user" "$_shv_home" "$_shv_home" "$_shv_output"
 }
-
-# find_pattern_lines: stdin paths -> the same with [, ], *, ? and \ escaped, so
-# find -path takes each as the literal path, not a pattern.
-find_pattern_lines() { sed 's/[][*?\\]/\\&/g'; }
 
 # record_search_output USER HOME BASE OUTPUT: adds the S|<count> lines of
 # OUTPUT to RELOCATION_FILES_SEARCHED and each B| line to

@@ -1910,6 +1910,12 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.camel') -Target (ImagePath 'home/bob/dotfiles/camel') -ErrorAction Stop | Out-Null
   $camelLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #467 linked-within-home check skipped' }
+
+# 2026-11-08 nested entries and exclusions under a home holding [ (#465)
+# The home's [1] is a class in a pattern: claims and exclusions must still prune under it.
+MakeFile 'home/u[1]/.gemini/settings.json' '{}'
+MakeFile 'home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db' 'x'
+MakeFile 'home/u[1]/.gemini/tmp/bin/rg' 'x'
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2035,7 +2041,7 @@ Check 'secret collected and flagged' { $row -and $row.secret -eq $true -and $row
 Check 'antigravity token flagged secret' { (Row 'antigravity-cli/antigravity-oauth-token').secret -eq $true }
 $row = Row 'Users/alice/.gemini/antigravity-cli/conversations/c1.db'
 Check 'nested entry attributed to its own agent' { $row -and $row.agent -eq 'antigravity' }
-Check 'nested entry collected exactly once' { @($script:Rows | Where-Object { $_.path -like '*antigravity-cli*conversations*c1.db' }).Count -eq 1 }
+Check 'nested entry collected exactly once' { $nestedPath = ImagePath 'Users/alice/.gemini/antigravity-cli/conversations/c1.db'; @($script:Rows | Where-Object { $_.path -eq $nestedPath }).Count -eq 1 }
 $row = Row 'Users/alice/.gemini/projects.json'
 Check 'enclosing entry still attributed to gemini-cli' { $row -and $row.agent -eq 'gemini-cli' }
 $row = Row 'Users/alice/AppData/Roaming/Code/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json'
@@ -2902,6 +2908,9 @@ if ($cacheLinkOk) {
 if ($camelLinkOk) {
   Check '#467 a catalog entry under a directory linked within the home is walked' { IsAgentRow 'home/bob/.camel/skills/s1/SKILL.md' 'camel-ai' $false }
 }
+# 2026-11-08 nested entries and exclusions under a home holding [ (#465)
+Check '#465 a nested entry under a home holding [ has one row, its own agent' { $nestedRows = RowsAt 'home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db'; $nestedRows.Count -eq 1 -and $nestedRows[0].agent -eq 'antigravity' -and $nestedRows[0].status -eq 'collected' }
+Check '#465 an exclusion applies under a home holding [' { $excludedRows = RowsAt 'home/u[1]/.gemini/tmp/bin'; $excludedRows.Count -eq 1 -and $excludedRows[0].status -eq 'skipped_excluded' -and (RowsAt 'home/u[1]/.gemini/tmp/bin/rg').Count -eq 0 }
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
