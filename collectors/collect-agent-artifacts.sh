@@ -3280,7 +3280,7 @@ find_pattern_lines() { sed 's/[][*?\\]/\\&/g'; }
 # posh reads as a pattern.
 escape_find_pattern() {
   case "$1" in
-    (*'['*|*']'*|*'*'*|*'?'*|*'\'*) _ret_pattern=$(printf '%s\n' "$1" | find_pattern_lines) ;;
+    (*'['*|*']'*|*'*'*|*'?'*|*\\*) _ret_pattern=$(printf '%s\n' "$1" | find_pattern_lines) ;;
     (*) _ret_pattern=$1 ;;
   esac
 }
