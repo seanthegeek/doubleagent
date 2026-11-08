@@ -223,6 +223,18 @@ def test_fixture_name_undocumented(tmp_path):
     assert found[0].line > 0
 
 
+def test_fixture_under_an_exclusion_across_a_newline_needs_no_name(tmp_path):
+    """The sh exclusion glob crosses the newline in the directory name, as find -path does."""
+    fixture = (
+        "NEWLINE='\n'\nmkdir -p \"$ALICE/.alpha/nl${NEWLINE}name/node_modules\"\n"
+        "printf 'x\\n' >\"$ALICE/.alpha/nl${NEWLINE}name/node_modules/x.js\"\nCASES_FW="
+    )
+    repository(tmp_path, SMOKE_SH.replace("CASES_FW=", fixture))
+    catalog = CATALOG_TEXT.replace(".alpha/cache\n", ".alpha/cache\n.alpha/*/node_modules\n")
+    write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
+    assert details(tmp_path, "fixture-name-undocumented") == []
+
+
 def test_fixture_under_an_exclusion_needs_no_name(tmp_path):
     extra = SMOKE_SH.replace(
         "CASES_FW=", "printf 'x\\n' >\"$ALICE/.alpha/cache/junk.bin\"\nCASES_FW="
@@ -655,6 +667,12 @@ def test_subtree_glob_regex_forms():
     insensitive = coverage.subtree_glob_regex(".alpha/Cache", case_insensitive=True)
     assert insensitive.fullmatch(".ALPHA/cache")
     assert coverage.subtree_glob_regex("a?c", False).fullmatch("a/c")
+    newline = ".claude/plugins/nl\nname/node_modules"
+    assert coverage.subtree_glob_regex(".claude/plugins/*/node_modules", False).fullmatch(newline)
+    assert not coverage.subtree_glob_regex(".claude/plugins/*/node_modules", True).fullmatch(
+        newline
+    )
+    assert coverage.subtree_glob_regex("a?c", False).fullmatch("a\nc")
 
 
 def test_entry_claims_matches_leading_segments():

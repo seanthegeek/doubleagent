@@ -160,7 +160,8 @@ and `zsh --emulate sh`.
 - Shared helpers live in the `COMMON` string, `eval`'d in the main script
   and prepended to the worker programs, since `find -exec sh -c` does not
   inherit functions.
-- Expand globs with spaces with `IFS` set to newline only (`expand_glob`);
+- Expand globs with spaces with `IFS` set to newline only (`expand_glob`,
+  `expand_catalog`);
   match patterns with `case`.
 - pdksh-derived shells end a `$(...)` at the first `)`, even a `case`
   pattern's inside a here-document. Write `case` patterns inside command

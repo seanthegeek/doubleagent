@@ -2516,12 +2516,16 @@ heredoc_var() {
 }
 
 heredoc_var <<'EOF_COMMON_HELPERS'
-# utc_timestamp -> the current time in UTC, ISO 8601 to the second
-utc_timestamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+# The date(1) format of the log timestamps and of started and finished in
+# collection.json: UTC, ISO 8601 to the second.
+UTC_TIME_FORMAT='+%Y-%m-%dT%H:%M:%SZ'
+# utc_timestamp -> the current time in UTC_TIME_FORMAT
+utc_timestamp() { date -u "$UTC_TIME_FORMAT"; }
 # log_line TEXT...: appends "TIME TEXT" to $LOG, and TEXT to stderr unless
-# QUIET=1. Reads LOG and QUIET.
+# QUIET=1. Reads LOG, QUIET and UTC_TIME_FORMAT. It runs date itself:
+# utc_timestamp inside $(...) would fork a second time.
 log_line() {
-  printf '%s %s\n' "$(utc_timestamp)" "$*" >>"$LOG"
+  printf '%s %s\n' "$(date -u "$UTC_TIME_FORMAT")" "$*" >>"$LOG"
   [ "${QUIET:-0}" = 1 ] || printf '%s\n' "$*" >&2
 }
 # hash_file FILE -> the sha256 of FILE in lower-case hex, or "" when it cannot be
@@ -2581,7 +2585,9 @@ hash_match() {
   [ "$_hm_name" = "$2" ]
 }
 # The characters json_escape handles, as globals, since POSIX sh has no $'\t'.
-TAB=$(printf '\t'); CARRIAGE_RETURN=$(printf '\r'); NEWLINE='
+TAB_AND_CARRIAGE_RETURN=$(printf '\t\r')
+TAB=${TAB_AND_CARRIAGE_RETURN%?}; CARRIAGE_RETURN=${TAB_AND_CARRIAGE_RETURN#?}
+NEWLINE='
 '
 # json_escape TEXT -> TEXT as a JSON string body (backslash, double quote, tab,
 # carriage return and newline escaped); awk starts only when one is present.
@@ -2674,14 +2680,9 @@ write_manifest_row() {
     "$_wmr_size" "$_wmr_mtime" "$_wmr_atime" "$_wmr_ctime" "$_wmr_btime" "$_wmr_uid" \
     "$_wmr_gid" "${15}" "${16}" "${17}" "${18}" "$_wmr_target" "$_wmr_error" >>"$1"
 }
-# get_dir_read_error DIR -> prints why DIR cannot be listed or entered and
-# returns 0, else returns 1. test(1) decides; the text is ls(1)'s OS error.
-get_dir_read_error() {
-  get_dir_read_error_var "$1" || return 1
-  printf '%s' "$_ret_dir_error"
-}
-# get_dir_read_error_var DIR: get_dir_read_error, assigned to _ret_dir_error, so
-# the per-directory check forks only when it fails.
+# get_dir_read_error_var DIR: sets _ret_dir_error to why DIR cannot be listed or
+# entered and returns 0, else returns 1. test(1) decides; the text is ls(1)'s OS
+# error. Forks only when the directory fails, since ls supplies the message.
 get_dir_read_error_var() {
   if [ ! -d "$1" ]; then
     if [ -e "$1" ] || [ -L "$1" ]; then
@@ -2934,7 +2935,8 @@ heredoc_var <<'EOF_EXCLUDED_PATHS_WORKER'
 root=$1; user=$2; home=$3; agent=$4; manifest=$5; shift 5
 for path in "$@"; do
   if [ -d "$path" ]; then
-    type=dir; size_kib=$(du -sk "$path" 2>/dev/null | cut -f1)
+    # du prints the path after the size, so only the leading digits are the size.
+    type=dir; size_kib=$(du -sk "$path" 2>/dev/null); size_kib=${size_kib%%[!0-9]*}
     to_number_var "$size_kib"; size=$((_ret_number * 1024))
     stat_line='0 0 0 0 0 0 0 0'
   else
@@ -3094,13 +3096,28 @@ fold_case_matches() {
 
 # expand_catalog BASE TABLE -> agent|glob|path for every match of TABLE under
 # BASE, in table order, case variants folded, plus #|message lines to log.
-# Temporaries: _ec_.
+# Reads NEWLINE. Temporaries: _ec_. Each glob is expanded inline, not through
+# expand_glob, so no table line starts a pipeline; a matched name holding a
+# newline gives one line per line of it, empty ones included.
 expand_catalog() {
   printf '%s\n' "$2" | while IFS='|' read -r _ec_agent _ec_glob; do
     case "$_ec_agent" in (''|'#'*) continue ;; esac
-    expand_glob "$1" "$_ec_glob" | while IFS= read -r _ec_match; do
-      printf '%s|%s|%s\n' "$_ec_agent" "$_ec_glob" "$_ec_match"
+    _ec_saved_ifs=$IFS
+    # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
+    IFS=$NEWLINE
+    for _ec_match in $1/$_ec_glob; do
+      [ -e "$_ec_match" ] || [ -L "$_ec_match" ] || continue
+      _ec_rest=$_ec_match
+      while :; do
+        case "$_ec_rest" in
+          (*"$NEWLINE"*)
+            printf '%s|%s|%s\n' "$_ec_agent" "$_ec_glob" "${_ec_rest%%"$NEWLINE"*}"
+            _ec_rest=${_ec_rest#*"$NEWLINE"} ;;
+          (*) printf '%s|%s|%s\n' "$_ec_agent" "$_ec_glob" "$_ec_rest"; break ;;
+        esac
+      done
     done
+    IFS=$_ec_saved_ifs
   done | classify_case_matches | fold_case_matches
 }
 
@@ -3158,9 +3175,10 @@ collect_path() {
     # not from the walk: BSD find applies no expression to a starting point
     # it cannot read and GNU find does, so the pre-check gives both one row
     # and never two.
-    if [ "$INVENTORY" != 1 ] && _cp_dir_error=$(get_dir_read_error "$_cp_match"); then
+    if [ "$INVENTORY" != 1 ] && get_dir_read_error_var "$_cp_match"; then
+      # shellcheck disable=SC2154 # _ret_dir_error is set in COMMON, which the main shell evals
       write_read_error_row "$MANIFEST" "$_cp_user" "$_cp_home" "$_cp_agent" "$_cp_match" \
-        "$_cp_dir_error"
+        "$_ret_dir_error"
       return 0
     fi
     collect_tree "$_cp_user" "$_cp_home" "$_cp_agent" "$_cp_match"
@@ -3301,9 +3319,9 @@ get_user_homes() {
 collect_user_homes() {
   printf '%s\n' "$USER_LIST" | while IFS=: read -r _cuh_user _cuh_home; do
     [ -n "$_cuh_home" ] || continue
-    if _cuh_dir_error=$(get_dir_read_error "$_cuh_home"); then
+    if get_dir_read_error_var "$_cuh_home"; then
       write_read_error_row "$MANIFEST" "$_cuh_user" "$_cuh_home" "" "$_cuh_home" \
-        "$_cuh_dir_error"
+        "$_ret_dir_error"
     fi
     collect_catalog "$_cuh_user" "$_cuh_home" "$CATALOG" "User $_cuh_user ($_cuh_home)"
   done
@@ -3752,7 +3770,8 @@ $USER_LIST" in (*":$_kpd_project
 report_missing_projects() {
   printf '%s\n' "$EXTRA_PROJECTS" | while IFS= read -r _rmp_project; do
     if [ -z "$_rmp_project" ] || [ -d "$_rmp_project" ]; then continue; fi
-    _rmp_error=$(get_dir_read_error "$_rmp_project")
+    _rmp_error=
+    if get_dir_read_error_var "$_rmp_project"; then _rmp_error=$_ret_dir_error; fi
     log_line "WARNING: project given with -p is not a directory: $_rmp_project: $_rmp_error"
     [ "$INVENTORY" = 1 ] || write_manifest_row "$MANIFEST" \
       "$(get_project_owner "$_rmp_project")" "$_rmp_project" "" "$_rmp_project" "" dir \
@@ -3769,9 +3788,9 @@ collect_projects() {
     [ -n "$_cpr_line" ] || continue
     _cpr_owner=${_cpr_line%%:*}; _cpr_project=${_cpr_line#*:}
     log_line "Project ${_cpr_owner:+[$_cpr_owner] }$_cpr_project"
-    if _cpr_error=$(get_dir_read_error "$_cpr_project"); then
+    if get_dir_read_error_var "$_cpr_project"; then
       write_read_error_row "$MANIFEST" "$_cpr_owner" "$_cpr_project" "" "$_cpr_project" \
-        "$_cpr_error"
+        "$_ret_dir_error"
     fi
     collect_catalog "$_cpr_owner" "$_cpr_project" "$PROJECT_CATALOG"
   done

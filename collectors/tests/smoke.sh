@@ -3342,6 +3342,11 @@ _index=0
 while [ "$_index" -lt 300 ]; do printf 'v%s\n' "$_index" >"$BATCH_ROOT/home/carol/.claude/file-history/s1/f$_index@v1"; _index=$((_index + 1)); done
 BATCH_LOCKED=no
 if [ "$(id -u)" != 0 ]; then chmod 000 "$BATCH_DIR/m-locked.jsonl"; BATCH_LOCKED=yes; fi
+# 2026-11-07 excluded directory whose path holds a newline (#471)
+# du prints the path after the size, so a newline in the path starts a second line.
+BATCH_NEWLINE_DIR="$BATCH_ROOT/home/carol/.claude/plugins/nl${NEWLINE}name/node_modules"
+mkdir -p "$BATCH_NEWLINE_DIR"
+printf '%020000d\n' 0 >"$BATCH_NEWLINE_DIR/index.js"
 # shellcheck disable=SC2317,SC2329 # called from the eval'd check strings
 hash_of_text() { printf '%b' "$1" | sha256sum | cut -d' ' -f1; }
 # shellcheck disable=SC2317,SC2329
@@ -3355,7 +3360,7 @@ run batch71 --no-docker; _exit_batch=$?; BATCH_MANIFEST=$MANIFEST
 BATCH_EXTRACT="$WORK/x71"; mkdir -p "$BATCH_EXTRACT"; tar -xzf "$ARCHIVE" -C "$BATCH_EXTRACT" 2>/dev/null
 # shellcheck disable=SC2034 # read by the eval'd check expression below
 BACKSLASH_FILE="$BATCH_EXTRACT/fs/home/carol/.claude/projects/-srv-p71/back\\slash.jsonl"
-check "#71 batched run exit 0, 306 rows" "[ $_exit_batch -eq 0 ] && [ \"\$(wc -l <\"\$MANIFEST\")\" -eq 306 ]"
+check "#71 batched run exit 0, 307 rows" "[ $_exit_batch -eq 0 ] && [ \"\$(wc -l <\"\$MANIFEST\")\" -eq 307 ]"
 check "#71 plain name in the batch hashed" "[ \"\$(sha256_of_row \"$BATCH_DIR/a.jsonl\")\" = \"\$(hash_of_text 'first\\n')\" ]"
 check "#71 newline name hashed" "[ \"\$(sha256_of_row \"$BATCH_DIR/nl\\\\nname.jsonl\")\" = \"\$(hash_of_text 'newline name\\n')\" ]"
 check "#71 newline name: hash matches the archived bytes" "[ \"\$(tar -xzOf \"\$ARCHIVE\" \"./fs/home/carol/.claude/projects/-srv-p71/nl${NEWLINE}name.jsonl\" | sha256sum | cut -d' ' -f1)\" = \"\$(sha256_of_row \"$BATCH_DIR/nl\\\\nname.jsonl\")\" ]"
@@ -3371,6 +3376,8 @@ if [ "$BATCH_LOCKED" = yes ]; then
 else
   printf 'skip #71 unreadable file in a batch (running as root)\n'
 fi
+# 2026-11-07 excluded directory whose path holds a newline (#471)
+check "#471 excluded directory whose path holds a newline keeps its size" "row \"$BATCH_ROOT/home/carol/.claude/plugins/nl\\\\nname/node_modules\" | grep -q '\"size\":[1-9][0-9]*,.*\"status\":\"skipped_excluded\"'"
 export CAC_NO_BATCH=1
 run nobatch71 --no-docker; _exit_batch=$?
 unset CAC_NO_BATCH
