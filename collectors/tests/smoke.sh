@@ -556,6 +556,12 @@ secret||.nanobot-work/whatsapp-auth/a1
 secret||.nanobot/matrix-store/s1
 agent|nanobot|.nanobot-work/sessions/0123456789abcdef0123456789abcdef/Y2xpOmRpcmVjdA.jsonl
 agent|nanobot|Library/LaunchAgents/ai.nanobot.gateway.plist
+secret||.local/share/nanobot/auth/github-copilot.json
+secret||Library/Application Support/nanobot/auth/github-copilot.json
+secret||AppData/Local/nanobot/auth/github-copilot.json
+secret||.local/share/oauth-cli-kit/auth/codex.json
+secret||Library/Application Support/oauth-cli-kit/auth/codex.json
+secret||AppData/Local/oauth-cli-kit/auth/codex.json
 excl||agent-zero/.venv
 excl||Desktop/agent-zero/.conda
 excl||agent-zero/main/.git

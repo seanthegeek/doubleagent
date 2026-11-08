@@ -23,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `--env-scan-home` (PowerShell `-EnvScanHome`) also searches every other regular file in each home and project for the names, leaving out the startup files already searched, the projects inside a home, a project that holds a home directory (such as `/`), a home outside the usual home roots (a daemon account's) and the run's own output files, so `files_searched` counts each file once, and `--env-scan-max-size MB` (`-EnvScanMaxSizeMB`, default 1, `0` for no limit) bounds the files it reads ([#454]).
 - A documentation page, [`docs/relocation.md`](docs/relocation.md), for the responder who sees a relocation hint: what it means, how to read and confirm the assignment, and how to collect the moved store ([#457]).
 - The OAuth model provider tokens of Agent Zero's bundled `_oauth` plugin, `usr/plugins/_oauth/<provider>/auth.json` (GitHub Copilot, Gemini and xAI Grok), are flagged `secret: true` in a home install (`agent-zero*/usr/plugins/_oauth/*/auth.json`, `Desktop/agent-zero*/usr/plugins/_oauth/*/auth.json`) and in a Docker volume (`plugins/_oauth/*/auth.json`, `usr/plugins/_oauth/*/auth.json`) ([#246]).
+- The OAuth token files of nanobot's GitHub Copilot and OpenAI Codex model providers, which the `oauth-cli-kit` library keeps outside `.nanobot*`, are collected as `nanobot` (`.local/share/nanobot/auth`, `Library/Application Support/nanobot/auth`, `AppData/Local/nanobot/auth`, and the library's default `.local/share/oauth-cli-kit/auth`, `Library/Application Support/oauth-cli-kit/auth` and `AppData/Local/oauth-cli-kit/auth`), every file under them flagged `secret: true` by a `<directory>/*` secret glob ([#247]).
 
 ### Changed
 
@@ -1299,6 +1300,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [#253]: https://github.com/seanthegeek/doubleagent/issues/253
 [#252]: https://github.com/seanthegeek/doubleagent/issues/252
 [#248]: https://github.com/seanthegeek/doubleagent/issues/248
+[#247]: https://github.com/seanthegeek/doubleagent/issues/247
 [#246]: https://github.com/seanthegeek/doubleagent/issues/246
 [#242]: https://github.com/seanthegeek/doubleagent/issues/242
 [#236]: https://github.com/seanthegeek/doubleagent/issues/236

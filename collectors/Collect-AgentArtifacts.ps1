@@ -623,6 +623,13 @@ nanobot|.nanobot
 nanobot|.nanobot-*
 nanobot|Library/LaunchAgents/ai.nanobot.*
 nanobot|.config/systemd/user/nanobot-*
+nanobot|.local/share/nanobot/auth
+nanobot|Library/Application Support/nanobot/auth
+nanobot|AppData/Local/nanobot/auth
+# The default data directory of the oauth-cli-kit library, which the OpenAI Codex provider of nanobot writes (the only catalog agent known to use the library)
+nanobot|.local/share/oauth-cli-kit/auth
+nanobot|Library/Application Support/oauth-cli-kit/auth
+nanobot|AppData/Local/oauth-cli-kit/auth
 # Agent Zero (state is under the install dir, not a dot dir: installer and launcher
 # default ~/agent-zero/<instance>/usr, or a clone in ~/agent-zero or ~/Desktop/agent-zero)
 agent-zero|agent-zero
@@ -1977,6 +1984,12 @@ AppData/Roaming/Hermes*/connection*.json*
 .config/openclaw/gateway.env
 .nanobot*/config.json
 .nanobot*/auth/*
+.local/share/nanobot/auth/*
+Library/Application Support/nanobot/auth/*
+AppData/Local/nanobot/auth/*
+.local/share/oauth-cli-kit/auth/*
+Library/Application Support/oauth-cli-kit/auth/*
+AppData/Local/oauth-cli-kit/auth/*
 .nanobot*/whatsapp-auth/*
 .nanobot*/matrix-store/*
 .nanobot*/webui/remote-pairing/*/identity
