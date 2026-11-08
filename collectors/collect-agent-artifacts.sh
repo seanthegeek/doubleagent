@@ -3274,7 +3274,10 @@ find_pattern_lines() { sed 's/[][*?\\]/\\&/g'; }
 
 # escape_find_pattern PATH: sets _ret_pattern to PATH escaped as
 # find_pattern_lines does, starting it only when PATH holds one of those
-# characters, so an ordinary path costs no process.
+# characters, so an ordinary path costs no process. sed does the escaping
+# rather than a builtin walk over the characters: taking one character off
+# the front of such a path needs a quoted parameter inside a pattern, which
+# posh reads as a pattern.
 escape_find_pattern() {
   case "$1" in
     (*'['*|*']'*|*'*'*|*'?'*|*'\'*) _ret_pattern=$(printf '%s\n' "$1" | find_pattern_lines) ;;

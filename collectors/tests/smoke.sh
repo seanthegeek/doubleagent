@@ -1979,11 +1979,16 @@ printf '{}' >"$ALICE/.claude/.credentials.json${NEWLINE}"
 # 2026-11-08 a symlink target ending in a newline (#480)
 ln -s "tgt${NEWLINE}" "$ALICE/.claude/nl-target-link"
 # 2026-11-08 catalog entries under a symlinked directory (#467)
-# The glob follows .cache out of the home, so only the link is recorded; .camel
-# stays inside the home and is walked under its linked path.
-mkdir -p "$ROOT/opt/linked-cache/crush" "$BOB/dotfiles/camel/skills/s1"
+# The glob follows .cache out of the home, so only the link is recorded, once
+# for the two entries under it; .pi is a match itself with a nested entry under
+# it; .camel stays inside the home and is walked under its linked path.
+mkdir -p "$ROOT/opt/linked-cache/crush" "$ROOT/opt/linked-cache/claude" "$ROOT/opt/linked-pi" \
+  "$BOB/dotfiles/camel/skills/s1"
 printf '{}\n' >"$ROOT/opt/linked-cache/crush/crush.json"
+printf '{}\n' >"$ROOT/opt/linked-cache/claude/settings.json"
+printf 'x\n' >"$ROOT/opt/linked-pi/approved-plan.md"
 ln -s ../../opt/linked-cache "$BOB/.cache"
+ln -s ../../opt/linked-pi "$BOB/.pi"
 printf 'x\n' >"$BOB/dotfiles/camel/skills/s1/SKILL.md"
 ln -s dotfiles/camel "$BOB/.camel"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
@@ -2668,8 +2673,9 @@ check "#478 a file named .credentials.json plus a newline is not flagged as the 
 check "#480 a symlink target ending in a newline is recorded whole" "row \"$ALICE/.claude/nl-target-link\" | contains '\"status\":\"symlink\",\"target\":\"tgt\\\\n\"'"
 # 2026-11-08 catalog entries under a symlinked directory (#467)
 check "#467 a catalog entry under a symlinked directory leaving the home is not walked" "! grep -qF '\"path\":\"$BOB/.cache/' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$ROOT/opt/linked-cache' \"\$MANIFEST\""
-check "#467 the symlinked directory is recorded as a symlink with its target" "row \"$BOB/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\",\"target\":\"../../opt/linked-cache\"'"
-check "#467 the log names the match under the symlinked directory" "grep -qF '[crush] $BOB/.cache/crush: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#467 the symlinked directory is recorded once, as a symlink with its target, under the first agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.cache\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.cache\" | contains '\"agent\":\"claude-code\".*\"status\":\"symlink\",\"target\":\"../../opt/linked-cache\"'"
+check "#467 the log names each match under the symlinked directory" "grep -qF '[claude-code] $BOB/.cache/claude: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\" && grep -qF '[crush] $BOB/.cache/crush: under the symlinked directory $BOB/.cache, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#467 a symlinked directory that is itself a match has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.pi\" | contains '\"agent\":\"pi\".*\"status\":\"symlink\"' && [ -z \"\$(row \"$BOB/.pi/approved-plan.md\")\" ]"
 check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"'"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 check "#465 a nested entry under a home holding [ has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\"' \"\$MANIFEST\")\" = 1 ] && row \"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"

@@ -147,11 +147,14 @@ the matched path.
 
 - When the link's target, with every link in its chain resolved, lies
   outside that directory, or cannot be resolved, nothing under the link is
-  walked. The manifest records the link itself as one `symlink` row with its
-  target, attributed to the agent of the first catalog line that reached
-  through it, unless the link is itself a match or lies inside one, whose
-  walk records it. In image mode this matters most: an absolute link inside the image
-  resolves against the analyst's own host.
+  walked. The manifest records the link itself, the first link of a chain,
+  as one `symlink` row with the target it stores, attributed to the agent of
+  the first catalog line that reached through it, unless the link is itself
+  a match or lies inside one, whose walk records it. The row and the log
+  line appear only when a catalog path matches through the link. In image
+  mode this matters most: an absolute link inside the image resolves against
+  the analyst's own host, and one whose target that host lacks matches
+  nothing and leaves no row.
 - The log names each match left unwalked, with a line such as
   `[crush] /home/bob/.cache/crush: under the symlinked directory /home/bob/.cache, which leads out of the base; not walked`.
   With `--inventory` (`-Inventory`) the match is not counted and its glob is

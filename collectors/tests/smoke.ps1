@@ -1896,14 +1896,22 @@ if ($env:OS -ne 'Windows_NT') {
 } else { Write-Output 'note: #480 newline symlink target check skipped (no newline in a Windows target)' }
 
 # 2026-11-08 catalog entries under a symlinked directory (#467)
-# The glob follows .cache out of the home, so only the link is recorded; .camel stays inside
+# The glob follows .cache out of the home, so only the link is recorded, once for the two
+# entries under it; .pi is a match itself with a nested entry under it; .camel stays inside
 # the home and is walked under its linked path.
 MakeFile 'elsewhere/linkedcache/crush/crush.json' '{}'
+MakeFile 'elsewhere/linkedcache/claude/settings.json' '{}'
 $cacheLinkOk = $false
 try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.cache') -Target (ImagePath 'elsewhere/linkedcache') -ErrorAction Stop | Out-Null
   $cacheLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #467 symlinked directory checks skipped' }
+MakeFile 'elsewhere/linkedpi/approved-plan.md' 'x'
+$piLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.pi') -Target (ImagePath 'elsewhere/linkedpi') -ErrorAction Stop | Out-Null
+  $piLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #467 linked-match check skipped' }
 MakeFile 'home/bob/dotfiles/camel/skills/s1/SKILL.md' 'x'
 $camelLinkOk = $false
 try {
@@ -2908,8 +2916,11 @@ if ($cacheLinkOk) {
   $linkedCache = ImagePath 'home/bob/.cache'
   $linkedCacheTarget = ImagePath 'elsewhere/linkedcache'
   Check '#467 a catalog entry under a symlinked directory leaving the home is not walked' { @($script:Rows | Where-Object { $_.path.StartsWith($linkedCache + $Separator) -or $_.path.StartsWith($linkedCacheTarget) }).Count -eq 0 }
-  Check '#467 the symlinked directory is recorded as a symlink with its target' { $linkRows = RowsAt 'home/bob/.cache'; $linkRows.Count -eq 1 -and $linkRows[0].agent -eq 'crush' -and $linkRows[0].status -eq 'symlink' -and ($linkRows[0].target -replace '\\', '/') -like '*/elsewhere/linkedcache' }
-  Check '#467 the log names the match under the symlinked directory' { $defaultLog.Contains("[crush] $(ImagePath 'home/bob/.cache/crush'): under the symlinked directory ${linkedCache}, which leads out of the base; not walked") }
+  Check '#467 the symlinked directory is recorded once, as a symlink with its target, under the first agent' { $linkRows = RowsAt 'home/bob/.cache'; $linkRows.Count -eq 1 -and $linkRows[0].agent -eq 'claude-code' -and $linkRows[0].status -eq 'symlink' -and ($linkRows[0].target -replace '\\', '/') -like '*/elsewhere/linkedcache' }
+  Check '#467 the log names each match under the symlinked directory' { $defaultLog.Contains("[claude-code] $(ImagePath 'home/bob/.cache/claude'): under the symlinked directory ${linkedCache}, which leads out of the base; not walked") -and $defaultLog.Contains("[crush] $(ImagePath 'home/bob/.cache/crush'): under the symlinked directory ${linkedCache}, which leads out of the base; not walked") }
+}
+if ($piLinkOk) {
+  Check '#467 a symlinked directory that is itself a match has one row, its own agent' { $piRows = RowsAt 'home/bob/.pi'; $piRows.Count -eq 1 -and $piRows[0].agent -eq 'pi' -and $piRows[0].status -eq 'symlink' -and (RowsAt 'home/bob/.pi/approved-plan.md').Count -eq 0 }
 }
 if ($camelLinkOk) {
   Check '#467 a catalog entry under a directory linked within the home is walked' { IsAgentRow 'home/bob/.camel/skills/s1/SKILL.md' 'camel-ai' $false }
