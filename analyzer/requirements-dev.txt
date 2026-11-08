@@ -9,4 +9,4 @@ pytest-xdist
 
 # Branch coverage for tools/check_branch_coverage.py, pinned because the gate's findings
 # follow its branch analysis.
-coverage==7.17.0
+coverage==7.17.2
