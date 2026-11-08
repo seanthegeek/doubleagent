@@ -178,6 +178,27 @@ def base_segment(glob: str, keep_case: bool) -> str:
     return segment if keep_case else segment.casefold()
 
 
+def vendor_segment(glob: str, keep_case: bool) -> str:
+    """Return the tool's segment of a home entry below a vendor directory, or `""`.
+
+    Below the platform directory a `BASE_FORMS` pattern matches, such an entry holds the
+    maker's segment, the tool's and at most one more; the tool's is returned with a leading
+    `.` dropped, case-folded unless kept: `AppData/Roaming/Block/goose/config` and
+    `Library/Application Support/Block/goose` give `goose`. An entry with no vendor directory
+    (`.config/goose`) or deeper below the tool's (`AppData/Local/Block/goose/cache/*`) gives
+    `""`, since a path derived from it would not be the tool's directory.
+    """
+    for pattern, _platform, _kinds in BASE_FORMS:
+        match = pattern.match(glob)
+        if match:
+            below = [part for part in glob[match.end() :].split("/") if part]
+            if len(below) not in (2, 3):
+                return ""
+            segment = below[1].lstrip(".")
+            return segment if keep_case else segment.casefold()
+    return ""
+
+
 def case_distinguishes(entries: Iterable[TableLine]) -> bool:
     """Return whether case tells an agent's base directories apart.
 
@@ -204,13 +225,13 @@ def sibling_bases(
 ) -> list[TableLine]:
     """Return the other platform forms of a base directory among an agent's home entries.
 
-    A sibling ends in the base's last segment with a leading `.` dropped, compared as written
-    when case tells the agent's directories apart (`case_distinguishes`) and case-folded
-    otherwise; it is on a platform the base's does not cover (`PLATFORMS_COVERED`), shares a
-    kind of state with the base (`base_form`), and is named by a span of the Per-user storage
-    section (`names_glob`): `.config/Claude` and `Library/Application Support/Claude` are
-    siblings, and `.ollama` and `AppData/Local/Ollama`; `.config/zed` and `.local/share/zed` are
-    not, nor `.hermes` and `AppData/Roaming/Hermes` beside `AppData/Local/hermes`.
+    A sibling ends in the base's last segment with a leading `.` dropped, or holds it below a
+    vendor directory (`vendor_segment`), as written when case tells the agent's directories
+    apart (`case_distinguishes`); it is on a platform the base's does not cover
+    (`PLATFORMS_COVERED`), shares a kind of state (`base_form`) and a Per-user storage span
+    names it (`names_glob`). `.config/Claude` has `Library/Application Support/Claude`,
+    `.config/goose` has `AppData/Roaming/Block/goose/config`; `.config/zed` has no
+    `.local/share/zed`.
     """
     spans = list(named)
     entries = list(entries)
@@ -220,7 +241,7 @@ def sibling_bases(
     covered = PLATFORMS_COVERED.get(platform, {platform})
     found: list[TableLine] = []
     for entry in entries:
-        if base_segment(entry.glob, keep_case) != last:
+        if last not in (base_segment(entry.glob, keep_case), vendor_segment(entry.glob, keep_case)):
             continue
         other_platform, other_kinds = base_form(entry.glob)
         if covered & PLATFORMS_COVERED.get(other_platform, {other_platform}):
