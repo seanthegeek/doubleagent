@@ -3,9 +3,9 @@
 # job runs only when a file it reads changed. Reads the changed paths, one per
 # line, on stdin; with the argument "all", ignores them. Prints one
 # "<category>=true|false" line per category: sh, sh-lint, powershell, python,
-# catalog and all. A path matching no category below, or no path at all, sets
-# all, and all sets every category. AGENTS.md ("Validation and testing")
-# gives the rule.
+# catalog, fork-budget and all. A path matching no category below, or no
+# path at all, sets all, and all sets every category. AGENTS.md ("Validation
+# and testing") gives the rule.
 
 all=false
 sh_collector=false
@@ -13,6 +13,7 @@ sh_lint=false
 powershell=false
 python=false
 catalog=false
+fork_budget=false
 [ "${1:-}" = all ] && all=true
 count=0
 
@@ -35,6 +36,18 @@ while IFS= read -r path; do
     collectors/collect-agent-artifacts.sh | collectors/tests/smoke.sh | \
       collectors/tests/catalog-sync.sh | .shellcheckrc)
       sh_collector=true
+      matched=true
+      ;;
+  esac
+
+  # The fork budget job: the collector it traces, the smoke test that builds
+  # its image, the budget, the tool and the modules the tool imports.
+  case "$path" in
+    collectors/collect-agent-artifacts.sh | collectors/tests/smoke.sh | \
+      collectors/tests/fork-budget.txt | tools/check_fork_budget.py | \
+      tools/diff_smoke_rows.py | tools/drift_common.py | tools/check_doc_links.py | \
+      tools/check_research_structure.py)
+      fork_budget=true
       matched=true
       ;;
   esac
@@ -104,8 +117,9 @@ if [ "$all" = true ]; then
   powershell=true
   python=true
   catalog=true
+  fork_budget=true
 fi
 [ "$sh_collector" = true ] && sh_lint=true
 
-printf 'sh=%s\nsh-lint=%s\npowershell=%s\npython=%s\ncatalog=%s\nall=%s\n' \
-  "$sh_collector" "$sh_lint" "$powershell" "$python" "$catalog" "$all"
+printf 'sh=%s\nsh-lint=%s\npowershell=%s\npython=%s\ncatalog=%s\nfork-budget=%s\nall=%s\n' \
+  "$sh_collector" "$sh_lint" "$powershell" "$python" "$catalog" "$fork_budget" "$all"

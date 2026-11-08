@@ -55,6 +55,7 @@ jobs:
       powershell: ${{ steps.classify.outputs.powershell }}
       python: ${{ steps.classify.outputs.python }}
       catalog: ${{ steps.classify.outputs.catalog }}
+      fork-budget: ${{ steps.classify.outputs.fork-budget }}
       all: ${{ steps.classify.outputs.all }}
     steps:
       - uses: actions/checkout@v7
@@ -165,6 +166,30 @@ jobs:
         run: collectors/tests/catalog-sync.sh
       - name: smoke
         run: collectors/tests/smoke.sh dash
+
+  # The sh collector's cost is the processes it forks, and that count over
+  # a fixed image under a fixed shell is the same on every run, unlike
+  # wall time on a shared runner. The check needs strace, so it runs on
+  # Linux; the runner image is pinned because the budget is the count under
+  # that image's dash. A pull request also runs the collector of main, to
+  # show which class of process grew.
+  sh-fork-budget:
+    name: sh collector (fork budget)
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.fork-budget == 'true'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install dash and strace
+        run: sudo apt-get update -q && sudo apt-get install -y -q dash strace
+      - name: Fork budget against main
+        if: github.event_name == 'pull_request'
+        run: python3 tools/check_fork_budget.py --base origin/main
+      - name: Fork budget
+        if: github.event_name != 'pull_request'
+        run: python3 tools/check_fork_budget.py
 
   sh-shellcheck:
     name: sh collector (shellcheck)
@@ -371,6 +396,7 @@ jobs:
       - catalog-sync
       - sh-collector
       - sh-collector-bsd
+      - sh-fork-budget
       - sh-shellcheck
       - powershell-7
       - windows-powershell-51
