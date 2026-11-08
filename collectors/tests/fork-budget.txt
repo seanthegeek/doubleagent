@@ -1,0 +1,7 @@
+# The sh collector's fork budget: the processes it forks (forks_per_row) and the programs
+# it executes (execs_per_row) per manifest row, under dash over the sh smoke test's main
+# image, as tools/check_fork_budget.py counts them on the CI runner; another filesystem's
+# directory order moves them by a few tenths of a percent. The numbers move only in the
+# commit that changes the cost, whose body gives the measured cause.
+forks_per_row 6.98
+execs_per_row 4.24

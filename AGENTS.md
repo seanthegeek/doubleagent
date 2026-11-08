@@ -43,6 +43,9 @@ collectors/
   tests/smoke.ps1              end-to-end test of the PowerShell collector
   tests/catalog-sync.sh        fails if the catalog tables differ between the scripts
                                or from the analyzer's bundled copy
+  tests/fork-budget.txt        the fork budget: the processes forked and programs
+                               executed per manifest row the sh collector may cost
+                               under dash
 analyzer/
   doubleagent/                 Python package: cli, inputs, catalog, model, parsers/
   doubleagent/catalog.txt      verbatim copy of collect-agent-artifacts.sh --list
@@ -110,6 +113,9 @@ tools/diff_smoke_rows.py       runs the sh collector of a commit and the working
                                a second commit over the sh smoke test's main fixtures and
                                lists the paths whose manifest rows changed, grouped under
                                each changed table line whose glob matches them
+tools/check_fork_budget.py     runs the sh collector over the sh smoke test's main image
+                               under strace and compares the processes forked and
+                               programs executed per manifest row with the budget
 tools/tests/                   pytest suite of the drift checkers and tools, on synthetic
                                inputs
 tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
@@ -160,6 +166,14 @@ and `zsh --emulate sh`.
 - Shared helpers live in the `COMMON` string, `eval`'d in the main script
   and prepended to the worker programs, since `find -exec sh -c` does not
   inherit functions.
+- The sh collector's cost is its processes: every `$(...)`, pipeline
+  element and external command is a fork, and a function that runs a
+  program inside `$(...)` forks twice. A worker forks for no new work per
+  file ([Readability](#readability)); new work per catalog match, excluded
+  directory, worker start or log line forks only for a program the item
+  needs, handles text with builtins and parameter expansion, and hands a
+  result to its caller in a `_ret_` variable rather than through `$(...)`. The fork budget under Readability measures the whole, today's
+  cost included.
 - Expand globs with spaces with `IFS` set to newline only (`expand_glob`,
   `expand_catalog`);
   match patterns with `case`.
@@ -193,6 +207,13 @@ PowerShell 7 on any OS.
 **Single file, non-interactive.** No prompts, nothing read from stdin, all
 output under `-o`, concise stdout, exit `0` when an archive was written
 even if some files failed.
+
+**The log is the responder's timing view.** Every line `log_line` writes
+carries a timestamp (a program's own stderr lands in the log without one),
+and a worker's log lines follow the match line of the file they belong to:
+the log shows where a run spent its time, match by match, so no change
+batches matches in a way that moves a `copy failed:` line away from its
+file.
 
 **Forensic soundness.** Never modify, move or delete anything outside the
 output directory. `lstat` every file before copying it, so the manifest
@@ -315,7 +336,10 @@ holds the architecture and function tables.
   (`Initialize-Summary`). Lines outside the data tables are at most
   100 characters, broken in sh with `\` or `set --`, in PowerShell with
   splatting or variables, never a backtick. No new fork, pipeline or
-  external command per file in the sh workers or `Add-CollectedFile`.
+  external command per file in the sh workers or `Add-CollectedFile`; the
+  sh collector's forks per catalog match, excluded directory, worker start
+  and log line follow the POSIX sh bullet of
+  [Non-negotiable standards](#non-negotiable-standards).
 - **Acceptance test for a refactor.** A readability change changes no
   behaviour. Run the collector before and after on the smoke test's fake
   image, for every run the smoke tests make with the same arguments, under
@@ -327,6 +351,15 @@ holds the architecture and function tables.
   and `archive` keys, timestamps, the output directory and the archive's
   size and hash may differ. A bug found on the way is fixed in its own
   commit, with an issue.
+- **Fork budget.** A change to the sh collector or to the sh smoke test's
+  fixtures is measured against the fork budget: CI counts the processes
+  forked and the programs executed per manifest row over the smoke test's
+  main image under dash and compares them with
+  `collectors/tests/fork-budget.txt`. A change that moves either number
+  past the tolerance, a fixture added to the image included, updates the
+  file in the same commit, with the measured cause in the body, and the
+  pull request body pastes the job's class table. A cost is measured in
+  processes, never in wall time.
 
 ## Code style
 
@@ -1411,13 +1444,13 @@ parser's docstring at review.
 
 CI (`.github/workflows/ci.yml`) runs the catalog drift test; shellcheck;
 the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
-drift test and sh smoke test under dash on macOS (BSD tools); the
-PowerShell smoke test under PowerShell 7 on Linux and Windows PowerShell
-5.1 on Windows; the analyzer tests on Python 3.11 to 3.14, with the
-branch-coverage gate on the newest; the lint and site jobs of
-[Quality gates](#quality-gates); and a `CI result` job that fails when any
-of them failed or was cancelled. `CI result` is the one status check the
-ruleset on `main` requires.
+drift test and sh smoke test under dash on macOS (BSD tools); the fork
+budget job on Linux; the PowerShell smoke test under PowerShell 7 on Linux
+and Windows PowerShell 5.1 on Windows; the analyzer tests on Python 3.11
+to 3.14, with the branch-coverage gate on the newest; the lint and site
+jobs of [Quality gates](#quality-gates); and a `CI result` job that fails
+when any of them failed or was cancelled. `CI result` is the one status
+check the ruleset on `main` requires.
 
 CI runs a job only for the parts a change touches:
 [`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
@@ -1428,6 +1461,12 @@ job or lint step runs when one of its categories is set.
   `collectors/tests/smoke.sh`, `collectors/tests/catalog-sync.sh`,
   `.shellcheckrc`): the sh smoke matrix, the macOS job, the collector's
   shellcheck job and the lint job's sh linters.
+- **fork budget** (`collectors/collect-agent-artifacts.sh`,
+  `collectors/tests/smoke.sh`, `collectors/tests/fork-budget.txt`,
+  `tools/check_fork_budget.py` and the modules it imports,
+  `tools/diff_smoke_rows.py`, `tools/drift_common.py`,
+  `tools/check_doc_links.py` and `tools/check_research_structure.py`): the
+  fork budget job.
 - **sh files** (any `.sh` file, `.githooks/*`): the lint job's shfmt,
   shellcheck and checkbashisms steps.
 - **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
@@ -1480,6 +1519,7 @@ python3 tools/check_parser_research.py
 python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as tests/run.sh does
 python3 tools/check_branch_coverage.py  # runs the analyzer suite again when a parser changed
 python3 tools/check_code_style.py
+python3 tools/check_fork_budget.py --base origin/main   # Linux only: needs strace
 shfmt -ln posix $(shfmt -f .) >/dev/null && shellcheck -s sh $(shfmt -f .) && checkbashisms -p $(shfmt -f .)
 pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
 ```
@@ -1511,6 +1551,12 @@ A change to a table line attaches the output of `tools/diff_smoke_rows.py`
 against its base to its review report, and the reviewer reads every group
 for paths the line was not meant to reach
 ([Smoke-row diff in `collectors/docs/testing.md`](collectors/docs/testing.md#smoke-row-diff)).
+
+A change to the sh collector or to the sh smoke test's fixtures is measured
+against the fork budget ([Readability](#readability)); its reviewer reads
+the job's class table against `main` for a class that grew, the way a table
+change reads the smoke-row diff
+([Fork budget in `collectors/docs/testing.md`](collectors/docs/testing.md#fork-budget)).
 
 On Debian and Ubuntu `/usr/bin/ash` is dash, so test busybox with the
 wrapper above. CI installs `busybox-static`, whose `ash` runs busybox's own
@@ -1561,9 +1607,12 @@ skipped without it. Never add a `python3` requirement to the collector.
 
 Every gate runs in CI, never in the pre-commit hook: branch coverage in the
 `analyzer` job on its newest Python, the site build in the `site` job on the
-Python the Pages workflow uses, the others in the `lint` job. The
+Python the Pages workflow uses, the fork budget in its own job, which
+names the `ubuntu-24.04` runner (it needs strace, and the count is that
+image's dash's), the others in the `lint` job. The
 versions are pinned in the workflow's `env` block, coverage.py's in
-`analyzer/requirements-dev.txt`; change it and this table together. Run the
+`analyzer/requirements-dev.txt` and the fork budget's runner image in its
+job's `runs-on`; change it and this table together. Run the
 commands from the repository root before pushing; a documentation-only
 change needs markdownlint, the site build and the rows from document links
 down.
@@ -1580,6 +1629,7 @@ down.
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
 | branch coverage of changed parser lines | coverage.py 7.17.0 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
+| fork budget | none pinned: the `ubuntu-24.04` runner's dash and strace | `python3 tools/check_fork_budget.py --base origin/main` | `collectors/tests/fork-budget.txt`; `--update-budget` rewrites it |
 | code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
 | research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |
