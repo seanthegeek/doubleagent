@@ -99,8 +99,8 @@ def _is_dir(found: os.stat_result | None) -> bool:
     return found is not None and stat.S_ISDIR(found.st_mode)
 
 
-def _session_header(home: Path, name: str) -> tuple[dict | None, list]:
-    """Return the header of the pi session file `name` in the same home, or None, and its failure.
+def _session_header(sessions: Path, name: str) -> tuple[dict | None, list]:
+    """Return the header of the pi session file `name` under `sessions`, or None, and its failure.
 
     Every lookup goes through lstat, since pathlib's is_dir and is_file raise
     a permission error on some Python versions and swallow it on others. The
@@ -109,7 +109,6 @@ def _session_header(home: Path, name: str) -> tuple[dict | None, list]:
     an unsearchable project directory and reports it only when no directory
     held the file, since a session file name belongs to one project.
     """
-    sessions = home / ".pi/agent/sessions"
     directories: list[Path] = []
     found, error = _lstat(sessions)
     if error is None and _is_dir(found):
@@ -222,7 +221,9 @@ class LittleCoderParser(Parser):
         row.turn_type = "system"
         row.session_id = match.group(1) if match else ""
         header, failure = (
-            _session_header(artifact.home.disk_path, set_name) if match else (None, [])
+            _session_header(artifact.home.path_of(".pi/agent/sessions"), set_name)
+            if match
+            else (None, [])
         )
         if header:
             row.session_id = str(header.get("id") or row.session_id)

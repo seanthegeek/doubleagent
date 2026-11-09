@@ -50,7 +50,12 @@ ROOT_HOMES = ("root", "var/root")
 
 @dataclass
 class Home:
-    """A base the artifacts are relative to: a user's home, a volume or a project."""
+    """A base the artifacts are relative to: a user's home, a volume or a project.
+
+    `staged_paths` maps a home-relative path (posix) the collector archived away from
+    `disk_path / rel`, at a symlinked directory's physical location, to where the
+    collection holds it; it is empty for loose input.
+    """
 
     disk_path: Path  # where the home is on the analyst's disk
     original: str  # path on the source host, best effort
@@ -62,6 +67,26 @@ class Home:
     # not a user's home. Parsers that scope a file to its project read this,
     # never the artifact's agent.
     project: bool = False
+    staged_paths: dict[str, Path] = field(default_factory=dict)
+
+    def path_of(self, rel: str) -> Path:
+        """Return where the collection holds the home-relative path `rel`.
+
+        Args:
+            rel: a path relative to the home, posix, with no leading slash.
+
+        Returns:
+            The mapped location of `rel` or of its longest mapped ancestor
+            directory with the rest of `rel` below it, else `disk_path / rel`.
+        """
+        if not self.staged_paths:
+            return self.disk_path / rel
+        parts = rel.split("/")
+        for depth in range(len(parts), 0, -1):
+            mapped = self.staged_paths.get("/".join(parts[:depth]))
+            if mapped is not None:
+                return mapped.joinpath(*parts[depth:])
+        return self.disk_path / rel
 
 
 @dataclass
@@ -327,12 +352,18 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
     homes: dict[tuple[str, str], Home] = {}
     # Homes whose directory came from the fallback, until a row names it.
     provisional: set[tuple[str, str]] = set()
+    # Each home's (rel, archive_path) of every row, mapped once the home's directory is final.
+    archived: dict[tuple[str, str], list[tuple[str, str]]] = {}
     for row in rows:
-        if row.get("status") not in PARSE_STATUSES or row.get("type") != "file":
-            continue
         user = str(row.get("user") or "")
         home_original = str(row.get("home") or "")
         key = (user, home_original)
+        row_archive_path = str(row.get("archive_path") or "")
+        if row_archive_path:
+            rel_of_row = _relative_to_home(str(row.get("path") or ""), home_original)
+            archived.setdefault(key, []).append((rel_of_row, row_archive_path))
+        if row.get("status") not in PARSE_STATUSES or row.get("type") != "file":
+            continue
         home = homes.get(key)
         archive_dir = _archive_dir_from_row(row)
         if home is None:
@@ -383,7 +414,35 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
                 manifest=row,
             )
         )
+    for key, home in homes.items():
+        for rel, archive_path in archived.get(key, []):
+            _map_staged_path(home, root, rel, archive_path)
     collection.homes = list(homes.values())
+
+
+def _map_staged_path(home: Home, root: Path, rel: str, archive_path: str) -> None:
+    """Record in `home.staged_paths` a row archived away from `home.disk_path / rel`.
+
+    The row's components are matched from the right while equal; the file and each
+    directory above it down to the first unequal component (the symlinked directory,
+    `.pi` for `fs/home/bob/dotfiles/pi/...`) map to their place in the archive.
+    """
+    rel_parts = [part for part in rel.split("/") if part]
+    archive_parts = [part for part in archive_path.replace("\\", "/").split("/") if part]
+    if not rel_parts or root.joinpath(*archive_parts) == home.disk_path.joinpath(*rel_parts):
+        return
+    equal = 0
+    while (
+        equal < len(rel_parts)
+        and equal < len(archive_parts)
+        and rel_parts[-1 - equal] == archive_parts[-1 - equal]
+    ):
+        equal += 1
+    for depth in range(min(equal, len(rel_parts) - 1) + 1):
+        home.staged_paths.setdefault(
+            "/".join(rel_parts[: len(rel_parts) - depth]),
+            root.joinpath(*archive_parts[: len(archive_parts) - depth]),
+        )
 
 
 def _archive_dir_from_row(row: dict) -> str:

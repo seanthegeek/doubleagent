@@ -1,10 +1,17 @@
 """Tests of the little-coder parser."""
 
+import json
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 from typing import ClassVar
 
 from test_errors import CAN_DENY, DENY_REASON
 
+from doubleagent import catalog
+from doubleagent.inputs import open_input
+from doubleagent.parsers import Options
 from doubleagent.parsers.little_coder import (
     MESSAGES_KEY_PATTERN,
     SAVED_AT_PATTERN,
@@ -75,6 +82,52 @@ class LittleCoderTests(ParserBase):
         )
         self.assertIn("2 pre-edit file(s)", row.text)
         self.assertIn("_srv_proj_src_new.ts (did not exist)", row.text)
+
+    def _physically_staged(self, root: Path, link: str) -> None:
+        """Lay the fixture home out as a collection staging `.pi` at its target `dotfiles/pi`.
+
+        `link` is the recreated link's target, or "" for a zip archive, which holds no links.
+        """
+        rows = []
+        for top in (".pi", ".little-coder"):
+            for source in sorted((self.home / top).rglob("*")):
+                if source.is_symlink() or not source.is_file():
+                    continue
+                rel = source.relative_to(self.home).as_posix()
+                physical = "dotfiles/pi" + rel[len(".pi") :] if top == ".pi" else rel
+                member = root / "fs/home/bob" / physical
+                member.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, member)
+                row = {"type": "file", "status": "collected", "user": "bob", "home": "/home/bob"}
+                row.update(
+                    path="/home/bob/" + rel,
+                    archive_path="fs/home/bob/" + physical,
+                    agent="little-coder" if top == ".little-coder" else "pi",
+                )
+                rows.append(row)
+        if link:
+            (root / "fs/home/bob/.pi").symlink_to(link)
+        lines = "".join(json.dumps(row) + "\n" for row in rows)
+        (root / "manifest.jsonl").write_text(lines, encoding="utf-8")
+
+    def test_checkpoints_find_a_session_staged_at_a_symlinks_physical_path(self):
+        """The session header is read where the collection holds `.pi`, never through the link."""
+        rel = self.CHECKPOINTS + "_srv_proj_src_a.ts"
+        for link in ("", "/nonexistent-doubleagent-test/home/bob/dotfiles/pi"):
+            root = Path(tempfile.mkdtemp(prefix="cac-analyzer-test-"))
+            try:
+                self._physically_staged(root, link)
+                collection = open_input(root, catalog.load())
+                artifact = next(item for item in collection.artifacts if item.rel == rel)
+                rows = list(LittleCoderParser().parse(artifact, Options()))
+            finally:
+                shutil.rmtree(root, ignore_errors=True)
+            self.assertEqual(
+                [(row.session_id, row.project_path) for row in rows],
+                [(LC_SESSION, "/srv/proj")],
+                link,
+            )
+            self.assertIn("pi session %s" % LC_FILE, rows[0].text, link)
 
     def test_stray_file_in_the_sessions_directory_is_skipped(self):
         """A stray file sorting before the project directory is passed over, not read."""

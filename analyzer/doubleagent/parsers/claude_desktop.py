@@ -287,7 +287,7 @@ class ClaudeDesktopParser(ClaudeCodeParser):
 
     @staticmethod
     def _session_dir(artifact: Artifact, session_rel: str) -> Path:
-        return artifact.home.disk_path / session_rel
+        return artifact.home.path_of(session_rel)
 
     def _system(self, artifact: Artifact, text: str, line: int = 0) -> Row:
         row = self.base_row(artifact)
@@ -635,8 +635,9 @@ class ClaudeDesktopParser(ClaudeCodeParser):
             staging = org / "imported-staging"
             if _plain_dir(staging) and _plain_file(staging / (cli_id + ".jsonl")):
                 return True
-            claude = artifact.home.disk_path / ".claude"
-            if _plain_dir(claude) and _jsonl_files(claude / "projects", cli_id + ".jsonl"):
+            claude = artifact.home.path_of(".claude")
+            projects = artifact.home.path_of(".claude/projects")
+            if _plain_dir(claude) and _jsonl_files(projects, cli_id + ".jsonl"):
                 return True
         return False
 

@@ -432,16 +432,14 @@ def home_file(artifact: Artifact, original: str, marker: str) -> Path | None:
     marker_at = path.rfind("/" + marker)
     if marker_at >= 0:
         rels.append(path[marker_at + 1 :])
-    root = artifact.home.disk_path
     for rel in rels:
         parts = [part for part in rel.split("/") if part]
         if not parts or ".." in parts:
             continue
-        current = root
+        current = artifact.home.path_of("/".join(parts))
         safe = True
-        for part in parts:
-            current = current / part
-            if current.is_symlink():
+        for depth in range(1, len(parts) + 1):
+            if artifact.home.path_of("/".join(parts[:depth])).is_symlink():
                 safe = False
                 break
         if safe and current.is_file():
@@ -1096,8 +1094,8 @@ def little_coder_markers(artifact: Artifact, session: SessionFile) -> list[str]:
         why.append("custom_message types " + ", ".join(types))
     if llamacpp:
         why.append("assistant provider llamacpp")
-    checkpoint = (
-        artifact.home.disk_path / ".little-coder" / "checkpoints" / os.path.basename(artifact.rel)
+    checkpoint = artifact.home.path_of(
+        ".little-coder/checkpoints/" + os.path.basename(artifact.rel)
     )
     if not checkpoint.is_symlink() and checkpoint.is_dir():
         why.append("checkpoints in ~/.little-coder/checkpoints/%s" % checkpoint.name)
