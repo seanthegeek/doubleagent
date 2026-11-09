@@ -3524,14 +3524,16 @@ function Test-ClaimedPath([string]$path, [string]$base) {
 
 # Takes the user, base, agent, a Get-LinkedParent result and the links already
 # recorded in this walk; records every symlinked directory the match's path ran
-# through, the one leading out of the base last, each once and only when
+# through, the one leading out of the base last, each once and only when it
+# has no manifest row yet (another base's walk may have recorded it) and
 # Test-ClaimedPath leaves it to no other walk, staged at its physical path.
 function Add-PassedLinks([string]$user, [string]$base, [string]$agent, $linked, $linksSeen) {
   $passed = New-Object System.Collections.ArrayList
   foreach ($link in $linked.Links) { [void]$passed.Add($link) }
   if ($linked.Link) { [void]$passed.Add(@($linked.Link, $linked.StageFrom, $linked.StageTo)) }
   foreach ($link in $passed) {
-    if (-not $linksSeen.Add($link[0]) -or (Test-ClaimedPath $link[0] $base)) { continue }
+    if (-not $linksSeen.Add($link[0]) -or $script:RowPaths.Contains($link[0])) { continue }
+    if (Test-ClaimedPath $link[0] $base) { continue }
     $script:StageFrom = $link[1]; $script:StageTo = $link[2]
     Add-CollectedPath $user $base $agent $link[0]
   }
