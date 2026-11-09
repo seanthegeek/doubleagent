@@ -352,8 +352,9 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
     homes: dict[tuple[str, str], Home] = {}
     # Homes whose directory came from the fallback, until a row names it.
     provisional: set[tuple[str, str]] = set()
-    # Each home's (rel, archive_path) of every row, mapped once the home's directory is final.
-    archived: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    # Each home's (rel, archive_path, is a link) of every row, mapped once the home's
+    # directory is final.
+    archived: dict[tuple[str, str], list[tuple[str, str, bool]]] = {}
     for row in rows:
         user = str(row.get("user") or "")
         home_original = str(row.get("home") or "")
@@ -361,7 +362,8 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
         row_archive_path = str(row.get("archive_path") or "")
         if row_archive_path:
             rel_of_row = _relative_to_home(str(row.get("path") or ""), home_original)
-            archived.setdefault(key, []).append((rel_of_row, row_archive_path))
+            is_link = row.get("type") == "symlink"
+            archived.setdefault(key, []).append((rel_of_row, row_archive_path, is_link))
         if row.get("status") not in PARSE_STATUSES or row.get("type") != "file":
             continue
         home = homes.get(key)
@@ -415,17 +417,21 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
             )
         )
     for key, home in homes.items():
-        for rel, archive_path in archived.get(key, []):
-            _map_staged_path(home, root, rel, archive_path)
+        rows_of_home = archived.get(key, [])
+        links = {rel for rel, _, is_link in rows_of_home if is_link}
+        for rel, archive_path, _ in rows_of_home:
+            _map_staged_path(home, root, rel, archive_path, links)
     collection.homes = list(homes.values())
 
 
-def _map_staged_path(home: Home, root: Path, rel: str, archive_path: str) -> None:
+def _map_staged_path(home: Home, root: Path, rel: str, archive_path: str, links: set[str]) -> None:
     """Record in `home.staged_paths` a row archived away from `home.disk_path / rel`.
 
-    The row's components are matched from the right while equal; the file and each
-    directory above it down to the first unequal component (the symlinked directory,
-    `.pi` for `fs/home/bob/dotfiles/pi/...`) map to their place in the archive.
+    The file and each directory above it down to the symlinked directory that
+    moved it (`.pi` for `fs/home/bob/dotfiles/pi/...`) map to their place in the
+    archive. That directory is the deepest ancestor of `rel` among `links`, the
+    home's `symlink` rows; without one, the components are matched from the
+    right while equal, which can reach a real directory of the same name.
     """
     rel_parts = [part for part in rel.split("/") if part]
     archive_parts = [part for part in archive_path.replace("\\", "/").split("/") if part]
@@ -438,7 +444,12 @@ def _map_staged_path(home: Home, root: Path, rel: str, archive_path: str) -> Non
         and rel_parts[-1 - equal] == archive_parts[-1 - equal]
     ):
         equal += 1
-    for depth in range(min(equal, len(rel_parts) - 1) + 1):
+    depth_limit = min(equal, len(rel_parts) - 1)
+    for depth in range(1, len(rel_parts)):
+        if "/".join(rel_parts[: len(rel_parts) - depth]) in links:
+            depth_limit = min(depth_limit, depth)
+            break
+    for depth in range(depth_limit + 1):
         home.staged_paths.setdefault(
             "/".join(rel_parts[: len(rel_parts) - depth]),
             root.joinpath(*archive_parts[: len(archive_parts) - depth]),

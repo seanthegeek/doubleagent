@@ -819,12 +819,47 @@ def test_path_of_an_unmapped_path_is_below_the_home_directory(tmp_path):
 def test_path_of_a_link_named_like_its_target_maps_no_home_directory(tmp_path):
     """`.config -> dotfiles/.config` maps `.config` and below, never the home itself."""
     rows = [
-        ("/home/bob/.config/gh/hosts.yml", "fs/home/bob/dotfiles/.config/gh/hosts.yml", "collected")
+        ("/home/bob/.config", "fs/home/bob/.config", "symlink"),
+        (
+            "/home/bob/.config/gh/hosts.yml",
+            "fs/home/bob/dotfiles/.config/gh/hosts.yml",
+            "collected",
+        ),
+    ]
+    for with_link_row in (True, False):
+        home = _collected_home(
+            tmp_path / str(with_link_row), "/home/bob", rows[with_link_row ^ 1 :]
+        )
+        assert sorted(home.staged_paths) == [".config", ".config/gh", ".config/gh/hosts.yml"], (
+            with_link_row
+        )
+        assert home.path_of(".config/gh") == tmp_path / str(with_link_row) / (
+            "fs/home/bob/dotfiles/.config/gh"
+        )
+        assert home.path_of(".bashrc") == tmp_path / str(with_link_row) / "fs/home/bob/.bashrc"
+
+
+def test_path_of_a_link_below_a_real_directory_maps_from_the_link_down(tmp_path):
+    """A real `.config` holding `gh -> ../dotfiles/.config/gh` keeps its other children in place."""
+    rows = [
+        ("/home/bob/.config/gh", "fs/home/bob/.config/gh", "symlink"),
+        (
+            "/home/bob/.config/gh/hosts.yml",
+            "fs/home/bob/dotfiles/.config/gh/hosts.yml",
+            "collected",
+        ),
+        (
+            "/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
+            "fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
+            "collected",
+        ),
     ]
     home = _collected_home(tmp_path, "/home/bob", rows)
-    assert sorted(home.staged_paths) == [".config", ".config/gh", ".config/gh/hosts.yml"]
+    assert sorted(home.staged_paths) == [".config/gh", ".config/gh/hosts.yml"]
     assert home.path_of(".config/gh") == tmp_path / "fs/home/bob/dotfiles/.config/gh"
-    assert home.path_of(".bashrc") == tmp_path / "fs/home/bob/.bashrc"
+    assert home.path_of(".config/Cursor/User/globalStorage/state.vscdb") == (
+        tmp_path / "fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb"
+    )
 
 
 def test_path_of_a_windows_home_staged_physically(tmp_path):
