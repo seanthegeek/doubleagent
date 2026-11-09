@@ -2854,6 +2854,23 @@ plan_chunk() {
     i=$((i + 1))
   done
 }
+# test_inside_stage DIR: true when DIR resolves inside STAGE_PHYSICAL, the
+# staging directory resolved, so removing a failed copy there cannot reach a
+# source through a link recreated in the staging tree. One fork per call; the
+# prefix is compared with a mask of one ? per character, as posh reads a
+# quoted parameter inside a pattern as a pattern.
+test_inside_stage() {
+  [ -n "${STAGE_PHYSICAL:-}" ] || return 1
+  inside_dir=$(cd -P "$1" 2>/dev/null && pwd -P && printf x) || return 1
+  inside_dir=${inside_dir%x}; inside_dir=${inside_dir%?}
+  inside_mask=; while [ "${#inside_mask}" -lt "${#STAGE_PHYSICAL}" ]; do
+    inside_mask="$inside_mask?"
+  done
+  inside_rest=${inside_dir#$inside_mask}
+  [ "$STAGE_PHYSICAL$inside_rest" = "$inside_dir" ] || return 1
+  case "$inside_rest" in ('' | /*) return 0 ;; esac
+  return 1
+}
 # copy_run FIRST LAST DIR: copies the "copy" entries FIRST..LAST of one directory
 # into DIR and sets their status_N and copy_error_N. A cp -p of the whole run is
 # redone per file when it fails, so each failing file gets its own error.
@@ -2879,9 +2896,13 @@ copy_run() {
       if copy_error=$(cp -p "$path" "$dest" 2>&1); then
         status=collected
       else
-        status=error_copy
-        rm -f "$dest" 2>/dev/null
-        log_line "copy failed: $path: $copy_error"
+        status=error_copy; removal_note=
+        if test_inside_stage "${dest%/*}"; then
+          rm -f "$dest" 2>/dev/null
+        else
+          removal_note='; staged path resolves outside the staging directory, not removed'
+        fi
+        log_line "copy failed: $path: $copy_error$removal_note"
       fi
       eval "status_$j=\$status; copy_error_$j=\$copy_error"
     fi
@@ -4796,10 +4817,15 @@ cleanup() {
 }
 
 # create_output_files: outside --inventory, creates the staging directory
-# (exits 2 when it cannot) and empty LOG and MANIFEST files
+# (exits 2 when it cannot) and empty LOG and MANIFEST files, and sets
+# STAGE_PHYSICAL to the staging directory resolved, a sentinel keeping a
+# final newline, empty under --inventory.
 create_output_files() {
+  STAGE_PHYSICAL=
   if [ "$INVENTORY" != 1 ]; then
     mkdir -p "$STAGE/fs" || { printf 'Cannot create staging dir\n' >&2; exit 2; }
+    STAGE_PHYSICAL=$(cd -P "$STAGE" && pwd -P && printf x)
+    STAGE_PHYSICAL=${STAGE_PHYSICAL%x}; STAGE_PHYSICAL=${STAGE_PHYSICAL%?}
     : >"$LOG"; : >"$MANIFEST"
   fi
 }
@@ -4837,7 +4863,7 @@ define_secret_test
 set_output_names
 # exported for the worker programs
 export HASH_TOOL STAT_MODE MAX_SIZE SECRET_PATTERN NO_SECRETS LOG QUIET GREP_TEXT
-export TAB_AND_CARRIAGE_RETURN STAGE_FROM STAGE_TO
+export TAB_AND_CARRIAGE_RETURN STAGE_FROM STAGE_TO STAGE_PHYSICAL
 trap 'cleanup' EXIT
 trap 'log_line "interrupted"; cleanup; trap - EXIT; exit 130' INT TERM
 create_output_files

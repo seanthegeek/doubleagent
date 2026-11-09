@@ -3573,6 +3573,8 @@ if [ "$BATCH_LOCKED" = yes ]; then
   check "#71 unreadable file in the batch: error_copy row with its error" "row \"$BATCH_DIR/m-locked.jsonl\" | contains '\"archive_path\":\"\",\"type\":\"file\",\"size\":7,.*\"sha256\":\"\",\"secret\":false,\"status\":\"error_copy\",\"target\":\"\",\"error\":\"[^\"]*Permission denied\"'"
   check "#71 unreadable file in the batch: logged once" "[ \"\$(grep -c 'copy failed: .*/m-locked.jsonl: ' \"$OUT\"/batch71/*.log)\" = 1 ]"
   check "#71 unreadable file in the batch: the rest collected" "[ \"\$(grep -c '\"status\":\"collected\"' \"\$MANIFEST\")\" -eq 305 ] && ! tar -tzf \"\$ARCHIVE\" | contains m-locked"
+  # 2026-11-08 a failed copy's removal through a recreated link (#497)
+  check "#497 a failed copy inside the staging tree still removes its partial copy" "grep -qF 'copy failed: ' \"$OUT\"/batch71/*.log && ! grep -qF 'not removed' \"$OUT\"/batch71/*.log && ! tar -tzf \"\$ARCHIVE\" | contains m-locked"
 else
   printf 'skip #71 unreadable file in a batch (running as root)\n'
 fi
