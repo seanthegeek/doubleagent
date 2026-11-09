@@ -3712,14 +3712,10 @@ EOF_DOCKER_DESKTOP_DIRS
 
 # test_inventory_secret FILE: true under --inventory when FILE matches a secret
 # glob, so inventory never reads a credential file. Reads INVENTORY and
-# DISCOVERY_HOME. The home and its / are counted off with a mask of one ? per
-# character, as posh reads a quoted parameter inside a pattern as a pattern.
-# Temporaries: _tis_.
+# DISCOVERY_HOME. Temporaries: _tis_.
 test_inventory_secret() {
   [ "$INVENTORY" = 1 ] || return 1
-  _tis_mask=; while [ "${#_tis_mask}" -le "${#DISCOVERY_HOME}" ]; do _tis_mask="$_tis_mask?"; done
-  _tis_rel=${1#$_tis_mask}
-  [ "$DISCOVERY_HOME/$_tis_rel" = "$1" ] || _tis_rel=$1
+  _tis_rel=${1#"$DISCOVERY_HOME"/}
   is_secret "$_tis_rel"
 }
 # Eval'd by each discovery helper to drop the files test_inventory_secret rejects
@@ -4281,16 +4277,10 @@ $_hh_prefix"*) return 0 ;; esac
 # under_home_root HOME -> 0 when HOME, less ROOT, lies under one of the home
 # roots the image mode lists (/home, /Users, /root, /var/root, /usr/home,
 # /export/home): a daemon account's home (/var/db/..., /var/lib/postgresql) is
-# walked by the catalog but not swept. Reads ROOT, counted off with a mask of
-# one ? per character, as posh reads a quoted parameter inside a pattern as a
-# pattern. Temporaries: _uhr_.
+# walked by the catalog but not swept. Reads ROOT. Temporaries: _uhr_.
 under_home_root() {
   _uhr_rel=$1
-  if [ -n "$ROOT" ]; then
-    _uhr_mask=; while [ "${#_uhr_mask}" -lt "${#ROOT}" ]; do _uhr_mask="$_uhr_mask?"; done
-    _uhr_rest=${1#$_uhr_mask}
-    [ "$ROOT$_uhr_rest" != "$1" ] || _uhr_rel=$_uhr_rest
-  fi
+  [ -z "$ROOT" ] || _uhr_rel=${1#"$ROOT"}
   case "$_uhr_rel" in
     (/home/*|/Users/*|/root|/var/root|/usr/home/*|/export/home/*) return 0 ;;
   esac
