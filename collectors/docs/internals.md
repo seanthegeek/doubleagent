@@ -159,7 +159,8 @@ this order, which keeps the per-file order of the forensic rules:
 
 `set_dest_var` gives every pass its staged path: it sets `dest_rel`, the `fs/...` archive path
 written as `archive_path`, and `dest`, the same path under the staging directory. A file at or
-under `STAGE_FROM` (the in-base link a match ran through, set by `collect_catalog`) is staged
+under `STAGE_FROM` (the in-base link a match ran through, set by `collect_catalog`,
+`record_passed_links` and `collect_hint_file`) is staged
 under `STAGE_TO`, that link's physical path in the base, and any other file under its own path.
 The strips of the root, the home and `STAGE_FROM` use a mask of `?` characters as long as the
 prefix, built once per worker start, because posh reads a quoted parameter inside a pattern as a
@@ -237,8 +238,8 @@ from the first link on, so a match with no link in its path costs no
 process. A link whose target stays inside the base it also reports: `_ret_stage_from`, the
 deepest such link, `_ret_stage_to`, its physical path in the base, and `_ret_stage_links`, every
 such link passed, each recorded once like the out-of-base link (`record_passed_links`,
-`Add-PassedLinks`; a link that already has a manifest row gets no second one) and staged at its
-own physical path. All three are empty when the path meets no in-base link.
+`Add-PassedLinks`; sh also skips a link that already has a manifest row, PowerShell relies on
+its seen set and the claims) and staged at its own physical path. All three are empty when the path meets no in-base link.
 
 ## Claimed paths and case variants
 
