@@ -75,7 +75,8 @@ hand and read them the same way.
 ## Read the assignment in the collected file
 
 Extract the file from the archive. Its path in the archive is
-`fs/<original path>` ([Archive layout in output.md](output.md#archive-layout)),
+`fs/<original path>`, or the physical path under its base for a file reached
+through a symlinked directory ([Archive layout in output.md](output.md#archive-layout)),
 and the log line names the original path and the line number. Look for
 the form that matches the file's shell:
 

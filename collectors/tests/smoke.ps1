@@ -3075,6 +3075,7 @@ $global:LASTEXITCODE = 0
 $patternExit = $LASTEXITCODE
 $patternManifest = Read-ManifestLines (Get-ChildItem -LiteralPath $patternOutput -Filter '*.manifest.jsonl' | Select-Object -First 1).FullName
 Check '#486 an image root holding [ run exit 0' { $patternExit -eq 0 }
+Write-Output 'note: #498 a collected file under an image root holding [ is archived at its path: sh only, posh reads a quoted parameter inside an expansion pattern as a pattern'
 Check '#486 a catalog file under an image root holding [ is collected' { @($patternManifest.rows | Where-Object { $_.path -eq $PatternFile -and $_.status -eq 'collected' }).Count -eq 1 }
 
 # 2026-11-08 a failed copy's removal through a recreated link (#497)
@@ -3103,7 +3104,7 @@ if ($env:OS -ne 'Windows_NT' -and (& id -u) -ne '0') {
   & chmod 644 $lockedPath
   Remove-Item -LiteralPath $lockedPath -Force
   $lockedLog = @(Get-Content -LiteralPath (Get-ChildItem -LiteralPath (Join-Path $Out 'unreadable497') -Filter '*.log' | Select-Object -First 1).FullName)
-  Check '#497 a failed copy inside the staging tree still removes its partial copy' { $lockedRows = RowsAt 'home/dot/.copilot/locked497.json'; @($lockedLog | Where-Object { $_.Contains("copy failed: ${lockedPath}: ") }).Count -eq 1 -and @($lockedLog | Where-Object { $_.Contains('not removed') }).Count -eq 0 -and $lockedRows.Count -eq 1 -and $lockedRows[0].status -eq 'error_copy' -and $lockedRows[0].archive_path -eq '' -and @(ArchiveEntries | Where-Object { $_.EndsWith('/locked497.json') }).Count -eq 0 }
+  Check '#497 a failed copy inside the staging tree gets no not-removed note' { $lockedRows = RowsAt 'home/dot/.copilot/locked497.json'; @($lockedLog | Where-Object { $_.Contains("copy failed: ${lockedPath}: ") }).Count -eq 1 -and @($lockedLog | Where-Object { $_.Contains('not removed') }).Count -eq 0 -and $lockedRows.Count -eq 1 -and $lockedRows[0].status -eq 'error_copy' -and $lockedRows[0].archive_path -eq '' -and @(ArchiveEntries | Where-Object { $_.EndsWith('/locked497.json') }).Count -eq 0 }
 } else { Write-Output 'note: the failed-copy removal check needs an unreadable file on a non-root POSIX host, skipped' }
 
 # ---- -NoSecrets -----------------------------------------------------------

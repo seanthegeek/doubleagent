@@ -164,7 +164,8 @@ the matched path.
 - A link whose target stays inside the home is walked, and its files are
   recorded under the linked path, not the target's. Their `archive_path` is the physical path
   under the home, so `.camel -> dotfiles/camel` gives `fs/home/bob/dotfiles/camel/skills/s1/SKILL.md`
-  and the recreated link `fs/home/bob/.camel` leads to it. The match's log line then ends
+  and the recreated link `fs/home/bob/.camel`, relative, leads to it (an absolute target
+  points at the source host's path). The match's log line then ends
   `(through the symlinked directory <link>, archived under <physical path>)`.
 - Each such link a catalog path or startup file runs through is recorded once as a `symlink`
   row with its target, under the agent of the first entry that reached through it (`shared` for

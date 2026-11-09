@@ -3221,7 +3221,7 @@ expand_catalog() {
 # _ret_stage_to to where BASE physically holds it; all empty when none. A
 # sentinel keeps a final newline of a resolved path, which $(...) would drop;
 # prefixes are counted off, never stripped, since posh reads a quoted
-# parameter inside a pattern as a pattern. Temporaries: _lp_.
+# parameter inside an expansion's pattern as a pattern. Temporaries: _lp_.
 linked_parent() {
   _ret_linked_parent=; _ret_stage_links=; _ret_stage_from=; _ret_stage_to=
   _lp_base=$1/; _lp_rel=$2; _lp_dir=$1; _lp_root=
@@ -3317,9 +3317,9 @@ collect_catalog_match() {
 # BASE, logging HEADER before the first one. Reads INVENTORY and NEWLINE; sets
 # NESTED_CLAIMS while it runs, so a match inside another is collected once,
 # under its own agent. A match under a symlinked directory leading out of BASE
-# is not walked; the link is collected once instead, unless test_claimed_path
-# holds. A match through links inside BASE is staged where BASE physically
-# holds it, each link recorded once (collect_catalog_match). Temporaries: _cc_.
+# is not walked; that link and the links before it are recorded once each,
+# unless claimed (collect_catalog_match). A match through links inside BASE is
+# staged where BASE physically holds it. Temporaries: _cc_.
 collect_catalog() {
   _cc_header=${4:-}; _cc_links=
   _cc_matches=$(expand_catalog "$2" "$3")
@@ -3334,13 +3334,11 @@ collect_catalog() {
     _cc_walk=1
     if linked_parent "$2" "$_cc_match"; then
       if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
-      _cc_link=$_ret_linked_parent
-      _cc_note="under the symlinked directory $_cc_link, which leads out of the base"
-      log_line "  [$_cc_agent] $_cc_match: $_cc_note; not walked"; _cc_match=$_cc_link
+      _cc_note="under the symlinked directory $_ret_linked_parent, which leads out of the base"
+      log_line "  [$_cc_agent] $_cc_match: $_cc_note; not walked"
+      # The escaping link is recorded like the links before it, once and unclaimed.
       # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
-      case "$_cc_links$NEWLINE" in (*"$NEWLINE$_cc_link$NEWLINE"*) _cc_walk=0 ;; esac
-      [ "$_cc_walk" = 0 ] || _cc_links="$_cc_links$NEWLINE$_cc_link"
-      if [ "$_cc_walk" = 1 ] && test_claimed_path "$_cc_link" "$2"; then _cc_walk=0; fi
+      _ret_stage_links="$_ret_stage_links$_ret_linked_parent$NEWLINE"; _cc_walk=0
     else
       if [ "$INVENTORY" = 1 ]; then
         case "$_cc_agent" in shared) continue ;; esac
