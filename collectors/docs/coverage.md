@@ -171,6 +171,12 @@ the matched path.
   a startup file), unless it is claimed as above. On a live macOS host `/etc` is a link to
   `private/etc`, so a system startup file under it that names a relocation variable is
   archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for `/etc`.
+- A project directory whose own path runs through such a link (a project under a linked
+  `~/.pi`) is still archived under its recorded path, through the recreated link: in image
+  mode with a relative target the copies fail and each file gets an `error_copy` row; in live
+  mode with an absolute target the staged path resolves to the source, the copies fail the
+  same way, and the log line ends `staged path resolves outside the staging directory, not
+  removed`, since the collector never removes a file outside the staging directory.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
   `bar|b/sub` names the same files; the copies are identical and the archive holds the file
   once.
