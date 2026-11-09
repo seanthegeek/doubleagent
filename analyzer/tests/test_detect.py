@@ -634,21 +634,33 @@ def test_extract_archive_refuses_other_files(tmp_path):
         raise AssertionError("no InputError")
 
 
-def _home_disk_path_of(tmp_path, home, original, archive_path):
-    """Open a one-row collection and return its only home's `disk_path` relative to the root."""
-    member = tmp_path / archive_path
-    member.parent.mkdir(parents=True)
-    member.write_text("[]", encoding="utf-8")
-    row = {
-        "type": "file",
-        "status": "collected",
-        "user": "bob",
-        "home": home,
-        "path": original,
-        "archive_path": archive_path,
-        "agent": "pi",
-    }
-    (tmp_path / "manifest.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+def _home_disk_path_of(tmp_path, home, original, archive_path, more_rows=(), summary=None):
+    """Open a collection of one home and return its `disk_path` relative to the root.
+
+    The first row is the one given; `more_rows` are further (path, archive_path)
+    pairs of the same home, and `summary` an optional collection.json body.
+    """
+    rows = [(original, archive_path), *more_rows]
+    manifest = []
+    for row_path, row_archive_path in rows:
+        member = tmp_path / row_archive_path
+        member.parent.mkdir(parents=True, exist_ok=True)
+        member.write_text("[]", encoding="utf-8")
+        manifest.append(
+            {
+                "type": "file",
+                "status": "collected",
+                "user": "bob",
+                "home": home,
+                "path": row_path,
+                "archive_path": row_archive_path,
+                "agent": "pi",
+            }
+        )
+    lines = "".join(json.dumps(row) + "\n" for row in manifest)
+    (tmp_path / "manifest.jsonl").write_text(lines, encoding="utf-8")
+    if summary is not None:
+        (tmp_path / "collection.json").write_text(json.dumps(summary), encoding="utf-8")
     collection = open_input(tmp_path, catalog.load())
     assert len(collection.homes) == 1
     return collection.homes[0].disk_path.relative_to(tmp_path).as_posix()
@@ -680,6 +692,42 @@ def test_home_dir_of_a_posix_row_staged_at_its_physical_path(tmp_path):
         "/home/bob",
         "/home/bob/.pi/agent/x",
         "fs/home/bob/dotfiles/pi/agent/x",
+    )
+    assert disk_path == "fs/home/bob"
+
+
+def test_home_dir_of_an_image_home_whose_first_row_is_staged_physically(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "/mnt/img/home/bob",
+        "/mnt/img/home/bob/.pi/agent/x",
+        "fs/home/bob/dotfiles/pi/agent/x",
+        summary={"mode": "image", "root": "/mnt/img"},
+    )
+    assert disk_path == "fs/home/bob"
+
+
+def test_home_dir_of_a_windows_image_home_mounted_on_linux(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "/mnt/img/Users/bob",
+        "/mnt/img/Users/bob/.pi/agent/x",
+        "fs/Users/bob/dotfiles/pi/agent/x",
+        summary={"mode": "image", "root": "/mnt/img/"},
+    )
+    assert disk_path == "fs/Users/bob"
+
+
+def test_home_dir_comes_from_the_first_row_that_ends_with_its_relative_path(tmp_path):
+    """A home whose first row is staged physically takes a later row's directory."""
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "/mnt/img/home/bob",
+        "/mnt/img/home/bob/.pi/agent/x",
+        "fs/home/bob/dotfiles/pi/agent/x",
+        more_rows=[
+            ("/mnt/img/home/bob/.claude/history.jsonl", "fs/home/bob/.claude/history.jsonl")
+        ],
     )
     assert disk_path == "fs/home/bob"
 

@@ -323,7 +323,10 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
         for project in (summary_projects if isinstance(summary_projects, list) else [])
         if project
     }
+    image_root = str((collection.summary or {}).get("root") or "")
     homes: dict[tuple[str, str], Home] = {}
+    # Homes whose directory came from the fallback, until a row names it.
+    provisional: set[tuple[str, str]] = set()
     for row in rows:
         if row.get("status") not in PARSE_STATUSES or row.get("type") != "file":
             continue
@@ -331,15 +334,22 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
         home_original = str(row.get("home") or "")
         key = (user, home_original)
         home = homes.get(key)
+        archive_dir = _archive_dir_from_row(row)
         if home is None:
+            if not archive_dir:
+                archive_dir = _archive_dir_fallback(home_original, image_root)
+                provisional.add(key)
             home = Home(
-                disk_path=root / _archive_dir_for_home(row),
+                disk_path=root / archive_dir,
                 original=home_original,
                 user=user,
                 host=collection.host,
                 project=home_original in projects,
             )
             homes[key] = home
+        elif key in provisional and archive_dir:
+            home.disk_path = root / archive_dir
+            provisional.discard(key)
         original = str(row.get("path") or "")
         archive_path = str(row.get("archive_path") or "")
         rel = _relative_to_home(original, home_original)
@@ -376,21 +386,34 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
     collection.homes = list(homes.values())
 
 
-def _archive_dir_for_home(row: dict) -> str:
+def _archive_dir_from_row(row: dict) -> str:
     """Return `fs/<home>` as the collector laid it out, derived from one manifest row.
 
     Deriving it from a row handles Windows drive-letter layouts
-    (`fs/C/Users/alice`) without guessing.
+    (`fs/C/Users/alice`) without guessing. Returns "" for a row archived at a
+    symlink's physical path, whose `archive_path` does not end with its
+    home-relative path.
     """
     original = str(row.get("path") or "")
     home = str(row.get("home") or "")
-    archive_path = str(row.get("archive_path") or "")
+    archive_path = str(row.get("archive_path") or "").replace("\\", "/")
     rel = _relative_to_home(original, home)
-    if rel and archive_path.replace("\\", "/").endswith(rel):
-        return archive_path.replace("\\", "/")[: -len(rel)].rstrip("/")
-    # A row staged at a link's physical path does not end with its rel; mirror
-    # the collector's layout instead: `C:\Users\bob` is `fs/C/Users/bob`.
+    if rel and archive_path.endswith(rel):
+        return archive_path[: -len(rel)].rstrip("/")
+    return ""
+
+
+def _archive_dir_fallback(home: str, image_root: str) -> str:
+    r"""Return `fs/<home>` as the collector lays it out when no row has shown it.
+
+    The collector archives a path less the `-r` root of an image, and a live
+    Windows path as `fs/<drive letter>/<path>`: `C:\Users\bob` is
+    `fs/C/Users/bob`.
+    """
     posix_home = home.replace("\\", "/")
+    posix_root = image_root.replace("\\", "/").rstrip("/")
+    if posix_root and posix_home.startswith(posix_root + "/"):
+        return "fs/" + posix_home[len(posix_root) + 1 :]
     if len(posix_home) >= 2 and posix_home[1] == ":" and posix_home[0].isalpha():
         return "fs/%s/%s" % (posix_home[0].upper(), posix_home[2:].lstrip("/"))
     return "fs" + posix_home
