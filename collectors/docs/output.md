@@ -113,7 +113,8 @@ zip entries from the PowerShell collector have no prefix and use `/`):
 ```text
 fs/<original path>          collected files and recreated symlinks, mirroring
                             the source filesystem; a path reached through a
-                            symlinked directory inside the home or project directory
+                            symlinked directory inside its base (the home, the project
+                            directory, or the root for a system startup file)
                             is archived where the target holds it; a project whose
                             own path runs through one keeps its recorded path
 manifest.jsonl
@@ -183,7 +184,7 @@ escapes; the parsed values are the same.
 | Status | Meaning |
 | --- | --- |
 | `collected` | Copied, hashed and archived. |
-| `symlink` | A symbolic link (on Windows a symbolic link or junction: a reparse point whose `LinkType` is `SymbolicLink` or `Junction`), recorded with its target and never followed. A link to a directory that a catalog path runs through, whose target leads out of the home or project directory or cannot be resolved, is recorded this way too, under the agent of that catalog line ([coverage.md](coverage.md#paths-through-a-symlinked-directory)). A link to a directory inside the home or project directory that a catalog path or startup file runs through is recorded once as well, under the agent of the first line that reached through it (`shared` for a startup file). A link inside a catalog match that is itself a symlink is recorded by the [nested entry](coverage.md#nested-entries) that reaches it, since the matched link's own row holds no walk. Both collectors recreate the link in the archive with its target as stored. The PowerShell collector cannot where Windows refuses to create it or where the archive is a `.zip`; the row then has no `archive_path` and `error` says why. |
+| `symlink` | A symbolic link (on Windows a symbolic link or junction: a reparse point whose `LinkType` is `SymbolicLink` or `Junction`), recorded with its target and never followed. A link to a directory that a catalog path runs through, whose target leads out of the home or project directory or cannot be resolved, is recorded this way too, under the agent of that catalog line ([coverage.md](coverage.md#paths-through-a-symlinked-directory)). A link to a directory inside its base (the home, the project directory, or the root for a system startup file) that a catalog path or startup file runs through is recorded once as well, under the agent of the first line that reached through it (`shared` for a startup file). A link inside a catalog match that is itself a symlink is recorded by the [nested entry](coverage.md#nested-entries) that reaches it, since the matched link's own row holds no walk. Both collectors recreate the link in the archive with its target as stored. The PowerShell collector cannot where Windows refuses to create it or where the archive is a `.zip`; the row then has no `archive_path` and `error` says why. |
 | `skipped_excluded` | Matched an `EXCLUDES` pattern. An excluded directory is one `dir` row with its total size; an excluded file, found in a walk or matched by a catalog entry itself, is one `file` row with its size. An excluded symlink is not a `symlink` row: it gets the same `file` row, or a `dir` row when it points to a directory. |
 | `skipped_size` | Larger than `--max-file-size`. |
 | `skipped_secret` | A credential file left out by `--no-secrets`. |
