@@ -360,9 +360,10 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
         home_original = str(row.get("home") or "")
         key = (user, home_original)
         row_archive_path = str(row.get("archive_path") or "")
-        if row_archive_path:
+        is_link = row.get("type") == "symlink"
+        # A link's row names the link even with no archive member (a zip archive).
+        if row_archive_path or is_link:
             rel_of_row = _relative_to_home(str(row.get("path") or ""), home_original)
-            is_link = row.get("type") == "symlink"
             archived.setdefault(key, []).append((rel_of_row, row_archive_path, is_link))
         if row.get("status") not in PARSE_STATUSES or row.get("type") != "file":
             continue
@@ -419,8 +420,11 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
     for key, home in homes.items():
         rows_of_home = archived.get(key, [])
         links = {rel for rel, _, is_link in rows_of_home if is_link}
-        for rel, archive_path, _ in rows_of_home:
-            _map_staged_path(home, root, rel, archive_path, links)
+        # Files first: a directory a file's row maps (the target holding the files)
+        # takes precedence over a nested link's own member at that path.
+        for rel, archive_path, _ in sorted(rows_of_home, key=lambda item: item[2]):
+            if archive_path:
+                _map_staged_path(home, root, rel, archive_path, links)
     collection.homes = list(homes.values())
 
 

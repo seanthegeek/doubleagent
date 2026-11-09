@@ -839,6 +839,40 @@ def test_path_of_a_link_named_like_its_target_maps_no_home_directory(tmp_path):
         assert home.path_of(".bashrc") == tmp_path / str(with_link_row) / "fs/home/bob/.bashrc"
 
 
+def test_path_of_a_link_row_without_an_archive_member_still_marks_the_link(tmp_path):
+    """A zip collection records a link with no `archive_path`; the link still bounds the map."""
+    rows = [
+        ("/home/bob/.config/gh", "", "symlink"),
+        (
+            "/home/bob/.config/gh/hosts.yml",
+            "fs/home/bob/dotfiles/.config/gh/hosts.yml",
+            "collected",
+        ),
+        (
+            "/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
+            "fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
+            "collected",
+        ),
+    ]
+    home = _collected_home(tmp_path, "/home/bob", rows)
+    assert sorted(home.staged_paths) == [".config/gh", ".config/gh/hosts.yml"]
+    assert home.path_of(".config/Cursor/User/globalStorage/state.vscdb") == (
+        tmp_path / "fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb"
+    )
+
+
+def test_path_of_a_nested_link_is_the_directory_holding_its_files(tmp_path):
+    """`.config -> dotfiles/.config` and `.config/gh -> ../../credentials/gh`: files win."""
+    rows = [
+        ("/home/bob/.config", "fs/home/bob/.config", "symlink"),
+        ("/home/bob/.config/gh", "fs/home/bob/dotfiles/.config/gh", "symlink"),
+        ("/home/bob/.config/gh/hosts.yml", "fs/home/bob/credentials/gh/hosts.yml", "collected"),
+    ]
+    home = _collected_home(tmp_path, "/home/bob", rows)
+    assert home.path_of(".config/gh") == tmp_path / "fs/home/bob/credentials/gh"
+    assert home.path_of(".config") == tmp_path / "fs/home/bob/dotfiles/.config"
+
+
 def test_path_of_a_link_below_a_real_directory_maps_from_the_link_down(tmp_path):
     """A real `.config` holding `gh -> ../dotfiles/.config/gh` keeps its other children in place."""
     rows = [

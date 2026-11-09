@@ -106,7 +106,10 @@ class LittleCoderTests(ParserBase):
                 )
                 rows.append(row)
         if link:
-            (root / "fs/home/bob/.pi").symlink_to(link)
+            try:
+                (root / "fs/home/bob/.pi").symlink_to(link)
+            except OSError as error:
+                self.skipTest("symlinks not supported here: %s" % error)
         lines = "".join(json.dumps(row) + "\n" for row in rows)
         (root / "manifest.jsonl").write_text(lines, encoding="utf-8")
 

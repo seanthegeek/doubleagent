@@ -3276,6 +3276,7 @@ record_passed_links() {
     [ -L "$_rpl_link" ] || continue
     test_claimed_path "$_rpl_link" "$2" && continue
     json_escape_var "$_rpl_link"
+    # shellcheck disable=SC2154 # _ret_json is set in COMMON, which the main shell evals
     grep -F -q "\"path\":\"$_ret_json\"," "$MANIFEST" && continue
     linked_parent "$2" "$_rpl_link"
     STAGE_FROM=$_ret_stage_from; STAGE_TO=$_ret_stage_to
@@ -3283,15 +3284,18 @@ record_passed_links() {
   done
 }
 
-# collect_catalog_match USER BASE AGENT PATH WALK SEEN: records as AGENT each
-# link inside BASE that linked_parent's last call passed (record_passed_links,
-# from the _ret_stage_ results it reads), then, when WALK is 1, collects PATH
-# staged where BASE physically holds it. Reads INVENTORY; sets STAGE_FROM,
-# STAGE_TO and _ret_links_seen, SEEN plus those links. Temporaries: _ccm_.
+# collect_catalog_match USER BASE AGENT PATH WALK SEEN [LINK]: records as AGENT
+# each link inside BASE that linked_parent's last call passed, and LINK, the one
+# leading out of BASE, after them (record_passed_links, from the _ret_stage_
+# results it reads), then, when WALK is 1, collects PATH staged where BASE
+# physically holds it. Reads INVENTORY and NEWLINE; sets STAGE_FROM, STAGE_TO
+# and _ret_links_seen, SEEN plus those links. Temporaries: _ccm_.
 collect_catalog_match() {
   _ccm_stage_from=$_ret_stage_from; _ccm_stage_to=$_ret_stage_to; _ret_links_seen=$6
-  if [ -n "$_ret_stage_links" ] && [ "$INVENTORY" != 1 ]; then
-    record_passed_links "$1" "$2" "$2" "$3" "$_ret_stage_links" "$6"
+  _ccm_links=$_ret_stage_links
+  [ -z "${7:-}" ] || _ccm_links="$_ccm_links$7$NEWLINE"
+  if [ -n "$_ccm_links" ] && [ "$INVENTORY" != 1 ]; then
+    record_passed_links "$1" "$2" "$2" "$3" "$_ccm_links" "$6"
   fi
   [ "$5" = 1 ] || return 0
   STAGE_FROM=$_ccm_stage_from; STAGE_TO=$_ccm_stage_to
@@ -3316,14 +3320,12 @@ collect_catalog() {
       if [ -n "$_cc_match" ]; then log_line "$_cc_glob|$_cc_match"; else log_line "$_cc_glob"; fi
       continue
     fi
-    _cc_walk=1
+    _cc_walk=1; _cc_link=
     if linked_parent "$2" "$_cc_match"; then
       if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
-      _cc_note="under the symlinked directory $_ret_linked_parent, which leads out of the base"
+      _cc_link=$_ret_linked_parent; _cc_walk=0
+      _cc_note="under the symlinked directory $_cc_link, which leads out of the base"
       log_line "  [$_cc_agent] $_cc_match: $_cc_note; not walked"
-      # The escaping link is recorded like the links before it, once and unclaimed.
-      # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
-      _ret_stage_links="$_ret_stage_links$_ret_linked_parent$NEWLINE"; _cc_walk=0
     else
       if [ "$INVENTORY" = 1 ]; then
         case "$_cc_agent" in shared) continue ;; esac
@@ -3338,7 +3340,7 @@ collect_catalog() {
       fi
       log_line "  [$_cc_agent] $_cc_match$_cc_note"
     fi
-    collect_catalog_match "$1" "$2" "$_cc_agent" "$_cc_match" "$_cc_walk" "$_cc_links"
+    collect_catalog_match "$1" "$2" "$_cc_agent" "$_cc_match" "$_cc_walk" "$_cc_links" "$_cc_link"
     _cc_links=$_ret_links_seen
   done
   NESTED_CLAIMS=; STAGE_FROM=; STAGE_TO=
