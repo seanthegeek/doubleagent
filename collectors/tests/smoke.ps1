@@ -1977,6 +1977,15 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/dotfiles/repos/r1') -Target (ImagePath 'elsewhere/r1-out') -ErrorAction Stop | Out-Null
   $dotLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #488 linked catalog match checks skipped' }
+# The .claude link's absolute target lies inside the image, so the home walk recreates it in
+# the staging tree pointing at the image's dotfiles/claude; the linkproj497 run stages a project
+# file through it onto its own source.
+MakeFile 'home/dot/dotfiles/claude/proj/AGENTS.md' 'x'
+$claudeLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/.claude') -Target (ImagePath 'home/dot/dotfiles/claude') -ErrorAction Stop | Out-Null
+  $claudeLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #497 recreated-link copy checks skipped' }
 
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 # The home's [1] is a class in a pattern: claims and exclusions must still prune under it.
@@ -3067,6 +3076,22 @@ $patternExit = $LASTEXITCODE
 $patternManifest = Read-ManifestLines (Get-ChildItem -LiteralPath $patternOutput -Filter '*.manifest.jsonl' | Select-Object -First 1).FullName
 Check '#486 an image root holding [ run exit 0' { $patternExit -eq 0 }
 Check '#486 a catalog file under an image root holding [ is collected' { @($patternManifest.rows | Where-Object { $_.path -eq $PatternFile -and $_.status -eq 'collected' }).Count -eq 1 }
+
+# 2026-11-08 a failed copy's removal through a recreated link (#497)
+# The project's path runs through home/dot/.claude, which the home walk recreated in the staging
+# tree, so AGENTS.md is staged through that link onto its own source: the destination open fails
+# against the source's read handle and the partial-copy removal must leave the source in place.
+if ($claudeLinkOk) {
+  Run 'linkproj497' @{ Project = (ImagePath 'home/dot/.claude/proj') }
+  $linkProjectLog = @(Get-Content -LiteralPath (Get-ChildItem -LiteralPath (Join-Path $Out 'linkproj497') -Filter '*.log' | Select-Object -First 1).FullName)
+  $linkProjectSource = ExtendedPath (ImagePath 'home/dot/dotfiles/claude/proj/AGENTS.md')
+  Check '#497 a failed copy through a recreated link leaves the source file in place' { [System.IO.File]::Exists($linkProjectSource) -and [System.IO.File]::ReadAllText($linkProjectSource) -ceq 'x' }
+  # Without a recreated link the file is staged under a real directory and copied.
+  $claudeLinkRows = RowsAt 'home/dot/.claude'
+  if ($claudeLinkRows.Count -eq 1 -and $claudeLinkRows[0].status -eq 'symlink' -and $claudeLinkRows[0].error -eq '') {
+    Check '#497 a failed copy through a recreated link is logged as not removed' { $copyFailed = "copy failed: $(ImagePath 'home/dot/.claude/proj/AGENTS.md'): "; $failedRows = RowsAt 'home/dot/.claude/proj/AGENTS.md'; @($linkProjectLog | Where-Object { $_.Contains($copyFailed) -and $_.EndsWith('; staged path resolves outside the staging directory, not removed') }).Count -eq 1 -and $failedRows.Count -eq 1 -and $failedRows[0].status -eq 'error_copy' -and $failedRows[0].archive_path -eq '' }
+  } else { Write-Output 'note: the .claude link was not recreated in the staging tree, #497 not-removed log check skipped' }
+}
 
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
