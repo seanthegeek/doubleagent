@@ -641,6 +641,7 @@ def _home_disk_path_of(tmp_path, home, original, archive_path, more_rows=(), sum
     pairs of the same home, and `summary` an optional collection.json body.
     """
     rows = [(original, archive_path), *more_rows]
+    tmp_path.mkdir(parents=True, exist_ok=True)
     manifest = []
     for row_path, row_archive_path in rows:
         member = tmp_path / row_archive_path
@@ -716,6 +717,19 @@ def test_home_dir_of_a_windows_image_home_mounted_on_linux(tmp_path):
         summary={"mode": "image", "root": "/mnt/img/"},
     )
     assert disk_path == "fs/Users/bob"
+
+
+def test_home_dir_of_a_stow_style_link_is_not_the_target_directory(tmp_path):
+    """A physical path that ends with the relative path below another directory is not the home."""
+    for summary in ({"mode": "live", "root": "/"}, None):
+        disk_path = _home_disk_path_of(
+            tmp_path / ("with" if summary else "without"),
+            "/home/bob",
+            "/home/bob/.config/gh/hosts.yml",
+            "fs/home/bob/dotfiles/.config/gh/hosts.yml",
+            summary=summary,
+        )
+        assert disk_path == "fs/home/bob", summary
 
 
 def test_home_dir_comes_from_the_first_row_that_ends_with_its_relative_path(tmp_path):

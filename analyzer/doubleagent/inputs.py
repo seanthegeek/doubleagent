@@ -390,16 +390,25 @@ def _archive_dir_from_row(row: dict) -> str:
     """Return `fs/<home>` as the collector laid it out, derived from one manifest row.
 
     Deriving it from a row handles Windows drive-letter layouts
-    (`fs/C/Users/alice`) without guessing. Returns "" for a row archived at a
-    symlink's physical path, whose `archive_path` does not end with its
-    home-relative path.
+    (`fs/C/Users/alice`) and image roots without guessing. Returns "" for a
+    row archived at a symlink's physical path: its `archive_path` does not
+    end with its home-relative path, or ends with it below another directory
+    (`.config -> dotfiles/.config`), so the directory is accepted only when it
+    is `fs` plus the home less a leading root, or the home's drive form.
     """
     original = str(row.get("path") or "")
     home = str(row.get("home") or "")
     archive_path = str(row.get("archive_path") or "").replace("\\", "/")
     rel = _relative_to_home(original, home)
-    if rel and archive_path.endswith(rel):
-        return archive_path[: -len(rel)].rstrip("/")
+    if not rel or not archive_path.endswith("/" + rel):
+        return ""
+    archive_dir = archive_path[: -len(rel) - 1]
+    posix_home = home.replace("\\", "/")
+    if archive_dir == _archive_dir_fallback(home, ""):
+        return archive_dir
+    tail = archive_dir[len("fs") :]
+    if archive_dir.startswith("fs/") and posix_home.endswith(tail):
+        return archive_dir
     return ""
 
 
