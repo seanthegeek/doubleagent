@@ -44,6 +44,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Gemini CLI: a `tool_result` row of a call whose `result` holds a `functionResponse` with the call's `id` (a history sync rewrites `result` to every part of the answering turn) holds that response's text and its media only, where it repeated the turn's steering text and the other calls' responses. A `result` with no such response keeps every part's text. A media part of a `result` reads `[inlineData <mimeType>]` or `[fileData <fileUri>]`, as one in a `user` message does, where it read its JSON, data included. This changes `timeline.jsonl`: those `tool_result` texts differ ([#444]).
 - A collection whose home is a Windows drive path (`C:\Users\bob`) is read from `fs/C/Users/bob` when the home's first manifest row is archived at a symlink's physical path, so its `archive_path` does not end with its home-relative path; the analyzer looked for `fsC:/Users/bob` there, and for `fs/mnt/img/home/bob` under an image mounted at `/mnt/img`. The directory now comes from the first row of the home archived under it, and otherwise from the home less the root `collection.json` records, with a lower-case drive letter upper-cased as the collector writes it ([#501]).
 - The pi, little-coder, Letta, Gemini CLI, Cursor, Copilot CLI and Claude Desktop parsers find a sibling file or directory the collector archived at a symlinked directory's physical path (`fs/home/bob/dotfiles/pi/...` for `~/.pi -> dotfiles/pi`): they looked for it below the home's directory in the archive, through the recreated link, which a zip archive does not hold and an absolute link points out of. Each lookup now goes through the manifest's `archive_path` ([#500]).
+- The map behind those lookups, from a home-relative path to where the archive holds it, moved a real directory to a symlinked directory's target when a link below it had no `symlink` row of its own: `.copilot/repos -> ../dotfiles/repos` is an excluded directory with a `skipped_excluded` row, so the link `.copilot/repos/r1` archived at `fs/home/dot/dotfiles/repos/r1` sent every other file under the real `.copilot` to `fs/home/dot/dotfiles/`. The map now stops below a directory another row shows archived at its own path ([#506]).
 
 ## [0.23.0] - 2026-10-31
 
@@ -2209,6 +2210,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#506]: https://github.com/seanthegeek/doubleagent/issues/506
 [#501]: https://github.com/seanthegeek/doubleagent/issues/501
 [#500]: https://github.com/seanthegeek/doubleagent/issues/500
 [#454]: https://github.com/seanthegeek/doubleagent/issues/454

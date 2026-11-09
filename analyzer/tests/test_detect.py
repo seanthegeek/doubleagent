@@ -896,6 +896,29 @@ def test_path_of_a_link_below_a_real_directory_maps_from_the_link_down(tmp_path)
     )
 
 
+def test_path_of_a_link_below_an_excluded_link_leaves_the_real_directory_in_place(tmp_path):
+    """A real `.copilot` holding the excluded link `repos -> ../dotfiles/repos`, itself holding a link.
+
+    The excluded link has no `symlink` row, so the link below it is bounded by the rows
+    archived in place under `.copilot`, never by a row of the link it runs through.
+    """
+    rows = [
+        ("/home/dot/.copilot/logs", "fs/home/dot/.copilot/logs", "symlink"),
+        ("/home/dot/.copilot/repos/r1", "fs/home/dot/dotfiles/repos/r1", "symlink"),
+        (
+            "/home/dot/.copilot/session-state/s1/workspace.yaml",
+            "fs/home/dot/.copilot/session-state/s1/workspace.yaml",
+            "collected",
+        ),
+    ]
+    home = _collected_home(tmp_path, "/home/dot", rows)
+    assert sorted(home.staged_paths) == [".copilot/repos", ".copilot/repos/r1"]
+    assert home.path_of(".copilot/repos") == tmp_path / "fs/home/dot/dotfiles/repos"
+    assert home.path_of(".copilot/session-state/s1/workspace.yaml") == (
+        tmp_path / "fs/home/dot/.copilot/session-state/s1/workspace.yaml"
+    )
+
+
 def test_path_of_a_windows_home_staged_physically(tmp_path):
     rows = [
         ("C:\\Users\\bob\\.claude\\x", "fs/C/Users/bob/.claude/x", "collected"),

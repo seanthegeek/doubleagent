@@ -420,26 +420,45 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
     for key, home in homes.items():
         rows_of_home = archived.get(key, [])
         links = {rel for rel, _, is_link in rows_of_home if is_link}
+        # A row archived in place shows every directory above it to be real, one
+        # the mapping never moves (a real `.copilot` holding an excluded link).
+        in_place: set[str] = set()
+        for rel, archive_path, _ in rows_of_home:
+            if archive_path and _archived_in_place(home, root, rel, archive_path):
+                parts = rel.split("/")
+                in_place.update("/".join(parts[:depth]) for depth in range(1, len(parts)))
         # Files first: a directory a file's row maps (the target holding the files)
         # takes precedence over a nested link's own member at that path.
         for rel, archive_path, _ in sorted(rows_of_home, key=lambda item: item[2]):
             if archive_path:
-                _map_staged_path(home, root, rel, archive_path, links)
+                _map_staged_path(home, root, rel, archive_path, links, in_place)
     collection.homes = list(homes.values())
 
 
-def _map_staged_path(home: Home, root: Path, rel: str, archive_path: str, links: set[str]) -> None:
+def _archive_parts(archive_path: str) -> list[str]:
+    return [part for part in archive_path.replace("\\", "/").split("/") if part]
+
+
+def _archived_in_place(home: Home, root: Path, rel: str, archive_path: str) -> bool:
+    rel_parts = [part for part in rel.split("/") if part]
+    return root.joinpath(*_archive_parts(archive_path)) == home.disk_path.joinpath(*rel_parts)
+
+
+def _map_staged_path(
+    home: Home, root: Path, rel: str, archive_path: str, links: set[str], in_place: set[str]
+) -> None:
     """Record in `home.staged_paths` a row archived away from `home.disk_path / rel`.
 
     The file and each directory above it down to the symlinked directory that
     moved it (`.pi` for `fs/home/bob/dotfiles/pi/...`) map to their place in the
     archive. That directory is the deepest ancestor of `rel` among `links`, the
-    home's `symlink` rows; without one, the components are matched from the
-    right while equal, which can reach a real directory of the same name.
+    home's `symlink` rows; without one (an excluded link has none), the
+    components are matched from the right while equal, and the walk stops below
+    a directory in `in_place`, one another row shows archived at its own path.
     """
     rel_parts = [part for part in rel.split("/") if part]
-    archive_parts = [part for part in archive_path.replace("\\", "/").split("/") if part]
-    if not rel_parts or root.joinpath(*archive_parts) == home.disk_path.joinpath(*rel_parts):
+    archive_parts = _archive_parts(archive_path)
+    if not rel_parts or _archived_in_place(home, root, rel, archive_path):
         return
     equal = 0
     while (
@@ -450,8 +469,12 @@ def _map_staged_path(home: Home, root: Path, rel: str, archive_path: str, links:
         equal += 1
     depth_limit = min(equal, len(rel_parts) - 1)
     for depth in range(1, len(rel_parts)):
-        if "/".join(rel_parts[: len(rel_parts) - depth]) in links:
+        ancestor = "/".join(rel_parts[: len(rel_parts) - depth])
+        if ancestor in links:
             depth_limit = min(depth_limit, depth)
+            break
+        if ancestor in in_place:
+            depth_limit = min(depth_limit, depth - 1)
             break
     for depth in range(depth_limit + 1):
         home.staged_paths.setdefault(
