@@ -2757,6 +2757,8 @@ _saved_root_pattern=$ROOT; ROOT=$PATTERN_ROOT
 run root486 --no-docker --no-projects; _exit_pattern_root=$?
 check "#486 an image root holding [ run exit 0" "[ $_exit_pattern_root -eq 0 ]"
 check "#486 a catalog file under an image root holding [ is collected" "[ \"\$(status_of \"$PATTERN_ROOT/home/carol/.gemini/projects.json\")\" = collected ]"
+# 2026-11-08 the stage worker's root and home strips under posh (#498)
+check "#498 a collected file under an image root holding [ is archived at its path" "row \"$PATTERN_ROOT/home/carol/.gemini/projects.json\" | contains -F '\"archive_path\":\"fs/home/carol/.gemini/projects.json\",' && tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/carol/.gemini/projects.json'"
 ROOT=$_saved_root_pattern
 
 # ---- --no-secrets ---------------------------------------------------------
