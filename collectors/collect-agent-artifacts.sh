@@ -2767,6 +2767,19 @@ define_secret_test
 if [ "${CAC_NO_BATCH:-0}" = 1 ]; then batch=0; else batch=1; fi
 batch_stat=$batch; batch_copy=$batch; batch_hash=$batch
 last_mkdir_dir=
+# set_dest_var PATH: sets dest_rel to PATH's archive member, fs and PATH less
+# the root, with a leading STAGE_FROM replaced by STAGE_TO, and dest to its
+# staging path, so no path is staged through a link recreated in the staging
+# tree. Reads root, stage_dir, STAGE_FROM, STAGE_TO.
+set_dest_var() {
+  dest_rel=$1
+  if [ -n "${STAGE_FROM:-}" ]; then
+    case "$1" in
+      ("$STAGE_FROM" | "$STAGE_FROM"/*) dest_rel=$STAGE_TO${1#"$STAGE_FROM"} ;;
+    esac
+  fi
+  dest_rel=fs${dest_rel#"$root"}; dest="$stage_dir/$dest_rel"
+}
 # lstat_chunk: pass 1, before anything is copied. Reads path_N; sets stat_N.
 lstat_chunk() {
   stat_batch_ok=0
@@ -2797,7 +2810,7 @@ lstat_chunk() {
 plan_chunk() {
   set --
   i=1; while [ "$i" -le "$chunk_size" ]; do
-    eval "path=\$path_$i"; dest_dir="$stage_dir/fs${path#"$root"}"; dest_dir=${dest_dir%/*}
+    eval "path=\$path_$i"; set_dest_var "$path"; dest_dir=${dest%/*}
     if [ "$dest_dir" != "$last_mkdir_dir" ]; then
       set -- "$@" "$dest_dir"; last_mkdir_dir=$dest_dir
     fi
@@ -2821,7 +2834,7 @@ plan_chunk() {
         whole_target=$(readlink -n "$path" 2>/dev/null; printf x); whole_target=${whole_target%x}
         [ -z "$whole_target" ] || target=$whole_target
       fi
-      ln -s "$target" "$stage_dir/fs${path#"$root"}" 2>/dev/null
+      set_dest_var "$path"; ln -s "$target" "$dest" 2>/dev/null
     elif [ -e "$path" ] && [ ! -f "$path" ]; then
       status=skipped_special
       if [ -S "$path" ]; then type=socket
@@ -2862,7 +2875,7 @@ copy_run() {
     if [ "$status" = copy ] && [ "$copy_batch_ok" = 1 ]; then
       eval "status_$j=collected"
     elif [ "$status" = copy ]; then
-      eval "path=\$path_$j"; dest="$stage_dir/fs${path#"$root"}"
+      eval "path=\$path_$j"; set_dest_var "$path"
       if copy_error=$(cp -p "$path" "$dest" 2>&1); then
         status=collected
       else
@@ -2882,7 +2895,7 @@ copy_chunk() {
   i=1; while [ "$i" -le "$chunk_size" ]; do
     eval "status=\$status_$i"
     if [ "$status" = copy ]; then
-      eval "path=\$path_$i"; dest_dir="$stage_dir/fs${path#"$root"}"; dest_dir=${dest_dir%/*}
+      eval "path=\$path_$i"; set_dest_var "$path"; dest_dir=${dest%/*}
       if [ "$run_start" -gt 0 ] && [ "$dest_dir" != "$run_dir" ]; then
         copy_run "$run_start" "$run_end" "$run_dir"; run_start=0
       fi
@@ -2902,7 +2915,7 @@ hash_chunk() {
     i=1; while [ "$i" -le "$chunk_size" ]; do
       eval "status=\$status_$i; path=\$path_$i"
       if [ "$status" = collected ]; then
-        dest="$stage_dir/fs${path#"$root"}"
+        set_dest_var "$path"
         case "$dest" in
           *\\* | *"$NEWLINE"* | *"$CARRIAGE_RETURN"*) ;;
           *) set -- "$@" "$dest" ;;
@@ -2919,7 +2932,7 @@ hash_chunk() {
   i=1; while [ "$i" -le "$chunk_size" ]; do
     eval "status=\$status_$i; path=\$path_$i"
     if [ "$status" = collected ]; then
-      dest="$stage_dir/fs${path#"$root"}"
+      set_dest_var "$path"
       if [ "$#" -gt 0 ] && hash_match "$1" "$dest"; then
         sha256=$_ret_hash; shift
       else
@@ -2939,7 +2952,7 @@ write_chunk_rows() {
     [ -n "$stat_line" ] || stat_line='0 0 0 0 0 0 0 0'
     set -- $stat_line
     case "$status" in
-      collected | symlink) archive_path="fs${path#"$root"}" ;;
+      collected | symlink) set_dest_var "$path"; archive_path=$dest_rel ;;
       *) archive_path= ;;
     esac
     write_manifest_row "$manifest" "$user" "$home" "$agent" "$path" "$archive_path" "$type" \
@@ -3167,14 +3180,16 @@ expand_catalog() {
 
 # linked_parent BASE PATH: true when a symlinked directory between BASE and
 # PATH, which the shell's glob followed, leads outside BASE (/ when BASE is
-# empty) once its chain of links is resolved, or cannot be resolved; sets
-# _ret_linked_parent to the first such directory, empty when there is none.
-# BASE is resolved only once a link is met; a sentinel keeps a final newline
-# of a resolved path, which $(...) would drop. PATH's leading components are
-# counted off against BASE's, since posh does not strip a quoted parameter
-# inside a pattern. Temporaries: _lp_.
+# empty) once resolved, or cannot be resolved; sets _ret_linked_parent to the
+# first such directory. Of the links met before it that stay inside BASE, sets
+# _ret_stage_links to each, one per line, _ret_stage_from to the deepest and
+# _ret_stage_to to where BASE physically holds it; all empty when none. A
+# sentinel keeps a final newline of a resolved path, which $(...) would drop;
+# prefixes are counted off, never stripped, since posh reads a quoted
+# parameter inside a pattern as a pattern. Temporaries: _lp_.
 linked_parent() {
-  _ret_linked_parent=; _lp_base=$1/; _lp_rel=$2; _lp_dir=$1; _lp_root=
+  _ret_linked_parent=; _ret_stage_links=; _ret_stage_from=; _ret_stage_to=
+  _lp_base=$1/; _lp_rel=$2; _lp_dir=$1; _lp_root=
   while [ "${_lp_base#*/}" != "$_lp_base" ]; do
     _lp_base=${_lp_base#*/}; _lp_rel=${_lp_rel#*/}
   done
@@ -3189,22 +3204,63 @@ linked_parent() {
     _lp_real=$(cd -P "$_lp_dir" 2>/dev/null && pwd -P && printf x) || return 0
     _lp_real=${_lp_real%x}; _lp_real=${_lp_real%?}
     case "$_lp_real/" in ("$_lp_root"*) ;; (*) return 0 ;; esac
+    _lp_rest=$_lp_real/; _lp_count=${#_lp_root}
+    while [ "$_lp_count" -gt 0 ]; do _lp_rest=${_lp_rest#?}; _lp_count=$((_lp_count - 1)); done
+    _ret_stage_from=$_lp_dir; _ret_stage_to=$1/${_lp_rest%/}; _ret_stage_to=${_ret_stage_to%/}
+    _ret_stage_links="$_ret_stage_links$_lp_dir$NEWLINE"
   done
   _ret_linked_parent=
   return 1
 }
 
-# test_claimed_path PATH BASE: true when PATH, under BASE, is or lies under a
-# path of NESTED_CLAIMS, whose own walk records it. Reads NESTED_CLAIMS and
-# NEWLINE. Temporaries: _tcp_.
+# physical_path_var PATH FROM TO: sets _ret_physical_path to PATH with its
+# leading FROM replaced by TO, or to PATH when FROM is empty. FROM is counted
+# off, as in linked_parent. Temporaries: _ppv_.
+physical_path_var() {
+  _ret_physical_path=$1
+  [ -n "$2" ] || return 0
+  _ppv_count=${#2}
+  while [ "$_ppv_count" -gt 0 ]; do
+    _ret_physical_path=${_ret_physical_path#?}; _ppv_count=$((_ppv_count - 1))
+  done
+  _ret_physical_path=$3$_ret_physical_path
+}
+
+# test_claimed_path PATH BASE: true when PATH, under BASE, is a path of
+# NESTED_CLAIMS or lies under one through real directories only, so that
+# claim's own walk records it: find never descends a symlinked directory.
+# Reads NESTED_CLAIMS and NEWLINE. Temporaries: _tcp_.
 test_claimed_path() {
   _tcp_path=$1
   # shellcheck disable=SC2154 # NEWLINE is set in COMMON, which the main shell evals
   while [ "${#_tcp_path}" -gt "${#2}" ]; do
     case "$NEWLINE$NESTED_CLAIMS$NEWLINE" in (*"$NEWLINE$_tcp_path$NEWLINE"*) return 0 ;; esac
     _tcp_path=${_tcp_path%/*}
+    [ ! -L "$_tcp_path" ] || return 1
   done
   return 1
+}
+
+# record_passed_links USER BASE HOME AGENT LINKS SEEN: collects each symlinked
+# directory of LINKS (one per line, under BASE) that is not in SEEN, not
+# claimed (test_claimed_path) and without a manifest row, as an AGENT symlink
+# row of HOME staged where BASE physically holds it; sets _ret_links_seen to
+# SEEN plus LINKS, one per line after a newline. Reads MANIFEST and NEWLINE;
+# sets STAGE_FROM and STAGE_TO. Temporaries: _rpl_.
+record_passed_links() {
+  _rpl_rest=$5; _ret_links_seen=$6
+  while [ -n "$_rpl_rest" ]; do
+    _rpl_link=${_rpl_rest%%"$NEWLINE"*}; _rpl_rest=${_rpl_rest#*"$NEWLINE"}
+    case "$_ret_links_seen$NEWLINE" in (*"$NEWLINE$_rpl_link$NEWLINE"*) continue ;; esac
+    _ret_links_seen="$_ret_links_seen$NEWLINE$_rpl_link"
+    [ -L "$_rpl_link" ] || continue
+    test_claimed_path "$_rpl_link" "$2" && continue
+    json_escape_var "$_rpl_link"
+    grep -F -q "\"path\":\"$_ret_json\"," "$MANIFEST" && continue
+    linked_parent "$2" "$_rpl_link"
+    STAGE_FROM=$_ret_stage_from; STAGE_TO=$_ret_stage_to
+    collect_path "$1" "$3" "$4" "$_rpl_link" </dev/null
+  done
 }
 
 # collect_catalog USER BASE TABLE [HEADER]: collects every match of TABLE under
@@ -3212,7 +3268,9 @@ test_claimed_path() {
 # NESTED_CLAIMS while it runs, so a match inside another is collected once,
 # under its own agent. A match under a symlinked directory leading out of BASE
 # is not walked; the link is collected once instead, unless test_claimed_path
-# holds. Temporaries: _cc_.
+# holds. A match through links inside BASE is staged where BASE physically
+# holds it, each link recorded once (record_passed_links). Sets STAGE_FROM and
+# STAGE_TO for each collect_path. Temporaries: _cc_.
 collect_catalog() {
   _cc_header=${4:-}; _cc_links=
   _cc_matches=$(expand_catalog "$2" "$3")
@@ -3233,18 +3291,30 @@ collect_catalog() {
       case "$_cc_links$NEWLINE" in (*"$NEWLINE$_cc_link$NEWLINE"*) continue ;; esac
       _cc_links="$_cc_links$NEWLINE$_cc_link"
       test_claimed_path "$_cc_link" "$2" && continue
-      collect_path "$1" "$2" "$_cc_agent" "$_cc_link" </dev/null
-      continue
+      linked_parent "$2" "$_cc_link"; _cc_match=$_cc_link
+    else
+      if [ "$INVENTORY" = 1 ]; then
+        case "$_cc_agent" in shared) continue ;; esac
+        printf 'M|%s|%s\n' "$_cc_agent" "$_cc_glob"
+      fi
+      if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
+      _cc_note=
+      if [ -n "$_ret_stage_from" ]; then
+        physical_path_var "$_cc_match" "$_ret_stage_from" "$_ret_stage_to"
+        _cc_note=" (through the symlinked directory $_ret_stage_from, archived under"
+        _cc_note="$_cc_note $_ret_physical_path)"
+      fi
+      log_line "  [$_cc_agent] $_cc_match$_cc_note"
     fi
-    if [ "$INVENTORY" = 1 ]; then
-      case "$_cc_agent" in shared) continue ;; esac
-      printf 'M|%s|%s\n' "$_cc_agent" "$_cc_glob"
+    _cc_stage_from=$_ret_stage_from; _cc_stage_to=$_ret_stage_to
+    if [ -n "$_ret_stage_links" ] && [ "$INVENTORY" != 1 ]; then
+      record_passed_links "$1" "$2" "$2" "$_cc_agent" "$_ret_stage_links" "$_cc_links"
+      _cc_links=$_ret_links_seen
     fi
-    if [ -n "$_cc_header" ]; then log_line "$_cc_header"; _cc_header=; fi
-    log_line "  [$_cc_agent] $_cc_match"
+    STAGE_FROM=$_cc_stage_from; STAGE_TO=$_cc_stage_to
     collect_path "$1" "$2" "$_cc_agent" "$_cc_match" </dev/null
   done
-  NESTED_CLAIMS=
+  NESTED_CLAIMS=; STAGE_FROM=; STAGE_TO=
 }
 
 # test_excluded HOME PATH: true when PATH matches HOME/GLOB for a glob of
@@ -4130,10 +4200,22 @@ $_rh_record"
 # unless the manifest already has its row (a catalog match). Reads MANIFEST,
 # STAGE, ROOT, WORKER_SH. The stage worker runs with SECRET_PATTERN '*', so
 # --no-secrets, the size cap and special files apply as to a catalog match.
+# A file through links inside its base (HOME, or ROOT for a system file, whose
+# HOME is empty) is staged where the base physically holds it, each link
+# recorded once as agent shared (record_passed_links). Sets and clears
+# STAGE_FROM and STAGE_TO. Temporaries: _chf_.
 collect_hint_file() {
   if grep -F -q "\"path\":\"$(json_escape "$3")\"" "$MANIFEST"; then return 0; fi
+  _chf_stage_from=; _chf_stage_to=
+  if ! linked_parent "${2:-$ROOT}" "$3"; then
+    _chf_stage_from=$_ret_stage_from; _chf_stage_to=$_ret_stage_to
+    [ -z "$_ret_stage_links" ] ||
+      record_passed_links "$1" "${2:-$ROOT}" "$2" shared "$_ret_stage_links" ""
+  fi
+  STAGE_FROM=$_chf_stage_from; STAGE_TO=$_chf_stage_to
   SECRET_PATTERN='*' "$WORKER_SH" -c "$STAGE_FILES_WORKER" sh "$STAGE" "$ROOT" "$1" "$2" \
     shared "$MANIFEST" "$3" </dev/null
+  STAGE_FROM=; STAGE_TO=
 }
 
 # holds_home BASE -> 0 when a USER_LIST home is BASE or lies under it: a project
@@ -4755,21 +4837,23 @@ define_secret_test
 set_output_names
 # exported for the worker programs
 export HASH_TOOL STAT_MODE MAX_SIZE SECRET_PATTERN NO_SECRETS LOG QUIET GREP_TEXT
-export TAB_AND_CARRIAGE_RETURN
+export TAB_AND_CARRIAGE_RETURN STAGE_FROM STAGE_TO
 trap 'cleanup' EXIT
 trap 'log_line "interrupted"; cleanup; trap - EXIT; exit 130' INT TERM
 create_output_files
 if [ "$FULL" = 1 ]; then ACTIVE_EXCLUDES=; else ACTIVE_EXCLUDES=$EXCLUDES; fi
 log_start
 
-# Globals the steps fill. NESTED_CLAIMS and the EXCLUDE_WORDS pair are cleared
-# so no walk prunes paths an inherited environment variable named.
+# Globals the steps fill. NESTED_CLAIMS and the EXCLUDE_WORDS and STAGE_FROM
+# pairs are cleared so no walk prunes or moves paths an inherited environment
+# variable named.
 NOTES=
 DOCKER_SEEN=0; DOCKER_FOUND=0; DOCKER_COLLECTED=0; DOCKER_UNREADABLE=0; DOCKER_DESKTOP=0
 DOCKER_INV=
 PROJECT_LIST=
 NESTED_CLAIMS=
 EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=
+STAGE_FROM=; STAGE_TO=
 RELOCATION_HINTS=; RELOCATION_FILES_SEARCHED=0; RELOCATION_FILES_SKIPPED_SIZE=0; HINT_HEADER=
 
 USER_LIST=$(get_user_homes)

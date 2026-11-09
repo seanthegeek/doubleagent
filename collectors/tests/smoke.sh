@@ -2024,6 +2024,30 @@ ln -s ../opt/escape "$ROOT/srv/dotlink"
 printf 'frank:x:1003:1003::/srv/dotlink/../frank:/bin/sh\n' >>"$ROOT/etc/passwd"
 printf 'x\n' >"$BOB/dotfiles/camel/skills/s1/SKILL.md"
 ln -s dotfiles/camel "$BOB/.camel"
+# 2026-11-08 links under a linked catalog match (#488)
+# A home whose agent directories are links into dotfiles: a link leading out
+# of the home under the linked .pi is recorded under the nested entry's agent;
+# antigravity's files under the linked .gemini are staged where the target
+# holds them, so the order the links and files are staged in does not matter
+# (the tables list each outer entry first, the only order they can reach); a
+# link the walk of the real .copilot records gets no second row; and a link
+# under the linked .copilot/repos is recorded. .copilot/repos is an EXCLUDES
+# glob, so the link itself is one skipped_excluded row, never a symlink row.
+DOT_HOME="$ROOT/home/dot"
+mkdir -p "$DOT_HOME/dotfiles/pi" "$DOT_HOME/dotfiles/gemini/antigravity-cli/conversations" \
+  "$DOT_HOME/dotfiles/repos" "$DOT_HOME/.copilot" "$ROOT/opt/agent-out" "$ROOT/opt/logs-out" \
+  "$ROOT/opt/r1-out/.git"
+ln -s dotfiles/pi "$DOT_HOME/.pi"
+ln -s ../../../../opt/agent-out "$DOT_HOME/dotfiles/pi/agent"
+printf '[]\n' >"$ROOT/opt/agent-out/little-coder-prompt-history.json"
+ln -s dotfiles/gemini "$DOT_HOME/.gemini"
+printf '{}\n' >"$DOT_HOME/dotfiles/gemini/settings.json"
+printf 'x\n' >"$DOT_HOME/dotfiles/gemini/antigravity-cli/conversations/dot.db"
+ln -s ../../../opt/logs-out "$DOT_HOME/.copilot/logs"
+printf 'log\n' >"$ROOT/opt/logs-out/github-app.1.log"
+ln -s ../dotfiles/repos "$DOT_HOME/.copilot/repos"
+ln -s ../../../../opt/r1-out "$DOT_HOME/dotfiles/repos/r1"
+printf 'ref: refs/heads/main\n' >"$ROOT/opt/r1-out/.git/HEAD"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 # The home's [1] is a class in a find -path pattern: claims and exclusions must
 # still prune under it.
@@ -2731,7 +2755,20 @@ check "#467 a link to a sibling named like the home plus a newline leads out of 
 check "#467 a link target whose .. follows a link out of the home leads out of the home" "! grep -qF '\"path\":\"$ROOT/home/u1/.cache/' \"\$MANIFEST\" && row \"$ROOT/home/u1/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\"'"
 check "#467 a symlinked directory that is itself a match has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.pi\" | contains '\"agent\":\"pi\".*\"status\":\"symlink\"' && [ -z \"\$(row \"$BOB/.pi/agent/little-coder-prompt-history.json\")\" ] && grep -qF '[little-coder] $BOB/.pi/agent/little-coder-prompt-history.json: under the symlinked directory $BOB/.pi, which leads out of the base; not walked' \"$RELOCATION_LOG\""
 check "#467 a passwd home with a .. after a link is expanded where its files are" "row \"$ROOT/srv/dotlink/../frank/.gemini/settings.json\" | contains '\"user\":\"frank\".*\"status\":\"collected\"'"
-check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"'"
+check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"' && row \"$BOB/.camel/skills/s1/SKILL.md\" | contains -F '\"archive_path\":\"fs/Users/bob/dotfiles/camel/skills/s1/SKILL.md\",'"
+# 2026-11-08 links under a linked catalog match (#488)
+check "#488 the linked match keeps its one row" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.pi\" | contains -F '\"agent\":\"pi\",\"path\":\"$DOT_HOME/.pi\",\"archive_path\":\"fs/home/dot/.pi\",' && row \"$DOT_HOME/.pi\" | contains -F '\"status\":\"symlink\"'"
+check "#488 the link inside a linked match is recorded under the nested entry's agent" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.pi/agent\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.pi/agent\" | contains -F '\"agent\":\"little-coder\",\"path\":\"$DOT_HOME/.pi/agent\",\"archive_path\":\"fs/home/dot/dotfiles/pi/agent\",' && row \"$DOT_HOME/.pi/agent\" | contains -F '\"status\":\"symlink\",\"target\":\"../../../../opt/agent-out\"'"
+check "#488 nothing under the escaping link is recorded" "! grep -qF '\"path\":\"$DOT_HOME/.pi/agent/' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$ROOT/opt/agent-out' \"\$MANIFEST\" && grep -qF '[little-coder] $DOT_HOME/.pi/agent/little-coder-prompt-history.json: under the symlinked directory $DOT_HOME/.pi/agent, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#488 the link is recreated at its physical path" "tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/dot/dotfiles/pi/agent' && ! tar -tzf \"\$ARCHIVE\" | contains '^\\./fs/home/dot/\\.pi/' && tar -tzvf \"\$ARCHIVE\" | contains -F 'dotfiles/pi/agent -> ../../../../opt/agent-out'"
+check "#488 the linked outer match has one row" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.gemini\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.gemini\" | contains -F '\"agent\":\"gemini-cli\",' && row \"$DOT_HOME/.gemini\" | contains -F '\"status\":\"symlink\"'"
+check "#488 files under a link inside the home are staged where the target holds them" "row \"$DOT_HOME/.gemini/antigravity-cli/conversations/dot.db\" | contains -F '\"agent\":\"antigravity\",\"path\":\"$DOT_HOME/.gemini/antigravity-cli/conversations/dot.db\",\"archive_path\":\"fs/home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db\",' && row \"$DOT_HOME/.gemini/antigravity-cli/conversations/dot.db\" | contains -F '\"status\":\"collected\"' && tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db' && ! tar -tzf \"\$ARCHIVE\" | contains '^\\./fs/home/dot/\\.gemini/' && ! grep -qF '\"path\":\"$DOT_HOME/.gemini/settings.json\"' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$DOT_HOME/dotfiles/gemini/settings.json\"' \"\$MANIFEST\""
+check "#488 the log says where a match through a link inside the home is archived" "grep -qF '[antigravity] $DOT_HOME/.gemini/antigravity-cli (through the symlinked directory $DOT_HOME/.gemini, archived under $DOT_HOME/dotfiles/gemini/antigravity-cli)' \"$RELOCATION_LOG\""
+check "#488 a link the claim's walk records is not recorded twice" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.copilot/logs\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.copilot/logs\" | contains -F '\"agent\":\"copilot-cli\",' && row \"$DOT_HOME/.copilot/logs\" | contains -F '\"status\":\"symlink\"' && ! grep -qF '\"path\":\"$DOT_HOME/.copilot/logs/' \"\$MANIFEST\" && grep -qF '[copilot-desktop] $DOT_HOME/.copilot/logs/github-app.1.log: under the symlinked directory $DOT_HOME/.copilot/logs, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#488 a nested link entry inside a real claim has one row" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.copilot/repos\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.copilot/repos\" | contains -F '\"agent\":\"copilot-desktop\",\"path\":\"$DOT_HOME/.copilot/repos\",\"archive_path\":\"\",' &&row \"$DOT_HOME/.copilot/repos\" | contains -F '\"status\":\"skipped_excluded\"'"
+check "#488 a link under a linked ancestor inside a real claim is recorded" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.copilot/repos/r1\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.copilot/repos/r1\" | contains -F '\"agent\":\"copilot-desktop\",\"path\":\"$DOT_HOME/.copilot/repos/r1\",\"archive_path\":\"fs/home/dot/dotfiles/repos/r1\",' && row \"$DOT_HOME/.copilot/repos/r1\" | contains -F '\"status\":\"symlink\"' && ! grep -qF '\"path\":\"$ROOT/opt/r1-out' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$DOT_HOME/.copilot/repos/r1/' \"\$MANIFEST\" && tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/dot/dotfiles/repos/r1' && ! tar -tzf \"\$ARCHIVE\" | contains '^\\./fs/home/dot/\\.copilot/repos/'"
+check "#488 a link inside the home that no entry names is recorded once" "[ \"\$(grep -cF '\"path\":\"$BOB/.camel\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.camel\" | contains -F '\"agent\":\"camel-ai\",' && row \"$BOB/.camel\" | contains -F '\"status\":\"symlink\",\"target\":\"dotfiles/camel\"'"
+check "#488 a startup file under a link inside the home is staged where the target holds it" "[ \"\$(grep -cF '\"path\":\"$BOB/.config/direnv\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.config/direnv\" | contains -F '\"agent\":\"shared\",' && row \"$BOB/.config/direnv\" | contains -F '\"status\":\"symlink\"' && row \"$BOB/.config/direnv/direnvrc\" | contains -F '\"archive_path\":\"fs/Users/bob/dotfiles/direnv/direnvrc\",'"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 check "#465 a nested entry under a home holding [ has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\"' \"\$MANIFEST\")\" = 1 ] && row \"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
 check "#465 an exclusion applies under a home holding [" "row \"$BRACKET_HOME/.gemini/tmp/bin\" | contains '\"status\":\"skipped_excluded\"' && [ -z \"\$(row \"$BRACKET_HOME/.gemini/tmp/bin/rg\")\" ]"
