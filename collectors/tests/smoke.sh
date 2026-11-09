@@ -2024,6 +2024,47 @@ ln -s ../opt/escape "$ROOT/srv/dotlink"
 printf 'frank:x:1003:1003::/srv/dotlink/../frank:/bin/sh\n' >>"$ROOT/etc/passwd"
 printf 'x\n' >"$BOB/dotfiles/camel/skills/s1/SKILL.md"
 ln -s dotfiles/camel "$BOB/.camel"
+# 2026-11-08 links under a linked catalog match (#488)
+# A home whose agent directories are links into dotfiles: a link leading out
+# of the home under the linked .pi is recorded under the nested entry's agent;
+# antigravity's files under the linked .gemini are staged where the target
+# holds them, so the order the links and files are staged in does not matter
+# (the tables list each outer entry first, the only order they can reach); a
+# link the walk of the real .copilot records gets no second row; and a link
+# under the linked .copilot/repos is recorded. .copilot/repos is an EXCLUDES
+# glob, so the link itself is one skipped_excluded row, never a symlink row.
+DOT_HOME="$ROOT/home/dot"
+mkdir -p "$DOT_HOME/dotfiles/pi" "$DOT_HOME/dotfiles/gemini/antigravity-cli/conversations" \
+  "$DOT_HOME/dotfiles/repos" "$DOT_HOME/.copilot" "$ROOT/opt/agent-out" "$ROOT/opt/logs-out" \
+  "$ROOT/opt/r1-out/.git"
+ln -s dotfiles/pi "$DOT_HOME/.pi"
+ln -s ../../../../opt/agent-out "$DOT_HOME/dotfiles/pi/agent"
+printf '[]\n' >"$ROOT/opt/agent-out/little-coder-prompt-history.json"
+ln -s dotfiles/gemini "$DOT_HOME/.gemini"
+printf '{}\n' >"$DOT_HOME/dotfiles/gemini/settings.json"
+printf 'x\n' >"$DOT_HOME/dotfiles/gemini/antigravity-cli/conversations/dot.db"
+ln -s ../../../opt/logs-out "$DOT_HOME/.copilot/logs"
+printf 'log\n' >"$ROOT/opt/logs-out/github-app.1.log"
+ln -s ../dotfiles/repos "$DOT_HOME/.copilot/repos"
+ln -s ../../../../opt/r1-out "$DOT_HOME/dotfiles/repos/r1"
+printf 'ref: refs/heads/main\n' >"$ROOT/opt/r1-out/.git/HEAD"
+# An absolute link that stays inside the image, so it is recorded as a symlink
+# row and recreated in the staging tree pointing at the image itself: a file of
+# a project reached through it is staged onto its own source, the copy fails,
+# and the failed copy must not be removed through the link.
+mkdir -p "$DOT_HOME/dotfiles/claude/proj"
+printf 'x\n' >"$DOT_HOME/dotfiles/claude/proj/AGENTS.md"
+ln -s "$DOT_HOME/dotfiles/claude" "$DOT_HOME/.claude"
+# 2026-11-09 a link two entries stage at one destination (#505)
+# .config/Kiro/User is staged where Library/Application Support/Kiro/User
+# already holds the same entries, so the link inside is reached twice; it is
+# recreated once, since a second ln -s onto the recreated link, whose target is
+# an existing directory, would create the new link inside that directory.
+mkdir -p "$DOT_HOME/.config" "$DOT_HOME/Library/Application Support/Kiro/User/globalStorage" \
+  "$ROOT/opt/kiro-agent-out"
+ln -s "../Library/Application Support/Kiro" "$DOT_HOME/.config/Kiro"
+printf '{}\n' >"$ROOT/opt/kiro-agent-out/data.json"
+ln -s "$ROOT/opt/kiro-agent-out" "$DOT_HOME/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 # The home's [1] is a class in a find -path pattern: claims and exclusions must
 # still prune under it.
@@ -2731,7 +2772,23 @@ check "#467 a link to a sibling named like the home plus a newline leads out of 
 check "#467 a link target whose .. follows a link out of the home leads out of the home" "! grep -qF '\"path\":\"$ROOT/home/u1/.cache/' \"\$MANIFEST\" && row \"$ROOT/home/u1/.cache\" | contains '\"agent\":\"crush\".*\"status\":\"symlink\"'"
 check "#467 a symlinked directory that is itself a match has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BOB/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.pi\" | contains '\"agent\":\"pi\".*\"status\":\"symlink\"' && [ -z \"\$(row \"$BOB/.pi/agent/little-coder-prompt-history.json\")\" ] && grep -qF '[little-coder] $BOB/.pi/agent/little-coder-prompt-history.json: under the symlinked directory $BOB/.pi, which leads out of the base; not walked' \"$RELOCATION_LOG\""
 check "#467 a passwd home with a .. after a link is expanded where its files are" "row \"$ROOT/srv/dotlink/../frank/.gemini/settings.json\" | contains '\"user\":\"frank\".*\"status\":\"collected\"'"
-check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"'"
+check "#467 a catalog entry under a directory linked within the home is walked" "row \"$BOB/.camel/skills/s1/SKILL.md\" | contains '\"agent\":\"camel-ai\".*\"status\":\"collected\"' && row \"$BOB/.camel/skills/s1/SKILL.md\" | contains -F '\"archive_path\":\"fs/Users/bob/dotfiles/camel/skills/s1/SKILL.md\",'"
+# 2026-11-08 links under a linked catalog match (#488)
+check "#488 the linked match keeps its one row" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.pi\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.pi\" | contains -F '\"agent\":\"pi\",\"path\":\"$DOT_HOME/.pi\",\"archive_path\":\"fs/home/dot/.pi\",' && row \"$DOT_HOME/.pi\" | contains -F '\"status\":\"symlink\"'"
+check "#488 the link inside a linked match is recorded under the nested entry's agent" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.pi/agent\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.pi/agent\" | contains -F '\"agent\":\"little-coder\",\"path\":\"$DOT_HOME/.pi/agent\",\"archive_path\":\"fs/home/dot/dotfiles/pi/agent\",' && row \"$DOT_HOME/.pi/agent\" | contains -F '\"status\":\"symlink\",\"target\":\"../../../../opt/agent-out\"'"
+check "#488 nothing under the escaping link is recorded" "! grep -qF '\"path\":\"$DOT_HOME/.pi/agent/' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$ROOT/opt/agent-out' \"\$MANIFEST\" && grep -qF '[little-coder] $DOT_HOME/.pi/agent/little-coder-prompt-history.json: under the symlinked directory $DOT_HOME/.pi/agent, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#488 the link is recreated at its physical path" "tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/dot/dotfiles/pi/agent' && ! tar -tzf \"\$ARCHIVE\" | contains '^\\./fs/home/dot/\\.pi/' && tar -tzvf \"\$ARCHIVE\" | contains -F 'dotfiles/pi/agent -> ../../../../opt/agent-out'"
+check "#488 the linked outer match has one row" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.gemini\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.gemini\" | contains -F '\"agent\":\"gemini-cli\",' && row \"$DOT_HOME/.gemini\" | contains -F '\"status\":\"symlink\"'"
+check "#488 files under a link inside the home are staged where the target holds them" "row \"$DOT_HOME/.gemini/antigravity-cli/conversations/dot.db\" | contains -F '\"agent\":\"antigravity\",\"path\":\"$DOT_HOME/.gemini/antigravity-cli/conversations/dot.db\",\"archive_path\":\"fs/home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db\",' && row \"$DOT_HOME/.gemini/antigravity-cli/conversations/dot.db\" | contains -F '\"status\":\"collected\"' && tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db' && ! tar -tzf \"\$ARCHIVE\" | contains '^\\./fs/home/dot/\\.gemini/' && ! grep -qF '\"path\":\"$DOT_HOME/.gemini/settings.json\"' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$DOT_HOME/dotfiles/gemini/settings.json\"' \"\$MANIFEST\""
+check "#488 the log says where a match through a link inside the home is archived" "grep -qF '[antigravity] $DOT_HOME/.gemini/antigravity-cli (through the symlinked directory $DOT_HOME/.gemini, archived under $DOT_HOME/dotfiles/gemini/antigravity-cli)' \"$RELOCATION_LOG\""
+check "#488 a link the claim's walk records is not recorded twice" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.copilot/logs\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.copilot/logs\" | contains -F '\"agent\":\"copilot-cli\",' && row \"$DOT_HOME/.copilot/logs\" | contains -F '\"status\":\"symlink\"' && ! grep -qF '\"path\":\"$DOT_HOME/.copilot/logs/' \"\$MANIFEST\" && grep -qF '[copilot-desktop] $DOT_HOME/.copilot/logs/github-app.1.log: under the symlinked directory $DOT_HOME/.copilot/logs, which leads out of the base; not walked' \"$RELOCATION_LOG\""
+check "#488 a nested link entry inside a real claim has one row" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.copilot/repos\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.copilot/repos\" | contains -F '\"agent\":\"copilot-desktop\",\"path\":\"$DOT_HOME/.copilot/repos\",\"archive_path\":\"\",' && row \"$DOT_HOME/.copilot/repos\" | contains -F '\"status\":\"skipped_excluded\"'"
+check "#488 a link under a linked ancestor inside a real claim is recorded" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.copilot/repos/r1\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.copilot/repos/r1\" | contains -F '\"agent\":\"copilot-desktop\",\"path\":\"$DOT_HOME/.copilot/repos/r1\",\"archive_path\":\"fs/home/dot/dotfiles/repos/r1\",' && row \"$DOT_HOME/.copilot/repos/r1\" | contains -F '\"status\":\"symlink\"' && ! grep -qF '\"path\":\"$ROOT/opt/r1-out' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$DOT_HOME/.copilot/repos/r1/' \"\$MANIFEST\" && tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/dot/dotfiles/repos/r1' && ! tar -tzf \"\$ARCHIVE\" | contains '^\\./fs/home/dot/\\.copilot/repos/'"
+check "#488 a link inside the home that no entry names is recorded once" "[ \"\$(grep -cF '\"path\":\"$BOB/.camel\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.camel\" | contains -F '\"agent\":\"camel-ai\",' && row \"$BOB/.camel\" | contains -F '\"status\":\"symlink\",\"target\":\"dotfiles/camel\"'"
+check "#488 a startup file under a link inside the home is staged where the target holds it" "[ \"\$(grep -cF '\"path\":\"$BOB/.config/direnv\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.config/direnv\" | contains -F '\"agent\":\"shared\",' && row \"$BOB/.config/direnv\" | contains -F '\"status\":\"symlink\"' && row \"$BOB/.config/direnv/direnvrc\" | contains -F '\"archive_path\":\"fs/Users/bob/dotfiles/direnv/direnvrc\",'"
+# 2026-11-09 a link two entries stage at one destination (#505)
+check "#505 a link two entries reach is recorded under each with one archive path" "row \"$DOT_HOME/.config/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"agent\":\"kiro\",\"path\":\"$DOT_HOME/.config/Kiro/User/globalStorage/kiro.kiroagent\",\"archive_path\":\"fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\",' && row \"$DOT_HOME/.config/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"status\":\"symlink\",\"target\":\"$ROOT/opt/kiro-agent-out\"' && row \"$DOT_HOME/.config/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"error\":\"\"' && row \"$DOT_HOME/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"archive_path\":\"fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\",' && row \"$DOT_HOME/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"status\":\"symlink\",\"target\":\"$ROOT/opt/kiro-agent-out\"' && row \"$DOT_HOME/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"error\":\"\"' && [ \"\$(tar -tzf \"\$ARCHIVE\" | grep -cxF './fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent')\" = 1 ]"
+check "#505 a link staged twice is recreated once and nothing is made inside its target" "[ ! -e '$ROOT/opt/kiro-agent-out/kiro-agent-out' ] && [ ! -L '$ROOT/opt/kiro-agent-out/kiro-agent-out' ] && [ \"\$(ls -A '$ROOT/opt/kiro-agent-out' | wc -l)\" -eq 1 ]"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 check "#465 a nested entry under a home holding [ has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\"' \"\$MANIFEST\")\" = 1 ] && row \"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
 check "#465 an exclusion applies under a home holding [" "row \"$BRACKET_HOME/.gemini/tmp/bin\" | contains '\"status\":\"skipped_excluded\"' && [ -z \"\$(row \"$BRACKET_HOME/.gemini/tmp/bin/rg\")\" ]"
@@ -2757,7 +2814,13 @@ _saved_root_pattern=$ROOT; ROOT=$PATTERN_ROOT
 run root486 --no-docker --no-projects; _exit_pattern_root=$?
 check "#486 an image root holding [ run exit 0" "[ $_exit_pattern_root -eq 0 ]"
 check "#486 a catalog file under an image root holding [ is collected" "[ \"\$(status_of \"$PATTERN_ROOT/home/carol/.gemini/projects.json\")\" = collected ]"
+# 2026-11-08 the archive member of a file under an image root holding [ (#486)
+check "#486 a collected file under an image root holding [ is archived at its path" "row \"$PATTERN_ROOT/home/carol/.gemini/projects.json\" | contains -F '\"archive_path\":\"fs/home/carol/.gemini/projects.json\",' && tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/carol/.gemini/projects.json'"
 ROOT=$_saved_root_pattern
+# 2026-11-08 a failed copy's removal through a recreated link (#497)
+run linkproj497 -p "$ROOT/home/dot/.claude/proj"; _exit_link_project=$?
+check "#497 a failed copy through a recreated link leaves the source file in place" "[ \"\$(cat '$DOT_HOME/dotfiles/claude/proj/AGENTS.md' 2>/dev/null)\" = x ]"
+check "#497 a failed copy through a recreated link is logged as not removed" "[ $_exit_link_project -eq 0 ] && grep -F 'copy failed: $DOT_HOME/.claude/proj/AGENTS.md: ' \"$OUT\"/linkproj497/*.log | contains '; staged path resolves outside the staging directory, not removed\$' && [ \"\$(status_of \"$DOT_HOME/.claude/proj/AGENTS.md\")\" = error_copy ] && row \"$DOT_HOME/.claude/proj/AGENTS.md\" | contains -F '\"archive_path\":\"\",'"
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
@@ -3534,6 +3597,8 @@ if [ "$BATCH_LOCKED" = yes ]; then
   check "#71 unreadable file in the batch: error_copy row with its error" "row \"$BATCH_DIR/m-locked.jsonl\" | contains '\"archive_path\":\"\",\"type\":\"file\",\"size\":7,.*\"sha256\":\"\",\"secret\":false,\"status\":\"error_copy\",\"target\":\"\",\"error\":\"[^\"]*Permission denied\"'"
   check "#71 unreadable file in the batch: logged once" "[ \"\$(grep -c 'copy failed: .*/m-locked.jsonl: ' \"$OUT\"/batch71/*.log)\" = 1 ]"
   check "#71 unreadable file in the batch: the rest collected" "[ \"\$(grep -c '\"status\":\"collected\"' \"\$MANIFEST\")\" -eq 305 ] && ! tar -tzf \"\$ARCHIVE\" | contains m-locked"
+  # 2026-11-08 a failed copy's removal through a recreated link (#497)
+  check "#497 a failed copy inside the staging tree gets no not-removed note" "grep -qF 'copy failed: ' \"$OUT\"/batch71/*.log && ! grep -qF 'not removed' \"$OUT\"/batch71/*.log && ! tar -tzf \"\$ARCHIVE\" | contains m-locked"
 else
   printf 'skip #71 unreadable file in a batch (running as root)\n'
 fi

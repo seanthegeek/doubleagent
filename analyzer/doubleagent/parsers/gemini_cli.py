@@ -955,7 +955,7 @@ class GeminiCliParser(Parser):
         yield from tools
 
     def _base_dir(self, artifact: Artifact, match) -> Path:
-        return Path(artifact.home.disk_path) / match.group("base")
+        return artifact.home.path_of(match.group("base"))
 
     def _system(
         self,

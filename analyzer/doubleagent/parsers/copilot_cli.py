@@ -360,7 +360,7 @@ class CopilotCliParser(Parser):
         match = HOME_PREFIX_PATTERN.match(artifact.rel)
         if not match:
             return {}
-        directory = artifact.home.disk_path / match.group(1) / "sidebar-sessions-state"
+        directory = artifact.home.path_of(match.group(1) + "/sidebar-sessions-state")
         if directory not in self._sidebar_cache:
             found: dict[str, str] = {}
             if directory.is_dir() and not directory.is_symlink():

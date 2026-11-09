@@ -50,7 +50,12 @@ ROOT_HOMES = ("root", "var/root")
 
 @dataclass
 class Home:
-    """A base the artifacts are relative to: a user's home, a volume or a project."""
+    """A base the artifacts are relative to: a user's home, a volume or a project.
+
+    `staged_paths` maps a home-relative path (posix) the collector archived away from
+    `disk_path / rel`, at a symlinked directory's physical location, to where the
+    collection holds it; it is empty for loose input.
+    """
 
     disk_path: Path  # where the home is on the analyst's disk
     original: str  # path on the source host, best effort
@@ -62,6 +67,26 @@ class Home:
     # not a user's home. Parsers that scope a file to its project read this,
     # never the artifact's agent.
     project: bool = False
+    staged_paths: dict[str, Path] = field(default_factory=dict)
+
+    def path_of(self, rel: str) -> Path:
+        """Return where the collection holds the home-relative path `rel`.
+
+        Args:
+            rel: a path relative to the home, posix, with no leading slash.
+
+        Returns:
+            The mapped location of `rel` or of its longest mapped ancestor
+            directory with the rest of `rel` below it, else `disk_path / rel`.
+        """
+        if not self.staged_paths:
+            return self.disk_path / rel
+        parts = rel.split("/")
+        for depth in range(len(parts), 0, -1):
+            mapped = self.staged_paths.get("/".join(parts[:depth]))
+            if mapped is not None:
+                return mapped.joinpath(*parts[depth:])
+        return self.disk_path / rel
 
 
 @dataclass
@@ -323,23 +348,42 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
         for project in (summary_projects if isinstance(summary_projects, list) else [])
         if project
     }
+    image_root = str((collection.summary or {}).get("root") or "")
     homes: dict[tuple[str, str], Home] = {}
+    # Homes whose directory came from the fallback, until a row names it.
+    provisional: set[tuple[str, str]] = set()
+    # Each home's (rel, archive_path, is a link) of every row, mapped once the home's
+    # directory is final.
+    archived: dict[tuple[str, str], list[tuple[str, str, bool]]] = {}
     for row in rows:
-        if row.get("status") not in PARSE_STATUSES or row.get("type") != "file":
-            continue
         user = str(row.get("user") or "")
         home_original = str(row.get("home") or "")
         key = (user, home_original)
+        row_archive_path = str(row.get("archive_path") or "")
+        is_link = row.get("type") == "symlink"
+        # A link's row names the link even with no archive member (a zip archive).
+        if row_archive_path or is_link:
+            rel_of_row = _relative_to_home(str(row.get("path") or ""), home_original)
+            archived.setdefault(key, []).append((rel_of_row, row_archive_path, is_link))
+        if row.get("status") not in PARSE_STATUSES or row.get("type") != "file":
+            continue
         home = homes.get(key)
+        archive_dir = _archive_dir_from_row(row)
         if home is None:
+            if not archive_dir:
+                archive_dir = _archive_dir_fallback(home_original, image_root)
+                provisional.add(key)
             home = Home(
-                disk_path=root / _archive_dir_for_home(row),
+                disk_path=root / archive_dir,
                 original=home_original,
                 user=user,
                 host=collection.host,
                 project=home_original in projects,
             )
             homes[key] = home
+        elif key in provisional and archive_dir:
+            home.disk_path = root / archive_dir
+            provisional.discard(key)
         original = str(row.get("path") or "")
         archive_path = str(row.get("archive_path") or "")
         rel = _relative_to_home(original, home_original)
@@ -373,22 +417,112 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
                 manifest=row,
             )
         )
+    for key, home in homes.items():
+        rows_of_home = archived.get(key, [])
+        links = {rel for rel, _, is_link in rows_of_home if is_link}
+        # A row archived in place shows every directory above it to be real, one
+        # the mapping never moves (a real `.copilot` holding an excluded link).
+        in_place: set[str] = set()
+        for rel, archive_path, _ in rows_of_home:
+            if archive_path and _archived_in_place(home, root, rel, archive_path):
+                parts = rel.split("/")
+                in_place.update("/".join(parts[:depth]) for depth in range(1, len(parts)))
+        # Files first: a directory a file's row maps (the target holding the files)
+        # takes precedence over a nested link's own member at that path.
+        for rel, archive_path, _ in sorted(rows_of_home, key=lambda item: item[2]):
+            if archive_path:
+                _map_staged_path(home, root, rel, archive_path, links, in_place)
     collection.homes = list(homes.values())
 
 
-def _archive_dir_for_home(row: dict) -> str:
+def _archive_parts(archive_path: str) -> list[str]:
+    return [part for part in archive_path.replace("\\", "/").split("/") if part]
+
+
+def _archived_in_place(home: Home, root: Path, rel: str, archive_path: str) -> bool:
+    rel_parts = [part for part in rel.split("/") if part]
+    return root.joinpath(*_archive_parts(archive_path)) == home.disk_path.joinpath(*rel_parts)
+
+
+def _map_staged_path(
+    home: Home, root: Path, rel: str, archive_path: str, links: set[str], in_place: set[str]
+) -> None:
+    """Record in `home.staged_paths` a row archived away from `home.disk_path / rel`.
+
+    The file and each directory above it down to the symlinked directory that
+    moved it (`.pi` for `fs/home/bob/dotfiles/pi/...`) map to their place in the
+    archive. That directory is the deepest ancestor of `rel` among `links`, the
+    home's `symlink` rows; without one (an excluded link has none), the
+    components are matched from the right while equal, and the walk stops below
+    a directory in `in_place`, one another row shows archived at its own path.
+    """
+    rel_parts = [part for part in rel.split("/") if part]
+    archive_parts = _archive_parts(archive_path)
+    if not rel_parts or _archived_in_place(home, root, rel, archive_path):
+        return
+    equal = 0
+    while (
+        equal < len(rel_parts)
+        and equal < len(archive_parts)
+        and rel_parts[-1 - equal] == archive_parts[-1 - equal]
+    ):
+        equal += 1
+    depth_limit = min(equal, len(rel_parts) - 1)
+    for depth in range(1, len(rel_parts)):
+        ancestor = "/".join(rel_parts[: len(rel_parts) - depth])
+        if ancestor in links:
+            depth_limit = min(depth_limit, depth)
+            break
+        if ancestor in in_place:
+            depth_limit = min(depth_limit, depth - 1)
+            break
+    for depth in range(depth_limit + 1):
+        home.staged_paths.setdefault(
+            "/".join(rel_parts[: len(rel_parts) - depth]),
+            root.joinpath(*archive_parts[: len(archive_parts) - depth]),
+        )
+
+
+def _archive_dir_from_row(row: dict) -> str:
     """Return `fs/<home>` as the collector laid it out, derived from one manifest row.
 
     Deriving it from a row handles Windows drive-letter layouts
-    (`fs/C/Users/alice`) without guessing.
+    (`fs/C/Users/alice`) and image roots without guessing. Returns "" for a
+    row archived at a symlink's physical path: its `archive_path` does not
+    end with its home-relative path, or ends with it below another directory
+    (`.config -> dotfiles/.config`), so the directory is accepted only when it
+    is `fs` plus the home less a leading root, or the home's drive form.
     """
     original = str(row.get("path") or "")
     home = str(row.get("home") or "")
-    archive_path = str(row.get("archive_path") or "")
+    archive_path = str(row.get("archive_path") or "").replace("\\", "/")
     rel = _relative_to_home(original, home)
-    if rel and archive_path.replace("\\", "/").endswith(rel):
-        return archive_path.replace("\\", "/")[: -len(rel)].rstrip("/")
-    return "fs" + home.replace("\\", "/")
+    if not rel or not archive_path.endswith("/" + rel):
+        return ""
+    archive_dir = archive_path[: -len(rel) - 1]
+    posix_home = home.replace("\\", "/")
+    if archive_dir == _archive_dir_fallback(home, ""):
+        return archive_dir
+    tail = archive_dir[len("fs") :]
+    if archive_dir.startswith("fs/") and posix_home.endswith(tail):
+        return archive_dir
+    return ""
+
+
+def _archive_dir_fallback(home: str, image_root: str) -> str:
+    r"""Return `fs/<home>` as the collector lays it out when no row has shown it.
+
+    The collector archives a path less the `-r` root of an image, and a live
+    Windows path as `fs/<drive letter>/<path>`: `C:\Users\bob` is
+    `fs/C/Users/bob`.
+    """
+    posix_home = home.replace("\\", "/")
+    posix_root = image_root.replace("\\", "/").rstrip("/")
+    if posix_root and posix_home.startswith(posix_root + "/"):
+        return "fs/" + posix_home[len(posix_root) + 1 :]
+    if len(posix_home) >= 2 and posix_home[1] == ":" and posix_home[0].isalpha():
+        return "fs/%s/%s" % (posix_home[0].upper(), posix_home[2:].lstrip("/"))
+    return "fs" + posix_home
 
 
 def _relative_to_home(path: str, home: str) -> str:

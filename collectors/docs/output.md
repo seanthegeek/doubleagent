@@ -112,7 +112,11 @@ zip entries from the PowerShell collector have no prefix and use `/`):
 
 ```text
 fs/<original path>          collected files and recreated symlinks, mirroring
-                            the source filesystem
+                            the source filesystem; a path reached through a
+                            symlinked directory inside its base (the home, the project
+                            directory, or the root for a system startup file)
+                            is archived where the target holds it; a project whose
+                            own path runs through one keeps its recorded path
 manifest.jsonl
 collection.json
 collector.log
@@ -121,6 +125,13 @@ collector.log
 On a live Windows host the archive path is `fs/<drive letter>/<path>`, for
 example `fs/C/Users/alice/.claude/history.jsonl`. In image mode it is
 relative to the root, as on other platforms.
+
+A path reached through a symlinked directory whose target stays inside the home or the
+project directory is archived at the physical location of that path, so the recreated link in
+the archive leads to it: for `.gemini -> dotfiles/gemini`, the manifest `path`
+`/home/bob/.gemini/antigravity-cli/conversations/a.db` has the `archive_path`
+`fs/home/bob/dotfiles/gemini/antigravity-cli/conversations/a.db`, and the link itself is archived
+at `fs/home/bob/.gemini`.
 
 ## Manifest
 
@@ -141,7 +152,7 @@ Each manifest row is one JSON object:
 | `home` | The base the path was collected relative to: the home directory, the project directory, or a volume's `_data`, including the `-r` root. |
 | `agent` | Catalog agent name. For a file found through the project catalog, the agent the `PROJECT_CATALOG` line names: the agent that owns the file (`claude-code` for a project's `.claude/`), or `project` for a file several agents read (`AGENTS.md`, `.mcp.json`, the repository's [git metadata](coverage.md#git-metadata) under `.git/` and the other `project` lines in `--list`); before collector 1.12.0 every project row had `project`. For a volume row, the `DOCKER_VOLUMES` agent of the matched volume. Empty for `skipped_unmatched_volume` and for the `error_read` row of a home, project or `-p` directory. `shared` for a file collected because it names a relocation variable (a startup file, or under `--env-scan-home` any file) and that no catalog line matches; it has `secret: true`, `skipped_secret` under `--no-secrets`, and for a system file an empty `user` and `home`. See [relocation.md](relocation.md). |
 | `path` | The original full path, including the `-r` root in image mode. |
-| `archive_path` | Where the file is in the archive: `fs/<original path>`. Set for `collected` rows and for `symlink` rows whose link is in the archive: always from the sh collector, and from the PowerShell collector when the link was recreated and the archive is a tar (see [windows.md](windows.md#symlinks-and-reparse-points)). Empty otherwise. |
+| `archive_path` | Where the file is in the archive: `fs/<original path>`, or, for a path reached through a symlinked directory inside its base (the `home` column; the root for a system startup file, whose `home` is empty), `fs/<that path resolved to where the base physically holds it>`, so a recreated link with a relative target leads to it. Set for `collected` rows and for `symlink` rows whose link is in the archive: always from the sh collector, and from the PowerShell collector when the link was recreated and the archive is a tar (see [windows.md](windows.md#symlinks-and-reparse-points)). Empty otherwise. |
 | `type` | `file`, `symlink`, or `dir` (an excluded directory, an unmatched volume, or an `error_read` directory). A `skipped_special` row names the kind of special file instead: `socket` (a Unix domain socket), `fifo` (a named pipe), `device` (a block or character device) or `other`; see [Special files](#special-files). |
 | `size` | Bytes. For a `collected` row from the PowerShell collector, the number of bytes copied, the length of the archived copy that `sha256` covers; for every other file and symlink row, and for every row from the sh collector, the length `lstat` or the directory listing reported before the copy. On Windows that pre-copy length is the file's directory entry, which NTFS updates only when a handle on the file closes, so it can be stale for a file a running process holds open and writes: a `skipped_size` decision and a `skipped_excluded` file row use it as it was. `0` for an `error_read` row. For any other `dir` row, the size of everything under it: `du -sk` × 1024 from the sh collector, the sum of file lengths from the PowerShell collector. |
 | `mtime`, `atime`, `ctime`, `btime` | Epoch seconds, read before the copy. `btime` (creation) is `0` where the platform cannot report it, and `ctime` is `0` from the PowerShell collector. All four are `0` for an excluded directory from the sh collector, for an unmatched volume, for an `error_read` row of a `-p` value that does not exist, and on a host with neither GNU nor BSD `stat` (where `uid`, `gid` and `mode` are `0` too). |
@@ -173,7 +184,7 @@ escapes; the parsed values are the same.
 | Status | Meaning |
 | --- | --- |
 | `collected` | Copied, hashed and archived. |
-| `symlink` | A symbolic link (on Windows a symbolic link or junction: a reparse point whose `LinkType` is `SymbolicLink` or `Junction`), recorded with its target and never followed. A link to a directory that a catalog path runs through, whose target leads out of the home or project directory or cannot be resolved, is recorded this way too, under the agent of that catalog line ([coverage.md](coverage.md#paths-through-a-symlinked-directory)). Both collectors recreate the link in the archive with its target as stored. The PowerShell collector cannot where Windows refuses to create it or where the archive is a `.zip`; the row then has no `archive_path` and `error` says why. |
+| `symlink` | A symbolic link (on Windows a symbolic link or junction: a reparse point whose `LinkType` is `SymbolicLink` or `Junction`), recorded with its target and never followed. A link to a directory that a catalog path runs through, whose target leads out of the home or project directory or cannot be resolved, is recorded this way too, under the agent of that catalog line ([coverage.md](coverage.md#paths-through-a-symlinked-directory)). A link to a directory inside its base (the home, the project directory, or the root for a system startup file) that a catalog path or startup file runs through is recorded once as well, under the agent of the first line that reached through it (`shared` for a startup file), unless it is or lies inside another catalog line's match, whose walk records it. A link inside a catalog match that is itself a symlink is recorded by the [nested entry](coverage.md#nested-entries) that reaches it, since the matched link's own row holds no walk. Both collectors recreate the link in the archive with its target as stored. The PowerShell collector cannot where Windows refuses to create it or where the archive is a `.zip`; the row then has no `archive_path` and `error` says why. |
 | `skipped_excluded` | Matched an `EXCLUDES` pattern. An excluded directory is one `dir` row with its total size; an excluded file, found in a walk or matched by a catalog entry itself, is one `file` row with its size. An excluded symlink is not a `symlink` row: it gets the same `file` row, or a `dir` row when it points to a directory. |
 | `skipped_size` | Larger than `--max-file-size`. |
 | `skipped_secret` | A credential file left out by `--no-secrets`. |

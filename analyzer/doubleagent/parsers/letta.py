@@ -261,11 +261,11 @@ class LettaParser(Parser):
 
     def _sessions(self, artifact: Artifact, agent_dir: str) -> list[tuple[str, str]]:
         """Return (timestamp, project) of this agent's `sessions.jsonl` lines, sorted by time."""
-        sessions_path = artifact.home.disk_path / SESSIONS_REL
+        sessions_path = artifact.home.path_of(SESSIONS_REL)
         if (
             sessions_path.is_symlink()
             or not sessions_path.is_file()
-            or (artifact.home.disk_path / ".letta").is_symlink()
+            or artifact.home.path_of(".letta").is_symlink()
         ):
             return []
         out = []
@@ -283,11 +283,11 @@ class LettaParser(Parser):
         The `baseUrl` of its `agents[]` entry in `~/.letta/settings.json`, `api.letta.com` when the
         entry has none, `-` when there is no entry or no file.
         """
-        settings_path = artifact.home.disk_path / SETTINGS_REL
+        settings_path = artifact.home.path_of(SETTINGS_REL)
         if (
             settings_path.is_symlink()
             or not settings_path.is_file()
-            or (artifact.home.disk_path / ".letta").is_symlink()
+            or artifact.home.path_of(".letta").is_symlink()
         ):
             return "-"
         # A pre-scan: this parser reports the settings file when it parses that file itself.

@@ -2956,8 +2956,10 @@ $script:ManifestWriter = $null
 # collected gets no second row; case-insensitive on Windows only, as
 # $script:ClaimedPaths is.
 $script:RowPathComparer = [System.StringComparer]::Ordinal
+$script:RowPathComparison = [System.StringComparison]::Ordinal
 if ($env:OS -eq 'Windows_NT') {
   $script:RowPathComparer = [System.StringComparer]::OrdinalIgnoreCase
+  $script:RowPathComparison = [System.StringComparison]::OrdinalIgnoreCase
 }
 $script:RowPaths = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
 
@@ -3049,6 +3051,27 @@ function Get-ArchivePath([string]$full) {
 # Staging directories already created or found, so each file does not test
 # its parent again.
 $script:StagedDirs = New-Object 'System.Collections.Generic.HashSet[string]'
+# The deepest symlinked directory staying inside the base that the paths being
+# collected run through, and its physical path under the base, '' when there is
+# none; set by Add-CatalogMatches and Add-HintFile around each walk. A path under
+# it is staged at its physical path, so no staged path passes through a link
+# recreated in the staging tree.
+$script:StageFrom = ''
+$script:StageTo = ''
+# The staging directory with every link in its path resolved, set by
+# Open-RunFiles; '' when it could not be resolved.
+$script:StagePhysical = ''
+
+# Takes a source path; returns it with $script:StageFrom replaced by
+# $script:StageTo when the path is or lies under it, else unchanged.
+function Get-PhysicalSourcePath([string]$path) {
+  $from = $script:StageFrom
+  if ($script:RowPathComparer.Equals($path, $from) -or
+    $path.StartsWith($from + $script:Sep, $script:RowPathComparison)) {
+    return $script:StageTo + $path.Substring($from.Length)
+  }
+  return $path
+}
 
 # Takes the source path, the staging path and the source's pre-copy Get-Item;
 # copies the file with shared access and returns @(sha256 of the copy or '',
@@ -3205,6 +3228,8 @@ function Add-StagedLink($item, [string]$stagePath) {
     $script:LinkCounts.failed++
     return 'not recreated in the archive: reparse point has no single link target'
   }
+  # A destination two entries share holds the link already: made once, listed once.
+  if (Test-IsLink $stagePath) { return '' }
   # Only Windows distinguishes file and directory links.
   $isDir = ($env:OS -eq 'Windows_NT') -and
     (($item.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0)
@@ -3220,6 +3245,25 @@ function Add-StagedLink($item, [string]$stagePath) {
   $script:LinkCounts.failed++
   Write-CollectorLog "symlink not recreated: $(ConvertFrom-ExtendedPath $item.FullName): $why"
   return "not recreated in the archive: $why"
+}
+
+# Takes the plain staging path of a copy that failed; removes what the copy
+# left there when its directory resolves inside the staging directory, and
+# returns '' or the note the copy failed: line ends with. A staged path that
+# runs through a recreated link to an absolute target resolves to the source.
+function Clear-PartialCopy([string]$stagePath) {
+  $extendedStagePath = ConvertTo-ExtendedPath $stagePath
+  if (-not (Test-PathQuiet $extendedStagePath 'Any')) { return '' }
+  $parent = Get-PhysicalPath ([System.IO.Path]::GetDirectoryName($stagePath))
+  $inside = $false
+  if ($script:StagePhysical -and $parent) {
+    $stageRoot = $script:StagePhysical.TrimEnd('\', '/') + $script:Sep
+    $parentDir = $parent.TrimEnd('\', '/') + $script:Sep
+    $inside = $parentDir.StartsWith($stageRoot, $script:RowPathComparison)
+  }
+  if (-not $inside) { return '; staged path resolves outside the staging directory, not removed' }
+  try { Remove-Item -LiteralPath $extendedStagePath -Force } catch { }
+  return ''
 }
 
 # Takes the user, home, agent, the file's Get-Item and whether to flag it
@@ -3240,7 +3284,9 @@ function Add-CollectedFile {
   $extendedPath = $item.FullName
   $path = ConvertFrom-ExtendedPath $extendedPath
   $homeRel = Get-RelPath $homeDir $path
-  $archiveRel = Get-ArchivePath $path
+  $physicalPath = $path
+  if ($script:StageFrom) { $physicalPath = Get-PhysicalSourcePath $path }
+  $archiveRel = Get-ArchivePath $physicalPath
   $stageRel = $script:Sep + $archiveRel.Replace('\', $script:Sep).Replace('/', $script:Sep)
   $stagePath = $script:Stage + $stageRel; $extendedStagePath = $script:XStage + $stageRel
   $size = [int64]0; if (-not $item.PSIsContainer) { try { $size = [int64]$item.Length } catch { } }
@@ -3252,8 +3298,7 @@ function Add-CollectedFile {
     $mtime = Get-Epoch $item.LastWriteTimeUtc; $atime = Get-Epoch $item.LastAccessTimeUtc
     $btime = Get-Epoch $item.CreationTimeUtc
   }
-  $owner = Get-OwnerName $path
-  $attributes = [string]$item.Attributes
+  $owner = Get-OwnerName $path; $attributes = [string]$item.Attributes
   $secret = $forceSecret -or $script:SecretRegex.IsMatch($homeRel)
   $type = Get-ManifestType $item
   $status = 'collected'; $sha256 = ''; $target = ''; $errorText = ''
@@ -3272,12 +3317,7 @@ function Add-CollectedFile {
       $sha256 = [string]$copy[0]; $size = [int64]$copy[1]
     } catch {
       $status = 'error_copy'; $errorText = ConvertFrom-ExtendedText $_.Exception.Message
-      Write-CollectorLog "copy failed: ${path}: $errorText"
-      try {
-        if (Test-PathQuiet $extendedStagePath 'Any') {
-          Remove-Item -LiteralPath $extendedStagePath -Force
-        }
-      } catch { }
+      Write-CollectorLog "copy failed: ${path}: $errorText$(Clear-PartialCopy $stagePath)"
     }
   }
   $archivePath = ''
@@ -3427,17 +3467,23 @@ function Write-GlobErrorRows([string]$user, [string]$base, $globErrors) {
   }
 }
 
-# Takes a base and a path under it; returns the first symlinked or junctioned
-# directory between them, which the glob followed, that leads outside the base
-# once its chain of links is resolved to the end or cannot be resolved, or ''
-# when there is none; a directory that cannot be read is no link, as sh's
-# lstat test says. The base is resolved only once a link is met. An image's
-# /etc -> /private/etc would read the analyst's host, while a live macOS /etc
-# stays inside /.
+# Takes a base and a path under it; returns @{ Link; StageFrom; StageTo; Links }
+# for the symlinked or junctioned directories between them, which the glob
+# followed. Link is the first leading outside the base once its chain is resolved
+# to the end or cannot be resolved, '' when none does; Links holds each link
+# before it that stays inside, as @(link, StageFrom, StageTo) of its own parent;
+# StageFrom is the deepest of those and StageTo its physical path under the base,
+# '' when there is none. A directory that cannot be read is no link, as sh's
+# lstat test says. An image's /etc -> /private/etc would read the analyst's host,
+# while a live macOS /etc stays inside /.
 function Get-LinkedParent([string]$base, [string]$path) {
   $comparison = [System.StringComparison]::Ordinal
   if ($env:OS -eq 'Windows_NT') { $comparison = [System.StringComparison]::OrdinalIgnoreCase }
-  $relative = $path.Substring($base.TrimEnd('\', '/').Length).TrimStart('\', '/')
+  $linked = @{ Link = ''; StageFrom = ''; StageTo = ''
+    Links = (New-Object System.Collections.ArrayList)
+  }
+  $trimmedBase = $base.TrimEnd('\', '/')
+  $relative = $path.Substring($trimmedBase.Length).TrimStart('\', '/')
   $segments = @($relative -split '[\\/]')
   $directory = $base
   $root = ''
@@ -3449,33 +3495,58 @@ function Get-LinkedParent([string]$base, [string]$path) {
     if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { continue }
     if (-not $root) {
       $root = Get-PhysicalPath $base
-      if (-not $root) { return $directory }
+      if (-not $root) { $linked.Link = $directory; break }
       $root = $root.TrimEnd('\', '/') + $script:Sep
     }
     $resolved = Get-PhysicalPath $directory
-    if (-not $resolved) { return $directory }
-    $resolved = $resolved.TrimEnd('\', '/') + $script:Sep
-    if (-not $resolved.StartsWith($root, $comparison)) { return $directory }
+    if ($resolved) { $resolved = $resolved.TrimEnd('\', '/') + $script:Sep }
+    if (-not $resolved -or -not $resolved.StartsWith($root, $comparison)) {
+      $linked.Link = $directory; break
+    }
+    [void]$linked.Links.Add(@($directory, $linked.StageFrom, $linked.StageTo))
+    $physical = $trimmedBase + $script:Sep + $resolved.Substring($root.Length)
+    $linked.StageFrom = $directory; $linked.StageTo = $physical.TrimEnd('\', '/')
   }
-  return ''
+  return $linked
 }
 
 # Takes a path and the base it lies under; returns whether it is, or lies
-# under, a path of $script:ClaimedPaths, whose own walk records it.
+# under, a path of $script:ClaimedPaths whose own walk records it. A walk never
+# enters a link, so an ancestor that is a symlinked directory ends the search.
 function Test-ClaimedPath([string]$path, [string]$base) {
+  if ($script:ClaimedPaths.ContainsKey($path)) { return $true }
   $baseLength = $base.TrimEnd('\', '/').Length
   $separators = [char[]]@('\', '/')
-  while ($path.Length -gt $baseLength) {
-    if ($script:ClaimedPaths.ContainsKey($path)) { return $true }
+  while ($true) {
     $path = $path.Substring(0, [Math]::Max(0, $path.LastIndexOfAny($separators)))
+    if ($path.Length -le $baseLength -or (Test-IsLink $path)) { return $false }
+    if ($script:ClaimedPaths.ContainsKey($path)) { return $true }
   }
-  return $false
+}
+
+# Takes the user, base, agent, a Get-LinkedParent result and the links already
+# recorded in this walk; records every symlinked directory the match's path ran
+# through, the one leading out of the base last, each once and only when it
+# has no manifest row yet (another base's walk may have recorded it) and
+# Test-ClaimedPath leaves it to no other walk, staged at its physical path.
+function Add-PassedLinks([string]$user, [string]$base, [string]$agent, $linked, $linksSeen) {
+  $passed = New-Object System.Collections.ArrayList
+  foreach ($link in $linked.Links) { [void]$passed.Add($link) }
+  if ($linked.Link) { [void]$passed.Add(@($linked.Link, $linked.StageFrom, $linked.StageTo)) }
+  foreach ($link in $passed) {
+    if (-not $linksSeen.Add($link[0]) -or $script:RowPaths.Contains($link[0])) { continue }
+    if (Test-ClaimedPath $link[0] $base) { continue }
+    $script:StageFrom = $link[1]; $script:StageTo = $link[2]
+    Add-CollectedPath $user $base $agent $link[0]
+  }
+  $script:StageFrom = ''; $script:StageTo = ''
 }
 
 # Takes the user, a base directory, a table and an optional progress header;
 # collects every match of the table under the base, logging the header before
 # the first one. A match under a symlinked directory leading out of the base is
-# not walked; the link is collected once instead, unless Test-ClaimedPath holds.
+# not walked; one under a symlinked directory staying inside is staged at its
+# physical path. Add-PassedLinks records the links either kind passed.
 function Add-CatalogMatches([string]$user, [string]$base, [string]$table, [string]$header = '') {
   $expansion = Expand-Catalog $base $table
   Write-GlobErrorRows $user $base $expansion.GlobErrors
@@ -3490,13 +3561,12 @@ function Add-CatalogMatches([string]$user, [string]$base, [string]$table, [strin
         ' (case-insensitive filesystem), collected there')
       continue
     }
-    $link = Get-LinkedParent $base $matchPath
-    if ($link) {
+    $linked = Get-LinkedParent $base $matchPath
+    if ($linked.Link) {
       if ($header) { Write-CollectorLog $header; $header = '' }
-      $note = "under the symlinked directory $link, which leads out of the base"
+      $note = "under the symlinked directory $($linked.Link), which leads out of the base"
       Write-CollectorLog "  [$agent] ${matchPath}: $note; not walked"
-      if (-not $linksSeen.Add($link) -or (Test-ClaimedPath $link $base)) { continue }
-      Add-CollectedPath $user $base $agent $link
+      Add-PassedLinks $user $base $agent $linked $linksSeen
       continue
     }
     if ($Inventory) {
@@ -3504,8 +3574,16 @@ function Add-CatalogMatches([string]$user, [string]$base, [string]$table, [strin
       Add-InventoryEvidence $agent $entry[2]
     }
     if ($header) { Write-CollectorLog $header; $header = '' }
-    Write-CollectorLog "  [$agent] $matchPath"
+    $note = ''
+    if ($linked.StageFrom) {
+      $physical = $linked.StageTo + $matchPath.Substring($linked.StageFrom.Length)
+      $note = " (through the symlinked directory $($linked.StageFrom), archived under $physical)"
+    }
+    Write-CollectorLog "  [$agent] $matchPath$note"
+    Add-PassedLinks $user $base $agent $linked $linksSeen
+    $script:StageFrom = $linked.StageFrom; $script:StageTo = $linked.StageTo
     Add-CollectedPath $user $base $agent $matchPath
+    $script:StageFrom = ''; $script:StageTo = ''
   }
   $script:ClaimedPaths = Get-ClaimTable
 }
@@ -4340,7 +4418,7 @@ function Get-StartupFiles([string]$base, [string]$scope) {
   foreach ($rule in $script:StartupGlobs) {
     if ($rule[0] -ne $scope) { continue }
     foreach ($path in @(Expand-Glob $base $rule[1])) {
-      if (-not (Test-RegularFile $path) -or (Get-LinkedParent $base $path)) { continue }
+      if (-not (Test-RegularFile $path) -or (Get-LinkedParent $base $path).Link) { continue }
       if ($seen.Add($path)) { [void]$files.Add($path) }
     }
   }
@@ -4385,9 +4463,11 @@ function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$v
   }
 }
 
-# Takes the user, home and a hit file; unless the file already has a manifest
-# row, stages it as agent shared with the secret flag forced, so -NoSecrets
-# gives skipped_secret and -MaxFileSizeMB applies.
+# Takes the user, home (the system root when empty) and a hit file; unless the
+# file already has a manifest row, stages it as agent shared with the secret
+# flag forced, so -NoSecrets gives skipped_secret and -MaxFileSizeMB applies.
+# A symlinked directory inside the base that the file lies under gets its own
+# shared row, once, and the file is staged at its physical path.
 function Add-HintFile([string]$user, [string]$homeDir, [string]$path) {
   if ($script:RowPaths.Contains($path)) { return }
   try { $item = Get-Item -LiteralPath (ConvertTo-ExtendedPath $path) -Force -ErrorAction Stop }
@@ -4395,7 +4475,18 @@ function Add-HintFile([string]$user, [string]$homeDir, [string]$path) {
     Write-CollectorLog "stat failed: ${path}: $(ConvertFrom-ExtendedText $_.Exception.Message)"
     return
   }
+  $base = $homeDir; if (-not $base) { $base = Get-SystemRoot }
+  if ($path.StartsWith($base.TrimEnd('\', '/'), $script:RowPathComparison)) {
+    $linked = Get-LinkedParent $base $path
+    foreach ($link in $linked.Links) {
+      if ($script:RowPaths.Contains($link[0])) { continue }
+      $script:StageFrom = $link[1]; $script:StageTo = $link[2]
+      Add-CollectedPath $user $homeDir 'shared' $link[0]
+    }
+    $script:StageFrom = $linked.StageFrom; $script:StageTo = $linked.StageTo
+  }
   Add-CollectedFile $user $homeDir 'shared' $item $true
+  $script:StageFrom = ''; $script:StageTo = ''
 }
 
 # Takes files and whether case is ignored; returns the Select-String matches
@@ -5425,13 +5516,14 @@ function Initialize-Archivers {
   return ''
 }
 
-# Unless -Inventory, creates the staging tree and opens $script:LogWriter and
-# $script:ManifestWriter.
+# Unless -Inventory, creates the staging tree, sets $script:StagePhysical and
+# opens $script:LogWriter and $script:ManifestWriter.
 function Open-RunFiles {
   $script:LogWriter = $null
   $script:ManifestWriter = $null
   if ($Inventory) { return }
   [void][System.IO.Directory]::CreateDirectory((Join-PathSafe $script:XStage 'fs'))
+  $script:StagePhysical = Get-PhysicalPath $script:Stage
   $utf8 = $script:Utf8NoBom
   $script:LogWriter = New-Object System.IO.StreamWriter($script:XLogPath, $false, $utf8)
   $script:ManifestWriter = New-Object System.IO.StreamWriter($script:XManifestPath, $false, $utf8)

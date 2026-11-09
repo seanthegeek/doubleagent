@@ -634,5 +634,320 @@ def test_extract_archive_refuses_other_files(tmp_path):
         raise AssertionError("no InputError")
 
 
+def _home_disk_path_of(tmp_path, home, original, archive_path, more_rows=(), summary=None):
+    """Open a collection of one home and return its `disk_path` relative to the root.
+
+    The first row is the one given; `more_rows` are further (path, archive_path)
+    pairs of the same home, and `summary` an optional collection.json body.
+    """
+    rows = [(original, archive_path), *more_rows]
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    manifest = []
+    for row_path, row_archive_path in rows:
+        member = tmp_path / row_archive_path
+        member.parent.mkdir(parents=True, exist_ok=True)
+        member.write_text("[]", encoding="utf-8")
+        manifest.append(
+            {
+                "type": "file",
+                "status": "collected",
+                "user": "bob",
+                "home": home,
+                "path": row_path,
+                "archive_path": row_archive_path,
+                "agent": "pi",
+            }
+        )
+    lines = "".join(json.dumps(row) + "\n" for row in manifest)
+    (tmp_path / "manifest.jsonl").write_text(lines, encoding="utf-8")
+    if summary is not None:
+        (tmp_path / "collection.json").write_text(json.dumps(summary), encoding="utf-8")
+    collection = open_input(tmp_path, catalog.load())
+    assert len(collection.homes) == 1
+    return collection.homes[0].disk_path.relative_to(tmp_path).as_posix()
+
+
+def test_home_dir_of_a_windows_row_staged_at_its_physical_path(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "C:\\Users\\bob",
+        "C:\\Users\\bob\\.pi\\agent\\x",
+        "fs/C/Users/bob/dotfiles/pi/agent/x",
+    )
+    assert disk_path == "fs/C/Users/bob"
+
+
+def test_home_dir_of_a_lower_case_drive_is_upper_cased_as_the_collector_writes_it(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "c:\\Users\\bob",
+        "c:\\Users\\bob\\.pi\\agent\\x",
+        "fs/C/Users/bob/dotfiles/pi/agent/x",
+    )
+    assert disk_path == "fs/C/Users/bob"
+
+
+def test_home_dir_of_a_posix_row_staged_at_its_physical_path(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "/home/bob",
+        "/home/bob/.pi/agent/x",
+        "fs/home/bob/dotfiles/pi/agent/x",
+    )
+    assert disk_path == "fs/home/bob"
+
+
+def test_home_dir_of_an_image_home_whose_first_row_is_staged_physically(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "/mnt/img/home/bob",
+        "/mnt/img/home/bob/.pi/agent/x",
+        "fs/home/bob/dotfiles/pi/agent/x",
+        summary={"mode": "image", "root": "/mnt/img"},
+    )
+    assert disk_path == "fs/home/bob"
+
+
+def test_home_dir_of_a_windows_image_home_mounted_on_linux(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "/mnt/img/Users/bob",
+        "/mnt/img/Users/bob/.pi/agent/x",
+        "fs/Users/bob/dotfiles/pi/agent/x",
+        summary={"mode": "image", "root": "/mnt/img/"},
+    )
+    assert disk_path == "fs/Users/bob"
+
+
+def test_home_dir_of_a_stow_style_link_is_not_the_target_directory(tmp_path):
+    """A physical path that ends with the relative path below another directory is not the home."""
+    for summary in ({"mode": "live", "root": "/"}, None):
+        disk_path = _home_disk_path_of(
+            tmp_path / ("with" if summary else "without"),
+            "/home/bob",
+            "/home/bob/.config/gh/hosts.yml",
+            "fs/home/bob/dotfiles/.config/gh/hosts.yml",
+            summary=summary,
+        )
+        assert disk_path == "fs/home/bob", summary
+
+
+def test_home_dir_comes_from_the_first_row_that_ends_with_its_relative_path(tmp_path):
+    """A home whose first row is staged physically takes a later row's directory."""
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "/mnt/img/home/bob",
+        "/mnt/img/home/bob/.pi/agent/x",
+        "fs/home/bob/dotfiles/pi/agent/x",
+        more_rows=[
+            ("/mnt/img/home/bob/.claude/history.jsonl", "fs/home/bob/.claude/history.jsonl")
+        ],
+    )
+    assert disk_path == "fs/home/bob"
+
+
+def _collected_home(root, home, rows):
+    """Open a collection of one home from (path, archive_path, status) rows and return the home.
+
+    A `collected` row's member is written as a file; a `symlink` row gets no member, as in a
+    zip archive.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    manifest = []
+    for row_path, row_archive_path, status in rows:
+        if status == "collected":
+            member = root / row_archive_path
+            member.parent.mkdir(parents=True, exist_ok=True)
+            member.write_text("[]", encoding="utf-8")
+        manifest.append(
+            {
+                "type": "file" if status == "collected" else "symlink",
+                "status": status,
+                "user": "bob",
+                "home": home,
+                "path": row_path,
+                "archive_path": row_archive_path,
+                "agent": "pi",
+            }
+        )
+    lines = "".join(json.dumps(row) + "\n" for row in manifest)
+    (root / "manifest.jsonl").write_text(lines, encoding="utf-8")
+    collection = open_input(root, catalog.load())
+    assert len(collection.homes) == 1
+    return collection.homes[0]
+
+
+PHYSICAL_ROWS = [
+    ("/home/bob/.claude/history.jsonl", "fs/home/bob/.claude/history.jsonl", "collected"),
+    ("/home/bob/.pi", "fs/home/bob/.pi", "symlink"),
+    (
+        "/home/bob/.pi/agent/sessions/p/s.jsonl",
+        "fs/home/bob/dotfiles/pi/agent/sessions/p/s.jsonl",
+        "collected",
+    ),
+]
+
+
+def test_path_of_a_physically_staged_file_is_its_archive_path(tmp_path):
+    home = _collected_home(tmp_path, "/home/bob", PHYSICAL_ROWS)
+    assert home.path_of(".pi/agent/sessions/p/s.jsonl") == (
+        tmp_path / "fs/home/bob/dotfiles/pi/agent/sessions/p/s.jsonl"
+    )
+
+
+def test_path_of_the_directories_above_a_physically_staged_file(tmp_path):
+    """Each directory down to the link, and a path below one, resolves where the target is."""
+    home = _collected_home(tmp_path, "/home/bob", PHYSICAL_ROWS)
+    physical = tmp_path / "fs/home/bob/dotfiles/pi"
+    cases = (
+        (".pi/agent/sessions", physical / "agent/sessions"),
+        (".pi/agent", physical / "agent"),
+        (".pi", physical),
+        (".pi/agent/sessions/other/t.jsonl", physical / "agent/sessions/other/t.jsonl"),
+    )
+    for rel, expected in cases:
+        assert home.path_of(rel) == expected, rel
+
+
+def test_path_of_an_unmapped_path_is_below_the_home_directory(tmp_path):
+    home = _collected_home(tmp_path, "/home/bob", PHYSICAL_ROWS)
+    for rel in (".claude/history.jsonl", ".little-coder/checkpoints/s", "dotfiles", ""):
+        assert home.path_of(rel) == tmp_path / "fs/home/bob" / rel, rel
+    assert ".claude/history.jsonl" not in home.staged_paths
+
+
+def test_path_of_a_link_named_like_its_target_maps_no_home_directory(tmp_path):
+    """`.config -> dotfiles/.config` maps `.config` and below, never the home itself."""
+    rows = [
+        ("/home/bob/.config", "fs/home/bob/.config", "symlink"),
+        (
+            "/home/bob/.config/gh/hosts.yml",
+            "fs/home/bob/dotfiles/.config/gh/hosts.yml",
+            "collected",
+        ),
+    ]
+    for with_link_row in (True, False):
+        home = _collected_home(
+            tmp_path / str(with_link_row), "/home/bob", rows[with_link_row ^ 1 :]
+        )
+        assert sorted(home.staged_paths) == [".config", ".config/gh", ".config/gh/hosts.yml"], (
+            with_link_row
+        )
+        assert home.path_of(".config/gh") == tmp_path / str(with_link_row) / (
+            "fs/home/bob/dotfiles/.config/gh"
+        )
+        assert home.path_of(".bashrc") == tmp_path / str(with_link_row) / "fs/home/bob/.bashrc"
+
+
+def test_path_of_a_link_row_without_an_archive_member_still_marks_the_link(tmp_path):
+    """A zip collection records a link with no `archive_path`; the link still bounds the map."""
+    rows = [
+        ("/home/bob/.config/gh", "", "symlink"),
+        (
+            "/home/bob/.config/gh/hosts.yml",
+            "fs/home/bob/dotfiles/.config/gh/hosts.yml",
+            "collected",
+        ),
+        (
+            "/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
+            "fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
+            "collected",
+        ),
+    ]
+    home = _collected_home(tmp_path, "/home/bob", rows)
+    assert sorted(home.staged_paths) == [".config/gh", ".config/gh/hosts.yml"]
+    assert home.path_of(".config/Cursor/User/globalStorage/state.vscdb") == (
+        tmp_path / "fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb"
+    )
+
+
+def test_path_of_a_nested_link_is_the_directory_holding_its_files(tmp_path):
+    """`.config -> dotfiles/.config` and `.config/gh -> ../../credentials/gh`: files win."""
+    rows = [
+        ("/home/bob/.config", "fs/home/bob/.config", "symlink"),
+        ("/home/bob/.config/gh", "fs/home/bob/dotfiles/.config/gh", "symlink"),
+        ("/home/bob/.config/gh/hosts.yml", "fs/home/bob/credentials/gh/hosts.yml", "collected"),
+    ]
+    home = _collected_home(tmp_path, "/home/bob", rows)
+    assert home.path_of(".config/gh") == tmp_path / "fs/home/bob/credentials/gh"
+    assert home.path_of(".config") == tmp_path / "fs/home/bob/dotfiles/.config"
+
+
+def test_path_of_a_link_below_a_real_directory_maps_from_the_link_down(tmp_path):
+    """A real `.config` holding `gh -> ../dotfiles/.config/gh` keeps its other children in place."""
+    rows = [
+        ("/home/bob/.config/gh", "fs/home/bob/.config/gh", "symlink"),
+        (
+            "/home/bob/.config/gh/hosts.yml",
+            "fs/home/bob/dotfiles/.config/gh/hosts.yml",
+            "collected",
+        ),
+        (
+            "/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
+            "fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb",
+            "collected",
+        ),
+    ]
+    home = _collected_home(tmp_path, "/home/bob", rows)
+    assert sorted(home.staged_paths) == [".config/gh", ".config/gh/hosts.yml"]
+    assert home.path_of(".config/gh") == tmp_path / "fs/home/bob/dotfiles/.config/gh"
+    assert home.path_of(".config/Cursor/User/globalStorage/state.vscdb") == (
+        tmp_path / "fs/home/bob/.config/Cursor/User/globalStorage/state.vscdb"
+    )
+
+
+def test_path_of_a_link_below_an_excluded_link_leaves_the_real_directory_in_place(tmp_path):
+    """A real `.copilot` holding the excluded link `repos -> ../dotfiles/repos`, itself holding a link.
+
+    The excluded link has no `symlink` row, so the link below it is bounded by the rows
+    archived in place under `.copilot`, never by a row of the link it runs through.
+    """
+    rows = [
+        ("/home/dot/.copilot/logs", "fs/home/dot/.copilot/logs", "symlink"),
+        ("/home/dot/.copilot/repos/r1", "fs/home/dot/dotfiles/repos/r1", "symlink"),
+        (
+            "/home/dot/.copilot/session-state/s1/workspace.yaml",
+            "fs/home/dot/.copilot/session-state/s1/workspace.yaml",
+            "collected",
+        ),
+    ]
+    home = _collected_home(tmp_path, "/home/dot", rows)
+    assert sorted(home.staged_paths) == [".copilot/repos", ".copilot/repos/r1"]
+    assert home.path_of(".copilot/repos") == tmp_path / "fs/home/dot/dotfiles/repos"
+    assert home.path_of(".copilot/session-state/s1/workspace.yaml") == (
+        tmp_path / "fs/home/dot/.copilot/session-state/s1/workspace.yaml"
+    )
+
+
+def test_path_of_a_windows_home_staged_physically(tmp_path):
+    rows = [
+        ("C:\\Users\\bob\\.claude\\x", "fs/C/Users/bob/.claude/x", "collected"),
+        ("C:\\Users\\bob\\.pi\\agent\\x", "fs/C/Users/bob/dotfiles/pi/agent/x", "collected"),
+    ]
+    home = _collected_home(tmp_path, "C:\\Users\\bob", rows)
+    assert home.path_of(".pi/agent") == tmp_path / "fs/C/Users/bob/dotfiles/pi/agent"
+    assert home.path_of(".claude/x") == tmp_path / "fs/C/Users/bob/.claude/x"
+    assert sorted(home.staged_paths) == [".pi", ".pi/agent", ".pi/agent/x"]
+
+
+def test_path_of_a_home_with_no_physical_rows_is_below_the_home_directory(tmp_path):
+    rows = [
+        ("/home/bob/.claude/history.jsonl", "fs/home/bob/.claude/history.jsonl", "collected"),
+        ("/home/bob/.pi", "fs/home/bob/.pi", "symlink"),
+    ]
+    home = _collected_home(tmp_path, "/home/bob", rows)
+    assert home.staged_paths == {}
+    assert home.path_of(".pi/agent") == tmp_path / "fs/home/bob/.pi/agent"
+
+
+def test_path_of_loose_input_is_below_the_home_directory(tmp_path):
+    build_home(tmp_path / "home" / "alice")
+    collection = open_input(tmp_path / "home", catalog.load())
+    assert collection.homes
+    for home in collection.homes:
+        assert home.staged_paths == {}, home.disk_path
+        assert home.path_of(".pi/agent") == home.disk_path / ".pi/agent", home.disk_path
+
+
 if __name__ == "__main__":
     unittest.main()

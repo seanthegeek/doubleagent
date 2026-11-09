@@ -183,6 +183,21 @@ class PiTests(ParserBase):
         )
         self.assertEqual({row.session_id for row in rows}, {PI_FORK})
 
+    def test_fork_kept_whole_when_the_parent_is_a_symlink(self):
+        """A parent session file the collection holds as a link is never read through it."""
+        parent = self.home / self.REL
+        copy = self.home / "parent-copy.jsonl"
+        copy.write_bytes(parent.read_bytes())
+        parent.unlink()
+        try:
+            parent.symlink_to(copy)
+        except OSError as error:
+            self.skipTest("cannot create a symlink: %s" % error)
+        rows = self.rows_for(PiParser(), self.FORK)
+        self.assertEqual(
+            [row.turn_type for row in rows], ["system", "system", "user", "tool_use", "assistant"]
+        )
+
     def test_little_coder_session_is_flagged(self):
         rows = self.rows_for(PiParser(), self.LITTLE_CODER)
         self.assertEqual({row.agent for row in rows}, {"pi"})

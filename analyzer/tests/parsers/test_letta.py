@@ -221,6 +221,18 @@ class LettaTests(ParserBase):
         rows = self.rows_for(LettaParser(), self.TRANSCRIPT)
         self.assertEqual({row.project_path for row in rows}, {"/srv/old"})
 
+    def test_transcript_project_is_not_read_through_a_symlink(self):
+        path = self.home / ".letta/sessions.jsonl"
+        copy = self.home / "sessions-copy.jsonl"
+        copy.write_bytes(path.read_bytes())
+        path.unlink()
+        try:
+            path.symlink_to(copy)
+        except OSError as error:
+            self.skipTest("cannot create a symlink: %s" % error)
+        rows = self.rows_for(LettaParser(), self.TRANSCRIPT)
+        self.assertEqual({row.project_path for row in rows}, {""})
+
     def test_permission_settings(self):
         rel = ".config/letta/settings.json"
         rows = self.rows_for(LettaParser(), rel)

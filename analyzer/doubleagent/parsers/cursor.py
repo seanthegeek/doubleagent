@@ -460,7 +460,7 @@ _PROJECT_CACHE: dict[tuple, tuple[dict[str, tuple[str, str]], dict[str, str]]] =
 def _home_state(artifact: Artifact) -> Path | None:
     """Return the IDE `state.vscdb` in the artifact's home, or None."""
     for parent in IDE_PARENTS:
-        path = artifact.home.disk_path / parent / "User/globalStorage/state.vscdb"
+        path = artifact.home.path_of(parent + "/User/globalStorage/state.vscdb")
         if path.is_file():
             return path
     return None
