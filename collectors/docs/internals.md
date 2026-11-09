@@ -159,19 +159,20 @@ this order, which keeps the per-file order of the forensic rules:
 
 `set_dest_var` gives every pass its staged path: it sets `dest_rel`, the `fs/...` archive path
 written as `archive_path`, and `dest`, the same path under the staging directory. A file at or
-under `STAGE_FROM` (the in-base link a match ran through, set by `collect_catalog`,
+under `STAGE_FROM` (the in-base link a match ran through, set by `collect_catalog_match`,
 `record_passed_links` and `collect_hint_file`) is staged
 under `STAGE_TO`, that link's physical path in the base, and any other file under its own path.
 The strips of the root, the home and `STAGE_FROM` use a mask of `?` characters as long as the
 prefix, built once per worker start, because posh reads a quoted parameter inside a pattern as a
 pattern; the mask costs no process per file.
 
-`copy_run` removes a failed partial copy only when `dest`'s directory resolves, by `cd -P`,
-inside `STAGE_PHYSICAL`, the staging directory's physical path. Otherwise the staged path leads
-through a link out of the staging tree, nothing is removed, the log line ends `staged path
-resolves outside the staging directory, not removed` and the row is `error_copy`. The check costs
-one process per run and one per failed copy (`test_inside_stage`). In PowerShell
-`Clear-PartialCopy` applies the same test with `Get-PhysicalPath` of the parent.
+`copy_run` removes a failed partial copy only when `dest`'s directory resolves inside
+`STAGE_PHYSICAL`, the staging directory's physical path (`test_inside_stage`, which changes into
+the directory with `cd -P`, reads `PWD` and changes back, so no process starts). Otherwise the
+staged path leads through a link out of the staging tree, nothing is removed, the log line ends
+`staged path resolves outside the staging directory, not removed` and the row is `error_copy`; a
+failed copy that left nothing behind gets no note. `STAGE_PHYSICAL` costs one process per run. In
+PowerShell `Clear-PartialCopy` applies the same test with `Get-PhysicalPath` of the parent.
 
 POSIX sh has no arrays, so a chunk is held in numbered variables set with
 `eval`, for N from 1 to `chunk_size`: `path_N` (the source path), `stat_N`
@@ -623,6 +624,7 @@ PowerShell functions that do their job.
 | Tell a path that is, or lies through real directories under, a claimed path, whose walk records it | `test_claimed_path` | `Test-ClaimedPath` |
 | Set the staged path and archive path of a file, physical when it ran through an in-base link | `set_dest_var` (in `STAGE_FILES_WORKER`) | `Get-PhysicalSourcePath` |
 | Record each symlinked directory a match ran through, once, at its physical path | `record_passed_links` | `Add-PassedLinks` |
+| Record a match's links, then collect the match where its base physically holds it | `collect_catalog_match` | inline in `Add-CatalogMatches` |
 | Tell whether a failed copy's staged directory resolves inside the staging tree before removing the partial copy | `test_inside_stage` (in `STAGE_FILES_WORKER`, called by `copy_run`) | `Clear-PartialCopy` |
 | The physical path of a match for its log line | `physical_path_var` | inline in `Add-CatalogMatches` |
 | Collect every match of a table under a base | `collect_catalog` | `Add-CatalogMatches` |
