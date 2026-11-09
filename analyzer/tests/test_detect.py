@@ -634,5 +634,45 @@ def test_extract_archive_refuses_other_files(tmp_path):
         raise AssertionError("no InputError")
 
 
+def _home_disk_path_of(tmp_path, home, original, archive_path):
+    """Open a one-row collection and return its only home's `disk_path` relative to the root."""
+    member = tmp_path / archive_path
+    member.parent.mkdir(parents=True)
+    member.write_text("[]", encoding="utf-8")
+    row = {
+        "type": "file",
+        "status": "collected",
+        "user": "bob",
+        "home": home,
+        "path": original,
+        "archive_path": archive_path,
+        "agent": "pi",
+    }
+    (tmp_path / "manifest.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+    collection = open_input(tmp_path, catalog.load())
+    assert len(collection.homes) == 1
+    return collection.homes[0].disk_path.relative_to(tmp_path).as_posix()
+
+
+def test_home_dir_of_a_windows_row_staged_at_its_physical_path(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "C:\\Users\\bob",
+        "C:\\Users\\bob\\.pi\\agent\\x",
+        "fs/C/Users/bob/dotfiles/pi/agent/x",
+    )
+    assert disk_path == "fs/C/Users/bob"
+
+
+def test_home_dir_of_a_posix_row_staged_at_its_physical_path(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "/home/bob",
+        "/home/bob/.pi/agent/x",
+        "fs/home/bob/dotfiles/pi/agent/x",
+    )
+    assert disk_path == "fs/home/bob"
+
+
 if __name__ == "__main__":
     unittest.main()

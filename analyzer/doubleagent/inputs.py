@@ -388,7 +388,12 @@ def _archive_dir_for_home(row: dict) -> str:
     rel = _relative_to_home(original, home)
     if rel and archive_path.replace("\\", "/").endswith(rel):
         return archive_path.replace("\\", "/")[: -len(rel)].rstrip("/")
-    return "fs" + home.replace("\\", "/")
+    # A row staged at a link's physical path does not end with its rel; mirror
+    # the collector's layout instead: `C:\Users\bob` is `fs/C/Users/bob`.
+    posix_home = home.replace("\\", "/")
+    if len(posix_home) >= 2 and posix_home[1] == ":" and posix_home[0].isalpha():
+        return "fs/%s/%s" % (posix_home[0], posix_home[2:].lstrip("/"))
+    return "fs" + posix_home
 
 
 def _relative_to_home(path: str, home: str) -> str:
