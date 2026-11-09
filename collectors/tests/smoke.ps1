@@ -3093,6 +3093,19 @@ if ($claudeLinkOk) {
   } else { Write-Output 'note: the .claude link was not recreated in the staging tree, #497 not-removed log check skipped' }
 }
 
+# A copy that fails inside the staging tree leaves nothing there to keep, so its log line has
+# no note. The file is unreadable only for this run and removed after it, so no other run sees it.
+if ($env:OS -ne 'Windows_NT' -and (& id -u) -ne '0') {
+  $lockedPath = ImagePath 'home/dot/.copilot/locked497.json'
+  [System.IO.File]::WriteAllText($lockedPath, '{}', (New-Object System.Text.UTF8Encoding $false))
+  & chmod 000 $lockedPath
+  Run 'unreadable497' @{}
+  & chmod 644 $lockedPath
+  Remove-Item -LiteralPath $lockedPath -Force
+  $lockedLog = @(Get-Content -LiteralPath (Get-ChildItem -LiteralPath (Join-Path $Out 'unreadable497') -Filter '*.log' | Select-Object -First 1).FullName)
+  Check '#497 a failed copy inside the staging tree still removes its partial copy' { $lockedRows = RowsAt 'home/dot/.copilot/locked497.json'; @($lockedLog | Where-Object { $_.Contains("copy failed: ${lockedPath}: ") }).Count -eq 1 -and @($lockedLog | Where-Object { $_.Contains('not removed') }).Count -eq 0 -and $lockedRows.Count -eq 1 -and $lockedRows[0].status -eq 'error_copy' -and $lockedRows[0].archive_path -eq '' -and @(ArchiveEntries | Where-Object { $_.EndsWith('/locked497.json') }).Count -eq 0 }
+} else { Write-Output 'note: the failed-copy removal check needs an unreadable file on a non-root POSIX host, skipped' }
+
 # ---- -NoSecrets -----------------------------------------------------------
 Run 'nosecrets' @{ NoSecrets = $true }
 Check 'NoSecrets exit 0' { $script:ExitCode -eq 0 }
