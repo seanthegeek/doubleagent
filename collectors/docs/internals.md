@@ -239,8 +239,8 @@ from the first link on, so a match with no link in its path costs no
 process. A link whose target stays inside the base it also reports: `_ret_stage_from`, the
 deepest such link, `_ret_stage_to`, its physical path in the base, and `_ret_stage_links`, every
 such link passed, each recorded once like the out-of-base link (`record_passed_links`,
-`Add-PassedLinks`; sh also skips a link that already has a manifest row, PowerShell relies on
-its seen set and the claims) and staged at its own physical path. All three are empty when the path meets no in-base link.
+`Add-PassedLinks`; a link that already has a manifest row, from another base's walk, gets no
+second one) and staged at its own physical path. All three are empty when the path meets no in-base link.
 
 ## Claimed paths and case variants
 
