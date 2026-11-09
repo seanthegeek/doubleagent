@@ -3228,6 +3228,8 @@ function Add-StagedLink($item, [string]$stagePath) {
     $script:LinkCounts.failed++
     return 'not recreated in the archive: reparse point has no single link target'
   }
+  # A destination two entries share holds the link already: made once, listed once.
+  if (Test-IsLink $stagePath) { return '' }
   # Only Windows distinguishes file and directory links.
   $isDir = ($env:OS -eq 'Windows_NT') -and
     (($item.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0)

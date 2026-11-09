@@ -2834,7 +2834,10 @@ plan_chunk() {
         whole_target=$(readlink -n "$path" 2>/dev/null; printf x); whole_target=${whole_target%x}
         [ -z "$whole_target" ] || target=$whole_target
       fi
-      set_dest_var "$path"; ln -s "$target" "$dest" 2>/dev/null
+      # A destination two entries share holds the link already; ln -s onto a link to
+      # a directory would create the new link inside that directory, on the source.
+      set_dest_var "$path"
+      [ -L "$dest" ] || [ -e "$dest" ] || ln -s "$target" "$dest" 2>/dev/null
     elif [ -e "$path" ] && [ ! -f "$path" ]; then
       status=skipped_special
       if [ -S "$path" ]; then type=socket

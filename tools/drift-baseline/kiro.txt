@@ -45,7 +45,6 @@ check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/amazon-q
 check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Local/kiro-cli
 check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Kiro/User
 check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/Kiro/logs
-check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Kiro/User
 check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/Kiro/logs
 check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/amazon-q
 check_smoke_coverage|fixture-missing|smoke.ps1 home Library/Application Support/kiro-cli
@@ -61,7 +60,6 @@ check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/amazon-q
 check_smoke_coverage|fixture-missing|smoke.sh home AppData/Local/kiro-cli
 check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Kiro/User
 check_smoke_coverage|fixture-missing|smoke.sh home AppData/Roaming/Kiro/logs
-check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Kiro/User
 check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/Kiro/logs
 check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/amazon-q
 check_smoke_coverage|fixture-missing|smoke.sh home Library/Application Support/kiro-cli

@@ -1986,6 +1986,18 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/.claude') -Target (ImagePath 'home/dot/dotfiles/claude') -ErrorAction Stop | Out-Null
   $claudeLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #497 recreated-link copy checks skipped' }
+# 2026-11-09 a link two entries stage at one destination (#505)
+# .config/Kiro/User is staged where Library/Application Support/Kiro/User already holds the same
+# entries, so the link inside is reached twice: it is recreated once and both rows name it.
+MakeFile 'elsewhere/kiro-agent-out/data.json' '{}'
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'home/dot/.config'))
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'home/dot/Library/Application Support/Kiro/User/globalStorage'))
+$kiroLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/.config/Kiro') -Target (ImagePath 'home/dot/Library/Application Support/Kiro') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent') -Target (ImagePath 'elsewhere/kiro-agent-out') -ErrorAction Stop | Out-Null
+  $kiroLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #505 shared destination checks skipped' }
 
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 # The home's [1] is a class in a pattern: claims and exclusions must still prune under it.
@@ -3041,6 +3053,11 @@ if ($camelLinkOk) {
 }
 if ($direnvLinkOk) {
   Check '#488 a startup file under a link inside the home is staged where the target holds it' { $direnvRows = RowsAt 'home/bob/.config/direnv'; $direnvRows.Count -eq 1 -and $direnvRows[0].status -eq 'symlink' -and $direnvRows[0].agent -eq 'shared' -and (IsStagedLinkRow $direnvRows[0] 'fs/home/bob/.config/direnv') -and (Row 'home/bob/.config/direnv/direnvrc').archive_path -ceq 'fs/home/bob/dotfiles/direnv/direnvrc' }
+}
+# 2026-11-09 a link two entries stage at one destination (#505)
+if ($kiroLinkOk) {
+  Check '#505 a link two entries reach is recorded under each with one archive path' { $linkedRows = RowsAt 'home/dot/.config/Kiro/User/globalStorage/kiro.kiroagent'; $directRows = RowsAt 'home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent'; $linkedRows.Count -eq 1 -and $directRows.Count -eq 1 -and $linkedRows[0].status -eq 'symlink' -and $directRows[0].status -eq 'symlink' -and $linkedRows[0].agent -eq 'kiro' -and (IsStagedLinkRow $linkedRows[0] 'fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent') -and (IsStagedLinkRow $directRows[0] 'fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent') -and ($linkedRows[0].error -eq '' -or $linkedRows[0].error -like 'not recreated in the archive: zip*') -and ($directRows[0].error -eq '' -or $directRows[0].error -like 'not recreated in the archive: zip*') -and ($directRows[0].archive_path -eq '' -or @($DefaultEntries | Where-Object { ($_ -replace '^\./', '') -ceq 'fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent' }).Count -eq 1) }
+  Check '#505 a link staged twice is recreated once and nothing is made inside its target' { -not (Test-Path -LiteralPath (ImagePath 'elsewhere/kiro-agent-out/kiro-agent-out')) -and @(Get-ChildItem -LiteralPath (ImagePath 'elsewhere/kiro-agent-out') -Force).Count -eq 1 }
 }
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 Check '#465 a nested entry under a home holding [ has one row, its own agent' { $nestedRows = RowsAt 'home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db'; $nestedRows.Count -eq 1 -and $nestedRows[0].agent -eq 'antigravity' -and $nestedRows[0].status -eq 'collected' }

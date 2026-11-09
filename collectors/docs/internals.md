@@ -136,7 +136,10 @@ this order, which keeps the per-file order of the forensic rules:
    output does not have one line per file (a file vanished, `stat` failed,
    or there is no `stat`), it falls back to `stat_file` per file.
 2. `plan_chunk` creates the staging directories with one `mkdir -p`,
-   recreates symlinks with `readlink` and `ln -s`, tests `SECRET_GLOBS`
+   recreates symlinks with `readlink` and `ln -s` (a link already recreated at
+   the destination by another entry's walk is left as it is, since `ln -s`
+   onto a link to a directory would create the new link inside that
+   directory), tests `SECRET_GLOBS`
    with `is_secret`, and marks each file `symlink`, `skipped_special`, `skipped_secret`,
    `skipped_size` or `copy`. A path that exists and is neither a symlink
    nor a regular file is `skipped_special`, its `type_N` set to `socket`,

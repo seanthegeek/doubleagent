@@ -181,7 +181,9 @@ the matched path.
   resolves outside the staging directory, not removed`, since the collector never removes a
   file outside the staging directory.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
-  `bar|b/sub` names the same files; the archive holds the last copy.
+  `bar|b/sub` names the same files; the archive holds the last copy of a file and the link
+  the first row recreated, which the second leaves as it is: `ln -s` onto a link to a
+  directory would create the new link inside that directory, on the source.
 
 ## Claude Code config homes
 

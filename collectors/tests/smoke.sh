@@ -2055,6 +2055,16 @@ printf 'ref: refs/heads/main\n' >"$ROOT/opt/r1-out/.git/HEAD"
 mkdir -p "$DOT_HOME/dotfiles/claude/proj"
 printf 'x\n' >"$DOT_HOME/dotfiles/claude/proj/AGENTS.md"
 ln -s "$DOT_HOME/dotfiles/claude" "$DOT_HOME/.claude"
+# 2026-11-09 a link two entries stage at one destination (#505)
+# .config/Kiro/User is staged where Library/Application Support/Kiro/User
+# already holds the same entries, so the link inside is reached twice; it is
+# recreated once, since a second ln -s onto the recreated link, whose target is
+# an existing directory, would create the new link inside that directory.
+mkdir -p "$DOT_HOME/.config" "$DOT_HOME/Library/Application Support/Kiro/User/globalStorage" \
+  "$ROOT/opt/kiro-agent-out"
+ln -s "../Library/Application Support/Kiro" "$DOT_HOME/.config/Kiro"
+printf '{}\n' >"$ROOT/opt/kiro-agent-out/data.json"
+ln -s "$ROOT/opt/kiro-agent-out" "$DOT_HOME/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 # The home's [1] is a class in a find -path pattern: claims and exclusions must
 # still prune under it.
@@ -2776,6 +2786,9 @@ check "#488 a nested link entry inside a real claim has one row" "[ \"\$(grep -c
 check "#488 a link under a linked ancestor inside a real claim is recorded" "[ \"\$(grep -cF '\"path\":\"$DOT_HOME/.copilot/repos/r1\"' \"\$MANIFEST\")\" = 1 ] && row \"$DOT_HOME/.copilot/repos/r1\" | contains -F '\"agent\":\"copilot-desktop\",\"path\":\"$DOT_HOME/.copilot/repos/r1\",\"archive_path\":\"fs/home/dot/dotfiles/repos/r1\",' && row \"$DOT_HOME/.copilot/repos/r1\" | contains -F '\"status\":\"symlink\"' && ! grep -qF '\"path\":\"$ROOT/opt/r1-out' \"\$MANIFEST\" && ! grep -qF '\"path\":\"$DOT_HOME/.copilot/repos/r1/' \"\$MANIFEST\" && tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/dot/dotfiles/repos/r1' && ! tar -tzf \"\$ARCHIVE\" | contains '^\\./fs/home/dot/\\.copilot/repos/'"
 check "#488 a link inside the home that no entry names is recorded once" "[ \"\$(grep -cF '\"path\":\"$BOB/.camel\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.camel\" | contains -F '\"agent\":\"camel-ai\",' && row \"$BOB/.camel\" | contains -F '\"status\":\"symlink\",\"target\":\"dotfiles/camel\"'"
 check "#488 a startup file under a link inside the home is staged where the target holds it" "[ \"\$(grep -cF '\"path\":\"$BOB/.config/direnv\"' \"\$MANIFEST\")\" = 1 ] && row \"$BOB/.config/direnv\" | contains -F '\"agent\":\"shared\",' && row \"$BOB/.config/direnv\" | contains -F '\"status\":\"symlink\"' && row \"$BOB/.config/direnv/direnvrc\" | contains -F '\"archive_path\":\"fs/Users/bob/dotfiles/direnv/direnvrc\",'"
+# 2026-11-09 a link two entries stage at one destination (#505)
+check "#505 a link two entries reach is recorded under each with one archive path" "row \"$DOT_HOME/.config/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"agent\":\"kiro\",\"path\":\"$DOT_HOME/.config/Kiro/User/globalStorage/kiro.kiroagent\",\"archive_path\":\"fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\",' && row \"$DOT_HOME/.config/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"status\":\"symlink\",\"target\":\"$ROOT/opt/kiro-agent-out\"' && row \"$DOT_HOME/.config/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"error\":\"\"' && row \"$DOT_HOME/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"archive_path\":\"fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\",' && row \"$DOT_HOME/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"status\":\"symlink\",\"target\":\"$ROOT/opt/kiro-agent-out\"' && row \"$DOT_HOME/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent\" | contains -F '\"error\":\"\"' && [ \"\$(tar -tzf \"\$ARCHIVE\" | grep -cxF './fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent')\" = 1 ]"
+check "#505 a link staged twice is recreated once and nothing is made inside its target" "[ ! -e '$ROOT/opt/kiro-agent-out/kiro-agent-out' ] && [ ! -L '$ROOT/opt/kiro-agent-out/kiro-agent-out' ] && [ \"\$(ls -A '$ROOT/opt/kiro-agent-out' | wc -l)\" -eq 1 ]"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 check "#465 a nested entry under a home holding [ has one row, its own agent" "[ \"\$(grep -cF '\"path\":\"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\"' \"\$MANIFEST\")\" = 1 ] && row \"$BRACKET_HOME/.gemini/antigravity-cli/conversations/bracket-home.db\" | contains '\"agent\":\"antigravity\".*\"status\":\"collected\"'"
 check "#465 an exclusion applies under a home holding [" "row \"$BRACKET_HOME/.gemini/tmp/bin\" | contains '\"status\":\"skipped_excluded\"' && [ -z \"\$(row \"$BRACKET_HOME/.gemini/tmp/bin/rg\")\" ]"
