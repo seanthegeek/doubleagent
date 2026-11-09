@@ -2858,20 +2858,14 @@ plan_chunk() {
 # staging directory resolved, so removing a failed copy there cannot reach a
 # source through a link recreated in the staging tree. No fork: cd -P sets PWD
 # to the physical directory, and every path the worker handles is absolute, so
-# it changes back at once. The prefix is compared with a mask, as set_dest_var
-# strips its prefixes.
+# it changes back at once.
 test_inside_stage() {
   [ -n "${STAGE_PHYSICAL:-}" ] || return 1
   inside_saved=$PWD
   cd -P "$1" 2>/dev/null || return 1
   inside_dir=$PWD
   cd "$inside_saved" || return 1
-  inside_mask=; while [ "${#inside_mask}" -lt "${#STAGE_PHYSICAL}" ]; do
-    inside_mask="$inside_mask?"
-  done
-  inside_rest=${inside_dir#$inside_mask}
-  [ "$STAGE_PHYSICAL$inside_rest" = "$inside_dir" ] || return 1
-  case "$inside_rest" in ('' | /*) return 0 ;; esac
+  case "$inside_dir/" in ("$STAGE_PHYSICAL"/*) return 0 ;; esac
   return 1
 }
 # copy_run FIRST LAST DIR: copies the "copy" entries FIRST..LAST of one directory

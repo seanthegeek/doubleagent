@@ -162,9 +162,6 @@ written as `archive_path`, and `dest`, the same path under the staging directory
 under `STAGE_FROM` (the in-base link a match ran through, set by `collect_catalog_match`,
 `record_passed_links` and `collect_hint_file`) is staged
 under `STAGE_TO`, that link's physical path in the base, and any other file under its own path.
-The strips of the root, the home and `STAGE_FROM` use a mask of `?` characters as long as the
-prefix, built once per worker start, because posh reads a quoted parameter inside a pattern as a
-pattern; the mask costs no process per file.
 
 `copy_run` removes a failed partial copy only when `dest`'s directory resolves inside
 `STAGE_PHYSICAL`, the staging directory's physical path (`test_inside_stage`, which changes into
