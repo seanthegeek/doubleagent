@@ -3075,7 +3075,6 @@ $global:LASTEXITCODE = 0
 $patternExit = $LASTEXITCODE
 $patternManifest = Read-ManifestLines (Get-ChildItem -LiteralPath $patternOutput -Filter '*.manifest.jsonl' | Select-Object -First 1).FullName
 Check '#486 an image root holding [ run exit 0' { $patternExit -eq 0 }
-Write-Output 'note: #498 a collected file under an image root holding [ is archived at its path: sh only, posh reads a quoted parameter inside an expansion pattern as a pattern'
 Check '#486 a catalog file under an image root holding [ is collected' { @($patternManifest.rows | Where-Object { $_.path -eq $PatternFile -and $_.status -eq 'collected' }).Count -eq 1 }
 
 # 2026-11-08 a failed copy's removal through a recreated link (#497)

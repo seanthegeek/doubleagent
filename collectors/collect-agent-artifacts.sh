@@ -2858,13 +2858,13 @@ plan_chunk() {
 # staging directory resolved, so removing a failed copy there cannot reach a
 # source through a link recreated in the staging tree. No fork: cd -P sets PWD
 # to the physical directory, and every path the worker handles is absolute, so
-# it changes back at once.
+# it changes back at once, to / when the directory it left is gone.
 test_inside_stage() {
   [ -n "${STAGE_PHYSICAL:-}" ] || return 1
   inside_saved=$PWD
   cd -P "$1" 2>/dev/null || return 1
   inside_dir=$PWD
-  cd "$inside_saved" || return 1
+  cd "$inside_saved" 2>/dev/null || cd /
   case "$inside_dir/" in ("$STAGE_PHYSICAL"/*) return 0 ;; esac
   return 1
 }
