@@ -2865,13 +2865,16 @@ plan_chunk() {
 }
 # test_inside_stage DIR: true when DIR resolves inside STAGE_PHYSICAL, the
 # staging directory resolved, so removing a failed copy there cannot reach a
-# source through a link recreated in the staging tree. One fork per call; the
-# prefix is compared with a mask of one ? per character, as posh reads a
-# quoted parameter inside a pattern as a pattern.
+# source through a link recreated in the staging tree. No fork: cd -P sets PWD
+# to the physical directory, and every path the worker handles is absolute, so
+# it changes back at once. The prefix is compared with a mask of one ? per
+# character, as posh reads a quoted parameter inside a pattern as a pattern.
 test_inside_stage() {
   [ -n "${STAGE_PHYSICAL:-}" ] || return 1
-  inside_dir=$(cd -P "$1" 2>/dev/null && pwd -P && printf x) || return 1
-  inside_dir=${inside_dir%x}; inside_dir=${inside_dir%?}
+  inside_saved=$PWD
+  cd -P "$1" 2>/dev/null || return 1
+  inside_dir=$PWD
+  cd "$inside_saved" || return 1
   inside_mask=; while [ "${#inside_mask}" -lt "${#STAGE_PHYSICAL}" ]; do
     inside_mask="$inside_mask?"
   done
@@ -2906,7 +2909,9 @@ copy_run() {
         status=collected
       else
         status=error_copy; removal_note=
-        if test_inside_stage "${dest%/*}"; then
+        if [ ! -e "$dest" ] && [ ! -L "$dest" ]; then
+          :
+        elif test_inside_stage "${dest%/*}"; then
           rm -f "$dest" 2>/dev/null
         else
           removal_note='; staged path resolves outside the staging directory, not removed'

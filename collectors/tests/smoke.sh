@@ -2048,6 +2048,13 @@ printf 'log\n' >"$ROOT/opt/logs-out/github-app.1.log"
 ln -s ../dotfiles/repos "$DOT_HOME/.copilot/repos"
 ln -s ../../../../opt/r1-out "$DOT_HOME/dotfiles/repos/r1"
 printf 'ref: refs/heads/main\n' >"$ROOT/opt/r1-out/.git/HEAD"
+# An absolute link that stays inside the image, so it is recorded as a symlink
+# row and recreated in the staging tree pointing at the image itself: a file of
+# a project reached through it is staged onto its own source, the copy fails,
+# and the failed copy must not be removed through the link.
+mkdir -p "$DOT_HOME/dotfiles/claude/proj"
+printf 'x\n' >"$DOT_HOME/dotfiles/claude/proj/AGENTS.md"
+ln -s "$DOT_HOME/dotfiles/claude" "$DOT_HOME/.claude"
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 # The home's [1] is a class in a find -path pattern: claims and exclusions must
 # still prune under it.
@@ -2797,6 +2804,10 @@ check "#486 a catalog file under an image root holding [ is collected" "[ \"\$(s
 # 2026-11-08 the stage worker's root and home strips under posh (#498)
 check "#498 a collected file under an image root holding [ is archived at its path" "row \"$PATTERN_ROOT/home/carol/.gemini/projects.json\" | contains -F '\"archive_path\":\"fs/home/carol/.gemini/projects.json\",' && tar -tzf \"\$ARCHIVE\" | contains -x -F './fs/home/carol/.gemini/projects.json'"
 ROOT=$_saved_root_pattern
+# 2026-11-08 a failed copy's removal through a recreated link (#497)
+run linkproj497 -p "$ROOT/home/dot/.claude/proj"; _exit_link_project=$?
+check "#497 a failed copy through a recreated link leaves the source file in place" "[ \"\$(cat '$DOT_HOME/dotfiles/claude/proj/AGENTS.md' 2>/dev/null)\" = x ]"
+check "#497 a failed copy through a recreated link is logged as not removed" "[ $_exit_link_project -eq 0 ] && grep -F 'copy failed: $DOT_HOME/.claude/proj/AGENTS.md: ' \"$OUT\"/linkproj497/*.log | contains '; staged path resolves outside the staging directory, not removed\$' && [ \"\$(status_of \"$DOT_HOME/.claude/proj/AGENTS.md\")\" = error_copy ] && row \"$DOT_HOME/.claude/proj/AGENTS.md\" | contains -F '\"archive_path\":\"\",'"
 
 # ---- --no-secrets ---------------------------------------------------------
 run nosecrets --no-secrets; check "no-secrets exit 0" "[ $? -eq 0 ]"
