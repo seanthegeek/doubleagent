@@ -3058,6 +3058,9 @@ $script:StagedDirs = New-Object 'System.Collections.Generic.HashSet[string]'
 # recreated in the staging tree.
 $script:StageFrom = ''
 $script:StageTo = ''
+# The staging directory with every link in its path resolved, set by
+# Open-RunFiles; '' when it could not be resolved.
+$script:StagePhysical = ''
 
 # Takes a source path; returns it with $script:StageFrom replaced by
 # $script:StageTo when the path is or lies under it, else unchanged.
@@ -3242,6 +3245,25 @@ function Add-StagedLink($item, [string]$stagePath) {
   return "not recreated in the archive: $why"
 }
 
+# Takes the plain staging path of a copy that failed; removes what the copy
+# left there when its directory resolves inside the staging directory, and
+# returns '' or the note the copy failed: line ends with. A staged path that
+# runs through a recreated link to an absolute target resolves to the source.
+function Clear-PartialCopy([string]$stagePath) {
+  $extendedStagePath = ConvertTo-ExtendedPath $stagePath
+  if (-not (Test-PathQuiet $extendedStagePath 'Any')) { return '' }
+  $parent = Get-PhysicalPath ([System.IO.Path]::GetDirectoryName($stagePath))
+  $inside = $false
+  if ($script:StagePhysical -and $parent) {
+    $stageRoot = $script:StagePhysical.TrimEnd('\', '/') + $script:Sep
+    $parentDir = $parent.TrimEnd('\', '/') + $script:Sep
+    $inside = $parentDir.StartsWith($stageRoot, $script:RowPathComparison)
+  }
+  if (-not $inside) { return '; staged path resolves outside the staging directory, not removed' }
+  try { Remove-Item -LiteralPath $extendedStagePath -Force } catch { }
+  return ''
+}
+
 # Takes the user, home, agent, the file's Get-Item and whether to flag it
 # secret whatever SECRET_GLOBS says (a relocation hint file); stages it and
 # writes its manifest row, or under -Inventory feeds Add-InventoryFile. Runs
@@ -3293,12 +3315,7 @@ function Add-CollectedFile {
       $sha256 = [string]$copy[0]; $size = [int64]$copy[1]
     } catch {
       $status = 'error_copy'; $errorText = ConvertFrom-ExtendedText $_.Exception.Message
-      Write-CollectorLog "copy failed: ${path}: $errorText"
-      try {
-        if (Test-PathQuiet $extendedStagePath 'Any') {
-          Remove-Item -LiteralPath $extendedStagePath -Force
-        }
-      } catch { }
+      Write-CollectorLog "copy failed: ${path}: $errorText$(Clear-PartialCopy $stagePath)"
     }
   }
   $archivePath = ''
@@ -5495,13 +5512,14 @@ function Initialize-Archivers {
   return ''
 }
 
-# Unless -Inventory, creates the staging tree and opens $script:LogWriter and
-# $script:ManifestWriter.
+# Unless -Inventory, creates the staging tree, sets $script:StagePhysical and
+# opens $script:LogWriter and $script:ManifestWriter.
 function Open-RunFiles {
   $script:LogWriter = $null
   $script:ManifestWriter = $null
   if ($Inventory) { return }
   [void][System.IO.Directory]::CreateDirectory((Join-PathSafe $script:XStage 'fs'))
+  $script:StagePhysical = Get-PhysicalPath $script:Stage
   $utf8 = $script:Utf8NoBom
   $script:LogWriter = New-Object System.IO.StreamWriter($script:XLogPath, $false, $utf8)
   $script:ManifestWriter = New-Object System.IO.StreamWriter($script:XManifestPath, $false, $utf8)
