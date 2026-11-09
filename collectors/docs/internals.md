@@ -157,6 +157,21 @@ this order, which keeps the per-file order of the forensic rules:
 5. `write_chunk_rows` writes the manifest rows in the order `find` passed
    the files.
 
+`set_dest_var` gives every pass its staged path: it sets `dest_rel`, the `fs/...` archive path
+written as `archive_path`, and `dest`, the same path under the staging directory. A file at or
+under `STAGE_FROM` (the in-base link a match ran through, set by `collect_catalog`) is staged
+under `STAGE_TO`, that link's physical path in the base, and any other file under its own path.
+The strips of the root, the home and `STAGE_FROM` use a mask of `?` characters as long as the
+prefix, built once per worker start, because posh reads a quoted parameter inside a pattern as a
+pattern; the mask costs no process per file.
+
+`copy_run` removes a failed partial copy only when `dest`'s directory resolves, by `cd -P`,
+inside `STAGE_PHYSICAL`, the staging directory's physical path. Otherwise the staged path leads
+through a link out of the staging tree, nothing is removed, the log line ends `staged path
+resolves outside the staging directory, not removed` and the row is `error_copy`. The check costs
+one process per run and one per failed copy. In PowerShell `Add-CollectedFile` applies the same
+test with `Get-PhysicalPath` of the parent.
+
 POSIX sh has no arrays, so a chunk is held in numbered variables set with
 `eval`, for N from 1 to `chunk_size`: `path_N` (the source path), `stat_N`
 (its `stat_file` line), `status_N`, `type_N` (the manifest `type`),
@@ -214,9 +229,15 @@ the match is logged and skipped, and the link is collected through
 once per call and only when `test_claimed_path` (`Test-ClaimedPath`) finds
 it neither claimed nor inside a claimed path, whose walk records it
 ([coverage.md](coverage.md#paths-through-a-symlinked-directory)).
+`test_claimed_path` tests the path itself against the claims first, then walks up its
+ancestors and answers "not claimed" as soon as one is a symlink, since a claim that is a link
+has a row and no walk.
 `linked_parent` tests each component with `[ -L ]` and runs `cd -P` only
 from the first link on, so a match with no link in its path costs no
-process.
+process. A link whose target stays inside the base it also reports: `_ret_stage_from`, the
+deepest such link, `_ret_stage_to`, its physical path in the base, and `_ret_stage_links`, every
+such link passed, each recorded once like the out-of-base link and staged at its own physical
+path. All three are empty when the path meets no in-base link.
 
 ## Claimed paths and case variants
 
@@ -596,8 +617,9 @@ PowerShell functions that do their job.
 | Count one file under inventory | `INVENTORY_FILES_WORKER` | `Add-InventoryFile` |
 | Expand one glob under a base | `expand_glob` (the user home and volume globs; `expand_catalog` expands the catalog globs itself) | `Expand-Glob` |
 | Expand a table against a base: matches, case variants, claims | `expand_catalog` | `Expand-Catalog` |
-| The first symlinked directory between a base and a path that leads out of the base: a catalog match under it is not walked, a startup file under it not read | `linked_parent` | `Get-LinkedParent` |
-| Tell a path that is or lies under a claimed path, whose walk records it | `test_claimed_path` | `Test-ClaimedPath` |
+| The symlinked directories between a base and a path: the first that leads out of the base (a catalog match under it is not walked, a startup file under it not read), and the in-base links the path passes, for staging at the physical path | `linked_parent` | `Get-LinkedParent` |
+| Tell a path that is, or lies through real directories under, a claimed path, whose walk records it | `test_claimed_path` | `Test-ClaimedPath` |
+| Set the staged path and archive path of a file, physical when it ran through an in-base link | `set_dest_var` (in `STAGE_FILES_WORKER`) | inline in `Add-CollectedFile`, before `Get-ArchivePath` |
 | Collect every match of a table under a base | `collect_catalog` | `Add-CatalogMatches` |
 | Collect one matched path | `collect_path` | `Add-CollectedPath` |
 | Walk a matched directory | `collect_tree` | `Add-CollectedTree` |

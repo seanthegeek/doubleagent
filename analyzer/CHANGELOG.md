@@ -42,6 +42,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A little-coder checkpoint directory whose pi sessions directory (`.pi/agent/sessions`) cannot be read, listed or searched, or whose project directory under it cannot be searched, keeps its checkpoint row and gives one `parser: <directory> could not be read (<reason>)` row, where the parser raised or claimed the session file was not collected ([#389]).
 - Gemini CLI: a `permission decision:` row follows a tool call whose `status` is `cancelled` only. Gemini CLI records a tool call once it is complete, with the status `success`, `error` or `cancelled`, so the `permission decision: awaiting_approval` row, which the parser wrote for a status no build records, is gone. This changes `timeline.jsonl`: that row form no longer occurs ([#446]).
 - Gemini CLI: a `tool_result` row of a call whose `result` holds a `functionResponse` with the call's `id` (a history sync rewrites `result` to every part of the answering turn) holds that response's text and its media only, where it repeated the turn's steering text and the other calls' responses. A `result` with no such response keeps every part's text. A media part of a `result` reads `[inlineData <mimeType>]` or `[fileData <fileUri>]`, as one in a `user` message does, where it read its JSON, data included. This changes `timeline.jsonl`: those `tool_result` texts differ ([#444]).
+- A collection whose home is a Windows drive path (`C:\Users\bob`) is read from `fs/C/Users/bob` when the first row of the home does not end with its path, where the analyzer looked for `fsC:\Users\bob`; the POSIX form keeps `fs/home/bob` ([#501]).
 
 ## [0.23.0] - 2026-10-31
 
@@ -2207,6 +2208,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.2.0]: https://github.com/seanthegeek/doubleagent/compare/analyzer-v0.1.0...analyzer-v0.2.0
 [0.1.0]: https://github.com/seanthegeek/doubleagent/releases/tag/analyzer-v0.1.0
 
+[#501]: https://github.com/seanthegeek/doubleagent/issues/501
 [#454]: https://github.com/seanthegeek/doubleagent/issues/454
 [#446]: https://github.com/seanthegeek/doubleagent/issues/446
 [#444]: https://github.com/seanthegeek/doubleagent/issues/444

@@ -150,11 +150,10 @@ the matched path.
   walked. The manifest records the link itself, the first link of a chain,
   as one `symlink` row with the target it stores, attributed to the agent of
   the first catalog line that reached through it, unless the link is itself
-  a match or lies inside one, whose walk records it (a link inside a matched
-  directory that is itself a link is logged but not recorded,
-  [issue 488](https://github.com/seanthegeek/doubleagent/issues/488)). The
-  row and the log line appear only when a catalog path matches through the
-  link. In image
+  a match or lies inside one, whose walk records it. A walk records a link only through real
+  directories: a link inside a matched directory that is itself a symlink is recorded by the
+  nested entry that reaches it, since the matched link's own row holds no walk.
+  The row and the log line appear only when a catalog path matches through the link. In image
   mode this matters most: an absolute link inside the image resolves against
   the analyst's own host, and one whose target that host lacks matches
   nothing and leaves no row.
@@ -163,7 +162,16 @@ the matched path.
   With `--inventory` (`-Inventory`) the match is not counted and its glob is
   left out of the agent's `evidence`.
 - A link whose target stays inside the home is walked, and its files are
-  recorded under the linked path, not the target's.
+  recorded under the linked path, not the target's. Their `archive_path` is the physical path
+  under the home, so `.camel -> dotfiles/camel` gives `fs/home/bob/dotfiles/camel/skills/s1/SKILL.md`
+  and the recreated link `fs/home/bob/.camel` leads to it. The match's log line then ends
+  `(through the symlinked directory <link>, archived under <physical path>)`.
+- Each such link a catalog path or startup file runs through is recorded once as a `symlink`
+  row with its target, under the agent of the first entry that reached through it (`shared` for
+  a startup file), unless it is claimed as above.
+- Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
+  `bar|b/sub` names the same files; the copies are identical and the archive holds the file
+  once.
 
 ## Claude Code config homes
 

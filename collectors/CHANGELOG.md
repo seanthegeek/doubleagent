@@ -43,6 +43,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Both collectors walked a catalog match reached through a symlinked directory in the middle of its path (a home whose `.config` links to a directory elsewhere), so files outside the home were collected under the home's path and, in image mode, an absolute link read the analyst's own host. A match under a link whose target lies outside the home or project directory, or cannot be resolved, is now logged and not walked, and the link is recorded as one `symlink` row with its target under the agent whose entry reached through it; a link that stays inside the home is walked as before ([#467]).
 - The sh collector read a `[`, `*` or `?` in a home's path or in the path of a catalog entry inside another entry's match as a pattern when it pruned the walk, so under a home such as `/home/u[1]` the files of `.gemini/antigravity-cli` were collected twice, under both agents, and an exclusion did not apply; those paths are now matched literally ([#465]).
 - The sh collector read a home's, project's or image root's path as a pattern when it expanded the catalog, home, Docker volume and startup file globs, so under the homes `/home/u1` and `/home/u[1]` the user of `/home/u[1]` got the other home's files and none of its own, a wildcard entry such as `.claude.json*` found nothing under `/home/u[1]`, and an image root holding `[` found no homes through `home/*`; each glob is now expanded inside its base, so only the table glob is a pattern ([#486]).
+- Both collectors left a link unrecorded when a catalog match was reached through a symlinked directory that stays inside the home and the link that leaves the home lies below it (`~/.pi -> dotfiles/pi` with `dotfiles/pi/agent -> /opt/agent-out`): the inner link is now recorded as one `symlink` row under the agent of the catalog line nested inside the matched one. Every in-base link a catalog path or startup file runs through is now recorded once too, and a file reached through one is archived at the physical path under the home, so its `archive_path` is `fs/home/bob/dotfiles/camel/skills/s1/SKILL.md` where it was `fs/home/bob/.camel/skills/s1/SKILL.md`; the manifest `path` is unchanged ([#488]).
+- A copy that failed in a catalog match reached through a symlinked directory could remove the source file in live mode, because the staged link pointed at the source; the collectors now remove a failed partial copy only when its staged path resolves inside the staging directory, and log `staged path resolves outside the staging directory, not removed` otherwise ([#497]).
+- The sh collector, under posh, staged a file wrongly when the image root or the home held a `[`, `*` or `?`, because it read the quoted root and home in a pattern as patterns ([#498]).
 
 ### Removed
 
@@ -1275,6 +1278,9 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#498]: https://github.com/seanthegeek/doubleagent/issues/498
+[#497]: https://github.com/seanthegeek/doubleagent/issues/497
+[#488]: https://github.com/seanthegeek/doubleagent/issues/488
 [#486]: https://github.com/seanthegeek/doubleagent/issues/486
 [#480]: https://github.com/seanthegeek/doubleagent/issues/480
 [#479]: https://github.com/seanthegeek/doubleagent/issues/479
