@@ -169,8 +169,8 @@ pattern; the mask costs no process per file.
 inside `STAGE_PHYSICAL`, the staging directory's physical path. Otherwise the staged path leads
 through a link out of the staging tree, nothing is removed, the log line ends `staged path
 resolves outside the staging directory, not removed` and the row is `error_copy`. The check costs
-one process per run and one per failed copy. In PowerShell `Add-CollectedFile` applies the same
-test with `Get-PhysicalPath` of the parent.
+one process per run and one per failed copy (`test_inside_stage`). In PowerShell
+`Clear-PartialCopy` applies the same test with `Get-PhysicalPath` of the parent.
 
 POSIX sh has no arrays, so a chunk is held in numbered variables set with
 `eval`, for N from 1 to `chunk_size`: `path_N` (the source path), `stat_N`
@@ -236,8 +236,9 @@ has a row and no walk.
 from the first link on, so a match with no link in its path costs no
 process. A link whose target stays inside the base it also reports: `_ret_stage_from`, the
 deepest such link, `_ret_stage_to`, its physical path in the base, and `_ret_stage_links`, every
-such link passed, each recorded once like the out-of-base link and staged at its own physical
-path. All three are empty when the path meets no in-base link.
+such link passed, each recorded once like the out-of-base link (`record_passed_links`,
+`Add-PassedLinks`; a link that already has a manifest row gets no second one) and staged at its
+own physical path. All three are empty when the path meets no in-base link.
 
 ## Claimed paths and case variants
 
@@ -619,7 +620,10 @@ PowerShell functions that do their job.
 | Expand a table against a base: matches, case variants, claims | `expand_catalog` | `Expand-Catalog` |
 | The symlinked directories between a base and a path: the first that leads out of the base (a catalog match under it is not walked, a startup file under it not read), and the in-base links the path passes, for staging at the physical path | `linked_parent` | `Get-LinkedParent` |
 | Tell a path that is, or lies through real directories under, a claimed path, whose walk records it | `test_claimed_path` | `Test-ClaimedPath` |
-| Set the staged path and archive path of a file, physical when it ran through an in-base link | `set_dest_var` (in `STAGE_FILES_WORKER`) | inline in `Add-CollectedFile`, before `Get-ArchivePath` |
+| Set the staged path and archive path of a file, physical when it ran through an in-base link | `set_dest_var` (in `STAGE_FILES_WORKER`) | `Get-PhysicalSourcePath` |
+| Record each symlinked directory a match ran through, once, at its physical path | `record_passed_links` | `Add-PassedLinks` |
+| Tell whether a failed copy's staged directory resolves inside the staging tree before removing the partial copy | `test_inside_stage` (in `STAGE_FILES_WORKER`, called by `copy_run`) | `Clear-PartialCopy` |
+| The physical path of a match for its log line | `physical_path_var` | inline in `Add-CatalogMatches` |
 | Collect every match of a table under a base | `collect_catalog` | `Add-CatalogMatches` |
 | Collect one matched path | `collect_path` | `Add-CollectedPath` |
 | Walk a matched directory | `collect_tree` | `Add-CollectedTree` |

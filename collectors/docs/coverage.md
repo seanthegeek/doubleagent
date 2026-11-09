@@ -168,7 +168,9 @@ the matched path.
   `(through the symlinked directory <link>, archived under <physical path>)`.
 - Each such link a catalog path or startup file runs through is recorded once as a `symlink`
   row with its target, under the agent of the first entry that reached through it (`shared` for
-  a startup file), unless it is claimed as above.
+  a startup file), unless it is claimed as above. On a live macOS host `/etc` is a link to
+  `private/etc`, so a system startup file under it that names a relocation variable is
+  archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for `/etc`.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
   `bar|b/sub` names the same files; the copies are identical and the archive holds the file
   once.
