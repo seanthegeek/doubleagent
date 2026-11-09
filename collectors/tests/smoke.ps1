@@ -1954,6 +1954,29 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.camel') -Target (ImagePath 'home/bob/dotfiles/camel') -ErrorAction Stop | Out-Null
   $camelLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #467 linked-within-home check skipped' }
+# 2026-11-08 links under a linked catalog match (#488)
+# Every link a catalog path runs through is recorded once, a link inside the home included, and
+# what lies under a link inside the home is staged where its target holds it, so no staged path
+# passes through a recreated link. Each outer entry comes before its nested entries in the
+# tables, so only outer-first staging is reachable and the order is irrelevant by construction.
+MakeFile 'elsewhere/agent-out/little-coder-prompt-history.json' '[]'
+MakeFile 'home/dot/dotfiles/gemini/settings.json' '{}'
+MakeFile 'home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db' 'x'
+MakeFile 'elsewhere/logs-out/github-app.1.log' 'x'
+MakeFile 'elsewhere/r1-out/.git/HEAD' "ref: refs/heads/main`n"
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'home/dot/dotfiles/pi'))
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'home/dot/dotfiles/repos'))
+[void][System.IO.Directory]::CreateDirectory((ImagePath 'home/dot/.copilot'))
+$dotLinkOk = $false
+try {
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/.pi') -Target (ImagePath 'home/dot/dotfiles/pi') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/dotfiles/pi/agent') -Target (ImagePath 'elsewhere/agent-out') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/.gemini') -Target (ImagePath 'home/dot/dotfiles/gemini') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/.copilot/logs') -Target (ImagePath 'elsewhere/logs-out') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/.copilot/repos') -Target (ImagePath 'home/dot/dotfiles/repos') -ErrorAction Stop | Out-Null
+  New-Item -ItemType SymbolicLink -Path (ImagePath 'home/dot/dotfiles/repos/r1') -Target (ImagePath 'elsewhere/r1-out') -ErrorAction Stop | Out-Null
+  $dotLinkOk = $true
+} catch { Write-Output 'note: symlink creation not permitted here, #488 linked catalog match checks skipped' }
 
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 # The home's [1] is a class in a pattern: claims and exclusions must still prune under it.
@@ -2983,7 +3006,32 @@ if ($piLinkOk) {
   Check '#467 a symlinked directory that is itself a match has one row, its own agent' { $piRows = RowsAt 'home/bob/.pi'; $piRows.Count -eq 1 -and $piRows[0].agent -eq 'pi' -and $piRows[0].status -eq 'symlink' -and (RowsAt 'home/bob/.pi/agent/little-coder-prompt-history.json').Count -eq 0 -and $defaultLog.Contains("[little-coder] $(ImagePath 'home/bob/.pi/agent/little-coder-prompt-history.json'): under the symlinked directory $(ImagePath 'home/bob/.pi'), which leads out of the base; not walked") }
 }
 if ($camelLinkOk) {
-  Check '#467 a catalog entry under a directory linked within the home is walked' { IsAgentRow 'home/bob/.camel/skills/s1/SKILL.md' 'camel-ai' $false }
+  Check '#467 a catalog entry under a directory linked within the home is walked' { (IsAgentRow 'home/bob/.camel/skills/s1/SKILL.md' 'camel-ai' $false) -and (Row 'home/bob/.camel/skills/s1/SKILL.md').archive_path -ceq 'fs/home/bob/dotfiles/camel/skills/s1/SKILL.md' }
+}
+# 2026-11-08 links under a linked catalog match (#488)
+# A link row's archive_path is empty, with an error, when the archive is a zip.
+function IsStagedLinkRow($row, [string]$archivePath) { return ($row.archive_path -ceq $archivePath -or ($row.archive_path -eq '' -and $row.error -like 'not recreated*')) }
+function ArchiveLists([string]$member) { return (@($DefaultEntries | Where-Object { ($_ -replace '^\./', '') -ceq $member }).Count -ge 1) }
+function ArchiveListsUnder([string]$prefix) { return (@($DefaultEntries | Where-Object { ($_ -replace '^\./', '').StartsWith($prefix + '/') }).Count -ge 1) }
+function RowsUnder([string]$relativePath) { $prefix = (ImagePath $relativePath) + $Separator; return , @($script:Rows | Where-Object { $_.path.StartsWith($prefix) }) }
+if ($dotLinkOk) {
+  Check '#488 the linked match keeps its one row' { $dotRows = RowsAt 'home/dot/.pi'; $dotRows.Count -eq 1 -and $dotRows[0].status -eq 'symlink' -and $dotRows[0].agent -eq 'pi' -and (IsStagedLinkRow $dotRows[0] 'fs/home/dot/.pi') }
+  Check '#488 the link inside a linked match is recorded under the nested entry''s agent' { $dotRows = RowsAt 'home/dot/.pi/agent'; $dotRows.Count -eq 1 -and $dotRows[0].status -eq 'symlink' -and $dotRows[0].agent -eq 'little-coder' -and ($dotRows[0].target -replace '\\', '/') -like '*/elsewhere/agent-out' -and (IsStagedLinkRow $dotRows[0] 'fs/home/dot/dotfiles/pi/agent') }
+  Check '#488 nothing under the escaping link is recorded' { (RowsUnder 'home/dot/.pi/agent').Count -eq 0 -and (RowsUnder 'home/dot/dotfiles/pi/agent').Count -eq 0 -and (RowsUnder 'elsewhere/agent-out').Count -eq 0 -and $defaultLog.Contains("[little-coder] $(ImagePath 'home/dot/.pi/agent/little-coder-prompt-history.json'): under the symlinked directory $(ImagePath 'home/dot/.pi/agent'), which leads out of the base; not walked") }
+  Check '#488 the link is recreated at its physical path' { $dotRow = (RowsAt 'home/dot/.pi/agent')[0]; $dotRow -and ($dotRow.archive_path -eq '' -or (ArchiveLists 'fs/home/dot/dotfiles/pi/agent')) -and -not (ArchiveListsUnder 'fs/home/dot/.pi') }
+  Check '#488 the linked outer match has one row' { $dotRows = RowsAt 'home/dot/.gemini'; $dotRows.Count -eq 1 -and $dotRows[0].status -eq 'symlink' -and $dotRows[0].agent -eq 'gemini-cli' }
+  Check '#488 files under a link inside the home are staged where the target holds them' { $dotRows = RowsAt 'home/dot/.gemini/antigravity-cli/conversations/dot.db'; $dotRows.Count -eq 1 -and $dotRows[0].status -eq 'collected' -and $dotRows[0].agent -eq 'antigravity' -and $dotRows[0].archive_path -ceq 'fs/home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db' -and (ArchiveLists 'fs/home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db') -and -not (ArchiveListsUnder 'fs/home/dot/.gemini') -and (RowsAt 'home/dot/.gemini/settings.json').Count -eq 0 -and (RowsAt 'home/dot/dotfiles/gemini/settings.json').Count -eq 0 }
+  Check '#488 the log says where a match through a link inside the home is archived' { $defaultLog.Contains("[antigravity] $(ImagePath 'home/dot/.gemini/antigravity-cli') (through the symlinked directory $(ImagePath 'home/dot/.gemini'), archived under $(ImagePath 'home/dot/dotfiles/gemini/antigravity-cli'))") }
+  Check '#488 a link the claim''s walk records is not recorded twice' { $dotRows = RowsAt 'home/dot/.copilot/logs'; $dotRows.Count -eq 1 -and $dotRows[0].status -eq 'symlink' -and $dotRows[0].agent -eq 'copilot-cli' -and (RowsUnder 'home/dot/.copilot/logs').Count -eq 0 -and $defaultLog.Contains("[copilot-desktop] $(ImagePath 'home/dot/.copilot/logs/github-app.1.log'): under the symlinked directory $(ImagePath 'home/dot/.copilot/logs'), which leads out of the base; not walked") }
+  # .copilot/repos is an EXCLUDES glob, so its one row is skipped_excluded in a default run.
+  Check '#488 a nested link entry inside a real claim has one row' { $dotRows = RowsAt 'home/dot/.copilot/repos'; $dotRows.Count -eq 1 -and $dotRows[0].status -eq 'skipped_excluded' -and $dotRows[0].agent -eq 'copilot-desktop' -and $dotRows[0].archive_path -eq '' }
+  Check '#488 a link under a linked ancestor inside a real claim is recorded' { $dotRows = RowsAt 'home/dot/.copilot/repos/r1'; $dotRows.Count -eq 1 -and $dotRows[0].status -eq 'symlink' -and $dotRows[0].agent -eq 'copilot-desktop' -and (IsStagedLinkRow $dotRows[0] 'fs/home/dot/dotfiles/repos/r1') -and (RowsUnder 'elsewhere/r1-out').Count -eq 0 -and (RowsUnder 'home/dot/.copilot/repos/r1').Count -eq 0 -and ($dotRows[0].archive_path -eq '' -or (ArchiveLists 'fs/home/dot/dotfiles/repos/r1')) -and -not (ArchiveListsUnder 'fs/home/dot/.copilot/repos') }
+}
+if ($camelLinkOk) {
+  Check '#488 a link inside the home that no entry names is recorded once' { $camelRows = RowsAt 'home/bob/.camel'; $camelRows.Count -eq 1 -and $camelRows[0].status -eq 'symlink' -and $camelRows[0].agent -eq 'camel-ai' -and (IsStagedLinkRow $camelRows[0] 'fs/home/bob/.camel') }
+}
+if ($direnvLinkOk) {
+  Check '#488 a startup file under a link inside the home is staged where the target holds it' { $direnvRows = RowsAt 'home/bob/.config/direnv'; $direnvRows.Count -eq 1 -and $direnvRows[0].status -eq 'symlink' -and $direnvRows[0].agent -eq 'shared' -and (IsStagedLinkRow $direnvRows[0] 'fs/home/bob/.config/direnv') -and (Row 'home/bob/.config/direnv/direnvrc').archive_path -ceq 'fs/home/bob/dotfiles/direnv/direnvrc' }
 }
 # 2026-11-08 nested entries and exclusions under a home holding [ (#465)
 Check '#465 a nested entry under a home holding [ has one row, its own agent' { $nestedRows = RowsAt 'home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db'; $nestedRows.Count -eq 1 -and $nestedRows[0].agent -eq 'antigravity' -and $nestedRows[0].status -eq 'collected' }
