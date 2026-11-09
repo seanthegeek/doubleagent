@@ -2767,18 +2767,27 @@ define_secret_test
 if [ "${CAC_NO_BATCH:-0}" = 1 ]; then batch=0; else batch=1; fi
 batch_stat=$batch; batch_copy=$batch; batch_hash=$batch
 last_mkdir_dir=
+# posh reads a quoted parameter inside a pattern as a pattern, so the root,
+# home and STAGE_FROM prefixes are stripped with masks of one ? per character.
+STAGE_FROM=${STAGE_FROM:-}; STAGE_TO=${STAGE_TO:-}
+root_mask=; while [ "${#root_mask}" -lt "${#root}" ]; do root_mask="$root_mask?"; done
+home_mask=; while [ "${#home_mask}" -lt "${#home}" ]; do home_mask="$home_mask?"; done
+stage_from_mask=
+while [ "${#stage_from_mask}" -lt "${#STAGE_FROM}" ]; do stage_from_mask="$stage_from_mask?"; done
+stage_to_rel=${STAGE_TO#$root_mask}
 # set_dest_var PATH: sets dest_rel to PATH's archive member, fs and PATH less
 # the root, with a leading STAGE_FROM replaced by STAGE_TO, and dest to its
 # staging path, so no path is staged through a link recreated in the staging
-# tree. Reads root, stage_dir, STAGE_FROM, STAGE_TO.
+# tree. Reads root_mask, stage_from_mask, stage_to_rel, stage_dir, STAGE_FROM.
 set_dest_var() {
-  dest_rel=$1
-  if [ -n "${STAGE_FROM:-}" ]; then
-    case "$1" in
-      ("$STAGE_FROM" | "$STAGE_FROM"/*) dest_rel=$STAGE_TO${1#"$STAGE_FROM"} ;;
-    esac
+  dest_rel=${1#$root_mask}
+  if [ -n "$stage_from_mask" ]; then
+    stage_rest=${1#$stage_from_mask}
+    if [ "$STAGE_FROM$stage_rest" = "$1" ]; then
+      case "$stage_rest" in ('' | /*) dest_rel=$stage_to_rel$stage_rest ;; esac
+    fi
   fi
-  dest_rel=fs${dest_rel#"$root"}; dest="$stage_dir/$dest_rel"
+  dest_rel=fs$dest_rel; dest="$stage_dir/$dest_rel"
 }
 # lstat_chunk: pass 1, before anything is copied. Reads path_N; sets stat_N.
 lstat_chunk() {
@@ -2821,7 +2830,7 @@ plan_chunk() {
     eval "path=\$path_$i; stat_line=\$stat_$i"
     [ -n "$stat_line" ] || stat_line='0 0 0 0 0 0 0 0'
     set -- $stat_line
-    home_rel=${path#"$home"/}
+    home_rel=${path#$home_mask/}
     secret=false
     if is_secret "$home_rel"; then secret=true; fi
     target=; type=file
