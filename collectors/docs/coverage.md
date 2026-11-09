@@ -172,14 +172,15 @@ the matched path.
   `private/etc`, so a system startup file under it that names a relocation variable is
   archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for `/etc`.
 - A project directory whose own path runs through such a link (a project under a linked
-  `~/.pi`) is still archived under its recorded path, through the recreated link: in image
-  mode with a relative target the copies fail and each file gets an `error_copy` row; in live
-  mode with an absolute target the staged path resolves to the source, the copies fail the
-  same way, and the log line ends `staged path resolves outside the staging directory, not
-  removed`, since the collector never removes a file outside the staging directory.
+  `~/.pi`) is still archived under its recorded path, through the recreated link
+  ([issue 503](https://github.com/seanthegeek/doubleagent/issues/503)): with a relative
+  target the copy lands where the link points inside the staging tree, so `archive_path`
+  names a path the archive holds only under the target; with an absolute target in live mode
+  the staged path resolves to the source, the copy fails, and the log line ends `staged path
+  resolves outside the staging directory, not removed`, since the collector never removes a
+  file outside the staging directory.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
-  `bar|b/sub` names the same files; the copies are identical and the archive holds the file
-  once.
+  `bar|b/sub` names the same files; the archive holds the last copy.
 
 ## Claude Code config homes
 

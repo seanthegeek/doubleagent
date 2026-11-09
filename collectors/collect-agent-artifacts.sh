@@ -2867,8 +2867,8 @@ plan_chunk() {
 # staging directory resolved, so removing a failed copy there cannot reach a
 # source through a link recreated in the staging tree. No fork: cd -P sets PWD
 # to the physical directory, and every path the worker handles is absolute, so
-# it changes back at once. The prefix is compared with a mask of one ? per
-# character, as posh reads a quoted parameter inside a pattern as a pattern.
+# it changes back at once. The prefix is compared with a mask, as set_dest_var
+# strips its prefixes.
 test_inside_stage() {
   [ -n "${STAGE_PHYSICAL:-}" ] || return 1
   inside_saved=$PWD
