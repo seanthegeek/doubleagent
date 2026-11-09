@@ -392,7 +392,7 @@ def _archive_dir_for_home(row: dict) -> str:
     # the collector's layout instead: `C:\Users\bob` is `fs/C/Users/bob`.
     posix_home = home.replace("\\", "/")
     if len(posix_home) >= 2 and posix_home[1] == ":" and posix_home[0].isalpha():
-        return "fs/%s/%s" % (posix_home[0], posix_home[2:].lstrip("/"))
+        return "fs/%s/%s" % (posix_home[0].upper(), posix_home[2:].lstrip("/"))
     return "fs" + posix_home
 
 

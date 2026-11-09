@@ -664,6 +664,16 @@ def test_home_dir_of_a_windows_row_staged_at_its_physical_path(tmp_path):
     assert disk_path == "fs/C/Users/bob"
 
 
+def test_home_dir_of_a_lower_case_drive_is_upper_cased_as_the_collector_writes_it(tmp_path):
+    disk_path = _home_disk_path_of(
+        tmp_path,
+        "c:\\Users\\bob",
+        "c:\\Users\\bob\\.pi\\agent\\x",
+        "fs/C/Users/bob/dotfiles/pi/agent/x",
+    )
+    assert disk_path == "fs/C/Users/bob"
+
+
 def test_home_dir_of_a_posix_row_staged_at_its_physical_path(tmp_path):
     disk_path = _home_disk_path_of(
         tmp_path,
