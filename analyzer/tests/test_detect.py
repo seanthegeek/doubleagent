@@ -634,5 +634,69 @@ def test_extract_archive_refuses_other_files(tmp_path):
         raise AssertionError("no InputError")
 
 
+def test_archive_dir_for_home_fallback_windows_and_posix():
+    windows_row = {
+        "path": "C:\\Users\\bob\\.pi\\agent\\x",
+        "home": "C:\\Users\\bob",
+        "archive_path": "fs/C/Users/bob/dotfiles/pi/agent/x",
+    }
+    assert inputs._archive_dir_for_home(windows_row) == "fs/C/Users/bob"
+
+    root_row = {
+        "path": "C:\\other",
+        "home": "C:\\",
+        "archive_path": "fs/C/other",
+    }
+    assert inputs._archive_dir_for_home(root_row) == "fs/C"
+
+    posix_row = {
+        "path": "/home/bob/symlink/x",
+        "home": "/home/bob",
+        "archive_path": "fs/home/bob/actual/x",
+    }
+    assert inputs._archive_dir_for_home(posix_row) == "fs/home/bob"
+
+
+def test_discover_manifest_picks_row_matching_home_relative_path(tmp_path):
+    root = tmp_path / "collection"
+    staged_first = root / "fs" / "C" / "Users" / "bob" / "dotfiles" / "pi" / "agent" / "x"
+    staged_second = root / "fs" / "C" / "Users" / "bob" / ".bashrc"
+    staged_first.parent.mkdir(parents=True, exist_ok=True)
+    staged_second.parent.mkdir(parents=True, exist_ok=True)
+    staged_first.write_text("x", encoding="utf-8")
+    staged_second.write_text("bashrc", encoding="utf-8")
+
+    first_row = json.dumps(
+        {
+            "user": "bob",
+            "home": "C:\\Users\\bob",
+            "path": "C:\\Users\\bob\\.pi\\agent\\x",
+            "archive_path": "fs/C/Users/bob/dotfiles/pi/agent/x",
+            "status": "collected",
+            "type": "file",
+        }
+    )
+    second_row = json.dumps(
+        {
+            "user": "bob",
+            "home": "C:\\Users\\bob",
+            "path": "C:\\Users\\bob\\.bashrc",
+            "archive_path": "fs/C/Users/bob/.bashrc",
+            "status": "collected",
+            "type": "file",
+        }
+    )
+    (root / "manifest.jsonl").write_text(
+        "%s\n%s\n" % (first_row, second_row), encoding="utf-8"
+    )
+
+    collection = open_input(root, catalog.load())
+    assert len(collection.homes) == 1
+    home = collection.homes[0]
+    expected_path = root / "fs" / "C" / "Users" / "bob"
+    assert home.disk_path == expected_path
+    assert len(collection.artifacts) == 2
+
+
 if __name__ == "__main__":
     unittest.main()

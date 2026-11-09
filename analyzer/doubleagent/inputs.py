@@ -332,8 +332,33 @@ def _load_collected(collection: Collection, catalog: Catalog) -> None:
         key = (user, home_original)
         home = homes.get(key)
         if home is None:
+            candidate_row = row
+            candidate_original = str(candidate_row.get("path") or "")
+            candidate_archive = str(candidate_row.get("archive_path") or "")
+            candidate_relative = _relative_to_home(candidate_original, home_original)
+            if not (
+                candidate_relative
+                and candidate_archive.replace("\\", "/").endswith(candidate_relative)
+            ):
+                for alternate_row in rows:
+                    if (
+                        str(alternate_row.get("user") or "") == user
+                        and str(alternate_row.get("home") or "") == home_original
+                        and alternate_row.get("status") in PARSE_STATUSES
+                        and alternate_row.get("type") == "file"
+                    ):
+                        alternate_original = str(alternate_row.get("path") or "")
+                        alternate_archive = str(alternate_row.get("archive_path") or "")
+                        alternate_relative = _relative_to_home(
+                            alternate_original, home_original
+                        )
+                        if alternate_relative and alternate_archive.replace(
+                            "\\", "/"
+                        ).endswith(alternate_relative):
+                            candidate_row = alternate_row
+                            break
             home = Home(
-                disk_path=root / _archive_dir_for_home(row),
+                disk_path=root / _archive_dir_for_home(candidate_row),
                 original=home_original,
                 user=user,
                 host=collection.host,
@@ -385,10 +410,17 @@ def _archive_dir_for_home(row: dict) -> str:
     original = str(row.get("path") or "")
     home = str(row.get("home") or "")
     archive_path = str(row.get("archive_path") or "")
-    rel = _relative_to_home(original, home)
-    if rel and archive_path.replace("\\", "/").endswith(rel):
-        return archive_path.replace("\\", "/")[: -len(rel)].rstrip("/")
-    return "fs" + home.replace("\\", "/")
+    relative = _relative_to_home(original, home)
+    if relative and archive_path.replace("\\", "/").endswith(relative):
+        return archive_path.replace("\\", "/")[: -len(relative)].rstrip("/")
+    slash_home = home.replace("\\", "/")
+    if len(slash_home) >= 3 and slash_home[1] == ":" and slash_home[2] == "/":
+        drive = slash_home[0].upper()
+        rest = slash_home[3:].lstrip("/")
+        return ("fs/%s/%s" % (drive, rest)).rstrip("/")
+    if slash_home.startswith("/"):
+        return ("fs" + slash_home).rstrip("/")
+    return ("fs/" + slash_home).rstrip("/")
 
 
 def _relative_to_home(path: str, home: str) -> str:
