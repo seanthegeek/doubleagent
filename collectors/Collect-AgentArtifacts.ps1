@@ -3334,13 +3334,19 @@ function Add-CollectedFile {
 function Add-ExcludedPath([string]$user, [string]$homeDir, [string]$agent, $item) {
   if ($Inventory) { return }
   $path = ConvertFrom-ExtendedPath $item.FullName
-  if ($item.PSIsContainer) { $type = 'dir'; $size = Get-DirSize $path }
-  else { $type = 'file'; $size = [int64]0; try { $size = [int64]$item.Length } catch { } }
+  $type = Get-ManifestType $item
+  if ($type -eq 'symlink') {
+    $size = [int64]0; try { $size = [int64]$item.Length } catch { }; $target = Get-LinkTarget $item
+  } elseif ($item.PSIsContainer) {
+    $type = 'dir'; $size = Get-DirSize $path; $target = ''
+  } else {
+    $size = [int64]0; try { $size = [int64]$item.Length } catch { }; $target = ''
+  }
   $mtime = Get-Epoch $item.LastWriteTimeUtc
   $atime = Get-Epoch $item.LastAccessTimeUtc
   $btime = Get-Epoch $item.CreationTimeUtc
   $row = @($user, $homeDir, $agent, $path, '', $type, $size, $mtime, $atime, 0, $btime, '',
-    ([string]$item.Attributes), '', $false, 'skipped_excluded', '', '')
+    ([string]$item.Attributes), '', $false, 'skipped_excluded', $target, '')
   Write-ManifestRow @row
 }
 

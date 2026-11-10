@@ -2641,6 +2641,16 @@ json_escape_var() {
   esac
 }
 to_number_var() { case "$1" in ''|*[!0-9]*) _ret_number=0 ;; *) _ret_number=$1 ;; esac; }
+# read_link_target_var PATH [SIZE]: sets _ret_target to symlink PATH's target.
+# $(...) strips a trailing newline; when STAT_MODE is none or the target is
+# shorter than SIZE, readlink -n reads the whole target.
+read_link_target_var() {
+  _ret_target=$(readlink "$1" 2>/dev/null)
+  if [ "${STAT_MODE:-}" = none ] || [ "${#_ret_target}" -lt "${2:-0}" ]; then
+    _rlt_whole=$(readlink -n "$1" 2>/dev/null; printf x); _rlt_whole=${_rlt_whole%x}
+    [ -z "$_rlt_whole" ] || _ret_target=$_rlt_whole
+  fi
+}
 # define_secret_test: defines is_secret REL, true when REL matches a secret glob.
 # Reads SECRET_PATTERN. One case pattern runs in the shell's own matcher, much
 # faster under bash and posh than a loop of one case per glob.
@@ -2827,13 +2837,8 @@ plan_chunk() {
     target=; type=file
     if [ -L "$path" ]; then
       status=symlink; type=symlink
-      target=$(readlink "$path" 2>/dev/null)
-      # $(...) strips a newline ending the target; the link's size counts the bytes,
-      # but without stat the size is the referent's, so every target is read whole.
-      if [ "$STAT_MODE" = none ] || [ "${#target}" -lt "$1" ]; then
-        whole_target=$(readlink -n "$path" 2>/dev/null; printf x); whole_target=${whole_target%x}
-        [ -z "$whole_target" ] || target=$whole_target
-      fi
+      read_link_target_var "$path" "$1"
+      target=$_ret_target
       # A destination two entries share holds the link already; ln -s onto a link to
       # a directory would create the new link inside that directory, on the source.
       set_dest_var "$path"
@@ -3005,18 +3010,25 @@ $_ret_heredoc_text"
 heredoc_var <<'EOF_EXCLUDED_PATHS_WORKER'
 root=$1; user=$2; home=$3; agent=$4; manifest=$5; shift 5
 for path in "$@"; do
-  if [ -d "$path" ]; then
+  if [ -L "$path" ]; then
+    type=symlink; stat_line=$(stat_file "$path"); [ -n "$stat_line" ] || stat_line='0 0 0 0 0 0 0 0'
+    size=${stat_line%% *}
+    read_link_target_var "$path" "$size"
+    target=$_ret_target
+  elif [ -d "$path" ]; then
     # du prints the path after the size, so only the leading digits are the size.
     type=dir; size_kib=$(du -sk "$path" 2>/dev/null); size_kib=${size_kib%%[!0-9]*}
     to_number_var "$size_kib"; size=$((_ret_number * 1024))
     stat_line='0 0 0 0 0 0 0 0'
+    target=""
   else
     type=file; stat_line=$(stat_file "$path"); [ -n "$stat_line" ] || stat_line='0 0 0 0 0 0 0 0'
     size=${stat_line%% *}
+    target=""
   fi
   set -- $stat_line
   write_manifest_row "$manifest" "$user" "$home" "$agent" "$path" "" "$type" "$size" \
-    "$2" "$3" "$4" "$5" "$6" "$7" "$8" "" false skipped_excluded "" ""
+    "$2" "$3" "$4" "$5" "$6" "$7" "$8" "" false skipped_excluded "$target" ""
 done
 EOF_EXCLUDED_PATHS_WORKER
 EXCLUDED_PATHS_WORKER="$COMMON
