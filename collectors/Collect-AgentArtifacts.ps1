@@ -4518,18 +4518,20 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
   $reference = $script:ShellReferenceRx.Match($text)
   $token = $script:RegistryTokenRx.Match($text)
   $reason = ''
-  if ($text -eq '') { $reason = 'empty' }
-  elseif ($text.IndexOfAny([char[]]"`r`n") -ge 0) { $reason = 'holds a newline' }
+  if ($text.Contains("`n")) { $reason = 'holds a newline' }
+  elseif ($text.IndexOfAny([char[]]"`t`r") -ge 0) { $reason = 'holds a control character' }
   elseif ($reference.Success) { $reason = 'references $' + $reference.Groups[1].Value }
+  elseif ($text.Contains('$')) { $reason = 'holds a $' }
   elseif ($token.Success) { $reason = 'references %' + $token.Groups[1].Value + '%' }
-  elseif ($text.IndexOfAny([char[]]'$%`') -ge 0) { $reason = 'holds a $, % or backtick' }
-  elseif ($text.IndexOfAny([char[]]'"''') -ge 0) { $reason = 'quoted' }
-  elseif ($script:UriSchemeRx.IsMatch($text)) { $reason = 'uri' }
-  elseif (-not $absolute -and $text -match '^([/\\~]|[A-Za-z]:)') {
-    $reason = 'not an absolute path'
+  elseif ($text.Contains('%')) { $reason = 'holds a %' }
+  elseif ($text.Contains('`')) { $reason = 'holds a backquote' }
+  elseif ($text.IndexOfAny([char[]]'"''') -ge 0) { $reason = 'holds a quote' }
+  elseif ($absolute) {
+    if (@($text -split '[\\/]') -contains '..') { $reason = 'holds a .. segment' }
   }
-  elseif (-not $absolute) { $reason = 'relative' }
-  elseif (@($text -split '[\\/]') -contains '..') { $reason = 'holds a .. segment' }
+  elseif ($script:UriSchemeRx.IsMatch($text)) { $reason = 'uri' }
+  elseif ($text -match '^[A-Za-z0-9._-]') { $reason = 'relative' }
+  else { $reason = 'not an absolute path' }
   if ($reason) { return @{ value = ''; reason = $reason } }
   if ($registry) {
     $value = $text.TrimEnd('\', '/'); if ($value.Length -eq 2) { $value += '\' }
@@ -4629,12 +4631,17 @@ function Read-PlistEnvironment($reader, $result) {
       $environmentDepth = $depth + 1
     } elseif ($depth -eq $topDepth -and $keyText -ceq 'UserName' -and $element -ceq 'string') {
       $userName = $reader.ReadString()
-      if ($userName -cmatch '^[A-Za-z0-9_][A-Za-z0-9_.-]*$') { $result.userName = $userName }
+      if ($userName -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*$') { $result.userName = $userName }
     } elseif ($depth -eq $environmentDepth -and $script:RelocationNames -ccontains $keyText) {
       $resolved = @{ value = ''; reason = 'not a string' }
       if ($element -ceq 'string') {
+        $emptyString = $reader.IsEmptyElement
         $assigned = $reader.ReadString()
-        $resolved = Test-ResolvedValue $assigned 'launchd'
+        if (-not $emptyString -and $reader.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+          $resolved = @{ value = ''; reason = 'not a plain string' }
+        } elseif ($assigned.IndexOfAny([char[]]'&<>') -ge 0) {
+          $resolved = @{ value = ''; reason = 'holds an XML entity' }
+        } else { $resolved = Test-ResolvedValue $assigned 'launchd' }
       }
       $result.entries["$keyLine|$keyText"] = $resolved
     }
