@@ -1803,9 +1803,9 @@ $startupFixtures = @(
   'home|.config/plasma-workspace/env/*.sh|.config/plasma-workspace/env/agents.sh|#!/usr/bin/env bash~export CODEX_HOME=/opt/x'
   'system|/etc/xdg/plasma-workspace/env/*.sh|etc/xdg/plasma-workspace/env/agents.sh|export CODEX_HOME=/opt/x'
   'home|.xsessionrc|.xsessionrc|export CODEX_HOME=/opt/x'
-  'home|Library/LaunchAgents/*.plist|Library/LaunchAgents/com.example.agent.plist|<key>CODEX_HOME</key><string>/opt/x</string>'
-  'system|/Library/LaunchAgents/*.plist|Library/LaunchAgents/com.example.agent.plist|<key>CODEX_HOME</key><string>/opt/x</string>'
-  'system|/Library/LaunchDaemons/*.plist|Library/LaunchDaemons/com.example.agent.plist|<key>CODEX_HOME</key><string>/opt/x</string>'
+  'home|Library/LaunchAgents/*.plist|Library/LaunchAgents/com.example.agent.plist|<plist><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/x</string></dict></dict></plist>'
+  'system|/Library/LaunchAgents/*.plist|Library/LaunchAgents/com.example.agent.plist|<plist><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/x</string></dict></dict></plist>'
+  'system|/Library/LaunchDaemons/*.plist|Library/LaunchDaemons/com.example.agent.plist|<plist><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/x</string></dict></dict></plist>'
   'project|.envrc|.envrc|export CODEX_HOME=/opt/x'
   'project|.env|.env|CODEX_HOME=/opt/x'
   'home|.config/direnv/direnvrc|.config/direnv/direnvrc|export CODEX_HOME=/opt/x'
@@ -1880,7 +1880,7 @@ try {
   New-Item -ItemType SymbolicLink -Path (ImagePath 'home/bob/.config/direnv') -Target (ImagePath 'home/bob/dotfiles/direnv') -ErrorAction Stop | Out-Null
   $direnvLinkOk = $true
 } catch { Write-Output 'note: symlink creation not permitted here, #454 linked-within-home check skipped' }
-MakeFile 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' "<key>OPENCLAW_STATE_DIR</key><string>/opt/x</string>`n"
+MakeFile 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' "<plist><dict><key>EnvironmentVariables</key><dict><key>OPENCLAW_STATE_DIR</key><string>/opt/x</string></dict></dict></plist>`n"
 MakeFile 'Users/alice/work/scripts/deep/env-helper.sh' "#!/usr/bin/env bash`nexport QWEN_HOME=/opt/x`n"
 MakeFile 'Users/alice/work/scripts/deep/env-helper.ps1' ('$env:qwen_home = "/opt/x"' + "`n")
 MakeFile 'Users/alice/tools/agent-env.sh' "export CODEX_HOME=/opt/x`n"
@@ -2026,6 +2026,43 @@ foreach ($oauthBase in $agentZeroOauthBases) {
 foreach ($oauthBase in @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop/agent-zero/usr')) {
   MakeFile "$oauthBase/$agentZeroCodex" '{"tokens":{"access_token":"x"}}'
 }
+# 2026-11-12 resolved relocation values (#455)
+# /etc/environment gains a double-quoted value (resolved) and a single-quoted one (not, as
+# pam_env.conf(5) does not unquote it); environment.d files hold each form the reader resolves
+# or refuses, one per line, and a value continued on a second line; a daemon plist with a
+# DOCTYPE names its user; a binary plist. The files above assigning /opt/x resolve under the
+# image root.
+MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n")
+MakeFile 'Users/alice/.config/environment.d/home.conf' ('CODEX_HOME=$HOME/x' + "`n")
+MakeFile 'etc/environment.d/home.conf' ('CODEX_HOME=${HOME}/x' + "`n")
+$environmentValues = @(
+  "CODEX_HOME='/opt/s'"
+  'CODEX_HOME=$XDG_CONFIG_HOME/x'
+  'CODEX_HOME=opt/rel'
+  'CODEX_HOME=file:///opt/u'
+  'CODEX_HOME=/opt/../x'
+  'CODEX_HOME=/opt/\'
+  'cont/'
+  '# CODEX_HOME=/opt/comment'
+)
+MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n")
+$daemonPlist = @(
+  '<?xml version="1.0" encoding="UTF-8"?>'
+  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+  '<plist version="1.0">'
+  '<dict>'
+  '  <key>UserName</key>'
+  '  <string>svc</string>'
+  '  <key>EnvironmentVariables</key>'
+  '  <dict>'
+  '    <key>CODEX_HOME</key>'
+  '    <string>/opt/d/</string>'
+  '  </dict>'
+  '</dict>'
+  '</plist>'
+)
+MakeFile 'Library/LaunchDaemons/com.example.daemon.plist' (($daemonPlist -join "`n") + "`n")
+MakeFile 'Users/alice/Library/LaunchAgents/com.example.binary.plist' ("bplist00$([char]0)$([char]1)<key>CODEX_HOME</key>`n")
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
@@ -2970,16 +3007,57 @@ if ($zshLinkOk) {
 Check '#454 a catalog-collected startup file is hinted and keeps its one catalog row' { $catalogRows = RowsAt 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist'; (HasHint $defaultRunSummary 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' 1 'OPENCLAW_STATE_DIR' 'openclaw' 'alice') -and $catalogRows.Count -eq 1 -and $catalogRows[0].agent -eq 'openclaw' }
 Check '#454 a file only the sweep reaches is not searched by default' { (HintsFrom $defaultRunSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 0 -and (RowsAt 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 0 }
 Check '#454 the log holds the hint lines' { $relocationLog.Contains("Relocation hints in system files") -and $relocationLog.Contains("relocation hint: $(ImagePath 'etc/profile'):2 names CODEX_HOME (codex-cli)") }
-Check '#454 the log never holds an assignment' { -not $relocationLog.Contains('/opt/x') }
-Check '#454 stdout relocation line counts hints and files searched' { $defaultRunSummary.relocation.files_searched -ge $startupFixtures.Count -and $script:stdout -match "(?m)^relocation: $(@($defaultRunSummary.relocation.hints).Count) hints in $($defaultRunSummary.relocation.files_searched) files searched; see collectors/docs/relocation\.md\s*$" }
+Check '#454 the log never holds an assignment' { $resolvedX = ImagePath 'opt/x'; $optXLines = @($relocationLog -split "`r?`n" | Where-Object { $_.Contains('/opt/x') -or $_.Contains('\opt\x') }); -not $relocationLog.Contains('=/opt/x') -and $optXLines.Count -gt 0 -and @($optXLines | Where-Object { -not $_.EndsWith(" = $resolvedX") }).Count -eq 0 }
+Check '#454 stdout relocation line counts hints and files searched' { $defaultRunSummary.relocation.files_searched -ge $startupFixtures.Count -and $script:stdout -match "(?m)^relocation: $(@($defaultRunSummary.relocation.hints).Count) hints in $($defaultRunSummary.relocation.files_searched) files searched, [1-9]\d* resolved; see collectors/docs/relocation\.md\s*$" }
 Check '#454 options record the sweep settings' { $defaultRunSummary.options.env_scan_home -eq $false -and $defaultRunSummary.options.env_scan_max_size_bytes -eq 1048576 -and $defaultRunSummary.relocation.files_skipped_size -eq 0 }
-Check '#454 every hint has an empty value' { @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }).Count -eq 0 }
 Check '#454 a fish universal variable is a hint' { HasHint $defaultRunSummary 'Users/alice/.config/fish/fish_variables' 1 'CLAUDE_CONFIG_DIR' 'claude-code' 'alice' }
 Check '#454 a mise [env] table gives a hint on its second line and none for its header' { (HasHint $defaultRunSummary 'Users/alice/.config/mise/config.toml' 2 'CODEX_HOME' 'codex-cli' 'alice') -and @(HintsFrom $defaultRunSummary 'Users/alice/.config/mise/config.toml' | Where-Object { $_.variable -eq 'ENV' }).Count -eq 0 }
 Check '#454 a launchd plist key is a hint' { HasHint $defaultRunSummary 'Users/alice/Library/LaunchAgents/com.example.agent.plist' 1 'CODEX_HOME' 'codex-cli' 'alice' }
 Check '#454 a name in another case is no hint outside a .ps1 file' { (HintsFrom $defaultRunSummary 'home/bob/.bash_login').Count -eq 0 -and (RowsAt 'home/bob/.bash_login').Count -eq 0 }
 Check '#454 a PowerShell env: drive prefix gives no ENV hint' { (HintsFrom $defaultRunSummary 'Users/alice/Documents/PowerShell/Microsoft.PowerShell_profile.ps1').Count -eq 1 }
 Check '#454 an env shebang line gives no ENV hint' { $shebangHints = @(HintsFrom $defaultRunSummary 'Users/alice/.config/plasma-workspace/env/agents.sh'); $shebangHints.Count -eq 1 -and (HasHint $defaultRunSummary 'Users/alice/.config/plasma-workspace/env/agents.sh' 2 'CODEX_HOME' 'codex-cli' 'alice') }
+# 2026-11-12 resolved relocation values (#455)
+# HintValue: the value of a run's one hint with these fields, $null when there is not exactly
+# one. ValueLogged: whether the default run's log has that hint's line ending in the tail
+# given (' = VALUE', '; value not resolved: REASON' or ''), its timestamp left out.
+function HintValue($summary, [string]$relativePath, [int]$line, [string]$variable, [string]$agent) {
+  $source = ImagePath $relativePath
+  $found = @($summary.relocation.hints | Where-Object { $_.source -eq $source -and $_.line -eq $line -and $_.variable -eq $variable -and $_.agent -eq $agent })
+  if ($found.Count -ne 1) { return $null }
+  return [string]$found[0].value
+}
+$relocationLogLines = @($relocationLog -split "`r?`n" | ForEach-Object { $_ -replace '^\S+ ', '' })
+function ValueLogged([string]$relativePath, [int]$line, [string]$variable, [string]$agent, [string]$tail) {
+  return $relocationLogLines -ccontains "relocation hint: $(ImagePath $relativePath):$line names $variable ($agent)$tail"
+}
+function ResolvedTotal($summary) { return @($summary.relocation.hints | Where-Object { $_.value -ne '' }).Count }
+$optX = ImagePath 'opt/x'
+foreach ($startupEntry in $startupFixtures) {
+  $startupScope, $startupGlob, $startupPath, $startupText = $startupEntry -split '\|'
+  if ($startupGlob -notmatch '^/etc/environment$|/environment\.d/\*\.conf$|/Launch(Agents|Daemons)/\*\.plist$') { continue }
+  $startupUser = ''; $startupFile = $startupPath
+  if ($startupScope -eq 'home') { $startupUser = 'alice'; $startupFile = "Users/alice/$startupPath" }
+  Check "#455 startup file value resolved and logged: $startupScope|$startupGlob" { (HintValue $defaultRunSummary $startupFile 1 'CODEX_HOME' 'codex-cli') -ceq $optX -and (HasHint $defaultRunSummary $startupFile 1 'CODEX_HOME' 'codex-cli' $startupUser) -and (ValueLogged $startupFile 1 'CODEX_HOME' 'codex-cli' " = $optX") }
+}
+Check '#455 a catalog-collected plist resolves its value' { (HintValue $defaultRunSummary 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' 1 'OPENCLAW_STATE_DIR' 'openclaw') -ceq $optX }
+Check '#455 a double-quoted /etc/environment value resolves' { (HintValue $defaultRunSummary 'etc/environment' 2 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/q') -and (ValueLogged 'etc/environment' 2 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/q')") }
+Check '#455 a single-quoted /etc/environment value is not resolved' { (HintValue $defaultRunSummary 'etc/environment' 3 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 3 'CODEX_HOME' 'codex-cli' '; value not resolved: quoted') }
+Check '#455 $HOME in a home environment.d file is the home' { (HintValue $defaultRunSummary 'Users/alice/.config/environment.d/home.conf' 1 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'Users/alice/x') -and (ValueLogged 'Users/alice/.config/environment.d/home.conf' 1 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'Users/alice/x')") }
+Check '#455 $HOME in a system environment.d file is not resolved' { (HintValue $defaultRunSummary 'etc/environment.d/home.conf' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/home.conf' 1 'CODEX_HOME' 'codex-cli' '; value not resolved: references $HOME') }
+Check '#455 a single-quoted environment.d value resolves' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 1 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/s') -and (ValueLogged 'etc/environment.d/values.conf' 1 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/s')") }
+Check '#455 a reference to another variable is not resolved' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 2 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 2 'CODEX_HOME' 'codex-cli' '; value not resolved: references $XDG_CONFIG_HOME') }
+Check '#455 a variable a line only references gets no value and no reason' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 2 'XDG_CONFIG_HOME' 'shared') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 2 'XDG_CONFIG_HOME' 'shared' '') }
+Check '#455 a relative path is not resolved' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 3 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 3 'CODEX_HOME' 'codex-cli' '; value not resolved: relative') }
+Check '#455 a file URI is not resolved' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 4 'CODEX_HOME' 'codex-cli' '; value not resolved: uri') }
+Check '#455 a path with a .. segment is not resolved' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 5 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 5 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a .. segment') }
+Check "#455 a continued line resolves under the first line's number" { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 6 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/cont') -and $null -eq (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 7 'CODEX_HOME' 'codex-cli') }
+Check '#455 a commented assignment gives no value and no reason' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 8 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 8 'CODEX_HOME' 'codex-cli' '') }
+Check "#455 a launchd daemon's UserName is its hint's user" { (HasHint $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli' 'svc') -and (HintValue $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/d') -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist').Count -eq 1 -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist')[0].user -eq '' -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist')[0].agent -eq 'shared' }
+Check "#455 a binary plist's value is not resolved when capabilities.grep_text is true (passes otherwise)" { (HintValue $defaultRunSummary 'Users/alice/Library/LaunchAgents/com.example.binary.plist' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Users/alice/Library/LaunchAgents/com.example.binary.plist' 1 'CODEX_HOME' 'codex-cli' '; value not resolved: binary plist') }
+Check '#455 only resolvable startup files give a value' { $valued = @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }); $valued.Count -gt 0 -and @($valued | Where-Object { ($_.source -replace '\\', '/') -notmatch '/etc/environment$|/environment\.d/[^/]*\.conf$|/LaunchAgents/[^/]*\.plist$|/LaunchDaemons/[^/]*\.plist$' }).Count -eq 0 -and (HintValue $defaultRunSummary 'Users/alice/.bash_profile' 1 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' }
+Check '#455 an unresolved value is never logged or stored' { $summaryText = [System.IO.File]::ReadAllText($script:Summary.FullName); $unresolved = @('opt/single', 'opt/rel', 'file://', '/opt/../x', 'XDG_CONFIG_HOME/x', 'opt/comment', '$HOME/x', '${HOME}/x'); @($unresolved | Where-Object { $relocationLog.Contains($_) -or $summaryText.Contains($_) }).Count -eq 0 -and $relocationLog.Contains('value not resolved') }
+Check '#455 the stdout relocation line counts the resolved values' { (ResolvedTotal $defaultRunSummary) -gt 0 -and $script:stdout -match "(?m), $(ResolvedTotal $defaultRunSummary) resolved; see collectors/docs/relocation\.md\s*$" }
+Check '#455 the registry object records that no registry was read' { $registryRecord = $defaultRunSummary.relocation.registry; $expectedReason = 'image mode'; if ($env:OS -ne 'Windows_NT') { $expectedReason = 'not Windows' }; $relocationKeys = @($defaultRunSummary.relocation.PSObject.Properties | ForEach-Object { $_.Name }) -join ','; $registryKeys = @($registryRecord.PSObject.Properties | ForEach-Object { $_.Name }) -join ','; $relocationKeys -ceq 'hints,registry,files_searched,files_skipped_size' -and $registryKeys -ceq 'read,reason,users_read,users_not_loaded,users_denied' -and $registryRecord.read -eq $false -and $registryRecord.reason -ceq $expectedReason -and @($registryRecord.users_read).Count -eq 0 -and @($registryRecord.users_not_loaded).Count -eq 0 -and @($registryRecord.users_denied).Count -eq 0 }
 
 # 2026-11-08 exclusion and secret globs across a newline in a path (#473)
 if ($env:OS -ne 'Windows_NT') {
@@ -3250,6 +3328,8 @@ foreach ($startupEntry in $startupFixtures) {
   Check "#454 startup file skipped without secrets: $startupScope|$startupGlob" { (StatusOf $startupFile) -eq 'skipped_secret' }
 }
 Check '#454 hints kept without secrets' { (HasHint $noSecretsSummary 'etc/profile' 2 'CODEX_HOME' 'codex-cli' '') -and @($noSecretsSummary.relocation.hints).Count -eq @($defaultRunSummary.relocation.hints).Count }
+# 2026-11-12 resolved relocation values (#455)
+Check '#455 values kept without secrets' { (HintValue $noSecretsSummary 'etc/environment' 1 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/x') -and (ResolvedTotal $noSecretsSummary) -eq (ResolvedTotal $defaultRunSummary) }
 
 # 2026-11-08 exclusion and secret globs across a newline in a path (#473)
 if ($env:OS -ne 'Windows_NT') {
@@ -3305,7 +3385,7 @@ Check '#106 NESTED_CLAIMS in the environment prunes nothing' { $script:ExitCode 
 Run 'envscan' @{ EnvScanHome = $true }
 $envScanSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 Check '#454 the sweep run exits 0' { $script:ExitCode -eq 0 }
-Check '#454 stdout relocation line counts the files skipped for size' { $script:stdout -match '(?m)^relocation: \d+ hints in \d+ files searched, [1-9]\d* skipped for size; see collectors/docs/relocation\.md\s*$' }
+Check '#454 stdout relocation line counts the files skipped for size' { $script:stdout -match '(?m)^relocation: \d+ hints in \d+ files searched, [1-9]\d* skipped for size, [1-9]\d* resolved; see collectors/docs/relocation\.md\s*$' }
 Check '#454 the sweep run records its options' { $envScanSummary.options.env_scan_home -eq $true -and $envScanSummary.options.env_scan_max_size_bytes -eq 1048576 }
 Check '#454 the sweep hints and collects a file deep in the home' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh' 2 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.sh' 'shared' $true) }
 Check '#454 an env shebang line in a swept file gives no ENV hint' { (HintsFrom $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 1 }
@@ -3684,6 +3764,8 @@ Check 'Inventory child stdout parses line by line' { @($childOut | Where-Object 
 Check 'Inventory -OutputDir noted on stderr' { ((Get-Content -LiteralPath $errFile -Raw) -replace '\s+', ' ') -match 'NOTE: -Inventory writes nothing; -OutputDir .*inv-o ignored' }
 # 2026-11-06 relocation hints (#454)
 Check '#454 inventory prints no relocation hint' { -not ((Get-Content -LiteralPath $errFile -Raw) -match 'relocation hint|Relocation hints') -and @($childOut | Where-Object { $_ -match 'relocation' }).Count -eq 0 }
+# 2026-11-12 resolved relocation values (#455)
+Check '#455 inventory prints no resolved value' { $inventoryText = (Get-Content -LiteralPath $errFile -Raw) + ($childOut -join "`n"); -not ($inventoryText.Contains('opt' + $Separator + 'x') -or $inventoryText.Contains('/opt/x') -or $inventoryText.Contains('value not resolved') -or $inventoryText.Contains('registry: ')) }
 $childQuiet = @(& $self -NoProfile -ExecutionPolicy Bypass -File $Collector -Root $Root -Inventory -Quiet 2>$errFile)
 Check 'Inventory -Quiet leaves stderr empty' { $childQuiet.Count -gt 10 -and -not ((Get-Content -LiteralPath $errFile -Raw) -match '\S') }
 # 2026-10-04 bug round: #29
@@ -3717,6 +3799,36 @@ Check 'live mode manifest has no live rows' { $liveManifest -and -not (Select-St
 Check 'live mode collection.json has hostname and no no_live' { $liveJson = Get-Content -LiteralPath $liveSummary.FullName -Raw | ConvertFrom-Json; $liveJson.hostname -ne '' -and $null -eq $liveJson.options.PSObject.Properties['no_live'] }
 Check 'live mode writes no live directory' { -not (Test-Path -LiteralPath (Join-Path $liveOutput 'live')) -and -not (Get-ChildItem -LiteralPath $liveOutput -Filter '.stage-*' -Force) }
 Check '-NoLive is no longer a parameter' { $threw = $false; try { & $Collector -NoLive -List | Out-Null } catch { $threw = $true }; $threw }
+# 2026-11-12 resolved relocation values (#455)
+# Off Windows a live run records that the registry was not read. On Windows one user value is
+# set for one live run, an ExpandString under the test user's own HKCU\Environment that the
+# collector must read unexpanded and expand from the profile path; it is removed afterwards,
+# and a value already there is left alone.
+if ($env:OS -ne 'Windows_NT') {
+  Check '#455 a live run off Windows does not read the registry' { $liveRegistry = (Get-Content -LiteralPath $liveSummary.FullName -Raw | ConvertFrom-Json).relocation.registry; $liveRegistry.read -eq $false -and $liveRegistry.reason -eq 'not Windows' }
+} elseif (Get-ItemProperty -LiteralPath 'HKCU:\Environment' -Name 'CODEX_HOME' -ErrorAction SilentlyContinue) {
+  Write-Output 'note: HKCU\Environment already sets CODEX_HOME, #455 registry check skipped'
+} else {
+  $registryOutput = Join-Path $Out 'liveregistry'
+  New-Item -ItemType Directory -Path $registryOutput -Force | Out-Null
+  $profileUser = Split-Path -Leaf $env:USERPROFILE
+  $userSource = 'HKU\' + [Security.Principal.WindowsIdentity]::GetCurrent().User.Value + '\Environment\CODEX_HOME'
+  $registrySummary = $null
+  try {
+    New-ItemProperty -LiteralPath 'HKCU:\Environment' -Name 'CODEX_HOME' -PropertyType ExpandString -Value '%USERPROFILE%\cac-codex' -ErrorAction Stop | Out-Null
+    $global:LASTEXITCODE = 0
+    $null = & $Collector -OutputDir $registryOutput -Quiet -Users $profileUser -NoDocker -NoProjects 2>&1
+    $registrySummaryFile = Get-ChildItem -LiteralPath $registryOutput -Filter '*.collection.json' | Select-Object -First 1
+    $registrySummary = Get-Content -LiteralPath $registrySummaryFile.FullName -Raw | ConvertFrom-Json
+  } catch {
+    Write-Output "note: the #455 registry run failed: $($_.Exception.Message)"
+  } finally {
+    Remove-ItemProperty -LiteralPath 'HKCU:\Environment' -Name 'CODEX_HOME' -ErrorAction SilentlyContinue
+  }
+  Check '#455 a registry value resolves from the user hive' { $registryHints = @($registrySummary.relocation.hints | Where-Object { $_.source -eq $userSource }); $registryHints.Count -eq 1 -and $registryHints[0].variable -eq 'CODEX_HOME' -and $registryHints[0].agent -eq 'codex-cli' -and $registryHints[0].user -eq $profileUser -and $registryHints[0].line -eq 0 -and $registryHints[0].value -eq "$env:USERPROFILE\cac-codex" }
+  Check '#455 the registry object lists the user read' { $registrySummary.relocation.registry.read -eq $true -and $registrySummary.relocation.registry.reason -eq '' -and @($registrySummary.relocation.registry.users_read) -contains $profileUser }
+  Check '#455 the registry test value is removed' { $null -eq (Get-ItemProperty -LiteralPath 'HKCU:\Environment' -Name 'CODEX_HOME' -ErrorAction SilentlyContinue) }
+}
 
 # ---- -List ----------------------------------------------------------------
 Check '-List prints catalog' { @(& $Collector -List | Select-String -SimpleMatch 'claude-code|.claude').Count -ge 1 }
