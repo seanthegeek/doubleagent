@@ -70,7 +70,10 @@
 # projects are further bases walked with PROJECT_CATALOG. Then the
 # STARTUP_FILES of every home, the system and every project are searched for
 # the RELOCATION_VARS names; each naming file is logged, recorded in
-# collection.json and collected as shared, flagged secret. --inventory is the
+# collection.json and collected as shared, flagged secret, and in
+# /etc/environment, environment.d files and launchd plists the value a hint's
+# line assigns is read with awk and recorded, in collection.json and in
+# RELOCATION_VALUES, when it is a plain absolute path. --inventory is the
 # same walk with no writes: the workers only stat, and section 11 prints one
 # JSON line per user and agent.
 #
@@ -4024,7 +4027,168 @@ collect_projects() {
 # An environment variable can move an agent's store out of the home the
 # catalog walks. The files that set environments are searched for the names
 # of those variables, never evaluated: each naming file is logged, recorded and
-# collected, and the responder reads the value (collectors/docs/relocation.md).
+# collected. In the three kinds whose syntax needs no shell (/etc/environment,
+# environment.d files, launchd plists) the line's value is read as well and
+# kept when it is a plain absolute path; for every other file, or a value that
+# is not one, the responder reads the value (collectors/docs/relocation.md).
+
+# ENVIRONMENT_VALUES_AWK: reads /etc/environment on stdin and prints
+# LINE|NAME|=VALUE for each NAME=VALUE line of a RELOCATION_VARS name (the -v
+# names list), or LINE|NAME|!quoted when the value holds a quote besides one
+# enclosing pair of double quotes. pam_env.conf(5) allows only simple
+# NAME=VALUE pairs, so nothing is expanded; a line starting with # is skipped.
+heredoc_var <<'EOF_ENVIRONMENT_VALUES_AWK'
+BEGIN { count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1 }
+{
+  text = $0; sub(/^[ \t]+/, "", text)
+  if (text ~ /^#/) next
+  equals = index(text, "="); if (equals < 2) next
+  name = substr(text, 1, equals - 1); if (!(name in wanted)) next
+  value = substr(text, equals + 1)
+  if (length(value) >= 2 && value ~ /^".*"$/) value = substr(value, 2, length(value) - 2)
+  if (value ~ /["']/) print NR "|" name "|!quoted"; else print NR "|" name "|=" value
+}
+EOF_ENVIRONMENT_VALUES_AWK
+ENVIRONMENT_VALUES_AWK=$_ret_heredoc_text
+
+# ENVIRONMENT_D_VALUES_AWK: reads an environment.d(5) file on stdin and prints
+# LINE|NAME|=VALUE or LINE|NAME|!REASON for each KEY=VALUE assignment of a
+# RELOCATION_VARS name (the -v names list). Whitespace around key and value is
+# trimmed, # and ; lines are comments, a backslash ending a line joins the next
+# (LINE is the first one's), one enclosing pair of quotes is removed (backslash
+# escapes outside single quotes), $$ is a dollar, and $HOME or ${HOME} is
+# ENVIRON["RESOLVE_HOME"] when that is set; any other reference ($NAME,
+# ${NAME}, ${NAME:-x}, ${NAME:+x}) leaves the value unresolved.
+heredoc_var <<'EOF_ENVIRONMENT_D_VALUES_AWK'
+function unquote(value,   first, last, inner, result, position, char) {
+  first = substr(value, 1, 1); last = substr(value, length(value))
+  if (first == "'") {
+    inner = substr(value, 2, length(value) - 2)
+    if (length(value) < 2 || last != "'" || joined || index(inner, "'")) return "!quoted"
+    return "=" inner
+  }
+  if (first == "\"") {
+    if (length(value) < 2 || last != "\"") return "!quoted"
+    value = substr(value, 2, length(value) - 2)
+  }
+  result = ""
+  for (position = 1; position <= length(value); position++) {
+    char = substr(value, position, 1)
+    if (char == "\\" && position < length(value) &&
+        (first != "\"" || index("\"\\`$", substr(value, position + 1, 1)))) {
+      position++; char = substr(value, position, 1)
+    } else if (char == "\"" || (char == "'" && first != "\"")) return "!quoted"
+    result = result char
+  }
+  return "=" result
+}
+function expand(value,   result, rest, offset, reference, body, plain, literal) {
+  result = ""; literal = 0
+  while ((offset = index(value, "$")) > 0) {
+    result = result substr(value, 1, offset - 1); rest = substr(value, offset + 1)
+    if (substr(rest, 1, 1) == "$") {
+      result = result "$"; literal = 1; value = substr(rest, 2); continue
+    }
+    if (match(rest, /^[A-Za-z_][A-Za-z0-9_]*/)) {
+      reference = substr(rest, 1, RLENGTH); plain = 1
+    } else if (match(rest, /^[{][A-Za-z_][A-Za-z0-9_]*(:[-+][^}]*)?[}]/)) {
+      body = substr(rest, 2, RLENGTH - 2); reference = body; sub(/:.*/, "", reference)
+      plain = (reference == body)
+    } else {
+      result = result "$"; literal = 1; value = rest; continue
+    }
+    if (!plain || reference != "HOME" || home == "") return "!references $" reference
+    result = result home; value = substr(rest, RLENGTH + 1)
+  }
+  if (literal) return "!holds a $"
+  return "=" result value
+}
+function assign(text, number,   equals, name, value, outcome) {
+  sub(/^[ \t\r]+/, "", text)
+  if (text == "" || text ~ /^[#;]/) return
+  equals = index(text, "="); if (equals < 2) return
+  name = substr(text, 1, equals - 1); sub(/[ \t]+$/, "", name)
+  if (!(name in wanted)) return
+  value = substr(text, equals + 1); sub(/^[ \t]+/, "", value); sub(/[ \t\r]+$/, "", value)
+  outcome = unquote(value)
+  if (substr(outcome, 1, 1) == "=") outcome = expand(substr(outcome, 2))
+  print number "|" name "|" outcome
+}
+BEGIN {
+  count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1
+  home = ENVIRON["RESOLVE_HOME"]; continued = 0; joined = 0
+}
+{
+  text = $0
+  if (continued) { text = pending text; joined = 1 } else { start = NR; joined = 0 }
+  if (text ~ /\\$/) { pending = substr(text, 1, length(text) - 1); continued = 1; next }
+  continued = 0; assign(text, start)
+}
+END { if (continued) { joined = 1; assign(pending, start) } }
+EOF_ENVIRONMENT_D_VALUES_AWK
+ENVIRONMENT_D_VALUES_AWK=$_ret_heredoc_text
+
+# LAUNCHD_VALUES_AWK: reads a launchd.plist(5) file on stdin and prints
+# LINE|NAME|=VALUE or LINE|NAME|!REASON for each key of a RELOCATION_VARS name
+# (the -v names list) in the top-level EnvironmentVariables dictionary, LINE
+# that of the <key>, where the name search finds it, and U|USER for a
+# top-level UserName string. A file starting with the bplist magic is binary
+# and gives the one line !binary plist. A value is a plain string, never
+# expanded; one holding markup or an & entity is left unresolved.
+heredoc_var <<'EOF_LAUNCHD_VALUES_AWK'
+function found_string() {
+  if (environment && depth == 2 && (key in wanted)) {
+    if (broken) print keyline "|" key "|!not a plain string"
+    else if (index(content, "&")) print keyline "|" key "|!holds an XML entity"
+    else print keyline "|" key "|=" content
+  } else if (depth == 1 && key == "UserName" && !broken &&
+             content ~ /^[A-Za-z_][A-Za-z0-9_.-]*$/) print "U|" content
+  key = ""
+}
+function element(tag,   name, empty, closing) {
+  if (tag ~ /^[?!]/) return
+  empty = (tag ~ /\/$/); closing = (substr(tag, 1, 1) == "/")
+  name = tag; sub(/^\//, "", name); sub(/[ \t\n\/].*$/, "", name)
+  if (inside != "") {
+    if (!closing || name != inside) { broken = 1; return }
+    if (inside == "key") { if (broken) key = ""; else key = content; inside = ""; return }
+    inside = ""; found_string(); return
+  }
+  if (closing) {
+    if (name == "dict") { if (depth == 2) environment = 0; depth-- }
+    return
+  }
+  if (name == "dict" && !empty) {
+    depth++; if (depth == 2 && key == "EnvironmentVariables") environment = 1
+    key = ""; return
+  }
+  if (name == "key" && !empty) { inside = "key"; content = ""; broken = 0; keyline = NR; return }
+  if (name == "string") {
+    content = ""; broken = 0
+    if (empty) found_string(); else inside = "string"
+    return
+  }
+  if (environment && depth == 2 && (key in wanted)) print keyline "|" key "|!not a string"
+  key = ""
+}
+BEGIN {
+  count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1
+  depth = 0; environment = 0; inside = ""; partial = ""; key = ""
+}
+NR == 1 && substr($0, 1, 6) == "bplist" { print "!binary plist"; exit }
+{
+  text = partial $0; partial = ""
+  while ((opening = index(text, "<")) > 0) {
+    if (inside != "") content = content substr(text, 1, opening - 1)
+    text = substr(text, opening); ending = index(text, ">")
+    if (ending == 0) break
+    element(substr(text, 2, ending - 2)); text = substr(text, ending + 1)
+  }
+  if (opening > 0) partial = text "\n"
+  else if (inside != "") content = content text "\n"
+}
+EOF_LAUNCHD_VALUES_AWK
+LAUNCHD_VALUES_AWK=$_ret_heredoc_text
 
 # set_relocation_names: sets RELOCATION_NAMES_CSV, each RELOCATION_VARS name
 # once, comma-separated, for awk, and GREP_NAME_OPTIONS, "-e NAME" for each,
@@ -4190,23 +4354,132 @@ list_bounded_names() {
       for (i = 1; i <= count; i++) if (bounded(text, word[i], fold)) print number "|" name[i] }'
 }
 
-# record_file_hints USER HOME FILE: records every bounded name in FILE and,
-# when there is one, collects FILE. Temporaries: _rfh_.
+# startup_file_kind PATH: sets _ret_kind to the syntax of PATH when its values
+# can be read without a shell: environment (/etc/environment), environment.d (a
+# .conf file in an environment.d directory) or launchd (a plist in a
+# LaunchAgents or LaunchDaemons directory); empty for any other file.
+startup_file_kind() {
+  case "$1" in
+    (*/etc/environment) _ret_kind=environment ;;
+    (*/environment.d/*.conf) _ret_kind=environment.d ;;
+    (*/LaunchAgents/*.plist|*/LaunchDaemons/*.plist) _ret_kind=launchd ;;
+    (*) _ret_kind= ;;
+  esac
+}
+
+# resolve_file_values FILE KIND HOME: sets _ret_values to the lines one run of
+# the KIND awk program prints for FILE (LINE|NAME|=VALUE, LINE|NAME|!REASON,
+# U|USER or a whole-file !REASON), VALUE raw text for accept_resolved_value,
+# never logged. HOME, less ROOT, is what $HOME stands for in an environment.d
+# file; it is empty outside a home's own files. FILE goes on stdin, since awk
+# reads an operand holding = as an assignment. Reads RELOCATION_NAMES_CSV, LOG.
+# Temporaries: _rfv_.
+resolve_file_values() {
+  case "$2" in
+    (environment) _rfv_program=$ENVIRONMENT_VALUES_AWK ;;
+    (environment.d) _rfv_program=$ENVIRONMENT_D_VALUES_AWK ;;
+    (*) _rfv_program=$LAUNCHD_VALUES_AWK ;;
+  esac
+  _ret_values=$(RESOLVE_HOME=$3 awk -v names="$RELOCATION_NAMES_CSV" "$_rfv_program" \
+    <"$1" 2>>"$LOG")
+}
+
+# accept_resolved_value VALUE: sets _ret_value to VALUE when it is an absolute
+# path holding no $, %, backquote, quote, tab, carriage return, newline or ..
+# segment, its trailing / dropped and, in image mode, ROOT put in front (the
+# value names a path inside the image); else _ret_value is empty and
+# _ret_reason says why. Builtins only. Reads ROOT. Temporaries: _arv_.
+accept_resolved_value() {
+  _ret_value=; _ret_reason=; _arv_path=$1
+  case "$_arv_path" in
+    (*"$NEWLINE"*) _ret_reason='holds a newline' ;;
+    (*"$TAB"*|*"$CARRIAGE_RETURN"*) _ret_reason='holds a control character' ;;
+    (*'$'*) _arv_name=${_arv_path#*\$}; _arv_name=${_arv_name#"{"}
+      _arv_name=${_arv_name%%[!A-Za-z0-9_]*}; _ret_reason="references \$$_arv_name"
+      [ -n "$_arv_name" ] || _ret_reason='holds a $' ;;
+    (*%*) _arv_name=${_arv_path#*%}; _ret_reason='holds a %'
+      case "$_arv_name" in
+        ([A-Za-z_]*%*) _arv_name=${_arv_name%%[%]*}
+          case "$_arv_name" in
+            (*[!A-Za-z0-9_]*) ;;
+            (*) _ret_reason="references %$_arv_name%" ;;
+          esac ;;
+      esac ;;
+    (*'`'*) _ret_reason='holds a backquote' ;;
+    (*\"*|*\'*) _ret_reason='holds a quote' ;;
+    (/*) case "$_arv_path/" in (*/../*) _ret_reason='holds a .. segment'; return 0 ;; esac
+      while [ "$_arv_path" != / ] && [ "${_arv_path%/}" != "$_arv_path" ]; do
+        _arv_path=${_arv_path%/}
+      done
+      _ret_value=$ROOT$_arv_path; [ "$_arv_path" != / ] || [ -z "$ROOT" ] || _ret_value=$ROOT ;;
+    (*) _arv_scheme=${_arv_path%%:*}; _ret_reason='not an absolute path'
+      case "$_arv_path" in ([A-Za-z0-9._-]*) _ret_reason=relative ;; esac
+      case "$_arv_scheme" in
+        ("$_arv_path"|?|[!A-Za-z]*|*[!A-Za-z0-9+.-]*) ;;
+        (*) _ret_reason=uri ;;
+      esac ;;
+  esac
+}
+
+# select_line_value VALUES LINE NAME: sets _ret_value and _ret_reason for the
+# hint of NAME on LINE from resolve_file_values' VALUES, wrapped in newlines,
+# through accept_resolved_value; both are empty when LINE assigns no NAME.
+# Temporaries: _slv_.
+select_line_value() {
+  _ret_value=; _ret_reason=
+  case "$1" in
+    ("$NEWLINE!"*) _slv_outcome=${1#"$NEWLINE"} ;;
+    (*"$NEWLINE$2|$3|"*) _slv_outcome=${1#*"$NEWLINE$2|$3|"} ;;
+    (*) return 0 ;;
+  esac
+  _slv_outcome=${_slv_outcome%%"$NEWLINE"*}
+  case "$_slv_outcome" in
+    ('!'*) _ret_reason=${_slv_outcome#!} ;;
+    (*) accept_resolved_value "${_slv_outcome#=}" ;;
+  esac
+}
+
+# record_file_hints USER HOME FILE: records every bounded name in FILE, with the
+# value its line assigns when startup_file_kind reads FILE's kind, and, when
+# there is one, collects FILE. $HOME expands only in a home's own files (a
+# USER:HOME line of USER_LIST); a launchd daemon's hints take the plist's
+# UserName as their user. Reads USER_LIST, ROOT. Temporaries: _rfh_.
 record_file_hints() {
   _rfh_hits=$(list_bounded_names "$3")
   [ -n "$_rfh_hits" ] || return 0
+  _rfh_user=$1; _rfh_values=
+  startup_file_kind "$3"
+  if [ -n "$_ret_kind" ]; then
+    _rfh_home=
+    case "$NEWLINE$USER_LIST$NEWLINE" in
+      (*"$NEWLINE$1:$2$NEWLINE"*) [ -z "$2" ] || _rfh_home=${2#"$ROOT"} ;;
+    esac
+    resolve_file_values "$3" "$_ret_kind" "$_rfh_home"
+    _rfh_values=$NEWLINE$_ret_values$NEWLINE
+    case "$1|$3" in
+      ("|"*/LaunchDaemons/*) case "$_rfh_values" in
+        (*"${NEWLINE}U|"*) _rfh_user=${_rfh_values#*"${NEWLINE}U|"}
+          _rfh_user=${_rfh_user%%"$NEWLINE"*} ;;
+      esac ;;
+    esac
+  fi
   while IFS='|' read -r _rfh_line _rfh_name; do
-    record_hint "$1" "$3" "$_rfh_line" "$_rfh_name"
+    select_line_value "$_rfh_values" "$_rfh_line" "$_rfh_name"
+    record_hint "$_rfh_user" "$3" "$_rfh_line" "$_rfh_name" "$_ret_value" "$_ret_reason"
   done <<EOF_BOUNDED_NAMES
 $_rfh_hits
 EOF_BOUNDED_NAMES
   collect_hint_file "$1" "$2" "$3"
 }
 
-# record_hint USER FILE LINE VARIABLE: for each RELOCATION_VARS line naming
-# VARIABLE, in table order, logs "relocation hint: FILE:LINE names VARIABLE
-# (agent)", after HINT_HEADER once, and appends user|file|line|VARIABLE|agent to
-# RELOCATION_HINTS, once per record. Temporaries: _rh_.
+# record_hint USER FILE LINE VARIABLE VALUE REASON: for each RELOCATION_VARS line
+# naming VARIABLE, in table order, appends user|file|line|VARIABLE|agent to
+# RELOCATION_HINTS, once per record, and logs "relocation hint: FILE:LINE names
+# VARIABLE (agent)" after HINT_HEADER once, ending " = VALUE" when VALUE is set,
+# else "; value not resolved: REASON" when REASON is. A VALUE is also appended
+# to RELOCATION_VALUES as user|VARIABLE|agent|replaces|VALUE and, JSON-escaped,
+# to RELOCATION_VALUES_JSON as N|value, N the record's place in
+# RELOCATION_HINTS (RELOCATION_HINT_COUNT). Temporaries: _rh_.
 record_hint() {
   _rh_saved_ifs=$IFS; IFS='
 '
@@ -4222,8 +4495,18 @@ $_rh_record
 "*) continue ;; esac
     RELOCATION_HINTS="$RELOCATION_HINTS
 $_rh_record"
+    RELOCATION_HINT_COUNT=$(( RELOCATION_HINT_COUNT + 1 ))
     if [ -n "$HINT_HEADER" ]; then log_line "$HINT_HEADER"; HINT_HEADER=; fi
-    log_line "relocation hint: $2:$3 names $4 ($_rh_agent)"
+    _rh_text="relocation hint: $2:$3 names $4 ($_rh_agent)"
+    if [ -n "$5" ]; then
+      log_line "$_rh_text = $5"
+      case "$_rh_rest" in (*'|'*) _rh_replaces=${_rh_rest#*|} ;; (*) _rh_replaces= ;; esac
+      RELOCATION_VALUES="$RELOCATION_VALUES$NEWLINE$1|$4|$_rh_agent|$_rh_replaces|$5"
+      json_escape_var "$5"
+      RELOCATION_VALUES_JSON="$RELOCATION_VALUES_JSON$NEWLINE$RELOCATION_HINT_COUNT|$_ret_json"
+      RELOCATION_VALUE_COUNT=$(( RELOCATION_VALUE_COUNT + 1 ))
+    elif [ -n "$6" ]; then log_line "$_rh_text; value not resolved: $6"
+    else log_line "$_rh_text"; fi
   done
   set +f; IFS=$_rh_saved_ifs
 }
@@ -4301,8 +4584,8 @@ EOF_BASE_LIST
 # search_relocation_hints: searches the startup files of every home, of the
 # system and of every project, then, with --env-scan-home, every other file of
 # each home and project. Reads USER_LIST, PROJECT_LIST, ENV_SCAN_HOME; sets
-# RELOCATION_HINTS and the RELOCATION_FILES_* counts, so call it in the main
-# shell.
+# RELOCATION_HINTS, the RELOCATION_VALUES lists, the RELOCATION_FILES_* counts
+# and the hint and value counts, so call it in the main shell.
 search_relocation_hints() {
   set_relocation_names
   search_base_list "$USER_LIST" home "" startup
@@ -4465,26 +4748,35 @@ count_noun() {
 
 # json_relocation -> the collection.json relocation object, one hint per line.
 # Reads RELOCATION_HINTS, whose user|file|line|VARIABLE|agent records are split
-# from the right, as only the file may hold a |, and the RELOCATION_FILES_*
-# counts. Temporaries: _jr_.
+# from the right, as only the file may hold a |, RELOCATION_VALUES_JSON for the
+# value of the Nth record, and the RELOCATION_FILES_* counts. The registry
+# object records that this collector reads no registry. Temporaries: _jr_.
 json_relocation() {
   printf '{"hints": ['
-  _jr_separator=
+  _jr_separator=; _jr_ordinal=0; _jr_values=$RELOCATION_VALUES_JSON$NEWLINE
   while IFS= read -r _jr_record; do
     [ -n "$_jr_record" ] || continue
+    _jr_ordinal=$(( _jr_ordinal + 1 )); _jr_value=
+    case "$_jr_values" in
+      (*"$NEWLINE$_jr_ordinal|"*) _jr_value=${_jr_values#*"$NEWLINE$_jr_ordinal|"}
+        _jr_value=${_jr_value%%"$NEWLINE"*} ;;
+    esac
     _jr_agent=${_jr_record##*|}; _jr_rest=${_jr_record%|*}
     _jr_variable=${_jr_rest##*|}; _jr_rest=${_jr_rest%|*}
     _jr_line=${_jr_rest##*|}; _jr_rest=${_jr_rest%|*}
     _jr_source=$(json_escape "${_jr_rest#*|}")
     printf '%s\n    {"user": "%s", "source": "%s", "line": %s, ' "$_jr_separator" \
       "$(json_escape "${_jr_rest%%|*}")" "$_jr_source" "$_jr_line"
-    printf '"variable": "%s", "agent": "%s", "value": ""}' "$_jr_variable" "$_jr_agent"
+    printf '"variable": "%s", "agent": "%s", "value": "%s"}' "$_jr_variable" "$_jr_agent" \
+      "$_jr_value"
     _jr_separator=,
   done <<EOF_RELOCATION_HINTS
 $RELOCATION_HINTS
 EOF_RELOCATION_HINTS
   [ -z "$_jr_separator" ] || printf '\n  '
-  printf '], "files_searched": %s, "files_skipped_size": %s}' "$RELOCATION_FILES_SEARCHED" \
+  printf '], "registry": {"read": false, "reason": "sh collector", "users_read": [], '
+  printf '"users_not_loaded": [], "users_denied": []}, '
+  printf '"files_searched": %s, "files_skipped_size": %s}' "$RELOCATION_FILES_SEARCHED" \
     "$RELOCATION_FILES_SKIPPED_SIZE"
 }
 
@@ -4581,8 +4873,8 @@ hash_archive() {
 }
 
 # print_result: the stdout summary, one "name: value" line each, and a docker
-# line when any Docker or Podman data was seen. Reads RELOCATION_HINTS and the
-# RELOCATION_FILES_* counts. Temporaries: _pr_.
+# line when any Docker or Podman data was seen. Reads RELOCATION_HINTS, the
+# RELOCATION_FILES_* counts and RELOCATION_VALUE_COUNT. Temporaries: _pr_.
 print_result() {
   printf 'archive:    %s\n' "$ARCHIVE"
   printf 'size:       %s (%s)\n' "$ARCHIVE_SIZE" "$(format_human_size "$ARCHIVE_SIZE")"
@@ -4605,6 +4897,7 @@ print_result() {
     "$(count_noun "$RELOCATION_FILES_SEARCHED" file)"
   [ "$RELOCATION_FILES_SKIPPED_SIZE" = 0 ] ||
     printf ', %s skipped for size' "$RELOCATION_FILES_SKIPPED_SIZE"
+  [ "$RELOCATION_VALUE_COUNT" = 0 ] || printf ', %s resolved' "$RELOCATION_VALUE_COUNT"
   [ "$_pr_hints" = 0 ] || printf '; see collectors/docs/relocation.md'
   printf '\n'
   if [ "$DOCKER_SEEN" = 1 ]; then
@@ -4892,6 +5185,7 @@ NESTED_CLAIMS=
 EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=
 STAGE_FROM=; STAGE_TO=
 RELOCATION_HINTS=; RELOCATION_FILES_SEARCHED=0; RELOCATION_FILES_SKIPPED_SIZE=0; HINT_HEADER=
+RELOCATION_HINT_COUNT=0; RELOCATION_VALUES=; RELOCATION_VALUES_JSON=; RELOCATION_VALUE_COUNT=0
 
 USER_LIST=$(get_user_homes)
 [ -n "$USER_LIST" ] || log_line "WARNING: no user home directories found"
