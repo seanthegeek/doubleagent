@@ -134,7 +134,6 @@ func curatedPatterns() []string {
 		"*/[Zz]ed/node", "[.]*", "",
 	}
 }
-}
 
 // curatedSubjects are the paths the curated patterns are tried against.
 func curatedSubjects() []string {
