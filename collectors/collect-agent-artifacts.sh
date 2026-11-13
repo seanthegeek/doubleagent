@@ -4037,21 +4037,24 @@ collect_projects() {
 # LINE|NAME|=VALUE for each NAME=VALUE line of a RELOCATION_VARS name (the -v
 # names list), or LINE|NAME|!quoted when the value holds a quote besides one
 # enclosing pair of double quotes, !holds a # when it holds a # (pam_env cuts
-# the line there) and !continued when it ends in a backslash (pam_env joins
-# the next line), since the file then assigns another value. pam_env.conf(5)
-# allows only simple NAME=VALUE pairs, so nothing is expanded; a line starting
-# with # is skipped and a carriage return ending the line is dropped, as the
+# the line there) and !continued when it ends in a backslash and blanks, or
+# follows such a line (pam_env joins them, blank and comment lines between
+# aside), since the file then assigns another value. pam_env.conf(5) allows
+# only simple NAME=VALUE pairs, so nothing is expanded; a line starting with
+# # is skipped and a carriage return ending the line is dropped, as the
 # PowerShell collector's line reader drops it.
 heredoc_var <<'EOF_ENVIRONMENT_VALUES_AWK'
 BEGIN { count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1 }
 {
   text = $0; sub(/\r$/, "", text); sub(/^[ \t]+/, "", text)
-  if (text ~ /^#/) next
+  if (text == "" || text ~ /^#/) next
+  joined_here = joined; joined = (index(text, "#") == 0 && text ~ /\\[ \t]*$/)
   equals = index(text, "="); if (equals < 2) next
   name = substr(text, 1, equals - 1); if (!(name in wanted)) next
+  if (joined_here) { print NR "|" name "|!continued"; next }
   value = substr(text, equals + 1)
   if (index(value, "#")) { print NR "|" name "|!holds a #"; next }
-  if (value ~ /\\$/) { print NR "|" name "|!continued"; next }
+  if (value ~ /\\[ \t]*$/) { print NR "|" name "|!continued"; next }
   if (length(value) >= 2 && value ~ /^".*"$/) value = substr(value, 2, length(value) - 2)
   if (value ~ /["']/) print NR "|" name "|!quoted"; else print NR "|" name "|=" value
 }

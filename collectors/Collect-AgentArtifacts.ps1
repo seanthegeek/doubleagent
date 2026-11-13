@@ -4673,6 +4673,12 @@ function ConvertFrom-EnvironmentEscape([string]$text, [bool]$doubled) {
 function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText,
   [bool]$continued) {
   if ($kind -eq 'environment.d') { $text = $text.Trim([char[]]" `t`r") }
+  elseif ($text.Contains('#')) {
+    # pam_env cuts a line at a #, and joins a line ending in a backslash and
+    # blanks with the next, before it reads the quotes, so such a value is not
+    # what the file assigns.
+    return @{ value = ''; reason = 'holds a #' }
+  } elseif ($text -match '\\[ \t]*$') { return @{ value = ''; reason = 'continued' } }
   $quote = ''; if ($text.Length -gt 0) { $quote = $text.Substring(0, 1) }
   if ($quote -ne '"' -and ($quote -ne "'" -or $kind -ne 'environment.d')) { $quote = '' }
   if ($quote -ne '') {
@@ -4682,10 +4688,6 @@ function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText
     $text = $text.Substring(1, $text.Length - 2)
   }
   if ($kind -ne 'environment.d') {
-    # pam_env cuts a line at a # and joins a line ending in a backslash with
-    # the next, so such a value is not what the file assigns.
-    if ($text.Contains('#')) { return @{ value = ''; reason = 'holds a #' } }
-    if ($text.EndsWith('\')) { return @{ value = ''; reason = 'continued' } }
     if ($text.IndexOfAny([char[]]'"''') -ge 0) { return @{ value = ''; reason = 'quoted' } }
     return (Test-ResolvedValue $text $kind)
   }
@@ -4771,15 +4773,18 @@ function Resolve-PlistValues([string]$path, $fileHits) {
 # file is no home's), its hits and its lines (Read-StartupFileLines); returns
 # @{ entries; userName; reason } as Resolve-PlistValues does, for a
 # /etc/environment or environment.d file from its NAME=VALUE lines. An
-# environment.d line ending in a backslash continues
-# on the next and keeps its first line's number; # and ; lines are comments.
+# environment.d line ending in a backslash continues on the next and keeps
+# its first line's number; # and ; lines are comments. pam_env joins an
+# /etc/environment line ending in a backslash and blanks (one holding a #
+# aside) with the next line that is not blank or a comment, which then
+# assigns nothing of its own.
 function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fileHits, $lines) {
   if ($kind -eq 'launchd') { return (Resolve-PlistValues $path $fileHits) }
   $result = @{ entries = @{}; userName = ''; reason = '' }
   # Only a space or tab is white space here, as for the sh awk programs and
   # pam_env; .NET's bare Trim would also drop a form feed or a no-break space.
   $blank = [char[]]" `t"; $blankOrReturn = [char[]]" `t`r"
-  $index = 0
+  $index = 0; $joined = $false
   while ($index -lt $lines.Count) {
     $number = $index + 1; $text = [string]$lines[$index]; $index++; $continued = $false
     while ($kind -eq 'environment.d' -and $text.EndsWith('\')) {
@@ -4789,14 +4794,19 @@ function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fi
     }
     $trimmed = $text.TrimStart($blank)
     if ($kind -eq 'environment.d') { $trimmed = $text.Trim($blankOrReturn) }
-    if ($trimmed.StartsWith('#') -or ($kind -eq 'environment.d' -and $trimmed.StartsWith(';'))) {
-      continue
+    $joinedHere = $joined; $comment = $trimmed -eq '' -or $trimmed.StartsWith('#')
+    if ($kind -ne 'environment.d' -and -not $comment) {
+      $joined = -not $text.Contains('#') -and $text -match '\\[ \t]*$'
     }
+    if ($comment -or ($kind -eq 'environment.d' -and $trimmed.StartsWith(';'))) { continue }
     $equals = $trimmed.IndexOf('=')
     if ($equals -lt 1) { continue }
     $name = $trimmed.Substring(0, $equals)
     if ($kind -eq 'environment.d') { $name = $name.Trim($blank) }
     if (-not ($script:RelocationNames -ccontains $name)) { continue }
+    if ($joinedHere) {
+      $result.entries["$number|$name"] = @{ value = ''; reason = 'continued' }; continue
+    }
     $assigned = $trimmed.Substring($equals + 1)
     $result.entries["$number|$name"] = Resolve-AssignmentValue $assigned $kind $homeText $continued
   }
@@ -4910,13 +4920,13 @@ function Add-HintFile([string]$user, [string]$homeDir, [string]$path) {
   $script:StageFrom = ''; $script:StageTo = ''
 }
 
-# Takes files and whether case is ignored; returns the Select-String matches
-# of the RELOCATION_VARS names in them, logging each file that cannot be read.
-function Select-RelocationNames([string[]]$files, [bool]$ignoreCase) {
+# Takes files; returns the Select-String matches of the RELOCATION_VARS names
+# in them, in their own case, logging each file that cannot be read.
+function Select-RelocationNames([string[]]$files) {
   if ($files.Count -eq 0) { return }
   $search = @{
     LiteralPath = @(foreach ($file in $files) { ConvertTo-ExtendedPath $file })
-    Pattern = $script:RelocationNames; SimpleMatch = $true; CaseSensitive = (-not $ignoreCase)
+    Pattern = $script:RelocationNames; SimpleMatch = $true; CaseSensitive = $true
     ErrorAction = 'SilentlyContinue'; ErrorVariable = 'searchErrors'
   }
   $searchErrors = @(); $found = @()
@@ -4936,22 +4946,23 @@ function Test-PowerShellScript([string]$path) {
 # bounded hit with Add-FileHints and collects each hit file. A name
 # matches in its own case only, since shells name variables case-sensitively,
 # except in a .ps1 file, where PowerShell does not. Select-String names the
-# files holding a name; the lines and their numbers come from
-# Read-StartupFileLines, split at line feeds alone as the sh collector's grep
-# counts them, since Select-String ends a line at a lone carriage return too.
-# Only line numbers and names leave the search.
+# other files holding a name; every .ps1 file is read, since Select-String
+# ignores case by the session's culture. The lines and their numbers come
+# from Read-StartupFileLines, split at line feeds alone as the sh collector's
+# grep counts them, since Select-String ends a line at a lone carriage return
+# too. Only line numbers and names leave the search.
 function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$files) {
   if ($files.Count -eq 0) { return }
   $script:RelocationCounts.searched += $files.Count
   $scripts = @($files | Where-Object { Test-PowerShellScript $_ })
   $others = @($files | Where-Object { -not (Test-PowerShellScript $_) })
-  $found = @(Select-RelocationNames $others $false) + @(Select-RelocationNames $scripts $true)
   $hitFiles = New-Object System.Collections.ArrayList
   $seen = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
-  foreach ($match in $found) {
+  foreach ($match in @(Select-RelocationNames $others)) {
     $path = ConvertFrom-ExtendedPath $match.Path
     if ($seen.Add($path)) { [void]$hitFiles.Add($path) }
   }
+  foreach ($path in $scripts) { if ($seen.Add($path)) { [void]$hitFiles.Add($path) } }
   foreach ($path in $hitFiles) {
     $lines = Read-StartupFileLines $path
     if ($null -eq $lines) { continue }

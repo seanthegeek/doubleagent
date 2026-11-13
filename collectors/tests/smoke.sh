@@ -1980,8 +1980,9 @@ x"
 printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/usr/share/ollama/.env-helper.sh"
 { head -c 1100000 /dev/zero; printf '\nexport CODEX_HOME=/opt/x\n'; } >"$ALICE/dumps/oversized-env.txt"
 # 2026-11-12 resolved relocation values (#455)
-# /etc/environment gains a double-quoted value (resolved) and a single-quoted
-# one (not); environment.d files hold each form the reader resolves or refuses,
+# /etc/environment gains a double-quoted value (resolved), a single-quoted
+# one (not) and the lines pam_env cuts at a # or joins across a backslash;
+# environment.d files hold each form the reader resolves or refuses,
 # one per line, and a value continued on a second line; a daemon plist names
 # its user. The files above assigning /opt/x resolve to $ROOT/opt/x.
 # shellcheck disable=SC2016 # the fixtures hold shell variables literally
@@ -1989,7 +1990,8 @@ printf '%s\n' 'CODEX_HOME="/opt/q"' "CODEX_HOME='/opt/single'" >>"$ROOT/etc/envi
 printf 'CODEX_HOME=/opt/e\033x\n' >>"$ROOT/etc/environment"
 printf '%s\n' 'CODEX_HOME=/a%%PATH%' >>"$ROOT/etc/environment"
 printf 'CODEX_HOME=/a\rb\n' >>"$ROOT/etc/environment"
-printf '%s\n' 'CODEX_HOME=/opt/a#b' 'CODEX_HOME=/opt/h\' >>"$ROOT/etc/environment"
+printf '%s\n' 'CODEX_HOME=/opt/a#b' 'CODEX_HOME="/opt/x\"' 'CODEX_HOME=/opt/h\' 'LANG=C\' \
+  'CODEX_HOME=/opt/joined' 'CLAUDE_CONFIG_DIR=/opt/t\ ' '' 'HERMES_HOME=/opt/after' >>"$ROOT/etc/environment"
 # shellcheck disable=SC2016
 printf '%s\n' 'CODEX_HOME=$HOME/x' >"$ALICE/.config/environment.d/home.conf"
 # shellcheck disable=SC2016
@@ -2917,7 +2919,10 @@ check "#455 a form feed is a control character" "[ -z \"\$(hint_value \"$ROOT/et
 check "#455 a NUL byte is a control character when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { [ -z \"\$(hint_value \"$ROOT/etc/environment.d/nul.conf\" 1 HERMES_HOME hermes)\" ] && value_logged \"$ROOT/etc/environment.d/nul.conf\" 1 HERMES_HOME hermes '; value not resolved: holds a control character'; }"
 check "#455 a byte order mark keeps a name from matching" "hint_line \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli ''"
 check "#455 a hash in an /etc/environment value is refused" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli '; value not resolved: holds a #'"
-check "#455 a continued /etc/environment value is refused" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli '; value not resolved: continued'"
+check "#455 a backslash inside quotes is a value" "[ \"\$(hint_value \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli)\" = \"$ROOT\"'/opt/x\\\\' ] && value_logged \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli ' = '\"$ROOT\"'/opt/x\\'"
+check "#455 a continued /etc/environment value is refused" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 9 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 9 CODEX_HOME codex-cli '; value not resolved: continued'"
+check "#455 a line pam_env joins onto the line before has no value" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 11 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 11 CODEX_HOME codex-cli '; value not resolved: continued' && [ -z \"\$(hint_value \"$ROOT/etc/environment\" 14 HERMES_HOME hermes)\" ] && value_logged \"$ROOT/etc/environment\" 14 HERMES_HOME hermes '; value not resolved: continued'"
+check "#455 a backslash before trailing blanks continues the line" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 12 CLAUDE_CONFIG_DIR claude-code)\" ] && value_logged \"$ROOT/etc/environment\" 12 CLAUDE_CONFIG_DIR claude-code '; value not resolved: continued'"
 check "#455 a carriage return before a value is trimmed" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 12 CODEX_HOME codex-cli)\" = \"$ROOT/lead\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 12 CODEX_HOME codex-cli ' = $ROOT/lead'"
 if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a carriage return inside a plist string is a control character" "value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 0 CODEX_HOME codex-cli '; value not resolved: holds a control character' && value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 1 CODEX_HOME codex-cli ''"

@@ -2027,12 +2027,13 @@ foreach ($oauthBase in @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop
   MakeFile "$oauthBase/$agentZeroCodex" '{"tokens":{"access_token":"x"}}'
 }
 # 2026-11-12 resolved relocation values (#455)
-# /etc/environment gains a double-quoted value (resolved) and a single-quoted one (not, as
-# pam_env.conf(5) does not unquote it); environment.d files hold each form the reader resolves
+# /etc/environment gains a double-quoted value (resolved), a single-quoted one (not, as
+# pam_env.conf(5) does not unquote it) and the lines pam_env cuts at a # or joins across a
+# backslash; environment.d files hold each form the reader resolves
 # or refuses, one per line, and a value continued on a second line; a daemon plist with a
 # DOCTYPE names its user; a binary plist. The files above assigning /opt/x resolve under the
 # image root.
-MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n" + "CODEX_HOME=/a`rb`n" + 'CODEX_HOME=/opt/a#b' + "`n" + 'CODEX_HOME=/opt/h\' + "`n")
+MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n" + "CODEX_HOME=/a`rb`n" + 'CODEX_HOME=/opt/a#b' + "`n" + 'CODEX_HOME="/opt/x\"' + "`n" + 'CODEX_HOME=/opt/h\' + "`n" + 'LANG=C\' + "`n" + 'CODEX_HOME=/opt/joined' + "`n" + 'CLAUDE_CONFIG_DIR=/opt/t\ ' + "`n`n" + 'HERMES_HOME=/opt/after' + "`n")
 MakeFile 'Users/alice/.config/environment.d/home.conf' ('CODEX_HOME=$HOME/x' + "`n")
 MakeFile 'etc/environment.d/home.conf' ('CODEX_HOME=${HOME}/x' + "`n")
 $environmentValues = @(
@@ -3160,7 +3161,10 @@ Check '#455 a form feed is a control character' { (HintValue $defaultRunSummary 
 Check '#455 a NUL byte is a control character when capabilities.grep_text is true (passes otherwise)' { (HintValue $defaultRunSummary 'etc/environment.d/nul.conf' 1 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged 'etc/environment.d/nul.conf' 1 'HERMES_HOME' 'hermes' '; value not resolved: holds a control character') }
 Check '#455 a byte order mark keeps a name from matching' { (HintValue $defaultRunSummary 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli' '') }
 Check '#455 a hash in an /etc/environment value is refused' { (HintValue $defaultRunSummary 'etc/environment' 7 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 7 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a #') }
-Check '#455 a continued /etc/environment value is refused' { (HintValue $defaultRunSummary 'etc/environment' 8 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 8 'CODEX_HOME' 'codex-cli' '; value not resolved: continued') }
+Check '#455 a backslash inside quotes is a value' { (HintValue $defaultRunSummary 'etc/environment' 8 'CODEX_HOME' 'codex-cli') -ceq ((ImagePath 'opt/x') + '\') -and (ValueLogged 'etc/environment' 8 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/x')\") }
+Check '#455 a continued /etc/environment value is refused' { (HintValue $defaultRunSummary 'etc/environment' 9 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 9 'CODEX_HOME' 'codex-cli' '; value not resolved: continued') }
+Check '#455 a line pam_env joins onto the line before has no value' { (HintValue $defaultRunSummary 'etc/environment' 11 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 11 'CODEX_HOME' 'codex-cli' '; value not resolved: continued') -and (HintValue $defaultRunSummary 'etc/environment' 14 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged 'etc/environment' 14 'HERMES_HOME' 'hermes' '; value not resolved: continued') }
+Check '#455 a backslash before trailing blanks continues the line' { (HintValue $defaultRunSummary 'etc/environment' 12 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' -and (ValueLogged 'etc/environment' 12 'CLAUDE_CONFIG_DIR' 'claude-code' '; value not resolved: continued') }
 Check '#455 a UTF-16 profile is hinted' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16.ps1' 1 'CODEX_HOME' 'codex-cli' 'alice' }
 Check '#455 a carriage return before a value is trimmed' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 12 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'lead') -and (ValueLogged 'etc/environment.d/values.conf' 12 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'lead')") }
 if ($havePlutil) {
