@@ -444,8 +444,9 @@ for Go files as it does for the others.
   [Quality gates](#quality-gates) table pins; `go test -race ./...` passes.
   The `go` CI job runs them on the Ubuntu and macOS runners, then builds the
   six release targets twice and fails when any hash differs.
-- **No cgo.** Every build sets `CGO_ENABLED=0`; a change that needs
-  `import "C"` is refused. Platform code lives in `_linux.go`, `_darwin.go`,
+- **No cgo.** Every build of the binary sets `CGO_ENABLED=0`; a change that
+  needs `import "C"` is refused. The tests alone may run with cgo, because the
+  race detector needs it on Linux; nothing they build ships. Platform code lives in `_linux.go`, `_darwin.go`,
   `_windows.go` and `_unix.go` files, never in a `runtime.GOOS` switch.
 - **Dependencies.** Standard library first. A third-party module is added only
   with a row in the table below naming the module, its version, why the
@@ -1623,7 +1624,7 @@ cd ../analyzer && tests/run.sh
 cd ..
 python3 -m pytest tools/tests -q   # the drift checkers' tests, with the same python
 python3 -m pytest lab/round/tests -q   # the round pipeline's tests
-gofmt -l cmd internal && go vet ./... && go test -race ./...   # the Go tree, CGO_ENABLED=0
+gofmt -l cmd internal && go vet ./... && go test -race ./...   # the Go tree
 # quality gates, from the repository root (see "Quality gates")
 uvx ruff@0.16.10 check . && uvx ruff@0.16.10 format --check .
 uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright
@@ -1744,7 +1745,7 @@ down.
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . \| grep -v '^vendor/')` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . \| grep -v '^vendor/')` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
-| gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `CGO_ENABLED=0 go test -race ./...` | none |
+| gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `go test -race ./...` | none |
 | staticcheck | 0.8.2 | `go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
 | govulncheck | 1.9.0 | `go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` | none |
 | reproducible build | the toolchain `go.mod` pins | `sh .github/go-build.sh /tmp/b1 > /tmp/s1 && sh .github/go-build.sh /tmp/b2 > /tmp/s2 && cmp /tmp/s1 /tmp/s2` | none; see [Go standards](#go-standards) |

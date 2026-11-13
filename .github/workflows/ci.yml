@@ -184,11 +184,17 @@ jobs:
         run: go run "honnef.co/go/tools/cmd/staticcheck@v$STATICCHECK_VERSION" ./...
       - name: govulncheck
         run: go run "golang.org/x/vuln/cmd/govulncheck@v$GOVULNCHECK_VERSION" ./...
+      # The race detector needs cgo on Linux; the tests are not the shipped
+      # binary, which the build steps below make with CGO_ENABLED=0.
       - name: go test
+        env:
+          CGO_ENABLED: "1"
         run: go test -race ./...
       # The glob package's tests under the parity tag compare it with dash,
       # which both runners ship; Debian's dash and Apple's differ in origin.
       - name: go test (dash oracle)
+        env:
+          CGO_ENABLED: "1"
         run: go test -race -tags parity ./internal/glob/
       - name: Build the six targets twice and compare the hashes
         run: |
