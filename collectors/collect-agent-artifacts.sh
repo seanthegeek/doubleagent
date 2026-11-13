@@ -4066,13 +4066,13 @@ ENVIRONMENT_VALUES_AWK=$_ret_heredoc_text
 # ENVIRONMENT_D_VALUES_AWK: reads an environment.d(5) file on stdin and prints
 # LINE|NAME|=VALUE or LINE|NAME|!REASON for each KEY=VALUE assignment of a
 # RELOCATION_VARS name (the -v names list). Whitespace around key and value is
-# trimmed, # and ; lines are comments, an odd run of backslashes ending a line
-# joins the next (LINE is the first one's; an escaped backslash joins nothing),
-# one enclosing pair of quotes is removed (backslash escapes outside single
-# quotes), $$ is a dollar, and $HOME or ${HOME} is ENVIRON["RESOLVE_HOME"] when
-# that is set; any other reference ($NAME, ${NAME}, ${NAME:-x}, ${NAME:+x})
-# leaves the value unresolved. From a line holding a \001 (a NUL byte, from tr)
-# on, the reason is after a NUL byte, since systemd reads the file no further.
+# trimmed, # and ; lines are comments, an odd run of backslashes ending an
+# assignment line joins the next (LINE is the first one's; an escaped backslash,
+# a comment or a line with no = joins nothing), one enclosing pair of quotes is
+# removed (backslash escapes outside single quotes), $$ is a dollar, and $HOME
+# or ${HOME} is ENVIRON["RESOLVE_HOME"] when that is set; any other reference
+# ($NAME, ${NAME}, ${NAME:-x}, ${NAME:+x}) leaves the value unresolved. From a
+# line holding a \001 (a NUL byte, from tr) on, the reason is after a NUL byte.
 heredoc_var <<'EOF_ENVIRONMENT_D_VALUES_AWK'
 function unquote(value,   first, last, inner, result, position, char) {
   first = substr(value, 1, 1); last = substr(value, length(value))
@@ -4117,6 +4117,10 @@ function expand(value,   result, rest, offset, reference, body, plain, literal) 
   if (literal) return "!holds a $"
   return "=" result value
 }
+function assigns(text) {
+  sub(/^[ \t\r]+/, "", text)
+  return text !~ /^[#;]/ && index(text, "=") > 0
+}
 function assign(text, number,   equals, name, value, outcome) {
   sub(/^[ \t\r]+/, "", text)
   if (text == "" || text ~ /^[#;]/) return
@@ -4137,7 +4141,7 @@ BEGIN {
   text = $0; sub(/\r$/, "", text)
   if (index(text, "\001")) nul = 1
   if (continued) { text = pending text; joined = 1 } else { start = NR; joined = 0 }
-  if (text ~ /(^|[^\\])(\\\\)*\\$/) {
+  if ((continued || assigns(text)) && text ~ /(^|[^\\])(\\\\)*\\$/) {
     pending = substr(text, 1, length(text) - 1); continued = 1; next
   }
   continued = 0; assign(text, start)
@@ -4384,19 +4388,19 @@ EOF_PLIST_HITS
 # run of the KIND awk program prints for FILE (LINE|NAME|=VALUE,
 # LINE|NAME|!REASON, U|USER or a whole-file !REASON), or those of
 # resolve_plist_values for a launchd plist, VALUE raw text for
-# accept_resolved_value, never logged. HOME, less
-# ROOT, is what $HOME stands for in an environment.d file; it is empty outside
-# a home's own files. FILE reaches awk on stdin through tr, which turns a NUL
-# byte into \001, a control character the acceptance test refuses, since BSD
-# awk would end the record at the NUL and GNU awk keep it for $(...) to drop.
-# Reads RELOCATION_NAMES_CSV, LOG. Temporaries: _rfv_.
+# accept_resolved_value, never logged. HOME, less ROOT, is what $HOME stands
+# for in an environment.d file; it is empty outside a home's own files. FILE
+# reaches awk on stdin through tr, which turns a NUL byte into \001 (and a \001
+# into \002, so \001 marks a NUL for the awk, which refuses every assignment
+# from that line on), since BSD awk would end the record at the NUL and GNU awk
+# keep it for $(...) to drop. Reads RELOCATION_NAMES_CSV, LOG. Temporaries: _rfv_.
 resolve_file_values() {
   case "$2" in
     (environment) _rfv_program=$ENVIRONMENT_VALUES_AWK ;;
     (environment.d) _rfv_program=$ENVIRONMENT_D_VALUES_AWK ;;
     (*) resolve_plist_values "$1" "$4"; return 0 ;;
   esac
-  _ret_values=$(tr '\000' '\001' <"$1" |
+  _ret_values=$(tr '\000\001' '\001\002' <"$1" |
     RESOLVE_HOME=$3 awk -v names="$RELOCATION_NAMES_CSV" "$_rfv_program" 2>>"$LOG")
 }
 

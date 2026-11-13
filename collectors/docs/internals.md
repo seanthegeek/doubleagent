@@ -559,10 +559,11 @@ The sh collector starts one `awk` per such file, with the program for the kind
 (`ENVIRONMENT_VALUES_AWK` or `ENVIRONMENT_D_VALUES_AWK`,
 each read with `heredoc_var`), the file on its standard input (an operand
 holding `=` would be an assignment to `awk`) and the home in `RESOLVE_HOME`,
-which only that `awk` sees; `tr` turns a NUL byte into \001 on the way, since BSD
-`awk` would end the record there, and from such a line on both collectors refuse
-every value (`after a NUL byte`), as pam_env 1.5 and systemd read no further. It
-prints `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
+which only that `awk` sees; `tr` turns a NUL byte into \001 on the way (and a
+\001 into \002, so \001 means a NUL), since BSD `awk` would end the record at a
+NUL, and from such a line on both collectors refuse every value (`after a NUL
+byte`), as pam_env 1.5 and systemd read no further. It prints
+`LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
 for each assignment of a `RELOCATION_VARS` name. For a plist no `awk` runs:
 `resolve_plist_values` lints the file with `plutil` (`PLUTIL`, detected at
 startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME

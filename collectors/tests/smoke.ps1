@@ -2053,6 +2053,12 @@ $environmentValues = @(
   'HERMES_HOME=/b'
   'CLAUDE_CONFIG_DIR="/c\\'
   'd"'
+  'CODEX_HOME\'
+  '=/keyjoin'
+  '# comment\'
+  'CODEX_HOME=/aftercomment'
+  "CODEX_HOME=/g1$([char]1)"
+  'CLAUDE_CONFIG_DIR=/g2'
 )
 MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n")
 # A CRLF file whose value continues on the next line; a plist string spanning lines whose
@@ -3165,6 +3171,9 @@ Check '#455 a form feed is a control character' { (HintValue $defaultRunSummary 
 Check '#455 a NUL byte ends what an environment.d file assigns when capabilities.grep_text is true (passes otherwise)' { (HintValue $defaultRunSummary 'etc/environment.d/nul.conf' 1 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged 'etc/environment.d/nul.conf' 1 'HERMES_HOME' 'hermes' '; value not resolved: after a NUL byte') -and (HintValue $defaultRunSummary 'etc/environment.d/nul.conf' 2 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/nul.conf' 2 'CODEX_HOME' 'codex-cli' '; value not resolved: after a NUL byte') }
 Check '#455 a NUL byte ends what /etc/environment assigns when capabilities.grep_text is true (passes otherwise)' { (HintValue $defaultRunSummary 'etc/environment' 15 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 15 'CODEX_HOME' 'codex-cli' '; value not resolved: after a NUL byte') -and (HintValue $defaultRunSummary 'etc/environment' 16 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 16 'CODEX_HOME' 'codex-cli' '; value not resolved: after a NUL byte') }
 Check '#455 an escaped backslash joins no line' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 13 'CODEX_HOME' 'codex-cli') -ceq ((ImagePath 'a') + '\') -and (ValueLogged 'etc/environment.d/values.conf' 13 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'a')\") -and (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 14 'HERMES_HOME' 'hermes') -ceq (ImagePath 'b') }
+Check '#455 a backslash after a name joins no line' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 17 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 17 'CODEX_HOME' 'codex-cli' '') }
+Check '#455 a comment ending in a backslash joins no line' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 20 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'aftercomment') }
+Check '#455 a start-of-heading byte is a control character, not a NUL byte' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 21 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 21 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 22 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq (ImagePath 'g2') }
 Check '#455 an escaped backslash inside quotes joins no line' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 15 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 15 'CLAUDE_CONFIG_DIR' 'claude-code' '; value not resolved: quoted') }
 Check '#455 a byte order mark keeps a name from matching' { (HintValue $defaultRunSummary 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli' '') }
 Check '#455 a hash in an /etc/environment value is refused' { (HintValue $defaultRunSummary 'etc/environment' 7 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 7 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a #') }

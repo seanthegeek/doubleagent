@@ -4773,12 +4773,12 @@ function Resolve-PlistValues([string]$path, $fileHits) {
 # file is no home's), its hits and its lines (Read-StartupFileLines); returns
 # @{ entries; userName; reason } as Resolve-PlistValues does, for a
 # /etc/environment or environment.d file from its NAME=VALUE lines. An
-# environment.d line ending in an odd run of backslashes continues on the next
-# (an escaped backslash joins nothing) and keeps its first line's number; # and
-# ; lines are comments. pam_env joins an /etc/environment line ending in a
-# backslash and blanks (one holding a # aside) with the next line, which may
-# then assign nothing of its own. From a line holding a NUL byte on, nothing is
-# a value, as pam_env 1.5 and systemd read no further. String tests are ordinal.
+# environment.d assignment line ending in an odd run of backslashes continues
+# on the next (an escaped backslash, a comment or a line with no = joins
+# nothing) and keeps its first line's number. pam_env joins an /etc/environment
+# line ending in a backslash and blanks (one holding a # aside) with the next
+# line, which may then assign nothing of its own. From a line holding a NUL byte
+# on, nothing is a value, as pam_env 1.5 and systemd read no further; string tests are ordinal.
 function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fileHits, $lines) {
   if ($kind -eq 'launchd') { return (Resolve-PlistValues $path $fileHits) }
   $result = @{ entries = @{}; userName = ''; reason = '' }
@@ -4790,6 +4790,11 @@ function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fi
   while ($index -lt $lines.Count) {
     $number = $index + 1; $text = [string]$lines[$index]; $index++; $continued = $false
     while ($kind -eq 'environment.d' -and $text -match '(^|[^\\])(\\\\)*\\$') {
+      if (-not $continued) {
+        $head = $text.TrimStart($blankOrReturn)
+        if ($head.StartsWith('#', $ordinal) -or $head.StartsWith(';', $ordinal) -or
+          $head.IndexOf([char]'=') -lt 0) { break }
+      }
       $text = $text.Substring(0, $text.Length - 1); $continued = $true
       if ($index -ge $lines.Count) { break }
       $text += $lines[$index]; $index++
@@ -4797,7 +4802,7 @@ function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fi
     if ($text.IndexOf([char]0) -ge 0) { $nul = $true }
     $trimmed = $text.TrimStart($blank)
     if ($kind -eq 'environment.d') { $trimmed = $text.Trim($blankOrReturn) }
-    $joinedHere = $joined; $comment = $trimmed -eq '' -or $trimmed.StartsWith('#', $ordinal)
+    $joinedHere = $joined; $comment = $trimmed.Length -eq 0 -or $trimmed.StartsWith('#', $ordinal)
     if ($kind -ne 'environment.d' -and -not $comment) {
       $joined = -not $text.Contains('#') -and $text -match '\\[ \t]*$'
     }

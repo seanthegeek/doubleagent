@@ -2002,7 +2002,8 @@ printf '%s\n' "CODEX_HOME='/opt/s'" 'CODEX_HOME=$XDG_CONFIG_HOME/x' 'CODEX_HOME=
   'CODEX_HOME=file:///opt/u' 'CODEX_HOME=/opt/../x' 'CODEX_HOME=/opt/\' 'cont/' \
   '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' 'CODEX_HOME=/a$$HOME' 'CODEX_HOME=/a${X' \
   "$(printf 'CODEX_HOME=\r/lead')" 'CODEX_HOME=/a\\' 'HERMES_HOME=/b' 'CLAUDE_CONFIG_DIR="/c\\' 'd"' \
-  >"$ROOT/etc/environment.d/values.conf"
+  'CODEX_HOME\' '=/keyjoin' '# comment\' 'CODEX_HOME=/aftercomment' "$(printf 'CODEX_HOME=/g1\001')" \
+  'CLAUDE_CONFIG_DIR=/g2' >"$ROOT/etc/environment.d/values.conf"
 DAEMON_PLIST_DOCTYPE='<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
 DAEMON_PLIST_DOCTYPE="$DAEMON_PLIST_DOCTYPE \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
 daemon_plist() {
@@ -2921,6 +2922,9 @@ check "#455 a form feed is a control character" "[ -z \"\$(hint_value \"$ROOT/et
 check "#455 a NUL byte ends what an environment.d file assigns when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { [ -z \"\$(hint_value \"$ROOT/etc/environment.d/nul.conf\" 1 HERMES_HOME hermes)\" ] && value_logged \"$ROOT/etc/environment.d/nul.conf\" 1 HERMES_HOME hermes '; value not resolved: after a NUL byte' && [ -z \"\$(hint_value \"$ROOT/etc/environment.d/nul.conf\" 2 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/nul.conf\" 2 CODEX_HOME codex-cli '; value not resolved: after a NUL byte'; }"
 check "#455 a NUL byte ends what /etc/environment assigns when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { [ -z \"\$(hint_value \"$ROOT/etc/environment\" 15 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 15 CODEX_HOME codex-cli '; value not resolved: after a NUL byte' && [ -z \"\$(hint_value \"$ROOT/etc/environment\" 16 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 16 CODEX_HOME codex-cli '; value not resolved: after a NUL byte'; }"
 check "#455 an escaped backslash joins no line" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 13 CODEX_HOME codex-cli)\" = \"$ROOT\"'/a\\\\' ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 13 CODEX_HOME codex-cli ' = '\"$ROOT\"'/a\\' && [ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 14 HERMES_HOME hermes)\" = \"$ROOT/b\" ]"
+check "#455 a backslash after a name joins no line" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 17 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 17 CODEX_HOME codex-cli ''"
+check "#455 a comment ending in a backslash joins no line" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 20 CODEX_HOME codex-cli)\" = \"$ROOT/aftercomment\" ]"
+check "#455 a start-of-heading byte is a control character, not a NUL byte" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 21 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 21 CODEX_HOME codex-cli '; value not resolved: holds a control character' && [ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 22 CLAUDE_CONFIG_DIR claude-code)\" = \"$ROOT/g2\" ]"
 check "#455 an escaped backslash inside quotes joins no line" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 15 CLAUDE_CONFIG_DIR claude-code)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 15 CLAUDE_CONFIG_DIR claude-code '; value not resolved: quoted'"
 check "#455 a byte order mark keeps a name from matching" "hint_line \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli ''"
 check "#455 a hash in an /etc/environment value is refused" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli '; value not resolved: holds a #'"
