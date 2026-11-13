@@ -508,7 +508,8 @@ for Go files as it does for the others.
   `--list` format; code never holds a path or glob that belongs in a table.
 - **Names and comments.** [Code style](#code-style) holds, with these Go
   exemptions: a one- or two-letter receiver; `ctx` for a `context.Context`;
-  `err` and `ok`; `w` and `r` for an `io.Writer` and an `io.Reader`
+  `ok`; `err` alone or as a word of a longer name (`closeErr`, and the
+  `errNotFound` form staticcheck requires of a package's error variables); `w` and `r` for an `io.Writer` and an `io.Reader`
   parameter; `i`, `j`, `k` and `n` for an index or count in a few lines; `t`
   and `b` in tests. Every exported identifier has a doc comment starting with
   its name, and every unexported function one comment, in the Code style
@@ -516,7 +517,8 @@ for Go files as it does for the others.
   collectors' exceptions.
 - **Tests.** Table-driven, with `t.Run` names that read as sentences;
   fixtures built under `t.TempDir()`; run with `-race`; no test reads the
-  developer's home or the network. The parity harness
+  developer's home or the network, and no test runs `collect` without `-r`:
+  a run without a root collects the developer's own credentials. The parity harness
   (`internal/collect/parity`, build tag `parity`) diffs the binary against
   the sh collector over the smoke image and runs in CI on both runners.
 - **Builds.** `.github/go-build.sh` builds the six `GOOS`/`GOARCH` targets

@@ -224,7 +224,7 @@ func (state *runState) writeInventory(ctx context.Context) error {
 		}
 	}
 	host := inventory.Host{Host: state.hostname, Collector: version.String(), Mode: state.mode(),
-		At: state.started.Format(runlog.TimeFormat), UsersScanned: scanned,
+		Timestamp: state.started.Format(runlog.TimeFormat), UsersScanned: scanned,
 		UsersUnreadable: unreadable, DockerVolumes: state.docker.Found}
 	if err := inventory.WriteHostLine(state.stdout, host); err != nil {
 		return err

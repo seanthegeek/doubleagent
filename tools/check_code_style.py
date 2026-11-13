@@ -683,7 +683,9 @@ def go_name_message(binding: GoBinding, is_test: bool) -> str | None:
     if len(name) < MIN_NAME_LENGTH:
         return "name %r is shorter than %d characters" % (name, MIN_NAME_LENGTH)
     for segment in GO_WORD.findall(name):
-        if segment.lower() in ABBREVIATIONS:
+        # Go spells an error value with the word err (closeErr, errNotFound),
+        # and staticcheck requires that form of a package's error variables.
+        if segment.lower() != "err" and segment.lower() in ABBREVIATIONS:
             return "name %r abbreviates a word (%r)" % (name, segment.lower())
     return None
 

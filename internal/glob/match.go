@@ -1,15 +1,13 @@
 // Package glob matches and expands shell wildcard patterns ("globs") the way
 // the reference shell, dash, does under LC_ALL=C: byte by byte, with `*`, `?`,
-// bracket expressions (`[...]`, `[!...]`, ranges, POSIX character classes)
-// and `\` escaping. MatchPath is the shell's `case` test, MatchSegment one
-// step of pathname expansion, and Expand the whole expansion of a pattern
-// inside a base directory; "Glob matching" in collectors/docs/internals.md
-// says which table each one serves. The patterns the tables may hold are the
-// portable ones: `*`, `?`, a closed bracket list with literal bytes, ranges,
-// `!` and a character class. On an unclosed bracket, a backslash, a caret, a
-// collating or equivalence class or a class beside a range, the shells of the
-// collector's matrix disagree with one another, and the result here is one
-// shell's.
+// bracket expressions and `\` escaping. MatchPath is the shell's `case` test,
+// MatchSegment one step of pathname expansion, and Expand the whole expansion
+// of a pattern inside a base directory; "Glob matching" in
+// collectors/docs/internals.md says which table each one serves. The tables
+// hold only portable patterns: `*`, `?` and a closed bracket list with literal
+// bytes, ranges, `!` or a character class. On an unclosed bracket, a backslash,
+// a caret, a collating or equivalence class or a class beside a range the
+// shells disagree with one another, and the result here is one shell's.
 package glob
 
 import "strings"

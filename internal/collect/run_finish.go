@@ -128,16 +128,16 @@ func (state *runState) stageRunFiles() error {
 // copyFile copies the file at source to target, created with the default
 // mode the umask narrows.
 func copyFile(source, target string) error {
-	in, err := os.Open(source)
+	input, err := os.Open(source)
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer input.Close()
 	out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(out, in); err != nil {
+	if _, err := io.Copy(out, input); err != nil {
 		out.Close()
 		return err
 	}
