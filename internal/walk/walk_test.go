@@ -340,3 +340,25 @@ func TestCancelledContextStopsTheWalk(t *testing.T) {
 		t.Errorf("err %v, rows %q", err, rows.String())
 	}
 }
+
+func TestWriteReadErrorWritesTheRowAndTheLogLine(t *testing.T) {
+	root := t.TempDir()
+	project := filepath.Join(root, "project")
+	mustDo(t, os.Mkdir(project, 0o755))
+	collector, rows, log := testCollector(t, root, nil)
+	mustDo(t, collector.WriteReadError("alice", project, project, "permission denied"))
+	want := map[string]string{"user": "alice", "home": project, "agent": "", "path": project,
+		"type": "dir", "size": "0", "status": "error_read"}
+	for name, value := range want {
+		if got := field(rows, name); len(got) != 1 || got[0] != value {
+			t.Errorf("%s = %v, want %q", name, got, value)
+		}
+	}
+	if !strings.HasSuffix(rows.String(), `"error":"permission denied"}`+"\n") {
+		t.Errorf("row %q does not end with the error", rows.String())
+	}
+	if line := "read failed: " + project + ": permission denied"; len(log.lines) != 1 ||
+		log.lines[0] != line {
+		t.Errorf("log %q, want %q", log.lines, line)
+	}
+}

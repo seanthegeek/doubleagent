@@ -48,6 +48,15 @@ func (log *Log) Line(text string) error {
 	return nil
 }
 
+// FileLine appends "<time> <text>\n" to the log file only, for a line the
+// operator is told about in other words.
+func (log *Log) FileLine(text string) error {
+	if _, err := fmt.Fprintf(log.file, "%s %s\n", log.now().UTC().Format(TimeFormat), text); err != nil {
+		return fmt.Errorf("write log: %w", err)
+	}
+	return nil
+}
+
 // Close closes the log file.
 func (log *Log) Close() error {
 	if err := log.file.Close(); err != nil {

@@ -3,13 +3,21 @@ package collect
 import (
 	"bytes"
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 )
 
 func TestRun(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	cases := []struct {
 		name       string
 		options    Options
@@ -21,9 +29,11 @@ func TestRun(t *testing.T) {
 		{"list prints the catalog", Options{}, ActList, 0, string(catalog.Text()), ""},
 		{"version prints the tool and version", Options{}, ActVersion, 0, "doubleagent 0.0.0-dev", ""},
 		{"help prints the usage", Options{}, ActHelp, 0, UsageText, ""},
-		{"a run is not implemented yet", Options{}, ActRun, 2, "", "not implemented yet"},
 		{"a bad root is fatal", Options{Root: "/no/such/dir"}, ActRun, 2, "",
 			"Root is not a directory: /no/such/dir\n"},
+		{"an output directory that cannot be created is fatal",
+			Options{Root: t.TempDir(), OutDir: file + "/out"}, ActRun, 2, "",
+			"Cannot create output dir: " + file + "/out\n"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -39,5 +49,175 @@ func TestRun(t *testing.T) {
 				t.Errorf("stderr %q, want it to contain %q", stderr.String(), testCase.wantStderr)
 			}
 		})
+	}
+}
+
+// noPrograms is a host that has no program to run.
+type noPrograms struct{}
+
+// Output fails: no program exists.
+func (noPrograms) Output(name string, _ ...string) ([]byte, error) {
+	return nil, errors.New(name + ": not found")
+}
+
+// Available reports that no program exists.
+func (noPrograms) Available(string) bool { return false }
+
+// testHost is a host with a pinned clock and no programs.
+func testHost(t *testing.T) environment {
+	pinned := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	return environment{now: func() time.Time { return pinned }, runner: noPrograms{},
+		getwd: func() (string, error) { return t.TempDir(), nil }}
+}
+
+// fixtureImage builds an image with one home holding one agent file and
+// returns its root.
+func fixtureImage(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	dir := filepath.Join(root, "home/alice/.claude")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+// testOptions returns the options of an image run over root into outDir.
+func testOptions(root, outDir string) Options {
+	return Options{Root: root, OutDir: outDir, Quiet: true, MaxFileBytes: 256 * mebibyte,
+		EnvScanMaxBytes: mebibyte}
+}
+
+// outputNames lists the names in dir, sorted.
+func outputNames(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
+}
+
+func TestRunWritesTheOutputs(t *testing.T) {
+	name := hostname() + "_20260102T030405Z_agent-artifacts"
+	name = safeHostname(name)
+	files := []string{name + ".collection.json", name + ".log", name + ".manifest.jsonl",
+		name + ".tar.gz", name + ".tar.gz.sha256"}
+	cases := []struct {
+		name      string
+		change    func(*Options)
+		wantNames []string
+		wantOut   string
+	}{
+		{"a run writes the archive and its files and removes the staging directory",
+			func(*Options) {}, files, "archive:    "},
+		{"-k keeps the staging directory", func(options *Options) { options.KeepStaging = true },
+			append([]string{".stage-" + name}, files...), "archive:    "},
+		{"--inventory writes nothing and prints the host line",
+			func(options *Options) { options.Inventory = true }, nil, `{"type":"host",`},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			outDir := t.TempDir()
+			options := testOptions(fixtureImage(t), outDir)
+			testCase.change(&options)
+			var stdout, stderr bytes.Buffer
+			code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
+			if code != exitOK {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(testCase.wantNames, " ") {
+				t.Errorf("outputs %v, want %v", got, testCase.wantNames)
+			}
+			if !strings.HasPrefix(stdout.String(), testCase.wantOut) {
+				t.Errorf("stdout %q, want prefix %q", stdout.String(), testCase.wantOut)
+			}
+		})
+	}
+}
+
+func TestRunCreatesFilesForTheOwnerOnly(t *testing.T) {
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	options := testOptions(fixtureImage(t), outDir)
+	if code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	for _, name := range outputNames(t, outDir) {
+		info, err := os.Lstat(filepath.Join(outDir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Errorf("%s has mode %o, want 600", name, info.Mode().Perm())
+		}
+	}
+}
+
+// cancelOnText is a standard error that cancels a run once text is written.
+type cancelOnText struct {
+	text   string
+	cancel context.CancelFunc
+}
+
+// Write cancels the run when data holds the text.
+func (writer *cancelOnText) Write(data []byte) (int, error) {
+	if strings.Contains(string(data), writer.text) {
+		writer.cancel()
+	}
+	return len(data), nil
+}
+
+func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
+	outDir := t.TempDir()
+	options := testOptions(fixtureImage(t), outDir)
+	options.Quiet = false
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stderr := &cancelOnText{text: "User alice", cancel: cancel}
+	var stdout bytes.Buffer
+	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != exitInterrupted {
+		t.Fatalf("exit code %d, want %d", code, exitInterrupted)
+	}
+	stages, _ := filepath.Glob(outDir + "/.stage-*")
+	archives, _ := filepath.Glob(outDir + "/*.tar.gz")
+	if len(stages) != 0 || len(archives) != 0 {
+		t.Errorf("staging directories %v and archives %v left", stages, archives)
+	}
+	logs, _ := filepath.Glob(outDir + "/*.log")
+	if len(logs) != 1 {
+		t.Fatalf("logs %v", logs)
+	}
+	text, err := os.ReadFile(logs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(string(text), " interrupted\n") {
+		t.Errorf("log does not end with the interrupted line:\n%s", text)
+	}
+}
+
+func TestOutputDirectoryThatCannotBeWrittenIsFatal(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root may write any directory")
+	}
+	outDir := t.TempDir()
+	if err := os.Chmod(outDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(outDir, 0o700)
+	var stdout, stderr bytes.Buffer
+	options := testOptions(fixtureImage(t), outDir)
+	code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
+	want := "Output dir not writable: " + outDir + "\n"
+	if code != exitFatal || stderr.String() != want {
+		t.Errorf("exit code %d, stderr %q; want 2 and %q", code, stderr.String(), want)
 	}
 }

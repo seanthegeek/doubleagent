@@ -19,7 +19,6 @@ func TestRun(t *testing.T) {
 		{"-V is --version", []string{"-V"}, exitOK, "doubleagent 0.0.0-dev", ""},
 		{"--help prints the usage on stdout", []string{"--help"}, exitOK, "Usage: doubleagent", ""},
 		{"an unknown command is a usage error", []string{"frobnicate"}, exitUsage, "", "Unknown command: frobnicate"},
-		{"collect is not implemented yet", []string{"collect"}, exitFatal, "", "not implemented yet"},
 		{"collect --version", []string{"collect", "--version"}, exitOK, "doubleagent 0.0.0-dev", ""},
 		{"collect -h prints the collect usage", []string{"collect", "-h"}, exitOK, "Usage: doubleagent collect [options]", ""},
 		{"collect --list prints the catalog", []string{"collect", "--list"}, exitOK, "# home artifacts", ""},

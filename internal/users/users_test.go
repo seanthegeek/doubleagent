@@ -138,6 +138,11 @@ func TestEnumerateImage(t *testing.T) {
 			tree: tree{dirs: []string{"home/[x]*"}},
 			want: []string{"[x]*:/home/[x]*"},
 		},
+		{
+			name: "a home whose name ends in a newline is read as the lines of its name",
+			tree: tree{dirs: []string{"home/nl", "home/nl\n", "home/two\nlines"}},
+			want: []string{"nl:/home/nl"},
+		},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {

@@ -36,6 +36,14 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 	return nil
 }
 
+// WriteReadError writes the error_read row of a directory that cannot be
+// listed or entered, with its lstat metadata, and its log line, as
+// write_read_error_row does for a project the run collects.
+func (collector *Collector) WriteReadError(user, home, path, reason string) error {
+	owner := scope{user: user, home: home}
+	return collector.writeReadErrors(owner, []readError{{path, reason}})
+}
+
 // catalogRun is the state of one CollectCatalog call: the header still to
 // log before the first line, the paths the table's matches claim, and the
 // symlinked directories already considered for a row.

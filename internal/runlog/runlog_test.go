@@ -52,3 +52,26 @@ func TestOpenReportsAnUnwritablePath(t *testing.T) {
 		t.Fatal("want an error for a path in a missing directory")
 	}
 }
+
+func TestFileLineWritesOnlyTheFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run.log")
+	var stderr bytes.Buffer
+	pinned := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
+	log, err := Open(path, false, &stderr, func() time.Time { return pinned })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := log.FileLine("done: x"); err != nil {
+		t.Fatal(err)
+	}
+	if err := log.Close(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "2026-03-04T05:06:07Z done: x\n"; string(got) != want || stderr.Len() != 0 {
+		t.Errorf("file %q and stderr %q, want %q and nothing", got, stderr.String(), want)
+	}
+}
