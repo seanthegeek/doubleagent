@@ -8,6 +8,7 @@ package stage
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -54,20 +55,86 @@ func (stager Stager) Dest(path string) (archivePath, destPath string) {
 // skipped files included, so the archive holds those directories too.
 func (stager Stager) MakeParent(path string) error {
 	_, dest := stager.Dest(path)
-	if err := os.MkdirAll(parentOf(dest), 0o777); err != nil {
+	if err := stager.makeDir(parentOf(dest)); err != nil {
 		return fmt.Errorf("stage %s: %w", path, err)
 	}
 	return nil
 }
 
+// makeDir creates dir with its parents, as mkdir -p does, once the part of
+// dir that exists resolves inside the staging directory. The directories it
+// then creates are new and real, so nothing is created outside it.
+func (stager Stager) makeDir(dir string) error {
+	if err := stager.requireInside("mkdir", dir); err != nil {
+		return err
+	}
+	return os.MkdirAll(dir, 0o777)
+}
+
+// requireInside returns an *fs.PathError of operation on dir unless dir, or
+// its nearest ancestor that exists when dir does not, resolves with every
+// symlink under the physical staging directory; an lstat error other than a
+// missing path is returned as it is. Every write into the staging tree
+// passes it first: a link recreated there can lead to the source, and a
+// write through it would change the evidence.
+func (stager Stager) requireInside(operation, dir string) error {
+	existing := dir
+	for {
+		_, err := os.Lstat(existing)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		parent := parentOf(existing)
+		if parent == existing || parent == "" {
+			return &fs.PathError{Op: operation, Path: dir, Err: outsideStage{}}
+		}
+		existing = parent
+	}
+	physical, err := PhysicalDir(existing)
+	if err != nil || !stager.holds(physical) {
+		return &fs.PathError{Op: operation, Path: dir, Err: outsideStage{}}
+	}
+	return nil
+}
+
+// holds reports whether the physical directory lies at or under the
+// staging directory. Physical is compared first; when it does not match, or
+// is empty, the staging directory is resolved again, so a stager whose
+// Physical was given unresolved still stages.
+func (stager Stager) holds(physical string) bool {
+	under := func(root string) bool {
+		return root != "" && strings.HasPrefix(physical+"/", strings.TrimSuffix(root, "/")+"/")
+	}
+	if under(stager.Physical) {
+		return true
+	}
+	root := stager.Physical
+	if root == "" {
+		root = stager.Dir
+	}
+	resolved, err := PhysicalDir(root)
+	return err == nil && under(resolved)
+}
+
+// outsideStage is the reason a write into the staging tree is refused: the
+// directory written in does not resolve inside the staging directory.
+type outsideStage struct{}
+
+// Error returns the reason.
+func (outsideStage) Error() string { return "does not resolve inside the staging directory" }
+
 // CopyFile copies the regular file path to its staged path and returns the
-// SHA-256 of the bytes written, in lower-case hex. Neither end is opened
-// through a final symlink, and the copy gets the source's mode and times, and
-// its owner when running as root, as cp -p gives it. The error is the
-// innermost *fs.PathError the copy met.
+// SHA-256 of the bytes written, in lower-case hex. Nothing is written unless
+// the staged path's directory resolves inside the staging directory, neither
+// end is opened through a final symlink, and the copy gets the source's mode
+// and times, and its owner when running as root, as cp -p gives it. The
+// error is the innermost *fs.PathError the copy met.
 func (stager Stager) CopyFile(path string) (string, error) {
 	_, dest := stager.Dest(path)
-	if err := os.MkdirAll(parentOf(dest), 0o777); err != nil {
+	if err := stager.makeDir(parentOf(dest)); err != nil {
 		return "", err
 	}
 	source, err := openSource(path)
@@ -111,11 +178,15 @@ func (notRegular) Error() string { return "not a regular file" }
 // Symlink recreates the symlink path, with its stored target, at its staged
 // path. A staged path that already exists, a link included, is left as it
 // is: another entry's walk recreated it, and creating a link onto a link to a
-// directory would create it inside that directory, on the source.
+// directory would create it inside that directory, on the source. No link is
+// created in a directory that does not resolve inside the staging directory.
 func (stager Stager) Symlink(path, target string) error {
 	_, dest := stager.Dest(path)
 	if _, err := os.Lstat(dest); err == nil {
 		return nil
+	}
+	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
+		return err
 	}
 	return os.Symlink(target, dest)
 }

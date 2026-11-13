@@ -287,6 +287,47 @@ func TestFailedCopyThroughRecreatedLink(t *testing.T) {
 	}
 }
 
+func TestProjectUnderARecreatedLinkLeavesItsSource(t *testing.T) {
+	root := fixture{files: []string{"home/dot/dotfiles/claude/proj/AGENTS.md"}}.build(t)
+	home := root + "/home/dot"
+	mustDo(t, os.Symlink(home+"/dotfiles/claude", home+"/.claude"))
+	source := home + "/dotfiles/claude/proj/AGENTS.md"
+	content, err := os.ReadFile(source)
+	mustDo(t, err)
+	collector, rows, log := testCollector(t, root, nil)
+	collector.MaxSize = 0
+	ctx := context.Background()
+	mustDo(t, collector.CollectCatalog(ctx, "dot", home,
+		[]catalog.Entry{{Agent: "claude-code", Glob: ".claude"}}, ""))
+	mustDo(t, collector.CollectCatalog(ctx, "dot", home+"/.claude/proj",
+		[]catalog.Entry{{Agent: "agents-md", Glob: "AGENTS.md"}}, ""))
+	staged := home + "/.claude/proj/AGENTS.md"
+	failed := "copy failed: " + staged + ": "
+	note := "; staged path resolves outside the staging directory, not removed"
+	if got := field(rows, "status"); !reflect.DeepEqual(got, []string{"symlink", "error_copy"}) {
+		t.Errorf("statuses %v", got)
+	}
+	if got := field(rows, "archive_path"); len(got) != 2 || got[1] != "" {
+		t.Errorf("archive paths %q", got)
+	}
+	if last := log.lines[len(log.lines)-1]; !strings.HasPrefix(last, failed) ||
+		!strings.HasSuffix(last, note) {
+		t.Errorf("log %q", log.lines)
+	}
+	if data, err := os.ReadFile(source); err != nil || !bytes.Equal(data, content) {
+		t.Errorf("the source was changed: %q, %v", data, err)
+	}
+	var staging []string
+	mustDo(t, filepath.WalkDir(collector.Stager.Dir, func(path string, _ os.DirEntry, err error) error {
+		staging = append(staging, strings.TrimPrefix(path, collector.Stager.Dir))
+		return err
+	}))
+	want := []string{"", "/fs", "/fs/home", "/fs/home/dot", "/fs/home/dot/.claude"}
+	if !reflect.DeepEqual(staging, want) {
+		t.Errorf("staging tree %q, want %q", staging, want)
+	}
+}
+
 func TestNamesWithANewlineOrAQuote(t *testing.T) {
 	base := fixture{files: []string{"m/a\"b", "m/c\nd"}}.build(t)
 	collector, rows, _ := testCollector(t, base, nil)

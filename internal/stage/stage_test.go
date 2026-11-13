@@ -5,8 +5,12 @@ package stage
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -137,6 +141,86 @@ func TestSymlinkLeavesAnExistingDestination(t *testing.T) {
 	_, dest := stager.Dest(root + "/home/l")
 	if target, _ := os.Readlink(dest); target != "first" {
 		t.Errorf("target %q", target)
+	}
+}
+
+// linkedSource builds a source file under a symlinked directory of a home,
+// .claude -> dotfiles/claude by absolute target, and recreates that link in
+// the staging tree as the walk does, so the staged directory of the file
+// resolves to the source. It returns the source file's path.
+func linkedSource(t *testing.T, stager Stager, root string) string {
+	t.Helper()
+	home := root + "/home/dot"
+	mustDo(t, os.MkdirAll(home+"/dotfiles/claude/proj", 0o755))
+	mustDo(t, os.WriteFile(home+"/dotfiles/claude/proj/AGENTS.md", []byte("x\n"), 0o644))
+	mustDo(t, os.Symlink(home+"/dotfiles/claude", home+"/.claude"))
+	mustDo(t, stager.MakeParent(home+"/.claude"))
+	mustDo(t, stager.Symlink(home+"/.claude", home+"/dotfiles/claude"))
+	return home + "/.claude/proj/AGENTS.md"
+}
+
+// stagedEntries lists every path under the staging directory, relative to it.
+func stagedEntries(t *testing.T, stager Stager) []string {
+	t.Helper()
+	var entries []string
+	err := filepath.WalkDir(stager.Dir, func(path string, _ fs.DirEntry, err error) error {
+		entries = append(entries, strings.TrimPrefix(path, stager.Dir))
+		return err
+	})
+	mustDo(t, err)
+	return entries
+}
+
+func TestNoWriteThroughARecreatedLink(t *testing.T) {
+	cases := []struct {
+		name  string
+		write func(stager Stager, source string) error
+	}{
+		{"a copy of the file the link leads to is refused", func(stager Stager, source string) error {
+			_, err := stager.CopyFile(source)
+			return err
+		}},
+		{"the file's staging directory is not made", func(stager Stager, source string) error {
+			return stager.MakeParent(source)
+		}},
+		{"a new directory under the link is not made", func(stager Stager, source string) error {
+			return stager.MakeParent(filepath.Dir(source) + "/new/f")
+		}},
+		{"a link under the link is not created", func(stager Stager, source string) error {
+			return stager.Symlink(filepath.Dir(source)+"/new", "target")
+		}},
+	}
+	want := []string{"", "/fs", "/fs/home", "/fs/home/dot", "/fs/home/dot/.claude"}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			stager, root := newStager(t)
+			source := linkedSource(t, stager, root)
+			err := test.write(stager, source)
+			var pathError *fs.PathError
+			if !errors.As(err, &pathError) || !errors.Is(pathError.Err, outsideStage{}) {
+				t.Errorf("error %v, want one saying the staging directory is left", err)
+			}
+			if data, err := os.ReadFile(source); err != nil || string(data) != "x\n" {
+				t.Errorf("source changed: %q, %v", data, err)
+			}
+			entries, _ := os.ReadDir(filepath.Dir(source))
+			if len(entries) != 1 {
+				t.Errorf("the source directory holds %d entries, want 1", len(entries))
+			}
+			if got := stagedEntries(t, stager); !slices.Equal(got, want) {
+				t.Errorf("staging tree %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestCopyFileWithAnUnresolvedPhysicalPath(t *testing.T) {
+	stager, root := newStager(t)
+	mustDo(t, os.Symlink(stager.Dir, filepath.Dir(stager.Dir)+"/alias"))
+	stager.Physical = filepath.Dir(stager.Dir) + "/alias"
+	mustDo(t, os.WriteFile(root+"/home/f", []byte("x"), 0o644))
+	if _, err := stager.CopyFile(root + "/home/f"); err != nil {
+		t.Errorf("CopyFile: %v", err)
 	}
 }
 
