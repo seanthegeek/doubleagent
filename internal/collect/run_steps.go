@@ -193,7 +193,7 @@ func (state *runState) hintFileCollector(ctx context.Context) func(user, home, p
 		}
 		stager := state.collector.Stager
 		if links, outside := walk.LinkedParent(base, path); !outside {
-			stager = stager.Through(links.From, links.To)
+			stager = stager.Through(links.From, links.Into)
 			if len(links.Passed) > 0 {
 				err := state.collector.RecordPassedLinks(ctx, user, base, home, sharedAgent,
 					links.Passed)
