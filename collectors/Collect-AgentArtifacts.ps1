@@ -137,11 +137,11 @@ $TOOL = 'collect-agent-artifacts'
 # are further bases walked with PROJECT_CATALOG. Find-RelocationHints then
 # searches the STARTUP_FILES of every home, the system and every project for
 # the RELOCATION_VARS names, logs each hint and collects each file naming
-# one as shared and secret, never evaluating a value: Resolve-FileValues reads
-# the value of a hit in /etc/environment, an environment.d file or a launchd
-# property list, Resolve-RegistryValues those of the registry on a live
-# Windows host, and Test-ResolvedValue keeps one only when it is a plain
-# absolute path ($script:RelocationValues). -Inventory is the same
+# one as shared and secret, never evaluating a value. On a live Windows host
+# Resolve-RegistryValues also reads the variables' values from the registry,
+# and Test-ResolvedValue keeps one only when it is a plain drive path
+# ($script:RelocationValues); a hint found in a file carries no value (the
+# sh collector reads the Unix files' values). -Inventory is the same
 # walk with no writes: each file feeds per-agent counters, and
 # Write-Inventory prints JSON lines.
 #
@@ -2585,15 +2585,6 @@ $script:Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $script:Sep = [string][System.IO.Path]::DirectorySeparatorChar
 # Windows, as opposed to PowerShell 7 on Linux or macOS.
 $script:IsWindowsHost = ($env:OS -eq 'Windows_NT')
-# The property list tool macOS ships, which reads a launchd plist as launchd
-# does; $null elsewhere, where a plist hint keeps an empty value. Looked for
-# off Windows only, so the step runs under PowerShell 7 alone, whose .NET has
-# ProcessStartInfo.ArgumentList (Invoke-Plutil).
-$script:PlutilPath = $null
-if (-not $script:IsWindowsHost) {
-  try { $script:PlutilPath = (Get-Command plutil -CommandType Application -ErrorAction Stop).Source }
-  catch [System.Management.Automation.CommandNotFoundException] { }
-}
 
 # Takes a table here-string; returns its lines that are neither empty nor a
 # # comment.
@@ -4378,10 +4369,10 @@ function Add-Projects {
 # An agent's state moved by an environment variable lies outside every
 # catalog line. The files that set environments are searched for the
 # RELOCATION_VARS names; a hit is logged and recorded for collection.json, and
-# the file is collected as shared and secret. A value is read only where no
-# shell is needed (/etc/environment, environment.d, launchd plists, the live
-# registry) and kept only as a plain absolute path; nothing is evaluated, and
-# collectors/docs/relocation.md tells the responder what to do with a hint.
+# the file is collected as shared and secret. A value is read only from the
+# live Windows registry and kept only as a plain drive path; a file's hint
+# carries none, nothing is evaluated, and collectors/docs/relocation.md tells
+# the responder what to do with a hint.
 
 # The hints for collection.json, each an ordered hashtable (user, source,
 # line, variable, agent, value), and the files searched and left out for size.
@@ -4438,26 +4429,13 @@ foreach ($line in (Get-TableLines $STARTUP_FILES)) {
 # A character that continues a variable name, so CODEX_HOME in MY_CODEX_HOME_X
 # is no hit.
 $script:NameCharRx = New-Object System.Text.RegularExpressions.Regex('[A-Za-z0-9_]')
-# The name a value's first $ or % starts, when it starts one (the text right
-# after it, as the sh acceptance test reads it), and an environment.d
-# reference: $$, or $NAME, ${NAME} or ${NAME:-x} / ${NAME:+x}, with the name
-# in group 2 or 4.
-$script:AfterDollarRx = New-Object System.Text.RegularExpressions.Regex(
-  '^\{?([A-Za-z_][A-Za-z0-9_]*)')
-$script:AfterPercentRx = New-Object System.Text.RegularExpressions.Regex(
-  '^([A-Za-z_][A-Za-z0-9_]*)%')
-# The same for a registry value, where a name may hold parentheses
-# (ProgramFiles(x86)); the sh collector reads no registry.
+# The name a registry value's first % starts, when it starts one (the text
+# right after it), and a Windows %NAME% reference; a name may hold parentheses
+# (ProgramFiles(x86)).
 $script:AfterPercentRegistryRx = New-Object System.Text.RegularExpressions.Regex(
   '^([A-Za-z_][A-Za-z0-9_()]*)%')
-$script:EnvironmentReferenceRx = New-Object System.Text.RegularExpressions.Regex(
-  '\$(?:(\$)|\{([A-Za-z_][A-Za-z0-9_]*)(:[-+][^}]*)?\}|([A-Za-z_][A-Za-z0-9_]*))')
-# A Windows %NAME% reference (ProgramFiles(x86) holds parentheses) and a URI
-# scheme, two letters or more so that a drive letter is none.
 $script:RegistryTokenRx = New-Object System.Text.RegularExpressions.Regex(
   '%([A-Za-z_][A-Za-z0-9_()]*)%')
-$script:UriSchemeRx = New-Object System.Text.RegularExpressions.Regex(
-  '^[A-Za-z][A-Za-z0-9+.-]+:')
 # The registry keys the registry step reads under HKEY_LOCAL_MACHINE.
 $script:SystemEnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
 $script:WindowsVersionKey = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion'
@@ -4518,72 +4496,35 @@ function Get-BoundedNames([string]$line, [bool]$ignoreCase) {
   }
 }
 
-# Takes a path; returns the kind of startup file whose values are read
-# (environment, environment.d or launchd), by its path in its own case, or ''
-# for a file whose hints carry no value.
-function Get-StartupFileKind([string]$path) {
-  $slashed = $path.Replace('\', '/')
-  if ($slashed -clike '*/etc/environment') { return 'environment' }
-  if ($slashed -clike '*/environment.d/*.conf') { return 'environment.d' }
-  if ($slashed -clike '*/LaunchAgents/*.plist' -or $slashed -clike '*/LaunchDaemons/*.plist') {
-    return 'launchd'
-  }
-  return ''
-}
-
-# Takes a value after its source's unquoting and expansion and the kind
-# (registry, or a file kind); returns @{ value; reason }: the value when it is
-# an absolute path (X:\ for the registry, / otherwise) holding no reference,
-# quote, newline, URI scheme or .. segment, without its trailing separator and,
-# in image mode, under -Root for a file; else '' and the reason.
-function Test-ResolvedValue([string]$text, [string]$kind) {
-  $registry = ($kind -eq 'registry')
-  $absolute = $text.StartsWith('/')
-  if ($registry) { $absolute = $text -match '^[A-Za-z]:[\\/]' }
-  # Only the text right after the first $ or % can name a reference, as in sh.
-  $reference = $script:AfterDollarRx.Match($text.Substring($text.IndexOf('$') + 1))
-  $percentRx = $script:AfterPercentRx
-  if ($registry) { $percentRx = $script:AfterPercentRegistryRx }
-  $token = $percentRx.Match($text.Substring($text.IndexOf('%') + 1))
+# Takes a registry value after its expansion; returns @{ value; reason }: the
+# value when it is a drive path (X:\ or X:/) that holds no %NAME% reference
+# left unreplaced, no other %, no control character, no " and no .. segment,
+# without its trailing separator (C:\ kept); else '' and the reason. A $ or a
+# backquote is an ordinary path character on Windows, and the registry
+# expands neither.
+function Test-ResolvedValue([string]$text) {
+  $token = $script:AfterPercentRegistryRx.Match($text.Substring($text.IndexOf('%') + 1))
   $reason = ''
-  if ($text.Contains("`n")) { $reason = 'holds a newline' }
-  elseif ($text -match '[\x00-\x1f\x7f]') { $reason = 'holds a control character' }
-  elseif ($text.Contains([string][char]0xFFFD)) { $reason = 'holds an invalid byte' }
-  elseif ($text.Contains('$') -and $reference.Success) {
-    $reason = 'references $' + $reference.Groups[1].Value
-  }
-  elseif ($text.Contains('$')) { $reason = 'holds a $' }
+  if ($text -match '[\x00-\x1f\x7f]') { $reason = 'holds a control character' }
   elseif ($text.Contains('%') -and $token.Success) {
     $reason = 'references %' + $token.Groups[1].Value + '%'
   }
   elseif ($text.Contains('%')) { $reason = 'holds a %' }
-  elseif ($text.Contains('`')) { $reason = 'holds a backquote' }
-  elseif ($text.IndexOfAny([char[]]'"''') -ge 0) { $reason = 'holds a quote' }
-  elseif ($absolute) {
-    $separators = '/'; if ($registry) { $separators = '[\\/]' }
-    if (@($text -split $separators) -contains '..') { $reason = 'holds a .. segment' }
-  }
-  elseif ($script:UriSchemeRx.IsMatch($text)) { $reason = 'uri' }
-  elseif ($text -match '^[A-Za-z0-9._-]') { $reason = 'relative' }
-  else { $reason = 'not an absolute path' }
+  elseif ($text.Contains('"')) { $reason = 'holds a quote' }
+  elseif ($text -notmatch '^[A-Za-z]:[\\/]') { $reason = 'not a drive path' }
+  elseif (@($text -split '[\\/]') -contains '..') { $reason = 'holds a .. segment' }
   if ($reason) { return @{ value = ''; reason = $reason } }
-  if ($registry) {
-    $value = $text.TrimEnd('\', '/'); if ($value.Length -eq 2) { $value += '\' }
-    return @{ value = $value; reason = '' }
-  }
-  $value = $text.TrimEnd('/'); if ($value -eq '') { $value = '/' }
-  if ($script:Mode -ne 'image') { return @{ value = $value; reason = '' } }
-  if ($value -eq '/') { return @{ value = $Root; reason = '' } }
-  return @{ value = ($Root + $value.Replace('/', $script:Sep)); reason = '' }
+  $value = $text.TrimEnd('\', '/'); if ($value.Length -eq 2) { $value += '\' }
+  return @{ value = $value; reason = '' }
 }
 
 # Takes a path; returns its lines as an ArrayList, read with shared access as
 # Select-String reads it (a UTF-16 or UTF-32 byte order mark picks the
 # encoding), a UTF-8 mark kept as the character it is (the sh collector's grep
-# and awk see its bytes, so a name after it is no name), and split at line
-# feeds alone, one carriage return before each dropped, so a lone carriage
-# return stays inside its line as it does for grep and awk; or $null, after a
-# "read failed:" log line, when the file cannot be read or held.
+# sees its bytes), and split at line feeds alone, one carriage return before
+# each dropped, so a lone carriage return stays inside its line as it does for
+# grep; or $null, after a "read failed:" log line, when the file cannot be read
+# or held.
 function Read-StartupFileLines([string]$path) {
   $stream = $null; $reader = $null
   $ordinal = [System.StringComparison]::Ordinal
@@ -4615,236 +4556,12 @@ function Read-StartupFileLines([string]$path) {
   }
 }
 
-# Takes an environment.d value after unquoting and the home's image-relative
-# path ('' outside a home); returns @{ text; reason } with $HOME or ${HOME}
-# made the home, as environment.d(5) expands it. Any other reference, or $HOME
-# with no home, is the reason the value does not resolve, and so is a $ left
-# as a dollar sign (a $$, or a $ that starts no reference), as the sh awk
-# program decides after reading the whole value.
-function Expand-EnvironmentValue([string]$text, [string]$homeText) {
-  $builder = New-Object System.Text.StringBuilder
-  $last = 0; $literalDollar = $false
-  foreach ($reference in $script:EnvironmentReferenceRx.Matches($text)) {
-    if ($text.Substring($last, $reference.Index - $last).Contains('$')) { $literalDollar = $true }
-    [void]$builder.Append($text, $last, $reference.Index - $last)
-    $last = $reference.Index + $reference.Length
-    if ($reference.Groups[1].Success) { $literalDollar = $true; continue }
-    $name = $reference.Groups[4].Value
-    if ($reference.Groups[2].Success) { $name = $reference.Groups[2].Value }
-    if ($name -ceq 'HOME' -and $homeText -and -not $reference.Groups[3].Success) {
-      [void]$builder.Append($homeText); continue
-    }
-    return @{ text = ''; reason = ('references $' + $name) }
-  }
-  if ($literalDollar -or $text.Substring($last).Contains('$')) {
-    return @{ text = ''; reason = 'holds a $' }
-  }
-  [void]$builder.Append($text, $last, $text.Length - $last)
-  return @{ text = $builder.ToString(); reason = '' }
-}
-
-# Takes an environment.d value with its enclosing quotes removed and whether
-# they were double quotes; returns it with its backslash escapes applied: inside
-# double quotes a backslash before ", \, ` or $ is dropped, outside quotes a
-# backslash before any character is, as environment.d(5) reads them. Returns
-# $null for a quote left unescaped, which the sh collector calls quoted.
-function ConvertFrom-EnvironmentEscape([string]$text, [bool]$doubled) {
-  $builder = New-Object System.Text.StringBuilder
-  for ($position = 0; $position -lt $text.Length; $position++) {
-    $character = $text[$position]
-    $next = ''; if ($position + 1 -lt $text.Length) { $next = [string]$text[$position + 1] }
-    if ($character -eq '\' -and $next -ne '' -and (-not $doubled -or '"\`$'.Contains($next))) {
-      $position++; $character = $text[$position]
-    } elseif ($character -eq '"' -or ($character -eq "'" -and -not $doubled)) {
-      return $null
-    }
-    [void]$builder.Append($character)
-  }
-  return $builder.ToString()
-}
-
-# Takes the text after an assignment's = sign, the file kind, the home's
-# image-relative path and whether the line was continued; returns @{ value;
-# reason }. /etc/environment takes one optional pair of double quotes and
-# expands nothing (pam_env.conf(5)); environment.d trims the value, strips one
-# pair of single or double quotes (a continued single-quoted value, or one
-# holding a quote, is 'quoted'), applies ConvertFrom-EnvironmentEscape outside
-# single quotes and expands as Expand-EnvironmentValue, as the sh awk program.
-function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText,
-  [bool]$continued) {
-  if ($kind -eq 'environment.d') { $text = $text.Trim([char[]]" `t`r") }
-  elseif ($text.Contains('#')) {
-    # pam_env cuts a line at a #, and joins a line ending in a backslash and
-    # blanks with the next, before it reads the quotes, so such a value is not
-    # what the file assigns.
-    return @{ value = ''; reason = 'holds a #' }
-  } elseif ($text -match '\\[ \t]*$') { return @{ value = ''; reason = 'continued' } }
-  $quote = ''; if ($text.Length -gt 0) { $quote = $text.Substring(0, 1) }
-  if ($quote -ne '"' -and ($quote -ne "'" -or $kind -ne 'environment.d')) { $quote = '' }
-  if ($quote -ne '') {
-    if ($text.Length -lt 2 -or -not $text.EndsWith($quote, [System.StringComparison]::Ordinal)) {
-      return @{ value = ''; reason = 'quoted' }
-    }
-    $text = $text.Substring(1, $text.Length - 2)
-  }
-  if ($kind -ne 'environment.d') {
-    if ($text.IndexOfAny([char[]]'"''') -ge 0) { return @{ value = ''; reason = 'quoted' } }
-    return (Test-ResolvedValue $text $kind)
-  }
-  if ($quote -eq "'") {
-    if ($continued -or $text.Contains("'")) { return @{ value = ''; reason = 'quoted' } }
-  } else {
-    $text = ConvertFrom-EnvironmentEscape $text ($quote -eq '"')
-    if ($null -eq $text) { return @{ value = ''; reason = 'quoted' } }
-  }
-  $expanded = Expand-EnvironmentValue $text $homeText
-  if ($expanded.reason) { return @{ value = ''; reason = $expanded.reason } }
-  return (Test-ResolvedValue $expanded.text $kind)
-}
-
-# Takes plutil's arguments; runs it with its standard output read whole, so a
-# carriage return inside a value stays inside its line, as the sh collector's
-# $(...) keeps it; returns @{ exitCode; text }. plutil exists only on macOS,
-# where PowerShell 7 runs, so .NET's ArgumentList, which quotes nothing by
-# hand, is there.
-function Invoke-Plutil([string[]]$arguments) {
-  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-  $startInfo.FileName = $script:PlutilPath; $startInfo.UseShellExecute = $false
-  $startInfo.RedirectStandardOutput = $true; $startInfo.RedirectStandardError = $true
-  foreach ($argument in $arguments) { $startInfo.ArgumentList.Add($argument) }
-  $process = [System.Diagnostics.Process]::Start($startInfo)
-  $text = $process.StandardOutput.ReadToEnd()
-  [void]$process.StandardError.ReadToEnd(); $process.WaitForExit()
-  return @{ exitCode = $process.ExitCode; text = $text }
-}
-
-# Takes a plist and a key path; returns @{ present; text; reason } from what
-# plutil, macOS's property list tool, extracts there: the text of a one-line
-# string, or the reason it is no value (holds a newline, holds an XML entity
-# for one plutil had to encode, not a string for another type); present is
-# false when nothing is at the path. Only plutil parses the plist, as launchd
-# does (binary plists too, a repeated key's last value), and this reads its
-# one-element output alone, as the sh collector's plutil_string_var does.
-function Read-PlutilString([string]$path, [string]$keyPath) {
-  $run = Invoke-Plutil @('-extract', $keyPath, 'xml1', '-o', '-', $path)
-  if ($run.exitCode -ne 0) { return @{ present = $false; text = ''; reason = '' } }
-  $lines = @($run.text -split "`n")
-  if ($lines.Count -gt 1 -and $lines[-1] -eq '') { $lines = @($lines[0..($lines.Count - 2)]) }
-  $read = @{ present = $true; text = ''; reason = 'not a string' }
-  if ($lines.Count -lt 5 -or -not ([string]$lines[3]).StartsWith('<string>')) { return $read }
-  if ($lines.Count -gt 5) { $read.reason = 'holds a newline'; return $read }
-  $line = [string]$lines[3]
-  if (-not $line.EndsWith('</string>')) { return $read }
-  $read.text = $line.Substring(8, $line.Length - 17); $read.reason = ''
-  if ($read.text.Contains('&')) { $read.reason = 'holds an XML entity' }
-  return $read
-}
-
-# Takes a launchd property list and its hits as @(line, variable); returns
-# @{ entries; userName; reason }: each variable hit that the plist's
-# EnvironmentVariables dictionary holds, as plutil reads it, as "0|NAME" ->
-# @{ value; reason }, the UserName when it is a plain account name, or the
-# reason for the whole file: no plutil (the host is not macOS) or plutil could
-# not read the file. The line is 0, as for a registry value: plutil reads the
-# key's effective value and reports no line, and the lines naming the variable
-# stay hints without a value.
-function Resolve-PlistValues([string]$path, $fileHits) {
-  $result = @{ entries = [ordered]@{}; userName = ''; reason = '' }
-  if ($null -eq $script:PlutilPath) { $result.reason = 'no plutil'; return $result }
-  if ((Invoke-Plutil @('-lint', $path)).exitCode -ne 0) {
-    $result.reason = 'plutil could not read the file'; return $result
-  }
-  foreach ($hit in $fileHits) {
-    $name = [string]$hit[1]
-    if ($result.entries.ContainsKey("0|$name")) { continue }
-    $read = Read-PlutilString $path "EnvironmentVariables.$name"
-    if (-not $read.present) { continue }
-    if ($read.reason) { $result.entries["0|$name"] = @{ value = ''; reason = $read.reason } }
-    else { $result.entries["0|$name"] = Test-ResolvedValue $read.text 'launchd' }
-  }
-  $user = Read-PlutilString $path 'UserName'
-  if ($user.present -and -not $user.reason -and $user.text -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*\z') {
-    $result.userName = $user.text
-  }
-  return $result
-}
-
-# Takes a hit file, its kind, the home's image-relative path ('' when the
-# file is no home's), its hits and its lines (Read-StartupFileLines); returns
-# @{ entries; userName; reason } as Resolve-PlistValues does, for a
-# /etc/environment or environment.d file from its NAME=VALUE lines. An
-# environment.d assignment line ending in an odd run of backslashes continues
-# on the next (an escaped backslash, a comment or a line with no = joins
-# nothing) and keeps its first line's number. pam_env joins an /etc/environment
-# line ending in a backslash and blanks (one holding a # aside) with the next
-# line, which may then assign nothing of its own. From a line holding a NUL byte
-# on, nothing is a value, as pam_env 1.5 and systemd read no further; string tests are ordinal.
-function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fileHits, $lines) {
-  if ($kind -eq 'launchd') { return (Resolve-PlistValues $path $fileHits) }
-  $result = @{ entries = @{}; userName = ''; reason = '' }
-  # Only a space or tab is white space here, as for the sh awk programs and
-  # pam_env; .NET's bare Trim would also drop a form feed or a no-break space.
-  $blank = [char[]]" `t"; $blankOrReturn = [char[]]" `t`r"
-  $ordinal = [System.StringComparison]::Ordinal; $names = [string[]]$script:RelocationNames
-  $index = 0; $joined = $false; $nul = $false
-  while ($index -lt $lines.Count) {
-    $number = $index + 1; $text = [string]$lines[$index]; $index++; $continued = $false
-    while ($kind -eq 'environment.d' -and $text -match '(^|[^\\])(\\\\)*\\$') {
-      if (-not $continued) {
-        $head = $text.TrimStart($blankOrReturn)
-        if ($head.StartsWith('#', $ordinal) -or $head.StartsWith(';', $ordinal) -or
-          $head.IndexOf([char]'=') -lt 0) { break }
-      }
-      $text = $text.Substring(0, $text.Length - 1); $continued = $true
-      if ($index -ge $lines.Count) { break }
-      $text += $lines[$index]; $index++
-    }
-    if ($text.IndexOf([char]0) -ge 0) { $nul = $true }
-    $trimmed = $text.TrimStart($blank)
-    if ($kind -eq 'environment.d') { $trimmed = $text.Trim($blankOrReturn) }
-    $joinedHere = $joined; $comment = $trimmed.Length -eq 0 -or $trimmed.StartsWith('#', $ordinal)
-    if ($kind -ne 'environment.d' -and -not $comment) {
-      $joined = -not $text.Contains('#') -and $text -match '\\[ \t]*$'
-    }
-    if ($comment -or ($kind -eq 'environment.d' -and $trimmed.StartsWith(';', $ordinal))) {
-      continue
-    }
-    $equals = $trimmed.IndexOf([char]'=')
-    if ($equals -lt 1) { continue }
-    $name = $trimmed.Substring(0, $equals)
-    if ($kind -eq 'environment.d') { $name = $name.Trim($blank) }
-    if ([System.Array]::IndexOf($names, $name) -lt 0) { continue }
-    if ($nul) {
-      $result.entries["$number|$name"] = @{ value = ''; reason = 'after a NUL byte' }; continue
-    }
-    if ($joinedHere) {
-      $result.entries["$number|$name"] = @{ value = ''; reason = 'continued' }; continue
-    }
-    $assigned = $trimmed.Substring($equals + 1)
-    $result.entries["$number|$name"] = Resolve-AssignmentValue $assigned $kind $homeText $continued
-  }
-  return $result
-}
-
 # Takes a directory; returns whether it is the home of a $script:UserList user.
 function Test-CollectedHome([string]$homeDir) {
   foreach ($userHome in $script:UserList) {
     if ($script:RowPathComparer.Equals($userHome.home, $homeDir)) { return $true }
   }
   return $false
-}
-
-# Takes the home of a hit file's base; returns it with / separators and, in
-# image mode, without -Root, the form $HOME takes inside the image, when it is a
-# user's home, else '' (a system or project file has no user's $HOME).
-function Get-ExpansionHome([string]$homeDir) {
-  if (-not $homeDir -or -not (Test-CollectedHome $homeDir)) { return '' }
-  $relative = $homeDir
-  if ($script:Mode -eq 'image' -and
-    $homeDir.StartsWith($Root, [System.StringComparison]::OrdinalIgnoreCase)) {
-    $relative = $homeDir.Substring($Root.Length)
-  }
-  return $relative.Replace('\', '/')
 }
 
 # Takes a log line of the relocation step; logs $script:HintHeader before it
@@ -4855,10 +4572,11 @@ function Write-HintLog([string]$message) {
 }
 
 # Takes the user, a source (a hit file, or a registry value's key path and
-# name), its line number (0 for the registry), the variable, and the resolved
-# value or the reason it has none; for every RELOCATION_VARS line naming the
-# variable, logs the hint and adds it to $script:RelocationHints, and a value to
-# $script:RelocationValues, once per record. Only an accepted value is logged.
+# name), its line number (0 for the registry), the variable and, for a registry
+# value, the resolved value or the reason it has none; for every
+# RELOCATION_VARS line naming the variable, logs the hint and adds it to
+# $script:RelocationHints, and a value to $script:RelocationValues, once per
+# record. Only an accepted value is logged.
 function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$variable,
   [string]$value, [string]$reason) {
   $where = $file; if ($line -gt 0) { $where = "${file}:$line" }
@@ -4875,35 +4593,6 @@ function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$v
     if (-not $value) { continue }
     $replaces = $script:RelocationReplaces["$agent|$variable"]
     [void]$script:RelocationValues.Add("$user|$variable|$agent|$replaces|$value")
-  }
-}
-
-# Takes the user, home and a hit file with its hits as @(line, variable) and
-# its lines;
-# reads the file's values when Get-StartupFileKind names its kind and records
-# each hit with its value or the reason it has none, and for a plist one hint
-# with line 0 per value plutil reads. The hints of a system plist under
-# LaunchDaemons (the user is '') take its UserName as their user.
-function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits, $lines) {
-  $kind = Get-StartupFileKind $path
-  $resolved = @{ entries = @{}; userName = ''; reason = '' }
-  if ($kind) {
-    $resolved = Resolve-FileValues $path $kind (Get-ExpansionHome $homeDir) $fileHits $lines
-  }
-  $hintUser = $user
-  if ($user -eq '' -and $homeDir -eq '' -and $kind -eq 'launchd' -and
-    $path.Replace('\', '/') -clike '*/LaunchDaemons/*.plist') {
-    $hintUser = $resolved.userName
-  }
-  foreach ($hit in $fileHits) {
-    $value = ''; $reason = $resolved.reason
-    $entry = $resolved.entries["$($hit[0])|$($hit[1])"]
-    if ($entry) { $value = $entry.value; $reason = $entry.reason }
-    Add-RelocationHint $hintUser $path $hit[0] $hit[1] $value $reason
-  }
-  foreach ($key in @($resolved.entries.Keys | Where-Object { $_.StartsWith('0|') })) {
-    $entry = $resolved.entries[$key]
-    Add-RelocationHint $hintUser $path 0 $key.Substring(2) $entry.value $entry.reason
   }
 }
 
@@ -4956,14 +4645,14 @@ function Test-PowerShellScript([string]$path) {
 }
 
 # Takes the user, home and files of one base; searches them, then records each
-# bounded hit with Add-FileHints and collects each hit file. A name
-# matches in its own case only, since shells name variables case-sensitively,
-# except in a .ps1 file, where PowerShell does not. Select-String names the
-# other files holding a name; every .ps1 file is read, since Select-String
-# ignores case by the session's culture. The lines and their numbers come
-# from Read-StartupFileLines, split at line feeds alone as the sh collector's
-# grep counts them, since Select-String ends a line at a lone carriage return
-# too. Only line numbers and names leave the search.
+# bounded hit with Add-RelocationHint, its value empty, and collects each hit
+# file. A name matches in its own case only, since shells name variables
+# case-sensitively, except in a .ps1 file, where PowerShell does not.
+# Select-String names the other files holding a name; every .ps1 file is read,
+# since Select-String ignores case by the session's culture. The lines and
+# their numbers come from Read-StartupFileLines, split at line feeds alone as
+# the sh collector's grep counts them, since Select-String ends a line at a
+# lone carriage return too. Only line numbers and names leave the search.
 function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$files) {
   if ($files.Count -eq 0) { return }
   $script:RelocationCounts.searched += $files.Count
@@ -4991,7 +4680,7 @@ function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$file
       }
     }
     if ($fileHits.Count -eq 0) { continue }
-    Add-FileHints $user $homeDir $path $fileHits $lines
+    foreach ($hit in $fileHits) { Add-RelocationHint $user $path $hit[0] $hit[1] }
     Add-HintFile $user $homeDir $path
   }
 }
@@ -5203,7 +4892,7 @@ function Add-RegistryHints([string]$user, [string]$keyPath, $strings, $tables) {
         if ($strings.expandable.ContainsKey($name)) {
           $assigned = Expand-RegistryValue $assigned $tables
         }
-        $resolved = Test-ResolvedValue $assigned 'registry'
+        $resolved = Test-ResolvedValue $assigned
       }
       Add-RelocationHint $user "$keyPath\$name" 0 $variable $resolved.value $resolved.reason
     }
@@ -5781,7 +5470,6 @@ function Initialize-Summary {
     capabilities = [ordered]@{
       hash_tool = 'System.Security.Cryptography.SHA256'
       archiver = $script:ArchiverLabels[$script:Archivers[0]]
-      plutil = ($null -ne $script:PlutilPath)
     }
     users = @($script:UserList | ForEach-Object { $_.user })
     homes = @($script:UserList | ForEach-Object { $_.home })
