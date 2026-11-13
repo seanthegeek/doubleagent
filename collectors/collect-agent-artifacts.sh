@@ -4036,11 +4036,13 @@ collect_projects() {
 # LINE|NAME|=VALUE for each NAME=VALUE line of a RELOCATION_VARS name (the -v
 # names list), or LINE|NAME|!quoted when the value holds a quote besides one
 # enclosing pair of double quotes. pam_env.conf(5) allows only simple
-# NAME=VALUE pairs, so nothing is expanded; a line starting with # is skipped.
+# NAME=VALUE pairs, so nothing is expanded; a line starting with # is skipped
+# and a carriage return ending the line is dropped, as the line reader of the
+# PowerShell collector drops it.
 heredoc_var <<'EOF_ENVIRONMENT_VALUES_AWK'
 BEGIN { count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1 }
 {
-  text = $0; sub(/^[ \t]+/, "", text)
+  text = $0; sub(/\r$/, "", text); sub(/^[ \t]+/, "", text)
   if (text ~ /^#/) next
   equals = index(text, "="); if (equals < 2) next
   name = substr(text, 1, equals - 1); if (!(name in wanted)) next
@@ -4134,12 +4136,12 @@ ENVIRONMENT_D_VALUES_AWK=$_ret_heredoc_text
 # that of the <key>, where the name search finds it, and U|USER for a
 # top-level UserName string. A file starting with the bplist magic is binary
 # and gives the one line !binary plist. A value is a plain string, never
-# expanded; one holding markup or an & entity is left unresolved.
+# expanded; one holding markup, an & entity or a > is left unresolved.
 heredoc_var <<'EOF_LAUNCHD_VALUES_AWK'
 function found_string() {
   if (environment && depth == 2 && (key in wanted)) {
     if (broken) print keyline "|" key "|!not a plain string"
-    else if (index(content, "&")) print keyline "|" key "|!holds an XML entity"
+    else if (content ~ /[&>]/) print keyline "|" key "|!holds an XML entity"
     else print keyline "|" key "|=" content
   } else if (depth == 1 && key == "UserName" && !broken &&
              content ~ /^[A-Za-z_][A-Za-z0-9_.-]*$/) print "U|" content
