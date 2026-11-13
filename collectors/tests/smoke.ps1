@@ -2032,7 +2032,7 @@ foreach ($oauthBase in @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop
 # or refuses, one per line, and a value continued on a second line; a daemon plist with a
 # DOCTYPE names its user; a binary plist. The files above assigning /opt/x resolve under the
 # image root.
-MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n")
+MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n")
 MakeFile 'Users/alice/.config/environment.d/home.conf' ('CODEX_HOME=$HOME/x' + "`n")
 MakeFile 'etc/environment.d/home.conf' ('CODEX_HOME=${HOME}/x' + "`n")
 $environmentValues = @(
@@ -2045,6 +2045,7 @@ $environmentValues = @(
   'cont/'
   '# CODEX_HOME=/opt/comment'
   'CODEX_HOME=/opt/$1'
+  'CODEX_HOME=/a$$HOME'
 )
 MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n")
 # A CRLF file whose value continues on the next line; a plist string spanning lines whose
@@ -3125,7 +3126,7 @@ if ($havePlutil) {
   Check '#455 a plist holding a CDATA section resolves as plutil reads it' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.cdata.plist' 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/xy') -and (ValueLogged 'Library/LaunchAgents/com.example.cdata.plist' 0 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/xy')") -and (ValueLogged 'Library/LaunchAgents/com.example.cdata.plist' 1 'CODEX_HOME' 'codex-cli' '') }
   Check '#455 a plist holding a comment resolves as plutil reads it and forges nothing' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.comment.plist' 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/real') -and (ValueLogged 'Library/LaunchAgents/com.example.comment.plist' 0 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/real')") -and -not $relocationLog.Contains('forged') }
   Check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" { (HasHint $defaultRunSummary $lastPlist 0 'CODEX_HOME' 'codex-cli' 'svc') -and (HintValue $defaultRunSummary $lastPlist 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/last') -and -not $relocationLog.Contains('opt' + $Separator + 'first') -and -not $relocationLog.Contains('opt' + $Separator + 'd1') }
-  Check "#455 a plist's lines naming the variable keep an empty value" { (ValueLogged $lastPlist 4 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged $lastPlist 5 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged $lastPlist 6 'CODEX_HOME' 'codex-cli' '') -and @($defaultRunSummary.relocation.hints | Where-Object { $_.source -eq (ImagePath $lastPlist) -and $_.variable -eq 'CODEX_HOME' -and $_.value -ne '' }).Count -eq 1 }
+  Check "#455 a plist's lines naming the variable keep an empty value" { (ValueLogged $lastPlist 4 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged $lastPlist 5 'CODEX_HOME' 'codex-cli' '') -and @($defaultRunSummary.relocation.hints | Where-Object { $_.source -eq (ImagePath $lastPlist) -and $_.variable -eq 'CODEX_HOME' -and $_.value -ne '' }).Count -eq 1 }
 } else {
   Check '#455 a plist string spanning lines is not resolved' { ValueLogged $multiPlist 2 'LETTA_DIR' 'letta' $noPlutil }
   Check '#455 a line inside a plist string forges no value' { (ValueLogged $multiPlist 3 'HERMES_HOME' 'hermes' $noPlutil) -and -not $relocationLog.Contains('injected') }
@@ -3133,9 +3134,11 @@ if ($havePlutil) {
   Check '#455 a plist holding a CDATA section resolves as plutil reads it' { ValueLogged 'Library/LaunchAgents/com.example.cdata.plist' 1 'CODEX_HOME' 'codex-cli' $noPlutil }
   Check '#455 a plist holding a comment resolves as plutil reads it and forges nothing' { (ValueLogged 'Library/LaunchAgents/com.example.comment.plist' 1 'CODEX_HOME' 'codex-cli' $noPlutil) -and -not $relocationLog.Contains('forged') }
   Check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" { (HasHint $defaultRunSummary $lastPlist 5 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged $lastPlist 5 'CODEX_HOME' 'codex-cli' $noPlutil) }
-  Check "#455 a plist's lines naming the variable keep an empty value" { (ValueLogged $lastPlist 4 'CODEX_HOME' 'codex-cli' $noPlutil) -and (ValueLogged $lastPlist 6 'CODEX_HOME' 'codex-cli' $noPlutil) }
+  Check "#455 a plist's lines naming the variable keep an empty value" { (ValueLogged $lastPlist 4 'CODEX_HOME' 'codex-cli' $noPlutil) -and (ValueLogged $lastPlist 5 'CODEX_HOME' 'codex-cli' $noPlutil) }
 }
 Check '#455 a control character in a value is not resolved' { (HintValue $defaultRunSummary 'etc/environment' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 4 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and -not $relocationLog.Contains([string][char]27) }
+Check '#455 a doubled dollar is no reference' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 10 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 10 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a $') }
+Check '#455 a doubled percent is no reference' { (HintValue $defaultRunSummary 'etc/environment' 5 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 5 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a %') }
 if ($havePlutil) {
   Check '#455 a carriage return inside a plist string is a control character' { (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 0 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli' '') }
 } else {

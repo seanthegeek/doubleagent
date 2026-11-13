@@ -22,7 +22,7 @@ that can move an agent's files:
 relocation hint: /home/alice/.bashrc:41 names CLAUDE_CONFIG_DIR (claude-code)
 ```
 
-It gives the file, the line number, the variable and the agent. Where the
+It gives the file, the line number (none for a value `plutil` read from a launchd plist, or from the registry), the variable and the agent. Where the
 collector could read the value, the line ends with it, and where it read an
 assignment it could not use, with the reason ([What the collector
 resolves](#what-the-collector-resolves)):
@@ -185,7 +185,7 @@ whose `value not resolved` reason you want to follow up. Extract the file from
 the archive. Its path in the archive is
 `fs/<original path>`, or the physical path under its base for a file reached
 through a symlinked directory ([Archive layout in output.md](output.md#archive-layout)),
-and the log line names the original path and the line number. Look for
+and the log line names the original path and the line number (the path alone for a value read from a launchd plist as a whole). Look for
 the form that matches the file's shell:
 
 | Syntax | Used by |

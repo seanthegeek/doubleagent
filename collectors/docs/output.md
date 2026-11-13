@@ -50,7 +50,10 @@ preceded by the base's header: `Relocation hints for <user> (<home>)`,
 The PowerShell collector's registry step on a live Windows host adds the
 header `Relocation hints in the registry`, with hint lines whose `<file>` is
 the registry value (`HKLM\...\Environment\<name>` or
-`HKU\<SID>\Environment\<name>`) and no `:<line>`, and the lines
+`HKU\<SID>\Environment\<name>`) and no `:<line>`; the value `plutil` reads from a
+launchd plist is logged the same way, `relocation hint: <file> names ...` with no
+`:<line>`, since `plutil` reports none, beside the plain hints of the lines naming
+the variable; and the lines
 `registry: hive of <user> not loaded`,
 `registry: hive of <user> not readable: <message>` and
 `registry: system environment not readable: <message>`. The line of the file

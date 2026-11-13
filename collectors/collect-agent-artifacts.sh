@@ -2617,11 +2617,6 @@ hash_match() {
 # the main shell exports the pair, so a worker runs no printf.
 [ -n "${TAB_AND_CARRIAGE_RETURN:-}" ] || TAB_AND_CARRIAGE_RETURN=$(printf '\t\r')
 TAB=${TAB_AND_CARRIAGE_RETURN%?}; CARRIAGE_RETURN=${TAB_AND_CARRIAGE_RETURN#?}
-# Every control character but NUL, as a literal set for case patterns: posh
-# reads no [[:cntrl:]] class.
-CONTROL_CHARACTERS=$(printf '\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017')
-CONTROL_CHARACTERS=$CONTROL_CHARACTERS$(printf '\020\021\022\023\024\025\026\027\030\031\032')
-CONTROL_CHARACTERS=$CONTROL_CHARACTERS$(printf '\033\034\035\036\037\177')
 NEWLINE='
 '
 # json_escape TEXT -> TEXT as a JSON string body (backslash, double quote, tab,
@@ -5204,6 +5199,12 @@ EXCLUDE_WORDS=; EXCLUDE_WORDS_BASE=
 STAGE_FROM=; STAGE_TO=
 RELOCATION_HINTS=; RELOCATION_FILES_SEARCHED=0; RELOCATION_FILES_SKIPPED_SIZE=0; HINT_HEADER=
 RELOCATION_HINT_COUNT=0; RELOCATION_VALUES=; RELOCATION_VALUES_JSON=; RELOCATION_VALUE_COUNT=0
+# Every control character but NUL, as a literal set for the case patterns of
+# accept_resolved_value: posh reads no [[:cntrl:]] class. Built here, in the
+# main shell, so no worker pays its printf.
+CONTROL_CHARACTERS=$(printf '\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017')
+CONTROL_CHARACTERS=$CONTROL_CHARACTERS$(printf '\020\021\022\023\024\025\026\027\030\031\032')
+CONTROL_CHARACTERS=$CONTROL_CHARACTERS$(printf '\033\034\035\036\037\177')
 
 USER_LIST=$(get_user_homes)
 [ -n "$USER_LIST" ] || log_line "WARNING: no user home directories found"

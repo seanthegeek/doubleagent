@@ -568,7 +568,8 @@ lines naming the variable stay hints without a value), `U|USER` for the
 PowerShell collector reads the lines with `Read-StartupFileLines` and applies
 `Resolve-AssignmentValue` (with `Expand-EnvironmentValue` for `environment.d`),
 or for a plist `Resolve-PlistValues`, which runs the same `plutil` commands
-(`Read-PlutilString`) where `plutil` exists and otherwise records `no plutil`. `$HOME` expands only in
+(`Read-PlutilString`) off Windows, where `plutil` exists, and otherwise records
+`no plutil`. `$HOME` expands only in
 a file whose base is a collected user's home (`USER_LIST` in sh,
 `Test-CollectedHome` and `Get-ExpansionHome` in PowerShell, without the image
 root).

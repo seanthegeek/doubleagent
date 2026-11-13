@@ -190,7 +190,9 @@ runs under the PowerShell of Windows 10, 11 and Server 2016+, and under
 PowerShell 7 on any OS.
 
 - No ternary operator, `??`, `-AsHashtable`, three-argument `Join-Path`,
-  `[System.IO.Path]::GetRelativePath` or `.NET Core`-only APIs;
+  `[System.IO.Path]::GetRelativePath` or `.NET Core`-only APIs, except in
+  a step reached only under PowerShell 7 off Windows, whose comment says so
+  (the `plutil` step's `ProcessStartInfo.ArgumentList`);
   `Get-FileHash`, `ConvertTo-Json -Compress`, `[DateTimeOffset]` and
   `System.IO.Compression.FileSystem` are fine.
 - No variable named after an automatic variable (`$home`, `$host`, `$args`,

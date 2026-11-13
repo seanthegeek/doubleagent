@@ -4430,10 +4430,14 @@ foreach ($line in (Get-TableLines $STARTUP_FILES)) {
 # A character that continues a variable name, so CODEX_HOME in MY_CODEX_HOME_X
 # is no hit.
 $script:NameCharRx = New-Object System.Text.RegularExpressions.Regex('[A-Za-z0-9_]')
-# A shell variable reference, $NAME or ${NAME, and an environment.d one: $$, or
-# $NAME, ${NAME} or ${NAME:-x} / ${NAME:+x}, with the name in group 2 or 4.
-$script:ShellReferenceRx = New-Object System.Text.RegularExpressions.Regex(
-  '\$\{?([A-Za-z_][A-Za-z0-9_]*)')
+# The name a value's first $ or % starts, when it starts one (the text right
+# after it, as the sh acceptance test reads it), and an environment.d
+# reference: $$, or $NAME, ${NAME} or ${NAME:-x} / ${NAME:+x}, with the name
+# in group 2 or 4.
+$script:AfterDollarRx = New-Object System.Text.RegularExpressions.Regex(
+  '^\{?([A-Za-z_][A-Za-z0-9_]*)')
+$script:AfterPercentRx = New-Object System.Text.RegularExpressions.Regex(
+  '^([A-Za-z_][A-Za-z0-9_]*)%')
 $script:EnvironmentReferenceRx = New-Object System.Text.RegularExpressions.Regex(
   '\$(?:(\$)|\{([A-Za-z_][A-Za-z0-9_]*)(:[-+][^}]*)?\}|([A-Za-z_][A-Za-z0-9_]*))')
 # A Windows %NAME% reference (ProgramFiles(x86) holds parentheses) and a URI
@@ -4524,14 +4528,19 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
   $registry = ($kind -eq 'registry')
   $absolute = $text.StartsWith('/')
   if ($registry) { $absolute = $text -match '^[A-Za-z]:[\\/]' }
-  $reference = $script:ShellReferenceRx.Match($text)
-  $token = $script:RegistryTokenRx.Match($text)
+  # Only the text right after the first $ or % can name a reference, as in sh.
+  $reference = $script:AfterDollarRx.Match($text.Substring($text.IndexOf('$') + 1))
+  $token = $script:AfterPercentRx.Match($text.Substring($text.IndexOf('%') + 1))
   $reason = ''
   if ($text.Contains("`n")) { $reason = 'holds a newline' }
   elseif ($text -match '[\x00-\x1f\x7f]') { $reason = 'holds a control character' }
-  elseif ($reference.Success) { $reason = 'references $' + $reference.Groups[1].Value }
+  elseif ($text.Contains('$') -and $reference.Success) {
+    $reason = 'references $' + $reference.Groups[1].Value
+  }
   elseif ($text.Contains('$')) { $reason = 'holds a $' }
-  elseif ($token.Success) { $reason = 'references %' + $token.Groups[1].Value + '%' }
+  elseif ($text.Contains('%') -and $token.Success) {
+    $reason = 'references %' + $token.Groups[1].Value + '%'
+  }
   elseif ($text.Contains('%')) { $reason = 'holds a %' }
   elseif ($text.Contains('`')) { $reason = 'holds a backquote' }
   elseif ($text.IndexOfAny([char[]]'"''') -ge 0) { $reason = 'holds a quote' }
@@ -4574,14 +4583,16 @@ function Read-StartupFileLines([string]$path) {
 # Takes an environment.d value after unquoting and the home's image-relative
 # path ('' outside a home); returns @{ text; reason } with $$ made $ and $HOME
 # or ${HOME} made the home, as environment.d(5) expands them. Any other
-# reference, or $HOME with no home, is the reason the value does not resolve.
+# reference, or $HOME with no home, is the reason the value does not resolve,
+# and so is a $$, since the $ it leaves is no path character, as the sh awk
+# program decides after reading the whole value.
 function Expand-EnvironmentValue([string]$text, [string]$homeText) {
   $builder = New-Object System.Text.StringBuilder
-  $last = 0
+  $last = 0; $literalDollar = $false
   foreach ($reference in $script:EnvironmentReferenceRx.Matches($text)) {
     [void]$builder.Append($text, $last, $reference.Index - $last)
     $last = $reference.Index + $reference.Length
-    if ($reference.Groups[1].Success) { [void]$builder.Append('$'); continue }
+    if ($reference.Groups[1].Success) { $literalDollar = $true; continue }
     $name = $reference.Groups[4].Value
     if ($reference.Groups[2].Success) { $name = $reference.Groups[2].Value }
     if ($name -ceq 'HOME' -and $homeText -and -not $reference.Groups[3].Success) {
@@ -4589,6 +4600,7 @@ function Expand-EnvironmentValue([string]$text, [string]$homeText) {
     }
     return @{ text = ''; reason = ('references $' + $name) }
   }
+  if ($literalDollar) { return @{ text = ''; reason = 'holds a $' } }
   [void]$builder.Append($text, $last, $text.Length - $last)
   return @{ text = $builder.ToString(); reason = '' }
 }

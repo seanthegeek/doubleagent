@@ -1987,6 +1987,7 @@ printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/usr/share/ollama/.env-helper.sh"
 # shellcheck disable=SC2016 # the fixtures hold shell variables literally
 printf '%s\n' 'CODEX_HOME="/opt/q"' "CODEX_HOME='/opt/single'" >>"$ROOT/etc/environment"
 printf 'CODEX_HOME=/opt/e\033x\n' >>"$ROOT/etc/environment"
+printf '%s\n' 'CODEX_HOME=/a%%PATH%' >>"$ROOT/etc/environment"
 # shellcheck disable=SC2016
 printf '%s\n' 'CODEX_HOME=$HOME/x' >"$ALICE/.config/environment.d/home.conf"
 # shellcheck disable=SC2016
@@ -1994,7 +1995,8 @@ printf '%s\n' 'CODEX_HOME=${HOME}/x' >"$ROOT/etc/environment.d/home.conf"
 # shellcheck disable=SC2016
 printf '%s\n' "CODEX_HOME='/opt/s'" 'CODEX_HOME=$XDG_CONFIG_HOME/x' 'CODEX_HOME=opt/rel' \
   'CODEX_HOME=file:///opt/u' 'CODEX_HOME=/opt/../x' 'CODEX_HOME=/opt/\' 'cont/' \
-  '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' >"$ROOT/etc/environment.d/values.conf"
+  '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' 'CODEX_HOME=/a$$HOME' \
+  >"$ROOT/etc/environment.d/values.conf"
 DAEMON_PLIST_DOCTYPE='<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
 DAEMON_PLIST_DOCTYPE="$DAEMON_PLIST_DOCTYPE \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
 daemon_plist() {
@@ -2885,7 +2887,7 @@ if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a plist holding a CDATA section resolves as plutil reads it" "[ \"\$(hint_value \"$ROOT/Library/LaunchAgents/com.example.cdata.plist\" 0 CODEX_HOME codex-cli)\" = \"$ROOT/opt/xy\" ] && value_logged \"$ROOT/Library/LaunchAgents/com.example.cdata.plist\" 0 CODEX_HOME codex-cli ' = $ROOT/opt/xy' && value_logged \"$ROOT/Library/LaunchAgents/com.example.cdata.plist\" 1 CODEX_HOME codex-cli ''"
   check "#455 a plist holding a comment resolves as plutil reads it and forges nothing" "[ \"\$(hint_value \"$ROOT/Library/LaunchAgents/com.example.comment.plist\" 0 CODEX_HOME codex-cli)\" = \"$ROOT/opt/real\" ] && value_logged \"$ROOT/Library/LaunchAgents/com.example.comment.plist\" 0 CODEX_HOME codex-cli ' = $ROOT/opt/real' && ! grep -q forged \"$RELOCATION_LOG\" \"\$SUMMARY\""
   check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" "hint_line \"$LAST_PLIST\" 0 CODEX_HOME codex-cli | contains -F '\"user\": \"svc\"' && [ \"\$(hint_value \"$LAST_PLIST\" 0 CODEX_HOME codex-cli)\" = \"$ROOT/opt/last\" ] && ! grep -q -e 'opt/first' -e 'opt/d1' \"$RELOCATION_LOG\" \"\$SUMMARY\""
-  check "#455 a plist's lines naming the variable keep an empty value" "value_logged \"$LAST_PLIST\" 4 CODEX_HOME codex-cli '' && value_logged \"$LAST_PLIST\" 5 CODEX_HOME codex-cli '' && value_logged \"$LAST_PLIST\" 6 CODEX_HOME codex-cli '' && [ \"\$(grep -c \"\\\"source\\\": \\\"$LAST_PLIST\\\", \\\"line\\\": [0-9]*, \\\"variable\\\": \\\"CODEX_HOME\\\", \\\"agent\\\": \\\"codex-cli\\\", \\\"value\\\": \\\"[^\\\"]\" \"\$SUMMARY\")\" = 1 ]"
+  check "#455 a plist's lines naming the variable keep an empty value" "value_logged \"$LAST_PLIST\" 4 CODEX_HOME codex-cli '' && value_logged \"$LAST_PLIST\" 5 CODEX_HOME codex-cli '' && [ \"\$(grep -c \"\\\"source\\\": \\\"$LAST_PLIST\\\", \\\"line\\\": [0-9]*, \\\"variable\\\": \\\"CODEX_HOME\\\", \\\"agent\\\": \\\"codex-cli\\\", \\\"value\\\": \\\"[^\\\"]\" \"\$SUMMARY\")\" = 1 ]"
 else
   check "#455 a plist string spanning lines is not resolved" "value_logged \"$MULTI_PLIST\" 2 LETTA_DIR letta \"\$NO_PLUTIL\""
   check "#455 a line inside a plist string forges no value" "value_logged \"$MULTI_PLIST\" 3 HERMES_HOME hermes \"\$NO_PLUTIL\" && ! grep -q injected \"$RELOCATION_LOG\" \"\$SUMMARY\""
@@ -2893,9 +2895,11 @@ else
   check "#455 a plist holding a CDATA section resolves as plutil reads it" "value_logged \"$ROOT/Library/LaunchAgents/com.example.cdata.plist\" 1 CODEX_HOME codex-cli \"\$NO_PLUTIL\""
   check "#455 a plist holding a comment resolves as plutil reads it and forges nothing" "value_logged \"$ROOT/Library/LaunchAgents/com.example.comment.plist\" 1 CODEX_HOME codex-cli \"\$NO_PLUTIL\" && ! grep -q forged \"$RELOCATION_LOG\" \"\$SUMMARY\""
   check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" "hint_line \"$LAST_PLIST\" 5 CODEX_HOME codex-cli | contains -F '\"user\": \"\"' && value_logged \"$LAST_PLIST\" 5 CODEX_HOME codex-cli \"\$NO_PLUTIL\""
-  check "#455 a plist's lines naming the variable keep an empty value" "value_logged \"$LAST_PLIST\" 4 CODEX_HOME codex-cli \"\$NO_PLUTIL\" && value_logged \"$LAST_PLIST\" 6 CODEX_HOME codex-cli \"\$NO_PLUTIL\""
+  check "#455 a plist's lines naming the variable keep an empty value" "value_logged \"$LAST_PLIST\" 4 CODEX_HOME codex-cli \"\$NO_PLUTIL\" && value_logged \"$LAST_PLIST\" 5 CODEX_HOME codex-cli \"\$NO_PLUTIL\""
 fi
 check "#455 a control character in a value is not resolved" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 4 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 4 CODEX_HOME codex-cli '; value not resolved: holds a control character' && ! grep -q \"\$(printf '\\033')\" \"$RELOCATION_LOG\""
+check "#455 a doubled dollar is no reference" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 10 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 10 CODEX_HOME codex-cli '; value not resolved: holds a \$'"
+check "#455 a doubled percent is no reference" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 5 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 5 CODEX_HOME codex-cli '; value not resolved: holds a %'"
 if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a carriage return inside a plist string is a control character" "value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 0 CODEX_HOME codex-cli '; value not resolved: holds a control character' && value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 1 CODEX_HOME codex-cli ''"
 else
@@ -3139,7 +3143,7 @@ check "#454 the sweep searches a home nested in another home once, as its own" "
 check "#454 the sweep matches a lowercase name in a .ps1 file" "hint_line \"$ALICE/scripts/agent-env/deep/helper.ps1\" 1 CODEX_HOME codex-cli | contains . && row \"$ALICE/scripts/agent-env/deep/helper.ps1\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
 check "#454 the sweep counts a file over its size limit and leaves it unsearched" "grep -q '\"files_skipped_size\": [1-9][0-9]*}' \"\$SUMMARY\" && [ \"\$(hint_count \"$ALICE/dumps/oversized-env.txt\")\" = 0 ] && [ -z \"\$(row \"$ALICE/dumps/oversized-env.txt\")\" ]"
 check "#454 the sweep leaves out an excluded directory" "[ \"\$(hint_count \"$ALICE/AppData/Local/agy/agent-env.sh\")\" = 0 ] && [ -z \"\$(row \"$ALICE/AppData/Local/agy/agent-env.sh\")\" ]"
-check "#454 the sweep leaves the catalog-collected file its one row" "[ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && [ \"\$(hint_count \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\")\" = 1 ]"
+check "#454 the sweep leaves the catalog-collected file its one row" "[ \"\$(grep -c 'ai.openclaw.gateway.plist' \"\$MANIFEST\")\" = 1 ] && [ \"\$(hint_count \"$ALICE/Library/LaunchAgents/ai.openclaw.gateway.plist\")\" = $((1 + ${HAVE_PLUTIL:-0})) ]"
 check "#454 the sweep searches more files than the startup list" "[ \"\$(searched_in \"\$SUMMARY\")\" -gt \"\$(searched_in \"$OUT/default/\"*.collection.json)\" ]"
 check "#454 the sweep never follows a symlink" "[ \"\$(hint_count \"$BOB/.zshrc\")\" = 0 ] && ! grep -q 'opt/dotfiles' \"\$MANIFEST\""
 check "#454 the sweep gives a startup file its hints once" "[ \"\$(hint_count \"$ALICE/.bash_profile\")\" = 1 ] && [ \"\$(hint_count \"$ROOT/srv/proj/.envrc\")\" = 1 ] && [ \"\$(grep -c 'srv/proj/.envrc\"' \"\$MANIFEST\")\" = 1 ]"
