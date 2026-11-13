@@ -5,6 +5,7 @@ package relocation
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"os"
 	"os/exec"
