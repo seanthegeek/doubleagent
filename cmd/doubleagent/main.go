@@ -5,10 +5,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/seanthegeek/doubleagent/internal/collect"
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
@@ -49,9 +52,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, usageText)
 		return exitOK
 	case "collect":
-		fmt.Fprintln(stderr, "doubleagent collect: not implemented yet")
-		return exitFatal
+		return runCollect(args[1:], stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "Unknown command: %s\n\n%s", args[0], usageText)
 	return exitUsage
+}
+
+// runCollect parses ARGS, the arguments after `collect`, and runs the
+// subcommand. A command-line mistake prints its message and the usage text on
+// STDERR and exits with the usage code.
+func runCollect(args []string, stdout, stderr io.Writer) int {
+	options, action, err := collect.ParseOptions(args)
+	var usageErr *collect.UsageError
+	if errors.As(err, &usageErr) {
+		usageErr.Print(stderr)
+		return exitUsage
+	}
+	return collect.Run(context.Background(), options, action, stdout, stderr)
 }

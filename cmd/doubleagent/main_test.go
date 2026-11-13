@@ -20,6 +20,12 @@ func TestRun(t *testing.T) {
 		{"--help prints the usage on stdout", []string{"--help"}, exitOK, "Usage: doubleagent", ""},
 		{"an unknown command is a usage error", []string{"frobnicate"}, exitUsage, "", "Unknown command: frobnicate"},
 		{"collect is not implemented yet", []string{"collect"}, exitFatal, "", "not implemented yet"},
+		{"collect --version", []string{"collect", "--version"}, exitOK, "doubleagent 0.0.0-dev", ""},
+		{"collect -h prints the collect usage", []string{"collect", "-h"}, exitOK, "Usage: doubleagent collect [options]", ""},
+		{"collect --list prints the catalog", []string{"collect", "--list"}, exitOK, "# home artifacts", ""},
+		{"collect with an unknown option", []string{"collect", "--bogus"}, exitUsage, "", "Unknown option: --bogus\nUsage: doubleagent collect"},
+		{"collect with a bad size", []string{"collect", "--max-file-size", "x"}, exitUsage, "", "Invalid --max-file-size: x\n"},
+		{"collect with a bad root", []string{"collect", "-r", "/no/such/dir"}, exitFatal, "", "Root is not a directory: /no/such/dir"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
