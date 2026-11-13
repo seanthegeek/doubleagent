@@ -186,6 +186,10 @@ jobs:
         run: go run "golang.org/x/vuln/cmd/govulncheck@v$GOVULNCHECK_VERSION" ./...
       - name: go test
         run: go test -race ./...
+      # The glob package's tests under the parity tag compare it with dash,
+      # which both runners ship; Debian's dash and Apple's differ in origin.
+      - name: go test (dash oracle)
+        run: go test -race -tags parity ./internal/glob/
       - name: Build the six targets twice and compare the hashes
         run: |
           sh .github/go-build.sh "$RUNNER_TEMP/build-1" > "$RUNNER_TEMP/sums-1"

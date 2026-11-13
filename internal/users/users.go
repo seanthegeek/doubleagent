@@ -5,8 +5,9 @@ package users
 import (
 	"bytes"
 	"os"
-	"sort"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
 // Home is a user and the home directory to collect for them. Path includes the
@@ -113,7 +114,7 @@ func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n
 func globHomes(root string) []Home {
 	var homes []Home
 	for _, pattern := range homeGlobs() {
-		for _, match := range expandHomeGlob(root, pattern) {
+		for _, match := range glob.Expand(root, pattern) {
 			if isDirectory(match) {
 				homes = append(homes, Home{match[strings.LastIndexByte(match, '/')+1:], match})
 			}
@@ -169,37 +170,4 @@ func wantedUsers(usersFilter string) (wanted map[string]struct{}, filtered bool)
 func isDirectory(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
-}
-
-// expandHomeGlob expands one of the home globs inside root as a shell does,
-// and is the one place this package expands a pattern: literal segments are
-// kept untested, a trailing * lists the directory (open, ReadDir(-1)) and
-// keeps the names that do not start with a dot in bytewise order, and a result
-// stays when it exists or is a symlink. Every home glob is a literal path
-// optionally ending in /*.
-func expandHomeGlob(root, pattern string) []string {
-	candidates := []string{root + "/" + pattern}
-	if parent, found := strings.CutSuffix(pattern, "/*"); found {
-		candidates = candidates[:0]
-		directory := root + "/" + parent
-		handle, err := os.Open(directory)
-		if err != nil {
-			return nil
-		}
-		defer handle.Close()
-		entries, _ := handle.ReadDir(-1)
-		for _, entry := range entries {
-			if name := entry.Name(); !strings.HasPrefix(name, ".") {
-				candidates = append(candidates, directory+"/"+name)
-			}
-		}
-		sort.Strings(candidates)
-	}
-	var matches []string
-	for _, candidate := range candidates {
-		if _, err := os.Lstat(candidate); err == nil {
-			matches = append(matches, candidate)
-		}
-	}
-	return matches
 }
