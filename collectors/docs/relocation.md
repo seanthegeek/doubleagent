@@ -108,7 +108,8 @@ backslash for a registry value) that holds no `$`, `%`, backquote, quote,
 control character (a tab, carriage return or newline) or `..` segment, and
 does not start with a URI scheme such as `file:`. A trailing `/` is dropped.
 In image mode the path is inside the image, so the collector puts the root
-in front of it (`-r /mnt/image` turns `/srv/cc` into `/mnt/image/srv/cc`), in
+in front of it (`-r /mnt/image` turns `/srv/cc` into `/mnt/image/srv/cc`; the
+PowerShell collector on Windows writes the image path with backslashes), in
 the log, in `collection.json` and in the value list the collector keeps for
 [issue 456](https://github.com/seanthegeek/doubleagent/issues/456).
 
@@ -122,7 +123,7 @@ never quotes it. The collectors use these reasons:
 | `references %NAME%` | Holds a Windows reference that was not replaced. |
 | `holds a $` or `holds a %` | Holds that character without a name after it, or a `$$` that became a dollar sign. |
 | `quoted` | Holds a quote besides the one enclosing pair the file's syntax allows. |
-| `holds a quote` | Holds a quote after the file's own unquoting (the sh collector gives this for an escaped quote inside double quotes). |
+| `holds a quote` | Holds a quote after the file's own unquoting, such as an escaped quote inside double quotes. |
 | `holds a backquote` | Holds a backquote. |
 | `holds a newline` or `holds a control character` | Holds a newline, or a tab or carriage return. |
 | `holds a .. segment` | Holds a `..` path segment. |
@@ -132,7 +133,7 @@ never quotes it. The collectors use these reasons:
 | `binary plist` | Is in a launchd plist that begins with the binary property list header; every variable it names gets this reason. |
 | `not a string` | Is in a plist, or in a registry value of a kind other than text, and is not a string. |
 | `not a plain string` | Is a plist `<string>` that holds other elements. |
-| `holds an XML entity` | Is a plist string that holds an XML entity (`&amp;`) or, in the PowerShell collector, `<` or `>`. |
+| `holds an XML entity` | Is a plist string that holds an XML entity (`&amp;`) or a `<` or `>` character. |
 | `not well-formed XML` | PowerShell collector only: the plist does not parse as XML. |
 | `file not readable` | PowerShell collector only: the file could not be opened for the second read. |
 

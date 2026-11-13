@@ -244,8 +244,8 @@ it. A drive path with no leftover reference is kept as the hint's `value`.
 The step never loads a hive: loading one with `reg load` or a profile loader
 writes to the user's `NTUSER.DAT`, which an evidence collection must not do.
 A user whose hive is not loaded is listed in `relocation.registry.users_not_loaded`
-and in the log. Opening another user's loaded hive is an Administrator action:
-a hive the account cannot open is listed in `users_denied` with the message
+and in the log. On a default system only Administrators can open another
+user's loaded hive: a hive the account cannot open is listed in `users_denied` with the message
 Windows gave, and a run from an elevated PowerShell reads every loaded hive.
 The step does not run in image mode or under PowerShell 7 on Linux or macOS;
 `relocation.registry.reason` says which.

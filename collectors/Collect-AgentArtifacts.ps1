@@ -4584,25 +4584,57 @@ function Expand-EnvironmentValue([string]$text, [string]$homeText) {
   return @{ text = $builder.ToString(); reason = '' }
 }
 
-# Takes the text after an assignment's = sign, the file kind and the home's
-# image-relative path; returns @{ value; reason }. /etc/environment takes one
-# optional pair of double quotes and expands nothing (pam_env.conf(5));
-# environment.d strips one pair of single or double quotes, a backslash before
-# a double quote inside the latter, and expands as Expand-EnvironmentValue.
-function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText) {
-  $text = $text.Trim()
-  $doubled = $text.Length -ge 2 -and $text.StartsWith('"') -and $text.EndsWith('"')
-  $single = $text.Length -ge 2 -and $text.StartsWith("'") -and $text.EndsWith("'")
-  if ($doubled) { $text = $text.Substring(1, $text.Length - 2) }
-  if ($kind -eq 'environment.d' -and $doubled) { $text = $text.Replace('\"', '"') }
-  if ($kind -eq 'environment.d' -and $single) { $text = $text.Substring(1, $text.Length - 2) }
-  if ($text.IndexOfAny([char[]]'"''') -ge 0) { return @{ value = ''; reason = 'quoted' } }
-  if ($kind -eq 'environment.d') {
-    $expanded = Expand-EnvironmentValue $text $homeText
-    if ($expanded.reason) { return @{ value = ''; reason = $expanded.reason } }
-    $text = $expanded.text
+# Takes an environment.d value with its enclosing quotes removed and whether
+# they were double quotes; returns it with its backslash escapes applied: inside
+# double quotes a backslash before ", \, ` or $ is dropped, outside quotes a
+# backslash before any character is, as environment.d(5) reads them. Returns
+# $null for a quote left unescaped, which the sh collector calls quoted.
+function ConvertFrom-EnvironmentEscape([string]$text, [bool]$doubled) {
+  $builder = New-Object System.Text.StringBuilder
+  for ($position = 0; $position -lt $text.Length; $position++) {
+    $character = $text[$position]
+    $next = ''; if ($position + 1 -lt $text.Length) { $next = [string]$text[$position + 1] }
+    if ($character -eq '\' -and $next -ne '' -and (-not $doubled -or '"\`$'.Contains($next))) {
+      $position++; $character = $text[$position]
+    } elseif ($character -eq '"' -or ($character -eq "'" -and -not $doubled)) {
+      return $null
+    }
+    [void]$builder.Append($character)
   }
-  return (Test-ResolvedValue $text $kind)
+  return $builder.ToString()
+}
+
+# Takes the text after an assignment's = sign, the file kind, the home's
+# image-relative path and whether the line was continued; returns @{ value;
+# reason }. /etc/environment takes one optional pair of double quotes and
+# expands nothing (pam_env.conf(5)); environment.d trims the value, strips one
+# pair of single or double quotes (a continued single-quoted value, or one
+# holding a quote, is 'quoted'), applies ConvertFrom-EnvironmentEscape outside
+# single quotes and expands as Expand-EnvironmentValue, as the sh awk program.
+function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText,
+  [bool]$continued) {
+  if ($kind -eq 'environment.d') { $text = $text.Trim() }
+  $quote = ''; if ($text.Length -gt 0) { $quote = $text.Substring(0, 1) }
+  if ($quote -ne '"' -and ($quote -ne "'" -or $kind -ne 'environment.d')) { $quote = '' }
+  if ($quote -ne '') {
+    if ($text.Length -lt 2 -or -not $text.EndsWith($quote)) {
+      return @{ value = ''; reason = 'quoted' }
+    }
+    $text = $text.Substring(1, $text.Length - 2)
+  }
+  if ($kind -ne 'environment.d') {
+    if ($text.IndexOfAny([char[]]'"''') -ge 0) { return @{ value = ''; reason = 'quoted' } }
+    return (Test-ResolvedValue $text $kind)
+  }
+  if ($quote -eq "'") {
+    if ($continued -or $text.Contains("'")) { return @{ value = ''; reason = 'quoted' } }
+  } else {
+    $text = ConvertFrom-EnvironmentEscape $text ($quote -eq '"')
+    if ($null -eq $text) { return @{ value = ''; reason = 'quoted' } }
+  }
+  $expanded = Expand-EnvironmentValue $text $homeText
+  if ($expanded.reason) { return @{ value = ''; reason = $expanded.reason } }
+  return (Test-ResolvedValue $expanded.text $kind)
 }
 
 # Takes an open XmlTextReader on a property list and Resolve-PlistValues'
@@ -4692,11 +4724,14 @@ function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText) {
   if ($null -eq $lines) { $result.reason = 'file not readable'; return $result }
   $index = 0
   while ($index -lt $lines.Count) {
-    $number = $index + 1; $text = [string]$lines[$index]; $index++
-    while ($kind -eq 'environment.d' -and $text.EndsWith('\') -and $index -lt $lines.Count) {
-      $text = $text.Substring(0, $text.Length - 1) + $lines[$index]; $index++
+    $number = $index + 1; $text = [string]$lines[$index]; $index++; $continued = $false
+    while ($kind -eq 'environment.d' -and $text.EndsWith('\')) {
+      $text = $text.Substring(0, $text.Length - 1); $continued = $true
+      if ($index -ge $lines.Count) { break }
+      $text += $lines[$index]; $index++
     }
-    $trimmed = $text.Trim()
+    $trimmed = $text.TrimStart()
+    if ($kind -eq 'environment.d') { $trimmed = $text.Trim() }
     if ($trimmed.StartsWith('#') -or ($kind -eq 'environment.d' -and $trimmed.StartsWith(';'))) {
       continue
     }
@@ -4706,7 +4741,7 @@ function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText) {
     if ($kind -eq 'environment.d') { $name = $name.Trim() }
     if (-not ($script:RelocationNames -ccontains $name)) { continue }
     $assigned = $trimmed.Substring($equals + 1)
-    $result.entries["$number|$name"] = Resolve-AssignmentValue $assigned $kind $homeText
+    $result.entries["$number|$name"] = Resolve-AssignmentValue $assigned $kind $homeText $continued
   }
   return $result
 }
