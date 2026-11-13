@@ -101,7 +101,7 @@ tools/check_doc_links.py       verifies every relative link and heading fragment
                                and that this file and CLAUDE.md link no issue or pull
                                request
 tools/check_code_style.py      verifies the names, comments and docstring lengths of
-                               every Python, sh and PowerShell file against "Code style"
+                               every Python, sh, PowerShell and Go file against "Code style"
 tools/drift_common.py          the drift checkers' shared module: findings, the baseline,
                                and readers of the research documents, tables and parsers
 tools/check_tables_research.py  compares the catalog tables with the Collection part of
@@ -392,6 +392,8 @@ These rules hold for every Python, sh, PowerShell and Go file, tests included.
 dates and the comment and docstring lengths, and ruff's pydocstyle rules
 with the `google` convention the docstring form
 ([Quality gates](#quality-gates)).
+The checker reads Go files too, with the exemptions of
+[Go standards](#go-standards) built in.
 
 - **Comments say what the code cannot.** A comment states why the code is
   as it is, the quirk of a platform, shell or format it works around, or the
@@ -1756,7 +1758,7 @@ down.
 | reproducible build | the toolchain `go.mod` pins | `sh .github/go-build.sh /tmp/b1 > /tmp/s1 && sh .github/go-build.sh /tmp/b2 > /tmp/s2 && cmp /tmp/s1 /tmp/s2` | none; see [Go standards](#go-standards) |
 | branch coverage of changed parser lines | coverage.py 7.17.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
 | fork budget | none pinned: the `ubuntu-24.04` runner's dash and strace | `python3 tools/check_fork_budget.py --base origin/main` | `collectors/tests/fork-budget.txt`; `--update-budget` rewrites it |
-| code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
+| code style | none | `python3 tools/check_code_style.py` | none; it reads `.go` files as well as Python, sh and PowerShell; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
 | research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |
 | tables against research | none | `python3 tools/check_tables_research.py` | the baseline under `tools/drift-baseline/` |

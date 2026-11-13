@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Check the naming and comment rules of the Python, sh and PowerShell files.
+"""Check the naming and comment rules of the Python, sh, PowerShell and Go files.
 
 The rules are the "Code style" section of AGENTS.md. In every tracked file and every untracked
-one git does not ignore that is Python (`.py`), PowerShell (`.ps1`) or sh (`.sh`, or a `#!`
-line naming a shell), or in the FILE arguments, it checks that:
+one git does not ignore that is Python (`.py`), PowerShell (`.ps1`), Go (`.go`) or sh (`.sh`,
+or a `#!` line naming a shell), or in the FILE arguments, it checks that:
 
 - a bound name is at least three characters long and spells its words out: a name, or one
   underscore-separated segment of it, in `ABBREVIATIONS` fails. In Python a bound name is an
@@ -11,14 +11,17 @@ line naming a shell), or in the FILE arguments, it checks that:
   a class; a class-body field declaration (`at: str`) is exempt, since it mirrors an interface
   key. In sh it is an assigned, `for` or `read` variable, after its temporaries prefix
   (`_cp_` in `_cp_user`) or `_ret_` is removed; in PowerShell a variable after `$` or
-  `$script:`, automatic variables excepted. `ALLOWED_SHORT_NAMES` and `INTERFACE_NAMES` list
-  the exceptions;
-- a comment or docstring names no issue or pull request number and no date. A copyright line
+  `$script:`, automatic variables excepted; in Go a declared variable or constant, a `:=`
+  target, a parameter, a named result, a receiver, a function, a method, a type, a struct field
+  or an interface method, split into words at its capitals, with the exemptions "Go standards"
+  lists (`GO_ALLOWED_NAMES`). `ALLOWED_SHORT_NAMES` and `INTERFACE_NAMES` list the exceptions;
+- a comment or docstring names no issue or pull request number and no date; a copyright line
   and the smoke tests' dated fixture-block labels (`# YYYY-MM-DD <topic> (#n)`) are exempt;
 - a run of whole-line comments is at most ten lines long, the file header and a block holding
-  the collectors' reader's guide excepted; a docstring is at most ten lines, a module's thirty.
+  the collectors' reader's guide excepted; a docstring is at most ten lines, a module's thirty;
+  a Go doc comment (the `//` run directly above a declaration) is at most ten lines.
 
-Quoted text on an sh or PowerShell line is neither a comment nor scanned for names, and a
+Quoted text on an sh, PowerShell or Go line is neither a comment nor scanned for names, and a
 comment line inside an sh here-document is skipped. ruff's pydocstyle rules check the form of
 the Python docstrings; this check does not.
 
@@ -38,6 +41,7 @@ import subprocess
 import sys
 import tokenize
 from collections.abc import Callable, Iterator
+from typing import NamedTuple
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -119,6 +123,34 @@ SH_READ = re.compile(r"\bread\s+(?:-r\s+)?([^|;&<>()]*)$")
 SH_HEREDOC = re.compile(r"<<-?\s*'?([A-Za-z_][A-Za-z0-9_]*)'?")
 SH_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 PS_VARIABLE = re.compile(r"\$(?:script:|global:|local:)?([A-Za-z_][A-Za-z0-9_]*)")
+GO_TOKEN = re.compile(
+    r"""(?P<newline>\n)
+    |(?P<space>[ \t\r\f]+)
+    |(?P<linecomment>//[^\n]*)
+    |(?P<blockcomment>/\*.*?\*/)
+    |(?P<raw>`[^`]*`)
+    |(?P<string>"(?:\\.|[^"\\\n])*")
+    |(?P<char>'(?:\\.|[^'\\\n])+')
+    |(?P<number>\.?\d[\w.]*)
+    |(?P<ident>[^\W\d]\w*)
+    |(?P<punct>:=|\.\.\.|<-|&&|\|\||.)""",
+    re.DOTALL | re.VERBOSE,
+)
+GO_WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
+GO_KEYWORDS = {
+    "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough",
+    "for", "func", "go", "goto", "if", "import", "interface", "map", "package", "range",
+    "return", "select", "struct", "switch", "type", "var",
+}  # fmt: skip
+# Names Go allows short: a throwaway, the error and the context, a comma-ok flag, and an index
+# or count of a few lines.
+GO_ALLOWED_NAMES = {"_", "ok", "err", "ctx", "i", "j", "k", "n"}
+GO_TEST_NAMES = {"t", "b"}
+GO_IO_PARAMETERS = {"w": "io.Writer", "r": "io.Reader"}
+GO_MAX_RECEIVER_LENGTH = 2
+# A token that ends a line without ending the declaration that started on it.
+GO_CONTINUATION = {",", "+", "-", "*", "/", "%", "&", "|", "^", "=", ".", "&&", "||", "<", ">"}
+
 PS_AUTOMATIC = {
     "_",
     "args",
@@ -150,8 +182,8 @@ def code_files() -> list[pathlib.Path]:
 
 
 def language_of(path: pathlib.Path) -> str | None:
-    """Return "python", "sh" or "powershell" for a file this check reads, else None."""
-    suffixes = {".py": "python", ".ps1": "powershell", ".sh": "sh"}
+    """Return "python", "sh", "powershell" or "go" for a file this check reads, else None."""
+    suffixes = {".py": "python", ".ps1": "powershell", ".sh": "sh", ".go": "go"}
     if path.suffix in suffixes:
         return suffixes[path.suffix]
     try:
@@ -391,10 +423,325 @@ def check_powershell(path: pathlib.Path, source: str) -> Iterator[Finding]:
     yield from comment_block_findings(lines)
 
 
+class GoToken(NamedTuple):
+    """One Go token: its kind, text, first and last line, and whether it starts its line."""
+
+    kind: str
+    text: str
+    line: int
+    end_line: int
+    first: bool
+
+
+class GoBinding(NamedTuple):
+    """A name a Go file binds: where, which, what sort of name, and its type as written."""
+
+    line: int
+    name: str
+    role: str
+    type_text: str
+
+
+def go_tokens(source: str) -> list[GoToken]:
+    """Split Go source into tokens, comments included and white space dropped."""
+    tokens: list[GoToken] = []
+    line = 1
+    last_token_line = 0
+    for match in GO_TOKEN.finditer(source):
+        kind = match.lastgroup or "punct"
+        text = match.group()
+        end_line = line + text.count("\n")
+        if kind == "newline":
+            line += 1
+        elif kind != "space":
+            tokens.append(GoToken(kind, text, line, end_line, line != last_token_line))
+            last_token_line = end_line
+            line = end_line
+    return tokens
+
+
+def go_is_name(token: GoToken) -> bool:
+    """Return True for an identifier that is not a keyword."""
+    return token.kind == "ident" and token.text not in GO_KEYWORDS
+
+
+def go_close(tokens: list[GoToken], start: int) -> int:
+    """Return the index of the bracket that closes the one at `start`, or the last token."""
+    depth = 0
+    for index in range(start, len(tokens)):
+        if tokens[index].kind != "punct":
+            continue
+        if tokens[index].text in "([{":
+            depth += 1
+        elif tokens[index].text in ")]}":
+            depth -= 1
+            if depth == 0:
+                return index
+    return len(tokens) - 1
+
+
+def go_split(tokens: list[GoToken], start: int, end: int) -> list[list[GoToken]]:
+    """Split the tokens between `start` and `end` (exclusive) at their top-level commas."""
+    groups: list[list[GoToken]] = [[]]
+    depth = 0
+    for token in tokens[start:end]:
+        if token.kind == "punct" and token.text in "([{":
+            depth += 1
+        elif token.kind == "punct" and token.text in ")]}":
+            depth -= 1
+        if token.kind == "punct" and token.text == "," and depth == 0:
+            groups.append([])
+        else:
+            groups[-1].append(token)
+    return [group for group in groups if group]
+
+
+def go_is_named_group(group: list[GoToken]) -> bool:
+    """Return True for a parameter group of the form `name Type`, not a bare type."""
+    if len(group) < 2 or not go_is_name(group[0]):
+        return False
+    if group[1].text == ".":
+        return False
+    if group[1].text == "[":
+        return len(group) > 2 and (group[2].text == "]" or group[2].kind == "number")
+    return True
+
+
+def go_parameters(tokens: list[GoToken], open_index: int, role: str) -> tuple[list[GoBinding], int]:
+    """Return the names a parameter or result list binds, and the index of its closing bracket."""
+    close = go_close(tokens, open_index)
+    groups = go_split(tokens, open_index + 1, close)
+    if not any(go_is_named_group(group) for group in groups):
+        return [], close
+    bindings: list[GoBinding] = []
+    type_text = ""
+    for group in reversed(groups):
+        if go_is_named_group(group):
+            type_text = "".join(token.text for token in group[1:])
+            bindings.append(GoBinding(group[0].line, group[0].text, role, type_text))
+        elif go_is_name(group[0]) and len(group) == 1:
+            bindings.append(GoBinding(group[0].line, group[0].text, role, type_text))
+    return bindings, close
+
+
+def go_signature(tokens: list[GoToken], open_index: int) -> Iterator[GoBinding]:
+    """Yield the parameters and named results of the signature whose `(` is at `open_index`."""
+    if open_index >= len(tokens) or tokens[open_index].text != "(":
+        return
+    bindings, close = go_parameters(tokens, open_index, "parameter")
+    yield from bindings
+    if close + 1 < len(tokens) and tokens[close + 1].text == "(":
+        yield from go_parameters(tokens, close + 1, "parameter")[0]
+
+
+def go_function(tokens: list[GoToken], index: int) -> Iterator[GoBinding]:
+    """Yield the names a `func` at `index` binds: receiver, name, parameters and results."""
+    after = index + 1
+    if after >= len(tokens):
+        return
+    if tokens[after].text == "(":
+        close = go_close(tokens, after)
+        named = go_is_name(tokens[close + 1]) if close + 1 < len(tokens) else False
+        if named and close + 2 < len(tokens) and tokens[close + 2].text in "([":
+            yield from go_parameters(tokens, after, "receiver")[0]
+            after = close + 1
+        else:
+            yield from go_signature(tokens, after)
+            return
+    if go_is_name(tokens[after]):
+        yield GoBinding(tokens[after].line, tokens[after].text, "function", "")
+        after += 1
+        if after < len(tokens) and tokens[after].text == "[":
+            after = go_close(tokens, after) + 1
+        yield from go_signature(tokens, after)
+
+
+def go_names_at(tokens: list[GoToken], index: int, role: str) -> tuple[list[GoBinding], int]:
+    """Read `a, b` at `index`; return the names and the index after them."""
+    bindings: list[GoBinding] = []
+    while index < len(tokens) and go_is_name(tokens[index]):
+        bindings.append(GoBinding(tokens[index].line, tokens[index].text, role, ""))
+        if index + 1 < len(tokens) and tokens[index + 1].text == ",":
+            index += 2
+        else:
+            return bindings, index + 1
+    return bindings, index
+
+
+def go_block_starts(tokens: list[GoToken], open_index: int) -> Iterator[int]:
+    """Yield the index of the first token of every entry of a parenthesised declaration block."""
+    close = go_close(tokens, open_index)
+    depth = 0
+    for index in range(open_index + 1, close):
+        token = tokens[index]
+        if token.kind == "punct" and token.text in "([{":
+            depth += 1
+        elif token.kind == "punct" and token.text in ")]}":
+            depth -= 1
+        elif depth == 0 and token.first and tokens[index - 1].text not in GO_CONTINUATION:
+            yield index
+
+
+def go_declaration(tokens: list[GoToken], index: int) -> Iterator[GoBinding]:
+    """Yield the names a `var`, `const` or `type` at `index` binds."""
+    keyword = tokens[index].text
+    role = "type" if keyword == "type" else "variable"
+    if index + 1 >= len(tokens):
+        return
+    if tokens[index + 1].text == "(":
+        starts = list(go_block_starts(tokens, index + 1))
+    else:
+        starts = [index + 1]
+    for start in starts:
+        names = go_names_at(tokens, start, role)[0]
+        yield from names[:1] if keyword == "type" else names
+
+
+def go_short_declaration(tokens: list[GoToken], index: int) -> Iterator[GoBinding]:
+    """Yield the names on the left of the `:=` at `index`."""
+    cursor = index - 1
+    while cursor >= 0 and go_is_name(tokens[cursor]):
+        token = tokens[cursor]
+        yield GoBinding(token.line, token.text, "variable", "")
+        if cursor >= 1 and tokens[cursor - 1].text == ",":
+            cursor -= 2
+        else:
+            return
+
+
+def go_names_a_type(tokens: list[GoToken], after: int, close: int) -> bool:
+    """Return True when the type of a struct field follows its names, else it is embedded."""
+    if after >= close or tokens[after].line != tokens[after - 1].line:
+        return False
+    following = tokens[after]
+    if following.kind == "string" or following.text in {".", ";"}:
+        return False
+    if following.text == "[" and tokens[after - 2].text != ",":
+        return tokens[after + 1].text == "]" or tokens[after + 1].kind == "number"
+    return True
+
+
+def go_fields(tokens: list[GoToken], open_index: int) -> Iterator[GoBinding]:
+    """Yield the field names of the struct body that opens at `open_index`."""
+    close = go_close(tokens, open_index)
+    depth = 0
+    for index in range(open_index + 1, close):
+        token = tokens[index]
+        if token.kind == "punct" and token.text in "([{":
+            depth += 1
+        elif token.kind == "punct" and token.text in ")]}":
+            depth -= 1
+        elif depth == 0 and token.first and tokens[index - 1].text != ",":
+            names, after = go_names_at(tokens, index, "field")
+            if names and go_names_a_type(tokens, after, close):
+                yield from names
+
+
+def go_interface_methods(tokens: list[GoToken], open_index: int) -> Iterator[GoBinding]:
+    """Yield the method names, parameters and results of the interface body at `open_index`."""
+    close = go_close(tokens, open_index)
+    depth = 0
+    for index in range(open_index + 1, close):
+        token = tokens[index]
+        if token.kind == "punct" and token.text in "([{":
+            depth += 1
+        elif token.kind == "punct" and token.text in ")]}":
+            depth -= 1
+        elif depth == 0 and token.first and go_is_name(token) and tokens[index + 1].text == "(":
+            yield GoBinding(token.line, token.text, "function", "")
+            yield from go_signature(tokens, index + 1)
+
+
+def go_bindings(tokens: list[GoToken]) -> Iterator[GoBinding]:
+    """Yield every name a Go file binds."""
+    code = [token for token in tokens if token.kind not in {"linecomment", "blockcomment"}]
+    for index, token in enumerate(code):
+        if token.text == ":=":
+            yield from go_short_declaration(code, index)
+        elif token.kind != "ident":
+            continue
+        elif token.text == "func":
+            yield from go_function(code, index)
+        elif token.text in {"var", "const", "type"}:
+            yield from go_declaration(code, index)
+        elif token.text in {"struct", "interface"} and index + 1 < len(code):
+            if code[index + 1].text == "{" and token.text == "struct":
+                yield from go_fields(code, index + 1)
+            elif code[index + 1].text == "{":
+                yield from go_interface_methods(code, index + 1)
+
+
+def go_name_message(binding: GoBinding, is_test: bool) -> str | None:
+    """Return the failure message for a Go name that is too short or abbreviated, else None."""
+    name = binding.name
+    if name in GO_ALLOWED_NAMES or (is_test and name in GO_TEST_NAMES):
+        return None
+    if binding.role == "receiver" and len(name) <= GO_MAX_RECEIVER_LENGTH:
+        return None
+    if GO_IO_PARAMETERS.get(name) == binding.type_text and binding.role == "parameter":
+        return None
+    if len(name) < MIN_NAME_LENGTH:
+        return "name %r is shorter than %d characters" % (name, MIN_NAME_LENGTH)
+    for segment in GO_WORD.findall(name):
+        if segment.lower() in ABBREVIATIONS:
+            return "name %r abbreviates a word (%r)" % (name, segment.lower())
+    return None
+
+
+def go_comment_findings(tokens: list[GoToken]) -> Iterator[Finding]:
+    """Yield the issue-reference, date and length findings of the comments of a Go file."""
+    comments = [token for token in tokens if token.kind in {"linecomment", "blockcomment"}]
+    code_lines = {
+        line
+        for token in tokens
+        if token.kind not in {"linecomment", "blockcomment"}
+        for line in range(token.line, token.end_line + 1)
+    }
+    comment_lines: list[int] = []
+    for token in comments:
+        for offset, text in enumerate(token.text.splitlines() or [""]):
+            yield from comment_text_findings(token.line + offset, text, False)
+            if token.first:
+                comment_lines.append(token.line + offset)
+    first_code_line = min(code_lines, default=0)
+    run: list[int] = []
+    for line in [*sorted(comment_lines), 0]:
+        if run and line != run[-1] + 1:
+            yield from go_run_findings(run, run[-1] + 1 in code_lines, first_code_line)
+            run = []
+        if line:
+            run.append(line)
+
+
+def go_run_findings(run: list[int], is_doc: bool, first_code_line: int) -> Iterator[Finding]:
+    """Yield the length finding of one run of whole-line Go comments, if it is too long."""
+    if len(run) <= MAX_COMMENT_BLOCK:
+        return
+    if is_doc:
+        message = "doc comment of %d lines is longer than %d"
+    elif run[0] < first_code_line or first_code_line == 0:
+        return
+    else:
+        message = "comment block of %d lines is longer than %d"
+    yield run[0], message % (len(run), MAX_COMMENT_BLOCK)
+
+
+def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
+    """Yield the findings of one Go file."""
+    tokens = go_tokens(source)
+    is_test = path.name.endswith("_test.go")
+    for binding in go_bindings(tokens):
+        message = go_name_message(binding, is_test)
+        if message:
+            yield binding.line, message
+    yield from go_comment_findings(tokens)
+
+
 CHECKERS: dict[str, Callable[[pathlib.Path, str], Iterator[Finding]]] = {
     "python": check_python,
     "sh": check_sh,
     "powershell": check_powershell,
+    "go": check_go,
 }
 
 
