@@ -137,7 +137,11 @@ $TOOL = 'collect-agent-artifacts'
 # are further bases walked with PROJECT_CATALOG. Find-RelocationHints then
 # searches the STARTUP_FILES of every home, the system and every project for
 # the RELOCATION_VARS names, logs each hint and collects each file naming
-# one as shared and secret, never evaluating a value. -Inventory is the same
+# one as shared and secret, never evaluating a value. On a live Windows host
+# Resolve-RegistryValues also reads the variables' values from the registry,
+# and Test-ResolvedValue keeps one only when it is a plain drive path
+# ($script:RelocationValues); a hint found in a file carries no value (the
+# sh collector reads the Unix files' values). -Inventory is the same
 # walk with no writes: each file feeds per-agent counters, and
 # Write-Inventory prints JSON lines.
 #
@@ -3651,9 +3655,14 @@ $script:InaccessibleHomes = @()
 # Add-UserHomes.
 $script:DeniedHomes = @()
 $script:UserList = @()
+# Each live ProfileList entry as security identifier -> @{ user; home }, in
+# registry order, set by Get-UserHomes for the registry step of the relocation
+# hints.
+$script:ProfileSids = [ordered]@{}
 
-# Returns every candidate home as @{ user; home }, duplicates included, from
-# the registry's ProfileList and the usual home roots.
+# Returns every candidate home as @{ user; home; securityId }, duplicates
+# included, from the registry's ProfileList (securityId its key name) and the
+# usual home roots (securityId '').
 function Get-CandidateHomes {
   $candidates = @()
   if ($script:Mode -eq 'live') {
@@ -3664,7 +3673,10 @@ function Get-CandidateHomes {
         $profilePath = $properties.ProfileImagePath
         if ($profilePath) {
           $profilePath = [Environment]::ExpandEnvironmentVariables($profilePath)
-          $candidates += @{ user = (Split-Path -Leaf $profilePath); home = $profilePath }
+          $candidates += @{
+            user = (Split-Path -Leaf $profilePath); home = $profilePath
+            securityId = $key.PSChildName
+          }
         }
       }
     } catch { }
@@ -3677,19 +3689,23 @@ function Get-CandidateHomes {
   }
   foreach ($glob in $roots) {
     foreach ($homeDir in (Expand-Glob $base $glob)) {
-      $candidates += @{ user = (Split-Path -Leaf $homeDir); home = $homeDir }
+      $candidates += @{ user = (Split-Path -Leaf $homeDir); home = $homeDir; securityId = '' }
     }
   }
   return $candidates
 }
 
 # Returns the homes to collect as @{ user; home }, in enumeration order, each
-# once; a home .NET cannot see is added to $script:InaccessibleHomes.
+# once; a home .NET cannot see is added to $script:InaccessibleHomes, and every
+# ProfileList entry to $script:ProfileSids.
 function Get-UserHomes {
   $wanted = @(); if ($Users -ne '') { $wanted = @($Users -split ',' | Where-Object { $_ -ne '' }) }
   $seen = @{}; $selected = @()
   foreach ($candidate in (Get-CandidateHomes)) {
     $homePath = $candidate.home.TrimEnd('\', '/')
+    if ($candidate.securityId -and -not $script:ProfileSids.Contains($candidate.securityId)) {
+      $script:ProfileSids[$candidate.securityId] = @{ user = $candidate.user; home = $homePath }
+    }
     if ($script:SkipHomes -contains $candidate.user -or $candidate.user -match $script:SkipHomeRe) {
       continue
     }
@@ -4353,13 +4369,25 @@ function Add-Projects {
 # An agent's state moved by an environment variable lies outside every
 # catalog line. The files that set environments are searched for the
 # RELOCATION_VARS names; a hit is logged and recorded for collection.json, and
-# the file is collected as shared and secret. A value is never evaluated and
-# a matched line is never printed; collectors/docs/relocation.md tells the
-# responder what to do with a hint.
+# the file is collected as shared and secret. A value is read only from the
+# live Windows registry and kept only as a plain drive path; a file's hint
+# carries none, nothing is evaluated, and collectors/docs/relocation.md tells
+# the responder what to do with a hint.
 
 # The hints for collection.json, each an ordered hashtable (user, source,
 # line, variable, agent, value), and the files searched and left out for size.
 $script:RelocationHints = New-Object System.Collections.ArrayList
+# Each resolved value as user|VARIABLE|agent|replaces|value, the value last
+# since it alone may hold a |.
+$script:RelocationValues = New-Object System.Collections.ArrayList
+# The registry step for collection.json: whether it ran, why not, and the
+# users whose hive was read, was not loaded or could not be opened.
+$script:RelocationRegistry = [ordered]@{
+  read = $false; reason = ''
+  users_read = New-Object System.Collections.ArrayList
+  users_not_loaded = New-Object System.Collections.ArrayList
+  users_denied = New-Object System.Collections.ArrayList
+}
 $script:RelocationCounts = @{ searched = 0; skippedSize = 0 }
 # The progress header the next hint logs first; '' once it is logged.
 $script:HintHeader = ''
@@ -4368,18 +4396,29 @@ $script:HintHeader = ''
 $script:HintKeys = New-Object 'System.Collections.Generic.HashSet[string]'
 # The sweep's size limit in bytes (0 none), set from -EnvScanMaxSizeMB.
 $script:EnvScanMaxSize = [int64]0
-# RELOCATION_VARS as variable -> its agents in table order, and the variables
-# in table order, each once.
+# RELOCATION_VARS as variable -> its agents in table order, the variables in
+# table order, each once, and agent|VARIABLE -> the path the variable replaces.
 $script:RelocationAgents = [ordered]@{}
+$script:RelocationReplaces = @{}
 foreach ($line in (Get-TableLines $RELOCATION_VARS)) {
   $parts = @($line -split '\|', 3)
   if ($parts.Count -lt 2) { continue }
+  $replaces = ''; if ($parts.Count -gt 2) { $replaces = $parts[2] }
+  $script:RelocationReplaces["$($parts[0])|$($parts[1])"] = $replaces
   if (-not $script:RelocationAgents.Contains($parts[1])) {
     $script:RelocationAgents[$parts[1]] = @()
   }
   $script:RelocationAgents[$parts[1]] += $parts[0]
 }
 $script:RelocationNames = [string[]]@($script:RelocationAgents.Keys)
+# One pattern of every name, so a hit file's lines are sifted once each before
+# the boundary test; the second ignores case for a .ps1 file.
+$script:RelocationNamesRx = New-Object System.Text.RegularExpressions.Regex(
+  ('(?:' + (@($script:RelocationNames | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'))
+$script:RelocationNamesAnyCaseRx = New-Object System.Text.RegularExpressions.Regex(
+  $script:RelocationNamesRx.ToString(),
+  ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor
+    [System.Text.RegularExpressions.RegexOptions]::CultureInvariant))
 # STARTUP_FILES as @(scope, glob without its leading /), in table order.
 $script:StartupGlobs = @()
 foreach ($line in (Get-TableLines $STARTUP_FILES)) {
@@ -4390,6 +4429,16 @@ foreach ($line in (Get-TableLines $STARTUP_FILES)) {
 # A character that continues a variable name, so CODEX_HOME in MY_CODEX_HOME_X
 # is no hit.
 $script:NameCharRx = New-Object System.Text.RegularExpressions.Regex('[A-Za-z0-9_]')
+# The name a registry value's first % starts, when it starts one (the text
+# right after it), and a Windows %NAME% reference; a name may hold parentheses
+# (ProgramFiles(x86)).
+$script:AfterPercentRegistryRx = New-Object System.Text.RegularExpressions.Regex(
+  '^([A-Za-z_][A-Za-z0-9_()]*)%')
+$script:RegistryTokenRx = New-Object System.Text.RegularExpressions.Regex(
+  '%([A-Za-z_][A-Za-z0-9_()]*)%')
+# The registry keys the registry step reads under HKEY_LOCAL_MACHINE.
+$script:SystemEnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+$script:WindowsVersionKey = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion'
 
 # Returns the base of the system scope: -Root in image mode, / under
 # PowerShell 7 off Windows, else the system drive, as Add-DockerVolumes does.
@@ -4447,19 +4496,103 @@ function Get-BoundedNames([string]$line, [bool]$ignoreCase) {
   }
 }
 
-# Takes the user, a hit file, its line number and the variable; for every
-# RELOCATION_VARS line naming the variable, logs the hint (after
-# $script:HintHeader, once) and adds it to $script:RelocationHints, once per
-# record.
-function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$variable) {
+# Takes a registry value after its expansion; returns @{ value; reason }: the
+# value when it is a drive path (X:\ or X:/) that holds no %NAME% reference
+# left unreplaced, no other %, no control character, no " and no .. segment,
+# without its trailing separator (C:\ kept); else '' and the reason. A $ or a
+# backquote is an ordinary path character on Windows, and the registry
+# expands neither.
+function Test-ResolvedValue([string]$text) {
+  $token = $script:AfterPercentRegistryRx.Match($text.Substring($text.IndexOf([char]'%') + 1))
+  $reason = ''
+  if ($text -match '[\x00-\x1f\x7f]') { $reason = 'holds a control character' }
+  elseif ($text.Contains('%') -and $token.Success) {
+    $reason = 'references %' + $token.Groups[1].Value + '%'
+  }
+  elseif ($text.Contains('%')) { $reason = 'holds a %' }
+  elseif ($text.Contains('"')) { $reason = 'holds a quote' }
+  elseif ($text -notmatch '^[A-Za-z]:[\\/]') { $reason = 'not a drive path' }
+  elseif (@($text -split '[\\/]') -contains '..') { $reason = 'holds a .. segment' }
+  if ($reason) { return @{ value = ''; reason = $reason } }
+  $value = $text.TrimEnd('\', '/'); if ($value.Length -eq 2) { $value += '\' }
+  return @{ value = $value; reason = '' }
+}
+
+# Takes a path; returns its lines as an ArrayList, read with shared access as
+# Select-String reads it (a UTF-16 or UTF-32 byte order mark picks the
+# encoding), a UTF-8 mark kept as the character it is (the sh collector's grep
+# sees its bytes), and split at line feeds alone, one carriage return before
+# each dropped, so a lone carriage return stays inside its line as it does for
+# grep; or $null, after a "read failed:" log line, when the file cannot be read
+# or held.
+function Read-StartupFileLines([string]$path) {
+  $stream = $null; $reader = $null
+  $ordinal = [System.StringComparison]::Ordinal
+  try {
+    $stream = New-Object System.IO.FileStream((ConvertTo-ExtendedPath $path),
+      [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $script:ShareReadWriteDelete)
+    $head = New-Object byte[] 3
+    $utf8Mark = ($stream.Read($head, 0, 3) -eq 3 -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and
+      $head[2] -eq 0xBF)
+    [void]$stream.Seek(0, [System.IO.SeekOrigin]::Begin)
+    $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
+    $text = $reader.ReadToEnd()
+    if ($utf8Mark) { $text = [string][char]0xFEFF + $text }
+    if ($text.EndsWith("`n", $ordinal)) { $text = $text.Substring(0, $text.Length - 1) }
+    $lines = New-Object System.Collections.ArrayList
+    if ($text -ne '') {
+      foreach ($line in $text.Split("`n")) {
+        if ($line.EndsWith("`r", $ordinal)) { $line = $line.Substring(0, $line.Length - 1) }
+        [void]$lines.Add($line)
+      }
+    }
+    return , $lines
+  } catch [System.IO.IOException], [System.UnauthorizedAccessException],
+    [System.OutOfMemoryException] {
+    Write-CollectorLog "read failed: ${path}: $($_.Exception.Message)"
+    return $null
+  } finally {
+    if ($reader) { $reader.Dispose() } elseif ($stream) { $stream.Dispose() }
+  }
+}
+
+# Takes a directory; returns whether it is the home of a $script:UserList user.
+function Test-CollectedHome([string]$homeDir) {
+  foreach ($userHome in $script:UserList) {
+    if ($script:RowPathComparer.Equals($userHome.home, $homeDir)) { return $true }
+  }
+  return $false
+}
+
+# Takes a log line of the relocation step; logs $script:HintHeader before it
+# when the header is still pending.
+function Write-HintLog([string]$message) {
+  if ($script:HintHeader) { Write-CollectorLog $script:HintHeader; $script:HintHeader = '' }
+  Write-CollectorLog $message
+}
+
+# Takes the user, a source (a hit file, or a registry value's key path and
+# name), its line number (0 for the registry), the variable and, for a registry
+# value, the resolved value or the reason it has none; for every
+# RELOCATION_VARS line naming the variable, logs the hint and adds it to
+# $script:RelocationHints, and a value to $script:RelocationValues, once per
+# record. Only an accepted value is logged.
+function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$variable,
+  [string]$value, [string]$reason) {
+  $where = $file; if ($line -gt 0) { $where = "${file}:$line" }
+  $outcome = ''
+  if ($value) { $outcome = " = $value" }
+  elseif ($reason) { $outcome = "; value not resolved: $reason" }
   foreach ($agent in $script:RelocationAgents[$variable]) {
     if (-not $script:HintKeys.Add("$user|$file|$line|$variable|$agent")) { continue }
-    if ($script:HintHeader) { Write-CollectorLog $script:HintHeader; $script:HintHeader = '' }
-    Write-CollectorLog "relocation hint: ${file}:$line names $variable ($agent)"
+    Write-HintLog "relocation hint: $where names $variable ($agent)$outcome"
     [void]$script:RelocationHints.Add([ordered]@{
         user = $user; source = $file; line = $line; variable = $variable; agent = $agent
-        value = ''
+        value = $value
       })
+    if (-not $value) { continue }
+    $replaces = $script:RelocationReplaces["$agent|$variable"]
+    [void]$script:RelocationValues.Add("$user|$variable|$agent|$replaces|$value")
   }
 }
 
@@ -4489,13 +4622,13 @@ function Add-HintFile([string]$user, [string]$homeDir, [string]$path) {
   $script:StageFrom = ''; $script:StageTo = ''
 }
 
-# Takes files and whether case is ignored; returns the Select-String matches
-# of the RELOCATION_VARS names in them, logging each file that cannot be read.
-function Select-RelocationNames([string[]]$files, [bool]$ignoreCase) {
+# Takes files; returns the Select-String matches of the RELOCATION_VARS names
+# in them, in their own case, logging each file that cannot be read.
+function Select-RelocationNames([string[]]$files) {
   if ($files.Count -eq 0) { return }
   $search = @{
     LiteralPath = @(foreach ($file in $files) { ConvertTo-ExtendedPath $file })
-    Pattern = $script:RelocationNames; SimpleMatch = $true; CaseSensitive = (-not $ignoreCase)
+    Pattern = $script:RelocationNames; SimpleMatch = $true; CaseSensitive = $true
     ErrorAction = 'SilentlyContinue'; ErrorVariable = 'searchErrors'
   }
   $searchErrors = @(); $found = @()
@@ -4512,30 +4645,42 @@ function Test-PowerShellScript([string]$path) {
 }
 
 # Takes the user, home and files of one base; searches them, then records each
-# bounded hit and collects each hit file. A name
-# matches in its own case only, since shells name variables case-sensitively,
-# except in a .ps1 file, where PowerShell does not. Only line numbers and names
-# leave the search.
+# bounded hit with Add-RelocationHint, its value empty, and collects each hit
+# file. A name matches in its own case only, since shells name variables
+# case-sensitively, except in a .ps1 file, where PowerShell does not.
+# Select-String names the other files holding a name; every .ps1 file is read,
+# since Select-String ignores case by the session's culture. The lines and
+# their numbers come from Read-StartupFileLines, split at line feeds alone as
+# the sh collector's grep counts them, since Select-String ends a line at a
+# lone carriage return too. Only line numbers and names leave the search.
 function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$files) {
   if ($files.Count -eq 0) { return }
   $script:RelocationCounts.searched += $files.Count
   $scripts = @($files | Where-Object { Test-PowerShellScript $_ })
   $others = @($files | Where-Object { -not (Test-PowerShellScript $_) })
-  $found = @(Select-RelocationNames $others $false) + @(Select-RelocationNames $scripts $true)
-  # Each hit file once, in search order, with its hits as @(line, variable).
   $hitFiles = New-Object System.Collections.ArrayList
-  $hits = New-Object 'System.Collections.Generic.Dictionary[string,object]' $script:RowPathComparer
-  foreach ($match in $found) {
+  $seen = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
+  foreach ($match in @(Select-RelocationNames $others)) {
     $path = ConvertFrom-ExtendedPath $match.Path
-    foreach ($name in @(Get-BoundedNames $match.Line (Test-PowerShellScript $path))) {
-      if (-not $hits.ContainsKey($path)) {
-        $hits[$path] = New-Object System.Collections.ArrayList; [void]$hitFiles.Add($path)
-      }
-      [void]$hits[$path].Add(@($match.LineNumber, $name))
-    }
+    if ($seen.Add($path)) { [void]$hitFiles.Add($path) }
   }
+  foreach ($path in $scripts) { if ($seen.Add($path)) { [void]$hitFiles.Add($path) } }
   foreach ($path in $hitFiles) {
-    foreach ($hit in $hits[$path]) { Add-RelocationHint $user $path $hit[0] $hit[1] }
+    $lines = Read-StartupFileLines $path
+    if ($null -eq $lines) { continue }
+    $fileHits = New-Object System.Collections.ArrayList
+    $ignoreCase = Test-PowerShellScript $path
+    $namesRx = $script:RelocationNamesRx
+    if ($ignoreCase) { $namesRx = $script:RelocationNamesAnyCaseRx }
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+      $line = [string]$lines[$index]
+      if (-not $namesRx.IsMatch($line)) { continue }
+      foreach ($name in @(Get-BoundedNames $line $ignoreCase)) {
+        [void]$fileHits.Add(@(($index + 1), $name))
+      }
+    }
+    if ($fileHits.Count -eq 0) { continue }
+    foreach ($hit in $fileHits) { Add-RelocationHint $user $path $hit[0] $hit[1] }
     Add-HintFile $user $homeDir $path
   }
 }
@@ -4630,8 +4775,186 @@ function Find-RelocationHintsInHome([string]$user, [string]$homeDir, [string]$ta
   Search-RelocationFiles $user $homeDir @(Get-SweepFiles $homeDir $claimed)
 }
 
-# Main step: searches the startup files of every home, of the system and of
-# every project, then, with -EnvScanHome, every other file of each home and
+# Takes a registry root (a RegistryKey) and a subkey path; returns
+# @{ names; text; expandable; reason }: every value name of the subkey, its
+# REG_SZ and REG_EXPAND_SZ values as name -> raw text, never expanded, the
+# names of the expandable ones, and why the key could not be read, or ''. A
+# missing key has no names and no reason.
+function Read-RegistryStrings($registryRoot, [string]$subkey) {
+  $strings = @{ names = @(); text = @{}; expandable = @{}; reason = '' }
+  $options = [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames
+  $key = $null
+  try {
+    $key = $registryRoot.OpenSubKey($subkey)
+    if ($null -eq $key) { return $strings }
+    foreach ($name in @($key.GetValueNames())) {
+      if ($name -eq '') { continue }
+      $strings.names += $name
+      $kind = $key.GetValueKind($name)
+      $expandable = ($kind -eq [Microsoft.Win32.RegistryValueKind]::ExpandString)
+      if ($kind -ne [Microsoft.Win32.RegistryValueKind]::String -and -not $expandable) { continue }
+      $strings.text[$name] = [string]$key.GetValue($name, $null, $options)
+      if ($expandable) { $strings.expandable[$name] = $true }
+    }
+  } catch [System.Security.SecurityException], [System.UnauthorizedAccessException],
+    [System.IO.IOException] {
+    $strings.reason = $_.Exception.Message
+  } finally {
+    if ($key) { $key.Close() }
+  }
+  return $strings
+}
+
+# Takes raw registry text and the tables (name -> raw text, first match wins)
+# its %NAME% references may come from; returns the text with each reference
+# found replaced, again on the result up to eight times, so a value that
+# refers to itself ends with its reference left in. A reference no table holds
+# is left as it is; Test-ResolvedValue rejects what is left.
+function Expand-RegistryValue([string]$text, $tables) {
+  for ($pass = 0; $pass -lt 8 -and $text.Length -le 32767; $pass++) {
+    $builder = New-Object System.Text.StringBuilder
+    $last = 0; $changed = $false
+    foreach ($reference in $script:RegistryTokenRx.Matches($text)) {
+      [void]$builder.Append($text, $last, $reference.Index - $last)
+      $last = $reference.Index + $reference.Length
+      $replacement = $null
+      foreach ($table in $tables) {
+        if ($table.ContainsKey($reference.Groups[1].Value)) {
+          $replacement = $table[$reference.Groups[1].Value]; break
+        }
+      }
+      if ($null -eq $replacement) { [void]$builder.Append($reference.Value); continue }
+      [void]$builder.Append($replacement); $changed = $true
+    }
+    if (-not $changed) { break }
+    [void]$builder.Append($text, $last, $text.Length - $last)
+    $text = $builder.ToString()
+  }
+  return $text
+}
+
+# Takes HKEY_LOCAL_MACHINE and the system environment key's strings; returns
+# @{ SystemRoot; SystemDrive } as far as known: SystemRoot from the Windows NT
+# CurrentVersion key, SystemDrive from the system key, else SystemRoot's drive.
+# A profile path is written with these, and they are not in the system key.
+function Get-SystemNames($machine, $systemText) {
+  $names = @{}
+  $windowsVersion = Read-RegistryStrings $machine $script:WindowsVersionKey
+  if ($windowsVersion.text.ContainsKey('SystemRoot')) {
+    $names['SystemRoot'] = $windowsVersion.text['SystemRoot']
+  }
+  if ($systemText.ContainsKey('SystemDrive')) {
+    $names['SystemDrive'] = $systemText['SystemDrive']
+  } elseif ($names.ContainsKey('SystemRoot') -and $names['SystemRoot'] -match '^[A-Za-z]:') {
+    $names['SystemDrive'] = $names['SystemRoot'].Substring(0, 2)
+  }
+  return $names
+}
+
+# Takes a profile's security identifier, the two registry roots and the system
+# names; returns the profile variables a user value may refer to: USERPROFILE
+# (the ProfileList path, expanded with the system names), HOMEDRIVE and
+# HOMEPATH split from it, and APPDATA and LOCALAPPDATA from the hive's User Shell
+# Folders, else under AppData. Empty when the profile path does not resolve.
+function Get-ProfileValues([string]$securityId, $machine, $userHives, $systemNames) {
+  $values = @{}
+  $profileList = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $securityId
+  $profileKey = Read-RegistryStrings $machine $profileList
+  if (-not $profileKey.text.ContainsKey('ProfileImagePath')) { return $values }
+  $profilePath = Expand-RegistryValue $profileKey.text['ProfileImagePath'] @($systemNames)
+  $profilePath = $profilePath.TrimEnd('\')
+  if ($profilePath -notmatch '^[A-Za-z]:\\' -or $profilePath.Contains('%')) { return $values }
+  $values['USERPROFILE'] = $profilePath
+  $values['HOMEDRIVE'] = $profilePath.Substring(0, 2)
+  $values['HOMEPATH'] = $profilePath.Substring(2)
+  $values['APPDATA'] = $profilePath + '\AppData\Roaming'
+  $values['LOCALAPPDATA'] = $profilePath + '\AppData\Local'
+  $shellFolders = 'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+  $folders = Read-RegistryStrings $userHives "$securityId\$shellFolders"
+  if ($folders.text.ContainsKey('AppData')) { $values['APPDATA'] = $folders.text['AppData'] }
+  if ($folders.text.ContainsKey('Local AppData')) {
+    $values['LOCALAPPDATA'] = $folders.text['Local AppData']
+  }
+  return $values
+}
+
+# Takes the user ('' for the system key), the key's path for the hint source,
+# its strings and the expansion tables; records a hint, line 0, for every value
+# whose name is a relocation variable in any case, expanding a REG_EXPAND_SZ
+# value with the tables. A value that is not a string has no value.
+function Add-RegistryHints([string]$user, [string]$keyPath, $strings, $tables) {
+  foreach ($name in $strings.names) {
+    foreach ($variable in $script:RelocationNames) {
+      if ($variable -ne $name) { continue }
+      $resolved = @{ value = ''; reason = 'not a string' }
+      if ($strings.text.ContainsKey($name)) {
+        $assigned = $strings.text[$name]
+        if ($strings.expandable.ContainsKey($name)) {
+          $assigned = Expand-RegistryValue $assigned $tables
+        }
+        $resolved = Test-ResolvedValue $assigned
+      }
+      Add-RelocationHint $user "$keyPath\$name" 0 $variable $resolved.value $resolved.reason
+    }
+  }
+}
+
+# Takes a profile's security identifier and record, the system key's expansion
+# tables and HKEY_LOCAL_MACHINE; reads the loaded hive's Environment key and
+# records its hints, listing the user as read, or as denied when the key cannot
+# be opened.
+function Read-UserEnvironment([string]$securityId, $profileEntry, $systemTables, $machine) {
+  $registry = $script:RelocationRegistry
+  $userHives = [Microsoft.Win32.Registry]::Users
+  $strings = Read-RegistryStrings $userHives "$securityId\Environment"
+  if ($strings.reason) {
+    [void]$registry.users_denied.Add($profileEntry.user)
+    Write-HintLog "registry: hive of $($profileEntry.user) not readable: $($strings.reason)"
+    return
+  }
+  [void]$registry.users_read.Add($profileEntry.user)
+  $profileValues = Get-ProfileValues $securityId $machine $userHives $systemTables[1]
+  $tables = @($strings.text, $profileValues) + $systemTables
+  Add-RegistryHints $profileEntry.user "HKU\$securityId\Environment" $strings $tables
+}
+
+# Main step on a live Windows host: records the relocation variables of the
+# system environment key and of the Environment key of each collected profile's
+# loaded hive, as Add-RegistryHints reads them. A profile whose hive is not
+# loaded is listed and never loaded: reg load would change NTUSER.DAT. The
+# collector's own environment is never read. Elsewhere it records why not.
+function Resolve-RegistryValues {
+  $registry = $script:RelocationRegistry
+  if (-not $script:IsWindowsHost) { $registry.reason = 'not Windows'; return }
+  if ($script:Mode -ne 'live') { $registry.reason = 'image mode'; return }
+  $registry.read = $true
+  $machine = [Microsoft.Win32.Registry]::LocalMachine
+  $systemStrings = Read-RegistryStrings $machine $script:SystemEnvironmentKey
+  if ($systemStrings.reason) {
+    Write-HintLog "registry: system environment not readable: $($systemStrings.reason)"
+  }
+  $systemTables = @($systemStrings.text, (Get-SystemNames $machine $systemStrings.text))
+  Add-RegistryHints '' ('HKLM\' + $script:SystemEnvironmentKey) $systemStrings $systemTables
+  $loaded = @()
+  try { $loaded = @([Microsoft.Win32.Registry]::Users.GetSubKeyNames()) }
+  catch [System.Security.SecurityException], [System.UnauthorizedAccessException] { }
+  foreach ($securityId in @($script:ProfileSids.Keys)) {
+    $profileEntry = $script:ProfileSids[$securityId]
+    if ($securityId -notmatch '^S-1-(5-21|12)-' -or -not (Test-CollectedHome $profileEntry.home)) {
+      continue
+    }
+    if ($loaded -notcontains $securityId) {
+      [void]$registry.users_not_loaded.Add($profileEntry.user)
+      Write-HintLog "registry: hive of $($profileEntry.user) not loaded"
+      continue
+    }
+    Read-UserEnvironment $securityId $profileEntry $systemTables $machine
+  }
+}
+
+# Main step: searches the startup files of every home and of the system, reads
+# the registry (Resolve-RegistryValues), searches the startup files of every
+# project, then, with -EnvScanHome, every other file of each home and
 # project, a project that holds a home and a home outside the home roots left
 # out. Each base's header is logged before its first hint.
 function Find-RelocationHints {
@@ -4641,6 +4964,8 @@ function Find-RelocationHints {
   }
   $script:HintHeader = 'Relocation hints in system files'
   Find-StartupFileHits '' '' (Get-SystemRoot) 'system'
+  $script:HintHeader = 'Relocation hints in the registry'
+  Resolve-RegistryValues
   foreach ($projectDir in $script:ProjectList) {
     $script:HintHeader = "Relocation hints in project $($projectDir.path)"
     Find-StartupFileHits $projectDir.user $projectDir.path $projectDir.path 'project'
@@ -5129,6 +5454,7 @@ function Initialize-Summary {
   try { $runAs = [Security.Principal.WindowsIdentity]::GetCurrent().Name }
   catch { $runAs = [Environment]::UserDomainName + '\' + [Environment]::UserName }
   $counts = $script:Counts
+  $registry = $script:RelocationRegistry
   $script:Summary = [ordered]@{
     tool = $TOOL; version = $ToolVersion; hostname = $script:HostName; mode = $script:Mode
     root = $rootText
@@ -5163,6 +5489,11 @@ function Initialize-Summary {
     }
     relocation = [ordered]@{
       hints = @($script:RelocationHints)
+      registry = [ordered]@{
+        read = $registry.read; reason = $registry.reason
+        users_read = @($registry.users_read); users_not_loaded = @($registry.users_not_loaded)
+        users_denied = @($registry.users_denied)
+      }
       files_searched = $script:RelocationCounts.searched
       files_skipped_size = $script:RelocationCounts.skippedSize
     }
@@ -5325,8 +5656,8 @@ function Clear-Staging {
 }
 
 # Main step: prints the summary on stdout: the output files, the counts, the
-# relocation hints and, when the volume step saw Docker or Podman, the docker
-# line.
+# relocation hints with the number of resolved values and, when the volume
+# step saw Docker or Podman, the docker line.
 function Write-Result {
   $counts = $script:Counts
   Write-Output "archive:    $($script:Archive)"
@@ -5353,6 +5684,8 @@ function Write-Result {
   $relocationLine = "relocation: $hintsSearched searched"
   $skippedSize = $script:RelocationCounts.skippedSize
   if ($skippedSize -gt 0) { $relocationLine += ", $skippedSize skipped for size" }
+  $resolvedCount = @($script:RelocationHints | Where-Object { $_.value -ne '' }).Count
+  if ($resolvedCount -gt 0) { $relocationLine += ", $resolvedCount resolved" }
   if ($hintCount -gt 0) { $relocationLine += '; see collectors/docs/relocation.md' }
   Write-Output $relocationLine
   if ($script:Docker.seen) {

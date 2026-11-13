@@ -61,9 +61,9 @@ one relocation variable in its own shell's syntax, and a home file that names
 every `RELOCATION_VARS` variable; the checks cover each file's row, the hints
 in `collection.json`, a lowercase name in a `.ps1` file (a hint) and in a bash
 file (none), a `#!/usr/bin/env bash` line (no `ENV` hint), a symlinked startup
-file (no hint), and that the log never holds an assigned value. The sh test
-adds a property list holding a NUL byte, hinted when `capabilities.grep_text`
-is true. A separate `envscan` run covers `--env-scan-home` and its size limit,
+file (no hint), and that the log holds no assignment text. The sh test adds a
+check that a resolved path appears only on its own hint line, and a property
+list holding a NUL byte, hinted when `capabilities.grep_text` is true. A separate `envscan` run covers `--env-scan-home` and its size limit,
 an `envscanonce` run with one more startup file and one more swept file checks
 that `files_searched` grows by two, and an invalid `--env-scan-max-size`
 exits with code 1. Both smoke tests give these checks the same names, the

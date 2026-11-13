@@ -221,3 +221,32 @@ directory under `.local/share`), with the agent of the first catalog line
 that needed it. The home or project directory itself is reported once, and
 a directory at or under a catalog match gets its row from the walk of that
 match.
+
+## The registry step
+
+On a live Windows host the relocation step also reads the registry, because
+Windows keeps a user's and the machine's environment variables there rather
+than in a file ([relocation.md](relocation.md#the-registry)). It reads only
+values whose names are relocation variables, in two places:
+
+- The system environment key,
+  `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment`.
+- The `Environment` key of the loaded `HKEY_USERS` hive of each collected
+  user whose profile has a security identifier starting `S-1-5-21-` or
+  `S-1-12-`. `-Users` limits which users these are.
+
+A value is read without expanding it. A `REG_SZ` value is kept as written; a
+`REG_EXPAND_SZ` value has its `%NAME%` references replaced from the same key,
+the user's profile paths and the system key, and never from the environment of
+the process that runs the collector, which belongs to the account that started
+it. A plain drive path, one with no leftover reference or stray `%`, double
+quote, control character or `..` segment, is kept as the hint's `value`.
+
+The step never loads a hive: loading one with `reg load` or a profile loader
+writes to the user's `NTUSER.DAT`, which an evidence collection must not do.
+A user whose hive is not loaded is listed in `relocation.registry.users_not_loaded`
+and in the log. On a default system only Administrators can open another
+user's loaded hive: a hive the account cannot open is listed in `users_denied` with the message
+Windows gave, and a run from an elevated PowerShell reads every loaded hive.
+The step does not run in image mode or under PowerShell 7 on Linux or macOS;
+`relocation.registry.reason` says which.

@@ -3,5 +3,5 @@
 # image, as tools/check_fork_budget.py counts them on the CI runner; another filesystem's
 # directory order moves them by a few tenths of a percent. The numbers move only in the
 # commit that changes the cost, whose body gives the measured cause.
-forks_per_row 5.84
-execs_per_row 4.47
+forks_per_row 6.09
+execs_per_row 4.63

@@ -145,8 +145,9 @@ relative to the repository root unless stated otherwise.
 
 **No dependencies on the host.** The collector uses only sh, find, cp, tar,
 gzip, du, awk, grep, sed, sort, cut, tr, readlink, mkdir, rm, and one of
-`sha256sum`, `shasum`, `sha256` or `openssl`; never Python, Perl, jq or
-anything a minimal host may lack. The Windows collector is PowerShell 5.1
+`sha256sum`, `shasum`, `sha256` or `openssl`, plus `plutil` where macOS provides
+it (the sh collector reads a launchd property list only through it, never by hand); never
+Python, Perl, jq or anything a minimal host may lack. The Windows collector is PowerShell 5.1
 with no modules.
 
 **POSIX sh, not bash.** The shebang is `#!/bin/sh`, and the script runs
@@ -329,6 +330,15 @@ holds the architecture and function tables.
   [function pairs table](collectors/docs/internals.md#function-pairs),
   updated in the same commit as any function added, renamed or removed on
   either side.
+- **Each collector reads the formats of its own platform.** The sh
+  collector reads Linux and macOS sources (`/etc/environment`,
+  `environment.d` files, launchd property lists through `plutil`); the
+  PowerShell collector reads Windows sources (the registry). Neither
+  re-implements the other's reader: a run that meets the other platform's
+  format records the hint with an empty value, and the docs name the
+  collector that reads it. The two scripts agree on the catalog, the
+  artifacts collected and the output shapes, each written in its own
+  language's idiom.
 - **Bounds.** A function body stays under 40 lines, never over 60; over 40
   only for a per-item loop that a split would give an extra call per file
   or member (`Add-CollectedFile`, `Write-TarEntries`), a flat list of
@@ -831,7 +841,9 @@ attribute are the same string.
      `tools/check_smoke_coverage.py` checks this. Add a check per new
      discovery source and one for anything unusual (symlinks, SQLite
      sidecars, spaces, drive-letter or `file:///` project references),
-     with identical check names in both files.
+     with identical check names in both files for behaviour both collectors
+     share; a check of a step one collector alone performs goes in that
+     collector's test alone.
    - A secret glob under an entry that names a directory's children needs
      its own catalog line (as the `.claude-*/` relocated-home globs do).
    - The fixture holds one file per credential name in the research
@@ -1471,8 +1483,8 @@ job or lint step runs when one of its categories is set.
   shellcheck and checkbashisms steps.
 - **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
   `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`, the
-  `.ps1` files under `lab/round/`): both PowerShell smoke jobs and
-  PSScriptAnalyzer.
+  `.ps1` files under `lab/round/`): both PowerShell smoke jobs
+  and PSScriptAnalyzer.
 - **Python** (everything under `analyzer/`, `tools/` and `lab/round/` except
   Markdown and `tools/drift-baseline/`, and `analyzer/docs/output.md`,
   `docs/agents.md`, `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`): the
