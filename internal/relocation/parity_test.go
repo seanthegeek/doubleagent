@@ -5,6 +5,7 @@ package relocation
 import (
 	"context"
 	"encoding/json"
+	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -277,4 +278,30 @@ func lineDiff(got, want string) string {
 		}
 	}
 	return strings.Join(diff, "\n")
+}
+
+// JSON returns the `relocation` object of collection.json as the sh collector
+// writes it for result, for the byte comparison below; the binary's own
+// writer is the summary package's, the one writer of collection.json.
+func JSON(result Result) string {
+	var text strings.Builder
+	text.WriteString(`{"hints": [`)
+	for i, hint := range result.Hints {
+		if i > 0 {
+			text.WriteString(",")
+		}
+		fmt.Fprintf(&text, "\n    {\"user\": \"%s\", \"source\": \"%s\", \"line\": %d, ",
+			manifest.EscapeJSON(hint.User), manifest.EscapeJSON(hint.Source), hint.Line)
+		fmt.Fprintf(&text, "\"variable\": \"%s\", \"agent\": \"%s\", \"value\": \"%s\"}",
+			manifest.EscapeJSON(hint.Variable), manifest.EscapeJSON(hint.Agent),
+			manifest.EscapeJSON(hint.Value))
+	}
+	if len(result.Hints) > 0 {
+		text.WriteString("\n  ")
+	}
+	text.WriteString(`], "registry": {"read": false, "reason": "sh collector", "users_read": [], `)
+	text.WriteString(`"users_not_loaded": [], "users_denied": []}, `)
+	fmt.Fprintf(&text, `"files_searched": %d, "files_skipped_size": %d}`,
+		result.FilesSearched, result.FilesSkippedSize)
+	return text.String()
 }

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/glob"
-	"github.com/seanthegeek/doubleagent/internal/manifest"
 )
 
 // record adds one hint per RELOCATION_VARS line naming variable, in table
@@ -75,31 +74,4 @@ func hintLine(hint Hint, reason string) string {
 // names the account launchd runs it as.
 func isDaemonPath(path string) bool {
 	return glob.MatchPath("*/LaunchDaemons/*", path)
-}
-
-// JSON returns the `relocation` object of collection.json for result: the
-// hints, one per line in the documented key order (user, source, line,
-// variable, agent, value), the fixed registry object of a collector that
-// reads no registry, and the two file counts.
-func JSON(result Result) string {
-	var text strings.Builder
-	text.WriteString(`{"hints": [`)
-	for i, hint := range result.Hints {
-		if i > 0 {
-			text.WriteString(",")
-		}
-		fmt.Fprintf(&text, "\n    {\"user\": \"%s\", \"source\": \"%s\", \"line\": %d, ",
-			manifest.EscapeJSON(hint.User), manifest.EscapeJSON(hint.Source), hint.Line)
-		fmt.Fprintf(&text, "\"variable\": \"%s\", \"agent\": \"%s\", \"value\": \"%s\"}",
-			manifest.EscapeJSON(hint.Variable), manifest.EscapeJSON(hint.Agent),
-			manifest.EscapeJSON(hint.Value))
-	}
-	if len(result.Hints) > 0 {
-		text.WriteString("\n  ")
-	}
-	text.WriteString(`], "registry": {"read": false, "reason": "sh collector", "users_read": [], `)
-	text.WriteString(`"users_not_loaded": [], "users_denied": []}, `)
-	fmt.Fprintf(&text, `"files_searched": %d, "files_skipped_size": %d}`,
-		result.FilesSearched, result.FilesSkippedSize)
-	return text.String()
 }
