@@ -46,6 +46,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Manifest change: both collectors left a link unrecorded when a catalog match was reached through a symlinked directory that stays inside the home and the link that leaves the home lies below it (`~/.pi -> dotfiles/pi` with `dotfiles/pi/agent -> /opt/agent-out`): the inner link is now recorded as one `symlink` row under the agent of the catalog line nested inside the matched one. Every in-base link a catalog path or startup file runs through is now recorded once too, and a file reached through one is archived at the physical path under the home, so its `archive_path` is `fs/home/bob/dotfiles/camel/skills/s1/SKILL.md` where it was `fs/home/bob/.camel/skills/s1/SKILL.md`; the manifest `path` is unchanged, and the match's log line ends `(through the symlinked directory <link>, archived under <physical path>)`. On a live macOS host `/etc` is a link to `private/etc`, so a system startup file that names a relocation variable is now archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for `/etc` ([#488]).
 - A copy that failed in a catalog match reached through a symlinked directory could remove the source file in live mode, because the staged link pointed at the source; the collectors now remove a failed partial copy only when its staged path resolves inside the staging directory, and log `staged path resolves outside the staging directory, not removed` otherwise ([#497]).
 - A link two catalog entries stage at one destination (`kiro|.config/Kiro/User` through `.config/Kiro -> ../Library/Application Support/Kiro`, beside `kiro|Library/Application Support/Kiro/User`) was recreated a second time onto the first copy: when the link points at an existing directory, `ln -s` followed the recreated link and created a link inside that directory, on the source, and the PowerShell collector reported the second row as not recreated. Both collectors now leave a link already recreated at its destination, and both rows carry its `archive_path` ([#505]).
+- An excluded symbolic link to a directory is recorded with `type: "symlink"` and its `target`, rather than `type: "dir"` and an empty target ([#507]).
 
 ### Removed
 
@@ -1278,6 +1279,7 @@ stdout `errors:` line now reads `errors:     N (X error_copy, Y error_read)`.
 [1.1.0]: https://github.com/seanthegeek/doubleagent/compare/collector-v1.0.0...collector-v1.1.0
 [1.0.0]: https://github.com/seanthegeek/doubleagent/releases/tag/collector-v1.0.0
 
+[#507]: https://github.com/seanthegeek/doubleagent/issues/507
 [#505]: https://github.com/seanthegeek/doubleagent/issues/505
 [#497]: https://github.com/seanthegeek/doubleagent/issues/497
 [#488]: https://github.com/seanthegeek/doubleagent/issues/488

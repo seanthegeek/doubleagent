@@ -899,7 +899,7 @@ def test_path_of_a_link_below_a_real_directory_maps_from_the_link_down(tmp_path)
 def test_path_of_a_link_below_an_excluded_link_leaves_the_real_directory_in_place(tmp_path):
     """A real `.copilot` holding the excluded link `repos -> ../dotfiles/repos`, itself holding a link.
 
-    The excluded link has no `symlink` row, so the link below it is bounded by the rows
+    The excluded link has no `symlink` row (collectors before this fix wrote none), so the link below it is bounded by the rows
     archived in place under `.copilot`, never by a row of the link it runs through.
     """
     rows = [
@@ -938,6 +938,24 @@ def test_path_of_a_home_with_no_physical_rows_is_below_the_home_directory(tmp_pa
     home = _collected_home(tmp_path, "/home/bob", rows)
     assert home.staged_paths == {}
     assert home.path_of(".pi/agent") == tmp_path / "fs/home/bob/.pi/agent"
+
+
+def test_path_of_an_excluded_symlink_bounds_staged_path_mapping(tmp_path):
+    """An excluded symlink row bounds the mapping even without rows archived in place."""
+    rows = [
+        ("/home/dot/.copilot/logs", "fs/home/dot/.copilot/logs", "symlink"),
+        ("/home/dot/.copilot/repos", "", "skipped_excluded"),
+        ("/home/dot/.copilot/repos/r1", "fs/home/dot/dotfiles/repos/r1", "symlink"),
+        (
+            "/home/dot/.copilot/session-state/s1/workspace.yaml",
+            "fs/home/dot/.copilot/session-state/s1/workspace.yaml",
+            "collected",
+        ),
+    ]
+    home = _collected_home(tmp_path, "/home/dot", rows)
+    assert sorted(home.staged_paths) == [".copilot/repos", ".copilot/repos/r1"]
+    assert home.path_of(".copilot/repos") == tmp_path / "fs/home/dot/dotfiles/repos"
+    assert home.path_of(".copilot") == tmp_path / "fs/home/dot/.copilot"
 
 
 def test_path_of_loose_input_is_below_the_home_directory(tmp_path):

@@ -452,9 +452,10 @@ def _map_staged_path(
     The file and each directory above it down to the symlinked directory that
     moved it (`.pi` for `fs/home/bob/dotfiles/pi/...`) map to their place in the
     archive. That directory is the deepest ancestor of `rel` among `links`, the
-    home's `symlink` rows; without one (an excluded link has none), the
-    components are matched from the right while equal, and the walk stops below
-    a directory in `in_place`, one another row shows archived at its own path.
+    home's `symlink` rows; without one (an excluded link has none in
+    collections made by collectors before this fix), the components are
+    matched from the right while equal, and the walk stops below a directory
+    in `in_place`, one another row shows archived at its own path.
     """
     rel_parts = [part for part in rel.split("/") if part]
     archive_parts = _archive_parts(archive_path)

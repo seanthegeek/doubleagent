@@ -120,7 +120,7 @@ The five workers:
 | Worker | `find` gives it | Arguments | Writes |
 | --- | --- | --- | --- |
 | `STAGE_FILES_WORKER` | every path that is not a directory (`! -type d`): regular files, symlinks and special files | `stage_dir root user home agent manifest files...` | the staged copies, symlinks and one manifest row per file |
-| `EXCLUDED_PATHS_WORKER` | every pruned `EXCLUDES` match; also run by `collect_path` for an excluded match that is not a directory | `root user home agent manifest paths...` | one `skipped_excluded` row each: a directory's size from `du -sk` with its other metadata 0, a file's from `stat_file` |
+| `EXCLUDED_PATHS_WORKER` | every pruned `EXCLUDES` match; also run by `collect_path` for an excluded match that is not a directory | `root user home agent manifest paths...` | one `skipped_excluded` row each: a directory's size from `du -sk` with its other metadata 0, a symlink's from `readlink` and `stat_file`, a file's from `stat_file` |
 | `UNREADABLE_DIRS_WORKER` | every directory | `user home agent manifest dirs...` | one `error_read` row for each directory `get_dir_read_error_var` says cannot be listed or entered |
 | `INVENTORY_FILES_WORKER` | every regular file, under `--inventory` | `agent files...` | `F\|agent\|size\|mtime` lines on stdout, nothing on disk |
 | `HINT_SEARCH_WORKER` | the files of one batch: the startup files of a base (run by `search_file_list`) or the sweep's regular files (`find -exec`) | `files...`; the `grep` name options come from `GREP_NAME_OPTIONS` in the environment | one `S\|<count>` line for the files it got, then the file names `grep -l` prints, the `.ps1` files searched in any case and the rest in their own, on stdout; nothing on disk. It needs no helper, so `COMMON` is not prepended |
