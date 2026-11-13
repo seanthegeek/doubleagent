@@ -65,7 +65,7 @@ func TestAgentLines(t *testing.T) {
 func TestWriteHostLine(t *testing.T) {
 	var out strings.Builder
 	host := Host{
-		Host: "host01", Collector: "1.2.3", Mode: "image", At: "2026-10-04T16:31:54Z",
+		Host: "host01", Collector: "1.2.3", Mode: "image", Timestamp: "2026-10-04T16:31:54Z",
 		UsersScanned: 3, UsersUnreadable: 1, DockerVolumes: 2,
 	}
 	if err := WriteHostLine(&out, host); err != nil {

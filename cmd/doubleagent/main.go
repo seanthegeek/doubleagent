@@ -63,9 +63,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 // STDERR and exits with the usage code.
 func runCollect(args []string, stdout, stderr io.Writer) int {
 	options, action, err := collect.ParseOptions(args)
-	var usageErr *collect.UsageError
-	if errors.As(err, &usageErr) {
-		usageErr.Print(stderr)
+	var usageError *collect.UsageError
+	if errors.As(err, &usageError) {
+		usageError.Print(stderr)
 		return exitUsage
 	}
 	return collect.Run(context.Background(), options, action, stdout, stderr)

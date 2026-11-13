@@ -52,13 +52,13 @@ func bounded(text, needle string, powerShell bool) bool {
 		if offset < 0 {
 			return false
 		}
-		at := start + offset
-		end := at + len(needle)
-		start = at + 1
+		position := start + offset
+		end := position + len(needle)
+		start = position + 1
 		if powerShell && end < len(text) && text[end] == ':' {
 			continue
 		}
-		if (at == 0 || !isWordByte(text[at-1])) && (end == len(text) || !isWordByte(text[end])) {
+		if (position == 0 || !isWordByte(text[position-1])) && (end == len(text) || !isWordByte(text[end])) {
 			return true
 		}
 	}

@@ -77,12 +77,12 @@ func TestParseOptionsActionsAndErrors(t *testing.T) {
 				}
 				return
 			}
-			var usageErr *UsageError
-			if !errors.As(err, &usageErr) {
+			var usageError *UsageError
+			if !errors.As(err, &usageError) {
 				t.Fatalf("error %v, want a *UsageError", err)
 			}
 			var printed bytes.Buffer
-			usageErr.Print(&printed)
+			usageError.Print(&printed)
 			if !strings.HasPrefix(printed.String(), testCase.wantStderr) {
 				t.Errorf("printed %q, want prefix %q", printed.String(), testCase.wantStderr)
 			}
@@ -97,9 +97,9 @@ func TestResolveProjects(t *testing.T) {
 	}
 	getwd := func() (string, error) { return base, nil }
 	cases := []struct {
-		name string
-		in   []string
-		want []string
+		name  string
+		input []string
+		want  []string
 	}{
 		{"an absolute path is kept", []string{"/abs/p"}, []string{"/abs/p"}},
 		{"an existing relative directory is cleaned", []string{"real/sub/../sub"},
@@ -113,7 +113,7 @@ func TestResolveProjects(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			got, err := ResolveProjects(Options{Projects: testCase.in}, getwd)
+			got, err := ResolveProjects(Options{Projects: testCase.input}, getwd)
 			if err != nil || !reflect.DeepEqual(got.Projects, testCase.want) {
 				t.Errorf("projects %q, error %v; want %q", got.Projects, err, testCase.want)
 			}
@@ -131,10 +131,10 @@ func TestResolveRoot(t *testing.T) {
 	}
 	getwd := func() (string, error) { return base, nil }
 	cases := []struct {
-		name    string
-		root    string
-		want    string
-		wantErr string
+		name      string
+		root      string
+		want      string
+		wantError string
 	}{
 		{"no root is live mode", "", "", ""},
 		{"/ is live mode", "/", "", ""},
@@ -146,9 +146,9 @@ func TestResolveRoot(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			got, err := ResolveRoot(Options{Root: testCase.root}, getwd)
-			if testCase.wantErr != "" {
-				if err == nil || err.Error() != testCase.wantErr {
-					t.Fatalf("error %v, want %q", err, testCase.wantErr)
+			if testCase.wantError != "" {
+				if err == nil || err.Error() != testCase.wantError {
+					t.Fatalf("error %v, want %q", err, testCase.wantError)
 				}
 				return
 			}

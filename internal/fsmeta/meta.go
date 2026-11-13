@@ -66,6 +66,6 @@ func kindOf(mode uint32) Kind {
 
 // pathError wraps err as the *fs.PathError the Go standard library would
 // return for the operation, so the manifest's error text is Go's.
-func pathError(op, path string, err error) error {
-	return &fs.PathError{Op: op, Path: path, Err: err}
+func pathError(operation, path string, err error) error {
+	return &fs.PathError{Op: operation, Path: path, Err: err}
 }

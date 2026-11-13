@@ -27,8 +27,8 @@ func WriteTarGz(stageDir, archivePath string) error {
 		return fmt.Errorf("create archive: %w", err)
 	}
 	err = writeMembers(file, stageDir)
-	if closeErr := file.Close(); err == nil && closeErr != nil {
-		err = fmt.Errorf("close archive %s: %w", archivePath, closeErr)
+	if closeError := file.Close(); err == nil && closeError != nil {
+		err = fmt.Errorf("close archive %s: %w", archivePath, closeError)
 	}
 	if err != nil {
 		_ = os.Remove(archivePath)

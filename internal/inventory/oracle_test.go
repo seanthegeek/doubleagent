@@ -105,7 +105,7 @@ func TestLinesMatchShInventory(t *testing.T) {
 		t.Fatal(err)
 	}
 	var hostLine strings.Builder
-	host := Host{Host: hostField(t, want[0], "host"), Collector: hostField(t, want[0], "collector"), Mode: "image", At: "t", UsersScanned: 1}
+	host := Host{Host: hostField(t, want[0], "host"), Collector: hostField(t, want[0], "collector"), Mode: "image", Timestamp: "t", UsersScanned: 1}
 	if err := WriteHostLine(&hostLine, host); err != nil {
 		t.Fatal(err)
 	}

@@ -98,46 +98,46 @@ func readNames(directory string, withDots bool) []string {
 // counts as a wildcard only when a `]` closes it within the segment, after
 // at least one byte (and after the `!`), as the shell's scan decides.
 func findWildcardSegment(rest string) (segmentAt, segmentEnd, separatorWidth int, found bool) {
-	for at := 0; at < len(rest); {
-		switch rest[at] {
+	for position := 0; position < len(rest); {
+		switch rest[position] {
 		case '*', '?':
 			found = true
 		case '[':
-			found = found || bracketClosesInSegment(rest, at+1)
+			found = found || bracketClosesInSegment(rest, position+1)
 		default:
 			escape := 0
-			if rest[at] == '\\' && at+1 < len(rest) {
+			if rest[position] == '\\' && position+1 < len(rest) {
 				escape = 1
 			}
-			if rest[at+escape] == '/' {
+			if rest[position+escape] == '/' {
 				if found {
-					return segmentAt, at, escape + 1, true
+					return segmentAt, position, escape + 1, true
 				}
-				segmentAt = at + escape + 1
+				segmentAt = position + escape + 1
 			}
-			at += escape
+			position += escape
 		}
-		at++
+		position++
 	}
 	return segmentAt, len(rest), 0, found
 }
 
-// bracketClosesInSegment reports whether the bracket body starting at at is
+// bracketClosesInSegment reports whether the bracket body starting at position is
 // closed by a `]` before the segment ends, the test the shell's expansion
 // uses to decide whether a `[` is a wildcard at all.
-func bracketClosesInSegment(rest string, at int) bool {
-	if at < len(rest) && rest[at] == '!' {
-		at++
+func bracketClosesInSegment(rest string, position int) bool {
+	if position < len(rest) && rest[position] == '!' {
+		position++
 	}
 	for {
-		if at < len(rest) && rest[at] == '\\' {
-			at++
+		if position < len(rest) && rest[position] == '\\' {
+			position++
 		}
-		if at >= len(rest) || rest[at] == '/' {
+		if position >= len(rest) || rest[position] == '/' {
 			return false
 		}
-		at++
-		if at < len(rest) && rest[at] == ']' {
+		position++
+		if position < len(rest) && rest[position] == ']' {
 			return true
 		}
 	}
@@ -157,11 +157,11 @@ func unescape(text string) string {
 		return text
 	}
 	var plain strings.Builder
-	for at := 0; at < len(text); at++ {
-		if text[at] == '\\' && at+1 < len(text) {
-			at++
+	for position := 0; position < len(text); position++ {
+		if text[position] == '\\' && position+1 < len(text) {
+			position++
 		}
-		plain.WriteByte(text[at])
+		plain.WriteByte(text[position])
 	}
 	return plain.String()
 }

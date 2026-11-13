@@ -36,14 +36,14 @@ func Open(path string, quiet bool, stderr io.Writer, now func() time.Time) (*Log
 // standard error copy is still attempted so a full disk does not hide a
 // message from the operator.
 func (log *Log) Line(text string) error {
-	_, fileErr := fmt.Fprintf(log.file, "%s %s\n", log.now().UTC().Format(TimeFormat), text)
+	_, fileError := fmt.Fprintf(log.file, "%s %s\n", log.now().UTC().Format(TimeFormat), text)
 	if !log.quiet {
-		if _, err := fmt.Fprintf(log.stderr, "%s\n", text); fileErr == nil {
-			fileErr = err
+		if _, err := fmt.Fprintf(log.stderr, "%s\n", text); fileError == nil {
+			fileError = err
 		}
 	}
-	if fileErr != nil {
-		return fmt.Errorf("write log: %w", fileErr)
+	if fileError != nil {
+		return fmt.Errorf("write log: %w", fileError)
 	}
 	return nil
 }

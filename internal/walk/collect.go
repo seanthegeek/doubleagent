@@ -102,7 +102,7 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 		return nil
 	case links.From != "":
 		line += " (through the symlinked directory " + links.From + ", archived under " +
-			physicalPath(path, links.From, links.To) + ")"
+			physicalPath(path, links.From, links.Into) + ")"
 	}
 	if collector.Inventory && !outside {
 		collector.Records.Match(match.Agent, match.Glob)
@@ -120,7 +120,7 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 	if outside {
 		return nil
 	}
-	owner.stager = collector.Stager.Through(links.From, links.To)
+	owner.stager = collector.Stager.Through(links.From, links.Into)
 	_, err := collector.collectPath(ctx, owner, path)
 	return err
 }
@@ -150,8 +150,8 @@ func (collector *Collector) CollectPath(ctx context.Context, user, home, agent, 
 // collectPath is CollectPath for one scope.
 func (collector *Collector) collectPath(ctx context.Context, owner scope, path string,
 ) (int, error) {
-	meta, statErr := fsmeta.Lstat(path)
-	if statErr == nil && meta.Kind == fsmeta.Dir {
+	meta, statError := fsmeta.Lstat(path)
+	if statError == nil && meta.Kind == fsmeta.Dir {
 		if reason, failed := fsmeta.DirReadError(path); failed && !collector.Inventory {
 			return 0, collector.writeReadErrors(owner, []readError{{path, reason}})
 		}
@@ -164,7 +164,7 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 		return 0, collector.writeExcluded(owner, []string{path})
 	}
 	if collector.Inventory {
-		if statErr == nil && meta.Kind == fsmeta.File {
+		if statError == nil && meta.Kind == fsmeta.File {
 			collector.Records.File(owner.agent, meta.Size, meta.Mtime)
 		}
 		return 0, nil

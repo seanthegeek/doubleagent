@@ -13,9 +13,9 @@ import (
 // because the callers give it directories and homes that may be links. Only
 // the first line of the text is kept, since a path can hold a newline.
 func DirReadError(path string) (reason string, failed bool) {
-	info, statErr := os.Stat(path)
+	info, statError := os.Stat(path)
 	switch {
-	case statErr != nil || !info.IsDir():
+	case statError != nil || !info.IsDir():
 		return firstLine(notDirectoryError(path)), true
 	case !canAccess(path, readBit):
 		return firstLine(openError(path)), true

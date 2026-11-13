@@ -218,12 +218,12 @@ func pointsToDir(path string) bool {
 // innermostError returns the text of the innermost *fs.PathError in err, the
 // text the manifest's error field holds, or err's own text when there is none.
 func innermostError(err error) string {
-	var pathErr *fs.PathError
-	for errors.As(err, &pathErr) {
-		inner := pathErr.Err
+	var pathError *fs.PathError
+	for errors.As(err, &pathError) {
+		inner := pathError.Err
 		var deeper *fs.PathError
 		if !errors.As(inner, &deeper) {
-			return pathErr.Error()
+			return pathError.Error()
 		}
 		err = inner
 	}

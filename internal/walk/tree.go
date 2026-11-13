@@ -95,8 +95,8 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 // reason as Go words it and the log's time added.
 func (collector *Collector) findError(found *treeWalk, path, reason string) error {
 	found.unreadable++
-	if at := strings.LastIndex(reason, ": "); at >= 0 {
-		reason = reason[at+2:]
+	if position := strings.LastIndex(reason, ": "); position >= 0 {
+		reason = reason[position+2:]
 	}
 	return collector.Log.Line("find: " + path + ": " + reason)
 }

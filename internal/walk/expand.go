@@ -95,9 +95,9 @@ func shortestParent(found []Match, lowered []string, i int) int {
 // dropSameFile returns match with its log note when it is the path kept or
 // the same file, else match unchanged.
 func dropSameFile(match Match, kept string) Match {
-	id, ok := fileID(match.Path)
+	identity, ok := fileID(match.Path)
 	keptID, keptOK := fileID(kept)
-	if match.Path == kept || (ok && keptOK && id == keptID) {
+	if match.Path == kept || (ok && keptOK && identity == keptID) {
 		match.Note = fmt.Sprintf(
 			"  [%s] %s: same file as %s (case-insensitive filesystem), collected there",
 			match.Agent, match.Path, kept)
@@ -109,9 +109,9 @@ func dropSameFile(match Match, kept string) Match {
 // when those bytes name the same directory as parent.
 func respell(match Match, parent string) Match {
 	prefix := match.Path[:len(parent)]
-	id, ok := fileID(prefix)
+	identity, ok := fileID(prefix)
 	parentID, parentOK := fileID(parent)
-	if ok && parentOK && id == parentID {
+	if ok && parentOK && identity == parentID {
 		match.Path = parent + match.Path[len(parent):]
 	}
 	return match

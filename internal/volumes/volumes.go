@@ -222,7 +222,7 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 	name := path.Base(volume)
 	data := volume + "/_data"
 	rule, matched := volumeRule(run.collector.Tables.DockerVolumes, name)
-	meta, dataErr := fsmeta.Lstat(data)
+	meta, dataError := fsmeta.Lstat(data)
 	switch {
 	case volumeUnreadable(volume, data):
 		run.counts.Unreadable++
@@ -232,7 +232,7 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 		}
 		return run.addNote("docker: volume " + name + " (" + label + ") at " + volume +
 			" is not readable; run as root to collect it")
-	case dataErr != nil || meta.Kind == fsmeta.Symlink || !isDirectory(data):
+	case dataError != nil || meta.Kind == fsmeta.Symlink || !isDirectory(data):
 		return run.collector.Log.Line("  volume " + name + " has no _data directory, skipped")
 	case !matched && run.collector.Inventory:
 		return nil

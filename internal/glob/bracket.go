@@ -27,18 +27,18 @@ type bracketElement struct {
 // item reached before one fails the whole test. Only `!` negates: the shell
 // reads `[^...]` as a class holding `^`.
 func matchBracket(pattern string, bodyAt int, char byte) (int, stepOutcome) {
-	at, negate := bodyAt, false
-	if at < len(pattern) && pattern[at] == '!' {
-		at, negate = at+1, true
+	position, negate := bodyAt, false
+	if position < len(pattern) && pattern[position] == '!' {
+		position, negate = position+1, true
 	}
 	for first := true; ; first = false {
-		if at == len(pattern) {
+		if position == len(pattern) {
 			return 0, stepInvalid
 		}
-		if pattern[at] == ']' && !first {
-			return at + 1, outcomeOf(negate)
+		if pattern[position] == ']' && !first {
+			return position + 1, outcomeOf(negate)
 		}
-		next, matched := matchBracketItem(pattern, at, char)
+		next, matched := matchBracketItem(pattern, position, char)
 		if next < 0 {
 			return 0, stepInvalid
 		}
@@ -49,7 +49,7 @@ func matchBracket(pattern string, bodyAt int, char byte) (int, stepOutcome) {
 			}
 			return end, outcomeOf(!negate)
 		}
-		at = next
+		position = next
 	}
 }
 
@@ -64,8 +64,8 @@ func outcomeOf(matched bool) stepOutcome {
 // matchBracketItem matches char against the item, or range of two items, at
 // at. It returns the index after it, or -1 when the item is malformed or a
 // class or equivalence ends a range.
-func matchBracketItem(pattern string, at int, char byte) (int, bool) {
-	low := parseElement(pattern, at)
+func matchBracketItem(pattern string, position int, char byte) (int, bool) {
+	low := parseElement(pattern, position)
 	if low.kind == elementInvalid {
 		return -1, false
 	}
@@ -84,32 +84,32 @@ func matchBracketItem(pattern string, at int, char byte) (int, bool) {
 	return high.next, low.value <= char && char <= high.value
 }
 
-// parseElement reads one item of a bracket expression at at: `[:name:]`,
+// parseElement reads one item of a bracket expression at position: `[:name:]`,
 // `[.x.]`, `[=x=]`, a `\` escape or a plain byte. A `[` followed by anything
 // else is a plain `[`.
-func parseElement(pattern string, at int) bracketElement {
-	if at+1 < len(pattern) && pattern[at] == '[' {
-		switch delimiter := pattern[at+1]; delimiter {
+func parseElement(pattern string, position int) bracketElement {
+	if position+1 < len(pattern) && pattern[position] == '[' {
+		switch delimiter := pattern[position+1]; delimiter {
 		case ':', '.', '=':
-			return parseDelimited(pattern, at+2, delimiter)
+			return parseDelimited(pattern, position+2, delimiter)
 		}
 	}
-	if pattern[at] == '\\' && at+1 < len(pattern) {
-		return bracketElement{kind: elementByte, value: pattern[at+1], next: at + 2}
+	if pattern[position] == '\\' && position+1 < len(pattern) {
+		return bracketElement{kind: elementByte, value: pattern[position+1], next: position + 2}
 	}
-	return bracketElement{kind: elementByte, value: pattern[at], next: at + 1}
+	return bracketElement{kind: elementByte, value: pattern[position], next: position + 1}
 }
 
-// parseDelimited reads the body of `[:name:]`, `[.x.]` or `[=x=]` from at up
+// parseDelimited reads the body of `[:name:]`, `[.x.]` or `[=x=]` from position up
 // to its closing delimiter and `]`. A symbol or equivalence must be one
 // ASCII byte, the C locale knowing no other, and a class one of the POSIX
 // names; anything else is invalid.
-func parseDelimited(pattern string, at int, delimiter byte) bracketElement {
-	length := strings.Index(pattern[at:], string([]byte{delimiter, ']'}))
+func parseDelimited(pattern string, position int, delimiter byte) bracketElement {
+	length := strings.Index(pattern[position:], string([]byte{delimiter, ']'}))
 	if length < 0 {
 		return bracketElement{kind: elementInvalid}
 	}
-	body, next := pattern[at:at+length], at+length+2
+	body, next := pattern[position:position+length], position+length+2
 	switch {
 	case delimiter == ':' && isClassName(body):
 		return bracketElement{kind: elementClass, class: body, next: next}
@@ -124,37 +124,37 @@ func parseDelimited(pattern string, at int, delimiter byte) bracketElement {
 }
 
 // skipBracket returns the index after the `]` that closes a bracket
-// expression whose matching item ended at at, or -1 when none closes it. The
+// expression whose matching item ended at position, or -1 when none closes it. The
 // shell's skip steps over a `[:`, `[.` or `[=` up to the first `]` after it
 // when that `]` follows the same delimiter, valid or not, and otherwise
 // closes the bracket at that `]`. It reads a backslash as a plain byte, so
 // `[a\]` matches "a" although the matching side reads `\]` as an escaped `]`.
-func skipBracket(pattern string, at int) int {
-	for at < len(pattern) {
-		if pattern[at] == ']' {
-			return at + 1
+func skipBracket(pattern string, position int) int {
+	for position < len(pattern) {
+		if pattern[position] == ']' {
+			return position + 1
 		}
-		if !opensDelimited(pattern, at) {
-			at++
+		if !opensDelimited(pattern, position) {
+			position++
 			continue
 		}
-		closing := strings.IndexByte(pattern[at+2:], ']')
+		closing := strings.IndexByte(pattern[position+2:], ']')
 		if closing < 0 {
 			return -1
 		}
-		end := at + 2 + closing
-		if closing == 0 || pattern[end-1] != pattern[at+1] {
+		end := position + 2 + closing
+		if closing == 0 || pattern[end-1] != pattern[position+1] {
 			return end + 1
 		}
-		at = end + 1
+		position = end + 1
 	}
 	return -1
 }
 
-// opensDelimited reports whether `[:`, `[.` or `[=` starts at at.
-func opensDelimited(pattern string, at int) bool {
-	return at+1 < len(pattern) && pattern[at] == '[' &&
-		strings.IndexByte(":.=", pattern[at+1]) >= 0
+// opensDelimited reports whether `[:`, `[.` or `[=` starts at position.
+func opensDelimited(pattern string, position int) bool {
+	return position+1 < len(pattern) && pattern[position] == '[' &&
+		strings.IndexByte(":.=", pattern[position+1]) >= 0
 }
 
 // isClassName reports whether name is one of the twelve POSIX character

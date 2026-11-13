@@ -8,7 +8,6 @@ package stage
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -27,12 +26,12 @@ type Stager struct {
 	Physical string
 	Root     string
 	From     string
-	To       string
+	Into     string
 }
 
-// Through returns a copy of the stager that stages paths under from at to.
-func (stager Stager) Through(from, to string) Stager {
-	stager.From, stager.To = from, to
+// Through returns a copy of the stager that stages paths under from at into.
+func (stager Stager) Through(from, into string) Stager {
+	stager.From, stager.Into = from, into
 	return stager
 }
 
@@ -44,7 +43,7 @@ func (stager Stager) Dest(path string) (archivePath, destPath string) {
 	relative := path
 	if stager.From != "" &&
 		(path == stager.From || strings.HasPrefix(path, stager.From+"/")) {
-		relative = stager.To + path[len(stager.From):]
+		relative = stager.Into + path[len(stager.From):]
 	}
 	archivePath = "fs" + strings.TrimPrefix(relative, stager.Root)
 	return archivePath, stager.Dir + "/" + archivePath
@@ -81,7 +80,7 @@ func (stager Stager) CopyFile(path string) (string, error) {
 		return "", err
 	}
 	if !info.Mode().IsRegular() {
-		return "", &fs.PathError{Op: "open", Path: path, Err: errNotRegular}
+		return "", &fs.PathError{Op: "open", Path: path, Err: notRegular{}}
 	}
 	target, err := createDest(dest)
 	if err != nil {
@@ -92,8 +91,8 @@ func (stager Stager) CopyFile(path string) (string, error) {
 	if err == nil {
 		err = preserve(target, dest, info)
 	}
-	if closeErr := target.Close(); err == nil {
-		err = closeErr
+	if closeError := target.Close(); err == nil {
+		err = closeError
 	}
 	if err != nil {
 		return "", err
@@ -101,10 +100,13 @@ func (stager Stager) CopyFile(path string) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-// errNotRegular is the reason a path that stopped being a regular file
-// between its lstat and its copy is not copied: reading a FIFO or a device
-// could block or read something other than a file's contents.
-var errNotRegular = errors.New("not a regular file")
+// notRegular is the reason a path that stopped being a regular file between
+// its lstat and its copy is not copied: reading a FIFO or a device could
+// block or read something other than a file's contents.
+type notRegular struct{}
+
+// Error returns the reason, in the text of the error it replaces.
+func (notRegular) Error() string { return "not a regular file" }
 
 // Symlink recreates the symlink path, with its stored target, at its staged
 // path. A staged path that already exists, a link included, is left as it
@@ -143,8 +145,8 @@ func (stager Stager) RemoveFailedCopy(dest string) bool {
 // parentOf returns path up to its last slash, as the shell's ${path%/*}
 // does, so a path with no slash is its own parent.
 func parentOf(path string) string {
-	if at := strings.LastIndexByte(path, '/'); at >= 0 {
-		return path[:at]
+	if position := strings.LastIndexByte(path, '/'); position >= 0 {
+		return path[:position]
 	}
 	return path
 }

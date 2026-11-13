@@ -116,13 +116,13 @@ func TestLinkedParent(t *testing.T) {
 		{"the path itself is not tested", base + "/.gemini", Links{}, false},
 		{"an in-base link is passed and staged at its target", base + "/.gemini/sub",
 			Links{Passed: []string{base + "/.gemini"}, From: base + "/.gemini",
-				To: base + "/dotfiles/gemini"}, false},
+				Into: base + "/dotfiles/gemini"}, false},
 		{"a link out of the base stops the walk", base + "/.cache/crush",
 			Links{Outside: base + "/.cache"}, true},
 		{"a dangling link cannot be resolved", base + "/.gone/x", Links{Outside: base + "/.gone"}, true},
 		{"a chain of in-base links keeps the deepest", base + "/real/up/sub",
 			Links{Passed: []string{base + "/real/up"}, From: base + "/real/up",
-				To: base + "/dotfiles/gemini"}, false},
+				Into: base + "/dotfiles/gemini"}, false},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

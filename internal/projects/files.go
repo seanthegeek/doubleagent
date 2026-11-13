@@ -46,14 +46,14 @@ func scanLines(path string, each func(line []byte)) bool {
 	defer handle.Close()
 	reader := bufio.NewReaderSize(handle, 64*1024)
 	for {
-		line, readErr := reader.ReadBytes('\n')
+		line, readError := reader.ReadBytes('\n')
 		if bytes.IndexByte(line, 0) >= 0 {
 			return false
 		}
 		if len(line) > 0 {
 			each(bytes.TrimSuffix(line, []byte{'\n'}))
 		}
-		if readErr != nil {
+		if readError != nil {
 			return true
 		}
 	}

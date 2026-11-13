@@ -18,7 +18,7 @@ type Links struct {
 	Outside string
 	Passed  []string
 	From    string
-	To      string
+	Into    string
 }
 
 // LinkedParent reports true when a symlinked directory between base ("" for
@@ -30,15 +30,15 @@ func LinkedParent(base, path string) (Links, bool) {
 	var links Links
 	relative := path
 	for range strings.Count(base, "/") + 1 {
-		if at := strings.IndexByte(relative, '/'); at >= 0 {
-			relative = relative[at+1:]
+		if position := strings.IndexByte(relative, '/'); position >= 0 {
+			relative = relative[position+1:]
 		}
 	}
 	directory, root := base, ""
 	for {
 		component, rest, found := strings.Cut(relative, "/")
 		if !found {
-			return Links{Passed: links.Passed, From: links.From, To: links.To}, false
+			return Links{Passed: links.Passed, From: links.From, Into: links.Into}, false
 		}
 		directory, relative = directory+"/"+component, rest
 		if !isSymlink(directory) {
@@ -58,7 +58,7 @@ func LinkedParent(base, path string) (Links, bool) {
 		}
 		inside := strings.TrimSuffix((physical + "/")[len(root):], "/")
 		links.From = directory
-		links.To = strings.TrimSuffix(base+"/"+inside, "/")
+		links.Into = strings.TrimSuffix(base+"/"+inside, "/")
 		links.Passed = append(links.Passed, directory)
 	}
 }
@@ -79,11 +79,11 @@ func isSymlink(path string) bool {
 
 // physicalPath returns path with its leading from replaced by to, the path
 // the log names for a match staged through an in-base link.
-func physicalPath(path, from, to string) string {
+func physicalPath(path, from, into string) string {
 	if from == "" {
 		return path
 	}
-	return to + path[len(from):]
+	return into + path[len(from):]
 }
 
 // claimed reports whether path, under base, is one of claims or lies under
@@ -94,11 +94,11 @@ func claimed(path, base string, claims map[string]struct{}) bool {
 		if _, found := claims[path]; found {
 			return true
 		}
-		at := strings.LastIndexByte(path, '/')
-		if at < 0 {
+		position := strings.LastIndexByte(path, '/')
+		if position < 0 {
 			return false
 		}
-		path = path[:at]
+		path = path[:position]
 		if isSymlink(path) {
 			return false
 		}
@@ -123,7 +123,7 @@ func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, 
 			continue
 		}
 		found, _ := LinkedParent(base, link)
-		owner.stager = collector.Stager.Through(found.From, found.To)
+		owner.stager = collector.Stager.Through(found.From, found.Into)
 		if _, err := collector.collectPath(ctx, owner, link); err != nil {
 			return err
 		}

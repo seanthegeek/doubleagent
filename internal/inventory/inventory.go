@@ -111,13 +111,13 @@ func (aggregator *Aggregator) WriteAgentLines(w io.Writer, host, user string, pr
 	return nil
 }
 
-// Host is the content of the host line. At is the start time, UTC to the
+// Host is the content of the host line. Timestamp is the start time, UTC to the
 // second; Collector is the version string.
 type Host struct {
 	Host            string
 	Collector       string
 	Mode            string
-	At              string
+	Timestamp       string
 	UsersScanned    int
 	UsersUnreadable int
 	DockerVolumes   int
@@ -127,7 +127,7 @@ type Host struct {
 func WriteHostLine(w io.Writer, host Host) error {
 	line := `{"type":"host","host":"` + manifest.EscapeJSON(host.Host) +
 		`","collector":"` + host.Collector + `","mode":"` + host.Mode +
-		`","at":"` + host.At + `","users_scanned":` + strconv.Itoa(host.UsersScanned) +
+		`","at":"` + host.Timestamp + `","users_scanned":` + strconv.Itoa(host.UsersScanned) +
 		`,"users_unreadable":` + strconv.Itoa(host.UsersUnreadable) +
 		`,"docker_volumes":` + strconv.Itoa(host.DockerVolumes) + "}\n"
 	_, err := io.WriteString(w, line)

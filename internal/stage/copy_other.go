@@ -17,7 +17,7 @@ func openSource(path string) (*os.File, error) {
 		return nil, err
 	}
 	if info.Mode()&fs.ModeSymlink != 0 {
-		return nil, &fs.PathError{Op: "open", Path: path, Err: errNotRegular}
+		return nil, &fs.PathError{Op: "open", Path: path, Err: notRegular{}}
 	}
 	return os.Open(path)
 }
@@ -26,7 +26,7 @@ func openSource(path string) (*os.File, error) {
 // there first.
 func createDest(path string) (*os.File, error) {
 	if info, err := os.Lstat(path); err == nil && info.Mode()&fs.ModeSymlink != 0 {
-		return nil, &fs.PathError{Op: "open", Path: path, Err: errNotRegular}
+		return nil, &fs.PathError{Op: "open", Path: path, Err: notRegular{}}
 	}
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 }
