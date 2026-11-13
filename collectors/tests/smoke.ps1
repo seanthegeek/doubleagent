@@ -2033,7 +2033,7 @@ foreach ($oauthBase in @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop
 # or refuses, one per line, and a value continued on a second line; a daemon plist with a
 # DOCTYPE names its user; a binary plist. The sh collector resolves the files above that
 # assign /opt/x under the image root; the PowerShell collector reads no value from a file.
-MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n" + "CODEX_HOME=/a`rb`n" + 'CODEX_HOME=/opt/a#b' + "`n" + 'CODEX_HOME="/opt/x\"' + "`n" + 'CODEX_HOME=/opt/h\' + "`n" + 'LANG=C\' + "`n" + 'CODEX_HOME=/opt/joined' + "`n" + 'CLAUDE_CONFIG_DIR=/opt/t\ ' + "`n`n" + 'HERMES_HOME=/opt/after' + "`n" + "CODEX_HOME=/opt/n$([char]0)ul`n" + 'CODEX_HOME=/opt/afternul' + "`n")
+MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n" + "CODEX_HOME=/a`rb`n" + 'CODEX_HOME=/opt/a#b' + "`n" + 'CODEX_HOME="/opt/x\"' + "`n" + 'CODEX_HOME=/opt/h\' + "`n" + 'LANG=C\' + "`n" + 'CODEX_HOME=/opt/joined' + "`n" + 'CLAUDE_CONFIG_DIR=/opt/t\ ' + "`n`n" + 'HERMES_HOME=/opt/after' + "`n" + "CODEX_HOME=/opt/crlf`r`n" + "CODEX_HOME=/opt/n$([char]0)ul`n" + 'CODEX_HOME=/opt/afternul' + "`n")
 MakeFile 'Users/alice/.config/environment.d/home.conf' ('CODEX_HOME=$HOME/x' + "`n")
 MakeFile 'etc/environment.d/home.conf' ('CODEX_HOME=${HOME}/x' + "`n")
 $environmentValues = @(
@@ -2066,6 +2066,9 @@ MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n"
 # a daemon plist under a home, reached only by the sweep, whose UserName must not become the
 # hint's user.
 MakeFile 'etc/environment.d/crlf.conf' "CODEX_HOME=/opt/cr\`r`nlf/`r`n"
+# A double-quoted value spanning lines, one value with the newline to systemd, and an escaped
+# closing quote, which keeps the value open; the sh collector resolves neither.
+MakeFile 'etc/environment.d/quoted.conf' ('CODEX_HOME="/opt/a' + "`n" + 'CLAUDE_CONFIG_DIR=/opt/forged' + "`n" + '"' + "`n" + 'HERMES_HOME="/opt/x\"' + "`n" + 'AMP_HOME=/opt/h' + "`n")
 MakeFile 'etc/environment.d/cr2.conf' "CODEX_HOME=/a`rCLAUDE_CONFIG_DIR=/c`n"
 # Bytes .NET's bare trimming or decoding would hide: a no-break space before a value, a form
 # feed and a NUL byte inside one, and a byte order mark before a name, which both collectors

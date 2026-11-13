@@ -4042,11 +4042,11 @@ collect_projects() {
 # earlier one, where pam_env 1.5 stops reading the file), since the file then
 # assigns another value or none. pam_env.conf(5) allows only simple NAME=VALUE
 # pairs, so nothing is expanded; a # line is skipped and a carriage return
-# ending the line is dropped, as the PowerShell collector's line reader does.
+# ending the line stays in the value, as pam_env keeps it (then refused).
 heredoc_var <<'EOF_ENVIRONMENT_VALUES_AWK'
 BEGIN { count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1 }
 {
-  text = $0; sub(/\r$/, "", text); sub(/^[ \t]+/, "", text)
+  text = $0; sub(/^[ \t]+/, "", text)
   if (index(text, "\001")) nul = 1
   if (text == "" || text ~ /^#/) next
   joined_here = joined; joined = (index(text, "#") == 0 && text ~ /\\[ \t]*$/)
@@ -4065,14 +4065,14 @@ ENVIRONMENT_VALUES_AWK=$_ret_heredoc_text
 
 # ENVIRONMENT_D_VALUES_AWK: reads an environment.d(5) file on stdin and prints
 # LINE|NAME|=VALUE or LINE|NAME|!REASON for each KEY=VALUE assignment of a
-# RELOCATION_VARS name (the -v names list). Whitespace around key and value is
-# trimmed, # and ; lines are comments, an odd run of backslashes ending an
-# assignment line joins the next (LINE is the first one's; an escaped backslash,
-# a comment or a line with no = joins nothing), one enclosing pair of quotes is
-# removed (backslash escapes outside single quotes), $$ is a dollar, and $HOME
-# or ${HOME} is ENVIRON["RESOLVE_HOME"] when that is set; any other reference
-# ($NAME, ${NAME}, ${NAME:-x}, ${NAME:+x}) leaves the value unresolved. From a
-# line holding a \001 (a NUL byte, from tr) on, the reason is after a NUL byte.
+# RELOCATION_VARS name (the -v names list), as systemd reads it: whitespace
+# around key and value is trimmed, # and ; lines are comments, an odd run of
+# backslashes ending an assignment line joins the next without its newline and
+# a quote left open joins it with the newline (LINE is the first line's), one
+# enclosing pair of quotes is removed (backslash escapes outside single
+# quotes), $$ is a dollar, $HOME or ${HOME} is ENVIRON["RESOLVE_HOME"] when set,
+# and any other reference ($NAME, ${NAME}, ${NAME:-x}) leaves the value
+# unresolved. From a line holding a \001 (a NUL byte, from tr) on: after a NUL byte.
 heredoc_var <<'EOF_ENVIRONMENT_D_VALUES_AWK'
 function unquote(value,   first, last, inner, result, position, char) {
   first = substr(value, 1, 1); last = substr(value, length(value))
@@ -4130,6 +4130,7 @@ function assign(text, number,   equals, name, value, outcome) {
   if (nul) { print number "|" name "|!after a NUL byte"; return }
   value = substr(text, equals + 1); sub(/^[ \t\r]+/, "", value); sub(/[ \t\r]+$/, "", value)
   outcome = unquote(value)
+  if (substr(outcome, 1, 1) == "=" && index(outcome, "\n")) outcome = "!holds a newline"
   if (substr(outcome, 1, 1) == "=") outcome = expand(substr(outcome, 2))
   print number "|" name "|" outcome
 }
@@ -4137,14 +4138,31 @@ BEGIN {
   count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1
   home = ENVIRON["RESOLVE_HOME"]; continued = 0; joined = 0
 }
+function track(text, from,   i, c) {
+  for (i = from; i <= length(text); i++) {
+    c = substr(text, i, 1)
+    if (escape) { escape = 0; continue }
+    if (quote == "'") { if (c == "'") quote = "" }
+    else if (c == "\\") escape = 1
+    else if (quote == "") { if (c == "\"" || c == "'") quote = c }
+    else if (c == "\"") quote = ""
+  }
+}
 {
   text = $0; sub(/\r$/, "", text)
   if (index(text, "\001")) nul = 1
-  if (continued) { text = pending text; joined = 1 } else { start = NR; joined = 0 }
-  if ((continued || assigns(text)) && text ~ /(^|[^\\])(\\\\)*\\$/) {
-    pending = substr(text, 1, length(text) - 1); continued = 1; next
+  if (continued) { pending = pending separator text; track(text, 1) }
+  else {
+    start = NR; quote = ""; escape = 0; joined = 0
+    if (!assigns(text)) { assign(text, start); next }
+    pending = text; track(text, index(text, "=") + 1)
   }
-  continued = 0; assign(text, start)
+  if (escape) {
+    pending = substr(pending, 1, length(pending) - 1); escape = 0
+    continued = 1; separator = ""; joined = 1; next
+  }
+  if (quote != "") { continued = 1; separator = "\n"; joined = 1; next }
+  continued = 0; assign(pending, start)
 }
 END { if (continued) { joined = 1; assign(pending, start) } }
 EOF_ENVIRONMENT_D_VALUES_AWK
