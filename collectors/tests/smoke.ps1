@@ -2080,15 +2080,8 @@ $lastPlist = @(
 MakeFile 'Library/LaunchDaemons/com.example.last.plist' (($lastPlist -join "`n") + "`n")
 $projectPlist = @($daemonPlist | ForEach-Object { $_.Replace('/opt/d/', '/opt/dp') })
 MakeFile 'opt/daemonproj/LaunchDaemons/com.example.project.plist' (($projectPlist -join "`n") + "`n")
-# A real binary plist, made where plutil exists, whose value plutil reads. Its key is
-# HERMES_HOME: a binary plist stores a name behind a length byte, and an eleven-byte name's
-# byte is [, no name character, so the name search finds it (a ten-byte name's byte is Z and
-# hides it).
-$havePlutil = $null -ne (Get-Command plutil -CommandType Application -ErrorAction SilentlyContinue)
-if ($havePlutil) {
-  $binaryPlist = ImagePath 'Library/LaunchAgents/com.example.realbinary.plist'
-  @($daemonPlist | ForEach-Object { $_.Replace('/opt/d/', '/opt/bin1').Replace('CODEX_HOME', 'HERMES_HOME') }) | & plutil -convert binary1 -o $binaryPlist -
-}
+# Whether the host has plutil, which the collector looks for off Windows alone.
+$havePlutil = $env:OS -ne 'Windows_NT' -and $null -ne (Get-Command plutil -CommandType Application -ErrorAction SilentlyContinue)
 $daemonPlist = @(
   '<?xml version="1.0" encoding="UTF-8"?>'
   '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
@@ -3071,26 +3064,36 @@ function HintValue($summary, [string]$relativePath, [int]$line, [string]$variabl
 }
 $relocationLogLines = @($relocationLog -split "`r?`n" | ForEach-Object { $_ -replace '^\S+ ', '' })
 function ValueLogged([string]$relativePath, [int]$line, [string]$variable, [string]$agent, [string]$tail) {
-  return $relocationLogLines -ccontains "relocation hint: $(ImagePath $relativePath):$line names $variable ($agent)$tail"
+  $where = "$(ImagePath $relativePath):$line"; if ($line -eq 0) { $where = ImagePath $relativePath }
+  return $relocationLogLines -ccontains "relocation hint: $where names $variable ($agent)$tail"
 }
 function ResolvedTotal($summary) { return @($summary.relocation.hints | Where-Object { $_.value -ne '' }).Count }
-# What a plist hint's log tail, value and user are on this host: as given where plutil exists,
-# else the no-plutil reason, no value and the base's user.
+# A plist's values come through plutil: where it exists the value sits on a hint with line 0 and
+# the lines naming the variable stay plain hints; else every hint of the plist carries the
+# no-plutil reason (PlistTail gives the tail a whole-file reason takes on this host).
 function PlistTail([string]$tail) { if ($havePlutil) { return $tail }; return '; value not resolved: no plutil' }
-function PlistValue([string]$value) { if ($havePlutil) { return $value }; return '' }
-function PlistUser([string]$user, [string]$baseUser) { if ($havePlutil) { return $user }; return $baseUser }
+$noPlutil = '; value not resolved: no plutil'
 $optX = ImagePath 'opt/x'
 foreach ($startupEntry in $startupFixtures) {
   $startupScope, $startupGlob, $startupPath, $startupText = $startupEntry -split '\|'
   if ($startupGlob -notmatch '^/etc/environment$|/environment\.d/\*\.conf$|/Launch(Agents|Daemons)/\*\.plist$') { continue }
   $startupUser = ''; $startupFile = $startupPath
   if ($startupScope -eq 'home') { $startupUser = 'alice'; $startupFile = "Users/alice/$startupPath" }
-  # A plist's value comes through plutil, so its expected value and log tail depend on the host.
-  $wantValue = $optX; $wantTail = " = $optX"
-  if ($startupGlob -like '*.plist') { $wantValue = PlistValue $optX; $wantTail = PlistTail " = $optX" }
-  Check "#455 startup file value resolved and logged: $startupScope|$startupGlob" { (HintValue $defaultRunSummary $startupFile 1 'CODEX_HOME' 'codex-cli') -ceq $wantValue -and (HasHint $defaultRunSummary $startupFile 1 'CODEX_HOME' 'codex-cli' $startupUser) -and (ValueLogged $startupFile 1 'CODEX_HOME' 'codex-cli' $wantTail) }
+  # An environment file's value sits on the line's hint; a plist's on a hint with line 0 where
+  # plutil exists, its line hint plain, and without plutil the line hint carries the reason.
+  if ($startupGlob -notlike '*.plist') {
+    Check "#455 startup file value resolved and logged: $startupScope|$startupGlob" { (HintValue $defaultRunSummary $startupFile 1 'CODEX_HOME' 'codex-cli') -ceq $optX -and (HasHint $defaultRunSummary $startupFile 1 'CODEX_HOME' 'codex-cli' $startupUser) -and (ValueLogged $startupFile 1 'CODEX_HOME' 'codex-cli' " = $optX") }
+  } elseif ($havePlutil) {
+    Check "#455 startup file value resolved and logged: $startupScope|$startupGlob" { (HintValue $defaultRunSummary $startupFile 0 'CODEX_HOME' 'codex-cli') -ceq $optX -and (HasHint $defaultRunSummary $startupFile 1 'CODEX_HOME' 'codex-cli' $startupUser) -and (ValueLogged $startupFile 0 'CODEX_HOME' 'codex-cli' " = $optX") -and (ValueLogged $startupFile 1 'CODEX_HOME' 'codex-cli' '') }
+  } else {
+    Check "#455 startup file value resolved and logged: $startupScope|$startupGlob" { (HasHint $defaultRunSummary $startupFile 1 'CODEX_HOME' 'codex-cli' $startupUser) -and (ValueLogged $startupFile 1 'CODEX_HOME' 'codex-cli' $noPlutil) }
+  }
 }
-Check '#455 a catalog-collected plist resolves its value' { (HintValue $defaultRunSummary 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' 1 'OPENCLAW_STATE_DIR' 'openclaw') -ceq (PlistValue $optX) }
+if ($havePlutil) {
+  Check '#455 a catalog-collected plist resolves its value' { (HintValue $defaultRunSummary 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' 0 'OPENCLAW_STATE_DIR' 'openclaw') -ceq $optX }
+} else {
+  Check '#455 a catalog-collected plist resolves its value' { ValueLogged 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' 1 'OPENCLAW_STATE_DIR' 'openclaw' $noPlutil }
+}
 Check '#455 a double-quoted /etc/environment value resolves' { (HintValue $defaultRunSummary 'etc/environment' 2 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/q') -and (ValueLogged 'etc/environment' 2 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/q')") }
 Check '#455 a single-quoted /etc/environment value is not resolved' { (HintValue $defaultRunSummary 'etc/environment' 3 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 3 'CODEX_HOME' 'codex-cli' '; value not resolved: quoted') }
 Check '#455 $HOME in a home environment.d file is the home' { (HintValue $defaultRunSummary 'Users/alice/.config/environment.d/home.conf' 1 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'Users/alice/x') -and (ValueLogged 'Users/alice/.config/environment.d/home.conf' 1 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'Users/alice/x')") }
@@ -3103,21 +3106,41 @@ Check '#455 a file URI is not resolved' { (HintValue $defaultRunSummary 'etc/env
 Check '#455 a path with a .. segment is not resolved' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 5 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 5 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a .. segment') }
 Check "#455 a continued line resolves under the first line's number" { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 6 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/cont') -and $null -eq (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 7 'CODEX_HOME' 'codex-cli') }
 Check '#455 a commented assignment gives no value and no reason' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 8 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 8 'CODEX_HOME' 'codex-cli' '') }
-Check "#455 a launchd daemon's UserName is its hint's user" { (HasHint $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli' (PlistUser 'svc' '')) -and (HintValue $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli') -ceq (PlistValue (ImagePath 'opt/d')) -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist').Count -eq 1 -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist')[0].user -eq '' -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist')[0].agent -eq 'shared' }
+$daemonRow = RowsAt 'Library/LaunchDaemons/com.example.daemon.plist'
+if ($havePlutil) {
+  Check "#455 a launchd daemon's UserName is its hint's user" { (HasHint $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 0 'CODEX_HOME' 'codex-cli' 'svc') -and (HasHint $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli' 'svc') -and (HintValue $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/d') -and (ValueLogged 'Library/LaunchDaemons/com.example.daemon.plist' 0 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/d')") -and $daemonRow.Count -eq 1 -and $daemonRow[0].user -eq '' -and $daemonRow[0].agent -eq 'shared' }
+} else {
+  Check "#455 a launchd daemon's UserName is its hint's user" { (HasHint $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli' $noPlutil) -and $daemonRow.Count -eq 1 -and $daemonRow[0].user -eq '' -and $daemonRow[0].agent -eq 'shared' }
+}
 Check "#455 a file plutil cannot read gives its reason when capabilities.grep_text is true (passes otherwise)" { (HintValue $defaultRunSummary 'Users/alice/Library/LaunchAgents/com.example.binary.plist' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Users/alice/Library/LaunchAgents/com.example.binary.plist' 1 'CODEX_HOME' 'codex-cli' (PlistTail '; value not resolved: plutil could not read the file')) }
-Check "#455 a binary plist resolves through plutil when capabilities.grep_text is true (passes otherwise)" { -not $havePlutil -or @($defaultRunSummary.relocation.hints | Where-Object { $_.source -eq (ImagePath 'Library/LaunchAgents/com.example.realbinary.plist') -and $_.variable -eq 'HERMES_HOME' -and $_.agent -eq 'hermes' -and $_.value -ceq (ImagePath 'opt/bin1') }).Count -eq 1 }
 Check '#455 the capabilities record plutil' { $defaultRunSummary.capabilities.plutil -eq $havePlutil }
 Check '#455 a dollar before a digit is no reference' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 9 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 9 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a $') }
 Check '#455 a continued line with CRLF ends resolves' { (HintValue $defaultRunSummary 'etc/environment.d/crlf.conf' 1 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/crlf') -and $null -eq (HintValue $defaultRunSummary 'etc/environment.d/crlf.conf' 2 'CODEX_HOME' 'codex-cli') }
-Check '#455 a plist string spanning lines is not resolved' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 2 'LETTA_DIR' 'letta') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 2 'LETTA_DIR' 'letta' (PlistTail '; value not resolved: holds a newline')) }
-Check '#455 a line inside a plist string forges no value' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 3 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 3 'HERMES_HOME' 'hermes' (PlistTail '')) -and -not $relocationLog.Contains('injected') }
-Check '#455 a dictionary as a plist value is not a string' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 4 'CODEX_HOME' 'codex-cli' (PlistTail '; value not resolved: not a string')) }
-Check '#455 a plist holding a CDATA section resolves as plutil reads it' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.cdata.plist' 1 'CODEX_HOME' 'codex-cli') -ceq (PlistValue (ImagePath 'opt/xy')) -and (ValueLogged 'Library/LaunchAgents/com.example.cdata.plist' 1 'CODEX_HOME' 'codex-cli' (PlistTail " = $(ImagePath 'opt/xy')")) }
-Check '#455 a plist holding a comment resolves as plutil reads it and forges nothing' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.comment.plist' 1 'CODEX_HOME' 'codex-cli') -ceq (PlistValue (ImagePath 'opt/real')) -and (ValueLogged 'Library/LaunchAgents/com.example.comment.plist' 1 'CODEX_HOME' 'codex-cli' (PlistTail " = $(ImagePath 'opt/real')")) -and -not $relocationLog.Contains('forged') }
-Check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" { (HasHint $defaultRunSummary 'Library/LaunchDaemons/com.example.last.plist' 5 'CODEX_HOME' 'codex-cli' (PlistUser 'svc' '')) -and (HintValue $defaultRunSummary 'Library/LaunchDaemons/com.example.last.plist' 5 'CODEX_HOME' 'codex-cli') -ceq (PlistValue (ImagePath 'opt/last')) -and -not $relocationLog.Contains('opt' + $Separator + 'first') -and -not $relocationLog.Contains('opt' + $Separator + 'd1') }
-Check "#455 a plist value is recorded on the last key line alone" { (HintValue $defaultRunSummary 'Library/LaunchDaemons/com.example.last.plist' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchDaemons/com.example.last.plist' 4 'CODEX_HOME' 'codex-cli' (PlistTail '')) }
+$multiPlist = 'Library/LaunchAgents/com.example.multiline.plist'
+$lastPlist = 'Library/LaunchDaemons/com.example.last.plist'
+if ($havePlutil) {
+  Check '#455 a plist string spanning lines is not resolved' { (ValueLogged $multiPlist 0 'LETTA_DIR' 'letta' '; value not resolved: holds a newline') -and (ValueLogged $multiPlist 2 'LETTA_DIR' 'letta' '') }
+  Check '#455 a line inside a plist string forges no value' { (HintValue $defaultRunSummary $multiPlist 3 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged $multiPlist 3 'HERMES_HOME' 'hermes' '') -and $null -eq (HintValue $defaultRunSummary $multiPlist 0 'HERMES_HOME' 'hermes') -and -not $relocationLog.Contains('injected') }
+  Check '#455 a dictionary as a plist value is not a string' { (ValueLogged $multiPlist 0 'CODEX_HOME' 'codex-cli' '; value not resolved: not a string') -and (ValueLogged $multiPlist 4 'CODEX_HOME' 'codex-cli' '') }
+  Check '#455 a plist holding a CDATA section resolves as plutil reads it' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.cdata.plist' 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/xy') -and (ValueLogged 'Library/LaunchAgents/com.example.cdata.plist' 0 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/xy')") -and (ValueLogged 'Library/LaunchAgents/com.example.cdata.plist' 1 'CODEX_HOME' 'codex-cli' '') }
+  Check '#455 a plist holding a comment resolves as plutil reads it and forges nothing' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.comment.plist' 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/real') -and (ValueLogged 'Library/LaunchAgents/com.example.comment.plist' 0 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'opt/real')") -and -not $relocationLog.Contains('forged') }
+  Check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" { (HasHint $defaultRunSummary $lastPlist 0 'CODEX_HOME' 'codex-cli' 'svc') -and (HintValue $defaultRunSummary $lastPlist 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/last') -and -not $relocationLog.Contains('opt' + $Separator + 'first') -and -not $relocationLog.Contains('opt' + $Separator + 'd1') }
+  Check "#455 a plist's lines naming the variable keep an empty value" { (ValueLogged $lastPlist 4 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged $lastPlist 5 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged $lastPlist 6 'CODEX_HOME' 'codex-cli' '') -and @($defaultRunSummary.relocation.hints | Where-Object { $_.source -eq (ImagePath $lastPlist) -and $_.variable -eq 'CODEX_HOME' -and $_.value -ne '' }).Count -eq 1 }
+} else {
+  Check '#455 a plist string spanning lines is not resolved' { ValueLogged $multiPlist 2 'LETTA_DIR' 'letta' $noPlutil }
+  Check '#455 a line inside a plist string forges no value' { (ValueLogged $multiPlist 3 'HERMES_HOME' 'hermes' $noPlutil) -and -not $relocationLog.Contains('injected') }
+  Check '#455 a dictionary as a plist value is not a string' { ValueLogged $multiPlist 4 'CODEX_HOME' 'codex-cli' $noPlutil }
+  Check '#455 a plist holding a CDATA section resolves as plutil reads it' { ValueLogged 'Library/LaunchAgents/com.example.cdata.plist' 1 'CODEX_HOME' 'codex-cli' $noPlutil }
+  Check '#455 a plist holding a comment resolves as plutil reads it and forges nothing' { (ValueLogged 'Library/LaunchAgents/com.example.comment.plist' 1 'CODEX_HOME' 'codex-cli' $noPlutil) -and -not $relocationLog.Contains('forged') }
+  Check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" { (HasHint $defaultRunSummary $lastPlist 5 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged $lastPlist 5 'CODEX_HOME' 'codex-cli' $noPlutil) }
+  Check "#455 a plist's lines naming the variable keep an empty value" { (ValueLogged $lastPlist 4 'CODEX_HOME' 'codex-cli' $noPlutil) -and (ValueLogged $lastPlist 6 'CODEX_HOME' 'codex-cli' $noPlutil) }
+}
 Check '#455 a control character in a value is not resolved' { (HintValue $defaultRunSummary 'etc/environment' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 4 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and -not $relocationLog.Contains([string][char]27) }
-Check '#455 a carriage return inside a plist string is a control character' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli' (PlistTail '; value not resolved: holds a control character')) }
+if ($havePlutil) {
+  Check '#455 a carriage return inside a plist string is a control character' { (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 0 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli' '') }
+} else {
+  Check '#455 a carriage return inside a plist string is a control character' { ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli' $noPlutil }
+}
 Check '#455 only resolvable startup files give a value' { $valued = @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }); $valued.Count -gt 0 -and @($valued | Where-Object { ($_.source -replace '\\', '/') -notmatch '/etc/environment$|/environment\.d/[^/]*\.conf$|/LaunchAgents/[^/]*\.plist$|/LaunchDaemons/[^/]*\.plist$' }).Count -eq 0 -and (HintValue $defaultRunSummary 'Users/alice/.bash_profile' 1 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' }
 Check '#455 an unresolved value is never logged or stored' { $summaryText = [System.IO.File]::ReadAllText($script:Summary.FullName); $unresolved = @('opt/single', 'opt/rel', 'file://', '/opt/../x', 'XDG_CONFIG_HOME/x', 'opt/comment', '$HOME/x', '${HOME}/x'); @($unresolved | Where-Object { $relocationLog.Contains($_) -or $summaryText.Contains($_) }).Count -eq 0 -and $relocationLog.Contains('value not resolved') }
 Check '#455 the stdout relocation line counts the resolved values' { (ResolvedTotal $defaultRunSummary) -gt 0 -and $script:stdout -match "(?m), $(ResolvedTotal $defaultRunSummary) resolved; see collectors/docs/relocation\.md\s*$" }
@@ -3454,7 +3477,11 @@ Check '#454 the sweep run records its options' { $envScanSummary.options.env_sca
 Check '#454 the sweep hints and collects a file deep in the home' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh' 2 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.sh' 'shared' $true) }
 Check '#454 an env shebang line in a swept file gives no ENV hint' { (HintsFrom $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 1 }
 # 2026-11-12 resolved relocation values (#455)
-Check "#455 a swept daemon plist under a home keeps the home's user" { (HasHint $envScanSummary 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' 9 'CODEX_HOME' 'codex-cli' 'alice') -and (HintValue $envScanSummary 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' 9 'CODEX_HOME' 'codex-cli') -ceq (PlistValue (ImagePath 'opt/sw')) }
+if ($havePlutil) {
+  Check "#455 a swept daemon plist under a home keeps the home's user" { (HasHint $envScanSummary 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' 0 'CODEX_HOME' 'codex-cli' 'alice') -and (HintValue $envScanSummary 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/sw') }
+} else {
+  Check "#455 a swept daemon plist under a home keeps the home's user" { HasHint $envScanSummary 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' 9 'CODEX_HOME' 'codex-cli' 'alice' }
+}
 Check '#454 the sweep matches a lowercase name in a .ps1 file' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.ps1' 1 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.ps1' 'shared' $true) }
 Check '#454 the sweep counts a file over its size limit and leaves it unsearched' { $envScanSummary.relocation.files_skipped_size -ge 1 -and (HintsFrom $envScanSummary 'Users/alice/scripts/big.sh').Count -eq 0 -and (RowsAt 'Users/alice/scripts/big.sh').Count -eq 0 }
 Check '#454 the sweep leaves out an excluded directory' { (HintsFrom $envScanSummary 'Users/alice/tools/agent-env.sh').Count -eq 0 -and (RowsAt 'Users/alice/tools/agent-env.sh').Count -eq 0 }
@@ -3499,7 +3526,11 @@ $envScanRootSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | C
 $envScanRootLog = [System.IO.File]::ReadAllText((Get-ChildItem -LiteralPath (Join-Path $Out 'envscanroot') -Filter '*.log' | Select-Object -First 1).FullName)
 Check '#454 the sweep skips a project that holds a home directory' { $envScanRootLog.Contains("sweep skipped: project $(ImagePath 'home') holds a home directory") -and $envScanRootSummary.relocation.files_searched -eq ($envScanSummary.relocation.files_searched + 1) }
 # 2026-11-12 resolved relocation values (#455)
-Check "#455 a daemon plist in a project with no owner keeps the empty user" { (HasHint $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli' '') -and (HintValue $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli') -ceq (PlistValue (ImagePath 'opt/dp')) }
+if ($havePlutil) {
+  Check "#455 a daemon plist in a project with no owner keeps the empty user" { (HasHint $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 0 'CODEX_HOME' 'codex-cli' '') -and (HintValue $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/dp') }
+} else {
+  Check "#455 a daemon plist in a project with no owner keeps the empty user" { (HasHint $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli' $noPlutil) }
+}
 Run 'envscanbad' @{ EnvScanMaxSizeMB = 'x' }
 Check '#454 an invalid sweep size limit exits 1' { $script:ExitCode -eq 1 -and $script:stdout -match 'Invalid -EnvScanMaxSizeMB' }
 

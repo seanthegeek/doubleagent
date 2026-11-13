@@ -2617,6 +2617,11 @@ hash_match() {
 # the main shell exports the pair, so a worker runs no printf.
 [ -n "${TAB_AND_CARRIAGE_RETURN:-}" ] || TAB_AND_CARRIAGE_RETURN=$(printf '\t\r')
 TAB=${TAB_AND_CARRIAGE_RETURN%?}; CARRIAGE_RETURN=${TAB_AND_CARRIAGE_RETURN#?}
+# Every control character but NUL, as a literal set for case patterns: posh
+# reads no [[:cntrl:]] class.
+CONTROL_CHARACTERS=$(printf '\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017')
+CONTROL_CHARACTERS=$CONTROL_CHARACTERS$(printf '\020\021\022\023\024\025\026\027\030\031\032')
+CONTROL_CHARACTERS=$CONTROL_CHARACTERS$(printf '\033\034\035\036\037\177')
 NEWLINE='
 '
 # json_escape TEXT -> TEXT as a JSON string body (backslash, double quote, tab,
@@ -4332,37 +4337,26 @@ plutil_string_var() {
   esac
 }
 
-# resolve_plist_values FILE HITS: sets _ret_values to LINE|NAME|=VALUE or
-# LINE|NAME|!REASON for each name of the LINE|NAME lines of HITS, from the
-# EnvironmentVariables dictionary of FILE as plutil reads it, U|USER for a
-# UserName that is a plain account name, or one !REASON line for the whole
+# resolve_plist_values FILE HITS: sets _ret_values to 0|NAME|=VALUE or
+# 0|NAME|!REASON for each name of the LINE|NAME lines of HITS that the
+# EnvironmentVariables dictionary of FILE holds as plutil reads it, U|USER for
+# a UserName that is a plain account name, or one !REASON line for the whole
 # file: no plutil (the host is not macOS), or plutil could not read the file.
-# A value is the key's effective one, recorded on the last line holding
-# <key>NAME</key> (one awk finds them), else the last line naming it (a binary
-# plist has no text lines). Reads PLUTIL, NEWLINE. Temporaries: _rpv_.
+# The line is 0, as for a registry value: plutil reads the key's effective
+# value and reports no line, and the lines naming the variable stay hints
+# without a value. Reads PLUTIL, NEWLINE. Temporaries: _rpv_.
 resolve_plist_values() {
   _ret_values=
   if [ -z "$PLUTIL" ]; then _ret_values='!no plutil'; return 0; fi
   if ! "$PLUTIL" -lint "$1" >/dev/null 2>&1; then
     _ret_values='!plutil could not read the file'; return 0
   fi
-  _rpv_keys=$NEWLINE$(awk -v names="$RELOCATION_NAMES_CSV" \
-    'BEGIN { count = split(names, list, ",") }
-     { for (i = 1; i <= count; i++) if (index($0, "<key>" list[i] "</key>")) last[list[i]] = NR }
-     END { for (name in last) print name "|" last[name] }' <"$1" 2>>"$LOG")$NEWLINE
   _rpv_seen=
   while IFS='|' read -r _rpv_line _rpv_name; do
     case "$_rpv_seen" in (*"|$_rpv_name|"*) continue ;; esac
     _rpv_seen="$_rpv_seen|$_rpv_name|"
     plutil_string_var "$1" "EnvironmentVariables.$_rpv_name"
-    [ -n "$_ret_plist" ] || continue
-    _rpv_rest="$NEWLINE$2$NEWLINE"; _rpv_rest=${_rpv_rest%"|$_rpv_name$NEWLINE"*}
-    _rpv_place=${_rpv_rest##*"$NEWLINE"}
-    case "$_rpv_keys" in
-      (*"$NEWLINE$_rpv_name|"*) _rpv_place=${_rpv_keys##*"$NEWLINE$_rpv_name|"}
-        _rpv_place=${_rpv_place%%"$NEWLINE"*} ;;
-    esac
-    _ret_values="$_ret_values$NEWLINE$_rpv_place|$_rpv_name|$_ret_plist"
+    [ -z "$_ret_plist" ] || _ret_values="$_ret_values${NEWLINE}0|$_rpv_name|$_ret_plist"
   done <<EOF_PLIST_HITS
 $2
 EOF_PLIST_HITS
@@ -4398,12 +4392,13 @@ resolve_file_values() {
 # path holding no $, %, backquote, quote, control character or .. segment,
 # its trailing / dropped and, in image mode, ROOT put in front (the
 # value names a path inside the image); else _ret_value is empty and
-# _ret_reason says why. Builtins only. Reads ROOT. Temporaries: _arv_.
+# _ret_reason says why. Builtins only. Reads ROOT, CONTROL_CHARACTERS.
+# Temporaries: _arv_.
 accept_resolved_value() {
   _ret_value=; _ret_reason=; _arv_path=$1
   case "$_arv_path" in
     (*"$NEWLINE"*) _ret_reason='holds a newline' ;;
-    (*[[:cntrl:]]*) _ret_reason='holds a control character' ;;
+    (*["$CONTROL_CHARACTERS"]*) _ret_reason='holds a control character' ;;
     (*'$'*) _arv_name=${_arv_path#*\$}; _arv_name=${_arv_name#"{"}
       _arv_name=${_arv_name%%[!A-Za-z0-9_]*}
       case "$_arv_name" in ([0-9]*) _arv_name= ;; esac
@@ -4451,8 +4446,9 @@ select_line_value() {
 }
 
 # record_file_hints USER HOME FILE: records every bounded name in FILE, with the
-# value its line assigns when startup_file_kind reads FILE's kind, and, when
-# there is one, collects FILE. $HOME expands only in a home's own files (a
+# value its line assigns when startup_file_kind reads FILE's kind, for a plist
+# one hint with line 0 per value plutil reads, and, when there is one, collects
+# FILE. $HOME expands only in a home's own files (a
 # USER:HOME line of USER_LIST); the hints of a system plist under LaunchDaemons
 # take the plist's UserName as their user. Reads USER_LIST, ROOT. Temporaries: _rfh_.
 record_file_hints() {
@@ -4480,13 +4476,21 @@ record_file_hints() {
   done <<EOF_BOUNDED_NAMES
 $_rfh_hits
 EOF_BOUNDED_NAMES
+  while IFS='|' read -r _rfh_line _rfh_name _rfh_rest; do
+    [ "$_rfh_line" = 0 ] || continue
+    select_line_value "$_rfh_values" 0 "$_rfh_name"
+    record_hint "$_rfh_user" "$3" 0 "$_rfh_name" "$_ret_value" "$_ret_reason"
+  done <<EOF_PLIST_VALUES
+$_rfh_values
+EOF_PLIST_VALUES
   collect_hint_file "$1" "$2" "$3"
 }
 
 # record_hint USER FILE LINE VARIABLE VALUE REASON: for each RELOCATION_VARS line
 # naming VARIABLE, in table order, appends user|file|line|VARIABLE|agent to
 # RELOCATION_HINTS, once per record, and logs "relocation hint: FILE:LINE names
-# VARIABLE (agent)" after HINT_HEADER once, ending " = VALUE" when VALUE is set,
+# VARIABLE (agent)" (FILE alone when LINE is 0, a value plutil read from the
+# whole file) after HINT_HEADER once, ending " = VALUE" when VALUE is set,
 # else "; value not resolved: REASON" when REASON is. A VALUE is also appended
 # to RELOCATION_VALUES as user|VARIABLE|agent|replaces|VALUE and, JSON-escaped,
 # to RELOCATION_VALUES_JSON as N|value, N the record's place in
@@ -4508,7 +4512,8 @@ $_rh_record
 $_rh_record"
     RELOCATION_HINT_COUNT=$(( RELOCATION_HINT_COUNT + 1 ))
     if [ -n "$HINT_HEADER" ]; then log_line "$HINT_HEADER"; HINT_HEADER=; fi
-    _rh_text="relocation hint: $2:$3 names $4 ($_rh_agent)"
+    _rh_where="$2:$3"; [ "$3" != 0 ] || _rh_where=$2
+    _rh_text="relocation hint: $_rh_where names $4 ($_rh_agent)"
     if [ -n "$5" ]; then
       log_line "$_rh_text = $5"
       case "$_rh_rest" in (*'|'*) _rh_replaces=${_rh_rest#*|} ;; (*) _rh_replaces= ;; esac

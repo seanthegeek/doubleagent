@@ -2586,10 +2586,14 @@ $script:Sep = [string][System.IO.Path]::DirectorySeparatorChar
 # Windows, as opposed to PowerShell 7 on Linux or macOS.
 $script:IsWindowsHost = ($env:OS -eq 'Windows_NT')
 # The property list tool macOS ships, which reads a launchd plist as launchd
-# does; $null elsewhere, where a plist hint keeps an empty value.
+# does; $null elsewhere, where a plist hint keeps an empty value. Looked for
+# off Windows only, so the step runs under PowerShell 7 alone, whose .NET has
+# ProcessStartInfo.ArgumentList (Invoke-Plutil).
 $script:PlutilPath = $null
-try { $script:PlutilPath = (Get-Command plutil -CommandType Application -ErrorAction Stop).Source }
-catch [System.Management.Automation.CommandNotFoundException] { }
+if (-not $script:IsWindowsHost) {
+  try { $script:PlutilPath = (Get-Command plutil -CommandType Application -ErrorAction Stop).Source }
+  catch [System.Management.Automation.CommandNotFoundException] { }
+}
 
 # Takes a table here-string; returns its lines that are neither empty nor a
 # # comment.
@@ -4680,43 +4684,27 @@ function Read-PlutilString([string]$path, [string]$keyPath) {
   return $read
 }
 
-# Takes a plist's lines, a variable and its hits as @(line, variable); returns
-# the line its value is recorded on: the last line holding <key>NAME</key>, the
-# key plutil read, else the last line naming it (a binary plist has no text
-# lines). The other lines naming it keep an empty value.
-function Get-PlistKeyLine($lines, [string]$name, $fileHits) {
-  $keyLine = 0
-  for ($index = 0; $index -lt $lines.Count; $index++) {
-    if (([string]$lines[$index]).Contains("<key>$name</key>")) { $keyLine = $index + 1 }
-  }
-  if ($keyLine -gt 0) { return $keyLine }
-  foreach ($hit in $fileHits) { if ([string]$hit[1] -ceq $name) { $keyLine = [int]$hit[0] } }
-  return $keyLine
-}
-
 # Takes a launchd property list and its hits as @(line, variable); returns
-# @{ entries; userName; reason }: each variable hit as "line|NAME" -> @{ value;
-# reason } from the plist's EnvironmentVariables dictionary as plutil reads it
-# (the key's effective value, on the line Get-PlistKeyLine picks), the UserName
-# when it is a plain account name, or the reason for the whole file: no plutil
-# (the host is not macOS) or plutil could not read the file.
+# @{ entries; userName; reason }: each variable hit that the plist's
+# EnvironmentVariables dictionary holds, as plutil reads it, as "0|NAME" ->
+# @{ value; reason }, the UserName when it is a plain account name, or the
+# reason for the whole file: no plutil (the host is not macOS) or plutil could
+# not read the file. The line is 0, as for a registry value: plutil reads the
+# key's effective value and reports no line, and the lines naming the variable
+# stay hints without a value.
 function Resolve-PlistValues([string]$path, $fileHits) {
-  $result = @{ entries = @{}; userName = ''; reason = '' }
+  $result = @{ entries = [ordered]@{}; userName = ''; reason = '' }
   if ($null -eq $script:PlutilPath) { $result.reason = 'no plutil'; return $result }
   if ((Invoke-Plutil @('-lint', $path)).exitCode -ne 0) {
     $result.reason = 'plutil could not read the file'; return $result
   }
-  $lines = Read-StartupFileLines $path; if ($null -eq $lines) { $lines = @() }
-  $seen = @{}
   foreach ($hit in $fileHits) {
     $name = [string]$hit[1]
-    if ($seen.ContainsKey($name)) { continue }
-    $seen[$name] = $true
+    if ($result.entries.ContainsKey("0|$name")) { continue }
     $read = Read-PlutilString $path "EnvironmentVariables.$name"
     if (-not $read.present) { continue }
-    $keyLine = Get-PlistKeyLine $lines $name $fileHits
-    if ($read.reason) { $result.entries["$keyLine|$name"] = @{ value = ''; reason = $read.reason } }
-    else { $result.entries["$keyLine|$name"] = Test-ResolvedValue $read.text 'launchd' }
+    if ($read.reason) { $result.entries["0|$name"] = @{ value = ''; reason = $read.reason } }
+    else { $result.entries["0|$name"] = Test-ResolvedValue $read.text 'launchd' }
   }
   $user = Read-PlutilString $path 'UserName'
   if ($user.present -and -not $user.reason -and $user.text -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*\z') {
@@ -4813,8 +4801,9 @@ function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$v
 
 # Takes the user, home and a hit file with its hits as @(line, variable);
 # reads the file's values when Get-StartupFileKind names its kind and records
-# each hit with its value or the reason it has none. The hints of a system
-# plist under LaunchDaemons (the user is '') take its UserName as their user.
+# each hit with its value or the reason it has none, and for a plist one hint
+# with line 0 per value plutil reads. The hints of a system plist under
+# LaunchDaemons (the user is '') take its UserName as their user.
 function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits) {
   $kind = Get-StartupFileKind $path
   $resolved = @{ entries = @{}; userName = ''; reason = '' }
@@ -4831,6 +4820,10 @@ function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits
     $entry = $resolved.entries["$($hit[0])|$($hit[1])"]
     if ($entry) { $value = $entry.value; $reason = $entry.reason }
     Add-RelocationHint $hintUser $path $hit[0] $hit[1] $value $reason
+  }
+  foreach ($key in @($resolved.entries.Keys | Where-Object { $_.StartsWith('0|') })) {
+    $entry = $resolved.entries[$key]
+    Add-RelocationHint $hintUser $path 0 $key.Substring(2) $entry.value $entry.reason
   }
 }
 

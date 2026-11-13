@@ -559,9 +559,11 @@ which only that `awk` sees. It prints `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
 for each assignment of a `RELOCATION_VARS` name. For a plist no `awk` runs:
 `resolve_plist_values` lints the file with `plutil` (`PLUTIL`, detected at
 startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME
-xml1` once per name hit, and `plutil_string_var` reads only that one-element
-output, so the value is the one launchd reads, binary plists included; the
-lines are `|NAME|=VALUE`, `|NAME|!REASON`, `U|USER` for the `UserName`, or one
+xml1` once per distinct name hit, and `plutil_string_var` reads only that
+one-element output, so the value is the one launchd reads; the lines are
+`0|NAME|=VALUE` or `0|NAME|!REASON` (line 0, since plutil reports none; the
+lines naming the variable stay hints without a value), `U|USER` for the
+`UserName`, or one
 `!no plutil` or `!plutil could not read the file` line for the whole file. The
 PowerShell collector reads the lines with `Read-StartupFileLines` and applies
 `Resolve-AssignmentValue` (with `Expand-EnvironmentValue` for `environment.d`),
@@ -818,6 +820,7 @@ PowerShell functions that do their job.
 | `Resolve-AssignmentValue`, `ConvertFrom-EnvironmentEscape`, `Expand-EnvironmentValue` | Relocation hints | The value of a `NAME=VALUE` line: unquoting and backslash escapes, then `$$` and `$HOME` for `environment.d` |
 | `Test-CollectedHome`, `Get-ExpansionHome` | Relocation hints | Whether a directory is a collected user's home, and the form of it that `$HOME` takes |
 | `Write-HintLog` | Relocation hints | A log line of the step, after the pending header; sh calls `log_line` |
+| `Invoke-Plutil` | Relocation hints | Runs `plutil` with its output read whole; sh uses `$(...)` |
 | `Resolve-RegistryValues` | Relocation hints | The registry step on a live Windows host |
 | `Read-RegistryStrings`, `Read-UserEnvironment`, `Add-RegistryHints` | Relocation hints | Reading a key without expanding it; one user's `Environment` key; the hints of a key |
 | `Expand-RegistryValue`, `Get-SystemNames`, `Get-ProfileValues` | Relocation hints | The `%NAME%` replacement and the names it draws from |
