@@ -57,17 +57,27 @@ func Load() (*Tables, error) {
 	return Parse(Text())
 }
 
-// sectionHeaders maps the comment line that opens each table to the table's
-// name. Only a comment equal to one of them switches the table; any other
-// comment, a vendor note inside a table included, is skipped.
-var sectionHeaders = map[string]string{
-	"# home artifacts (agent|glob relative to home)":                                "home",
-	"# project artifacts (relative to each discovered project)":                     "project",
-	"# excluded unless --full":                                                      "exclude",
-	"# credential files (flagged secret, skipped with --no-secrets)":                "secret",
-	"# docker volumes (agent|volume name glob)":                                     "docker",
-	"# relocation variables (agent|VARIABLE|home-relative path it replaces)":        "relocation",
-	"# startup files searched for them (scope|glob; scope home, system or project)": "startup",
+// sectionName returns the table a comment LINE opens, and whether it opens
+// one. Only a comment equal to one of the seven headers switches the table;
+// any other comment, a vendor note inside a table included, is skipped.
+func sectionName(line string) (string, bool) {
+	switch line {
+	case "# home artifacts (agent|glob relative to home)":
+		return "home", true
+	case "# project artifacts (relative to each discovered project)":
+		return "project", true
+	case "# excluded unless --full":
+		return "exclude", true
+	case "# credential files (flagged secret, skipped with --no-secrets)":
+		return "secret", true
+	case "# docker volumes (agent|volume name glob)":
+		return "docker", true
+	case "# relocation variables (agent|VARIABLE|home-relative path it replaces)":
+		return "relocation", true
+	case "# startup files searched for them (scope|glob; scope home, system or project)":
+		return "startup", true
+	}
+	return "", false
 }
 
 // Parse reads the text of a catalog file into its tables. A line that does not
@@ -80,7 +90,7 @@ func Parse(text []byte) (*Tables, error) {
 			continue
 		}
 		if strings.HasPrefix(line, "#") {
-			if name, ok := sectionHeaders[line]; ok {
+			if name, ok := sectionName(line); ok {
 				section = name
 			}
 			continue

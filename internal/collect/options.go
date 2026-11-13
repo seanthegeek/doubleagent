@@ -69,8 +69,8 @@ func (e *UsageError) Print(w io.Writer) {
 	}
 }
 
-// UsageText is the help text, the sh collector's with the program name
-// `doubleagent collect`.
+// UsageText is the help text: the sh collector's, with the program name
+// `doubleagent collect` and without its worker-shell paragraph.
 const UsageText = `Usage: doubleagent collect [options]
 
   -o, --output DIR        Directory for the archive (default: current dir)
@@ -97,9 +97,7 @@ const UsageText = `Usage: doubleagent collect [options]
   -V, --version           Print version and exit
   -h, --help              This help
 
-Environment: COLLECTOR_SH overrides the shell used for per-file workers
-(default: dash when it is on PATH, otherwise sh). Run as root to collect
-every user's home.
+Run as root to collect every user's home.
 `
 
 // rawOptions holds the option values as typed, before the sizes are checked.

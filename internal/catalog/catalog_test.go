@@ -26,7 +26,7 @@ func countSections(text string) map[string]int {
 			continue
 		}
 		if strings.HasPrefix(line, "#") {
-			if name, ok := sectionHeaders[line]; ok {
+			if name, ok := sectionName(line); ok {
 				section = name
 			}
 			continue
