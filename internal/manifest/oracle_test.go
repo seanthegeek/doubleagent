@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -166,7 +167,7 @@ func TestWriterBuildsShRowFromLstat(t *testing.T) {
 	for _, line := range runShCollector(t, root) {
 		if strings.Contains(line, `"path":"`+EscapeJSON(source)+`"`) {
 			found = true
-			if line+"\n" != expected.String() {
+			if withoutAtime(line+"\n") != withoutAtime(expected.String()) {
 				t.Errorf("row differs\n got %swant %s", expected.String(), line)
 			}
 		}
@@ -175,3 +176,11 @@ func TestWriterBuildsShRowFromLstat(t *testing.T) {
 		t.Error("the sh collector wrote no row for settings.json")
 	}
 }
+
+// withoutAtime drops the atime field: reading a file for its hash updates
+// it on Linux, so the sh collector and this test see different values.
+func withoutAtime(row string) string {
+	return atimeField.ReplaceAllString(row, "")
+}
+
+var atimeField = regexp.MustCompile(`"atime":[0-9]+,`)

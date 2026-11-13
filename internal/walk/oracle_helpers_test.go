@@ -144,6 +144,17 @@ var logTime = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z `)
 var logReason = regexp.MustCompile(`^((?:find|read failed|copy failed): [^:]*): .*?` +
 	`(; staged path resolves outside the staging directory, not removed)?$`)
 
+// findQuotes matches the single quotes GNU find puts around the path in its
+// error lines; BSD find and the Go walk write the path bare.
+var findQuotes = regexp.MustCompile(`^find: '(.*)': `)
+
+// normaliseFailure makes a failure line comparable: the quotes GNU find adds
+// go, then the reason text, which differs by platform and program.
+func normaliseFailure(line string) string {
+	line = findQuotes.ReplaceAllString(line, "find: $1: ")
+	return logReason.ReplaceAllString(line, "$1$2")
+}
+
 // compareRows checks that the sh manifest starts with the Go rows, fields
 // dropped, and that every sh row after them belongs to the relocation step.
 func compareRows(t *testing.T, want, got []string) {
@@ -173,7 +184,7 @@ func compareLog(t *testing.T, want, got []string) {
 		t.Fatalf("%d Go log lines, %d sh lines", len(got), len(want))
 	}
 	for i, line := range got {
-		if logReason.ReplaceAllString(line, "$1$2") != logReason.ReplaceAllString(want[i], "$1$2") {
+		if normaliseFailure(line) != normaliseFailure(want[i]) {
 			t.Fatalf("log line %d:\n sh %q\n go %q", i, want[i], line)
 		}
 	}

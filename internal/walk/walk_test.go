@@ -171,10 +171,15 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		{Agent: "split", Glob: "nl*"}}
 	got := ExpandCatalog(base, table)
 	notes, paths := map[string]bool{}, map[string]string{}
+	var split []string
 	for _, match := range got {
 		notes[match.Agent+" "+match.Glob] = match.Note != ""
 		paths[match.Agent+" "+match.Glob] = strings.TrimPrefix(match.Path, base+"/")
+		if match.Agent == "split" {
+			split = append(split, match.Path)
+		}
 	}
+	variant, variantMatched := paths["cursor .config/Cursor/User"]
 	checks := []struct {
 		name string
 		ok   bool
@@ -182,11 +187,11 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		{"an exact second match of one path is dropped", notes["pearai .config/goose"]},
 		{"an unreadable case variant is dropped only where the file system folds case",
 			notes["goose .config/Goose"] == folds},
-		{"a variant inside another match takes its spelling where they are one directory",
-			paths["cursor .config/Cursor/User"] == map[bool]string{true: ".config/cursor/User",
-				false: ".config/Cursor/User"}[folds]},
-		{"a name holding a newline gives one match per line", len(got) == 7 &&
-			got[5].Path == base+"/nl" && got[6].Path == "x"},
+		{"a variant inside another match takes its spelling where they are one directory," +
+			" and matches nothing where case tells them apart",
+			variantMatched == folds && (!folds || variant == ".config/cursor/User")},
+		{"a name holding a newline gives one match per line",
+			len(split) == 2 && split[0] == base+"/nl" && split[1] == "x"},
 	}
 	for _, check := range checks {
 		if !check.ok {
