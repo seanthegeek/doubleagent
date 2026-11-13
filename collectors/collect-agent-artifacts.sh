@@ -4464,14 +4464,22 @@ accept_resolved_value() {
 # select_line_value VALUES LINE NAME: sets _ret_value and _ret_reason for the
 # hint of NAME on LINE from resolve_file_values' VALUES, wrapped in newlines,
 # through accept_resolved_value, the last LINE|NAME| record; both are empty
-# when LINE assigns no NAME. Temporaries: _slv_.
+# when LINE assigns no NAME. The records are read line by line: posh 0.14.3
+# left ${1##*"$NEWLINE$2|$3|"} unmatched, so no value resolved. Temporaries: _slv_.
 select_line_value() {
-  _ret_value=; _ret_reason=
+  _ret_value=; _ret_reason=; _slv_outcome=; _slv_found=0
   case "$1" in
-    ("$NEWLINE!"*) _slv_outcome=${1#"$NEWLINE"} ;;
-    (*"$NEWLINE$2|$3|"*) _slv_outcome=${1##*"$NEWLINE$2|$3|"} ;;
-    (*) return 0 ;;
+    ("$NEWLINE!"*) _slv_outcome=${1#"$NEWLINE"}; _slv_found=1 ;;
+    (*) while IFS='|' read -r _slv_line _slv_name _slv_rest; do
+        if [ "$_slv_line" = "$2" ] && [ "$_slv_name" = "$3" ]; then
+          _slv_outcome=$_slv_rest; _slv_found=1
+        fi
+      done <<EOF_LINE_VALUES
+$1
+EOF_LINE_VALUES
+      ;;
   esac
+  [ "$_slv_found" = 1 ] || return 0
   _slv_outcome=${_slv_outcome%%"$NEWLINE"*}
   case "$_slv_outcome" in
     ('!'*) _ret_reason=${_slv_outcome#!} ;;
@@ -4498,10 +4506,12 @@ record_file_hints() {
     resolve_file_values "$3" "$_ret_kind" "$_rfh_home" "$_rfh_hits"
     _rfh_values=$NEWLINE$_ret_values$NEWLINE
     case "$1|$2|$3" in
-      ("||"*/LaunchDaemons/*) case "$_rfh_values" in
-        (*"${NEWLINE}U|"*) _rfh_user=${_rfh_values#*"${NEWLINE}U|"}
-          _rfh_user=${_rfh_user%%"$NEWLINE"*} ;;
-      esac ;;
+      ("||"*/LaunchDaemons/*) while IFS='|' read -r _rfh_tag _rfh_rest; do
+          [ "$_rfh_tag" != U ] || _rfh_user=$_rfh_rest
+        done <<EOF_PLIST_USER
+$_rfh_values
+EOF_PLIST_USER
+        ;;
     esac
   fi
   while IFS='|' read -r _rfh_line _rfh_name; do
@@ -4799,7 +4809,8 @@ count_noun() {
 # json_relocation -> the collection.json relocation object, one hint per line.
 # Reads RELOCATION_HINTS, whose user|file|line|VARIABLE|agent records are split
 # from the right, as only the file may hold a |, RELOCATION_VALUES_JSON for the
-# value of the Nth record, and the RELOCATION_FILES_* counts. The registry
+# value of the Nth record (read line by line, as select_line_value reads its
+# records for posh), and the RELOCATION_FILES_* counts. The registry
 # object records that this collector reads no registry. Temporaries: _jr_.
 json_relocation() {
   printf '{"hints": ['
@@ -4807,10 +4818,11 @@ json_relocation() {
   while IFS= read -r _jr_record; do
     [ -n "$_jr_record" ] || continue
     _jr_ordinal=$(( _jr_ordinal + 1 )); _jr_value=
-    case "$_jr_values" in
-      (*"$NEWLINE$_jr_ordinal|"*) _jr_value=${_jr_values#*"$NEWLINE$_jr_ordinal|"}
-        _jr_value=${_jr_value%%"$NEWLINE"*} ;;
-    esac
+    while IFS='|' read -r _jr_number _jr_text; do
+      [ "$_jr_number" != "$_jr_ordinal" ] || _jr_value=$_jr_text
+    done <<EOF_RECORD_VALUES
+$_jr_values
+EOF_RECORD_VALUES
     _jr_agent=${_jr_record##*|}; _jr_rest=${_jr_record%|*}
     _jr_variable=${_jr_rest##*|}; _jr_rest=${_jr_rest%|*}
     _jr_line=${_jr_rest##*|}; _jr_rest=${_jr_rest%|*}
