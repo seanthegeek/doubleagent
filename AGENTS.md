@@ -1483,7 +1483,7 @@ job or lint step runs when one of its categories is set.
   shellcheck and checkbashisms steps.
 - **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
   `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`, the
-  `.ps1` files under `lab/round/`): the two PowerShell smoke jobs
+  `.ps1` files under `lab/round/`): both PowerShell smoke jobs
   and PSScriptAnalyzer.
 - **Python** (everything under `analyzer/`, `tools/` and `lab/round/` except
   Markdown and `tools/drift-baseline/`, and `analyzer/docs/output.md`,
