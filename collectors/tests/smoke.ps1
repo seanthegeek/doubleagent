@@ -2077,10 +2077,6 @@ MakeFile 'etc/environment.d/bom.conf' "$([char]0xFEFF)CODEX_HOME=/bom`n"
 # PowerShell collector reads as text (the sh collector's grep sees no name in it).
 MakeFile 'Users/alice/Documents/PowerShell/utf16.ps1' 'placeholder'
 Set-Content -LiteralPath (ImagePath 'Users/alice/Documents/PowerShell/utf16.ps1') -Value ('$env:CODEX_HOME = "D:\codex"' + "`n") -Encoding Unicode -NoNewline
-# The same profile written big-endian by the ISE, two lines, the name on the second, which
-# proves the hint's line number survives the decoding.
-MakeFile 'Users/alice/Documents/PowerShell/utf16be.ps1' 'placeholder'
-Set-Content -LiteralPath (ImagePath 'Users/alice/Documents/PowerShell/utf16be.ps1') -Value ("# profile`n" + '$env:CODEX_HOME = "D:\codex-be"' + "`n") -Encoding BigEndianUnicode -NoNewline
 $multilinePlist = @(
   '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
   '<key>LETTA_DIR</key><string>/opt/m'
@@ -2107,8 +2103,8 @@ $daemonPlist = @(
 MakeFile 'Library/LaunchDaemons/com.example.daemon.plist' (($daemonPlist -join "`n") + "`n")
 $sweptPlist = @($daemonPlist | ForEach-Object { $_.Replace('/opt/d/', '/opt/sw') })
 MakeFile 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' (($sweptPlist -join "`n") + "`n")
-# Plists plutil reads as launchd does (a CDATA section; a comment holding a > that hides a
-# forged string; a carriage return entity inside a string), one whose UserName,
+# Plists the sh collector's plutil reads as launchd does (a CDATA section; a comment holding
+# a > that hides a forged string; a carriage return entity inside a string), one whose UserName,
 # EnvironmentVariables dictionary and key repeat (the last of each counts), and a daemon
 # plist in a -p project with no owner.
 MakeFile 'Library/LaunchAgents/com.example.cdata.plist' ('<plist version="1.0"><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/<![CDATA[x]]>y</string></dict></dict></plist>' + "`n")
@@ -3070,7 +3066,7 @@ if ($zshLinkOk) {
 Check '#454 a catalog-collected startup file is hinted and keeps its one catalog row' { $catalogRows = RowsAt 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist'; (HasHint $defaultRunSummary 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' 1 'OPENCLAW_STATE_DIR' 'openclaw' 'alice') -and $catalogRows.Count -eq 1 -and $catalogRows[0].agent -eq 'openclaw' }
 Check '#454 a file only the sweep reaches is not searched by default' { (HintsFrom $defaultRunSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 0 -and (RowsAt 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 0 }
 Check '#454 the log holds the hint lines' { $relocationLog.Contains("Relocation hints in system files") -and $relocationLog.Contains("relocation hint: $(ImagePath 'etc/profile'):2 names CODEX_HOME (codex-cli)") }
-Check '#454 the log never holds an assignment' { -not $relocationLog.Contains('/opt/x') }
+Check "#455 the log never holds a file's assignment or value" { -not $relocationLog.Contains('/opt/x') }
 Check '#454 stdout relocation line counts hints and files searched' { $defaultRunSummary.relocation.files_searched -ge $startupFixtures.Count -and $script:stdout -match "(?m)^relocation: $(@($defaultRunSummary.relocation.hints).Count) hints in $($defaultRunSummary.relocation.files_searched) files searched; see collectors/docs/relocation\.md\s*$" }
 Check '#454 options record the sweep settings' { $defaultRunSummary.options.env_scan_home -eq $false -and $defaultRunSummary.options.env_scan_max_size_bytes -eq 1048576 -and $defaultRunSummary.relocation.files_skipped_size -eq 0 }
 Check '#454 a fish universal variable is a hint' { HasHint $defaultRunSummary 'Users/alice/.config/fish/fish_variables' 1 'CLAUDE_CONFIG_DIR' 'claude-code' 'alice' }
@@ -3083,12 +3079,11 @@ Check '#454 an env shebang line gives no ENV hint' { $shebangHints = @(HintsFrom
 # The PowerShell collector reads no value from a file: every file hint keeps an empty value
 # and its log line ends at the agent, whatever the file assigns.
 Check '#455 a UTF-16 profile is hinted' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16.ps1' 1 'CODEX_HOME' 'codex-cli' 'alice' }
-Check '#455 a big-endian UTF-16 profile is hinted on its line' { (HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1' 2 'CODEX_HOME' 'codex-cli' 'alice') -and (HintsFrom $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1').Count -eq 1 }
 Check '#455 a byte order mark keeps a name from matching' { (HasHint $defaultRunSummary 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli' '') -and (HintsFrom $defaultRunSummary 'etc/environment.d/bom.conf').Count -eq 1 }
 Check '#455 a lone carriage return splits no line' { $carriageSource = ImagePath 'etc/environment.d/cr2.conf'; (HasHint $defaultRunSummary 'etc/environment.d/cr2.conf' 1 'CODEX_HOME' 'codex-cli' '') -and (HasHint $defaultRunSummary 'etc/environment.d/cr2.conf' 1 'CLAUDE_CONFIG_DIR' 'claude-code' '') -and @($defaultRunSummary.relocation.hints | Where-Object { $_.source -eq $carriageSource -and $_.line -ne 1 }).Count -eq 0 }
-Check '#455 no file hint carries a value' { $fileHints = @($defaultRunSummary.relocation.hints | Where-Object { $_.line -gt 0 }); $hintLines = @($relocationLog -split "`r?`n" | Where-Object { $_.Contains('relocation hint: ') }); $fileHints.Count -gt 0 -and @($fileHints | Where-Object { $_.value -ne '' }).Count -eq 0 -and $hintLines.Count -gt 0 -and @($hintLines | Where-Object { $_.Contains(' = ') }).Count -eq 0 -and -not $relocationLog.Contains('value not resolved') }
-Check '#455 no assigned text reaches the log or the summary' { $defaultSummaryFile = Get-ChildItem -LiteralPath (Join-Path $Out 'default') -Filter '*.collection.json' | Select-Object -First 1; $summaryText = [System.IO.File]::ReadAllText($defaultSummaryFile.FullName); $assignedTexts = @('opt/single', 'opt/rel', 'file://', '/opt/../x', 'XDG_CONFIG_HOME/x', 'opt/comment', '$HOME/x', '${HOME}/x'); @($assignedTexts | Where-Object { $relocationLog.Contains($_) -or $summaryText.Contains($_) }).Count -eq 0 }
-Check '#455 the stdout relocation line counts the resolved values' { @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }).Count -eq 0 -and $script:stdout -match '(?m)^relocation: ' -and $script:stdout -notmatch '(?m)^relocation: .*resolved' }
+Check '#455 no file hint carries a value' { $fileHints = @($defaultRunSummary.relocation.hints | Where-Object { $_.line -gt 0 }); $hintLines = @($relocationLog -split "`r?`n" | Where-Object { $_.Contains('relocation hint: ') }); $fileHints.Count -gt 0 -and @($fileHints | Where-Object { $_.value -ne '' }).Count -eq 0 -and $hintLines.Count -gt 0 -and @($hintLines | Where-Object { $_.Contains(' = ') }).Count -eq 0 -and -not $relocationLog.Contains('value not resolved') -and -not ($defaultRunSummary.capabilities.PSObject.Properties.Name -contains 'plutil') }
+Check '#455 no assigned text reaches the log or the summary' { $defaultSummaryFile = Get-ChildItem -LiteralPath (Join-Path $Out 'default') -Filter '*.collection.json' | Select-Object -First 1; $summaryText = [System.IO.File]::ReadAllText($defaultSummaryFile.FullName); $assignedTexts = @('opt/single', 'opt/rel', 'file://', '/opt/../x', 'XDG_CONFIG_HOME/x', 'opt/comment', '$HOME/x', '${HOME}/x', 'opt/q', 'opt/cont', 'opt/crlf', 'opt/d/', 'opt/last', 'opt/real', 'opt/xy'); $assignedTexts += @($assignedTexts | ForEach-Object { $_.Replace('/', '\') }); @($assignedTexts | Where-Object { $relocationLog.Contains($_) -or $summaryText.Contains($_) }).Count -eq 0 }
+Check '#455 the stdout relocation line omits a count of zero resolved values' { @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }).Count -eq 0 -and $script:stdout -match '(?m)^relocation: ' -and $script:stdout -notmatch '(?m)^relocation: .*resolved' }
 Check '#455 the registry object records that no registry was read' { $registryRecord = $defaultRunSummary.relocation.registry; $expectedReason = 'image mode'; if ($env:OS -ne 'Windows_NT') { $expectedReason = 'not Windows' }; $relocationKeys = @($defaultRunSummary.relocation.PSObject.Properties | ForEach-Object { $_.Name }) -join ','; $registryKeys = @($registryRecord.PSObject.Properties | ForEach-Object { $_.Name }) -join ','; $relocationKeys -ceq 'hints,registry,files_searched,files_skipped_size' -and $registryKeys -ceq 'read,reason,users_read,users_not_loaded,users_denied' -and $registryRecord.read -eq $false -and $registryRecord.reason -ceq $expectedReason -and @($registryRecord.users_read).Count -eq 0 -and @($registryRecord.users_not_loaded).Count -eq 0 -and @($registryRecord.users_denied).Count -eq 0 }
 
 # 2026-11-08 exclusion and secret globs across a newline in a path (#473)

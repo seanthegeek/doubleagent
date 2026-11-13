@@ -1985,11 +1985,12 @@ printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/usr/share/ollama/.env-helper.sh"
 # environment.d files hold each form the reader resolves or refuses,
 # one per line, and a value continued on a second line; a daemon plist names
 # its user. The files above assigning /opt/x resolve to $ROOT/opt/x.
-# shellcheck disable=SC2016 # the fixtures hold shell variables literally
+# shellcheck disable=SC2016,SC2129 # the fixtures hold shell variables literally, one form each
 printf '%s\n' 'CODEX_HOME="/opt/q"' "CODEX_HOME='/opt/single'" >>"$ROOT/etc/environment"
 printf 'CODEX_HOME=/opt/e\033x\n' >>"$ROOT/etc/environment"
 printf '%s\n' 'CODEX_HOME=/a%%PATH%' >>"$ROOT/etc/environment"
 printf 'CODEX_HOME=/a\rb\n' >>"$ROOT/etc/environment"
+# shellcheck disable=SC1003 # a value ending in a backslash is the fixture
 printf '%s\n' 'CODEX_HOME=/opt/a#b' 'CODEX_HOME="/opt/x\"' 'CODEX_HOME=/opt/h\' 'LANG=C\' \
   'CODEX_HOME=/opt/joined' 'CLAUDE_CONFIG_DIR=/opt/t\ ' '' 'HERMES_HOME=/opt/after' >>"$ROOT/etc/environment"
 printf 'CODEX_HOME=/opt/n\000ul\nCODEX_HOME=/opt/afternul\n' >>"$ROOT/etc/environment"
@@ -1997,7 +1998,7 @@ printf 'CODEX_HOME=/opt/n\000ul\nCODEX_HOME=/opt/afternul\n' >>"$ROOT/etc/enviro
 printf '%s\n' 'CODEX_HOME=$HOME/x' >"$ALICE/.config/environment.d/home.conf"
 # shellcheck disable=SC2016
 printf '%s\n' 'CODEX_HOME=${HOME}/x' >"$ROOT/etc/environment.d/home.conf"
-# shellcheck disable=SC2016
+# shellcheck disable=SC2016,SC1003 # literal variables; values ending in a backslash
 printf '%s\n' "CODEX_HOME='/opt/s'" 'CODEX_HOME=$XDG_CONFIG_HOME/x' 'CODEX_HOME=opt/rel' \
   'CODEX_HOME=file:///opt/u' 'CODEX_HOME=/opt/../x' 'CODEX_HOME=/opt/\' 'cont/' \
   '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' 'CODEX_HOME=/a$$HOME' 'CODEX_HOME=/a${X' \
@@ -2837,6 +2838,7 @@ value_logged() { _vl_where="$1:$2"; [ "$2" != 0 ] || _vl_where=$1; grep -qxF "re
 HAVE_PLUTIL=; if command -v plutil >/dev/null 2>&1; then HAVE_PLUTIL=1; fi
 # shellcheck disable=SC2317,SC2329
 plist_tail() { if [ -n "$HAVE_PLUTIL" ]; then printf '%s' "$1"; else printf '; value not resolved: no plutil'; fi; }
+# shellcheck disable=SC2034 # read by the eval'd check strings
 NO_PLUTIL='; value not resolved: no plutil'
 # shellcheck disable=SC2317,SC2329
 resolved_total() { grep -c '"value": "[^"]' "$1"; }

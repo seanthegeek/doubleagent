@@ -4503,7 +4503,7 @@ function Get-BoundedNames([string]$line, [bool]$ignoreCase) {
 # backquote is an ordinary path character on Windows, and the registry
 # expands neither.
 function Test-ResolvedValue([string]$text) {
-  $token = $script:AfterPercentRegistryRx.Match($text.Substring($text.IndexOf('%') + 1))
+  $token = $script:AfterPercentRegistryRx.Match($text.Substring($text.IndexOf([char]'%') + 1))
   $reason = ''
   if ($text -match '[\x00-\x1f\x7f]') { $reason = 'holds a control character' }
   elseif ($text.Contains('%') -and $token.Success) {
