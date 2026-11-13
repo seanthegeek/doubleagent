@@ -3166,7 +3166,7 @@ check "#454 the sweep hints and collects a file deep in the home" "hint_line \"$
 if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a swept daemon plist under a home keeps the home's user" "hint_line \"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist\" 0 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"' && [ \"\$(hint_value \"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist\" 0 CODEX_HOME codex-cli)\" = \"$ROOT/opt/sw\" ]"
 else
-  check "#455 a swept daemon plist under a home keeps the home's user" "hint_line \"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist\" 9 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"' && value_logged \"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist\" 9 CODEX_HOME codex-cli \"\$NO_PLUTIL\""
+  check "#455 a swept daemon plist under a home keeps the home's user" "hint_line \"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist\" 9 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"' && grep -qF \"relocation hint: $ALICE/backup/Library/LaunchDaemons/com.example.swept.plist:9 names CODEX_HOME (codex-cli)\$NO_PLUTIL\" \"\$(ls \"$OUT/envscan\"/*.log)\""
 fi
 check "#454 an env shebang line in a swept file gives no ENV hint" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 1 ]"
 check "#454 a file name holding a newline steers no read through a symlink" "[ \"\$(hint_count \"$ALICE/scripts/steer/d\")\" = 0 ] && [ -z \"\$(row \"$ALICE/scripts/steer/d\")\" ] && [ -z \"\$(row \"$ROOT/opt/outside/target\")\" ] && [ \"\$(grep -c 'scripts/steer/d' \"\$SUMMARY\")\" = 0 ] && [ -f \"$ALICE/scripts/steer/d
@@ -3205,7 +3205,7 @@ check "#454 the sweep skips a project that holds a home directory" "grep -q \"sw
 if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a daemon plist in a project with no owner keeps the empty user" "hint_line \"$ROOT/opt/daemonproj/LaunchDaemons/com.example.project.plist\" 0 CODEX_HOME codex-cli | contains -F '\"user\": \"\"' && [ \"\$(hint_value \"$ROOT/opt/daemonproj/LaunchDaemons/com.example.project.plist\" 0 CODEX_HOME codex-cli)\" = \"$ROOT/opt/dp\" ]"
 else
-  check "#455 a daemon plist in a project with no owner keeps the empty user" "hint_line \"$ROOT/opt/daemonproj/LaunchDaemons/com.example.project.plist\" 9 CODEX_HOME codex-cli | contains -F '\"user\": \"\"' && value_logged \"$ROOT/opt/daemonproj/LaunchDaemons/com.example.project.plist\" 9 CODEX_HOME codex-cli \"\$NO_PLUTIL\""
+  check "#455 a daemon plist in a project with no owner keeps the empty user" "hint_line \"$ROOT/opt/daemonproj/LaunchDaemons/com.example.project.plist\" 9 CODEX_HOME codex-cli | contains -F '\"user\": \"\"' && grep -qF \"relocation hint: $ROOT/opt/daemonproj/LaunchDaemons/com.example.project.plist:9 names CODEX_HOME (codex-cli)\$NO_PLUTIL\" \"\$(ls \"$OUT/envscanroot\"/*.log)\""
 fi
 mkdir -p "$OUT/envscanbad"
 "$SHELL_UNDER_TEST" "$SCRIPT" -r "$ROOT" -o "$OUT/envscanbad" -q --env-scan-max-size x >"$OUT/envscanbad.stdout" 2>"$OUT/envscanbad.stderr"

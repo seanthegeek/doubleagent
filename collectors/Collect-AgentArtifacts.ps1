@@ -4987,7 +4987,7 @@ function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$file
       $line = [string]$lines[$index]
       if (-not $namesRx.IsMatch($line)) { continue }
       foreach ($name in @(Get-BoundedNames $line $ignoreCase)) {
-        [void]$fileHits.Add(@($index + 1, $name))
+        [void]$fileHits.Add(@(($index + 1), $name))
       }
     }
     if ($fileHits.Count -eq 0) { continue }

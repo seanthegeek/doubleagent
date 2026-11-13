@@ -2085,6 +2085,22 @@ $multilinePlist = @(
   '</dict></dict></plist>'
 )
 MakeFile 'Library/LaunchAgents/com.example.multiline.plist' (($multilinePlist -join "`n") + "`n")
+$daemonPlist = @(
+  '<?xml version="1.0" encoding="UTF-8"?>'
+  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+  '<plist version="1.0">'
+  '<dict>'
+  '  <key>UserName</key>'
+  '  <string>svc</string>'
+  '  <key>EnvironmentVariables</key>'
+  '  <dict>'
+  '    <key>CODEX_HOME</key>'
+  '    <string>/opt/d/</string>'
+  '  </dict>'
+  '</dict>'
+  '</plist>'
+)
+MakeFile 'Library/LaunchDaemons/com.example.daemon.plist' (($daemonPlist -join "`n") + "`n")
 $sweptPlist = @($daemonPlist | ForEach-Object { $_.Replace('/opt/d/', '/opt/sw') })
 MakeFile 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' (($sweptPlist -join "`n") + "`n")
 # Plists plutil reads as launchd does (a CDATA section; a comment holding a > that hides a
@@ -2107,22 +2123,6 @@ $projectPlist = @($daemonPlist | ForEach-Object { $_.Replace('/opt/d/', '/opt/dp
 MakeFile 'opt/daemonproj/LaunchDaemons/com.example.project.plist' (($projectPlist -join "`n") + "`n")
 # Whether the host has plutil, which the collector looks for off Windows alone.
 $havePlutil = $env:OS -ne 'Windows_NT' -and $null -ne (Get-Command plutil -CommandType Application -ErrorAction SilentlyContinue)
-$daemonPlist = @(
-  '<?xml version="1.0" encoding="UTF-8"?>'
-  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
-  '<plist version="1.0">'
-  '<dict>'
-  '  <key>UserName</key>'
-  '  <string>svc</string>'
-  '  <key>EnvironmentVariables</key>'
-  '  <dict>'
-  '    <key>CODEX_HOME</key>'
-  '    <string>/opt/d/</string>'
-  '  </dict>'
-  '</dict>'
-  '</plist>'
-)
-MakeFile 'Library/LaunchDaemons/com.example.daemon.plist' (($daemonPlist -join "`n") + "`n")
 MakeFile 'Users/alice/Library/LaunchAgents/com.example.binary.plist' ("bplist00$([char]0)$([char]1)<key>CODEX_HOME</key>`n")
 $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
@@ -3068,7 +3068,7 @@ if ($zshLinkOk) {
 Check '#454 a catalog-collected startup file is hinted and keeps its one catalog row' { $catalogRows = RowsAt 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist'; (HasHint $defaultRunSummary 'Users/alice/Library/LaunchAgents/ai.openclaw.node.plist' 1 'OPENCLAW_STATE_DIR' 'openclaw' 'alice') -and $catalogRows.Count -eq 1 -and $catalogRows[0].agent -eq 'openclaw' }
 Check '#454 a file only the sweep reaches is not searched by default' { (HintsFrom $defaultRunSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 0 -and (RowsAt 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 0 }
 Check '#454 the log holds the hint lines' { $relocationLog.Contains("Relocation hints in system files") -and $relocationLog.Contains("relocation hint: $(ImagePath 'etc/profile'):2 names CODEX_HOME (codex-cli)") }
-Check '#454 the log never holds an assignment' { $resolvedX = ImagePath 'opt/x'; $optXLines = @($relocationLog -split "`r?`n" | Where-Object { $_.Contains('/opt/x') -or $_.Contains('\opt\x') }); -not $relocationLog.Contains('=/opt/x') -and $optXLines.Count -gt 0 -and @($optXLines | Where-Object { -not $_.EndsWith(" = $resolvedX") }).Count -eq 0 }
+Check '#454 the log never holds an assignment' { $resolvedX = ImagePath 'opt/x'; $optXLines = @($relocationLog -split "`r?`n" | Where-Object { $_.Contains('/opt/x') -or $_.Contains('\opt\x') }); -not $relocationLog.Contains('=/opt/x') -and $optXLines.Count -gt 0 -and @($optXLines | Where-Object { -not $_.Contains(" = $resolvedX") }).Count -eq 0 }
 Check '#454 stdout relocation line counts hints and files searched' { $defaultRunSummary.relocation.files_searched -ge $startupFixtures.Count -and $script:stdout -match "(?m)^relocation: $(@($defaultRunSummary.relocation.hints).Count) hints in $($defaultRunSummary.relocation.files_searched) files searched, [1-9]\d* resolved; see collectors/docs/relocation\.md\s*$" }
 Check '#454 options record the sweep settings' { $defaultRunSummary.options.env_scan_home -eq $false -and $defaultRunSummary.options.env_scan_max_size_bytes -eq 1048576 -and $defaultRunSummary.relocation.files_skipped_size -eq 0 }
 Check '#454 a fish universal variable is a hint' { HasHint $defaultRunSummary 'Users/alice/.config/fish/fish_variables' 1 'CLAUDE_CONFIG_DIR' 'claude-code' 'alice' }
@@ -3576,7 +3576,7 @@ Check '#454 the sweep skips a project that holds a home directory' { $envScanRoo
 if ($havePlutil) {
   Check "#455 a daemon plist in a project with no owner keeps the empty user" { (HasHint $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 0 'CODEX_HOME' 'codex-cli' '') -and (HintValue $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 0 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/dp') }
 } else {
-  Check "#455 a daemon plist in a project with no owner keeps the empty user" { (HasHint $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli' '') -and (ValueLogged 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli' $noPlutil) }
+  Check "#455 a daemon plist in a project with no owner keeps the empty user" { (HasHint $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli' '') -and $envScanRootLog.Contains("relocation hint: $(ImagePath 'opt/daemonproj/LaunchDaemons/com.example.project.plist'):9 names CODEX_HOME (codex-cli)$noPlutil") }
 }
 Run 'envscanbad' @{ EnvScanMaxSizeMB = 'x' }
 Check '#454 an invalid sweep size limit exits 1' { $script:ExitCode -eq 1 -and $script:stdout -match 'Invalid -EnvScanMaxSizeMB' }
