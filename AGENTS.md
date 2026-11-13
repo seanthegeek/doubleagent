@@ -458,7 +458,7 @@ for Go files as it does for the others.
 
   | Module | Version | Why |
   | --- | --- | --- |
-  | none yet | | |
+  | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; pure Go. |
 
 - **Programs run.** `os/exec` is imported by `internal/hostcmd` and test
   files only, and runs only `getent`, `dscl` and `plutil`: the programs that
