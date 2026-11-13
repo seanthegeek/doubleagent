@@ -2585,6 +2585,11 @@ $script:Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $script:Sep = [string][System.IO.Path]::DirectorySeparatorChar
 # Windows, as opposed to PowerShell 7 on Linux or macOS.
 $script:IsWindowsHost = ($env:OS -eq 'Windows_NT')
+# The property list tool macOS ships, which reads a launchd plist as launchd
+# does; $null elsewhere, where a plist hint keeps an empty value.
+$script:PlutilPath = $null
+try { $script:PlutilPath = (Get-Command plutil -CommandType Application -ErrorAction Stop).Source }
+catch [System.Management.Automation.CommandNotFoundException] { }
 
 # Takes a table here-string; returns its lines that are neither empty nor a
 # # comment.
@@ -4637,125 +4642,48 @@ function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText
   return (Test-ResolvedValue $expanded.text $kind)
 }
 
-# Takes an XmlTextReader positioned on a <string> element; reads to its end
-# and returns @{ text; plain }: the text of its text nodes, and whether it held
-# nothing else. A CDATA section, a comment or a child element makes it not
-# plain, since the sh awk program cannot read those and refuses them too.
-function Read-PlainString($reader) {
-  $builder = New-Object System.Text.StringBuilder; $plain = $true
-  if ($reader.IsEmptyElement) { return @{ text = ''; plain = $true } }
-  $stringDepth = $reader.Depth
-  while ($reader.Read()) {
-    $nodeType = $reader.NodeType
-    if ($nodeType -eq [System.Xml.XmlNodeType]::EndElement -and $reader.Depth -eq $stringDepth) {
-      break
-    }
-    if ($nodeType -eq [System.Xml.XmlNodeType]::Text -or
-      $nodeType -eq [System.Xml.XmlNodeType]::Whitespace -or
-      $nodeType -eq [System.Xml.XmlNodeType]::SignificantWhitespace) {
-      [void]$builder.Append($reader.Value)
-    } else { $plain = $false }
-  }
-  return @{ text = $builder.ToString(); plain = $plain }
+# Takes a plist and a key path; returns @{ present; text; reason } from what
+# plutil, macOS's property list tool, extracts there: the text of a one-line
+# string, or the reason it is no value (holds a newline, holds an XML entity
+# for one plutil had to encode, not a string for another type); present is
+# false when nothing is at the path. Only plutil parses the plist, as launchd
+# does (binary plists too, a repeated key's last value), and this reads its
+# one-element output alone, as the sh collector's plutil_string_var does.
+function Read-PlutilString([string]$path, [string]$keyPath) {
+  $lines = @(& $script:PlutilPath -extract $keyPath xml1 -o - $path 2>$null)
+  if ($LASTEXITCODE -ne 0) { return @{ present = $false; text = ''; reason = '' } }
+  $read = @{ present = $true; text = ''; reason = 'not a string' }
+  if ($lines.Count -lt 5 -or -not ([string]$lines[3]).StartsWith('<string>')) { return $read }
+  if ($lines.Count -gt 5) { $read.reason = 'holds a newline'; return $read }
+  $line = [string]$lines[3]
+  if (-not $line.EndsWith('</string>')) { return $read }
+  $read.text = $line.Substring(8, $line.Length - 17); $read.reason = ''
+  if ($read.text.Contains('&')) { $read.reason = 'holds an XML entity' }
+  return $read
 }
 
-# Takes an open XmlTextReader on a property list and Resolve-PlistValues'
-# result; reads to the end, filling the result. A value is the element after
-# its <key> at the same depth; the first <dict> is the top level. A UserName
-# that is no plain account name is left out.
-function Read-PlistEnvironment($reader, $result) {
-  $keyText = ''; $keyLine = 0; $keyDepth = -1; $topDepth = -1; $environmentDepth = -1
-  while ($reader.Read()) {
-    $depth = $reader.Depth
-    if ($reader.NodeType -eq [System.Xml.XmlNodeType]::EndElement) {
-      if ($depth + 1 -eq $environmentDepth) { $environmentDepth = -1 }
-      continue
-    }
-    if ($reader.NodeType -ne [System.Xml.XmlNodeType]::Element) { continue }
-    $element = $reader.LocalName
-    if ($element -ceq 'dict' -and $topDepth -lt 0) { $topDepth = $depth + 1; continue }
-    if ($element -ceq 'key') {
-      $keyLine = $reader.LineNumber; $keyDepth = $depth; $keyText = $reader.ReadString()
-      continue
-    }
-    if ($depth -ne $keyDepth) { continue }
-    $keyDepth = -1
-    if ($depth -eq $topDepth -and $keyText -ceq 'EnvironmentVariables' -and
-      $element -ceq 'dict' -and -not $reader.IsEmptyElement) {
-      $environmentDepth = $depth + 1; $result.entries = @{}
-    } elseif ($depth -eq $topDepth -and $keyText -ceq 'UserName' -and $element -ceq 'string') {
-      $userName = Read-PlainString $reader
-      $result.userName = ''
-      if ($userName.plain -and $userName.text -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*\z') {
-        $result.userName = $userName.text
-      }
-    } elseif ($depth -eq $environmentDepth -and $script:RelocationNames -ccontains $keyText) {
-      $resolved = @{ value = ''; reason = 'not a string' }
-      if ($element -ceq 'string') {
-        $assigned = Read-PlainString $reader
-        if (-not $assigned.plain) { $resolved = @{ value = ''; reason = 'not a plain string' } }
-        else { $resolved = Test-ResolvedValue $assigned.text 'launchd' }
-      }
-      $result.entries["$keyLine|$keyText"] = $resolved
-    }
-  }
-}
-
-# Takes a property list's text; returns whether it is plain, the form launchd
-# and plutil write, which both collectors read: no &, no comment or CDATA
-# section, no processing instruction beyond one leading XML declaration, no
-# DOCTYPE other than Apple's, and no attribute beyond plist's version. The sh
-# collector's tokeniser cannot read the other shapes and refuses them the same
-# way, so neither collector reads a shape one at a time.
-function Test-PlainPlist([string]$text) {
-  if ($text.Contains('&')) { return $false }
-  $declaration = '^\s*<\?xml version="1\.[0-9]+"( encoding="[A-Za-z0-9._-]+")?' +
-    '( standalone="(yes|no)")?\?>'
-  $doctype = '^!DOCTYPE plist PUBLIC "-//Apple( Computer)?//DTD PLIST 1\.0//EN"' +
-    ' "http://www\.apple\.com/DTDs/PropertyList-1\.0\.dtd"\z'
-  $body = $text -creplace $declaration, ''
-  foreach ($tag in [regex]::Matches($body, '<([^>]*)>')) {
-    $inner = $tag.Groups[1].Value
-    if ($inner.StartsWith('?')) { return $false }
-    if ($inner.StartsWith('!')) { if ($inner -cnotmatch $doctype) { return $false }; continue }
-    if ($inner -cmatch '^plist( version="[0-9.]+")?\z') { continue }
-    if ($inner.IndexOfAny([char[]]'="''') -ge 0) { return $false }
-  }
-  return $true
-}
-
-# Takes a launchd property list; returns @{ entries; userName; reason }: each
-# relocation variable of its last EnvironmentVariables dictionary as
-# "line|NAME" -> @{ value; reason }, the line its <key> is on, which is the line
-# the name search hit, and the last top-level UserName string. A binary plist,
-# one that is not plain (Test-PlainPlist) or XML that does not parse is the
-# reason. No DTD or external entity is fetched.
-function Resolve-PlistValues([string]$path) {
+# Takes a launchd property list and its hits as @(line, variable); returns
+# @{ entries; userName; reason }: each variable hit as "|NAME" -> @{ value;
+# reason } from the plist's EnvironmentVariables dictionary as plutil reads it
+# (the key's effective value, whatever line names it), the UserName when it is
+# a plain account name, or the reason for the whole file: no plutil (the host
+# is not macOS) or plutil could not read the file.
+function Resolve-PlistValues([string]$path, $fileHits) {
   $result = @{ entries = @{}; userName = ''; reason = '' }
-  $stream = $null; $reader = $null
-  try {
-    $stream = New-Object System.IO.FileStream((ConvertTo-ExtendedPath $path),
-      [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $script:ShareReadWriteDelete)
-    $magic = New-Object byte[] 6
-    $count = $stream.Read($magic, 0, 6)
-    if ([System.Text.Encoding]::ASCII.GetString($magic, 0, $count) -ceq 'bplist') {
-      $result.reason = 'binary plist'; return $result
-    }
-    [void]$stream.Seek(0, [System.IO.SeekOrigin]::Begin)
-    $textReader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
-    $text = $textReader.ReadToEnd()
-    if (-not (Test-PlainPlist $text)) { $result.reason = 'not a plain plist'; return $result }
-    $reader = New-Object System.Xml.XmlTextReader((New-Object System.IO.StringReader($text)))
-    $reader.DtdProcessing = [System.Xml.DtdProcessing]::Ignore
-    $reader.XmlResolver = $null
-    Read-PlistEnvironment $reader $result
-  } catch [System.Xml.XmlException] {
-    $result.reason = 'not well-formed XML'
-  } catch [System.IO.IOException], [System.UnauthorizedAccessException] {
-    $result.reason = 'file not readable'
-  } finally {
-    if ($reader) { $reader.Close() }
-    if ($stream) { $stream.Dispose() }
+  if ($null -eq $script:PlutilPath) { $result.reason = 'no plutil'; return $result }
+  & $script:PlutilPath -lint $path 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) { $result.reason = 'plutil could not read the file'; return $result }
+  foreach ($hit in $fileHits) {
+    $name = [string]$hit[1]
+    if ($result.entries.ContainsKey("|$name")) { continue }
+    $read = Read-PlutilString $path "EnvironmentVariables.$name"
+    if (-not $read.present) { continue }
+    if ($read.reason) { $result.entries["|$name"] = @{ value = ''; reason = $read.reason } }
+    else { $result.entries["|$name"] = Test-ResolvedValue $read.text 'launchd' }
+  }
+  $user = Read-PlutilString $path 'UserName'
+  if ($user.present -and -not $user.reason -and $user.text -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*\z') {
+    $result.userName = $user.text
   }
   return $result
 }
@@ -4765,8 +4693,8 @@ function Resolve-PlistValues([string]$path) {
 # Resolve-PlistValues does, for a /etc/environment or environment.d file from
 # its NAME=VALUE lines. An environment.d line ending in a backslash continues
 # on the next and keeps its first line's number; # and ; lines are comments.
-function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText) {
-  if ($kind -eq 'launchd') { return (Resolve-PlistValues $path) }
+function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fileHits) {
+  if ($kind -eq 'launchd') { return (Resolve-PlistValues $path $fileHits) }
   $result = @{ entries = @{}; userName = ''; reason = '' }
   $lines = Read-StartupFileLines $path
   if ($null -eq $lines) { $result.reason = 'file not readable'; return $result }
@@ -4853,7 +4781,9 @@ function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$v
 function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits) {
   $kind = Get-StartupFileKind $path
   $resolved = @{ entries = @{}; userName = ''; reason = '' }
-  if ($kind) { $resolved = Resolve-FileValues $path $kind (Get-ExpansionHome $homeDir) }
+  if ($kind) {
+    $resolved = Resolve-FileValues $path $kind (Get-ExpansionHome $homeDir) $fileHits
+  }
   $hintUser = $user
   if ($user -eq '' -and $homeDir -eq '' -and $kind -eq 'launchd' -and
     $path.Replace('\', '/') -clike '*/LaunchDaemons/*.plist') {
@@ -4862,6 +4792,7 @@ function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits
   foreach ($hit in $fileHits) {
     $value = ''; $reason = $resolved.reason
     $entry = $resolved.entries["$($hit[0])|$($hit[1])"]
+    if (-not $entry) { $entry = $resolved.entries["|$($hit[1])"] }
     if ($entry) { $value = $entry.value; $reason = $entry.reason }
     Add-RelocationHint $hintUser $path $hit[0] $hit[1] $value $reason
   }
@@ -5729,6 +5660,7 @@ function Initialize-Summary {
     capabilities = [ordered]@{
       hash_tool = 'System.Security.Cryptography.SHA256'
       archiver = $script:ArchiverLabels[$script:Archivers[0]]
+      plutil = ($null -ne $script:PlutilPath)
     }
     users = @($script:UserList | ForEach-Object { $_.user })
     homes = @($script:UserList | ForEach-Object { $_.home })

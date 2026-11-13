@@ -99,7 +99,7 @@ file names and expands nothing from its own environment.
 | --- | --- |
 | `/etc/environment` | The text after `NAME=`, with one optional pair of double quotes removed. Nothing is expanded. A line starting with `#` is a comment. |
 | An `environment.d` file (`*.conf` in an `environment.d` directory) | The text after `NAME=`, read by the rules of `environment.d(5)`: white space around the name and the value is trimmed; a line starting with `#` or `;` is a comment; a backslash at the end of a line joins the next line to it, and the hint keeps the first line's number; one enclosing pair of single or double quotes is removed; `$$` is a dollar sign. `$HOME` and `${HOME}` become the user's home in a file that is under a collected user's home (`~/.config/environment.d`), and only there. Every other `$NAME`, `${NAME}`, `${NAME:-x}` and `${NAME:+x}` is left unresolved. |
-| A launchd property list (`*.plist` in a `LaunchAgents` or `LaunchDaemons` directory) | XML only, and only a plain plist, the form launchd and `plutil` write: no comment, CDATA section, `&`, processing instruction beyond the XML declaration, DOCTYPE other than Apple's, or attribute beyond `plist version`. The value is the `<string>` that follows `<key>NAME</key>` inside the last top-level `EnvironmentVariables` dictionary, the last entry when a key repeats, as launchd reads it. The hint's line is the line of the `<key>`. A system plist under `/Library/LaunchDaemons` gives the hint the plist's last top-level `UserName` as its user, and an empty user when it has none; a value spanning lines or a string holding an element is not read. A binary plist is not read. |
+| A launchd property list (`*.plist` in a `LaunchAgents` or `LaunchDaemons` directory) | Read with `plutil`, the property list tool macOS ships, so the value is the one launchd reads: the key's effective value under the top-level `EnvironmentVariables` dictionary, whatever the file's form (XML or binary, the last value when a key repeats). The hint's line is the line of the `<key>` the name search found, and every line naming the key gets that value. A system plist under `/Library/LaunchDaemons` gives the hint the plist's `UserName` as its user when it is a plain account name, and an empty user otherwise. Without `plutil` (Linux, Windows, an image examined off macOS) the hint keeps an empty value with the reason `no plutil`. |
 | The Windows registry (PowerShell collector, live Windows host) | See [The registry](#the-registry). |
 
 A value is kept only when it passes one test, whichever file it came from:
@@ -130,10 +130,10 @@ never quotes it. The collectors use these reasons:
 | `uri` | Starts with a URI scheme, such as `file:///srv/cc`. |
 | `relative` | Starts with a letter, digit, dot, underscore or hyphen and is not a URI, such as `opt/cc` or `./cc`. |
 | `not an absolute path` | Is anything else that is not absolute, such as `~/cc`. |
-| `binary plist` | Is in a launchd plist that begins with the binary property list header; every variable it names gets this reason. |
+| `no plutil` | Is in a launchd plist on a host without `plutil` (not macOS); every variable the plist names gets this reason. |
+| `plutil could not read the file` | Is in a launchd plist that `plutil -lint` rejects; every variable it names gets this reason. |
 | `not a string` | Is in a plist, or in a registry value of a kind other than text, and is not a string. |
-| `not a plain string` | Is a plist `<string>` that holds an element. |
-| `not a plain plist` | Is in a plist that is not plain (the launchd row above says what plain means); every variable it names gets this reason. |
+| `holds an XML entity` | Is a plist string that `plutil` had to encode with an entity (`&amp;`). |
 | `not well-formed XML` | PowerShell collector only: the plist does not parse as XML. |
 | `file not readable` | PowerShell collector only: the file could not be opened for the second read. |
 
@@ -200,7 +200,7 @@ the form that matches the file's shell:
 | `$NAME = "value"` | xonsh |
 | `set E:NAME = value` | Elvish |
 | `$env:NAME = "value"` | PowerShell profiles |
-| `<key>NAME</key>` with the value in the next `<string>` | launchd property lists whose value did not resolve, and every binary plist |
+| `<key>NAME</key>` with the value in the next `<string>` | launchd property lists whose value did not resolve, and every plist on a host without `plutil` |
 | `[env]` table with `NAME = "value"` | `mise.toml` and the other `mise` configuration files |
 
 Then check three things before you believe the value:

@@ -4130,93 +4130,6 @@ END { if (continued) { joined = 1; assign(pending, start) } }
 EOF_ENVIRONMENT_D_VALUES_AWK
 ENVIRONMENT_D_VALUES_AWK=$_ret_heredoc_text
 
-# LAUNCHD_VALUES_AWK: reads a launchd.plist(5) file on stdin and prints
-# LINE|NAME|=VALUE or LINE|NAME|!REASON for each key of a RELOCATION_VARS name
-# (the -v names list) in the last top-level EnvironmentVariables dictionary,
-# LINE that of the <key>, where the name search finds it, and U|USER for the
-# last top-level UserName string. A file starting with the bplist magic gives
-# the one line !binary plist. A plist is read only when it is plain, the form
-# launchd and plutil write: no comment, CDATA section, &, processing
-# instruction beyond the XML declaration, DOCTYPE other than Apple's, or
-# attribute beyond plist's version; anything else gives the one line !not a
-# plain plist, since a tokeniser that reads these shapes one by one loses.
-heredoc_var <<'EOF_LAUNCHD_VALUES_AWK'
-function keep(outcome) { values[++count] = keyline "|" key "|" outcome }
-function found_string() {
-  if (environment && depth == 2 && (key in wanted)) {
-    if (broken) keep("!not a plain string")
-    else if (index(content, "\n")) keep("!holds a newline")
-    else if (index(content, "\r")) keep("!holds a control character")
-    else keep("=" content)
-  } else if (depth == 1 && key == "UserName" && !broken) user = content
-  key = ""
-}
-function plain_tag(tag, name) {
-  if (tag ~ /^\?/) return (!seen && tag ~ declaration)
-  if (tag ~ /^!/) return (tag ~ doctype)
-  if (name == "plist" && tag !~ /^\//) return (tag ~ /^plist( version="[0-9.]+")?$/)
-  return (tag !~ /[="']/)
-}
-function element(tag,   name, empty, closing) {
-  empty = (tag ~ /\/$/); closing = (substr(tag, 1, 1) == "/")
-  name = tag; sub(/^\//, "", name); sub(/[ \t\n\/].*$/, "", name)
-  if (!plain_tag(tag, name)) plain = 0
-  seen = 1
-  if (tag ~ /^[?!]/) return
-  if (inside != "") {
-    if (!closing || name != inside) { broken = 1; return }
-    if (inside == "key") { if (broken) key = ""; else key = content; inside = ""; return }
-    inside = ""; found_string(); return
-  }
-  if (closing) {
-    if (name == "dict") { if (depth == 2) environment = 0; depth-- }
-    return
-  }
-  if (name == "dict" && !empty) {
-    if (environment && depth == 2 && (key in wanted)) keep("!not a string")
-    depth++
-    if (depth == 2 && key == "EnvironmentVariables") { environment = 1; count = 0 }
-    key = ""; return
-  }
-  if (name == "key" && !empty) { inside = "key"; content = ""; broken = 0; keyline = NR; return }
-  if (name == "string") {
-    content = ""; broken = 0
-    if (empty) found_string(); else inside = "string"
-    return
-  }
-  if (environment && depth == 2 && (key in wanted)) keep("!not a string")
-  key = ""
-}
-BEGIN {
-  total = split(names, list, ","); for (i = 1; i <= total; i++) wanted[list[i]] = 1
-  depth = 0; environment = 0; inside = ""; partial = ""; key = ""
-  plain = 1; seen = 0; count = 0; user = ""; binary = 0
-  declaration = "^\\?xml version=\"1\\.[0-9]+\"( encoding=\"[A-Za-z0-9._-]+\")?"
-  declaration = declaration "( standalone=\"(yes|no)\")?\\?$"
-  doctype = "^!DOCTYPE plist PUBLIC \"-//Apple( Computer)?//DTD PLIST 1\\.0//EN\""
-  doctype = doctype " \"http://www\\.apple\\.com/DTDs/PropertyList-1\\.0\\.dtd\"$"
-}
-NR == 1 && substr($0, 1, 6) == "bplist" { binary = 1; print "!binary plist"; exit }
-{
-  if (index($0, "&")) plain = 0
-  text = partial $0; partial = ""
-  while ((opening = index(text, "<")) > 0) {
-    if (inside != "") content = content substr(text, 1, opening - 1)
-    text = substr(text, opening); ending = index(text, ">")
-    if (ending == 0) break
-    element(substr(text, 2, ending - 2)); text = substr(text, ending + 1)
-  }
-  if (opening > 0) partial = text "\n"
-  else if (inside != "") content = content text "\n"
-}
-END {
-  if (binary) exit
-  if (!plain) { print "!not a plain plist"; exit }
-  if (user ~ /^[A-Za-z_][A-Za-z0-9_.-]*$/) print "U|" user
-  for (i = 1; i <= count; i++) print values[i]
-}
-EOF_LAUNCHD_VALUES_AWK
-LAUNCHD_VALUES_AWK=$_ret_heredoc_text
 
 # set_relocation_names: sets RELOCATION_NAMES_CSV, each RELOCATION_VARS name
 # once, comma-separated, for awk, and GREP_NAME_OPTIONS, "-e NAME" for each,
@@ -4395,18 +4308,75 @@ startup_file_kind() {
   esac
 }
 
-# resolve_file_values FILE KIND HOME: sets _ret_values to the lines one run of
-# the KIND awk program prints for FILE (LINE|NAME|=VALUE, LINE|NAME|!REASON,
-# U|USER or a whole-file !REASON), VALUE raw text for accept_resolved_value,
-# never logged. HOME, less ROOT, is what $HOME stands for in an environment.d
-# file; it is empty outside a home's own files. FILE goes on stdin, since awk
-# reads an operand holding = as an assignment. Reads RELOCATION_NAMES_CSV, LOG.
-# Temporaries: _rfv_.
+# plutil_string_var FILE KEYPATH: sets _ret_plist from what plutil, macOS's
+# property list tool, extracts at KEYPATH of FILE: =TEXT for a string, !holds a
+# newline for one spanning lines, !holds an XML entity for one plutil had to
+# encode, !not a string for a value of another type, empty when there is no
+# value there. Only plutil parses the plist, as launchd does (binary plists
+# too, a repeated key's last value), and this reads its one-element output
+# alone. Reads PLUTIL, NEWLINE. Temporaries: _psv_.
+plutil_string_var() {
+  _ret_plist=
+  _psv_output=$("$PLUTIL" -extract "$2" xml1 -o - "$1" 2>/dev/null) || return 0
+  _psv_body=${_psv_output#*"$NEWLINE"}; _psv_body=${_psv_body#*"$NEWLINE"}
+  _psv_body=${_psv_body#*"$NEWLINE"}; _psv_body=${_psv_body%"$NEWLINE"*}
+  case "$_psv_body" in
+    ("<string>"*"$NEWLINE"*) _ret_plist='!holds a newline' ;;
+    ("<string>"*"</string>") _psv_body=${_psv_body#"<string>"}
+      _psv_body=${_psv_body%"</string>"}
+      case "$_psv_body" in
+        (*"&"*) _ret_plist='!holds an XML entity' ;;
+        (*) _ret_plist="=$_psv_body" ;;
+      esac ;;
+    (*) _ret_plist='!not a string' ;;
+  esac
+}
+
+# resolve_plist_values FILE HITS: sets _ret_values to |NAME|=VALUE or
+# |NAME|!REASON for each name of the LINE|NAME lines of HITS, from the
+# EnvironmentVariables dictionary of FILE as plutil reads it, U|USER for a
+# UserName that is a plain account name, or one !REASON line for the whole
+# file: no plutil (the host is not macOS), or plutil could not read the file.
+# A value is the key's effective one, whatever line names it. Reads PLUTIL,
+# NEWLINE. Temporaries: _rpv_.
+resolve_plist_values() {
+  _ret_values=
+  if [ -z "$PLUTIL" ]; then _ret_values='!no plutil'; return 0; fi
+  if ! "$PLUTIL" -lint "$1" >/dev/null 2>&1; then
+    _ret_values='!plutil could not read the file'; return 0
+  fi
+  _rpv_seen=
+  while IFS='|' read -r _rpv_line _rpv_name; do
+    case "$_rpv_seen" in (*"|$_rpv_name|"*) continue ;; esac
+    _rpv_seen="$_rpv_seen|$_rpv_name|"
+    plutil_string_var "$1" "EnvironmentVariables.$_rpv_name"
+    [ -z "$_ret_plist" ] || _ret_values="$_ret_values$NEWLINE|$_rpv_name|$_ret_plist"
+  done <<EOF_PLIST_HITS
+$2
+EOF_PLIST_HITS
+  plutil_string_var "$1" UserName
+  case "$_ret_plist" in
+    ("="[A-Za-z_]*) _rpv_user=${_ret_plist#=}
+      case "$_rpv_user" in
+        (*[!A-Za-z0-9_.-]*) ;;
+        (*) _ret_values="$_ret_values${NEWLINE}U|$_rpv_user" ;;
+      esac ;;
+  esac
+}
+
+# resolve_file_values FILE KIND HOME HITS: sets _ret_values to the lines one
+# run of the KIND awk program prints for FILE (LINE|NAME|=VALUE,
+# LINE|NAME|!REASON, U|USER or a whole-file !REASON), or those of
+# resolve_plist_values for a launchd plist (|NAME|... lines, keyed by name
+# alone), VALUE raw text for accept_resolved_value, never logged. HOME, less
+# ROOT, is what $HOME stands for in an environment.d file; it is empty outside
+# a home's own files. FILE goes on stdin, since awk reads an operand holding =
+# as an assignment. Reads RELOCATION_NAMES_CSV, LOG. Temporaries: _rfv_.
 resolve_file_values() {
   case "$2" in
     (environment) _rfv_program=$ENVIRONMENT_VALUES_AWK ;;
     (environment.d) _rfv_program=$ENVIRONMENT_D_VALUES_AWK ;;
-    (*) _rfv_program=$LAUNCHD_VALUES_AWK ;;
+    (*) resolve_plist_values "$1" "$4"; return 0 ;;
   esac
   _ret_values=$(RESOLVE_HOME=$3 awk -v names="$RELOCATION_NAMES_CSV" "$_rfv_program" \
     <"$1" 2>>"$LOG")
@@ -4452,13 +4422,15 @@ accept_resolved_value() {
 
 # select_line_value VALUES LINE NAME: sets _ret_value and _ret_reason for the
 # hint of NAME on LINE from resolve_file_values' VALUES, wrapped in newlines,
-# through accept_resolved_value; both are empty when LINE assigns no NAME.
+# through accept_resolved_value, the last LINE|NAME| record or, for a plist, the
+# |NAME| one; both are empty when LINE assigns no NAME.
 # Temporaries: _slv_.
 select_line_value() {
   _ret_value=; _ret_reason=
   case "$1" in
     ("$NEWLINE!"*) _slv_outcome=${1#"$NEWLINE"} ;;
     (*"$NEWLINE$2|$3|"*) _slv_outcome=${1##*"$NEWLINE$2|$3|"} ;;
+    (*"$NEWLINE|$3|"*) _slv_outcome=${1##*"$NEWLINE|$3|"} ;;
     (*) return 0 ;;
   esac
   _slv_outcome=${_slv_outcome%%"$NEWLINE"*}
@@ -4483,7 +4455,7 @@ record_file_hints() {
     case "$NEWLINE$USER_LIST$NEWLINE" in
       (*"$NEWLINE$1:$2$NEWLINE"*) [ -z "$2" ] || _rfh_home=${2#"$ROOT"} ;;
     esac
-    resolve_file_values "$3" "$_ret_kind" "$_rfh_home"
+    resolve_file_values "$3" "$_ret_kind" "$_rfh_home" "$_rfh_hits"
     _rfh_values=$NEWLINE$_ret_values$NEWLINE
     case "$1|$2|$3" in
       ("||"*/LaunchDaemons/*) case "$_rfh_values" in
@@ -4832,7 +4804,7 @@ write_summary() {
 "env_scan_max_size_bytes": $ENV_SCAN_MAX_SIZE},
   "capabilities": {"hash_tool": "$HASH_TOOL", "stat_mode": "$STAT_MODE", \
 "worker_shell": "$(json_escape "$WORKER_SH")", "archiver": "$(json_escape "$2")", \
-"grep_text": $(json_bool "${GREP_TEXT:+1}")},
+"grep_text": $(json_bool "${GREP_TEXT:+1}"), "plutil": $(json_bool "${PLUTIL:+1}")},
   "users": $(json_list "$(printf '%s\n' "$USER_LIST" | cut -d: -f1)"),
   "homes": $(json_list "$(printf '%s\n' "$USER_LIST" | sed 's/^[^:]*://')"),
   "users_with_artifacts": $(json_list "$(printf '%s\n' "$ACTIVE_USERS" | cut -d: -f1)"),
@@ -5093,7 +5065,8 @@ check_prerequisites() {
   command -v find >/dev/null 2>&1 || { printf 'find not found\n' >&2; exit 2; }
 }
 
-# detect_capabilities: sets HASH_TOOL, STAT_MODE, WORKER_SH and GREP_TEXT once.
+# detect_capabilities: sets HASH_TOOL, STAT_MODE, WORKER_SH, GREP_TEXT and PLUTIL (the
+# property list tool macOS ships, empty elsewhere) once.
 # The workers run under dash when it is installed, as it starts and loops faster
 # than bash; COLLECTOR_SH overrides it. GREP_TEXT is -a when grep -a -F finds a
 # name past a NUL byte, which grep otherwise reports only as a binary match, and
@@ -5117,6 +5090,7 @@ detect_capabilities() {
   _dc_text_probe=$(printf 'x\000CODEX_HOME\n' | grep -a -n -F -e CODEX_HOME 2>/dev/null |
     awk '/^1:/ { found = 1 } END { print found + 0 }')
   if [ "$_dc_text_probe" = 1 ]; then GREP_TEXT=-a; else GREP_TEXT=; fi
+  PLUTIL=; if command -v plutil >/dev/null 2>&1; then PLUTIL=plutil; fi
 }
 
 # set_output_names: sets START_TIME, HOST, NAME and the output paths under

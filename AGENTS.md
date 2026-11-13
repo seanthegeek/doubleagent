@@ -145,8 +145,9 @@ relative to the repository root unless stated otherwise.
 
 **No dependencies on the host.** The collector uses only sh, find, cp, tar,
 gzip, du, awk, grep, sed, sort, cut, tr, readlink, mkdir, rm, and one of
-`sha256sum`, `shasum`, `sha256` or `openssl`; never Python, Perl, jq or
-anything a minimal host may lack. The Windows collector is PowerShell 5.1
+`sha256sum`, `shasum`, `sha256` or `openssl`, plus `plutil` where macOS provides
+it (a launchd property list is read only through it, never parsed by hand); never
+Python, Perl, jq or anything a minimal host may lack. The Windows collector is PowerShell 5.1
 with no modules.
 
 **POSIX sh, not bash.** The shebang is `#!/bin/sh`, and the script runs
