@@ -2044,8 +2044,24 @@ $environmentValues = @(
   'CODEX_HOME=/opt/\'
   'cont/'
   '# CODEX_HOME=/opt/comment'
+  'CODEX_HOME=/opt/$1'
 )
 MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n")
+# A CRLF file whose value continues on the next line; a plist string spanning lines whose
+# second line is shaped like the sh resolver's own output, and one holding a CDATA section;
+# a daemon plist under a home, reached only by the sweep, whose UserName must not become the
+# hint's user.
+MakeFile 'etc/environment.d/crlf.conf' "CODEX_HOME=/opt/cr\`r`nlf/`r`n"
+$multilinePlist = @(
+  '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
+  '<key>LETTA_DIR</key><string>/opt/m'
+  '3|HERMES_HOME|=/opt/injected</string>'
+  '<key>CODEX_HOME</key><string>/opt/<![CDATA[x]]>y</string>'
+  '</dict></dict></plist>'
+)
+MakeFile 'Library/LaunchAgents/com.example.multiline.plist' (($multilinePlist -join "`n") + "`n")
+$sweptPlist = @($daemonPlist | ForEach-Object { $_.Replace('/opt/d/', '/opt/sw') })
+MakeFile 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' (($sweptPlist -join "`n") + "`n")
 $daemonPlist = @(
   '<?xml version="1.0" encoding="UTF-8"?>'
   '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
@@ -3054,6 +3070,11 @@ Check "#455 a continued line resolves under the first line's number" { (HintValu
 Check '#455 a commented assignment gives no value and no reason' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 8 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 8 'CODEX_HOME' 'codex-cli' '') }
 Check "#455 a launchd daemon's UserName is its hint's user" { (HasHint $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli' 'svc') -and (HintValue $defaultRunSummary 'Library/LaunchDaemons/com.example.daemon.plist' 9 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/d') -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist').Count -eq 1 -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist')[0].user -eq '' -and (RowsAt 'Library/LaunchDaemons/com.example.daemon.plist')[0].agent -eq 'shared' }
 Check "#455 a binary plist's value is not resolved when capabilities.grep_text is true (passes otherwise)" { (HintValue $defaultRunSummary 'Users/alice/Library/LaunchAgents/com.example.binary.plist' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Users/alice/Library/LaunchAgents/com.example.binary.plist' 1 'CODEX_HOME' 'codex-cli' '; value not resolved: binary plist') }
+Check '#455 a dollar before a digit is no reference' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 9 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 9 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a $') }
+Check '#455 a continued line with CRLF ends resolves' { (HintValue $defaultRunSummary 'etc/environment.d/crlf.conf' 1 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/crlf') -and $null -eq (HintValue $defaultRunSummary 'etc/environment.d/crlf.conf' 2 'CODEX_HOME' 'codex-cli') }
+Check '#455 a plist string spanning lines is not resolved' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 2 'LETTA_DIR' 'letta') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 2 'LETTA_DIR' 'letta' '; value not resolved: holds a newline') }
+Check '#455 a line inside a plist string forges no value' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 3 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 3 'HERMES_HOME' 'hermes' '') -and -not $relocationLog.Contains('injected') }
+Check '#455 a plist string holding a CDATA section is not resolved' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 4 'CODEX_HOME' 'codex-cli' '; value not resolved: not a plain string') }
 Check '#455 only resolvable startup files give a value' { $valued = @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }); $valued.Count -gt 0 -and @($valued | Where-Object { ($_.source -replace '\\', '/') -notmatch '/etc/environment$|/environment\.d/[^/]*\.conf$|/LaunchAgents/[^/]*\.plist$|/LaunchDaemons/[^/]*\.plist$' }).Count -eq 0 -and (HintValue $defaultRunSummary 'Users/alice/.bash_profile' 1 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' }
 Check '#455 an unresolved value is never logged or stored' { $summaryText = [System.IO.File]::ReadAllText($script:Summary.FullName); $unresolved = @('opt/single', 'opt/rel', 'file://', '/opt/../x', 'XDG_CONFIG_HOME/x', 'opt/comment', '$HOME/x', '${HOME}/x'); @($unresolved | Where-Object { $relocationLog.Contains($_) -or $summaryText.Contains($_) }).Count -eq 0 -and $relocationLog.Contains('value not resolved') }
 Check '#455 the stdout relocation line counts the resolved values' { (ResolvedTotal $defaultRunSummary) -gt 0 -and $script:stdout -match "(?m), $(ResolvedTotal $defaultRunSummary) resolved; see collectors/docs/relocation\.md\s*$" }
@@ -3389,6 +3410,8 @@ Check '#454 stdout relocation line counts the files skipped for size' { $script:
 Check '#454 the sweep run records its options' { $envScanSummary.options.env_scan_home -eq $true -and $envScanSummary.options.env_scan_max_size_bytes -eq 1048576 }
 Check '#454 the sweep hints and collects a file deep in the home' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh' 2 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.sh' 'shared' $true) }
 Check '#454 an env shebang line in a swept file gives no ENV hint' { (HintsFrom $envScanSummary 'Users/alice/work/scripts/deep/env-helper.sh').Count -eq 1 }
+# 2026-11-12 resolved relocation values (#455)
+Check "#455 a swept daemon plist under a home keeps the home's user" { (HasHint $envScanSummary 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' 9 'CODEX_HOME' 'codex-cli' 'alice') -and (HintValue $envScanSummary 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' 9 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/sw') }
 Check '#454 the sweep matches a lowercase name in a .ps1 file' { (HasHint $envScanSummary 'Users/alice/work/scripts/deep/env-helper.ps1' 1 'QWEN_HOME' 'qwen-code' 'alice') -and (IsAgentRow 'Users/alice/work/scripts/deep/env-helper.ps1' 'shared' $true) }
 Check '#454 the sweep counts a file over its size limit and leaves it unsearched' { $envScanSummary.relocation.files_skipped_size -ge 1 -and (HintsFrom $envScanSummary 'Users/alice/scripts/big.sh').Count -eq 0 -and (RowsAt 'Users/alice/scripts/big.sh').Count -eq 0 }
 Check '#454 the sweep leaves out an excluded directory' { (HintsFrom $envScanSummary 'Users/alice/tools/agent-env.sh').Count -eq 0 -and (RowsAt 'Users/alice/tools/agent-env.sh').Count -eq 0 }

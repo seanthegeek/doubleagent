@@ -4637,6 +4637,28 @@ function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText
   return (Test-ResolvedValue $expanded.text $kind)
 }
 
+# Takes an XmlTextReader positioned on a <string> element; reads to its end
+# and returns @{ text; plain }: the text of its text nodes, and whether it held
+# nothing else. A CDATA section, a comment or a child element makes it not
+# plain, since the sh awk program cannot read those and refuses them too.
+function Read-PlainString($reader) {
+  $builder = New-Object System.Text.StringBuilder; $plain = $true
+  if ($reader.IsEmptyElement) { return @{ text = ''; plain = $true } }
+  $stringDepth = $reader.Depth
+  while ($reader.Read()) {
+    $nodeType = $reader.NodeType
+    if ($nodeType -eq [System.Xml.XmlNodeType]::EndElement -and $reader.Depth -eq $stringDepth) {
+      break
+    }
+    if ($nodeType -eq [System.Xml.XmlNodeType]::Text -or
+      $nodeType -eq [System.Xml.XmlNodeType]::Whitespace -or
+      $nodeType -eq [System.Xml.XmlNodeType]::SignificantWhitespace) {
+      [void]$builder.Append($reader.Value)
+    } else { $plain = $false }
+  }
+  return @{ text = $builder.ToString(); plain = $plain }
+}
+
 # Takes an open XmlTextReader on a property list and Resolve-PlistValues'
 # result; reads to the end, filling the result. A value is the element after
 # its <key> at the same depth; the first <dict> is the top level. A UserName
@@ -4662,18 +4684,19 @@ function Read-PlistEnvironment($reader, $result) {
       $element -ceq 'dict' -and -not $reader.IsEmptyElement) {
       $environmentDepth = $depth + 1
     } elseif ($depth -eq $topDepth -and $keyText -ceq 'UserName' -and $element -ceq 'string') {
-      $userName = $reader.ReadString()
-      if ($userName -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*$') { $result.userName = $userName }
+      $userName = Read-PlainString $reader
+      if ($userName.plain -and $userName.text -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*$') {
+        $result.userName = $userName.text
+      }
     } elseif ($depth -eq $environmentDepth -and $script:RelocationNames -ccontains $keyText) {
       $resolved = @{ value = ''; reason = 'not a string' }
       if ($element -ceq 'string') {
-        $emptyString = $reader.IsEmptyElement
-        $assigned = $reader.ReadString()
-        if (-not $emptyString -and $reader.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+        $assigned = Read-PlainString $reader
+        if (-not $assigned.plain) {
           $resolved = @{ value = ''; reason = 'not a plain string' }
-        } elseif ($assigned.IndexOfAny([char[]]'&<>') -ge 0) {
+        } elseif ($assigned.text.IndexOfAny([char[]]'&<>') -ge 0) {
           $resolved = @{ value = ''; reason = 'holds an XML entity' }
-        } else { $resolved = Test-ResolvedValue $assigned 'launchd' }
+        } else { $resolved = Test-ResolvedValue $assigned.text 'launchd' }
       }
       $result.entries["$keyLine|$keyText"] = $resolved
     }
@@ -4800,14 +4823,15 @@ function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$v
 
 # Takes the user, home and a hit file with its hits as @(line, variable);
 # reads the file's values when Get-StartupFileKind names its kind and records
-# each hit with its value or the reason it has none. The hints of a plist under
-# LaunchDaemons take its UserName as their user ('' without one).
+# each hit with its value or the reason it has none. The hints of a system
+# plist under LaunchDaemons (the user is '') take its UserName as their user.
 function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits) {
   $kind = Get-StartupFileKind $path
   $resolved = @{ entries = @{}; userName = ''; reason = '' }
   if ($kind) { $resolved = Resolve-FileValues $path $kind (Get-ExpansionHome $homeDir) }
   $hintUser = $user
-  if ($kind -eq 'launchd' -and $path.Replace('\', '/') -clike '*/LaunchDaemons/*.plist') {
+  if ($user -eq '' -and $kind -eq 'launchd' -and
+    $path.Replace('\', '/') -clike '*/LaunchDaemons/*.plist') {
     $hintUser = $resolved.userName
   }
   foreach ($hit in $fileHits) {

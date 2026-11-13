@@ -4121,7 +4121,7 @@ BEGIN {
   home = ENVIRON["RESOLVE_HOME"]; continued = 0; joined = 0
 }
 {
-  text = $0
+  text = $0; sub(/\r$/, "", text)
   if (continued) { text = pending text; joined = 1 } else { start = NR; joined = 0 }
   if (text ~ /\\$/) { pending = substr(text, 1, length(text) - 1); continued = 1; next }
   continued = 0; assign(text, start)
@@ -4136,11 +4136,14 @@ ENVIRONMENT_D_VALUES_AWK=$_ret_heredoc_text
 # that of the <key>, where the name search finds it, and U|USER for a
 # top-level UserName string. A file starting with the bplist magic is binary
 # and gives the one line !binary plist. A value is a plain string, never
-# expanded; one holding markup, an & entity or a > is left unresolved.
+# expanded; one spanning lines or holding markup, a CDATA section, a comment,
+# an & entity or a > is left unresolved.
 heredoc_var <<'EOF_LAUNCHD_VALUES_AWK'
 function found_string() {
   if (environment && depth == 2 && (key in wanted)) {
     if (broken) print keyline "|" key "|!not a plain string"
+    else if (index(content, "\n")) print keyline "|" key "|!holds a newline"
+    else if (index(content, "\r")) print keyline "|" key "|!holds a control character"
     else if (content ~ /[&>]/) print keyline "|" key "|!holds an XML entity"
     else print keyline "|" key "|=" content
   } else if (depth == 1 && key == "UserName" && !broken &&
@@ -4148,7 +4151,7 @@ function found_string() {
   key = ""
 }
 function element(tag,   name, empty, closing) {
-  if (tag ~ /^[?!]/) return
+  if (tag ~ /^[?!]/) { if (inside != "") broken = 1; return }
   empty = (tag ~ /\/$/); closing = (substr(tag, 1, 1) == "/")
   name = tag; sub(/^\//, "", name); sub(/[ \t\n\/].*$/, "", name)
   if (inside != "") {
@@ -4397,8 +4400,9 @@ accept_resolved_value() {
     (*"$NEWLINE"*) _ret_reason='holds a newline' ;;
     (*"$TAB"*|*"$CARRIAGE_RETURN"*) _ret_reason='holds a control character' ;;
     (*'$'*) _arv_name=${_arv_path#*\$}; _arv_name=${_arv_name#"{"}
-      _arv_name=${_arv_name%%[!A-Za-z0-9_]*}; _ret_reason="references \$$_arv_name"
-      [ -n "$_arv_name" ] || _ret_reason='holds a $' ;;
+      _arv_name=${_arv_name%%[!A-Za-z0-9_]*}
+      case "$_arv_name" in ([0-9]*) _arv_name= ;; esac
+      _ret_reason="references \$$_arv_name"; [ -n "$_arv_name" ] || _ret_reason='holds a $' ;;
     (*%*) _arv_name=${_arv_path#*%}; _ret_reason='holds a %'
       case "$_arv_name" in
         ([A-Za-z_]*%*) _arv_name=${_arv_name%%[%]*}

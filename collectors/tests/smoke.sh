@@ -1989,15 +1989,31 @@ printf '%s\n' 'CODEX_HOME="/opt/q"' "CODEX_HOME='/opt/single'" >>"$ROOT/etc/envi
 # shellcheck disable=SC2016
 printf '%s\n' 'CODEX_HOME=$HOME/x' >"$ALICE/.config/environment.d/home.conf"
 # shellcheck disable=SC2016
-printf '%s\n' 'CODEX_HOME=$HOME/x' >"$ROOT/etc/environment.d/home.conf"
+printf '%s\n' 'CODEX_HOME=${HOME}/x' >"$ROOT/etc/environment.d/home.conf"
 # shellcheck disable=SC2016
 printf '%s\n' "CODEX_HOME='/opt/s'" 'CODEX_HOME=$XDG_CONFIG_HOME/x' 'CODEX_HOME=opt/rel' \
   'CODEX_HOME=file:///opt/u' 'CODEX_HOME=/opt/../x' 'CODEX_HOME=/opt/\' 'cont/' \
-  '# CODEX_HOME=/opt/comment' >"$ROOT/etc/environment.d/values.conf"
-printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<plist version="1.0">' '<dict>' \
-  '  <key>UserName</key>' '  <string>svc</string>' '  <key>EnvironmentVariables</key>' \
-  '  <dict>' '    <key>CODEX_HOME</key>' '    <string>/opt/d/</string>' '  </dict>' '</dict>' \
-  '</plist>' >"$ROOT/Library/LaunchDaemons/com.example.daemon.plist"
+  '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' >"$ROOT/etc/environment.d/values.conf"
+DAEMON_PLIST_DOCTYPE='<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
+DAEMON_PLIST_DOCTYPE="$DAEMON_PLIST_DOCTYPE \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
+daemon_plist() {
+  printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' "$DAEMON_PLIST_DOCTYPE" \
+    '<plist version="1.0">' '<dict>' '  <key>UserName</key>' '  <string>svc</string>' \
+    '  <key>EnvironmentVariables</key>' '  <dict>' '    <key>CODEX_HOME</key>' \
+    "    <string>$1</string>" '  </dict>' '</dict>' '</plist>'
+}
+daemon_plist /opt/d/ >"$ROOT/Library/LaunchDaemons/com.example.daemon.plist"
+# A CRLF file whose value continues on the next line; a plist string spanning
+# lines whose second line is shaped like the sh resolver's own output, and one
+# holding a CDATA section; a daemon plist under a home, reached only by the
+# sweep, whose UserName must not become the hint's user.
+printf 'CODEX_HOME=/opt/cr\\\r\nlf/\r\n' >"$ROOT/etc/environment.d/crlf.conf"
+printf '%s\n' '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>' \
+  '<key>LETTA_DIR</key><string>/opt/m' '3|HERMES_HOME|=/opt/injected</string>' \
+  '<key>CODEX_HOME</key><string>/opt/<![CDATA[x]]>y</string>' \
+  '</dict></dict></plist>' >"$ROOT/Library/LaunchAgents/com.example.multiline.plist"
+mkdir -p "$ALICE/backup/Library/LaunchDaemons"
+daemon_plist /opt/sw >"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist"
 printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/AppData/Local/agy/agent-env.sh"
 # 2026-11-08 exclusion and secret globs across a newline in a path (#473)
 # The * of an exclusion or secret glob crosses the newline, as the PowerShell collector's does.
@@ -2808,8 +2824,13 @@ check "#455 a file URI is not resolved" "[ -z \"\$(hint_value \"$ROOT/etc/enviro
 check "#455 a path with a .. segment is not resolved" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 5 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 5 CODEX_HOME codex-cli '; value not resolved: holds a .. segment'"
 check "#455 a continued line resolves under the first line's number" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 6 CODEX_HOME codex-cli)\" = \"$ROOT/opt/cont\" ] && ! grep -qF '\"source\": \"$ROOT/etc/environment.d/values.conf\", \"line\": 7,' \"\$SUMMARY\""
 check "#455 a commented assignment gives no value and no reason" "hint_line \"$ROOT/etc/environment.d/values.conf\" 8 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/values.conf\" 8 CODEX_HOME codex-cli ''"
-check "#455 a launchd daemon's UserName is its hint's user" "hint_line \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" 8 CODEX_HOME codex-cli | contains -F '\"user\": \"svc\"' && [ \"\$(hint_value \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" 8 CODEX_HOME codex-cli)\" = \"$ROOT/opt/d\" ] && row \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" | contains '\"user\":\"\",\"home\":\"\",\"agent\":\"shared\"'"
+check "#455 a launchd daemon's UserName is its hint's user" "hint_line \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" 9 CODEX_HOME codex-cli | contains -F '\"user\": \"svc\"' && [ \"\$(hint_value \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" 9 CODEX_HOME codex-cli)\" = \"$ROOT/opt/d\" ] && row \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" | contains '\"user\":\"\",\"home\":\"\",\"agent\":\"shared\"'"
 check "#455 a binary plist's value is not resolved when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { [ -z \"\$(hint_value \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli)\" ] && value_logged \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli '; value not resolved: binary plist'; }"
+check "#455 a dollar before a digit is no reference" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 9 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 9 CODEX_HOME codex-cli '; value not resolved: holds a \$'"
+check "#455 a continued line with CRLF ends resolves" "[ \"\$(hint_value \"$ROOT/etc/environment.d/crlf.conf\" 1 CODEX_HOME codex-cli)\" = \"$ROOT/opt/crlf\" ] && ! grep -qF '\"source\": \"$ROOT/etc/environment.d/crlf.conf\", \"line\": 2,' \"\$SUMMARY\""
+check "#455 a plist string spanning lines is not resolved" "[ -z \"\$(hint_value \"$ROOT/Library/LaunchAgents/com.example.multiline.plist\" 2 LETTA_DIR letta)\" ] && value_logged \"$ROOT/Library/LaunchAgents/com.example.multiline.plist\" 2 LETTA_DIR letta '; value not resolved: holds a newline'"
+check "#455 a line inside a plist string forges no value" "hint_line \"$ROOT/Library/LaunchAgents/com.example.multiline.plist\" 3 HERMES_HOME hermes | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/Library/LaunchAgents/com.example.multiline.plist\" 3 HERMES_HOME hermes '' && ! grep -q injected \"$RELOCATION_LOG\" \"\$SUMMARY\""
+check "#455 a plist string holding a CDATA section is not resolved" "[ -z \"\$(hint_value \"$ROOT/Library/LaunchAgents/com.example.multiline.plist\" 4 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/Library/LaunchAgents/com.example.multiline.plist\" 4 CODEX_HOME codex-cli '; value not resolved: not a plain string'"
 check "#455 only resolvable startup files give a value" "[ \"\$(resolved_total \"\$SUMMARY\")\" -gt 0 ] && [ -z \"\$(grep '\"value\": \"[^\"]' \"\$SUMMARY\" | grep -v -e '/etc/environment\", ' -e '/environment.d/[^/\"]*\\.conf\", ' -e '/LaunchAgents/[^/\"]*\\.plist\", ' -e '/LaunchDaemons/[^/\"]*\\.plist\", ')\" ] && hint_line \"$ALICE/.bashrc\" 1 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}'"
 check "#455 an unresolved value is never logged or stored" "! grep -q -e 'opt/single' -e 'opt/rel' -e 'file://' -e 'opt/\\.\\./x' -e 'XDG_CONFIG_HOME/x' -e 'opt/comment' \"$RELOCATION_LOG\" \"\$SUMMARY\" && grep -q 'value not resolved' \"$RELOCATION_LOG\""
 check "#455 the stdout relocation line counts the resolved values" "[ \"\$(resolved_total \"\$SUMMARY\")\" -gt 0 ] && grep -q \", \$(resolved_total \"\$SUMMARY\") resolved; see collectors/docs/relocation.md\\\$\" \"$OUT/default.stdout\""
@@ -3035,6 +3056,7 @@ run envscan --env-scan-home; check "#454 the sweep run exits 0" "[ $? -eq 0 ]"
 check "#454 stdout relocation line counts the files skipped for size" "grep -q '^relocation: [0-9]* hints in [0-9]* files searched, [1-9][0-9]* skipped for size, [1-9][0-9]* resolved; see collectors/docs/relocation.md\$' \"$OUT/envscan.stdout\""
 check "#454 the sweep run records its options" "grep -q '\"env_scan_home\": true, \"env_scan_max_size_bytes\": 1048576}' \"\$SUMMARY\""
 check "#454 the sweep hints and collects a file deep in the home" "hint_line \"$ALICE/scripts/agent-env/deep/helper.sh\" 2 CODEX_HOME codex-cli | contains . && row \"$ALICE/scripts/agent-env/deep/helper.sh\" | contains '\"agent\":\"shared\".*$SECRET_COLLECTED'"
+check "#455 a swept daemon plist under a home keeps the home's user" "hint_line \"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist\" 9 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"' && [ \"\$(hint_value \"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist\" 9 CODEX_HOME codex-cli)\" = \"$ROOT/opt/sw\" ]"
 check "#454 an env shebang line in a swept file gives no ENV hint" "[ \"\$(hint_count \"$ALICE/scripts/agent-env/deep/helper.sh\")\" = 1 ]"
 check "#454 a file name holding a newline steers no read through a symlink" "[ \"\$(hint_count \"$ALICE/scripts/steer/d\")\" = 0 ] && [ -z \"\$(row \"$ALICE/scripts/steer/d\")\" ] && [ -z \"\$(row \"$ROOT/opt/outside/target\")\" ] && [ \"\$(grep -c 'scripts/steer/d' \"\$SUMMARY\")\" = 0 ] && [ -f \"$ALICE/scripts/steer/d
 x\" ]"

@@ -583,8 +583,8 @@ Collecting the moved store from this list is
 collector keeps the value that `collection.json` needs, JSON-escaped, in
 `RELOCATION_VALUES_JSON` as `N|value`, with N the record's place in
 `RELOCATION_HINTS`, so `json_relocation` can still split each hint record from
-the right. For a plist under `LaunchDaemons` the hint's user is the plist's
-`UserName` (`record_file_hints`, `Add-FileHints`).
+the right. For a system plist under `/Library/LaunchDaemons` the hint's user is the
+plist's `UserName` (`record_file_hints`, `Add-FileHints`).
 
 The registry step is PowerShell only. `Find-RelocationHints` calls
 `Resolve-RegistryValues` after the system files and before the projects, under
