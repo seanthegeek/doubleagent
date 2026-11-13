@@ -203,6 +203,33 @@ jobs:
           cat "$RUNNER_TEMP/sums-1"
           cmp "$RUNNER_TEMP/sums-1" "$RUNNER_TEMP/sums-2"
 
+  # The parity harness: the sh collector and the binary run over the smoke
+  # test's image with the same arguments, and their manifests, logs, summaries,
+  # output and archive members are compared (internal/collect/parity). Each
+  # runner's own dash and system tools run the sh side. The sh collector takes
+  # about half a minute a case, so the test timeout is raised above go test's
+  # ten-minute default.
+  go-parity:
+    name: Go parity with the sh collector on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: go test (parity)
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -count=1 -timeout 90m -tags parity ./...
+
   lint:
     name: Lint (ruff, pyright, markdownlint, sh linters)
     runs-on: ubuntu-latest
@@ -310,6 +337,7 @@ jobs:
       - catalog-sync
       - analyzer
       - go
+      - go-parity
       - lint
       - site
     steps:

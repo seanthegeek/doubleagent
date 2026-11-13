@@ -5,7 +5,11 @@
 # Fails if the artifact tables embedded in collect-agent-artifacts.sh and
 # Collect-AgentArtifacts.ps1 differ, or if the analyzer's bundled copy or the
 # Go binary's embedded copy of the --list output is stale. All of them must stay a
-# single source of truth.
+# single source of truth. It also fails on a table glob the shells of the matrix
+# and the Go matcher read differently (see the AGENTS.md "Catalog is data" rule).
+#
+# `catalog-sync.sh --globs FILE` runs only that glob check on FILE, a text in
+# the --list format; the checker's test uses it with crafted catalogs.
 HERE=$(cd "$(dirname "$0")" && pwd)
 SH_COLLECTOR="$HERE/../collect-agent-artifacts.sh"
 PS_COLLECTOR="$HERE/../Collect-AgentArtifacts.ps1"
@@ -23,6 +27,41 @@ sh_table() { # sh_table NAME -> lines of the sh table (blank lines dropped)
 ps_table() { # ps_table NAME -> lines of the PowerShell here-string
   sed -n "/^\$$1 = @'/,/^'@/p" "$PS_COLLECTOR" | sed '1d;$d' | tr -d '\r' | grep -v '^$'
 }
+
+# table_glob_defects: reads --list text on stdin and prints one line per table line
+# whose glob holds a backslash, a caret, a character class name ([:), a collating
+# class ([.), an equivalence class ([=) or an unclosed bracket. A ] first in a
+# bracket list (or right after the !) is a member, as in the shells.
+table_glob_defects() {
+  awk '
+    function unclosed(text,   at, rest, end) {
+      while ((at = index(text, "[")) > 0) {
+        rest = substr(text, at + 1)
+        if (substr(rest, 1, 1) == "!") rest = substr(rest, 2)
+        if (substr(rest, 1, 1) == "]") rest = substr(rest, 2)
+        end = index(rest, "]")
+        if (end == 0) return 1
+        text = substr(rest, end + 1)
+      }
+      return 0
+    }
+    /^#/ || $0 == "" { next }
+    {
+      reason = ""
+      if (index($0, "\\") > 0 || index($0, "^") > 0) reason = "a backslash or a caret"
+      else if (index($0, "[:") > 0 || index($0, "[.") > 0 || index($0, "[=") > 0) {
+        reason = "a character class name, collating class or equivalence class"
+      } else if (unclosed($0)) reason = "an unclosed bracket"
+      if (reason != "") printf "%s  (%s)\n", $0, reason
+    }
+  '
+}
+
+if [ "${1:-}" = --globs ]; then
+  bad=$(table_glob_defects <"${2:?usage: catalog-sync.sh --globs FILE}")
+  if [ -z "$bad" ]; then printf 'ok   table globs\n'; exit 0; fi
+  printf 'FAIL table globs the shells read differently:\n%s\n' "$bad"; exit 1
+fi
 
 for table in CATALOG PROJECT_CATALOG EXCLUDES SECRET_GLOBS DOCKER_VOLUMES RELOCATION_VARS \
   STARTUP_FILES; do
@@ -47,6 +86,12 @@ done
 bad=$(sh_table SECRET_GLOBS | grep -e '[|()&;<>$`"'"'"'\\]' -e '^#')
 if [ -z "$bad" ]; then printf 'ok   SECRET_GLOBS free of case-pattern specials\n'
 else printf 'FAIL SECRET_GLOBS entries with characters the compiled case pattern cannot hold:\n%s\n' "$bad"; fail=1; fi
+
+# A glob in any table holds only *, ? and a closed bracket list of literal
+# bytes, ranges and !: the shells of the matrix disagree on the other forms.
+bad=$("$SH_COLLECTOR" --list | table_glob_defects)
+if [ -z "$bad" ]; then printf 'ok   table globs free of backslashes, carets and bracket classes\n'
+else printf 'FAIL table globs the shells read differently:\n%s\n' "$bad"; fail=1; fi
 
 # The --list / -List outputs must also match when a PowerShell is available.
 PWSH=

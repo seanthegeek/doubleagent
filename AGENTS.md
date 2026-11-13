@@ -1564,7 +1564,8 @@ parser's docstring at review.
 
 CI (`.github/workflows/ci.yml`) runs the catalog drift test; the analyzer
 tests on Python 3.11 to 3.14, with the branch-coverage gate on the newest;
-the Go gates, tests and six-target build on Ubuntu and macOS; the lint and
+the Go gates, tests and six-target build and the parity job (the binary
+against the sh collector over the smoke image) on Ubuntu and macOS; the lint and
 site jobs of [Quality gates](#quality-gates); and a `CI result` job that
 fails when any of them failed or was cancelled. `CI result` is the one
 status check the ruleset on `main` requires. On the rewrite branch the sh
@@ -1604,7 +1605,7 @@ job or lint step runs when one of its categories is set.
   analyzer tests.
 - **Go** (`go.mod`, `go.sum`, `vendor/`, every `.go` file,
   `internal/catalog/catalog.txt`, `.github/go-build.sh`): the Go job's
-  gates, tests and builds.
+  gates, tests and builds, and the `go-parity` job.
 
 Markdownlint, the site build, the document checks, the drift checkers and
 code style run on every change. Everything runs for a push to `main` or to
