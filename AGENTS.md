@@ -261,6 +261,11 @@ scope.
   volume-relative exclusions and secret globs (`tmp/playwright`,
   `secrets.env`) at the end of each table, never colliding with another
   tool's volume layout (no bare `tmp` or `cache`).
+- A glob in any table holds only `*`, `?` and a closed bracket list of
+  literal bytes, ranges and `!`, never a backslash, a caret, a character
+  class name, a collating or equivalence class or an unclosed bracket: the
+  shells of the collector's matrix disagree on those, and the Go matcher
+  follows one of them.
 - Catalog globs do not cross `/`; exclusion and secret globs do, match
   relative to the collection base (a home, a discovered project or a
   volume's `_data`), and never start with `*/`. `[...]` and `[!...]`

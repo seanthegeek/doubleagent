@@ -106,37 +106,34 @@ func TestMatchPathAgreesWithDash(t *testing.T) {
 }
 
 // addGeneratedCases adds 25 random subjects for each of 4000 random patterns
-// built from bracket pieces, escapes and wildcards, the same each run.
+// built from the portable pieces: wildcards, closed bracket lists, ranges,
+// negations and the one character class the tables may use. Shells differ on
+// an unclosed bracket, a backslash, a caret, a collating or equivalence class
+// and a class next to a range, and no table holds those, so they are not
+// generated; the same each run.
 func addGeneratedCases(add func(pattern, subject string)) {
-	tokens := strings.Fields(`a b - ] [ ! ^ * ? : . / \ \] \^ \\ [:alpha:] [:foo:] [:Upper:] ` +
-		`[.a.] [=a=] [.ab.] [: :] [. .] [= =] z`)
+	tokens := strings.Fields(`a b - ] ! * ? : . / z [ab] [!a] [a-z] []a] [!.] [[:alpha:]] ` +
+		`[0-9a-f] [Zz] [!]a] [a-]`)
 	letters := strings.Fields(`a b z - ] [ ! ^ : . / \ =`)
 	random := rand.New(rand.NewPCG(1, 2))
 	for range 4000 {
 		pattern := randomText(random, tokens, 1+random.IntN(7))
-		if strings.HasSuffix(pattern, ".]") || strings.HasSuffix(pattern, ":]") ||
-			strings.HasSuffix(pattern, "=]") {
-			// dash reads past the end of such a pattern when it skips the
-			// rest of a matched bracket: its answer depends on memory.
-			continue
-		}
 		for range 25 {
 			add(pattern, randomText(random, letters, random.IntN(4)))
 		}
 	}
 }
 
-// curatedPatterns are the constructs the tables use and the corners dash was
-// seen to treat in its own way.
+// curatedPatterns are the constructs the tables use, in the forms POSIX
+// defines and every shell of the collector's matrix agrees on.
 func curatedPatterns() []string {
 	return []string{
 		"*", "?", "a*", "*a", "a?c", "a*b*c", "[ab]", "[!ab]", "[a-c]", "[!a-c]", "[]a]",
-		"[!]a]", "[a-]", "[]-a]", "[z-a]", "[[:alpha:]]", "[![:digit:]]", "[[:foo:]]",
-		"[[:alpha:]-z]", "[a[:foo:]]", "[[.a.]]", "[[=a=]]", "[[.ab.]]", "[^a]", `\^`,
-		`[\^]`, `\*`, `\?`, `\[a]`, `[\]]`, `[a\]`, `[ab\]c]`, `x\`, `\`, "[", "x[",
-		"[a", "[!", "[]", "[!]", "*/x", "*.json", ".h*/auth.json", "[!.]*", ".[!e]*",
-		"[0-9a-f][0-9a-f]", "a/*", "*/[Zz]ed/node", "[.]*", "",
+		"[!]a]", "[a-]", "[]-a]", "[z-a]", "[[:alpha:]]", "[![:digit:]]", "[]", "[!]",
+		"*/x", "*.json", ".h*/auth.json", "[!.]*", ".[!e]*", "[0-9a-f][0-9a-f]", "a/*",
+		"*/[Zz]ed/node", "[.]*", "",
 	}
+}
 }
 
 // curatedSubjects are the paths the curated patterns are tried against.
