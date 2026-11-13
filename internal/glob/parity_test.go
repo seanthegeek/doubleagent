@@ -85,22 +85,7 @@ func TestMatchPathAgreesWithDash(t *testing.T) {
 			add(pattern, subject)
 		}
 	}
-	tokens := strings.Fields(`a b - ] [ ! ^ * ? : . / \ \] \^ \\ [:alpha:] [:foo:] [:Upper:] ` +
-		`[.a.] [=a=] [.ab.] [: :] [. .] [= =] z`)
-	letters := strings.Fields(`a b z - ] [ ! ^ : . / \ =`)
-	random := rand.New(rand.NewPCG(1, 2))
-	for range 4000 {
-		pattern := randomText(random, tokens, 1+random.IntN(7))
-		if strings.HasSuffix(pattern, ".]") || strings.HasSuffix(pattern, ":]") ||
-			strings.HasSuffix(pattern, "=]") {
-			// dash reads past the end of such a pattern when it skips the
-			// rest of a matched bracket: its answer depends on memory.
-			continue
-		}
-		for range 25 {
-			add(pattern, randomText(random, letters, random.IntN(4)))
-		}
-	}
+	addGeneratedCases(add)
 	file := t.TempDir() + "/cases"
 	if err := os.WriteFile(file, []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -116,6 +101,27 @@ func TestMatchPathAgreesWithDash(t *testing.T) {
 			failures++
 			t.Errorf("MatchPath(%q, %q) = %v, dash says %v",
 				patterns[index], subjects[index], got, want)
+		}
+	}
+}
+
+// addGeneratedCases adds 25 random subjects for each of 4000 random patterns
+// built from bracket pieces, escapes and wildcards, the same each run.
+func addGeneratedCases(add func(pattern, subject string)) {
+	tokens := strings.Fields(`a b - ] [ ! ^ * ? : . / \ \] \^ \\ [:alpha:] [:foo:] [:Upper:] ` +
+		`[.a.] [=a=] [.ab.] [: :] [. .] [= =] z`)
+	letters := strings.Fields(`a b z - ] [ ! ^ : . / \ =`)
+	random := rand.New(rand.NewPCG(1, 2))
+	for range 4000 {
+		pattern := randomText(random, tokens, 1+random.IntN(7))
+		if strings.HasSuffix(pattern, ".]") || strings.HasSuffix(pattern, ":]") ||
+			strings.HasSuffix(pattern, "=]") {
+			// dash reads past the end of such a pattern when it skips the
+			// rest of a matched bracket: its answer depends on memory.
+			continue
+		}
+		for range 25 {
+			add(pattern, randomText(random, letters, random.IntN(4)))
 		}
 	}
 }
