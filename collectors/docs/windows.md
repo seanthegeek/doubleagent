@@ -239,7 +239,8 @@ A value is read without expanding it. A `REG_SZ` value is kept as written; a
 `REG_EXPAND_SZ` value has its `%NAME%` references replaced from the same key,
 the user's profile paths and the system key, and never from the environment of
 the process that runs the collector, which belongs to the account that started
-it. A drive path with no leftover reference is kept as the hint's `value`.
+it. A plain drive path, one with no leftover reference or stray `%`, double
+quote, control character or `..` segment, is kept as the hint's `value`.
 
 The step never loads a hive: loading one with `reg load` or a profile loader
 writes to the user's `NTUSER.DAT`, which an evidence collection must not do.

@@ -319,7 +319,7 @@ smoke test under sh, dash, bash, busybox ash, zsh and posh, the drift test
 and the sh smoke test under dash on macOS, where the tools are the BSD
 ones, the fork budget job on Linux, a lint job that also runs the table
 coverage checks, the PowerShell smoke test under PowerShell 7 on Linux and
-macOS and Windows PowerShell 5.1 on Windows, and the analyzer tests, then a
+Windows PowerShell 5.1 on Windows, and the analyzer tests, then a
 `CI result` job that fails when any of them failed. Every push to `main`
 runs all of them; a pull request runs only the jobs that read a file it
 changed, as
