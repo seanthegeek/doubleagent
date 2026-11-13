@@ -4035,22 +4035,24 @@ collect_projects() {
 
 # ENVIRONMENT_VALUES_AWK: reads /etc/environment on stdin and prints
 # LINE|NAME|=VALUE for each NAME=VALUE line of a RELOCATION_VARS name (the -v
-# names list), or LINE|NAME|!quoted when the value holds a quote besides one
-# enclosing pair of double quotes, !holds a # when it holds a # (pam_env cuts
-# the line there) and !continued when it ends in a backslash and blanks, or
-# follows such a line (pam_env joins them, blank and comment lines between
-# aside), since the file then assigns another value. pam_env.conf(5) allows
-# only simple NAME=VALUE pairs, so nothing is expanded; a line starting with
-# # is skipped and a carriage return ending the line is dropped, as the
-# PowerShell collector's line reader drops it.
+# names list), or LINE|NAME|!REASON: quoted (a quote besides one enclosing
+# pair of double quotes), holds a # (pam_env cuts the line there), continued
+# (the line ends in a backslash and blanks, or follows one that does, which
+# pam_env joins) or after a NUL byte (a \001 from tr, on this line or an
+# earlier one, where pam_env 1.5 stops reading the file), since the file then
+# assigns another value or none. pam_env.conf(5) allows only simple NAME=VALUE
+# pairs, so nothing is expanded; a # line is skipped and a carriage return
+# ending the line is dropped, as the PowerShell collector's line reader does.
 heredoc_var <<'EOF_ENVIRONMENT_VALUES_AWK'
 BEGIN { count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1 }
 {
   text = $0; sub(/\r$/, "", text); sub(/^[ \t]+/, "", text)
+  if (index(text, "\001")) nul = 1
   if (text == "" || text ~ /^#/) next
   joined_here = joined; joined = (index(text, "#") == 0 && text ~ /\\[ \t]*$/)
   equals = index(text, "="); if (equals < 2) next
   name = substr(text, 1, equals - 1); if (!(name in wanted)) next
+  if (nul) { print NR "|" name "|!after a NUL byte"; next }
   if (joined_here) { print NR "|" name "|!continued"; next }
   value = substr(text, equals + 1)
   if (index(value, "#")) { print NR "|" name "|!holds a #"; next }
@@ -4064,11 +4066,13 @@ ENVIRONMENT_VALUES_AWK=$_ret_heredoc_text
 # ENVIRONMENT_D_VALUES_AWK: reads an environment.d(5) file on stdin and prints
 # LINE|NAME|=VALUE or LINE|NAME|!REASON for each KEY=VALUE assignment of a
 # RELOCATION_VARS name (the -v names list). Whitespace around key and value is
-# trimmed, # and ; lines are comments, a backslash ending a line joins the next
-# (LINE is the first one's), one enclosing pair of quotes is removed (backslash
-# escapes outside single quotes), $$ is a dollar, and $HOME or ${HOME} is
-# ENVIRON["RESOLVE_HOME"] when that is set; any other reference ($NAME,
-# ${NAME}, ${NAME:-x}, ${NAME:+x}) leaves the value unresolved.
+# trimmed, # and ; lines are comments, an odd run of backslashes ending a line
+# joins the next (LINE is the first one's; an escaped backslash joins nothing),
+# one enclosing pair of quotes is removed (backslash escapes outside single
+# quotes), $$ is a dollar, and $HOME or ${HOME} is ENVIRON["RESOLVE_HOME"] when
+# that is set; any other reference ($NAME, ${NAME}, ${NAME:-x}, ${NAME:+x})
+# leaves the value unresolved. From a line holding a \001 (a NUL byte, from tr)
+# on, the reason is after a NUL byte, since systemd reads the file no further.
 heredoc_var <<'EOF_ENVIRONMENT_D_VALUES_AWK'
 function unquote(value,   first, last, inner, result, position, char) {
   first = substr(value, 1, 1); last = substr(value, length(value))
@@ -4119,6 +4123,7 @@ function assign(text, number,   equals, name, value, outcome) {
   equals = index(text, "="); if (equals < 2) return
   name = substr(text, 1, equals - 1); sub(/[ \t]+$/, "", name)
   if (!(name in wanted)) return
+  if (nul) { print number "|" name "|!after a NUL byte"; return }
   value = substr(text, equals + 1); sub(/^[ \t\r]+/, "", value); sub(/[ \t\r]+$/, "", value)
   outcome = unquote(value)
   if (substr(outcome, 1, 1) == "=") outcome = expand(substr(outcome, 2))
@@ -4130,8 +4135,11 @@ BEGIN {
 }
 {
   text = $0; sub(/\r$/, "", text)
+  if (index(text, "\001")) nul = 1
   if (continued) { text = pending text; joined = 1 } else { start = NR; joined = 0 }
-  if (text ~ /\\$/) { pending = substr(text, 1, length(text) - 1); continued = 1; next }
+  if (text ~ /(^|[^\\])(\\\\)*\\$/) {
+    pending = substr(text, 1, length(text) - 1); continued = 1; next
+  }
   continued = 0; assign(text, start)
 }
 END { if (continued) { joined = 1; assign(pending, start) } }

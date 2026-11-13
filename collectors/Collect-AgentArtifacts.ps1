@@ -4682,7 +4682,7 @@ function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText
   $quote = ''; if ($text.Length -gt 0) { $quote = $text.Substring(0, 1) }
   if ($quote -ne '"' -and ($quote -ne "'" -or $kind -ne 'environment.d')) { $quote = '' }
   if ($quote -ne '') {
-    if ($text.Length -lt 2 -or -not $text.EndsWith($quote)) {
+    if ($text.Length -lt 2 -or -not $text.EndsWith($quote, [System.StringComparison]::Ordinal)) {
       return @{ value = ''; reason = 'quoted' }
     }
     $text = $text.Substring(1, $text.Length - 2)
@@ -4773,37 +4773,45 @@ function Resolve-PlistValues([string]$path, $fileHits) {
 # file is no home's), its hits and its lines (Read-StartupFileLines); returns
 # @{ entries; userName; reason } as Resolve-PlistValues does, for a
 # /etc/environment or environment.d file from its NAME=VALUE lines. An
-# environment.d line ending in a backslash continues on the next and keeps
-# its first line's number; # and ; lines are comments. pam_env joins an
-# /etc/environment line ending in a backslash and blanks (one holding a #
-# aside) with the next line that is not blank or a comment, which then
-# assigns nothing of its own.
+# environment.d line ending in an odd run of backslashes continues on the next
+# (an escaped backslash joins nothing) and keeps its first line's number; # and
+# ; lines are comments. pam_env joins an /etc/environment line ending in a
+# backslash and blanks (one holding a # aside) with the next line, which may
+# then assign nothing of its own. From a line holding a NUL byte on, nothing is
+# a value, as pam_env 1.5 and systemd read no further. String tests are ordinal.
 function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fileHits, $lines) {
   if ($kind -eq 'launchd') { return (Resolve-PlistValues $path $fileHits) }
   $result = @{ entries = @{}; userName = ''; reason = '' }
   # Only a space or tab is white space here, as for the sh awk programs and
   # pam_env; .NET's bare Trim would also drop a form feed or a no-break space.
   $blank = [char[]]" `t"; $blankOrReturn = [char[]]" `t`r"
-  $index = 0; $joined = $false
+  $ordinal = [System.StringComparison]::Ordinal; $names = [string[]]$script:RelocationNames
+  $index = 0; $joined = $false; $nul = $false
   while ($index -lt $lines.Count) {
     $number = $index + 1; $text = [string]$lines[$index]; $index++; $continued = $false
-    while ($kind -eq 'environment.d' -and $text.EndsWith('\')) {
+    while ($kind -eq 'environment.d' -and $text -match '(^|[^\\])(\\\\)*\\$') {
       $text = $text.Substring(0, $text.Length - 1); $continued = $true
       if ($index -ge $lines.Count) { break }
       $text += $lines[$index]; $index++
     }
+    if ($text.IndexOf([char]0) -ge 0) { $nul = $true }
     $trimmed = $text.TrimStart($blank)
     if ($kind -eq 'environment.d') { $trimmed = $text.Trim($blankOrReturn) }
-    $joinedHere = $joined; $comment = $trimmed -eq '' -or $trimmed.StartsWith('#')
+    $joinedHere = $joined; $comment = $trimmed -eq '' -or $trimmed.StartsWith('#', $ordinal)
     if ($kind -ne 'environment.d' -and -not $comment) {
       $joined = -not $text.Contains('#') -and $text -match '\\[ \t]*$'
     }
-    if ($comment -or ($kind -eq 'environment.d' -and $trimmed.StartsWith(';'))) { continue }
-    $equals = $trimmed.IndexOf('=')
+    if ($comment -or ($kind -eq 'environment.d' -and $trimmed.StartsWith(';', $ordinal))) {
+      continue
+    }
+    $equals = $trimmed.IndexOf([char]'=')
     if ($equals -lt 1) { continue }
     $name = $trimmed.Substring(0, $equals)
     if ($kind -eq 'environment.d') { $name = $name.Trim($blank) }
-    if (-not ($script:RelocationNames -ccontains $name)) { continue }
+    if ([System.Array]::IndexOf($names, $name) -lt 0) { continue }
+    if ($nul) {
+      $result.entries["$number|$name"] = @{ value = ''; reason = 'after a NUL byte' }; continue
+    }
     if ($joinedHere) {
       $result.entries["$number|$name"] = @{ value = ''; reason = 'continued' }; continue
     }

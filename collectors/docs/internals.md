@@ -509,11 +509,12 @@ whose name holds a newline is never searched (`find ! -name`, and
 `list_startup_files` drops it), since `grep -l` prints one path per line
 and such a name would forge a line, and the paths listed count only under
 the base searched. The PowerShell side runs
-`Select-String -CaseSensitive` over the other files and `Select-String` without
-it over the `.ps1` files to name the files holding a name, then reads each hit
-file with `Read-StartupFileLines`, split at line feeds alone as `grep -n` counts
-lines (`Select-String` ends a line at a lone carriage return too), and applies
-the same boundary test to each line. The sh `grep` gets `GREP_TEXT`
+`Select-String -CaseSensitive` over the other files to name the files holding a
+name, and reads every `.ps1` file, since `Select-String` folds case by the
+session's culture; it then reads each hit file with `Read-StartupFileLines`,
+split at line feeds alone as `grep -n` counts lines (`Select-String` ends a
+line at a lone carriage return too), and applies the same boundary test (the
+any-case pattern in a `.ps1` file) to each line. The sh `grep` gets `GREP_TEXT`
 ([Capability detection](#capability-detection)), and a NUL byte in a matched
 line becomes a space before `awk`, which would end the line there. The matched
 text never reaches the log, stdout, a variable that is later printed or a
@@ -558,8 +559,10 @@ The sh collector starts one `awk` per such file, with the program for the kind
 (`ENVIRONMENT_VALUES_AWK` or `ENVIRONMENT_D_VALUES_AWK`,
 each read with `heredoc_var`), the file on its standard input (an operand
 holding `=` would be an assignment to `awk`) and the home in `RESOLVE_HOME`,
-which only that `awk` sees; `tr` turns a NUL byte into \001 on the way, a control
-character both collectors refuse, since BSD `awk` would end the record there. It prints `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
+which only that `awk` sees; `tr` turns a NUL byte into \001 on the way, since BSD
+`awk` would end the record there, and from such a line on both collectors refuse
+every value (`after a NUL byte`), as pam_env 1.5 and systemd read no further. It
+prints `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
 for each assignment of a `RELOCATION_VARS` name. For a plist no `awk` runs:
 `resolve_plist_values` lints the file with `plutil` (`PLUTIL`, detected at
 startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME
