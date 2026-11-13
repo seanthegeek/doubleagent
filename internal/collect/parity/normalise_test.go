@@ -23,6 +23,7 @@ var (
 	logDone          = regexp.MustCompile(`^(done: \S+) .*`)
 	logReason        = regexp.MustCompile(`^((?:find|read failed|copy failed): [^:]*): .*?` +
 		`(; staged path resolves outside the staging directory, not removed)?$`)
+	findQuotes        = regexp.MustCompile(`^find: '(.*)': `)
 	logProjectError   = regexp.MustCompile(`^(WARNING: project given with -p is not a directory: [^:]*): .*`)
 	stdoutVolatile    = regexp.MustCompile(`(?m)^(size|sha256): .*\n`)
 	inventoryVolatile = regexp.MustCompile(`"(at|collector)":"[^"]*"`)
@@ -42,13 +43,18 @@ func normalLine(line string) string {
 // normalLog returns the log's timestamped lines without their times and with
 // what differs by design dropped. An untimestamped line is a program's own
 // error output, which the sh collector lets into the log; the binary has none,
-// so one there is kept to fail the comparison.
+// so one there is kept to fail the comparison. Of the sh collector's, find's
+// lines are kept, without the quotes GNU find puts around the path, since the
+// binary writes the same lines with a time; the others are dropped.
 func normalLog(text string, keepUntimed bool) string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimSuffix(text, "\n"), "\n") {
 		if !logTime.MatchString(line) {
-			if keepUntimed && line != "" {
+			switch {
+			case keepUntimed && line != "":
 				lines = append(lines, "untimed: "+line)
+			case !keepUntimed && strings.HasPrefix(line, "find: "):
+				lines = append(lines, normalLine(findQuotes.ReplaceAllString(line, "find: $1: ")))
 			}
 			continue
 		}

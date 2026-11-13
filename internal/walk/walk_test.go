@@ -261,6 +261,42 @@ func TestCollectTreeWritesEachGroupWhole(t *testing.T) {
 	}
 }
 
+func TestFindLinesForUnreadDirectories(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every directory")
+	}
+	base := fixture{files: []string{"m/locked/f", "m/noenter/a", "m/noenter/sub/b"},
+		dirs: []string{"m/empty"}}.build(t)
+	modes := map[string]os.FileMode{"m/locked": 0, "m/noenter": 0o600, "m/empty": 0o600}
+	for name, mode := range modes {
+		mustDo(t, os.Chmod(base+"/"+name, mode))
+		t.Cleanup(func() { _ = os.Chmod(base+"/"+name, 0o755) })
+	}
+	collector, rows, log := testCollector(t, base, nil)
+	unreadable, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
+	mustDo(t, err)
+	var finds []string
+	for _, line := range log.lines {
+		if path, found := strings.CutPrefix(line, "find: "); found {
+			finds = append(finds, strings.TrimPrefix(path[:strings.LastIndex(path, ": ")], base))
+		}
+	}
+	want := []string{"/m/locked"}
+	if findReportsUnenterableEntries {
+		names, err := os.ReadDir(base + "/m/noenter")
+		mustDo(t, err)
+		for _, name := range names {
+			want = append(want, "/m/noenter/"+name.Name())
+		}
+	}
+	if !reflect.DeepEqual(finds, want) || unreadable != len(want) {
+		t.Errorf("find lines %q (unreadable %d), want %q", finds, unreadable, want)
+	}
+	if got := strings.Count(rows.String(), `"status":"error_read"`); got != 3 {
+		t.Errorf("%d error_read rows, want one per directory", got)
+	}
+}
+
 func TestFailedCopyThroughRecreatedLink(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads an unreadable file")

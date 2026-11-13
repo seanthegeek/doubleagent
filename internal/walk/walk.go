@@ -22,6 +22,12 @@ type Logger interface {
 	Line(text string) error
 }
 
+// fileLogger is a Logger that can also write a line to the log file alone,
+// as *runlog.Log does, for the lines a program writes into the log.
+type fileLogger interface {
+	FileLine(text string) error
+}
+
 // Records takes what an --inventory walk finds instead of staging it: each
 // catalog match of an agent other than shared, and each regular file's size
 // and modification time.

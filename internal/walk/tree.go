@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 )
@@ -85,20 +86,55 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	}
 	if reason, failed := fsmeta.DirReadError(path); failed {
 		found.readErrors = append(found.readErrors, readError{path, reason})
-		return collector.findError(found, path, reason)
+		return collector.findUnreadDir(found, path)
 	}
 	return collector.visitEntries(ctx, owner, found, path)
 }
 
-// findError counts a directory the walk could not read and logs the line
-// find writes to the log for it, `find: <path>: <reason>`, with the system's
-// reason as Go words it and the log's time added.
+// findUnreadDir logs the lines find writes for a directory the walk cannot
+// read: one for the directory when it cannot be listed; when it can be
+// listed but not entered, none for the directory itself and, where find
+// reports them, one per entry, whose type find cannot read. An empty such
+// directory gives no line on any platform.
+func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
+	handle, err := os.Open(dir)
+	if err != nil {
+		return collector.findError(found, dir, err.Error())
+	}
+	entries, err := handle.ReadDir(-1)
+	_ = handle.Close()
+	if err != nil {
+		if err := collector.findError(found, dir, err.Error()); err != nil {
+			return err
+		}
+	}
+	if !findReportsUnenterableEntries {
+		return nil
+	}
+	for _, entry := range entries {
+		err := collector.findError(found, dir+"/"+entry.Name(), syscall.EACCES.Error())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// findError counts a path the walk could not read and logs the line find
+// writes to the log for it, `find: <path>: <reason>`, with the system's
+// reason as Go words it and the log's time added. find writes to the log
+// file alone, never to standard error, so a logger that can do the same
+// gets the line that way.
 func (collector *Collector) findError(found *treeWalk, path, reason string) error {
 	found.unreadable++
 	if position := strings.LastIndex(reason, ": "); position >= 0 {
 		reason = reason[position+2:]
 	}
-	return collector.Log.Line("find: " + path + ": " + reason)
+	line := "find: " + path + ": " + reason
+	if log, ok := collector.Log.(fileLogger); ok {
+		return log.FileLine(line)
+	}
+	return collector.Log.Line(line)
 }
 
 // visitEntries lists directory in directory order and visits each entry.
