@@ -556,12 +556,15 @@ The sh collector starts one `awk` per such file, with the program for the kind
 each read with `heredoc_var`), the file on its standard input (an operand
 holding `=` would be an assignment to `awk`) and the home in `RESOLVE_HOME`,
 which only that `awk` sees. It prints `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
-for each assignment of a `RELOCATION_VARS` name, `U|USER` for a plist's
-`UserName`, or one `!binary plist` line for a binary plist. The PowerShell
+for each assignment of a `RELOCATION_VARS` name, `U|USER` for a plist's last
+`UserName`, or one `!binary plist` or `!not a plain plist` line for a binary plist
+or one that is not plain (`Test-PlainPlist` states the rule; the awk program
+applies the same one). The PowerShell
 collector reads the lines with `Read-StartupFileLines` and applies
 `Resolve-AssignmentValue` (with `Expand-EnvironmentValue` for `environment.d`),
 or for a plist `Resolve-PlistValues`, which reads the first six bytes for the
-`bplist` header and then parses with `Read-PlistEnvironment` on an
+`bplist` header, refuses a plist that is not plain (`Test-PlainPlist`) and then
+parses with `Read-PlistEnvironment` (`Read-PlainString` for each string) on an
 `XmlTextReader` with no DTD processing and no resolver. `$HOME` expands only in
 a file whose base is a collected user's home (`USER_LIST` in sh,
 `Test-CollectedHome` and `Get-ExpansionHome` in PowerShell, without the image
@@ -808,8 +811,8 @@ PowerShell functions that do their job.
 | `ConvertTo-LocalPath`, `Read-DiscoverySource`, `Get-RegexCaptures`, `Get-FileTexts`, `Select-UniqueProjects` | Project discovery | Value to local path; reading sources; deduplication |
 | `Get-SystemRoot`, `Test-RegularFile`, `Test-PowerShellScript` | Relocation hints | The base of the system scope; whether a path is a regular file; whether a file is a `.ps1` script |
 | `Read-StartupFileLines` | Relocation hints | The lines of a startup file, read with shared access; the sh collector hands the file to `awk` |
-| `Resolve-AssignmentValue`, `Expand-EnvironmentValue` | Relocation hints | The value of a `NAME=VALUE` line: unquoting, then `$$` and `$HOME` for `environment.d` |
-| `Resolve-PlistValues`, `Read-PlistEnvironment` | Relocation hints | The `EnvironmentVariables` strings and `UserName` of a launchd plist, read as XML |
+| `Resolve-AssignmentValue`, `ConvertFrom-EnvironmentEscape`, `Expand-EnvironmentValue` | Relocation hints | The value of a `NAME=VALUE` line: unquoting and backslash escapes, then `$$` and `$HOME` for `environment.d` |
+| `Resolve-PlistValues`, `Test-PlainPlist`, `Read-PlistEnvironment`, `Read-PlainString` | Relocation hints | The `EnvironmentVariables` strings and `UserName` of a plain launchd plist, read as XML |
 | `Test-CollectedHome`, `Get-ExpansionHome` | Relocation hints | Whether a directory is a collected user's home, and the form of it that `$HOME` takes |
 | `Write-HintLog` | Relocation hints | A log line of the step, after the pending header; sh calls `log_line` |
 | `Resolve-RegistryValues` | Relocation hints | The registry step on a live Windows host |

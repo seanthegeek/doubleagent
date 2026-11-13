@@ -4132,28 +4132,37 @@ ENVIRONMENT_D_VALUES_AWK=$_ret_heredoc_text
 
 # LAUNCHD_VALUES_AWK: reads a launchd.plist(5) file on stdin and prints
 # LINE|NAME|=VALUE or LINE|NAME|!REASON for each key of a RELOCATION_VARS name
-# (the -v names list) in the top-level EnvironmentVariables dictionary, LINE
-# that of the <key>, where the name search finds it, and U|USER for a
-# top-level UserName string. A file starting with the bplist magic is binary
-# and gives the one line !binary plist. A value is a plain string, never
-# expanded; one spanning lines or holding markup, a CDATA section, a comment,
-# an & entity or a > is left unresolved.
+# (the -v names list) in the last top-level EnvironmentVariables dictionary,
+# LINE that of the <key>, where the name search finds it, and U|USER for the
+# last top-level UserName string. A file starting with the bplist magic gives
+# the one line !binary plist. A plist is read only when it is plain, the form
+# launchd and plutil write: no comment, CDATA section, &, processing
+# instruction beyond the XML declaration, DOCTYPE other than Apple's, or
+# attribute beyond plist's version; anything else gives the one line !not a
+# plain plist, since a tokeniser that reads these shapes one by one loses.
 heredoc_var <<'EOF_LAUNCHD_VALUES_AWK'
+function keep(outcome) { values[++count] = keyline "|" key "|" outcome }
 function found_string() {
   if (environment && depth == 2 && (key in wanted)) {
-    if (broken) print keyline "|" key "|!not a plain string"
-    else if (index(content, "\n")) print keyline "|" key "|!holds a newline"
-    else if (index(content, "\r")) print keyline "|" key "|!holds a control character"
-    else if (content ~ /[&>]/) print keyline "|" key "|!holds an XML entity"
-    else print keyline "|" key "|=" content
-  } else if (depth == 1 && key == "UserName" && !broken &&
-             content ~ /^[A-Za-z_][A-Za-z0-9_.-]*$/) print "U|" content
+    if (broken) keep("!not a plain string")
+    else if (index(content, "\n")) keep("!holds a newline")
+    else if (index(content, "\r")) keep("!holds a control character")
+    else keep("=" content)
+  } else if (depth == 1 && key == "UserName" && !broken) user = content
   key = ""
 }
+function plain_tag(tag, name) {
+  if (tag ~ /^\?/) return (!seen && tag ~ declaration)
+  if (tag ~ /^!/) return (tag ~ doctype)
+  if (name == "plist" && tag !~ /^\//) return (tag ~ /^plist( version="[0-9.]+")?$/)
+  return (tag !~ /[="']/)
+}
 function element(tag,   name, empty, closing) {
-  if (tag ~ /^[?!]/) { if (inside != "") broken = 1; return }
   empty = (tag ~ /\/$/); closing = (substr(tag, 1, 1) == "/")
   name = tag; sub(/^\//, "", name); sub(/[ \t\n\/].*$/, "", name)
+  if (!plain_tag(tag, name)) plain = 0
+  seen = 1
+  if (tag ~ /^[?!]/) return
   if (inside != "") {
     if (!closing || name != inside) { broken = 1; return }
     if (inside == "key") { if (broken) key = ""; else key = content; inside = ""; return }
@@ -4164,7 +4173,9 @@ function element(tag,   name, empty, closing) {
     return
   }
   if (name == "dict" && !empty) {
-    depth++; if (depth == 2 && key == "EnvironmentVariables") environment = 1
+    if (environment && depth == 2 && (key in wanted)) keep("!not a string")
+    depth++
+    if (depth == 2 && key == "EnvironmentVariables") { environment = 1; count = 0 }
     key = ""; return
   }
   if (name == "key" && !empty) { inside = "key"; content = ""; broken = 0; keyline = NR; return }
@@ -4173,15 +4184,21 @@ function element(tag,   name, empty, closing) {
     if (empty) found_string(); else inside = "string"
     return
   }
-  if (environment && depth == 2 && (key in wanted)) print keyline "|" key "|!not a string"
+  if (environment && depth == 2 && (key in wanted)) keep("!not a string")
   key = ""
 }
 BEGIN {
-  count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1
+  total = split(names, list, ","); for (i = 1; i <= total; i++) wanted[list[i]] = 1
   depth = 0; environment = 0; inside = ""; partial = ""; key = ""
+  plain = 1; seen = 0; count = 0; user = ""; binary = 0
+  declaration = "^\\?xml version=\"1\\.[0-9]+\"( encoding=\"[A-Za-z0-9._-]+\")?"
+  declaration = declaration "( standalone=\"(yes|no)\")?\\?$"
+  doctype = "^!DOCTYPE plist PUBLIC \"-//Apple( Computer)?//DTD PLIST 1\\.0//EN\""
+  doctype = doctype " \"http://www\\.apple\\.com/DTDs/PropertyList-1\\.0\\.dtd\"$"
 }
-NR == 1 && substr($0, 1, 6) == "bplist" { print "!binary plist"; exit }
+NR == 1 && substr($0, 1, 6) == "bplist" { binary = 1; print "!binary plist"; exit }
 {
+  if (index($0, "&")) plain = 0
   text = partial $0; partial = ""
   while ((opening = index(text, "<")) > 0) {
     if (inside != "") content = content substr(text, 1, opening - 1)
@@ -4191,6 +4208,12 @@ NR == 1 && substr($0, 1, 6) == "bplist" { print "!binary plist"; exit }
   }
   if (opening > 0) partial = text "\n"
   else if (inside != "") content = content text "\n"
+}
+END {
+  if (binary) exit
+  if (!plain) { print "!not a plain plist"; exit }
+  if (user ~ /^[A-Za-z_][A-Za-z0-9_.-]*$/) print "U|" user
+  for (i = 1; i <= count; i++) print values[i]
 }
 EOF_LAUNCHD_VALUES_AWK
 LAUNCHD_VALUES_AWK=$_ret_heredoc_text
@@ -4435,7 +4458,7 @@ select_line_value() {
   _ret_value=; _ret_reason=
   case "$1" in
     ("$NEWLINE!"*) _slv_outcome=${1#"$NEWLINE"} ;;
-    (*"$NEWLINE$2|$3|"*) _slv_outcome=${1#*"$NEWLINE$2|$3|"} ;;
+    (*"$NEWLINE$2|$3|"*) _slv_outcome=${1##*"$NEWLINE$2|$3|"} ;;
     (*) return 0 ;;
   esac
   _slv_outcome=${_slv_outcome%%"$NEWLINE"*}
@@ -4448,8 +4471,8 @@ select_line_value() {
 # record_file_hints USER HOME FILE: records every bounded name in FILE, with the
 # value its line assigns when startup_file_kind reads FILE's kind, and, when
 # there is one, collects FILE. $HOME expands only in a home's own files (a
-# USER:HOME line of USER_LIST); a launchd daemon's hints take the plist's
-# UserName as their user. Reads USER_LIST, ROOT. Temporaries: _rfh_.
+# USER:HOME line of USER_LIST); the hints of a system plist under LaunchDaemons
+# take the plist's UserName as their user. Reads USER_LIST, ROOT. Temporaries: _rfh_.
 record_file_hints() {
   _rfh_hits=$(list_bounded_names "$3")
   [ -n "$_rfh_hits" ] || return 0
@@ -4462,8 +4485,8 @@ record_file_hints() {
     esac
     resolve_file_values "$3" "$_ret_kind" "$_rfh_home"
     _rfh_values=$NEWLINE$_ret_values$NEWLINE
-    case "$1|$3" in
-      ("|"*/LaunchDaemons/*) case "$_rfh_values" in
+    case "$1|$2|$3" in
+      ("||"*/LaunchDaemons/*) case "$_rfh_values" in
         (*"${NEWLINE}U|"*) _rfh_user=${_rfh_values#*"${NEWLINE}U|"}
           _rfh_user=${_rfh_user%%"$NEWLINE"*} ;;
       esac ;;

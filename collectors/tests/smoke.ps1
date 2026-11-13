@@ -2056,12 +2056,28 @@ $multilinePlist = @(
   '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
   '<key>LETTA_DIR</key><string>/opt/m'
   '3|HERMES_HOME|=/opt/injected</string>'
-  '<key>CODEX_HOME</key><string>/opt/<![CDATA[x]]>y</string>'
+  '<key>CODEX_HOME</key><dict><key>x</key><string>/opt/dd</string></dict>'
   '</dict></dict></plist>'
 )
 MakeFile 'Library/LaunchAgents/com.example.multiline.plist' (($multilinePlist -join "`n") + "`n")
 $sweptPlist = @($daemonPlist | ForEach-Object { $_.Replace('/opt/d/', '/opt/sw') })
 MakeFile 'Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist' (($sweptPlist -join "`n") + "`n")
+# Plists that are not plain (a CDATA section; a comment holding a > that hides a forged
+# string), one whose UserName, EnvironmentVariables dictionary and key repeat (the last of
+# each counts, as launchd reads them), and a daemon plist in a -p project with no owner.
+MakeFile 'Library/LaunchAgents/com.example.cdata.plist' ('<plist version="1.0"><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/<![CDATA[x]]>y</string></dict></dict></plist>' + "`n")
+MakeFile 'Library/LaunchAgents/com.example.comment.plist' ('<plist version="1.0"><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><!-- a > <string>/opt/forged</string> --><string>/opt/real</string></dict></dict></plist>' + "`n")
+$lastPlist = @(
+  '<plist version="1.0"><dict>'
+  '<key>UserName</key><string>root</string>'
+  '<key>UserName</key><string>svc</string>'
+  '<key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/first</string></dict>'
+  '<key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/d1</string><key>CODEX_HOME</key><string>/opt/last</string></dict>'
+  '</dict></plist>'
+)
+MakeFile 'Library/LaunchDaemons/com.example.last.plist' (($lastPlist -join "`n") + "`n")
+$projectPlist = @($daemonPlist | ForEach-Object { $_.Replace('/opt/d/', '/opt/dp') })
+MakeFile 'opt/daemonproj/LaunchDaemons/com.example.project.plist' (($projectPlist -join "`n") + "`n")
 $daemonPlist = @(
   '<?xml version="1.0" encoding="UTF-8"?>'
   '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
@@ -3074,7 +3090,10 @@ Check '#455 a dollar before a digit is no reference' { (HintValue $defaultRunSum
 Check '#455 a continued line with CRLF ends resolves' { (HintValue $defaultRunSummary 'etc/environment.d/crlf.conf' 1 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/crlf') -and $null -eq (HintValue $defaultRunSummary 'etc/environment.d/crlf.conf' 2 'CODEX_HOME' 'codex-cli') }
 Check '#455 a plist string spanning lines is not resolved' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 2 'LETTA_DIR' 'letta') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 2 'LETTA_DIR' 'letta' '; value not resolved: holds a newline') }
 Check '#455 a line inside a plist string forges no value' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 3 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 3 'HERMES_HOME' 'hermes' '') -and -not $relocationLog.Contains('injected') }
-Check '#455 a plist string holding a CDATA section is not resolved' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 4 'CODEX_HOME' 'codex-cli' '; value not resolved: not a plain string') }
+Check '#455 a dictionary as a plist value is not a string' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.multiline.plist' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.multiline.plist' 4 'CODEX_HOME' 'codex-cli' '; value not resolved: not a string') }
+Check '#455 a plist holding a CDATA section is not plain' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.cdata.plist' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.cdata.plist' 1 'CODEX_HOME' 'codex-cli' '; value not resolved: not a plain plist') }
+Check '#455 a plist holding a comment is not plain and forges nothing' { (HintValue $defaultRunSummary 'Library/LaunchAgents/com.example.comment.plist' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchAgents/com.example.comment.plist' 1 'CODEX_HOME' 'codex-cli' '; value not resolved: not a plain plist') -and -not $relocationLog.Contains('forged') -and -not $relocationLog.Contains('opt' + $Separator + 'real') }
+Check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" { (HasHint $defaultRunSummary 'Library/LaunchDaemons/com.example.last.plist' 5 'CODEX_HOME' 'codex-cli' 'svc') -and (HintValue $defaultRunSummary 'Library/LaunchDaemons/com.example.last.plist' 5 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/last') -and (HintValue $defaultRunSummary 'Library/LaunchDaemons/com.example.last.plist' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'Library/LaunchDaemons/com.example.last.plist' 4 'CODEX_HOME' 'codex-cli' '') }
 Check '#455 only resolvable startup files give a value' { $valued = @($defaultRunSummary.relocation.hints | Where-Object { $_.value -ne '' }); $valued.Count -gt 0 -and @($valued | Where-Object { ($_.source -replace '\\', '/') -notmatch '/etc/environment$|/environment\.d/[^/]*\.conf$|/LaunchAgents/[^/]*\.plist$|/LaunchDaemons/[^/]*\.plist$' }).Count -eq 0 -and (HintValue $defaultRunSummary 'Users/alice/.bash_profile' 1 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' }
 Check '#455 an unresolved value is never logged or stored' { $summaryText = [System.IO.File]::ReadAllText($script:Summary.FullName); $unresolved = @('opt/single', 'opt/rel', 'file://', '/opt/../x', 'XDG_CONFIG_HOME/x', 'opt/comment', '$HOME/x', '${HOME}/x'); @($unresolved | Where-Object { $relocationLog.Contains($_) -or $summaryText.Contains($_) }).Count -eq 0 -and $relocationLog.Contains('value not resolved') }
 Check '#455 the stdout relocation line counts the resolved values' { (ResolvedTotal $defaultRunSummary) -gt 0 -and $script:stdout -match "(?m), $(ResolvedTotal $defaultRunSummary) resolved; see collectors/docs/relocation\.md\s*$" }
@@ -3451,10 +3470,12 @@ $envScanGlobSummaryFile = Get-ChildItem -LiteralPath $globOut -Filter '*.collect
 $envScanGlobSummary = Get-Content -LiteralPath $envScanGlobSummaryFile.FullName -Raw | ConvertFrom-Json
 Check '#454 the sweep leaves out its own output files under a name with pattern characters' { $script:ExitCode -eq 0 -and @($envScanGlobSummary.relocation.hints | Where-Object { $_.source.StartsWith($globOut) }).Count -eq 0 -and $envScanGlobSummary.relocation.files_searched -eq $envScanSummary.relocation.files_searched }
 Remove-Item -LiteralPath $globOut -Recurse -Force
-Run 'envscanroot' @{ EnvScanHome = $true; Project = (ImagePath 'home') }
+Run 'envscanroot' @{ EnvScanHome = $true; Project = @((ImagePath 'home'), (ImagePath 'opt/daemonproj')) }
 $envScanRootSummary = Get-Content -LiteralPath $script:Summary.FullName -Raw | ConvertFrom-Json
 $envScanRootLog = [System.IO.File]::ReadAllText((Get-ChildItem -LiteralPath (Join-Path $Out 'envscanroot') -Filter '*.log' | Select-Object -First 1).FullName)
-Check '#454 the sweep skips a project that holds a home directory' { $envScanRootLog.Contains("sweep skipped: project $(ImagePath 'home') holds a home directory") -and $envScanRootSummary.relocation.files_searched -eq $envScanSummary.relocation.files_searched }
+Check '#454 the sweep skips a project that holds a home directory' { $envScanRootLog.Contains("sweep skipped: project $(ImagePath 'home') holds a home directory") -and $envScanRootSummary.relocation.files_searched -eq ($envScanSummary.relocation.files_searched + 1) }
+# 2026-11-12 resolved relocation values (#455)
+Check "#455 a daemon plist in a project with no owner keeps the empty user" { (HasHint $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli' '') -and (HintValue $envScanRootSummary 'opt/daemonproj/LaunchDaemons/com.example.project.plist' 9 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'opt/dp') }
 Run 'envscanbad' @{ EnvScanMaxSizeMB = 'x' }
 Check '#454 an invalid sweep size limit exits 1' { $script:ExitCode -eq 1 -and $script:stdout -match 'Invalid -EnvScanMaxSizeMB' }
 

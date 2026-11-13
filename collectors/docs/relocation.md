@@ -99,7 +99,7 @@ file names and expands nothing from its own environment.
 | --- | --- |
 | `/etc/environment` | The text after `NAME=`, with one optional pair of double quotes removed. Nothing is expanded. A line starting with `#` is a comment. |
 | An `environment.d` file (`*.conf` in an `environment.d` directory) | The text after `NAME=`, read by the rules of `environment.d(5)`: white space around the name and the value is trimmed; a line starting with `#` or `;` is a comment; a backslash at the end of a line joins the next line to it, and the hint keeps the first line's number; one enclosing pair of single or double quotes is removed; `$$` is a dollar sign. `$HOME` and `${HOME}` become the user's home in a file that is under a collected user's home (`~/.config/environment.d`), and only there. Every other `$NAME`, `${NAME}`, `${NAME:-x}` and `${NAME:+x}` is left unresolved. |
-| A launchd property list (`*.plist` in a `LaunchAgents` or `LaunchDaemons` directory) | XML only: the `<string>` that follows `<key>NAME</key>` inside the top-level `EnvironmentVariables` dictionary. The hint's line is the line of the `<key>`. A system plist under `/Library/LaunchDaemons` gives the hint the plist's top-level `UserName` as its user, and an empty user when it has none; a value spanning lines, or a string holding a CDATA section, a comment or an element, is not read. A binary plist is not read. |
+| A launchd property list (`*.plist` in a `LaunchAgents` or `LaunchDaemons` directory) | XML only, and only a plain plist, the form launchd and `plutil` write: no comment, CDATA section, `&`, processing instruction beyond the XML declaration, DOCTYPE other than Apple's, or attribute beyond `plist version`. The value is the `<string>` that follows `<key>NAME</key>` inside the last top-level `EnvironmentVariables` dictionary, the last entry when a key repeats, as launchd reads it. The hint's line is the line of the `<key>`. A system plist under `/Library/LaunchDaemons` gives the hint the plist's last top-level `UserName` as its user, and an empty user when it has none; a value spanning lines or a string holding an element is not read. A binary plist is not read. |
 | The Windows registry (PowerShell collector, live Windows host) | See [The registry](#the-registry). |
 
 A value is kept only when it passes one test, whichever file it came from:
@@ -132,8 +132,8 @@ never quotes it. The collectors use these reasons:
 | `not an absolute path` | Is anything else that is not absolute, such as `~/cc`. |
 | `binary plist` | Is in a launchd plist that begins with the binary property list header; every variable it names gets this reason. |
 | `not a string` | Is in a plist, or in a registry value of a kind other than text, and is not a string. |
-| `not a plain string` | Is a plist `<string>` that holds other elements. |
-| `holds an XML entity` | Is a plist string that holds an XML entity (`&amp;`) or a `<` or `>` character. |
+| `not a plain string` | Is a plist `<string>` that holds an element. |
+| `not a plain plist` | Is in a plist that is not plain (the launchd row above says what plain means); every variable it names gets this reason. |
 | `not well-formed XML` | PowerShell collector only: the plist does not parse as XML. |
 | `file not readable` | PowerShell collector only: the file could not be opened for the second read. |
 

@@ -4527,7 +4527,8 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
   elseif ($text.Contains('`')) { $reason = 'holds a backquote' }
   elseif ($text.IndexOfAny([char[]]'"''') -ge 0) { $reason = 'holds a quote' }
   elseif ($absolute) {
-    if (@($text -split '[\\/]') -contains '..') { $reason = 'holds a .. segment' }
+    $separators = '/'; if ($registry) { $separators = '[\\/]' }
+    if (@($text -split $separators) -contains '..') { $reason = 'holds a .. segment' }
   }
   elseif ($script:UriSchemeRx.IsMatch($text)) { $reason = 'uri' }
   elseif ($text -match '^[A-Za-z0-9._-]') { $reason = 'relative' }
@@ -4537,11 +4538,10 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
     $value = $text.TrimEnd('\', '/'); if ($value.Length -eq 2) { $value += '\' }
     return @{ value = $value; reason = '' }
   }
-  $relative = $text.Trim('/')
-  if ($script:Mode -ne 'image') { return @{ value = ('/' + $relative); reason = '' } }
-  if ($relative -eq '') { return @{ value = $Root; reason = '' } }
-  $value = $Root + $script:Sep + $relative.Replace('/', $script:Sep)
-  return @{ value = $value; reason = '' }
+  $value = $text.TrimEnd('/'); if ($value -eq '') { $value = '/' }
+  if ($script:Mode -ne 'image') { return @{ value = $value; reason = '' } }
+  if ($value -eq '/') { return @{ value = $Root; reason = '' } }
+  return @{ value = ($Root + $value.Replace('/', $script:Sep)); reason = '' }
 }
 
 # Takes a path; returns its lines as an ArrayList, read with shared access and
@@ -4682,32 +4682,54 @@ function Read-PlistEnvironment($reader, $result) {
     $keyDepth = -1
     if ($depth -eq $topDepth -and $keyText -ceq 'EnvironmentVariables' -and
       $element -ceq 'dict' -and -not $reader.IsEmptyElement) {
-      $environmentDepth = $depth + 1
+      $environmentDepth = $depth + 1; $result.entries = @{}
     } elseif ($depth -eq $topDepth -and $keyText -ceq 'UserName' -and $element -ceq 'string') {
       $userName = Read-PlainString $reader
-      if ($userName.plain -and $userName.text -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*$') {
+      $result.userName = ''
+      if ($userName.plain -and $userName.text -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*\z') {
         $result.userName = $userName.text
       }
     } elseif ($depth -eq $environmentDepth -and $script:RelocationNames -ccontains $keyText) {
       $resolved = @{ value = ''; reason = 'not a string' }
       if ($element -ceq 'string') {
         $assigned = Read-PlainString $reader
-        if (-not $assigned.plain) {
-          $resolved = @{ value = ''; reason = 'not a plain string' }
-        } elseif ($assigned.text.IndexOfAny([char[]]'&<>') -ge 0) {
-          $resolved = @{ value = ''; reason = 'holds an XML entity' }
-        } else { $resolved = Test-ResolvedValue $assigned.text 'launchd' }
+        if (-not $assigned.plain) { $resolved = @{ value = ''; reason = 'not a plain string' } }
+        else { $resolved = Test-ResolvedValue $assigned.text 'launchd' }
       }
       $result.entries["$keyLine|$keyText"] = $resolved
     }
   }
 }
 
+# Takes a property list's text; returns whether it is plain, the form launchd
+# and plutil write, which both collectors read: no &, no comment or CDATA
+# section, no processing instruction beyond one leading XML declaration, no
+# DOCTYPE other than Apple's, and no attribute beyond plist's version. The sh
+# collector's tokeniser cannot read the other shapes and refuses them the same
+# way, so neither collector reads a shape one at a time.
+function Test-PlainPlist([string]$text) {
+  if ($text.Contains('&')) { return $false }
+  $declaration = '^\s*<\?xml version="1\.[0-9]+"( encoding="[A-Za-z0-9._-]+")?' +
+    '( standalone="(yes|no)")?\?>'
+  $doctype = '^!DOCTYPE plist PUBLIC "-//Apple( Computer)?//DTD PLIST 1\.0//EN"' +
+    ' "http://www\.apple\.com/DTDs/PropertyList-1\.0\.dtd"\z'
+  $body = $text -creplace $declaration, ''
+  foreach ($tag in [regex]::Matches($body, '<([^>]*)>')) {
+    $inner = $tag.Groups[1].Value
+    if ($inner.StartsWith('?')) { return $false }
+    if ($inner.StartsWith('!')) { if ($inner -cnotmatch $doctype) { return $false }; continue }
+    if ($inner -cmatch '^plist( version="[0-9.]+")?\z') { continue }
+    if ($inner.IndexOfAny([char[]]'="''') -ge 0) { return $false }
+  }
+  return $true
+}
+
 # Takes a launchd property list; returns @{ entries; userName; reason }: each
-# relocation variable of its EnvironmentVariables dictionary as "line|NAME" ->
-# @{ value; reason }, the line its <key> is on, which is the line the name
-# search hit, and the top-level UserName string. A binary plist, or XML that
-# does not parse, is the reason. No DTD or external entity is fetched.
+# relocation variable of its last EnvironmentVariables dictionary as
+# "line|NAME" -> @{ value; reason }, the line its <key> is on, which is the line
+# the name search hit, and the last top-level UserName string. A binary plist,
+# one that is not plain (Test-PlainPlist) or XML that does not parse is the
+# reason. No DTD or external entity is fetched.
 function Resolve-PlistValues([string]$path) {
   $result = @{ entries = @{}; userName = ''; reason = '' }
   $stream = $null; $reader = $null
@@ -4720,7 +4742,10 @@ function Resolve-PlistValues([string]$path) {
       $result.reason = 'binary plist'; return $result
     }
     [void]$stream.Seek(0, [System.IO.SeekOrigin]::Begin)
-    $reader = New-Object System.Xml.XmlTextReader($stream)
+    $textReader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
+    $text = $textReader.ReadToEnd()
+    if (-not (Test-PlainPlist $text)) { $result.reason = 'not a plain plist'; return $result }
+    $reader = New-Object System.Xml.XmlTextReader((New-Object System.IO.StringReader($text)))
     $reader.DtdProcessing = [System.Xml.DtdProcessing]::Ignore
     $reader.XmlResolver = $null
     Read-PlistEnvironment $reader $result
@@ -4830,7 +4855,7 @@ function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits
   $resolved = @{ entries = @{}; userName = ''; reason = '' }
   if ($kind) { $resolved = Resolve-FileValues $path $kind (Get-ExpansionHome $homeDir) }
   $hintUser = $user
-  if ($user -eq '' -and $kind -eq 'launchd' -and
+  if ($user -eq '' -and $homeDir -eq '' -and $kind -eq 'launchd' -and
     $path.Replace('\', '/') -clike '*/LaunchDaemons/*.plist') {
     $hintUser = $resolved.userName
   }
