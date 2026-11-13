@@ -4569,15 +4569,25 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
 }
 
 # Takes a path; returns its lines as an ArrayList, read with shared access and
-# split where Select-String splits them, or $null when it cannot be read.
+# split at line feeds alone, a carriage return before one dropped, or $null
+# when it cannot be read. A lone carriage return stays inside its line, as it
+# does for the sh collector's grep and awk, so a value holding one is refused
+# and the hint lines of both collectors count the same.
 function Read-StartupFileLines([string]$path) {
   $stream = $null; $reader = $null
   try {
     $stream = New-Object System.IO.FileStream((ConvertTo-ExtendedPath $path),
       [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $script:ShareReadWriteDelete)
     $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
+    $text = $reader.ReadToEnd()
+    if ($text.EndsWith("`n")) { $text = $text.Substring(0, $text.Length - 1) }
     $lines = New-Object System.Collections.ArrayList
-    while ($null -ne ($line = $reader.ReadLine())) { [void]$lines.Add($line) }
+    if ($text -ne '') {
+      foreach ($line in $text.Split("`n")) {
+        if ($line.EndsWith("`r")) { $line = $line.Substring(0, $line.Length - 1) }
+        [void]$lines.Add($line)
+      }
+    }
     return , $lines
   } catch [System.IO.IOException], [System.UnauthorizedAccessException] {
     return $null
@@ -4899,28 +4909,35 @@ function Test-PowerShellScript([string]$path) {
 # Takes the user, home and files of one base; searches them, then records each
 # bounded hit with Add-FileHints and collects each hit file. A name
 # matches in its own case only, since shells name variables case-sensitively,
-# except in a .ps1 file, where PowerShell does not. Only line numbers and names
-# leave the search.
+# except in a .ps1 file, where PowerShell does not. Select-String names the
+# files holding a name; the lines and their numbers come from
+# Read-StartupFileLines, split at line feeds alone as the sh collector's grep
+# counts them, since Select-String ends a line at a lone carriage return too.
+# Only line numbers and names leave the search.
 function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$files) {
   if ($files.Count -eq 0) { return }
   $script:RelocationCounts.searched += $files.Count
   $scripts = @($files | Where-Object { Test-PowerShellScript $_ })
   $others = @($files | Where-Object { -not (Test-PowerShellScript $_) })
   $found = @(Select-RelocationNames $others $false) + @(Select-RelocationNames $scripts $true)
-  # Each hit file once, in search order, with its hits as @(line, variable).
   $hitFiles = New-Object System.Collections.ArrayList
-  $hits = New-Object 'System.Collections.Generic.Dictionary[string,object]' $script:RowPathComparer
+  $seen = New-Object 'System.Collections.Generic.HashSet[string]' $script:RowPathComparer
   foreach ($match in $found) {
     $path = ConvertFrom-ExtendedPath $match.Path
-    foreach ($name in @(Get-BoundedNames $match.Line (Test-PowerShellScript $path))) {
-      if (-not $hits.ContainsKey($path)) {
-        $hits[$path] = New-Object System.Collections.ArrayList; [void]$hitFiles.Add($path)
-      }
-      [void]$hits[$path].Add(@($match.LineNumber, $name))
-    }
+    if ($seen.Add($path)) { [void]$hitFiles.Add($path) }
   }
   foreach ($path in $hitFiles) {
-    Add-FileHints $user $homeDir $path $hits[$path]
+    $lines = Read-StartupFileLines $path
+    if ($null -eq $lines) { Write-CollectorLog "read failed: $path"; continue }
+    $fileHits = New-Object System.Collections.ArrayList
+    $ignoreCase = Test-PowerShellScript $path
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+      foreach ($name in @(Get-BoundedNames ([string]$lines[$index]) $ignoreCase)) {
+        [void]$fileHits.Add(@($index + 1, $name))
+      }
+    }
+    if ($fileHits.Count -eq 0) { continue }
+    Add-FileHints $user $homeDir $path $fileHits
     Add-HintFile $user $homeDir $path
   }
 }

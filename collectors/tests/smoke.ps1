@@ -2032,7 +2032,7 @@ foreach ($oauthBase in @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop
 # or refuses, one per line, and a value continued on a second line; a daemon plist with a
 # DOCTYPE names its user; a binary plist. The files above assigning /opt/x resolve under the
 # image root.
-MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n")
+MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n" + "CODEX_HOME=/a`rb`n")
 MakeFile 'Users/alice/.config/environment.d/home.conf' ('CODEX_HOME=$HOME/x' + "`n")
 MakeFile 'etc/environment.d/home.conf' ('CODEX_HOME=${HOME}/x' + "`n")
 $environmentValues = @(
@@ -2054,6 +2054,7 @@ MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n"
 # a daemon plist under a home, reached only by the sweep, whose UserName must not become the
 # hint's user.
 MakeFile 'etc/environment.d/crlf.conf' "CODEX_HOME=/opt/cr\`r`nlf/`r`n"
+MakeFile 'etc/environment.d/cr2.conf' "CODEX_HOME=/a`rCLAUDE_CONFIG_DIR=/c`n"
 $multilinePlist = @(
   '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
   '<key>LETTA_DIR</key><string>/opt/m'
@@ -3141,6 +3142,8 @@ Check '#455 a control character in a value is not resolved' { (HintValue $defaul
 Check '#455 a doubled dollar is no reference' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 10 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 10 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a $') }
 Check '#455 a doubled percent is no reference' { (HintValue $defaultRunSummary 'etc/environment' 5 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 5 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a %') }
 Check '#455 an unclosed brace reference is a dollar' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 11 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 11 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a $') }
+Check '#455 a lone carriage return stays inside its line' { (HintValue $defaultRunSummary 'etc/environment' 6 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 6 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') }
+Check '#455 a lone carriage return splits no line' { (ValueLogged 'etc/environment.d/cr2.conf' 1 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (HasHint $defaultRunSummary 'etc/environment.d/cr2.conf' 1 'CLAUDE_CONFIG_DIR' 'claude-code' '') -and (HintValue $defaultRunSummary 'etc/environment.d/cr2.conf' 1 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' -and $null -eq (HintValue $defaultRunSummary 'etc/environment.d/cr2.conf' 2 'CLAUDE_CONFIG_DIR' 'claude-code') }
 if ($havePlutil) {
   Check '#455 a carriage return inside a plist string is a control character' { (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 0 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli' '') }
 } else {

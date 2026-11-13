@@ -121,7 +121,7 @@ never quotes it. The collectors use these reasons:
 | --- | --- |
 | `references $NAME` | Holds a reference to a variable, such as `$XDG_CONFIG_HOME`, `${HOME}` outside a user's own `environment.d` file, or `$HOME` in a file that is not `environment.d`. |
 | `references %NAME%` | Holds a Windows reference that was not replaced. |
-| `holds a $` or `holds a %` | Its first `$` or `%` starts no name (a `$$`, a `$-`, a `%%`), whatever follows later in the value. |
+| `holds a $` or `holds a %` | Its first `$` or `%` starts no name (a `$$`, a `$-`, a `%%`), whatever follows later in the value; in an `environment.d` file, which is expanded left to right first, a `$` that starts no reference (`$$`, `$-`, `${X` with no closing brace) once `$HOME` is expanded and no other reference follows it. |
 | `quoted` | Holds a quote besides the one enclosing pair the file's syntax allows. |
 | `holds a quote` | Holds a quote after the file's own unquoting, such as an escaped quote inside double quotes. |
 | `holds a backquote` | Holds a backquote. |

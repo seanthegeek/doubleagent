@@ -55,9 +55,9 @@ the registry value (`HKLM\...\Environment\<name>` or
 `registry: hive of <user> not readable: <message>` and
 `registry: system environment not readable: <message>`. Both collectors log the
 value `plutil` reads from a launchd plist the same way, as
-`relocation hint: <file> names <VARIABLE> (<agent>) = <path>` with no `:<line>`,
-since `plutil` reports none, beside the plain hints of the lines naming the
-variable. The line of the file
+`relocation hint: <file> names <VARIABLE> (<agent>)` followed by ` = <path>` or
+`; value not resolved: <reason>`, with no `:<line>` since `plutil` reports none,
+beside the plain hints of the lines naming the variable. The line of the file
 that matched is never logged, and neither is a value that was not kept. The first log lines name the options, `env_scan_home=<0|1>`
 and `env_scan_max_size=<MB>MB` among them. The last progress line is `done`;
 the log file's `done:` line also records the

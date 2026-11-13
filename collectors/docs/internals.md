@@ -509,9 +509,11 @@ whose name holds a newline is never searched (`find ! -name`, and
 `list_startup_files` drops it), since `grep -l` prints one path per line
 and such a name would forge a line, and the paths listed count only under
 the base searched. The PowerShell side runs
-`Select-String -CaseSensitive` over the other files, `Select-String` without
-it over the `.ps1` files, and applies the same boundary test to the matched
-line. The sh `grep` gets `GREP_TEXT`
+`Select-String -CaseSensitive` over the other files and `Select-String` without
+it over the `.ps1` files to name the files holding a name, then reads each hit
+file with `Read-StartupFileLines`, split at line feeds alone as `grep -n` counts
+lines (`Select-String` ends a line at a lone carriage return too), and applies
+the same boundary test to each line. The sh `grep` gets `GREP_TEXT`
 ([Capability detection](#capability-detection)), and a NUL byte in a matched
 line becomes a space before `awk`, which would end the line there. The matched
 text never reaches the log, stdout, a variable that is later printed or a

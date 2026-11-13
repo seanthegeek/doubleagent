@@ -1988,6 +1988,7 @@ printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/usr/share/ollama/.env-helper.sh"
 printf '%s\n' 'CODEX_HOME="/opt/q"' "CODEX_HOME='/opt/single'" >>"$ROOT/etc/environment"
 printf 'CODEX_HOME=/opt/e\033x\n' >>"$ROOT/etc/environment"
 printf '%s\n' 'CODEX_HOME=/a%%PATH%' >>"$ROOT/etc/environment"
+printf 'CODEX_HOME=/a\rb\n' >>"$ROOT/etc/environment"
 # shellcheck disable=SC2016
 printf '%s\n' 'CODEX_HOME=$HOME/x' >"$ALICE/.config/environment.d/home.conf"
 # shellcheck disable=SC2016
@@ -2011,6 +2012,7 @@ daemon_plist /opt/d/ >"$ROOT/Library/LaunchDaemons/com.example.daemon.plist"
 # holding a CDATA section; a daemon plist under a home, reached only by the
 # sweep, whose UserName must not become the hint's user.
 printf 'CODEX_HOME=/opt/cr\\\r\nlf/\r\n' >"$ROOT/etc/environment.d/crlf.conf"
+printf 'CODEX_HOME=/a\rCLAUDE_CONFIG_DIR=/c\n' >"$ROOT/etc/environment.d/cr2.conf"
 printf '%s\n' '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>' \
   '<key>LETTA_DIR</key><string>/opt/m' '3|HERMES_HOME|=/opt/injected</string>' \
   '<key>CODEX_HOME</key><dict><key>x</key><string>/opt/dd</string></dict>' \
@@ -2901,6 +2903,8 @@ check "#455 a control character in a value is not resolved" "[ -z \"\$(hint_valu
 check "#455 a doubled dollar is no reference" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 10 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 10 CODEX_HOME codex-cli '; value not resolved: holds a \$'"
 check "#455 a doubled percent is no reference" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 5 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 5 CODEX_HOME codex-cli '; value not resolved: holds a %'"
 check "#455 an unclosed brace reference is a dollar" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 11 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 11 CODEX_HOME codex-cli '; value not resolved: holds a \$'"
+check "#455 a lone carriage return stays inside its line" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 6 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 6 CODEX_HOME codex-cli '; value not resolved: holds a control character'"
+check "#455 a lone carriage return splits no line" "value_logged \"$ROOT/etc/environment.d/cr2.conf\" 1 CODEX_HOME codex-cli '; value not resolved: holds a control character' && hint_line \"$ROOT/etc/environment.d/cr2.conf\" 1 CLAUDE_CONFIG_DIR claude-code | contains -F '\"value\": \"\"}' && [ -z \"\$(hint_line \"$ROOT/etc/environment.d/cr2.conf\" 2 CLAUDE_CONFIG_DIR claude-code)\" ]"
 if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a carriage return inside a plist string is a control character" "value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 0 CODEX_HOME codex-cli '; value not resolved: holds a control character' && value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 1 CODEX_HOME codex-cli ''"
 else
