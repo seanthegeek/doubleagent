@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, go-rewrite]
   pull_request:
 
 # Every job only checks out the repository and downloads public release
@@ -20,6 +20,8 @@ env:
   SHFMT_VERSION: "3.14.1"
   CHECKBASHISMS_TAG: "v2.26.13"
   PSSA_VERSION: "1.25.0"
+  STATICCHECK_VERSION: "0.8.2"
+  GOVULNCHECK_VERSION: "1.9.0"
 
 jobs:
   # Each job runs only when a file it reads changed: .github/classify-changes.sh
@@ -56,6 +58,7 @@ jobs:
       python: ${{ steps.classify.outputs.python }}
       catalog: ${{ steps.classify.outputs.catalog }}
       fork-budget: ${{ steps.classify.outputs.fork-budget }}
+      go: ${{ steps.classify.outputs.go }}
       all: ${{ steps.classify.outputs.all }}
     steps:
       - uses: actions/checkout@v7
@@ -265,6 +268,47 @@ jobs:
       - name: pytest (round pipeline)
         run: python3 -m pytest lab/round/tests -q
 
+  # The Go binary's gates, tests and release build, on the two runners whose
+  # tools the parity harness will need (dash, BSD and GNU userlands). The
+  # linters are pinned in the env block and run with `go run module@version`,
+  # so go.mod and vendor/ hold only what the binary links. The build script
+  # runs twice and the hashes must agree: a release build is reproducible or
+  # it does not ship.
+  go:
+    name: Go (gates, tests, six-target build on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then printf 'gofmt: %s\n' "$unformatted"; exit 1; fi
+      - name: go vet
+        run: go vet ./...
+      - name: staticcheck
+        run: go run "honnef.co/go/tools/cmd/staticcheck@v$STATICCHECK_VERSION" ./...
+      - name: govulncheck
+        run: go run "golang.org/x/vuln/cmd/govulncheck@v$GOVULNCHECK_VERSION" ./...
+      - name: go test
+        run: go test -race ./...
+      - name: Build the six targets twice and compare the hashes
+        run: |
+          sh .github/go-build.sh "$RUNNER_TEMP/build-1" > "$RUNNER_TEMP/sums-1"
+          sh .github/go-build.sh "$RUNNER_TEMP/build-2" > "$RUNNER_TEMP/sums-2"
+          cat "$RUNNER_TEMP/sums-1"
+          cmp "$RUNNER_TEMP/sums-1" "$RUNNER_TEMP/sums-2"
+
   lint:
     name: Lint (ruff, pyright, markdownlint, sh linters, PSScriptAnalyzer)
     runs-on: ubuntu-latest
@@ -401,6 +445,7 @@ jobs:
       - powershell-7
       - windows-powershell-51
       - analyzer
+      - go
       - lint
       - site
     steps:

@@ -5,3 +5,6 @@
 *.sh text eol=lf
 # The output examples regenerator rewrites only LF documents.
 analyzer/docs/output.md text eol=lf
+*.go text eol=lf
+# The vendored modules are third-party source a reviewer reads as generated.
+vendor/** linguist-generated=true
