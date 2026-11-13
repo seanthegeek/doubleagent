@@ -2082,9 +2082,20 @@ MakeFile 'etc/environment.d/bytes.conf' "CODEX_HOME=$([char]0xA0)/nbsp`nCLAUDE_C
 MakeFile 'etc/environment.d/nulbyte.conf' "HERMES_HOME=/n$([char]0)ul`nCODEX_HOME=/opt/afternul`n"
 MakeFile 'etc/environment.d/bom.conf' "$([char]0xFEFF)CODEX_HOME=/bom`n"
 # A profile Windows PowerShell wrote itself, UTF-16 with its byte order mark, which the
-# PowerShell collector reads as text (the sh collector's grep sees no name in it).
+# PowerShell collector reads as text and the sh collector decodes by the mark; its second
+# line is four CJK characters whose bytes spell AMP_HOME.
 MakeFile 'Users/alice/Documents/PowerShell/utf16.ps1' 'placeholder'
-Set-Content -LiteralPath (ImagePath 'Users/alice/Documents/PowerShell/utf16.ps1') -Value ('$env:CODEX_HOME = "D:\codex"' + "`n") -Encoding Unicode -NoNewline
+Set-Content -LiteralPath (ImagePath 'Users/alice/Documents/PowerShell/utf16.ps1') -Value ('$env:CODEX_HOME = "D:\codex"' + "`n" + [char]0x4D41 + [char]0x5F50 + [char]0x4F48 + [char]0x454D + "`n") -Encoding Unicode -NoNewline
+# The same profile written big-endian by the ISE: U+4E0A and U+010A (each with a line feed
+# byte) on the first line, the name on the second, a name between U+3000 (a byte is the digit
+# 0) and U+015F (a byte is an underscore) on the third, a name across the 4096th character
+# on the fourth, a name right after 4096 letters on the fifth (no hint), a name after a run
+# of 20000 letters on the sixth, the longest name ending at the 4096th character on the
+# seventh and that name glued to 36 letters across the cut on the eighth (no hint), which
+# proves the sh collector's decoding keeps the line numbers and the word boundaries whatever
+# the line length.
+MakeFile 'Users/alice/Documents/PowerShell/utf16be.ps1' 'placeholder'
+Set-Content -LiteralPath (ImagePath 'Users/alice/Documents/PowerShell/utf16be.ps1') -Value ("# " + [char]0x4E0A + [char]0x010A + " profile`n" + '$env:CODEX_HOME = "D:\codex-be"' + "`n# " + [char]0x3000 + 'CLAUDE_CONFIG_DIR' + [char]0x015F + "here`n" + (' ' * 4085) + '$env:CODEX_HOME = "D:\long"' + "`n" + ('y' * 4096) + "CLAUDE_CONFIG_DIR`n" + '$b = "' + ('a' * 20000) + '"; $env:CODEX_HOME = "D:\run"' + "`n" + (' ' * 4061) + "NANOBOT_AGENTS__DEFAULTS__WORKSPACE`n" + (' ' * 4025) + 'NANOBOT_AGENTS__DEFAULTS__WORKSPACE' + ('y' * 36) + "`n") -Encoding BigEndianUnicode -NoNewline
 $multilinePlist = @(
   '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
   '<key>LETTA_DIR</key><string>/opt/m'
@@ -3088,6 +3099,14 @@ Check '#454 an env shebang line gives no ENV hint' { $shebangHints = @(HintsFrom
 # The PowerShell collector reads no value from a file: every file hint keeps an empty value
 # and its log line ends at the agent, whatever the file assigns.
 Check '#455 a UTF-16 profile is hinted' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16.ps1' 1 'CODEX_HOME' 'codex-cli' 'alice' }
+Check '#455 a big-endian UTF-16 profile is hinted on its line' { (HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1' 2 'CODEX_HOME' 'codex-cli' 'alice') -and @((HintsFrom $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1') | Where-Object { $_.line -ne 2 -and $_.line -ne 3 -and $_.line -ne 4 -and $_.line -ne 6 -and $_.line -ne 7 }).Count -eq 0 }
+Check '#455 UTF-16 units whose bytes spell a name are no hint' { (HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16.ps1' 1 'CODEX_HOME' 'codex-cli' 'alice') -and @((HintsFrom $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16.ps1') | Where-Object { $_.variable -eq 'AMP_HOME' }).Count -eq 0 }
+Check '#455 a name across the 4096th character of a UTF-16 line is hinted' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1' 4 'CODEX_HOME' 'codex-cli' 'alice' }
+Check '#455 a UTF-16 line cut after 4096 characters invents no name' { (HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1' 4 'CODEX_HOME' 'codex-cli' 'alice') -and @((HintsFrom $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1') | Where-Object { $_.line -eq 5 }).Count -eq 0 }
+Check '#455 a name after a long run of name characters in a UTF-16 line is hinted' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1' 6 'CODEX_HOME' 'codex-cli' 'alice' }
+Check '#455 the longest name ending at the 4096th character of a UTF-16 line is hinted' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1' 7 'NANOBOT_AGENTS__DEFAULTS__WORKSPACE' 'nanobot' 'alice' }
+Check '#455 the longest name glued to letters across a UTF-16 cut is no hint' { (HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1' 7 'NANOBOT_AGENTS__DEFAULTS__WORKSPACE' 'nanobot' 'alice') -and @((HintsFrom $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1') | Where-Object { $_.line -eq 8 }).Count -eq 0 }
+Check '#455 a name between non-ASCII characters in a UTF-16 profile is hinted' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16be.ps1' 3 'CLAUDE_CONFIG_DIR' 'claude-code' 'alice' }
 Check '#455 a byte order mark before a name leaves its line without a value' { (HasHint $defaultRunSummary 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli' '') -and (HintsFrom $defaultRunSummary 'etc/environment.d/bom.conf').Count -eq 1 }
 Check '#455 a lone carriage return splits no line' { $carriageSource = ImagePath 'etc/environment.d/cr2.conf'; (HasHint $defaultRunSummary 'etc/environment.d/cr2.conf' 1 'CODEX_HOME' 'codex-cli' '') -and (HasHint $defaultRunSummary 'etc/environment.d/cr2.conf' 1 'CLAUDE_CONFIG_DIR' 'claude-code' '') -and @($defaultRunSummary.relocation.hints | Where-Object { $_.source -eq $carriageSource -and $_.line -ne 1 }).Count -eq 0 }
 Check '#455 no file hint carries a value' { $fileHints = @($defaultRunSummary.relocation.hints | Where-Object { $_.line -gt 0 }); $hintLines = @($relocationLog -split "`r?`n" | Where-Object { $_.Contains('relocation hint: ') }); $fileHints.Count -gt 0 -and @($fileHints | Where-Object { $_.value -ne '' }).Count -eq 0 -and $hintLines.Count -gt 0 -and @($hintLines | Where-Object { $_.Contains(' = ') }).Count -eq 0 -and -not $relocationLog.Contains('value not resolved') -and -not ($defaultRunSummary.capabilities.PSObject.Properties.Name -contains 'plutil') }

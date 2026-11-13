@@ -3073,11 +3073,12 @@ INVENTORY_FILES_WORKER="$COMMON
 $_ret_heredoc_text"
 
 # HINT_SEARCH_WORKER: prints S|<count> for its files, then the files that
-# grep -l -F with the GREP_NAME_OPTIONS names lists, in two batches: the .ps1
-# files in any case, the rest in their own case, so find starts at most two
-# greps per batch of files. A name holding a newline never reaches it. Reads
-# GREP_NAME_OPTIONS, GREP_TEXT and LOG from the environment. Arguments:
-# files...
+# grep -l -F with the GREP_NAME_OPTIONS names lists, the files that are not
+# .ps1 in their own case first, then U|<file> for each .ps1 file holding a
+# UTF-16 byte order mark (GREP_BOM_OPTIONS), then the .ps1 files in any case,
+# so find starts at most three greps per batch of files. A name holding a
+# newline never reaches it. Reads GREP_NAME_OPTIONS, GREP_BOM_OPTIONS,
+# GREP_TEXT and LOG from the environment. Arguments: files...
 heredoc_var <<'EOF_HINT_SEARCH_WORKER'
 printf 'S|%s\n' "$#" # files...
 newline='
@@ -3094,8 +3095,12 @@ IFS=$newline; set -f
 [ -z "$others" ] ||
   grep ${GREP_TEXT:+"$GREP_TEXT"} -l -F $GREP_NAME_OPTIONS -- $others 2>>"$LOG"
 # shellcheck disable=SC2086
-[ -z "$scripts" ] ||
+[ -z "$scripts" ] || {
+  for file in $(grep ${GREP_TEXT:+"$GREP_TEXT"} -l -F $GREP_BOM_OPTIONS -- $scripts 2>>"$LOG"); do
+    printf 'U|%s\n' "$file"
+  done
   grep ${GREP_TEXT:+"$GREP_TEXT"} -i -l -F $GREP_NAME_OPTIONS -- $scripts 2>>"$LOG"
+}
 EOF_HINT_SEARCH_WORKER
 HINT_SEARCH_WORKER=$_ret_heredoc_text
 
@@ -4172,16 +4177,82 @@ END { if (continued) { joined = 1; open = (quote != ""); assign(pending, start) 
 EOF_ENVIRONMENT_D_VALUES_AWK
 ENVIRONMENT_D_VALUES_AWK=$_ret_heredoc_text
 
+# BOUNDED_NAMES_AWK: prints LINE|NAME for each RELOCATION_VARS name (names, a
+# comma-separated list) a line holds as a whole word, case-folded when fold is
+# 1 (a .ps1 file, where a name before a colon is a qualifier). With utf16 0 it
+# reads grep -n lines, NUMBER:TEXT; with utf16 1 one UTF-16 unit per record,
+# as tr and sed prepare it (a NUL byte as \001, a line feed as \002, an
+# original \001 or \002 as \003), the first unit the byte order mark, else it
+# prints "nomark" alone: an ASCII character is itself (a NUL, \001, \002 or
+# \003 unit a space), any other unit a space; a line of 4096 characters or more
+# is tested in pieces, each cut back from its end by at most one character more
+# than the longest name, closed inside a run of name characters, forging nothing.
+heredoc_var <<'EOF_BOUNDED_NAMES_AWK'
+function bounded(text, needle, powershell, closed, closed_end,   start, offset, at, before, after) {
+  start = 1
+  while ((offset = index(substr(text, start), needle)) > 0) {
+    at = start + offset - 1
+    before = at > 1 ? substr(text, at - 1, 1) : (closed ? "_" : "")
+    if (at + length(needle) <= length(text)) after = substr(text, at + length(needle), 1)
+    else after = closed_end ? "_" : ""
+    start = at + 1
+    if (powershell && after == ":") continue
+    if (before !~ /[A-Za-z0-9_]/ && after !~ /[A-Za-z0-9_]/) return 1
+  }
+  return 0
+}
+function report(number, text, closed, closed_end,   i) {
+  if (fold) text = tolower(text)
+  if (text !~ pattern) return
+  for (i = 1; i <= count; i++) if (bounded(text, word[i], fold, closed, closed_end)) print number "|" name[i]
+}
+function flush(   cut, back) {
+  cut = length(line); back = 0
+  while (cut > 0 && back <= longest && substr(line, cut, 1) ~ /[A-Za-z0-9_]/) { cut--; back++ }
+  if (back > longest) { report(number, substr(line, 1, cut), carried, 1); line = ""; carried = 1 }
+  else { report(number, substr(line, 1, cut), carried, 0); line = substr(line, cut); carried = 0 }
+}
+BEGIN { count = split(names, name, ","); longest = 0
+  for (i = 1; i <= count; i++) {
+    word[i] = fold ? tolower(name[i]) : name[i]
+    if (length(name[i]) > longest) longest = length(name[i])
+  }
+  pattern = word[1]; for (i = 2; i <= count; i++) pattern = pattern "|" word[i]
+  number = 1; line = ""; carried = 0 }
+utf16 == 0 {
+  separator = index($0, ":"); number = substr($0, 1, separator - 1)
+  if (separator < 2 || number ~ /[^0-9]/) next
+  report(number, substr($0, separator + 1), 0, 0); next
+}
+NR == 1 {
+  if ($0 == "\377\376") little = 1; else if ($0 == "\376\377") little = 0
+  else { print "nomark"; exit }
+  next
+}
+{
+  if (little) { low = substr($0, 1, 1); high = substr($0, 2, 1) }
+  else { high = substr($0, 1, 1); low = substr($0, 2, 1) }
+  if (high != "\001" || low == "\001" || low == "\003" || low > "\177") line = line " "
+  else if (low == "\002") { report(number, line, carried, 0); line = ""; carried = 0; number++ }
+  else line = line low
+  if (length(line) >= 4096) flush()
+}
+END { if (utf16 && line != "") report(number, line, carried, 0) }
+EOF_BOUNDED_NAMES_AWK
+BOUNDED_NAMES_AWK=$_ret_heredoc_text
+
 # set_relocation_names: sets RELOCATION_NAMES_CSV, each RELOCATION_VARS name
 # once, comma-separated, for awk, and GREP_NAME_OPTIONS, "-e NAME" for each,
-# one word per line, exported for HINT_SEARCH_WORKER. Temporaries: _srn_.
+# one word per line, and GREP_BOM_OPTIONS, the two UTF-16 byte order marks
+# the same way, both exported for HINT_SEARCH_WORKER. Temporaries: _srn_.
 set_relocation_names() {
   _srn_names=$(printf '%s\n' "$RELOCATION_VARS" |
     awk -F'|' 'NF >= 2 && $1 !~ /^#/ && $2 != "" && !seen[$2]++ { print $2 }')
   RELOCATION_NAMES_CSV=$(printf '%s\n' "$_srn_names" | tr '\n' ',')
   RELOCATION_NAMES_CSV=${RELOCATION_NAMES_CSV%,}
   GREP_NAME_OPTIONS=$(printf '%s\n' "$_srn_names" | awk '{ print "-e"; print }')
-  export GREP_NAME_OPTIONS
+  GREP_BOM_OPTIONS=$(printf '%s\n\377\376\n%s\n\376\377' -e -e)
+  export GREP_NAME_OPTIONS GREP_BOM_OPTIONS
 }
 
 # list_startup_files BASE SCOPE -> the regular files, never a symlink nor under
@@ -4282,58 +4353,59 @@ scan_home_for_variables() {
 # record_search_output USER HOME BASE OUTPUT: adds the S|<count> lines of
 # OUTPUT to RELOCATION_FILES_SEARCHED and each B| line to
 # RELOCATION_FILES_SKIPPED_SIZE, and records the hits of every file it lists
-# under BASE (/ when BASE is empty). Temporaries: _rso_.
+# under BASE (/ when BASE is empty); a U| file, UTF-16, listed before the
+# .ps1 hits of its batch, is read as such, and the hit the name grep made of
+# its bytes, when it made one, is skipped. Temporaries: _rso_.
 record_search_output() {
-  _rso_prefix=${3%/}/
+  _rso_prefix=${3%/}/; _rso_utf16=$NEWLINE
   while IFS= read -r _rso_line; do
     case "$_rso_line" in
       ('S|'*) _rso_count=$(to_number "${_rso_line#S|}")
         RELOCATION_FILES_SEARCHED=$(( RELOCATION_FILES_SEARCHED + _rso_count )) ;;
       ('B|'*) RELOCATION_FILES_SKIPPED_SIZE=$(( RELOCATION_FILES_SKIPPED_SIZE + 1 )) ;;
-      ("$_rso_prefix"*) record_file_hints "$1" "$2" "$_rso_line" ;;
+      ('U|'"$_rso_prefix"*) _rso_utf16="$_rso_utf16${_rso_line#U|}$NEWLINE"
+        record_file_hints "$1" "$2" "${_rso_line#U|}" utf16 ;;
+      ("$_rso_prefix"*) case "$_rso_utf16" in
+        (*"$NEWLINE$_rso_line$NEWLINE"*) ;;
+        (*) record_file_hints "$1" "$2" "$_rso_line" ;;
+      esac ;;
     esac
   done <<EOF_SEARCH_OUTPUT
 $4
 EOF_SEARCH_OUTPUT
 }
 
-# list_bounded_names FILE -> LINE|NAME for each line of FILE and each
-# RELOCATION_VARS name it holds as a whole word: the characters around it, when
-# any, are not letters, digits or _. A name matches in its own case only, since
-# shells name variables case-sensitively, except in a .ps1 file, where PowerShell
-# does not and a name before a colon is a drive or scope qualifier ($env:), no
-# variable. A NUL byte becomes a space before awk, which ends a line at one. The
-# line's text goes through a pipe only, never to output. Reads GREP_TEXT,
-# GREP_NAME_OPTIONS, RELOCATION_NAMES_CSV, LOG. Temporaries: _lbn_.
+# list_bounded_names FILE [utf16] -> LINE|NAME for each line of FILE and each
+# RELOCATION_VARS name it holds as a whole word (BOUNDED_NAMES_AWK): the
+# characters around it, when any, are not letters, digits or _. A name matches
+# in its own case only, since shells name variables case-sensitively, except in
+# a .ps1 file, where PowerShell does not. A NUL byte becomes a space before
+# awk, which would cut a line at one; a utf16 FILE is instead split into one
+# two-byte unit per line, which the awk decodes, unless its first unit is no
+# byte order mark, when it is read as bytes after all. The line's text goes
+# through a pipe only, never to output. Reads GREP_TEXT, GREP_NAME_OPTIONS,
+# RELOCATION_NAMES_CSV, BOUNDED_NAMES_AWK, LOG. Temporaries: _lbn_.
 list_bounded_names() {
   _lbn_file=$1; _lbn_fold=0; _lbn_case=
   case "$_lbn_file" in (*.[Pp][Ss]1) _lbn_fold=1; _lbn_case=-i ;; esac
+  if [ "${2-}" = utf16 ]; then
+    _lbn_names=$(tr '\000\001\002\012' '\001\003\003\002' 2>>"$LOG" <"$_lbn_file" | sed 's/../&\
+/g' | awk -v names="$RELOCATION_NAMES_CSV" -v fold="$_lbn_fold" -v utf16=1 "$BOUNDED_NAMES_AWK")
+    case "$_lbn_names" in
+      (nomark) list_bounded_names "$_lbn_file" ;;
+      ('') ;;
+      (*) printf '%s\n' "$_lbn_names" ;;
+    esac
+    return 0
+  fi
   _lbn_saved_ifs=$IFS; IFS='
 '
   set -f
   # shellcheck disable=SC2086 # one grep option per line
-  set -- ${_lbn_case:+"$_lbn_case"} ${GREP_TEXT:+"$GREP_TEXT"} -n -F $GREP_NAME_OPTIONS \
-    -- "$_lbn_file"
+  set -- ${_lbn_case:+"$_lbn_case"} ${GREP_TEXT:+"$GREP_TEXT"} -n -F $GREP_NAME_OPTIONS --
   set +f; IFS=$_lbn_saved_ifs
-  grep "$@" 2>>"$LOG" | tr '\000' ' ' | awk -v names="$RELOCATION_NAMES_CSV" -v fold="$_lbn_fold" '
-    function bounded(text, needle, powershell,   start, offset, at, before, after) {
-      start = 1
-      while ((offset = index(substr(text, start), needle)) > 0) {
-        at = start + offset - 1
-        before = at > 1 ? substr(text, at - 1, 1) : ""
-        after = substr(text, at + length(needle), 1)
-        start = at + 1
-        if (powershell && after == ":") continue
-        if (before !~ /[A-Za-z0-9_]/ && after !~ /[A-Za-z0-9_]/) return 1
-      }
-      return 0
-    }
-    BEGIN { count = split(names, name, ",")
-      for (i = 1; i <= count; i++) word[i] = fold ? tolower(name[i]) : name[i] }
-    { separator = index($0, ":"); number = substr($0, 1, separator - 1)
-      if (separator < 2 || number ~ /[^0-9]/) next
-      text = substr($0, separator + 1); if (fold) text = tolower(text)
-      for (i = 1; i <= count; i++) if (bounded(text, word[i], fold)) print number "|" name[i] }'
+  grep "$@" "$_lbn_file" 2>>"$LOG" | tr '\000' ' ' |
+    awk -v names="$RELOCATION_NAMES_CSV" -v fold="$_lbn_fold" -v utf16=0 "$BOUNDED_NAMES_AWK"
 }
 
 # startup_file_kind PATH: sets _ret_kind to the syntax of PATH when its values
@@ -4491,14 +4563,15 @@ EOF_LINE_VALUES
   esac
 }
 
-# record_file_hints USER HOME FILE: records every bounded name in FILE, with the
-# value its line assigns when startup_file_kind reads FILE's kind, for a plist
-# one hint with line 0 per value plutil reads, and, when there is one, collects
-# FILE. $HOME expands only in a home's own files (a
-# USER:HOME line of USER_LIST); the hints of a system plist under LaunchDaemons
-# take the plist's UserName as their user. Reads USER_LIST, ROOT. Temporaries: _rfh_.
+# record_file_hints USER HOME FILE [utf16]: records every bounded name in FILE
+# (read as UTF-16 when the fourth argument says so), with the value its line
+# assigns when startup_file_kind reads FILE's kind, for a plist one hint with
+# line 0 per value plutil reads, and, when there is one, collects FILE. $HOME
+# expands only in a home's own files (a USER:HOME line of USER_LIST); the hints
+# of a system plist under LaunchDaemons take the plist's UserName as their
+# user. Reads USER_LIST, ROOT. Temporaries: _rfh_.
 record_file_hints() {
-  _rfh_hits=$(list_bounded_names "$3")
+  _rfh_hits=$(list_bounded_names "$3" "${4-}")
   [ -n "$_rfh_hits" ] || return 0
   _rfh_user=$1; _rfh_values=
   startup_file_kind "$3"

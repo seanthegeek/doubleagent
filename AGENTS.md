@@ -338,7 +338,9 @@ holds the architecture and function tables.
   format records the hint with an empty value, and the docs name the
   collector that reads it. The two scripts agree on the catalog, the
   artifacts collected and the output shapes, each written in its own
-  language's idiom.
+  language's idiom. The name search is shared and reads any file, a UTF-16
+  `.ps1` file that starts with a byte order mark included; the division is
+  about reading values.
 - **Bounds.** A function body stays under 40 lines, never over 60; over 40
   only for a per-item loop that a split would give an extra call per file
   or member (`Add-CollectedFile`, `Write-TarEntries`), a flat list of

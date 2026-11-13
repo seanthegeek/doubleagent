@@ -351,9 +351,15 @@ each; the run's own log, manifest and staging directory, which name every
 variable found, are never read, even when the output directory is the
 home. Symlinks are never followed, and a file whose name holds a line
 break is not searched. The startup file search covers every home, these
-included. The sh collector searches bytes, so a UTF-16 file (a Windows
-PowerShell profile saved by the ISE) on a mounted Windows image gives it
-no hint; the PowerShell collector reads such a file as text.
+included. The sh collector searches bytes; a UTF-16 `.ps1` file that starts
+with a byte order mark (a profile Windows PowerShell or the ISE saved, on a
+mounted Windows image) is first decoded unit by unit, an ASCII character to
+itself and any other character to a space, so its line numbers are right and
+a name beside such a character is found. A UTF-16 file without the mark is
+read as bytes by the sh collector and as UTF-8 by the PowerShell collector,
+so the names it holds give no hint; the names in a UTF-16
+file of another kind than `.ps1`, or in a UTF-32 file, give the sh collector no
+hint, while the PowerShell collector reads such a file as text.
 
 The sweep reads many files, so it adds time on a large home. A file bigger
 than `--env-scan-max-size MB` (PowerShell `-EnvScanMaxSizeMB`; whole MiB,

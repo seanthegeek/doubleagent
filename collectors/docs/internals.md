@@ -114,7 +114,7 @@ read from the environment: `HASH_TOOL`, `STAT_MODE`, `MAX_SIZE`,
 for, which `COMMON` computes with `printf` only when the variable is empty;
 the main shell empties it before its own `eval`, so a caller's value is never
 used, and a worker starts no process for it) and, once the relocation step sets
-it, `GREP_NAME_OPTIONS`. Everything else is passed
+it, `GREP_NAME_OPTIONS` and `GREP_BOM_OPTIONS`. Everything else is passed
 as positional arguments, which the first line of each worker names.
 
 The five workers:
@@ -125,7 +125,7 @@ The five workers:
 | `EXCLUDED_PATHS_WORKER` | every pruned `EXCLUDES` match; also run by `collect_path` for an excluded match that is not a directory | `root user home agent manifest paths...` | one `skipped_excluded` row each: a directory's size from `du -sk` with its other metadata 0, a file's from `stat_file` |
 | `UNREADABLE_DIRS_WORKER` | every directory | `user home agent manifest dirs...` | one `error_read` row for each directory `get_dir_read_error_var` says cannot be listed or entered |
 | `INVENTORY_FILES_WORKER` | every regular file, under `--inventory` | `agent files...` | `F\|agent\|size\|mtime` lines on stdout, nothing on disk |
-| `HINT_SEARCH_WORKER` | the files of one batch: the startup files of a base (run by `search_file_list`) or the sweep's regular files (`find -exec`) | `files...`; the `grep` name options come from `GREP_NAME_OPTIONS` in the environment | one `S\|<count>` line for the files it got, then the file names `grep -l` prints, the `.ps1` files searched in any case and the rest in their own, on stdout; nothing on disk. It needs no helper, so `COMMON` is not prepended |
+| `HINT_SEARCH_WORKER` | the files of one batch: the startup files of a base (run by `search_file_list`) or the sweep's regular files (`find -exec`) | `files...`; the `grep` name options come from `GREP_NAME_OPTIONS` and the UTF-16 byte order marks from `GREP_BOM_OPTIONS` in the environment | one `S\|<count>` line for the files it got, then the file names `grep -l` prints, the `.ps1` files searched in any case and the rest in their own, then `U\|<file>` for each `.ps1` file holding a byte order mark, on stdout; nothing on disk. It needs no helper, so `COMMON` is not prepended |
 
 **The stage worker's chunks.** `STAGE_FILES_WORKER` takes its files in
 chunks of at most 256 paths, and stops adding names to a chunk once their
@@ -516,7 +516,26 @@ split at line feeds alone as `grep -n` counts lines (`Select-String` ends a
 line at a lone carriage return too), and applies the same boundary test (the
 any-case pattern in a `.ps1` file) to each line. The sh `grep` gets `GREP_TEXT`
 ([Capability detection](#capability-detection)), and a NUL byte in a matched
-line becomes a space before `awk`, which would end the line there. The matched
+line becomes a space before `awk`, which would end the line there. A `.ps1`
+file holding a UTF-16 byte order mark (one more `grep -l -F` per batch, the two
+marks as patterns in `GREP_BOM_OPTIONS`) comes back as a `U|` line before the
+`.ps1` hits of its batch; `record_search_output` reads it as UTF-16 and skips what the
+name `grep` made of its bytes, so a unit whose bytes spell a name forges
+nothing, and `list_bounded_names` decodes it instead of numbering it with
+`grep -n`: `tr`
+maps a NUL byte to `\001`, a line feed to `\002` and an original `\001` or
+`\002` to `\003`, `sed` splits the stream into one two-byte unit per line,
+and `BOUNDED_NAMES_AWK`, the same program that tests the boundaries of the
+`grep -n` lines, reads the units in the order the leading mark gives, an ASCII
+character (a NUL, `\001`, `\002` or `\003` unit excepted) as itself and any
+other unit as a space, and tests each decoded line that one regular
+expression of all the names matches (a line of 4096 characters or more in pieces,
+each cut back from its end by at most one character more than the longest
+name and closed where the cut falls inside a run of name characters), so a
+character outside ASCII splits no line and hides no name, no cut splits or
+invents a name, and the file's length costs linear time. The pipeline runs inside a command substitution,
+one process more than the byte path; a file whose first unit is no mark costs
+the byte path's own pipeline as well, since it is read as bytes after all. The matched
 text never reaches the log, stdout, a variable that is later printed or a
 file; the only value that does is one that passed the acceptance rule below.
 Each hit becomes one log line and one record per `RELOCATION_VARS` line
@@ -799,6 +818,7 @@ PowerShell functions that do their job.
 | `plutil_string_var` | Relocation hints | One string from `plutil`'s output |
 | `select_line_value` | Relocation hints | One line's outcome from the output of `resolve_file_values` or `resolve_plist_values` |
 | `ENVIRONMENT_VALUES_AWK`, `ENVIRONMENT_D_VALUES_AWK` | Relocation hints | The `awk` programs of `resolve_file_values`, one per environment file kind |
+| `BOUNDED_NAMES_AWK` | Relocation hints | The `awk` program of `list_bounded_names`: the whole-word test on `grep -n` lines, or on the lines it decodes from a UTF-16 file's units |
 | `aggregate_inventory` | Inventory output | Sums `M\|` and `F\|` lines per agent; PowerShell accumulates with `Get-InventoryEntry`, `Add-InventoryEvidence`, `Add-InventoryFile` |
 | `count_inventory_homes` | Inventory output | Homes scanned and unreadable; PowerShell does this in `Write-Inventory` |
 | `count_status`, `list_active_users`, `sum_collected_bytes` | Summary and archive | Counts read back from the manifest; PowerShell counts in `Write-ManifestRow` |

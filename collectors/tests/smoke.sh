@@ -2036,6 +2036,41 @@ printf 'CODEX_HOME=/a\rCLAUDE_CONFIG_DIR=/c\n' >"$ROOT/etc/environment.d/cr2.con
 printf 'CODEX_HOME=\302\240/nbsp\nCLAUDE_CONFIG_DIR=/ff\014\n' >"$ROOT/etc/environment.d/bytes.conf"
 printf 'HERMES_HOME=/n\000ul\nCODEX_HOME=/opt/afternul\n' >"$ROOT/etc/environment.d/nulbyte.conf"
 printf '\357\273\277CODEX_HOME=/bom\n' >"$ROOT/etc/environment.d/bom.conf"
+# Profiles Windows PowerShell writes, UTF-16 with its byte order mark. The
+# little-endian one has a second line of four CJK characters whose bytes spell
+# AMP_HOME. The big-endian one has U+4E0A and U+010A (each with a line feed
+# byte) on line 1, the name on line 2, a name between U+3000 (a byte is the
+# digit 0) and U+015F (a byte is an underscore) on line 3, a name across the
+# 4096th character on line 4, a name right after 4096 letters on line 5 (no
+# hint), a name after 20000 letters on line 6, the longest name ending at the
+# 4096th character on line 7 and that name glued to 36 letters across the cut
+# on line 8 (no hint). utf16_units ORDER TEXT and utf16_run ORDER COUNT CHAR (a
+# letter or a space) write ASCII text as le or be code units, as Set-Content.
+utf16_units() {
+  _utf16_rest=$2
+  while [ -n "$_utf16_rest" ]; do
+    if [ "$1" = le ]; then printf '%.1s\000' "$_utf16_rest"; else printf '\000%.1s' "$_utf16_rest"; fi
+    _utf16_rest=${_utf16_rest#?}
+  done
+}
+# shellcheck disable=SC2059 # the width is the format
+utf16_run() {
+  if [ "$1" = le ]; then printf "%$2s" '' | sed "s/ /$3Z/g" | tr Z '\000'
+  else printf "%$2s" '' | sed "s/ /Z$3/g" | tr Z '\000'; fi
+}
+# shellcheck disable=SC2016
+{ printf '\377\376'; utf16_units le '$env:CODEX_HOME = "D:\codex"
+'; printf 'AMP_HOME\n\000'; } >"$ALICE/Documents/PowerShell/utf16.ps1"
+# shellcheck disable=SC2016
+{ printf '\376\377\000#\000 \116\012\001\012'; utf16_units be ' profile
+$env:CODEX_HOME = "D:\codex-be"
+# '; printf '\060\000'; utf16_units be CLAUDE_CONFIG_DIR; printf '\001\137'; utf16_units be 'here
+'; utf16_run be 4085 ' '; utf16_units be '$env:CODEX_HOME = "D:\long"
+'; utf16_run be 4096 y; utf16_units be 'CLAUDE_CONFIG_DIR
+$b = "'; utf16_run be 20000 a; utf16_units be '"; $env:CODEX_HOME = "D:\run"
+'; utf16_run be 4061 ' '; utf16_units be 'NANOBOT_AGENTS__DEFAULTS__WORKSPACE
+'; utf16_run be 4025 ' '; utf16_units be NANOBOT_AGENTS__DEFAULTS__WORKSPACE; utf16_run be 36 y; utf16_units be '
+'; } >"$ALICE/Documents/PowerShell/utf16be.ps1"
 printf '%s\n' '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>' \
   '<key>LETTA_DIR</key><string>/opt/m' '3|HERMES_HOME|=/opt/injected</string>' \
   '<key>CODEX_HOME</key><dict><key>x</key><string>/opt/dd</string></dict>' \
@@ -2946,6 +2981,15 @@ check "#455 an escaped closing quote at the end of the file leaves the value quo
 check "#455 an escaped trailing space stays in an environment.d value" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 23 CODEX_HOME codex-cli)\" = \"$ROOT/opt/store \" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 23 CODEX_HOME codex-cli \" = $ROOT/opt/store \""
 check "#455 unescaped trailing spaces are trimmed from an environment.d value" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 24 CODEX_HOME codex-cli)\" = \"$ROOT/opt/plain\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 24 CODEX_HOME codex-cli \" = $ROOT/opt/plain\""
 check "#455 an even run of backslashes escapes no trailing space" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 25 CODEX_HOME codex-cli)\" = \"$ROOT\"'/opt/even\\\\' ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 25 CODEX_HOME codex-cli ' = '\"$ROOT\"'/opt/even\\'"
+check "#455 a UTF-16 profile is hinted" "hint_line \"$ALICE/Documents/PowerShell/utf16.ps1\" 1 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"'"
+check "#455 a big-endian UTF-16 profile is hinted on its line" "hint_line \"$ALICE/Documents/PowerShell/utf16be.ps1\" 2 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"' && [ \"\$(grep -cF '\"source\": \"$ALICE/Documents/PowerShell/utf16be.ps1\",' \"\$SUMMARY\")\" = \"\$(grep -F '\"source\": \"$ALICE/Documents/PowerShell/utf16be.ps1\",' \"\$SUMMARY\" | grep -c '\"line\": [23467], ')\" ]"
+check "#455 UTF-16 units whose bytes spell a name are no hint" "hint_line \"$ALICE/Documents/PowerShell/utf16.ps1\" 1 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"' && ! grep -F '\"source\": \"$ALICE/Documents/PowerShell/utf16.ps1\",' \"\$SUMMARY\" | grep -q '\"variable\": \"AMP_HOME\"'"
+check "#455 a name across the 4096th character of a UTF-16 line is hinted" "hint_line \"$ALICE/Documents/PowerShell/utf16be.ps1\" 4 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"'"
+check "#455 a UTF-16 line cut after 4096 characters invents no name" "hint_line \"$ALICE/Documents/PowerShell/utf16be.ps1\" 4 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"' && ! grep -F '\"source\": \"$ALICE/Documents/PowerShell/utf16be.ps1\",' \"\$SUMMARY\" | grep -q '\"line\": 5,'"
+check "#455 a name after a long run of name characters in a UTF-16 line is hinted" "hint_line \"$ALICE/Documents/PowerShell/utf16be.ps1\" 6 CODEX_HOME codex-cli | contains -F '\"user\": \"alice\"'"
+check "#455 the longest name ending at the 4096th character of a UTF-16 line is hinted" "hint_line \"$ALICE/Documents/PowerShell/utf16be.ps1\" 7 NANOBOT_AGENTS__DEFAULTS__WORKSPACE nanobot | contains -F '\"user\": \"alice\"'"
+check "#455 the longest name glued to letters across a UTF-16 cut is no hint" "hint_line \"$ALICE/Documents/PowerShell/utf16be.ps1\" 7 NANOBOT_AGENTS__DEFAULTS__WORKSPACE nanobot | contains -F '\"user\": \"alice\"' && ! grep -F '\"source\": \"$ALICE/Documents/PowerShell/utf16be.ps1\",' \"\$SUMMARY\" | grep -q '\"line\": 8,'"
+check "#455 a name between non-ASCII characters in a UTF-16 profile is hinted" "hint_line \"$ALICE/Documents/PowerShell/utf16be.ps1\" 3 CLAUDE_CONFIG_DIR claude-code | contains -F '\"user\": \"alice\"'"
 check "#455 a byte order mark before a name leaves its line without a value" "hint_line \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli ''"
 check "#455 a hash in an /etc/environment value is refused" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli '; value not resolved: holds a #'"
 check "#455 a backslash inside quotes is a value" "[ \"\$(hint_value \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli)\" = \"$ROOT\"'/opt/x\\\\' ] && value_logged \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli ' = '\"$ROOT\"'/opt/x\\'"
