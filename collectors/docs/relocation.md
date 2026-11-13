@@ -104,7 +104,7 @@ file names and expands nothing from its own environment.
 
 A value is kept only when it passes one test, whichever file it came from:
 it is an absolute path (starting with `/`, or with a drive letter and a
-backslash for a registry value) that holds no `$`, `%`, backquote, quote,
+backslash or slash for a registry value) that holds no `$`, `%`, backquote, quote,
 control character (a tab, carriage return or newline) or `..` segment, and
 does not start with a URI scheme such as `file:`. A trailing `/` is dropped.
 In image mode the path is inside the image, so the collector puts the root
@@ -121,7 +121,7 @@ never quotes it. The collectors use these reasons:
 | --- | --- |
 | `references $NAME` | Holds a reference to a variable, such as `$XDG_CONFIG_HOME`, `${HOME}` outside a user's own `environment.d` file, or `$HOME` in a file that is not `environment.d`. |
 | `references %NAME%` | Holds a Windows reference that was not replaced. |
-| `holds a $` or `holds a %` | Holds that character without a name after it, or a `$$` that became a dollar sign. |
+| `holds a $` or `holds a %` | Its first `$` or `%` starts no name (a `$$`, a `$-`, a `%%`), whatever follows later in the value. |
 | `quoted` | Holds a quote besides the one enclosing pair the file's syntax allows. |
 | `holds a quote` | Holds a quote after the file's own unquoting, such as an escaped quote inside double quotes. |
 | `holds a backquote` | Holds a backquote. |

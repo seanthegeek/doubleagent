@@ -1995,7 +1995,7 @@ printf '%s\n' 'CODEX_HOME=${HOME}/x' >"$ROOT/etc/environment.d/home.conf"
 # shellcheck disable=SC2016
 printf '%s\n' "CODEX_HOME='/opt/s'" 'CODEX_HOME=$XDG_CONFIG_HOME/x' 'CODEX_HOME=opt/rel' \
   'CODEX_HOME=file:///opt/u' 'CODEX_HOME=/opt/../x' 'CODEX_HOME=/opt/\' 'cont/' \
-  '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' 'CODEX_HOME=/a$$HOME' \
+  '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' 'CODEX_HOME=/a$$HOME' 'CODEX_HOME=/a${X' \
   >"$ROOT/etc/environment.d/values.conf"
 DAEMON_PLIST_DOCTYPE='<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
 DAEMON_PLIST_DOCTYPE="$DAEMON_PLIST_DOCTYPE \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
@@ -2900,6 +2900,7 @@ fi
 check "#455 a control character in a value is not resolved" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 4 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 4 CODEX_HOME codex-cli '; value not resolved: holds a control character' && ! grep -q \"\$(printf '\\033')\" \"$RELOCATION_LOG\""
 check "#455 a doubled dollar is no reference" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 10 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 10 CODEX_HOME codex-cli '; value not resolved: holds a \$'"
 check "#455 a doubled percent is no reference" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 5 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 5 CODEX_HOME codex-cli '; value not resolved: holds a %'"
+check "#455 an unclosed brace reference is a dollar" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 11 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 11 CODEX_HOME codex-cli '; value not resolved: holds a \$'"
 if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a carriage return inside a plist string is a control character" "value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 0 CODEX_HOME codex-cli '; value not resolved: holds a control character' && value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 1 CODEX_HOME codex-cli ''"
 else

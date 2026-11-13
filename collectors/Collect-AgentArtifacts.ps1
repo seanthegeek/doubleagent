@@ -4438,6 +4438,10 @@ $script:AfterDollarRx = New-Object System.Text.RegularExpressions.Regex(
   '^\{?([A-Za-z_][A-Za-z0-9_]*)')
 $script:AfterPercentRx = New-Object System.Text.RegularExpressions.Regex(
   '^([A-Za-z_][A-Za-z0-9_]*)%')
+# The same for a registry value, where a name may hold parentheses
+# (ProgramFiles(x86)); the sh collector reads no registry.
+$script:AfterPercentRegistryRx = New-Object System.Text.RegularExpressions.Regex(
+  '^([A-Za-z_][A-Za-z0-9_()]*)%')
 $script:EnvironmentReferenceRx = New-Object System.Text.RegularExpressions.Regex(
   '\$(?:(\$)|\{([A-Za-z_][A-Za-z0-9_]*)(:[-+][^}]*)?\}|([A-Za-z_][A-Za-z0-9_]*))')
 # A Windows %NAME% reference (ProgramFiles(x86) holds parentheses) and a URI
@@ -4530,7 +4534,9 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
   if ($registry) { $absolute = $text -match '^[A-Za-z]:[\\/]' }
   # Only the text right after the first $ or % can name a reference, as in sh.
   $reference = $script:AfterDollarRx.Match($text.Substring($text.IndexOf('$') + 1))
-  $token = $script:AfterPercentRx.Match($text.Substring($text.IndexOf('%') + 1))
+  $percentRx = $script:AfterPercentRx
+  if ($registry) { $percentRx = $script:AfterPercentRegistryRx }
+  $token = $percentRx.Match($text.Substring($text.IndexOf('%') + 1))
   $reason = ''
   if ($text.Contains("`n")) { $reason = 'holds a newline' }
   elseif ($text -match '[\x00-\x1f\x7f]') { $reason = 'holds a control character' }
@@ -4581,15 +4587,16 @@ function Read-StartupFileLines([string]$path) {
 }
 
 # Takes an environment.d value after unquoting and the home's image-relative
-# path ('' outside a home); returns @{ text; reason } with $$ made $ and $HOME
-# or ${HOME} made the home, as environment.d(5) expands them. Any other
-# reference, or $HOME with no home, is the reason the value does not resolve,
-# and so is a $$, since the $ it leaves is no path character, as the sh awk
+# path ('' outside a home); returns @{ text; reason } with $HOME or ${HOME}
+# made the home, as environment.d(5) expands it. Any other reference, or $HOME
+# with no home, is the reason the value does not resolve, and so is a $ left
+# as a dollar sign (a $$, or a $ that starts no reference), as the sh awk
 # program decides after reading the whole value.
 function Expand-EnvironmentValue([string]$text, [string]$homeText) {
   $builder = New-Object System.Text.StringBuilder
   $last = 0; $literalDollar = $false
   foreach ($reference in $script:EnvironmentReferenceRx.Matches($text)) {
+    if ($text.Substring($last, $reference.Index - $last).Contains('$')) { $literalDollar = $true }
     [void]$builder.Append($text, $last, $reference.Index - $last)
     $last = $reference.Index + $reference.Length
     if ($reference.Groups[1].Success) { $literalDollar = $true; continue }
@@ -4600,7 +4607,9 @@ function Expand-EnvironmentValue([string]$text, [string]$homeText) {
     }
     return @{ text = ''; reason = ('references $' + $name) }
   }
-  if ($literalDollar) { return @{ text = ''; reason = 'holds a $' } }
+  if ($literalDollar -or $text.Substring($last).Contains('$')) {
+    return @{ text = ''; reason = 'holds a $' }
+  }
   [void]$builder.Append($text, $last, $text.Length - $last)
   return @{ text = $builder.ToString(); reason = '' }
 }

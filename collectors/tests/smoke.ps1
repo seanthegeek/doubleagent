@@ -2046,6 +2046,7 @@ $environmentValues = @(
   '# CODEX_HOME=/opt/comment'
   'CODEX_HOME=/opt/$1'
   'CODEX_HOME=/a$$HOME'
+  'CODEX_HOME=/a${X'
 )
 MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n")
 # A CRLF file whose value continues on the next line; a plist string spanning lines whose
@@ -3139,6 +3140,7 @@ if ($havePlutil) {
 Check '#455 a control character in a value is not resolved' { (HintValue $defaultRunSummary 'etc/environment' 4 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 4 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and -not $relocationLog.Contains([string][char]27) }
 Check '#455 a doubled dollar is no reference' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 10 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 10 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a $') }
 Check '#455 a doubled percent is no reference' { (HintValue $defaultRunSummary 'etc/environment' 5 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 5 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a %') }
+Check '#455 an unclosed brace reference is a dollar' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 11 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 11 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a $') }
 if ($havePlutil) {
   Check '#455 a carriage return inside a plist string is a control character' { (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 0 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli' '') }
 } else {
