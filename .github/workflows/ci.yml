@@ -214,6 +214,19 @@ jobs:
         shell: pwsh
         run: ./collectors/tests/smoke.ps1
 
+  # The macOS runner has plutil, so this job alone runs the PowerShell
+  # collector's plist value resolution.
+  powershell-7-macos:
+    name: PowerShell collector (smoke under PowerShell 7 on macOS)
+    runs-on: macos-latest
+    needs: changes
+    if: needs.changes.outputs.powershell == 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - name: smoke
+        shell: pwsh
+        run: ./collectors/tests/smoke.ps1
+
   windows-powershell-51:
     name: PowerShell collector (smoke under Windows PowerShell 5.1)
     runs-on: windows-latest
@@ -399,6 +412,7 @@ jobs:
       - sh-fork-budget
       - sh-shellcheck
       - powershell-7
+      - powershell-7-macos
       - windows-powershell-51
       - analyzer
       - lint

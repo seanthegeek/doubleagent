@@ -72,8 +72,9 @@
 # the RELOCATION_VARS names; each naming file is logged, recorded in
 # collection.json and collected as shared, flagged secret, and in
 # /etc/environment, environment.d files and launchd plists the value a hint's
-# line assigns is read with awk and recorded, in collection.json and in
-# RELOCATION_VALUES, when it is a plain absolute path. --inventory is the
+# line assigns is read, with awk or for a plist through plutil, and recorded,
+# in collection.json and in RELOCATION_VALUES, when it is a plain absolute
+# path. --inventory is the
 # same walk with no writes: the workers only stat, and section 11 prints one
 # JSON line per user and agent.
 #
@@ -4130,7 +4131,6 @@ END { if (continued) { joined = 1; assign(pending, start) } }
 EOF_ENVIRONMENT_D_VALUES_AWK
 ENVIRONMENT_D_VALUES_AWK=$_ret_heredoc_text
 
-
 # set_relocation_names: sets RELOCATION_NAMES_CSV, each RELOCATION_VARS name
 # once, comma-separated, for awk, and GREP_NAME_OPTIONS, "-e NAME" for each,
 # one word per line, exported for HINT_SEARCH_WORKER. Temporaries: _srn_.
@@ -4332,25 +4332,37 @@ plutil_string_var() {
   esac
 }
 
-# resolve_plist_values FILE HITS: sets _ret_values to |NAME|=VALUE or
-# |NAME|!REASON for each name of the LINE|NAME lines of HITS, from the
+# resolve_plist_values FILE HITS: sets _ret_values to LINE|NAME|=VALUE or
+# LINE|NAME|!REASON for each name of the LINE|NAME lines of HITS, from the
 # EnvironmentVariables dictionary of FILE as plutil reads it, U|USER for a
 # UserName that is a plain account name, or one !REASON line for the whole
 # file: no plutil (the host is not macOS), or plutil could not read the file.
-# A value is the key's effective one, whatever line names it. Reads PLUTIL,
-# NEWLINE. Temporaries: _rpv_.
+# A value is the key's effective one, recorded on the last line holding
+# <key>NAME</key> (one awk finds them), else the last line naming it (a binary
+# plist has no text lines). Reads PLUTIL, NEWLINE. Temporaries: _rpv_.
 resolve_plist_values() {
   _ret_values=
   if [ -z "$PLUTIL" ]; then _ret_values='!no plutil'; return 0; fi
   if ! "$PLUTIL" -lint "$1" >/dev/null 2>&1; then
     _ret_values='!plutil could not read the file'; return 0
   fi
+  _rpv_keys=$NEWLINE$(awk -v names="$RELOCATION_NAMES_CSV" \
+    'BEGIN { count = split(names, list, ",") }
+     { for (i = 1; i <= count; i++) if (index($0, "<key>" list[i] "</key>")) last[list[i]] = NR }
+     END { for (name in last) print name "|" last[name] }' <"$1" 2>>"$LOG")$NEWLINE
   _rpv_seen=
   while IFS='|' read -r _rpv_line _rpv_name; do
     case "$_rpv_seen" in (*"|$_rpv_name|"*) continue ;; esac
     _rpv_seen="$_rpv_seen|$_rpv_name|"
     plutil_string_var "$1" "EnvironmentVariables.$_rpv_name"
-    [ -z "$_ret_plist" ] || _ret_values="$_ret_values$NEWLINE|$_rpv_name|$_ret_plist"
+    [ -n "$_ret_plist" ] || continue
+    _rpv_rest="$NEWLINE$2$NEWLINE"; _rpv_rest=${_rpv_rest%"|$_rpv_name$NEWLINE"*}
+    _rpv_place=${_rpv_rest##*"$NEWLINE"}
+    case "$_rpv_keys" in
+      (*"$NEWLINE$_rpv_name|"*) _rpv_place=${_rpv_keys##*"$NEWLINE$_rpv_name|"}
+        _rpv_place=${_rpv_place%%"$NEWLINE"*} ;;
+    esac
+    _ret_values="$_ret_values$NEWLINE$_rpv_place|$_rpv_name|$_ret_plist"
   done <<EOF_PLIST_HITS
 $2
 EOF_PLIST_HITS
@@ -4367,8 +4379,8 @@ EOF_PLIST_HITS
 # resolve_file_values FILE KIND HOME HITS: sets _ret_values to the lines one
 # run of the KIND awk program prints for FILE (LINE|NAME|=VALUE,
 # LINE|NAME|!REASON, U|USER or a whole-file !REASON), or those of
-# resolve_plist_values for a launchd plist (|NAME|... lines, keyed by name
-# alone), VALUE raw text for accept_resolved_value, never logged. HOME, less
+# resolve_plist_values for a launchd plist, VALUE raw text for
+# accept_resolved_value, never logged. HOME, less
 # ROOT, is what $HOME stands for in an environment.d file; it is empty outside
 # a home's own files. FILE goes on stdin, since awk reads an operand holding =
 # as an assignment. Reads RELOCATION_NAMES_CSV, LOG. Temporaries: _rfv_.
@@ -4383,15 +4395,15 @@ resolve_file_values() {
 }
 
 # accept_resolved_value VALUE: sets _ret_value to VALUE when it is an absolute
-# path holding no $, %, backquote, quote, tab, carriage return, newline or ..
-# segment, its trailing / dropped and, in image mode, ROOT put in front (the
+# path holding no $, %, backquote, quote, control character or .. segment,
+# its trailing / dropped and, in image mode, ROOT put in front (the
 # value names a path inside the image); else _ret_value is empty and
 # _ret_reason says why. Builtins only. Reads ROOT. Temporaries: _arv_.
 accept_resolved_value() {
   _ret_value=; _ret_reason=; _arv_path=$1
   case "$_arv_path" in
     (*"$NEWLINE"*) _ret_reason='holds a newline' ;;
-    (*"$TAB"*|*"$CARRIAGE_RETURN"*) _ret_reason='holds a control character' ;;
+    (*[[:cntrl:]]*) _ret_reason='holds a control character' ;;
     (*'$'*) _arv_name=${_arv_path#*\$}; _arv_name=${_arv_name#"{"}
       _arv_name=${_arv_name%%[!A-Za-z0-9_]*}
       case "$_arv_name" in ([0-9]*) _arv_name= ;; esac
@@ -4422,15 +4434,13 @@ accept_resolved_value() {
 
 # select_line_value VALUES LINE NAME: sets _ret_value and _ret_reason for the
 # hint of NAME on LINE from resolve_file_values' VALUES, wrapped in newlines,
-# through accept_resolved_value, the last LINE|NAME| record or, for a plist, the
-# |NAME| one; both are empty when LINE assigns no NAME.
-# Temporaries: _slv_.
+# through accept_resolved_value, the last LINE|NAME| record; both are empty
+# when LINE assigns no NAME. Temporaries: _slv_.
 select_line_value() {
   _ret_value=; _ret_reason=
   case "$1" in
     ("$NEWLINE!"*) _slv_outcome=${1#"$NEWLINE"} ;;
     (*"$NEWLINE$2|$3|"*) _slv_outcome=${1##*"$NEWLINE$2|$3|"} ;;
-    (*"$NEWLINE|$3|"*) _slv_outcome=${1##*"$NEWLINE|$3|"} ;;
     (*) return 0 ;;
   esac
   _slv_outcome=${_slv_outcome%%"$NEWLINE"*}

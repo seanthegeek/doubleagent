@@ -576,7 +576,8 @@ The result for one hit goes through `accept_resolved_value`
 with none of `$`, `%`, a backquote, a quote, a control character or a `..`
 segment and no URI scheme, drops a trailing `/` and, in image mode, puts the
 root in front; otherwise it sets the reason. The sh function uses builtins
-only. `select_line_value` picks the line's outcome from the `awk` output for
+only. `select_line_value` picks the line's outcome from the `awk` output, or from
+`resolve_plist_values`' lines for a plist, for
 `record_file_hints`. `record_hint` (`Add-RelocationHint`) then logs the
 value or the reason, adds the hint record and, for a value, adds one record
 `user|VARIABLE|agent|replaces|value` to `RELOCATION_VALUES`

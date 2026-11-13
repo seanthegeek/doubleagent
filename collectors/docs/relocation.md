@@ -99,7 +99,7 @@ file names and expands nothing from its own environment.
 | --- | --- |
 | `/etc/environment` | The text after `NAME=`, with one optional pair of double quotes removed. Nothing is expanded. A line starting with `#` is a comment. |
 | An `environment.d` file (`*.conf` in an `environment.d` directory) | The text after `NAME=`, read by the rules of `environment.d(5)`: white space around the name and the value is trimmed; a line starting with `#` or `;` is a comment; a backslash at the end of a line joins the next line to it, and the hint keeps the first line's number; one enclosing pair of single or double quotes is removed; `$$` is a dollar sign. `$HOME` and `${HOME}` become the user's home in a file that is under a collected user's home (`~/.config/environment.d`), and only there. Every other `$NAME`, `${NAME}`, `${NAME:-x}` and `${NAME:+x}` is left unresolved. |
-| A launchd property list (`*.plist` in a `LaunchAgents` or `LaunchDaemons` directory) | Read with `plutil`, the property list tool macOS ships, so the value is the one launchd reads: the key's effective value under the top-level `EnvironmentVariables` dictionary, whatever the file's form (XML or binary, the last value when a key repeats). The hint's line is the line of the `<key>` the name search found, and every line naming the key gets that value. A system plist under `/Library/LaunchDaemons` gives the hint the plist's `UserName` as its user when it is a plain account name, and an empty user otherwise. Without `plutil` (Linux, Windows, an image examined off macOS) the hint keeps an empty value with the reason `no plutil`. |
+| A launchd property list (`*.plist` in a `LaunchAgents` or `LaunchDaemons` directory) | Read with `plutil`, the property list tool macOS ships, so the value is the one launchd reads: the key's effective value under the top-level `EnvironmentVariables` dictionary, whatever the file's form (XML or binary, the last value when a key repeats). The value is recorded on the hint of the last line holding `<key>NAME</key>` (the last line naming the variable when none does, as in a binary plist); the other lines naming it keep an empty value. A system plist under `/Library/LaunchDaemons` gives the hint the plist's `UserName` as its user when it is a plain account name, and an empty user otherwise. Without `plutil` (Linux, Windows, an image examined off macOS) the hint keeps an empty value with the reason `no plutil`. |
 | The Windows registry (PowerShell collector, live Windows host) | See [The registry](#the-registry). |
 
 A value is kept only when it passes one test, whichever file it came from:
@@ -125,7 +125,7 @@ never quotes it. The collectors use these reasons:
 | `quoted` | Holds a quote besides the one enclosing pair the file's syntax allows. |
 | `holds a quote` | Holds a quote after the file's own unquoting, such as an escaped quote inside double quotes. |
 | `holds a backquote` | Holds a backquote. |
-| `holds a newline` or `holds a control character` | Holds a newline, or a tab or carriage return. |
+| `holds a newline` or `holds a control character` | Holds a newline, or any other control character (a tab, a carriage return, an escape). |
 | `holds a .. segment` | Holds a `..` path segment. |
 | `uri` | Starts with a URI scheme, such as `file:///srv/cc`. |
 | `relative` | Starts with a letter, digit, dot, underscore or hyphen and is not a URI, such as `opt/cc` or `./cc`. |
@@ -134,7 +134,6 @@ never quotes it. The collectors use these reasons:
 | `plutil could not read the file` | Is in a launchd plist that `plutil -lint` rejects; every variable it names gets this reason. |
 | `not a string` | Is in a plist, or in a registry value of a kind other than text, and is not a string. |
 | `holds an XML entity` | Is a plist string that `plutil` had to encode with an entity (`&amp;`). |
-| `not well-formed XML` | PowerShell collector only: the plist does not parse as XML. |
 | `file not readable` | PowerShell collector only: the file could not be opened for the second read. |
 
 The `~/.pam_environment` and `/etc/security/pam_env.conf` files, shell startup files,

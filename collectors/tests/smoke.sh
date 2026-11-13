@@ -1986,6 +1986,7 @@ printf 'export CODEX_HOME=/opt/x\n' >"$ROOT/usr/share/ollama/.env-helper.sh"
 # its user. The files above assigning /opt/x resolve to $ROOT/opt/x.
 # shellcheck disable=SC2016 # the fixtures hold shell variables literally
 printf '%s\n' 'CODEX_HOME="/opt/q"' "CODEX_HOME='/opt/single'" >>"$ROOT/etc/environment"
+printf 'CODEX_HOME=/opt/e\033x\n' >>"$ROOT/etc/environment"
 # shellcheck disable=SC2016
 printf '%s\n' 'CODEX_HOME=$HOME/x' >"$ALICE/.config/environment.d/home.conf"
 # shellcheck disable=SC2016
@@ -2014,12 +2015,14 @@ printf '%s\n' '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
   '</dict></dict></plist>' >"$ROOT/Library/LaunchAgents/com.example.multiline.plist"
 mkdir -p "$ALICE/backup/Library/LaunchDaemons"
 daemon_plist /opt/sw >"$ALICE/backup/Library/LaunchDaemons/com.example.swept.plist"
-# Plists that are not plain (a CDATA section; a comment holding a > that hides
-# a forged string), one whose UserName, EnvironmentVariables dictionary and key
-# repeat (the last of each counts, as launchd reads them), and a daemon plist
-# in a -p project with no owner.
+# Plists plutil reads as launchd does (a CDATA section; a comment holding a >
+# that hides a forged string; a carriage return entity inside a string), one
+# whose UserName, EnvironmentVariables dictionary and key repeat (the last of
+# each counts), and a daemon plist in a -p project with no owner.
 printf '%s\n' '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/<![CDATA[x]]>y</string></dict></dict></plist>' \
   >"$ROOT/Library/LaunchAgents/com.example.cdata.plist"
+printf '%s\n' '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/a&#13;b</string></dict></dict></plist>' \
+  >"$ROOT/Library/LaunchAgents/com.example.cr.plist"
 printf '%s\n' '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><!-- a > <string>/opt/forged</string> --><string>/opt/real</string></dict></dict></plist>' \
   >"$ROOT/Library/LaunchAgents/com.example.comment.plist"
 printf '%s\n' '<plist version="1.0"><dict>' '<key>UserName</key><string>root</string>' \
@@ -2029,9 +2032,13 @@ printf '%s\n' '<plist version="1.0"><dict>' '<key>UserName</key><string>root</st
   '</dict></plist>' >"$ROOT/Library/LaunchDaemons/com.example.last.plist"
 mkdir -p "$ROOT/opt/daemonproj/LaunchDaemons"
 daemon_plist /opt/dp >"$ROOT/opt/daemonproj/LaunchDaemons/com.example.project.plist"
-# A real binary plist, made where plutil exists, whose value plutil reads.
+# A real binary plist, made where plutil exists, whose value plutil reads. Its
+# key is HERMES_HOME: a binary plist stores a name behind a length byte, and an
+# eleven-byte name's byte is [, no name character, so the name search finds it
+# (a ten-byte name's byte is Z and hides it).
 if command -v plutil >/dev/null 2>&1; then
-  daemon_plist /opt/bin1 | plutil -convert binary1 -o "$ROOT/Library/LaunchAgents/com.example.realbinary.plist" -
+  daemon_plist /opt/bin1 | sed 's/CODEX_HOME/HERMES_HOME/' |
+    plutil -convert binary1 -o "$ROOT/Library/LaunchAgents/com.example.realbinary.plist" -
 fi
 printf 'export CODEX_HOME=/opt/x\n' >"$ALICE/AppData/Local/agy/agent-env.sh"
 # 2026-11-08 exclusion and secret globs across a newline in a path (#473)
@@ -2860,7 +2867,7 @@ check "#455 a continued line resolves under the first line's number" "[ \"\$(hin
 check "#455 a commented assignment gives no value and no reason" "hint_line \"$ROOT/etc/environment.d/values.conf\" 8 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/values.conf\" 8 CODEX_HOME codex-cli ''"
 check "#455 a launchd daemon's UserName is its hint's user" "hint_line \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" 9 CODEX_HOME codex-cli | contains -F '\"user\": \"$(plist_user svc '')\"' && [ \"\$(hint_value \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" 9 CODEX_HOME codex-cli)\" = \"$(plist_value "$ROOT/opt/d")\" ] && row \"$ROOT/Library/LaunchDaemons/com.example.daemon.plist\" | contains '\"user\":\"\",\"home\":\"\",\"agent\":\"shared\"'"
 check "#455 a file plutil cannot read gives its reason when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { [ -z \"\$(hint_value \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli)\" ] && value_logged \"$ALICE/Library/LaunchAgents/com.example.binary.plist\" 1 CODEX_HOME codex-cli \"$(plist_tail '; value not resolved: plutil could not read the file')\"; }"
-check "#455 a binary plist resolves through plutil when capabilities.grep_text is true (passes otherwise)" "[ -z \"$HAVE_PLUTIL\" ] || ! grep -q '\"grep_text\": true' \"\$SUMMARY\" || grep -F '\"source\": \"$ROOT/Library/LaunchAgents/com.example.realbinary.plist\"' \"\$SUMMARY\" | contains -F '\"variable\": \"CODEX_HOME\", \"agent\": \"codex-cli\", \"value\": \"$ROOT/opt/bin1\"}'"
+check "#455 a binary plist resolves through plutil when capabilities.grep_text is true (passes otherwise)" "[ -z \"$HAVE_PLUTIL\" ] || ! grep -q '\"grep_text\": true' \"\$SUMMARY\" || grep -F '\"source\": \"$ROOT/Library/LaunchAgents/com.example.realbinary.plist\"' \"\$SUMMARY\" | contains -F '\"variable\": \"HERMES_HOME\", \"agent\": \"hermes\", \"value\": \"$ROOT/opt/bin1\"}'"
 check "#455 the capabilities record plutil" "grep -qF '\"plutil\": $(if [ -n "$HAVE_PLUTIL" ]; then printf true; else printf false; fi)}' \"\$SUMMARY\""
 check "#455 a dollar before a digit is no reference" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 9 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 9 CODEX_HOME codex-cli '; value not resolved: holds a \$'"
 check "#455 a continued line with CRLF ends resolves" "[ \"\$(hint_value \"$ROOT/etc/environment.d/crlf.conf\" 1 CODEX_HOME codex-cli)\" = \"$ROOT/opt/crlf\" ] && ! grep -qF '\"source\": \"$ROOT/etc/environment.d/crlf.conf\", \"line\": 2,' \"\$SUMMARY\""
@@ -2869,7 +2876,10 @@ check "#455 a line inside a plist string forges no value" "hint_line \"$ROOT/Lib
 check "#455 a dictionary as a plist value is not a string" "[ -z \"\$(hint_value \"$ROOT/Library/LaunchAgents/com.example.multiline.plist\" 4 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/Library/LaunchAgents/com.example.multiline.plist\" 4 CODEX_HOME codex-cli \"$(plist_tail '; value not resolved: not a string')\""
 check "#455 a plist holding a CDATA section resolves as plutil reads it" "[ \"\$(hint_value \"$ROOT/Library/LaunchAgents/com.example.cdata.plist\" 1 CODEX_HOME codex-cli)\" = \"$(plist_value "$ROOT/opt/xy")\" ] && value_logged \"$ROOT/Library/LaunchAgents/com.example.cdata.plist\" 1 CODEX_HOME codex-cli \"$(plist_tail " = $ROOT/opt/xy")\""
 check "#455 a plist holding a comment resolves as plutil reads it and forges nothing" "[ \"\$(hint_value \"$ROOT/Library/LaunchAgents/com.example.comment.plist\" 1 CODEX_HOME codex-cli)\" = \"$(plist_value "$ROOT/opt/real")\" ] && value_logged \"$ROOT/Library/LaunchAgents/com.example.comment.plist\" 1 CODEX_HOME codex-cli \"$(plist_tail " = $ROOT/opt/real")\" && ! grep -q forged \"$RELOCATION_LOG\" \"\$SUMMARY\""
-check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" "hint_line \"$ROOT/Library/LaunchDaemons/com.example.last.plist\" 5 CODEX_HOME codex-cli | contains -F '\"user\": \"$(plist_user svc '')\"' && [ \"\$(hint_value \"$ROOT/Library/LaunchDaemons/com.example.last.plist\" 5 CODEX_HOME codex-cli)\" = \"$(plist_value "$ROOT/opt/last")\" ] && [ \"\$(hint_value \"$ROOT/Library/LaunchDaemons/com.example.last.plist\" 4 CODEX_HOME codex-cli)\" = \"$(plist_value "$ROOT/opt/last")\" ] && ! grep -q -e 'opt/first' -e 'opt/d1' \"$RELOCATION_LOG\" \"\$SUMMARY\""
+check "#455 a repeated UserName and EnvironmentVariables dictionary take the last" "hint_line \"$ROOT/Library/LaunchDaemons/com.example.last.plist\" 5 CODEX_HOME codex-cli | contains -F '\"user\": \"$(plist_user svc '')\"' && [ \"\$(hint_value \"$ROOT/Library/LaunchDaemons/com.example.last.plist\" 5 CODEX_HOME codex-cli)\" = \"$(plist_value "$ROOT/opt/last")\" ] && ! grep -q -e 'opt/first' -e 'opt/d1' \"$RELOCATION_LOG\" \"\$SUMMARY\""
+check "#455 a plist value is recorded on the last key line alone" "[ -z \"\$(hint_value \"$ROOT/Library/LaunchDaemons/com.example.last.plist\" 4 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/Library/LaunchDaemons/com.example.last.plist\" 4 CODEX_HOME codex-cli \"$(plist_tail '')\""
+check "#455 a control character in a value is not resolved" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 4 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 4 CODEX_HOME codex-cli '; value not resolved: holds a control character' && ! grep -q \"\$(printf '\\033')\" \"$RELOCATION_LOG\""
+check "#455 a carriage return inside a plist string is a control character" "[ -z \"\$(hint_value \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 1 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 1 CODEX_HOME codex-cli \"$(plist_tail '; value not resolved: holds a control character')\""
 check "#455 only resolvable startup files give a value" "[ \"\$(resolved_total \"\$SUMMARY\")\" -gt 0 ] && [ -z \"\$(grep '\"value\": \"[^\"]' \"\$SUMMARY\" | grep -v -e '/etc/environment\", ' -e '/environment.d/[^/\"]*\\.conf\", ' -e '/LaunchAgents/[^/\"]*\\.plist\", ' -e '/LaunchDaemons/[^/\"]*\\.plist\", ')\" ] && hint_line \"$ALICE/.bashrc\" 1 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}'"
 check "#455 an unresolved value is never logged or stored" "! grep -q -e 'opt/single' -e 'opt/rel' -e 'file://' -e 'opt/\\.\\./x' -e 'XDG_CONFIG_HOME/x' -e 'opt/comment' \"$RELOCATION_LOG\" \"\$SUMMARY\" && grep -q 'value not resolved' \"$RELOCATION_LOG\""
 check "#455 the stdout relocation line counts the resolved values" "[ \"\$(resolved_total \"\$SUMMARY\")\" -gt 0 ] && grep -q \", \$(resolved_total \"\$SUMMARY\") resolved; see collectors/docs/relocation.md\\\$\" \"$OUT/default.stdout\""

@@ -1447,7 +1447,8 @@ CI (`.github/workflows/ci.yml`) runs the catalog drift test; shellcheck;
 the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
 drift test and sh smoke test under dash on macOS (BSD tools); the fork
 budget job on Linux; the PowerShell smoke test under PowerShell 7 on Linux
-and Windows PowerShell 5.1 on Windows; the analyzer tests on Python 3.11
+and on macOS (the one runner with `plutil`) and Windows PowerShell 5.1 on
+Windows; the analyzer tests on Python 3.11
 to 3.14, with the branch-coverage gate on the newest; the lint and site
 jobs of [Quality gates](#quality-gates); and a `CI result` job that fails
 when any of them failed or was cancelled. `CI result` is the one status

@@ -4524,7 +4524,7 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
   $token = $script:RegistryTokenRx.Match($text)
   $reason = ''
   if ($text.Contains("`n")) { $reason = 'holds a newline' }
-  elseif ($text.IndexOfAny([char[]]"`t`r") -ge 0) { $reason = 'holds a control character' }
+  elseif ($text -match '[\x00-\x1f\x7f]') { $reason = 'holds a control character' }
   elseif ($reference.Success) { $reason = 'references $' + $reference.Groups[1].Value }
   elseif ($text.Contains('$')) { $reason = 'holds a $' }
   elseif ($token.Success) { $reason = 'references %' + $token.Groups[1].Value + '%' }
@@ -4642,6 +4642,22 @@ function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText
   return (Test-ResolvedValue $expanded.text $kind)
 }
 
+# Takes plutil's arguments; runs it with its standard output read whole, so a
+# carriage return inside a value stays inside its line, as the sh collector's
+# $(...) keeps it; returns @{ exitCode; text }. plutil exists only on macOS,
+# where PowerShell 7 runs, so .NET's ArgumentList, which quotes nothing by
+# hand, is there.
+function Invoke-Plutil([string[]]$arguments) {
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $script:PlutilPath; $startInfo.UseShellExecute = $false
+  $startInfo.RedirectStandardOutput = $true; $startInfo.RedirectStandardError = $true
+  foreach ($argument in $arguments) { $startInfo.ArgumentList.Add($argument) }
+  $process = [System.Diagnostics.Process]::Start($startInfo)
+  $text = $process.StandardOutput.ReadToEnd()
+  [void]$process.StandardError.ReadToEnd(); $process.WaitForExit()
+  return @{ exitCode = $process.ExitCode; text = $text }
+}
+
 # Takes a plist and a key path; returns @{ present; text; reason } from what
 # plutil, macOS's property list tool, extracts there: the text of a one-line
 # string, or the reason it is no value (holds a newline, holds an XML entity
@@ -4650,8 +4666,10 @@ function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText
 # does (binary plists too, a repeated key's last value), and this reads its
 # one-element output alone, as the sh collector's plutil_string_var does.
 function Read-PlutilString([string]$path, [string]$keyPath) {
-  $lines = @(& $script:PlutilPath -extract $keyPath xml1 -o - $path 2>$null)
-  if ($LASTEXITCODE -ne 0) { return @{ present = $false; text = ''; reason = '' } }
+  $run = Invoke-Plutil @('-extract', $keyPath, 'xml1', '-o', '-', $path)
+  if ($run.exitCode -ne 0) { return @{ present = $false; text = ''; reason = '' } }
+  $lines = @($run.text -split "`n")
+  if ($lines.Count -gt 1 -and $lines[-1] -eq '') { $lines = @($lines[0..($lines.Count - 2)]) }
   $read = @{ present = $true; text = ''; reason = 'not a string' }
   if ($lines.Count -lt 5 -or -not ([string]$lines[3]).StartsWith('<string>')) { return $read }
   if ($lines.Count -gt 5) { $read.reason = 'holds a newline'; return $read }
@@ -4662,24 +4680,43 @@ function Read-PlutilString([string]$path, [string]$keyPath) {
   return $read
 }
 
+# Takes a plist's lines, a variable and its hits as @(line, variable); returns
+# the line its value is recorded on: the last line holding <key>NAME</key>, the
+# key plutil read, else the last line naming it (a binary plist has no text
+# lines). The other lines naming it keep an empty value.
+function Get-PlistKeyLine($lines, [string]$name, $fileHits) {
+  $keyLine = 0
+  for ($index = 0; $index -lt $lines.Count; $index++) {
+    if (([string]$lines[$index]).Contains("<key>$name</key>")) { $keyLine = $index + 1 }
+  }
+  if ($keyLine -gt 0) { return $keyLine }
+  foreach ($hit in $fileHits) { if ([string]$hit[1] -ceq $name) { $keyLine = [int]$hit[0] } }
+  return $keyLine
+}
+
 # Takes a launchd property list and its hits as @(line, variable); returns
-# @{ entries; userName; reason }: each variable hit as "|NAME" -> @{ value;
+# @{ entries; userName; reason }: each variable hit as "line|NAME" -> @{ value;
 # reason } from the plist's EnvironmentVariables dictionary as plutil reads it
-# (the key's effective value, whatever line names it), the UserName when it is
-# a plain account name, or the reason for the whole file: no plutil (the host
-# is not macOS) or plutil could not read the file.
+# (the key's effective value, on the line Get-PlistKeyLine picks), the UserName
+# when it is a plain account name, or the reason for the whole file: no plutil
+# (the host is not macOS) or plutil could not read the file.
 function Resolve-PlistValues([string]$path, $fileHits) {
   $result = @{ entries = @{}; userName = ''; reason = '' }
   if ($null -eq $script:PlutilPath) { $result.reason = 'no plutil'; return $result }
-  & $script:PlutilPath -lint $path 2>$null | Out-Null
-  if ($LASTEXITCODE -ne 0) { $result.reason = 'plutil could not read the file'; return $result }
+  if ((Invoke-Plutil @('-lint', $path)).exitCode -ne 0) {
+    $result.reason = 'plutil could not read the file'; return $result
+  }
+  $lines = Read-StartupFileLines $path; if ($null -eq $lines) { $lines = @() }
+  $seen = @{}
   foreach ($hit in $fileHits) {
     $name = [string]$hit[1]
-    if ($result.entries.ContainsKey("|$name")) { continue }
+    if ($seen.ContainsKey($name)) { continue }
+    $seen[$name] = $true
     $read = Read-PlutilString $path "EnvironmentVariables.$name"
     if (-not $read.present) { continue }
-    if ($read.reason) { $result.entries["|$name"] = @{ value = ''; reason = $read.reason } }
-    else { $result.entries["|$name"] = Test-ResolvedValue $read.text 'launchd' }
+    $keyLine = Get-PlistKeyLine $lines $name $fileHits
+    if ($read.reason) { $result.entries["$keyLine|$name"] = @{ value = ''; reason = $read.reason } }
+    else { $result.entries["$keyLine|$name"] = Test-ResolvedValue $read.text 'launchd' }
   }
   $user = Read-PlutilString $path 'UserName'
   if ($user.present -and -not $user.reason -and $user.text -cmatch '^[A-Za-z_][A-Za-z0-9_.-]*\z') {
@@ -4792,7 +4829,6 @@ function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits
   foreach ($hit in $fileHits) {
     $value = ''; $reason = $resolved.reason
     $entry = $resolved.entries["$($hit[0])|$($hit[1])"]
-    if (-not $entry) { $entry = $resolved.entries["|$($hit[1])"] }
     if ($entry) { $value = $entry.value; $reason = $entry.reason }
     Add-RelocationHint $hintUser $path $hit[0] $hit[1] $value $reason
   }
