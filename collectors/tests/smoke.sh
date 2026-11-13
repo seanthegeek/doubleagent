@@ -1989,6 +1989,7 @@ printf '%s\n' 'CODEX_HOME="/opt/q"' "CODEX_HOME='/opt/single'" >>"$ROOT/etc/envi
 printf 'CODEX_HOME=/opt/e\033x\n' >>"$ROOT/etc/environment"
 printf '%s\n' 'CODEX_HOME=/a%%PATH%' >>"$ROOT/etc/environment"
 printf 'CODEX_HOME=/a\rb\n' >>"$ROOT/etc/environment"
+printf '%s\n' 'CODEX_HOME=/opt/a#b' 'CODEX_HOME=/opt/h\' >>"$ROOT/etc/environment"
 # shellcheck disable=SC2016
 printf '%s\n' 'CODEX_HOME=$HOME/x' >"$ALICE/.config/environment.d/home.conf"
 # shellcheck disable=SC2016
@@ -1997,7 +1998,7 @@ printf '%s\n' 'CODEX_HOME=${HOME}/x' >"$ROOT/etc/environment.d/home.conf"
 printf '%s\n' "CODEX_HOME='/opt/s'" 'CODEX_HOME=$XDG_CONFIG_HOME/x' 'CODEX_HOME=opt/rel' \
   'CODEX_HOME=file:///opt/u' 'CODEX_HOME=/opt/../x' 'CODEX_HOME=/opt/\' 'cont/' \
   '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' 'CODEX_HOME=/a$$HOME' 'CODEX_HOME=/a${X' \
-  >"$ROOT/etc/environment.d/values.conf"
+  "$(printf 'CODEX_HOME=\r/lead')" >"$ROOT/etc/environment.d/values.conf"
 DAEMON_PLIST_DOCTYPE='<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
 DAEMON_PLIST_DOCTYPE="$DAEMON_PLIST_DOCTYPE \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
 daemon_plist() {
@@ -2915,6 +2916,9 @@ check "#455 a no-break space is no space" "[ -z \"\$(hint_value \"$ROOT/etc/envi
 check "#455 a form feed is a control character" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/bytes.conf\" 2 CLAUDE_CONFIG_DIR claude-code)\" ] && value_logged \"$ROOT/etc/environment.d/bytes.conf\" 2 CLAUDE_CONFIG_DIR claude-code '; value not resolved: holds a control character'"
 check "#455 a NUL byte is a control character when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { [ -z \"\$(hint_value \"$ROOT/etc/environment.d/nul.conf\" 1 HERMES_HOME hermes)\" ] && value_logged \"$ROOT/etc/environment.d/nul.conf\" 1 HERMES_HOME hermes '; value not resolved: holds a control character'; }"
 check "#455 a byte order mark keeps a name from matching" "hint_line \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli ''"
+check "#455 a hash in an /etc/environment value is refused" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli '; value not resolved: holds a #'"
+check "#455 a continued /etc/environment value is refused" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli '; value not resolved: continued'"
+check "#455 a carriage return before a value is trimmed" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 12 CODEX_HOME codex-cli)\" = \"$ROOT/lead\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 12 CODEX_HOME codex-cli ' = $ROOT/lead'"
 if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a carriage return inside a plist string is a control character" "value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 0 CODEX_HOME codex-cli '; value not resolved: holds a control character' && value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 1 CODEX_HOME codex-cli ''"
 else

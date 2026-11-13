@@ -4425,7 +4425,9 @@ $script:RelocationNames = [string[]]@($script:RelocationAgents.Keys)
 $script:RelocationNamesRx = New-Object System.Text.RegularExpressions.Regex(
   ('(?:' + (@($script:RelocationNames | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'))
 $script:RelocationNamesAnyCaseRx = New-Object System.Text.RegularExpressions.Regex(
-  $script:RelocationNamesRx.ToString(), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+  $script:RelocationNamesRx.ToString(),
+  ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor
+    [System.Text.RegularExpressions.RegexOptions]::CultureInvariant))
 # STARTUP_FILES as @(scope, glob without its leading /), in table order.
 $script:StartupGlobs = @()
 foreach ($line in (Get-TableLines $STARTUP_FILES)) {
@@ -4546,6 +4548,7 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
   $reason = ''
   if ($text.Contains("`n")) { $reason = 'holds a newline' }
   elseif ($text -match '[\x00-\x1f\x7f]') { $reason = 'holds a control character' }
+  elseif ($text.Contains([string][char]0xFFFD)) { $reason = 'holds an invalid byte' }
   elseif ($text.Contains('$') -and $reference.Success) {
     $reason = 'references $' + $reference.Groups[1].Value
   }
@@ -4575,10 +4578,11 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
 }
 
 # Takes a path; returns its lines as an ArrayList, read with shared access as
-# UTF-8 with no byte order mark dropped (the sh collector's grep and awk see
-# the mark's bytes, so a name after it is no name) and split at line feeds
-# alone, one carriage return before each dropped, so a lone carriage return
-# stays inside its line as it does for grep and awk; or $null, after a
+# Select-String reads it (a UTF-16 or UTF-32 byte order mark picks the
+# encoding), a UTF-8 mark kept as the character it is (the sh collector's grep
+# and awk see its bytes, so a name after it is no name), and split at line
+# feeds alone, one carriage return before each dropped, so a lone carriage
+# return stays inside its line as it does for grep and awk; or $null, after a
 # "read failed:" log line, when the file cannot be read or held.
 function Read-StartupFileLines([string]$path) {
   $stream = $null; $reader = $null
@@ -4586,9 +4590,13 @@ function Read-StartupFileLines([string]$path) {
   try {
     $stream = New-Object System.IO.FileStream((ConvertTo-ExtendedPath $path),
       [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $script:ShareReadWriteDelete)
-    $encoding = New-Object System.Text.UTF8Encoding($false)
-    $reader = New-Object System.IO.StreamReader($stream, $encoding, $false)
+    $head = New-Object byte[] 3
+    $utf8Mark = ($stream.Read($head, 0, 3) -eq 3 -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and
+      $head[2] -eq 0xBF)
+    [void]$stream.Seek(0, [System.IO.SeekOrigin]::Begin)
+    $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
     $text = $reader.ReadToEnd()
+    if ($utf8Mark) { $text = [string][char]0xFEFF + $text }
     if ($text.EndsWith("`n", $ordinal)) { $text = $text.Substring(0, $text.Length - 1) }
     $lines = New-Object System.Collections.ArrayList
     if ($text -ne '') {
@@ -4674,6 +4682,10 @@ function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText
     $text = $text.Substring(1, $text.Length - 2)
   }
   if ($kind -ne 'environment.d') {
+    # pam_env cuts a line at a # and joins a line ending in a backslash with
+    # the next, so such a value is not what the file assigns.
+    if ($text.Contains('#')) { return @{ value = ''; reason = 'holds a #' } }
+    if ($text.EndsWith('\')) { return @{ value = ''; reason = 'continued' } }
     if ($text.IndexOfAny([char[]]'"''') -ge 0) { return @{ value = ''; reason = 'quoted' } }
     return (Test-ResolvedValue $text $kind)
   }

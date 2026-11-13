@@ -2032,7 +2032,7 @@ foreach ($oauthBase in @('Users/alice/agent-zero/main/usr', 'Users/alice/Desktop
 # or refuses, one per line, and a value continued on a second line; a daemon plist with a
 # DOCTYPE names its user; a binary plist. The files above assigning /opt/x resolve under the
 # image root.
-MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n" + "CODEX_HOME=/a`rb`n")
+MakeFile 'etc/environment' ('CODEX_HOME="/opt/x"' + "`n" + 'CODEX_HOME="/opt/q"' + "`n" + "CODEX_HOME='/opt/single'`n" + "CODEX_HOME=/opt/e$([char]27)x`n" + 'CODEX_HOME=/a%%PATH%' + "`n" + "CODEX_HOME=/a`rb`n" + 'CODEX_HOME=/opt/a#b' + "`n" + 'CODEX_HOME=/opt/h\' + "`n")
 MakeFile 'Users/alice/.config/environment.d/home.conf' ('CODEX_HOME=$HOME/x' + "`n")
 MakeFile 'etc/environment.d/home.conf' ('CODEX_HOME=${HOME}/x' + "`n")
 $environmentValues = @(
@@ -2047,6 +2047,7 @@ $environmentValues = @(
   'CODEX_HOME=/opt/$1'
   'CODEX_HOME=/a$$HOME'
   'CODEX_HOME=/a${X'
+  "CODEX_HOME=`r/lead"
 )
 MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n")
 # A CRLF file whose value continues on the next line; a plist string spanning lines whose
@@ -2061,6 +2062,10 @@ MakeFile 'etc/environment.d/cr2.conf' "CODEX_HOME=/a`rCLAUDE_CONFIG_DIR=/c`n"
 MakeFile 'etc/environment.d/bytes.conf' "CODEX_HOME=$([char]0xA0)/nbsp`nCLAUDE_CONFIG_DIR=/ff$([char]12)`n"
 MakeFile 'etc/environment.d/nul.conf' "HERMES_HOME=/n$([char]0)ul`n"
 MakeFile 'etc/environment.d/bom.conf' "$([char]0xFEFF)CODEX_HOME=/bom`n"
+# A profile Windows PowerShell wrote itself, UTF-16 with its byte order mark, which the
+# PowerShell collector reads as text (the sh collector's grep sees no name in it).
+MakeFile 'Users/alice/Documents/PowerShell/utf16.ps1' 'placeholder'
+[System.IO.File]::WriteAllText((ExtendedPath (ImagePath 'Users/alice/Documents/PowerShell/utf16.ps1')), ('$env:CODEX_HOME = "D:\codex"' + "`n"), [System.Text.Encoding]::Unicode)
 $multilinePlist = @(
   '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
   '<key>LETTA_DIR</key><string>/opt/m'
@@ -3154,6 +3159,10 @@ Check '#455 a no-break space is no space' { (HintValue $defaultRunSummary 'etc/e
 Check '#455 a form feed is a control character' { (HintValue $defaultRunSummary 'etc/environment.d/bytes.conf' 2 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' -and (ValueLogged 'etc/environment.d/bytes.conf' 2 'CLAUDE_CONFIG_DIR' 'claude-code' '; value not resolved: holds a control character') }
 Check '#455 a NUL byte is a control character when capabilities.grep_text is true (passes otherwise)' { (HintValue $defaultRunSummary 'etc/environment.d/nul.conf' 1 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged 'etc/environment.d/nul.conf' 1 'HERMES_HOME' 'hermes' '; value not resolved: holds a control character') }
 Check '#455 a byte order mark keeps a name from matching' { (HintValue $defaultRunSummary 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli' '') }
+Check '#455 a hash in an /etc/environment value is refused' { (HintValue $defaultRunSummary 'etc/environment' 7 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 7 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a #') }
+Check '#455 a continued /etc/environment value is refused' { (HintValue $defaultRunSummary 'etc/environment' 8 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 8 'CODEX_HOME' 'codex-cli' '; value not resolved: continued') }
+Check '#455 a UTF-16 profile is hinted' { HasHint $defaultRunSummary 'Users/alice/Documents/PowerShell/utf16.ps1' 1 'CODEX_HOME' 'codex-cli' 'alice' }
+Check '#455 a carriage return before a value is trimmed' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 12 'CODEX_HOME' 'codex-cli') -ceq (ImagePath 'lead') -and (ValueLogged 'etc/environment.d/values.conf' 12 'CODEX_HOME' 'codex-cli' " = $(ImagePath 'lead')") }
 if ($havePlutil) {
   Check '#455 a carriage return inside a plist string is a control character' { (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 0 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli' '') }
 } else {

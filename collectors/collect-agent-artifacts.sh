@@ -4036,10 +4036,12 @@ collect_projects() {
 # ENVIRONMENT_VALUES_AWK: reads /etc/environment on stdin and prints
 # LINE|NAME|=VALUE for each NAME=VALUE line of a RELOCATION_VARS name (the -v
 # names list), or LINE|NAME|!quoted when the value holds a quote besides one
-# enclosing pair of double quotes. pam_env.conf(5) allows only simple
-# NAME=VALUE pairs, so nothing is expanded; a line starting with # is skipped
-# and a carriage return ending the line is dropped, as the line reader of the
-# PowerShell collector drops it.
+# enclosing pair of double quotes, !holds a # when it holds a # (pam_env cuts
+# the line there) and !continued when it ends in a backslash (pam_env joins
+# the next line), since the file then assigns another value. pam_env.conf(5)
+# allows only simple NAME=VALUE pairs, so nothing is expanded; a line starting
+# with # is skipped and a carriage return ending the line is dropped, as the
+# PowerShell collector's line reader drops it.
 heredoc_var <<'EOF_ENVIRONMENT_VALUES_AWK'
 BEGIN { count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[list[i]] = 1 }
 {
@@ -4048,6 +4050,8 @@ BEGIN { count = split(names, list, ","); for (i = 1; i <= count; i++) wanted[lis
   equals = index(text, "="); if (equals < 2) next
   name = substr(text, 1, equals - 1); if (!(name in wanted)) next
   value = substr(text, equals + 1)
+  if (index(value, "#")) { print NR "|" name "|!holds a #"; next }
+  if (value ~ /\\$/) { print NR "|" name "|!continued"; next }
   if (length(value) >= 2 && value ~ /^".*"$/) value = substr(value, 2, length(value) - 2)
   if (value ~ /["']/) print NR "|" name "|!quoted"; else print NR "|" name "|=" value
 }
@@ -4112,7 +4116,7 @@ function assign(text, number,   equals, name, value, outcome) {
   equals = index(text, "="); if (equals < 2) return
   name = substr(text, 1, equals - 1); sub(/[ \t]+$/, "", name)
   if (!(name in wanted)) return
-  value = substr(text, equals + 1); sub(/^[ \t]+/, "", value); sub(/[ \t\r]+$/, "", value)
+  value = substr(text, equals + 1); sub(/^[ \t\r]+/, "", value); sub(/[ \t\r]+$/, "", value)
   outcome = unquote(value)
   if (substr(outcome, 1, 1) == "=") outcome = expand(substr(outcome, 2))
   print number "|" name "|" outcome
