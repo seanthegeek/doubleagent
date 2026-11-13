@@ -4371,16 +4371,18 @@ EOF_PLIST_HITS
 # resolve_plist_values for a launchd plist, VALUE raw text for
 # accept_resolved_value, never logged. HOME, less
 # ROOT, is what $HOME stands for in an environment.d file; it is empty outside
-# a home's own files. FILE goes on stdin, since awk reads an operand holding =
-# as an assignment. Reads RELOCATION_NAMES_CSV, LOG. Temporaries: _rfv_.
+# a home's own files. FILE reaches awk on stdin through tr, which turns a NUL
+# byte into \001, a control character the acceptance test refuses, since BSD
+# awk would end the record at the NUL and GNU awk keep it for $(...) to drop.
+# Reads RELOCATION_NAMES_CSV, LOG. Temporaries: _rfv_.
 resolve_file_values() {
   case "$2" in
     (environment) _rfv_program=$ENVIRONMENT_VALUES_AWK ;;
     (environment.d) _rfv_program=$ENVIRONMENT_D_VALUES_AWK ;;
     (*) resolve_plist_values "$1" "$4"; return 0 ;;
   esac
-  _ret_values=$(RESOLVE_HOME=$3 awk -v names="$RELOCATION_NAMES_CSV" "$_rfv_program" \
-    <"$1" 2>>"$LOG")
+  _ret_values=$(tr '\000' '\001' <"$1" |
+    RESOLVE_HOME=$3 awk -v names="$RELOCATION_NAMES_CSV" "$_rfv_program" 2>>"$LOG")
 }
 
 # accept_resolved_value VALUE: sets _ret_value to VALUE when it is an absolute

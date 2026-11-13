@@ -4420,6 +4420,12 @@ foreach ($line in (Get-TableLines $RELOCATION_VARS)) {
   $script:RelocationAgents[$parts[1]] += $parts[0]
 }
 $script:RelocationNames = [string[]]@($script:RelocationAgents.Keys)
+# One pattern of every name, so a hit file's lines are sifted once each before
+# the boundary test; the second ignores case for a .ps1 file.
+$script:RelocationNamesRx = New-Object System.Text.RegularExpressions.Regex(
+  ('(?:' + (@($script:RelocationNames | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'))
+$script:RelocationNamesAnyCaseRx = New-Object System.Text.RegularExpressions.Regex(
+  $script:RelocationNamesRx.ToString(), [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 # STARTUP_FILES as @(scope, glob without its leading /), in table order.
 $script:StartupGlobs = @()
 foreach ($line in (Get-TableLines $STARTUP_FILES)) {
@@ -4568,28 +4574,33 @@ function Test-ResolvedValue([string]$text, [string]$kind) {
   return @{ value = ($Root + $value.Replace('/', $script:Sep)); reason = '' }
 }
 
-# Takes a path; returns its lines as an ArrayList, read with shared access and
-# split at line feeds alone, a carriage return before one dropped, or $null
-# when it cannot be read. A lone carriage return stays inside its line, as it
-# does for the sh collector's grep and awk, so a value holding one is refused
-# and the hint lines of both collectors count the same.
+# Takes a path; returns its lines as an ArrayList, read with shared access as
+# UTF-8 with no byte order mark dropped (the sh collector's grep and awk see
+# the mark's bytes, so a name after it is no name) and split at line feeds
+# alone, one carriage return before each dropped, so a lone carriage return
+# stays inside its line as it does for grep and awk; or $null, after a
+# "read failed:" log line, when the file cannot be read or held.
 function Read-StartupFileLines([string]$path) {
   $stream = $null; $reader = $null
+  $ordinal = [System.StringComparison]::Ordinal
   try {
     $stream = New-Object System.IO.FileStream((ConvertTo-ExtendedPath $path),
       [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $script:ShareReadWriteDelete)
-    $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    $reader = New-Object System.IO.StreamReader($stream, $encoding, $false)
     $text = $reader.ReadToEnd()
-    if ($text.EndsWith("`n")) { $text = $text.Substring(0, $text.Length - 1) }
+    if ($text.EndsWith("`n", $ordinal)) { $text = $text.Substring(0, $text.Length - 1) }
     $lines = New-Object System.Collections.ArrayList
     if ($text -ne '') {
       foreach ($line in $text.Split("`n")) {
-        if ($line.EndsWith("`r")) { $line = $line.Substring(0, $line.Length - 1) }
+        if ($line.EndsWith("`r", $ordinal)) { $line = $line.Substring(0, $line.Length - 1) }
         [void]$lines.Add($line)
       }
     }
     return , $lines
-  } catch [System.IO.IOException], [System.UnauthorizedAccessException] {
+  } catch [System.IO.IOException], [System.UnauthorizedAccessException],
+    [System.OutOfMemoryException] {
+    Write-CollectorLog "read failed: ${path}: $($_.Exception.Message)"
     return $null
   } finally {
     if ($reader) { $reader.Dispose() } elseif ($stream) { $stream.Dispose() }
@@ -4653,7 +4664,7 @@ function ConvertFrom-EnvironmentEscape([string]$text, [bool]$doubled) {
 # single quotes and expands as Expand-EnvironmentValue, as the sh awk program.
 function Resolve-AssignmentValue([string]$text, [string]$kind, [string]$homeText,
   [bool]$continued) {
-  if ($kind -eq 'environment.d') { $text = $text.Trim() }
+  if ($kind -eq 'environment.d') { $text = $text.Trim([char[]]" `t`r") }
   $quote = ''; if ($text.Length -gt 0) { $quote = $text.Substring(0, 1) }
   if ($quote -ne '"' -and ($quote -ne "'" -or $kind -ne 'environment.d')) { $quote = '' }
   if ($quote -ne '') {
@@ -4744,16 +4755,18 @@ function Resolve-PlistValues([string]$path, $fileHits) {
   return $result
 }
 
-# Takes a hit file, its kind and the home's image-relative path ('' when the
-# file is no home's); returns @{ entries; userName; reason } as
-# Resolve-PlistValues does, for a /etc/environment or environment.d file from
-# its NAME=VALUE lines. An environment.d line ending in a backslash continues
+# Takes a hit file, its kind, the home's image-relative path ('' when the
+# file is no home's), its hits and its lines (Read-StartupFileLines); returns
+# @{ entries; userName; reason } as Resolve-PlistValues does, for a
+# /etc/environment or environment.d file from its NAME=VALUE lines. An
+# environment.d line ending in a backslash continues
 # on the next and keeps its first line's number; # and ; lines are comments.
-function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fileHits) {
+function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fileHits, $lines) {
   if ($kind -eq 'launchd') { return (Resolve-PlistValues $path $fileHits) }
   $result = @{ entries = @{}; userName = ''; reason = '' }
-  $lines = Read-StartupFileLines $path
-  if ($null -eq $lines) { $result.reason = 'file not readable'; return $result }
+  # Only a space or tab is white space here, as for the sh awk programs and
+  # pam_env; .NET's bare Trim would also drop a form feed or a no-break space.
+  $blank = [char[]]" `t"; $blankOrReturn = [char[]]" `t`r"
   $index = 0
   while ($index -lt $lines.Count) {
     $number = $index + 1; $text = [string]$lines[$index]; $index++; $continued = $false
@@ -4762,15 +4775,15 @@ function Resolve-FileValues([string]$path, [string]$kind, [string]$homeText, $fi
       if ($index -ge $lines.Count) { break }
       $text += $lines[$index]; $index++
     }
-    $trimmed = $text.TrimStart()
-    if ($kind -eq 'environment.d') { $trimmed = $text.Trim() }
+    $trimmed = $text.TrimStart($blank)
+    if ($kind -eq 'environment.d') { $trimmed = $text.Trim($blankOrReturn) }
     if ($trimmed.StartsWith('#') -or ($kind -eq 'environment.d' -and $trimmed.StartsWith(';'))) {
       continue
     }
     $equals = $trimmed.IndexOf('=')
     if ($equals -lt 1) { continue }
     $name = $trimmed.Substring(0, $equals)
-    if ($kind -eq 'environment.d') { $name = $name.Trim() }
+    if ($kind -eq 'environment.d') { $name = $name.Trim($blank) }
     if (-not ($script:RelocationNames -ccontains $name)) { continue }
     $assigned = $trimmed.Substring($equals + 1)
     $result.entries["$number|$name"] = Resolve-AssignmentValue $assigned $kind $homeText $continued
@@ -4830,16 +4843,17 @@ function Add-RelocationHint([string]$user, [string]$file, [int]$line, [string]$v
   }
 }
 
-# Takes the user, home and a hit file with its hits as @(line, variable);
+# Takes the user, home and a hit file with its hits as @(line, variable) and
+# its lines;
 # reads the file's values when Get-StartupFileKind names its kind and records
 # each hit with its value or the reason it has none, and for a plist one hint
 # with line 0 per value plutil reads. The hints of a system plist under
 # LaunchDaemons (the user is '') take its UserName as their user.
-function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits) {
+function Add-FileHints([string]$user, [string]$homeDir, [string]$path, $fileHits, $lines) {
   $kind = Get-StartupFileKind $path
   $resolved = @{ entries = @{}; userName = ''; reason = '' }
   if ($kind) {
-    $resolved = Resolve-FileValues $path $kind (Get-ExpansionHome $homeDir) $fileHits
+    $resolved = Resolve-FileValues $path $kind (Get-ExpansionHome $homeDir) $fileHits $lines
   }
   $hintUser = $user
   if ($user -eq '' -and $homeDir -eq '' -and $kind -eq 'launchd' -and
@@ -4928,16 +4942,20 @@ function Search-RelocationFiles([string]$user, [string]$homeDir, [string[]]$file
   }
   foreach ($path in $hitFiles) {
     $lines = Read-StartupFileLines $path
-    if ($null -eq $lines) { Write-CollectorLog "read failed: $path"; continue }
+    if ($null -eq $lines) { continue }
     $fileHits = New-Object System.Collections.ArrayList
     $ignoreCase = Test-PowerShellScript $path
+    $namesRx = $script:RelocationNamesRx
+    if ($ignoreCase) { $namesRx = $script:RelocationNamesAnyCaseRx }
     for ($index = 0; $index -lt $lines.Count; $index++) {
-      foreach ($name in @(Get-BoundedNames ([string]$lines[$index]) $ignoreCase)) {
+      $line = [string]$lines[$index]
+      if (-not $namesRx.IsMatch($line)) { continue }
+      foreach ($name in @(Get-BoundedNames $line $ignoreCase)) {
         [void]$fileHits.Add(@($index + 1, $name))
       }
     }
     if ($fileHits.Count -eq 0) { continue }
-    Add-FileHints $user $homeDir $path $fileHits
+    Add-FileHints $user $homeDir $path $fileHits $lines
     Add-HintFile $user $homeDir $path
   }
 }

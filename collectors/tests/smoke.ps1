@@ -2055,6 +2055,12 @@ MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n"
 # hint's user.
 MakeFile 'etc/environment.d/crlf.conf' "CODEX_HOME=/opt/cr\`r`nlf/`r`n"
 MakeFile 'etc/environment.d/cr2.conf' "CODEX_HOME=/a`rCLAUDE_CONFIG_DIR=/c`n"
+# Bytes .NET's bare trimming or decoding would hide: a no-break space before a value, a form
+# feed and a NUL byte inside one, and a byte order mark before a name, which both collectors
+# must read as the bytes they are.
+MakeFile 'etc/environment.d/bytes.conf' "CODEX_HOME=$([char]0xA0)/nbsp`nCLAUDE_CONFIG_DIR=/ff$([char]12)`n"
+MakeFile 'etc/environment.d/nul.conf' "HERMES_HOME=/n$([char]0)ul`n"
+MakeFile 'etc/environment.d/bom.conf' "$([char]0xFEFF)CODEX_HOME=/bom`n"
 $multilinePlist = @(
   '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
   '<key>LETTA_DIR</key><string>/opt/m'
@@ -3144,6 +3150,10 @@ Check '#455 a doubled percent is no reference' { (HintValue $defaultRunSummary '
 Check '#455 an unclosed brace reference is a dollar' { (HintValue $defaultRunSummary 'etc/environment.d/values.conf' 11 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/values.conf' 11 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a $') }
 Check '#455 a lone carriage return stays inside its line' { (HintValue $defaultRunSummary 'etc/environment' 6 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment' 6 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') }
 Check '#455 a lone carriage return splits no line' { (ValueLogged 'etc/environment.d/cr2.conf' 1 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (HasHint $defaultRunSummary 'etc/environment.d/cr2.conf' 1 'CLAUDE_CONFIG_DIR' 'claude-code' '') -and (HintValue $defaultRunSummary 'etc/environment.d/cr2.conf' 1 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' -and $null -eq (HintValue $defaultRunSummary 'etc/environment.d/cr2.conf' 2 'CLAUDE_CONFIG_DIR' 'claude-code') }
+Check '#455 a no-break space is no space' { (HintValue $defaultRunSummary 'etc/environment.d/bytes.conf' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/bytes.conf' 1 'CODEX_HOME' 'codex-cli' '; value not resolved: not an absolute path') }
+Check '#455 a form feed is a control character' { (HintValue $defaultRunSummary 'etc/environment.d/bytes.conf' 2 'CLAUDE_CONFIG_DIR' 'claude-code') -ceq '' -and (ValueLogged 'etc/environment.d/bytes.conf' 2 'CLAUDE_CONFIG_DIR' 'claude-code' '; value not resolved: holds a control character') }
+Check '#455 a NUL byte is a control character when capabilities.grep_text is true (passes otherwise)' { (HintValue $defaultRunSummary 'etc/environment.d/nul.conf' 1 'HERMES_HOME' 'hermes') -ceq '' -and (ValueLogged 'etc/environment.d/nul.conf' 1 'HERMES_HOME' 'hermes' '; value not resolved: holds a control character') }
+Check '#455 a byte order mark keeps a name from matching' { (HintValue $defaultRunSummary 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli') -ceq '' -and (ValueLogged 'etc/environment.d/bom.conf' 1 'CODEX_HOME' 'codex-cli' '') }
 if ($havePlutil) {
   Check '#455 a carriage return inside a plist string is a control character' { (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 0 'CODEX_HOME' 'codex-cli' '; value not resolved: holds a control character') -and (ValueLogged 'Library/LaunchAgents/com.example.cr.plist' 1 'CODEX_HOME' 'codex-cli' '') }
 } else {

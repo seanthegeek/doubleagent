@@ -134,7 +134,6 @@ never quotes it. The collectors use these reasons:
 | `plutil could not read the file` | Is in a launchd plist that `plutil -lint` rejects; every variable it names gets this reason. |
 | `not a string` | Is in a plist, or in a registry value of a kind other than text, and is not a string. |
 | `holds an XML entity` | Is a plist string that `plutil` had to encode with an entity (`&amp;`). |
-| `file not readable` | PowerShell collector only: the file could not be opened for the second read. |
 
 The `~/.pam_environment` and `/etc/security/pam_env.conf` files, shell startup files,
 fish, Nushell, `mise`, `direnv`, `.env` files and PowerShell profiles are

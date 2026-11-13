@@ -552,12 +552,14 @@ kind from its path with a `case` (`-clike` in PowerShell, so the case is the
 path's own): `environment` for `*/etc/environment`, `environment.d` for
 `*/environment.d/*.conf`, `launchd` for a `*.plist` under `*/LaunchAgents/` or
 `*/LaunchDaemons/`, and no kind, so no value, for anything else. For a file
-with a kind, `resolve_file_values` (`Resolve-FileValues`) reads the file once.
+with a kind, `resolve_file_values` reads the file once more; `Resolve-FileValues` gets
+the lines the hint read gave.
 The sh collector starts one `awk` per such file, with the program for the kind
 (`ENVIRONMENT_VALUES_AWK` or `ENVIRONMENT_D_VALUES_AWK`,
 each read with `heredoc_var`), the file on its standard input (an operand
 holding `=` would be an assignment to `awk`) and the home in `RESOLVE_HOME`,
-which only that `awk` sees. It prints `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
+which only that `awk` sees; `tr` turns a NUL byte into \001 on the way, a control
+character both collectors refuse, since BSD `awk` would end the record there. It prints `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
 for each assignment of a `RELOCATION_VARS` name. For a plist no `awk` runs:
 `resolve_plist_values` lints the file with `plutil` (`PLUTIL`, detected at
 startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME
@@ -819,7 +821,7 @@ PowerShell functions that do their job.
 | `Write-UnmatchedVolumeRow`, `Find-DockerDesktop` | Docker and Podman volumes | The `skipped_unmatched_volume` row; Docker Desktop notes |
 | `ConvertTo-LocalPath`, `Read-DiscoverySource`, `Get-RegexCaptures`, `Get-FileTexts`, `Select-UniqueProjects` | Project discovery | Value to local path; reading sources; deduplication |
 | `Get-SystemRoot`, `Test-RegularFile`, `Test-PowerShellScript` | Relocation hints | The base of the system scope; whether a path is a regular file; whether a file is a `.ps1` script |
-| `Read-StartupFileLines` | Relocation hints | The lines of a startup file, read with shared access; the sh collector hands the file to `awk` |
+| `Read-StartupFileLines` | Relocation hints | The lines of a hit file, read with shared access and split at line feeds alone, for the hint lines and the values; sh counts them with `grep -n` and hands the file to `awk` |
 | `Resolve-AssignmentValue`, `ConvertFrom-EnvironmentEscape`, `Expand-EnvironmentValue` | Relocation hints | The value of a `NAME=VALUE` line: unquoting and backslash escapes, then `$$` and `$HOME` for `environment.d` |
 | `Test-CollectedHome`, `Get-ExpansionHome` | Relocation hints | Whether a directory is a collected user's home, and the form of it that `$HOME` takes |
 | `Write-HintLog` | Relocation hints | A log line of the step, after the pending header; sh calls `log_line` |

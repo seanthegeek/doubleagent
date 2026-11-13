@@ -2013,6 +2013,12 @@ daemon_plist /opt/d/ >"$ROOT/Library/LaunchDaemons/com.example.daemon.plist"
 # sweep, whose UserName must not become the hint's user.
 printf 'CODEX_HOME=/opt/cr\\\r\nlf/\r\n' >"$ROOT/etc/environment.d/crlf.conf"
 printf 'CODEX_HOME=/a\rCLAUDE_CONFIG_DIR=/c\n' >"$ROOT/etc/environment.d/cr2.conf"
+# Bytes .NET's bare trimming or decoding would hide: a no-break space before a
+# value, a form feed and a NUL byte inside one, and a byte order mark before a
+# name, which both collectors must read as the bytes they are.
+printf 'CODEX_HOME=\302\240/nbsp\nCLAUDE_CONFIG_DIR=/ff\014\n' >"$ROOT/etc/environment.d/bytes.conf"
+printf 'HERMES_HOME=/n\000ul\n' >"$ROOT/etc/environment.d/nul.conf"
+printf '\357\273\277CODEX_HOME=/bom\n' >"$ROOT/etc/environment.d/bom.conf"
 printf '%s\n' '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>' \
   '<key>LETTA_DIR</key><string>/opt/m' '3|HERMES_HOME|=/opt/injected</string>' \
   '<key>CODEX_HOME</key><dict><key>x</key><string>/opt/dd</string></dict>' \
@@ -2905,6 +2911,10 @@ check "#455 a doubled percent is no reference" "[ -z \"\$(hint_value \"$ROOT/etc
 check "#455 an unclosed brace reference is a dollar" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 11 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 11 CODEX_HOME codex-cli '; value not resolved: holds a \$'"
 check "#455 a lone carriage return stays inside its line" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 6 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 6 CODEX_HOME codex-cli '; value not resolved: holds a control character'"
 check "#455 a lone carriage return splits no line" "value_logged \"$ROOT/etc/environment.d/cr2.conf\" 1 CODEX_HOME codex-cli '; value not resolved: holds a control character' && hint_line \"$ROOT/etc/environment.d/cr2.conf\" 1 CLAUDE_CONFIG_DIR claude-code | contains -F '\"value\": \"\"}' && [ -z \"\$(hint_line \"$ROOT/etc/environment.d/cr2.conf\" 2 CLAUDE_CONFIG_DIR claude-code)\" ]"
+check "#455 a no-break space is no space" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/bytes.conf\" 1 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment.d/bytes.conf\" 1 CODEX_HOME codex-cli '; value not resolved: not an absolute path'"
+check "#455 a form feed is a control character" "[ -z \"\$(hint_value \"$ROOT/etc/environment.d/bytes.conf\" 2 CLAUDE_CONFIG_DIR claude-code)\" ] && value_logged \"$ROOT/etc/environment.d/bytes.conf\" 2 CLAUDE_CONFIG_DIR claude-code '; value not resolved: holds a control character'"
+check "#455 a NUL byte is a control character when capabilities.grep_text is true (passes otherwise)" "! grep -q '\"grep_text\": true' \"\$SUMMARY\" || { [ -z \"\$(hint_value \"$ROOT/etc/environment.d/nul.conf\" 1 HERMES_HOME hermes)\" ] && value_logged \"$ROOT/etc/environment.d/nul.conf\" 1 HERMES_HOME hermes '; value not resolved: holds a control character'; }"
+check "#455 a byte order mark keeps a name from matching" "hint_line \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli ''"
 if [ -n "$HAVE_PLUTIL" ]; then
   check "#455 a carriage return inside a plist string is a control character" "value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 0 CODEX_HOME codex-cli '; value not resolved: holds a control character' && value_logged \"$ROOT/Library/LaunchAgents/com.example.cr.plist\" 1 CODEX_HOME codex-cli ''"
 else
