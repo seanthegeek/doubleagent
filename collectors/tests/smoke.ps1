@@ -2065,7 +2065,7 @@ MakeFile 'etc/environment.d/bom.conf' "$([char]0xFEFF)CODEX_HOME=/bom`n"
 # A profile Windows PowerShell wrote itself, UTF-16 with its byte order mark, which the
 # PowerShell collector reads as text (the sh collector's grep sees no name in it).
 MakeFile 'Users/alice/Documents/PowerShell/utf16.ps1' 'placeholder'
-[System.IO.File]::WriteAllText((ExtendedPath (ImagePath 'Users/alice/Documents/PowerShell/utf16.ps1')), ('$env:CODEX_HOME = "D:\codex"' + "`n"), [System.Text.Encoding]::Unicode)
+Set-Content -LiteralPath (ImagePath 'Users/alice/Documents/PowerShell/utf16.ps1') -Value ('$env:CODEX_HOME = "D:\codex"' + "`n") -Encoding Unicode -NoNewline
 $multilinePlist = @(
   '<plist version="1.0"><dict><key>EnvironmentVariables</key><dict>'
   '<key>LETTA_DIR</key><string>/opt/m'
