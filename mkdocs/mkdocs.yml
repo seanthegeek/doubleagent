@@ -48,6 +48,7 @@ exclude_docs: |
   /analyzer/dist/**
   /collectors/tests/**
   /tools/**
+  /vendor/**
   /lab/out/**
   **/node_modules/**
 

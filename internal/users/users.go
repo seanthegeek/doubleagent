@@ -20,17 +20,22 @@ type Home struct {
 // provides it, as a method value, so this package does not import hostcmd.
 type Runner func(name string, args ...string) ([]byte, error)
 
-// homeGlobs are the usual home parents, in the order the sh collector tries
-// them, each relative to the root.
-var homeGlobs = [...]string{"home/*", "Users/*", "root", "var/root", "usr/home/*", "export/home/*"}
+// homeGlobs returns the usual home parents, in the order the sh collector
+// tries them, each relative to the root.
+func homeGlobs() []string {
+	return []string{"home/*", "Users/*", "root", "var/root", "usr/home/*", "export/home/*"}
+}
 
-// systemHomes are the homes, relative to the root, of system and shared
-// profiles that are never collected.
-var systemHomes = map[string]struct{}{
-	"": {}, "/": {}, "/bin": {}, "/sbin": {}, "/usr": {}, "/usr/bin": {}, "/usr/sbin": {},
-	"/dev": {}, "/dev/null": {}, "/proc": {}, "/sys": {}, "/nonexistent": {},
-	"/var/empty": {}, "/Users/Shared": {}, "/Users/Public": {}, "/Users/Default": {},
-	"/Users/All Users": {}, "/Users/Default User": {},
+// isSystemHome reports whether a home, relative to the root, belongs to a
+// system or shared profile that is never collected.
+func isSystemHome(relative string) bool {
+	switch relative {
+	case "", "/", "/bin", "/sbin", "/usr", "/usr/bin", "/usr/sbin", "/dev", "/dev/null",
+		"/proc", "/sys", "/nonexistent", "/var/empty", "/Users/Shared", "/Users/Public",
+		"/Users/Default", "/Users/All Users", "/Users/Default User":
+		return true
+	}
+	return false
 }
 
 // Enumerate returns the homes to collect, in enumeration order. In live mode
@@ -107,7 +112,7 @@ func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n
 // and are directories, each named by its last path segment.
 func globHomes(root string) []Home {
 	var homes []Home
-	for _, pattern := range homeGlobs {
+	for _, pattern := range homeGlobs() {
 		for _, match := range expandHomeGlob(root, pattern) {
 			if isDirectory(match) {
 				homes = append(homes, Home{match[strings.LastIndexByte(match, '/')+1:], match})
@@ -130,7 +135,7 @@ func filterHomes(candidates []Home, root, usersFilter string) []Home {
 		if root != "" && strings.HasPrefix(home.Path, root) {
 			relative = home.Path[len(root):]
 		}
-		if _, system := systemHomes[relative]; system {
+		if isSystemHome(relative) {
 			continue
 		}
 		if _, named := wanted[home.User]; filtered && !named {

@@ -19,10 +19,12 @@ const (
 	ErrorRead              Status = "error_read"
 )
 
-// Statuses lists every status in the order collection.json counts them.
-var Statuses = [...]Status{
-	Collected, Symlink, SkippedExcluded, SkippedSize, SkippedSecret,
-	SkippedSpecial, ErrorCopy, SkippedUnmatchedVolume, ErrorRead,
+// Statuses returns every status in the order collection.json counts them.
+func Statuses() []Status {
+	return []Status{
+		Collected, Symlink, SkippedExcluded, SkippedSize, SkippedSecret,
+		SkippedSpecial, ErrorCopy, SkippedUnmatchedVolume, ErrorRead,
+	}
 }
 
 // Row is one manifest line. The fields are in manifest order; Type is

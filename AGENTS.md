@@ -1637,7 +1637,7 @@ python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as te
 python3 tools/check_branch_coverage.py  # runs the analyzer suite again when a parser changed
 python3 tools/check_code_style.py
 python3 tools/check_fork_budget.py --base origin/main   # Linux only: needs strace
-shfmt -ln posix $(shfmt -f .) >/dev/null && shellcheck -s sh $(shfmt -f .) && checkbashisms -p $(shfmt -f .)
+shfmt -ln posix $(shfmt -f . | grep -v '^vendor/') >/dev/null && shellcheck -s sh $(shfmt -f . | grep -v '^vendor/') && checkbashisms -p $(shfmt -f . | grep -v '^vendor/')
 pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
 ```
 
@@ -1740,9 +1740,9 @@ down.
 | pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
 | site build, strict | the versions `requirements-docs.txt` pins | `pip install -r requirements-docs.txt && mkdocs build --strict -f mkdocs/mkdocs.yml -d /tmp/site` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
-| shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f .) >/dev/null` | none; never pass `-w` |
-| shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
-| checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
+| shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . | grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
+| shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . | grep -v '^vendor/')` | `.shellcheckrc` |
+| checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . | grep -v '^vendor/')` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
 | gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `CGO_ENABLED=0 go test -race ./...` | none |
 | staticcheck | 0.8.2 | `go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
@@ -1766,6 +1766,9 @@ down.
   from fresh evidence. `--update-baseline` adds lines only in the commit
   that adds or changes a rule, whose body gives the reason; a finding an
   edit causes is fixed, never baselined.
+- Every checker skips `vendor/`: the vendored Go modules are third-party
+  source, audited as a dependency ([Go standards](#go-standards)), never held
+  to this project's style, links or pages.
 - `shfmt -f .` finds sh files by shebang as well as extension, so the hook
   script, `lab/lab.sh` and `analyzer/tests/run.sh` are checked too.
 - pyright runs with both analyzer dependencies installed; `zstandard` and

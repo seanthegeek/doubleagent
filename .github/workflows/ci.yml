@@ -256,13 +256,13 @@ jobs:
           echo "$HOME/bin" >> "$GITHUB_PATH"
       - name: shfmt POSIX parse (no reformatting)
         if: needs.changes.outputs.sh-lint == 'true'
-        run: shfmt -ln posix $(shfmt -f .) > /dev/null
+        run: shfmt -ln posix $(shfmt -f . | grep -v '^vendor/') > /dev/null
       - name: shellcheck (all sh files, .shellcheckrc)
         if: needs.changes.outputs.sh-lint == 'true'
-        run: shellcheck -s sh $(shfmt -f .)
+        run: shellcheck -s sh $(shfmt -f . | grep -v '^vendor/')
       - name: checkbashisms
         if: needs.changes.outputs.sh-lint == 'true'
-        run: checkbashisms -p $(shfmt -f .)
+        run: checkbashisms -p $(shfmt -f . | grep -v '^vendor/')
 
   # The one status check the ruleset on main requires. A matrix job that
   # the classification skips reports under its unexpanded name ("Analyzer

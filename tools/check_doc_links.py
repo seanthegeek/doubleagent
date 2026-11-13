@@ -184,7 +184,12 @@ def markdown_files() -> list[pathlib.Path]:
         text=True,
         check=True,
     ).stdout
-    files = {ROOT / path for path in out.split("\0") if path.endswith(".md")}
+    # The vendored Go modules' documents are third-party, not project pages.
+    files = {
+        ROOT / path
+        for path in out.split("\0")
+        if path.endswith(".md") and not path.startswith("vendor/")
+    }
     return sorted(path for path in files if path.is_file())
 
 

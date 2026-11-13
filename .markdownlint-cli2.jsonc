@@ -20,8 +20,9 @@
     // literal brackets unnoticed.
     "MD052": { "shortcut_syntax": true }
   },
-  // Skip everything git ignores (build output, caches) as well as
-  // dependency trees that npx or a virtualenv might leave behind.
+  // Skip everything git ignores (build output, caches), dependency trees
+  // that npx or a virtualenv might leave behind, and the vendored Go modules,
+  // which are third-party source.
   "gitignore": true,
-  "ignores": ["**/node_modules/**", ".ruff_cache/**", "**/.venv/**"]
+  "ignores": ["**/node_modules/**", ".ruff_cache/**", "**/.venv/**", "vendor/**"]
 }

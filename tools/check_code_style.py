@@ -143,7 +143,9 @@ def code_files() -> list[pathlib.Path]:
         text=True,
         check=True,
     ).stdout
-    files = {ROOT / path for path in listing.split("\0") if path}
+    # The vendored Go modules are third-party source, audited as a dependency,
+    # never held to this project's style.
+    files = {ROOT / path for path in listing.split("\0") if path and not path.startswith("vendor/")}
     return sorted(path for path in files if path.is_file() and language_of(path))
 
 
