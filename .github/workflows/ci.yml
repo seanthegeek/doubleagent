@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# A new push to a branch cancels the run still going for its previous commit.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Linter versions for the lint job. AGENTS.md ("Quality gates") and
 # .githooks/pre-commit list the same versions; change all three together.
 env:
@@ -19,7 +24,6 @@ env:
   SHELLCHECK_VERSION: "0.11.0"
   SHFMT_VERSION: "3.14.1"
   CHECKBASHISMS_TAG: "v2.26.13"
-  PSSA_VERSION: "1.25.0"
   STATICCHECK_VERSION: "0.8.2"
   GOVULNCHECK_VERSION: "1.9.0"
 
@@ -110,126 +114,6 @@ jobs:
   # One job per shell so the smoke runs, several minutes each, run in
   # parallel. `shell` is the argument to smoke.sh; `wrapper` is the body of
   # a wrapper script for shells that need flags or a multi-call binary.
-  sh-collector:
-    name: sh collector (smoke under ${{ matrix.name }})
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.sh == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: sh
-            shell: sh
-          - name: dash
-            shell: dash
-            package: dash
-          - name: bash
-            shell: bash
-          - name: busybox ash
-            shell: /tmp/ash
-            package: busybox-static
-            wrapper: exec busybox ash "$@"
-          - name: zsh --emulate sh
-            shell: /tmp/zsh-sh
-            package: zsh
-            wrapper: exec zsh --emulate sh "$@"
-          - name: posh
-            shell: posh
-            package: posh
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install the shell
-        if: matrix.package
-        run: sudo apt-get update -q && sudo apt-get install -y -q ${{ matrix.package }}
-      - name: Write the wrapper
-        if: matrix.wrapper
-        env:
-          WRAPPER: ${{ matrix.wrapper }}
-          TARGET: ${{ matrix.shell }}
-        run: printf '#!/bin/sh\n%s\n' "$WRAPPER" > "$TARGET" && chmod +x "$TARGET"
-      - name: smoke
-        run: collectors/tests/smoke.sh ${{ matrix.shell }}
-
-  # The same drift test and smoke run on GitHub's macOS runner, whose find,
-  # sed, stat, grep, awk and tar are the BSD ones; every Linux job above
-  # sees only GNU tools, so a GNU-only flag or regular expression passes
-  # them. The smoke run uses /bin/dash, on macOS since 10.15, and ends
-  # well inside the Linux bash job's time; under /bin/sh (bash 3.2) it
-  # takes three times as long and stays a developer-machine check
-  # (CLAUDE.md).
-  sh-collector-bsd:
-    name: sh collector (smoke under dash on macOS, BSD tools)
-    runs-on: macos-latest
-    needs: changes
-    if: needs.changes.outputs.sh == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: Drift test
-        run: collectors/tests/catalog-sync.sh
-      - name: smoke
-        run: collectors/tests/smoke.sh dash
-
-  # The sh collector's cost is the processes it forks, and that count over
-  # a fixed image under a fixed shell is the same on every run, unlike
-  # wall time on a shared runner. The check needs strace, so it runs on
-  # Linux; the runner image is pinned because the budget is the count under
-  # that image's dash. A pull request also runs the collector of main, to
-  # show which class of process grew.
-  sh-fork-budget:
-    name: sh collector (fork budget)
-    runs-on: ubuntu-24.04
-    needs: changes
-    if: needs.changes.outputs.fork-budget == 'true'
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Install dash and strace
-        run: sudo apt-get update -q && sudo apt-get install -y -q dash strace
-      - name: Fork budget against main
-        if: github.event_name == 'pull_request'
-        run: python3 tools/check_fork_budget.py --base origin/main
-      - name: Fork budget
-        if: github.event_name != 'pull_request'
-        run: python3 tools/check_fork_budget.py
-
-  sh-shellcheck:
-    name: sh collector (shellcheck)
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.sh == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install shellcheck
-        run: sudo apt-get update -q && sudo apt-get install -y -q shellcheck
-      - name: shellcheck
-        run: shellcheck -s sh -S warning collectors/collect-agent-artifacts.sh
-
-  powershell-7:
-    name: PowerShell collector (smoke under PowerShell 7 on Linux)
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.powershell == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: smoke
-        shell: pwsh
-        run: ./collectors/tests/smoke.ps1
-
-  windows-powershell-51:
-    name: PowerShell collector (smoke under Windows PowerShell 5.1)
-    runs-on: windows-latest
-    needs: changes
-    if: needs.changes.outputs.powershell == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: smoke
-        shell: powershell
-        run: .\collectors\tests\smoke.ps1
-
-  # The analyzer tests also read the sh collector and the catalog copy, so a
-  # catalog change runs them as well as a Python one.
   analyzer:
     name: Analyzer tests
     runs-on: ubuntu-latest
@@ -310,7 +194,7 @@ jobs:
           cmp "$RUNNER_TEMP/sums-1" "$RUNNER_TEMP/sums-2"
 
   lint:
-    name: Lint (ruff, pyright, markdownlint, sh linters, PSScriptAnalyzer)
+    name: Lint (ruff, pyright, markdownlint, sh linters)
     runs-on: ubuntu-latest
     needs: changes
     steps:
@@ -379,30 +263,6 @@ jobs:
       - name: checkbashisms
         if: needs.changes.outputs.sh-lint == 'true'
         run: checkbashisms -p $(shfmt -f .)
-      # The GitHub release carries the same nupkg the PowerShell Gallery
-      # serves (identical sha256), and Install-Module stops at the Gallery's
-      # intermittent v2 API failures with "Source Location ... is not valid".
-      # Unzipped into the user module path, the package is the module.
-      - name: Install PSScriptAnalyzer
-        if: needs.changes.outputs.powershell == 'true'
-        run: |
-          nupkg="/tmp/PSScriptAnalyzer.$PSSA_VERSION.nupkg"
-          curl -sfL -o "$nupkg" "https://github.com/PowerShell/PSScriptAnalyzer/releases/download/$PSSA_VERSION/PSScriptAnalyzer.$PSSA_VERSION.nupkg"
-          printf '%s  %s\n' \
-            14e634c828eb98efb9f40b2918ba90f139ed5eccdf663a2a747736d996995d60 "$nupkg" | sha256sum -c -
-          module_dir="$HOME/.local/share/powershell/Modules/PSScriptAnalyzer/$PSSA_VERSION"
-          mkdir -p "$module_dir"
-          unzip -q "$nupkg" -d "$module_dir"
-      - name: PSScriptAnalyzer
-        if: needs.changes.outputs.powershell == 'true'
-        shell: pwsh
-        run: |
-          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
-          # The collector, its smoke test and the round pipeline's guest scripts (lab/round/**/*.ps1).
-          $files = @('collectors/Collect-AgentArtifacts.ps1', 'collectors/tests/smoke.ps1') + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName })
-          $r = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }
-          $r | Format-Table -AutoSize
-          exit @($r).Count
 
   # The one status check the ruleset on main requires. A matrix job that
   # the classification skips reports under its unexpanded name ("Analyzer
@@ -438,12 +298,6 @@ jobs:
       - base-branch
       - changes
       - catalog-sync
-      - sh-collector
-      - sh-collector-bsd
-      - sh-fork-budget
-      - sh-shellcheck
-      - powershell-7
-      - windows-powershell-51
       - analyzer
       - go
       - lint

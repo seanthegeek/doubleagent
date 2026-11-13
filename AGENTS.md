@@ -1552,16 +1552,17 @@ parser's docstring at review.
 
 ## Validation and testing
 
-CI (`.github/workflows/ci.yml`) runs the catalog drift test; shellcheck;
-the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
-drift test and sh smoke test under dash on macOS (BSD tools); the fork
-budget job on Linux; the PowerShell smoke test under PowerShell 7 on Linux
-and Windows PowerShell 5.1 on Windows; the analyzer tests on Python 3.11
-to 3.14, with the branch-coverage gate on the newest; the Go gates, tests
-and six-target build on Ubuntu and macOS; the lint and site
-jobs of [Quality gates](#quality-gates); and a `CI result` job that fails
-when any of them failed or was cancelled. `CI result` is the one status
-check the ruleset on `main` requires.
+CI (`.github/workflows/ci.yml`) runs the catalog drift test; the analyzer
+tests on Python 3.11 to 3.14, with the branch-coverage gate on the newest;
+the Go gates, tests and six-target build on Ubuntu and macOS; the lint and
+site jobs of [Quality gates](#quality-gates); and a `CI result` job that
+fails when any of them failed or was cancelled. `CI result` is the one
+status check the ruleset on `main` requires. On the rewrite branch the sh
+smoke matrix, the macOS BSD smoke, the fork budget, the collector's
+shellcheck job and the two PowerShell smoke jobs do not run: the scripts
+are frozen there and the Go binary replaces them, so a change to a script
+on that branch is a defect, not a reason to run them. A new push to a branch
+cancels the run still going for its previous commit.
 
 CI runs a job only for the parts a change touches:
 [`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
@@ -1723,12 +1724,11 @@ skipped without it. Never add a `python3` requirement to the collector.
 
 Every gate runs in CI, never in the pre-commit hook: branch coverage in the
 `analyzer` job on its newest Python, the site build in the `site` job on the
-Python the Pages workflow uses, the fork budget in its own job, which
-names the `ubuntu-24.04` runner (it needs strace, and the count is that
-image's dash's), the others in the `lint` job. The
-versions are pinned in the workflow's `env` block, coverage.py's in
-`analyzer/requirements-dev.txt` and the fork budget's runner image in its
-job's `runs-on`; change it and this table together. Run the
+Python the Pages workflow uses, the Go gates in the `go` job, the others in
+the `lint` job. The versions are pinned in the workflow's `env` block and
+coverage.py's in `analyzer/requirements-dev.txt`; change it and this table
+together. The PSScriptAnalyzer and fork budget rows are not run on the
+rewrite branch, whose scripts are frozen. Run the
 commands from the repository root before pushing; a documentation-only
 change needs markdownlint, the site build and the rows from document links
 down.
