@@ -6,9 +6,11 @@ folder, `CODEX_HOME` moves Codex's, `XDG_CONFIG_HOME` moves every
 program that follows the XDG Base Directory Specification (the Linux
 convention for where a program keeps its settings, data, state and cache).
 The collectors look for the names of such variables in the files that set
-a user's or the system's environment and warn when they find one. Read this
-page when a collection log or the summary reports a relocation hint, or
-when you expect an agent's files and the collection has none.
+a user's or the system's environment and warn when they find one. Where the
+file's syntax needs no shell to read, they also read the value and record it
+when it is a plain path. Read this page when a collection log or the summary
+reports a relocation hint, or when you expect an agent's files and the
+collection has none.
 
 ## What the warning means
 
@@ -20,7 +22,17 @@ that can move an agent's files:
 relocation hint: /home/alice/.bashrc:41 names CLAUDE_CONFIG_DIR (claude-code)
 ```
 
-It gives the file, the line number, the variable and the agent. It says:
+It gives the file, the line number, the variable and the agent. Where the
+collector could read the value, the line ends with it, and where it read an
+assignment it could not use, with the reason ([What the collector
+resolves](#what-the-collector-resolves)):
+
+```text
+relocation hint: /etc/environment:3 names CODEX_HOME (codex-cli) = /srv/codex
+relocation hint: /home/alice/.config/environment.d/10-agents.conf:2 names CLAUDE_CONFIG_DIR (claude-code); value not resolved: references $XDG_CONFIG_HOME
+```
+
+A hint says:
 
 - The name appears on that line of that file, bounded by characters that
   cannot be part of a name, in the same case. Shells name variables
@@ -41,17 +53,22 @@ It does not say:
 - That the variable is set. The line may be a comment, an `unset`, a
   branch of a conditional that did not run, or a mention of the name
   inside a longer command.
-- What the value is. The collectors never evaluate a startup file and
-  never print the line they matched; the `value` field of each hint in
-  `collection.json` is empty.
+- What the value is, for a file the collector does not resolve. The
+  collectors never evaluate a startup file and never print the line they
+  matched; the `value` field of such a hint in `collection.json` is empty.
+  For the files [below](#what-the-collector-resolves) it holds the path the
+  line assigns, or is empty when the line assigns something else.
 - That the agent's files moved. A variable set in a startup file may have
   been overridden by the process environment, a service definition or
   the registry, and an agent may ignore the variable on the platform you
-  are looking at.
+  are looking at. A resolved value is what one line assigns, not what the
+  agent saw: when two files assign the same variable, the collector records
+  both and does not choose between them.
 - That the variable is absent when there is no hint. The search reads files
-  only. A value set in the Windows registry, in a service or container
-  definition, by a launcher or by another process that started the agent
-  is not found.
+  and, on a live Windows host, the registry. A value set in a service or
+  container definition, by a launcher or by another process that started the
+  agent is not found, nor is one in the registry hive of a user whose hive was
+  not loaded.
 
 The file that holds each hint is collected, so you can read the line
 later. It is attributed to the agent `shared` because it belongs to no
@@ -69,12 +86,103 @@ do with any agent, so check what the line says before you act on it. `ENV`
 is also the Dockerfile instruction, so under `--env-scan-home` every
 Dockerfile in the home gives an `ENV` hint. A hint on a variable that moves
 the startup files themselves (`ZDOTDIR`, `ENV`, `BASH_ENV`) means the files
-it points at were not searched, since no value is read: collect them by
-hand and read them the same way.
+it points at were not searched, even when the hint carries the value:
+collect them by hand and read them the same way.
+
+## What the collector resolves
+
+The collector reads a value only in the places whose syntax needs no shell,
+and only for a line it already reported as a hint. It runs no program the
+file names and expands nothing from its own environment.
+
+| File | Where the value comes from |
+| --- | --- |
+| `/etc/environment` | The text after `NAME=`, with one optional pair of double quotes removed. Nothing is expanded. A line starting with `#` is a comment. |
+| An `environment.d` file (`*.conf` in an `environment.d` directory) | The text after `NAME=`, read by the rules of `environment.d(5)`: white space around the name and the value is trimmed; a line starting with `#` or `;` is a comment; a backslash at the end of a line joins the next line to it, and the hint keeps the first line's number; one enclosing pair of single or double quotes is removed; `$$` is a dollar sign. `$HOME` and `${HOME}` become the user's home in a file that is under a collected user's home (`~/.config/environment.d`), and only there. Every other `$NAME`, `${NAME}`, `${NAME:-x}` and `${NAME:+x}` is left unresolved. |
+| A launchd property list (`*.plist` in a `LaunchAgents` or `LaunchDaemons` directory) | XML only: the `<string>` that follows `<key>NAME</key>` inside the top-level `EnvironmentVariables` dictionary. The hint's line is the line of the `<key>`. A plist under `LaunchDaemons` gives the hint the plist's top-level `UserName` as its user, and an empty user when it has none. A binary plist is not read. |
+| The Windows registry (PowerShell collector, live Windows host) | See [The registry](#the-registry). |
+
+A value is kept only when it passes one test, whichever file it came from:
+it is an absolute path (starting with `/`, or with a drive letter and a
+backslash for a registry value) that holds no `$`, `%`, backquote, quote,
+control character (a tab, carriage return or newline) or `..` segment, and
+does not start with a URI scheme such as `file:`. A trailing `/` is dropped.
+In image mode the path is inside the image, so the collector puts the root
+in front of it (`-r /mnt/image` turns `/srv/cc` into `/mnt/image/srv/cc`), in
+the log, in `collection.json` and in the value list the collector keeps for
+[issue 456](https://github.com/seanthegeek/doubleagent/issues/456).
+
+A line that assigns but does not pass keeps `value` empty, and the log ends
+with `; value not resolved: <reason>`. The reason names the kind of text and
+never quotes it. The collectors use these reasons:
+
+| Reason | The value |
+| --- | --- |
+| `references $NAME` | Holds a reference to a variable, such as `$XDG_CONFIG_HOME`, `${HOME}` outside a user's own `environment.d` file, or `$HOME` in a file that is not `environment.d`. |
+| `references %NAME%` | Holds a Windows reference that was not replaced. |
+| `holds a $` or `holds a %` | Holds that character without a name after it, or a `$$` that became a dollar sign. |
+| `quoted` | Holds a quote besides the one enclosing pair the file's syntax allows. |
+| `holds a quote` | Holds a quote after the file's own unquoting (the sh collector gives this for an escaped quote inside double quotes). |
+| `holds a backquote` | Holds a backquote. |
+| `holds a newline` or `holds a control character` | Holds a newline, or a tab or carriage return. |
+| `holds a .. segment` | Holds a `..` path segment. |
+| `uri` | Starts with a URI scheme, such as `file:///srv/cc`. |
+| `relative` | Starts with a letter, digit, dot, underscore or hyphen and is not a URI, such as `opt/cc` or `./cc`. |
+| `not an absolute path` | Is anything else that is not absolute, such as `~/cc`. |
+| `binary plist` | Is in a launchd plist that begins with the binary property list header; every variable it names gets this reason. |
+| `not a string` | Is in a plist, or in a registry value of a kind other than text, and is not a string. |
+| `not a plain string` | Is a plist `<string>` that holds other elements. |
+| `holds an XML entity` | Is a plist string that holds an XML entity (`&amp;`) or, in the PowerShell collector, `<` or `>`. |
+| `not well-formed XML` | PowerShell collector only: the plist does not parse as XML. |
+| `file not readable` | PowerShell collector only: the file could not be opened for the second read. |
+
+The `~/.pam_environment` and `/etc/security/pam_env.conf` files, shell startup files,
+fish, Nushell, `mise`, `direnv`, `.env` files and PowerShell profiles are
+not resolved: their hints give the file and line, as before. A hint found by
+the `--env-scan-home` sweep in a file of one of the three kinds above carries
+its value in the same way.
+
+### The registry
+
+On a live Windows host the PowerShell collector also reads the registry. It
+looks in the system environment key, `HKLM\SYSTEM\CurrentControlSet\Control\Session
+Manager\Environment`, and in the `Environment` key of the `HKEY_USERS` hive
+of each collected user whose hive is loaded. Every value whose name is a
+relocation variable (in any case) gives a hint with line `0`, the key path
+and value name as `source`, and the user's name (empty for the system key)
+as `user`. The log groups them under `Relocation hints in the registry`.
+
+A value of type `REG_SZ` is read as written. A `REG_EXPAND_SZ` value has its
+`%NAME%` references replaced from, in this order:
+
+1. The other text values of the same key.
+2. For a user key, the profile: `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`,
+   `APPDATA` and `LOCALAPPDATA`, taken from the user's profile path and the
+   hive's `User Shell Folders` key.
+3. The system key's text values, `SystemRoot` and `SystemDrive`.
+
+A reference found nowhere stays in the text and the value is not resolved
+(`references %NAME%`). The collector's own environment is never consulted, so
+the values describe the user's registry settings, not the account that ran the
+collector.
+
+A user whose hive is not loaded is not read: the collector never loads a hive, since loading changes the user's
+`NTUSER.DAT`. The log says `registry: hive of <user> not loaded` and
+`collection.json` lists the user under `relocation.registry.users_not_loaded`.
+A hive that is loaded but cannot be opened is logged as
+`registry: hive of <user> not readable: <message>` and listed under
+`users_denied`; an unreadable system key is logged as
+`registry: system environment not readable: <message>`. Users read are in
+`users_read`. [output.md](output.md#collectionjson) lists the
+`registry` object, and [windows.md](windows.md#the-registry-step) says what
+needs Administrator. The sh collector, an image-mode run and PowerShell
+off Windows read no registry and record why in `registry.reason`.
 
 ## Read the assignment in the collected file
 
-Extract the file from the archive. Its path in the archive is
+Use this for a hint whose value is empty, such as one in a shell script, or
+whose `value not resolved` reason you want to follow up. Extract the file from
+the archive. Its path in the archive is
 `fs/<original path>`, or the physical path under its base for a file reached
 through a symlinked directory ([Archive layout in output.md](output.md#archive-layout)),
 and the log line names the original path and the line number. Look for
@@ -83,7 +191,7 @@ the form that matches the file's shell:
 | Syntax | Used by |
 | --- | --- |
 | `export NAME=value`, or `NAME=value` then `export NAME` | sh, bash, zsh, ksh, dash |
-| `NAME=value` alone | `/etc/environment`, `environment.d` files and `.env` |
+| `NAME=value` alone | `/etc/environment` and `environment.d` files whose value did not resolve, and `.env` |
 | `NAME DEFAULT=value` | `pam_env.conf` and `.pam_environment` |
 | `set -gx NAME value`, or `SETUVAR --export NAME:value` in `fish_variables` | fish |
 | `setenv NAME value` | csh and tcsh |
@@ -91,7 +199,7 @@ the form that matches the file's shell:
 | `$NAME = "value"` | xonsh |
 | `set E:NAME = value` | Elvish |
 | `$env:NAME = "value"` | PowerShell profiles |
-| `<key>NAME</key>` with the value in the next `<string>` | launchd property lists |
+| `<key>NAME</key>` with the value in the next `<string>` | launchd property lists whose value did not resolve, and every binary plist |
 | `[env]` table with `NAME = "value"` | `mise.toml` and the other `mise` configuration files |
 
 Then check three things before you believe the value:
@@ -121,10 +229,13 @@ with; prefer reading the collected file when it answers the question.
 | Linux, the user's systemd session | `sudo -u USER XDG_RUNTIME_DIR=/run/user/UID systemctl --user show-environment` |
 | macOS, the user's login session | `sudo launchctl asuser UID launchctl getenv NAME` |
 | Windows, PowerShell | `[Environment]::GetEnvironmentVariable('NAME', 'User')`, then `'Machine'` |
-| Windows, another user's registry hive | `reg query "HKU\<SID>\Environment" /v NAME` (the hive must be loaded) |
+| Windows, a hive the collector listed under `users_not_loaded` | `reg query "HKU\<SID>\Environment" /v NAME` once the hive is loaded; the collector never loads one |
+| Windows, a value the user's logon sets | `reg query "HKU\<SID>\Volatile Environment" /v NAME` (the collector does not read this key) |
 
-Replace `USER`, `UID`, `SID` and `NAME`. An empty result means the variable
-is not set in that place, not that the agent never saw it. The environment
+Use these for a value a shell computes, for a variable set under a condition,
+and for a user the collector listed as not read. Replace `USER`, `UID`, `SID`
+and `NAME`. An empty result means the variable is not set in that place, not
+that the agent never saw it. The environment
 of a process that is already running can differ from all of these; reading
 it is a task for the EDR (its process view) and is out of scope for the
 collectors.
@@ -133,7 +244,8 @@ collectors.
 
 The catalog tries every entry against every home directory, so a store that
 the variable moved to another place is not collected. The collectors have no
-option that takes a store path yet; until
+option that takes a store path yet, and a resolved `value` is the path to
+use as the store; until
 [issue 456](https://github.com/seanthegeek/doubleagent/issues/456) lands,
 make a second collection by giving the collector a root in which the store
 sits where the agent's default folder would be:
@@ -262,10 +374,7 @@ a bare `.claude-*` entry would also take other tools' directories such as
 
 ## What comes next
 
-[Issue 455](https://github.com/seanthegeek/doubleagent/issues/455) will
-resolve plain values (the registry, `/etc/environment`, launchd property
-lists) so the hint gives the path, and
-[issue 456](https://github.com/seanthegeek/doubleagent/issues/456) will
-collect and parse the store at that path in the same run. When they land,
-the second collection above and most of the live checks are replaced
-by the collector's output, and this page shrinks with them.
+[Issue 456](https://github.com/seanthegeek/doubleagent/issues/456) will
+collect and parse the store at the resolved path in the same run. When it
+lands, the second collection above is replaced by the collector's output,
+and this page shrinks with it.

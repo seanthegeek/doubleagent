@@ -27,8 +27,8 @@ is in the [README](../README.md#quick-start)):
 - `relocation` is the number of relocation hints and the number of files
   searched for them, as `relocation: N hints in M files searched`, followed
   by `, K skipped for size` when the `--env-scan-home` sweep left K files
-  unread for their size, and by `; see collectors/docs/relocation.md` when N
-  is above 0. It is printed after `errors` and before `docker`; see
+  unread for their size, by `, R resolved` when R of the hints carry a value,
+  and by `; see collectors/docs/relocation.md` when N is above 0. It is printed after `errors` and before `docker`; see
   [relocation.md](relocation.md).
 - The `docker:` line appears only when a Docker or Podman volume directory
   or Docker Desktop data was found, as `N volumes found, N collected,
@@ -41,11 +41,20 @@ Progress lines (each user, catalog match, project and relocation hint) go
 to stderr unless `-q` is given. They always go to the log. A `User` line is
 written only for a home with at least one catalog match, just before that
 match. A hint line is `relocation hint: <file>:<line> names <VARIABLE> (<agent>)`,
-and the first hint of a base in the startup file search, and again in the
-`--env-scan-home` sweep, is preceded by the base's header:
-`Relocation hints for <user> (<home>)`, `Relocation hints in system files` or
-`Relocation hints in project <path>`. The line of the file that matched is
-never logged. The first log lines name the options, `env_scan_home=<0|1>`
+followed by ` = <path>` when the collector resolved the value, or by
+`; value not resolved: <reason>` when the line assigns something it does not
+keep ([reasons](relocation.md#what-the-collector-resolves)). The first hint of a
+base in the startup file search, and again in the `--env-scan-home` sweep, is
+preceded by the base's header: `Relocation hints for <user> (<home>)`,
+`Relocation hints in system files` or `Relocation hints in project <path>`.
+The PowerShell collector's registry step on a live Windows host adds the
+header `Relocation hints in the registry`, with hint lines whose `<file>` is
+the registry value (`HKLM\...\Environment\<name>` or
+`HKU\<SID>\Environment\<name>`) and no `:<line>`, and the lines
+`registry: hive of <user> not loaded`,
+`registry: hive of <user> not readable: <message>` and
+`registry: system environment not readable: <message>`. The line of the file
+that matched is never logged, and neither is a value that was not kept. The first log lines name the options, `env_scan_home=<0|1>`
 and `env_scan_max_size=<MB>MB` among them. The last progress line is `done`;
 the log file's `done:` line also records the
 archive path, size in bytes and sha256.
@@ -241,6 +250,6 @@ they recognise out of the file counts.
 | `projects` | The project directories collected from, discovered or given with `-p`. A `-p` value that is not a directory is left out and has an `error_read` row instead. |
 | `counts` | Rows per status (`collected`, `symlink`, `skipped_excluded`, `skipped_size`, `skipped_secret`, `skipped_special`, `error_copy`, `skipped_unmatched_volume`, `error_read`) and `collected_bytes`. `skipped_special` since collector 1.13.0. |
 | `docker` | `volumes_found`, `volumes_collected`, `unreadable` and `docker_desktop`; see [docker.md](docker.md). |
-| `relocation` | `hints`, `files_searched` and `files_skipped_size`; see [relocation.md](relocation.md). `hints` is an array of objects with `user` (the owner of the home or the project's user, empty for a system file), `source` (the path of the file that names the variable), `line` (its line number), `variable`, `agent` (the catalog agent the table line belongs to, or `shared`) and `value` (always `""`; the collector never evaluates a value). A variable that two agents list gives one hint per agent. `files_searched` counts the files handed to the search, the startup files and, with `--env-scan-home`, the files of the sweep, which leaves out the startup files already searched, so each file counts once; `files_skipped_size` counts the sweep's files over `--env-scan-max-size`. |
+| `relocation` | `hints`, `registry`, `files_searched` and `files_skipped_size`, in that order; see [relocation.md](relocation.md). `hints` is an array of objects with `user` (the owner of the home or the project's user, empty for a system file; for a plist under `LaunchDaemons` its `UserName`; for a registry value the profile's user, empty for the system key), `source` (the path of the file that names the variable, or the registry key path and value name), `line` (its line number, `0` for a registry value), `variable`, `agent` (the catalog agent the table line belongs to, or `shared`) and `value` (the absolute path the line assigns when the collector resolved it, in image mode with the root in front; `""` for every other hint, because the collector never evaluates a value and keeps no text that is not a plain path). A variable that two agents list gives one hint per agent. `registry` is an object with `read` (a boolean: `true` when the registry step ran), `reason` (why it did not: `image mode`, `not Windows`, or `sh collector`; `""` when it ran), `users_read` (the users whose `Environment` key was read), `users_not_loaded` (the users whose hive was not loaded, so was not read) and `users_denied` (the users whose loaded hive could not be opened); the sh collector always writes `"read": false, "reason": "sh collector"` and three empty lists. `files_searched` counts the files handed to the search, the startup files and, with `--env-scan-home`, the files of the sweep, which leaves out the startup files already searched, so each file counts once; `files_skipped_size` counts the sweep's files over `--env-scan-max-size`. |
 | `notes` | Messages about what could not be collected, such as an unreadable or symlinked Docker volume directory, Docker Desktop data, or (PowerShell) symlinks that are not in the archive and why, and (PowerShell) each archiver that failed and the one that was used instead, such as `tar.exe failed (exit code 0xC0000005); fell back to PowerShell tar writer`. |
 | `archive` | The file name of the archive written: `.tar.gz`, `.tar` after the sh collector's uncompressed fallback, or `.zip` from the PowerShell collector after both `tar.exe` and its PowerShell tar writer failed. |

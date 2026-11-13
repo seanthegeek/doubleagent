@@ -30,7 +30,7 @@ files read in parallel:
 | 7 | Users | Enumerating and filtering home directories. | The same, from the registry's `ProfileList` and the usual home roots. |
 | 8 | Docker and Podman volumes | Volume directories found on disk, matched against `DOCKER_VOLUMES`. | The same. |
 | 9 | Project discovery | Six source groups, then the per-project walk. | The same six groups. |
-| 10 | Relocation hints | Searches the startup files, and with `--env-scan-home` every other file of a base, for the names in `RELOCATION_VARS`, then collects each file that names one. | The same, with `Select-String`. |
+| 10 | Relocation hints | Searches the startup files, and with `--env-scan-home` every other file of a base, for the names in `RELOCATION_VARS`, reads the value of a hit in three file kinds, then collects each file that names one. | The same, with `Select-String`, and the live Windows registry. |
 | 11 | Inventory output | The `--inventory` JSON lines. | The `-Inventory` accumulators and JSON lines. |
 | 12 | Summary and archive | `collection.json`, the archiver chain, the archive hash, the stdout summary. | The same, with the PowerShell tar writer and the zip fallback. |
 | 13 | Main program | Option parsing, setup, then one call per step. | Setup functions, then one call per step (the options come from `param()` at the top). |
@@ -49,7 +49,9 @@ hashed. Docker and Podman volumes and the discovered projects are further
 bases for the same walk. After project discovery, the relocation step reads
 the startup files of each home, the system and each project for the names
 of variables that move an agent's state, logs each name it finds and
-collects the file that holds it; it evaluates nothing. Then
+collects the file that holds it; it evaluates nothing, but reads the value
+of a hit where no shell is needed (see [Relocation hints](#relocation-hints)).
+Then
 `collection.json` is written and the staging directory becomes the archive.
 
 The steps in the main program, in run order:
@@ -513,7 +515,8 @@ line. The sh `grep` gets `GREP_TEXT`
 ([Capability detection](#capability-detection)), and a NUL byte in a matched
 line becomes a space before `awk`, which would end the line there. The matched
 text never reaches the log, stdout, a variable that is later printed or a
-file. Each hit becomes one log line and one record per `RELOCATION_VARS` line
+file; the only value that does is one that passed the acceptance rule below.
+Each hit becomes one log line and one record per `RELOCATION_VARS` line
 that names the variable (a `shared` line included), which `collection.json`
 carries as `relocation.hints`; a record already held is not added again. The
 file is then collected once as agent `shared`: the sh collector runs the
@@ -537,7 +540,66 @@ skipped and not swept, since the walk would read the whole system, pseudo
 file systems included; so is a home outside the home roots the image mode
 lists (`under_home_root`, `Test-UserHomeRoot`), a daemon account's home
 the catalog walks but the sweep would read whole. The third field of
-`RELOCATION_VARS` is carried and not read by this step.
+`RELOCATION_VARS` is copied into each value record (below).
+
+### Value resolution
+
+Resolution runs on files the name search already hit, once per hit file and
+not per line. `startup_file_kind` (`Get-StartupFileKind`) names the file's
+kind from its path with a `case` (`-clike` in PowerShell, so the case is the
+path's own): `environment` for `*/etc/environment`, `environment.d` for
+`*/environment.d/*.conf`, `launchd` for a `*.plist` under `*/LaunchAgents/` or
+`*/LaunchDaemons/`, and no kind, so no value, for anything else. For a file
+with a kind, `resolve_file_values` (`Resolve-FileValues`) reads the file once.
+The sh collector starts one `awk` per such file, with the program for the kind
+(`ENVIRONMENT_VALUES_AWK`, `ENVIRONMENT_D_VALUES_AWK` or `LAUNCHD_VALUES_AWK`,
+each read with `heredoc_var`), the file on its standard input (an operand
+holding `=` would be an assignment to `awk`) and the home in `RESOLVE_HOME`,
+which only that `awk` sees. It prints `LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
+for each assignment of a `RELOCATION_VARS` name, `U|USER` for a plist's
+`UserName`, or one `!binary plist` line for a binary plist. The PowerShell
+collector reads the lines with `Read-StartupFileLines` and applies
+`Resolve-AssignmentValue` (with `Expand-EnvironmentValue` for `environment.d`),
+or for a plist `Resolve-PlistValues`, which reads the first six bytes for the
+`bplist` header and then parses with `Read-PlistEnvironment` on an
+`XmlTextReader` with no DTD processing and no resolver. `$HOME` expands only in
+a file whose base is a collected user's home (`USER_LIST` in sh,
+`Test-CollectedHome` and `Get-ExpansionHome` in PowerShell, without the image
+root).
+
+The result for one hit goes through `accept_resolved_value`
+(`Test-ResolvedValue`), which keeps a value only when it is an absolute path
+with none of `$`, `%`, a backquote, a quote, a control character or a `..`
+segment and no URI scheme, drops a trailing `/` and, in image mode, puts the
+root in front; otherwise it sets the reason. The sh function uses builtins
+only. `select_line_value` picks the line's outcome from the `awk` output for
+`record_file_hints`. `record_hint` (`Add-RelocationHint`) then logs the
+value or the reason, adds the hint record and, for a value, adds one record
+`user|VARIABLE|agent|replaces|value` to `RELOCATION_VALUES`
+(`$script:RelocationValues`; the value is last since it alone may hold a `|`,
+and `replaces` is the third field of the matching `RELOCATION_VARS` line).
+Collecting the moved store from this list is
+[issue 456](https://github.com/seanthegeek/doubleagent/issues/456). The sh
+collector keeps the value that `collection.json` needs, JSON-escaped, in
+`RELOCATION_VALUES_JSON` as `N|value`, with N the record's place in
+`RELOCATION_HINTS`, so `json_relocation` can still split each hint record from
+the right. For a plist under `LaunchDaemons` the hint's user is the plist's
+`UserName` (`record_file_hints`, `Add-FileHints`).
+
+The registry step is PowerShell only. `Find-RelocationHints` calls
+`Resolve-RegistryValues` after the system files and before the projects, under
+the header `Relocation hints in the registry`. It records
+`relocation.registry.reason` and stops when the host is not Windows or the run
+is in image mode; else it reads the system key and the `Environment` key of
+each collected profile (`$script:ProfileSids`, filled by `Get-UserHomes`)
+whose hive is loaded, never loading one. `Read-RegistryStrings` opens a key
+and reads each text value without expanding it; `Add-RegistryHints` makes the
+hint for each relocation variable, and `Expand-RegistryValue` replaces the
+`%NAME%` references of a `REG_EXPAND_SZ` value, up to eight passes, from the
+tables `Read-UserEnvironment` builds: the key's own values, then
+`Get-ProfileValues` (the profile path and `User Shell Folders`), then the system
+key and `Get-SystemNames`. The collector's own environment is never read. The
+sh collector writes a fixed `registry` object in `json_relocation`.
 
 ## Inventory mode
 
@@ -660,12 +722,16 @@ PowerShell functions that do their job.
 | Search the startup files of one scope under one base | `search_startup_files` | `Find-StartupFileHits` |
 | Sweep every file of one base (`--env-scan-home`) | `scan_home_for_variables` | `Find-RelocationHintsInHome` |
 | Record one hit: log line and hint record | `record_hint` | `Add-RelocationHint` |
+| Record the hints of one hit file, each with its value or the reason it has none | `record_file_hints` | `Add-FileHints` |
+| The syntax of a startup file whose values are read | `startup_file_kind` | `Get-StartupFileKind` |
+| The assignments of the relocation variables in one file | `resolve_file_values` | `Resolve-FileValues` |
+| Keep a value only when it is a plain absolute path | `accept_resolved_value` | `Test-ResolvedValue` |
 | Collect one hit file as `shared`, flagged secret | `collect_hint_file` | `Add-HintFile` |
 | Tell a project that is or holds a home, which is not swept | `holds_home` | `Test-HoldsHome` |
 | Tell a home under the usual home roots, the only homes swept | `under_home_root` | `Test-UserHomeRoot` |
 | List the startup files of one scope under one base | `list_startup_files` | `Get-StartupFiles` |
 | Search files for any relocation variable name | `HINT_SEARCH_WORKER` | `Select-RelocationNames` |
-| Record the hits of the searched files and collect each hit file | `record_search_output`, `record_file_hints` | `Search-RelocationFiles` |
+| Record the hits of the searched files and collect each hit file | `record_search_output` | `Search-RelocationFiles` |
 | The relocation variable names a file (sh) or a line (PowerShell) holds as whole words | `list_bounded_names` | `Get-BoundedNames` |
 | Write the inventory lines (main step) | `write_inventory` | `Write-Inventory` |
 | Format one user's inventory lines | `write_inventory_lines` | `Write-InventoryLines` |
@@ -709,6 +775,8 @@ PowerShell functions that do their job.
 | `set_relocation_names` | Relocation hints | The `RELOCATION_VARS` names as `grep` options and an `awk` list; PowerShell builds `$script:RelocationNames` when the script loads |
 | `search_base_list` | Relocation hints | Runs the fixed list or the sweep over each home or project; PowerShell loops in `Find-RelocationHints` |
 | `search_file_list` | Relocation hints | One `grep` over a file list in one case mode; PowerShell splits the list in `Search-RelocationFiles` |
+| `select_line_value` | Relocation hints | One line's outcome from the `awk` output of `resolve_file_values`; PowerShell looks the line up in the result of `Resolve-FileValues` in `Add-FileHints` |
+| `ENVIRONMENT_VALUES_AWK`, `ENVIRONMENT_D_VALUES_AWK`, `LAUNCHD_VALUES_AWK` | Relocation hints | The `awk` programs of `resolve_file_values`, one per file kind; PowerShell parses in `Resolve-AssignmentValue` and `Read-PlistEnvironment` |
 | `aggregate_inventory` | Inventory output | Sums `M\|` and `F\|` lines per agent; PowerShell accumulates with `Get-InventoryEntry`, `Add-InventoryEvidence`, `Add-InventoryFile` |
 | `count_inventory_homes` | Inventory output | Homes scanned and unreadable; PowerShell does this in `Write-Inventory` |
 | `count_status`, `list_active_users`, `sum_collected_bytes` | Summary and archive | Counts read back from the manifest; PowerShell counts in `Write-ManifestRow` |
@@ -739,6 +807,14 @@ PowerShell functions that do their job.
 | `Write-UnmatchedVolumeRow`, `Find-DockerDesktop` | Docker and Podman volumes | The `skipped_unmatched_volume` row; Docker Desktop notes |
 | `ConvertTo-LocalPath`, `Read-DiscoverySource`, `Get-RegexCaptures`, `Get-FileTexts`, `Select-UniqueProjects` | Project discovery | Value to local path; reading sources; deduplication |
 | `Get-SystemRoot`, `Test-RegularFile`, `Test-PowerShellScript` | Relocation hints | The base of the system scope; whether a path is a regular file; whether a file is a `.ps1` script |
+| `Read-StartupFileLines` | Relocation hints | The lines of a startup file, read with shared access; the sh collector hands the file to `awk` |
+| `Resolve-AssignmentValue`, `Expand-EnvironmentValue` | Relocation hints | The value of a `NAME=VALUE` line: unquoting, then `$$` and `$HOME` for `environment.d` |
+| `Resolve-PlistValues`, `Read-PlistEnvironment` | Relocation hints | The `EnvironmentVariables` strings and `UserName` of a launchd plist, read as XML |
+| `Test-CollectedHome`, `Get-ExpansionHome` | Relocation hints | Whether a directory is a collected user's home, and the form of it that `$HOME` takes |
+| `Write-HintLog` | Relocation hints | A log line of the step, after the pending header; sh calls `log_line` |
+| `Resolve-RegistryValues` | Relocation hints | The registry step on a live Windows host |
+| `Read-RegistryStrings`, `Read-UserEnvironment`, `Add-RegistryHints` | Relocation hints | Reading a key without expanding it; one user's `Environment` key; the hints of a key |
+| `Expand-RegistryValue`, `Get-SystemNames`, `Get-ProfileValues` | Relocation hints | The `%NAME%` replacement and the names it draws from |
 | `Get-SweepFiles` | Relocation hints | The files the sweep searches and the count it leaves out for size; sh lists them with one `find` in `scan_home_for_variables` |
 | `Get-InventoryEntry`, `Add-InventoryEvidence`, `Format-InventoryTime` | Inventory output | Inventory accumulators and dates |
 | `Initialize-Summary`, `Add-LinkNotes` | Summary and archive | Builds the `collection.json` content |
