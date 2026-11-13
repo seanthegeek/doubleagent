@@ -3,12 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Fails if the artifact tables embedded in collect-agent-artifacts.sh and
-# Collect-AgentArtifacts.ps1 differ, or if the analyzer's bundled copy of the
-# --list output is stale. All three must stay a single source of truth.
+# Collect-AgentArtifacts.ps1 differ, or if the analyzer's bundled copy or the
+# Go binary's embedded copy of the --list output is stale. All of them must stay a
+# single source of truth.
 HERE=$(cd "$(dirname "$0")" && pwd)
 SH_COLLECTOR="$HERE/../collect-agent-artifacts.sh"
 PS_COLLECTOR="$HERE/../Collect-AgentArtifacts.ps1"
 ANALYZER_COPY="$HERE/../../analyzer/doubleagent/catalog.txt"
+GO_COPY="$HERE/../../internal/catalog/catalog.txt"
 fail=0
 
 sh_table() { # sh_table NAME -> lines of the sh table (blank lines dropped)
@@ -59,6 +61,19 @@ if [ -f "$ANALYZER_COPY" ]; then
   if [ "$("$SH_COLLECTOR" --list)" = "$(cat "$ANALYZER_COPY")" ]; then printf 'ok   analyzer catalog.txt matches --list\n'
   else
     printf 'FAIL analyzer catalog.txt is stale; run: collectors/collect-agent-artifacts.sh --list > analyzer/doubleagent/catalog.txt\n'; fail=1
+  fi
+fi
+
+# The Go binary embeds a verbatim copy of the --list output, compared byte for
+# byte (command substitution would drop trailing newlines).
+if [ -f "$GO_COPY" ]; then
+  if "$SH_COLLECTOR" --list | cmp -s - "$GO_COPY"; then printf 'ok   internal/catalog/catalog.txt matches --list\n'
+  else
+    printf 'FAIL internal/catalog/catalog.txt is stale; run: collectors/collect-agent-artifacts.sh --list > internal/catalog/catalog.txt\n'; fail=1
+  fi
+  if cmp -s "$GO_COPY" "$ANALYZER_COPY"; then printf 'ok   internal/catalog/catalog.txt matches the analyzer copy\n'
+  else
+    printf 'FAIL internal/catalog/catalog.txt differs from analyzer/doubleagent/catalog.txt\n'; fail=1
   fi
 fi
 
