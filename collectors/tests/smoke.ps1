@@ -2071,7 +2071,7 @@ MakeFile 'etc/environment.d/cr2.conf' "CODEX_HOME=/a`rCLAUDE_CONFIG_DIR=/c`n"
 # feed and a NUL byte inside one, and a byte order mark before a name, which both collectors
 # must read as the bytes they are.
 MakeFile 'etc/environment.d/bytes.conf' "CODEX_HOME=$([char]0xA0)/nbsp`nCLAUDE_CONFIG_DIR=/ff$([char]12)`n"
-MakeFile 'etc/environment.d/nul.conf' "HERMES_HOME=/n$([char]0)ul`nCODEX_HOME=/opt/afternul`n"
+MakeFile 'etc/environment.d/nulbyte.conf' "HERMES_HOME=/n$([char]0)ul`nCODEX_HOME=/opt/afternul`n"
 MakeFile 'etc/environment.d/bom.conf' "$([char]0xFEFF)CODEX_HOME=/bom`n"
 # A profile Windows PowerShell wrote itself, UTF-16 with its byte order mark, which the
 # PowerShell collector reads as text (the sh collector's grep sees no name in it).
