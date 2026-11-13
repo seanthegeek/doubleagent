@@ -1740,9 +1740,9 @@ down.
 | pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
 | site build, strict | the versions `requirements-docs.txt` pins | `pip install -r requirements-docs.txt && mkdocs build --strict -f mkdocs/mkdocs.yml -d /tmp/site` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
-| shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . | grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
-| shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . | grep -v '^vendor/')` | `.shellcheckrc` |
-| checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . | grep -v '^vendor/')` | none |
+| shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . \| grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
+| shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . \| grep -v '^vendor/')` | `.shellcheckrc` |
+| checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . \| grep -v '^vendor/')` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
 | gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `CGO_ENABLED=0 go test -race ./...` | none |
 | staticcheck | 0.8.2 | `go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
