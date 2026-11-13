@@ -2005,7 +2005,11 @@ printf '%s\n' "CODEX_HOME='/opt/s'" 'CODEX_HOME=$XDG_CONFIG_HOME/x' 'CODEX_HOME=
   '# CODEX_HOME=/opt/comment' 'CODEX_HOME=/opt/$1' 'CODEX_HOME=/a$$HOME' 'CODEX_HOME=/a${X' \
   "$(printf 'CODEX_HOME=\r/lead')" 'CODEX_HOME=/a\\' 'HERMES_HOME=/b' 'CLAUDE_CONFIG_DIR="/c\\' 'd"' \
   'CODEX_HOME\' '=/keyjoin' '# comment\' 'CODEX_HOME=/aftercomment' "$(printf 'CODEX_HOME=/g1\001')" \
-  'CLAUDE_CONFIG_DIR=/g2' >"$ROOT/etc/environment.d/values.conf"
+  'CLAUDE_CONFIG_DIR=/g2' 'CODEX_HOME=/opt/store\ ' 'CODEX_HOME=/opt/plain   ' 'CODEX_HOME=/opt/even\\ ' \
+  >"$ROOT/etc/environment.d/values.conf"
+# An escaped closing quote on the last line of a file, with no line feed after it.
+# shellcheck disable=SC2016
+printf 'CODEX_HOME="/opt/x\\"' >"$ROOT/etc/environment.d/openquote.conf"
 DAEMON_PLIST_DOCTYPE='<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
 DAEMON_PLIST_DOCTYPE="$DAEMON_PLIST_DOCTYPE \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
 daemon_plist() {
@@ -2938,6 +2942,10 @@ check "#455 an escaped backslash inside quotes keeps the quote open" "[ -z \"\$(
 check "#455 a carriage return ending an /etc/environment line is refused" "hint_line \"$ROOT/etc/environment\" 15 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment\" 15 CODEX_HOME codex-cli '; value not resolved: holds a control character'"
 check "#455 a quoted environment.d value spanning lines assigns nothing inside it" "value_logged \"$ROOT/etc/environment.d/quoted.conf\" 1 CODEX_HOME codex-cli '; value not resolved: holds a newline' && hint_line \"$ROOT/etc/environment.d/quoted.conf\" 2 CLAUDE_CONFIG_DIR claude-code | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/quoted.conf\" 2 CLAUDE_CONFIG_DIR claude-code ''"
 check "#455 an escaped closing quote keeps an environment.d value open" "value_logged \"$ROOT/etc/environment.d/quoted.conf\" 4 HERMES_HOME hermes '; value not resolved: quoted' && hint_line \"$ROOT/etc/environment.d/quoted.conf\" 5 AMP_HOME amp | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/quoted.conf\" 5 AMP_HOME amp ''"
+check "#455 an escaped closing quote at the end of the file leaves the value quoted" "value_logged \"$ROOT/etc/environment.d/openquote.conf\" 1 CODEX_HOME codex-cli '; value not resolved: quoted'"
+check "#455 an escaped trailing space stays in an environment.d value" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 23 CODEX_HOME codex-cli)\" = \"$ROOT/opt/store \" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 23 CODEX_HOME codex-cli \" = $ROOT/opt/store \""
+check "#455 unescaped trailing spaces are trimmed from an environment.d value" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 24 CODEX_HOME codex-cli)\" = \"$ROOT/opt/plain\" ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 24 CODEX_HOME codex-cli \" = $ROOT/opt/plain\""
+check "#455 an even run of backslashes escapes no trailing space" "[ \"\$(hint_value \"$ROOT/etc/environment.d/values.conf\" 25 CODEX_HOME codex-cli)\" = \"$ROOT\"'/opt/even\\\\' ] && value_logged \"$ROOT/etc/environment.d/values.conf\" 25 CODEX_HOME codex-cli ' = '\"$ROOT\"'/opt/even\\'"
 check "#455 a byte order mark before a name leaves its line without a value" "hint_line \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli | contains -F '\"value\": \"\"}' && value_logged \"$ROOT/etc/environment.d/bom.conf\" 1 CODEX_HOME codex-cli ''"
 check "#455 a hash in an /etc/environment value is refused" "[ -z \"\$(hint_value \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli)\" ] && value_logged \"$ROOT/etc/environment\" 7 CODEX_HOME codex-cli '; value not resolved: holds a #'"
 check "#455 a backslash inside quotes is a value" "[ \"\$(hint_value \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli)\" = \"$ROOT\"'/opt/x\\\\' ] && value_logged \"$ROOT/etc/environment\" 8 CODEX_HOME codex-cli ' = '\"$ROOT\"'/opt/x\\'"

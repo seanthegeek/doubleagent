@@ -4066,13 +4066,13 @@ ENVIRONMENT_VALUES_AWK=$_ret_heredoc_text
 # ENVIRONMENT_D_VALUES_AWK: reads an environment.d(5) file on stdin and prints
 # LINE|NAME|=VALUE or LINE|NAME|!REASON for each KEY=VALUE assignment of a
 # RELOCATION_VARS name (the -v names list), as systemd reads it: whitespace
-# around key and value is trimmed, # and ; lines are comments, an odd run of
-# backslashes ending an assignment line joins the next without its newline and
-# a quote left open joins it with the newline (LINE is the first line's), one
-# enclosing pair of quotes is removed (backslash escapes outside single
+# around key and value is trimmed (an escaped trailing blank stays), # and ;
+# lines are comments, an odd run of backslashes ending an assignment line joins
+# the next without its newline, a quote left open joins it with the newline
+# (LINE is the first line's) or, at the end of the file, leaves the value quoted,
+# one enclosing pair of quotes is removed (backslash escapes outside single
 # quotes), $$ is a dollar, $HOME or ${HOME} is ENVIRON["RESOLVE_HOME"] when set,
-# and any other reference ($NAME, ${NAME}, ${NAME:-x}) leaves the value
-# unresolved. From a line holding a \001 (a NUL byte, from tr) on: after a NUL byte.
+# and any other reference leaves it unresolved; from a \001 (NUL) line on: after a NUL byte.
 heredoc_var <<'EOF_ENVIRONMENT_D_VALUES_AWK'
 function unquote(value,   first, last, inner, result, position, char) {
   first = substr(value, 1, 1); last = substr(value, length(value))
@@ -4121,15 +4121,19 @@ function assigns(text) {
   sub(/^[ \t\r]+/, "", text)
   return text !~ /^[#;]/ && index(text, "=") > 0
 }
-function assign(text, number,   equals, name, value, outcome) {
+function assign(text, number,   equals, name, value, outcome, blank) {
   sub(/^[ \t\r]+/, "", text)
   if (text == "" || text ~ /^[#;]/) return
   equals = index(text, "="); if (equals < 2) return
   name = substr(text, 1, equals - 1); sub(/[ \t]+$/, "", name)
   if (!(name in wanted)) return
   if (nul) { print number "|" name "|!after a NUL byte"; return }
-  value = substr(text, equals + 1); sub(/^[ \t\r]+/, "", value); sub(/[ \t\r]+$/, "", value)
-  outcome = unquote(value)
+  value = substr(text, equals + 1); sub(/^[ \t\r]+/, "", value)
+  if (match(value, /[ \t\r]+$/)) {
+    blank = substr(value, RSTART, 1); value = substr(value, 1, RSTART - 1)
+    if (match(value, /\\+$/) && RLENGTH % 2 == 1) value = value blank
+  }
+  outcome = open ? "!quoted" : unquote(value)
   if (substr(outcome, 1, 1) == "=" && index(outcome, "\n")) outcome = "!holds a newline"
   if (substr(outcome, 1, 1) == "=") outcome = expand(substr(outcome, 2))
   print number "|" name "|" outcome
@@ -4164,7 +4168,7 @@ function track(text, from,   i, c) {
   if (quote != "") { continued = 1; separator = "\n"; joined = 1; next }
   continued = 0; assign(pending, start)
 }
-END { if (continued) { joined = 1; assign(pending, start) } }
+END { if (continued) { joined = 1; open = (quote != ""); assign(pending, start) } }
 EOF_ENVIRONMENT_D_VALUES_AWK
 ENVIRONMENT_D_VALUES_AWK=$_ret_heredoc_text
 

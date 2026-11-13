@@ -2059,8 +2059,13 @@ $environmentValues = @(
   'CODEX_HOME=/aftercomment'
   "CODEX_HOME=/g1$([char]1)"
   'CLAUDE_CONFIG_DIR=/g2'
+  'CODEX_HOME=/opt/store\ '
+  'CODEX_HOME=/opt/plain   '
+  'CODEX_HOME=/opt/even\\ '
 )
 MakeFile 'etc/environment.d/values.conf' (($environmentValues -join "`n") + "`n")
+# An escaped closing quote on the last line of a file, with no line feed after it.
+MakeFile 'etc/environment.d/openquote.conf' 'CODEX_HOME="/opt/x\"'
 # A CRLF file whose value continues on the next line; a plist string spanning lines whose
 # second line is shaped like the sh resolver's own output, and one holding a CDATA section;
 # a daemon plist under a home, reached only by the sweep, whose UserName must not become the
