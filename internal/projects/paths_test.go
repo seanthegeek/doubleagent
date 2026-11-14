@@ -1,16 +1,24 @@
 package projects
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
-func TestLocalProjectPath(t *testing.T) {
+// pathCase is one value localProjectPath reads, the image root, the rules and
+// the path and acceptance it should give.
+type pathCase struct {
+	name, value, root string
+	rules             pathRules
+	want              string
+	ok                bool
+}
+
+// windowsDrivePathCases returns the cases of TestLocalProjectPath for the
+// Windows rule set's drive paths and drive URIs.
+func windowsDrivePathCases() []pathCase {
 	windows := pathRules{driveLetters: true, decodeEscapes: true, dropPOSIXLive: true}
-	shell := pathRules{}
-	for _, test := range []struct {
-		name, value, root string
-		rules             pathRules
-		want              string
-		ok                bool
-	}{
+	return []pathCase{
 		{"a drive URI loses its scheme and slash", "file:///C:/x", "", windows, "C:/x", true},
 		{"an escaped drive colon is decoded", "file:///C%3A/x", "", windows, "C:/x", true},
 		{"a URI is decoded whole and its letter raised", "file:///c%3a/My%20Dir/%C3%A9", "",
@@ -22,6 +30,14 @@ func TestLocalProjectPath(t *testing.T) {
 		{"a drive root is the bare drive", `C:\`, "", windows, "C:", true},
 		{"a drive path in an image is under the root", `C:\Users\a`, "D:/img", windows,
 			"D:/img/Users/a", true},
+	}
+}
+
+// windowsOtherPathCases returns the cases of TestLocalProjectPath for the
+// Windows rule set's POSIX paths, cut drive URIs and refused values.
+func windowsOtherPathCases() []pathCase {
+	windows := pathRules{driveLetters: true, decodeEscapes: true, dropPOSIXLive: true}
+	return []pathCase{
 		{"a POSIX path is dropped live", "/srv/p", "", windows, "", false},
 		{"a POSIX path in an image is under the root", "/srv/p", "D:/img", windows,
 			"D:/img/srv/p", true},
@@ -45,12 +61,20 @@ func TestLocalProjectPath(t *testing.T) {
 		{"a cut escaped drive URI with nothing after stays POSIX", "/C%3A", "D:/img", windows,
 			"D:/img/C%3A", true},
 		{"a cut drive URI with nothing after stays POSIX", "/C:", "", windows, "", false},
-		{"a cut drive URI is not taken by the sh rules", "/C:/x", "/img", shell, "/img/C:/x", true},
 		{"the image root itself is a path", "/", "D:/img", windows, "D:/img", true},
 		{"a bare drive is not a path", "X:", "", windows, "", false},
 		{"a relative path is not a path", "proj", "", windows, "", false},
 		{"a network path is not a path", `\\\\srv\\share`, "", windows, "", false},
 		{"blanks alone are not a path", " \t", "", windows, "", false},
+	}
+}
+
+// shellPathCases returns the cases of TestLocalProjectPath for the sh rule
+// set.
+func shellPathCases() []pathCase {
+	shell := pathRules{}
+	return []pathCase{
+		{"a cut drive URI is not taken by the sh rules", "/C:/x", "/img", shell, "/img/C:/x", true},
 		{"sh undoes an escaped slash and adds the root", `/a\/b`, "/img", shell, "/img/a/b", true},
 		{"sh drops a value starting with an escaped slash", `\/a`, "", shell, "", false},
 		{"sh leaves %20 to the readers", "/a%20b", "", shell, "/a%20b", true},
@@ -58,7 +82,11 @@ func TestLocalProjectPath(t *testing.T) {
 		{"sh trims no blank", " /a", "", shell, "", false},
 		{"sh takes no drive path", `C:\x`, "", shell, "", false},
 		{"sh takes no URI", "file:///x", "", shell, "", false},
-	} {
+	}
+}
+
+func TestLocalProjectPath(t *testing.T) {
+	for _, test := range slices.Concat(windowsDrivePathCases(), windowsOtherPathCases(), shellPathCases()) {
 		t.Run(test.name, func(t *testing.T) {
 			got, ok := localProjectPath(test.value, test.root, test.rules)
 			if got != test.want || ok != test.ok {
