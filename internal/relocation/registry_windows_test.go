@@ -106,7 +106,7 @@ func TestSystemRegistryCutsAValueNameAtItsNUL(t *testing.T) {
 	// No Win32 call takes a counted value name, so the second value, named
 	// CODEX_HOME, a NUL and x, is written through NtSetValueKey. Windows
 	// PowerShell 5.1's GetValueNames ends a name at its first NUL, so it
-	// lists CODEX_HOME twice and Read-RegistryStrings records two hints.
+	// lists CODEX_HOME twice; Add-RelocationHint keeps one hint per source.
 	setCountedName(t, key, "CODEX_HOME\x00x", `C:\other`)
 	got := SystemRegistry().Strings(UsersRoot, usersPath)
 	wantNames := []string{"CODEX_HOME", "CODEX_HOME"}
@@ -119,8 +119,8 @@ func TestSystemRegistryCutsAValueNameAtItsNUL(t *testing.T) {
 	if err := registrySearch(t, fake, nil, nil, log).registryPass(); err != nil {
 		t.Fatal(err)
 	}
-	if hints := len(log.lines) - 1; hints != 2 {
-		t.Errorf("%d hints, want two, one per listed name; log %q", hints, log.lines)
+	if hints := len(log.lines) - 1; hints != 1 {
+		t.Errorf("%d hints, want one for the source both names give; log %q", hints, log.lines)
 	}
 }
 
