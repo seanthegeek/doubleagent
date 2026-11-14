@@ -37,13 +37,18 @@ type Hint struct {
 	Value    string
 }
 
-// Relocation is the relocation search's result. RegistryReason is the text of
-// the registry object's reason field; its lists are always empty, since only
-// the PowerShell collector reads a registry.
+// Relocation is the relocation search's result. RegistryRead and
+// RegistryReason are the registry object's read and reason fields, and
+// UsersRead, UsersNotLoaded and UsersDenied its three user lists: the users
+// whose hive the registry pass read, found not loaded, or could not read. The
+// lists stay empty off a live Windows host.
 type Relocation struct {
 	Hints            []Hint
 	RegistryRead     bool
 	RegistryReason   string
+	UsersRead        []string
+	UsersNotLoaded   []string
+	UsersDenied      []string
 	FilesSearched    int
 	FilesSkippedSize int
 	Resolved         int

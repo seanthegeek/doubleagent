@@ -105,6 +105,31 @@ func TestWriteCollectionJSONLayout(t *testing.T) {
 	}
 }
 
+func TestRelocationJSONWritesTheRegistryUserLists(t *testing.T) {
+	cases := []struct {
+		name       string
+		relocation Relocation
+		want       string
+	}{
+		{"no registry read gives empty lists", Relocation{RegistryReason: "image mode"},
+			`"registry": {"read": false, "reason": "image mode", "users_read": [], ` +
+				`"users_not_loaded": [], "users_denied": []}`},
+		{"each list holds its users in order, escaped", Relocation{RegistryRead: true,
+			UsersRead: []string{"alice", `b"ob`}, UsersNotLoaded: []string{"carol"},
+			UsersDenied: []string{"dave"}},
+			`"registry": {"read": true, "reason": "", "users_read": ["alice","b\"ob"], ` +
+				`"users_not_loaded": ["carol"], "users_denied": ["dave"]}`},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			got := relocationJSON(test.relocation)
+			if !strings.Contains(got, test.want) {
+				t.Errorf("relocation object:\n%s\nlacks:\n%s", got, test.want)
+			}
+		})
+	}
+}
+
 // resultCase is a summary and the stdout text it should print.
 type resultCase struct {
 	name    string

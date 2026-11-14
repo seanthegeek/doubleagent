@@ -146,9 +146,9 @@ func relocationJSON(relocation Relocation) string {
 	out += "], " + field("registry", joinFields(
 		field("read", jsonBool(relocation.RegistryRead)),
 		field("reason", quoted(relocation.RegistryReason)),
-		field("users_read", "[]"),
-		field("users_not_loaded", "[]"),
-		field("users_denied", "[]"),
+		field("users_read", jsonList(relocation.UsersRead)),
+		field("users_not_loaded", jsonList(relocation.UsersNotLoaded)),
+		field("users_denied", jsonList(relocation.UsersDenied)),
 	)) + ", "
 	out += field("files_searched", strconv.Itoa(relocation.FilesSearched)) + ", "
 	return out + field("files_skipped_size", strconv.Itoa(relocation.FilesSkippedSize)) + "}"
