@@ -34,11 +34,10 @@ func TestSystemRegistryStrings(t *testing.T) {
 
 func TestSystemRegistryReadsTheTypeOfEachValue(t *testing.T) {
 	got := SystemRegistry().Strings(LocalMachine, systemEnvironmentKey)
-	// Path is REG_EXPAND_SZ on every Windows install, and the standard
-	// NUMBER_OF_PROCESSORS and OS values are REG_SZ.
-	if !got.Expandable["Path"] || got.Text["Path"] == "" {
-		t.Errorf("Path: expandable %v, text %q; want an expandable, non-empty value",
-			got.Expandable["Path"], got.Text["Path"])
+	// Path is a string on every install, REG_EXPAND_SZ by default but REG_SZ
+	// on some images (the CI runner's), and OS is the REG_SZ Windows_NT.
+	if got.Text["Path"] == "" {
+		t.Errorf("Path text is empty, want the search path")
 	}
 	if text, ok := got.Text["OS"]; !ok || got.Expandable["OS"] || text != "Windows_NT" {
 		t.Errorf("OS = %q (present %v, expandable %v), want the REG_SZ Windows_NT", text, ok,
