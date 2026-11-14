@@ -9,6 +9,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// errNotDirectory is the error a path that is not a directory gives, the
+// system's own, so the text is byte-equal to what the sh collector's run saw.
+var errNotDirectory error = syscall.ENOTDIR
+
 // DirReadError says why path cannot be listed or entered, as the sh
 // collector's get_dir_read_error_var does, with Go's error text where the
 // sh collector prints ls's. It reports failed false for a directory that can

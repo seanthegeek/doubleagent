@@ -1,10 +1,16 @@
 package fsmeta
 
 import (
+	"errors"
 	"os"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
+
+// errNotDirectory is the error a path that is not a directory gives. It is
+// not syscall.ENOTDIR, which Windows words as a missing path, so an
+// error_read row for a file reads as one.
+var errNotDirectory = errors.New("not a directory")
 
 // DirReadError says why path cannot be listed, as the PowerShell collector's
 // Get-DirReadError does by listing it, with Go's error text in native path

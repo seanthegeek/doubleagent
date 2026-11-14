@@ -1,9 +1,6 @@
 package fsmeta
 
-import (
-	"strings"
-	"syscall"
-)
+import "strings"
 
 // notDirectoryError is the error for a path that is not a directory: the
 // type error when something is there (a file, or a dangling link), else the
@@ -11,7 +8,7 @@ import (
 func notDirectoryError(path string) error {
 	_, err := Lstat(path)
 	if err == nil {
-		return pathError("open", path, syscall.ENOTDIR)
+		return pathError("open", path, errNotDirectory)
 	}
 	return err
 }
