@@ -13,7 +13,7 @@ import (
 
 // edgeTree builds an image whose one home holds the walk's edge cases: a
 // nested claim, excluded directories, a directory that cannot be listed,
-// two that can be listed but not entered (one empty), a FIFO, a link
+// two empty ones that can be listed but not entered, a FIFO, a link
 // to a directory, names holding a quote, a newline or a final `|`, an
 // oversized file, a case variant, and catalog paths through symlinked
 // directories that stay inside the home and that lead out of it.
@@ -25,8 +25,7 @@ func edgeTree(t *testing.T) string {
 		".claude/projects/p/s1.jsonl": "{}\n", ".claude/a\"b": "quote",
 		".claude/c\nd": "newline", ".claude/.credentials.json": "token",
 		".claude/cache/c.bin": "cached", ".claude/worktrees/w/f": "tree",
-		".claude/locked/hidden": "x", ".claude/noenter/n1": "n", ".claude/noenter/nsub/n2": "n",
-		".claude.json": "{}", ".claude.json.bak\nzzz": "split",
+		".claude/locked/hidden": "x", ".claude.json": "{}", ".claude.json.bak\nzzz": "split",
 		".claude.json|": "pipe", ".gemini/settings.json": "{}",
 		".gemini/antigravity-cli/conversations/a.db": "db", ".config/goose/config.yaml": "a: b",
 		"dotlocal/share/crush/crush.json": "{}", "../../outside/crush/x": "out",
@@ -57,8 +56,14 @@ func edgeTree(t *testing.T) string {
 	if err := syscall.Mkfifo(home+"/.claude/pipe", 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(home+"/.claude/empty", 0o755); err != nil {
-		t.Fatal(err)
+	// noenter stays empty: for entries of a directory that can be listed but
+	// not entered, the sh collector's rows are an artefact of the platform's
+	// find (GNU find stats some and hands them on, BSD find none), which the
+	// walk does not reproduce, so the fixture holds no entry to compare.
+	for _, name := range []string{".claude/empty", ".claude/noenter"} {
+		if err := os.Mkdir(home+"/"+name, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	modes := map[string]os.FileMode{".claude/locked": 0, ".claude/noenter": 0o600,
 		".claude/empty": 0o600}

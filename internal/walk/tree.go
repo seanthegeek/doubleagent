@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"strings"
-	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 )
@@ -90,50 +89,25 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	}
 	if reason, failed := fsmeta.DirReadError(path); failed {
 		found.readErrors = append(found.readErrors, readError{path, reason})
-		return collector.findUnreadDir(ctx, owner, found, path)
+		return collector.findUnreadDir(found, path)
 	}
 	return collector.visitEntries(ctx, owner, found, path)
 }
 
-// findUnreadDir handles a directory the walk cannot read as find does: a
-// directory that cannot be listed gets one find line. One that can be listed
-// but not entered gets none itself; where find reports its entries, each
-// entry gets a find line, since find cannot stat it, and then goes through
-// the rest of find's expression as a path of no known type: a claim prunes
-// it, an exclusion gives it a skipped_excluded row, anything else goes to the
-// stage, which gives it an error_copy row with no metadata. The inventory's
-// `-type f` cannot hold for an entry find cannot stat, so under --inventory
-// the entries are only logged. An empty such directory gives nothing.
-func (collector *Collector) findUnreadDir(ctx context.Context, owner scope, found *treeWalk,
-	dir string,
-) error {
+// findUnreadDir handles a directory the walk cannot read: one that cannot be
+// listed gets the one line find writes, `find: <dir>: <reason>`. One that can
+// be listed but not entered gets no line, and its entries get nothing: no log
+// line, no row, no inventory record. The directory keeps its error_read row
+// from visit. This deviates from find on purpose: GNU find stats some such
+// entries and hands them on, which the sh collector records as error_copy
+// rows, and BSD find hands on none. Neither is evidence, since no entry can
+// be read, so the walk records the directory and nothing below it.
+func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
 	handle, err := os.Open(dir)
 	if err != nil {
 		return collector.findError(found, dir, err.Error())
 	}
-	entries, err := handle.ReadDir(-1)
-	_ = handle.Close()
-	if err != nil {
-		if err := collector.findError(found, dir, err.Error()); err != nil {
-			return err
-		}
-	}
-	if !findReportsUnenterableEntries {
-		return nil
-	}
-	for _, entry := range entries {
-		path := dir + "/" + entry.Name()
-		if err := collector.findError(found, path, syscall.EACCES.Error()); err != nil {
-			return err
-		}
-		if collector.Inventory {
-			continue
-		}
-		if err := collector.visit(ctx, owner, found, path, false); err != nil {
-			return err
-		}
-	}
-	return nil
+	return handle.Close()
 }
 
 // findError counts a path the walk could not read and logs the line find
