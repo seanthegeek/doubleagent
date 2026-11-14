@@ -3,9 +3,6 @@
 package archive
 
 import (
-	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/syspath"
-
 	"archive/tar"
 	"compress/gzip"
 	"crypto/sha256"
@@ -17,6 +14,9 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // WriteTarGz writes stageDir as a gzipped tar at archivePath. Its members are
