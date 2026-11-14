@@ -91,11 +91,12 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	return collector.visitEntries(ctx, owner, found, path)
 }
 
-// findUnreadDir logs the lines find writes for a directory the walk cannot
-// read: one for the directory when it cannot be listed; when it can be
-// listed but not entered, none for the directory itself and, where find
-// reports them, one per entry, whose type find cannot read. An empty such
-// directory gives no line on any platform.
+// findUnreadDir handles a directory the walk cannot read as find does: a
+// directory that cannot be listed gets one find line. One that can be listed
+// but not entered gets none itself; where find reports its entries, each
+// entry gets a find line, since find cannot stat it, and is handed on as a
+// file, since find cannot tell it is a directory, so the stage gives it an
+// error_copy row with no metadata. An empty such directory gives nothing.
 func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
 	handle, err := os.Open(dir)
 	if err != nil {
@@ -112,10 +113,11 @@ func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
 		return nil
 	}
 	for _, entry := range entries {
-		err := collector.findError(found, dir+"/"+entry.Name(), syscall.EACCES.Error())
-		if err != nil {
+		path := dir + "/" + entry.Name()
+		if err := collector.findError(found, path, syscall.EACCES.Error()); err != nil {
 			return err
 		}
+		found.files = append(found.files, path)
 	}
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -289,6 +290,9 @@ func TestFindLinesForUnreadDirectories(t *testing.T) {
 			want = append(want, "/m/noenter/"+name.Name())
 		}
 	}
+	// The lines come in directory order, which differs by file system.
+	sort.Strings(finds)
+	sort.Strings(want)
 	if !reflect.DeepEqual(finds, want) || unreadable != len(want) {
 		t.Errorf("find lines %q (unreadable %d), want %q", finds, unreadable, want)
 	}
