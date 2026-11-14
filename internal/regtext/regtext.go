@@ -23,13 +23,5 @@ func Decode(data []byte) string {
 	if n := len(units); n > 0 && units[n-1] == 0 {
 		units = units[:n-1]
 	}
-	return Name(units)
-}
-
-// Name returns the text of a counted UTF-16 name, as .NET builds a string
-// from the characters and count RegEnumValue reports: every code unit is
-// kept, a NUL anywhere included. A lone surrogate becomes U+FFFD, as in
-// Decode.
-func Name(units []uint16) string {
 	return string(utf16.Decode(units))
 }

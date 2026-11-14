@@ -98,23 +98,20 @@ func TestSystemRegistryKeepsAnEmbeddedNUL(t *testing.T) {
 	}
 }
 
-func TestSystemRegistryKeepsANULInAValueName(t *testing.T) {
+func TestSystemRegistryCutsAValueNameAtItsNUL(t *testing.T) {
 	key, usersPath := testKey(t)
 	if err := key.SetStringValue("CODEX_HOME", `C:\real`); err != nil {
 		t.Fatal(err)
 	}
 	// No Win32 call takes a counted value name, so the second value, named
-	// CODEX_HOME, a NUL and x, is written through NtSetValueKey.
+	// CODEX_HOME, a NUL and x, is written through NtSetValueKey. Windows
+	// PowerShell 5.1's GetValueNames ends a name at its first NUL, so it
+	// lists CODEX_HOME twice and Read-RegistryStrings records two hints.
 	setCountedName(t, key, "CODEX_HOME\x00x", `C:\other`)
 	got := SystemRegistry().Strings(UsersRoot, usersPath)
-	wantNames := []string{"CODEX_HOME", "CODEX_HOME\x00x"}
+	wantNames := []string{"CODEX_HOME", "CODEX_HOME"}
 	if got.Reason != "" || !slices.Equal(got.Names, wantNames) {
 		t.Fatalf("names %q, reason %q; want %q and no reason", got.Names, got.Reason, wantNames)
-	}
-	// GetValue reads a name up to its NUL, so the second name reads the
-	// first value's data.
-	if text := got.Text["CODEX_HOME\x00x"]; text != `C:\real` {
-		t.Errorf("text of the name holding a NUL = %q, want CODEX_HOME's C:\\real", text)
 	}
 	log := &lineLog{}
 	fake := fakeRegistry{keys: map[registryKey]RegistryStrings{
@@ -122,8 +119,8 @@ func TestSystemRegistryKeepsANULInAValueName(t *testing.T) {
 	if err := registrySearch(t, fake, nil, nil, log).registryPass(); err != nil {
 		t.Fatal(err)
 	}
-	if hints := len(log.lines) - 1; hints != 1 {
-		t.Errorf("%d hints, want CODEX_HOME's one; log %q", hints, log.lines)
+	if hints := len(log.lines) - 1; hints != 2 {
+		t.Errorf("%d hints, want two, one per listed name; log %q", hints, log.lines)
 	}
 }
 
