@@ -227,15 +227,16 @@ func (run *search) recordFileHints(user, home, path string) error {
 	return run.deps.Collect(user, home, path)
 }
 
-// boundedNamesOf returns the hits of the file at path; a file that cannot be
-// read has none, as grep lists no file it cannot open.
+// boundedNamesOf returns the hits of the file at path, a UTF-16 or UTF-32
+// text decoded first; a file that cannot be read has none, as grep lists no
+// file it cannot open.
 func (run *search) boundedNamesOf(path string) []LineName {
 	file, err := fsmeta.OpenRegular(path)
 	if err != nil {
 		return nil
 	}
 	defer file.Close()
-	hits, _ := BoundedNames(file, run.names, IsPowerShell(path))
+	hits, _ := decodedBoundedNames(file, run.names, IsPowerShell(path))
 	return hits
 }
 
