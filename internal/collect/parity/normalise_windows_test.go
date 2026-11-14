@@ -31,6 +31,7 @@ var (
 	inventoryNote    = regexp.MustCompile(`^NOTE: -Inventory writes nothing; -OutputDir (.*) ignored$`)
 	invalidSize      = regexp.MustCompile(`(?m)^Invalid (--max-file-size|--env-scan-max-size): .*$`)
 	archiverNote     = regexp.MustCompile(`; fell back to |^tar failed; `)
+	hintOutcome      = regexp.MustCompile(`^(relocation hint: (.+?) names \S+ \([^)]*\))(?: = .*|; value not resolved: .*)$`)
 	powerShellOnly   = regexp.MustCompile(`^(?:discovery source unreadable: |stat failed: |(?:NOTE: )?tar(?:\.exe)? failed)`)
 	windowsReason    = regexp.MustCompile(`^((?:read failed|copy failed|symlink not recreated): .+?: |.*? not readable: |` +
 		`WARNING: project given with -p is not a directory: .+?: ).*$`)
@@ -59,11 +60,15 @@ func newWindowsNormaliser() normaliser {
 		case logOnStderr:
 			stderr = sortedLines(normalWindowsLog(stderr, binary, false))
 		}
+		manifest, members := run.files[".manifest.jsonl"], run.members
+		if binary {
+			manifest, members = replaceSurrogates(manifest), replaceMemberSurrogates(members)
+		}
 		files := map[string]string{
-			".manifest.jsonl":  normalManifest(run.files[".manifest.jsonl"]),
+			".manifest.jsonl":  normalManifest(manifest),
 			".collection.json": normalSummary(run.files[".collection.json"], binary),
 			".log":             normalWindowsLog(run.files[".log"], binary, true),
-			".archive":         normalWindowsArchive(run.members),
+			".archive":         normalWindowsArchive(members),
 		}
 		stdout := windowsStdout.ReplaceAllString(withoutCarriageReturns(run.stdout), "")
 		stdout = windowsResolved.ReplaceAllString(stdout, "$1")
@@ -115,9 +120,55 @@ func normalWindowsLog(text string, binary, timed bool) string {
 		if archiverLine || onlyOne || strings.HasPrefix(line, "profile not accessible (skipped): ") {
 			continue
 		}
+		if binary {
+			line = withoutFileHintOutcome(line)
+		}
 		lines = append(lines, normalWindowsLine(line))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// withoutFileHintOutcome returns a hint log line of the binary without the
+// resolved value or the reason it was not resolved when the hint's source is
+// a file: the PowerShell collector resolves only registry values and writes
+// neither for a file.
+func withoutFileHintOutcome(line string) string {
+	match := hintOutcome.FindStringSubmatch(line)
+	if match == nil || strings.HasPrefix(match[2], `HKLM\`) || strings.HasPrefix(match[2], `HKU\`) {
+		return line
+	}
+	return match[1]
+}
+
+// replaceSurrogates returns text with each lone surrogate the binary writes
+// as its three WTF-8 bytes (a file name Windows allows but UTF-8 cannot
+// hold) replaced by U+FFFD, as the PowerShell collector's UTF-8 writer
+// writes it.
+func replaceSurrogates(text string) string {
+	var out strings.Builder
+	for i := 0; i < len(text); i++ {
+		if i+2 < len(text) && text[i] == 0xed && text[i+1] >= 0xa0 && text[i+1] <= 0xbf &&
+			text[i+2] >= 0x80 && text[i+2] <= 0xbf {
+			out.WriteString("\uFFFD")
+			i += 2
+			continue
+		}
+		out.WriteByte(text[i])
+	}
+	return out.String()
+}
+
+// replaceMemberSurrogates returns the archive's members with replaceSurrogates
+// applied to each name and to the archived manifest's text.
+func replaceMemberSurrogates(members map[string]string) map[string]string {
+	replaced := make(map[string]string, len(members))
+	for name, description := range members {
+		if name == "./manifest.jsonl" {
+			description = replaceSurrogates(description)
+		}
+		replaced[replaceSurrogates(name)] = description
+	}
+	return replaced
 }
 
 // normalWindowsLine returns one log line as the comparison sees it.
@@ -262,10 +313,17 @@ func blankFileHintValues(summary map[string]any) {
 }
 
 // normalWindowsArchive returns the archive's members as normalMembers lists
-// them, each link target without the \\?\ prefix and with / separators.
+// them, each link target without the \\?\ prefix and with / separators, and
+// without directory members: the binary stages a planned path's directory
+// before deciding its status, so a skipped file can leave an empty one, where
+// the PowerShell collector creates a directory only when it copies into it.
+// The files imply their directories.
 func normalWindowsArchive(members map[string]string) string {
 	normal := make(map[string]string, len(members))
 	for name, description := range members {
+		if description == "type 5" {
+			continue
+		}
 		if quoted, ok := strings.CutPrefix(description, "link "); ok {
 			if target, err := strconv.Unquote(quoted); err == nil {
 				target = strings.ReplaceAll(strings.TrimPrefix(target, `\\?\`), `\`, "/")

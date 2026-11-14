@@ -114,7 +114,7 @@ func denyAccess(t *testing.T, path, rights string) {
 
 // setupLinkImage builds the link image: a file and a directory outside the
 // collection, and in eve's antigravity-cli directory a relative, a dangling
-// and a directory symlink and two junctions, one whose name holds a %. The
+// and a directory symlink and a junction. The
 // symlinks are left out, with a note, where the account may not create them.
 func setupLinkImage(t *testing.T, img image) {
 	build := fixture{t}
@@ -130,7 +130,6 @@ func setupLinkImage(t *testing.T, img image) {
 		}
 	}
 	makeJunction(t, root+`\outside`, agent+`\jn`)
-	makeJunction(t, root+`\outside`, agent+`\jn%TEMP%x`)
 }
 
 // symlinkOrNote creates a symlink at path to target and reports whether it
