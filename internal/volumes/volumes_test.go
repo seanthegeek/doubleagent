@@ -3,14 +3,17 @@ package volumes
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
@@ -49,6 +52,7 @@ func newSetup(t *testing.T, inventory bool) setup {
 	if err != nil {
 		t.Fatal(err)
 	}
+	root = syspath.FromNative(root)
 	stageDir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -65,6 +69,11 @@ func newSetup(t *testing.T, inventory bool) setup {
 		Inventory: inventory, Records: records,
 	}
 	return setup{root, collector, rows, log, records}
+}
+
+// bases are the image bases of the fixture's root.
+func (fixture setup) bases() Bases {
+	return Bases{System: fixture.root, ProgramData: fixture.root + "/ProgramData"}
 }
 
 // write creates a file with its parents under the root.
@@ -160,9 +169,9 @@ func TestCollectVolumes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := newSetup(t, false)
 			test.build(t, fixture)
-			homes := []users.Home{{User: "alice", Path: filepath.Join(fixture.root, "home/alice")}}
+			homes := []users.Home{{User: "alice", Path: fixture.root + "/home/alice"}}
 			var notes []string
-			got, err := Collect(context.Background(), fixture.collector, fixture.root, homes, &notes)
+			got, err := Collect(context.Background(), fixture.collector, fixture.bases(), homes, &notes)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -187,7 +196,7 @@ func TestInventoryRecordsMatchedVolumesOnly(t *testing.T) {
 	fixture.write(t, "var/lib/docker/volumes/a0_usr/_data/f", "hi")
 	fixture.write(t, "var/lib/docker/volumes/postgres/_data/f", "hi")
 	var notes []string
-	got, err := Collect(context.Background(), fixture.collector, fixture.root, nil, &notes)
+	got, err := Collect(context.Background(), fixture.collector, fixture.bases(), nil, &notes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +226,7 @@ func TestCancelledContextStopsCollection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	var notes []string
-	if _, err := Collect(ctx, fixture.collector, fixture.root, nil, &notes); err == nil {
+	if _, err := Collect(ctx, fixture.collector, fixture.bases(), nil, &notes); err == nil {
 		t.Error("a cancelled context gave no error")
 	}
 }
@@ -226,17 +235,44 @@ func TestUnmatchedVolumeRow(t *testing.T) {
 	fixture := newSetup(t, false)
 	fixture.write(t, "var/lib/docker/volumes/postgres/_data/PG_VERSION", "16")
 	var notes []string
-	if _, err := Collect(context.Background(), fixture.collector, fixture.root, nil, &notes); err != nil {
+	if _, err := Collect(context.Background(), fixture.collector, fixture.bases(), nil, &notes); err != nil {
 		t.Fatal(err)
 	}
-	data := filepath.Join(fixture.root, "var/lib/docker/volumes/postgres/_data")
-	want := `{"user":"docker","home":"` + data + `","agent":"","path":"` + data +
-		`","archive_path":"","type":"dir","size":`
-	row := fixture.rows.String()
-	if !strings.HasPrefix(row, want) ||
-		!strings.HasSuffix(row, `,"mtime":0,"atime":0,"ctime":0,"btime":0,"uid":0,"gid":0,`+
-			`"mode":"0","sha256":"","secret":false,"status":"skipped_unmatched_volume",`+
-			`"target":"","error":""}`+"\n") {
-		t.Errorf("row = %s", row)
+	data := syspath.ToNative(fixture.root + "/var/lib/docker/volumes/postgres/_data")
+	var row map[string]any
+	if err := json.Unmarshal(fixture.rows.Bytes(), &row); err != nil {
+		t.Fatalf("row %s: %v", fixture.rows, err)
+	}
+	want := map[string]any{"user": "docker", "home": data, "agent": "", "path": data,
+		"archive_path": "", "type": "dir", "mtime": 0.0, "atime": 0.0, "ctime": 0.0, "btime": 0.0,
+		"uid": 0.0, "gid": 0.0, "mode": fsmeta.ZeroMeta().Mode, "sha256": "", "secret": false,
+		"status": "skipped_unmatched_volume", "target": "", "error": ""}
+	for name, value := range want {
+		if row[name] != value {
+			t.Errorf("%s = %#v, want %#v in %s", name, row[name], value, fixture.rows)
+		}
+	}
+}
+
+func TestBasesPlaceTheSystemVolumeDirectories(t *testing.T) {
+	fixture := newSetup(t, false)
+	fixture.write(t, "sys/var/lib/docker/volumes/postgres/_data/f", "x")
+	fixture.write(t, "data/Docker/volumes/redis/_data/f", "x")
+	fixture.mkdir(t, "data/DockerDesktop")
+	fixture.write(t, "ProgramData/Docker/volumes/ignored/_data/f", "x")
+	bases := Bases{System: fixture.root + "/sys", ProgramData: fixture.root + "/data"}
+	var notes []string
+	got, err := Collect(context.Background(), fixture.collector, bases, nil, &notes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantNote := "docker: Docker Desktop data at " + syspath.ToNative(fixture.root+"/data/DockerDesktop") +
+		"; volumes inside its virtual machine disk are not collected"
+	if got.Found != 2 || !got.Desktop || len(notes) != 1 || notes[0] != wantNote {
+		t.Errorf("counts %+v, notes %q; want 2 volumes and the note %q", got, notes, wantNote)
+	}
+	wantLine := "Docker volumes in " + syspath.ToNative(fixture.root+"/data/Docker/volumes")
+	if !strings.Contains(strings.Join(fixture.log.lines, "\n"), wantLine) {
+		t.Errorf("log %q lacks %q", fixture.log.lines, wantLine)
 	}
 }

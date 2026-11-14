@@ -12,6 +12,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/projects"
 	"github.com/seanthegeek/doubleagent/internal/relocation"
 	"github.com/seanthegeek/doubleagent/internal/runlog"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/version"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
@@ -21,23 +22,49 @@ import (
 // sharedAgent is the agent a relocation hint file is collected under.
 const sharedAgent = "shared"
 
-// findHomes lists the homes to collect, as get_user_homes does, with a
-// warning when there is none.
+// findHomes lists the homes to collect, as get_user_homes and Get-UserHomes
+// do, with a warning when there is none and a line for each candidate that
+// could not be seen as a directory, as Write-StartLog logs them. It keeps the
+// ProfileList entries for the registry pass.
 func (state *runState) findHomes(context.Context) error {
 	live := state.options.Root == ""
-	state.homes = users.Enumerate(live, state.options.Root, state.options.UsersFilter,
+	report := state.host.findUsers(live, state.options.Root, state.options.UsersFilter,
 		state.host.runner.Output)
-	if len(state.homes) > 0 {
-		return nil
+	state.homes, state.skippedHomes = report.Homes, report.Skipped
+	for _, profile := range report.Profiles {
+		state.profiles = append(state.profiles, relocation.Profile(profile))
 	}
-	return state.log.Line("WARNING: no user home directories found")
+	if len(state.homes) == 0 {
+		if err := state.log.Line("WARNING: no user home directories found"); err != nil {
+			return err
+		}
+	}
+	for _, skipped := range state.skippedHomes {
+		line := "profile not accessible (skipped): " + syspath.ToNative(skipped.Path)
+		if err := state.log.Line(line); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// collectHomes walks the catalog in every home; --inventory walks them later,
-// in writeInventory, after project discovery.
+// collectHomes writes the error_read row of each home its parent lists but
+// the run cannot see, as Add-UserHomes does, then walks the catalog in every
+// home; --inventory walks them later, in writeInventory, after project
+// discovery.
 func (state *runState) collectHomes(ctx context.Context) error {
 	if state.options.Inventory {
 		return nil
+	}
+	for _, skipped := range state.skippedHomes {
+		if !skipped.Denied {
+			continue
+		}
+		leaf := skipped.Path[strings.LastIndexByte(skipped.Path, '/')+1:]
+		err := state.collector.WriteReadError(leaf, skipped.Path, skipped.Path, skipped.Reason)
+		if err != nil {
+			return err
+		}
 	}
 	return state.collector.CollectUserHomes(ctx, state.homes)
 }
@@ -49,8 +76,8 @@ func (state *runState) collectVolumes(ctx context.Context) error {
 		return nil
 	}
 	state.collector.Records = state.dockerRecords
-	counts, err := volumes.Collect(ctx, state.collector, state.options.Root, state.homes,
-		&state.notes)
+	counts, err := volumes.Collect(ctx, state.collector, systemBases(state.options.Root),
+		state.homes, &state.notes)
 	state.docker = counts
 	return err
 }
@@ -100,10 +127,11 @@ func (state *runState) collectProject(ctx context.Context, project projects.Proj
 
 // enclosingHome returns the first home of any user that holds path, or ""
 // when it lies under none: the home whose walk may have recorded and
-// recreated a link of path's, whoever owns the project.
+// recreated a link of path's, whoever owns the project. Paths are compared
+// as the platform's filesystem compares them.
 func enclosingHome(homes []users.Home, path string) string {
 	for _, home := range homes {
-		if home.Path != "" && strings.HasPrefix(path, home.Path+"/") {
+		if home.Path != "" && syspath.HasPrefix(path, home.Path+"/") {
 			return home.Path
 		}
 	}
@@ -138,7 +166,8 @@ func (state *runState) reportMissingProjects() error {
 		if !failed {
 			reason = ""
 		}
-		line := "WARNING: project given with -p is not a directory: " + path + ": " + reason
+		line := "WARNING: project given with -p is not a directory: " + syspath.ToNative(path) +
+			": " + reason
 		if err := state.log.Line(line); err != nil {
 			return err
 		}
@@ -155,10 +184,10 @@ func (state *runState) reportMissingProjects() error {
 }
 
 // projectOwner returns the user of the first home that holds path, as
-// get_project_owner does, or "".
+// get_project_owner does, or "", comparing as the platform's filesystem does.
 func projectOwner(homes []users.Home, path string) string {
 	for _, home := range homes {
-		if strings.HasPrefix(path, home.Path+"/") {
+		if syspath.HasPrefix(path, home.Path+"/") {
 			return home.User
 		}
 	}
@@ -186,6 +215,8 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excludes: state.collector.Excludes,
 		OutDir: state.outDir, RunName: state.name, Plutil: state.plutil, Log: state.log,
 		Claims: catalogClaims, Collect: state.hintFileCollector(ctx),
+		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),
+		Profiles: state.profiles,
 	})
 	state.relocation = result
 	return err
@@ -287,7 +318,7 @@ func (state *runState) inventoryHome(ctx context.Context, home users.Home,
 ) error {
 	records := inventory.NewAggregator()
 	state.collector.Records = records
-	header := "User " + home.User + " (" + home.Path + ")"
+	header := "User " + home.User + " (" + syspath.ToNative(home.Path) + ")"
 	err := state.collector.CollectCatalog(ctx, home.User, home.Path, state.tables.Catalog, header)
 	if err != nil {
 		return err
@@ -303,19 +334,20 @@ func (state *runState) inventoryHome(ctx context.Context, home users.Home,
 	return records.WriteAgentLines(out, state.hostname, home.User, owned)
 }
 
-// countInventoryHomes counts the homes and those the run cannot both read and
-// enter, logging a warning for each of those, as count_inventory_homes does.
+// countInventoryHomes counts the homes and those the run cannot both list and
+// enter (fsmeta.DirReadError), logging a warning for each of those, as
+// count_inventory_homes and Write-Inventory do.
 func (state *runState) countInventoryHomes() (scanned, unreadable int, err error) {
 	for _, home := range state.homes {
 		if home.Path == "" {
 			continue
 		}
 		scanned++
-		if canAccess(home.Path, accessRead) && canAccess(home.Path, accessEnter) {
+		if _, failed := fsmeta.DirReadError(home.Path); !failed {
 			continue
 		}
 		unreadable++
-		line := "WARNING: home of " + home.User + " is not readable: " + home.Path
+		line := "WARNING: home of " + home.User + " is not readable: " + syspath.ToNative(home.Path)
 		if err := state.log.Line(line); err != nil {
 			return 0, 0, err
 		}

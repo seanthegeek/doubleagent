@@ -12,6 +12,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
@@ -39,16 +41,25 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	host := environment{now: time.Now, runner: hostcmd.System(), getwd: os.Getwd}
+	host := environment{now: time.Now, runner: hostcmd.System(), getwd: canonicalGetwd,
+		findUsers: users.Find}
 	return runCollection(ctx, options, host, stdout, stderr)
 }
 
+// canonicalGetwd returns the current directory in canonical form.
+func canonicalGetwd() (string, error) {
+	cwd, err := os.Getwd()
+	return syspath.FromNative(cwd), err
+}
+
 // environment is what a run takes from the host, injected so tests can pin
-// the clock: the time, the host programs and the current directory.
+// the clock: the time, the host programs, the current directory, in
+// canonical form, and the user enumeration (users.Find).
 type environment struct {
-	now    func() time.Time
-	runner hostcmd.Runner
-	getwd  func() (string, error)
+	now       func() time.Time
+	runner    hostcmd.Runner
+	getwd     func() (string, error)
+	findUsers func(live bool, root, usersFilter string, run users.Runner) users.Report
 }
 
 // fatalError is a fatal condition met before the log exists; its text is

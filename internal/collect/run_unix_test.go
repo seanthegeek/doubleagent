@@ -8,6 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/summary"
+	"github.com/seanthegeek/doubleagent/internal/volumes"
 )
 
 // These tests need POSIX permission bits.
@@ -44,5 +47,24 @@ func TestRunCreatesFilesForTheOwnerOnly(t *testing.T) {
 		if info.Mode().Perm() != 0o600 {
 			t.Errorf("%s has mode %o, want 600", name, info.Mode().Perm())
 		}
+	}
+}
+
+func TestUnixHostDescription(t *testing.T) {
+	if got := identityText(summary.Identity{UID: 501, RunAs: "ignored"}); got != "uid=501" {
+		t.Errorf("identityText = %q, want uid=501", got)
+	}
+	if !privileged(summary.Identity{UID: 0}) || privileged(summary.Identity{UID: 501, Admin: true}) {
+		t.Error("privileged must follow the user ID alone")
+	}
+	want := volumes.Bases{System: "/img", ProgramData: "/img/ProgramData"}
+	if got := systemBases("/img"); got != want {
+		t.Errorf("systemBases = %+v, want %+v", got, want)
+	}
+	if live := (volumes.Bases{ProgramData: "/ProgramData"}); systemBases("") != live {
+		t.Errorf("systemBases of a live run = %+v, want %+v", systemBases(""), live)
+	}
+	if !liveRoot("/") || liveRoot("/img") || registryReader() != nil {
+		t.Error("only / is live and Unix has no registry")
 	}
 }

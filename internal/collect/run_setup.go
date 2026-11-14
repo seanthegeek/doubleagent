@@ -3,6 +3,8 @@ package collect
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
 	"github.com/seanthegeek/doubleagent/internal/inventory"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
@@ -18,6 +21,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/summary"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/version"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
@@ -51,6 +55,8 @@ type runState struct {
 	collector    *walk.Collector
 
 	homes         []users.Home
+	skippedHomes  []users.Skipped
+	profiles      []relocation.Profile
 	projects      []projects.Project
 	docker        volumes.Counts
 	dockerRecords *inventory.Aggregator
@@ -88,9 +94,9 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 }
 
 // resolveOutDir creates the output directory when it is missing and returns
-// it absolute, as the shell's `cd DIR && pwd` gives it. A directory that
-// cannot be created, entered or written is fatal, with the sh collector's
-// messages.
+// it absolute and canonical, as the shell's `cd DIR && pwd` gives it. A
+// directory that cannot be created, entered or written is fatal, with the
+// sh collector's messages, the directory in native form.
 func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) {
 	if !isDirectory(outDir) {
 		if err := os.MkdirAll(outDir, 0o777); err != nil || outDir == "" {
@@ -105,14 +111,30 @@ func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) 
 		}
 		absolute = filepath.Join(cwd, outDir)
 	}
-	absolute = filepath.Clean(absolute)
+	absolute = syspath.FromNative(filepath.Clean(absolute))
 	if !canAccess(absolute, accessEnter) {
 		return "", &fatalError{message: "cd: can't cd to " + outDir}
 	}
-	if !canAccess(absolute, accessWrite) {
-		return "", &fatalError{message: "Output dir not writable: " + absolute}
+	if !outDirWritable(absolute) {
+		return "", &fatalError{message: "Output dir not writable: " + syspath.ToNative(absolute)}
 	}
 	return absolute, nil
+}
+
+// probeWrite reports whether a new file can be created in dir, by creating
+// a probe file with a random name that must not exist yet and removing it,
+// as Initialize-OutputDir does.
+func probeWrite(dir string) bool {
+	random := make([]byte, 16)
+	_, _ = rand.Read(random)
+	probe := dir + "/.write-probe-" + hex.EncodeToString(random)
+	file, err := os.OpenFile(probe, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return false
+	}
+	_ = file.Close()
+	_ = os.Remove(probe)
+	return true
 }
 
 // setOutputNames names the run's outputs after the host and the start time,
@@ -176,7 +198,8 @@ func (state *runState) openOutputs() error {
 }
 
 // newCollector returns the walk settings of the run: the active exclusions
-// (none under --full), the credential test and the staging directory.
+// (none under --full), the credential test, the staging directory and the
+// run's one cache of owner names.
 func (state *runState) newCollector(physical string) *walk.Collector {
 	excludes := state.tables.Excludes
 	if state.options.Full {
@@ -189,6 +212,7 @@ func (state *runState) newCollector(physical string) *walk.Collector {
 		Stager:  stage.Stager{Dir: state.stageDir, Physical: physical, Root: root},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
+		Owners: fsmeta.NewOwners(),
 	}
 }
 
@@ -201,26 +225,27 @@ func (state *runState) mode() string {
 }
 
 // startLog writes the first log lines, as log_start does: the version, host,
-// mode and options, then the warnings. The sizes are printed from their byte
-// values in whole MiB.
+// mode, root and account, the options, then the warnings. The sizes are
+// printed from their byte values in whole MiB.
 func (state *runState) startLog(context.Context) error {
 	system := uname()
-	root := state.options.Root
+	root := syspath.ToNative(state.options.Root)
 	if root == "" {
-		root = "/"
+		root = summary.LiveRootText
 	}
 	options := state.options
+	identity := runIdentity()
 	lines := []string{
-		fmt.Sprintf("%s %s starting on %s (%s %s) mode=%s root=%s uid=%d", summary.Tool,
+		fmt.Sprintf("%s %s starting on %s (%s %s) mode=%s root=%s %s", summary.Tool,
 			version.String(), state.hostname, system.name, system.release, state.mode(), root,
-			os.Getuid()),
+			identityText(identity)),
 		fmt.Sprintf("hash=crypto/sha256 max_file_size=%dMB full=%s no_secrets=%s no_docker=%s"+
 			" env_scan_home=%s env_scan_max_size=%dMB", options.MaxFileBytes/mebibyte,
 			flag(options.Full), flag(options.NoSecrets), flag(options.NoDocker),
 			flag(options.EnvScanHome), options.EnvScanMaxBytes/mebibyte),
 	}
-	if state.mode() == "live" && os.Getuid() != 0 {
-		lines = append(lines, "WARNING: not running as root; other users' homes will probably be unreadable")
+	if state.mode() == "live" && !privileged(identity) {
+		lines = append(lines, privilegeWarning)
 	}
 	if options.Inventory && options.OutDirSet {
 		lines = append(lines, "NOTE: --inventory writes nothing; -o "+options.OutDir+" ignored")

@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/seanthegeek/doubleagent/internal/manifest"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
 )
@@ -54,17 +55,26 @@ type Relocation struct {
 	Resolved         int
 }
 
+// Identity is the account the run ran as. UID is the effective user ID
+// collection.json records on Unix; RunAs (DOMAIN\user) and Admin, whether
+// the account is in the Administrators group, are what it records on Windows.
+type Identity struct {
+	UID   int
+	RunAs string
+	Admin bool
+}
+
 // Summary is everything collection.json and the stdout summary report.
 // Started and Finished are UTC times already formatted. Users, Homes and
 // ActiveUsers are parallel lists of the enumerated homes and of those that gave
-// a row; Projects holds project directories only.
+// a row; Projects holds project directories only. Root is "" in a live run.
 type Summary struct {
 	Version     string
 	Hostname    string
 	Mode        string
 	Root        string
 	Platform    string
-	UID         int
+	Identity    Identity
 	Started     string
 	Finished    string
 	Options     Options
@@ -90,11 +100,11 @@ type Summary struct {
 
 // ActiveUsers returns the homes that have a manifest row other than their own
 // unreadable-directory row, in order, as list_active_users does. withRows is
-// manifest.Writer.HomesWithRows.
+// manifest.Writer.HomesWithRows, whose keys are folded with syspath.Fold.
 func ActiveUsers(homes []users.Home, withRows map[string]struct{}) []users.Home {
 	var active []users.Home
 	for _, home := range homes {
-		if _, found := withRows[home.Path]; home.Path != "" && found {
+		if _, found := withRows[syspath.Fold(home.Path)]; home.Path != "" && found {
 			active = append(active, home)
 		}
 	}

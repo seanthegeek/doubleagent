@@ -103,7 +103,7 @@ func TestCollectMatchesShCollector(t *testing.T) {
 	}
 	homes := []users.Home{{User: "alice", Path: filepath.Join(fixture.root, "home/alice")}}
 	var notes []string
-	got, err := Collect(context.Background(), fixture.collector, fixture.root, homes, &notes)
+	got, err := Collect(context.Background(), fixture.collector, fixture.bases(), homes, &notes)
 	if err != nil {
 		t.Fatal(err)
 	}

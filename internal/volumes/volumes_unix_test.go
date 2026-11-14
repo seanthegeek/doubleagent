@@ -22,7 +22,7 @@ func TestUnreadableVolumeIsNotedAndCounted(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(volume, 0o755) })
 	var notes []string
-	got, err := Collect(context.Background(), fixture.collector, fixture.root, nil, &notes)
+	got, err := Collect(context.Background(), fixture.collector, fixture.bases(), nil, &notes)
 	if err != nil {
 		t.Fatal(err)
 	}

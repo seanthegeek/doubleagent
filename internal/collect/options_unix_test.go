@@ -39,3 +39,9 @@ func TestResolveProjects(t *testing.T) {
 		})
 	}
 }
+
+// platformRootCases are the roots Unix resolves its own way: / is the live
+// system.
+func platformRootCases(string) []rootCase {
+	return []rootCase{{"/ is live mode", "/", "", ""}}
+}

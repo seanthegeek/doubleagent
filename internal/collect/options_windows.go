@@ -45,3 +45,12 @@ func isBareDrive(text string) bool {
 	return len(text) == 2 && text[1] == ':' &&
 		(('A' <= text[0] && text[0] <= 'Z') || ('a' <= text[0] && text[0] <= 'z'))
 }
+
+// absoluteRoot returns ROOT in canonical form, resolved lexically against
+// CWD as a -p path is, and its native form as the path whose directory test
+// decides: PowerShell resolves -Root's . and .. by name, and a bare drive
+// (X:) names that drive's root, which only the native X:\ says to Win32.
+func absoluteRoot(cwd, root string) (resolved, checked string) {
+	resolved = absoluteProject(cwd, root)
+	return resolved, syspath.ToNative(resolved)
+}

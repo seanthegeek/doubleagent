@@ -277,28 +277,27 @@ func (e *RootError) Error() string {
 	return "Root is not a directory: " + e.Root
 }
 
-// ResolveRoot returns OPTIONS with Root made absolute. A root that is not a
-// directory is an error (exit code 2). The root "/" becomes "", which means
-// live mode.
+// ResolveRoot returns OPTIONS with Root made absolute and canonical
+// (absoluteRoot, per platform); the current directory is asked for only when
+// the root is relative. A root that is not a directory is an error
+// (exit code 2). A root liveRoot names the live system becomes "", which
+// means live mode: "/" on Unix, none on Windows.
 func ResolveRoot(options Options, getwd func() (string, error)) (Options, error) {
 	if options.Root == "" {
 		return options, nil
 	}
-	root := options.Root
-	checked := root
-	if !filepath.IsAbs(root) {
-		cwd, err := getwd()
-		if err != nil {
-			return options, fmt.Errorf("resolve root %s: %w", root, err)
+	cwd := ""
+	if !filepath.IsAbs(options.Root) {
+		var err error
+		if cwd, err = getwd(); err != nil {
+			return options, fmt.Errorf("resolve root %s: %w", options.Root, err)
 		}
-		checked = cwd + "/" + root
-		root = filepath.Join(cwd, root)
 	}
+	root, checked := absoluteRoot(cwd, options.Root)
 	if !isDirectory(checked) {
 		return options, &RootError{Root: options.Root}
 	}
-	root = filepath.Clean(root)
-	if root == "/" {
+	if liveRoot(root) {
 		root = ""
 	}
 	options.Root = root

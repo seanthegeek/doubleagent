@@ -15,6 +15,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
@@ -33,6 +34,16 @@ type Counts struct {
 	Desktop    bool
 }
 
+// Bases are where the system volume directories are looked for, in
+// canonical form: System holds var/lib, ProgramData the Docker for Windows
+// data. In image mode they are the root and root/ProgramData; in a live run
+// "" and /ProgramData on Unix, the system drive and the ProgramData
+// directory the environment names on Windows.
+type Bases struct {
+	System      string
+	ProgramData string
+}
+
 // collection is the state of one Collect call.
 type collection struct {
 	collector *walk.Collector
@@ -41,28 +52,29 @@ type collection struct {
 }
 
 // Collect collects the volumes of the system and per-user Docker and Podman
-// data roots under root ("" for the live system) and of every home in homes,
-// and notes Docker Desktop data. Notes are appended to notes and logged. Under
+// data roots under bases and of every home in homes, and notes Docker
+// Desktop data, as collect_docker_volumes and Add-DockerVolumes do. Notes are
+// appended to notes and logged, with their paths in native form. Under
 // an inventory walk it records each matched volume through collector.Records
 // and writes no row. The error is a cancelled context or a failed log or
 // manifest write; the counts are those reached so far.
-func Collect(ctx context.Context, collector *walk.Collector, root string, homes []users.Home,
+func Collect(ctx context.Context, collector *walk.Collector, bases Bases, homes []users.Home,
 	notes *[]string,
 ) (Counts, error) {
 	run := &collection{collector: collector, notes: notes}
-	err := run.collectRoots(ctx, root, homes)
+	err := run.collectRoots(ctx, bases, homes)
 	if err != nil {
 		return run.counts, err
 	}
-	return run.counts, run.noteDesktop(desktopDirs(root, homes))
+	return run.counts, run.noteDesktop(desktopDirs(bases, homes))
 }
 
 // collectRoots tries the system volume directories, then each home's.
-func (run *collection) collectRoots(ctx context.Context, root string, homes []users.Home) error {
+func (run *collection) collectRoots(ctx context.Context, bases Bases, homes []users.Home) error {
 	system := []struct{ base, rel string }{
-		{root + "/var/lib", "docker/volumes"},
-		{root + "/var/lib", "containers/storage/volumes"},
-		{root + "/ProgramData", "Docker/volumes"},
+		{bases.System + "/var/lib", "docker/volumes"},
+		{bases.System + "/var/lib", "containers/storage/volumes"},
+		{bases.ProgramData, "Docker/volumes"},
 	}
 	for _, spec := range system {
 		if err := run.collectVolumeDir(ctx, spec.base, spec.rel); err != nil {
@@ -84,8 +96,8 @@ func (run *collection) collectRoots(ctx context.Context, root string, homes []us
 
 // desktopDirs lists where Docker Desktop keeps its data: the system one, then
 // two per home.
-func desktopDirs(root string, homes []users.Home) []string {
-	dirs := []string{root + "/ProgramData/DockerDesktop"}
+func desktopDirs(bases Bases, homes []users.Home) []string {
+	dirs := []string{bases.ProgramData + "/DockerDesktop"}
 	for _, home := range homes {
 		if home.Path == "" {
 			continue
@@ -105,7 +117,7 @@ func (run *collection) noteDesktop(dirs []string) error {
 			continue
 		}
 		run.counts.Seen, run.counts.Desktop = true, true
-		note := "docker: Docker Desktop data at " + dir + ";"
+		note := "docker: Docker Desktop data at " + syspath.ToNative(dir) + ";"
 		if err := run.addNote(note + " volumes inside its virtual machine disk are not collected"); err != nil {
 			return err
 		}
@@ -131,7 +143,8 @@ func (run *collection) volumeRoot(base, rel string) (string, bool, error) {
 		meta, err := fsmeta.Lstat(dir)
 		if err == nil && meta.Kind == fsmeta.Symlink {
 			run.counts.Seen = true
-			note := "docker: " + dir + " is a symlink and was not followed; collect its target by hand"
+			note := "docker: " + syspath.ToNative(dir) +
+				" is a symlink and was not followed; collect its target by hand"
 			return dir, false, run.addNote(note)
 		}
 		if !isDirectory(dir) {
@@ -141,7 +154,8 @@ func (run *collection) volumeRoot(base, rel string) (string, bool, error) {
 		if !canEnter(dir) || (last && !canRead(dir)) {
 			run.counts.Seen = true
 			run.counts.Unreadable++
-			note := "docker: " + dir + " is not readable; run as root to collect the volumes under it"
+			note := "docker: " + syspath.ToNative(dir) +
+				" is not readable; run as root to collect the volumes under it"
 			return dir, false, run.addNote(note)
 		}
 	}
@@ -177,7 +191,7 @@ func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) e
 		return err
 	}
 	run.counts.Seen = true
-	if err := run.collector.Log.Line("Docker volumes in " + dir); err != nil {
+	if err := run.collector.Log.Line("Docker volumes in " + syspath.ToNative(dir)); err != nil {
 		return err
 	}
 	for _, volume := range glob.Expand(dir, "*") {
@@ -230,29 +244,31 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 		if matched {
 			label = rule.Agent
 		}
-		return run.addNote("docker: volume " + name + " (" + label + ") at " + volume +
-			" is not readable; run as root to collect it")
+		return run.addNote("docker: volume " + name + " (" + label + ") at " +
+			syspath.ToNative(volume) + " is not readable; run as root to collect it")
 	case dataError != nil || meta.Kind == fsmeta.Symlink || !isDirectory(data):
 		return run.collector.Log.Line("  volume " + name + " has no _data directory, skipped")
 	case !matched && run.collector.Inventory:
 		return nil
 	case !matched:
-		return run.writeUnmatched(ctx, data)
+		return run.writeUnmatched(ctx, data, meta)
 	}
 	return run.collectMatched(ctx, name, data, rule)
 }
 
 // writeUnmatched writes the one dir row of a volume no table line matches, so
 // it stays visible, with the size du -sk would report, or ctx's error when
-// ctx is cancelled while the volume is being sized.
-func (run *collection) writeUnmatched(ctx context.Context, data string) error {
+// ctx is cancelled while the volume is being sized. Its times and owner are
+// empty, as both collectors write them, and on Windows its attributes are
+// those of the _data directory (meta), as Write-UnmatchedVolumeRow reads them.
+func (run *collection) writeUnmatched(ctx context.Context, data string, meta fsmeta.Meta) error {
 	size, err := fsmeta.DiskUsageBytes(ctx, data)
 	if err != nil {
 		return err
 	}
 	return run.collector.Manifest.Write(manifest.Row{
 		User: dockerUser, Home: data, Path: data, Type: "dir",
-		Size: size, Mode: "0",
+		Size: size, Mode: fsmeta.ZeroMeta().Mode, Attributes: fsmeta.AttributesString(meta.Attributes),
 		Status: manifest.SkippedUnmatchedVolume,
 	})
 }
@@ -263,7 +279,7 @@ func (run *collection) collectMatched(ctx context.Context, name, data string,
 	rule catalog.Entry,
 ) error {
 	collector := run.collector
-	if err := collector.Log.Line("  [" + rule.Agent + "] " + data); err != nil {
+	if err := collector.Log.Line("  [" + rule.Agent + "] " + syspath.ToNative(data)); err != nil {
 		return err
 	}
 	if collector.Inventory {

@@ -60,3 +60,16 @@ func TestResolveProjectsOnWindows(t *testing.T) {
 		})
 	}
 }
+
+// platformRootCases are the roots Windows resolves its own way: every root
+// is an image, a rooted path is on the current directory's drive and a bare
+// drive is its root.
+func platformRootCases(base string) []rootCase {
+	drive := base[:2]
+	return []rootCase{
+		{"/ is the current drive's root, an image", "/", drive, ""},
+		{"a bare drive is its root, an image", drive, drive, ""},
+		{"a drive root is an image too", drive + `\`, drive, ""},
+		{"a root in backslashes with dot-dot is resolved by name", `img\etc\..\`, base + "/img", ""},
+	}
+}

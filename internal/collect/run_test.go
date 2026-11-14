@@ -3,6 +3,7 @@ package collect
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -11,6 +12,8 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/summary"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -68,7 +71,8 @@ func (noPrograms) Available(string) bool { return false }
 func testHost(t *testing.T) environment {
 	pinned := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	return environment{now: func() time.Time { return pinned }, runner: noPrograms{},
-		getwd: func() (string, error) { return t.TempDir(), nil }}
+		getwd:     func() (string, error) { return syspath.FromNative(t.TempDir()), nil },
+		findUsers: users.Find}
 }
 
 // fixtureImage builds an image with one home holding one agent file and
@@ -211,13 +215,14 @@ func TestEnclosingHome(t *testing.T) {
 }
 
 // writeImage builds files (path to content) and links (path to target) under
-// a new image root and returns it, resolved.
+// a new image root and returns it, resolved and canonical.
 func writeImage(t *testing.T, files, links map[string]string) string {
 	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+	root = syspath.FromNative(root)
 	for path, content := range files {
 		if err := os.MkdirAll(filepath.Dir(root+"/"+path), 0o755); err != nil {
 			t.Fatal(err)
@@ -238,24 +243,50 @@ func writeImage(t *testing.T, files, links map[string]string) string {
 	return root
 }
 
-// manifestRow returns the manifest row of path from the run in outDir.
+// manifestRows returns the manifest rows of the run in outDir, parsed, with
+// the text of each.
+func manifestRows(t *testing.T, outDir string) ([]map[string]any, []string) {
+	t.Helper()
+	var rows []map[string]any
+	var texts []string
+	for _, text := range strings.Split(runOutput(t, outDir, ".manifest.jsonl"), "\n") {
+		if text == "" {
+			continue
+		}
+		var row map[string]any
+		if err := json.Unmarshal([]byte(text), &row); err != nil {
+			t.Fatalf("row %s: %v", text, err)
+		}
+		rows, texts = append(rows, row), append(texts, text)
+	}
+	return rows, texts
+}
+
+// manifestRow returns the manifest row of path, canonical, from the run in
+// outDir: the row whose native path field is path's native form.
 func manifestRow(t *testing.T, outDir, path string) string {
 	t.Helper()
-	manifests, _ := filepath.Glob(outDir + "/*.manifest.jsonl")
-	if len(manifests) != 1 {
-		t.Fatalf("manifests %v", manifests)
-	}
-	text, err := os.ReadFile(manifests[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, row := range strings.Split(string(text), "\n") {
-		if strings.Contains(row, `"path":"`+path+`"`) {
-			return row
+	rows, texts := manifestRows(t, outDir)
+	for i, row := range rows {
+		if row["path"] == syspath.ToNative(path) {
+			return texts[i]
 		}
 	}
-	t.Fatalf("no row of %s in:\n%s", path, text)
+	t.Fatalf("no row of %s in:\n%s", path, strings.Join(texts, "\n"))
 	return ""
+}
+
+// rowUnder reports whether the run in outDir has a row whose path lies
+// under dir, canonical.
+func rowUnder(t *testing.T, outDir, dir string) bool {
+	t.Helper()
+	rows, _ := manifestRows(t, outDir)
+	for _, row := range rows {
+		if path, _ := row["path"].(string); strings.HasPrefix(path, syspath.ToNative(dir)) {
+			return true
+		}
+	}
+	return false
 }
 
 // runOutput is the text of a run's file with suffix in outDir.
@@ -281,6 +312,7 @@ func hostLinkImage(t *testing.T) (root, outside string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	outside = syspath.FromNative(outside)
 	if err := os.MkdirAll(outside+"/exists/proj", 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -370,23 +402,151 @@ func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) 
 	if code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
-	log, manifestText := runOutput(t, outDir, ".log"), runOutput(t, outDir, ".manifest.jsonl")
+	log := runOutput(t, outDir, ".log")
+	native := syspath.ToNative
 	for _, link := range []string{"ext", "gone"} {
-		requireOnce(t, "the log", log, "Project [u] "+root+"/home/u/"+link+"/proj: under the symlinked directory "+
-			root+"/home/u/"+link+", which leads out of the image root; not walked\n")
-		if strings.Contains(manifestText, root+"/home/u/"+link+"/") {
-			t.Errorf("the manifest holds a row under %s:\n%s", link, manifestText)
+		requireOnce(t, "the log", log, "Project [u] "+native(root+"/home/u/"+link+"/proj")+
+			": under the symlinked directory "+native(root+"/home/u/"+link)+
+			", which leads out of the image root; not walked\n")
+		if rowUnder(t, outDir, root+"/home/u/"+link+"/") {
+			t.Errorf("the manifest holds a row under %s", link)
 		}
 	}
-	requireOnce(t, "the log", log, "Project "+outside+"/exists/proj: is outside the image root; not walked\n")
-	if strings.Contains(manifestText, outside) {
-		t.Errorf("a row for a project out of the root:\n%s", manifestText)
+	requireOnce(t, "the log", log, "Project "+native(outside+"/exists/proj")+
+		": is outside the image root; not walked\n")
+	if rowUnder(t, outDir, outside) {
+		t.Errorf("a row for a project out of the root")
 	}
 	// A -p value missing inside the image keeps the sh collector's warning.
-	requireOnce(t, "the log", log, "WARNING: project given with -p is not a directory: "+root+"/home/u/missing: ")
+	requireOnce(t, "the log", log, "WARNING: project given with -p is not a directory: "+
+		native(root+"/home/u/missing")+": ")
 	if row := manifestRow(t, outDir, root+"/home/u/missing"); !strings.Contains(row, `"status":"error_read"`) {
 		t.Errorf("row %s, want error_read", row)
 	}
 	requireOnce(t, "collection.json", runOutput(t, outDir, ".collection.json"), "\n  \"projects\": [],\n")
 	requireOnce(t, "stdout", stdout.String(), "\nprojects:   0\n")
+}
+
+func TestProbeWrite(t *testing.T) {
+	writable := syspath.FromNative(t.TempDir())
+	cases := []struct {
+		name string
+		dir  string
+		want bool
+	}{
+		{"a directory the run may write is writable", writable, true},
+		{"a directory that does not exist is not", writable + "/missing", false},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := probeWrite(testCase.dir); got != testCase.want {
+				t.Errorf("probeWrite = %v, want %v", got, testCase.want)
+			}
+			if names := outputNames(t, writable); len(names) != 0 {
+				t.Errorf("the probe left %v", names)
+			}
+		})
+	}
+}
+
+// skippedHomesHost is testHost with a user enumeration that finds no home
+// and two candidates it could not see: one its parent lists, one gone.
+func skippedHomesHost(t *testing.T, root string) environment {
+	host := testHost(t)
+	host.findUsers = func(bool, string, string, users.Runner) users.Report {
+		return users.Report{Skipped: []users.Skipped{
+			{Path: root + "/Users/locked", Reason: "access denied", Denied: true},
+			{Path: root + "/Users/gone", Reason: "missing"},
+		}}
+	}
+	return host
+}
+
+func TestSkippedHomesAreLoggedAndDeniedOnesGetARow(t *testing.T) {
+	root := syspath.FromNative(fixtureImage(t))
+	if err := os.MkdirAll(root+"/Users/locked", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := runCollection(context.Background(), testOptions(root, outDir),
+		skippedHomesHost(t, root), &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	locked, gone := syspath.ToNative(root+"/Users/locked"), syspath.ToNative(root+"/Users/gone")
+	wantOrder := []string{"WARNING: no user home directories found\n",
+		"profile not accessible (skipped): " + locked + "\n",
+		"profile not accessible (skipped): " + gone + "\n",
+		"read failed: " + locked + ": access denied\n"}
+	position := 0
+	for _, line := range wantOrder {
+		found := strings.Index(log[position:], line)
+		if found < 0 {
+			t.Fatalf("the log lacks %q after byte %d:\n%s", line, position, log)
+		}
+		position += found + len(line)
+	}
+	row := manifestRow(t, outDir, root+"/Users/locked")
+	for _, part := range []string{`"user":"locked"`, `"agent":""`, `"status":"error_read"`,
+		`"error":"access denied"`} {
+		if !strings.Contains(row, part) {
+			t.Errorf("row %s lacks %s", row, part)
+		}
+	}
+	if rowUnder(t, outDir, root+"/Users/gone") {
+		t.Error("a home that is gone got a row")
+	}
+}
+
+func TestStartLogNamesTheRootAndTheAccount(t *testing.T) {
+	root := syspath.FromNative(fixtureImage(t))
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t),
+		&stdout, &stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	first, _, _ := strings.Cut(runOutput(t, outDir, ".log"), "\n")
+	want := " mode=image root=" + syspath.ToNative(root) + " " + identityText(runIdentity())
+	if !strings.HasSuffix(first, want) {
+		t.Errorf("first log line %q, want it to end with %q", first, want)
+	}
+}
+
+func TestNativePaths(t *testing.T) {
+	registrySource := `HKU\S-1-5-21-1\Environment\CODEX_HOME`
+	report := summary.Summary{Root: "C:/img", Homes: []string{"C:/img/Users/a"},
+		Projects: []string{"C:/img/p"}, Options: summary.Options{Projects: []string{"D:/q"}},
+		ArchivePath: "C:/out/a.tar.gz", ManifestPath: "C:/out/m", SummaryPath: "C:/out/s",
+		LogPath: "C:/out/l", Relocation: summary.Relocation{Hints: []summary.Hint{
+			{Source: "C:/img/Users/a/.bashrc"}, {Source: registrySource},
+			{Source: `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment\X`}}}}
+	got := nativePaths(report)
+	native := syspath.ToNative
+	checks := []struct{ name, got, want string }{
+		{"root", got.Root, native("C:/img")},
+		{"home", got.Homes[0], native("C:/img/Users/a")},
+		{"project", got.Projects[0], native("C:/img/p")},
+		{"-p value", got.Options.Projects[0], native("D:/q")},
+		{"archive", got.ArchivePath, native("C:/out/a.tar.gz")},
+		{"manifest", got.ManifestPath, native("C:/out/m")},
+		{"summary", got.SummaryPath, native("C:/out/s")},
+		{"log", got.LogPath, native("C:/out/l")},
+		{"file hint source", got.Relocation.Hints[0].Source, native("C:/img/Users/a/.bashrc")},
+		{"user registry hint source", got.Relocation.Hints[1].Source, registrySource},
+		{"system registry hint source", got.Relocation.Hints[2].Source,
+			report.Relocation.Hints[2].Source},
+	}
+	for _, check := range checks {
+		t.Run("the "+check.name+" is in native form", func(t *testing.T) {
+			if check.got != check.want {
+				t.Errorf("%q, want %q", check.got, check.want)
+			}
+		})
+	}
+	if report.Homes[0] != "C:/img/Users/a" || report.Relocation.Hints[0].Source != "C:/img/Users/a/.bashrc" {
+		t.Error("nativePaths changed the report it was given")
+	}
 }

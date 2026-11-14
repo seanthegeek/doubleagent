@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 func TestParseOptionsDefaults(t *testing.T) {
@@ -90,28 +92,33 @@ func TestParseOptionsActionsAndErrors(t *testing.T) {
 	}
 }
 
+// rootCase is a -r value and the root ResolveRoot should make of it, or
+// the error it should give.
+type rootCase struct {
+	name      string
+	root      string
+	want      string
+	wantError string
+}
+
 func TestResolveRoot(t *testing.T) {
-	base := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(base, "img", "etc"), 0o755); err != nil {
+	native := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(native, "img", "etc"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(base, "file"), nil, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(native, "file"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	base := syspath.FromNative(native)
 	getwd := func() (string, error) { return base, nil }
-	cases := []struct {
-		name      string
-		root      string
-		want      string
-		wantError string
-	}{
+	cases := append([]rootCase{
 		{"no root is live mode", "", "", ""},
-		{"/ is live mode", "/", "", ""},
-		{"a relative root becomes absolute", "img/etc/..", base + "/img", ""},
+		{"a relative root becomes absolute and canonical", "img/etc/..", base + "/img", ""},
 		{"an absolute root is kept", base + "/img", base + "/img", ""},
+		{"an absolute native root is made canonical", filepath.Join(native, "img"), base + "/img", ""},
 		{"a file is not a root", base + "/file", "", "Root is not a directory: " + base + "/file"},
 		{"a missing root is not a root", "nope", "", "Root is not a directory: nope"},
-	}
+	}, platformRootCases(base)...)
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			got, err := ResolveRoot(Options{Root: testCase.root}, getwd)

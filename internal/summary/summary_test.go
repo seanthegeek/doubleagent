@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/manifest"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
 )
@@ -44,8 +45,8 @@ func TestCountNoun(t *testing.T) {
 }
 
 func TestActiveUsers(t *testing.T) {
-	homes := []users.Home{{User: "a", Path: "/h/a"}, {User: "b", Path: "/h/b"}, {User: "c", Path: ""}}
-	withRows := map[string]struct{}{"/h/b": {}, "": {}}
+	homes := []users.Home{{User: "a", Path: "/h/a"}, {User: "b", Path: "/H/B"}, {User: "c", Path: ""}}
+	withRows := map[string]struct{}{syspath.Fold("/H/B"): {}, "": {}}
 	got := ActiveUsers(homes, withRows)
 	if len(got) != 1 || got[0].User != "b" {
 		t.Errorf("ActiveUsers = %+v", got)
@@ -55,7 +56,7 @@ func TestActiveUsers(t *testing.T) {
 // sampleSummary is a small run with every kind of value the template holds.
 func sampleSummary() Summary {
 	return Summary{
-		Version: "1.2.3", Hostname: `ho"st`, Mode: "live", Platform: "Linux 6 x86_64", UID: 1000,
+		Version: "1.2.3", Hostname: `ho"st`, Mode: "live", Platform: "Linux 6 x86_64", Identity: Identity{UID: 1000},
 		Started: "2026-01-02T03:04:05Z", Finished: "2026-01-02T03:04:06Z",
 		Options: Options{MaxFileBytes: 5, UsersFilter: "a,b", Projects: []string{"/p"}},
 		Users:   []string{"a", ""}, Homes: []string{"/h/a"},
@@ -95,13 +96,46 @@ const sampleJSON = `{
 }
 `
 
+// unixPlatformLines are the lines of sampleJSON that differ by platform:
+// the live root and the account.
+const unixPlatformLines = "  \"root\": \"/\",\n" + "  \"platform\": \"Linux 6 x86_64\",\n" +
+	"  \"run_as_uid\": \"1000\",\n"
+
 func TestWriteCollectionJSONLayout(t *testing.T) {
 	var out bytes.Buffer
 	if err := WriteCollectionJSON(&out, sampleSummary()); err != nil {
 		t.Fatal(err)
 	}
-	if out.String() != sampleJSON {
-		t.Errorf("collection.json differs:\n%s\nwant:\n%s", out.String(), sampleJSON)
+	platformLines := "  \"root\": " + quoted(LiveRootText) + ",\n" +
+		"  \"platform\": \"Linux 6 x86_64\",\n" + identityLines(sampleSummary().Identity)
+	want := strings.Replace(sampleJSON, unixPlatformLines, platformLines, 1)
+	if !strings.Contains(sampleJSON, unixPlatformLines) || out.String() != want {
+		t.Errorf("collection.json differs:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
+
+func TestIdentityLinesOfEachPlatform(t *testing.T) {
+	identity := Identity{UID: 501, RunAs: `CORP\a"b`, Admin: true}
+	cases := []struct {
+		name  string
+		lines func(Identity) string
+		want  string
+	}{
+		{"Unix writes the user ID as a string", unixIdentityLines,
+			"  \"run_as_uid\": \"501\",\n"},
+		{"Windows writes the escaped account and the Administrators flag",
+			windowsIdentityLines,
+			"  \"run_as\": \"CORP\\\\a\\\"b\",\n  \"run_as_admin\": true,\n"},
+		{"Windows writes false for an account outside Administrators",
+			func(Identity) string { return windowsIdentityLines(Identity{RunAs: "H\\u"}) },
+			"  \"run_as\": \"H\\\\u\",\n  \"run_as_admin\": false,\n"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.lines(identity); got != test.want {
+				t.Errorf("lines %q, want %q", got, test.want)
+			}
+		})
 	}
 }
 

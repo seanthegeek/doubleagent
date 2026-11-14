@@ -169,7 +169,7 @@ func summaryFrom(t *testing.T, document, stdout string) Summary {
 	}
 	summary := Summary{
 		Version: parsed.Version, Hostname: parsed.Hostname, Mode: parsed.Mode, Root: parsed.Root,
-		Platform: parsed.Platform, UID: uid, Started: parsed.Started, Finished: parsed.Finished,
+		Platform: parsed.Platform, Identity: Identity{UID: uid}, Started: parsed.Started, Finished: parsed.Finished,
 		Options: Options(parsed.Options), Plutil: parsed.Capabilities.Plutil, Users: parsed.Users,
 		Homes: parsed.Homes, ActiveUsers: parsed.Active, Projects: parsed.Projects,
 		Counts: manifest.Counts{ByStatus: byStatus, CollectedBytes: parsed.Counts["collected_bytes"]},
