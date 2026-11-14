@@ -166,7 +166,7 @@ func (run *search) collectedHome(path string) bool {
 }
 
 // registryHints records a hint, line 0, for every value of the key whose name
-// is a relocation variable in any case, in registry order, under the variable's
+// is a relocation variable in any ASCII case, in registry order, under the variable's
 // table spelling with the key path and the value's own name as source. A
 // REG_EXPAND_SZ value is expanded from tables first; a value that is not a
 // string has no value.
@@ -174,7 +174,7 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 	tables []map[string]string) error {
 	for _, name := range values.Names {
 		for _, variable := range run.names {
-			if !strings.EqualFold(variable, name) {
+			if !equalFoldASCII(variable, name) {
 				continue
 			}
 			value, reason := "", "not a string"
@@ -273,15 +273,16 @@ func lookupTables(tables []map[string]string, name string) (string, bool) {
 	return "", false
 }
 
-// lookupFold returns name's value in table in any case, as the registry and
-// a PowerShell hashtable look names up. A registry key holds no two value
+// lookupFold returns name's value in table in any ASCII case, as the registry
+// and a PowerShell hashtable look names up; a name differing by a non-ASCII
+// case pair (U+017F for s) does not match. A registry key holds no two value
 // names differing only by case, so at most one key matches.
 func lookupFold(table map[string]string, name string) (string, bool) {
 	if value, ok := table[name]; ok {
 		return value, true
 	}
 	for key, value := range table {
-		if strings.EqualFold(key, name) {
+		if equalFoldASCII(key, name) {
 			return value, true
 		}
 	}

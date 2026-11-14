@@ -162,6 +162,9 @@ func TestSystemNames(t *testing.T) {
 		{"a SystemRoot of another type is unknown", stringValues("SystemRoot#", ""), nil,
 			map[string]string{}},
 		{"a missing version key gives nothing", RegistryStrings{}, nil, map[string]string{}},
+		{"a name differing by a non-ASCII case pair is not SystemDrive",
+			stringValues("SystemRoot", `C:\Windows`), map[string]string{"\u017fystemDrive": "D:"},
+			map[string]string{"SystemRoot": `C:\Windows`, "SystemDrive": "C:"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -296,6 +299,23 @@ func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
 	if first != wantFirst || run.result.Resolved != 6 || len(run.result.Hints) != 7 {
 		t.Errorf("first hint %+v, %d resolved of %d hints", first, run.result.Resolved,
 			len(run.result.Hints))
+	}
+}
+
+func TestRegistryHintsFoldASCIIOnly(t *testing.T) {
+	registry := fakeRegistry{keys: map[registryKey]RegistryStrings{
+		{LocalMachine, systemEnvironmentKey}: stringValues("CODEX_\u017fQLITE_HOME", `C:\s`,
+			"CRUSH_S\u212aILLS_DIR", `C:\k`, "crush_skills_dir", `C:\a`),
+	}}
+	log := &lineLog{}
+	run := registrySearch(t, registry, nil, nil, log)
+	if err := run.registryPass(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"Relocation hints in the registry", `relocation hint: HKLM\` +
+		systemEnvironmentKey + `\crush_skills_dir names CRUSH_SKILLS_DIR (crush) = C:\a`}
+	if !slices.Equal(log.lines, want) {
+		t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"), strings.Join(want, "\n"))
 	}
 }
 

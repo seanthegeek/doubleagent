@@ -6,7 +6,6 @@ package users
 
 import (
 	"regexp"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
@@ -51,21 +50,36 @@ type Report struct {
 	Profiles []Profile
 }
 
-// transientProfile matches the service profiles Windows makes for the font
-// driver host, the desktop window manager and TEMP.
-var transientProfile = regexp.MustCompile(`(?i)^(UMFD-\d+|DWM-\d+|TEMP)(\..*)?$`)
+// transientProfile matches the ASCII-lowered names of the service profiles
+// Windows makes for the font driver host, the desktop window manager and
+// TEMP.
+var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
 
 // skipProfile reports whether a profile directory's name is a system or
-// shared profile, not a person's home: one of the fixed names, compared
-// ignoring case as PowerShell's -contains does, or a transient profile.
+// shared profile, not a person's home: one of the fixed names or a transient
+// profile, compared ignoring ASCII case. PowerShell's -contains and -match
+// also fold non-ASCII case pairs (U+017F for s); this does not.
 func skipProfile(name string) bool {
-	fixed := [...]string{"Public", "Default", "Default User", "All Users", "Shared", "defaultuser0"}
+	lowered := lowerASCII(name)
+	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}
 	for _, skipped := range fixed {
-		if strings.EqualFold(skipped, name) {
+		if lowered == skipped {
 			return true
 		}
 	}
-	return transientProfile.MatchString(name)
+	return transientProfile.MatchString(lowered)
+}
+
+// lowerASCII lowers the ASCII letters of text and leaves every other byte,
+// on every platform.
+func lowerASCII(text string) string {
+	lowered := []byte(text)
+	for i, character := range lowered {
+		if 'A' <= character && character <= 'Z' {
+			lowered[i] = character + 'a' - 'A'
+		}
+	}
+	return string(lowered)
 }
 
 // Enumerate returns the homes to collect, in enumeration order; it is the

@@ -223,6 +223,9 @@ func TestSkipProfile(t *testing.T) {
 		{"TEMPERATURE", false},
 		{"my.TEMP", false},
 		{"", false},
+		{"\u017fhared", false},
+		{"Default U\u017fer", false},
+		{"ALL USER\u017f", false},
 	}
 	for _, testCase := range cases {
 		t.Run("name "+testCase.name, func(t *testing.T) {
