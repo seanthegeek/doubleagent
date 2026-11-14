@@ -226,3 +226,106 @@ func moveTotals(t *testing.T, stdout string, size int64) string {
 		strconv.FormatInt(copyErrors+readErrors, 10)+" ("+strconv.FormatInt(copyErrors, 10)+
 		" error_copy, "+errorLine[2]+" error_read)", 1)
 }
+
+// hostProject is a project under an image root whose own path leads out of
+// the root, through an absolute link a home's walk recorded and recreated:
+// the binary does not walk it, since its files are on the analyst's host;
+// the sh collector stages them through the recreated link, whose target
+// leads out of the staging directory, and writes error_copy rows. Paths are
+// relative to the image root.
+type hostProject struct {
+	owner   string   // the project's owner
+	project string   // the project as -p names it
+	link    string   // the symlinked directory that leads out of the root
+	names   []string // the files the sh collector fails to copy
+}
+
+// expect rewrites the sh collector's run into the one the binary writes by
+// design: the files' error_copy rows, match lines and copy failed lines go,
+// the totals lose those errors, and the project's log line says it is not
+// walked.
+func (c hostProject) expect(t *testing.T, img image, want *collectorRun) {
+	t.Helper()
+	for _, name := range c.names {
+		file := img.root + "/" + c.project + "/" + name
+		want.files[".manifest.jsonl"] = dropErrorRow(t, want.files[".manifest.jsonl"], file)
+		want.members["./manifest.jsonl"] = dropErrorRow(t, want.members["./manifest.jsonl"], file)
+		want.files[".collection.json"] = countsLine.ReplaceAllStringFunc(want.files[".collection.json"],
+			dropCopyError)
+		want.stdout = dropTotalsError(t, want.stdout)
+	}
+	project := img.root + "/" + c.project
+	header := "Project [" + c.owner + "] " + project
+	var kept []string
+	headers, failures, matches := 0, 0, 0
+	for _, line := range strings.Split(want.files[".log"], "\n") {
+		body := logTime.ReplaceAllString(line, "")
+		switch {
+		case body == header:
+			headers++
+			line += ": under the symlinked directory " + img.root + "/" + c.link +
+				", which leads out of the image root; not walked"
+		case strings.HasPrefix(body, "copy failed: "+project+"/"):
+			failures++
+			continue
+		case strings.HasPrefix(strings.TrimSpace(body), "[") &&
+			strings.Contains(body, "] "+project+"/"):
+			matches++
+			continue
+		}
+		kept = append(kept, line)
+	}
+	if headers != 1 || failures != len(c.names) || matches != len(c.names) {
+		t.Fatalf("the sh log holds %d lines %q, %d copy failed and %d match lines, want 1, %d and %d",
+			headers, header, failures, matches, len(c.names), len(c.names))
+	}
+	want.files[".log"] = strings.Join(kept, "\n")
+}
+
+// dropErrorRow returns manifest without the one error_copy row of file.
+func dropErrorRow(t *testing.T, manifest, file string) string {
+	t.Helper()
+	var kept []string
+	found := 0
+	for _, line := range strings.Split(manifest, "\n") {
+		if strings.Contains(line, `"path":"`+file+`","archive_path":""`) &&
+			strings.Contains(line, `"status":"error_copy"`) {
+			found++
+			continue
+		}
+		kept = append(kept, line)
+	}
+	if found != 1 {
+		t.Fatalf("the sh manifest holds %d error_copy rows of %s, want 1", found, file)
+	}
+	return strings.Join(kept, "\n")
+}
+
+// dropCopyError returns the counts line of collection.json with one
+// error_copy fewer.
+func dropCopyError(line string) string {
+	return countField.ReplaceAllStringFunc(line, func(field string) string {
+		parts := countField.FindStringSubmatch(field)
+		if parts[1] != "error_copy" {
+			return field
+		}
+		value, _ := strconv.ParseInt(parts[2], 10, 64)
+		return `"error_copy": ` + strconv.FormatInt(value-1, 10)
+	})
+}
+
+// dropTotalsError returns the summary with one error_copy fewer, in
+// print_result's words.
+func dropTotalsError(t *testing.T, stdout string) string {
+	t.Helper()
+	errorLine := stdoutErrors.FindStringSubmatch(stdout)
+	if errorLine == nil {
+		t.Fatalf("the sh summary lacks its errors line:\n%s", stdout)
+	}
+	copyErrors, _ := strconv.ParseInt(errorLine[1], 10, 64)
+	readErrors, _ := strconv.ParseInt(errorLine[2], 10, 64)
+	copyErrors--
+	return strings.Replace(stdout, errorLine[0], "errors:     "+
+		strconv.FormatInt(copyErrors+readErrors, 10)+" ("+strconv.FormatInt(copyErrors, 10)+
+		" error_copy, "+errorLine[2]+" error_read)", 1)
+}

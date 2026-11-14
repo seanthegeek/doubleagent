@@ -36,6 +36,10 @@ func projectLinkCases() []parityCase {
 			setup: setupProjectHintFile, expect: physicalProject{owner: "dot", project: linkedProject.project,
 				link: linkedProject.link, physical: linkedProject.physical,
 				names: []string{"AGENTS.md", "env.sh"}}.expect},
+		{name: "projhost503", args: []string{"-p", "{ROOT}/home/alice/.claude/ext/proj"},
+			setup: setupProjectOnTheHost, expect: hostProject{owner: "alice",
+				project: "home/alice/.claude/ext/proj", link: "home/alice/.claude/ext",
+				names: []string{"AGENTS.md"}}.expect},
 		{name: "projother503", setup: setupProjectOfAnotherUser, expect: physicalProject{owner: "alice",
 			project: linkedProject.project, link: linkedProject.link, physical: linkedProject.physical,
 			names: linkedProject.names}.expect},
@@ -73,4 +77,13 @@ func setupProjectHintFile(t *testing.T, img image) {
 func setupProjectOfAnotherUser(t *testing.T, img image) {
 	fixture{t}.file(img.root+"/home/alice/.claude-u503/history.jsonl",
 		"{\"project\":\"/home/dot/.claude/proj\"}\n")
+}
+
+// setupProjectOnTheHost builds alice's .claude/ext, an absolute link out of
+// the image root to the work directory's outside503, which holds
+// proj/AGENTS.md: a place on the analyst's host, not in the image.
+func setupProjectOnTheHost(t *testing.T, img image) {
+	build := fixture{t}
+	build.file(img.work+"/outside503/proj/AGENTS.md", "# host\n")
+	build.symlink(img.work+"/outside503", img.root+"/home/alice/.claude/ext")
 }

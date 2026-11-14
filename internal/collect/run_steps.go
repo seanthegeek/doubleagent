@@ -153,7 +153,11 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 	}
 	projectHomes := make([]users.Home, 0, len(state.projects))
 	for _, project := range state.projects {
-		projectHomes = append(projectHomes, users.Home{User: project.Owner, Path: project.Path})
+		// A project the project step leaves unwalked, out of the image root,
+		// is not searched either: its files are on the analyst's host.
+		if _, out := walk.ProjectOutOfRoot(state.options.Root, project.Path); !out {
+			projectHomes = append(projectHomes, users.Home{User: project.Owner, Path: project.Path})
+		}
 	}
 	result, err := relocation.Search(ctx, relocation.Deps{
 		Tables: state.tables, Root: state.options.Root, Homes: state.homes,
@@ -194,6 +198,9 @@ func (state *runState) hintFileCollector(ctx context.Context) func(user, home, p
 			base = state.options.Root
 		}
 		stagers := state.hintFileStagers(base, path)
+		if stagers.Skip {
+			return nil
+		}
 		if len(stagers.Passed) > 0 {
 			err := state.collector.RecordPassedLinks(ctx, user, base, home, sharedAgent,
 				stagers.Base, stagers.Passed)

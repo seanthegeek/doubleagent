@@ -231,6 +231,59 @@ func TestProjectStagers(t *testing.T) {
 	}
 }
 
+func TestProjectOutOfTheImageRootIsNotWalked(t *testing.T) {
+	cases := []struct {
+		name   string
+		withIn bool // the link lies under a home given to CollectProject
+		live   bool
+	}{
+		{"a project under a home through a link out of the image root", true, false},
+		{"a project under no home through a link out of the image root", false, false},
+		{"a live run walks the same project", true, true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := fixture{dirs: []string{"home/dot"}}.build(t)
+			outside := fixture{files: []string{"host/proj/AGENTS.md"}}.build(t)
+			link := root + "/home/dot/ext"
+			mustDo(t, os.Symlink(outside+"/host", link))
+			collector, rows, log := testCollector(t, root, nil)
+			collector.MaxSize = 1 << 20
+			collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
+				Glob: "AGENTS.md"}}}
+			if testCase.live {
+				collector.Root, collector.Stager.Root = "", ""
+			}
+			home := ""
+			if testCase.withIn {
+				home = root + "/home/dot"
+			}
+			project := link + "/proj"
+			mustDo(t, collector.CollectProject(context.Background(), "dot", home, project))
+			if testCase.live {
+				requireRows(t, rows, map[string][]string{"path": {project + "/AGENTS.md"},
+					"status": {"collected"}})
+				return
+			}
+			want := []string{"Project [dot] " + project + ": under the symlinked directory " + link +
+				", which leads out of the image root; not walked"}
+			if !reflect.DeepEqual(log.lines, want) {
+				t.Errorf("log %q, want %q", log.lines, want)
+			}
+			if rows.Len() != 0 {
+				t.Errorf("rows %q, want none", rows.String())
+			}
+			if entries, _ := os.ReadDir(collector.Stager.Dir); len(entries) != 0 {
+				t.Errorf("staged %d entries, want none", len(entries))
+			}
+			stagers := ProjectStagers(collector.Stager, home, project, project+"/AGENTS.md")
+			if !stagers.Skip {
+				t.Errorf("stagers %+v, want the project skipped", stagers)
+			}
+		})
+	}
+}
+
 func TestProjectUnderNoHomeKeepsItsRecordedPath(t *testing.T) {
 	root := fixture{files: []string{"srv/real/AGENTS.md"},
 		links: [][2]string{{"real", "srv/link"}}}.build(t)

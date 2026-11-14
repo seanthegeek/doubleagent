@@ -27,6 +27,16 @@
 //     collects the files at their recorded archive path, where the binary
 //     archives them at the physical one. In projhint503 the project's hint
 //     file env.sh, which the relocation step stages, fails the same way.
+//   - projhost503: under an image root, a project whose own path leads out of
+//     the root (alice's .claude/ext, an absolute link to the image's work
+//     directory, which her home's walk records) is not walked, since its files
+//     are on the analyst's host: the binary logs "Project [alice] P: under the
+//     symlinked directory X, which leads out of the image root; not walked"
+//     and writes no row for its files, and the relocation step does not
+//     search it. The sh collector tries the copy through the recreated link,
+//     whose target leads out of the staging directory: an error_copy row
+//     beside a copy failed line, and the totals count it (hostProject in
+//     exceptions_test.go).
 
 package parity
 
