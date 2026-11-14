@@ -45,6 +45,8 @@ var platformExpandCases = []expandCase{
 	{"a dangling link is kept", "dang*", []string{"dangling"}},
 	{"a trailing slash keeps directories and links to them", "*/", []string{
 		"dir/", "link-dir/", "link-out/", "sp ace/", "sp/", "unreadable/"}},
+	{"matches sort bytewise as whole paths, so a space sorts before a slash",
+		"sp*/f", []string{"sp ace/f", "sp/f"}},
 	{"a star crosses into a name ending in a newline", "nl*", []string{"nl\n"}},
 	{"a star matches a newline inside a name", "x*", []string{"x\ny"}},
 	{"an escaped star is literal and its escape stays", `q\*`, nil},

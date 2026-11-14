@@ -2,8 +2,9 @@ package glob
 
 import (
 	"os"
-	"slices"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 )
 
 // Expand returns base + "/" + match for every match of pattern inside base,
@@ -14,7 +15,8 @@ import (
 // escapes and all, when an entry by that name exists, and dropped otherwise.
 // Directories are read as the shell reads them, so a symlinked directory in
 // the middle of the pattern is followed. On Windows each existing literal
-// segment comes back in on-disk case, as PowerShell's Expand-Glob gives it.
+// segment comes back in on-disk case, and a word's matches are not sorted
+// but come in Get-ChildItem's order, as PowerShell's Expand-Glob gives them.
 func Expand(base, pattern string) []string {
 	var results []string
 	for _, word := range strings.Split(pattern, "\n") {
@@ -31,7 +33,7 @@ func Expand(base, pattern string) []string {
 			}
 			continue
 		}
-		slices.Sort(matches)
+		sortMatches(matches)
 		for _, match := range matches {
 			results = append(results, base+"/"+match)
 		}
@@ -73,10 +75,11 @@ func expandFrom(base, prefix, rest string, matches *[]string) {
 	}
 }
 
-// readNames returns the entry names of directory, with `.` and `..` added
-// when withDots is set, since the shell's directory read returns them and a
-// segment starting with a dot matches them. A directory that cannot be read
-// gives the names read before the error, as the shell's read loop stops.
+// readNames returns the entry names of directory in the platform's listing
+// order, with `.` and `..` added first when withDots is set, since the
+// shell's directory read returns them and a segment starting with a dot
+// matches them. A directory that cannot be read gives the names read before
+// the error, as the shell's read loop stops.
 func readNames(directory string, withDots bool) []string {
 	handle, err := os.Open(directory)
 	if err != nil {
@@ -88,7 +91,7 @@ func readNames(directory string, withDots bool) []string {
 	if withDots {
 		names = append(names, ".", "..")
 	}
-	for _, entry := range entries {
+	for _, entry := range fsmeta.ListingOrder(entries) {
 		names = append(names, entry.Name())
 	}
 	return names

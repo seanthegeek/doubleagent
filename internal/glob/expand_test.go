@@ -52,8 +52,6 @@ var commonExpandCases = []expandCase{
 	{"an escaped leading dot matches dot names", `\.h*`, []string{".h-x", ".hidden"}},
 	{"a literal tail is kept only when it exists", ".h*/auth.json", []string{".h-x/auth.json"}},
 	{"newlines split the pattern into words", "b.txt\na.txt", []string{"b.txt", "a.txt"}},
-	{"matches sort bytewise as whole paths, so a space sorts before a slash",
-		"sp*/f", []string{"sp ace/f", "sp/f"}},
 	{"a pattern without a match gives nothing", "missing*", nil},
 	{"a literal pattern that exists is kept", "dir/sub/file", []string{"dir/sub/file"}},
 	{"a pattern that matches nothing is kept when its literal text exists", "[ab]",

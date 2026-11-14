@@ -171,7 +171,9 @@ func (collector *Collector) findError(found *treeWalk, path, reason string) erro
 	return collector.Log.Line(line)
 }
 
-// visitEntries lists directory in directory order and visits each entry.
+// visitEntries lists directory and visits each entry in the platform's
+// listing order: find's directory order on Unix, Get-ChildItem's
+// directories-then-files order on Windows.
 func (collector *Collector) visitEntries(ctx context.Context, owner scope, found *treeWalk,
 	directory string,
 ) error {
@@ -189,7 +191,7 @@ func (collector *Collector) visitEntries(ctx context.Context, owner scope, found
 			return err
 		}
 	}
-	for _, entry := range entries {
+	for _, entry := range fsmeta.ListingOrder(entries) {
 		path := directory + "/" + entry.Name()
 		isDir := descends(entry)
 		if collector.Inventory && !isDir && !entry.Type().IsRegular() {

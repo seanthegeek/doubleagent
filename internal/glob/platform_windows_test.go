@@ -24,11 +24,15 @@ func addPlatformEntries(t *testing.T, base string) {
 	}
 }
 
-// platformExpandCases are the expansions that ignore case and respell.
+// platformExpandCases are the expansions that ignore case and respell, and
+// that list matches as Get-ChildItem does: directories first, then files,
+// each group in the order NTFS lists names, by their upper-case form.
 var platformExpandCases = []expandCase{
-	{"a star skips names starting with a dot", "*", []string{
-		"Users", "[ab]", "a.txt", "ab", "b.txt", "dir", "file-not-dir", "sp", "sp ace", "é"}},
-	{"a trailing slash keeps directories", "*/", []string{"Users/", "dir/", "sp ace/", "sp/"}},
+	{"a star lists directories, then files, and skips names starting with a dot", "*",
+		[]string{"dir", "sp", "sp ace", "Users", "a.txt", "ab", "b.txt", "file-not-dir", "[ab]", "é"}},
+	{"a trailing slash keeps directories", "*/", []string{"dir/", "sp/", "sp ace/", "Users/"}},
+	{"matches keep the listing order across segments, unsorted", "sp*/f",
+		[]string{"sp/f", "sp ace/f"}},
 	{"a literal word is respelled as on disk", "users", []string{"Users"}},
 	{"every literal segment is respelled", "users/alice/notes.txt",
 		[]string{"Users/Alice/Notes.TXT"}},

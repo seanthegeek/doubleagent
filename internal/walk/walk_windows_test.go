@@ -217,15 +217,36 @@ func TestRowsFollowTheWalkOnWindows(t *testing.T) {
 	_, err := collector.CollectPath(context.Background(), "u", home, "agent", home+"/a")
 	mustDo(t, err)
 	want := []string{
+		`row a\3cache skipped_excluded`,
+		`row a\sub\5.txt collected`,
 		`row a\1.txt collected`,
 		`log copy failed: a\2.locked`,
 		`row a\2.locked error_copy`,
-		`row a\3cache skipped_excluded`,
 		`row a\4.txt collected`,
-		`row a\sub\5.txt collected`,
 	}
 	if got := recorder.summary(t, home); !slices.Equal(got, want) {
 		t.Errorf("events\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestWalkListsDirectoriesBeforeFilesOnWindows(t *testing.T) {
+	root := physicalTemp(t)
+	writeFiles(t, root, "home/u/.tool/a.txt", "home/u/.tool/b/x.txt", "home/u/.tool/c.txt",
+		"home/u/.tool/e.txt", "home/u/elsewhere/secret.txt")
+	makeJunction(t, root+"/home/u/elsewhere", root+"/home/u/.tool/d")
+	collector, recorder := windowsCollector(t, root, nil)
+	_, err := collector.CollectPath(context.Background(), "u", root+"/home/u", "agent",
+		root+"/home/u/.tool")
+	mustDo(t, err)
+	var got []string
+	for _, row := range recorder.rows(t) {
+		got = append(got, strings.TrimPrefix(row["path"].(string), syspath.ToNative(root+"/home/u/.tool")+`\`))
+	}
+	// The junction carries the directory attribute, so Get-ChildItem lists
+	// it with the directories, though the walk never enters it.
+	want := []string{`b\x.txt`, "d", "a.txt", "c.txt", "e.txt"}
+	if !slices.Equal(got, want) {
+		t.Errorf("rows in order %q, want directories first, then files, each in listing order %q", got, want)
 	}
 }
 
@@ -530,7 +551,7 @@ func TestOtherReparsePointsAreLinksNeverEntered(t *testing.T) {
 	collector, recorder := windowsCollector(t, "", nil)
 	_, err := collector.CollectPath(context.Background(), "u", home, "agent", home+"/.tool")
 	mustDo(t, err)
-	want := []string{`row .tool\a.txt collected`, `row .tool\placeholder skipped_special`,
+	want := []string{`row .tool\placeholder skipped_special`, `row .tool\a.txt collected`,
 		`row .tool\placeholder.txt skipped_special`}
 	if got := recorder.summary(t, home); !slices.Equal(got, want) {
 		t.Errorf("events %q, want %q", got, want)
