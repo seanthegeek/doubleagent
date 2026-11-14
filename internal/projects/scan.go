@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // homeScan gathers one home's discovery output. stream is the byte stream
@@ -14,6 +16,7 @@ type homeScan struct {
 	ctx        context.Context
 	root       string
 	home       string
+	rules      pathRules
 	dropSecret func(relative string) bool
 	stream     bytes.Buffer
 }
@@ -70,18 +73,23 @@ func (s *homeScan) sessionCwds(dir, name string) []string {
 	return grepFiles(findNamed(s.ctx, dir, name), sessionCwdMatcher())
 }
 
-// emitOutside emits the values for which the root-prefixed value does not
-// lie at or under any of the excluded paths (a `case` with "$1/x"*
-// patterns, so a prefix match, with exact naming the bare path).
+// emitOutside emits the values whose path does not lie at or under any of
+// the excluded paths (a `case` with "$1/x"* patterns, so a prefix match,
+// with exact naming the bare path). Under the sh rules the path is the raw
+// value after root, as sh tests it; under the drive-letter rules it is the
+// value's local path, as the PowerShell collector tests it, ignoring case.
 func (s *homeScan) emitOutside(values []string, exact []string, under []string) {
 	for _, value := range values {
 		path := s.root + value
+		if s.rules.driveLetters {
+			path, _ = localProjectPath(value, s.root, s.rules)
+		}
 		excluded := false
 		for _, name := range exact {
-			excluded = excluded || path == name
+			excluded = excluded || syspath.Equal(path, name)
 		}
 		for _, prefix := range under {
-			excluded = excluded || strings.HasPrefix(path, prefix)
+			excluded = excluded || syspath.HasPrefix(path, prefix)
 		}
 		if !excluded {
 			s.emit([]string{value})
@@ -108,18 +116,18 @@ func lines(file string) []string {
 	return found
 }
 
-// values returns the stream's lines that start with `/`, then with every `\/`
-// made `/`: a JSON-escaped path is filtered before it is unescaped, so one
-// that starts `\/` is dropped. A last line with no newline counts.
-func (s *homeScan) values() []string {
+// paths returns the local path of each stream line that names one, in
+// stream order (localProjectPath with the scan's rules and root). A last
+// line with no newline counts.
+func (s *homeScan) paths() []string {
 	text := strings.TrimSuffix(s.stream.String(), "\n")
 	if text == "" {
 		return nil
 	}
 	var kept []string
 	for _, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(line, "/") {
-			kept = append(kept, strings.ReplaceAll(line, `\/`, "/"))
+		if path, ok := localProjectPath(line, s.root, s.rules); ok {
+			kept = append(kept, path)
 		}
 	}
 	return kept
