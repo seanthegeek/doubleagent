@@ -31,6 +31,11 @@ func edgeTree(t *testing.T) string {
 		".gemini/antigravity-cli/conversations/a.db": "db", ".config/goose/config.yaml": "a: b",
 		"dotlocal/share/crush/crush.json": "{}", "../../outside/crush/x": "out",
 	}
+	// The home exists before any file, since a path written through `..`
+	// resolves it on disk, while filepath.Dir resolves it on paper.
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	for name, content := range files {
 		if err := os.MkdirAll(filepath.Dir(home+"/"+name), 0o755); err != nil {
 			t.Fatal(err)
