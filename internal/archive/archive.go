@@ -29,9 +29,11 @@ func WriteTarGz(stageDir, archivePath string) error {
 	if err != nil {
 		return fmt.Errorf("create archive: %w", err)
 	}
-	err = writeMembers(file, stageDir)
+	// A write or close error of the archive itself names it in the \\?\
+	// form osfile opened it with.
+	err = syspath.NativeErrors(writeMembers(file, stageDir))
 	if closeError := file.Close(); err == nil && closeError != nil {
-		err = fmt.Errorf("close archive %s: %w", archivePath, closeError)
+		err = fmt.Errorf("close archive %s: %w", archivePath, syspath.NativeErrors(closeError))
 	}
 	if err != nil {
 		_ = osfile.Remove(archivePath)
@@ -154,7 +156,7 @@ func SHA256File(path string) (string, int64, error) {
 	digest := sha256.New()
 	size, err := io.Copy(digest, source)
 	if err != nil {
-		return "", 0, fmt.Errorf("hash %s: %w", path, err)
+		return "", 0, fmt.Errorf("hash %s: %w", path, syspath.NativeErrors(err))
 	}
 	return hex.EncodeToString(digest.Sum(nil)), size, nil
 }

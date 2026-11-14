@@ -1,7 +1,9 @@
 package collect
 
 import (
+	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/summary"
@@ -36,5 +38,15 @@ func TestWindowsImageBasesAndRoots(t *testing.T) {
 	}
 	if liveRoot("C:") || liveRoot("/") {
 		t.Error("a root named live mode on Windows")
+	}
+}
+
+func TestCopyFileErrorNamesTheNativePath(t *testing.T) {
+	// Reading a directory opened as a file fails with the directory's name,
+	// which osfile opened in its \\?\ form.
+	source := t.TempDir()
+	err := copyFile(source, filepath.Join(t.TempDir(), "copy"))
+	if err == nil || strings.Contains(err.Error(), `\\?\`) || !strings.Contains(err.Error(), source) {
+		t.Errorf("copyFile error = %v, want one naming %s without the \\\\?\\ prefix", err, source)
 	}
 }

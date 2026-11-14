@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // TimeFormat is the layout of the time in a log line and of started and
@@ -45,7 +46,7 @@ func (log *Log) Line(text string) error {
 		}
 	}
 	if fileError != nil {
-		return fmt.Errorf("write log: %w", fileError)
+		return fmt.Errorf("write log: %w", syspath.NativeErrors(fileError))
 	}
 	return nil
 }
@@ -54,7 +55,7 @@ func (log *Log) Line(text string) error {
 // operator is told about in other words.
 func (log *Log) FileLine(text string) error {
 	if _, err := fmt.Fprintf(log.file, "%s %s\n", log.now().UTC().Format(TimeFormat), text); err != nil {
-		return fmt.Errorf("write log: %w", err)
+		return fmt.Errorf("write log: %w", syspath.NativeErrors(err))
 	}
 	return nil
 }
@@ -62,7 +63,7 @@ func (log *Log) FileLine(text string) error {
 // Close closes the log file.
 func (log *Log) Close() error {
 	if err := log.file.Close(); err != nil {
-		return fmt.Errorf("close log: %w", err)
+		return fmt.Errorf("close log: %w", syspath.NativeErrors(err))
 	}
 	return nil
 }

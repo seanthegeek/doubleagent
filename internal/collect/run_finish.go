@@ -167,7 +167,8 @@ func (state *runState) stageRunFiles() error {
 }
 
 // copyFile copies the file at source to target, created with the default
-// mode the umask narrows.
+// mode the umask narrows. A read, write or close error names its file in
+// native form, as the open errors do.
 func copyFile(source, target string) error {
 	input, err := osfile.Open(source)
 	if err != nil {
@@ -180,9 +181,9 @@ func copyFile(source, target string) error {
 	}
 	if _, err := io.Copy(out, input); err != nil {
 		out.Close()
-		return err
+		return syspath.NativeErrors(err)
 	}
-	return out.Close()
+	return syspath.NativeErrors(out.Close())
 }
 
 // hashArchive hashes the archive, writes its sidecar file and appends the

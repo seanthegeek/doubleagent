@@ -158,7 +158,7 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 	}
 	target, err := createDest(dest)
 	if err != nil {
-		return "", 0, err
+		return "", 0, syspath.NativeErrors(err)
 	}
 	hash := sha256.New()
 	written, err := io.Copy(io.MultiWriter(target, hash), source)
@@ -169,7 +169,9 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 		err = closeError
 	}
 	if err != nil {
-		return "", 0, err
+		// The staged copy was opened through osfile, so its write and close
+		// errors name the \\?\ form.
+		return "", 0, syspath.NativeErrors(err)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), written, nil
 }

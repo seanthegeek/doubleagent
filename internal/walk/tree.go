@@ -155,7 +155,7 @@ func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
 	if err != nil {
 		return collector.findError(found, dir, err.Error())
 	}
-	return handle.Close()
+	return syspath.NativeErrors(handle.Close())
 }
 
 // findError counts a path the walk could not read and logs the line find

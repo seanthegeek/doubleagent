@@ -188,7 +188,7 @@ func (state *runState) openOutputs() error {
 		if state.manifestFile, err = osfile.Create(state.manifestPath); err != nil {
 			return &fatalError{message: err.Error()}
 		}
-		state.rows = bufio.NewWriter(state.manifestFile)
+		state.rows = bufio.NewWriter(nativeErrorWriter{state.manifestFile})
 		logPath, rows = state.logPath, state.rows
 	}
 	log, err := runlog.Open(logPath, state.options.Quiet, state.stderr, state.host.now)
@@ -296,4 +296,17 @@ func (state *runState) cleanup() {
 	if !state.options.KeepStaging && !state.options.Inventory {
 		_ = osfile.RemoveAll(state.stageDir)
 	}
+}
+
+// nativeErrorWriter passes writes to the manifest file and returns their
+// errors with the file's path in native form; the file was opened through
+// osfile, so its own errors name the \\?\ form.
+type nativeErrorWriter struct {
+	file *os.File
+}
+
+// Write writes data to the file.
+func (w nativeErrorWriter) Write(data []byte) (int, error) {
+	n, err := w.file.Write(data)
+	return n, syspath.NativeErrors(err)
 }
