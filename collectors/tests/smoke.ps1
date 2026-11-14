@@ -2134,6 +2134,11 @@ $missing = Test-Made
 Check "every main-image fixture was created ($($missing.Count) missing$(if ($missing.Count) { ', first ' + $missing[0] }))" { $missing.Count -eq 0 }
 Check '#77 deep fixture path is longer than 260 characters' { (ImagePath $DeepTranscript).Length -gt 260 }
 
+# The image alone, for the Go parity harness to run two collectors over: its
+# last stdout line is the work directory, which the caller removes. The socket
+# file keeps its reparse tag after the socket is closed.
+if ($env:SMOKE_IMAGE_ONLY -eq '1') { if ($socket) { $socket.Close() }; Write-Output $Work; exit 0 }
+
 # ---- runner ---------------------------------------------------------------
 function Run([string]$name, [hashtable]$extra) {
   $outputDir = Join-Path $Out $name
