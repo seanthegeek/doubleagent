@@ -31,11 +31,6 @@ type parityCase struct {
 	skip      string
 }
 
-// linkedProject is the linkproj497 project: -p names it through the home's
-// .claude, an absolute link to dotfiles/claude inside the home.
-var linkedProject = collectedInstead{owner: "dot", project: "home/dot/.claude/proj",
-	link: "home/dot/.claude", physical: "home/dot/dotfiles/claude/proj", name: "AGENTS.md"}
-
 // skipTar names why the tar fallback cases are not run: they patch the
 // collector or the PATH, and the binary has no archiver fallbacks.
 const skipTar = "needs a patched copy of the collector with a tar shim first on PATH, to force the " +
@@ -48,6 +43,9 @@ func parityCases() []parityCase {
 		{name: "root486", root: "{WORK}/r[1]", args: []string{"--no-docker", "--no-projects"}, setup: setupPatternRoot},
 		{name: "linkproj497", args: []string{"-p", "{ROOT}/home/dot/.claude/proj"}, after: checkLinkedSourceIntact,
 			expect: linkedProject.expect},
+	}
+	cases = append(cases, projectLinkCases()...)
+	cases = append(cases, []parityCase{
 		{name: "nosecrets", args: []string{"--no-secrets"}},
 		{name: "envscan", args: []string{"--env-scan-home"}},
 		{name: "envscanonce", args: []string{"--env-scan-home"}, setup: setupEnvScanOnce},
@@ -81,7 +79,7 @@ func parityCases() []parityCase {
 			"to force shasum; the binary hashes in Go"},
 		{name: "nostat480", skip: "needs a stat shim on PATH and a patched copy of the collector; " +
 			"the binary has no stat fallback"},
-	}
+	}...)
 	return append(append(cases, packageCases()...), inventoryCases()...)
 }
 

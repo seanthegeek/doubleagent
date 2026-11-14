@@ -87,19 +87,19 @@ func (state *runState) collectProjects(ctx context.Context) error {
 }
 
 // collectProject collects one project as collect_projects does, with the
-// owner's home that holds it as the base its path's links are resolved in.
+// first home of any user that holds it as the base its path's links are
+// resolved in.
 func (state *runState) collectProject(ctx context.Context, project projects.Project) error {
-	home := ownerHome(state.homes, project)
+	home := enclosingHome(state.homes, project.Path)
 	return state.collector.CollectProject(ctx, project.Owner, home, project.Path)
 }
 
-// ownerHome returns the first home of the project's owner that holds the
-// project, or "" when the project lies under none of them: a project outside
-// its owner's homes has no link of a home's to consider.
-func ownerHome(homes []users.Home, project projects.Project) string {
+// enclosingHome returns the first home of any user that holds path, or ""
+// when it lies under none: the home whose walk may have recorded and
+// recreated a link of path's, whoever owns the project.
+func enclosingHome(homes []users.Home, path string) string {
 	for _, home := range homes {
-		if home.User == project.Owner && home.Path != "" &&
-			strings.HasPrefix(project.Path, home.Path+"/") {
+		if home.Path != "" && strings.HasPrefix(path, home.Path+"/") {
 			return home.Path
 		}
 	}
@@ -181,7 +181,9 @@ func catalogClaims(base string, table []catalog.Entry) []string {
 // hintFileCollector returns the relocation step's collect callback, as
 // collect_hint_file does: a file that already has a row is left alone; a
 // file reached through symlinked directories inside the base gets their rows
-// and is staged where the base holds it; the file is flagged secret.
+// and is staged where the base holds it; the file is flagged secret. A
+// project's files are staged where the project physically is, as the project
+// step stages them.
 func (state *runState) hintFileCollector(ctx context.Context) func(user, home, path string) error {
 	return func(user, home, path string) error {
 		if state.manifest.HasPath(path) {
@@ -191,19 +193,34 @@ func (state *runState) hintFileCollector(ctx context.Context) func(user, home, p
 		if base == "" {
 			base = state.options.Root
 		}
-		stager := state.collector.Stager
-		if links, outside := walk.LinkedParent(base, path); !outside {
-			stager = stager.Through(links.From, links.Into)
-			if len(links.Passed) > 0 {
-				err := state.collector.RecordPassedLinks(ctx, user, base, home, sharedAgent,
-					links.Passed)
-				if err != nil {
-					return err
-				}
+		stagers := state.hintFileStagers(base, path)
+		if len(stagers.Passed) > 0 {
+			err := state.collector.RecordPassedLinks(ctx, user, base, home, sharedAgent,
+				stagers.Base, stagers.Passed)
+			if err != nil {
+				return err
 			}
 		}
-		return state.collector.StageFile(user, home, sharedAgent, stager, path, true)
+		return state.collector.StageFile(user, home, sharedAgent, stagers.File, path, true)
 	}
+}
+
+// hintFileStagers returns the stagers of a hint file at path under base: a
+// project base's come from the project's own path, any other base's from
+// the run's stager and the links between base and path.
+func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
+	for _, project := range state.projects {
+		if project.Path == base {
+			home := enclosingHome(state.homes, base)
+			return walk.ProjectStagers(state.collector.Stager, home, base, path)
+		}
+	}
+	stagers := walk.PathStagers{Base: state.collector.Stager, File: state.collector.Stager}
+	if links, outside := walk.LinkedParent(base, path); !outside {
+		stagers.File = stagers.Base.Through(links.From, links.Into)
+		stagers.Passed = links.Passed
+	}
+	return stagers
 }
 
 // writeInventory is the --inventory step, as write_inventory does: it counts

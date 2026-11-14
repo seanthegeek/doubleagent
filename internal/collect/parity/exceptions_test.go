@@ -12,7 +12,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/summary"
 )
 
-// Patterns of the totals a collected-instead exception moves from error_copy
+// Patterns of the totals a physical-project exception moves from error_copy
 // to collected: the counts line of collection.json and two summary lines.
 var (
 	countsLine   = regexp.MustCompile(`(?m)^  "counts": .*$`)
@@ -22,84 +22,145 @@ var (
 	stdoutErrors = regexp.MustCompile(`(?m)^errors:     [0-9]+ \(([0-9]+) error_copy, ([0-9]+) error_read\)$`)
 )
 
-// collectedInstead is a file the sh collector fails to copy and the binary
-// collects by design: a project reached through a link inside its owner's
-// home, which the binary stages where the home physically holds it. Paths
-// are relative to the image root.
-type collectedInstead struct {
-	owner    string // the project's owner
-	project  string // the project as -p names it, through the link
-	link     string // the symlinked directory the project's path runs through
-	physical string // where the home physically holds the project
-	name     string // the file's path inside the project
+// physicalProject is a project whose own path runs through a symlinked
+// directory, which the binary collects where its files physically are. The
+// sh collector stages the files under their recorded path: through a link
+// recreated in the staging tree, where the copy fails, or, when no walk
+// recreated the link, at the recorded path itself. Paths are relative to the
+// image root.
+type physicalProject struct {
+	owner    string   // the project's owner
+	project  string   // the project as -p or an agent's state names it
+	link     string   // the symlinked directory the project's log line names
+	physical string   // where the project's files physically are
+	names    []string // the files' paths inside the project, in manifest order
 }
 
 // expect rewrites the sh collector's run into the one the binary writes by
-// design: the file's error_copy row becomes a collected row archived at its
-// physical path, the project's log line names the link, the copy failed
-// line goes, the totals move by one file, and the archive gains the file and
-// its directories. Each rewritten text must hold its sh text exactly once,
-// so a change on the sh side fails the case instead of passing it silently.
-func (c collectedInstead) expect(t *testing.T, img image, want *collectorRun) {
+// design: each file's row records its physical archive path, an error_copy
+// row becoming a collected one whose copy failed line goes and whose totals
+// move by one file; the project's log line names the link; and the archive
+// holds each file at its physical path, a file the sh collector archived at
+// its recorded path moved there with the directories it alone held. Each
+// rewritten text must hold its sh text exactly once, so a change on the sh
+// side fails the case instead of passing it silently.
+func (c physicalProject) expect(t *testing.T, img image, want *collectorRun) {
 	t.Helper()
-	content, err := os.ReadFile(img.root + "/" + c.physical + "/" + c.name)
+	failed := 0
+	for _, name := range c.names {
+		if c.rewriteFile(t, img, want, name) {
+			failed++
+		}
+	}
+	want.files[".log"] = c.logThroughLink(t, img, want.files[".log"], failed)
+}
+
+// rewriteFile rewrites the run for one file of the project, as expect says,
+// and reports whether the sh collector failed to copy it.
+func (c physicalProject) rewriteFile(t *testing.T, img image, want *collectorRun, name string) bool {
+	t.Helper()
+	content, err := os.ReadFile(img.root + "/" + c.physical + "/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	archivePath := "fs/" + c.physical + "/" + c.name
-	want.files[".manifest.jsonl"] = c.rowCollected(t, img, want.files[".manifest.jsonl"],
-		archivePath, hashText(string(content)))
-	want.members["./manifest.jsonl"] = c.rowCollected(t, img, want.members["./manifest.jsonl"],
-		archivePath, hashText(string(content)))
-	want.files[".log"] = c.logThroughLink(t, img, want.files[".log"])
-	size := int64(len(content))
-	want.files[".collection.json"] = moveCounts(want.files[".collection.json"], size)
-	want.stdout = moveTotals(t, want.stdout, size)
-	member := "./" + archivePath
+	archivePath := "fs/" + c.physical + "/" + name
+	hash := hashText(string(content))
+	file := img.root + "/" + c.project + "/" + name
+	manifest, recorded := rowAtPhysicalPath(t, want.files[".manifest.jsonl"], file, archivePath, hash)
+	want.files[".manifest.jsonl"] = manifest
+	want.members["./manifest.jsonl"], _ = rowAtPhysicalPath(t, want.members["./manifest.jsonl"], file,
+		archivePath, hash)
+	if recorded == "" {
+		size := int64(len(content))
+		want.files[".collection.json"] = moveCounts(want.files[".collection.json"], size)
+		want.stdout = moveTotals(t, want.stdout, size)
+	} else {
+		removeMember(want.members, "./"+recorded)
+	}
+	addMember(want.members, "./"+archivePath, hash)
+	return recorded == ""
+}
+
+// rowAtPhysicalPath returns manifest with the row of file archived at
+// archivePath with hash: an error_copy row made the row of a collected copy,
+// or a collected row's archive path replaced. It also returns the archive
+// path the collected row had, or "" for an error_copy row.
+func rowAtPhysicalPath(t *testing.T, manifest, file, archivePath, hash string) (string, string) {
+	t.Helper()
+	lines := strings.Split(manifest, "\n")
+	found, recorded := 0, ""
+	for i, line := range lines {
+		if !strings.Contains(line, `"path":"`+file+`","archive_path":"`) {
+			continue
+		}
+		found++
+		if strings.Contains(line, `"status":"error_copy"`) {
+			lines[i] = rowCollected(line, file, archivePath, hash)
+			continue
+		}
+		recorded = archivePathOf.FindStringSubmatch(line)[1]
+		lines[i] = strings.Replace(line, `"archive_path":"`+recorded+`"`,
+			`"archive_path":"`+archivePath+`"`, 1)
+	}
+	if found != 1 {
+		t.Fatalf("the sh manifest holds %d rows of %s, want 1", found, file)
+	}
+	return strings.Join(lines, "\n"), recorded
+}
+
+// archivePathOf finds the archive path of a manifest row.
+var archivePathOf = regexp.MustCompile(`"archive_path":"((?:\\.|[^"\\])*)"`)
+
+// rowCollected returns line, the error_copy row of file, made the row of a
+// collected copy at archivePath with hash.
+func rowCollected(line, file, archivePath, hash string) string {
+	key := `"path":"` + file + `","archive_path":""`
+	line = strings.Replace(line, key, `"path":"`+file+`","archive_path":"`+archivePath+`"`, 1)
+	line = strings.Replace(line, `"sha256":""`, `"sha256":"`+hash+`"`, 1)
+	line = strings.Replace(line, `"status":"error_copy"`, `"status":"collected"`, 1)
+	return errorField.ReplaceAllString(line, `"error":""`)
+}
+
+// addMember adds the archive member of a file with hash and its directories.
+func addMember(members map[string]string, member, hash string) {
 	for end := 2; end < len(member); end++ {
 		if member[end] != '/' {
 			continue
 		}
-		if _, found := want.members[member[:end+1]]; !found {
-			want.members[member[:end+1]] = "type 5"
+		if _, found := members[member[:end+1]]; !found {
+			members[member[:end+1]] = "type 5"
 		}
 	}
-	want.members["./"+archivePath] = hashText(string(content))
+	members[member] = hash
 }
 
-// rowCollected returns manifest with the file's error_copy row made the row
-// of a collected copy at archivePath with hash.
-func (c collectedInstead) rowCollected(t *testing.T, img image, manifest, archivePath, hash string,
-) string {
-	t.Helper()
-	file := img.root + "/" + c.project + "/" + c.name
-	key := `"path":"` + file + `","archive_path":""`
-	lines := strings.Split(manifest, "\n")
-	found := 0
-	for i, line := range lines {
-		if !strings.Contains(line, key) || !strings.Contains(line, `"status":"error_copy"`) {
-			continue
+// removeMember removes the archive member of a file and each directory above
+// it that then holds nothing.
+func removeMember(members map[string]string, member string) {
+	delete(members, member)
+	for dir := member; ; {
+		position := strings.LastIndexByte(strings.TrimSuffix(dir, "/"), '/')
+		if position <= 1 {
+			return
 		}
-		found++
-		line = strings.Replace(line, key, `"path":"`+file+`","archive_path":"`+archivePath+`"`, 1)
-		line = strings.Replace(line, `"sha256":""`, `"sha256":"`+hash+`"`, 1)
-		line = strings.Replace(line, `"status":"error_copy"`, `"status":"collected"`, 1)
-		lines[i] = errorField.ReplaceAllString(line, `"error":""`)
+		dir = dir[:position+1]
+		for name := range members {
+			if name != dir && strings.HasPrefix(name, dir) {
+				return
+			}
+		}
+		delete(members, dir)
 	}
-	if found != 1 {
-		t.Fatalf("the sh manifest holds %d error_copy rows of %s, want 1", found, file)
-	}
-	return strings.Join(lines, "\n")
 }
 
 // logThroughLink returns the log with the project's line naming the link and
-// the file's copy failed line removed.
-func (c collectedInstead) logThroughLink(t *testing.T, img image, log string) string {
+// the failed copy lines of the project's files removed, of which there must
+// be failed.
+func (c physicalProject) logThroughLink(t *testing.T, img image, log string, failed int) string {
 	t.Helper()
 	project, link := img.root+"/"+c.project, img.root+"/"+c.link
 	header := "Project [" + c.owner + "] " + project
 	physical := img.root + "/" + c.physical
-	failed := "copy failed: " + project + "/" + c.name + ": "
 	var kept []string
 	headers, failures := 0, 0
 	for _, line := range strings.Split(log, "\n") {
@@ -108,15 +169,15 @@ func (c collectedInstead) logThroughLink(t *testing.T, img image, log string) st
 		case body == header:
 			headers++
 			line += " (through the symlinked directory " + link + ", archived under " + physical + ")"
-		case strings.HasPrefix(body, failed):
+		case strings.HasPrefix(body, "copy failed: "+project+"/"):
 			failures++
 			continue
 		}
 		kept = append(kept, line)
 	}
-	if headers != 1 || failures != 1 {
-		t.Fatalf("the sh log holds %d lines %q and %d copy failed lines, want 1 each",
-			headers, header, failures)
+	if headers != 1 || failures != failed {
+		t.Fatalf("the sh log holds %d lines %q and %d copy failed lines, want 1 and %d",
+			headers, header, failures, failed)
 	}
 	return strings.Join(kept, "\n")
 }

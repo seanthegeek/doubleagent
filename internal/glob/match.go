@@ -2,12 +2,12 @@
 // the reference shell, dash, does under LC_ALL=C: byte by byte, with `*`, `?`,
 // bracket expressions and `\` escaping. MatchPath is the shell's `case` test,
 // MatchSegment one step of pathname expansion, and Expand the whole expansion
-// of a pattern inside a base directory; "Glob matching" in
-// collectors/docs/internals.md says which table each one serves. The tables
-// hold only portable patterns: `*`, `?` and a closed bracket list with literal
-// bytes, ranges, `!` or a character class. On an unclosed bracket, a backslash,
-// a caret, a collating or equivalence class or a class beside a range the
-// shells disagree with one another, and the result here is one shell's.
+// of a pattern inside a base; "Glob matching" in collectors/docs/internals.md
+// says which table each serves. The tables hold only `*`, `?` and a closed
+// bracket list of literal bytes, ranges and `!`: never a character class name
+// such as [:alpha:], which the AGENTS.md catalog rule and catalog-sync.sh
+// refuse. On a class name, an unclosed bracket, a backslash, a caret or a
+// collating or equivalence class the shells disagree; the result is one's.
 package glob
 
 import "strings"

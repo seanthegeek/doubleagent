@@ -8,15 +8,25 @@
 // once; the rest of the case still compares byte for byte. The exceptions
 // encoded that way:
 //
-//   - linkproj497: a project reached through a symlinked directory inside its
-//     owner's home is collected where the home physically holds it, with its
-//     recorded path in path. The sh collector stages it through the link
-//     recreated in the staging tree, whose absolute target leads back to the
-//     source, so its AGENTS.md row is error_copy beside a copy failed line.
-//     The binary writes a collected row archived under
-//     fs/home/dot/dotfiles/claude/proj, ends the project's log line with
-//     "(through the symlinked directory X, archived under Y)", and the totals
-//     and the archive follow (collectedInstead in exceptions_test.go).
+//   - linkproj497, projhint503, projother503, projself503, projselfabs503,
+//     projout503, projoutabs503: a project the run lists whose own path runs
+//     through a symlinked directory is collected where its files physically
+//     are, with its recorded path in path (physicalProject in
+//     exceptions_test.go, the cases in projects_cases_test.go). The binary
+//     resolves the links of the project's path, its last component included,
+//     in the first home of any user that holds it; a link leading out of that
+//     home is resolved to the project's physical path and gets no row. The
+//     binary ends the project's log line with "(through the symlinked
+//     directory X, archived under Y)". The sh collector stages the files under
+//     their recorded path. Where a walk recreated the link in the staging tree
+//     (dot's absolute .claude in linkproj497, projhint503 and projother503;
+//     alice's .claude/proj, which her home's walk records, in the projself
+//     cases) the copy fails: error_copy rows beside copy failed lines, where
+//     the binary writes collected rows and the totals follow. Where none did
+//     (the link out of dot's home in the projout cases) the sh collector
+//     collects the files at their recorded archive path, where the binary
+//     archives them at the physical one. In projhint503 the project's hint
+//     file env.sh, which the relocation step stages, fails the same way.
 
 package parity
 

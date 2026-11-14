@@ -94,14 +94,15 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	return collector.visitEntries(ctx, owner, found, path)
 }
 
-// findUnreadDir handles a directory the walk cannot read: one that cannot be
-// listed gets the one line find writes, `find: <dir>: <reason>`. One that can
-// be listed but not entered gets no line, and its entries get nothing: no log
-// line, no row, no inventory record. The directory keeps its error_read row
-// from visit. This deviates from find on purpose: GNU find stats some such
-// entries and hands them on, which the sh collector records as error_copy
-// rows, and BSD find hands on none. Neither is evidence, since no entry can
-// be read, so the walk records the directory and nothing below it.
+// findUnreadDir handles a directory the walk cannot read. One that cannot be
+// listed gets find's line, `find: <dir>: <reason>`, and adds one to the
+// unreadable count CollectTree returns, a Docker volume's figure, which so
+// counts one per directory that could not be listed. One that can be listed
+// but not entered adds no line and no count, where GNU find writes a line per
+// entry, and its entries get no line, row or inventory record: GNU find stats
+// some of them, which the sh collector records as error_copy rows, BSD find
+// none, and neither is evidence, since no entry can be read. The directory
+// keeps its error_read row from visit.
 func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
 	handle, err := os.Open(dir)
 	if err != nil {

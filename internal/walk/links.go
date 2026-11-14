@@ -25,7 +25,9 @@ type Links struct {
 // the root) and path leads out of base once resolved, or cannot be resolved,
 // as linked_parent does: glob expansion follows such a link, the walk never
 // does. Only the components of path past as many as base has are tested, and
-// path itself is not; the components are counted, never compared.
+// path itself is not, unless it ends in "/", as a project's own path is given
+// so that the project directory is tested too; the components are counted,
+// never compared.
 func LinkedParent(base, path string) (Links, bool) {
 	var links Links
 	relative := path
@@ -150,11 +152,12 @@ func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, 
 
 // RecordPassedLinks collects the symlinked directories of links that a path
 // under base ran through, as the relocation step does for a startup file: no
-// path is claimed, and each link is considered once in this call.
+// path is claimed, and each link is considered once in this call. stager is
+// the base's, which a link's own place in base is composed with.
 func (collector *Collector) RecordPassedLinks(ctx context.Context, user, base, home, agent string,
-	links []string,
+	stager stage.Stager, links []string,
 ) error {
-	owner := scope{user: user, home: home, agent: agent, stager: collector.Stager}
+	owner := scope{user: user, home: home, agent: agent, stager: stager}
 	return collector.recordPassedLinks(ctx, owner, base, links, map[string]struct{}{})
 }
 

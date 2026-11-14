@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/projects"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -224,28 +223,117 @@ func TestOutputDirectoryThatCannotBeWrittenIsFatal(t *testing.T) {
 	}
 }
 
-func TestOwnerHome(t *testing.T) {
+func TestEnclosingHome(t *testing.T) {
 	homes := []users.Home{{User: "alice", Path: "/home/alice"}, {User: "bob", Path: "/home/bob"},
-		{User: "bob", Path: "/srv/bob"}}
+		{User: "bob", Path: "/srv/bob"}, {User: "nobody", Path: ""}}
 	cases := []struct {
-		name    string
-		project projects.Project
-		want    string
+		name string
+		path string
+		want string
 	}{
-		{"a project under its owner's home has that home",
-			projects.Project{Owner: "alice", Path: "/home/alice/p"}, "/home/alice"},
-		{"a project under its owner's second home has that home",
-			projects.Project{Owner: "bob", Path: "/srv/bob/p"}, "/srv/bob"},
-		{"a project under another user's home has none",
-			projects.Project{Owner: "alice", Path: "/home/bob/p"}, ""},
-		{"a project sharing a home's prefix without its slash has none",
-			projects.Project{Owner: "alice", Path: "/home/alice2/p"}, ""},
-		{"a project with no owner has none", projects.Project{Path: "/home/alice/p"}, ""},
+		{"a project under a home has that home", "/home/alice/p", "/home/alice"},
+		{"a project under a user's second home has that home", "/srv/bob/p", "/srv/bob"},
+		{"a project under another user's home has that home", "/home/bob/p", "/home/bob"},
+		{"a project sharing a home's prefix without its slash has none", "/home/alice2/p", ""},
+		{"a project under no home has none, an empty home path holding nothing", "/opt/p", ""},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			if got := ownerHome(homes, testCase.project); got != testCase.want {
-				t.Errorf("ownerHome = %q, want %q", got, testCase.want)
+			if got := enclosingHome(homes, testCase.path); got != testCase.want {
+				t.Errorf("enclosingHome = %q, want %q", got, testCase.want)
+			}
+		})
+	}
+}
+
+// writeImage builds files (path to content) and links (path to target) under
+// a new image root and returns it, resolved.
+func writeImage(t *testing.T, files, links map[string]string) string {
+	t.Helper()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range files {
+		if err := os.MkdirAll(filepath.Dir(root+"/"+path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(root+"/"+path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for path, target := range links {
+		if err := os.Symlink(strings.ReplaceAll(target, "{ROOT}", root), root+"/"+path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return root
+}
+
+// manifestRow returns the manifest row of path from the run in outDir.
+func manifestRow(t *testing.T, outDir, path string) string {
+	t.Helper()
+	manifests, _ := filepath.Glob(outDir + "/*.manifest.jsonl")
+	if len(manifests) != 1 {
+		t.Fatalf("manifests %v", manifests)
+	}
+	text, err := os.ReadFile(manifests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range strings.Split(string(text), "\n") {
+		if strings.Contains(row, `"path":"`+path+`"`) {
+			return row
+		}
+	}
+	t.Fatalf("no row of %s in:\n%s", path, text)
+	return ""
+}
+
+func TestProjectFilesAreStagedWhereTheProjectIs(t *testing.T) {
+	physical := "fs/home/dot/dotfiles/claude/proj/"
+	cases := []struct {
+		name     string
+		files    map[string]string
+		links    map[string]string
+		project  string
+		envScan  bool
+		wantRows map[string]string
+	}{
+		{"a hint file of a project through an absolute home link",
+			map[string]string{"home/dot/dotfiles/claude/proj/AGENTS.md": "# a\n",
+				"home/dot/dotfiles/claude/proj/env.sh": "CLAUDE_CONFIG_DIR=/x\n"},
+			map[string]string{"home/dot/.claude": "{ROOT}/home/dot/dotfiles/claude"},
+			"home/dot/.claude/proj", true,
+			map[string]string{"home/dot/.claude/proj/AGENTS.md": `"user":"dot"`,
+				"home/dot/.claude/proj/env.sh": `"user":"dot"`}},
+		{"a project another user's state names through the enclosing home's link",
+			map[string]string{"home/dot/dotfiles/claude/proj/AGENTS.md": "# a\n",
+				"home/alice/.claude/history.jsonl": "{\"project\":\"/home/dot/.claude/proj\"}\n"},
+			map[string]string{"home/dot/.claude": "{ROOT}/home/dot/dotfiles/claude"},
+			"", false,
+			map[string]string{"home/dot/.claude/proj/AGENTS.md": `"user":"alice"`}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := writeImage(t, testCase.files, testCase.links)
+			outDir := t.TempDir()
+			options := testOptions(root, outDir)
+			options.EnvScanHome = testCase.envScan
+			if testCase.project != "" {
+				options.Projects = []string{root + "/" + testCase.project}
+			}
+			var stdout, stderr bytes.Buffer
+			if code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr); code != 0 {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			for path, user := range testCase.wantRows {
+				row := manifestRow(t, outDir, root+"/"+path)
+				archivePath := `"archive_path":"` + physical + filepath.Base(path) + `"`
+				if !strings.Contains(row, archivePath) || !strings.Contains(row, `"status":"collected"`) ||
+					!strings.Contains(row, user) {
+					t.Errorf("row %s, want %s, %s and collected", row, user, archivePath)
+				}
 			}
 		})
 	}
