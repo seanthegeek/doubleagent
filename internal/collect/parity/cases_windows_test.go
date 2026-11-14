@@ -87,7 +87,9 @@ func windowsCases() []windowsCase {
 	cases = append(cases, windowsInventoryCases()...)
 	cases = append(cases, windowsCase{parityCase: parityCase{name: "noproj31", args: []string{"--no-projects"}}, shared: true},
 		windowsCase{parityCase: parityCase{name: "links", root: `{WORK}\linkroot`, args: []string{"--no-docker"},
-			setup: setupLinkImage}})
+			setup: setupLinkImage}},
+		windowsCase{parityCase: parityCase{name: "deniedhome", root: `{WORK}\deniedhome`, args: []string{"--no-docker"},
+			setup: setupDeniedHomeImage}})
 	cases = append(cases, projectAndOutputCases()...)
 	cases = append(cases, windowsCase{parityCase: parityCase{name: "fold32", args: []string{"--no-docker"},
 		setup: setupWindowsUnreadableCaseVariant}})

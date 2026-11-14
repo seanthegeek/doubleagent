@@ -132,6 +132,18 @@ func setupLinkImage(t *testing.T, img image) {
 	makeJunction(t, root+`\outside`, agent+`\jn`)
 }
 
+// setupDeniedHomeImage builds an image whose Users directory holds alice's
+// home with one catalog file and bob, an entry the directory lists that is
+// no directory either collector can enter: a junction to a directory that
+// does not exist. No run without -u reached a home the parent lists but the
+// run cannot see, so this case compares its log line and error_read row.
+func setupDeniedHomeImage(t *testing.T, img image) {
+	build := fixture{t}
+	root := img.work + `\deniedhome`
+	build.file(root+`\Users\alice\.claude\settings.json`, `{"model":"x"}`)
+	makeJunction(t, root+`\gone`, root+`\Users\bob`)
+}
+
 // symlinkOrNote creates a symlink at path to target and reports whether it
 // could; where the account may not create symlinks it logs a note instead
 // of failing, so the case runs with the rest of its image.
