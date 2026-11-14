@@ -51,18 +51,16 @@ type Report struct {
 	Profiles []Profile
 }
 
-// skipProfileNames are the profile names that are never a person's home,
-// compared case-insensitively.
-var skipProfileNames = []string{"Public", "Default", "Default User", "All Users", "Shared", "defaultuser0"}
-
 // transientProfile matches the service profiles Windows makes for the font
 // driver host, the desktop window manager and TEMP.
 var transientProfile = regexp.MustCompile(`(?i)^(UMFD-\d+|DWM-\d+|TEMP)(\..*)?$`)
 
 // skipProfile reports whether a profile directory's name is a system or
-// shared profile, not a person's home.
+// shared profile, not a person's home: one of the fixed names, compared
+// ignoring case as PowerShell's -contains does, or a transient profile.
 func skipProfile(name string) bool {
-	for _, skipped := range skipProfileNames {
+	fixed := [...]string{"Public", "Default", "Default User", "All Users", "Shared", "defaultuser0"}
+	for _, skipped := range fixed {
 		if strings.EqualFold(skipped, name) {
 			return true
 		}

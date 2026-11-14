@@ -6,14 +6,16 @@
 # collectors, runs the tests inside the guest, pulls the logs back and
 # reverts the VM again.
 #
-#   lab/go-parity-vm.sh [--dry-run] CELL [PACKAGE...]
+#   lab/go-parity-vm.sh [--dry-run] DIRECTORY [PACKAGE...]
 #
-# CELL is a scratch directory outside the repository that receives the
+# DIRECTORY is a scratch directory outside the repository that receives the
 # binaries, parity.log and parity.rc. Each PACKAGE (for example fsmeta or
 # fsmeta.test.exe) names a directory under internal/ whose test binary runs
-# in the guest the same way and leaves PACKAGE.log and PACKAGE.rc in CELL.
+# in the guest the same way and leaves PACKAGE.log and PACKAGE.rc in
+# DIRECTORY.
 # --dry-run prints every host and guest command and runs none of them: it
-# does not touch prlctl, ssh or scp, and it builds nothing.
+# does not touch prlctl, ssh or scp, builds nothing, and reports
+# "(dry run)" for each test binary instead of PASS or FAIL.
 #
 # The tree shipped to the guest is `git archive HEAD collectors`, so
 # uncommitted changes to the collectors are not tested.
@@ -29,21 +31,24 @@ if [ "${1:-}" = --dry-run ]; then
   DRY_RUN=1
   shift
 fi
-CELL=${1:?usage: go-parity-vm.sh [--dry-run] CELL [PACKAGE...]}
+DIRECTORY=${1:?usage: go-parity-vm.sh [--dry-run] DIRECTORY [PACKAGE...]}
 shift
 VM_NAME=Windows
+# The shared VM functions keep their ssh settings and log in the directory
+# they read as CELL.
+CELL=$DIRECTORY
 
 # shellcheck source=lab/round/lib/vm.sh
 . "$REPO/lab/round/lib/vm.sh"
 # shellcheck source=/dev/null
 . "$REPO/lab/round/vms/Windows.conf"
 
-case $CELL in
+case $DIRECTORY in
   /*) ;;
-  *) die "the cell directory must be an absolute path: $CELL" ;;
+  *) die "the scratch directory must be an absolute path: $DIRECTORY" ;;
 esac
-case "$CELL/" in
-  "$REPO/"*) die "the cell directory must be outside the repository: $CELL" ;;
+case "$DIRECTORY/" in
+  "$REPO/"*) die "the scratch directory must be outside the repository: $DIRECTORY" ;;
 esac
 
 # Print a command that --dry-run does not run.
@@ -91,14 +96,14 @@ if [ "$DRY_RUN" -eq 1 ]; then
   }
 fi
 
-# Copy one file from the guest's parity directory into the cell.
+# Copy one file from the guest's parity directory into the scratch directory.
 pull_file() {
   if [ "$DRY_RUN" -eq 1 ]; then
-    dry "scp guest:$(guest_lab)/parity/$1 -> $CELL/$1"
+    dry "scp guest:$(guest_lab)/parity/$1 -> $DIRECTORY/$1"
     return 0
   fi
-  bounded 600 scp -q -F "$CELL/sshconfig" -o BatchMode=yes \
-    "guest:$(guest_lab)/parity/$1" "$CELL/$1" </dev/null
+  bounded 600 scp -q -F "$DIRECTORY/sshconfig" -o BatchMode=yes \
+    "guest:$(guest_lab)/parity/$1" "$DIRECTORY/$1" </dev/null
 }
 
 # Stop and revert the VM once it has been touched; runs at every exit, so a
@@ -118,23 +123,23 @@ package_name() {
   printf '%s\n' "${_pn_name%.test}"
 }
 
-# Cross-compile into the cell: the collector, the parity test binary, and
+# Cross-compile into the scratch directory: the collector, the parity test binary, and
 # one test binary for each extra package.
 build_binaries() {
   cd "$REPO" || die "cannot enter $REPO"
-  round_log "building the Windows ARM64 binaries into $CELL"
+  round_log "building the Windows ARM64 binaries into $DIRECTORY"
   host_run env CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build \
-    -o "$CELL/doubleagent.exe" ./cmd/doubleagent || die "go build failed"
+    -o "$DIRECTORY/doubleagent.exe" ./cmd/doubleagent || die "go build failed"
   host_run env GOOS=windows GOARCH=arm64 go test -c -tags parity \
-    -o "$CELL/parity.test.exe" ./internal/collect/parity || die "parity test build failed"
+    -o "$DIRECTORY/parity.test.exe" ./internal/collect/parity || die "parity test build failed"
   for _bb_argument in "$@"; do
     _bb_name=$(package_name "$_bb_argument")
     check_word "$_bb_name"
     host_run env GOOS=windows GOARCH=arm64 go test -c \
-      -o "$CELL/$_bb_name.test.exe" "./internal/$_bb_name" ||
+      -o "$DIRECTORY/$_bb_name.test.exe" "./internal/$_bb_name" ||
       die "test build of internal/$_bb_name failed"
   done
-  host_run git archive --format=zip -o "$CELL/tree.zip" HEAD collectors ||
+  host_run git archive --format=zip -o "$DIRECTORY/tree.zip" HEAD collectors ||
     die "git archive failed"
 }
 
@@ -157,9 +162,10 @@ $log = Join-Path $parity "$name.log"
 cmd /c "`"$exe`" -test.v -test.timeout 90m -test.parallel 2 > `"$log`" 2>&1"
 Set-Content -Encoding ascii -Path (Join-Path $parity "$name.rc") -Value $LASTEXITCODE
 EOF_GUEST
-  } | SSH_SECONDS=5400 guest_ssh powershell -NoProfile -ExecutionPolicy Bypass -Command -
-  # A timeout or a lost connection ends the run; the missing .rc file below
-  # then reports FAIL.
+  } | SSH_SECONDS=6000 guest_ssh powershell -NoProfile -ExecutionPolicy Bypass -Command -
+  # ssh gets ten minutes beyond the test binary's 90 minute limit, so the
+  # binary's own timeout report reaches the log. A timeout or a lost
+  # connection ends the run; the missing .rc file below then reports FAIL.
   return 0
 }
 
@@ -168,18 +174,18 @@ EOF_GUEST
 report_tests() {
   _rt_code=
   pull_file "$1.log" || round_log "could not pull $1.log"
-  if pull_file "$1.rc"; then
-    if [ "$DRY_RUN" -eq 1 ]; then
-      _rt_code=0
-    else
-      _rt_code=$(tr -d '\r \n' <"$CELL/$1.rc")
-    fi
+  if pull_file "$1.rc" && [ "$DRY_RUN" -eq 0 ]; then
+    _rt_code=$(tr -d '\r \n' <"$DIRECTORY/$1.rc")
   fi
   if [ "$DRY_RUN" -eq 1 ]; then
-    dry "tail -n 40 $CELL/$1.log"
-  elif [ -f "$CELL/$1.log" ]; then
+    dry "tail -n 40 $DIRECTORY/$1.log"
+  elif [ -f "$DIRECTORY/$1.log" ]; then
     printf -- '--- last lines of %s.log\n' "$1"
-    tail -n 40 "$CELL/$1.log"
+    tail -n 40 "$DIRECTORY/$1.log"
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf '%s: (dry run)\n' "$1"
+    return 0
   fi
   if [ "$_rt_code" = 0 ]; then
     printf '%s: PASS\n' "$1"
@@ -200,10 +206,10 @@ New-Item -ItemType Directory -Force -Path $parity | Out-Null
 EOF_GUEST
   } | guest_ssh powershell -NoProfile -ExecutionPolicy Bypass -Command - ||
     die "preparing the guest directory failed"
-  guest_copy "$CELL/doubleagent.exe" "$CELL/parity.test.exe" "$CELL/tree.zip" parity
+  guest_copy "$DIRECTORY/doubleagent.exe" "$DIRECTORY/parity.test.exe" "$DIRECTORY/tree.zip" parity
   for _gp_argument in "$@"; do
     _gp_name=$(package_name "$_gp_argument")
-    guest_copy "$CELL/$_gp_name.test.exe" parity
+    guest_copy "$DIRECTORY/$_gp_name.test.exe" parity
   done
   {
     printf "\$parity = '%s'\n" "$_gp_native"
@@ -215,7 +221,7 @@ EOF_GUEST
 }
 
 main() {
-  [ "$DRY_RUN" -eq 1 ] || mkdir -p "$CELL" || die "cannot create $CELL"
+  [ "$DRY_RUN" -eq 1 ] || mkdir -p "$DIRECTORY" || die "cannot create $DIRECTORY"
   _mn_others=$(vm_others_running)
   [ -z "$_mn_others" ] || die "another VM is running: $_mn_others"
   # Build before the VM is touched, so a compile error costs no revert.

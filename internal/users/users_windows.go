@@ -37,9 +37,6 @@ func Find(live bool, root, usersFilter string, _ Runner) Report {
 // image run.
 func find(reader profileReader, root, usersFilter string) Report {
 	root = syspath.FromNative(root)
-	if root == "/" {
-		root = ""
-	}
 	var report Report
 	var candidates []Home
 	if reader != nil {

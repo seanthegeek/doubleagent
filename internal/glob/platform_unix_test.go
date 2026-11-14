@@ -37,6 +37,8 @@ func addPlatformEntries(t *testing.T, base string) {
 
 // platformExpandCases are the expansions over the Unix-only entries.
 var platformExpandCases = []expandCase{
+	{"a leading dot matches dot names, . and .. included", ".*",
+		[]string{".", "..", ".h-x", ".hidden"}},
 	{"a star skips names starting with a dot", "*", []string{
 		"[ab]", "a.txt", "ab", "b.txt", "dangling", "dir", "file-not-dir", "link-dir",
 		"link-out", "nl\n", "q*", "sp", "sp ace", "unreadable", "x\ny", "é"}},

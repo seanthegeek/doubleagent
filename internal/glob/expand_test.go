@@ -46,8 +46,6 @@ func buildTree(t *testing.T, rootName string) string {
 // commonExpandCases are the expansions every platform gives alike over the
 // shared part of the fixture tree.
 var commonExpandCases = []expandCase{
-	{"a leading dot matches dot names, . and .. included", ".*",
-		[]string{".", "..", ".h-x", ".hidden"}},
 	{"a bracket never matches a leading dot", "[.]h*", nil},
 	{"an escaped leading dot matches dot names", `\.h*`, []string{".h-x", ".hidden"}},
 	{"a literal tail is kept only when it exists", ".h*/auth.json", []string{".h-x/auth.json"}},

@@ -274,7 +274,8 @@ lines of the log and `PASS` or `FAIL`. Each extra PACKAGE, such as `fsmeta`,
 is compiled and run the same way and leaves its own `.log` and `.rc`.
 Afterwards the script deletes the guest directory, stops the VM and reverts
 it to the clean snapshot, also when a step fails. `--dry-run` prints every
-host and guest command without running any of them.
+host and guest command without running any of them, and `(dry run)` where
+a real run prints `PASS` or `FAIL`.
 
 ## macOS
 

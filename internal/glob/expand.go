@@ -90,9 +90,9 @@ func exists(path string) bool {
 }
 
 // readNames returns the entry names of directory in the platform's listing
-// order, with `.` and `..` added first when withDots is set, since the
-// shell's directory read returns them and a segment starting with a dot
-// matches them. A directory that cannot be read gives the names read before
+// order, with `.` and `..` added first when withDots is set on a platform
+// whose directory read lists them (listsDotEntries), since a segment starting
+// with a dot matches them there. A directory that cannot be read gives the names read before
 // the error, as the shell's read loop stops.
 func readNames(directory string, withDots bool) []string {
 	handle, err := osfile.Open(directory)
@@ -102,7 +102,7 @@ func readNames(directory string, withDots bool) []string {
 	defer handle.Close()
 	entries, _ := handle.ReadDir(-1)
 	names := make([]string, 0, len(entries)+2)
-	if withDots {
+	if withDots && listsDotEntries {
 		names = append(names, ".", "..")
 	}
 	for _, entry := range fsmeta.ListingOrder(entries) {
