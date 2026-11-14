@@ -59,6 +59,9 @@ import (
 	"testing"
 )
 
+// executableSuffix is what a program file name ends in: nothing on Unix.
+const executableSuffix = ""
+
 // parityShell is the shell the sh collector runs under: PARITY_SHELL, else dash.
 func parityShell() string {
 	if shell := os.Getenv("PARITY_SHELL"); shell != "" {

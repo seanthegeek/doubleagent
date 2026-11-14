@@ -64,20 +64,10 @@ func smokeImage(t *testing.T, repository string) image {
 	return image{work: work, root: root, alice: root + `\Users\alice`, bob: root + `\home\bob`}
 }
 
-// windowsBinary returns the binary to compare. go build -o keeps the name it
-// is given and Windows starts only a file with an executable extension, so a
-// binary the harness built itself is renamed to end in .exe.
-func windowsBinary(t *testing.T, repository string) string {
-	t.Helper()
-	binary := buildBinary(t, repository)
-	if os.Getenv("PARITY_BINARY") != "" || strings.EqualFold(filepath.Ext(binary), ".exe") {
-		return binary
-	}
-	if err := os.Rename(binary, binary+".exe"); err != nil {
-		t.Fatal(err)
-	}
-	return binary + ".exe"
-}
+// executableSuffix is what a program file name ends in: go build -o keeps
+// the name it is given, and Windows starts only a file with an executable
+// extension.
+const executableSuffix = ".exe"
 
 // powerShellCollector returns the oracle that runs the PowerShell collector
 // script in Windows PowerShell 5.1. It goes through -Command, not -File: an
@@ -179,7 +169,7 @@ func withoutSpace(text string) string {
 
 func TestCollectAgreesWithThePowerShellCollector(t *testing.T) {
 	repository := repositoryRoot(t)
-	binary := []string{windowsBinary(t, repository), "collect"}
+	binary := []string{buildBinary(t, repository), "collect"}
 	img := smokeImage(t, repository)
 	reference := powerShellCollector(filepath.Join(repository, "collectors", "Collect-AgentArtifacts.ps1"))
 	cases := windowsCases()

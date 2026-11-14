@@ -32,7 +32,7 @@ func TestLiveRunsAgreeWithThePowerShellCollector(t *testing.T) {
 			"(the disposable CI runner and the lab VM)")
 	}
 	repository := repositoryRoot(t)
-	binary := []string{windowsBinary(t, repository), "collect"}
+	binary := []string{buildBinary(t, repository), "collect"}
 	reference := powerShellCollector(filepath.Join(repository, "collectors", "Collect-AgentArtifacts.ps1"))
 	profileUser := filepath.Base(os.Getenv("USERPROFILE"))
 	runs := []liveRun{

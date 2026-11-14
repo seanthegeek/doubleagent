@@ -44,7 +44,7 @@ func normalMembers(members map[string]string, manifest func(string) string) stri
 func compareRuns(t *testing.T, want, got collectorRun) {
 	t.Helper()
 	if want.code != got.code {
-		t.Errorf("exit code %d, sh collector %d", got.code, want.code)
+		t.Errorf("exit code %d, reference collector %d", got.code, want.code)
 	}
 	parts := map[string][2]string{"stdout": {want.stdout, got.stdout},
 		"stderr": {want.stderr, got.stderr}}
@@ -53,7 +53,7 @@ func compareRuns(t *testing.T, want, got collectorRun) {
 	}
 	for part, texts := range parts {
 		for _, line := range differingLines(texts[0], texts[1], 3) {
-			t.Errorf("%s differs at line %d:\n sh: %q\ngot: %q", part, line.number, line.want, line.got)
+			t.Errorf("%s differs at line %d:\nwant: %q\n got: %q", part, line.number, line.want, line.got)
 		}
 	}
 }

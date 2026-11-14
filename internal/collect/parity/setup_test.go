@@ -5,8 +5,10 @@ package parity
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Each setup function builds the fixtures one smoke test case builds before
@@ -101,6 +103,8 @@ func setupLockedBatchFile(t *testing.T, path string) {
 	}
 }
 
+// checkLinkedSourceIntact fails when a run left the source file of the
+// recreated-link case without its content, as the smoke test's check does,
 // and puts the content back so later cases see the image as built.
 func checkLinkedSourceIntact(t *testing.T, img image) {
 	t.Helper()
@@ -111,4 +115,48 @@ func checkLinkedSourceIntact(t *testing.T, img image) {
 			path, content, err)
 		fixture{t}.write(path, "x\n")
 	}
+}
+
+// symlink creates a link at path to target, making its directory first.
+func (f fixture) symlink(target, path string) {
+	f.t.Helper()
+	f.dir(filepath.Dir(path))
+	f.created(path)
+	if err := os.Symlink(target, path); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+// chmod sets the mode of path and puts its old mode back at the end.
+func (f fixture) chmod(path string, mode os.FileMode) {
+	f.t.Helper()
+	info, err := os.Lstat(path)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	f.t.Cleanup(func() { _ = os.Chmod(path, info.Mode().Perm()) })
+	if err := os.Chmod(path, mode); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+// isRoot reports whether the test runs as root.
+func isRoot() bool {
+	return os.Geteuid() == 0
+}
+
+// requireNonRoot skips the test when it runs as root, which ignores mode 000.
+func requireNonRoot(t *testing.T) {
+	t.Helper()
+	if isRoot() {
+		t.Skip("running as root: mode 000 does not stop it")
+	}
+}
+
+// setupInventory sets the mtime the inventory's last field reports and adds a
+// directory holding only a nested agent's entry.
+func setupInventory(t *testing.T, img image) {
+	build := fixture{t}
+	build.touch(img.root+"/home/ollama/.ollama/history", time.Date(2026, 9, 15, 1, 2, 3, 0, time.UTC))
+	build.file(img.root+"/Users/bob/.gemini/antigravity-cli/conversations/b1.db", "db\n")
 }

@@ -2,10 +2,7 @@
 
 package parity
 
-import (
-	"testing"
-	"time"
-)
+import "testing"
 
 // Fixture builders both parity tables share.
 
@@ -13,14 +10,6 @@ import (
 // homes through home/* with no passwd file.
 func setupPatternRoot(t *testing.T, img image) {
 	fixture{t}.file(img.work+"/r[1]/home/carol/.gemini/projects.json", "{}\n")
-}
-
-// setupInventory sets the mtime the inventory's last field reports and adds a
-// directory holding only a nested agent's entry.
-func setupInventory(t *testing.T, img image) {
-	build := fixture{t}
-	build.touch(img.root+"/home/ollama/.ollama/history", time.Date(2026, 9, 15, 1, 2, 3, 0, time.UTC))
-	build.file(img.root+"/Users/bob/.gemini/antigravity-cli/conversations/b1.db", "db\n")
 }
 
 // setupMsixRoot builds one Windows profile holding the Claude Desktop MSIX
@@ -52,6 +41,3 @@ func setupMsixRoot(t *testing.T, img image) {
 	build.write(local+"/Claude/logs/main.log", "[MSIX] Filesystem virtualization active\n")
 	build.write(local+"/Claude-Data/claude_pzs8sxrjxfjjc/config.json", "{\"oauth:tokenCache\":\"enc\"}\n")
 }
-
-// checkLinkedSourceIntact fails when a run left the source file of the
-// recreated-link case without its content, as the smoke test's check does,

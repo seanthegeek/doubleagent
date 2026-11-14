@@ -68,7 +68,7 @@ func buildBinary(t *testing.T, repository string) string {
 	if err != nil {
 		t.Fatalf("PARITY_BINARY is not set and the go tool is not on the PATH: %v", err)
 	}
-	binary := filepath.Join(t.TempDir(), "doubleagent")
+	binary := filepath.Join(t.TempDir(), "doubleagent"+executableSuffix)
 	command := exec.Command(goTool, "build", "-o", binary, "./cmd/doubleagent")
 	command.Dir = repository
 	command.Env = append(os.Environ(), "CGO_ENABLED=0")

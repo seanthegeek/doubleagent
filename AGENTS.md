@@ -523,7 +523,9 @@ for Go files as it does for the others.
   delete their output: a run without a root collects the developer's own
   credentials. The parity harness
   (`internal/collect/parity`, build tag `parity`) diffs the binary against
-  the sh collector over the smoke image and runs in CI on the three runners.
+  the sh collector over the sh smoke image on Linux and macOS and against the
+  PowerShell collector over the PowerShell smoke image on Windows, and runs
+  in CI on the three runners.
 - **Builds.** `.github/go-build.sh` builds the six `GOOS`/`GOARCH` targets
   with `CGO_ENABLED=0 go build -trimpath -ldflags=-buildid=`; CI runs it
   twice per commit and compares the hashes. The version is one string in

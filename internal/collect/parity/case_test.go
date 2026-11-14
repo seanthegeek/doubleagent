@@ -13,7 +13,7 @@ import (
 // lines. The strings of args, root, cwd, env and outDir may hold {ROOT},
 // {WORK}, {ALICE}, {BOB} and {OUT}: the image root, the image's work
 // directory, two homes in the image and the run's output directory. expect,
-// when set, rewrites the sh collector's run into the run the binary writes
+// when set, rewrites the reference collector's run into the run the binary writes
 // by design, before both are normalised: one of the parity exceptions listed
 // at the top of harness_unix_test.go.
 type parityCase struct {
@@ -78,15 +78,16 @@ func (c parityCase) outputDir(t *testing.T, img image) (dir string, shared bool)
 	return dir, false
 }
 
-// requireOutput fails the case when the sh collector left nothing to compare,
+// requireOutput fails the case when the reference collector (the sh one on
+// Unix, the PowerShell one on Windows) left nothing to compare,
 // which would make every comparison pass on two empty runs.
 func (c parityCase) requireOutput(t *testing.T, want collectorRun) {
 	t.Helper()
 	if want.stdout == "" {
-		t.Fatalf("the sh collector wrote no standard output to compare (exit %d): %s", want.code, want.stderr)
+		t.Fatalf("the reference collector wrote no standard output to compare (exit %d): %s", want.code, want.stderr)
 	}
 	if !c.inventory && (want.files[".manifest.jsonl"] == "" || len(want.members) == 0) {
-		t.Fatalf("the sh collector wrote no manifest or archive to compare (exit %d): %s", want.code, want.stderr)
+		t.Fatalf("the reference collector wrote no manifest or archive to compare (exit %d): %s", want.code, want.stderr)
 	}
 }
 
@@ -111,7 +112,7 @@ func (c parityCase) compare(t *testing.T, img image, reference oracle, binary []
 	t.Helper()
 	referenceDir, shared := c.outputDir(t, img)
 	want := reference(t, c.invocation(img, referenceDir))
-	c.requireNoOutput(t, "sh collector", referenceDir)
+	c.requireNoOutput(t, "reference collector", referenceDir)
 	c.requireOutput(t, want)
 	if c.expect != nil {
 		c.expect(t, img, &want)

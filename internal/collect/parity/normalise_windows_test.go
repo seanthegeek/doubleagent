@@ -17,14 +17,20 @@ import (
 )
 
 // Patterns of the Windows normalisation: the log's times, the two start
-// lines, the lines only one of the collectors writes, the two wordings it
-// spells its own way, the reasons the comparison cuts, and stdout's archive
-// lines, resolved count and inventory volatiles.
+// lines, the done line's archive size and hash, the lines only one of the
+// collectors writes, the wordings that name an option in each collector's
+// own spelling, the reasons the comparison cuts, the PowerShell collector's
+// archiver fallback notes, and stdout's archive lines, resolved count and
+// inventory volatiles.
 var (
 	windowsLogTime   = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z `)
 	windowsStartLine = regexp.MustCompile(`^\S+ \S+ starting on .* (mode=\S+ root=.*?)(?: (?:uid|run_as)=.*)?$`)
 	windowsOptions   = regexp.MustCompile(`^(?:archive|hash)=.*? (max_file_size=.*)$`)
 	windowsFlag      = regexp.MustCompile(`=(True|False)\b`)
+	windowsDone      = regexp.MustCompile(`^(done: .*?) \([0-9]+ bytes, sha256 [0-9a-f]+\)$`)
+	inventoryNote    = regexp.MustCompile(`^NOTE: -Inventory writes nothing; -OutputDir (.*) ignored$`)
+	invalidSize      = regexp.MustCompile(`(?m)^Invalid (--max-file-size|--env-scan-max-size): .*$`)
+	archiverNote     = regexp.MustCompile(`; fell back to |^tar failed; `)
 	powerShellOnly   = regexp.MustCompile(`^(?:discovery source unreadable: |stat failed: |(?:NOTE: )?tar(?:\.exe)? failed)`)
 	windowsReason    = regexp.MustCompile(`^((?:read failed|copy failed|symlink not recreated): .+?: |.*? not readable: |` +
 		`WARNING: project given with -p is not a directory: .+?: ).*$`)
@@ -46,17 +52,17 @@ func newWindowsNormaliser() normaliser {
 		case run.code != 0 && !binary:
 			reference = stderr
 		case run.code != 0:
-			stderr = withoutSpace(stderr)
+			stderr = withoutSpace(invalidSize.ReplaceAllStringFunc(stderr, powerShellUsage))
 			if stderr != "" && strings.Contains(reference, stderr) {
 				stderr = reference
 			}
 		case logOnStderr:
-			stderr = sortedLines(normalWindowsLog(stderr, binary))
+			stderr = sortedLines(normalWindowsLog(stderr, binary, false))
 		}
 		files := map[string]string{
 			".manifest.jsonl":  normalManifest(run.files[".manifest.jsonl"]),
 			".collection.json": normalSummary(run.files[".collection.json"], binary),
-			".log":             normalWindowsLog(run.files[".log"], binary),
+			".log":             normalWindowsLog(run.files[".log"], binary, true),
 			".archive":         normalWindowsArchive(run.members),
 		}
 		stdout := windowsStdout.ReplaceAllString(withoutCarriageReturns(run.stdout), "")
@@ -64,6 +70,16 @@ func newWindowsNormaliser() normaliser {
 		stdout = windowsInventory.ReplaceAllString(stdout, `"$1":X`)
 		return collectorRun{code: run.code, stdout: stdout, stderr: stderr, files: files}
 	}
+}
+
+// powerShellUsage returns the PowerShell collector's text for the binary's
+// usage error about a size option: the binary names its sh-style option and
+// the value, the collector its parameter alone.
+func powerShellUsage(message string) string {
+	if strings.Contains(message, "--env-scan-max-size") {
+		return "Invalid -EnvScanMaxSizeMB"
+	}
+	return "Invalid -MaxFileSizeMB"
 }
 
 // withoutCarriageReturns returns text with CRLF line ends turned into LF.
@@ -85,13 +101,18 @@ func sortedLines(text string) string {
 // writes dropped (the binary's sh-style find: line for a directory it cannot
 // list; the PowerShell collector's kinds in powerShellOnly), its two
 // wordings mapped onto the binary's, and the reasons of failure lines cut.
-// binary says the log is the Go binary's.
-func normalWindowsLog(text string, binary bool) string {
+// binary says the log is the Go binary's; timed says it is the log file,
+// whose lines carry times. Every untimed line of the PowerShell collector's
+// log file is written after the log is closed, by its archiver step (tar's
+// own error output, the fallback notes, staged-link cleanup), which the
+// binary has no counterpart for, so those are dropped too.
+func normalWindowsLog(text string, binary, timed bool) string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimSuffix(withoutCarriageReturns(text), "\n"), "\n") {
+		archiverLine := timed && !binary && !windowsLogTime.MatchString(line)
 		line = windowsLogTime.ReplaceAllString(line, "")
 		onlyOne := (binary && strings.HasPrefix(line, "find: ")) || (!binary && powerShellOnly.MatchString(line))
-		if onlyOne || strings.HasPrefix(line, "profile not accessible (skipped): ") {
+		if archiverLine || onlyOne || strings.HasPrefix(line, "profile not accessible (skipped): ") {
 			continue
 		}
 		lines = append(lines, normalWindowsLine(line))
@@ -112,6 +133,8 @@ func normalWindowsLine(line string) string {
 			return "=0"
 		})
 	}
+	line = windowsDone.ReplaceAllString(line, "$1")
+	line = inventoryNote.ReplaceAllString(line, "NOTE: --inventory writes nothing; -o $1 ignored")
 	line = strings.Replace(line, "WARNING: no user profile directories found", "WARNING: no user home directories found", 1)
 	line = strings.Replace(line, "WARNING: project given with -Project is not a directory: ",
 		"WARNING: project given with -p is not a directory: ", 1)
@@ -191,6 +214,8 @@ func normalSummary(text string, binary bool) string {
 	}
 	if binary {
 		blankFileHintValues(summary)
+	} else {
+		dropArchiverNotes(summary)
 	}
 	var out bytes.Buffer
 	encoder := json.NewEncoder(&out)
@@ -200,6 +225,23 @@ func normalSummary(text string, binary bool) string {
 		return fmt.Sprintf("collection.json not encodable (%v)", err)
 	}
 	return out.String()
+}
+
+// dropArchiverNotes removes the notes the PowerShell collector writes when
+// an archiver fails and it falls back to the next one; the binary has one
+// archiver.
+func dropArchiverNotes(summary map[string]any) {
+	notes, ok := summary["notes"].([]any)
+	if !ok {
+		return
+	}
+	kept := []any{}
+	for _, note := range notes {
+		if text, isText := note.(string); !isText || !archiverNote.MatchString(text) {
+			kept = append(kept, note)
+		}
+	}
+	summary["notes"] = kept
 }
 
 // blankFileHintValues sets the value of every relocation hint whose source
