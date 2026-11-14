@@ -2,13 +2,13 @@ package walk
 
 import (
 	"context"
-	"io/fs"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // CollectProject collects the project catalog in project for user, as
@@ -155,16 +155,24 @@ func ProjectLeavesRoot(root, project string) bool {
 
 // imageProbes returns the probes of the file system itself.
 func imageProbes() probes {
-	return probes{lstat: os.Lstat, readlink: os.Readlink}
+	return probes{isLink: isLinkProbe, readlink: os.Readlink}
+}
+
+// isLinkProbe reports whether path itself is a symlink or a junction, or
+// the error when it cannot be stat'ed.
+func isLinkProbe(path string) (bool, error) {
+	meta, err := fsmeta.Lstat(path)
+	return err == nil && meta.Kind == fsmeta.Symlink, err
 }
 
 // maxLinkHops bounds the links a project's path expands through, as the
 // kernel bounds a path's links, so a loop ends as unverifiable.
 const maxLinkHops = 40
 
-// probes are the two calls the root check makes on the image.
+// probes are the two calls the root check makes on the image: whether a
+// path is a link (a junction included), and a link's target.
 type probes struct {
-	lstat    func(path string) (fs.FileInfo, error)
+	isLink   func(path string) (bool, error)
 	readlink func(path string) (string, error)
 }
 
@@ -188,7 +196,7 @@ func projectScope(root, project string, probe probes) rootScope {
 	if root == "" {
 		return rootScope{}
 	}
-	physicalRoot, err := filepath.EvalSymlinks(root)
+	physicalRoot, err := stage.PhysicalDir(root)
 	if err != nil {
 		return rootScope{name: root, unverified: true}
 	}
@@ -224,15 +232,15 @@ func (walker rootWalk) walk(components []string) rootScope {
 			if current == walker.physical {
 				return rootScope{name: walker.given, unverified: true}
 			}
-			current = filepath.Dir(current)
+			current = parentDir(current)
 			continue
 		}
 		candidate := joinPath(current, component)
-		info, err := walker.probe.lstat(candidate)
+		isLink, err := walker.probe.isLink(candidate)
 		if err != nil {
 			return walker.unreadable(candidate)
 		}
-		if info.Mode()&fs.ModeSymlink == 0 {
+		if !isLink {
 			current = candidate
 			continue
 		}
@@ -252,7 +260,8 @@ func (walker rootWalk) walk(components []string) rootScope {
 // root for an absolute one) and the target's components, or the decision
 // when the target leads out of the root or the link cannot be verified. The
 // target is never cleaned: a ".." after a link inside it goes up from where
-// that link leads, so the walk takes it one component at a time.
+// that link leads, so the walk takes it one component at a time. A Windows
+// target is read with backslashes, so it is made canonical first.
 func (walker rootWalk) follow(parent, link string, hops int) (string, []string, rootScope) {
 	if hops > maxLinkHops {
 		return "", nil, walker.unreadable(link)
@@ -261,7 +270,8 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []string, 
 	if err != nil {
 		return "", nil, walker.unreadable(link)
 	}
-	if !filepath.IsAbs(target) {
+	target = syspath.FromNative(target)
+	if !syspath.IsAbs(target) {
 		return parent, strings.Split(target, "/"), rootScope{}
 	}
 	rest, inside := walker.relative(target)
@@ -277,11 +287,11 @@ func (walker rootWalk) unreadable(path string) rootScope {
 	return rootScope{name: walker.named(path), unverified: true, inImage: true}
 }
 
-// relative returns path less the resolved root or the root as given (which
-// resolves to it), and whether path lies under either.
-func (walker rootWalk) relative(path string) (string, bool) {
-	for _, root := range []string{walker.physical, filepath.Clean(walker.given)} {
-		if rest, inside := pathUnder(path, root); inside {
+// relative returns name less the resolved root or the root as given (which
+// resolves to it), and whether name lies under either.
+func (walker rootWalk) relative(name string) (string, bool) {
+	for _, root := range []string{walker.physical, path.Clean(walker.given)} {
+		if rest, inside := pathUnder(name, root); inside {
 			return rest, true
 		}
 	}
@@ -299,15 +309,26 @@ func (walker rootWalk) named(path string) string {
 }
 
 // pathUnder returns path less dir and true when path is dir or lies under
-// it, compared lexically.
+// it, compared lexically, ignoring case on Windows.
 func pathUnder(path, dir string) (string, bool) {
-	if path == dir {
+	if syspath.Equal(path, dir) {
 		return "", true
 	}
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
-	return strings.CutPrefix(path, dir)
+	return syspath.CutPrefix(path, dir)
+}
+
+// parentDir returns the directory holding path, a physical path under the
+// resolved root: everything before its last slash, or / for a path directly
+// under /.
+func parentDir(path string) string {
+	position := strings.LastIndexByte(path, '/')
+	if position <= 0 {
+		return "/"
+	}
+	return path[:position]
 }
 
 // joinPath returns name joined to dir with one slash.
@@ -330,7 +351,7 @@ func underRoot(root, physical string) string {
 	if physicalRoot == "/" {
 		return root + physical
 	}
-	if rest, found := strings.CutPrefix(physical, physicalRoot+"/"); found {
+	if rest, found := syspath.CutPrefix(physical, physicalRoot+"/"); found {
 		return root + "/" + rest
 	}
 	return physical
@@ -340,25 +361,27 @@ func underRoot(root, physical string) string {
 // catalog match's line ends in when its path runs through a symlinked
 // directory: the deepest inside its home, or the first leading out of it.
 func projectLine(user, project string, found place) string {
-	line := "Project " + project
+	native := syspath.ToNative
+	line := "Project " + native(project)
 	if user != "" {
-		line = "Project [" + user + "] " + project
+		line = "Project [" + user + "] " + native(project)
 	}
 	switch {
 	case found.notUnder:
 		return line + ": is outside the image root; not walked"
 	case found.unverified:
-		return line + ": under " + found.outOfRoot +
+		return line + ": under " + native(found.outOfRoot) +
 			", which cannot be verified to lie inside the image root; not walked"
 	case found.outOfRoot != "":
-		return line + ": under the symlinked directory " + found.outOfRoot +
+		return line + ": under the symlinked directory " + native(found.outOfRoot) +
 			", which leads out of the image root; not walked"
 	case found.outside && found.physical != "":
-		return line + " (through the symlinked directory " + found.links.Outside +
-			", archived under " + found.physical + ")"
+		return line + " (through the symlinked directory " + native(found.links.Outside) +
+			", archived under " + native(found.physical) + ")"
 	case !found.outside && found.links.From != "":
-		return line + " (through the symlinked directory " + found.links.From + ", archived under " +
-			physicalPath(project, found.links.From, found.links.Into) + ")"
+		return line + " (through the symlinked directory " + native(found.links.From) +
+			", archived under " +
+			native(physicalPath(project, found.links.From, found.links.Into)) + ")"
 	}
 	return line
 }

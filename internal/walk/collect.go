@@ -6,6 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -27,7 +28,7 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 				return err
 			}
 		}
-		header := "User " + home.User + " (" + home.Path + ")"
+		header := "User " + home.User + " (" + syspath.ToNative(home.Path) + ")"
 		err := collector.CollectCatalog(ctx, home.User, home.Path, collector.Tables.Catalog, header)
 		if err != nil {
 			return err
@@ -47,7 +48,7 @@ func (collector *Collector) WriteReadError(user, home, path, reason string) erro
 // catalogRun is the state of one CollectCatalog call: the header still to
 // log before the first line, the stager of paths under the base, the paths
 // the table's matches claim, and the symlinked directories already considered
-// for a row.
+// for a row, the last two keyed by syspath.Fold.
 type catalogRun struct {
 	user   string
 	base   string
@@ -78,7 +79,7 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 		claims: map[string]struct{}{}, seen: map[string]struct{}{}}
 	for _, match := range matches {
 		if match.Note == "" {
-			run.claims[match.Path] = struct{}{}
+			run.claims[syspath.Fold(match.Path)] = struct{}{}
 		}
 	}
 	for _, match := range matches {
@@ -103,17 +104,17 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 	}
 	path := readField(match.Path)
 	links, outside := LinkedParent(run.base, path)
-	line := "  [" + match.Agent + "] " + path
+	line := "  [" + match.Agent + "] " + syspath.ToNative(path)
 	switch {
 	case outside:
-		line += ": under the symlinked directory " + links.Outside +
+		line += ": under the symlinked directory " + syspath.ToNative(links.Outside) +
 			", which leads out of the base; not walked"
 		links.Passed = append(links.Passed, links.Outside)
 	case collector.Inventory && match.Agent == sharedAgent:
 		return nil
 	case links.From != "":
-		line += " (through the symlinked directory " + links.From + ", archived under " +
-			physicalPath(path, links.From, links.Into) + ")"
+		line += " (through the symlinked directory " + syspath.ToNative(links.From) +
+			", archived under " + syspath.ToNative(physicalPath(path, links.From, links.Into)) + ")"
 	}
 	if collector.Inventory && !outside {
 		collector.Records.Match(match.Agent, match.Glob)

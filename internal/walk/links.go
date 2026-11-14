@@ -2,11 +2,11 @@ package walk
 
 import (
 	"context"
-	"io/fs"
-	"os"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Links is what LinkedParent finds between a base and a path. Outside is the
@@ -55,7 +55,7 @@ func LinkedParent(base, path string) (Links, bool) {
 			root = strings.TrimSuffix(physicalBase, "/") + "/"
 		}
 		physical, err := stage.PhysicalDir(directory)
-		if err != nil || !strings.HasPrefix(physical+"/", root) {
+		if err != nil || !syspath.HasPrefix(physical+"/", root) {
 			return links, true
 		}
 		inside := strings.TrimSuffix((physical + "/")[len(root):], "/")
@@ -73,10 +73,11 @@ func baseOrRoot(base string) string {
 	return base
 }
 
-// isSymlink reports whether path itself is a symlink.
+// isSymlink reports whether path itself is a symlink or, on Windows, a
+// junction, which the walk never enters either.
 func isSymlink(path string) bool {
-	info, err := os.Lstat(path)
-	return err == nil && info.Mode()&fs.ModeSymlink != 0
+	meta, err := fsmeta.Lstat(path)
+	return err == nil && meta.Kind == fsmeta.Symlink
 }
 
 // physicalPath returns path with its leading from replaced by to, the path
@@ -103,12 +104,13 @@ func throughLinks(stager stage.Stager, from, into string) stage.Stager {
 	return stager.Through(from, into)
 }
 
-// claimed reports whether path, under base, is one of claims or lies under
-// one through real directories only, as test_claimed_path does: the claim's
-// own walk then records it, and a walk never descends a symlinked directory.
+// claimed reports whether path, under base, is one of claims (keyed by
+// syspath.Fold) or lies under one through real directories only, as
+// test_claimed_path does: the claim's own walk then records it, and a walk
+// never descends a symlinked directory.
 func claimed(path, base string, claims map[string]struct{}) bool {
 	for len(path) > len(base) {
-		if _, found := claims[path]; found {
+		if _, found := claims[syspath.Fold(path)]; found {
 			return true
 		}
 		position := strings.LastIndexByte(path, '/')
@@ -133,10 +135,11 @@ func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, 
 ) error {
 	baseStager := owner.stager
 	for _, link := range links {
-		if _, done := seen[link]; done {
+		key := syspath.Fold(link)
+		if _, done := seen[key]; done {
 			continue
 		}
-		seen[link] = struct{}{}
+		seen[key] = struct{}{}
 		if !isSymlink(link) || claimed(link, base, owner.claims) ||
 			collector.Manifest.HasPath(link) {
 			continue

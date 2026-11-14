@@ -5,7 +5,6 @@ package walk
 import (
 	"bytes"
 	"context"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -401,9 +400,9 @@ func (testCase outOfRootCase) checkProbes(t *testing.T, root, physical, project 
 	t.Helper()
 	var probed []string
 	record := probes{
-		lstat: func(path string) (fs.FileInfo, error) {
+		isLink: func(path string) (bool, error) {
 			probed = append(probed, path)
-			return os.Lstat(path)
+			return isLinkProbe(path)
 		},
 		readlink: func(path string) (string, error) {
 			probed = append(probed, path)

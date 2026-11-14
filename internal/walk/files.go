@@ -5,23 +5,27 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// plannedFile is one file through the staging phases: its lstat before the
-// copy, the outcome planned (an empty status means the file is to be copied)
-// and what the copy gave.
+// plannedFile is one file through the staging phases: its lstat and owner
+// before the copy, the outcome planned (an empty status means the file is to
+// be copied), why its link could not be recreated, and what the copy gave:
+// the hash, the bytes written or the error.
 type plannedFile struct {
 	path      string
 	meta      fsmeta.Meta
+	owner     string
 	kind      string
 	status    manifest.Status
 	secret    bool
 	target    string
+	linkError string
 	sha256    string
+	written   int64
 	copyError string
 }
 
@@ -67,13 +71,13 @@ func (collector *Collector) planFile(owner scope, path string,
 	secret func(string) bool,
 ) plannedFile {
 	meta, exists := lstatOrZero(path)
-	file := plannedFile{path: path, meta: meta, kind: "file"}
-	file.secret = secret != nil && secret(strings.TrimPrefix(path, owner.home+"/"))
+	file := plannedFile{path: path, meta: meta, kind: "file", owner: collector.ownerOf(path)}
+	relative, _ := syspath.CutPrefix(path, owner.home+"/")
+	file.secret = secret != nil && secret(relative)
 	switch {
 	case exists && meta.Kind == fsmeta.Symlink:
 		file.status, file.kind = manifest.Symlink, "symlink"
-		file.target, _ = os.Readlink(path)
-		_ = owner.stager.Symlink(path, file.target, meta.DirectoryLink())
+		planLink(owner, &file)
 	case exists && meta.Kind != fsmeta.File:
 		file.status, file.kind = manifest.SkippedSpecial, specialKind(meta.Kind)
 	case file.secret && collector.NoSecrets:
@@ -82,6 +86,21 @@ func (collector *Collector) planFile(owner scope, path string,
 		file.status = manifest.SkippedSize
 	}
 	return file
+}
+
+// planLink reads the target of the link file names and recreates the link at
+// its staged path. Where recordsLinkErrors holds, a link that cannot be read
+// or recreated keeps the reason, as Add-StagedLink returns it; the sh
+// collector ignores both failures and still tries ln -s with an empty target.
+func planLink(owner scope, file *plannedFile) {
+	target, err := os.Readlink(file.path)
+	file.target = target
+	if err == nil || !recordsLinkErrors {
+		err = owner.stager.Symlink(file.path, target, file.meta.DirectoryLink())
+	}
+	if err != nil && recordsLinkErrors {
+		file.linkError = innermostError(syspath.NativeErrors(err))
+	}
 }
 
 // specialKind names a special file's kind as the manifest type does.
@@ -97,64 +116,81 @@ func specialKind(kind fsmeta.Kind) string {
 	return "other"
 }
 
-// transferFiles copies every file planned for a copy and records the hash or
-// the error. A failed copy's partial file is removed when it lies inside the
-// staging directory, and the log line says when it was not.
+// transferFiles copies every file planned for a copy and records the hash and
+// size or the error, and logs each link that could not be recreated.
 func (collector *Collector) transferFiles(owner scope, files []plannedFile) error {
 	for i := range files {
 		file := &files[i]
+		if file.linkError != "" {
+			line := "symlink not recreated: " + syspath.ToNative(file.path) + ": " + file.linkError
+			if err := collector.Log.Line(line); err != nil {
+				return err
+			}
+		}
 		if file.status != "" {
 			continue
 		}
-		hash, _, err := owner.stager.CopyFile(file.path)
+		hash, written, err := owner.stager.CopyFile(file.path)
 		if err == nil {
-			file.status, file.sha256 = manifest.Collected, hash
+			file.status, file.sha256, file.written = manifest.Collected, hash, written
 			continue
 		}
-		file.status, file.copyError = manifest.ErrorCopy, innermostError(err)
-		note := ""
-		if _, dest := owner.stager.Dest(file.path); !owner.stager.RemoveFailedCopy(dest) {
-			note = "; staged path resolves outside the staging directory, not removed"
-		}
-		line := "copy failed: " + file.path + ": " + file.copyError + note
-		if err := collector.Log.Line(line); err != nil {
+		file.status, file.copyError = manifest.ErrorCopy, innermostError(syspath.NativeErrors(err))
+		if err := collector.logCopyFailure(owner, file); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// fileRow is the manifest row of one staged file.
+// logCopyFailure logs the copy failed: line of file. A failed copy's partial
+// file is removed when it lies inside the staging directory, and the line
+// says when it was not.
+func (collector *Collector) logCopyFailure(owner scope, file *plannedFile) error {
+	note := ""
+	if _, dest := owner.stager.Dest(file.path); !owner.stager.RemoveFailedCopy(dest) {
+		note = "; staged path resolves outside the staging directory, not removed"
+	}
+	return collector.Log.Line("copy failed: " + syspath.ToNative(file.path) + ": " +
+		file.copyError + note)
+}
+
+// fileRow is the manifest row of one staged file. A link that could not be
+// recreated has its reason as the error and no archive path.
 func fileRow(owner scope, file plannedFile) manifest.Row {
 	row := metaRow(owner, file.path, file.kind, file.meta)
 	row.Secret, row.Status, row.Target = file.secret, file.status, file.target
-	row.SHA256, row.Error = file.sha256, file.copyError
-	if file.status == manifest.Collected || file.status == manifest.Symlink {
+	row.SHA256, row.Error, row.Owner = file.sha256, file.copyError, file.owner
+	if file.linkError != "" {
+		row.Error = "not recreated in the archive: " + file.linkError
+	}
+	if file.status == manifest.Collected {
+		row.Size = collectedSize(file)
+	}
+	if file.status == manifest.Collected || (file.status == manifest.Symlink && row.Error == "") {
 		row.ArchivePath, _ = owner.stager.Dest(file.path)
 	}
 	return row
 }
 
 // writeExcluded writes one skipped_excluded row per path, as
-// EXCLUDED_PATHS_WORKER does: a directory, or a link to one, as a dir row
-// sized as du -sk sizes it with its other metadata 0, anything else as a
-// file row with its lstat. It stops with ctx's error when ctx is cancelled
-// while a directory is being sized.
+// EXCLUDED_PATHS_WORKER and Add-ExcludedPath do: a directory as a dir row
+// sized with fsmeta.DiskUsageBytes, its other metadata as excludedMeta gives
+// it, anything else as a file row with its lstat. The owner is never read.
+// It stops with ctx's error when ctx is cancelled while a directory is being
+// sized.
 func (collector *Collector) writeExcluded(ctx context.Context, owner scope, paths []string,
 ) error {
 	for _, path := range paths {
-		var row manifest.Row
-		if pointsToDir(path) {
+		kind, meta, isDir := excludedMeta(path)
+		if isDir {
 			size, err := fsmeta.DiskUsageBytes(ctx, path)
 			if err != nil {
 				return err
 			}
-			row = metaRow(owner, path, "dir", zeroMeta())
-			row.Size = size
-		} else {
-			meta, _ := lstatOrZero(path)
-			row = metaRow(owner, path, "file", meta)
+			meta.Size = size
 		}
+		row := metaRow(owner, path, kind, meta)
 		row.Status = manifest.SkippedExcluded
 		if err := collector.Manifest.Write(row); err != nil {
 			return err
@@ -164,21 +200,32 @@ func (collector *Collector) writeExcluded(ctx context.Context, owner scope, path
 }
 
 // writeReadErrors writes one error_read row per directory, with its lstat
-// metadata and size 0, and its log line, as write_read_error_row does.
+// metadata, size 0 and, when it is a directory that can be seen, its owner,
+// and its log line, as write_read_error_row and Write-ReadErrorRow do.
 func (collector *Collector) writeReadErrors(owner scope, failures []readError) error {
 	for _, failure := range failures {
 		meta, _ := lstatOrZero(failure.path)
 		row := metaRow(owner, failure.path, "dir", meta)
 		row.Size, row.Status, row.Error = 0, manifest.ErrorRead, failure.reason
+		if collector.Owners != nil && isVisibleDir(failure.path) {
+			row.Owner = collector.ownerOf(failure.path)
+		}
 		if err := collector.Manifest.Write(row); err != nil {
 			return err
 		}
-		line := "read failed: " + failure.path + ": " + failure.reason
+		line := "read failed: " + syspath.ToNative(failure.path) + ": " + failure.reason
 		if err := collector.Log.Line(line); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// isVisibleDir reports whether path is a directory, or a link to one, that
+// can be seen, the Test-Path -PathType Container test of Write-ReadErrorRow.
+func isVisibleDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 // recordFiles gives each path's size and modification time to the inventory
@@ -190,36 +237,28 @@ func (collector *Collector) recordFiles(owner scope, paths []string) {
 	}
 }
 
-// metaRow is a row of owner for path with the metadata of meta.
+// metaRow is a row of owner for path with the metadata of meta. Attributes
+// are written as .NET names them when there are any; Unix has none.
 func metaRow(owner scope, path, kind string, meta fsmeta.Meta) manifest.Row {
-	return manifest.Row{
+	row := manifest.Row{
 		User: owner.user, Home: owner.home, Agent: owner.agent, Path: path, Type: kind,
 		Size: meta.Size, Mtime: meta.Mtime, Atime: meta.Atime, Ctime: meta.Ctime,
 		Btime: meta.Btime, UID: meta.UID, GID: meta.GID, Mode: meta.Mode,
 	}
+	if meta.Attributes != 0 {
+		row.Attributes = fsmeta.AttributesString(meta.Attributes)
+	}
+	return row
 }
 
-// lstatOrZero returns path's lstat and true, or the all-zero metadata the sh
-// collector writes when stat prints nothing, with mode "0", and false.
+// lstatOrZero returns path's lstat and true, or fsmeta.ZeroMeta, the
+// metadata of a path that cannot be described, and false.
 func lstatOrZero(path string) (fsmeta.Meta, bool) {
 	meta, err := fsmeta.Lstat(path)
 	if err != nil {
-		return zeroMeta(), false
+		return fsmeta.ZeroMeta(), false
 	}
 	return meta, true
-}
-
-// zeroMeta is the metadata of the sh collector's "0 0 0 0 0 0 0 0" stat line.
-func zeroMeta() fsmeta.Meta {
-	return fsmeta.Meta{Mode: "0"}
-}
-
-// pointsToDir reports whether path is a directory or a symlink to one, the
-// test(1) -d the excluded-path worker applies. Only the type is read, so
-// following the link reads nothing through it.
-func pointsToDir(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
 }
 
 // innermostError returns the text of the innermost *fs.PathError in err, the

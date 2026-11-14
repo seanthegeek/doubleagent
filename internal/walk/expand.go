@@ -1,7 +1,6 @@
 package walk
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -98,9 +97,7 @@ func dropSameFile(match Match, kept string) Match {
 	identity, ok := fileID(match.Path)
 	keptID, keptOK := fileID(kept)
 	if match.Path == kept || (ok && keptOK && identity == keptID) {
-		match.Note = fmt.Sprintf(
-			"  [%s] %s: same file as %s (case-insensitive filesystem), collected there",
-			match.Agent, match.Path, kept)
+		match.Note = variantNote(match, kept)
 	}
 	return match
 }

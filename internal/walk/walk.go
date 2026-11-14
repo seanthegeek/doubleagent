@@ -8,6 +8,7 @@ package walk
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
@@ -40,7 +41,8 @@ type Records interface {
 // exclusion table (empty under --full); Secret tells whether a path, relative
 // to its base, is a credential file; MaxSize is the size cap in bytes, 0 for
 // none. Under Inventory nothing is staged or written: matches and files go to
-// Records.
+// Records. Owners names the owners the Windows rows record; nil records none.
+// It is not safe for concurrent use, which the sequential walk never needs.
 type Collector struct {
 	Tables    *catalog.Tables
 	Excludes  []string
@@ -53,6 +55,15 @@ type Collector struct {
 	NoSecrets bool
 	Inventory bool
 	Records   Records
+	Owners    *fsmeta.Owners
+}
+
+// ownerOf returns the owner of path itself for its row, or "" without Owners.
+func (collector *Collector) ownerOf(path string) string {
+	if collector.Owners == nil {
+		return ""
+	}
+	return collector.Owners.Name(path)
 }
 
 // MatchAny returns a test that is true when a path matches any of globs as
@@ -70,7 +81,8 @@ func MatchAny(globs []string) func(string) bool {
 }
 
 // scope is what one collect_path call carries: whose rows it writes, where
-// its files are staged and which paths other catalog lines claim.
+// its files are staged and which paths other catalog lines claim, keyed by
+// syspath.Fold.
 type scope struct {
 	user   string
 	home   string

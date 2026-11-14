@@ -1,0 +1,25 @@
+package walk
+
+import (
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"golang.org/x/sys/windows"
+)
+
+// collectedSize is the size a collected file's row records: the bytes
+// copied, as Copy-FileShared returns them, since a file another process
+// writes may have grown since its lstat.
+func collectedSize(file plannedFile) int64 {
+	return file.written
+}
+
+// excludedMeta returns the type and metadata of an excluded path's row, and
+// whether it is sized as a directory, as Add-ExcludedPath writes it: the
+// path's own times and attributes, as a dir when Windows marks it a
+// directory (a junction or directory symlink included), else as a file.
+func excludedMeta(path string) (string, fsmeta.Meta, bool) {
+	meta, _ := lstatOrZero(path)
+	if meta.Attributes&windows.FILE_ATTRIBUTE_DIRECTORY != 0 {
+		return "dir", meta, true
+	}
+	return "file", meta, false
+}
