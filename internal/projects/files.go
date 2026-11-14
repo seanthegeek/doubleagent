@@ -4,34 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"os"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
-
-// openRegular opens path for reading when it is a regular file, never
-// following a symlink at its last component and never opening a pipe or a
-// device, which grep would block on or read without end.
-func openRegular(path string) (*os.File, error) {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("open %s: not a regular file", path)
-	}
-	handle, err := openNoFollow(path)
-	if err != nil {
-		return nil, err
-	}
-	if opened, err := handle.Stat(); err != nil || !opened.Mode().IsRegular() {
-		handle.Close()
-		return nil, fmt.Errorf("open %s: not a regular file", path)
-	}
-	return handle, nil
-}
 
 // scanLines calls each with every line of the regular file at path, without
 // its newline, the last line also when no newline ends it, as grep reads a
@@ -39,7 +17,7 @@ func openRegular(path string) (*os.File, error) {
 // grep then takes the file as binary and prints none of its lines, so the
 // caller discards what each gathered. A read error keeps the lines before it.
 func scanLines(path string, each func(line []byte)) bool {
-	handle, err := openRegular(path)
+	handle, err := fsmeta.OpenRegular(path)
 	if err != nil {
 		return false
 	}
@@ -76,7 +54,7 @@ func grepFiles(files []string, extract func(line []byte) []string) []string {
 // readWhole returns the bytes of the regular file at path, or false when it
 // cannot be opened or holds a NUL byte (the binary-file rule of scanLines).
 func readWhole(path string) ([]byte, bool) {
-	handle, err := openRegular(path)
+	handle, err := fsmeta.OpenRegular(path)
 	if err != nil {
 		return nil, false
 	}

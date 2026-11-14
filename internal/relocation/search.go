@@ -10,10 +10,10 @@ package relocation
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -220,7 +220,7 @@ func (run *search) recordFileHints(user, home, path string) error {
 // boundedNamesOf returns the hits of the file at path; a file that cannot be
 // read has none, as grep lists no file it cannot open.
 func (run *search) boundedNamesOf(path string) []LineName {
-	file, err := openNoFollow(path)
+	file, err := fsmeta.OpenRegular(path)
 	if err != nil {
 		return nil
 	}
@@ -250,7 +250,7 @@ func (run *search) resolve(path, kind, home string, hits []LineName) FileValues 
 	if kind == "launchd" {
 		return ResolvePlist(run.deps.Plutil, path, hits)
 	}
-	file, err := openNoFollow(path)
+	file, err := fsmeta.OpenRegular(path)
 	if err != nil {
 		return FileValues{}
 	}
@@ -262,14 +262,4 @@ func (run *search) resolve(path, kind, home string, hits []LineName) FileValues 
 		assignments, _ = ResolveEnvironmentD(file, run.names, home)
 	}
 	return FileValues{Assignments: assignments}
-}
-
-// openNoFollow opens a regular file for reading without following a symlink
-// in its last component.
-func openNoFollow(path string) (*os.File, error) {
-	file, err := os.OpenFile(path, os.O_RDONLY|noFollow, 0)
-	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", path, err)
-	}
-	return file, nil
 }
