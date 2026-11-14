@@ -466,7 +466,7 @@ for Go files as it does for the others.
 
   | Module | Version | Why |
   | --- | --- | --- |
-  | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; pure Go. |
+  | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; on Windows the calls the standard library does not expose: file handles opened without following a reparse point, the reparse tag that tells a symlink or junction from a socket, file owners through the security descriptor and account lookup, final paths of handles, directory symlinks, file times set on a handle, and the registry; pure Go. |
 
 - **Programs run.** `os/exec` is imported by `internal/hostcmd` and test
   files only, and runs only `getent`, `dscl` and `plutil`: the programs that
