@@ -34,6 +34,40 @@ func TestDiscoverReadsDrivePathsAndIgnoresCase(t *testing.T) {
 	}
 }
 
+func TestDiscoverReadsDriveKeysAndStrings(t *testing.T) {
+	cases := []struct {
+		name    string
+		source  string
+		content string
+		project string
+	}{
+		{"a Gemini projects.json drive key", ".gemini/projects.json", `{"projects":{"C:\\gem":"gem"}}`, "gem"},
+		{"a pi trust.json drive key", ".pi/agent/trust.json", `{"C:\\pitrust":true}`, "pitrust"},
+		{"a muse trust.json drive key", ".config/muse/trust.json",
+			`{"schema_version":1,"projects":{"C:\\musetrust":{"decision":"trusted"}}}`, "musetrust"},
+		{"a relocated Claude Code home's .claude.json drive key", ".claude-work/.claude.json",
+			`{"projects":{"C:\\ccwork":{"allowedTools":[]}}}`, "ccwork"},
+		{"the directory a Twinny manifest's drive paths share", ".twinny/embeddings/twinproj/manifest.json",
+			`{"files":{"C:\\twinproj\\src\\a.ts":{"hash":"h1"},"C:\\twinproj\\b.ts":{"hash":"h2"}}}`,
+			"twinproj"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := syspath.FromNative(t.TempDir())
+			writeTree(t, root, map[string]string{"Users/alice/" + testCase.source: testCase.content},
+				testCase.project)
+			homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
+			got, err := Discover(context.Background(), homes, root, nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := []Project{{"alice", root + "/" + testCase.project}}; !reflect.DeepEqual(got, want) {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestProjectComparisonsIgnoreCase(t *testing.T) {
 	t.Run("an owner's home matches in any case", func(t *testing.T) {
 		if got := projectOwner("alice:C:/Users/Alice", "c:/users/alice/p"); got != "alice" {

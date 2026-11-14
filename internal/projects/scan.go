@@ -55,13 +55,13 @@ func (s *homeScan) jsonValues(key string, files []string) {
 // jsonPathKeys is json_path_keys over one file: next follows the colon.
 func (s *homeScan) jsonPathKeys(file, next string) {
 	if isRegularFile(file) && len(s.readable([]string{file})) == 1 {
-		s.emit(grepFiles([]string{file}, jsonPathKeyMatcher(next)))
+		s.emit(grepFiles([]string{file}, jsonPathKeyMatcher(next, s.rules)))
 	}
 }
 
 // absStrings returns abs_strings over files.
 func (s *homeScan) absStrings(files []string) []string {
-	return grepFiles(s.readable(files), absStringMatcher())
+	return grepFiles(s.readable(files), absStringMatcher(s.rules))
 }
 
 // sessionCwds is session_cwds: the cwd values of the files named name below

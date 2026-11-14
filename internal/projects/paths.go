@@ -16,6 +16,11 @@ type pathRules struct {
 	// dropPOSIXLive drops a value starting with / on a live run, since it
 	// names no place on a Windows host.
 	dropPOSIXLive bool
+	// driveJSON widens the JSON key and string readers to drive paths, as
+	// the PowerShell collector's Get-JsonKeys and Get-PathStrings read them:
+	// a key starting with a letter and a colon, a string starting with a
+	// letter, a colon and an escaped backslash (`"C:\\x"`).
+	driveJSON bool
 }
 
 // asciiBlanks are the bytes .NET's String.Trim removes that a path can hold
