@@ -37,8 +37,9 @@
 //     whose target leads out of the staging directory: an error_copy row
 //     beside a copy failed line, and the totals count it (hostProject in
 //     exceptions_test.go). Since nothing was collected from it, the binary
-//     leaves the project out of collection.json projects and the stdout
-//     projects count, where the sh collector lists it.
+//     leaves the project out of collection.json projects, the stdout
+//     projects count and the inventory's per-user projects count, where the
+//     sh collector lists it.
 //   - projargs: under an image root, a -p value not under the root
 //     (/nonexistent-cac/proj) is never tested for a directory, since the
 //     answer would be the analyst's host's: the binary logs "Project P: is
