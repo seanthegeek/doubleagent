@@ -228,11 +228,16 @@ func isVisibleDir(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// recordFiles gives each path's size and modification time to the inventory
-// records, as INVENTORY_FILES_WORKER prints them.
+// recordFiles gives each regular file's size and modification time to the
+// inventory records, as INVENTORY_FILES_WORKER prints them. A path lstat
+// describes as anything else (a reparse point Windows lists as a regular
+// file) is not counted, as Add-CollectedFile counts only type file.
 func (collector *Collector) recordFiles(owner scope, paths []string) {
 	for _, path := range paths {
-		meta, _ := lstatOrZero(path)
+		meta, exists := lstatOrZero(path)
+		if exists && meta.Kind != fsmeta.File {
+			continue
+		}
 		collector.Records.File(owner.agent, max(meta.Size, 0), max(meta.Mtime, 0))
 	}
 }

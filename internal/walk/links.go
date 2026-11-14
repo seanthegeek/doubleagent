@@ -73,11 +73,21 @@ func baseOrRoot(base string) string {
 	return base
 }
 
-// isSymlink reports whether path itself is a symlink or, on Windows, a
-// junction, which the walk never enters either.
+// isSymlink reports whether path itself is a link the walk never enters: a
+// symlink or, on Windows, any reparse point (a junction, a cloud placeholder
+// directory), as Get-LinkedParent and Test-IsLink test the ReparsePoint
+// attribute.
 func isSymlink(path string) bool {
 	meta, err := fsmeta.Lstat(path)
-	return err == nil && meta.Kind == fsmeta.Symlink
+	return err == nil && isLinkMeta(meta)
+}
+
+// reparsePointAttribute is FILE_ATTRIBUTE_REPARSE_POINT, never set on Unix.
+const reparsePointAttribute = 0x400
+
+// isLinkMeta reports whether meta describes a symlink or a reparse point.
+func isLinkMeta(meta fsmeta.Meta) bool {
+	return meta.Kind == fsmeta.Symlink || meta.Attributes&reparsePointAttribute != 0
 }
 
 // physicalPath returns path with its leading from replaced by to, the path

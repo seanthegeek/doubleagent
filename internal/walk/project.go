@@ -158,11 +158,11 @@ func imageProbes() probes {
 	return probes{isLink: isLinkProbe, readlink: os.Readlink}
 }
 
-// isLinkProbe reports whether path itself is a symlink or a junction, or
-// the error when it cannot be stat'ed.
+// isLinkProbe reports whether path itself is a symlink or, on Windows, any
+// reparse point, or the error when it cannot be stat'ed.
 func isLinkProbe(path string) (bool, error) {
 	meta, err := fsmeta.Lstat(path)
-	return err == nil && meta.Kind == fsmeta.Symlink, err
+	return err == nil && isLinkMeta(meta), err
 }
 
 // maxLinkHops bounds the links a project's path expands through, as the

@@ -455,3 +455,92 @@ func TestProjectsThroughJunctionsOnWindows(t *testing.T) {
 		t.Errorf("events %q lack %q", recorder.written, wantLine)
 	}
 }
+
+// customTag is a reparse tag no Microsoft filter owns, standing in for a
+// cloud placeholder: neither a symlink nor a junction.
+const customTag = 0x00001234
+
+// customReparseData lays out a REPARSE_GUID_DATA_BUFFER for customTag: the
+// tag, the data length, a reserved word, the owner's GUID and the data.
+func customReparseData(payload []byte) []byte {
+	data := binary.LittleEndian.AppendUint32(nil, customTag)
+	data = binary.LittleEndian.AppendUint16(data, uint16(len(payload)))
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = append(data, []byte("doubleagent-test")...)
+	return append(data, payload...)
+}
+
+// controlReparsePoint opens path itself for writing and applies control to
+// it with data, returning the error.
+func controlReparsePoint(path string, control uint32, data []byte) error {
+	name, err := windows.UTF16PtrFromString(syspath.ToNative(path))
+	if err != nil {
+		return err
+	}
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(handle)
+	var returned uint32
+	return windows.DeviceIoControl(handle, control, &data[0], uint32(len(data)), nil, 0,
+		&returned, nil)
+}
+
+// makeCustomReparsePoint sets customTag on path, an existing file or empty
+// directory, skipping the test when the system refuses, and removes the tag
+// again when the test ends so the temporary directory can be removed.
+func makeCustomReparsePoint(t *testing.T, path string) {
+	t.Helper()
+	err := controlReparsePoint(path, windows.FSCTL_SET_REPARSE_POINT, customReparseData([]byte{1}))
+	if err != nil {
+		t.Skipf("setting a third-party reparse tag on %s: %v", path, err)
+	}
+	t.Cleanup(func() {
+		_ = controlReparsePoint(path, windows.FSCTL_DELETE_REPARSE_POINT, customReparseData(nil))
+	})
+}
+
+// fileRecords keeps the files an inventory walk counts.
+type fileRecords struct{ sizes []int64 }
+
+// Match ignores a catalog match.
+func (records *fileRecords) Match(string, string) {}
+
+// File keeps a file's size.
+func (records *fileRecords) File(_ string, size, _ int64) {
+	records.sizes = append(records.sizes, size)
+}
+
+func TestOtherReparsePointsAreLinksNeverEntered(t *testing.T) {
+	home := physicalTemp(t)
+	writeFiles(t, home, ".tool/a.txt", ".tool/placeholder.txt")
+	directory := home + "/.tool/placeholder"
+	mustDo(t, os.Mkdir(directory, 0o755))
+	makeCustomReparsePoint(t, directory)
+	makeCustomReparsePoint(t, home+"/.tool/placeholder.txt")
+	if !isSymlink(directory) {
+		t.Error("a directory with another reparse tag is not a link")
+	}
+	if links, outside := LinkedParent(home, directory+"/x"); !outside && links.From != directory {
+		t.Errorf("LinkedParent through the placeholder = %+v, %v; want it taken as a link",
+			links, outside)
+	}
+	collector, recorder := windowsCollector(t, "", nil)
+	_, err := collector.CollectPath(context.Background(), "u", home, "agent", home+"/.tool")
+	mustDo(t, err)
+	want := []string{`row .tool\a.txt collected`, `row .tool\placeholder skipped_special`,
+		`row .tool\placeholder.txt skipped_special`}
+	if got := recorder.summary(t, home); !slices.Equal(got, want) {
+		t.Errorf("events %q, want %q", got, want)
+	}
+	inventory, _ := windowsCollector(t, "", nil)
+	records := &fileRecords{}
+	inventory.Inventory, inventory.Records = true, records
+	_, err = inventory.CollectPath(context.Background(), "u", home, "agent", home+"/.tool")
+	mustDo(t, err)
+	if !slices.Equal(records.sizes, []int64{int64(len(".tool/a.txt"))}) {
+		t.Errorf("inventory sizes %v, want a.txt only", records.sizes)
+	}
+}

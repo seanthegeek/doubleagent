@@ -409,6 +409,20 @@ func TestInventoryRecordsWithoutStaging(t *testing.T) {
 	}
 }
 
+func TestInventoryCountsOnlyRegularFiles(t *testing.T) {
+	base := fixture{files: []string{"f"}}.build(t)
+	mustDo(t, syscall.Mkfifo(base+"/fifo", 0o644))
+	collector, _, _ := testCollector(t, base, nil)
+	records := &inventoryRecords{}
+	collector.Inventory, collector.Records = true, records
+	owner := scope{user: "u", home: base, agent: "tool"}
+	collector.recordFiles(owner, []string{base + "/f", base + "/fifo", base + "/missing"})
+	want := []string{"F|tool|" + strconv.Itoa(len("f")), "F|tool|0"}
+	if !reflect.DeepEqual(records.lines, want) {
+		t.Errorf("records %q, want the file and the missing path only", records.lines)
+	}
+}
+
 func TestCancelledContextStopsTheWalk(t *testing.T) {
 	base := fixture{files: []string{"m/a"}}.build(t)
 	collector, rows, _ := testCollector(t, base, nil)
