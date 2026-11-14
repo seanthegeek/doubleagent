@@ -84,7 +84,7 @@ func projectsLogged(t *testing.T, logPath string) []Project {
 func compareWithSh(t *testing.T, root string, extra []string) int {
 	t.Helper()
 	homes := users.Enumerate(false, root, "", nil)
-	got, err := Discover(context.Background(), homes, root, extra, nil)
+	got, err := Discover(context.Background(), homes, root, extra, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -66,8 +66,12 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	if state.options.Inventory {
 		dropSecret = walk.MatchAny(state.tables.SecretGlobs)
 	}
+	var leavesRoot func(string) bool
+	if state.options.Root != "" {
+		leavesRoot = state.projectLeavesRoot
+	}
 	found, err := projects.Discover(ctx, state.homes, state.options.Root, state.options.Projects,
-		dropSecret)
+		dropSecret, leavesRoot)
 	if err != nil {
 		return err
 	}
@@ -106,12 +110,28 @@ func enclosingHome(homes []users.Home, path string) string {
 	return ""
 }
 
+// projectLeavesRoot reports whether path, a project, lies outside the image
+// root or leads out of it (walk.ProjectLeavesRoot): whether it is a
+// directory is then the analyst's host's answer, so it is never asked, and
+// the project step logs the project as not walked instead.
+func (state *runState) projectLeavesRoot(path string) bool {
+	return walk.ProjectLeavesRoot(state.options.Root, path)
+}
+
+// projectNotWalked reports whether the project step leaves path, a project,
+// unwalked: out of the image root or not verifiable inside it.
+func (state *runState) projectNotWalked(path string) bool {
+	_, out := walk.ProjectOutOfRoot(state.options.Root, path)
+	return out
+}
+
 // reportMissingProjects logs every -p value that is not a directory and,
 // outside --inventory, writes its error_read row with zero metadata, as
-// report_missing_projects does.
+// report_missing_projects does. A value that leaves the image root is
+// skipped untested, whatever the analyst's host holds there.
 func (state *runState) reportMissingProjects() error {
 	for _, path := range state.options.Projects {
-		if path == "" || isDirectory(path) {
+		if path == "" || state.projectLeavesRoot(path) || isDirectory(path) {
 			continue
 		}
 		reason, failed := fsmeta.DirReadError(path)
@@ -156,7 +176,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 		// A project the project step leaves unwalked, out of the image root or
 		// not verifiable inside it, is not searched either: its files may be
 		// on the analyst's host.
-		if _, out := walk.ProjectOutOfRoot(state.options.Root, project.Path); !out {
+		if !state.projectNotWalked(project.Path) {
 			projectHomes = append(projectHomes, users.Home{User: project.Owner, Path: project.Path})
 		}
 	}

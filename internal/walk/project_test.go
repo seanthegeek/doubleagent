@@ -413,7 +413,9 @@ func (testCase outOfRootCase) checkProbes(t *testing.T, root, physical, project 
 	found := projectScope(root, project, record)
 	want := rootScope{}
 	if testCase.notWalked != "" {
-		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified}
+		// The one unverified case is a link loop inside the root.
+		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified,
+			inImage: testCase.unverified}
 	}
 	if found != want {
 		t.Errorf("scope %+v, want %+v", found, want)
@@ -433,23 +435,46 @@ func TestProjectOutOfRootWithoutAnyLink(t *testing.T) {
 	cases := []struct {
 		name, root, project string
 		want                rootScope
+		leaves              bool
 	}{
 		{"a root that does not resolve cannot be verified", root + "/gone", root + "/gone/proj",
-			rootScope{name: root + "/gone", unverified: true}},
+			rootScope{name: root + "/gone", unverified: true}, true},
 		{"a project outside the root as given is outside", root + "/home", root + "/srv",
-			rootScope{name: root + "/srv", unverified: true}},
+			rootScope{name: root + "/srv", outside: true}, true},
 		{"a dot-dot above the root cannot be verified", root + "/home", root + "/home/../home/dot",
-			rootScope{name: root + "/home", unverified: true}},
-		{"a dot-dot inside the root stays inside", root, root + "/home/dot/../dot/./proj", rootScope{}},
-		{"a missing component inside the root cannot be verified", root, root + "/home/nope/proj",
-			rootScope{name: root + "/home/nope", unverified: true}},
-		{"the root itself is inside", root, root, rootScope{}},
+			rootScope{name: root + "/home", unverified: true}, true},
+		{"a dot-dot inside the root stays inside", root, root + "/home/dot/../dot/./proj",
+			rootScope{}, false},
+		{"a missing component inside the root cannot be verified but stays in the image", root,
+			root + "/home/nope/proj", rootScope{name: root + "/home/nope", unverified: true,
+				inImage: true}, false},
+		{"the root itself is inside", root, root, rootScope{}, false},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			if got := projectScope(testCase.root, testCase.project, imageProbes()); got != testCase.want {
 				t.Errorf("scope %+v, want %+v", got, testCase.want)
 			}
+			if got := ProjectLeavesRoot(testCase.root, testCase.project); got != testCase.leaves {
+				t.Errorf("leaves the root %v, want %v", got, testCase.leaves)
+			}
 		})
+	}
+}
+
+func TestProjectOutsideTheRootAsGivenSaysSo(t *testing.T) {
+	root := fixture{dirs: []string{"home/dot"}}.build(t)
+	outside := fixture{files: []string{"proj/AGENTS.md"}}.build(t)
+	collector, rows, log := testCollector(t, root, nil)
+	collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
+		Glob: "AGENTS.md"}}}
+	project := outside + "/proj"
+	mustDo(t, collector.CollectProject(context.Background(), "", "", project))
+	want := []string{"Project " + project + ": is outside the image root; not walked"}
+	if !reflect.DeepEqual(log.lines, want) {
+		t.Errorf("log %q, want %q", log.lines, want)
+	}
+	if rows.Len() != 0 {
+		t.Errorf("rows %q, want none", rows.String())
 	}
 }

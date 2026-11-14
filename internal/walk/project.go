@@ -86,10 +86,12 @@ func ProjectStagers(stager stage.Stager, home, project, path string) PathStagers
 // inside its home, the first one leading out of it (in links.Outside, with
 // physical the project's resolved path), and the stager of its files.
 // outOfRoot is the symlinked directory by which the path leads out of the
-// image root, or the path that cannot be verified inside it (unverified).
+// image root, the path that cannot be verified inside it (unverified), or
+// the project itself when it is not under the root as given (notUnder).
 type place struct {
 	outOfRoot  string
 	unverified bool
+	notUnder   bool
 	links      Links
 	outside    bool
 	physical   string
@@ -106,7 +108,8 @@ type place struct {
 func projectPlace(stager stage.Stager, home, project string) place {
 	scope := projectScope(stager.Root, project, imageProbes())
 	if scope.name != "" {
-		return place{outOfRoot: scope.name, unverified: scope.unverified, stager: stager}
+		return place{outOfRoot: scope.name, unverified: scope.unverified, notUnder: scope.outside,
+			stager: stager}
 	}
 	if home == "" {
 		return place{stager: stager}
@@ -126,8 +129,9 @@ func projectPlace(stager stage.Stager, home, project string) place {
 // ProjectOutOfRoot reports whether project, under the image root root ("" on
 // a live host, where nothing is out of it), may lie outside the root, and
 // returns the path that decides it: the first symlinked directory of its
-// path, the project itself included, whose target leads out of the root, or
-// the first that cannot be verified. Such a target resolves on the analyst's
+// path, the project itself included, whose target leads out of the root, the
+// first that cannot be verified, or the project itself when it is not under
+// the root as given. Such a target resolves on the analyst's
 // own host. The links are read one by one from the resolved root and nothing
 // outside it is ever stat'ed; a path that cannot be verified (a component
 // that cannot be stat'ed, a link loop, a root that does not resolve) counts
@@ -135,6 +139,17 @@ func projectPlace(stager stage.Stager, home, project string) place {
 func ProjectOutOfRoot(root, project string) (string, bool) {
 	found := projectScope(root, project, imageProbes())
 	return found.name, found.name != ""
+}
+
+// ProjectLeavesRoot reports whether project, under the image root root (""
+// on a live host), lies outside the root as given or leads out of it, so
+// that whether it is a directory is the analyst's host's answer rather than
+// the image's. A project ProjectOutOfRoot flags only because a path inside
+// the root cannot be read (missing, unreadable, a link loop) does not count:
+// that answer is the image's own, whatever the host holds.
+func ProjectLeavesRoot(root, project string) bool {
+	found := projectScope(root, project, imageProbes())
+	return found.name != "" && !found.inImage
 }
 
 // imageProbes returns the probes of the file system itself.
@@ -154,15 +169,20 @@ type probes struct {
 
 // rootScope is ProjectOutOfRoot's decision: name is "" for a project inside
 // the root, else the path that decides it, spelled under the root as given;
-// unverified is set when that path cannot be verified rather than leads out.
+// unverified is set when that path cannot be verified rather than leads out,
+// and inImage as well when the reason is a probe inside the root that
+// failed. outside is set for a project not under the root as given, which
+// names itself.
 type rootScope struct {
 	name       string
 	unverified bool
+	inImage    bool
+	outside    bool
 }
 
 // projectScope decides ProjectOutOfRoot's question with probe. A project
-// whose path does not start with the root is outside it, unverified, and is
-// not probed at all.
+// whose path does not start with the root is outside it and is not probed
+// at all.
 func projectScope(root, project string, probe probes) rootScope {
 	if root == "" {
 		return rootScope{}
@@ -174,7 +194,7 @@ func projectScope(root, project string, probe probes) rootScope {
 	walker := rootWalk{given: root, physical: physicalRoot, probe: probe}
 	rest, inside := walker.relative(project)
 	if !inside {
-		return rootScope{name: project, unverified: true}
+		return rootScope{name: project, outside: true}
 	}
 	return walker.walk(strings.Split(rest, "/"))
 }
@@ -209,7 +229,7 @@ func (walker rootWalk) walk(components []string) rootScope {
 		candidate := joinPath(current, component)
 		info, err := walker.probe.lstat(candidate)
 		if err != nil {
-			return rootScope{name: walker.named(candidate), unverified: true}
+			return walker.unreadable(candidate)
 		}
 		if info.Mode()&fs.ModeSymlink == 0 {
 			current = candidate
@@ -234,11 +254,11 @@ func (walker rootWalk) walk(components []string) rootScope {
 // that link leads, so the walk takes it one component at a time.
 func (walker rootWalk) follow(parent, link string, hops int) (string, []string, rootScope) {
 	if hops > maxLinkHops {
-		return "", nil, rootScope{name: walker.named(link), unverified: true}
+		return "", nil, walker.unreadable(link)
 	}
 	target, err := walker.probe.readlink(link)
 	if err != nil {
-		return "", nil, rootScope{name: walker.named(link), unverified: true}
+		return "", nil, walker.unreadable(link)
 	}
 	if !filepath.IsAbs(target) {
 		return parent, strings.Split(target, "/"), rootScope{}
@@ -248,6 +268,12 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []string, 
 		return "", nil, rootScope{name: walker.named(link)}
 	}
 	return walker.physical, strings.Split(rest, "/"), rootScope{}
+}
+
+// unreadable is the decision for path, under the resolved root, that a
+// probe could not read or a link loop runs through.
+func (walker rootWalk) unreadable(path string) rootScope {
+	return rootScope{name: walker.named(path), unverified: true, inImage: true}
 }
 
 // relative returns path less the resolved root or the root as given (which
@@ -318,6 +344,8 @@ func projectLine(user, project string, found place) string {
 		line = "Project [" + user + "] " + project
 	}
 	switch {
+	case found.notUnder:
+		return line + ": is outside the image root; not walked"
 	case found.unverified:
 		return line + ": under " + found.outOfRoot +
 			", which cannot be verified to lie inside the image root; not walked"

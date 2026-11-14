@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -89,7 +90,7 @@ func TestDiscoverJoinsACopiedFileToTheNextValue(t *testing.T) {
 		"home/alice/.gemini/antigravity-cli/history.jsonl": `{"workspace":"/c"}`,
 	}, "srv/a/srv/b/c")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
-	got, err := Discover(context.Background(), homes, root, nil, nil)
+	got, err := Discover(context.Background(), homes, root, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +111,7 @@ func TestDiscoverInventoryReadsNoSecretFile(t *testing.T) {
 	dropSecret := func(relative string) bool {
 		return relative == ".claude/history.jsonl" || relative == ".gemini/tmp/x/.project_root"
 	}
-	got, err := Discover(context.Background(), homes, root, nil, dropSecret)
+	got, err := Discover(context.Background(), homes, root, nil, dropSecret, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +135,7 @@ func TestDiscoverMergesAndFilters(t *testing.T) {
 		{User: "bob", Path: root + "/home/bob"}}
 	extra := []string{root + "/srv/given", root + "/home/bob/inside", root + "/srv/bobs",
 		"relative", root + "/srv/missing"}
-	got, err := Discover(context.Background(), homes, root+"/", extra, nil)
+	got, err := Discover(context.Background(), homes, root+"/", extra, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,6 +143,31 @@ func TestDiscoverMergesAndFilters(t *testing.T) {
 		{"", root + "/srv/given"}, {"bob", root + "/home/bob/inside"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestKeepProjectDirsKeepsAPathOutOfScopeUntested(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{"srv/file": ""}, "srv/dir")
+	outOfScope := func(path string) bool { return strings.HasPrefix(path, root+"/out/") }
+	cases := []struct {
+		name       string
+		outOfScope func(string) bool
+		want       []Project
+	}{
+		{"a path out of scope is kept though no directory is there", outOfScope,
+			[]Project{{"", root + "/srv/dir"}, {"", root + "/out/gone"}}},
+		{"without a scope test every path is tested", nil, []Project{{"", root + "/srv/dir"}}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			projects := []Project{{"", root + "/srv/dir"}, {"", root + "/srv/file"},
+				{"", root + "/out/gone"}, {"", root + "/srv/missing"}, {"u", root + "/out/home"}}
+			got := keepProjectDirs(projects, "u:"+root+"/out/home", testCase.outOfScope)
+			if !reflect.DeepEqual(got, testCase.want) {
+				t.Errorf("got %q, want %q", got, testCase.want)
+			}
+		})
 	}
 }
 
@@ -173,7 +199,7 @@ func TestDiscoverStopsWhenCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	homes := []users.Home{{User: "alice", Path: t.TempDir()}}
-	if _, err := Discover(ctx, homes, "", nil, nil); !errors.Is(err, context.Canceled) {
+	if _, err := Discover(ctx, homes, "", nil, nil, nil); !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }

@@ -24,7 +24,7 @@ func TestDiscoverSkipsAPipeWithoutBlocking(t *testing.T) {
 		t.Fatal(err)
 	}
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
-	got, err := Discover(context.Background(), homes, root, nil, nil)
+	got, err := Discover(context.Background(), homes, root, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

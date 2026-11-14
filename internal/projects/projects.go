@@ -21,15 +21,17 @@ type Project struct {
 }
 
 // Discover returns the projects named in the state of each home, then the
-// -p directories in extra, in the order their paths are first seen, each
-// path once with its first non-empty owner, keeping only directories (a link
-// to one counts, as test -d decides) that are not themselves a home. A
-// discovered value is kept only when it starts with `/`; `\/` is undone and
-// root ("" or "/" for the live system) is prefixed. extra paths are used as
-// given. dropSecret, nil outside --inventory, names the files, relative to
-// their home, that discovery must not read. Only a cancelled ctx is an error.
+// -p directories in extra (used as given), in the order their paths are
+// first seen, each once with its first non-empty owner, keeping directories
+// (test -d) that are not a home. A discovered value is kept when it starts
+// with `/`, `\/` undone and root ("" or "/" live) prefixed. dropSecret, nil
+// outside --inventory, names the files, relative to their home, not to read.
+// outOfScope, nil live, names the paths that leave the image root, kept
+// without the directory test, which would answer for the analyst's host.
+// Only a cancelled ctx is an error.
 func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
-	dropSecret func(relative string) bool) ([]Project, error) {
+	dropSecret func(relative string) bool, outOfScope func(path string) bool,
+) ([]Project, error) {
 	root = strings.TrimSuffix(root, "/")
 	userList := userListText(homes)
 	var found []Project
@@ -60,7 +62,7 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 			found = append(found, Project{Owner: projectOwner(userList, path), Path: path})
 		}
 	}
-	return keepProjectDirs(mergeProjectOwners(found), userList), nil
+	return keepProjectDirs(mergeProjectOwners(found), userList, outOfScope), nil
 }
 
 // userListText is the sh collector's USER_LIST: one user:home line per home.
@@ -114,12 +116,15 @@ func mergeProjectOwners(found []Project) []Project {
 
 // keepProjectDirs is keep_project_dirs: the projects whose path is a
 // directory and is not the home of a USER_LIST line, which sh tests as the
-// text after some colon ending a line.
-func keepProjectDirs(projects []Project, userList string) []Project {
+// text after some colon ending a line. A path outOfScope (when not nil)
+// names skips the directory test and is never stat'ed.
+func keepProjectDirs(projects []Project, userList string,
+	outOfScope func(path string) bool) []Project {
 	listed := "\n" + userList
 	var kept []Project
 	for _, project := range projects {
-		if !isDirectory(project.Path) {
+		skipTest := outOfScope != nil && outOfScope(project.Path)
+		if !skipTest && !isDirectory(project.Path) {
 			continue
 		}
 		if strings.Contains(listed, ":"+project.Path+"\n") ||

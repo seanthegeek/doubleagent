@@ -20,6 +20,9 @@ var (
 	errorField   = regexp.MustCompile(`"error":"(\\.|[^"\\])*"`)
 	stdoutTotals = regexp.MustCompile(`(?m)^collected:  ([0-9]+) files?, ([0-9]+) bytes? \([^)]*\)$`)
 	stdoutErrors = regexp.MustCompile(`(?m)^errors:     [0-9]+ \(([0-9]+) error_copy, ([0-9]+) error_read\)$`)
+	readField    = regexp.MustCompile(`"error_read": ([0-9]+)`)
+	projectsLine = regexp.MustCompile(`(?m)^  "projects": \[.*\],$`)
+	stdoutCount  = regexp.MustCompile(`(?m)^projects:   ([0-9]+)$`)
 )
 
 // physicalProject is a project whose own path runs through a symlinked
@@ -232,9 +235,10 @@ func moveTotals(t *testing.T, stdout string, size int64) string {
 
 // hostProject is a project under an image root whose own path leads out of
 // the root, through an absolute link a home's walk recorded and recreated:
-// the binary does not walk it, since its files are on the analyst's host;
-// the sh collector stages them through the recreated link, whose target
-// leads out of the staging directory, and writes error_copy rows. Paths are
+// the binary does not walk it, since its files are on the analyst's host,
+// and leaves it out of the projects it collected from; the sh collector
+// stages them through the recreated link, whose target leads out of the
+// staging directory, writes error_copy rows and lists the project. Paths are
 // relative to the image root.
 type hostProject struct {
 	owner   string   // the project's owner
@@ -245,19 +249,21 @@ type hostProject struct {
 
 // expect rewrites the sh collector's run into the one the binary writes by
 // design: the files' error_copy rows, match lines and copy failed lines go,
-// the totals lose those errors, and the project's log line says it is not
-// walked.
+// the totals lose those errors, the project leaves the projects list and
+// count, and the project's log line says it is not walked.
 func (c hostProject) expect(t *testing.T, img image, want *collectorRun) {
 	t.Helper()
 	for _, name := range c.names {
 		file := img.root + "/" + c.project + "/" + name
-		want.files[".manifest.jsonl"] = dropErrorRow(t, want.files[".manifest.jsonl"], file)
-		want.members["./manifest.jsonl"] = dropErrorRow(t, want.members["./manifest.jsonl"], file)
+		want.files[".manifest.jsonl"] = dropErrorRow(t, want.files[".manifest.jsonl"], file, "error_copy")
+		want.members["./manifest.jsonl"] = dropErrorRow(t, want.members["./manifest.jsonl"], file,
+			"error_copy")
 		want.files[".collection.json"] = countsLine.ReplaceAllStringFunc(want.files[".collection.json"],
 			dropCopyError)
 		want.stdout = dropTotalsError(t, want.stdout)
 	}
 	project := img.root + "/" + c.project
+	dropListedProject(t, want, project)
 	header := "Project [" + c.owner + "] " + project
 	var kept []string
 	headers, failures, matches := 0, 0, 0
@@ -285,21 +291,22 @@ func (c hostProject) expect(t *testing.T, img image, want *collectorRun) {
 	want.files[".log"] = strings.Join(kept, "\n")
 }
 
-// dropErrorRow returns manifest without the one error_copy row of file.
-func dropErrorRow(t *testing.T, manifest, file string) string {
+// dropErrorRow returns manifest without the one row of file with status, an
+// error status, whose archive path is empty.
+func dropErrorRow(t *testing.T, manifest, file, status string) string {
 	t.Helper()
 	var kept []string
 	found := 0
 	for _, line := range strings.Split(manifest, "\n") {
 		if strings.Contains(line, `"path":"`+file+`","archive_path":""`) &&
-			strings.Contains(line, `"status":"error_copy"`) {
+			strings.Contains(line, `"status":"`+status+`"`) {
 			found++
 			continue
 		}
 		kept = append(kept, line)
 	}
 	if found != 1 {
-		t.Fatalf("the sh manifest holds %d error_copy rows of %s, want 1", found, file)
+		t.Fatalf("the sh manifest holds %d %s rows of %s, want 1", found, status, file)
 	}
 	return strings.Join(kept, "\n")
 }
@@ -331,4 +338,96 @@ func dropTotalsError(t *testing.T, stdout string) string {
 	return strings.Replace(stdout, errorLine[0], "errors:     "+
 		strconv.FormatInt(copyErrors+readErrors, 10)+" ("+strconv.FormatInt(copyErrors, 10)+
 		" error_copy, "+errorLine[2]+" error_read)", 1)
+}
+
+// dropListedProject removes project, listed exactly once, from the projects
+// list of want's collection.json and counts one project fewer on stdout.
+func dropListedProject(t *testing.T, want *collectorRun, project string) {
+	t.Helper()
+	text := want.files[".collection.json"]
+	line, quoted := projectsLine.FindString(text), `"`+project+`"`
+	if strings.Count(line, quoted) != 1 {
+		t.Fatalf("the sh projects list holds %s %d times, want 1:\n%s", project,
+			strings.Count(line, quoted), line)
+	}
+	kept := strings.Replace(strings.Replace(line, ","+quoted, "", 1), quoted+",", "", 1)
+	kept = strings.Replace(kept, quoted, "", 1)
+	want.files[".collection.json"] = strings.Replace(text, line, kept, 1)
+	count := stdoutCount.FindStringSubmatch(want.stdout)
+	if count == nil {
+		t.Fatalf("the sh summary lacks its projects line:\n%s", want.stdout)
+	}
+	listed, _ := strconv.Atoi(count[1])
+	want.stdout = strings.Replace(want.stdout, count[0], "projects:   "+strconv.Itoa(listed-1), 1)
+}
+
+// outsideArgument is a -p value under no image root path, which the sh
+// collector tests on the analyst's host: where nothing is there, it logs a
+// warning and writes an error_read row. The binary never tests it, since
+// the answer is the host's: it logs the project as outside the image root,
+// not walked, after the project whose block precedes it (after), and writes
+// no row. after is relative to the image root, path absolute.
+type outsideArgument struct {
+	path  string
+	after string
+}
+
+// expect rewrites the sh collector's run into the one the binary writes by
+// design: the warning and the error_read row go, the totals lose that error,
+// and the project's line follows the block of after.
+func (c outsideArgument) expect(t *testing.T, img image, want *collectorRun) {
+	t.Helper()
+	want.files[".manifest.jsonl"] = dropErrorRow(t, want.files[".manifest.jsonl"], c.path, "error_read")
+	want.members["./manifest.jsonl"] = dropErrorRow(t, want.members["./manifest.jsonl"], c.path,
+		"error_read")
+	want.files[".collection.json"] = countsLine.ReplaceAllStringFunc(want.files[".collection.json"],
+		func(line string) string {
+			return readField.ReplaceAllStringFunc(line, func(field string) string {
+				value, _ := strconv.Atoi(readField.FindStringSubmatch(field)[1])
+				return `"error_read": ` + strconv.Itoa(value-1)
+			})
+		})
+	errorLine := stdoutErrors.FindStringSubmatch(want.stdout)
+	if errorLine == nil {
+		t.Fatalf("the sh summary lacks its errors line:\n%s", want.stdout)
+	}
+	copyErrors, _ := strconv.Atoi(errorLine[1])
+	readErrors, _ := strconv.Atoi(errorLine[2])
+	want.stdout = strings.Replace(want.stdout, errorLine[0], "errors:     "+
+		strconv.Itoa(copyErrors+readErrors-1)+" ("+errorLine[1]+" error_copy, "+
+		strconv.Itoa(readErrors-1)+" error_read)", 1)
+	want.files[".log"] = c.moveLogLine(t, img, want.files[".log"])
+}
+
+// moveLogLine returns the sh log without its warning about c.path and with
+// the binary's line for it after the block of c.after: its opening line and
+// the match lines under it.
+func (c outsideArgument) moveLogLine(t *testing.T, img image, log string) string {
+	t.Helper()
+	header, after := "Project "+img.root+"/"+c.after, img.root+"/"+c.after+"/"
+	var kept []string
+	warnings, headers, inBlock := 0, 0, false
+	for _, line := range strings.Split(log, "\n") {
+		stamp := logTime.FindString(line)
+		body := line[len(stamp):]
+		isMatch := strings.HasPrefix(strings.TrimSpace(body), "[") && strings.Contains(body, "] "+after)
+		if inBlock && !isMatch {
+			kept = append(kept, stamp+"Project "+c.path+": is outside the image root; not walked")
+			inBlock = false
+		}
+		switch {
+		case strings.HasPrefix(body, "WARNING: project given with -p is not a directory: "+c.path):
+			warnings++
+			continue
+		case body == header:
+			headers++
+			inBlock = true
+		}
+		kept = append(kept, line)
+	}
+	if warnings != 1 || headers != 1 || inBlock {
+		t.Fatalf("the sh log holds %d warnings about %s and %d lines %q followed by another, "+
+			"want 1 and 1", warnings, c.path, headers, header)
+	}
+	return strings.Join(kept, "\n")
 }

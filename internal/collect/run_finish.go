@@ -71,7 +71,10 @@ func (state *runState) summary(finished time.Time) summary.Summary {
 		report.ActiveUsers = append(report.ActiveUsers, home.User)
 	}
 	for _, project := range state.projects {
-		report.Projects = append(report.Projects, project.Path)
+		// A project the project step leaves unwalked was not collected from.
+		if !state.projectNotWalked(project.Path) {
+			report.Projects = append(report.Projects, project.Path)
+		}
 	}
 	return report
 }

@@ -338,3 +338,71 @@ func TestProjectFilesAreStagedWhereTheProjectIs(t *testing.T) {
 		})
 	}
 }
+
+// runOutput is the text of a run's file with suffix in outDir.
+func runOutput(t *testing.T, outDir, suffix string) string {
+	t.Helper()
+	paths, _ := filepath.Glob(outDir + "/*" + suffix)
+	if len(paths) != 1 {
+		t.Fatalf("files %v ending in %s", paths, suffix)
+	}
+	text, err := os.ReadFile(paths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(text)
+}
+
+func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) {
+	outside, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outside+"/exists/proj", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	root := writeImage(t, map[string]string{"home/u/.claude/settings.json": "{}\n"},
+		map[string]string{"home/u/ext": outside + "/exists/", "home/u/gone": "/no-such-host-dir"})
+	outDir := t.TempDir()
+	options := testOptions(root, outDir)
+	options.Projects = []string{root + "/home/u/ext/proj", root + "/home/u/gone/proj",
+		outside + "/exists/proj", root + "/home/u/missing"}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log, manifestText := runOutput(t, outDir, ".log"), runOutput(t, outDir, ".manifest.jsonl")
+	for link, line := range map[string]string{
+		"ext":  "Project [u] " + root + "/home/u/ext/proj: under the symlinked directory " + root + "/home/u/ext",
+		"gone": "Project [u] " + root + "/home/u/gone/proj: under the symlinked directory " + root + "/home/u/gone",
+	} {
+		line += ", which leads out of the image root; not walked\n"
+		if strings.Count(log, line) != 1 {
+			t.Errorf("the log of %s lacks %q:\n%s", link, line, log)
+		}
+		if strings.Contains(manifestText, root+"/home/u/"+link+"/") {
+			t.Errorf("the manifest holds a row under %s:\n%s", link, manifestText)
+		}
+	}
+	line := "Project " + outside + "/exists/proj: is outside the image root; not walked\n"
+	if strings.Count(log, line) != 1 {
+		t.Errorf("the log lacks %q:\n%s", line, log)
+	}
+	if strings.Contains(manifestText, outside) {
+		t.Errorf("a row for a project out of the root:\n%s", manifestText)
+	}
+	// A -p value missing inside the image keeps the sh collector's warning.
+	warning := "WARNING: project given with -p is not a directory: " + root + "/home/u/missing: "
+	if strings.Count(log, "WARNING") != 1 || !strings.Contains(log, warning) {
+		t.Errorf("the log holds warnings other than %q:\n%s", warning, log)
+	}
+	if row := manifestRow(t, outDir, root+"/home/u/missing"); !strings.Contains(row, `"status":"error_read"`) {
+		t.Errorf("row %s, want error_read", row)
+	}
+	if !strings.Contains(runOutput(t, outDir, ".collection.json"), "\n  \"projects\": [],\n") {
+		t.Errorf("collection.json lists a project:\n%s", runOutput(t, outDir, ".collection.json"))
+	}
+	if !strings.Contains(stdout.String(), "\nprojects:   0\n") {
+		t.Errorf("stdout counts a project:\n%s", stdout.String())
+	}
+}
