@@ -9,11 +9,11 @@ package relocation
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -67,8 +67,12 @@ type Logger interface {
 // Registry reads the Windows registry, nil off Windows; Profiles lists the
 // ProfileList entries in registry order, whose hives the registry pass reads.
 type Deps struct {
-	Tables          *catalog.Tables
-	Root            string
+	Tables *catalog.Tables
+	Root   string
+	// SystemBase is the base of the system scope: Root in image mode, the
+	// system drive on a live Windows host, "" on a live Unix one; when empty
+	// it is syspath.SystemBase(Root).
+	SystemBase      string
 	Homes           []users.Home
 	Projects        []users.Home
 	EnvScanHome     bool
@@ -88,6 +92,7 @@ type Deps struct {
 // header waiting for the first hint of a base, and the result so far.
 type search struct {
 	deps   Deps
+	system string
 	names  []string
 	seen   map[string]bool
 	header string
@@ -100,7 +105,11 @@ type search struct {
 // and recording each hint and collecting each hit file through deps.Collect.
 // It stops with ctx's error when ctx is cancelled.
 func Search(ctx context.Context, deps Deps) (Result, error) {
-	run := &search{deps: deps, names: variableNames(deps.Tables), seen: map[string]bool{}}
+	run := &search{deps: deps, system: deps.SystemBase, names: variableNames(deps.Tables),
+		seen: map[string]bool{}}
+	if run.system == "" {
+		run.system = syspath.SystemBase(deps.Root)
+	}
 	err := run.startupPass(ctx)
 	if err == nil && deps.EnvScanHome {
 		err = run.sweepPass(ctx)
@@ -128,13 +137,13 @@ func (run *search) startupPass(ctx context.Context) error {
 		if home.Path == "" {
 			continue
 		}
-		run.header = fmt.Sprintf("Relocation hints for %s (%s)", home.User, home.Path)
+		run.header = homeHeader(home)
 		if err := run.searchStartup(ctx, home.User, home.Path, home.Path, "home"); err != nil {
 			return err
 		}
 	}
 	run.header = "Relocation hints in system files"
-	if err := run.searchStartup(ctx, "", "", run.deps.Root, "system"); err != nil {
+	if err := run.searchStartup(ctx, "", "", run.system, "system"); err != nil {
 		return err
 	}
 	if err := run.registryPass(); err != nil {
@@ -144,7 +153,7 @@ func (run *search) startupPass(ctx context.Context) error {
 		if project.Path == "" {
 			continue
 		}
-		run.header = "Relocation hints in project " + project.Path
+		run.header = projectHeader(project)
 		err := run.searchStartup(ctx, project.User, project.Path, project.Path, "project")
 		if err != nil {
 			return err
@@ -183,7 +192,7 @@ func (run *search) searchFiles(ctx context.Context, user, home, base string, fil
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if !strings.HasPrefix(file, prefix) || strings.Contains(file, "\n") {
+		if !syspath.HasPrefix(file, prefix) || strings.Contains(file, "\n") {
 			continue
 		}
 		if err := run.recordFileHints(user, home, file); err != nil {
@@ -211,7 +220,7 @@ func (run *search) recordFileHints(user, home, path string) error {
 	}
 	for _, hit := range hits {
 		value, reason := values.selectValue(hit.Line, hit.Name, run.deps.Root)
-		if err := run.record(hintUser, path, hit.Line, hit.Name, value, reason); err != nil {
+		if err := run.recordFile(hintUser, path, hit.Line, hit.Name, value, reason); err != nil {
 			return err
 		}
 	}
@@ -220,7 +229,7 @@ func (run *search) recordFileHints(user, home, path string) error {
 			continue
 		}
 		value, reason := values.selectValue(0, assignment.Name, run.deps.Root)
-		if err := run.record(hintUser, path, 0, assignment.Name, value, reason); err != nil {
+		if err := run.recordFile(hintUser, path, 0, assignment.Name, value, reason); err != nil {
 			return err
 		}
 	}

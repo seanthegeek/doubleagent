@@ -2,16 +2,17 @@ package relocation
 
 import (
 	"context"
-	"io/fs"
 	"os"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
 // sweepWalk lists the files of one sweep as the sh collector's find(1) does:
-// depth first, in directory order, never following a symlink, a pruned path
-// left out with everything under it.
+// depth first, in directory order, never following a symlink or any other
+// reparse point (a Windows junction included, as Get-SweepFiles skips every
+// one), a pruned path left out with everything under it.
 type sweepWalk struct {
 	ctx     context.Context
 	pruned  func(path string) bool
@@ -28,15 +29,15 @@ func (walk *sweepWalk) visit(path string) error {
 	if walk.pruned(path) {
 		return nil
 	}
-	info, err := os.Lstat(path)
+	meta, err := fsmeta.Lstat(path)
 	if err != nil {
 		return nil
 	}
-	if info.Mode().IsRegular() {
-		walk.addFile(path, info)
+	if meta.Kind == fsmeta.File {
+		walk.addFile(path, meta.Size)
 		return nil
 	}
-	if !info.IsDir() {
+	if meta.Kind != fsmeta.Dir {
 		return nil
 	}
 	if err := walk.ctx.Err(); err != nil {
@@ -53,12 +54,12 @@ func (walk *sweepWalk) visit(path string) error {
 // addFile lists a regular file or counts it as over the size limit; a file
 // whose name holds a newline is neither, since it would forge a line of the
 // sh collector's search output.
-func (walk *sweepWalk) addFile(path string, info fs.FileInfo) {
+func (walk *sweepWalk) addFile(path string, size int64) {
 	name := path[strings.LastIndexByte(path, '/')+1:]
 	if strings.Contains(name, "\n") {
 		return
 	}
-	if walk.limit == 0 || info.Size() <= walk.limit {
+	if walk.limit == 0 || size <= walk.limit {
 		walk.files = append(walk.files, path)
 	} else {
 		walk.skipped++

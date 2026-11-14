@@ -11,6 +11,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -59,7 +60,8 @@ func writeTree(t *testing.T, root string, files map[string]string) {
 	}
 }
 
-// linkTree creates each symlink of links (relative path to target) under root.
+// linkTree creates each link of links (relative path to target) under root,
+// as makeLink makes one on this platform.
 func linkTree(t *testing.T, root string, links map[string]string) {
 	t.Helper()
 	for relative, target := range links {
@@ -67,10 +69,19 @@ func linkTree(t *testing.T, root string, links map[string]string) {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(target, path); err != nil {
-			t.Fatal(err)
-		}
+		makeLink(t, target, path)
 	}
+}
+
+// nativeLines returns lines as the log writes them: each path in native form.
+// The expected lines hold no slash outside their paths, so the whole line is
+// converted.
+func nativeLines(lines []string) []string {
+	native := make([]string, len(lines))
+	for i, line := range lines {
+		native[i] = syspath.ToNative(line)
+	}
+	return native
 }
 
 // expandClaims lists the matches of a catalog table under base, as the walk
@@ -84,10 +95,12 @@ func expandClaims(base string, table []catalog.Entry) []string {
 }
 
 // searchFixture builds the tree the Search tests run over and returns its
-// root.
+// root in canonical form. The files whose names hold a newline are left out
+// where the platform refuses such a name.
 func searchFixture(t *testing.T) string {
-	root := t.TempDir()
+	root := syspath.FromNative(t.TempDir())
 	export := "export CODEX_HOME=/opt/x\n"
+	writeTree(t, root, newlineFixture(export))
 	writeTree(t, root, map[string]string{
 		"home/alice/.bashrc":                          export,
 		"home/alice/Documents/PowerShell/profile.ps1": "$env:codex_home = 1\n",
@@ -95,8 +108,6 @@ func searchFixture(t *testing.T) string {
 		"home/alice/dotfiles/direnv/direnvrc":         export,
 		"home/alice/scripts/deep.sh":                  export,
 		"home/alice/scripts/big.txt":                  "# padding past the limit\n" + export,
-		"home/alice/scripts/d\nx":                     export,
-		"home/alice/scripts/nl\ndir/f.sh":             export,
 		"home/alice/.codex/config.toml":               "CODEX_HOME = 1\n",
 		"home/alice/AppData/Local/agy/agent-env.sh":   export,
 		"home/alice/out/host_run.log":                 export,
@@ -145,7 +156,7 @@ func searchDeps(t *testing.T, root string, log *lineLog, collected *[]string) De
 func startupLog(root string) []string {
 	alice, system := root+"/home/alice", "relocation hint: "+root
 	codex := " names CODEX_HOME (codex-cli)"
-	return []string{
+	return nativeLines([]string{
 		"Relocation hints for alice (" + alice + ")",
 		"relocation hint: " + alice + "/.bashrc:1" + codex,
 		"relocation hint: " + alice + "/.config/environment.d/home.conf:1" + codex + " = " +
@@ -163,7 +174,7 @@ func startupLog(root string) []string {
 		system + "/Library/LaunchDaemons/d.plist" + codex + " = " + root + "/opt/d",
 		"Relocation hints in project " + root + "/srv/proj",
 		system + "/srv/proj/.envrc:1 names CLAUDE_CONFIG_DIR (claude-code)",
-	}
+	})
 }
 
 func TestSearchStartupFiles(t *testing.T) {
@@ -203,16 +214,16 @@ func TestSearchSweep(t *testing.T) {
 	alice := root + "/home/alice"
 	var swept []string
 	for _, line := range log.lines[16:] {
-		swept = append(swept, strings.TrimPrefix(line, "relocation hint: "+alice))
+		swept = append(swept, strings.TrimPrefix(line, "relocation hint: "+syspath.ToNative(alice)))
 	}
-	want := []string{
+	want := nativeLines([]string{
 		"Relocation hints for alice (" + alice + ")",
 		"/dotfiles/direnv/direnvrc:1 names CODEX_HOME (codex-cli)",
 		"/out/notes:1 names CODEX_HOME (codex-cli)",
 		"/scripts/deep.sh:1 names CODEX_HOME (codex-cli)",
 		"sweep skipped: home " + root + "/var/svc lies outside the user home roots",
 		"sweep skipped: project " + root + "/home holds a home directory",
-	}
+	})
 	slices.Sort(swept[1:4])
 	if !slices.Equal(swept, want) {
 		t.Errorf("sweep log:\n%s\nwant:\n%s", strings.Join(swept, "\n"), strings.Join(want, "\n"))
@@ -234,12 +245,17 @@ func TestSearchSweepSearchesEachFileOnce(t *testing.T) {
 		return result.FilesSearched
 	}
 	// The sweep adds alice's deep.sh, notes, the file under a directory whose
-	// name holds a newline (counted, never recorded) and the direnvrc the
-	// startup pass read through a link, now under its own path, and nothing of
-	// the project beyond its .envrc, which the startup pass already searched.
-	if before, after := count(false), count(true); after != before+4 {
+	// name holds a newline (counted, never recorded) where the platform allows
+	// one, and the direnvrc the startup pass read through a link, now under its
+	// own path, and nothing of the project beyond its .envrc, which the
+	// startup pass already searched.
+	added := 3
+	if len(newlineFixture("")) > 0 {
+		added++
+	}
+	if before, after := count(false), count(true); after != before+added {
 		t.Errorf("files searched: %d without the sweep, %d with it; want %d", before, after,
-			before+4)
+			before+added)
 	}
 }
 
@@ -261,9 +277,36 @@ func TestSearchWithoutPlutil(t *testing.T) {
 	if _, err := Search(context.Background(), deps); err != nil {
 		t.Fatal(err)
 	}
-	want := "relocation hint: " + root + "/Library/LaunchDaemons/d.plist:3 names CODEX_HOME " +
-		"(codex-cli); value not resolved: no plutil"
+	want := syspath.ToNative("relocation hint: " + root + "/Library/LaunchDaemons/d.plist:3 " +
+		"names CODEX_HOME (codex-cli); value not resolved: no plutil")
 	if !slices.Contains(log.lines, want) {
 		t.Errorf("log lacks %q:\n%s", want, strings.Join(log.lines, "\n"))
+	}
+}
+
+func TestSearchTakesTheSystemFilesUnderTheSystemBase(t *testing.T) {
+	root := searchFixture(t)
+	system := syspath.FromNative(t.TempDir())
+	writeTree(t, system, map[string]string{"etc/profile": "export CODEX_HOME=/opt/s\n"})
+	cases := []struct {
+		name, systemBase, want string
+	}{
+		{"an empty system base is the image root", "",
+			"relocation hint: " + root + "/etc/profile:1 names COPILOT_HOME (copilot-cli)"},
+		{"a system base set apart is searched in place of the root", system,
+			"relocation hint: " + system + "/etc/profile:1 names CODEX_HOME (codex-cli)"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			log := &lineLog{}
+			deps := searchDeps(t, root, log, &[]string{})
+			deps.SystemBase = test.systemBase
+			if _, err := Search(context.Background(), deps); err != nil {
+				t.Fatal(err)
+			}
+			if want := syspath.ToNative(test.want); !slices.Contains(log.lines, want) {
+				t.Errorf("log lacks %q:\n%s", want, strings.Join(log.lines, "\n"))
+			}
+		})
 	}
 }
