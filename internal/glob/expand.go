@@ -13,7 +13,8 @@ import (
 // matches are sorted bytewise; a word that matches nothing is kept as typed,
 // escapes and all, when an entry by that name exists, and dropped otherwise.
 // Directories are read as the shell reads them, so a symlinked directory in
-// the middle of the pattern is followed.
+// the middle of the pattern is followed. On Windows each existing literal
+// segment comes back in on-disk case, as PowerShell's Expand-Glob gives it.
 func Expand(base, pattern string) []string {
 	var results []string
 	for _, word := range strings.Split(pattern, "\n") {
@@ -26,7 +27,7 @@ func Expand(base, pattern string) []string {
 		}
 		if len(matches) == 0 {
 			if _, err := os.Lstat(base + "/" + word); err == nil {
-				results = append(results, base+"/"+word)
+				results = append(results, base+"/"+respell(base, word))
 			}
 			continue
 		}
@@ -40,27 +41,28 @@ func Expand(base, pattern string) []string {
 
 // expandFrom appends to matches each path, relative to base, that extends
 // prefix (empty or ending in `/`) by a match of rest. Literal segments
-// before the first wildcard segment are appended unread; the wildcard
+// before the first wildcard segment are appended untested; the wildcard
 // segment's directory is read; a literal tail after the last wildcard
-// segment is kept only when os.Lstat finds it. A whole pattern with no
-// wildcard segment gives nothing here: Expand falls back to the word itself.
+// segment is kept only when os.Lstat finds it. Literal segments pass
+// through respell, which on Windows gives their on-disk case. A whole
+// pattern with no wildcard segment gives nothing here: Expand falls back to
+// the word itself.
 func expandFrom(base, prefix, rest string, matches *[]string) {
 	segmentAt, segmentEnd, separatorWidth, found := findWildcardSegment(rest)
 	if !found {
 		if prefix == "" {
 			return
 		}
-		path := prefix + unescape(rest)
-		if _, err := os.Lstat(base + "/" + path); err == nil {
-			*matches = append(*matches, path)
+		tail := unescape(rest)
+		if _, err := os.Lstat(base + "/" + prefix + tail); err == nil {
+			*matches = append(*matches, prefix+respell(base+"/"+prefix, tail))
 		}
 		return
 	}
-	prefix += unescape(rest[:segmentAt])
+	prefix += respell(base+"/"+prefix, unescape(rest[:segmentAt]))
 	segment, atEnd := rest[segmentAt:segmentEnd], segmentEnd == len(rest)
 	for _, name := range readNames(base+"/"+prefix, segmentMatchesDot(segment)) {
-		if (strings.HasPrefix(name, ".") && !segmentMatchesDot(segment)) ||
-			!match(segment, name) {
+		if !wildcardMatches(segment, name, fold) {
 			continue
 		}
 		if atEnd {

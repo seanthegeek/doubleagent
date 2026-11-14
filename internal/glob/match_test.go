@@ -1,14 +1,20 @@
 package glob
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
+
+// matchPathCase is one MatchPath test: a pattern, a path and the result.
+type matchPathCase struct {
+	name    string
+	pattern string
+	path    string
+	want    bool
+}
 
 func TestMatchPath(t *testing.T) {
-	cases := []struct {
-		name    string
-		pattern string
-		path    string
-		want    bool
-	}{
+	cases := []matchPathCase{
 		{"a star crosses a slash", "*/[Zz]ed/node", "AppData/Local/Zed/node", true},
 		{"a star crosses a newline", "a*b", "a\nb", true},
 		{"a question mark matches a slash", "a?b", "a/b", true},
@@ -18,7 +24,6 @@ func TestMatchPath(t *testing.T) {
 		{"stars backtrack", "a*b*c", "aXbYbZc", true},
 		{"the whole path must match", "a*", "ba", false},
 		{"a class matches one of its bytes", "[Cc]rew", "crew", true},
-		{"a class is case-sensitive", "[a]", "A", false},
 		{"a negated class excludes its bytes", "[!.]*", ".env", false},
 		{"a negated class takes other bytes", ".[!e]*", ".x", true},
 		{"a range matches inside it", "[0-9a-f]", "c", true},
@@ -28,7 +33,6 @@ func TestMatchPath(t *testing.T) {
 		{"a ] first after ! is literal", "[!]a]", "]", false},
 		{"a - last in a class is literal", "[a-]", "-", true},
 		{"a caret does not negate", "[^a]", "a", true},
-		{"a POSIX class matches", "[[:upper:]]", "Q", true},
 		{"a POSIX class knows no byte above 0x7f", "[[:alpha:]]", "\xe9", false},
 		{"an unknown class fails the match", "[[:foo:]a]", "a", false},
 		{"an unknown class after the matching item goes unnoticed", "[a[:foo:]]", "a", true},
@@ -45,7 +49,7 @@ func TestMatchPath(t *testing.T) {
 		{"a trailing backslash never matches", `x\`, `x\`, false},
 		{"an empty pattern matches the empty string", "", "", true},
 	}
-	for _, testCase := range cases {
+	for _, testCase := range append(cases, platformMatchPathCases...) {
 		t.Run(testCase.name, func(t *testing.T) {
 			if got := MatchPath(testCase.pattern, testCase.path); got != testCase.want {
 				t.Errorf("MatchPath(%q, %q) = %v, want %v",
@@ -108,6 +112,73 @@ func TestQuoteMetaMakesAPatternMatchItsTextOnly(t *testing.T) {
 			}
 			if MatchPath(pattern, testCase.other+"/x") {
 				t.Errorf("%q matches %q", pattern, testCase.other+"/x")
+			}
+		})
+	}
+}
+
+// identity is the Unix fold: names compared byte for byte.
+func identity(text string) string { return text }
+
+func TestFoldASCIILowersOnlyASCIICapitals(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+		want string
+	}{
+		{"capitals are lowered", "AppData/Local", "appdata/local"},
+		{"the letters around the range stay", "@[`{", "@[`{"},
+		{"bytes above 0x7f stay", "\xc3\x89T\xff", "\xc3\x89t\xff"},
+		{"the empty text stays", "", ""},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := foldASCII(testCase.text); got != testCase.want {
+				t.Errorf("foldASCII(%q) = %q, want %q", testCase.text, got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestSegmentsMatchAListOfNamesUnderEachFold(t *testing.T) {
+	names := []string{"Users", "USERS", "users", "Users2", ".Users", "AppData", "appdata"}
+	cases := []struct {
+		name     string
+		pattern  string
+		unixWant []string
+		foldWant []string
+	}{
+		{"a literal segment compares the whole name", "users",
+			[]string{"users"}, []string{"Users", "USERS", "users"}},
+		{"an escaped literal segment compares unescaped", `U\sers`,
+			[]string{"Users"}, []string{"Users", "USERS", "users"}},
+		{"a star ignores case only under the fold", "U*",
+			[]string{"Users", "USERS", "Users2"}, []string{"Users", "USERS", "users", "Users2"}},
+		{"a class folds its bytes as written", "[a]pp*",
+			[]string{"appdata"}, []string{"AppData", "appdata"}},
+		{"a range folds as written", "[A-Z]PPDATA",
+			nil, []string{"AppData", "appdata"}},
+		{"the leading-dot rule holds under the fold", "*users",
+			[]string{"users"}, []string{"Users", "USERS", "users"}},
+		{"a leading dot opens dot names under the fold", ".u*",
+			nil, []string{".Users"}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			for _, fold := range []struct {
+				name     string
+				function func(string) string
+				want     []string
+			}{{"unix", identity, testCase.unixWant}, {"windows", foldASCII, testCase.foldWant}} {
+				var got []string
+				for _, name := range names {
+					if matchSegment(testCase.pattern, name, fold.function) {
+						got = append(got, name)
+					}
+				}
+				if !slices.Equal(got, fold.want) {
+					t.Errorf("%s fold: %q matches %q, want %q", fold.name, testCase.pattern, got, fold.want)
+				}
 			}
 		})
 	}
