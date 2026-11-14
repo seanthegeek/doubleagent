@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"golang.org/x/sys/windows/registry"
+
+	"github.com/seanthegeek/doubleagent/internal/regtext"
 )
 
 // systemRegistry is the Registry of the running Windows host.
@@ -14,10 +16,12 @@ func SystemRegistry() Registry { return systemRegistry{} }
 
 // Strings reads the values of subkey under root as Read-RegistryStrings
 // does: a missing key gives nothing and no reason, a key that cannot be
-// opened or listed gives the error's text as the reason. GetStringValue
-// never expands a REG_EXPAND_SZ value, as DoNotExpandEnvironmentNames asks;
-// a value of another type keeps only its name, and an empty name (the key's
-// default value) is skipped.
+// opened or listed gives the error's text as the reason. A value's text
+// keeps its embedded NULs, as .NET's GetValue keeps them, so
+// acceptRegistryValue refuses it rather than accepting the text before the
+// first NUL. A REG_EXPAND_SZ value is never expanded, as
+// DoNotExpandEnvironmentNames asks; a value of another type keeps only its
+// name, and an empty name (the key's default value) is skipped.
 func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {
 	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{}}
 	key, err := registry.OpenKey(rootKey(root), subkey, registry.READ)
@@ -39,7 +43,7 @@ func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings 
 			continue
 		}
 		values.Names = append(values.Names, name)
-		text, kind, err := key.GetStringValue(name)
+		text, kind, err := regtext.Read(key, name)
 		switch {
 		case errors.Is(err, registry.ErrUnexpectedType):
 			continue

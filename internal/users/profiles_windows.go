@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/sys/windows/registry"
 
+	"github.com/seanthegeek/doubleagent/internal/regtext"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -52,8 +53,16 @@ func profileImagePath(list registry.Key, name string) string {
 		return ""
 	}
 	defer key.Close()
-	value, _, err := key.GetStringValue("ProfileImagePath")
-	if err != nil || value == "" {
+	value, _, err := regtext.Read(key, "ProfileImagePath")
+	if err != nil {
+		return ""
+	}
+	// The PowerShell collector expands the path with
+	// Environment.ExpandEnvironmentVariables, which hands it to the Win32
+	// ExpandEnvironmentStrings as a NUL-terminated string, so a home is the
+	// text before the first embedded NUL.
+	value, _, _ = strings.Cut(value, "\x00")
+	if value == "" {
 		return ""
 	}
 	if expanded, err := registry.ExpandString(value); err == nil {
