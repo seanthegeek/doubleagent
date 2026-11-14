@@ -140,7 +140,8 @@ func (collector *Collector) logLines(run *catalogRun, line string) error {
 // collect_path does: a directory through CollectTree, an excluded path as one
 // skipped_excluded row, anything else through the per-file staging. A
 // directory that cannot be listed or entered gets one error_read row here and
-// is not walked. It returns how many directories the walk could not read.
+// is not walked outside --inventory. It returns how many directories the
+// walk could not read.
 func (collector *Collector) CollectPath(ctx context.Context, user, home, agent, path string,
 ) (int, error) {
 	owner := scope{user: user, home: home, agent: agent, stager: collector.Stager}

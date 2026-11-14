@@ -38,7 +38,11 @@ func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, 
 
 // collectTree walks dir in one scope, then writes the excluded rows, the
 // error_read rows and the file rows, each group whole, in the order the
-// platform's find runs its batched -exec programs at the end of a walk.
+// platform's find runs its batched -exec programs at the end of a walk. The
+// sh collector's find also runs a batch each time its argument list fills,
+// so on a tree larger than one batch its rows and log lines interleave
+// mid-walk, where this writes each group whole at the end: a documented
+// deviation.
 func (collector *Collector) collectTree(ctx context.Context, owner scope, dir string,
 ) (int, error) {
 	found := &treeWalk{start: dir, patterns: collector.excludePatterns(owner.home)}

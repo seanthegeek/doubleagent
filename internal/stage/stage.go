@@ -18,10 +18,10 @@ import (
 
 // Stager says where files are staged. Dir is the staging directory, Physical
 // its path with every symlink resolved, and Root the image root ("" on a live
-// host). From and To, when set, are an in-base symlinked directory a path ran
-// through and that directory's physical path in the base: a path at or under
-// From is staged under To, so nothing is staged through a link recreated in
-// the staging tree.
+// host). From and Into, when set, are an in-base symlinked directory a path
+// ran through and that directory's physical path in the base: a path at or
+// under From is staged under Into, so nothing is staged through a link
+// recreated in the staging tree.
 type Stager struct {
 	Dir      string
 	Physical string

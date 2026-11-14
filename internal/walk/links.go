@@ -12,8 +12,8 @@ import (
 // Links is what LinkedParent finds between a base and a path. Outside is the
 // first symlinked directory whose target leads out of the base or cannot be
 // resolved. Passed lists the symlinked directories met before it whose
-// targets stay inside the base, From is the deepest of them and To where the
-// base physically holds it; all are empty when there is none.
+// targets stay inside the base, From is the deepest of them and Into where
+// the base physically holds it; all are empty when there is none.
 type Links struct {
 	Outside string
 	Passed  []string
