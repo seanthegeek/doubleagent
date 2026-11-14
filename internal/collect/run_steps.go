@@ -86,24 +86,24 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	return nil
 }
 
-// collectProject logs one project, writes its error_read row when it cannot
-// be listed or entered, and collects the project catalog in it.
+// collectProject collects one project as collect_projects does, with the
+// owner's home that holds it as the base its path's links are resolved in.
 func (state *runState) collectProject(ctx context.Context, project projects.Project) error {
-	header := "Project " + project.Path
-	if project.Owner != "" {
-		header = "Project [" + project.Owner + "] " + project.Path
-	}
-	if err := state.log.Line(header); err != nil {
-		return err
-	}
-	if reason, failed := fsmeta.DirReadError(project.Path); failed {
-		err := state.collector.WriteReadError(project.Owner, project.Path, project.Path, reason)
-		if err != nil {
-			return err
+	home := ownerHome(state.homes, project)
+	return state.collector.CollectProject(ctx, project.Owner, home, project.Path)
+}
+
+// ownerHome returns the first home of the project's owner that holds the
+// project, or "" when the project lies under none of them: a project outside
+// its owner's homes has no link of a home's to consider.
+func ownerHome(homes []users.Home, project projects.Project) string {
+	for _, home := range homes {
+		if home.User == project.Owner && home.Path != "" &&
+			strings.HasPrefix(project.Path, home.Path+"/") {
+			return home.Path
 		}
 	}
-	return state.collector.CollectCatalog(ctx, project.Owner, project.Path,
-		state.tables.ProjectCatalog, "")
+	return ""
 }
 
 // reportMissingProjects logs every -p value that is not a directory and,

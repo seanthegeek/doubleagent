@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/projects"
+	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
 func TestRun(t *testing.T) {
@@ -219,5 +221,32 @@ func TestOutputDirectoryThatCannotBeWrittenIsFatal(t *testing.T) {
 	want := "Output dir not writable: " + outDir + "\n"
 	if code != exitFatal || stderr.String() != want {
 		t.Errorf("exit code %d, stderr %q; want 2 and %q", code, stderr.String(), want)
+	}
+}
+
+func TestOwnerHome(t *testing.T) {
+	homes := []users.Home{{User: "alice", Path: "/home/alice"}, {User: "bob", Path: "/home/bob"},
+		{User: "bob", Path: "/srv/bob"}}
+	cases := []struct {
+		name    string
+		project projects.Project
+		want    string
+	}{
+		{"a project under its owner's home has that home",
+			projects.Project{Owner: "alice", Path: "/home/alice/p"}, "/home/alice"},
+		{"a project under its owner's second home has that home",
+			projects.Project{Owner: "bob", Path: "/srv/bob/p"}, "/srv/bob"},
+		{"a project under another user's home has none",
+			projects.Project{Owner: "alice", Path: "/home/bob/p"}, ""},
+		{"a project sharing a home's prefix without its slash has none",
+			projects.Project{Owner: "alice", Path: "/home/alice2/p"}, ""},
+		{"a project with no owner has none", projects.Project{Path: "/home/alice/p"}, ""},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := ownerHome(homes, testCase.project); got != testCase.want {
+				t.Errorf("ownerHome = %q, want %q", got, testCase.want)
+			}
+		})
 	}
 }

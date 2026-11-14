@@ -12,7 +12,10 @@ import (
 // parityCase is one argument set of the smoke test's `run` and `inventory_run`
 // lines. The strings of args, root, cwd, env and outDir may hold {ROOT},
 // {WORK}, {ALICE}, {BOB} and {OUT}: the image root, the image's work
-// directory, two homes in the image and the run's output directory.
+// directory, two homes in the image and the run's output directory. expect,
+// when set, rewrites the sh collector's run into the run the binary writes
+// by design, before both are normalised: one of the parity exceptions listed
+// at the top of harness_test.go.
 type parityCase struct {
 	name      string
 	args      []string
@@ -24,8 +27,14 @@ type parityCase struct {
 	stderrLog bool
 	setup     func(t *testing.T, img image)
 	after     func(t *testing.T, img image)
+	expect    func(t *testing.T, img image, want *collectorRun)
 	skip      string
 }
+
+// linkedProject is the linkproj497 project: -p names it through the home's
+// .claude, an absolute link to dotfiles/claude inside the home.
+var linkedProject = collectedInstead{owner: "dot", project: "home/dot/.claude/proj",
+	link: "home/dot/.claude", physical: "home/dot/dotfiles/claude/proj", name: "AGENTS.md"}
 
 // skipTar names why the tar fallback cases are not run: they patch the
 // collector or the PATH, and the binary has no archiver fallbacks.
@@ -37,7 +46,8 @@ func parityCases() []parityCase {
 	cases := []parityCase{
 		{name: "default"},
 		{name: "root486", root: "{WORK}/r[1]", args: []string{"--no-docker", "--no-projects"}, setup: setupPatternRoot},
-		{name: "linkproj497", args: []string{"-p", "{ROOT}/home/dot/.claude/proj"}, after: checkLinkedSourceIntact},
+		{name: "linkproj497", args: []string{"-p", "{ROOT}/home/dot/.claude/proj"}, after: checkLinkedSourceIntact,
+			expect: linkedProject.expect},
 		{name: "nosecrets", args: []string{"--no-secrets"}},
 		{name: "envscan", args: []string{"--env-scan-home"}},
 		{name: "envscanonce", args: []string{"--env-scan-home"}, setup: setupEnvScanOnce},
@@ -194,6 +204,9 @@ func (c parityCase) compare(t *testing.T, img image, shCollector, binary []strin
 	want := execute(t, shCollector, c.invocation(img, shDir))
 	c.requireNoOutput(t, "sh collector", shDir)
 	c.requireOutput(t, want)
+	if c.expect != nil {
+		c.expect(t, img, &want)
+	}
 	goDir := shDir
 	if shared {
 		removeOutputs(shDir)

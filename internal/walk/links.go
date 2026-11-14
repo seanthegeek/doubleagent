@@ -86,6 +86,21 @@ func physicalPath(path, from, into string) string {
 	return into + path[len(from):]
 }
 
+// throughLinks returns stager set to stage paths under from at into, where
+// into is first mapped by the link stager already stages through: the links a
+// match passes inside a project compose with the link the project's own path
+// passes inside its home. Every path staged with the result lies under from,
+// the deepest link before it, so one pair suffices.
+func throughLinks(stager stage.Stager, from, into string) stage.Stager {
+	if from == "" {
+		return stager
+	}
+	if stager.From != "" && (into == stager.From || strings.HasPrefix(into, stager.From+"/")) {
+		into = physicalPath(into, stager.From, stager.Into)
+	}
+	return stager.Through(from, into)
+}
+
 // claimed reports whether path, under base, is one of claims or lies under
 // one through real directories only, as test_claimed_path does: the claim's
 // own walk then records it, and a walk never descends a symlinked directory.
@@ -109,10 +124,12 @@ func claimed(path, base string, claims map[string]struct{}) bool {
 // recordPassedLinks collects each link of links (symlinked directories under
 // base) once per seen set, as a symlink row of home under agent, unless it is
 // no longer a link, is claimed, or already has a manifest row; each is staged
-// where base physically holds it, as record_passed_links does.
+// where base physically holds it, through the owner's stager, as
+// record_passed_links does.
 func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, base string,
 	links []string, seen map[string]struct{},
 ) error {
+	baseStager := owner.stager
 	for _, link := range links {
 		if _, done := seen[link]; done {
 			continue
@@ -123,7 +140,7 @@ func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, 
 			continue
 		}
 		found, _ := LinkedParent(base, link)
-		owner.stager = collector.Stager.Through(found.From, found.Into)
+		owner.stager = throughLinks(baseStager, found.From, found.Into)
 		if _, err := collector.collectPath(ctx, owner, link); err != nil {
 			return err
 		}

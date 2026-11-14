@@ -45,12 +45,14 @@ func (collector *Collector) WriteReadError(user, home, path, reason string) erro
 }
 
 // catalogRun is the state of one CollectCatalog call: the header still to
-// log before the first line, the paths the table's matches claim, and the
-// symlinked directories already considered for a row.
+// log before the first line, the stager of paths under the base, the paths
+// the table's matches claim, and the symlinked directories already considered
+// for a row.
 type catalogRun struct {
 	user   string
 	base   string
 	header string
+	stager stage.Stager
 	claims map[string]struct{}
 	seen   map[string]struct{}
 }
@@ -62,8 +64,17 @@ type catalogRun struct {
 func (collector *Collector) CollectCatalog(ctx context.Context, user, base string,
 	table []catalog.Entry, header string,
 ) error {
+	return collector.collectCatalog(ctx, user, base, table, header, collector.Stager)
+}
+
+// collectCatalog is CollectCatalog with the stager of paths under base, which
+// for a project reached through a link in its home stages them where the home
+// physically holds them.
+func (collector *Collector) collectCatalog(ctx context.Context, user, base string,
+	table []catalog.Entry, header string, stager stage.Stager,
+) error {
 	matches := ExpandCatalog(base, table)
-	run := catalogRun{user: user, base: base, header: header,
+	run := catalogRun{user: user, base: base, header: header, stager: stager,
 		claims: map[string]struct{}{}, seen: map[string]struct{}{}}
 	for _, match := range matches {
 		if match.Note == "" {
@@ -110,7 +121,8 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 	if err := collector.logLines(run, line); err != nil {
 		return err
 	}
-	owner := scope{user: run.user, home: run.base, agent: match.Agent, claims: run.claims}
+	owner := scope{user: run.user, home: run.base, agent: match.Agent, stager: run.stager,
+		claims: run.claims}
 	if len(links.Passed) > 0 && !collector.Inventory {
 		err := collector.recordPassedLinks(ctx, owner, run.base, links.Passed, run.seen)
 		if err != nil || outside {
@@ -120,7 +132,7 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 	if outside {
 		return nil
 	}
-	owner.stager = collector.Stager.Through(links.From, links.Into)
+	owner.stager = throughLinks(run.stager, links.From, links.Into)
 	_, err := collector.collectPath(ctx, owner, path)
 	return err
 }

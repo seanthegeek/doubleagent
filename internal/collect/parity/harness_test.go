@@ -1,5 +1,23 @@
 //go:build parity
 
+// Parity exceptions. The comparison is byte for byte after the normalisation
+// in normalise_test.go drops what differs by design in every run. A case whose
+// run differs further by design names an expect function, which rewrites the
+// sh collector's rows, log lines, totals and archive members into what the
+// binary writes, and fails when the sh text it rewrites is not there exactly
+// once; the rest of the case still compares byte for byte. The exceptions
+// encoded that way:
+//
+//   - linkproj497: a project reached through a symlinked directory inside its
+//     owner's home is collected where the home physically holds it, with its
+//     recorded path in path. The sh collector stages it through the link
+//     recreated in the staging tree, whose absolute target leads back to the
+//     source, so its AGENTS.md row is error_copy beside a copy failed line.
+//     The binary writes a collected row archived under
+//     fs/home/dot/dotfiles/claude/proj, ends the project's log line with
+//     "(through the symlinked directory X, archived under Y)", and the totals
+//     and the archive follow (collectedInstead in exceptions_test.go).
+
 package parity
 
 import (
