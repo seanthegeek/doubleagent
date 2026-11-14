@@ -41,13 +41,15 @@ type Value struct {
 
 // Result is what a search found: the hints in the order they were recorded,
 // the resolved values, the number of files searched, the number of files the
-// sweep left unread for their size, and the number of hints with a value.
+// sweep left unread for their size, the number of hints with a value, and what
+// the registry pass read.
 type Result struct {
 	Hints            []Hint
 	Values           []Value
 	FilesSearched    int
 	FilesSkippedSize int
 	Resolved         int
+	Registry         RegistryOutcome
 }
 
 // Logger writes one line of the run log; runlog.Log is the one in use.
@@ -62,6 +64,8 @@ type Logger interface {
 // RunName name the run's own output files, which the sweep never reads.
 // Claims returns the paths the catalog table matches under a base, as the walk
 // expands them; Collect collects a hit file as agent shared, flagged secret.
+// Registry reads the Windows registry, nil off Windows; Profiles lists the
+// ProfileList entries in registry order, whose hives the registry pass reads.
 type Deps struct {
 	Tables          *catalog.Tables
 	Root            string
@@ -76,6 +80,8 @@ type Deps struct {
 	Log             Logger
 	Claims          func(base string, table []catalog.Entry) []string
 	Collect         func(user, home, path string) error
+	Registry        Registry
+	Profiles        []Profile
 }
 
 // search is the state of one Search: the hint records already held, the
@@ -88,10 +94,11 @@ type search struct {
 	result Result
 }
 
-// Search searches the startup files of every home, of the system and of every
-// project, then, under --env-scan-home, sweeps every other file of each home
-// and project, logging and recording each hint and collecting each hit file
-// through deps.Collect. It stops with ctx's error when ctx is cancelled.
+// Search searches the startup files of every home and of the system, reads the
+// registry, searches the startup files of every project, then, under
+// --env-scan-home, sweeps every other file of each home and project, logging
+// and recording each hint and collecting each hit file through deps.Collect.
+// It stops with ctx's error when ctx is cancelled.
 func Search(ctx context.Context, deps Deps) (Result, error) {
 	run := &search{deps: deps, names: variableNames(deps.Tables), seen: map[string]bool{}}
 	err := run.startupPass(ctx)
@@ -114,8 +121,8 @@ func variableNames(tables *catalog.Tables) []string {
 	return names
 }
 
-// startupPass searches the startup files of each home, the system and each
-// project, under the header naming the base.
+// startupPass searches the startup files of each home and the system, reads
+// the registry, then searches each project's, under the header naming the base.
 func (run *search) startupPass(ctx context.Context) error {
 	for _, home := range run.deps.Homes {
 		if home.Path == "" {
@@ -128,6 +135,9 @@ func (run *search) startupPass(ctx context.Context) error {
 	}
 	run.header = "Relocation hints in system files"
 	if err := run.searchStartup(ctx, "", "", run.deps.Root, "system"); err != nil {
+		return err
+	}
+	if err := run.registryPass(); err != nil {
 		return err
 	}
 	for _, project := range run.deps.Projects {
