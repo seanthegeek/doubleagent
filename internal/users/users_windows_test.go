@@ -99,10 +99,10 @@ func TestFind(t *testing.T) {
 			skipped:  []string{"gone/ghost:false"},
 		},
 		{
-			name:  "an image looks under home before Users, and at root and var/root",
+			name:  "an image looks under Users before home, and at root and var/root",
 			dirs:  []string{"Users/b", "home/a", "root", "var/root", "usr/home/c", "export/home/d"},
 			image: true,
-			homes: []string{"a:/home/a", "b:/Users/b", "root:/root", "root:/var/root",
+			homes: []string{"b:/Users/b", "a:/home/a", "root:/root", "root:/var/root",
 				"c:/usr/home/c", "d:/export/home/d"},
 		},
 	}

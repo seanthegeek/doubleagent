@@ -76,7 +76,8 @@ func TestEnumerateImage(t *testing.T) {
 		filter string
 		want   []string
 		// windowsWant replaces want on Windows when set, where there is no
-		// passwd file and the -u list ignores case.
+		// passwd file, the -u list ignores case, Users comes before home and
+		// a directory's names come in listing order (NTFS: by upper case).
 		windowsWant []string
 	}{
 		{
@@ -85,14 +86,15 @@ func TestEnumerateImage(t *testing.T) {
 			passwd: "zed:x:5:5::/srv/zed:/bin/sh\n",
 			want: []string{"zed:/srv/zed", "alice:/home/alice", "bob:/home/bob", "carol:/Users/carol",
 				"root:/root", "root:/var/root", "dave:/usr/home/dave", "erin:/export/home/erin"},
-			windowsWant: []string{"alice:/home/alice", "bob:/home/bob", "carol:/Users/carol",
+			windowsWant: []string{"carol:/Users/carol", "alice:/home/alice", "bob:/home/bob",
 				"root:/root", "root:/var/root", "dave:/usr/home/dave", "erin:/export/home/erin"},
 		},
 		{
-			name:   "every system and shared profile home is dropped",
-			tree:   tree{dirs: append([]string{"home/alice"}, append(systemHomes, "Users/carol")...)},
-			passwd: systemPasswd + "alice:x:1000:1000::/home/alice:/bin/sh\n",
-			want:   []string{"alice:/home/alice", "carol:/Users/carol"},
+			name:        "every system and shared profile home is dropped",
+			tree:        tree{dirs: append([]string{"home/alice"}, append(systemHomes, "Users/carol")...)},
+			passwd:      systemPasswd + "alice:x:1000:1000::/home/alice:/bin/sh\n",
+			want:        []string{"alice:/home/alice", "carol:/Users/carol"},
+			windowsWant: []string{"carol:/Users/carol", "alice:/home/alice"},
 		},
 		{
 			name:   "a home that is missing or a file is dropped",
@@ -121,17 +123,19 @@ func TestEnumerateImage(t *testing.T) {
 			windowsWant: []string{"alice:/home/alice"},
 		},
 		{
-			name:   "names sort bytewise, upper case before lower case",
-			tree:   tree{dirs: []string{"home/b", "home/Zed", "home/alice", "home/_u"}},
-			passwd: "",
-			want:   []string{"Zed:/home/Zed", "_u:/home/_u", "alice:/home/alice", "b:/home/b"},
+			name:        "names sort bytewise, upper case before lower case, but not on Windows",
+			tree:        tree{dirs: []string{"home/b", "home/Zed", "home/alice", "home/_u"}},
+			passwd:      "",
+			want:        []string{"Zed:/home/Zed", "_u:/home/_u", "alice:/home/alice", "b:/home/b"},
+			windowsWant: []string{"alice:/home/alice", "b:/home/b", "Zed:/home/Zed", "_u:/home/_u"},
 		},
 		{
-			name:   "the -u list picks users, case-sensitively",
-			tree:   tree{dirs: []string{"home/alice", "home/bob", "home/Carol"}},
-			passwd: "",
-			filter: "bob,carol,Carol",
-			want:   []string{"Carol:/home/Carol", "bob:/home/bob"},
+			name:        "the -u list picks users, case-sensitively",
+			tree:        tree{dirs: []string{"home/alice", "home/bob", "home/Carol"}},
+			passwd:      "",
+			filter:      "bob,carol,Carol",
+			want:        []string{"Carol:/home/Carol", "bob:/home/bob"},
+			windowsWant: []string{"bob:/home/bob", "Carol:/home/Carol"},
 		},
 		{
 			name:   "a -u list naming nobody keeps nobody",

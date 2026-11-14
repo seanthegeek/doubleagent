@@ -8,14 +8,14 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// homeGlobs returns the home parents relative to the base. A live run looks
-// under the system drive; an image tries the sh collector's list, so its
-// order, home before Users, differs from a live run's.
+// homeGlobs returns the home parents relative to the base, in the order the
+// PowerShell collector tries them: a live run looks under the system drive,
+// an image also at the Unix home parents, Users first in both.
 func homeGlobs(live bool) []string {
 	if live {
 		return []string{"Users/*", "home/*"}
 	}
-	return []string{"home/*", "Users/*", "root", "var/root", "usr/home/*", "export/home/*"}
+	return []string{"Users/*", "home/*", "root", "var/root", "usr/home/*", "export/home/*"}
 }
 
 // Find returns the homes to collect, in enumeration order. A live run reads
