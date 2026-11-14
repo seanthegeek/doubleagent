@@ -412,8 +412,9 @@ The checker reads Go files too, with the exemptions of
   tests' dated fixture-block labels are the exceptions.
 - **Short comments.** A run of whole-line comments is at most ten lines;
   the file header and the collectors' reader's guide are the exceptions. A
-  docstring is at most ten lines, a module docstring at most thirty. What
-  needs more is a paragraph in the owning documentation page.
+  docstring is at most ten lines; a module docstring and a Go package
+  comment, which say what the module or package is for, at most thirty.
+  What needs more is a paragraph in the owning documentation page.
 - **Plain language.** Comments, docstrings, commit messages and
   documentation describe what the code does in words a newcomer
   understands. A domain term is used only where the code implements that
