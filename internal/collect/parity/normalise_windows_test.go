@@ -117,7 +117,7 @@ func normalWindowsLog(text string, binary, timed bool) string {
 		archiverLine := timed && !binary && !windowsLogTime.MatchString(line)
 		line = windowsLogTime.ReplaceAllString(line, "")
 		onlyOne := (binary && strings.HasPrefix(line, "find: ")) || (!binary && powerShellOnly.MatchString(line))
-		if archiverLine || onlyOne || strings.HasPrefix(line, "profile not accessible (skipped): ") {
+		if archiverLine || onlyOne {
 			continue
 		}
 		if binary {
