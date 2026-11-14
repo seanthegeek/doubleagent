@@ -1,6 +1,7 @@
 package fsmeta
 
 import (
+	"strings"
 	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -29,31 +30,43 @@ func ZeroMeta() Meta {
 }
 
 // Lstat returns the metadata of path itself, never of a link's or
-// junction's target. The handle is opened with no access right, which
-// Windows grants where reading the content is denied, so a file a deny
-// entry protects is still described. When the open fails (a file the system
-// holds open exclusively), the directory entry fills what it can.
+// junction's target. Size, times, attributes and the reparse tag come from
+// the directory entry, the data Get-ChildItem and every Windows listing
+// show: NTFS updates a directory's own record before the entry its parent
+// holds, so a handle can report a newer write time than the listing. The
+// file identity (Dev, Ino, Nlink) is only on the file's record and comes
+// from a handle opened with no access right, which Windows grants where
+// reading the content is denied; it is 0 when the open fails (a file the
+// system holds open exclusively).
 func Lstat(path string) (Meta, error) {
 	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
 	if err != nil {
 		return Meta{}, pathError("lstat", syspath.ToNative(path), err)
 	}
-	meta, err := lstatHandle(name)
-	if err == nil {
+	if meta, err := lstatFind(path, name); err == nil {
+		addIdentity(&meta, name)
 		return meta, nil
 	}
-	meta, findError := lstatFind(name)
-	if findError != nil {
+	// No directory lists a drive or share root, so FindFirstFile has no entry
+	// for one; it also fails on a file whose directory the account may not
+	// list but whose file it may open. The handle describes those.
+	meta, err := lstatHandle(name)
+	if err != nil {
 		return Meta{}, pathError("lstat", syspath.ToNative(path), err)
 	}
 	return meta, nil
 }
 
+// openNoFollow opens the file name names itself, a directory or a reparse
+// point included, with no access right.
+func openNoFollow(name *uint16) (windows.Handle, error) {
+	return windows.CreateFile(name, 0, shareAll, nil, windows.OPEN_EXISTING, noFollowFlags, 0)
+}
+
 // lstatHandle describes the file name names through a handle on it, with
 // the volume serial number and file index that identify the file.
 func lstatHandle(name *uint16) (Meta, error) {
-	handle, err := windows.CreateFile(name, 0, shareAll, nil, windows.OPEN_EXISTING,
-		noFollowFlags, 0)
+	handle, err := openNoFollow(name)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -73,16 +86,42 @@ func lstatHandle(name *uint16) (Meta, error) {
 	size := int64(data.FileSizeHigh)<<32 | int64(data.FileSizeLow)
 	meta := metaOf(data.FileAttributes, tag.ReparseTag, size,
 		[3]windows.Filetime{data.LastWriteTime, data.LastAccessTime, data.CreationTime})
-	meta.Dev = uint64(data.VolumeSerialNumber)
-	meta.Ino = uint64(data.FileIndexHigh)<<32 | uint64(data.FileIndexLow)
-	meta.Nlink = uint64(data.NumberOfLinks)
+	setIdentity(&meta, &data)
 	return meta, nil
 }
 
-// lstatFind describes the file name names from its directory entry, which
-// carries no file identity, so Dev, Ino and Nlink are 0. For a reparse point
-// the entry's first reserved field holds the reparse tag.
-func lstatFind(name *uint16) (Meta, error) {
+// addIdentity sets the identity of meta from a handle on the file name
+// names, leaving it 0 when the file cannot be opened or read.
+func addIdentity(meta *Meta, name *uint16) {
+	handle, err := openNoFollow(name)
+	if err != nil {
+		return
+	}
+	defer windows.CloseHandle(handle)
+	var data windows.ByHandleFileInformation
+	if windows.GetFileInformationByHandle(handle, &data) == nil {
+		setIdentity(meta, &data)
+	}
+}
+
+// setIdentity copies the volume serial number, file index and link count
+// of data into meta as Dev, Ino and Nlink.
+func setIdentity(meta *Meta, data *windows.ByHandleFileInformation) {
+	meta.Dev = uint64(data.VolumeSerialNumber)
+	meta.Ino = uint64(data.FileIndexHigh)<<32 | uint64(data.FileIndexLow)
+	meta.Nlink = uint64(data.NumberOfLinks)
+}
+
+// lstatFind describes the file at path, whose extended form name names,
+// from its directory entry, which carries no file identity. For a reparse
+// point the entry's first reserved field holds the reparse tag. FindFirstFile
+// reads its last component as a pattern, so a name holding one of the
+// characters the directory query matches with (no Win32 file name holds
+// one) is refused rather than matched against another entry.
+func lstatFind(path string, name *uint16) (Meta, error) {
+	if strings.ContainsAny(path[strings.LastIndexAny(path, `/\`)+1:], `*?<>"`) {
+		return Meta{}, windows.ERROR_INVALID_NAME
+	}
 	var data windows.Win32finddata
 	handle, err := windows.FindFirstFile(name, &data)
 	if err != nil {

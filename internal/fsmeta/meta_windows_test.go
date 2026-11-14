@@ -232,6 +232,105 @@ func TestLstatTimesOnWindows(t *testing.T) {
 	}
 }
 
+// listedEntry returns what the listing of path's parent directory says of
+// path: its write time, access time, creation time and size, the directory
+// entry Get-ChildItem reads.
+func listedEntry(t *testing.T, path string) [4]int64 {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() != filepath.Base(path) {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := info.Sys().(*syscall.Win32FileAttributeData)
+		return [4]int64{epochSeconds(windows.Filetime(data.LastWriteTime)),
+			epochSeconds(windows.Filetime(data.LastAccessTime)),
+			epochSeconds(windows.Filetime(data.CreationTime)), info.Size()}
+	}
+	t.Fatalf("the listing of %s has no %s", filepath.Dir(path), filepath.Base(path))
+	return [4]int64{}
+}
+
+// makeStaleDirectory makes a directory dated an hour ago, describes it, then
+// creates a child in it, which updates its record before its entry.
+func makeStaleDirectory(t *testing.T, directory string) {
+	t.Helper()
+	if err := os.Mkdir(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(directory, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Lstat(syspath.FromNative(directory)); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(directory, "child"), "text")
+}
+
+// makeStaleLink makes second a hard link to first, then appends to the file
+// through first, which leaves the entry of second as it was.
+func makeStaleLink(t *testing.T, first, second string) {
+	t.Helper()
+	writeFile(t, first, "one")
+	if err := os.Link(first, second); err != nil {
+		t.Fatal(err)
+	}
+	handle, err := os.OpenFile(first, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = handle.WriteString("more text")
+	if closeError := handle.Close(); err == nil {
+		err = closeError
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The directory entry can lag the file's record: a directory's entry in its
+// parent after a child is created, the entry of one hard link after the file
+// is written through another. The listing is read before and after Lstat, as
+// NTFS may bring the entry up to date between the two.
+func TestLstatReadsTheDirectoryEntry(t *testing.T) {
+	root := t.TempDir()
+	directory, first, second := filepath.Join(root, "directory"), filepath.Join(root, "first"),
+		filepath.Join(root, "second")
+	makeStaleDirectory(t, directory)
+	makeStaleLink(t, first, second)
+	for _, path := range []string{directory, second} {
+		t.Run("the times and size of "+filepath.Base(path)+" are its listing's", func(t *testing.T) {
+			before := listedEntry(t, path)
+			meta, err := Lstat(syspath.FromNative(path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			after := listedEntry(t, path)
+			got := [4]int64{meta.Mtime, meta.Atime, meta.Btime, meta.Size}
+			if got != before && got != after {
+				t.Errorf("times and size %v; want the listing's, %v or %v", got, before, after)
+			}
+		})
+	}
+	t.Run("the identity of a hard link is the file's", func(t *testing.T) {
+		one, oneError := Lstat(syspath.FromNative(first))
+		two, twoError := Lstat(syspath.FromNative(second))
+		if oneError != nil || twoError != nil || one.Ino == 0 || one.Ino != two.Ino ||
+			two.Nlink != 2 {
+			t.Errorf("indexes %d, %d, links %d, errors %v, %v; want one nonzero index, 2 links",
+				one.Ino, two.Ino, two.Nlink, oneError, twoError)
+		}
+	})
+}
+
 func TestLstatErrorsOnWindows(t *testing.T) {
 	missing := syspath.FromNative(filepath.Join(t.TempDir(), "missing"))
 	_, err := Lstat(missing)
