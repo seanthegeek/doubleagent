@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
@@ -24,5 +25,28 @@ func TestWriterWritesNativePaths(t *testing.T) {
 	}
 	if !writer.HasPath("c:/users/A/X") {
 		t.Error("HasPath did not fold")
+	}
+}
+
+func TestWriterLayout(t *testing.T) {
+	row := Row{
+		User: "alice", Home: "C:/Users/alice", Agent: "claude-code",
+		Path:        "C:/Users/alice/.claude/a\"b\\c\td",
+		ArchivePath: "fs/C/Users/alice/.claude/a",
+		Type:        "file", Size: 97, Mtime: 3, Atime: 4, Ctime: 5, Btime: 6,
+		Mode: "", Owner: `HOST\alice`, Attributes: "Archive",
+		SHA256: "abc", Secret: true, Status: Collected,
+	}
+	want := `{"user":"alice","home":"C:\\Users\\alice","agent":"claude-code",` +
+		`"path":"C:\\Users\\alice\\.claude\\a\"b\\c\td","archive_path":"fs/C/Users/alice/.claude/a",` +
+		`"type":"file","size":97,"mtime":3,"atime":4,"ctime":5,"btime":6,"uid":0,` +
+		`"gid":0,"mode":"","owner":"HOST\\alice","attributes":"Archive","sha256":"abc",` +
+		`"secret":true,"status":"collected","target":"","error":""}` + "\n"
+	var out bytes.Buffer
+	if err := NewWriter(&out).Write(row); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != want {
+		t.Errorf("row =\n%s want\n%s", out.String(), want)
 	}
 }
