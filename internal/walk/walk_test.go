@@ -299,7 +299,63 @@ func TestFindLinesForUnreadDirectories(t *testing.T) {
 	if got := strings.Count(rows.String(), `"status":"error_read"`); got != 3 {
 		t.Errorf("%d error_read rows, want one per directory", got)
 	}
+	wantCopyErrors := 0
+	if findReportsUnenterableEntries {
+		wantCopyErrors = 2
+	}
+	copyErrors := strings.Count(rows.String(), `"mode":"0","sha256":"","secret":false,"status":"error_copy"`)
+	if copyErrors != wantCopyErrors {
+		t.Errorf("%d error_copy rows with no metadata, want %d", copyErrors, wantCopyErrors)
+	}
 }
+
+func TestUnenterableEntriesFollowFindsExpression(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every directory")
+	}
+	if !findReportsUnenterableEntries {
+		t.Skip("this platform's find writes nothing for such entries")
+	}
+	base := fixture{files: []string{"m/noenter/cache/x", "m/noenter/keep", "m/noenter/claimed/y"}}.build(t)
+	mustDo(t, os.Chmod(base+"/m/noenter", 0o600))
+	t.Cleanup(func() { _ = os.Chmod(base+"/m/noenter", 0o755) })
+	collector, rows, _ := testCollector(t, base, []string{"m/noenter/cache"})
+	owner := scope{user: "u", home: base, agent: "agent", stager: collector.Stager,
+		claims: map[string]struct{}{base + "/m/noenter/claimed": {}}}
+	_, err := collector.collectTree(context.Background(), owner, base+"/m")
+	mustDo(t, err)
+	manifest := rows.String()
+	checks := []struct {
+		name string
+		ok   bool
+	}{
+		{"an excluded entry gets a skipped_excluded row",
+			strings.Contains(manifest, `/m/noenter/cache","archive_path":"","type":"file",`) &&
+				strings.Count(manifest, `"status":"skipped_excluded"`) == 1},
+		{"a claimed entry gets no row", !strings.Contains(manifest, "/m/noenter/claimed")},
+		{"the other entry gets an error_copy row",
+			strings.Contains(manifest, `/m/noenter/keep",`) &&
+				strings.Count(manifest, `"status":"error_copy"`) == 1},
+	}
+	for _, check := range checks {
+		if !check.ok {
+			t.Errorf("%s:\n%s", check.name, manifest)
+		}
+	}
+	collector.Inventory, collector.Records = true, &countingRecords{}
+	rows.Reset()
+	_, err = collector.collectTree(context.Background(), owner, base+"/m")
+	mustDo(t, err)
+	if files := collector.Records.(*countingRecords).files; files != 0 {
+		t.Errorf("inventory counted %d files under an unenterable directory, want 0", files)
+	}
+}
+
+// countingRecords counts the inventory records a walk makes.
+type countingRecords struct{ matches, files int }
+
+func (records *countingRecords) Match(string, string)      { records.matches++ }
+func (records *countingRecords) File(string, int64, int64) { records.files++ }
 
 func TestFailedCopyThroughRecreatedLink(t *testing.T) {
 	if os.Geteuid() == 0 {

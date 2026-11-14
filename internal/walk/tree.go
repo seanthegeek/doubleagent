@@ -90,7 +90,7 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	}
 	if reason, failed := fsmeta.DirReadError(path); failed {
 		found.readErrors = append(found.readErrors, readError{path, reason})
-		return collector.findUnreadDir(found, path)
+		return collector.findUnreadDir(ctx, owner, found, path)
 	}
 	return collector.visitEntries(ctx, owner, found, path)
 }
@@ -98,10 +98,15 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 // findUnreadDir handles a directory the walk cannot read as find does: a
 // directory that cannot be listed gets one find line. One that can be listed
 // but not entered gets none itself; where find reports its entries, each
-// entry gets a find line, since find cannot stat it, and is handed on as a
-// file, since find cannot tell it is a directory, so the stage gives it an
-// error_copy row with no metadata. An empty such directory gives nothing.
-func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
+// entry gets a find line, since find cannot stat it, and then goes through
+// the rest of find's expression as a path of no known type: a claim prunes
+// it, an exclusion gives it a skipped_excluded row, anything else goes to the
+// stage, which gives it an error_copy row with no metadata. The inventory's
+// `-type f` cannot hold for an entry find cannot stat, so under --inventory
+// the entries are only logged. An empty such directory gives nothing.
+func (collector *Collector) findUnreadDir(ctx context.Context, owner scope, found *treeWalk,
+	dir string,
+) error {
 	handle, err := os.Open(dir)
 	if err != nil {
 		return collector.findError(found, dir, err.Error())
@@ -121,7 +126,12 @@ func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
 		if err := collector.findError(found, path, syscall.EACCES.Error()); err != nil {
 			return err
 		}
-		found.files = append(found.files, path)
+		if collector.Inventory {
+			continue
+		}
+		if err := collector.visit(ctx, owner, found, path, false); err != nil {
+			return err
+		}
 	}
 	return nil
 }
