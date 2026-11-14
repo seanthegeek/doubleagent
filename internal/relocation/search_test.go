@@ -46,10 +46,14 @@ func writeTree(t *testing.T, root string, files map[string]string) {
 	t.Helper()
 	for relative, text := range files {
 		path := filepath.Join(root, relative)
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
+		err := os.MkdirAll(filepath.Dir(path), 0o755)
+		if err == nil {
+			err = os.WriteFile(path, []byte(text), 0o644)
 		}
-		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		if invalidFileName(err) {
+			t.Skipf("this platform does not accept the file name %q: %v", relative, err)
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
