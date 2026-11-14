@@ -86,6 +86,22 @@ separate small image with a relative, a dangling and a directory symlink
 PowerShell tar writer, with the zip from the start, and, off Windows, with a
 `tar` that fails and the zip after it (the late fall back to zip).
 
+With `SMOKE_IMAGE_ONLY=1` in the environment `tests/smoke.ps1` stops, like
+`tests/smoke.sh`, once the main fake image is built: it closes its Unix
+socket (the socket file stays), prints the work directory as its last line
+of stdout and exits `0`. The Go binary's Windows parity harness
+(`internal/collect/parity`, `*_windows_test.go`, build tag `parity`) builds
+the image that way with `TEMP` and `TMP` set to its own temporary directory,
+runs the PowerShell collector through
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& 'collectors\Collect-AgentArtifacts.ps1' ...; exit $LASTEXITCODE"`
+and the binary over it with the same options (the binary's sh-style
+options mapped onto the collector's parameters, every `-p` value into one
+`-Project` list), and compares their manifests, `collection.json` files,
+logs, output and archive members after dropping the differences the Go
+rewrite's plan accepts. Its two live runs, the `-Users no-such-user-cac` run
+and the `HKCU\Environment\CODEX_HOME` registry run, are run only where
+`PARITY_LIVE=1`, which only the CI parity job on Windows and the lab VM set.
+
 `CAC_ARCHIVER` is a test hook for the PowerShell collector that sets the
 archivers to try, in order, as a comma-separated list of `tar`, `writer`
 (the PowerShell tar writer) and `zip`; the default is `tar,writer,zip`. An

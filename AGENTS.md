@@ -517,8 +517,11 @@ for Go files as it does for the others.
   collectors' exceptions.
 - **Tests.** Table-driven, with `t.Run` names that read as sentences;
   fixtures built under `t.TempDir()`; run with `-race`; no test reads the
-  developer's home or the network, and no test runs `collect` without `-r`:
-  a run without a root collects the developer's own credentials. The parity harness
+  developer's home or the network, and no test runs `collect` without `-r`,
+  except the two live cases of the Windows parity harness that PARITY_LIVE=1
+  enables, which run only on the disposable CI runner and the lab VM and
+  delete their output: a run without a root collects the developer's own
+  credentials. The parity harness
   (`internal/collect/parity`, build tag `parity`) diffs the binary against
   the sh collector over the smoke image and runs in CI on the three runners.
 - **Builds.** `.github/go-build.sh` builds the six `GOOS`/`GOARCH` targets
