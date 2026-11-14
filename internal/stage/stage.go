@@ -14,6 +14,8 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Stager says where files are staged. Dir is the staging directory, Physical
@@ -39,14 +41,18 @@ func (stager Stager) Through(from, into string) Stager {
 // Dest returns the archive member of path, fs/ and the path without the
 // root, and where it is staged. As set_dest_var does, the root is removed
 // only as a leading string, and a path that does not start with it keeps
-// every byte after fs.
+// every byte after fs. On Windows the root and From are matched ignoring
+// case, and a drive or UNC path left after the root is archived as
+// Get-ArchivePath does (C:/a under fs/C/a, //server/share/a under
+// fs/server/share/a).
 func (stager Stager) Dest(path string) (archivePath, destPath string) {
 	relative := path
 	if stager.From != "" &&
-		(path == stager.From || strings.HasPrefix(path, stager.From+"/")) {
+		(syspath.Equal(path, stager.From) || syspath.HasPrefix(path, stager.From+"/")) {
 		relative = stager.Into + path[len(stager.From):]
 	}
-	archivePath = "fs" + strings.TrimPrefix(relative, stager.Root)
+	rest, _ := syspath.CutPrefix(relative, stager.Root)
+	archivePath = "fs" + syspath.ArchiveRel(rest)
 	return archivePath, stager.Dir + "/" + archivePath
 }
 
@@ -106,7 +112,7 @@ func (stager Stager) requireInside(operation, dir string) error {
 // Physical was given unresolved still stages.
 func (stager Stager) holds(physical string) bool {
 	under := func(root string) bool {
-		return root != "" && strings.HasPrefix(physical+"/", strings.TrimSuffix(root, "/")+"/")
+		return root != "" && syspath.HasPrefix(physical+"/", strings.TrimSuffix(root, "/")+"/")
 	}
 	if under(stager.Physical) {
 		return true
@@ -127,34 +133,35 @@ type outsideStage struct{}
 func (outsideStage) Error() string { return "does not resolve inside the staging directory" }
 
 // CopyFile copies the regular file path to its staged path and returns the
-// SHA-256 of the bytes written, in lower-case hex. Nothing is written unless
-// the staged path's directory resolves inside the staging directory, neither
-// end is opened through a final symlink, and the copy gets the source's mode
-// and times, and its owner when running as root, as cp -p gives it. The
-// error is the innermost *fs.PathError the copy met.
-func (stager Stager) CopyFile(path string) (string, error) {
+// SHA-256 of the bytes written, in lower-case hex, and their count, which
+// the Windows rows give as the size, as Copy-FileShared does. Nothing is
+// written unless the staged path's directory resolves inside the staging
+// directory and neither end is opened through a final link; the copy gets
+// the source's times, and on Unix its mode and, as root, its owner, as cp -p
+// gives them. The error is the innermost *fs.PathError the copy met.
+func (stager Stager) CopyFile(path string) (string, int64, error) {
 	_, dest := stager.Dest(path)
 	if err := stager.makeDir(parentOf(dest)); err != nil {
-		return "", err
+		return "", 0, err
 	}
 	source, err := openSource(path)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer source.Close()
 	info, err := source.Stat()
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if !info.Mode().IsRegular() {
-		return "", &fs.PathError{Op: "open", Path: path, Err: notRegular{}}
+		return "", 0, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	}
 	target, err := createDest(dest)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	hash := sha256.New()
-	_, err = io.Copy(io.MultiWriter(target, hash), source)
+	written, err := io.Copy(io.MultiWriter(target, hash), source)
 	if err == nil {
 		err = preserve(target, dest, info)
 	}
@@ -162,9 +169,9 @@ func (stager Stager) CopyFile(path string) (string, error) {
 		err = closeError
 	}
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
+	return hex.EncodeToString(hash.Sum(nil)), written, nil
 }
 
 // notRegular is the reason a path that stopped being a regular file between
@@ -180,7 +187,9 @@ func (notRegular) Error() string { return "not a regular file" }
 // is: another entry's walk recreated it, and creating a link onto a link to a
 // directory would create it inside that directory, on the source. No link is
 // created in a directory that does not resolve inside the staging directory.
-func (stager Stager) Symlink(path, target string) error {
+// directory makes a Windows directory link, as a junction or a directory
+// symlink is recreated; Unix links have no kind and ignore it.
+func (stager Stager) Symlink(path, target string, directory bool) error {
 	_, dest := stager.Dest(path)
 	if _, err := os.Lstat(dest); err == nil {
 		return nil
@@ -188,7 +197,7 @@ func (stager Stager) Symlink(path, target string) error {
 	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
 		return err
 	}
-	return os.Symlink(target, dest)
+	return createLink(target, dest, directory)
 }
 
 // RemoveFailedCopy removes what a failed copy left at dest and reports true,
@@ -203,7 +212,7 @@ func (stager Stager) RemoveFailedCopy(dest string) bool {
 	}
 	physical, err := PhysicalDir(parentOf(dest))
 	if stager.Physical == "" || err != nil ||
-		!strings.HasPrefix(physical+"/", stager.Physical+"/") {
+		!syspath.HasPrefix(physical+"/", stager.Physical+"/") {
 		return false
 	}
 	// rm -f removes no directory, and os.Remove would remove an empty one.

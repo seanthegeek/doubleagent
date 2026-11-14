@@ -73,7 +73,7 @@ func (collector *Collector) planFile(owner scope, path string,
 	case exists && meta.Kind == fsmeta.Symlink:
 		file.status, file.kind = manifest.Symlink, "symlink"
 		file.target, _ = os.Readlink(path)
-		_ = owner.stager.Symlink(path, file.target)
+		_ = owner.stager.Symlink(path, file.target, meta.DirectoryLink())
 	case exists && meta.Kind != fsmeta.File:
 		file.status, file.kind = manifest.SkippedSpecial, specialKind(meta.Kind)
 	case file.secret && collector.NoSecrets:
@@ -106,7 +106,7 @@ func (collector *Collector) transferFiles(owner scope, files []plannedFile) erro
 		if file.status != "" {
 			continue
 		}
-		hash, err := owner.stager.CopyFile(file.path)
+		hash, _, err := owner.stager.CopyFile(file.path)
 		if err == nil {
 			file.status, file.sha256 = manifest.Collected, hash
 			continue

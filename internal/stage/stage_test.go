@@ -16,36 +16,6 @@ import (
 	"time"
 )
 
-func TestDest(t *testing.T) {
-	stager := Stager{Dir: "/out/.stage", Root: "/img"}
-	cases := []struct {
-		name        string
-		stager      Stager
-		path        string
-		wantArchive string
-	}{
-		{"the root is removed from the front", stager, "/img/home/a/f", "fs/home/a/f"},
-		{"a live run keeps the whole path", Stager{Dir: "/s"}, "/home/a/f", "fs/home/a/f"},
-		{"a path outside the root keeps every byte", stager, "/other/f", "fs/other/f"},
-		{"the root is removed as a string, not a component", stager, "/imgx/f", "fsx/f"},
-		{"a relative path is joined to fs as is", stager, "zzz", "fszzz"},
-		{"a path under an in-base link is staged at the physical path",
-			stager.Through("/img/h/.a", "/img/h/dot/a"), "/img/h/.a/b/c", "fs/h/dot/a/b/c"},
-		{"the in-base link itself is staged at the physical path",
-			stager.Through("/img/h/.a", "/img/h/dot/a"), "/img/h/.a", "fs/h/dot/a"},
-		{"a sibling sharing the link's prefix is not moved",
-			stager.Through("/img/h/.a", "/img/h/dot/a"), "/img/h/.ab/c", "fs/h/.ab/c"},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			archive, dest := test.stager.Dest(test.path)
-			if archive != test.wantArchive || dest != test.stager.Dir+"/"+test.wantArchive {
-				t.Errorf("Dest(%q) = %q, %q", test.path, archive, dest)
-			}
-		})
-	}
-}
-
 // newStager returns a stager over a fresh staging directory and a fresh
 // source root.
 func newStager(t *testing.T) (Stager, string) {
@@ -75,7 +45,7 @@ func TestCopyFile(t *testing.T) {
 	if err := os.Chtimes(source, mtime, mtime); err != nil {
 		t.Fatal(err)
 	}
-	hash, err := stager.CopyFile(source)
+	hash, written, err := stager.CopyFile(source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,6 +59,8 @@ func TestCopyFile(t *testing.T) {
 	switch {
 	case hash != hex.EncodeToString(sum[:]):
 		t.Errorf("hash %s", hash)
+	case written != int64(len(content)):
+		t.Errorf("written %d", written)
 	case string(staged) != string(content):
 		t.Errorf("staged %q", staged)
 	case info.Mode().Perm() != 0o640:
@@ -121,7 +93,7 @@ func TestCopyFileRefuses(t *testing.T) {
 			stager, root := newStager(t)
 			source := root + "/home/f"
 			test.setup(t, stager, source)
-			if hash, err := stager.CopyFile(source); err == nil {
+			if hash, _, err := stager.CopyFile(source); err == nil {
 				t.Fatalf("copied, hash %s", hash)
 			}
 			if info, err := os.Lstat(source); err == nil && info.Mode().IsRegular() {
@@ -136,8 +108,8 @@ func TestCopyFileRefuses(t *testing.T) {
 func TestSymlinkLeavesAnExistingDestination(t *testing.T) {
 	stager, root := newStager(t)
 	mustDo(t, stager.MakeParent(root+"/home/l"))
-	mustDo(t, stager.Symlink(root+"/home/l", "first"))
-	mustDo(t, stager.Symlink(root+"/home/l", "second"))
+	mustDo(t, stager.Symlink(root+"/home/l", "first", false))
+	mustDo(t, stager.Symlink(root+"/home/l", "second", false))
 	_, dest := stager.Dest(root + "/home/l")
 	if target, _ := os.Readlink(dest); target != "first" {
 		t.Errorf("target %q", target)
@@ -155,7 +127,7 @@ func linkedSource(t *testing.T, stager Stager, root string) string {
 	mustDo(t, os.WriteFile(home+"/dotfiles/claude/proj/AGENTS.md", []byte("x\n"), 0o644))
 	mustDo(t, os.Symlink(home+"/dotfiles/claude", home+"/.claude"))
 	mustDo(t, stager.MakeParent(home+"/.claude"))
-	mustDo(t, stager.Symlink(home+"/.claude", home+"/dotfiles/claude"))
+	mustDo(t, stager.Symlink(home+"/.claude", home+"/dotfiles/claude", false))
 	return home + "/.claude/proj/AGENTS.md"
 }
 
@@ -177,7 +149,7 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 		write func(stager Stager, source string) error
 	}{
 		{"a copy of the file the link leads to is refused", func(stager Stager, source string) error {
-			_, err := stager.CopyFile(source)
+			_, _, err := stager.CopyFile(source)
 			return err
 		}},
 		{"the file's staging directory is not made", func(stager Stager, source string) error {
@@ -187,7 +159,7 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 			return stager.MakeParent(filepath.Dir(source) + "/new/f")
 		}},
 		{"a link under the link is not created", func(stager Stager, source string) error {
-			return stager.Symlink(filepath.Dir(source)+"/new", "target")
+			return stager.Symlink(filepath.Dir(source)+"/new", "target", false)
 		}},
 	}
 	want := []string{"", "/fs", "/fs/home", "/fs/home/dot", "/fs/home/dot/.claude"}
@@ -219,7 +191,7 @@ func TestCopyFileWithAnUnresolvedPhysicalPath(t *testing.T) {
 	mustDo(t, os.Symlink(stager.Dir, filepath.Dir(stager.Dir)+"/alias"))
 	stager.Physical = filepath.Dir(stager.Dir) + "/alias"
 	mustDo(t, os.WriteFile(root+"/home/f", []byte("x"), 0o644))
-	if _, err := stager.CopyFile(root + "/home/f"); err != nil {
+	if _, _, err := stager.CopyFile(root + "/home/f"); err != nil {
 		t.Errorf("CopyFile: %v", err)
 	}
 }
@@ -283,13 +255,5 @@ func TestPhysicalDir(t *testing.T) {
 				t.Errorf("PhysicalDir = %q, %v", got, err)
 			}
 		})
-	}
-}
-
-// mustDo fails the test on err.
-func mustDo(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err)
 	}
 }
