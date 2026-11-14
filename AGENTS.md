@@ -469,13 +469,16 @@ for Go files as it does for the others.
   | --- | --- | --- |
   | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; on Windows the calls the standard library does not expose: file handles opened without following a reparse point, the reparse tag that tells a symlink or junction from a socket, file owners through the security descriptor and account lookup, final paths of handles, directory symlinks, file times set on a handle, and the registry; pure Go. |
 
-- **File system calls.** Code under `internal/` opens, lists, stats, creates
-  and removes paths through `internal/osfile`, never through `os` directly:
-  on Windows the wrappers pass the extended-length form (`\\?\`), so a name
-  ending in a dot or a space is the entry it names and a long path needs no
-  special case, and they return errors with the path in native form. On Unix
-  they are the `os` calls unchanged. A test in that package fails on a
-  direct call in any file of the Windows build.
+- **File system calls.** Every file under `internal/` that is built for
+  Windows opens, lists, stats, creates and removes paths through
+  `internal/osfile`, never through `os` directly: on Windows the wrappers
+  pass the extended-length form (`\\?\`), so a name ending in a dot or a
+  space is the entry it names and a long path needs no special case, and
+  they return errors with the path in native form. A file built only for
+  Unix (`_unix.go`, `_linux.go`, `_darwin.go`, or a `!windows` build
+  constraint) may call `os` directly, since there the wrappers are the `os`
+  calls unchanged. A test in that package fails on a direct call in any
+  file of the Windows build.
 - **Programs run.** `os/exec` is imported by `internal/hostcmd` and test
   files only, and runs only `getent`, `dscl` and `plutil`: the programs that
   give a platform's user list, or a launchd value, that no file gives.
