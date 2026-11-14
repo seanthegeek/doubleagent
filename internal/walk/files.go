@@ -213,12 +213,17 @@ func (collector *Collector) writeReadErrors(owner scope, failures []readError) e
 		if err := collector.Manifest.Write(row); err != nil {
 			return err
 		}
-		line := "read failed: " + syspath.ToNative(failure.path) + ": " + failure.reason
-		if err := collector.Log.Line(line); err != nil {
+		if err := collector.logReadError(failure.path, failure.reason); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// logReadError logs the read failed: line of a directory that cannot be
+// listed or entered.
+func (collector *Collector) logReadError(path, reason string) error {
+	return collector.Log.Line("read failed: " + syspath.ToNative(path) + ": " + reason)
 }
 
 // isVisibleDir reports whether path is a directory, or a link to one, that

@@ -87,10 +87,14 @@ const (
 // Under rowsFollowWalk, outside --inventory, the row is written at once, so
 // rows and their copy failed: and symlink not recreated: lines come out in
 // walk order, as Add-CollectedTree writes them; otherwise the path joins its
-// group, written when the walk ends.
+// group, written when the walk ends. Under --inventory a read error is logged
+// at once where inventoryLogsReadErrors says so, and gets no row.
 func (collector *Collector) record(ctx context.Context, owner scope, found *treeWalk,
 	kind foundKind, path, reason string,
 ) error {
+	if collector.Inventory && inventoryLogsReadErrors && kind == foundReadError {
+		return collector.logReadError(path, reason)
+	}
 	if rowsFollowWalk && !collector.Inventory {
 		switch kind {
 		case foundExcluded:

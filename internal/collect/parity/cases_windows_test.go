@@ -142,6 +142,9 @@ func windowsPackageCases() []windowsCase {
 // windowsInventoryCases are the stat-only runs: no -o and no staging, one
 // JSON line per agent on stdout. smoke.ps1's unreadable-home inventory run
 // is POSIX only; its place is taken by the -NoDocker run of the case-variant evidence check.
+// inventory-fold32 runs over fold32's fixture, whose directory the current
+// user may not list, with the log on stderr, so the read failed: line both
+// collectors log for it is compared.
 func windowsInventoryCases() []windowsCase {
 	cases := []parityCase{
 		{name: "inventory", inventory: true, cwd: "{OUT}", args: []string{"-q"}, setup: setupWindowsInventory},
@@ -151,6 +154,8 @@ func windowsInventoryCases() []windowsCase {
 		{name: "inventory-u", inventory: true, args: []string{"-q", "-u", "bob", "--no-docker"},
 			setup: setupWindowsInventory},
 		{name: "inventory-nodocker", inventory: true, args: []string{"-q", "--no-docker"}, setup: setupWindowsInventory},
+		{name: "inventory-fold32", inventory: true, stderrLog: true, args: []string{"--no-docker"},
+			setup: setupWindowsUnreadableCaseVariant},
 	}
 	var wrapped []windowsCase
 	for _, testCase := range cases {

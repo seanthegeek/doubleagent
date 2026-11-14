@@ -299,6 +299,27 @@ func TestFindLinesForUnreadDirectories(t *testing.T) {
 	}
 }
 
+func TestInventoryLogsNoReadFailureOnUnix(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every directory")
+	}
+	base := fixture{files: []string{"m/locked/f", "m/g"}}.build(t)
+	mustDo(t, os.Chmod(base+"/m/locked", 0))
+	t.Cleanup(func() { _ = os.Chmod(base+"/m/locked", 0o755) })
+	collector, rows, log := testCollector(t, base, nil)
+	collector.Inventory, collector.Records = true, &inventoryRecords{}
+	_, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
+	mustDo(t, err)
+	for _, line := range log.lines {
+		if strings.HasPrefix(line, "read failed: ") {
+			t.Errorf("inventory logged %q; the sh collector's inventory find logs only its own line", line)
+		}
+	}
+	if rows.Len() != 0 {
+		t.Errorf("inventory wrote rows %q", rows.String())
+	}
+}
+
 func TestFailedCopyThroughRecreatedLink(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads an unreadable file")

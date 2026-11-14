@@ -8,6 +8,11 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 )
 
+// inventoryLogsReadErrors says --inventory logs no read failed: line: the
+// sh collector's inventory find runs only the inventory worker, so a
+// directory it cannot list gives find's own line alone.
+const inventoryLogsReadErrors = false
+
 // collectedSize is the size a collected file's row records: its lstat size
 // before the copy, as the sh collector's stat line gives it.
 func collectedSize(file plannedFile) int64 {

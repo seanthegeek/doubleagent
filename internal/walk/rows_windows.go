@@ -5,6 +5,11 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// inventoryLogsReadErrors says --inventory logs the read failed: line of a
+// directory the walk cannot list: Write-ReadErrorRow logs before it returns
+// under -Inventory, writing no row.
+const inventoryLogsReadErrors = true
+
 // collectedSize is the size a collected file's row records: the bytes
 // copied, as Copy-FileShared returns them, since a file another process
 // writes may have grown since its lstat.

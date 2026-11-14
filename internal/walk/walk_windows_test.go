@@ -565,3 +565,71 @@ func TestOtherReparsePointsAreLinksNeverEntered(t *testing.T) {
 		t.Errorf("inventory sizes %v, want a.txt only", records.sizes)
 	}
 }
+
+// denyListing makes the current user unable to list directory, skipping the
+// test when that cannot be done or does not take (an enabled
+// SeBackupPrivilege lists it anyway), and restores the directory's access
+// when the test ends so the temporary directory can go.
+func denyListing(t *testing.T, directory string) {
+	t.Helper()
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	if err != nil {
+		t.Skipf("cannot read the process token: %v", err)
+	}
+	entries := []windows.EXPLICIT_ACCESS{{
+		AccessPermissions: windows.FILE_LIST_DIRECTORY,
+		AccessMode:        windows.DENY_ACCESS,
+		Inheritance:       windows.NO_INHERITANCE,
+		Trustee: windows.TRUSTEE{
+			TrusteeForm:  windows.TRUSTEE_IS_SID,
+			TrusteeType:  windows.TRUSTEE_IS_USER,
+			TrusteeValue: windows.TrusteeValueFromSID(user.User.Sid),
+		},
+	}}
+	acl, err := windows.ACLFromEntries(entries, nil)
+	if err != nil {
+		t.Skipf("cannot build an access control list: %v", err)
+	}
+	native := syspath.ToNative(directory)
+	err = windows.SetNamedSecurityInfo(native, windows.SE_FILE_OBJECT,
+		windows.DACL_SECURITY_INFORMATION, nil, nil, acl, nil)
+	if err != nil {
+		t.Skipf("cannot set an access control list here: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = windows.SetNamedSecurityInfo(native, windows.SE_FILE_OBJECT,
+			windows.DACL_SECURITY_INFORMATION, nil, nil, nil, nil)
+	})
+	if _, err := os.ReadDir(directory); err == nil {
+		t.Skip("the access control entry did not stop the listing (SeBackupPrivilege enabled?)")
+	}
+}
+
+func TestInventoryLogsADirectoryItCannotList(t *testing.T) {
+	home := physicalTemp(t)
+	writeFiles(t, home, ".tool/a.txt")
+	locked := home + "/.tool/locked"
+	mustDo(t, os.Mkdir(locked, 0o755))
+	denyListing(t, locked)
+	collector, recorder := windowsCollector(t, "", nil)
+	records := &fileRecords{}
+	collector.Inventory, collector.Records = true, records
+	_, err := collector.CollectPath(context.Background(), "u", home, "agent", home+"/.tool")
+	mustDo(t, err)
+	var readFailures []string
+	for _, event := range recorder.written {
+		if strings.HasPrefix(event, "row ") {
+			t.Errorf("inventory wrote a row: %s", event)
+		}
+		if line, found := strings.CutPrefix(event, "log read failed: "); found {
+			readFailures = append(readFailures, line)
+		}
+	}
+	prefix := syspath.ToNative(locked) + ": "
+	if len(readFailures) != 1 || !strings.HasPrefix(readFailures[0], prefix) {
+		t.Errorf("read failed lines %q, want one for %s", readFailures, syspath.ToNative(locked))
+	}
+	if want := []int64{int64(len(".tool/a.txt"))}; !slices.Equal(records.sizes, want) {
+		t.Errorf("file sizes %v, want %v", records.sizes, want)
+	}
+}
