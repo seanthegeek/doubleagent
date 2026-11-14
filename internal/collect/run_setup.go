@@ -16,6 +16,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
 	"github.com/seanthegeek/doubleagent/internal/inventory"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/projects"
 	"github.com/seanthegeek/doubleagent/internal/relocation"
 	"github.com/seanthegeek/doubleagent/internal/runlog"
@@ -99,7 +100,7 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 // sh collector's messages, the directory in native form.
 func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) {
 	if !isDirectory(outDir) {
-		if err := os.MkdirAll(outDir, 0o777); err != nil || outDir == "" {
+		if err := osfile.MkdirAll(outDir, 0o777); err != nil || outDir == "" {
 			return "", &fatalError{message: "Cannot create output dir: " + outDir}
 		}
 	}
@@ -130,12 +131,12 @@ func probeWrite(dir string) bool {
 	random := make([]byte, 16)
 	_, _ = rand.Read(random)
 	probe := dir + "/.write-probe-" + hex.EncodeToString(random)
-	file, err := os.OpenFile(probe, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	file, err := osfile.OpenFile(probe, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return false
 	}
 	_ = file.Close()
-	_ = os.Remove(probe)
+	_ = osfile.Remove(probe)
 	return true
 }
 
@@ -177,14 +178,14 @@ func (state *runState) openOutputs() error {
 	logPath, rows := os.DevNull, io.Writer(io.Discard)
 	physical := ""
 	if !state.options.Inventory {
-		if err := os.MkdirAll(state.stageDir+"/fs", 0o777); err != nil {
+		if err := osfile.MkdirAll(state.stageDir+"/fs", 0o777); err != nil {
 			return &fatalError{message: "Cannot create staging dir"}
 		}
 		var err error
 		if physical, err = stage.PhysicalDir(state.stageDir); err != nil {
 			return &fatalError{message: "Cannot create staging dir"}
 		}
-		if state.manifestFile, err = os.Create(state.manifestPath); err != nil {
+		if state.manifestFile, err = osfile.Create(state.manifestPath); err != nil {
 			return &fatalError{message: err.Error()}
 		}
 		state.rows = bufio.NewWriter(state.manifestFile)
@@ -293,6 +294,6 @@ func (state *runState) cleanup() {
 		_ = state.log.Close()
 	}
 	if !state.options.KeepStaging && !state.options.Inventory {
-		_ = os.RemoveAll(state.stageDir)
+		_ = osfile.RemoveAll(state.stageDir)
 	}
 }

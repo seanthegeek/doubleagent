@@ -1,10 +1,10 @@
 package glob
 
 import (
-	"os"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // Expand returns base + "/" + match for every match of pattern inside base,
@@ -82,10 +82,10 @@ func expandFrom(base, prefix, rest string, matches *[]string) {
 // a file through as `name\`.
 func exists(path string) bool {
 	if trimmed, isDirectory := strings.CutSuffix(path, "/"); isDirectory {
-		info, err := os.Stat(trimmed)
+		info, err := osfile.Stat(trimmed)
 		return err == nil && info.IsDir()
 	}
-	_, err := os.Lstat(path)
+	_, err := osfile.Lstat(path)
 	return err == nil
 }
 
@@ -95,7 +95,7 @@ func exists(path string) bool {
 // matches them. A directory that cannot be read gives the names read before
 // the error, as the shell's read loop stops.
 func readNames(directory string, withDots bool) []string {
-	handle, err := os.Open(directory)
+	handle, err := osfile.Open(directory)
 	if err != nil {
 		return nil
 	}

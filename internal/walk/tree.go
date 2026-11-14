@@ -2,10 +2,10 @@ package walk
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -151,7 +151,7 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 // none, and neither is evidence, since no entry can be read. The directory
 // keeps its error_read row from visit.
 func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
-	handle, err := os.Open(dir)
+	handle, err := osfile.Open(dir)
 	if err != nil {
 		return collector.findError(found, dir, err.Error())
 	}
@@ -184,7 +184,7 @@ func (collector *Collector) visitEntries(ctx context.Context, owner scope, found
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	handle, err := os.Open(directory)
+	handle, err := osfile.Open(directory)
 	if err != nil {
 		return collector.findError(found, directory, err.Error())
 	}

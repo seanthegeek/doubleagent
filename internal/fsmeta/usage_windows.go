@@ -2,7 +2,8 @@ package fsmeta
 
 import (
 	"context"
-	"os"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // DiskUsageBytes returns the size of dir as the PowerShell collector's
@@ -35,7 +36,7 @@ func sumFileSizes(ctx context.Context, path string, meta Meta) (int64, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	handle, err := os.Open(path)
+	handle, err := osfile.Open(path)
 	if err != nil {
 		return 0, nil
 	}

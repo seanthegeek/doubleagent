@@ -2,7 +2,9 @@ package walk
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"maps"
 	"net"
@@ -631,5 +633,50 @@ func TestInventoryLogsADirectoryItCannotList(t *testing.T) {
 	}
 	if want := []int64{int64(len(".tool/a.txt"))}; !slices.Equal(records.sizes, want) {
 		t.Errorf("file sizes %v, want %v", records.sizes, want)
+	}
+}
+
+// writeExtended writes content to path, a canonical path, and creates its
+// parents, all through the \\?\ form, so a name ending in a dot or a space
+// is created as spelled rather than trimmed by Win32.
+func writeExtended(t *testing.T, path, content string) {
+	t.Helper()
+	mustDo(t, os.MkdirAll(syspath.Extended(path[:strings.LastIndexByte(path, '/')]), 0o755))
+	mustDo(t, os.WriteFile(syspath.Extended(path), []byte(content), 0o644))
+}
+
+func TestNamesEndingInADotOrASpaceAreTheirOwnEntries(t *testing.T) {
+	home := physicalTemp(t)
+	contents := map[string]string{
+		"t/x./a": "under x dot", "t/x/b": "under x", "t/y ": "y space", "t/y": "y",
+	}
+	for relative, content := range contents {
+		writeExtended(t, home+"/"+relative, content)
+	}
+	collector, recorder := windowsCollector(t, "", nil)
+	_, err := collector.CollectPath(context.Background(), "u", home, "agent", home+"/t")
+	mustDo(t, err)
+	rows := recorder.rows(t)
+	if len(rows) != len(contents) {
+		t.Fatalf("rows %q, want one per file", recorder.written)
+	}
+	for relative, content := range contents {
+		t.Run(relative+" is collected from its own entry", func(t *testing.T) {
+			path := home + "/" + relative
+			row := recorder.rowOf(t, path)
+			digest := sha256.Sum256([]byte(content))
+			if row["status"] != "collected" || row["size"] != float64(len(content)) ||
+				row["sha256"] != hex.EncodeToString(digest[:]) {
+				t.Errorf("row %v, want collected with the size and hash of %q", row, content)
+			}
+			member, dest := collector.Stager.Dest(path)
+			if row["archive_path"] != member || !strings.HasSuffix(member, "/"+relative) {
+				t.Errorf("archive_path %v, want %s ending in %s", row["archive_path"], member, relative)
+			}
+			staged, err := os.ReadFile(syspath.Extended(dest))
+			if err != nil || string(staged) != content {
+				t.Errorf("staged copy %q (%v), want %q", staged, err, content)
+			}
+		})
 	}
 }

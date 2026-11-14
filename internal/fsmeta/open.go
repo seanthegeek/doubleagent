@@ -4,6 +4,8 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // ErrNotRegular is the error OpenRegular wraps when path is not a regular
@@ -16,14 +18,14 @@ var ErrNotRegular = errors.New("not a regular file")
 // and checks the open handle again, so a file swapped for a link or a pipe
 // between the lstat and the open is refused too. Every error names path.
 func OpenRegular(path string) (*os.File, error) {
-	info, err := os.Lstat(path)
+	info, err := osfile.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
 		return nil, &fs.PathError{Op: "open", Path: path, Err: ErrNotRegular}
 	}
-	handle, err := os.OpenFile(path, os.O_RDONLY|openRegularFlags, 0)
+	handle, err := osfile.OpenFile(path, os.O_RDONLY|openRegularFlags, 0)
 	if err != nil {
 		return nil, err
 	}

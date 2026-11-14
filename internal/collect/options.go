@@ -5,11 +5,11 @@ package collect
 import (
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -263,7 +263,7 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 // command line names the base of a collection, so following a link here is the
 // shell's own `[ -d ]` and `cd`.
 func isDirectory(path string) bool {
-	info, err := os.Stat(path)
+	info, err := osfile.Stat(path)
 	return err == nil && info.IsDir()
 }
 

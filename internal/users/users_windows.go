@@ -1,10 +1,10 @@
 package users
 
 import (
-	"os"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -111,7 +111,7 @@ func wantedUsers(usersFilter string) (wanted map[string]bool, filtered bool) {
 // isFile reports whether path exists and is not a directory, as
 // System.IO.File.Exists does; a link is followed.
 func isFile(path string) bool {
-	info, err := os.Stat(path)
+	info, err := osfile.Stat(path)
 	return err == nil && !info.IsDir()
 }
 
@@ -120,7 +120,7 @@ func isFile(path string) bool {
 // it, or "access denied" when looking at it itself works.
 func skippedHome(path string) Skipped {
 	reason := "access denied"
-	if _, err := os.Lstat(path); err != nil {
+	if _, err := osfile.Lstat(path); err != nil {
 		reason = syspath.NativeErrors(err).Error()
 	}
 	return Skipped{Path: path, Reason: reason, Denied: parentLists(path)}
@@ -137,7 +137,7 @@ func parentLists(path string) bool {
 	if len(parent) == 2 && parent[1] == ':' {
 		parent += "/" // a bare drive names the drive's current directory
 	}
-	entries, err := os.ReadDir(parent)
+	entries, err := osfile.ReadDir(parent)
 	if err != nil {
 		return false
 	}

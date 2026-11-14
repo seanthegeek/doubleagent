@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/archive"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -30,7 +31,7 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	if err := state.stageRunFiles(); err != nil {
 		return err
 	}
-	_ = os.Remove(state.archivePath)
+	_ = osfile.Remove(state.archivePath)
 	if err := archive.WriteTarGz(state.stageDir, state.archivePath); err != nil {
 		state.line("archive: " + err.Error())
 		state.line("FATAL: archive not written")
@@ -143,7 +144,7 @@ func (state *runState) writeCollectionJSON(report summary.Summary) error {
 		return err
 	}
 	for _, path := range []string{state.summaryPath, state.stageDir + "/collection.json"} {
-		if err := os.WriteFile(path, text.Bytes(), 0o666); err != nil {
+		if err := osfile.WriteFile(path, text.Bytes(), 0o666); err != nil {
 			return err
 		}
 	}
@@ -168,12 +169,12 @@ func (state *runState) stageRunFiles() error {
 // copyFile copies the file at source to target, created with the default
 // mode the umask narrows.
 func copyFile(source, target string) error {
-	input, err := os.Open(source)
+	input, err := osfile.Open(source)
 	if err != nil {
 		return err
 	}
 	defer input.Close()
-	out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
+	out, err := osfile.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
 	if err != nil {
 		return err
 	}

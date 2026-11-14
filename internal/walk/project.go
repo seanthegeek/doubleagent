@@ -2,11 +2,11 @@ package walk
 
 import (
 	"context"
-	"os"
 	"path"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -155,7 +155,7 @@ func ProjectLeavesRoot(root, project string) bool {
 
 // imageProbes returns the probes of the file system itself.
 func imageProbes() probes {
-	return probes{isLink: isLinkProbe, readlink: os.Readlink}
+	return probes{isLink: isLinkProbe, readlink: osfile.Readlink}
 }
 
 // isLinkProbe reports whether path itself is a symlink or, on Windows, any

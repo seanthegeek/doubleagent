@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"io/fs"
-	"os"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -93,7 +93,7 @@ func (collector *Collector) planFile(owner scope, path string,
 // or recreated keeps the reason, as Add-StagedLink returns it; the sh
 // collector ignores both failures and still tries ln -s with an empty target.
 func planLink(owner scope, file *plannedFile) {
-	target, err := os.Readlink(file.path)
+	target, err := osfile.Readlink(file.path)
 	file.target = target
 	if err == nil || !recordsLinkErrors {
 		err = owner.stager.Symlink(file.path, target, file.meta.DirectoryLink())
@@ -229,7 +229,7 @@ func (collector *Collector) logReadError(path, reason string) error {
 // isVisibleDir reports whether path is a directory, or a link to one, that
 // can be seen, the Test-Path -PathType Container test of Write-ReadErrorRow.
 func isVisibleDir(path string) bool {
-	info, err := os.Stat(path)
+	info, err := osfile.Stat(path)
 	return err == nil && info.IsDir()
 }
 

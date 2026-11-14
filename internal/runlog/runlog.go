@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // TimeFormat is the layout of the time in a log line and of started and
@@ -24,7 +26,7 @@ type Log struct {
 // Open creates (or empties) the log file at PATH and returns a Log that echoes
 // each line to STDERR unless QUIET is set. NOW supplies the time of each line.
 func Open(path string, quiet bool, stderr io.Writer, now func() time.Time) (*Log, error) {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
+	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
 	if err != nil {
 		return nil, fmt.Errorf("open log %s: %w", path, err)
 	}

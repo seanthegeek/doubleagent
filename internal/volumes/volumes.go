@@ -7,7 +7,6 @@ package volumes
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"strconv"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/walk"
@@ -179,7 +179,7 @@ func splitComponents(rel string) []string {
 
 // isDirectory reports whether target is, or links to, a directory, as test -d.
 func isDirectory(target string) bool {
-	info, err := os.Stat(target)
+	info, err := osfile.Stat(target)
 	return err == nil && info.IsDir()
 }
 

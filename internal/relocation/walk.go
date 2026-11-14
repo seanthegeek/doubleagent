@@ -3,10 +3,10 @@ package relocation
 import (
 	"context"
 	"io/fs"
-	"os"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -69,7 +69,7 @@ func (walk *sweepWalk) addFile(path string, size int64) {
 
 // readEntries returns the entries of directory in directory order.
 func readEntries(directory string) []fs.DirEntry {
-	handle, err := os.Open(directory)
+	handle, err := osfile.Open(directory)
 	if err != nil {
 		return nil
 	}

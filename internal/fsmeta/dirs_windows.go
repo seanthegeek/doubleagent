@@ -2,8 +2,8 @@ package fsmeta
 
 import (
 	"errors"
-	"os"
 
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -20,11 +20,11 @@ var errNotDirectory = errors.New("not a directory")
 // since Windows grants every user the right to pass through directories.
 // Only the first line of the text is kept, since a path can hold a newline.
 func DirReadError(path string) (reason string, failed bool) {
-	info, statError := os.Stat(path)
+	info, statError := osfile.Stat(path)
 	if statError != nil || !info.IsDir() {
 		return nativeFirstLine(notDirectoryError(path)), true
 	}
-	handle, err := os.Open(path)
+	handle, err := osfile.Open(path)
 	if err == nil {
 		_, err = handle.ReadDir(-1)
 		_ = handle.Close()

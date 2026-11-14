@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -74,7 +74,7 @@ func (stager Stager) makeDir(dir string) error {
 	if err := stager.requireInside("mkdir", dir); err != nil {
 		return err
 	}
-	return os.MkdirAll(dir, 0o777)
+	return osfile.MkdirAll(dir, 0o777)
 }
 
 // requireInside returns an *fs.PathError of operation on dir unless dir, or
@@ -86,7 +86,7 @@ func (stager Stager) makeDir(dir string) error {
 func (stager Stager) requireInside(operation, dir string) error {
 	existing := dir
 	for {
-		_, err := os.Lstat(existing)
+		_, err := osfile.Lstat(existing)
 		if err == nil {
 			break
 		}
@@ -191,7 +191,7 @@ func (notRegular) Error() string { return "not a regular file" }
 // symlink is recreated; Unix links have no kind and ignore it.
 func (stager Stager) Symlink(path, target string, directory bool) error {
 	_, dest := stager.Dest(path)
-	if _, err := os.Lstat(dest); err == nil {
+	if _, err := osfile.Lstat(dest); err == nil {
 		return nil
 	}
 	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
@@ -206,7 +206,7 @@ func (stager Stager) Symlink(path, target string, directory bool) error {
 // directory: the staged path then leads through a recreated link out of the
 // staging tree, and a file there may be a source.
 func (stager Stager) RemoveFailedCopy(dest string) bool {
-	info, err := os.Lstat(dest)
+	info, err := osfile.Lstat(dest)
 	if err != nil {
 		return true
 	}
@@ -217,7 +217,7 @@ func (stager Stager) RemoveFailedCopy(dest string) bool {
 	}
 	// rm -f removes no directory, and os.Remove would remove an empty one.
 	if !info.IsDir() {
-		_ = os.Remove(dest)
+		_ = osfile.Remove(dest)
 	}
 	return true
 }

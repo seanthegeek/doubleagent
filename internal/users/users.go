@@ -5,9 +5,10 @@
 package users
 
 import (
-	"os"
 	"regexp"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // Home is a user and the home directory to collect for them. Path includes the
@@ -77,6 +78,6 @@ func Enumerate(live bool, root, usersFilter string, run Runner) []Home {
 
 // isDirectory is test -d: true for a directory or a link to one.
 func isDirectory(path string) bool {
-	info, err := os.Stat(path)
+	info, err := osfile.Stat(path)
 	return err == nil && info.IsDir()
 }

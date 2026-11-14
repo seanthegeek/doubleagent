@@ -5,10 +5,10 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"os"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // scanLines calls each with every line of the regular file at path, without
@@ -68,13 +68,13 @@ func readWhole(path string) ([]byte, bool) {
 
 // isDirectory is test -d: true for a directory or a link to one.
 func isDirectory(path string) bool {
-	info, err := os.Stat(path)
+	info, err := osfile.Stat(path)
 	return err == nil && info.IsDir()
 }
 
 // isRegularFile is test -f: true for a regular file or a link to one.
 func isRegularFile(path string) bool {
-	info, err := os.Stat(path)
+	info, err := osfile.Stat(path)
 	return err == nil && info.Mode().IsRegular()
 }
 
@@ -95,7 +95,7 @@ func expandIn(base string, patterns ...string) []string {
 // symlink. A dir that is itself a symlink gives nothing, as find without -L
 // does not enter it.
 func findNamed(ctx context.Context, dir, pattern string) []string {
-	info, err := os.Lstat(dir)
+	info, err := osfile.Lstat(dir)
 	if err != nil || !info.IsDir() {
 		return nil
 	}
@@ -111,7 +111,7 @@ func walkNamed(ctx context.Context, dir, pattern string, found *[]string) {
 	if ctx.Err() != nil {
 		return
 	}
-	handle, err := os.Open(dir)
+	handle, err := osfile.Open(dir)
 	if err != nil {
 		return
 	}

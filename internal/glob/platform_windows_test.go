@@ -104,3 +104,39 @@ func TestRespellGivesTheOnDiskCase(t *testing.T) {
 		})
 	}
 }
+
+func TestNamesEndingInADotOrASpaceAreListedAsTheirOwn(t *testing.T) {
+	base := strings.ReplaceAll(t.TempDir(), `\`, "/")
+	// Win32 trims a trailing dot or space unless the path has the \\?\
+	// prefix, so the fixture is written through that form.
+	for _, file := range []string{"t/x./a", "t/x/b", "t/y ", "t/y"} {
+		path := `\\?\` + strings.ReplaceAll(base+"/"+file, "/", `\`)
+		if err := os.MkdirAll(path[:strings.LastIndexByte(path, '\\')], 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cases := []struct {
+		name, pattern string
+		want          []string
+	}{
+		{"a wildcard below x. lists x.'s own entries", "t/x./*", []string{"t/x./a"}},
+		{"a wildcard below x lists x's own entries", "t/x/*", []string{"t/x/b"}},
+		{"a literal x. path exists only as x.'s entry", "t/x./b", nil},
+		{"a literal name ending in a space is its own file", "t/y ", []string{"t/y "}},
+		{"a star lists every spelling", "t/*", []string{"t/x", "t/x.", "t/y", "t/y "}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			var got []string
+			for _, match := range Expand(base, test.pattern) {
+				got = append(got, strings.TrimPrefix(match, base+"/"))
+			}
+			if !slices.Equal(got, test.want) {
+				t.Errorf("Expand(%q) = %q, want %q", test.pattern, got, test.want)
+			}
+		})
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
 )
@@ -46,10 +47,10 @@ func openSource(path string) (*os.File, error) {
 // test, since truncating at open would empty whatever a link led to.
 func createDest(path string) (*os.File, error) {
 	refused := &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
-	if info, err := os.Lstat(path); err == nil && isReparsePoint(info) {
+	if info, err := osfile.Lstat(path); err == nil && isReparsePoint(info) {
 		return nil, refused
 	}
-	file, err := os.OpenFile(path,
+	file, err := osfile.OpenFile(path,
 		os.O_WRONLY|os.O_CREATE|syscall.FILE_FLAG_OPEN_REPARSE_POINT, 0o600)
 	if err != nil {
 		return nil, err
