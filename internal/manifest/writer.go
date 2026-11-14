@@ -3,6 +3,8 @@ package manifest
 import (
 	"io"
 	"strconv"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Counts is the number of rows per status and the bytes the collected rows
@@ -36,6 +38,12 @@ func NewWriter(out io.Writer) *Writer {
 // Write appends row as one line and counts it. A row is counted only when the
 // write succeeds.
 func (writer *Writer) Write(row Row) error {
+	// The canonical forms are the keys; the written forms are native.
+	pathKey := syspath.Fold(row.Path)
+	homeKey := syspath.Fold(row.Home)
+	ownRow := pathKey == homeKey && row.ArchivePath == "" && row.Type == "dir"
+	row.Path = syspath.ToNative(row.Path)
+	row.Home = syspath.ToNative(row.Home)
 	writer.line = appendRow(writer.line[:0], row)
 	if _, err := writer.out.Write(writer.line); err != nil {
 		return err
@@ -44,11 +52,10 @@ func (writer *Writer) Write(row Row) error {
 	if row.Status == Collected {
 		writer.counts.CollectedBytes += nonNegative(row.Size)
 	}
-	writer.paths[row.Path] = struct{}{}
+	writer.paths[pathKey] = struct{}{}
 	// A home's own unreadable-directory row does not make it active.
-	ownRow := row.Path == row.Home && row.ArchivePath == "" && row.Type == "dir"
-	if row.Home != "" && !ownRow {
-		writer.homes[row.Home] = struct{}{}
+	if homeKey != "" && !ownRow {
+		writer.homes[homeKey] = struct{}{}
 	}
 	return nil
 }
@@ -62,14 +69,17 @@ func (writer *Writer) Counts() Counts {
 	return Counts{ByStatus: byStatus, CollectedBytes: writer.counts.CollectedBytes}
 }
 
-// HasPath reports whether a row with exactly this path was written.
+// HasPath reports whether a row with this canonical path was written, comparing
+// case-insensitively where the platform's filesystem does.
 func (writer *Writer) HasPath(path string) bool {
-	_, found := writer.paths[path]
+	_, found := writer.paths[syspath.Fold(path)]
 	return found
 }
 
 // HomesWithRows returns the homes that have a row other than the
-// unreadable-directory row of the home itself, as a set.
+// unreadable-directory row of the home itself, as a set. The keys are the
+// homes folded with syspath.Fold, so a caller folds its own home before it
+// looks one up.
 func (writer *Writer) HomesWithRows() map[string]struct{} {
 	homes := make(map[string]struct{}, len(writer.homes))
 	for home := range writer.homes {
@@ -124,6 +134,7 @@ func appendRow(out []byte, row Row) []byte {
 	out = appendNumber(out, "uid", int64(row.UID), ",")
 	out = appendNumber(out, "gid", int64(row.GID), ",")
 	out = appendString(out, "mode", row.Mode, ",")
+	out = appendPlatformFields(out, row)
 	out = appendString(out, "sha256", row.SHA256, ",")
 	out = append(out, `"secret":`...)
 	out = strconv.AppendBool(out, row.Secret)
@@ -132,4 +143,11 @@ func appendRow(out []byte, row Row) []byte {
 	out = appendString(out, "target", row.Target, ",")
 	out = appendString(out, "error", row.Error, "")
 	return append(out, "}\n"...)
+}
+
+// appendWindowsFields appends `"owner":"...","attributes":"...",`, the two
+// fields the PowerShell collector writes between mode and sha256.
+func appendWindowsFields(out []byte, row Row) []byte {
+	out = appendString(out, "owner", row.Owner, ",")
+	return appendString(out, "attributes", row.Attributes, ",")
 }
