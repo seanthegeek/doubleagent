@@ -1,6 +1,7 @@
 package walk
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -137,13 +138,19 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 // writeExcluded writes one skipped_excluded row per path, as
 // EXCLUDED_PATHS_WORKER does: a directory, or a link to one, as a dir row
 // sized as du -sk sizes it with its other metadata 0, anything else as a
-// file row with its lstat.
-func (collector *Collector) writeExcluded(owner scope, paths []string) error {
+// file row with its lstat. It stops with ctx's error when ctx is cancelled
+// while a directory is being sized.
+func (collector *Collector) writeExcluded(ctx context.Context, owner scope, paths []string,
+) error {
 	for _, path := range paths {
 		var row manifest.Row
 		if pointsToDir(path) {
+			size, err := fsmeta.DiskUsageBytes(ctx, path)
+			if err != nil {
+				return err
+			}
 			row = metaRow(owner, path, "dir", zeroMeta())
-			row.Size = fsmeta.DiskUsageBytes(path)
+			row.Size = size
 		} else {
 			meta, _ := lstatOrZero(path)
 			row = metaRow(owner, path, "file", meta)

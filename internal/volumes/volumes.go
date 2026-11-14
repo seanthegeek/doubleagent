@@ -237,17 +237,22 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 	case !matched && run.collector.Inventory:
 		return nil
 	case !matched:
-		return run.writeUnmatched(data)
+		return run.writeUnmatched(ctx, data)
 	}
 	return run.collectMatched(ctx, name, data, rule)
 }
 
 // writeUnmatched writes the one dir row of a volume no table line matches, so
-// it stays visible, with the size du -sk would report.
-func (run *collection) writeUnmatched(data string) error {
+// it stays visible, with the size du -sk would report, or ctx's error when
+// ctx is cancelled while the volume is being sized.
+func (run *collection) writeUnmatched(ctx context.Context, data string) error {
+	size, err := fsmeta.DiskUsageBytes(ctx, data)
+	if err != nil {
+		return err
+	}
 	return run.collector.Manifest.Write(manifest.Row{
 		User: dockerUser, Home: data, Path: data, Type: "dir",
-		Size: fsmeta.DiskUsageBytes(data), Mode: "0",
+		Size: size, Mode: "0",
 		Status: manifest.SkippedUnmatchedVolume,
 	})
 }

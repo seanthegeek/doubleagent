@@ -50,7 +50,7 @@ func (collector *Collector) collectTree(ctx context.Context, owner scope, dir st
 		return found.unreadable, nil
 	}
 	groups := []func() error{
-		func() error { return collector.writeExcluded(owner, found.excluded) },
+		func() error { return collector.writeExcluded(ctx, owner, found.excluded) },
 		func() error { return collector.writeReadErrors(owner, found.readErrors) },
 		func() error { return collector.stageFiles(owner, found.files, collector.Secret) },
 	}

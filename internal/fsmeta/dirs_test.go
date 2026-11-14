@@ -3,12 +3,15 @@
 package fsmeta
 
 import (
+	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDirReadError(t *testing.T) {
@@ -101,10 +104,31 @@ func TestDiskUsageBytesMatchesDu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := DiskUsageBytes(tree); got != kibibytes*1024 {
-		t.Errorf("DiskUsageBytes = %d, du -sk says %d KiB", got, kibibytes)
+	if got, err := DiskUsageBytes(context.Background(), tree); err != nil || got != kibibytes*1024 {
+		t.Errorf("DiskUsageBytes = %d, %v; du -sk says %d KiB", got, err, kibibytes)
 	}
-	if got := DiskUsageBytes(filepath.Join(root, "missing")); got != 0 {
-		t.Errorf("DiskUsageBytes of a missing path = %d, want 0", got)
+	missing := filepath.Join(root, "missing")
+	if got, err := DiskUsageBytes(context.Background(), missing); err != nil || got != 0 {
+		t.Errorf("DiskUsageBytes of a missing path = %d, %v; want 0, nil", got, err)
+	}
+}
+
+func TestDiskUsageBytesStopsWhenCancelled(t *testing.T) {
+	tree := t.TempDir()
+	for i := range 300 {
+		path := filepath.Join(tree, strconv.Itoa(i%10), strconv.Itoa(i))
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	started := time.Now()
+	got, err := DiskUsageBytes(ctx, tree)
+	if !errors.Is(err, context.Canceled) || got != 0 {
+		t.Errorf("DiskUsageBytes = %d, %v; want 0, context.Canceled", got, err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Errorf("DiskUsageBytes took %v after the context was cancelled", elapsed)
 	}
 }

@@ -161,7 +161,7 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 		if collector.Inventory {
 			return 0, nil
 		}
-		return 0, collector.writeExcluded(owner, []string{path})
+		return 0, collector.writeExcluded(ctx, owner, []string{path})
 	}
 	if collector.Inventory {
 		if statError == nil && meta.Kind == fsmeta.File {
