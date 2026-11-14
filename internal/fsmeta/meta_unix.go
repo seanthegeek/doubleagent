@@ -4,6 +4,12 @@ package fsmeta
 
 import "strconv"
 
+// ZeroMeta is the metadata of the sh collector's "0 0 0 0 0 0 0 0" stat line,
+// written for a path that cannot be described: every number 0 and mode "0".
+func ZeroMeta() Meta {
+	return Meta{Mode: "0"}
+}
+
 // modeString writes mode & 07777 in octal without a leading zero.
 func modeString(mode uint32) string {
 	return strconv.FormatUint(uint64(mode&0o7777), 8)

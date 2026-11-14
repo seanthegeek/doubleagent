@@ -1,33 +1,140 @@
 package fsmeta
 
 import (
-	"io/fs"
-	"os"
+	"unsafe"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"golang.org/x/sys/windows"
 )
 
-const (
-	readBit    = 4
-	executeBit = 1
-)
+// shareAll lets another process read, write, rename or delete the file
+// while a handle of ours is open, so opening it never fails on sharing.
+const shareAll = windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE | windows.FILE_SHARE_DELETE
 
-// canAccess is true on Windows, which has no permission bits to test.
-func canAccess(string, uint32) bool { return true }
+// noFollowFlags open a directory as well as a file, and open a reparse
+// point (symlink, junction, socket) itself rather than what it points to.
+const noFollowFlags = windows.FILE_FLAG_BACKUP_SEMANTICS | windows.FILE_FLAG_OPEN_REPARSE_POINT
 
-// Lstat returns the metadata Windows gives through the standard library:
-// size, modification time and kind. The other fields are 0.
+// fileAttributeTagInfo is the FILE_ATTRIBUTE_TAG_INFO structure, which
+// golang.org/x/sys does not define: the attributes and the reparse tag.
+type fileAttributeTagInfo struct {
+	FileAttributes uint32
+	ReparseTag     uint32
+}
+
+// ZeroMeta is the metadata written for a path that cannot be described:
+// every number 0 and mode empty, as the PowerShell collector writes mode.
+func ZeroMeta() Meta {
+	return Meta{}
+}
+
+// Lstat returns the metadata of path itself, never of a link's or
+// junction's target. The handle is opened with no access right, which
+// Windows grants where reading the content is denied, so a file a deny
+// entry protects is still described. When the open fails (a file the system
+// holds open exclusively), the directory entry fills what it can.
 func Lstat(path string) (Meta, error) {
-	info, err := os.Lstat(path)
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	if err != nil {
+		return Meta{}, pathError("lstat", syspath.ToNative(path), err)
+	}
+	meta, err := lstatHandle(name)
+	if err == nil {
+		return meta, nil
+	}
+	meta, findError := lstatFind(name)
+	if findError != nil {
+		return Meta{}, pathError("lstat", syspath.ToNative(path), err)
+	}
+	return meta, nil
+}
+
+// lstatHandle describes the file name names through a handle on it, with
+// the volume serial number and file index that identify the file.
+func lstatHandle(name *uint16) (Meta, error) {
+	handle, err := windows.CreateFile(name, 0, shareAll, nil, windows.OPEN_EXISTING,
+		noFollowFlags, 0)
 	if err != nil {
 		return Meta{}, err
 	}
-	meta := Meta{Size: info.Size(), Mtime: info.ModTime().Unix(), Mode: "0"}
-	switch {
-	case info.Mode()&fs.ModeSymlink != 0:
-		meta.Kind = Symlink
-	case info.IsDir():
-		meta.Kind = Dir
-	case info.Mode().IsRegular():
-		meta.Kind = File
+	defer windows.CloseHandle(handle)
+	var data windows.ByHandleFileInformation
+	if err := windows.GetFileInformationByHandle(handle, &data); err != nil {
+		return Meta{}, err
 	}
+	var tag fileAttributeTagInfo
+	if data.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+		err := windows.GetFileInformationByHandleEx(handle, windows.FileAttributeTagInfo,
+			(*byte)(unsafe.Pointer(&tag)), uint32(unsafe.Sizeof(tag)))
+		if err != nil {
+			return Meta{}, err
+		}
+	}
+	size := int64(data.FileSizeHigh)<<32 | int64(data.FileSizeLow)
+	meta := metaOf(data.FileAttributes, tag.ReparseTag, size,
+		[3]windows.Filetime{data.LastWriteTime, data.LastAccessTime, data.CreationTime})
+	meta.Dev = uint64(data.VolumeSerialNumber)
+	meta.Ino = uint64(data.FileIndexHigh)<<32 | uint64(data.FileIndexLow)
+	meta.Nlink = uint64(data.NumberOfLinks)
 	return meta, nil
+}
+
+// lstatFind describes the file name names from its directory entry, which
+// carries no file identity, so Dev, Ino and Nlink are 0. For a reparse point
+// the entry's first reserved field holds the reparse tag.
+func lstatFind(name *uint16) (Meta, error) {
+	var data windows.Win32finddata
+	handle, err := windows.FindFirstFile(name, &data)
+	if err != nil {
+		return Meta{}, err
+	}
+	_ = windows.FindClose(handle)
+	var tag uint32
+	if data.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+		tag = data.Reserved0
+	}
+	size := int64(data.FileSizeHigh)<<32 | int64(data.FileSizeLow)
+	return metaOf(data.FileAttributes, tag, size,
+		[3]windows.Filetime{data.LastWriteTime, data.LastAccessTime, data.CreationTime}), nil
+}
+
+// metaOf builds the metadata of a file from its attribute bits, reparse tag,
+// size and its write, access and creation times, in that order. Windows has
+// no change time, owner number or permission bits, so Ctime, UID and GID are
+// 0 and Mode is empty, as the PowerShell collector writes them.
+func metaOf(attributes, tag uint32, size int64, times [3]windows.Filetime) Meta {
+	return Meta{
+		Size:       size,
+		Mtime:      epochSeconds(times[0]),
+		Atime:      epochSeconds(times[1]),
+		Btime:      epochSeconds(times[2]),
+		Kind:       kindOfAttributes(attributes, tag),
+		Attributes: attributes,
+	}
+}
+
+// kindOfAttributes maps attribute bits and a reparse tag to a Kind: a
+// symlink or a junction is a Symlink, as the PowerShell collector's LinkType
+// test makes both one; any other reparse point (an AF_UNIX socket, an app
+// execution alias, a cloud placeholder) is Other and never descended.
+func kindOfAttributes(attributes, tag uint32) Kind {
+	switch {
+	case attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT == 0:
+	case tag == windows.IO_REPARSE_TAG_SYMLINK || tag == windows.IO_REPARSE_TAG_MOUNT_POINT:
+		return Symlink
+	default:
+		return Other
+	}
+	if attributes&windows.FILE_ATTRIBUTE_DIRECTORY != 0 {
+		return Dir
+	}
+	return File
+}
+
+// epochSeconds converts a file time, 100-nanosecond intervals since 1601,
+// to Unix seconds. It divides in those intervals because Filetime's
+// Nanoseconds overflows for times after 2262.
+func epochSeconds(time windows.Filetime) int64 {
+	intervals := int64(time.HighDateTime)<<32 | int64(time.LowDateTime)
+	return (intervals - 116444736000000000) / 10000000
 }

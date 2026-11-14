@@ -1,6 +1,7 @@
-// Package fsmeta reads the file metadata the manifest records: the fields
-// the sh collector takes from stat(1), the unreadable-directory test of
-// get_dir_read_error_var, and the block-count size of du -sk.
+// Package fsmeta reads the file metadata the manifest records: on Unix the
+// fields the sh collector takes from stat(1), the unreadable-directory test
+// of get_dir_read_error_var and the block-count size of du -sk; on Windows
+// the fields, owner, attributes and sizes the PowerShell collector reads.
 package fsmeta
 
 import (
@@ -37,6 +38,20 @@ type Meta struct {
 	Ino    uint64
 	Nlink  uint64
 	Blocks int64 // 512-byte blocks allocated
+	// Attributes holds the Win32 file attribute bits (FILE_ATTRIBUTE_*); 0 on
+	// Unix.
+	Attributes uint32
+}
+
+// directoryAttribute is FILE_ATTRIBUTE_DIRECTORY, which Windows also sets on
+// a symlink made to a directory and on a junction.
+const directoryAttribute = 0x10
+
+// DirectoryLink reports whether m describes a link Windows made as a
+// directory link (a directory symlink or a junction), which must be recreated
+// as one. It is false on Unix, where Attributes is 0.
+func (m Meta) DirectoryLink() bool {
+	return m.Kind == Symlink && m.Attributes&directoryAttribute != 0
 }
 
 // pathError wraps err as the *fs.PathError the Go standard library would
