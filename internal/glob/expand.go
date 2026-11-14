@@ -28,7 +28,7 @@ func Expand(base, pattern string) []string {
 			expandFrom(base, "", word, &matches)
 		}
 		if len(matches) == 0 {
-			if _, err := os.Lstat(base + "/" + word); err == nil {
+			if exists(base + "/" + word) {
 				results = append(results, base+"/"+respell(base, word))
 			}
 			continue
@@ -45,7 +45,7 @@ func Expand(base, pattern string) []string {
 // prefix (empty or ending in `/`) by a match of rest. Literal segments
 // before the first wildcard segment are appended untested; the wildcard
 // segment's directory is read; a literal tail after the last wildcard
-// segment is kept only when os.Lstat finds it. Literal segments pass
+// segment is kept only when exists finds it. Literal segments pass
 // through respell, which on Windows gives their on-disk case. A whole
 // pattern with no wildcard segment gives nothing here: Expand falls back to
 // the word itself.
@@ -56,7 +56,7 @@ func expandFrom(base, prefix, rest string, matches *[]string) {
 			return
 		}
 		tail := unescape(rest)
-		if _, err := os.Lstat(base + "/" + prefix + tail); err == nil {
+		if exists(base + "/" + prefix + tail) {
 			*matches = append(*matches, prefix+respell(base+"/"+prefix, tail))
 		}
 		return
@@ -73,6 +73,20 @@ func expandFrom(base, prefix, rest string, matches *[]string) {
 			expandFrom(base, prefix+name+"/", rest[segmentEnd+separatorWidth:], matches)
 		}
 	}
+}
+
+// exists reports whether path names an entry, as the shell's lstat of it
+// answers. A path ending in a slash must name a directory or a link to one,
+// which is decided by following the path without its slash rather than by
+// how the platform reads a trailing separator: Windows has been seen to let
+// a file through as `name\`.
+func exists(path string) bool {
+	if trimmed, isDirectory := strings.CutSuffix(path, "/"); isDirectory {
+		info, err := os.Stat(trimmed)
+		return err == nil && info.IsDir()
+	}
+	_, err := os.Lstat(path)
+	return err == nil
 }
 
 // readNames returns the entry names of directory in the platform's listing
