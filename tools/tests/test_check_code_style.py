@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pathlib
+import tempfile
 
 import check_code_style as style
-import pytest
 
 
 def findings(source: str, name: str = "sample.go") -> list[tuple[int, str]]:
@@ -18,63 +18,61 @@ def bad_names(source: str, name: str = "sample.go") -> list[str]:
     return [message.split("'")[1] for _, message in findings(source, name) if "name" in message]
 
 
-@pytest.mark.parametrize(
-    ("source", "expected"),
-    [
-        ("var ab int\n", ["ab"]),
-        ("var good, ab int\n", ["ab"]),
-        ("const (\n\tfirst = 1\n\tab = 2\n)\n", ["ab"]),
-        ("var (\n\tfirst = foo(\n\t\tab,\n\t)\n)\n", []),
-        ("func main() {\n\tab := 1\n\tfirst, xy := 2, 3\n}\n", ["ab", "xy"]),
-        ("func main() {\n\tfor i, item := range items {\n\t}\n}\n", []),
-        ("func main() {\n\tif value, ok := table[key]; ok {\n\t}\n}\n", []),
-        ("func main() {\n\tswitch kind := value.(type) {\n\t}\n}\n", []),
-        ("func main() {\n\tn, k, j := 1, 2, 3\n}\n", []),
-        ("type Pair struct{}\ntype ab struct{}\n", ["ab"]),
-        ("type (\n\tFirst int\n\tab int\n)\n", ["ab"]),
-        ("func doThing() {}\nfunc ab() {}\n", ["ab"]),
-        ("func (a Stager) Name() {}\n", []),
-        ("func (stager Stager) Name() {}\n", []),
-        ("func (st Stager) Name() {}\n", []),
-        ("func (abc Stager) Name() {}\n", []),
-        ("func (stager Stager) ab() {}\n", ["ab"]),
-        ("func (list *List[T]) Add(item T) {}\n", []),
-    ],
-    ids=lambda value: repr(value)[:40],
-)
-def test_declared_names_are_checked(source: str, expected: list[str]) -> None:
-    assert bad_names("package p\n\n" + source) == expected
+DECLARED_NAME_CASES = [
+    ("var ab int\n", ["ab"]),
+    ("var good, ab int\n", ["ab"]),
+    ("const (\n\tfirst = 1\n\tab = 2\n)\n", ["ab"]),
+    ("var (\n\tfirst = foo(\n\t\tab,\n\t)\n)\n", []),
+    ("func main() {\n\tab := 1\n\tfirst, xy := 2, 3\n}\n", ["ab", "xy"]),
+    ("func main() {\n\tfor i, item := range items {\n\t}\n}\n", []),
+    ("func main() {\n\tif value, ok := table[key]; ok {\n\t}\n}\n", []),
+    ("func main() {\n\tswitch kind := value.(type) {\n\t}\n}\n", []),
+    ("func main() {\n\tn, k, j := 1, 2, 3\n}\n", []),
+    ("type Pair struct{}\ntype ab struct{}\n", ["ab"]),
+    ("type (\n\tFirst int\n\tab int\n)\n", ["ab"]),
+    ("func doThing() {}\nfunc ab() {}\n", ["ab"]),
+    ("func (a Stager) Name() {}\n", []),
+    ("func (stager Stager) Name() {}\n", []),
+    ("func (st Stager) Name() {}\n", []),
+    ("func (abc Stager) Name() {}\n", []),
+    ("func (stager Stager) ab() {}\n", ["ab"]),
+    ("func (list *List[T]) Add(item T) {}\n", []),
+]
 
 
-@pytest.mark.parametrize(
-    ("source", "expected"),
-    [
-        ("func run(path string, mode int) {}\n", []),
-        ("func run(pa string, mode int) {}\n", ["pa"]),
-        ("func run(first, ab string) {}\n", ["ab"]),
-        ("func run(string, int) {}\n", []),
-        ("func run(path string, ab ...int) {}\n", ["ab"]),
-        ("func run(path string, xy []byte) {}\n", ["xy"]),
-        ("func run(path string, xy [4]byte) {}\n", ["xy"]),
-        ("func run(path string) (xy int, err error) {}\n", ["xy"]),
-        ("func run(path string) (int, error) {}\n", []),
-        ("func run(file os.File, pkg.Value) {}\n", []),
-        ("func run(handler func(ab int) error) {}\n", ["ab"]),
-        ("func run() {\n\tcallback := func(ab int) {}\n}\n", ["ab"]),
-        ("func run(ctx context.Context, err error) {}\n", []),
-        ("func run(path string, ok bool) {}\n", []),
-        ("func run(i int, j, k, n int) {}\n", []),
-        ("func run(w io.Writer, r io.Reader) {}\n", []),
-        ("func run(w string) {}\n", ["w"]),
-        ("func run(r io.Writer) {}\n", ["r"]),
-        ("func run(w http.ResponseWriter) {}\n", ["w"]),
-        ("func run(t *testing.T) {}\n", ["t"]),
-        ("func run(b []byte) {}\n", ["b"]),
-    ],
-    ids=lambda value: repr(value)[:40],
-)
-def test_parameters_and_results_are_checked(source: str, expected: list[str]) -> None:
-    assert bad_names("package p\n\n" + source) == expected
+def test_declared_names_are_checked() -> None:
+    for source, expected in DECLARED_NAME_CASES:
+        assert bad_names("package p\n\n" + source) == expected, source
+
+
+PARAMETER_NAME_CASES = [
+    ("func run(path string, mode int) {}\n", []),
+    ("func run(pa string, mode int) {}\n", ["pa"]),
+    ("func run(first, ab string) {}\n", ["ab"]),
+    ("func run(string, int) {}\n", []),
+    ("func run(path string, ab ...int) {}\n", ["ab"]),
+    ("func run(path string, xy []byte) {}\n", ["xy"]),
+    ("func run(path string, xy [4]byte) {}\n", ["xy"]),
+    ("func run(path string) (xy int, err error) {}\n", ["xy"]),
+    ("func run(path string) (int, error) {}\n", []),
+    ("func run(file os.File, pkg.Value) {}\n", []),
+    ("func run(handler func(ab int) error) {}\n", ["ab"]),
+    ("func run() {\n\tcallback := func(ab int) {}\n}\n", ["ab"]),
+    ("func run(ctx context.Context, err error) {}\n", []),
+    ("func run(path string, ok bool) {}\n", []),
+    ("func run(i int, j, k, n int) {}\n", []),
+    ("func run(w io.Writer, r io.Reader) {}\n", []),
+    ("func run(w string) {}\n", ["w"]),
+    ("func run(r io.Writer) {}\n", ["r"]),
+    ("func run(w http.ResponseWriter) {}\n", ["w"]),
+    ("func run(t *testing.T) {}\n", ["t"]),
+    ("func run(b []byte) {}\n", ["b"]),
+]
+
+
+def test_parameters_and_results_are_checked() -> None:
+    for source, expected in PARAMETER_NAME_CASES:
+        assert bad_names("package p\n\n" + source) == expected, source
 
 
 def test_test_files_may_name_t_and_b() -> None:
@@ -83,43 +81,39 @@ def test_test_files_may_name_t_and_b() -> None:
     assert bad_names(source, "run.go") == ["t", "b"]
 
 
-@pytest.mark.parametrize(
-    ("source", "expected"),
-    [
-        ("type Row struct {\n\tPath string\n\tAt   string\n}\n", ["At"]),
-        ("type Row struct {\n\tFirst, ab int\n}\n", ["ab"]),
-        ('type Row struct {\n\tsync.Mutex\n\t*Embedded\n\tName string `json:"ab"`\n}\n', []),
-        ("type Row struct {\n\tEmbedded\n\tab []string\n}\n", ["ab"]),
-        ("type Row struct {\n\tab func(int) error\n}\n", ["ab"]),
-        ("type Row struct {\n\tab struct {\n\t\txy int\n\t}\n}\n", ["ab", "xy"]),
-        ("type Row struct {\n\tBase[int]\n}\n", []),
-        ("type Reader interface {\n\tRead(ab []byte) (int, error)\n\tCl()\n}\n", ["ab", "Cl"]),
-    ],
-    ids=lambda value: repr(value)[:40],
-)
-def test_fields_and_interface_methods_are_checked(source: str, expected: list[str]) -> None:
-    assert bad_names("package p\n\n" + source) == expected
+FIELD_NAME_CASES = [
+    ("type Row struct {\n\tPath string\n\tAt   string\n}\n", ["At"]),
+    ("type Row struct {\n\tFirst, ab int\n}\n", ["ab"]),
+    ('type Row struct {\n\tsync.Mutex\n\t*Embedded\n\tName string `json:"ab"`\n}\n', []),
+    ("type Row struct {\n\tEmbedded\n\tab []string\n}\n", ["ab"]),
+    ("type Row struct {\n\tab func(int) error\n}\n", ["ab"]),
+    ("type Row struct {\n\tab struct {\n\t\txy int\n\t}\n}\n", ["ab", "xy"]),
+    ("type Row struct {\n\tBase[int]\n}\n", []),
+    ("type Reader interface {\n\tRead(ab []byte) (int, error)\n\tCl()\n}\n", ["ab", "Cl"]),
+]
 
 
-@pytest.mark.parametrize(
-    ("name", "abbreviation"),
-    [
-        ("usageErr", "err"),
+def test_fields_and_interface_methods_are_checked() -> None:
+    for source, expected in FIELD_NAME_CASES:
+        assert bad_names("package p\n\n" + source) == expected, source
+
+
+def test_a_capitalised_word_may_not_be_an_abbreviation() -> None:
+    cases = [
         ("srcPath", "src"),
         ("ParseCfg", "cfg"),
-        ("errNotFound", "err"),
         ("tmpDir", "tmp"),
         ("HTTPReq", "req"),
-    ],
-)
-def test_a_capitalised_word_may_not_be_an_abbreviation(name: str, abbreviation: str) -> None:
-    messages = [message for _, message in findings("package p\n\nvar %s int\n" % name)]
-    assert messages == ["name %r abbreviates a word (%r)" % (name, abbreviation)]
+    ]
+    for name, abbreviation in cases:
+        messages = [message for _, message in findings("package p\n\nvar %s int\n" % name)]
+        assert messages == ["name %r abbreviates a word (%r)" % (name, abbreviation)], name
 
 
-@pytest.mark.parametrize("name", ["UID", "GID", "sha256", "mtime", "errorText", "Dev", "Ino"])
-def test_interface_spellings_and_whole_words_pass(name: str) -> None:
-    assert findings("package p\n\nvar %s int\n" % name) == []
+def test_interface_spellings_and_whole_words_pass() -> None:
+    names = ["UID", "GID", "sha256", "mtime", "errorText", "Dev", "Ino", "usageErr", "errNotFound"]
+    for name in names:
+        assert findings("package p\n\nvar %s int\n" % name) == [], name
 
 
 def test_text_in_strings_and_comments_binds_no_name() -> None:
@@ -182,13 +176,17 @@ def test_a_trailing_comment_is_not_a_whole_line_comment() -> None:
     assert findings(source) == []
 
 
-@pytest.mark.parametrize(
-    "text",
-    ["see #516", "fixed in issue 12", "added 2026-10-04", "since October 2026", "built in 2026"],
-)
-def test_a_comment_naming_history_fails(text: str) -> None:
-    source = "package p\n\n// %s\nfunc Run() {}\n" % text
-    assert [line for line, _ in findings(source)] == [3]
+def test_a_comment_naming_history_fails() -> None:
+    texts = [
+        "see #516",
+        "fixed in issue 12",
+        "added 2026-10-04",
+        "since October 2026",
+        "built in 2026",
+    ]
+    for text in texts:
+        source = "package p\n\n// %s\nfunc Run() {}\n" % text
+        assert [line for line, _ in findings(source)] == [3], text
 
 
 def test_history_in_a_string_or_a_copyright_line_passes() -> None:
@@ -200,10 +198,11 @@ def test_language_of_reads_go_files() -> None:
     assert style.language_of(pathlib.Path("internal/walk/files.go")) == "go"
 
 
-def test_check_file_reports_a_go_file_with_its_path(tmp_path: pathlib.Path) -> None:
-    path = tmp_path / "bad.go"
-    path.write_text("package p\n\nvar ab int\n", encoding="utf-8")
-    assert style.check_file(path) == ["%s:3: name 'ab' is shorter than 3 characters" % path]
+def test_check_file_reports_a_go_file_with_its_path() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        path = pathlib.Path(directory) / "bad.go"
+        path.write_text("package p\n\nvar ab int\n", encoding="utf-8")
+        assert style.check_file(path) == ["%s:3: name 'ab' is shorter than 3 characters" % path]
 
 
 def test_the_vendored_modules_are_not_checked() -> None:
