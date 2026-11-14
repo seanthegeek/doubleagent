@@ -256,6 +256,26 @@ prints the VM's name without a prompt. The login shell is cmd.exe, so
 anything with a pipe or nested quotes goes in a `.ps1` file under the lab
 directory and runs with `powershell -File`.
 
+### Go parity tests
+
+`lab/go-parity-vm.sh CELL [PACKAGE...]` runs the Go collector's parity
+tests, which compare `doubleagent collect` with the PowerShell collector,
+on this VM; CELL is a scratch directory outside the repository. The host
+cross-compiles `doubleagent.exe` and the parity test binary for Windows on
+ARM (Go is not needed in the guest) and packs `collectors` from `HEAD` with
+`git archive`, so uncommitted collector changes are not tested. The script
+then reverts the VM to the clean snapshot, starts it, and copies the three
+files into `lab\parity` in the guest, where Windows PowerShell unpacks the
+tree and runs the test binary with `PARITY_REPO`, `PARITY_BINARY` and
+`PARITY_LIVE=1` (which enables the two cases that touch the real registry)
+under a 90 minute limit. The output lands in `parity.log` and the exit code
+in `parity.rc`, both copied back into CELL; the script prints the last
+lines of the log and `PASS` or `FAIL`. Each extra PACKAGE, such as `fsmeta`,
+is compiled and run the same way and leaves its own `.log` and `.rc`.
+Afterwards the script deletes the guest directory, stops the VM and reverts
+it to the clean snapshot, also when a step fails. `--dry-run` prints every
+host and guest command without running any of them.
+
 ## macOS
 
 macOS. The VM starts with no package manager, so the
