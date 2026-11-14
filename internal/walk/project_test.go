@@ -233,20 +233,29 @@ func TestProjectStagers(t *testing.T) {
 
 func TestProjectOutOfTheImageRootIsNotWalked(t *testing.T) {
 	cases := []struct {
-		name   string
-		withIn bool // the link lies under a home given to CollectProject
-		live   bool
+		name    string
+		withIn  bool // the link lies under a home given to CollectProject
+		live    bool
+		noEnter bool // the outside target cannot be entered by the analyst
 	}{
-		{"a project under a home through a link out of the image root", true, false},
-		{"a project under no home through a link out of the image root", false, false},
-		{"a live run walks the same project", true, true},
+		{"a project under a home through a link out of the image root", true, false, false},
+		{"a project under no home through a link out of the image root", false, false, false},
+		{"a live run walks the same project", true, true, false},
+		{"an outside target the analyst cannot enter is still outside", true, false, true},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.noEnter && os.Geteuid() == 0 {
+				t.Skip("root enters every directory")
+			}
 			root := fixture{dirs: []string{"home/dot"}}.build(t)
 			outside := fixture{files: []string{"host/proj/AGENTS.md"}}.build(t)
 			link := root + "/home/dot/ext"
 			mustDo(t, os.Symlink(outside+"/host", link))
+			if testCase.noEnter {
+				mustDo(t, os.Chmod(outside+"/host/proj", 0o600))
+				t.Cleanup(func() { _ = os.Chmod(outside+"/host/proj", 0o755) })
+			}
 			collector, rows, log := testCollector(t, root, nil)
 			collector.MaxSize = 1 << 20
 			collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",

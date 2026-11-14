@@ -2,6 +2,7 @@ package walk
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -125,11 +126,13 @@ func ProjectOutOfRoot(root, project string) (string, bool) {
 	if root == "" {
 		return "", false
 	}
-	physical, err := stage.PhysicalDir(project)
+	// The links are resolved without testing permissions: a target the
+	// analyst cannot enter is still outside the root, and must not be walked.
+	physical, err := filepath.EvalSymlinks(project)
 	if err != nil {
 		return "", false
 	}
-	physicalRoot, err := stage.PhysicalDir(root)
+	physicalRoot, err := filepath.EvalSymlinks(root)
 	if err != nil || physical == physicalRoot || strings.HasPrefix(physical, physicalRoot+"/") {
 		return "", false
 	}

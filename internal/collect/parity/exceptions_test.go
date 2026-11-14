@@ -98,6 +98,9 @@ func rowAtPhysicalPath(t *testing.T, manifest, file, archivePath, hash string) (
 			lines[i] = rowCollected(line, file, archivePath, hash)
 			continue
 		}
+		if !strings.Contains(line, `"status":"collected"`) {
+			t.Fatalf("the sh row of %s is neither error_copy nor collected: %s", file, line)
+		}
 		recorded = archivePathOf.FindStringSubmatch(line)[1]
 		lines[i] = strings.Replace(line, `"archive_path":"`+recorded+`"`,
 			`"archive_path":"`+archivePath+`"`, 1)
