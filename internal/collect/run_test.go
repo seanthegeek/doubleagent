@@ -353,7 +353,11 @@ func runOutput(t *testing.T, outDir, suffix string) string {
 	return string(text)
 }
 
-func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) {
+// hostLinkImage builds an image whose home u holds two links out of the
+// image root, ext to a directory that exists on the analyst's host and gone to
+// one that does not, and returns the root and the outside directory.
+func hostLinkImage(t *testing.T) (root, outside string) {
+	t.Helper()
 	outside, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -361,8 +365,21 @@ func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) 
 	if err := os.MkdirAll(outside+"/exists/proj", 0o755); err != nil {
 		t.Fatal(err)
 	}
-	root := writeImage(t, map[string]string{"home/u/.claude/settings.json": "{}\n"},
+	root = writeImage(t, map[string]string{"home/u/.claude/settings.json": "{}\n"},
 		map[string]string{"home/u/ext": outside + "/exists/", "home/u/gone": "/no-such-host-dir"})
+	return root, outside
+}
+
+// requireOnce fails unless text holds line exactly once.
+func requireOnce(t *testing.T, what, text, line string) {
+	t.Helper()
+	if strings.Count(text, line) != 1 {
+		t.Errorf("%s lacks %q exactly once:\n%s", what, line, text)
+	}
+}
+
+func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) {
+	root, outside := hostLinkImage(t)
 	outDir := t.TempDir()
 	options := testOptions(root, outDir)
 	options.Projects = []string{root + "/home/u/ext/proj", root + "/home/u/gone/proj",
@@ -372,37 +389,36 @@ func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) 
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	log, manifestText := runOutput(t, outDir, ".log"), runOutput(t, outDir, ".manifest.jsonl")
-	for link, line := range map[string]string{
-		"ext":  "Project [u] " + root + "/home/u/ext/proj: under the symlinked directory " + root + "/home/u/ext",
-		"gone": "Project [u] " + root + "/home/u/gone/proj: under the symlinked directory " + root + "/home/u/gone",
-	} {
-		line += ", which leads out of the image root; not walked\n"
-		if strings.Count(log, line) != 1 {
-			t.Errorf("the log of %s lacks %q:\n%s", link, line, log)
-		}
+	for _, link := range []string{"ext", "gone"} {
+		requireOnce(t, "the log", log, "Project [u] "+root+"/home/u/"+link+"/proj: under the symlinked directory "+
+			root+"/home/u/"+link+", which leads out of the image root; not walked\n")
 		if strings.Contains(manifestText, root+"/home/u/"+link+"/") {
 			t.Errorf("the manifest holds a row under %s:\n%s", link, manifestText)
 		}
 	}
-	line := "Project " + outside + "/exists/proj: is outside the image root; not walked\n"
-	if strings.Count(log, line) != 1 {
-		t.Errorf("the log lacks %q:\n%s", line, log)
-	}
+	requireOnce(t, "the log", log, "Project "+outside+"/exists/proj: is outside the image root; not walked\n")
 	if strings.Contains(manifestText, outside) {
 		t.Errorf("a row for a project out of the root:\n%s", manifestText)
 	}
 	// A -p value missing inside the image keeps the sh collector's warning.
-	warning := "WARNING: project given with -p is not a directory: " + root + "/home/u/missing: "
-	if strings.Count(log, "WARNING") != 1 || !strings.Contains(log, warning) {
-		t.Errorf("the log holds warnings other than %q:\n%s", warning, log)
-	}
+	requireOnce(t, "the log", log, "WARNING: project given with -p is not a directory: "+root+"/home/u/missing: ")
 	if row := manifestRow(t, outDir, root+"/home/u/missing"); !strings.Contains(row, `"status":"error_read"`) {
 		t.Errorf("row %s, want error_read", row)
 	}
-	if !strings.Contains(runOutput(t, outDir, ".collection.json"), "\n  \"projects\": [],\n") {
-		t.Errorf("collection.json lists a project:\n%s", runOutput(t, outDir, ".collection.json"))
+	requireOnce(t, "collection.json", runOutput(t, outDir, ".collection.json"), "\n  \"projects\": [],\n")
+	requireOnce(t, "stdout", stdout.String(), "\nprojects:   0\n")
+}
+
+func TestInventoryCountsNoProjectThatLeavesTheRoot(t *testing.T) {
+	root, _ := hostLinkImage(t)
+	options := testOptions(root, t.TempDir())
+	options.Inventory, options.Quiet = true, true
+	options.Projects = []string{root + "/home/u/ext/proj", root + "/home/u/gone/proj"}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "\nprojects:   0\n") {
-		t.Errorf("stdout counts a project:\n%s", stdout.String())
+	if !strings.Contains(stdout.String(), `"projects":0,`) || strings.Contains(stdout.String(), `"projects":1,`) {
+		t.Errorf("the inventory counts a project that leaves the root:\n%s", stdout.String())
 	}
 }

@@ -142,9 +142,10 @@ func ProjectOutOfRoot(root, project string) (string, bool) {
 }
 
 // ProjectLeavesRoot reports whether project, under the image root root (""
-// on a live host), lies outside the root as given or leads out of it, so
-// that whether it is a directory is the analyst's host's answer rather than
-// the image's. A project ProjectOutOfRoot flags only because a path inside
+// on a live host), lies outside the root as given, leads out of it through
+// a link, climbs above it with `..`, or sits under a root that cannot be
+// resolved, so that whether it is a directory is the analyst's host's answer
+// rather than the image's. A project ProjectOutOfRoot flags only because a path inside
 // the root cannot be read (missing, unreadable, a link loop) does not count:
 // that answer is the image's own, whatever the host holds.
 func ProjectLeavesRoot(root, project string) bool {

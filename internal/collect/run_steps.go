@@ -292,9 +292,11 @@ func (state *runState) inventoryHome(ctx context.Context, home users.Home,
 	if err != nil {
 		return err
 	}
+	// A project that leaves the image root was not walked and is not counted,
+	// as the summary leaves it out of its project list.
 	owned := 0
 	for _, project := range state.projects {
-		if project.Owner == home.User && project.Path != "" {
+		if project.Owner == home.User && project.Path != "" && !state.projectNotWalked(project.Path) {
 			owned++
 		}
 	}
