@@ -352,8 +352,9 @@ func TestDirReadErrorOnWindows(t *testing.T) {
 		failed           bool
 	}{
 		{"a readable directory has no error", root, "", false},
-		{"a file is not a directory", root + "/file",
-			"open " + syspath.ToNative(root+"/file") + ": not a directory", true},
+		{"a file gives the not-a-directory error, which Windows words as a missing path",
+			root + "/file", pathError("open", syspath.ToNative(root+"/file"),
+				syscall.ENOTDIR).Error(), true},
 		{"a missing path gives the lstat error", root + "/missing",
 			"lstat " + syspath.ToNative(root+"/missing") + ": ", true},
 	}
