@@ -2,6 +2,7 @@ package users
 
 import (
 	"strings"
+	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -22,7 +23,8 @@ func homeGlobs(live bool) []string {
 // the registry's ProfileList first, then both modes add the directories
 // under the home parents of root (the system drive when live). A candidate
 // that is a file is dropped; one that is not a directory is reported in
-// Skipped, with Denied set when its parent lists it. The -u list is compared
+// Skipped, with Denied set when its parent lists it. Both tests read the
+// entry's own attributes, as .NET's File.Exists and Directory.Exists do. The -u list is compared
 // case-insensitively against the user name. A home is kept once, by the case-
 // folded path. run is not used on Windows.
 func Find(live bool, root, usersFilter string, _ Runner) Report {
@@ -77,7 +79,7 @@ func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped) {
 			continue
 		}
 		key := syspath.Fold(candidate.Path)
-		if isDirectory(candidate.Path) {
+		if isProfileDirectory(candidate.Path) {
 			if !seenHomes[key] {
 				homes = append(homes, candidate)
 			}
@@ -105,11 +107,35 @@ func wantedUsers(usersFilter string) (wanted map[string]bool, filtered bool) {
 	return wanted, usersFilter != ""
 }
 
-// isFile reports whether path exists and is not a directory, as
-// System.IO.File.Exists does; a link is followed.
+// isFile reports whether path's own entry exists without the directory
+// attribute, as System.IO.File.Exists reads it: GetFileAttributesEx, which
+// follows no link, so a file symlink is a file whatever it leads to.
 func isFile(path string) bool {
-	info, err := osfile.Stat(path)
-	return err == nil && !info.IsDir()
+	attributes, ok := entryAttributes(path)
+	return ok && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0
+}
+
+// isProfileDirectory reports whether path's own entry has the directory
+// attribute, as System.IO.Directory.Exists reads it: a junction or a
+// directory symlink counts even when what it leads to is gone, and such a
+// home is collected, with its error_read row, rather than skipped.
+func isProfileDirectory(path string) bool {
+	attributes, ok := entryAttributes(path)
+	return ok && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0
+}
+
+// entryAttributes returns the file attributes of path itself, a link not
+// followed; ok is false when path cannot be looked at.
+func entryAttributes(path string) (attributes uint32, ok bool) {
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return 0, false
+	}
+	data, ok := info.Sys().(*syscall.Win32FileAttributeData)
+	if !ok {
+		return 0, false
+	}
+	return data.FileAttributes, true
 }
 
 // skippedHome describes a candidate home that cannot be seen as a directory:

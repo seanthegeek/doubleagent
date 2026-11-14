@@ -133,10 +133,11 @@ func setupLinkImage(t *testing.T, img image) {
 }
 
 // setupDeniedHomeImage builds an image whose Users directory holds alice's
-// home with one catalog file and bob, an entry the directory lists that is
-// no directory either collector can enter: a junction to a directory that
-// does not exist. No run without -u reached a home the parent lists but the
-// run cannot see, so this case compares its log line and error_read row.
+// home with one catalog file and bob, a junction to a directory that does
+// not exist. Both collectors read bob's own directory attribute, as .NET's
+// Directory.Exists does, so bob is a home that cannot be listed: its
+// error_read row and read failed line are compared. No entry its parent
+// lists as a directory is logged as profile not accessible in an image.
 func setupDeniedHomeImage(t *testing.T, img image) {
 	build := fixture{t}
 	root := img.work + `\deniedhome`

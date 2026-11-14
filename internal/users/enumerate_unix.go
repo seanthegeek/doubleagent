@@ -158,3 +158,9 @@ func wantedUsers(usersFilter string) (wanted map[string]struct{}, filtered bool)
 	}
 	return wanted, true
 }
+
+// isDirectory is test -d: true for a directory or a link to one.
+func isDirectory(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}

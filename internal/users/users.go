@@ -4,11 +4,7 @@
 // Get-UserHomes, reading the registry's ProfileList in a live run.
 package users
 
-import (
-	"regexp"
-
-	"github.com/seanthegeek/doubleagent/internal/osfile"
-)
+import "regexp"
 
 // Home is a user and the home directory to collect for them. Path includes the
 // image root, as the sh collector builds it.
@@ -86,10 +82,4 @@ func lowerASCII(text string) string {
 // homes of Find.
 func Enumerate(live bool, root, usersFilter string, run Runner) []Home {
 	return Find(live, root, usersFilter, run).Homes
-}
-
-// isDirectory is test -d: true for a directory or a link to one.
-func isDirectory(path string) bool {
-	info, err := osfile.Stat(path)
-	return err == nil && info.IsDir()
 }

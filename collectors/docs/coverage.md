@@ -662,6 +662,12 @@ The PowerShell collector logs a profile path that cannot be seen as
 `profile not accessible (skipped)`. When its parent directory still lists
 it (access denied rather than a deleted profile), it also gets an
 `error_read` row, but it is not added to `users` and `homes`.
+Whether a candidate is a file or a directory is read from its own entry, as
+.NET's `File.Exists` and `Directory.Exists` read it, without following a
+link: a junction or a directory symlink is a home even when what it leads to
+is gone (its listing then fails, so it gets an `error_read` row), and a
+symlink made without the directory flag is dropped as a file. The Go binary
+on Windows tests candidates the same way.
 
 ## Project discovery
 

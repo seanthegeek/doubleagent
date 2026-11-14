@@ -1,11 +1,13 @@
 package users
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	"golang.org/x/sys/windows"
 
@@ -155,17 +157,110 @@ func TestSkippedReasonNamesTheNativePath(t *testing.T) {
 	}
 }
 
-func TestFindSkipsAHomeThatIsListedButCannotBeSeen(t *testing.T) {
-	root := writeTree(t, []string{"Users"}, nil)
-	link := filepath.Join(syspath.ToNative(root), "Users", "dangling")
-	if err := os.Symlink(filepath.Join(syspath.ToNative(root), "absent"), link); err != nil {
+func TestFindJudgesALinkByItsOwnAttributes(t *testing.T) {
+	cases := []struct {
+		name, target string
+		homes        []Home
+	}{
+		{"a junction to a directory that is gone is a home", "absent",
+			[]Home{{"link", "/Users/link"}}},
+		{"a junction to a directory is a home", "real", []Home{{"link", "/Users/link"}}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			root := writeTree(t, []string{"Users", "real"}, nil)
+			makeJunction(t, root+"/"+test.target, root+"/Users/link")
+			report := find(nil, root, "")
+			var homes []Home
+			for _, home := range report.Homes {
+				homes = append(homes, Home{home.User, strings.TrimPrefix(home.Path, root)})
+			}
+			if !reflect.DeepEqual(homes, test.homes) || len(report.Skipped) != 0 {
+				t.Errorf("Homes = %v, Skipped = %v, want %v and nothing skipped", homes,
+					report.Skipped, test.homes)
+			}
+		})
+	}
+}
+
+// allowUnprivilegedCreate is SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE,
+// which golang.org/x/sys does not define: it lets an account in developer
+// mode create a symlink without the privilege.
+const allowUnprivilegedCreate = 0x2
+
+func TestFindDropsAFileSymlinkToADirectory(t *testing.T) {
+	root := writeTree(t, []string{"Users", "real"}, nil)
+	// A symlink made without the directory flag is a file to File.Exists,
+	// whatever it leads to, so Get-UserHomes drops it as a file.
+	link := filepath.Join(syspath.ToNative(root), "Users", "link")
+	err := windows.CreateSymbolicLink(utf16Pointer(t, link),
+		utf16Pointer(t, filepath.Join(syspath.ToNative(root), "real")),
+		allowUnprivilegedCreate)
+	if err != nil {
 		t.Skipf("cannot create a symbolic link here: %v", err)
 	}
-	report := find(nil, root, "")
-	want := []Skipped{{Path: root + "/Users/dangling", Reason: "access denied", Denied: true}}
-	if len(report.Homes) != 0 || !reflect.DeepEqual(report.Skipped, want) {
-		t.Errorf("Homes = %v, Skipped = %v, want no homes and %v", report.Homes, report.Skipped, want)
+	if report := find(nil, root, ""); len(report.Homes) != 0 || len(report.Skipped) != 0 {
+		t.Errorf("Homes = %v, Skipped = %v, want neither", report.Homes, report.Skipped)
 	}
+}
+
+// utf16Pointer returns text as a NUL-terminated UTF-16 string.
+func utf16Pointer(t *testing.T, text string) *uint16 {
+	t.Helper()
+	pointer, err := windows.UTF16PtrFromString(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pointer
+}
+
+// makeJunction makes link a junction to the directory target, both
+// canonical, by setting on a new empty directory the mount-point reparse
+// data mklink /J writes. target need not exist.
+func makeJunction(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Mkdir(syspath.ToNative(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(utf16Pointer(t, syspath.ToNative(link)), windows.GENERIC_WRITE,
+		0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+	native := syspath.ToNative(target)
+	data := mountPointData(`\??\`+native+`\`, native)
+	var returned uint32
+	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
+		uint32(len(data)), nil, 0, &returned, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
+// (junction) reparse buffer: the tag, the data length, a reserved word, the
+// offsets and lengths in bytes of the two names, then the substitute name
+// the system follows and the print name shown to people, each ending in NUL.
+func mountPointData(substitute, printName string) []byte {
+	substituteText := utf16.Encode([]rune(substitute))
+	printText := utf16.Encode([]rune(printName))
+	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
+	names = append(append(names, substituteText...), 0)
+	names = append(append(names, printText...), 0)
+	substituteBytes := uint16(2 * len(substituteText))
+	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
+	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
+	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
+	for _, unit := range names {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	return data
 }
 
 func TestParentListsReadsADriveRoot(t *testing.T) {
