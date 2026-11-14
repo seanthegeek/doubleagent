@@ -30,3 +30,10 @@ func excludedMeta(path string) (string, fsmeta.Meta, bool) {
 	meta, _ := lstatOrZero(path)
 	return "file", meta, false
 }
+
+// isVisibleDir reports whether path is a directory, or a link to one, that
+// can be seen (test -d), the test that gives an error_read row its owner.
+func isVisibleDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}

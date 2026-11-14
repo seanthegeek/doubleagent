@@ -680,3 +680,27 @@ func TestNamesEndingInADotOrASpaceAreTheirOwnEntries(t *testing.T) {
 		})
 	}
 }
+
+func TestIsVisibleDirReadsTheEntryItself(t *testing.T) {
+	root := syspath.FromNative(t.TempDir())
+	mustDo(t, os.Mkdir(syspath.ToNative(root+"/real"), 0o755))
+	mustDo(t, os.WriteFile(syspath.ToNative(root+"/file"), nil, 0o644))
+	makeJunction(t, root+"/gone", root+"/broken")
+	cases := []struct {
+		name, path string
+		want       bool
+	}{
+		{"a directory is visible", root + "/real", true},
+		{"a junction whose target is gone is visible, as Directory.Exists says",
+			root + "/broken", true},
+		{"a file is not a directory", root + "/file", false},
+		{"a missing path is not visible", root + "/missing", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isVisibleDir(test.path); got != test.want {
+				t.Errorf("isVisibleDir(%s) = %v, want %v", test.path, got, test.want)
+			}
+		})
+	}
+}

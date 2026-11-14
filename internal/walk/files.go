@@ -226,13 +226,6 @@ func (collector *Collector) logReadError(path, reason string) error {
 	return collector.Log.Line("read failed: " + syspath.ToNative(path) + ": " + reason)
 }
 
-// isVisibleDir reports whether path is a directory, or a link to one, that
-// can be seen, the Test-Path -PathType Container test of Write-ReadErrorRow.
-func isVisibleDir(path string) bool {
-	info, err := osfile.Stat(path)
-	return err == nil && info.IsDir()
-}
-
 // recordFiles gives each regular file's size and modification time to the
 // inventory records, as INVENTORY_FILES_WORKER prints them. A path lstat
 // describes as anything else (a reparse point Windows lists as a regular

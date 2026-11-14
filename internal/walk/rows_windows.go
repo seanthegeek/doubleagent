@@ -28,3 +28,12 @@ func excludedMeta(path string) (string, fsmeta.Meta, bool) {
 	}
 	return "file", meta, false
 }
+
+// isVisibleDir reports whether path's own entry has the directory attribute,
+// the Test-PathQuiet Container test of Write-ReadErrorRow: Directory.Exists
+// reads the entry without following a link, so a junction whose target is
+// gone still gets its owner, the junction's own.
+func isVisibleDir(path string) bool {
+	meta, ok := lstatOrZero(path)
+	return ok && meta.Attributes&windows.FILE_ATTRIBUTE_DIRECTORY != 0
+}
