@@ -5,7 +5,6 @@ package fsmeta
 
 import (
 	"io/fs"
-	"strconv"
 )
 
 // Kind is the type of a file as lstat reports it.
@@ -38,30 +37,6 @@ type Meta struct {
 	Ino    uint64
 	Nlink  uint64
 	Blocks int64 // 512-byte blocks allocated
-}
-
-// modeString writes mode & 07777 in octal without a leading zero.
-func modeString(mode uint32) string {
-	return strconv.FormatUint(uint64(mode&0o7777), 8)
-}
-
-// kindOf maps the file-type bits of an lstat mode to a Kind.
-func kindOf(mode uint32) Kind {
-	switch mode & 0o170000 {
-	case 0o100000:
-		return File
-	case 0o040000:
-		return Dir
-	case 0o120000:
-		return Symlink
-	case 0o140000:
-		return Socket
-	case 0o010000:
-		return Fifo
-	case 0o060000, 0o020000:
-		return Device
-	}
-	return Other
 }
 
 // pathError wraps err as the *fs.PathError the Go standard library would

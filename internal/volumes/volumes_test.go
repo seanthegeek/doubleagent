@@ -221,3 +221,22 @@ func TestCancelledContextStopsCollection(t *testing.T) {
 		t.Error("a cancelled context gave no error")
 	}
 }
+
+func TestUnmatchedVolumeRow(t *testing.T) {
+	fixture := newSetup(t, false)
+	fixture.write(t, "var/lib/docker/volumes/postgres/_data/PG_VERSION", "16")
+	var notes []string
+	if _, err := Collect(context.Background(), fixture.collector, fixture.root, nil, &notes); err != nil {
+		t.Fatal(err)
+	}
+	data := filepath.Join(fixture.root, "var/lib/docker/volumes/postgres/_data")
+	want := `{"user":"docker","home":"` + data + `","agent":"","path":"` + data +
+		`","archive_path":"","type":"dir","size":`
+	row := fixture.rows.String()
+	if !strings.HasPrefix(row, want) ||
+		!strings.HasSuffix(row, `,"mtime":0,"atime":0,"ctime":0,"btime":0,"uid":0,"gid":0,`+
+			`"mode":"0","sha256":"","secret":false,"status":"skipped_unmatched_volume",`+
+			`"target":"","error":""}`+"\n") {
+		t.Errorf("row = %s", row)
+	}
+}
