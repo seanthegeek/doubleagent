@@ -17,7 +17,7 @@ import (
 )
 
 // Patterns of the Windows normalisation: the log's times, the two start
-// lines, the lines only the PowerShell collector writes, the two wordings it
+// lines, the lines only one of the collectors writes, the two wordings it
 // spells its own way, the reasons the comparison cuts, and stdout's archive
 // lines, resolved count and inventory volatiles.
 var (
@@ -26,7 +26,7 @@ var (
 	windowsOptions   = regexp.MustCompile(`^(?:archive|hash)=.*? (max_file_size=.*)$`)
 	windowsFlag      = regexp.MustCompile(`=(True|False)\b`)
 	powerShellOnly   = regexp.MustCompile(`^(?:discovery source unreadable: |stat failed: |(?:NOTE: )?tar(?:\.exe)? failed)`)
-	windowsReason    = regexp.MustCompile(`^((?:read failed|copy failed): .+?: |.*? not readable: |` +
+	windowsReason    = regexp.MustCompile(`^((?:read failed|copy failed|symlink not recreated): .+?: |.*? not readable: |` +
 		`WARNING: project given with -p is not a directory: .+?: ).*$`)
 	windowsStdout    = regexp.MustCompile(`(?m)^(size|sha256): .*\n`)
 	windowsResolved  = regexp.MustCompile(`(?m)^(relocation: .*?), [0-9]+ resolved`)
@@ -51,12 +51,12 @@ func newWindowsNormaliser() normaliser {
 				stderr = reference
 			}
 		case logOnStderr:
-			stderr = sortedLines(normalWindowsLog(stderr))
+			stderr = sortedLines(normalWindowsLog(stderr, binary))
 		}
 		files := map[string]string{
 			".manifest.jsonl":  normalManifest(run.files[".manifest.jsonl"]),
 			".collection.json": normalSummary(run.files[".collection.json"], binary),
-			".log":             normalWindowsLog(run.files[".log"]),
+			".log":             normalWindowsLog(run.files[".log"], binary),
 			".archive":         normalWindowsArchive(run.members),
 		}
 		stdout := windowsStdout.ReplaceAllString(withoutCarriageReturns(run.stdout), "")
@@ -81,14 +81,17 @@ func sortedLines(text string) string {
 }
 
 // normalWindowsLog returns the log's lines without their times, each start
-// line reduced to what both collectors print, the lines only the PowerShell
-// collector writes dropped, its two wordings mapped onto the binary's, and
-// the reasons of failure lines cut.
-func normalWindowsLog(text string) string {
+// line reduced to what both collectors print, the lines only one collector
+// writes dropped (the binary's sh-style find: line for a directory it cannot
+// list; the PowerShell collector's kinds in powerShellOnly), its two
+// wordings mapped onto the binary's, and the reasons of failure lines cut.
+// binary says the log is the Go binary's.
+func normalWindowsLog(text string, binary bool) string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimSuffix(withoutCarriageReturns(text), "\n"), "\n") {
 		line = windowsLogTime.ReplaceAllString(line, "")
-		if powerShellOnly.MatchString(line) || strings.HasPrefix(line, "profile not accessible (skipped): ") {
+		onlyOne := (binary && strings.HasPrefix(line, "find: ")) || (!binary && powerShellOnly.MatchString(line))
+		if onlyOne || strings.HasPrefix(line, "profile not accessible (skipped): ") {
 			continue
 		}
 		lines = append(lines, normalWindowsLine(line))
