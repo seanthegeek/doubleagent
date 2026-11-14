@@ -61,6 +61,7 @@ func smokeImage(t *testing.T, repository string) image {
 	work := longPath(t, lines[len(lines)-1])
 	root := longPath(t, filepath.Join(work, "root"))
 	t.Cleanup(func() { removeTree(work) })
+	settleTree(t, work)
 	return image{work: work, root: root, alice: root + `\Users\alice`, bob: root + `\home\bob`}
 }
 

@@ -26,6 +26,9 @@ func (c windowsCase) run(t *testing.T, img image, reference oracle, binary []str
 	if c.setup != nil {
 		c.setup(t, img)
 	}
+	if !c.shared {
+		settleTree(t, img.work)
+	}
 	if c.fails {
 		c.compareFailure(t, img, reference, binary, newWindowsNormaliser())
 		return
