@@ -21,7 +21,9 @@ func SystemRegistry() Registry { return systemRegistry{} }
 // acceptRegistryValue refuses it rather than accepting the text before the
 // first NUL. A REG_EXPAND_SZ value is never expanded, as
 // DoNotExpandEnvironmentNames asks; a value of another type keeps only its
-// name, and an empty name (the key's default value) is skipped.
+// name, and an empty name (the key's default value) is skipped. A name keeps
+// a NUL it holds, as GetValueNames keeps it, so it matches no variable; its
+// data is read by the name up to the NUL, as GetValue reads it.
 func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {
 	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{}}
 	key, err := registry.OpenKey(rootKey(root), subkey, registry.READ)
@@ -33,7 +35,7 @@ func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings 
 		return values
 	}
 	defer key.Close()
-	names, err := key.ReadValueNames(-1)
+	names, err := regtext.ValueNames(key)
 	if err != nil {
 		values.Reason = err.Error()
 		return values

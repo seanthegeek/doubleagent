@@ -58,26 +58,34 @@ func TestSystemRegistryListsLoadedHives(t *testing.T) {
 	}
 }
 
-func TestSystemRegistryKeepsAnEmbeddedNUL(t *testing.T) {
+// testKey creates a throwaway key under HKEY_CURRENT_USER\Software, deleted
+// when the test ends, and returns it with its path under HKEY_USERS.
+func testKey(t *testing.T) (registry.Key, string) {
+	t.Helper()
 	subkey := `Software\doubleagent-test-` + rand.Text()
 	key, _, err := registry.CreateKey(registry.CURRENT_USER, subkey, registry.SET_VALUE)
 	if err != nil {
 		t.Fatalf("create HKCU\\%s: %v", subkey, err)
 	}
 	t.Cleanup(func() {
+		key.Close()
 		if err := registry.DeleteKey(registry.CURRENT_USER, subkey); err != nil {
 			t.Errorf("delete HKCU\\%s: %v", subkey, err)
 		}
 	})
-	defer key.Close()
-	// SetStringValue refuses a NUL, so the value is written through
-	// RegSetValueExW: C:\a, a NUL, junk, and the terminating NUL.
-	setStringData(t, key, "CODEX_HOME", "C:\\a\x00junk\x00")
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
 		t.Fatalf("read the token user: %v", err)
 	}
-	got := SystemRegistry().Strings(UsersRoot, user.User.Sid.String()+`\`+subkey)
+	return key, user.User.Sid.String() + `\` + subkey
+}
+
+func TestSystemRegistryKeepsAnEmbeddedNUL(t *testing.T) {
+	key, usersPath := testKey(t)
+	// SetStringValue refuses a NUL, so the value is written through
+	// RegSetValueExW: C:\a, a NUL, junk, and the terminating NUL.
+	setStringData(t, key, "CODEX_HOME", "C:\\a\x00junk\x00")
+	got := SystemRegistry().Strings(UsersRoot, usersPath)
 	if got.Reason != "" || !slices.Equal(got.Names, []string{"CODEX_HOME"}) {
 		t.Fatalf("names %q, reason %q; want CODEX_HOME and no reason", got.Names, got.Reason)
 	}
@@ -87,6 +95,51 @@ func TestSystemRegistryKeepsAnEmbeddedNUL(t *testing.T) {
 	if value, reason := acceptRegistryValue(got.Text["CODEX_HOME"]); reason != "holds a control character" {
 		t.Errorf("accepted %q (reason %q), want it refused as holding a control character",
 			value, reason)
+	}
+}
+
+func TestSystemRegistryKeepsANULInAValueName(t *testing.T) {
+	key, usersPath := testKey(t)
+	if err := key.SetStringValue("CODEX_HOME", `C:\real`); err != nil {
+		t.Fatal(err)
+	}
+	// No Win32 call takes a counted value name, so the second value, named
+	// CODEX_HOME, a NUL and x, is written through NtSetValueKey.
+	setCountedName(t, key, "CODEX_HOME\x00x", `C:\other`)
+	got := SystemRegistry().Strings(UsersRoot, usersPath)
+	wantNames := []string{"CODEX_HOME", "CODEX_HOME\x00x"}
+	if got.Reason != "" || !slices.Equal(got.Names, wantNames) {
+		t.Fatalf("names %q, reason %q; want %q and no reason", got.Names, got.Reason, wantNames)
+	}
+	// GetValue reads a name up to its NUL, so the second name reads the
+	// first value's data.
+	if text := got.Text["CODEX_HOME\x00x"]; text != `C:\real` {
+		t.Errorf("text of the name holding a NUL = %q, want CODEX_HOME's C:\\real", text)
+	}
+	log := &lineLog{}
+	fake := fakeRegistry{keys: map[registryKey]RegistryStrings{
+		{LocalMachine, systemEnvironmentKey}: got}}
+	if err := registrySearch(t, fake, nil, nil, log).registryPass(); err != nil {
+		t.Fatal(err)
+	}
+	if hints := len(log.lines) - 1; hints != 1 {
+		t.Errorf("%d hints, want CODEX_HOME's one; log %q", hints, log.lines)
+	}
+}
+
+// setCountedName writes text as the REG_SZ value under key whose counted
+// name is name, a NUL in it included, through NtSetValueKey.
+func setCountedName(t *testing.T, key registry.Key, name, text string) {
+	t.Helper()
+	units := utf16.Encode([]rune(name))
+	counted := windows.NTUnicodeString{Length: uint16(2 * len(units)),
+		MaximumLength: uint16(2 * len(units)), Buffer: &units[0]}
+	data := utf16.Encode([]rune(text + "\x00"))
+	setValue := windows.NewLazySystemDLL("ntdll.dll").NewProc("NtSetValueKey")
+	status, _, _ := setValue.Call(uintptr(key), uintptr(unsafe.Pointer(&counted)), 0,
+		uintptr(registry.SZ), uintptr(unsafe.Pointer(&data[0])), uintptr(2*len(data)))
+	if status != 0 {
+		t.Fatalf("NtSetValueKey %q: %v", name, windows.NTStatus(status))
 	}
 }
 

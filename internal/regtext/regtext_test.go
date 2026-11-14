@@ -33,3 +33,25 @@ func TestDecode(t *testing.T) {
 		})
 	}
 }
+
+func TestName(t *testing.T) {
+	cases := []struct {
+		name  string
+		units []uint16
+		want  string
+	}{
+		{"an embedded NUL and what follows it stay", []uint16{'A', 0, 'x'}, "A\x00x"},
+		{"a trailing NUL stays, since the name is counted", []uint16{'A', 0}, "A\x00"},
+		{"a name of one NUL is that NUL", []uint16{0}, "\x00"},
+		{"no units is the empty name", nil, ""},
+		{"a surrogate pair decodes to one character", []uint16{0xd83d, 0xde00}, "\U0001f600"},
+		{"a lone surrogate becomes the replacement character", []uint16{0xd83d}, "\ufffd"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := Name(test.units); got != test.want {
+				t.Errorf("Name(%v) = %q, want %q", test.units, got, test.want)
+			}
+		})
+	}
+}
