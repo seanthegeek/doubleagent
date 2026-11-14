@@ -1,12 +1,13 @@
-// Package osfile is the one door to the os functions that take a path: each
-// calls its os counterpart on syspath.Extended(path) and returns the error
-// with its paths in native form. Win32 trims the dots and spaces ending a
-// path component unless the path has the \\?\ prefix, which os adds only to
-// a long path, so a directory x. read through the plain form lists its
-// neighbour x while its metadata, read through the prefixed form, is its own.
-// The PowerShell collector passes every path through ConvertTo-ExtendedPath
-// for the same reason. On Unix syspath is the identity, so these are the os
-// functions. A returned *os.File's Name is the extended form.
+// Package osfile wraps the os functions that take a path so that, on Windows,
+// each one reaches exactly the entry it names. Windows drops a dot or a space
+// ending a component of an ordinary path, yet NTFS stores such names: opened
+// that way, a directory "x." is not found or, beside a neighbour "x", the
+// neighbour is opened without an error, and a collector would record one
+// entry's name and metadata with another's contents and hash. A path with the
+// \\?\ prefix is used as written, and os adds it only to a long path, so every
+// function here calls os on syspath.Extended(path) and returns errors with
+// native paths. A returned file's Name and its methods' errors keep the
+// prefix. On Unix each function is its os counterpart.
 package osfile
 
 import (
