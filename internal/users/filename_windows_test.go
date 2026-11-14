@@ -14,3 +14,13 @@ const errorInvalidName syscall.Errno = 123
 func invalidFileName(err error) bool {
 	return errors.Is(err, errorInvalidName)
 }
+
+// onWindows tells the shared tests which platform's expectations apply.
+const onWindows = true
+
+// bracketName and bracketRoot are directory names holding glob characters,
+// without the * that Windows rejects in a name.
+const (
+	bracketName = "[x]"
+	bracketRoot = "r[o]ot"
+)

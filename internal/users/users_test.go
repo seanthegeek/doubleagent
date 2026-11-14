@@ -1,12 +1,13 @@
 package users
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // tree describes a fixture image: directories, files and symlinks (name to
@@ -44,10 +45,10 @@ func (spec tree) build(t *testing.T) string {
 			t.Fatal(err)
 		}
 		if err := os.Symlink(target, path); err != nil {
-			t.Fatal(err)
+			t.Skipf("cannot create a symbolic link here: %v", err)
 		}
 	}
-	return root
+	return syspath.FromNative(root)
 }
 
 // expected turns "user:/relative/home" entries into Homes under root.
@@ -74,12 +75,17 @@ func TestEnumerateImage(t *testing.T) {
 		passwd string
 		filter string
 		want   []string
+		// windowsWant replaces want on Windows when set, where there is no
+		// passwd file and the -u list ignores case.
+		windowsWant []string
 	}{
 		{
 			name:   "passwd users and glob users in enumeration order",
 			tree:   tree{dirs: []string{"home/alice", "home/bob", "Users/carol", "root", "var/root", "usr/home/dave", "export/home/erin", "srv/zed"}},
 			passwd: "zed:x:5:5::/srv/zed:/bin/sh\n",
 			want: []string{"zed:/srv/zed", "alice:/home/alice", "bob:/home/bob", "carol:/Users/carol",
+				"root:/root", "root:/var/root", "dave:/usr/home/dave", "erin:/export/home/erin"},
+			windowsWant: []string{"alice:/home/alice", "bob:/home/bob", "carol:/Users/carol",
 				"root:/root", "root:/var/root", "dave:/usr/home/dave", "erin:/export/home/erin"},
 		},
 		{
@@ -101,16 +107,18 @@ func TestEnumerateImage(t *testing.T) {
 			want:   []string{"linked:/home/linked"},
 		},
 		{
-			name:   "passwd lines with fewer than six fields or an empty home are skipped",
-			tree:   tree{dirs: []string{"srv/a", "srv/b"}},
-			passwd: "short:x:1:1:/srv/a\nempty:x:2:2:::/bin/sh\n\nok:x:3:3::/srv/b\n",
-			want:   []string{"ok:/srv/b"},
+			name:        "passwd lines with fewer than six fields or an empty home are skipped",
+			tree:        tree{dirs: []string{"srv/a", "srv/b"}},
+			passwd:      "short:x:1:1:/srv/a\nempty:x:2:2:::/bin/sh\n\nok:x:3:3::/srv/b\n",
+			want:        []string{"ok:/srv/b"},
+			windowsWant: []string{},
 		},
 		{
-			name:   "a repeated home keeps the first user",
-			tree:   tree{dirs: []string{"home/alice"}},
-			passwd: "al:x:1:1::/home/alice:/bin/sh\nalice:x:2:2::/home/alice:/bin/sh\n",
-			want:   []string{"al:/home/alice"},
+			name:        "a repeated home keeps the first user",
+			tree:        tree{dirs: []string{"home/alice"}},
+			passwd:      "al:x:1:1::/home/alice:/bin/sh\nalice:x:2:2::/home/alice:/bin/sh\n",
+			want:        []string{"al:/home/alice"},
+			windowsWant: []string{"alice:/home/alice"},
 		},
 		{
 			name:   "names sort bytewise, upper case before lower case",
@@ -139,8 +147,8 @@ func TestEnumerateImage(t *testing.T) {
 		},
 		{
 			name: "a root whose name holds a bracket",
-			tree: tree{dirs: []string{"home/[x]*"}},
-			want: []string{"[x]*:/home/[x]*"},
+			tree: tree{dirs: []string{"home/" + bracketName}},
+			want: []string{bracketName + ":/home/" + bracketName},
 		},
 		{
 			name: "a home whose name ends in a newline is read as the lines of its name",
@@ -160,7 +168,11 @@ func TestEnumerateImage(t *testing.T) {
 				}
 			}
 			got := Enumerate(false, root, testCase.filter, nil)
-			want := expected(root, testCase.want...)
+			entries := testCase.want
+			if onWindows && testCase.windowsWant != nil {
+				entries = testCase.windowsWant
+			}
+			want := expected(root, entries...)
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("Enumerate = %v, want %v", got, want)
 			}
@@ -169,7 +181,7 @@ func TestEnumerateImage(t *testing.T) {
 }
 
 func TestEnumerateRootWithBracket(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "r[o]*ot")
+	root := syspath.FromNative(filepath.Join(t.TempDir(), bracketRoot))
 	err := os.MkdirAll(filepath.Join(root, "home/alice"), 0o755)
 	if invalidFileName(err) {
 		t.Skipf("this platform does not accept the directory name %q: %v", root, err)
@@ -183,41 +195,35 @@ func TestEnumerateRootWithBracket(t *testing.T) {
 	}
 }
 
-func TestEnumerateLive(t *testing.T) {
-	root := tree{dirs: []string{"srv/getent", "srv/dscl", "srv/file", "home/alice"}}.build(t)
-	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "etc/passwd"), []byte("file:x:1:1::/srv/file:/bin/sh\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	getent := func(name string, args ...string) ([]byte, error) {
-		switch name {
-		case "getent":
-			return []byte("viagetent:x:1:1::/srv/getent:/bin/sh\n"), nil
-		case "dscl":
-			return []byte("viadscl  " + root + "/srv/dscl\nlonely\n"), nil
-		}
-		return nil, errors.New("unexpected " + name)
-	}
-	failing := func(string, ...string) ([]byte, error) { return nil, errors.New("not found") }
+func TestSkipProfile(t *testing.T) {
 	cases := []struct {
 		name string
-		run  Runner
-		want []Home
+		want bool
 	}{
-		{"getent replaces the passwd file, dscl adds, globs follow", getent, []Home{
-			{"viagetent", root + "/srv/getent"}, {"viadscl", root + "/srv/dscl"},
-			{"alice", root + "/home/alice"}}},
-		{"programs that fail fall back to the passwd file", failing, []Home{
-			{"file", root + "/srv/file"}, {"alice", root + "/home/alice"}}},
+		{"alice", false},
+		{"Public", true},
+		{"public", true},
+		{"DEFAULT", true},
+		{"Default User", true},
+		{"all users", true},
+		{"Shared", true},
+		{"defaultUser0", true},
+		{"Default2", false},
+		{"UMFD-0", true},
+		{"UMFD-12.DOMAIN", true},
+		{"dwm-3", true},
+		{"TEMP", true},
+		{"temp.corp.000", true},
+		{"UMFD-", false},
+		{"DWM-x", false},
+		{"TEMPERATURE", false},
+		{"my.TEMP", false},
+		{"", false},
 	}
 	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			// The fixture root stands in for a live run's empty root: getent's
-			// homes are prefixed with it, dscl's are not.
-			if got := Enumerate(true, root, "", testCase.run); !reflect.DeepEqual(got, testCase.want) {
-				t.Errorf("Enumerate = %v, want %v", got, testCase.want)
+		t.Run("name "+testCase.name, func(t *testing.T) {
+			if got := skipProfile(testCase.name); got != testCase.want {
+				t.Errorf("skipProfile(%q) = %v, want %v", testCase.name, got, testCase.want)
 			}
 		})
 	}
