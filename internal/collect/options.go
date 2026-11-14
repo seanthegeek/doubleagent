@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Options holds every option of `collect`, with the defaults the sh collector
@@ -228,10 +230,11 @@ func mebibytes(text string) (int64, bool) {
 }
 
 // ResolveProjects returns OPTIONS with every -p path made absolute against the
-// current directory and listed once, as the sh collector does. A path is never
-// prefixed with the root: it names a place on the machine running the
-// collector. An empty path is dropped; a relative path that does not exist is
-// joined to the current directory unchanged.
+// current directory (absoluteProject, per platform) and listed once, paths
+// that differ only in case being one on Windows. A path is never prefixed
+// with the root: it names a place on the machine running the collector. An
+// empty path is dropped; the current directory is asked for only when a path
+// is relative.
 func ResolveProjects(options Options, getwd func() (string, error)) (Options, error) {
 	var resolved []string
 	seen := map[string]bool{}
@@ -239,31 +242,21 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 		if project == "" {
 			continue
 		}
+		cwd := ""
 		if !filepath.IsAbs(project) {
-			cwd, err := getwd()
-			if err != nil {
+			var err error
+			if cwd, err = getwd(); err != nil {
 				return options, fmt.Errorf("resolve project %s: %w", project, err)
 			}
-			project = absoluteProject(cwd, project)
 		}
-		if !seen[project] {
-			seen[project] = true
+		project = absoluteProject(cwd, project)
+		if key := syspath.Fold(project); !seen[key] {
+			seen[key] = true
 			resolved = append(resolved, project)
 		}
 	}
 	options.Projects = resolved
 	return options, nil
-}
-
-// absoluteProject joins the relative PROJECT to CWD. An existing directory is
-// cleaned (the shell's `cd` then `pwd`); anything else keeps its spelling,
-// minus one leading "./".
-func absoluteProject(cwd, project string) string {
-	joined := filepath.Join(cwd, project)
-	if isDirectory(joined) {
-		return joined
-	}
-	return cwd + "/" + strings.TrimPrefix(project, "./")
 }
 
 // isDirectory reports whether PATH is a directory or a link to one. The
