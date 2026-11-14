@@ -2,6 +2,7 @@ package relocation
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"strings"
 
@@ -9,8 +10,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// sweepWalk lists the files of one sweep as the sh collector's find(1) does:
-// depth first, in directory order, never following a symlink or any other
+// sweepWalk lists the files of one sweep in the order of the platform's
+// collector (sweepOrder): depth first, never following a symlink or any other
 // reparse point (a Windows junction included, as Get-SweepFiles skips every
 // one), a pruned path left out with everything under it.
 type sweepWalk struct {
@@ -43,7 +44,7 @@ func (walk *sweepWalk) visit(path string) error {
 	if err := walk.ctx.Err(); err != nil {
 		return err
 	}
-	for _, name := range readEntryNames(path) {
+	for _, name := range sweepOrder(readEntries(path)) {
 		if err := walk.visit(path + "/" + name); err != nil {
 			return err
 		}
@@ -66,17 +67,38 @@ func (walk *sweepWalk) addFile(path string, size int64) {
 	}
 }
 
-// readEntryNames returns the names in directory in directory order.
-func readEntryNames(directory string) []string {
+// readEntries returns the entries of directory in directory order.
+func readEntries(directory string) []fs.DirEntry {
 	handle, err := os.Open(directory)
 	if err != nil {
 		return nil
 	}
 	defer handle.Close()
 	entries, _ := handle.ReadDir(-1)
-	names := make([]string, len(entries))
-	for i, entry := range entries {
-		names[i] = entry.Name()
+	return entries
+}
+
+// stackOrder returns the names of a directory's entries in the order
+// Get-SweepFiles reaches them: every entry that is not a directory in
+// listing order, then the directories in reverse listing order. The function
+// pops a directory off a stack, adds its files as it lists them and pushes
+// its subdirectories, so the subdirectory listed last is popped next and
+// swept whole before the one listed before it. Visiting each name in this
+// order depth first yields the same files in the same order. A junction or a
+// directory symlink, which Go does not type a directory, lands among the
+// files; the sweep skips it wherever it lies.
+func stackOrder(entries []fs.DirEntry) []string {
+	names := make([]string, 0, len(entries))
+	var directories []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			directories = append(directories, entry.Name())
+		} else {
+			names = append(names, entry.Name())
+		}
+	}
+	for i := len(directories) - 1; i >= 0; i-- {
+		names = append(names, directories[i])
 	}
 	return names
 }
