@@ -449,7 +449,7 @@ for Go files as it does for the others.
 - **Gates.** `gofmt -l cmd internal` prints nothing; `go vet ./...`,
   `staticcheck ./...` and `govulncheck ./...` pass at the versions the
   [Quality gates](#quality-gates) table pins; `go test -race ./...` passes.
-  The `go` CI job runs them on the Ubuntu and macOS runners, then builds the
+  The `go` CI job runs them on the Ubuntu, macOS and Windows runners, then builds the
   six release targets twice and fails when any hash differs.
 - **No cgo.** Every build of the binary sets `CGO_ENABLED=0`; a change that
   needs `import "C"` is refused. The tests alone may run with cgo, because the
@@ -520,7 +520,7 @@ for Go files as it does for the others.
   developer's home or the network, and no test runs `collect` without `-r`:
   a run without a root collects the developer's own credentials. The parity harness
   (`internal/collect/parity`, build tag `parity`) diffs the binary against
-  the sh collector over the smoke image and runs in CI on both runners.
+  the sh collector over the smoke image and runs in CI on the three runners.
 - **Builds.** `.github/go-build.sh` builds the six `GOOS`/`GOARCH` targets
   with `CGO_ENABLED=0 go build -trimpath -ldflags=-buildid=`; CI runs it
   twice per commit and compares the hashes. The version is one string in
@@ -1565,9 +1565,11 @@ parser's docstring at review.
 CI (`.github/workflows/ci.yml`) runs the catalog drift test; the analyzer
 tests on Python 3.11 to 3.14, with the branch-coverage gate on the newest;
 the Go gates, tests and six-target build and the parity job (the binary
-against the sh collector over the smoke image) on Ubuntu and macOS; the lint and
-site jobs of [Quality gates](#quality-gates); and a `CI result` job that
-fails when any of them failed or was cancelled. `CI result` is the one
+against the sh collector over the smoke image) on Ubuntu, macOS and Windows;
+the lint and site jobs of [Quality gates](#quality-gates); and a `CI result`
+job that fails when any of them failed or was cancelled. CI also runs on a
+push to a `go-rewrite-*` integration branch or a `unit-*` branch of the
+rewrite, so a unit's first run on the Windows runner precedes its merge. `CI result` is the one
 status check the ruleset on `main` requires. On the rewrite branch the sh
 smoke matrix, the macOS BSD smoke, the fork budget, the collector's
 shellcheck job and the two PowerShell smoke jobs do not run: the scripts
