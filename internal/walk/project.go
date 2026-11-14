@@ -261,7 +261,10 @@ func (walker rootWalk) walk(components []string) rootScope {
 // when the target leads out of the root or the link cannot be verified. The
 // target is never cleaned: a ".." after a link inside it goes up from where
 // that link leads, so the walk takes it one component at a time. A Windows
-// target is read with backslashes, so it is made canonical first.
+// target is read with backslashes, so it is made canonical first; one with
+// a single leading separator (`\x`) is rooted on the drive or share of the
+// link's own directory, as Windows resolves it, and a link whose directory
+// names neither cannot be verified.
 func (walker rootWalk) follow(parent, link string, hops int) (string, []string, rootScope) {
 	if hops > maxLinkHops {
 		return "", nil, walker.unreadable(link)
@@ -271,6 +274,13 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []string, 
 		return "", nil, walker.unreadable(link)
 	}
 	target = syspath.FromNative(target)
+	if strings.HasPrefix(target, "/") && !syspath.IsAbs(target) {
+		volume := volumeOf(parent)
+		if volume == "" {
+			return "", nil, walker.unreadable(link)
+		}
+		target = volume + target
+	}
 	if !syspath.IsAbs(target) {
 		return parent, strings.Split(target, "/"), rootScope{}
 	}
@@ -279,6 +289,28 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []string, 
 		return "", nil, rootScope{name: walker.named(link)}
 	}
 	return walker.physical, strings.Split(rest, "/"), rootScope{}
+}
+
+// volumeOf returns the drive (`C:`) or UNC share (`//server/share`) a
+// canonical Windows path starts with, or "" when it starts with neither.
+func volumeOf(path string) string {
+	if len(path) >= 2 && path[1] == ':' && isASCIILetter(path[0]) {
+		return path[:2]
+	}
+	server, rest, found := strings.Cut(strings.TrimPrefix(path, "//"), "/")
+	if !strings.HasPrefix(path, "//") || !found || server == "" {
+		return ""
+	}
+	share, _, _ := strings.Cut(rest, "/")
+	if share == "" {
+		return ""
+	}
+	return "//" + server + "/" + share
+}
+
+// isASCIILetter reports whether char is an ASCII letter, a drive letter.
+func isASCIILetter(char byte) bool {
+	return ('a' <= char && char <= 'z') || ('A' <= char && char <= 'Z')
 }
 
 // unreadable is the decision for path, under the resolved root, that a

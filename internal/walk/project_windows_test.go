@@ -1,0 +1,102 @@
+package walk
+
+import (
+	"errors"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"golang.org/x/sys/windows"
+)
+
+func TestVolumeOf(t *testing.T) {
+	cases := map[string]string{
+		"C:/Users/alice":      "C:",
+		"d:":                  "d:",
+		"//server/share/a/b":  "//server/share",
+		"//server/share":      "//server/share",
+		"//server":            "",
+		"//server/":           "",
+		"/no/drive":           "",
+		"1:/not/a/drive":      "",
+		"relative/C:/x":       "",
+		"":                    "",
+		"///server/share/a/b": "",
+	}
+	for path, want := range cases {
+		t.Run(path, func(t *testing.T) {
+			if got := volumeOf(path); got != want {
+				t.Errorf("volumeOf(%q) = %q, want %q", path, got, want)
+			}
+		})
+	}
+}
+
+// rootedLinkProbes are the image's probes, except that link is a symlink
+// whose target is target, as readlink would return it.
+func rootedLinkProbes(link, target string) probes {
+	return probes{
+		isLink: func(path string) (bool, error) {
+			if syspath.Equal(path, link) {
+				return true, nil
+			}
+			return isLinkProbe(path)
+		},
+		readlink: func(path string) (string, error) {
+			if syspath.Equal(path, link) {
+				return target, nil
+			}
+			return os.Readlink(path)
+		},
+	}
+}
+
+func TestRootedLinkTargetResolvesOnTheLinksDrive(t *testing.T) {
+	root := physicalTemp(t)
+	writeFiles(t, root, "srv/real/proj/AGENTS.md")
+	mustDo(t, os.MkdirAll(root+"/home/u/ext", 0o755))
+	link := root + "/home/u/ext"
+	// The root without its drive, in native form: a target with one leading
+	// separator that names the root's own srv/real.
+	rootedInside := syspath.ToNative(root[2:] + "/srv/real")
+	cases := []struct {
+		name   string
+		target string
+		want   rootScope
+	}{
+		{"a rooted target outside the root leads out of it", `\outside-of-every-image`,
+			rootScope{name: link}},
+		{"a rooted target naming a place inside the root is walked", rootedInside, rootScope{}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := projectScope(root, link+"/proj", rootedLinkProbes(link, testCase.target))
+			if got != testCase.want {
+				t.Errorf("scope %+v, want %+v", got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestRootedSymlinkLeavesTheRoot(t *testing.T) {
+	root := physicalTemp(t)
+	mustDo(t, os.MkdirAll(root+"/home/u", 0o755))
+	link := root + "/home/u/gone"
+	err := os.Symlink(`\no-such-host-dir-for-this-test`, syspath.ToNative(link))
+	if errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD) {
+		t.Skipf("creating a symbolic link needs a privilege this account lacks: %v", err)
+	}
+	mustDo(t, err)
+	target, err := os.Readlink(syspath.ToNative(link))
+	mustDo(t, err)
+	if !strings.HasPrefix(target, `\no-such`) {
+		t.Fatalf("readlink = %q, want the rooted target as written", target)
+	}
+	if !ProjectLeavesRoot(root, link+"/proj") {
+		t.Error("a project under a link to a rooted target outside the root does not leave it")
+	}
+	if name, out := ProjectOutOfRoot(root, link+"/proj"); !out || name != link {
+		t.Errorf("ProjectOutOfRoot = %q, %v; want %q, true", name, out, link)
+	}
+}
