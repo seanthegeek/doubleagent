@@ -25,7 +25,7 @@ func listMembers(t *testing.T, archivePath string) []string {
 }
 
 func TestMembersEqualSystemTar(t *testing.T) {
-	stage := buildStage(t)
+	stage, _ := buildStage(t)
 	dir := t.TempDir()
 	goArchive, systemArchive := filepath.Join(dir, "go.tar.gz"), filepath.Join(dir, "sys.tar.gz")
 	if err := WriteTarGz(stage, goArchive); err != nil {

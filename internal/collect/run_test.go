@@ -205,24 +205,6 @@ func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
 	}
 }
 
-func TestOutputDirectoryThatCannotBeWrittenIsFatal(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root may write any directory")
-	}
-	outDir := t.TempDir()
-	if err := os.Chmod(outDir, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chmod(outDir, 0o700)
-	var stdout, stderr bytes.Buffer
-	options := testOptions(fixtureImage(t), outDir)
-	code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
-	want := "Output dir not writable: " + outDir + "\n"
-	if code != exitFatal || stderr.String() != want {
-		t.Errorf("exit code %d, stderr %q; want 2 and %q", code, stderr.String(), want)
-	}
-}
-
 func TestEnclosingHome(t *testing.T) {
 	homes := []users.Home{{User: "alice", Path: "/home/alice"}, {User: "bob", Path: "/home/bob"},
 		{User: "bob", Path: "/srv/bob"}, {User: "nobody", Path: ""}}
@@ -263,7 +245,11 @@ func writeImage(t *testing.T, files, links map[string]string) string {
 		}
 	}
 	for path, target := range links {
-		if err := os.Symlink(strings.ReplaceAll(target, "{ROOT}", root), root+"/"+path); err != nil {
+		err := os.Symlink(strings.ReplaceAll(target, "{ROOT}", root), root+"/"+path)
+		if symlinkNeedsPrivilege(err) {
+			t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
 	}

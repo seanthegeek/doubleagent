@@ -14,10 +14,12 @@ import (
 	"testing"
 )
 
-// buildStage creates a small staging tree and returns its path.
-func buildStage(t *testing.T) string {
+// buildStage creates a small staging tree and returns its path, and whether
+// the two symbolic links in it were created: a Windows process without the
+// symbolic-link privilege gets a tree without them.
+func buildStage(t *testing.T) (stage string, linked bool) {
 	t.Helper()
-	stage := t.TempDir()
+	stage = t.TempDir()
 	for relative, content := range map[string]string{
 		"fs/home/a/z.txt": "zed", "fs/home/a/B.txt": "bee", "fs/home/a/a.txt": "ay",
 		"fs/home/a-b/f": "dash", "fs/home/a.d/f": "dot", "manifest.jsonl": "{}\n",
@@ -31,13 +33,17 @@ func buildStage(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	if err := os.Symlink("/etc/hosts", filepath.Join(stage, "fs/home/a/link")); err != nil {
+	err := os.Symlink("/etc/hosts", filepath.Join(stage, "fs/home/a/link"))
+	if symlinkNeedsPrivilege(err) {
+		return stage, false
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink("sub", filepath.Join(stage, "fs/home/a/dirlink")); err != nil {
 		t.Fatal(err)
 	}
-	return stage
+	return stage, true
 }
 
 // readMembers returns the archive's headers and the contents of its files.
@@ -73,7 +79,7 @@ func readMembers(t *testing.T, archivePath string) ([]*tar.Header, map[string]st
 }
 
 func TestWriteTarGzMembers(t *testing.T) {
-	stage := buildStage(t)
+	stage, linked := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
 	if err := WriteTarGz(stage, archivePath); err != nil {
 		t.Fatal(err)
@@ -88,6 +94,11 @@ func TestWriteTarGzMembers(t *testing.T) {
 		"./fs/home/a/dirlink", "./fs/home/a/link", "./fs/home/a/sub/", "./fs/home/a/sub/deep/",
 		"./fs/home/a/sub/deep/f", "./fs/home/a/z.txt", "./fs/home/a-b/", "./fs/home/a-b/f",
 		"./fs/home/a.d/", "./fs/home/a.d/f", "./manifest.jsonl",
+	}
+	if !linked {
+		want = slices.DeleteFunc(want, func(name string) bool {
+			return strings.HasSuffix(name, "/link") || strings.HasSuffix(name, "/dirlink")
+		})
 	}
 	if !slices.Equal(names, want) {
 		t.Errorf("members:\n%s\nwant:\n%s", strings.Join(names, "\n"), strings.Join(want, "\n"))
@@ -110,7 +121,7 @@ func TestWriteTarGzMembers(t *testing.T) {
 }
 
 func TestWriteTarGzIsReadableByTar(t *testing.T) {
-	stage := buildStage(t)
+	stage, _ := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
 	if err := WriteTarGz(stage, archivePath); err != nil {
 		t.Fatal(err)

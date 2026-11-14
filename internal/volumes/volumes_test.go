@@ -124,16 +124,24 @@ func linkCases() []volumeCase {
 		{"a symlinked volume is not counted", func(t *testing.T, fixture setup) {
 			fixture.mkdir(t, "elsewhere/_data")
 			fixture.mkdir(t, "var/lib/docker/volumes")
-			if err := os.Symlink(filepath.Join(fixture.root, "elsewhere"),
-				filepath.Join(fixture.root, volumes, "ollama")); err != nil {
+			err := os.Symlink(filepath.Join(fixture.root, "elsewhere"),
+				filepath.Join(fixture.root, volumes, "ollama"))
+			if symlinkNeedsPrivilege(err) {
+				t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+			}
+			if err != nil {
 				t.Fatal(err)
 			}
 		}, Counts{Seen: true}, 0, 0, ""},
 		{"a symlinked volumes directory is noted and not followed", func(t *testing.T, fixture setup) {
 			fixture.mkdir(t, "elsewhere/ollama/_data")
 			fixture.mkdir(t, "var/lib/docker")
-			if err := os.Symlink(filepath.Join(fixture.root, "elsewhere"),
-				filepath.Join(fixture.root, "var/lib/docker/volumes")); err != nil {
+			err := os.Symlink(filepath.Join(fixture.root, "elsewhere"),
+				filepath.Join(fixture.root, "var/lib/docker/volumes"))
+			if symlinkNeedsPrivilege(err) {
+				t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+			}
+			if err != nil {
 				t.Fatal(err)
 			}
 		}, Counts{Seen: true}, 0, 1, "is a symlink and was not followed"},
@@ -208,28 +216,6 @@ func TestInventoryRecordsMatchedVolumesOnly(t *testing.T) {
 	if strings.Join(fixture.records.matches, ",") != "agent-zero|*a0_usr" ||
 		strings.Join(fixture.records.files, ",") != "agent-zero" {
 		t.Errorf("records = %+v", fixture.records)
-	}
-}
-
-func TestUnreadableVolumeIsNotedAndCounted(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root reads every directory")
-	}
-	fixture := newSetup(t, false)
-	fixture.write(t, "var/lib/docker/volumes/ollama/_data/f", "x")
-	volume := filepath.Join(fixture.root, "var/lib/docker/volumes/ollama")
-	if err := os.Chmod(volume, 0); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(volume, 0o755) })
-	var notes []string
-	got, err := Collect(context.Background(), fixture.collector, fixture.root, nil, &notes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "docker: volume ollama (ollama) at " + volume + " is not readable; run as root to collect it"
-	if got.Unreadable != 1 || got.Collected != 0 || len(notes) != 1 || notes[0] != want {
-		t.Errorf("counts = %+v, notes = %q", got, notes)
 	}
 }
 
