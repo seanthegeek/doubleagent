@@ -29,6 +29,11 @@ type parityCase struct {
 	after     func(t *testing.T, img image)
 	expect    func(t *testing.T, img image, want *collectorRun)
 	skip      string
+	// parallel marks a case that runs beside the other parallel cases, in the
+	// harness's "shared image" group, before the serial ones. It has no
+	// setup or after, writes only to its own temporary output directory and
+	// leaves the image unchanged.
+	parallel bool
 }
 
 // expand returns text with the placeholders of a case replaced.

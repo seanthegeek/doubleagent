@@ -107,15 +107,32 @@ func TestCollectAgreesWithTheShCollector(t *testing.T) {
 	binary := buildBinary(t, repository)
 	img := smokeImage(t, repository)
 	script := filepath.Join(repository, "collectors/collect-agent-artifacts.sh")
-	for _, testCase := range parityCases() {
-		t.Run(testCase.name, func(t *testing.T) {
-			if testCase.skip != "" {
-				t.Skip(testCase.skip)
+	cases := parityCases()
+	run := func(t *testing.T, testCase parityCase) {
+		if testCase.skip != "" {
+			t.Skip(testCase.skip)
+		}
+		if testCase.setup != nil {
+			testCase.setup(t, img)
+		}
+		testCase.compare(t, img, shCollector(script), []string{binary, "collect"}, normalise)
+	}
+	// The cases that change nothing in the image run in parallel first;
+	// -run 'TestCollectAgreesWithTheShCollector/(shared_image/)?<case>$'
+	// selects one case in either group.
+	t.Run("shared image", func(t *testing.T) {
+		for _, testCase := range cases {
+			if testCase.parallel {
+				t.Run(testCase.name, func(t *testing.T) {
+					t.Parallel()
+					run(t, testCase)
+				})
 			}
-			if testCase.setup != nil {
-				testCase.setup(t, img)
-			}
-			testCase.compare(t, img, shCollector(script), []string{binary, "collect"}, normalise)
-		})
+		}
+	})
+	for _, testCase := range cases {
+		if !testCase.parallel {
+			t.Run(testCase.name, func(t *testing.T) { run(t, testCase) })
+		}
 	}
 }
