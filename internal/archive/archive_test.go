@@ -109,7 +109,7 @@ func TestWriteTarGzMembers(t *testing.T) {
 	for _, header := range headers {
 		switch header.Name {
 		case "./fs/home/a/link":
-			if header.Typeflag != tar.TypeSymlink || header.Linkname != "/etc/hosts" {
+			if header.Typeflag != tar.TypeSymlink || filepath.ToSlash(header.Linkname) != "/etc/hosts" {
 				t.Errorf("link header = %+v", header)
 			}
 		case "./fs/home/a/dirlink":

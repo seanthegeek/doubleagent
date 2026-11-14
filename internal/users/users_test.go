@@ -21,7 +21,11 @@ func (spec tree) build(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	for _, dir := range spec.dirs {
-		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+		err := os.MkdirAll(filepath.Join(root, dir), 0o755)
+		if invalidFileName(err) {
+			t.Skipf("this platform does not accept the directory name %q: %v", dir, err)
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -166,7 +170,11 @@ func TestEnumerateImage(t *testing.T) {
 
 func TestEnumerateRootWithBracket(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "r[o]*ot")
-	if err := os.MkdirAll(filepath.Join(root, "home/alice"), 0o755); err != nil {
+	err := os.MkdirAll(filepath.Join(root, "home/alice"), 0o755)
+	if invalidFileName(err) {
+		t.Skipf("this platform does not accept the directory name %q: %v", root, err)
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	got := Enumerate(false, root, "", nil)
