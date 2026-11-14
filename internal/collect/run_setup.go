@@ -103,15 +103,17 @@ func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) 
 			return "", &fatalError{message: "Cannot create output dir: " + outDir}
 		}
 	}
-	absolute := outDir
+	cwd := ""
 	if !filepath.IsAbs(outDir) {
-		cwd, err := getwd()
-		if err != nil {
+		var err error
+		if cwd, err = getwd(); err != nil {
 			return "", &fatalError{message: "cd: can't cd to " + outDir}
 		}
-		absolute = filepath.Join(cwd, outDir)
 	}
-	absolute = syspath.FromNative(filepath.Clean(absolute))
+	// Resolved as -r is, so a rooted or drive-relative directory on Windows
+	// lands on the right drive.
+	absolute, _ := absoluteRoot(cwd, outDir)
+	absolute = syspath.FromNative(absolute)
 	if !canAccess(absolute, accessEnter) {
 		return "", &fatalError{message: "cd: can't cd to " + outDir}
 	}

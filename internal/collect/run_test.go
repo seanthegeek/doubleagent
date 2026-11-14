@@ -316,8 +316,11 @@ func hostLinkImage(t *testing.T) (root, outside string) {
 	if err := os.MkdirAll(outside+"/exists/proj", 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// The missing target is absolute on the image's drive: on Windows a
+	// target that starts with one separator is relative to the link's drive.
+	missing := filepath.VolumeName(outside) + "/no-such-host-dir"
 	root = writeImage(t, map[string]string{"home/u/.claude/settings.json": "{}\n"},
-		map[string]string{"home/u/ext": outside + "/exists/", "home/u/gone": "/no-such-host-dir"})
+		map[string]string{"home/u/ext": outside + "/exists/", "home/u/gone": missing})
 	return root, outside
 }
 
