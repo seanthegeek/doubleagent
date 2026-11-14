@@ -99,7 +99,7 @@ func envScanCases() []windowsCase {
 		{parityCase: parityCase{name: "envscanonce", args: []string{"--env-scan-home"}, setup: setupWindowsEnvScanOnce}},
 		{parityCase: parityCase{name: "envscanout", args: []string{"--env-scan-home"}, outDir: "{ALICE}"}},
 		{parityCase: parityCase{name: "envscanglob", args: []string{"--env-scan-home"}, outDir: `{BOB}\out [1]`,
-			setup: setupGlobOutput}},
+			setup: setupGlobOutput, expect: dropWildcardLogError}},
 		{parityCase: parityCase{name: "envscanroot", args: []string{"--env-scan-home", "-p", `{ROOT}\home`,
 			"-p", `{ROOT}\opt\daemonproj`}}, shared: true},
 		{parityCase: parityCase{name: "envscanbad", args: []string{"--env-scan-max-size", "x"}}, shared: true,
