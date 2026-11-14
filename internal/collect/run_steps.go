@@ -153,8 +153,9 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 	}
 	projectHomes := make([]users.Home, 0, len(state.projects))
 	for _, project := range state.projects {
-		// A project the project step leaves unwalked, out of the image root,
-		// is not searched either: its files are on the analyst's host.
+		// A project the project step leaves unwalked, out of the image root or
+		// not verifiable inside it, is not searched either: its files may be
+		// on the analyst's host.
 		if _, out := walk.ProjectOutOfRoot(state.options.Root, project.Path); !out {
 			projectHomes = append(projectHomes, users.Home{User: project.Owner, Path: project.Path})
 		}
