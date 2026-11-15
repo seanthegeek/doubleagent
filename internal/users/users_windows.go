@@ -49,7 +49,7 @@ func find(reader profileReader, root, usersFilter string) Report {
 		// in case from the directory the Users listing gives; respelled as
 		// the disk holds it, one directory is one candidate path.
 		for _, profile := range reader.Profiles() {
-			profile.Path = fsmeta.OnDiskPath(profile.Path)
+			profile.Path = fsmeta.OnDiskPath("", profile.Path)
 			report.Profiles = append(report.Profiles, profile)
 			candidates = append(candidates, Home{profile.User, profile.Path})
 		}

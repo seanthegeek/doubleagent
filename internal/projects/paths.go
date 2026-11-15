@@ -36,8 +36,9 @@ const asciiBlanks = " \t\n\v\f\r"
 // names, under root ("" live) in image mode, and false when the value names
 // no absolute path the host or image can hold. Under the sh rules a value
 // must start with /, then has every `\/` undone and root put before it.
-// Under the drive-letter rules the existing components of the result are
-// spelled as the disk holds them (fsmeta.OnDiskPath; a missing one stays).
+// Under the drive-letter rules the existing components of the result below
+// root are spelled as the disk holds them, up to the first link
+// (fsmeta.OnDiskPath; a missing one stays).
 func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	if !rules.driveLetters {
 		if !strings.HasPrefix(value, "/") {
@@ -66,8 +67,9 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 		return "", false
 	}
 	// A value is a file's text, in whatever case its writer used; respelled
-	// as the disk holds it, it compares byte for byte with listed paths.
-	value = fsmeta.OnDiskPath(strings.TrimRight(strings.ReplaceAll(value, `\`, "/"), "/"))
+	// as the disk holds it, below root only and up to the first link, it
+	// compares byte for byte with listed paths.
+	value = fsmeta.OnDiskPath(root, strings.TrimRight(strings.ReplaceAll(value, `\`, "/"), "/"))
 	return value, value != ""
 }
 

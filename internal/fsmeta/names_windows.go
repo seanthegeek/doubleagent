@@ -12,73 +12,92 @@ import (
 // Get-OnDiskName respells a literal catalog segment. It returns name and
 // false for . and .., when name holds a character the directory search reads
 // as a wildcard, when nothing or more than one entry matches, or when the
-// match is the entry's short 8.3 name rather than a spelling of its name.
+// match is through the entry's short 8.3 name (see onDiskEntry).
 func OnDiskName(directory, name string) (string, bool) {
-	spelling, _, respelled := onDiskEntry(directory, name)
-	return spelling, respelled
+	entry := onDiskEntry(directory, name)
+	return entry.spelling, entry.respelled
 }
 
-// OnDiskPath returns path, canonical and absolute, with each existing
-// component spelled as its directory holds it, so two spellings of one
-// directory become the same bytes without the binary judging case itself:
-// the file system's own name comparison decides. The drive or share stays as
-// written, and so does a component that holds a search wildcard or matches
-// only as a short 8.3 name. Respelling stops at the first component that
-// does not exist and at the first . or .. (behind a link, .. does not go
-// back to the directory the text names), leaving the rest as written; a
-// relative path comes back unchanged. Naming a component goes through the
-// links before it, as opening the path would; the last is never followed.
-func OnDiskPath(path string) string {
-	volume := volumeOf(path)
-	if volume == "" || len(path) <= len(volume)+1 {
+// OnDiskPath returns path with each existing component below base spelled
+// as its directory holds it, so two spellings of one directory become the
+// same bytes without the binary judging case itself: the file system's own
+// name comparison decides. It stops at a link: a component that is a
+// symlink, junction or other reparse point is respelled from its own
+// directory entry and nothing behind it is looked at. base ("" for the
+// path's drive or share) and everything above it are never looked at and
+// stay as written; a path not under base comes back unchanged. Respelling
+// also stops at a missing component and at . or ..; a component holding a
+// wildcard or matching only as a short 8.3 name stays as written.
+func OnDiskPath(base, path string) string {
+	if base == "" {
+		base = volumeOf(path)
+	}
+	rest, found := syspath.CutPrefix(path, base+"/")
+	if base == "" || !found || rest == "" {
 		return path
 	}
-	components := strings.Split(path[len(volume)+1:], "/")
-	directory := volume
+	prefix := path[:len(path)-len(rest)-1]
+	directory := prefix
+	components := strings.Split(rest, "/")
 	for i, component := range components {
-		if component == "" || component == "." || component == ".." {
+		entry := onDiskEntry(directory, component)
+		if !entry.exists {
 			break
 		}
-		spelling, exists, _ := onDiskEntry(directory, component)
-		if !exists {
+		components[i] = entry.spelling
+		if entry.attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
 			break
 		}
-		components[i] = spelling
-		directory += "/" + spelling
+		directory += "/" + entry.spelling
 	}
-	return volume + "/" + strings.Join(components, "/")
+	return prefix + "/" + strings.Join(components, "/")
 }
 
-// onDiskEntry looks name up in directory with FindFirstFile. exists is true
-// when one entry matches; spelling is that entry's name when respelled is
-// true, else name as given: for . or .., a wildcard character in name,
-// several matches, or a match through the entry's short 8.3 name.
-func onDiskEntry(directory, name string) (spelling string, exists, respelled bool) {
+// diskEntry is what onDiskEntry found for a name.
+type diskEntry struct {
+	spelling   string
+	exists     bool
+	respelled  bool
+	attributes uint32
+}
+
+// onDiskEntry looks name up in directory with FindFirstFile, which reads the
+// directory's entry and follows nothing. exists is true when one entry
+// matches, with its attributes; spelling is the entry's name when respelled
+// is true, else name as given: for . or .., a wildcard character in name,
+// several matches, or a short 8.3 name typed for a different long name (the
+// typed name equals the short name ignoring ASCII case, and the long name
+// does not). A short name typed with a non-ASCII letter in another case
+// is respelled to the long name, which names the same entry.
+func onDiskEntry(directory, name string) diskEntry {
+	given := diskEntry{spelling: name}
 	// Extended resolves . and .. by name, so the search would name another
 	// directory's entry.
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `*?<>"`) {
-		return name, false, false
+		return given
 	}
 	pattern, err := windows.UTF16PtrFromString(syspath.Extended(directory + "/" + name))
 	if err != nil {
-		return name, false, false
+		return given
 	}
 	var data windows.Win32finddata
 	handle, err := windows.FindFirstFile(pattern, &data)
 	if err != nil {
-		return name, false, false
+		return given
 	}
 	defer windows.FindClose(handle)
 	var another windows.Win32finddata
 	if windows.FindNextFile(handle, &another) == nil {
-		return name, false, false
+		return given
 	}
+	given.exists, given.attributes = true, data.FileAttributes
 	found := windows.UTF16ToString(data.FileName[:])
 	short := windows.UTF16ToString(data.AlternateFileName[:])
 	if !syspath.Equal(found, name) && short != "" && syspath.Equal(short, name) {
-		return name, true, false
+		return given
 	}
-	return found, true, true
+	given.spelling, given.respelled = found, true
+	return given
 }
 
 // volumeOf returns the drive (C:) or share (//server/share) a canonical path

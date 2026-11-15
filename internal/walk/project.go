@@ -284,9 +284,11 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []string, 
 	if !syspath.IsAbs(target) {
 		return parent, strings.Split(target, "/"), rootScope{}
 	}
-	// A target is text its creator typed; respelled as the disk holds it,
-	// it compares byte for byte with the root's own spelling.
-	rest, inside := walker.relative(fsmeta.OnDiskPath(target))
+	// The target is compared as text, ignoring ASCII case only: respelling
+	// it from the disk would look at paths outside the root, which nothing
+	// here may stat. A target that matches the root only through another
+	// case of a non-ASCII letter counts as outside and is not walked.
+	rest, inside := walker.relative(target)
 	if !inside {
 		return "", nil, rootScope{name: walker.named(link)}
 	}

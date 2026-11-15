@@ -29,7 +29,7 @@ func absoluteProject(cwd, project string) string {
 	default:
 		project = filepath.Join(cwd, project)
 	}
-	return fsmeta.OnDiskPath(syspath.FromNative(filepath.Clean(project)))
+	return fsmeta.OnDiskPath("", syspath.FromNative(filepath.Clean(project)))
 }
 
 // driveRelative resolves the drive-relative PROJECT (X:dir) against CWD

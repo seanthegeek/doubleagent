@@ -100,3 +100,31 @@ func TestRootedSymlinkLeavesTheRoot(t *testing.T) {
 		t.Errorf("ProjectOutOfRoot = %q, %v; want %q, true", name, out, link)
 	}
 }
+
+func TestALinkTargetIsComparedWithTheRootAsText(t *testing.T) {
+	base := physicalTemp(t)
+	root := base + "/Éimg"
+	writeFiles(t, root, "srv/real/proj/AGENTS.md")
+	mustDo(t, os.MkdirAll(root+"/home/u/ext", 0o755))
+	link := root + "/home/u/ext"
+	cases := []struct {
+		name   string
+		target string
+		want   rootScope
+	}{
+		{"a target spelling the root in another ASCII case is walked",
+			syspath.ToNative(base + "/ÉIMG/srv/real"), rootScope{}},
+		// NTFS names the same directory, but telling so would mean asking
+		// the disk about a path not yet known to be inside the root.
+		{"a target spelling the root with an accented letter in another case is not walked",
+			syspath.ToNative(base + "/éimg/srv/real"), rootScope{name: link}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := projectScope(root, link+"/proj", rootedLinkProbes(link, testCase.target))
+			if got != testCase.want {
+				t.Errorf("scope %+v, want %+v", got, testCase.want)
+			}
+		})
+	}
+}

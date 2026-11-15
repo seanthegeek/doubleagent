@@ -20,7 +20,7 @@ func mkdirExtended(t *testing.T, base string, relatives ...string) {
 }
 
 func TestOnDiskPathAsksTheFileSystem(t *testing.T) {
-	base := OnDiskPath(syspath.FromNative(t.TempDir()))
+	base := OnDiskPath("", syspath.FromNative(t.TempDir()))
 	mkdirExtended(t, base, "\u00c9mile/sub", "img", "\u0131mg", ".secret", ".\u017fecret")
 	cases := []struct{ name, path, want string }{
 		{"an accented letter in another case takes the disk's spelling",
@@ -37,8 +37,38 @@ func TestOnDiskPathAsksTheFileSystem(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := OnDiskPath(test.path); got != test.want {
+			if got := OnDiskPath("", test.path); got != test.want {
 				t.Errorf("OnDiskPath(%q) = %q, want %q", test.path, got, test.want)
+			}
+		})
+	}
+}
+
+func TestOnDiskPathStopsAtALink(t *testing.T) {
+	base := OnDiskPath("", syspath.FromNative(t.TempDir()))
+	mkdirExtended(t, base, "other/Real/Inner")
+	makeJunction(t, syspath.ToNative(base+"/other/Real"), syspath.ToNative(base+"/J"))
+	// Inner exists behind the junction as Inner; the walk stops at J, so the
+	// typed inner stays.
+	if got, want := OnDiskPath("", base+"/j/inner"), base+"/J/inner"; got != want {
+		t.Errorf("OnDiskPath through a junction = %q, want %q", got, want)
+	}
+}
+
+func TestOnDiskPathNeverLooksAtOrAboveItsBase(t *testing.T) {
+	base := OnDiskPath("", syspath.FromNative(t.TempDir()))
+	mkdirExtended(t, base, "Img/Sub")
+	cases := []struct{ name, under, path, want string }{
+		{"the base keeps its typed spelling and what lies below it is respelled",
+			base + "/img", base + "/img/sub", base + "/img/Sub"},
+		{"a path beside the base is left as written", base + "/img", base + "/other/sub",
+			base + "/other/sub"},
+		{"the base itself is left as written", base + "/img", base + "/img", base + "/img"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := OnDiskPath(test.under, test.path); got != test.want {
+				t.Errorf("OnDiskPath(%q, %q) = %q, want %q", test.under, test.path, got, test.want)
 			}
 		})
 	}

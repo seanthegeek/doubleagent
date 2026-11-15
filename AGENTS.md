@@ -511,10 +511,12 @@ for Go files as it does for the others.
   keys (`syspath.Fold`) fold ASCII only too: NTFS's own case table keeps
   apart pairs any other fold would merge (`ı` and `I`), and merging two
   names loses one of them. A Windows path that comes from outside a
-  directory listing (the command line, the registry, a file's content, a
-  link target) is respelled as the disk holds it through
-  `fsmeta.OnDiskPath` before it is compared, so two spellings of one
-  directory become the same bytes. Directory
+  directory listing (the command line, the registry, a file's content) is
+  respelled as the disk holds it through `fsmeta.OnDiskPath` before it is
+  compared, so two spellings of one directory become the same bytes; it
+  looks only below the image root and stops at the first link. A link
+  target is compared as text, since respelling it could look outside the
+  root. Directory
   listings use `(*os.File).ReadDir(-1)` (directory order) where the sh
   collector uses `find`, and the glob expander (sorted) where it expands a
   pattern; never `filepath.WalkDir` or `os.ReadDir` on a collected tree.

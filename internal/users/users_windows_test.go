@@ -36,7 +36,7 @@ func writeTree(t *testing.T, dirs, files []string) string {
 			t.Fatal(err)
 		}
 	}
-	return fsmeta.OnDiskPath(syspath.FromNative(root))
+	return fsmeta.OnDiskPath("", syspath.FromNative(root))
 }
 
 // profilesUnder turns "SID=relative/path" entries into profiles under root.
@@ -153,7 +153,7 @@ func TestFind(t *testing.T) {
 			}
 			var wantProfiles []Profile
 			for _, profile := range reader.(fakeProfiles) {
-				profile.Path = fsmeta.OnDiskPath(profile.Path)
+				profile.Path = fsmeta.OnDiskPath("", profile.Path)
 				wantProfiles = append(wantProfiles, profile)
 			}
 			if !reflect.DeepEqual(report.Profiles, wantProfiles) {

@@ -9,4 +9,4 @@ func OnDiskName(_, name string) (string, bool) {
 }
 
 // OnDiskPath returns path unchanged: on Unix a path has one spelling.
-func OnDiskPath(path string) string { return path }
+func OnDiskPath(_, path string) string { return path }

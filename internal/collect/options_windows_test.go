@@ -40,7 +40,7 @@ func TestAbsoluteProjectOnWindows(t *testing.T) {
 }
 
 func TestAbsoluteProjectTakesTheDisksSpelling(t *testing.T) {
-	base := fsmeta.OnDiskPath(syspath.FromNative(t.TempDir()))
+	base := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
 	if err := os.MkdirAll(syspath.ToNative(base+"/\u00c9mile/Sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}

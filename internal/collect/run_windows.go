@@ -84,7 +84,7 @@ func systemBases(root string) volumes.Bases {
 	}
 	// The environment's spelling, respelled as the disk holds it.
 	return volumes.Bases{System: system,
-		ProgramData: fsmeta.OnDiskPath(syspath.FromNative(programData))}
+		ProgramData: fsmeta.OnDiskPath("", syspath.FromNative(programData))}
 }
 
 // registryReader is the registry the relocation step reads: this host's.
