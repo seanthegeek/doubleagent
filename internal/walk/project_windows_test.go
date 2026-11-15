@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
 )
@@ -126,5 +127,21 @@ func TestALinkTargetIsComparedWithTheRootAsText(t *testing.T) {
 				t.Errorf("scope %+v, want %+v", got, testCase.want)
 			}
 		})
+	}
+}
+
+func TestALiveProjectOutOfItsHomeKeepsItsDrive(t *testing.T) {
+	if got := underRoot("", "C:/x/y"); got != "C:/x/y" {
+		t.Errorf(`underRoot("", "C:/x/y") = %q, want C:/x/y`, got)
+	}
+	base := physicalTemp(t)
+	writeFiles(t, base, "home/a.txt", "outside/proj/AGENTS.md")
+	makeJunction(t, base+"/outside/proj", base+"/home/ext")
+	found := projectPlace(stage.Stager{Dir: base + "/stage"}, base+"/home", base+"/home/ext")
+	archive, _ := found.stager.Dest(base + "/home/ext/AGENTS.md")
+	want := "fs/" + strings.ToUpper(base[:1]) + base[2:] + "/outside/proj/AGENTS.md"
+	if !found.outside || archive != want {
+		t.Errorf("outside %t, archive path %q, want a project out of its home archived at %q",
+			found.outside, archive, want)
 	}
 }

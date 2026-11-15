@@ -382,10 +382,14 @@ func joinPath(dir, name string) string {
 
 // underRoot returns physical, a resolved path, with the resolved image root
 // it starts with replaced by root as given, so the archive path is taken
-// from it as from any path under the root; a path outside the root is
-// returned unchanged.
+// from it as from any path under the root; a path outside the root, and
+// every path on a live run (no root, where the physical path keeps its
+// drive), is returned unchanged.
 func underRoot(root, physical string) string {
-	physicalRoot, err := stage.PhysicalDir(baseOrRoot(root))
+	if root == "" {
+		return physical
+	}
+	physicalRoot, err := stage.PhysicalDir(root)
 	if err != nil {
 		return physical
 	}
