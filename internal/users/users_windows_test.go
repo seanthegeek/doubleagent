@@ -86,9 +86,10 @@ func TestFind(t *testing.T) {
 			homes: []string{"img:/Users/img", "\u0131mg:/Users/\u0131mg"},
 		},
 		{
-			name:   "the -u list, a list of names, ignores ASCII case only",
+			name:   "the -u list ignores the case of an accented letter",
 			dirs:   []string{"Users/\u00e9mile", "Users/bob"},
 			filter: "\u00c9MILE",
+			homes:  []string{"\u00e9mile:/Users/\u00e9mile"},
 		},
 		{
 			name:     "system and service profiles are dropped",

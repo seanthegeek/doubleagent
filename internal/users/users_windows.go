@@ -2,6 +2,7 @@ package users
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -27,7 +28,8 @@ func homeGlobs(live bool) []string {
 // that is a file is dropped; one whose entry cannot be looked at is reported
 // in Skipped, with Denied set when its parent lists it. Both tests read the
 // entry's own attributes, as .NET's File.Exists and Directory.Exists do. The
-// -u list is compared against the user name ignoring ASCII case. A
+// -u list is compared against the user name ignoring every letter's case
+// (wantedUser says why). A
 // ProfileList path is respelled as the disk holds it, so a home is kept once
 // by its ASCII-folded path. run is not used on Windows.
 func Find(live bool, root, usersFilter string, _ Runner) Report {
@@ -79,7 +81,7 @@ func globHomes(base string, live bool) []Home {
 // Directory.Exists reads it, so a junction or directory symlink whose target
 // is gone is collected, with its error_read row, rather than skipped.
 func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped) {
-	wanted, filtered := wantedUsers(usersFilter)
+	names := userNames(usersFilter)
 	var homes []Home
 	var skipped []Skipped
 	seenHomes, seenSkipped := map[string]bool{}, map[string]bool{}
@@ -91,7 +93,7 @@ func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped) {
 		if err == nil && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
 			continue
 		}
-		if filtered && !wanted[syspath.Fold(candidate.User)] {
+		if usersFilter != "" && !wantedUser(names, candidate.User) {
 			continue
 		}
 		key := syspath.Fold(candidate.Path)
@@ -110,17 +112,14 @@ func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped) {
 	return homes, skipped
 }
 
-// wantedUsers splits the -u list at commas, without trimming and dropping
-// empty items, into case-folded names. filtered is true for any non-empty
-// list, even one that names nobody (","), which then keeps no home.
-func wantedUsers(usersFilter string) (wanted map[string]bool, filtered bool) {
-	wanted = map[string]bool{}
-	for _, name := range strings.Split(usersFilter, ",") {
-		if name != "" {
-			wanted[syspath.Fold(name)] = true
-		}
-	}
-	return wanted, usersFilter != ""
+// wantedUser reports whether one of the -u names names user, ignoring the
+// case of every letter (strings.EqualFold, Unicode simple folding), as
+// PowerShell's -contains does. Path keys fold ASCII only because merging two
+// names NTFS keeps apart would lose evidence; a -u name that matches too much
+// can only select one more home, so this one comparison folds every letter.
+// A non-empty list naming nobody (",") keeps no home.
+func wantedUser(names []string, user string) bool {
+	return slices.ContainsFunc(names, func(name string) bool { return strings.EqualFold(name, user) })
 }
 
 // entryAttributes returns the file attributes of path itself, a link not

@@ -4,7 +4,11 @@
 // Get-UserHomes, reading the registry's ProfileList in a live run.
 package users
 
-import "regexp"
+import (
+	"regexp"
+	"slices"
+	"strings"
+)
 
 // Home is a user and the home directory to collect for them. Path includes the
 // image root, as the sh collector builds it.
@@ -44,6 +48,18 @@ type Report struct {
 	Homes    []Home
 	Skipped  []Skipped
 	Profiles []Profile
+}
+
+// userNames splits the -u list at commas into its names in the order typed,
+// without trimming, empty items and repeats dropped.
+func userNames(usersFilter string) []string {
+	var names []string
+	for _, name := range strings.Split(usersFilter, ",") {
+		if name != "" && !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // transientProfile matches the ASCII-lowered names of the service profiles

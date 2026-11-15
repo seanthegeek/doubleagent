@@ -235,3 +235,9 @@ func TestSkipProfile(t *testing.T) {
 		})
 	}
 }
+
+func TestUserNames(t *testing.T) {
+	if got, want := userNames("bob,,alice,bob, x"), []string{"bob", "alice", " x"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("userNames = %q, want %q", got, want)
+	}
+}
