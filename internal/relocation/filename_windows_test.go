@@ -95,3 +95,11 @@ func mountPointData(substitute, printName string) []byte {
 	}
 	return data
 }
+
+// linkOut makes link a junction to the directory target, both native: the
+// runner may not create symlinks, and the root check treats a junction as a
+// symlinked directory.
+func linkOut(t *testing.T, target, link string) {
+	t.Helper()
+	makeJunction(t, target, link)
+}

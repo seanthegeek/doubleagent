@@ -36,7 +36,7 @@ func ExpandCatalog(base string, table []catalog.Entry, check glob.Check) []Match
 		if entry.Agent == "" || strings.HasPrefix(entry.Agent, "#") {
 			continue
 		}
-		paths, refusals := glob.ExpandChecked(base, entry.Glob, check)
+		paths, refusals := glob.Expand(base, entry.Glob, check)
 		for _, refusal := range refusals {
 			if !refused[refusal.Link] {
 				refused[refusal.Link] = true

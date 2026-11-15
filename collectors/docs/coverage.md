@@ -682,6 +682,16 @@ is gone (its listing then fails, so it gets an `error_read` row), and a
 symlink made without the directory flag is dropped as a file. The Go binary
 on Windows tests candidates the same way.
 
+In image mode the `doubleagent` binary takes nothing behind a link whose
+target leads out of the image root as a home: a home parent such as `home`
+that is such a link is not listed, a `<root>/etc/passwd` reached through one
+is not read, and a candidate home that is or lies behind one is dropped. The
+log names each link once, as
+`user homes: /img/home leads out of the image root; nothing behind it was listed or taken as a home`;
+the link gets no row of its own (it is not a home), and no user name from
+behind it appears in the outputs. Both scripts list the analyst's own
+directory there.
+
 ## Project discovery
 
 Project-level artifacts (`CLAUDE.md`, `.claude/`, `.mcp.json`, `AGENTS.md`,

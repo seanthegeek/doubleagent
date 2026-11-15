@@ -134,7 +134,7 @@ func TestNamesEndingInADotOrASpaceAreListedAsTheirOwn(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			var got []string
-			for _, match := range Expand(base, test.pattern) {
+			for _, match := range expandAll(base, test.pattern) {
 				got = append(got, strings.TrimPrefix(match, base+"/"))
 			}
 			if !slices.Equal(got, test.want) {

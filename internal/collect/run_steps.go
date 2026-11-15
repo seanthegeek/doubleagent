@@ -30,9 +30,16 @@ const sharedAgent = "shared"
 func (state *runState) findHomes(ctx context.Context) error {
 	live := state.options.Root == ""
 	report := state.host.findUsers(ctx, live, state.options.Root, state.options.UsersFilter,
-		state.host.runner.Output)
+		state.host.runner.Output, state.roots.Expansion())
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	for _, link := range report.OutOfRoot {
+		line := "user homes: " + syspath.ToNative(link) +
+			" leads out of the image root; nothing behind it was listed or taken as a home"
+		if err := state.log.Line(line); err != nil {
+			return err
+		}
 	}
 	state.homes, state.skippedHomes = report.Homes, report.Skipped
 	for _, profile := range report.Profiles {
@@ -181,7 +188,7 @@ func (state *runState) projectLeavesRoot(path string) bool {
 // rootExit reports whether path, under the image root, leads out of it
 // through a link, and the link (walk.LeavesRootAt, the root resolved once).
 func (state *runState) rootExit(path string) (string, bool) {
-	return state.collector.RootCheck.Exit(path)
+	return state.roots.Exit(path)
 }
 
 // refusedSourceLine is the log line of a link out of the image root on the
@@ -263,7 +270,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 		OutDir: state.outDir, RunName: state.name, Plutil: state.plutil, Log: state.log,
 		Claims: state.catalogClaims, Collect: state.hintFileCollector(ctx),
 		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),
-		Profiles: state.profiles, Opener: state.opener,
+		Profiles: state.profiles, Opener: state.opener, Expansion: state.roots.Expansion(),
 	})
 	state.relocation = result
 	return err
@@ -274,7 +281,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 // image root looked at, which the sweep leaves to the walk.
 func (state *runState) catalogClaims(base string, table []catalog.Entry) []string {
 	var claims []string
-	for _, match := range walk.ExpandCatalog(base, table, state.collector.RootCheck.Expansion()) {
+	for _, match := range walk.ExpandCatalog(base, table, state.roots.Expansion()) {
 		if match.Note == "" && match.OutOfRoot == "" {
 			claims = append(claims, match.Path)
 		}

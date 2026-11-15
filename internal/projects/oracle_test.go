@@ -83,7 +83,7 @@ func projectsLogged(t *testing.T, logPath string) []Project {
 // projects the sh collector found.
 func compareWithSh(t *testing.T, root string, extra []string) int {
 	t.Helper()
-	homes := users.Enumerate(context.Background(), false, root, "", nil)
+	homes := users.Enumerate(context.Background(), false, root, "", nil, nil)
 	got, _, err := Discover(context.Background(), homes, root, extra, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)

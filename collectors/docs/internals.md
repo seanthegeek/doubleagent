@@ -519,7 +519,12 @@ directory whose target, with every link in its chain resolved, lies outside the
 base (`linked_parent`, `Get-LinkedParent`): the glob expansion follows such a
 link, and in image mode an
 image's `/etc -> /private/etc` would read the analyst's host, while a live
-macOS `/etc` stays inside `/` and is read. One
+macOS `/etc` stays inside `/` and is read. In image mode the `doubleagent` binary
+does not even list behind a link whose target leads out of the image root:
+its startup-file globs go through the same check as the catalog walk's, so
+such a link is logged once, as
+`startup files: /img/etc leads out of the image root; nothing behind it was listed`,
+and nothing behind it is listed before `linked_parent`'s test would drop it. One
 `grep -l -F` over the whole
 list names the files that hold any `RELOCATION_VARS` name, and one `grep -n`
 and `awk` per such file keeps a hit only where the character before and after

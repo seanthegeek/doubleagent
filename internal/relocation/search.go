@@ -13,6 +13,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
@@ -90,17 +91,22 @@ type Deps struct {
 	// Opener reads every file the search reads, as the run decided (nil
 	// asks to hold access times wherever the platform can).
 	Opener *fsmeta.Opener
+	// Expansion is the image root's check the startup-file globs are expanded
+	// through (nil on a live run, which has no root to leave).
+	Expansion glob.Check
 }
 
 // search is the state of one Search: the hint records already held, the
-// header waiting for the first hint of a base, and the result so far.
+// links out of the image root already logged, the header waiting for the
+// first hint of a base, and the result so far.
 type search struct {
-	deps   Deps
-	system string
-	names  []string
-	seen   map[string]bool
-	header string
-	result Result
+	deps      Deps
+	system    string
+	names     []string
+	seen      map[string]bool
+	outOfRoot map[string]bool
+	header    string
+	result    Result
 }
 
 // Search searches the startup files of every home and of the system, reads the
@@ -110,7 +116,7 @@ type search struct {
 // It stops with ctx's error when ctx is cancelled.
 func Search(ctx context.Context, deps Deps) (Result, error) {
 	run := &search{deps: deps, system: deps.SystemBase, names: variableNames(deps.Tables),
-		seen: map[string]bool{}}
+		seen: map[string]bool{}, outOfRoot: map[string]bool{}}
 	if run.system == "" {
 		run.system = syspath.SystemBase(deps.Root)
 	}
@@ -172,8 +178,30 @@ func (run *search) searchStartup(ctx context.Context, user, home, base, scope st
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	files := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles)
+	files, outOfRoot := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles,
+		run.deps.Expansion)
+	if err := run.logOutOfRoot(outOfRoot); err != nil {
+		return err
+	}
 	return run.searchFiles(ctx, user, home, base, files)
+}
+
+// logOutOfRoot logs each link out of the image root a startup-file glob
+// stopped at, once per run, as the skipped sweeps are logged, without the
+// base's header, which heads hints only.
+func (run *search) logOutOfRoot(links []string) error {
+	for _, link := range links {
+		if run.outOfRoot[link] {
+			continue
+		}
+		run.outOfRoot[link] = true
+		err := run.logSkip("startup files: " + syspath.ToNative(link) +
+			" leads out of the image root; nothing behind it was listed")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // searchFiles counts files as searched and records the hints of each, the

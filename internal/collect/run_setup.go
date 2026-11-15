@@ -54,6 +54,8 @@ type runState struct {
 	rows         *bufio.Writer
 	manifest     *manifest.Writer
 	collector    *walk.Collector
+	// roots is the image root's check, resolved once; zero on a live run.
+	roots walk.RootCheck
 
 	accessUpdates accessUpdates
 	opener        *fsmeta.Opener
@@ -92,6 +94,7 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 	state := &runState{options: options, host: host, stdout: stdout, stderr: stderr,
 		tables: tables, plutil: hostcmd.NewPlutil(host.runner), started: host.now().UTC(),
 		dockerRecords: inventory.NewAggregator(), accessUpdates: host.lastAccess()}
+	state.roots = walk.NewRootCheck(options.Root)
 	state.opener = fsmeta.NewOpener(options.NoPreserveAtime, state.accessUpdates == accessOff)
 	state.opener.Report = state.reportNotHeld
 	state.notHeld, state.notHeldLines = map[string]bool{}, map[[2]string]bool{}
@@ -235,7 +238,7 @@ func (state *runState) newCollector(physical string) *walk.Collector {
 			Opener: state.opener},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
-		Owners: fsmeta.NewOwners(), RootCheck: walk.NewRootCheck(root),
+		Owners: fsmeta.NewOwners(), RootCheck: state.roots,
 	}
 }
 

@@ -4,6 +4,7 @@ package relocation
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"syscall"
 	"testing"
@@ -42,5 +43,13 @@ func TestSearchSkipsAPipeWithoutBlocking(t *testing.T) {
 				t.Fatal("reading a pipe at a startup file's path did not return")
 			}
 		})
+	}
+}
+
+// linkOut makes link a symlink to the directory target, both native.
+func linkOut(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
 	}
 }

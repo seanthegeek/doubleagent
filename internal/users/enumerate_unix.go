@@ -36,14 +36,18 @@ func isSystemHome(relative string) bool {
 // case-sensitively; a home listed twice keeps its first user; only existing
 // directories are returned. root is "" or "/" for the live system. Once ctx
 // is cancelled no program is run, as if none were installed; the caller
-// checks ctx before using the report.
-func Find(ctx context.Context, live bool, root, usersFilter string, run Runner) Report {
+// checks ctx before using the report. check is the image root's (nil live):
+// nothing behind a link out of the root is read, listed or taken as a home.
+func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
+	check glob.Check,
+) Report {
 	root = strings.TrimSuffix(root, "/")
-	candidates := passwdHomes(ctx, live, root, run)
+	guard := &rootGuard{check: check}
+	candidates := passwdHomes(ctx, live, root, run, guard)
 	if live {
 		candidates = append(candidates, dsclHomes(ctx, run)...)
 	}
-	candidates = append(candidates, globHomes(root)...)
+	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
 	kept, found := filterHomes(candidates, root, usersFilter)
 	var homes []Home
 	for _, home := range kept {
@@ -51,7 +55,7 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner) 
 			homes = append(homes, home)
 		}
 	}
-	return Report{Homes: homes, Found: found,
+	return Report{Homes: homes, Found: found, OutOfRoot: guard.links,
 		Unmatched: unmatchedUsers(userNames(usersFilter, sameName), found, sameName)}
 }
 
@@ -62,14 +66,15 @@ func sameName(name, user string) bool { return name == user }
 // passwdHomes returns the user and root-prefixed home of every passwd line
 // with at least six fields and a non-empty sixth. Live, the text is
 // getent's when getent runs, else the file's, as the sh collector does.
-func passwdHomes(ctx context.Context, live bool, root string, run Runner) []Home {
+func passwdHomes(ctx context.Context, live bool, root string, run Runner, guard *rootGuard,
+) []Home {
 	var text []byte
 	ran := false
 	if live && run != nil && ctx.Err() == nil {
 		output, err := run(ctx, "getent", "passwd")
 		text, ran = output, err == nil
 	}
-	if !ran {
+	if !ran && guard.allows(root+"/etc/passwd") {
 		// test -f follows a link; a directory or missing file gives nothing.
 		text, _ = os.ReadFile(root + "/etc/passwd")
 	}
@@ -111,10 +116,10 @@ func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n
 // and are directories, each named by its last path segment. A match holding a
 // newline is read as its lines, each tried as a home, since the sh collector
 // reads the expansion line by line.
-func globHomes(root string) []Home {
+func globHomes(root string, guard *rootGuard) []Home {
 	var homes []Home
 	for _, pattern := range homeGlobs() {
-		for _, match := range glob.Expand(root, pattern) {
+		for _, match := range guard.expand(root, pattern) {
 			for _, line := range strings.Split(match, "\n") {
 				if isDirectory(line) {
 					homes = append(homes, Home{line[strings.LastIndexByte(line, '/')+1:], line})

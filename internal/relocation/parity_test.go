@@ -16,7 +16,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
-	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -117,7 +116,7 @@ func (run *shRun) readLog(t *testing.T, path string) {
 func foldedClaims(base string, table []catalog.Entry) []string {
 	var paths []string
 	for _, entry := range table {
-		paths = append(paths, glob.Expand(base, entry.Glob)...)
+		paths = append(paths, expandGlob(base, entry.Glob)...)
 	}
 	var claims []string
 	for i, path := range paths {

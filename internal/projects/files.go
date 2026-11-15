@@ -106,7 +106,7 @@ func (s *homeScan) expandIn(base string, patterns ...string) []string {
 		if s.outOfScope != nil {
 			check = glob.Check(s.outOfScope)
 		}
-		matches, refused := glob.ExpandChecked(base, pattern, check)
+		matches, refused := glob.Expand(base, pattern, check)
 		paths = append(paths, matches...)
 		for _, refusal := range refused {
 			s.refuse(refusal.Link)

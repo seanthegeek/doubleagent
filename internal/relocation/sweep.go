@@ -123,7 +123,9 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 			literal[syspath.Fold(line)] = true
 		}
 	}
-	for _, file := range ListStartupFiles(base, scope, run.deps.Tables.StartupFiles) {
+	// The startup pass logged any link these globs stop at.
+	files, _ := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles, run.deps.Expansion)
+	for _, file := range files {
 		literal[syspath.Fold(file)] = true
 	}
 	for _, other := range append(append([]string{}, pathsOf(run.deps.Homes)...),

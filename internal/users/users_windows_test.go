@@ -135,7 +135,7 @@ func TestFind(t *testing.T) {
 			if testCase.image {
 				reader = nil
 			}
-			report := find(reader, root, testCase.filter)
+			report := find(reader, root, testCase.filter, nil)
 			var homes, skipped []string
 			for _, home := range report.Homes {
 				homes = append(homes, home.User+":"+strings.TrimPrefix(home.Path, root))
@@ -175,7 +175,7 @@ func boolText(value bool) string {
 func TestSkippedReasonNamesTheNativePath(t *testing.T) {
 	root := writeTree(t, nil, nil)
 	missing := root + "/gone/ghost"
-	report := find(profilesUnder(root, "S-1-5-21-1=gone/ghost"), root, "")
+	report := find(profilesUnder(root, "S-1-5-21-1=gone/ghost"), root, "", nil)
 	if len(report.Skipped) != 1 {
 		t.Fatalf("Skipped = %v, want one entry", report.Skipped)
 	}
@@ -199,7 +199,7 @@ func TestFindJudgesALinkByItsOwnAttributes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			root := writeTree(t, []string{"Users", "real"}, nil)
 			makeJunction(t, root+"/"+test.target, root+"/Users/link")
-			report := find(nil, root, "")
+			report := find(nil, root, "", nil)
 			var homes []Home
 			for _, home := range report.Homes {
 				homes = append(homes, Home{home.User, strings.TrimPrefix(home.Path, root)})
@@ -228,7 +228,7 @@ func TestFindDropsAFileSymlinkToADirectory(t *testing.T) {
 	if err != nil {
 		t.Skipf("cannot create a symbolic link here: %v", err)
 	}
-	if report := find(nil, root, ""); len(report.Homes) != 0 || len(report.Skipped) != 0 {
+	if report := find(nil, root, "", nil); len(report.Homes) != 0 || len(report.Skipped) != 0 {
 		t.Errorf("Homes = %v, Skipped = %v, want neither", report.Homes, report.Skipped)
 	}
 }
@@ -322,7 +322,7 @@ func TestFindKeepsAHomeWhoseListingIsDenied(t *testing.T) {
 			if _, err := os.ReadDir(locked); err == nil {
 				t.Skip("the access control entry did not stop the listing")
 			}
-			report := find(nil, root, "")
+			report := find(nil, root, "", nil)
 			want := []Home{{"locked", root + "/Users/locked"}}
 			if !reflect.DeepEqual(report.Homes, want) || len(report.Skipped) != 0 {
 				t.Errorf("Homes = %v, Skipped = %v, want %v and no skipped entries", report.Homes,
@@ -411,7 +411,7 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			root := writeTree(t, []string{"Users/alice", "Users/\u00e9mile", "Users/Public"},
 				[]string{"Users/afile"})
-			report := find(nil, root, test.filter)
+			report := find(nil, root, test.filter, nil)
 			var homes []string
 			for _, home := range report.Homes {
 				homes = append(homes, home.User)

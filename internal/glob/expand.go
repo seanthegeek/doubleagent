@@ -8,21 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// Expand returns base + "/" + match for every match of pattern inside base,
-// an absolute path or empty for the root, never itself a pattern, as the sh
-// collector's `cd -P BASE` and unquoted `for` loop give them: the pattern is
-// split into words at newlines, as with IFS set to newline only; each word's
-// matches are sorted bytewise; a word that matches nothing is kept as typed,
-// escapes and all, when an entry by that name exists, and dropped otherwise.
-// Directories are read as the shell reads them, so a symlinked directory in
-// the middle of the pattern is followed. On Windows each existing literal
-// segment comes back in on-disk case, and a word's matches are not sorted
-// but come in Get-ChildItem's order, as PowerShell's Expand-Glob gives them.
-func Expand(base, pattern string) []string {
-	matches, _ := ExpandChecked(base, pattern, nil)
-	return matches
-}
-
 // Check reports whether expansion must not look at path, a directory it is
 // about to list or look a name up in, and the link that decides it.
 type Check func(path string) (link string, refused bool)
@@ -35,13 +20,16 @@ type Refusal struct {
 	Directory string
 }
 
-// ExpandChecked is Expand that asks check, when not nil, before it lists a
-// directory, looks a literal name up in one or respells a segment there, and
-// looks at nothing check refuses: the refused part of the pattern matches
-// nothing, and the link is reported once in the refusals. Image mode passes
-// the image-root check, so nothing behind a link out of the image is listed
-// or stat'ed, not even to learn that nothing matches there.
-func ExpandChecked(base, pattern string, check Check) ([]string, []Refusal) {
+// Expand returns base + "/" + match for every match of pattern inside base
+// (absolute, or empty for the root), as the sh collector's `cd -P BASE` and
+// unquoted `for` loop give them: words split at newlines, each word's matches
+// sorted bytewise, a word matching nothing kept as typed when an entry by
+// that name exists. A symlinked directory in the middle of the pattern is
+// followed, as the shell reads directories. On Windows existing literal
+// segments come back in on-disk case and matches in Get-ChildItem's order.
+// check (expansion says when it is asked) is the image root's; a live run
+// passes nil, and every caller says so.
+func Expand(base, pattern string, check Check) ([]string, []Refusal) {
 	run := &expansion{base: base, check: check}
 	var results []string
 	for _, word := range strings.Split(pattern, "\n") {
@@ -67,8 +55,11 @@ func ExpandChecked(base, pattern string, check Check) ([]string, []Refusal) {
 	return results, run.refused
 }
 
-// expansion is one ExpandChecked call: the base, the check, the word being
-// expanded and the links refused so far.
+// expansion is one Expand call: the base, the check, the word being
+// expanded and the links refused so far. The check is asked before a
+// directory is listed, a literal name is looked up in one or a segment is
+// respelled there; nothing it refuses is looked at, and each refused link is
+// reported once.
 type expansion struct {
 	base    string
 	check   Check

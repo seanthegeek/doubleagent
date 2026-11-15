@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
 // Home is a user and the home directory to collect for them. Path includes the
@@ -57,6 +59,58 @@ type Report struct {
 	Profiles  []Profile
 	Found     []string
 	Unmatched []string
+	// OutOfRoot lists, once each, the links out of the image root that the
+	// enumeration did not look behind (a home parent, the passwd file's
+	// directory, a candidate home); none of them gives a home.
+	OutOfRoot []string
+}
+
+// rootGuard applies an image run's root check to what the enumeration lists
+// and stats; nil check, a live run's, allows everything. Each refused link is
+// recorded once.
+type rootGuard struct {
+	check glob.Check
+	links []string
+}
+
+// allows reports whether path may be looked at, recording the link when not.
+func (guard *rootGuard) allows(path string) bool {
+	if guard.check == nil {
+		return true
+	}
+	link, refused := guard.check(path)
+	if refused {
+		guard.record(link)
+	}
+	return !refused
+}
+
+// record keeps link once.
+func (guard *rootGuard) record(link string) {
+	if !slices.Contains(guard.links, link) {
+		guard.links = append(guard.links, link)
+	}
+}
+
+// expand expands pattern in base through the check, recording what it refuses.
+func (guard *rootGuard) expand(base, pattern string) []string {
+	matches, refused := glob.Expand(base, pattern, guard.check)
+	for _, refusal := range refused {
+		guard.record(refusal.Link)
+	}
+	return matches
+}
+
+// inside returns the candidates whose own path the check allows: test -d,
+// and the walk after it, would follow a candidate that is itself a link.
+func (guard *rootGuard) inside(candidates []Home) []Home {
+	var kept []Home
+	for _, home := range candidates {
+		if guard.allows(home.Path) {
+			kept = append(kept, home)
+		}
+	}
+	return kept
 }
 
 // userNames splits the -u list at commas into its names in the order typed,
@@ -127,6 +181,8 @@ func lowerASCII(text string) string {
 
 // Enumerate returns the homes to collect, in enumeration order; it is the
 // homes of Find.
-func Enumerate(ctx context.Context, live bool, root, usersFilter string, run Runner) []Home {
-	return Find(ctx, live, root, usersFilter, run).Homes
+func Enumerate(ctx context.Context, live bool, root, usersFilter string, run Runner,
+	check glob.Check,
+) []Home {
+	return Find(ctx, live, root, usersFilter, run, check).Homes
 }

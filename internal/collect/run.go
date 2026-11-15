@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -60,7 +61,7 @@ type environment struct {
 	now        func() time.Time
 	runner     hostcmd.Runner
 	getwd      func() (string, error)
-	findUsers  func(context.Context, bool, string, string, users.Runner) users.Report
+	findUsers  func(context.Context, bool, string, string, users.Runner, glob.Check) users.Report
 	lastAccess func() accessUpdates
 }
 

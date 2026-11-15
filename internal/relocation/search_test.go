@@ -92,7 +92,7 @@ func nativeLines(lines []string) []string {
 func expandClaims(base string, table []catalog.Entry) []string {
 	var claims []string
 	for _, entry := range table {
-		claims = append(claims, glob.Expand(base, entry.Glob)...)
+		claims = append(claims, expandGlob(base, entry.Glob)...)
 	}
 	return claims
 }
@@ -312,4 +312,10 @@ func TestSearchTakesTheSystemFilesUnderTheSystemBase(t *testing.T) {
 			}
 		})
 	}
+}
+
+// expandGlob is glob.Expand without a check, as a live run calls it.
+func expandGlob(base, pattern string) []string {
+	matches, _ := glob.Expand(base, pattern, nil)
+	return matches
 }

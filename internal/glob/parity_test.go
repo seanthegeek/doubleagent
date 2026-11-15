@@ -64,7 +64,7 @@ func TestExpandAgreesWithDash(t *testing.T) {
 		if len(output) > 0 {
 			want = strings.Split(strings.TrimSuffix(string(output), "\x01"), "\x01")
 		}
-		got := Expand(base, pattern)
+		got := expandAll(base, pattern)
 		if got == nil {
 			got = []string{}
 		}

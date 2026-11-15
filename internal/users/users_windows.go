@@ -31,20 +31,23 @@ func homeGlobs(live bool) []string {
 // entry's own attributes, as .NET's File.Exists and Directory.Exists do. The
 // -u list is compared against the user name ignoring every letter's case
 // (wantedUser says why). A ProfileList path is respelled as the disk holds
-// it, so a home is kept once by its ASCII-folded path. ctx and run are not
-// used: Windows runs no program to list its users.
-func Find(_ context.Context, live bool, root, usersFilter string, _ Runner) Report {
+// it, so a home is kept once by its folded path. ctx and run are unused (no
+// program lists Windows users); check is the image root's, nil live.
+func Find(_ context.Context, live bool, root, usersFilter string, _ Runner,
+	check glob.Check,
+) Report {
 	var reader profileReader
 	if live {
 		reader = registryProfiles{}
 	}
-	return find(reader, root, usersFilter)
+	return find(reader, root, usersFilter, check)
 }
 
 // find is Find with the ProfileList reader given; a nil reader means an
 // image run.
-func find(reader profileReader, root, usersFilter string) Report {
+func find(reader profileReader, root, usersFilter string, check glob.Check) Report {
 	root = syspath.FromNative(root)
+	guard := &rootGuard{check: check}
 	var report Report
 	var candidates []Home
 	if reader != nil {
@@ -57,8 +60,10 @@ func find(reader profileReader, root, usersFilter string) Report {
 			candidates = append(candidates, Home{profile.User, profile.Path})
 		}
 	}
-	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil)...)
+	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil, guard)...)
+	candidates = guard.inside(candidates)
 	report.Homes, report.Skipped, report.Found = filterProfiles(candidates, usersFilter)
+	report.OutOfRoot = guard.links
 	report.Unmatched = unmatchedUsers(userNames(usersFilter, strings.EqualFold), report.Found,
 		strings.EqualFold)
 	return report
@@ -66,10 +71,10 @@ func find(reader profileReader, root, usersFilter string) Report {
 
 // globHomes returns the directories under each home parent of base, each
 // named by its last path segment.
-func globHomes(base string, live bool) []Home {
+func globHomes(base string, live bool, guard *rootGuard) []Home {
 	var homes []Home
 	for _, pattern := range homeGlobs(live) {
-		for _, match := range glob.Expand(base, pattern) {
+		for _, match := range guard.expand(base, pattern) {
 			homes = append(homes, Home{match[strings.LastIndexByte(match, '/')+1:], match})
 		}
 	}

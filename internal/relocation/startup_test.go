@@ -1,0 +1,63 @@
+package relocation
+
+import (
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/walk"
+)
+
+func TestStartupFilesListNothingBehindALinkOutOfTheRoot(t *testing.T) {
+	cases := []struct {
+		name         string
+		inside, live bool
+		wantFiles    bool
+		wantRefused  bool
+	}{
+		{"a link out of the image root is not listed", false, false, false, true},
+		{"a link inside the home is listed through", true, false, true, false},
+		{"a live run lists through it and drops what leads out of the base", false, true,
+			false, false},
+	}
+	table := []catalog.StartupFile{{Scope: "home", Glob: ".bashrc.d/*"}}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+			home := root + "/home/alice"
+			target := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+			if testCase.inside {
+				target = home + "/dotfiles"
+			}
+			for _, dir := range []string{home, target} {
+				if err := os.MkdirAll(syspath.ToNative(dir), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			file := filepath.Join(syspath.ToNative(target), "analyst.sh")
+			if err := os.WriteFile(file, []byte("export CODEX_HOME=/x\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			linkOut(t, syspath.ToNative(target), syspath.ToNative(home+"/.bashrc.d"))
+			check := walk.NewRootCheck(root).Expansion()
+			if testCase.live {
+				check = nil
+			}
+			files, refused := ListStartupFiles(home, "home", table, check)
+			if (len(files) > 0) != testCase.wantFiles {
+				t.Errorf("files %q, want some: %v", files, testCase.wantFiles)
+			}
+			var want []string
+			if testCase.wantRefused {
+				want = []string{home + "/.bashrc.d"}
+			}
+			if !reflect.DeepEqual(refused, want) {
+				t.Errorf("refused %q, want %q", refused, want)
+			}
+		})
+	}
+}

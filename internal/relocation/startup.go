@@ -1,6 +1,7 @@
 package relocation
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -15,14 +16,22 @@ import (
 // dropped, so it is taken under base. A symlink or other reparse point is
 // never listed, nor a file under a symlinked directory or junction that
 // resolves outside base, nor a path holding a newline, which would forge a
-// line of the sh collector's file list.
-func ListStartupFiles(base, scope string, table []catalog.StartupFile) []string {
-	var files []string
+// line of the sh collector's file list. check is the image root's (nil on a
+// live run): the expansion looks at nothing behind a link out of the root,
+// and each such link is returned once in outOfRoot.
+func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glob.Check,
+) (files, outOfRoot []string) {
 	for _, line := range table {
 		if line.Scope != scope {
 			continue
 		}
-		for _, path := range glob.Expand(base, strings.TrimPrefix(line.Glob, "/")) {
+		paths, refused := glob.Expand(base, strings.TrimPrefix(line.Glob, "/"), check)
+		for _, refusal := range refused {
+			if !slices.Contains(outOfRoot, refusal.Link) {
+				outOfRoot = append(outOfRoot, refusal.Link)
+			}
+		}
+		for _, path := range paths {
 			if strings.Contains(path, "\n") {
 				continue
 			}
@@ -33,7 +42,7 @@ func ListStartupFiles(base, scope string, table []catalog.StartupFile) []string 
 			files = append(files, path)
 		}
 	}
-	return files
+	return files, outOfRoot
 }
 
 // linkedParent reports whether a symlinked directory (or, on Windows, a

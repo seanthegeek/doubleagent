@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -518,6 +519,62 @@ func TestNoNameFromBehindALinkOutOfTheRootReachesTheLog(t *testing.T) {
 	requireOnce(t, "stdout", stdout.String(), "\nprojects:   0\n")
 }
 
+func TestNoCallerListsBehindALinkOutOfTheRoot(t *testing.T) {
+	cases := []struct {
+		name      string
+		files     map[string]string
+		link      string
+		outside   map[string]string
+		wantLines []string
+		forbidden []string
+	}{
+		{"a home parent that leads out names no home",
+			map[string]string{"Users/alice/notes": ""}, "home",
+			map[string]string{"intruder/.claude/settings.json": "{}"},
+			[]string{"user homes: {LINK} leads out of the image root; nothing behind it was" +
+				" listed or taken as a home"},
+			[]string{"intruder"}},
+		{"a volume directory under a linked parent is not listed",
+			map[string]string{"home/alice/notes": ""}, "var",
+			map[string]string{"lib/docker/volumes/analystvol/_data/x": "x"},
+			[]string{"docker: {LINK} leads out of the image root; nothing behind it was listed"},
+			[]string{"analystvol", "Docker volumes in"}},
+		{"a startup-file glob under a linked parent is not listed",
+			map[string]string{"home/alice/notes": ""}, "home/alice/.bashrc.d",
+			map[string]string{"analyst.sh": "export CODEX_HOME=/x\n"},
+			[]string{"startup files: {LINK} leads out of the image root; nothing behind it was" +
+				" listed"},
+			[]string{"analyst.sh", "CODEX_HOME"}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			outside := outsideTree(t, testCase.outside)
+			root := writeImage(t, testCase.files, map[string]string{testCase.link: outside})
+			outDir := t.TempDir()
+			var stdout, stderr bytes.Buffer
+			code := runCollection(context.Background(), testOptions(root, outDir), testHost(t),
+				&stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			log, rows := runOutput(t, outDir, ".log"), runOutput(t, outDir, ".manifest.jsonl")
+			summary := runOutput(t, outDir, ".collection.json")
+			link := syspath.ToNative(root + "/" + testCase.link)
+			for _, line := range testCase.wantLines {
+				requireOnce(t, "the log", log, strings.ReplaceAll(line, "{LINK}", link)+"\n")
+			}
+			for _, text := range testCase.forbidden {
+				for what, output := range map[string]string{"log": log, "manifest": rows,
+					"collection.json": summary, "stdout": stdout.String()} {
+					if strings.Contains(output, text) {
+						t.Errorf("the %s holds %q, from behind the link:\n%s", what, text, output)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestProbeWrite(t *testing.T) {
 	writable := syspath.FromNative(t.TempDir())
 	cases := []struct {
@@ -544,7 +601,8 @@ func TestProbeWrite(t *testing.T) {
 // and two candidates it could not see: one its parent lists, one gone.
 func skippedHomesHost(t *testing.T, root string) environment {
 	host := testHost(t)
-	host.findUsers = func(context.Context, bool, string, string, users.Runner) users.Report {
+	host.findUsers = func(context.Context, bool, string, string, users.Runner,
+		glob.Check) users.Report {
 		return users.Report{Skipped: []users.Skipped{
 			{Path: root + "/Users/locked", Reason: "access denied", Denied: true},
 			{Path: root + "/Users/gone", Reason: "missing"},
@@ -660,7 +718,8 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			host := testHost(t)
-			host.findUsers = func(context.Context, bool, string, string, users.Runner) users.Report {
+			host.findUsers = func(context.Context, bool, string, string, users.Runner,
+				glob.Check) users.Report {
 				return users.Report{Found: test.found, Unmatched: []string{"nobody", "Eve"}}
 			}
 			outDir := t.TempDir()

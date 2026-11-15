@@ -66,7 +66,7 @@ func TestExpand(t *testing.T) {
 			for _, match := range testCase.want {
 				want = append(want, base+"/"+match)
 			}
-			if got := Expand(base, testCase.pattern); !slices.Equal(got, want) {
+			if got := expandAll(base, testCase.pattern); !slices.Equal(got, want) {
 				t.Errorf("Expand(%q) = %q, want %q", testCase.pattern, got, want)
 			}
 		})
@@ -75,18 +75,24 @@ func TestExpand(t *testing.T) {
 
 func TestExpandKeepsTheBaseLiteral(t *testing.T) {
 	base := buildTree(t, fixtureRootName)
-	if got := Expand(base, "a.*"); !slices.Equal(got, []string{base + "/a.txt"}) {
+	if got := expandAll(base, "a.*"); !slices.Equal(got, []string{base + "/a.txt"}) {
 		t.Errorf("a base holding [ was read as a pattern: %q", got)
 	}
-	if got := Expand(filepath.Dir(base)+"/missing", "*"); got != nil {
+	if got := expandAll(filepath.Dir(base)+"/missing", "*"); got != nil {
 		t.Errorf("a missing base gave %q", got)
 	}
 }
 
 func TestExpandOfAnEmptyBaseStartsAtTheRoot(t *testing.T) {
 	want := rootEntry(t)
-	if got := Expand("", "*"); !slices.Contains(got, want) {
-		t.Errorf("Expand(\"\", \"*\") = %q, want the root's entries as /name, %q among them",
+	if got := expandAll("", "*"); !slices.Contains(got, want) {
+		t.Errorf("expandAll(\"\", \"*\") = %q, want the root's entries as /name, %q among them",
 			got, want)
 	}
+}
+
+// expandAll is Expand without a check, as a live run calls it.
+func expandAll(base, pattern string) []string {
+	matches, _ := Expand(base, pattern, nil)
+	return matches
 }

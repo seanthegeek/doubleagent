@@ -44,11 +44,13 @@ type Bases struct {
 	ProgramData string
 }
 
-// collection is the state of one Collect call.
+// collection is the state of one Collect call, with the links out of the
+// image root already logged.
 type collection struct {
 	collector *walk.Collector
 	notes     *[]string
 	counts    Counts
+	outOfRoot map[string]bool
 }
 
 // Collect collects the volumes of the system and per-user Docker and Podman
@@ -61,7 +63,7 @@ type collection struct {
 func Collect(ctx context.Context, collector *walk.Collector, bases Bases, homes []users.Home,
 	notes *[]string,
 ) (Counts, error) {
-	run := &collection{collector: collector, notes: notes}
+	run := &collection{collector: collector, notes: notes, outOfRoot: map[string]bool{}}
 	err := run.collectRoots(ctx, bases, homes)
 	if err != nil {
 		return run.counts, err
@@ -112,6 +114,13 @@ func desktopDirs(bases Bases, homes []users.Home) []string {
 // not a symlink, and marks the run as having Docker Desktop data.
 func (run *collection) noteDesktop(dirs []string) error {
 	for _, dir := range dirs {
+		leaves, err := run.leavesRoot(dir)
+		if err != nil {
+			return err
+		}
+		if leaves {
+			continue
+		}
 		meta, err := fsmeta.Lstat(dir)
 		if err != nil || meta.Kind != fsmeta.Dir {
 			continue
@@ -123,6 +132,20 @@ func (run *collection) noteDesktop(dirs []string) error {
 		}
 	}
 	return nil
+}
+
+// leavesRoot reports whether path, or a directory above it, is a link out of
+// the image root (collector.RootCheck; never on a live run), logging the link
+// once: nothing behind it is stat'ed or listed, so no volume or Docker
+// Desktop directory of the analyst's host is reported.
+func (run *collection) leavesRoot(path string) (bool, error) {
+	link, leaves := run.collector.RootCheck.Exit(path)
+	if !leaves || run.outOfRoot[link] {
+		return leaves, nil
+	}
+	run.outOfRoot[link] = true
+	return true, run.collector.Log.Line("docker: " + syspath.ToNative(link) +
+		" leads out of the image root; nothing behind it was listed")
 }
 
 // addNote records a note and logs it with the NOTE prefix.
@@ -186,6 +209,11 @@ func isDirectory(target string) bool {
 // collectVolumeDir collects every volume under base/rel, as collect_volume_dir
 // does. A volume that is a symlink or not a directory is skipped uncounted.
 func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) error {
+	// A link inside rel keeps volumeRoot's note; one at or above base, which
+	// test_volume_root does not look at, is out of the root's reach.
+	if leaves, err := run.leavesRoot(base); leaves || err != nil {
+		return err
+	}
 	dir, ok, err := run.volumeRoot(base, rel)
 	if err != nil || !ok {
 		return err
@@ -194,7 +222,9 @@ func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) e
 	if err := run.collector.Log.Line("Docker volumes in " + syspath.ToNative(dir)); err != nil {
 		return err
 	}
-	for _, volume := range glob.Expand(dir, "*") {
+	// dir passed the root check above, so the check refuses nothing here.
+	volumes, _ := glob.Expand(dir, "*", run.collector.RootCheck.Expansion())
+	for _, volume := range volumes {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
