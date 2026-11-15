@@ -59,3 +59,8 @@ func absoluteRoot(cwd, root string) (resolved, checked string) {
 	resolved = fsmeta.OnDiskPath("", absoluteProject(cwd, root))
 	return resolved, syspath.ToNative(resolved)
 }
+
+// typedRoot returns ROOT made absolute against CWD as typed, before
+// absoluteRoot respells it from the disk, so a -p spelled like -r can be
+// matched with it.
+func typedRoot(cwd, root, _ string) string { return absoluteProject(cwd, root) }

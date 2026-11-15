@@ -32,3 +32,7 @@ func absoluteRoot(cwd, root string) (resolved, checked string) {
 	}
 	return filepath.Join(cwd, root), cwd + "/" + root
 }
+
+// typedRoot returns resolved: on Unix a root is not respelled, so its typed
+// and resolved forms are one.
+func typedRoot(_, _, resolved string) string { return resolved }

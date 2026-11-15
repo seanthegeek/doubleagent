@@ -139,3 +139,13 @@ func TestResolveRoot(t *testing.T) {
 		})
 	}
 }
+
+func TestRespellProjectsMovesTheTypedRootToTheResolvedOne(t *testing.T) {
+	typed, resolved := "/t/JOHNSM~1/img", "/t/johnsmith/img"
+	got := respellProjects([]string{typed + "/proj", typed, typed + "2/proj", "/t/JOHNSM~1/other"},
+		typed, resolved)
+	want := []string{resolved + "/proj", resolved, typed + "2/proj", "/t/JOHNSM~1/other"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("respellProjects = %q, want %q", got, want)
+	}
+}

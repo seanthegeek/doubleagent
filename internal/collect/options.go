@@ -32,6 +32,9 @@ type Options struct {
 	Quiet           bool
 	MaxFileBytes    int64
 	EnvScanMaxBytes int64
+	// lexicalRoot is Root made absolute as typed, before its components
+	// were respelled from the disk; "" with no root.
+	lexicalRoot string
 }
 
 // Action says what the command line asked for.
@@ -263,12 +266,20 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 // respellProjects returns the -p paths with their existing components
 // spelled as the disk holds them, each listed once: below root in image
 // mode, so a path outside the image stays as typed and is never looked at,
-// and from the drive on a live run. It runs once the root is resolved, after
+// and from the drive on a live run. A path starting with lexicalRoot, the
+// root as typed (which may hold a short name or another case the respelled
+// root lost), first has that start replaced by root, so a -p spelled like
+// -r stays under it. It runs once the root is resolved, after
 // ResolveProjects, so the order of the two errors stays the sh collector's.
-func respellProjects(projects []string, root string) []string {
+func respellProjects(projects []string, lexicalRoot, root string) []string {
 	var respelled []string
 	seen := map[string]bool{}
 	for _, project := range projects {
+		if rest, found := syspath.CutPrefix(project, lexicalRoot+"/"); root != "" && found {
+			project = root + "/" + rest
+		} else if root != "" && syspath.Equal(project, lexicalRoot) {
+			project = root
+		}
 		project = fsmeta.OnDiskPath(root, project)
 		if key := syspath.Fold(project); !seen[key] {
 			seen[key] = true
@@ -316,9 +327,10 @@ func ResolveRoot(options Options, getwd func() (string, error)) (Options, error)
 	if !isDirectory(checked) {
 		return options, &RootError{Root: options.Root}
 	}
+	lexical := typedRoot(cwd, options.Root, root)
 	if liveRoot(root) {
-		root = ""
+		root, lexical = "", ""
 	}
-	options.Root = root
+	options.Root, options.lexicalRoot = root, lexical
 	return options, nil
 }

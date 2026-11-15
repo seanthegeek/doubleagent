@@ -4,10 +4,12 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
 func TestAbsoluteProjectOnWindows(t *testing.T) {
@@ -80,7 +82,7 @@ func TestProjectsAreRespelledOnlyBelowAnImageRoot(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := respellProjects(test.projects, test.root); !reflect.DeepEqual(got, test.want) {
+			if got := respellProjects(test.projects, test.root, test.root); !reflect.DeepEqual(got, test.want) {
 				t.Errorf("respellProjects(%q, %q) = %q, want %q", test.projects, test.root, got, test.want)
 			}
 		})
@@ -123,5 +125,32 @@ func platformRootCases(base string) []rootCase {
 		{"a bare drive is its root, an image", drive, drive, ""},
 		{"a drive root is an image too", drive + `\`, drive, ""},
 		{"a root in backslashes with dot-dot is resolved by name", `img\etc\..\`, base + "/img", ""},
+	}
+}
+
+func TestAProjectTypedLikeTheRootStaysUnderIt(t *testing.T) {
+	temp := os.Getenv("TEMP")
+	if !strings.Contains(temp, "~") {
+		t.Skipf("TEMP %q holds no short 8.3 name, which the root would lose", temp)
+	}
+	work, err := os.MkdirTemp(temp, "typed-root-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(work) })
+	if err := os.MkdirAll(work+`\img\proj`, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	getwd := func() (string, error) { return syspath.FromNative(work), nil }
+	options, err := resolvePaths(Options{Root: "img", Projects: []string{`img\proj`}}, getwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(options.Projects) != 1 || !syspath.HasPrefix(options.Projects[0], options.Root+"/") {
+		t.Fatalf("projects %q, want one under the root %q", options.Projects, options.Root)
+	}
+	if name, out := walk.ProjectOutOfRoot(options.Root, options.Projects[0]); out {
+		t.Errorf("the project %q counts as out of the root %q at %q", options.Projects[0],
+			options.Root, name)
 	}
 }

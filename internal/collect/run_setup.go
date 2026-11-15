@@ -70,13 +70,7 @@ type runState struct {
 // detect_capabilities and set_output_names do. Every failure is a fatalError.
 func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 ) (*runState, error) {
-	options, err := ResolveProjects(options, host.getwd)
-	if err == nil {
-		options, err = ResolveRoot(options, host.getwd)
-	}
-	if err == nil {
-		options.Projects = respellProjects(options.Projects, options.Root)
-	}
+	options, err := resolvePaths(options, host.getwd)
 	if err == nil && !options.Inventory {
 		options.OutDir, err = resolveOutDir(options.OutDir, host.getwd)
 	}
@@ -125,6 +119,20 @@ func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) 
 		return "", &fatalError{message: "Output dir not writable: " + syspath.ToNative(absolute)}
 	}
 	return absolute, nil
+}
+
+// resolvePaths resolves the -p paths, then the root, then respells the -p
+// paths against the root, in that order so the sh collector's first error
+// wins.
+func resolvePaths(options Options, getwd func() (string, error)) (Options, error) {
+	options, err := ResolveProjects(options, getwd)
+	if err == nil {
+		options, err = ResolveRoot(options, getwd)
+	}
+	if err == nil {
+		options.Projects = respellProjects(options.Projects, options.lexicalRoot, options.Root)
+	}
+	return options, err
 }
 
 // probeWrite reports whether a new file can be created in dir, by creating
