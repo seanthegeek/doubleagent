@@ -1,10 +1,15 @@
 package collect
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -616,20 +621,76 @@ func TestNoPreserveAtimeReachesTheStager(t *testing.T) {
 	}
 }
 
-func TestNoPreserveAtimeIsRecorded(t *testing.T) {
-	cases := []struct {
-		name               string
-		set                bool
-		wantLog, wantField string
-	}{
-		{"the default is recorded as off", false, " no_preserve_atime=0",
-			`, "no_preserve_atime": false}`},
-		{"--no-preserve-atime is recorded as on", true, " no_preserve_atime=1",
-			`, "no_preserve_atime": true}`},
+// archiveMembers returns the names of the regular files in the gzipped tar
+// archive of the run in outDir, each with the SHA-256 of its contents.
+func archiveMembers(t *testing.T, outDir string) map[string]string {
+	t.Helper()
+	compressed, err := gzip.NewReader(strings.NewReader(runOutput(t, outDir, ".tar.gz")))
+	if err != nil {
+		t.Fatal(err)
 	}
-	root := fixtureImage(t)
+	members := map[string]string{}
+	reader := tar.NewReader(compressed)
+	for {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			return members
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if header.Typeflag == tar.TypeReg {
+			hash := sha256.New()
+			if _, err := io.Copy(hash, reader); err != nil {
+				t.Fatal(err)
+			}
+			members[header.Name] = hex.EncodeToString(hash.Sum(nil))
+		}
+	}
+}
+
+// requireCollectedRow checks that the run in outDir collected path with the
+// SHA-256 of content and recorded wantAtime as its access time.
+func requireCollectedRow(t *testing.T, outDir, path, content string, wantAtime int64) {
+	t.Helper()
+	var row struct {
+		Status string `json:"status"`
+		SHA256 string `json:"sha256"`
+		Atime  int64  `json:"atime"`
+	}
+	if err := json.Unmarshal([]byte(manifestRow(t, outDir, path)), &row); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte(content))
+	if row.Status != "collected" || row.SHA256 != hex.EncodeToString(sum[:]) || row.Atime != wantAtime {
+		t.Errorf("row of %s: status %q, sha256 %s, atime %d; want collected, %x, %d",
+			path, row.Status, row.SHA256, row.Atime, sum, wantAtime)
+	}
+}
+
+func TestNoPreserveAtimeRun(t *testing.T) {
+	cases := []struct {
+		name      string
+		set       bool
+		wantLog   string
+		wantField bool
+	}{
+		{"a default run records the option as off", false, " no_preserve_atime=0", false},
+		{"a run with --no-preserve-atime records it as on", true, " no_preserve_atime=1", true},
+	}
+	files := map[string]string{
+		"home/alice/.claude/settings.json": "{\"theme\": \"dark\"}\n",
+		"home/alice/.claude.json":          "{\"projects\": {}}\n",
+	}
+	// An access time well before the write time, which a volume that
+	// records reads would move on the copy's read.
+	accessed, written := time.Unix(1_600_000_000, 0), time.Unix(1_700_000_000, 0)
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
+			root := writeImage(t, files, nil)
+			for path := range files {
+				mustChtimes(t, root+"/"+path, accessed, written)
+			}
 			outDir := t.TempDir()
 			options := testOptions(root, outDir)
 			options.NoPreserveAtime = test.set
@@ -638,14 +699,42 @@ func TestNoPreserveAtimeIsRecorded(t *testing.T) {
 				&stderr); code != exitOK {
 				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 			}
-			lines := strings.SplitN(runOutput(t, outDir, ".log"), "\n", 3)
-			if len(lines) < 2 || !strings.HasSuffix(lines[1], test.wantLog) {
-				t.Errorf("second log line %q, want it to end with %q", lines[1:], test.wantLog)
+			members := archiveMembers(t, outDir)
+			for path, content := range files {
+				requireCollectedRow(t, outDir, root+"/"+path, content, accessed.Unix())
+				sum := sha256.Sum256([]byte(content))
+				if got := members["./fs/"+path]; got != hex.EncodeToString(sum[:]) {
+					t.Errorf("archive member ./fs/%s has sha256 %q, want %x", path, got, sum)
+				}
 			}
-			if document := runOutput(t, outDir, ".collection.json"); !strings.Contains(document,
-				`"env_scan_max_size_bytes": 1048576`+test.wantField) {
-				t.Errorf("collection.json options lack %q:\n%s", test.wantField, document)
-			}
+			requireRecorded(t, outDir, test.wantLog, test.wantField)
 		})
+	}
+}
+
+// mustChtimes sets the access and write times of path.
+func mustChtimes(t *testing.T, path string, accessed, written time.Time) {
+	t.Helper()
+	if err := os.Chtimes(path, accessed, written); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// requireRecorded checks that the run in outDir ends its log's second start
+// line with wantLog and records wantField as options.no_preserve_atime.
+func requireRecorded(t *testing.T, outDir, wantLog string, wantField bool) {
+	t.Helper()
+	lines := strings.SplitN(runOutput(t, outDir, ".log"), "\n", 3)
+	if len(lines) < 2 || !strings.HasSuffix(lines[1], wantLog) {
+		t.Errorf("log start lines %q, want the second to end with %q", lines, wantLog)
+	}
+	var document struct {
+		Options map[string]any `json:"options"`
+	}
+	if err := json.Unmarshal([]byte(runOutput(t, outDir, ".collection.json")), &document); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := document.Options["no_preserve_atime"].(bool); !ok || got != wantField {
+		t.Errorf("options.no_preserve_atime %v, want %v", document.Options["no_preserve_atime"], wantField)
 	}
 }
