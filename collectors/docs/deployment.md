@@ -184,9 +184,11 @@ it reads the value as the signed number -1, a date just before the year
 open file and compares it with the value it read just before asking. It
 sets the time back only when the value read back differs from the one
 read before and cannot be the time of any real access: the request value
-itself, a date before 1980 (the earliest date FAT can hold, which no file
-system stamps an access before), or a date more than 50 years ahead of
-this machine's clock (more than any clock error). It then sets the access
+itself, a date before 1980 (the earliest date FAT can hold, and one a
+correctly set clock never gives), or a date more than 50 years ahead of
+this machine's clock (more than any clock error), counted from
+15 November 2026 when this machine's clock reads earlier, as an unset clock
+does. It then sets the access
 time back to the value read before, passing no other time, reads it again
 to check, and reads the file on the same open. Setting the access time is
 a change to the file's metadata: it may also update the file's change time
@@ -196,7 +198,10 @@ volume's change journal. Any other change between the two readings is
 taken as another program's read through its own open, stamped by a clock
 that may be far from this machine's, and is left as it is. A server that
 stores the request as a date between 1980 and 50 years ahead (some clamp
-dates to 2038) is not caught. The check relies on the time the file system
+dates to 2038) is not caught. A device with no clock stamps 1970 until its
+clock is set: if such a device's access lands between the two readings,
+the binary takes it for a misread and sets the time back over it, the one
+case in which a restore can overwrite a real access. The check relies on the time the file system
 reports: on a share, that may come from the client's cache rather than the
 server, and a misread there would go unnoticed.
 
@@ -212,8 +217,8 @@ access time not held: <path>: <reason>
 | `right to hold refused` | Windows refused the open with the right to change attributes, so the file was read read-only. |
 | `hold refused` | The file system refused the request to hold the access time; the file was read on the same open. |
 | `hold not verified` | The access time could not be read before or after the request; the request stands, unchecked. |
-| `access time changed while the hold was asked for` | The access time changed between the two readings to a value a real access could have written (from 1980 to 50 years ahead of this machine's clock): most likely another program's read. The binary left it as it was and read the file on the same open. |
-| `hold not honoured, access time restored` | The access time changed, when the hold was asked for, to a value no real access could have written (the request value, a date before 1980, or a date more than 50 years ahead); the binary set the access time back to the value read before, checked it, and read the file on the same open. |
+| `access time changed while the hold was asked for` | The access time changed between the two readings to a value a real access could have written (from 1980 to 50 years ahead of this machine's clock, or of 15 November 2026 if that is later): most likely another program's read. The binary left it as it was and read the file on the same open. |
+| `hold not honoured, access time restored` | The access time changed, when the hold was asked for, to a value no real access could have written (the request value, a date before 1980, or a date more than 50 years ahead of the later of this machine's clock and 15 November 2026); the binary set the access time back to the value read before, checked it, and read the file on the same open. |
 | `hold not honoured, restore failed` | The access time changed, when the hold was asked for, to a value no real access could have written, and could not be set back (it did not read back as set, or the value read before could not be sent as a time); or the first reading failed and the value read back was the request value itself, so the old time is unknown. The file was read on the same open. |
 
 After the last file is read the log adds

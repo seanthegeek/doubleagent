@@ -25,17 +25,26 @@ const (
 	resumeTime = ^uint64(0) - 1
 )
 
-// The bounds of a possible access time, in FILETIME units. floorTime is the
-// first day of 1980, the earliest date FAT can hold: no file system Windows
-// reads stamps an access before it, and a server that takes all ones as the
-// signed number -1 stores a date at or just before 1601, or 1970 if it
-// clamps. ceilingSpan is 50 years past this machine's clock, more than any
-// clock error: all ones read as an unsigned time is tens of thousands of
-// years ahead. Of the dates servers clamp to, 2107 (for about thirty more
-// years), 2262 and 9999 lie past the ceiling; the end of 32-bit Unix time
-// does not, and a server clamping there is not caught.
+// The bounds of a possible access time, in FILETIME units.
 const (
-	floorTime   = 119_600_064_000_000_000
+	// floorTime is the first day of 1980, the earliest date FAT can hold,
+	// and a date a correctly set clock never gives. It catches a server that
+	// takes all ones as the signed number -1 and stores a date at or just
+	// before 1601, or 1970 if it clamps. A device with no clock stamps 1970
+	// until it is set: such a stamp made by another program's access between
+	// the two readings is the remaining case in which a restore could be
+	// sent over a real access.
+	floorTime = 119_600_064_000_000_000
+	// anchorTime is the fifteenth of November in the year this rule was
+	// written. The ceiling counts from it when this machine's clock is
+	// earlier (unset, reading 1970 or 1601), so an ordinary current time is
+	// never beyond it.
+	anchorTime = 134_391_744_000_000_000
+	// ceilingSpan is 50 years, more than any clock error: all ones read as an
+	// unsigned time is tens of thousands of years ahead. Of the dates servers
+	// clamp to, 2107 (for about thirty more years), 2262 and 9999 lie past
+	// the ceiling; the end of 32-bit Unix time does not, and a server
+	// clamping there is not caught.
 	ceilingSpan = 50 * 36525 * 24 * 60 * 60 * 10_000_000 / 100 // 365.25 days a year
 )
 
@@ -80,10 +89,11 @@ func verifyHold(steps holdSteps) string {
 
 // misread reports whether after, read once the hold was asked for, differs
 // from before and cannot be the time of any real access: the hold value
-// itself, a time before floorTime, or one more than ceilingSpan past now.
+// itself, a time before floorTime, or one more than ceilingSpan past the
+// later of now and anchorTime.
 func misread(before, after, now uint64) bool {
 	return after != before &&
-		(after == holdTime || after < floorTime || after > now+ceilingSpan)
+		(after == holdTime || after < floorTime || after > max(now, anchorTime)+ceilingSpan)
 }
 
 // restoreAccessTime sets the access time back to before, the value read on

@@ -89,16 +89,17 @@ func (o *Opener) report(path string, handle windows.Handle, reason string) {
 	}
 }
 
-// onReadOnlyVolume reports whether the file handle is open on is on a local
-// volume that is read-only (FILE_READ_ONLY_VOLUME), where no read can move
-// an access time. A remote volume (onRemoteVolume) never counts: its flags
-// are the server's description of the share, and the server's own disk may
-// still record the read. A volume whose flags cannot be read counts as
-// writable.
+// onReadOnlyVolume reports whether handle's file lies on a local volume
+// that is read-only (FILE_READ_ONLY_VOLUME), where no read can move an
+// access time; a volume with no drive letter, such as a shadow copy, counts.
+// A volume reached through a network redirector (throughRedirector) never
+// counts: its flags are the server's description of the share, and the
+// server's own disk may still record the read. A volume whose flags cannot
+// be read counts as writable.
 func onReadOnlyVolume(handle windows.Handle) bool {
 	var flags uint32
 	err := windows.GetVolumeInformationByHandle(handle, nil, 0, nil, nil, &flags, nil, 0)
-	return err == nil && flags&windows.FILE_READ_ONLY_VOLUME != 0 && !onRemoteVolume(handle)
+	return err == nil && flags&windows.FILE_READ_ONLY_VOLUME != 0 && !throughRedirector(handle)
 }
 
 // currentFiletime reads this machine's clock as the count a FILETIME holds.
@@ -173,21 +174,27 @@ func localFileSystem(handle windows.Handle) string {
 const remoteProtocolInfoSize = 180
 
 // onRemoteVolume reports whether the file handle is open on is reached
-// through a network redirector (a mapped drive, a share, the loopback
-// \\localhost\C$ included): the remote protocol query succeeds for such a
-// file. A file whose final path cannot be read in its drive form, or reads
-// as a UNC path, counts as remote too. Any doubt falls on the side of
-// holding the access time.
+// through a network redirector (throughRedirector), or its final path
+// cannot be read in its drive form or reads as a UNC path. Any doubt falls
+// on the side of holding the access time.
 func onRemoteVolume(handle windows.Handle) bool {
-	// Words, not bytes, so the buffer has the 4-byte alignment the
-	// structure's fields need.
-	var protocol [remoteProtocolInfoSize / 4]uint32
-	if windows.GetFileInformationByHandleEx(handle, windows.FileRemoteProtocolInfo,
-		(*byte)(unsafe.Pointer(&protocol[0])), remoteProtocolInfoSize) == nil {
+	if throughRedirector(handle) {
 		return true
 	}
 	final, ok := finalDOSPath(handle)
 	return !ok || strings.HasPrefix(final, `\\?\UNC\`)
+}
+
+// throughRedirector reports whether the file handle is open on is reached
+// through a network redirector (a mapped drive, a share, the loopback
+// \\localhost\C$ included): the remote protocol query succeeds for such a
+// file and fails for one on a local volume.
+func throughRedirector(handle windows.Handle) bool {
+	// Words, not bytes, so the buffer has the 4-byte alignment the
+	// structure's fields need.
+	var protocol [remoteProtocolInfoSize / 4]uint32
+	return windows.GetFileInformationByHandleEx(handle, windows.FileRemoteProtocolInfo,
+		(*byte)(unsafe.Pointer(&protocol[0])), remoteProtocolInfoSize) == nil
 }
 
 // finalDOSPath returns the path Windows holds for the file handle is open

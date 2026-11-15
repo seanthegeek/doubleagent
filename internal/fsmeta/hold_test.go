@@ -21,9 +21,11 @@ const (
 // fakeFile is a file system's view of one file's access time. onHold says
 // what asking for the hold does to the stored time (nil: nothing, as an
 // honoured hold), refusesHold makes the request fail after that, failsRead
-// lists the reads (from 0) that fail, and every restore is recorded.
+// lists the reads (from 0) that fail, clock is this machine's clock (0:
+// fakeNow), and every restore is recorded.
 type fakeFile struct {
 	accessTime   uint64
+	clock        uint64
 	onHold       func(uint64) uint64
 	refusesHold  bool
 	failsRestore bool
@@ -59,7 +61,12 @@ func (file *fakeFile) steps() holdSteps {
 			file.accessTime = accessTime
 			return nil
 		},
-		now: func() uint64 { return fakeNow },
+		now: func() uint64 {
+			if file.clock == 0 {
+				return fakeNow
+			}
+			return file.clock
+		},
 	}
 }
 
@@ -128,7 +135,8 @@ func TestVerifyHold(t *testing.T) {
 			}
 			for _, value := range file.restores {
 				if value != original {
-					t.Errorf("restored %d, want the value read before the hold, %d", value, original)
+					t.Errorf("restored %d, want the value read before the hold, %d", value,
+						uint64(original))
 				}
 			}
 		})
@@ -179,6 +187,33 @@ func TestVerifyHoldJudgesTheSecondReadingOnItsOwn(t *testing.T) {
 			}
 			if test.restores && file.accessTime != test.before {
 				t.Errorf("time %d after the restore, want %d", file.accessTime, test.before)
+			}
+		})
+	}
+}
+
+func TestTheCeilingCountsFromTheAnchorWhenTheClockIsUnset(t *testing.T) {
+	// unixEpoch is the first day of 1970, what an unset clock may read.
+	const unixEpoch = 116_444_736_000_000_000
+	cases := []struct {
+		name     string
+		after    uint64
+		want     string
+		restores bool
+	}{
+		{"an ordinary time is another reader's", fakeNow, reasonChanged, false},
+		{"a time just past the anchor is another reader's", anchorTime + twoDays, reasonChanged, false},
+		{"a time 60 years past the anchor is a misread", anchorTime + sixtyYears, reasonRestored, true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			after := test.after
+			file := fakeFile{accessTime: original, clock: unixEpoch,
+				onHold: func(uint64) uint64 { return after }}
+			got := verifyHold(file.steps())
+			if got != test.want || (len(file.restores) > 0) != test.restores {
+				t.Errorf("reason %q, restores %v; want %q, a restore sent %v", got, file.restores,
+					test.want, test.restores)
 			}
 		})
 	}
