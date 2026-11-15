@@ -121,3 +121,16 @@ const reparsePointAttribute = 0x400
 func IsLink(meta fsmeta.Meta) bool {
 	return meta.Kind == fsmeta.Symlink || meta.Attributes&reparsePointAttribute != 0
 }
+
+// NotALink reports whether path is a reparse point that is not a link (a
+// cloud-file placeholder, a deduplicated file, an AF_UNIX socket): the root
+// check refuses it, since a filter driver on the analyst's machine may act on
+// it, but it leads nowhere, so a log line must not call it a link. Never on
+// Unix.
+func NotALink(path string) bool {
+	meta, err := fsmeta.Lstat(path)
+	return err == nil && meta.Kind != fsmeta.Symlink && meta.Attributes&reparsePointAttribute != 0
+}
+
+// NotALinkReason is the end of a log line for a path NotALink reports.
+const NotALinkReason = "is a reparse point that is not a link; nothing behind it was looked at"

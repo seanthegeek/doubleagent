@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -195,8 +196,11 @@ func (run *search) logOutOfRoot(links []string) error {
 			continue
 		}
 		run.outOfRoot[link] = true
-		err := run.logSkip("startup files: " + syspath.ToNative(link) +
-			" leads out of the image root; nothing behind it was listed")
+		reason := "leads out of the image root; nothing behind it was listed"
+		if follow.NotALink(link) {
+			reason = follow.NotALinkReason
+		}
+		err := run.logSkip("startup files: " + syspath.ToNative(link) + " " + reason)
 		if err != nil {
 			return err
 		}

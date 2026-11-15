@@ -36,9 +36,11 @@ func (state *runState) findHomes(ctx context.Context) error {
 		return err
 	}
 	for _, link := range report.OutOfRoot {
-		line := "user homes: " + syspath.ToNative(link) +
-			" leads out of the image root; nothing behind it was listed or taken as a home"
-		if err := state.log.Line(line); err != nil {
+		reason := "leads out of the image root; nothing behind it was listed or taken as a home"
+		if follow.NotALink(link) {
+			reason = follow.NotALinkReason
+		}
+		if err := state.log.Line("user homes: " + syspath.ToNative(link) + " " + reason); err != nil {
 			return err
 		}
 	}
@@ -197,8 +199,11 @@ func (state *runState) rootExit(path string) (string, bool) {
 // listed, stat'ed or read. It says nothing of whether any source exists
 // behind it, which only the analyst's host could answer.
 func refusedSourceLine(refusal projects.Refusal) string {
-	return "Discovery [" + refusal.User + "] " + syspath.ToNative(refusal.Link) +
-		": the symlink leads out of the image root; nothing behind it was listed or read"
+	line := "Discovery [" + refusal.User + "] " + syspath.ToNative(refusal.Link)
+	if follow.NotALink(refusal.Link) {
+		return line + " " + follow.NotALinkReason
+	}
+	return line + ": the symlink leads out of the image root; nothing behind it was listed or read"
 }
 
 // projectNotWalked reports whether the project step leaves path, a project,

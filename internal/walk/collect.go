@@ -105,6 +105,10 @@ func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun
 	line := "  [" + match.Agent + "] " + syspath.ToNative(link) +
 		": the symlinked directory leads out of the image root; nothing under it was listed," +
 		" not walked"
+	if follow.NotALink(link) {
+		line = "  [" + match.Agent + "] " + syspath.ToNative(link) + " " + follow.NotALinkReason +
+			", not walked"
+	}
 	if err := collector.logLines(run, line); err != nil || collector.Inventory {
 		return err
 	}

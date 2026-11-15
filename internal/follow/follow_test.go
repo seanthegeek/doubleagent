@@ -78,3 +78,12 @@ func TestIsDirectoryAnswersWithoutACheckRefusal(t *testing.T) {
 		t.Error("an unrelated error read as a refusal")
 	}
 }
+
+func TestNotALinkIsFalseForPlainEntries(t *testing.T) {
+	directory := syspath.FromNative(t.TempDir())
+	for _, path := range []string{directory, directory + "/missing"} {
+		if NotALink(path) {
+			t.Errorf("NotALink(%s) = true, want false", path)
+		}
+	}
+}

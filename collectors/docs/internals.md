@@ -508,6 +508,14 @@ Both scripts read and list through such a link, which in image mode reads
 the analyst's own host: the binary differs on purpose. A live run has no
 root to leave and reads every source as the host holds it.
 
+A reparse point that is not a link (a cloud-file placeholder, a
+deduplicated file, an AF_UNIX socket) on such a path is refused the same
+way, since a filter driver on the analyst's machine may act on it, but the
+line says what it is instead of calling it a link:
+`Discovery [alice] /img/home/alice/.claude.json is a reparse point that is not a link; nothing behind it was looked at`.
+The other steps' lines (`user homes:`, `docker:`, `startup files:` and the
+catalog walk's) word it the same way.
+
 The binary logs a project the run lists but does not walk with one line
 and writes no row for it:
 `Project [alice] /img/home/alice/.claude/ext/proj: under the symlinked directory /img/home/alice/.claude/ext, which leads out of the image root; not walked`
