@@ -16,6 +16,9 @@ import (
 // grep then takes the file as binary and prints none of its lines, so the
 // caller discards what each gathered. A read error keeps the lines before it.
 func (s *homeScan) scanLines(path string, each func(line []byte)) bool {
+	if s.leaves(path) {
+		return false
+	}
 	handle, err := s.opener.OpenRegular(path)
 	if err != nil {
 		return false
@@ -53,6 +56,9 @@ func (s *homeScan) grepFiles(files []string, extract func(line []byte) []string)
 // readWhole returns the bytes of the regular file at path, or false when it
 // cannot be opened or holds a NUL byte (the binary-file rule of scanLines).
 func (s *homeScan) readWhole(path string) ([]byte, bool) {
+	if s.leaves(path) {
+		return nil, false
+	}
 	handle, err := s.opener.OpenRegular(path)
 	if err != nil {
 		return nil, false
@@ -71,8 +77,18 @@ func isDirectory(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// isRegularFile is test -f: true for a regular file or a link to one.
-func isRegularFile(path string) bool {
+// isDirectory is the scan's test -d: false, without a stat, for a path
+// leading out of the image root.
+func (s *homeScan) isDirectory(path string) bool {
+	return !s.leaves(path) && isDirectory(path)
+}
+
+// isRegularFile is test -f: true for a regular file or a link to one, and
+// false, without a stat, for a path leading out of the image root.
+func (s *homeScan) isRegularFile(path string) bool {
+	if s.leaves(path) {
+		return false
+	}
 	info, err := osfile.Stat(path)
 	return err == nil && info.Mode().IsRegular()
 }
@@ -92,14 +108,17 @@ func expandIn(base string, patterns ...string) []string {
 // order `find DIR -name PATTERN` lists them: depth first, each directory's
 // entries in the order the directory returns them, never descending a
 // symlink. A dir that is itself a symlink gives nothing, as find without -L
-// does not enter it.
-func findNamed(ctx context.Context, dir, pattern string) []string {
+// does not enter it, and so does one whose path leads out of the image root.
+func (s *homeScan) findNamed(dir, pattern string) []string {
+	if s.leaves(dir) {
+		return nil
+	}
 	info, err := osfile.Lstat(dir)
 	if err != nil || !info.IsDir() {
 		return nil
 	}
 	var found []string
-	walkNamed(ctx, dir, pattern, &found)
+	walkNamed(s.ctx, dir, pattern, &found)
 	return found
 }
 

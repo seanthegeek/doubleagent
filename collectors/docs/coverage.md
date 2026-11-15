@@ -180,6 +180,11 @@ the matched path.
   the staged path resolves to the source, the copy fails, and the log line ends `staged path
   resolves outside the staging directory, not removed`, since the collector never removes a
   file outside the staging directory.
+- Project discovery reads the agents' state through such a link too, in both scripts. In
+  image mode the `doubleagent` binary does not: a discovery source whose path leads out of
+  the image root through a link is not read, so the projects it names on the analyst's own
+  host are not collected, and the log names the source
+  ([Project discovery in `internals.md`](internals.md#project-discovery)).
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
   `bar|b/sub` names the same files; the archive holds the last copy of a file and the link
   the first row recreated, which the second leaves as it is: `ln -s` onto a link to a

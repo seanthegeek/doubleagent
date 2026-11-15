@@ -435,6 +435,34 @@ func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) 
 	requireOnce(t, "stdout", stdout.String(), "\nprojects:   0\n")
 }
 
+func TestDiscoveryReadsNoSourceThroughALinkOutOfTheRoot(t *testing.T) {
+	outside, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside = syspath.FromNative(outside)
+	if err := os.WriteFile(outside+"/history.jsonl", []byte(`{"project":"/p/proj"}`+"\n"),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := writeImage(t, map[string]string{"p/proj/CLAUDE.md": "# proj\n", "home/alice/notes": ""},
+		map[string]string{"home/alice/.claude": outside})
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	options := testOptions(root, outDir)
+	if code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	native := syspath.ToNative
+	requireOnce(t, "the log", runOutput(t, outDir, ".log"), "Discovery source [alice] "+
+		native(root+"/home/alice/.claude/history.jsonl")+": under the symlinked directory "+
+		native(root+"/home/alice/.claude")+", which leads out of the image root; not read\n")
+	if rowUnder(t, outDir, root+"/p/") {
+		t.Error("the manifest holds a row from the project the outside source names")
+	}
+	requireOnce(t, "stdout", stdout.String(), "\nprojects:   0\n")
+}
+
 func TestProbeWrite(t *testing.T) {
 	writable := syspath.FromNative(t.TempDir())
 	cases := []struct {

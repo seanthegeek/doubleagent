@@ -22,34 +22,47 @@ type Project struct {
 	Path  string
 }
 
+// Refusal is a discovery source of User's home that was not read, nor
+// stat'ed through, because its path leads out of the image root at Link: a
+// symlinked directory on its path, or Source itself when it is the link.
+type Refusal struct {
+	User   string
+	Source string
+	Link   string
+}
+
+// RootExit reports whether path leads out of the image root through a link,
+// and the link where it does (walk.LeavesRootAt).
+type RootExit func(path string) (link string, leaves bool)
+
 // Discover returns the canonical paths of the projects named in the state of
 // each home (localProjectPath under the host's rules and root, "" or "/"
 // live), then the absolute -p directories in extra, in first-seen order, each
 // once (ignoring case on Windows) with its first non-empty owner, keeping
 // directories (test -d) that are not a home. dropSecret, nil outside
 // --inventory, names the files, relative to their home, not to read.
-// outOfScope, nil live, names the paths that leave the image root, kept
-// without the directory test, which would answer for the analyst's host.
-// opener reads every file read here (nil: see fsmeta.Opener). Only a
-// cancelled ctx is an error.
+// outOfScope, nil live, names the paths leaving the image root: such a
+// project is kept untested (test -d would answer for the analyst's host), and
+// such a source is neither read nor probed but returned as a Refusal. opener
+// reads every file (nil: see fsmeta.Opener). Only a cancelled ctx is an error.
 func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
-	dropSecret func(relative string) bool, outOfScope func(path string) bool,
-	opener *fsmeta.Opener,
-) ([]Project, error) {
+	dropSecret func(relative string) bool, outOfScope RootExit, opener *fsmeta.Opener,
+) ([]Project, []Refusal, error) {
 	root = strings.TrimSuffix(root, "/")
 	userList := userListText(homes)
 	rules := platformRules()
 	var found []Project
+	var refused []Refusal
 	for _, line := range strings.Split(userList, "\n") {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		user, home, _ := strings.Cut(line, ":")
 		if home == "" {
 			continue
 		}
-		scan := &homeScan{ctx: ctx, root: root, home: home, rules: rules,
-			dropSecret: dropSecret, opener: opener}
+		scan := &homeScan{ctx: ctx, root: root, user: user, home: home, rules: rules,
+			dropSecret: dropSecret, outOfScope: outOfScope, opener: opener}
 		scan.claudeCodeSources()
 		scan.cliSessionSources()
 		scan.geminiSources()
@@ -59,16 +72,17 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 		for _, path := range scan.paths() {
 			found = append(found, Project{Owner: user, Path: path})
 		}
+		refused = append(refused, scan.refused...)
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, path := range strings.Split(strings.Join(extra, "\n"), "\n") {
 		if syspath.IsAbs(path) {
 			found = append(found, Project{Owner: projectOwner(userList, path), Path: path})
 		}
 	}
-	return keepProjectDirs(mergeProjectOwners(found), userList, outOfScope), nil
+	return keepProjectDirs(mergeProjectOwners(found), userList, outOfScope), refused, nil
 }
 
 // userListText is the sh collector's USER_LIST: one user:home line per home.
@@ -128,12 +142,14 @@ func mergeProjectOwners(found []Project) []Project {
 // text after some colon ending a line, ignoring case on Windows. A path
 // outOfScope (when not nil) names skips the directory test and is never
 // stat'ed.
-func keepProjectDirs(projects []Project, userList string,
-	outOfScope func(path string) bool) []Project {
+func keepProjectDirs(projects []Project, userList string, outOfScope RootExit) []Project {
 	listed := "\n" + syspath.Fold(userList)
 	var kept []Project
 	for _, project := range projects {
-		skipTest := outOfScope != nil && outOfScope(project.Path)
+		skipTest := false
+		if outOfScope != nil {
+			_, skipTest = outOfScope(project.Path)
+		}
 		if !skipTest && !isDirectory(project.Path) {
 			continue
 		}

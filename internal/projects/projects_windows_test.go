@@ -27,7 +27,7 @@ func TestDiscoverReadsDrivePathsAndIgnoresCase(t *testing.T) {
 		"home/alice/.codex/worktrees/w")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
 	extra := []string{root + "/HOME/alice/INSIDE", root + "/HOME/ALICE/other"}
-	got, err := Discover(context.Background(), homes, root, extra, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, extra, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestDiscoverRespellsAProjectAsTheDiskHoldsIt(t *testing.T) {
 			`{"project":"C:\\IMG"}` + "\n",
 	}, "\u00e9mile", "img", "\u0131mg")
 	homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
-	got, err := Discover(context.Background(), homes, root, nil, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestDiscoverReadsDriveKeysAndStrings(t *testing.T) {
 			writeTree(t, root, map[string]string{"Users/alice/" + testCase.source: testCase.content},
 				testCase.project)
 			homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
-			got, err := Discover(context.Background(), homes, root, nil, nil, nil, nil)
+			got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -191,4 +191,12 @@ func mountPointData(substitute, printName string) []byte {
 		data = binary.LittleEndian.AppendUint16(data, unit)
 	}
 	return data
+}
+
+// linkDirectory makes link a junction to the directory target, both
+// canonical: the runner may not create symlinks, and the out-of-root test
+// treats a junction as a symlinked directory.
+func linkDirectory(t *testing.T, target, link string) {
+	t.Helper()
+	makeJunction(t, target, link)
 }

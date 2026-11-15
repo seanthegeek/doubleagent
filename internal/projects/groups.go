@@ -66,7 +66,7 @@ func (s *homeScan) gooseSources() {
 		s.home + "/AppData/Roaming/Block/goose/data/schedule.json"})
 	for _, project := range s.expand(".local/share/goose/projects/*.md",
 		"AppData/Roaming/Block/goose/data/projects/*.md") {
-		if isRegularFile(project) {
+		if s.isRegularFile(project) {
 			s.emit(gooseWorkingDirs(s.lines(project)))
 		}
 	}
@@ -84,7 +84,7 @@ func (s *homeScan) agentSessionSources() {
 	s.gooseSources()
 	var copilot []string
 	for _, events := range s.expand(".copilot/session-state/*/events.jsonl") {
-		if isRegularFile(events) {
+		if s.isRegularFile(events) {
 			workspace := events[:len(events)-len("events.jsonl")] + "workspace.yaml"
 			copilot = append(copilot,
 				s.grepFiles(s.readable([]string{workspace}), yamlValueMatcher("cwd"))...)
@@ -133,7 +133,7 @@ func (s *homeScan) configFileSources() {
 		s.emit(s.grepFiles(s.readable(configs), json5ValueMatcher(key)))
 	}
 	for _, file := range s.expand(".nanobot*/sessions/*/.workspace") {
-		if isRegularFile(file) {
+		if s.isRegularFile(file) {
 			s.emit(s.lines(file))
 		}
 	}
@@ -141,7 +141,7 @@ func (s *homeScan) configFileSources() {
 	s.emit(s.grepFiles(s.readable([]string{s.home + "/.tabby/config.toml"}),
 		tomlFileURLMatcher("git_url")))
 	for _, manifest := range s.expand(".twinny/embeddings/*/manifest.json") {
-		if !isRegularFile(manifest) {
+		if !s.isRegularFile(manifest) {
 			continue
 		}
 		if dir, ok := commonDir(s.absStrings([]string{manifest})); ok {
@@ -156,11 +156,11 @@ func (s *homeScan) configFileSources() {
 func (s *homeScan) editorSources() {
 	for _, userDir := range s.expand("Library/Application Support/*/User", ".config/*/User",
 		"AppData/Roaming/*/User", ".*-server*/data/User") {
-		if !isDirectory(userDir) {
+		if !s.isDirectory(userDir) {
 			continue
 		}
-		if storage := userDir + "/workspaceStorage"; isDirectory(storage) {
-			s.emit(s.grepFiles(findNamed(s.ctx, storage, "workspace.json"), workspaceFolderMatcher()))
+		if storage := userDir + "/workspaceStorage"; s.isDirectory(storage) {
+			s.emit(s.grepFiles(s.findNamed(storage, "workspace.json"), workspaceFolderMatcher()))
 		}
 		global := userDir + "/globalStorage"
 		s.jsonValues("cwdOnTaskInitialization", expandIn(global,

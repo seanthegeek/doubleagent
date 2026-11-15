@@ -3,6 +3,7 @@ package projects
 import (
 	"bytes"
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -16,11 +17,31 @@ import (
 type homeScan struct {
 	ctx        context.Context
 	root       string
+	user       string
 	home       string
 	rules      pathRules
 	dropSecret func(relative string) bool
+	outOfScope RootExit
 	opener     *fsmeta.Opener
 	stream     bytes.Buffer
+	refused    []Refusal
+}
+
+// leaves reports whether path, a source or a directory of sources, leads out
+// of the image root through a link, and records each such path once as a
+// Refusal. A live run (no outOfScope) has no image root to leave, so nothing
+// is refused there and every source is read as the host holds it.
+func (s *homeScan) leaves(path string) bool {
+	if s.outOfScope == nil {
+		return false
+	}
+	link, leaves := s.outOfScope(path)
+	if leaves && !slices.ContainsFunc(s.refused, func(refusal Refusal) bool {
+		return refusal.Source == path
+	}) {
+		s.refused = append(s.refused, Refusal{User: s.user, Source: path, Link: link})
+	}
+	return leaves
 }
 
 // emit writes each value to the stream as one line.
@@ -56,7 +77,7 @@ func (s *homeScan) jsonValues(key string, files []string) {
 
 // jsonPathKeys is json_path_keys over one file: next follows the colon.
 func (s *homeScan) jsonPathKeys(file, next string) {
-	if isRegularFile(file) && len(s.readable([]string{file})) == 1 {
+	if s.isRegularFile(file) && len(s.readable([]string{file})) == 1 {
 		s.emit(s.grepFiles([]string{file}, jsonPathKeyMatcher(next, s.rules)))
 	}
 }
@@ -69,10 +90,10 @@ func (s *homeScan) absStrings(files []string) []string {
 // sessionCwds is session_cwds: the cwd values of the files named name below
 // dir, unfiltered and not read through readable, as find feeds grep directly.
 func (s *homeScan) sessionCwds(dir, name string) []string {
-	if !isDirectory(dir) {
+	if !s.isDirectory(dir) {
 		return nil
 	}
-	return s.grepFiles(findNamed(s.ctx, dir, name), sessionCwdMatcher())
+	return s.grepFiles(s.findNamed(dir, name), sessionCwdMatcher())
 }
 
 // emitOutside emits the values whose path does not lie at or under any of

@@ -92,7 +92,7 @@ func TestDiscoverJoinsACopiedFileToTheNextValue(t *testing.T) {
 		"home/alice/.gemini/antigravity-cli/history.jsonl": `{"workspace":"/c"}`,
 	}, "srv/a/srv/b/c")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
-	got, err := Discover(context.Background(), homes, root, nil, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestDiscoverInventoryReadsNoSecretFile(t *testing.T) {
 	dropSecret := func(relative string) bool {
 		return relative == ".claude/history.jsonl" || relative == ".gemini/tmp/x/.project_root"
 	}
-	got, err := Discover(context.Background(), homes, root, nil, dropSecret, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, dropSecret, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestDiscoverMergesAndFilters(t *testing.T) {
 		{User: "bob", Path: root + "/home/bob"}}
 	extra := []string{root + "/srv/given", root + "/home/bob/inside", root + "/srv/bobs",
 		"relative", root + "/srv/missing"}
-	got, err := Discover(context.Background(), homes, root+"/", extra, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root+"/", extra, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,10 +151,12 @@ func TestDiscoverMergesAndFilters(t *testing.T) {
 func TestKeepProjectDirsKeepsAPathOutOfScopeUntested(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string]string{"srv/file": ""}, "srv/dir")
-	outOfScope := func(path string) bool { return strings.HasPrefix(path, root+"/out/") }
+	outOfScope := func(path string) (string, bool) {
+		return root + "/out", strings.HasPrefix(path, root+"/out/")
+	}
 	cases := []struct {
 		name       string
-		outOfScope func(string) bool
+		outOfScope RootExit
 		want       []Project
 	}{
 		{"a path out of scope is kept though no directory is there", outOfScope,
@@ -201,7 +203,7 @@ func TestDiscoverStopsWhenCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	homes := []users.Home{{User: "alice", Path: t.TempDir()}}
-	if _, err := Discover(ctx, homes, "", nil, nil, nil, nil); !errors.Is(err, context.Canceled) {
+	if _, _, err := Discover(ctx, homes, "", nil, nil, nil, nil); !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }

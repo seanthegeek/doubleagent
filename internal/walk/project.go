@@ -148,8 +148,21 @@ func ProjectOutOfRoot(root, project string) (string, bool) {
 // the root cannot be read (missing, unreadable, a link loop) does not count:
 // that answer is the image's own, whatever the host holds.
 func ProjectLeavesRoot(root, project string) bool {
-	found := projectScope(root, project, imageProbes())
-	return found.name != "" && !found.inImage
+	_, leaves := LeavesRootAt(root, project)
+	return leaves
+}
+
+// LeavesRootAt reports what ProjectLeavesRoot reports for path, any path
+// under the image root root, and the path that decides it, spelled under the
+// root as given: the first symlinked directory (or, on Windows, junction) of
+// path, path itself included, whose target leads out of the root. Project
+// discovery asks it before reading a source.
+func LeavesRootAt(root, path string) (string, bool) {
+	found := projectScope(root, path, imageProbes())
+	if found.name == "" || found.inImage {
+		return "", false
+	}
+	return found.name, true
 }
 
 // imageProbes returns the probes of the file system itself.

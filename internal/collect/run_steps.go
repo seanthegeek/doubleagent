@@ -119,16 +119,22 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	if state.options.Inventory {
 		dropSecret = walk.MatchAny(state.tables.SecretGlobs)
 	}
-	var leavesRoot func(string) bool
+	// Live, there is no image root for a path to lead out of.
+	var leavesRoot projects.RootExit
 	if state.options.Root != "" {
-		leavesRoot = state.projectLeavesRoot
+		leavesRoot = state.rootExit
 	}
-	found, err := projects.Discover(ctx, state.homes, state.options.Root, state.options.Projects,
-		dropSecret, leavesRoot, state.opener)
+	found, refused, err := projects.Discover(ctx, state.homes, state.options.Root,
+		state.options.Projects, dropSecret, leavesRoot, state.opener)
 	if err != nil {
 		return err
 	}
 	state.projects = found
+	for _, refusal := range refused {
+		if err := state.log.Line(refusedSourceLine(refusal)); err != nil {
+			return err
+		}
+	}
 	if err := state.reportMissingProjects(); err != nil || state.options.Inventory {
 		return err
 	}
@@ -170,6 +176,24 @@ func enclosingHome(homes []users.Home, path string) string {
 // the project step logs the project as not walked instead.
 func (state *runState) projectLeavesRoot(path string) bool {
 	return walk.ProjectLeavesRoot(state.options.Root, path)
+}
+
+// rootExit reports whether path, under the image root, leads out of it
+// through a link, and the link (walk.LeavesRootAt).
+func (state *runState) rootExit(path string) (string, bool) {
+	return walk.LeavesRootAt(state.options.Root, path)
+}
+
+// refusedSourceLine is the log line of a discovery source that was not read
+// because its path leads out of the image root, worded as the catalog walk's
+// line for a match under such a link, so an analyst sees the source existed.
+func refusedSourceLine(refusal projects.Refusal) string {
+	line := "Discovery source [" + refusal.User + "] " + syspath.ToNative(refusal.Source)
+	if refusal.Link == refusal.Source {
+		return line + ": a symlink that leads out of the image root; not read"
+	}
+	return line + ": under the symlinked directory " + syspath.ToNative(refusal.Link) +
+		", which leads out of the image root; not read"
 }
 
 // projectNotWalked reports whether the project step leaves path, a project,
