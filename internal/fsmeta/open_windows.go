@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"time"
 	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -54,10 +55,9 @@ func (o *Opener) openHolding(path string, name *uint16) (windows.Handle, error) 
 			continue
 		}
 		if access&windows.FILE_WRITE_ATTRIBUTES != 0 {
-			return o.holdOn(path, name, handle)
-		}
-		if i > 0 {
-			o.report(path, reasonRightRefused)
+			o.report(path, handle, o.holdOn(handle))
+		} else if i > 0 {
+			o.report(path, handle, reasonRightRefused)
 		}
 		return handle, nil
 	}
@@ -65,30 +65,43 @@ func (o *Opener) openHolding(path string, name *uint16) (windows.Handle, error) 
 }
 
 // holdOn asks the file system to hold the access time of the file open on
-// handle and checks that it did (verifyHold), reporting under path any
-// reason the hold is not in place. Where the hold was misread, handle is
-// closed and the file name names is opened again for reading only.
-func (o *Opener) holdOn(path string, name *uint16, handle windows.Handle) (windows.Handle, error) {
-	outcome := verifyHold(holdSteps{
+// handle, checks that it did (verifyHold) and returns the reason the hold
+// is not in place, or "". The file is read through handle whatever the
+// outcome: a misread hold has nothing left to update once set back.
+func (o *Opener) holdOn(handle windows.Handle) string {
+	return verifyHold(holdSteps{
 		accessTime: func() (uint64, error) { return accessTimeOn(handle) },
 		hold:       func() error { return HoldTimes(handle, false) },
 		restore:    func(accessTime uint64) error { return setAccessTime(handle, accessTime) },
+		now:        currentFiletime,
 	})
-	if outcome.reason != "" {
-		o.report(path, outcome.reason)
-	}
-	if !outcome.reopen {
-		return handle, nil
-	}
-	windows.CloseHandle(handle)
-	return createSource(name, windows.GENERIC_READ)
 }
 
-// report passes path and reason to Report, when there is one.
-func (o *Opener) report(path, reason string) {
-	if o != nil && o.Report != nil {
+// report passes path and reason to Report, when there is one and the
+// reason is reported on the volume of the file open on handle
+// (reportsOnVolume).
+func (o *Opener) report(path string, handle windows.Handle, reason string) {
+	if o == nil || o.Report == nil {
+		return
+	}
+	if reportsOnVolume(reason, func() bool { return onReadOnlyVolume(handle) }) {
 		o.Report(path, reason)
 	}
+}
+
+// onReadOnlyVolume reports whether the volume the file handle is open on
+// is read-only (FILE_READ_ONLY_VOLUME). A volume whose flags cannot be read,
+// a share among them (SMB answers no volume query), counts as writable.
+func onReadOnlyVolume(handle windows.Handle) bool {
+	var flags uint32
+	err := windows.GetVolumeInformationByHandle(handle, nil, 0, nil, nil, &flags, nil, 0)
+	return err == nil && flags&windows.FILE_READ_ONLY_VOLUME != 0
+}
+
+// currentFiletime reads this machine's clock as the count a FILETIME holds.
+func currentFiletime() uint64 {
+	now := windows.NsecToFiletime(time.Now().UnixNano())
+	return uint64(now.HighDateTime)<<32 | uint64(now.LowDateTime)
 }
 
 // accessTimeOn reads the last-access time of the file open on handle, as
@@ -103,7 +116,9 @@ func accessTimeOn(handle windows.Handle) (uint64, error) {
 }
 
 // setAccessTime sets the last-access time of the file open on handle to
-// accessTime and leaves its creation and write times alone (nil).
+// accessTime, passing no creation or write time (nil). On NTFS this also
+// moves the file's change time, even to the value already there, and may
+// add a change-journal record.
 func setAccessTime(handle windows.Handle, accessTime uint64) error {
 	value := windows.Filetime{LowDateTime: uint32(accessTime), HighDateTime: uint32(accessTime >> 32)}
 	return windows.SetFileTime(handle, nil, &value, nil)

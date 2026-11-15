@@ -120,10 +120,27 @@ func (state *runState) exitCode(ctx context.Context, err error) int {
 }
 
 // execute runs the steps after the outputs are open, in the sh collector's
-// order, stopping at the first failure or when ctx is cancelled. The count
-// of files read without the access-time hold is logged after the last read,
-// before the archive takes its copy of the log.
+// order, stopping at the first failure or when ctx is cancelled. Every file
+// is read by then, so the count of those read without the access-time hold
+// is logged next, whatever the outcome, and before the archive takes its
+// copy of the log.
 func (state *runState) execute(ctx context.Context) error {
+	err := state.runSteps(ctx)
+	if countErr := state.logNotHeld(); err == nil {
+		err = countErr
+	}
+	switch {
+	case err != nil:
+		return err
+	case state.options.Inventory:
+		return state.writeInventory(ctx)
+	}
+	return state.writeArchive(ctx)
+}
+
+// runSteps runs the steps that read the evidence, stopping at the first
+// failure or when ctx is cancelled.
+func (state *runState) runSteps(ctx context.Context) error {
 	steps := []func(context.Context) error{
 		state.startLog, state.findHomes, state.collectHomes, state.collectVolumes,
 		state.collectProjects, state.searchRelocation,
@@ -136,14 +153,5 @@ func (state *runState) execute(ctx context.Context) error {
 			return err
 		}
 	}
-	if state.options.Inventory {
-		if err := state.writeInventory(ctx); err != nil {
-			return err
-		}
-		return state.logNotHeld()
-	}
-	if err := state.logNotHeld(); err != nil {
-		return err
-	}
-	return state.writeArchive(ctx)
+	return nil
 }

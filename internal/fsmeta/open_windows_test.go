@@ -1,6 +1,7 @@
 package fsmeta
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
@@ -195,7 +197,8 @@ func denyTimeSetting(t *testing.T, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES, shareAll, nil,
+	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil,
 		windows.OPEN_EXISTING, 0, 0)
 	if err == nil {
 		_ = windows.CloseHandle(handle)
@@ -271,5 +274,83 @@ func TestNoPreserveAtimeReportsNothing(t *testing.T) {
 	denyTimeSetting(t, path)
 	if reports := readThrough(t, NewOpener(true, false), path); len(reports) != 0 {
 		t.Errorf("reports %q, want none: no hold was wanted", reports)
+	}
+}
+
+// basicTimesOf returns the creation, access, write and change times of
+// path (FILE_BASIC_INFO), the change time being the last change to the
+// file's record, read through a handle opened for attributes alone.
+func basicTimesOf(t *testing.T, path string) [4]uint64 {
+	t.Helper()
+	handle := attributeHandle(t, path, windows.FILE_READ_ATTRIBUTES)
+	defer windows.CloseHandle(handle)
+	var basic struct {
+		times      [4]uint64
+		attributes uint32
+		_          uint32
+	}
+	if err := windows.GetFileInformationByHandleEx(handle, windows.FileBasicInfo,
+		(*byte)(unsafe.Pointer(&basic)), uint32(unsafe.Sizeof(basic))); err != nil {
+		t.Fatal(err)
+	}
+	return basic.times
+}
+
+// attributeHandle opens path for access alone, through its own reparse
+// point.
+func attributeHandle(t *testing.T, path string, access uint32) windows.Handle {
+	t.Helper()
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, access, shareAll, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return handle
+}
+
+// fileUSN returns the number of the last change-journal record written for
+// path (FSCTL_READ_FILE_USN_DATA), or the error that says the volume keeps
+// no journal. The record is USN_RECORD_V2 (Usn at byte 24) or V3 (Usn at
+// byte 40), told apart by MajorVersion at byte 4.
+func fileUSN(t *testing.T, path string) (uint64, error) {
+	t.Helper()
+	handle := attributeHandle(t, path, windows.FILE_READ_ATTRIBUTES)
+	defer windows.CloseHandle(handle)
+	versions := [2]uint16{2, 3}
+	record := make([]byte, 1024)
+	var returned uint32
+	err := windows.DeviceIoControl(handle, windows.FSCTL_READ_FILE_USN_DATA,
+		(*byte)(unsafe.Pointer(&versions[0])), uint32(unsafe.Sizeof(versions)),
+		&record[0], uint32(len(record)), &returned, nil)
+	if err != nil {
+		return 0, err
+	}
+	if binary.LittleEndian.Uint16(record[4:]) == 3 {
+		return binary.LittleEndian.Uint64(record[40:]), nil
+	}
+	return binary.LittleEndian.Uint64(record[24:]), nil
+}
+
+func TestSettingTheAccessTimeLeavesTheCreationAndWriteTimes(t *testing.T) {
+	path := tempFile(t)
+	before := basicTimesOf(t, path)
+	usnBefore, usnErr := fileUSN(t, path)
+	handle := attributeHandle(t, path, windows.FILE_READ_ATTRIBUTES|windows.FILE_WRITE_ATTRIBUTES)
+	err := setAccessTime(handle, before[1])
+	windows.CloseHandle(handle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after := basicTimesOf(t, path)
+	usnAfter, _ := fileUSN(t, path)
+	t.Logf("change time %d before, %d after (moved %v); journal record %d before, %d after "+
+		"(journal error %v)", before[3], after[3], after[3] != before[3], usnBefore, usnAfter, usnErr)
+	if after[0] != before[0] || after[2] != before[2] || after[1] != before[1] {
+		t.Errorf("creation, access, write times %v after setting the access time, want %v",
+			after[:3], before[:3])
 	}
 }

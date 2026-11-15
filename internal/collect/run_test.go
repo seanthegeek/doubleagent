@@ -829,3 +829,40 @@ func requireDecisionLine(t *testing.T, outDir string, set bool) {
 		t.Errorf("log names an open decision this platform does not make:\n%s", log)
 	}
 }
+
+func TestReadsWithoutTheHoldAreLoggedOncePerReasonAndCountedOnAnyExit(t *testing.T) {
+	outDir := t.TempDir()
+	state, err := prepareRun(testOptions(fixtureImage(t), outDir), testHost(t), io.Discard,
+		io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer state.cleanup()
+	if err := state.openOutputs(); err != nil {
+		t.Fatal(err)
+	}
+	first, second := syspath.FromNative(outDir)+"/a", syspath.FromNative(outDir)+"/b"
+	state.opener.Report(first, "hold not honoured, access time restored")
+	state.opener.Report(first, "hold not honoured, access time restored")
+	state.opener.Report(first, "hold not honoured, restore failed")
+	state.opener.Report(second, "right to hold refused")
+	// A cancelled run stops before its first step and still writes the count.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := state.execute(ctx); err == nil {
+		t.Fatal("a cancelled run reported no error")
+	}
+	state.log.Close()
+	log := runOutput(t, outDir, ".log")
+	want := map[string]int{
+		" access time not held: " + syspath.ToNative(first) + ": hold not honoured, access time restored\n": 1,
+		" access time not held: " + syspath.ToNative(first) + ": hold not honoured, restore failed\n":       1,
+		" access time not held: " + syspath.ToNative(second) + ": right to hold refused\n":                  1,
+		" access times not held: 2 file(s)\n":                                                               1,
+	}
+	for line, count := range want {
+		if got := strings.Count(log, line); got != count {
+			t.Errorf("%q appears %d time(s), want %d:\n%s", line, got, count, log)
+		}
+	}
+}

@@ -58,6 +58,7 @@ type runState struct {
 	accessUpdates accessUpdates
 	opener        *fsmeta.Opener
 	notHeld       map[string]bool
+	notHeldLines  map[[2]string]bool
 
 	homes         []users.Home
 	skippedHomes  []users.Skipped
@@ -92,7 +93,8 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 		tables: tables, plutil: hostcmd.NewPlutil(host.runner), started: host.now().UTC(),
 		dockerRecords: inventory.NewAggregator(), accessUpdates: host.lastAccess()}
 	state.opener = fsmeta.NewOpener(options.NoPreserveAtime, state.accessUpdates == accessOff)
-	state.opener.Report, state.notHeld = state.reportNotHeld, map[string]bool{}
+	state.opener.Report = state.reportNotHeld
+	state.notHeld, state.notHeldLines = map[string]bool{}, map[[2]string]bool{}
 	state.setOutputNames()
 	return state, nil
 }
@@ -305,18 +307,20 @@ func (state *runState) line(text string) {
 }
 
 // reportNotHeld logs a file read without the hold on its access time the
-// run wanted, with the reason, the first time the file is reported, and
-// keeps it for the count logNotHeld writes.
+// run wanted, with the reason, once per file and reason, so a later and
+// worse outcome for the same file is not hidden, and keeps the file for the
+// count logNotHeld writes.
 func (state *runState) reportNotHeld(path, reason string) {
-	if state.notHeld[path] {
+	state.notHeld[path] = true
+	if state.notHeldLines[[2]string{path, reason}] {
 		return
 	}
-	state.notHeld[path] = true
+	state.notHeldLines[[2]string{path, reason}] = true
 	state.line("access time not held: " + syspath.ToNative(path) + ": " + reason)
 }
 
-// logNotHeld logs how many files were read without the hold the run
-// wanted, when there were any.
+// logNotHeld logs how many distinct files were read without the hold the
+// run wanted, when there were any.
 func (state *runState) logNotHeld() error {
 	if len(state.notHeld) == 0 {
 		return nil
