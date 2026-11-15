@@ -10,9 +10,9 @@ import (
 // OnDiskName returns the spelling directory holds for name, which
 // may differ from name in case, and true, as the PowerShell collector's
 // Get-OnDiskName respells a literal catalog segment. It returns name and
-// false when name holds a character the directory search reads as a
-// wildcard, when nothing or more than one entry matches, or when the match
-// is the entry's short 8.3 name rather than a spelling of its name.
+// false for . and .., when name holds a character the directory search reads
+// as a wildcard, when nothing or more than one entry matches, or when the
+// match is the entry's short 8.3 name rather than a spelling of its name.
 func OnDiskName(directory, name string) (string, bool) {
 	spelling, _, respelled := onDiskEntry(directory, name)
 	return spelling, respelled
@@ -51,10 +51,12 @@ func OnDiskPath(path string) string {
 
 // onDiskEntry looks name up in directory with FindFirstFile. exists is true
 // when one entry matches; spelling is that entry's name when respelled is
-// true, else name as given: for a wildcard character in name, several
-// matches, or a match through the entry's short 8.3 name.
+// true, else name as given: for . or .., a wildcard character in name,
+// several matches, or a match through the entry's short 8.3 name.
 func onDiskEntry(directory, name string) (spelling string, exists, respelled bool) {
-	if strings.ContainsAny(name, `*?<>"`) {
+	// Extended resolves . and .. by name, so the search would name another
+	// directory's entry.
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `*?<>"`) {
 		return name, false, false
 	}
 	pattern, err := windows.UTF16PtrFromString(syspath.Extended(directory + "/" + name))
