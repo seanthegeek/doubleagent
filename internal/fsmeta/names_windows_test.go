@@ -164,3 +164,14 @@ func TestOnDiskPathInACaseSensitiveDirectory(t *testing.T) {
 		})
 	}
 }
+
+func TestCaseSensitiveReadsTheDirectorysMark(t *testing.T) {
+	base := OnDiskPath("", syspath.FromNative(t.TempDir()))
+	mkdirExtended(t, base, "plain")
+	if caseSensitive(base + "/plain") {
+		t.Error("caseSensitive of a plain directory = true, want false")
+	}
+	if dir := caseSensitiveDir(t, base); !caseSensitive(dir) {
+		t.Errorf("caseSensitive(%q) = false for a directory marked case-sensitive", dir)
+	}
+}
