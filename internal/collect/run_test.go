@@ -556,16 +556,18 @@ func TestNativePaths(t *testing.T) {
 
 func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 	cases := []struct {
-		name  string
-		found []string
-		want  []string
+		name   string
+		filter string
+		found  []string
+		want   []string
 	}{
-		{"each unmatched name gets a line listing the users found", []string{"alice", "bob"},
-			[]string{"WARNING: -u nobody matches no user; users found: alice, bob\n",
-				"WARNING: -u Eve matches no user; users found: alice, bob\n"}},
-		{"no user found reads none", nil,
-			[]string{"WARNING: -u nobody matches no user; users found: none\n",
-				"WARNING: -u Eve matches no user; users found: none\n"}},
+		{"each unmatched name gets a line listing the users found", "nobody,Eve", []string{"alice", "bob"},
+			[]string{"WARNING: -u nobody matches no user home; homes found for: alice, bob\n",
+				"WARNING: -u Eve matches no user home; homes found for: alice, bob\n"}},
+		{"no user found reads none", "nobody,Eve", nil,
+			[]string{"WARNING: -u nobody matches no user home; homes found for: none\n",
+				"WARNING: -u Eve matches no user home; homes found for: none\n"}},
+		{"a list naming nobody gets one line", ",", nil, []string{"WARNING: -u lists no names\n"}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -576,6 +578,7 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 			outDir := t.TempDir()
 			var stdout, stderr bytes.Buffer
 			options := testOptions(syspath.FromNative(fixtureImage(t)), outDir)
+			options.UsersFilter = test.filter
 			if code := runCollection(context.Background(), options, host, &stdout, &stderr); code != exitOK {
 				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 			}

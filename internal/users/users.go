@@ -44,9 +44,11 @@ type Profile struct {
 // the candidates that could not be seen as directories, and every
 // ProfileList entry in registry order before any filter. Skipped and
 // Profiles are empty off Windows. Found lists, once each in enumeration
-// order, the user names of the candidates the -u list was tested against
-// (system and shared profiles left out); Unmatched the -u names, in the
-// order typed, that matched none of them.
+// order, the users of the homes the run could collect from had -u named
+// them: on Unix the candidates that are not system homes and are
+// directories; on Windows those that are not skipped profiles or files,
+// Skipped ones included. Unmatched lists the -u names, in the order typed,
+// that match none of Found.
 type Report struct {
 	Homes     []Home
 	Skipped   []Skipped
@@ -56,11 +58,13 @@ type Report struct {
 }
 
 // userNames splits the -u list at commas into its names in the order typed,
-// without trimming, empty items and repeats dropped.
-func userNames(usersFilter string) []string {
+// without trimming, empty items dropped and a name that matches an earlier
+// one under matches, the platform's comparison of names, dropped too.
+func userNames(usersFilter string, matches func(name, user string) bool) []string {
 	var names []string
 	for _, name := range strings.Split(usersFilter, ",") {
-		if name != "" && !slices.Contains(names, name) {
+		repeated := slices.ContainsFunc(names, func(earlier string) bool { return matches(earlier, name) })
+		if name != "" && !repeated {
 			names = append(names, name)
 		}
 	}

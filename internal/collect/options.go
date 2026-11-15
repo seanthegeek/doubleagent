@@ -269,8 +269,10 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 // and from the drive on a live run. A path starting with lexicalRoot, the
 // root as typed (which may hold a short name or another case the respelled
 // root lost), first has that start replaced by root, so a -p spelled like
-// -r stays under it. It runs once the root is resolved, after
-// ResolveProjects, so the order of the two errors stays the sh collector's.
+// -r stays under it; a -p reaching the root through another short or long
+// spelling or another case of a non-ASCII letter counts as outside the
+// image. It runs once the root is resolved, after ResolveProjects, so the
+// order of the two errors stays the sh collector's.
 func respellProjects(projects []string, lexicalRoot, root string) []string {
 	var respelled []string
 	seen := map[string]bool{}

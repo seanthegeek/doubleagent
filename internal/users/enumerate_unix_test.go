@@ -51,22 +51,28 @@ func TestEnumerateLive(t *testing.T) {
 }
 
 func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
-	root := tree{dirs: []string{"home/alice", "home/bob", "Users/Shared"}}.build(t)
+	root := tree{dirs: []string{"home/alice", "etc"}}.build(t)
+	passwd := "nobody:x:65534:65534::/nonexistent:/bin/false\n" +
+		"www:x:33:33::/var/www:/bin/false\n" + "alice:x:1000:1000::/home/alice:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(root, "etc", "passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cases := []struct {
 		name, filter string
 		unmatched    []string
 	}{
-		{"a name in another case is unmatched, as Unix names are case-sensitive", "ALICE,bob",
+		{"users without a home directory are unmatched", "nobody,www,alice", []string{"nobody", "www"}},
+		{"a name in another case is unmatched, as Unix names are case-sensitive", "ALICE",
 			[]string{"ALICE"}},
-		{"names that exist are all matched", "alice,bob", nil},
+		{"repeats are reported once, in the order typed", "www,alice,www", []string{"www"}},
 		{"no list reports nothing unmatched", "", nil},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			report := Find(false, root, test.filter, nil)
 			if !reflect.DeepEqual(report.Unmatched, test.unmatched) ||
-				!reflect.DeepEqual(report.Found, []string{"alice", "bob"}) {
-				t.Errorf("unmatched %q, found %q; want %q and alice, bob", report.Unmatched,
+				!reflect.DeepEqual(report.Found, []string{"alice"}) {
+				t.Errorf("unmatched %q, found %q; want %q and alice only", report.Unmatched,
 					report.Found, test.unmatched)
 			}
 		})

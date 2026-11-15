@@ -104,7 +104,7 @@ func sortedLines(text string) string {
 // normalWindowsLog returns the log's lines without their times, each start
 // line reduced to what both collectors print, the lines only one collector
 // writes dropped (the binary's find: line for a directory it cannot list and
-// -u warning for a name matching no user; the PowerShell collector's kinds in
+// its WARNING: -u lines about the -u list; the PowerShell collector's kinds in
 // powerShellOnly), its two wordings mapped onto the binary's, and failure
 // reasons cut. binary says the log is the Go binary's; timed says it is the
 // log file, whose lines carry times. Every untimed line of the PowerShell

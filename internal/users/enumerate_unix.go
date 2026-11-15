@@ -49,7 +49,7 @@ func Find(live bool, root, usersFilter string, run Runner) Report {
 		}
 	}
 	return Report{Homes: homes, Found: found,
-		Unmatched: unmatchedUsers(userNames(usersFilter), found, sameName)}
+		Unmatched: unmatchedUsers(userNames(usersFilter, sameName), found, sameName)}
 }
 
 // sameName reports whether a -u name names user: byte for byte, since Unix
@@ -126,7 +126,7 @@ func globHomes(root string) []Home {
 // list did not name, and every home already seen. A home under root is
 // compared with the system list without the root; the root counts as a prefix
 // of the text, so "/tmp/x" also matches "/tmp/xyz/home". found lists the
-// users the -u list was tested against.
+// users of the candidates that pass every test but -u's and are directories.
 func filterHomes(candidates []Home, root, usersFilter string) (kept []Home, found []string) {
 	wanted, filtered := wantedUsers(usersFilter)
 	seen := map[string]struct{}{}
@@ -138,7 +138,9 @@ func filterHomes(candidates []Home, root, usersFilter string) (kept []Home, foun
 		if isSystemHome(relative) {
 			continue
 		}
-		found = addFound(found, home.User)
+		if isDirectory(home.Path) {
+			found = addFound(found, home.User)
+		}
 		if _, named := wanted[home.User]; filtered && !named {
 			continue
 		}

@@ -403,10 +403,14 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 		{"a name matching nothing selects nothing and is reported", "nobody,ALICE",
 			[]string{"alice"}, []string{"nobody"}},
 		{"no list reports nothing unmatched", "", []string{"alice", "\u00e9mile"}, nil},
+		{"a skipped profile is no home for -u", "Public", nil, []string{"Public"}},
+		{"a file candidate is no home for -u", "afile", nil, []string{"afile"}},
+		{"a repeat in another case is reported once", "nobody,NOBODY", nil, []string{"nobody"}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			root := writeTree(t, []string{"Users/alice", "Users/\u00e9mile", "Users/Public"}, nil)
+			root := writeTree(t, []string{"Users/alice", "Users/\u00e9mile", "Users/Public"},
+				[]string{"Users/afile"})
 			report := find(nil, root, test.filter)
 			var homes []string
 			for _, home := range report.Homes {

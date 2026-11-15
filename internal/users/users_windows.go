@@ -58,7 +58,8 @@ func find(reader profileReader, root, usersFilter string) Report {
 	}
 	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil)...)
 	report.Homes, report.Skipped, report.Found = filterProfiles(candidates, usersFilter)
-	report.Unmatched = unmatchedUsers(userNames(usersFilter), report.Found, strings.EqualFold)
+	report.Unmatched = unmatchedUsers(userNames(usersFilter, strings.EqualFold), report.Found,
+		strings.EqualFold)
 	return report
 }
 
@@ -82,7 +83,7 @@ func globHomes(base string, live bool) []Home {
 // Directory.Exists reads it, so a junction or directory symlink whose target
 // is gone is collected, with its error_read row, rather than skipped.
 func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped, []string) {
-	names := userNames(usersFilter)
+	names := userNames(usersFilter, strings.EqualFold)
 	var homes []Home
 	var skipped []Skipped
 	var found []string
@@ -115,9 +116,8 @@ func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped, [
 	return homes, skipped, found
 }
 
-// wantedUser reports whether one of the -u names names user, ignoring the
-// case of every letter (strings.EqualFold, Unicode simple folding), as
-// PowerShell's -contains does. Path keys fold ASCII only because merging two
+// wantedUser reports whether one of the -u names names user, ignoring case
+// for every letter (strings.EqualFold, Unicode simple folding). Path keys fold ASCII only because merging two
 // names NTFS keeps apart would lose evidence; a -u name that matches too much
 // can only select one more home, so this one comparison folds every letter.
 // A non-empty list naming nobody (",") keeps no home.

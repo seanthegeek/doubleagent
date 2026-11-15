@@ -237,11 +237,20 @@ func TestSkipProfile(t *testing.T) {
 }
 
 func TestUserNamesAndUnmatchedUsers(t *testing.T) {
-	if got, want := userNames("bob,,alice,bob, x"), []string{"bob", "alice", " x"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("userNames = %q, want %q", got, want)
+	exact := func(name, user string) bool { return name == user }
+	for _, test := range []struct {
+		name    string
+		matches func(name, user string) bool
+		want    []string
+	}{
+		{"exact names drop only exact repeats", exact, []string{"bob", "alice", " x", "BOB"}},
+		{"folded names drop a repeat in another case", strings.EqualFold, []string{"bob", "alice", " x"}},
+	} {
+		if got := userNames("bob,,alice,bob, x,BOB", test.matches); !reflect.DeepEqual(got, test.want) {
+			t.Errorf("%s: userNames = %q, want %q", test.name, got, test.want)
+		}
 	}
 	found := []string{"alice", "émile"}
-	exact := func(name, user string) bool { return name == user }
 	cases := []struct {
 		name    string
 		names   []string

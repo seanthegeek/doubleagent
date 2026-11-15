@@ -48,16 +48,22 @@ func (state *runState) findHomes(context.Context) error {
 	return state.logUnmatchedUsers(report)
 }
 
-// logUnmatchedUsers writes a warning for each -u name that matched no user,
-// with the users found, so a mistyped name does not pass for a user without
-// files; neither collector writes this line.
+// logUnmatchedUsers writes a warning for each -u name that matched no user
+// home, with the users whose homes were found, so a mistyped name does not
+// pass for a user without files, and one for a -u list that names nobody
+// (","); neither collector writes these lines.
 func (state *runState) logUnmatchedUsers(report users.Report) error {
+	filter := state.options.UsersFilter
+	if filter != "" && strings.Trim(filter, ",") == "" {
+		return state.log.Line("WARNING: -u lists no names")
+	}
 	found := "none"
 	if len(report.Found) > 0 {
 		found = strings.Join(report.Found, ", ")
 	}
 	for _, name := range report.Unmatched {
-		if err := state.log.Line("WARNING: -u " + name + " matches no user; users found: " + found); err != nil {
+		line := "WARNING: -u " + name + " matches no user home; homes found for: " + found
+		if err := state.log.Line(line); err != nil {
 			return err
 		}
 	}
