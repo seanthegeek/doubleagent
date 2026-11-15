@@ -153,9 +153,29 @@ func powerShellArgs(t *testing.T, args []string) []string {
 }
 
 // quotePowerShell returns text as a single-quoted PowerShell literal, in
-// which nothing is expanded and a quote is written twice.
+// which nothing is expanded and a quote is written twice. PowerShell reads
+// the curly single quotes U+2018 to U+201B as single quotes too, so each of
+// them is doubled as well, or one would end the literal.
 func quotePowerShell(text string) string {
-	return "'" + strings.ReplaceAll(text, "'", "''") + "'"
+	quoted := strings.NewReplacer("'", "''", "\u2018", "\u2018\u2018", "\u2019", "\u2019\u2019",
+		"\u201a", "\u201a\u201a", "\u201b", "\u201b\u201b").Replace(text)
+	return "'" + quoted + "'"
+}
+
+func TestQuotePowerShellDoublesEveryKindOfSingleQuote(t *testing.T) {
+	cases := []struct{ name, text, want string }{
+		{"plain text is wrapped", `C:\a b`, `'C:\a b'`},
+		{"an ASCII quote is doubled", "it's", "'it''s'"},
+		{"each curly single quote is doubled", "a\u2018b\u2019c\u201ad\u201be",
+			"'a\u2018\u2018b\u2019\u2019c\u201a\u201ad\u201b\u201be'"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := quotePowerShell(test.text); got != test.want {
+				t.Errorf("quotePowerShell(%q) = %q, want %q", test.text, got, test.want)
+			}
+		})
+	}
 }
 
 // withoutSpace returns text with every white space character removed.

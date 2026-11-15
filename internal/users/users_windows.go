@@ -1,6 +1,7 @@
 package users
 
 import (
+	"fmt"
 	"strings"
 	"syscall"
 
@@ -22,11 +23,11 @@ func homeGlobs(live bool) []string {
 // Find returns the homes to collect, in enumeration order. A live run reads
 // the registry's ProfileList first, then both modes add the directories
 // under the home parents of root (the system drive when live). A candidate
-// that is a file is dropped; one that is not a directory is reported in
-// Skipped, with Denied set when its parent lists it. Both tests read the
-// entry's own attributes, as .NET's File.Exists and Directory.Exists do. The -u list is compared
-// case-insensitively against the user name. A home is kept once, by the case-
-// folded path. run is not used on Windows.
+// that is a file is dropped; one whose entry cannot be looked at is reported
+// in Skipped, with Denied set when its parent lists it. Both tests read the
+// entry's own attributes, as .NET's File.Exists and Directory.Exists do. The
+// -u list is compared case-insensitively against the user name. A home is
+// kept once, by the case-folded path. run is not used on Windows.
 func Find(live bool, root, usersFilter string, _ Runner) Report {
 	var reader profileReader
 	if live {
@@ -65,28 +66,37 @@ func globHomes(base string, live bool) []Home {
 }
 
 // filterProfiles applies the skip list, the file test, the -u list and the
-// directory test to the candidates in order, and drops repeats.
+// directory test to the candidates in order, and drops repeats. One look at
+// each entry's own attributes serves both tests: an entry without the
+// directory attribute is a file, as System.IO.File.Exists reads it, so a
+// file symlink is a file whatever it leads to; one with it is a home, as
+// Directory.Exists reads it, so a junction or directory symlink whose target
+// is gone is collected, with its error_read row, rather than skipped.
 func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped) {
 	wanted, filtered := wantedUsers(usersFilter)
 	var homes []Home
 	var skipped []Skipped
 	seenHomes, seenSkipped := map[string]bool{}, map[string]bool{}
 	for _, candidate := range candidates {
-		if skipProfile(candidate.User) || isFile(candidate.Path) {
+		if skipProfile(candidate.User) {
+			continue
+		}
+		attributes, err := entryAttributes(candidate.Path)
+		if err == nil && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
 			continue
 		}
 		if filtered && !wanted[syspath.Fold(candidate.User)] {
 			continue
 		}
 		key := syspath.Fold(candidate.Path)
-		if isProfileDirectory(candidate.Path) {
+		if err == nil {
 			if !seenHomes[key] {
 				homes = append(homes, candidate)
 			}
 			seenHomes[key] = true
 		} else {
 			if !seenSkipped[key] {
-				skipped = append(skipped, skippedHome(candidate.Path))
+				skipped = append(skipped, skippedHome(candidate.Path, err))
 			}
 			seenSkipped[key] = true
 		}
@@ -107,46 +117,31 @@ func wantedUsers(usersFilter string) (wanted map[string]bool, filtered bool) {
 	return wanted, usersFilter != ""
 }
 
-// isFile reports whether path's own entry exists without the directory
-// attribute, as System.IO.File.Exists reads it: GetFileAttributesEx, which
-// follows no link, so a file symlink is a file whatever it leads to.
-func isFile(path string) bool {
-	attributes, ok := entryAttributes(path)
-	return ok && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0
-}
-
-// isProfileDirectory reports whether path's own entry has the directory
-// attribute, as System.IO.Directory.Exists reads it: a junction or a
-// directory symlink counts even when what it leads to is gone, and such a
-// home is collected, with its error_read row, rather than skipped.
-func isProfileDirectory(path string) bool {
-	attributes, ok := entryAttributes(path)
-	return ok && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0
-}
-
 // entryAttributes returns the file attributes of path itself, a link not
-// followed; ok is false when path cannot be looked at.
-func entryAttributes(path string) (attributes uint32, ok bool) {
+// followed, or the error of looking at it.
+func entryAttributes(path string) (uint32, error) {
 	info, err := osfile.Lstat(path)
 	if err != nil {
-		return 0, false
+		return 0, err
 	}
+	// os.Lstat on Windows always describes an entry with this type.
 	data, ok := info.Sys().(*syscall.Win32FileAttributeData)
 	if !ok {
-		return 0, false
+		return 0, fmt.Errorf("lstat %s: no file attributes", syspath.ToNative(path))
 	}
-	return data.FileAttributes, true
+	return data.FileAttributes, nil
 }
 
-// skippedHome describes a candidate home that cannot be seen as a directory:
-// denied when its parent lists it, with the text of the failure to look at
-// it, or "access denied" when looking at it itself works.
-func skippedHome(path string) Skipped {
-	reason := "access denied"
-	if _, err := osfile.Lstat(path); err != nil {
-		reason = syspath.NativeErrors(err).Error()
-	}
-	return Skipped{Path: path, Reason: reason, Denied: parentLists(path)}
+// skippedHome describes a candidate home whose entry could not be looked at,
+// with the text of err, Denied when its parent lists it. On NTFS whoever may
+// list a directory may read the attributes of its entries, so a look fails
+// on a listed entry only when the entry changes between the two looks or
+// lives on another file system (a network share decides for itself); a
+// candidate that is gone, or whose parent cannot be listed, is the case NTFS
+// gives. Denied stays for those other cases and for the error_read row the
+// PowerShell collector writes for such a home.
+func skippedHome(path string, err error) Skipped {
+	return Skipped{Path: path, Reason: err.Error(), Denied: parentLists(path)}
 }
 
 // parentLists reports whether the directory holding path lists an entry of

@@ -532,7 +532,7 @@ for Go files as it does for the others.
 - **Tests.** Table-driven, with `t.Run` names that read as sentences;
   fixtures built under `t.TempDir()`; run with `-race`; no test reads the
   developer's home or the network, and no test runs `collect` without `-r`,
-  except the two live cases of the Windows parity harness that PARITY_LIVE=1
+  except the two live cases of the Windows parity harness that `PARITY_LIVE=1`
   enables, which run only on the disposable CI runner and the lab VM and
   delete their output: a run without a root collects the developer's own
   credentials. The parity harness

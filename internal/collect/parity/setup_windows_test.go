@@ -132,15 +132,15 @@ func setupLinkImage(t *testing.T, img image) {
 	makeJunction(t, root+`\outside`, agent+`\jn`)
 }
 
-// setupDeniedHomeImage builds an image whose Users directory holds alice's
-// home with one catalog file and bob, a junction to a directory that does
-// not exist. Both collectors read bob's own directory attribute, as .NET's
-// Directory.Exists does, so bob is a home that cannot be listed: its
-// error_read row and read failed line are compared. No entry its parent
-// lists as a directory is logged as profile not accessible in an image.
-func setupDeniedHomeImage(t *testing.T, img image) {
+// setupBrokenJunctionHomeImage builds an image whose Users directory holds
+// alice's home with one catalog file and bob, a junction to a directory that
+// does not exist. Both collectors read bob's own directory attribute, as
+// .NET's Directory.Exists does, so bob is a listed home that cannot be
+// entered, not a skipped one: its error_read row and read failed line are
+// compared, and no profile not accessible line is written for it.
+func setupBrokenJunctionHomeImage(t *testing.T, img image) {
 	build := fixture{t}
-	root := img.work + `\deniedhome`
+	root := img.work + `\brokenjunctionhome`
 	build.file(root+`\Users\alice\.claude\settings.json`, `{"model":"x"}`)
 	makeJunction(t, root+`\gone`, root+`\Users\bob`)
 }

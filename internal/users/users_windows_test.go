@@ -286,29 +286,46 @@ func TestParentListsReadsADriveRoot(t *testing.T) {
 }
 
 func TestFindKeepsAHomeWhoseListingIsDenied(t *testing.T) {
-	root := writeTree(t, []string{"Users/locked"}, nil)
-	locked := filepath.Join(syspath.ToNative(root), "Users", "locked")
-	denyListing(t, locked)
-	if _, err := os.ReadDir(locked); err == nil {
-		t.Skip("the access control entry did not stop the listing")
+	cases := []struct {
+		name   string
+		denied windows.ACCESS_MASK
+	}{
+		{"a home that cannot be listed is still a home", windows.FILE_LIST_DIRECTORY},
+		// NTFS lets whoever may list a directory read its entries'
+		// attributes, so even a deny on reading them leaves the entry a
+		// home, never a skipped candidate: what skippedHome relies on.
+		{"a home whose own attributes are denied is still a home",
+			windows.FILE_LIST_DIRECTORY | windows.FILE_READ_ATTRIBUTES | windows.FILE_TRAVERSE},
 	}
-	report := find(nil, root, "")
-	want := []Home{{"locked", root + "/Users/locked"}}
-	if !reflect.DeepEqual(report.Homes, want) || len(report.Skipped) != 0 {
-		t.Errorf("Homes = %v, Skipped = %v, want %v and no skipped entries", report.Homes, report.Skipped, want)
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			root := writeTree(t, []string{"Users/locked"}, nil)
+			locked := filepath.Join(syspath.ToNative(root), "Users", "locked")
+			denyAccess(t, locked, test.denied)
+			if _, err := os.ReadDir(locked); err == nil {
+				t.Skip("the access control entry did not stop the listing")
+			}
+			report := find(nil, root, "")
+			want := []Home{{"locked", root + "/Users/locked"}}
+			if !reflect.DeepEqual(report.Homes, want) || len(report.Skipped) != 0 {
+				t.Errorf("Homes = %v, Skipped = %v, want %v and no skipped entries", report.Homes,
+					report.Skipped, want)
+			}
+		})
 	}
 }
 
-// denyListing makes the current user unable to list dir and restores the
-// directory's access when the test ends so the temporary directory can go.
-func denyListing(t *testing.T, dir string) {
+// denyAccess denies the current user the rights denied on dir and restores
+// the directory's access when the test ends so the temporary directory can
+// go.
+func denyAccess(t *testing.T, dir string, denied windows.ACCESS_MASK) {
 	t.Helper()
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
 		t.Skipf("cannot read the process token: %v", err)
 	}
 	entries := []windows.EXPLICIT_ACCESS{{
-		AccessPermissions: windows.FILE_LIST_DIRECTORY,
+		AccessPermissions: denied,
 		AccessMode:        windows.DENY_ACCESS,
 		Inheritance:       windows.NO_INHERITANCE,
 		Trustee: windows.TRUSTEE{

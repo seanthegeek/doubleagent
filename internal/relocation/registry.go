@@ -278,10 +278,11 @@ func lookupTables(tables []map[string]string, name string) (string, bool) {
 	return "", false
 }
 
-// lookupFold returns name's value in table in any ASCII case, as the registry
-// and a PowerShell hashtable look names up; a name differing by a non-ASCII
-// case pair (U+017F for s) does not match. A registry key holds no two value
-// names differing only by case, so at most one key matches.
+// lookupFold returns name's value in table in any ASCII case. The registry
+// and a PowerShell hashtable also ignore case outside ASCII, so a name
+// differing by a non-ASCII case pair (U+017F for s) matches there and not
+// here, a decided difference. A registry key holds no two value names
+// differing only by case, so at most one key matches.
 func lookupFold(table map[string]string, name string) (string, bool) {
 	if value, ok := table[name]; ok {
 		return value, true
