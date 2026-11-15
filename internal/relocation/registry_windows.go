@@ -2,7 +2,6 @@ package relocation
 
 import (
 	"errors"
-	"slices"
 
 	"golang.org/x/sys/windows/registry"
 
@@ -21,10 +20,10 @@ func SystemRegistry() Registry { return systemRegistry{} }
 // keeps its embedded NULs, as .NET's GetValue does, for acceptRegistryValue
 // to refuse; REG_EXPAND_SZ is never expanded; a value of another type keeps
 // only its name; the default (empty) name is skipped. A name ends at its
-// first NUL, as PowerShell 5.1's GetValueNames ends it, so it is listed once
-// however many values cut to it, and one may read as missing: it is marked
-// Unreadable and the rest of the key is still read, so a value any user
-// plants in their own key hides no other.
+// first NUL, as PowerShell 5.1's GetValueNames ends it, so a name may be
+// listed twice (record keeps one hint per source) and may read as missing:
+// it is then marked Unreadable and the rest of the key is still read, so a
+// value any user plants in their own key hides no other.
 func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {
 	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{},
 		Unreadable: map[string]bool{}}
@@ -43,7 +42,7 @@ func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings 
 		return values
 	}
 	for _, name := range names {
-		if name == "" || slices.Contains(values.Names, name) {
+		if name == "" {
 			continue
 		}
 		values.Names = append(values.Names, name)

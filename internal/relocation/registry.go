@@ -34,7 +34,7 @@ const (
 	expansionLimit  = 32767
 )
 
-// RegistryStrings is what one registry key holds: every value name once, in
+// RegistryStrings is what one registry key holds: every value name in
 // registry order, the REG_SZ and REG_EXPAND_SZ values as name to raw text,
 // never expanded, which of those are REG_EXPAND_SZ, the listed names whose
 // value could not be read, and why the key could not be read ("" when it

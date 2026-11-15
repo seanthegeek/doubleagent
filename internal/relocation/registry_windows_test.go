@@ -3,6 +3,7 @@ package relocation
 import (
 	"crypto/rand"
 	"slices"
+	"strings"
 	"testing"
 	"unicode/utf16"
 	"unsafe"
@@ -106,10 +107,10 @@ func TestSystemRegistryCutsAValueNameAtItsNUL(t *testing.T) {
 	// No Win32 call takes a counted value name, so the second value, named
 	// CODEX_HOME, a NUL and x, is written through NtSetValueKey. Windows
 	// PowerShell 5.1's GetValueNames ends a name at its first NUL, so it
-	// lists CODEX_HOME twice; Strings keeps the name once.
+	// lists CODEX_HOME twice; Add-RelocationHint keeps one hint per source.
 	setCountedName(t, key, "CODEX_HOME\x00x", `C:\other`)
 	got := SystemRegistry().Strings(UsersRoot, usersPath)
-	wantNames := []string{"CODEX_HOME"}
+	wantNames := []string{"CODEX_HOME", "CODEX_HOME"}
 	if got.Reason != "" || !slices.Equal(got.Names, wantNames) {
 		t.Fatalf("names %q, reason %q; want %q and no reason", got.Names, got.Reason, wantNames)
 	}
@@ -119,8 +120,9 @@ func TestSystemRegistryCutsAValueNameAtItsNUL(t *testing.T) {
 	if err := registrySearch(t, fake, nil, nil, log).registryPass(); err != nil {
 		t.Fatal(err)
 	}
-	if hints := len(log.lines) - 1; hints != 1 {
-		t.Errorf("%d hints, want one for the source both names give; log %q", hints, log.lines)
+	if hints := len(log.lines) - 1; hints != 1 || !strings.HasSuffix(log.lines[1], `= C:\real`) {
+		t.Errorf("%d hints, want one for the source both names give, of the real value; log %q",
+			hints, log.lines)
 	}
 }
 
