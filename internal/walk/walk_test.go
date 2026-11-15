@@ -554,3 +554,21 @@ func TestCatalogStillExpandsLiveAndThroughALinkInsideTheRoot(t *testing.T) {
 		})
 	}
 }
+
+func TestADirectorySwappedForALinkOutOfTheRootIsNotOpened(t *testing.T) {
+	root := fixture{dirs: []string{"home/bob/.tool"}}.build(t)
+	outside := fixture{}.build(t)
+	link := root + "/home/bob/.tool/swapped"
+	mustDo(t, os.Symlink(outside+"/gone", link))
+	collector, _, log := testCollector(t, root, nil)
+	found := &treeWalk{start: root + "/home/bob/.tool"}
+	owner := scope{user: "bob", home: root + "/home/bob", agent: "tool", stager: collector.Stager}
+	// The listing saw a directory where the link now is.
+	mustDo(t, collector.visit(context.Background(), owner, found, link, true))
+	if found.unreadable != 0 || len(log.lines) != 0 {
+		t.Errorf("unreadable %d, log %q: the link was opened", found.unreadable, log.lines)
+	}
+	if len(found.readErrors) != 1 || !strings.Contains(found.readErrors[0].reason, "image root") {
+		t.Errorf("read errors %+v, want the refusal as the one reason", found.readErrors)
+	}
+}

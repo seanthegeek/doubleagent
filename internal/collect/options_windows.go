@@ -65,3 +65,7 @@ func absoluteRoot(cwd, root string) (resolved, checked string) {
 // absoluteRoot respells it from the disk, so a -p spelled like -r can be
 // matched with it.
 func typedRoot(cwd, root, _ string) string { return absoluteProject(cwd, root, nil) }
+
+// imageCheck is nil on Windows, whose absoluteProject resolves a -p path by
+// its text alone and so needs no root check.
+func imageCheck(Options, func() (string, error)) follow.Check { return nil }

@@ -4,23 +4,27 @@ package collect
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
 // absoluteProject returns PROJECT as the sh collector resolves a -p path. An
 // absolute path is kept as given. A relative one is joined to CWD: an
 // existing directory is cleaned (the shell's `cd` then `pwd`); anything else
 // keeps its spelling, minus one leading "./". check is the image root's (nil
-// live): a join that leads out of the image root is not tested, so it keeps
-// its spelling whatever the analyst's host holds there.
+// live): a join that leads out of the image root, or is not under it, is not
+// tested but cleaned, whatever the analyst's host holds there, so the project
+// step names it by where it lexically is and two spellings are one project.
 func absoluteProject(cwd, project string, check follow.Check) string {
 	if filepath.IsAbs(project) {
 		return project
 	}
 	joined := filepath.Join(cwd, project)
-	if isDir, _ := follow.IsDirectory(check, joined); isDir {
+	isDir, err := follow.IsDirectory(check, joined)
+	if _, leaves := follow.OutOfRoot(err); isDir || leaves {
 		return joined
 	}
 	return cwd + "/" + strings.TrimPrefix(project, "./")
@@ -40,3 +44,30 @@ func absoluteRoot(cwd, root string) (resolved, checked string) {
 // typedRoot returns resolved: on Unix a root is not respelled, so its typed
 // and resolved forms are one.
 func typedRoot(_, _, resolved string) string { return resolved }
+
+// imageCheck returns the root check of the image the options name, resolved
+// as ResolveRoot will resolve it, for the relative -p paths absoluteProject
+// tests before the root is resolved: nil on a live run or when no -p is
+// relative. The current directory is asked for when the root is relative. A
+// root that cannot be resolved refuses every path, so nothing is stat'ed
+// through it; ResolveRoot then reports the root.
+func imageCheck(options Options, getwd func() (string, error)) follow.Check {
+	relative := slices.ContainsFunc(options.Projects, func(project string) bool {
+		return project != "" && !filepath.IsAbs(project)
+	})
+	if options.Root == "" || !relative {
+		return nil
+	}
+	cwd := ""
+	if !filepath.IsAbs(options.Root) {
+		var err error
+		if cwd, err = getwd(); err != nil {
+			return func(path string) (string, bool) { return path, true }
+		}
+	}
+	resolved, _ := absoluteRoot(cwd, options.Root)
+	if liveRoot(resolved) {
+		return nil
+	}
+	return walk.NewRootCheck(resolved).Expansion()
+}

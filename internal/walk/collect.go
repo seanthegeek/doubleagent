@@ -197,8 +197,9 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 ) (int, error) {
 	meta, statError := fsmeta.Lstat(path)
 	if statError == nil && meta.Kind == fsmeta.Dir {
-		// path's own lstat typed it a directory, not a link, and the
-		// expansion that produced it checked its parents.
+		// path's own lstat typed it a directory, not a link, and its parents
+		// were checked: by the expansion that produced a catalog match, or by
+		// the volume step for the _data that CollectPath gets from it.
 		reason, failed, _ := follow.DirReadError(collector.check(), path)
 		if failed && !collector.Inventory {
 			return 0, collector.writeReadErrors(owner, []readError{{path, reason}})

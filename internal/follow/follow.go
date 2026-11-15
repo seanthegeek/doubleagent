@@ -6,18 +6,19 @@
 // anything; when the path leads out of the image root it follows nothing
 // and returns an *OutOfRootError naming the link, which the caller handles.
 // A live run passes a nil check, and the functions follow as the operating
-// system does. Calls that never follow (lstat, readlink, listing a directory
-// whose own entry was typed a directory) stay where they are. A test in this
-// package fails on any other call in the tree of a function that follows.
+// system does.
 //
-// The test reads package-level function references only, so it cannot see:
-// a method that follows (fsmeta.Opener.OpenRegular opens with O_NOFOLLOW or
-// FILE_FLAG_OPEN_REPARSE_POINT and refuses a link; hostcmd.Plutil runs plutil
-// on a hint file whose own lstat typed it a regular file, under checked
-// paths); a call through an interface
-// or a function value (glob's and the walk's are this package's own
-// functions or the root check); or a new following export of an owner
-// package (fsmeta, osfile, stage), whose reviewer must add it to the list.
+// A test in this package denies by default: outside the packages this one is
+// built on (osfile, fsmeta, stage), a non-test file may use an exported name
+// of a package that can act on a file path (os, path/filepath, io/ioutil,
+// syscall, x/sys/unix, x/sys/windows and its registry, osfile, fsmeta, stage)
+// only when a reviewed list says the name follows no link, or a counted list
+// gives the call's reason. The test reads package-level names only, so it
+// cannot see a method or a call through an interface or a function value;
+// the methods in use take a path and do not follow its last component
+// (fsmeta.Opener.OpenRegular opens with O_NOFOLLOW or
+// FILE_FLAG_OPEN_REPARSE_POINT; hostcmd.Plutil runs plutil on a hint file
+// whose own lstat typed it a regular file).
 package follow
 
 import (

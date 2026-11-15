@@ -56,6 +56,15 @@ func TestFollowingFunctionsRefuseWhatTheCheckRefuses(t *testing.T) {
 	}
 }
 
+func TestDirReadErrorReportsARefusalAsFailed(t *testing.T) {
+	refusing := func(path string) (string, bool) { return path, true }
+	reason, failed, err := DirReadError(refusing, "/img/home/link")
+	if !failed || err == nil || reason != err.Error() || reason == "" {
+		t.Errorf("DirReadError = %q, %v, %v; want failed, with the refusal as the reason",
+			reason, failed, err)
+	}
+}
+
 func TestIsDirectoryAnswersWithoutACheckRefusal(t *testing.T) {
 	directory := syspath.FromNative(t.TempDir())
 	cases := []struct {

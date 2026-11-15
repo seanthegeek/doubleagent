@@ -14,35 +14,60 @@ import (
 	"testing"
 )
 
-// followingFunctions returns, by import path, the exported functions of
-// each package that take a path and follow a link in its last component: they
-// read, write or describe the target, not the link. They were read off each
-// package's exports; the ones that act on the link itself (Lstat, Readlink,
-// Lchown, Remove, Rename, Symlink, Mkdir, Unlink) or follow nothing
-// (filepath.Abs, Clean, Join) are left out.
-func followingFunctions() map[string][]string {
-	unixCalls := []string{"Access", "Chdir", "Chflags", "Chmod", "Chown", "Chroot", "Creat",
-		"Faccessat", "Faccessat2", "Fchmodat", "Fchownat", "Fstatat", "Futimesat", "Getxattr",
-		"Listxattr", "Open", "Openat", "Openat2", "Opendir", "Pathconf", "Removexattr",
-		"Setxattr", "Stat", "Statfs", "Statvfs", "Statx", "Truncate", "Utime", "Utimes",
-		"UtimesNano", "UtimesNanoAt"}
-	windowsCalls := []string{"CreateFile", "FindFirstFile", "GetFileAttributes",
-		"GetFileAttributesEx", "SetFileAttributes", "GetVolumePathName", "GetNamedSecurityInfo",
-		"SetNamedSecurityInfo", "GetVolumeInformation", "GetDiskFreeSpaceEx"}
-	syscallCalls := append(append([]string{}, unixCalls...), windowsCalls...)
+// guardedPackages are the packages whose exported names a file outside the
+// owner packages may select only when safeNames or allowedCalls lists them:
+// every package of the standard library, x/sys or this module that can act
+// on a file path. A name not listed fails, so a new function cannot slip in
+// because nobody thought to ban it.
+func guardedPackages() []string {
+	return []string{"os", "path/filepath", "io/ioutil", "syscall", "golang.org/x/sys/unix",
+		"golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
+		"github.com/seanthegeek/doubleagent/internal/osfile",
+		"github.com/seanthegeek/doubleagent/internal/fsmeta",
+		"github.com/seanthegeek/doubleagent/internal/stage"}
+}
+
+// safeNames are, by import path, the exported names of guarded packages
+// known not to follow a link on a path: constants, types, error values,
+// functions that take no path or work on its text alone, and functions that
+// act on the last component itself (an lstat, a readlink, a remove), each
+// read in its source or documentation. A new entry needs the same reading.
+func safeNames() map[string][]string {
 	return map[string][]string{
-		"os": {"Stat", "Open", "OpenFile", "Create", "ReadDir", "ReadFile", "WriteFile", "Chdir",
-			"Chmod", "Chown", "Chtimes", "Truncate", "CopyFS", "DirFS", "OpenRoot", "OpenInRoot",
-			"MkdirAll"},
-		"github.com/seanthegeek/doubleagent/internal/osfile": {"Stat", "Open", "OpenFile", "Create",
-			"ReadDir", "ReadFile", "WriteFile", "Chtimes", "MkdirAll"},
-		"path/filepath": {"EvalSymlinks", "Glob", "Walk", "WalkDir"},
-		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"DirReadError"},
-		"github.com/seanthegeek/doubleagent/internal/stage":  {"PhysicalDir"},
-		"golang.org/x/sys/unix":                              unixCalls,
-		"syscall":                                            syscallCalls,
-		"golang.org/x/sys/windows":                           windowsCalls,
-		"io/ioutil":                                          {"ReadDir", "ReadFile", "WriteFile"},
+		// The process, its environment and standard streams, the null
+		// device's name, file types and flags; Getwd reads no path given.
+		"os": {"Args", "DevNull", "Environ", "Exit", "File", "FileInfo", "Getenv", "Getuid",
+			"Getwd", "Hostname", "Interrupt", "LinkError", "ModeSymlink", "O_CREATE", "O_EXCL",
+			"O_TRUNC", "O_WRONLY", "Stderr", "Stdout"},
+		// Text operations on a path; none touches the file system.
+		"path/filepath": {"Base", "Clean", "IsAbs", "Join", "SplitList", "VolumeName"},
+		// Constants, a signal and an attribute record type.
+		"syscall": {"ERROR_MORE_DATA", "FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT",
+			"SIGTERM", "Win32FileAttributeData"},
+		// Constants, the umask, the kernel's name and a byte conversion.
+		"golang.org/x/sys/unix": {"AT_EACCESS", "AT_FDCWD", "ByteSliceToString", "Umask", "Uname",
+			"Utsname", "W_OK", "X_OK"},
+		// Security identifiers, the version call, a token type, constants and
+		// string conversions.
+		"golang.org/x/sys/windows": {"CreateWellKnownSid", "FILE_ATTRIBUTE_DIRECTORY",
+			"MAX_LONG_PATH", "RtlGetVersion", "Token", "UTF16PtrFromString", "UTF16ToString",
+			"WinBuiltinAdministratorsSid"},
+		// Registry keys and values, which are not file paths.
+		"golang.org/x/sys/windows/registry": {"DWORD", "ENUMERATE_SUB_KEYS", "EXPAND_SZ",
+			"ErrNotExist", "ErrUnexpectedType", "ExpandString", "Key", "LOCAL_MACHINE", "OpenKey",
+			"QUERY_VALUE", "READ", "SZ", "USERS"},
+		// Act on the last component itself and follow nothing.
+		"github.com/seanthegeek/doubleagent/internal/osfile": {"Lstat", "Readlink", "Remove",
+			"RemoveAll"},
+		// Lstat-based metadata, sizes that never descend a link, the listing
+		// order, on-disk spellings that stop at the first link, and types; the
+		// Opener's methods open without following the last component.
+		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"AttributesString", "Device", "Dir",
+			"DiskUsageBytes", "Fifo", "File", "Kind", "ListingOrder", "Lstat", "Meta", "NewOpener",
+			"NewOwners", "OnDiskName", "OnDiskPath", "Opener", "Owners", "Socket", "Symlink",
+			"ZeroMeta"},
+		// The staging type and a text comparison of two paths.
+		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Under"},
 	}
 }
 
@@ -81,6 +106,10 @@ func allowedCalls() map[string]allowance {
 			"creates the manifest in the output directory"},
 		{"internal/collect/run_finish.go", "osfile.WriteFile", 1,
 			"writes collection.json into the output and staging directories"},
+		{"internal/shortname/shortname_windows.go", "windows.GetShortPathName", 1,
+			"names a test directory the helper made under the test's temporary directory"},
+		{"internal/shortname/shortname_windows.go", "windows.GetLongPathName", 1,
+			"names a test directory the helper made under the test's temporary directory"},
 		{"internal/shortname/shortname_windows.go", "osfile.MkdirAll", 1,
 			"makes a test directory under the test's own temporary directory"},
 		{"internal/archive/archive.go", "osfile.ReadDir", 1,
@@ -88,7 +117,7 @@ func allowedCalls() map[string]allowance {
 		{"internal/archive/archive.go", "osfile.Open", 2,
 			"reads files of the staging tree the run built"},
 		{"internal/collect/options.go", "osfile.Stat", 1,
-			"tests -r, -o and -p as the operator gives them"},
+			"tests -r and -o as the operator gives them"},
 		{"internal/collect/run_finish.go", "osfile.Open", 1,
 			"copies the run's own output files"},
 		{"internal/collect/run_finish.go", "osfile.OpenFile", 1,
@@ -181,7 +210,8 @@ func checkFoundCalls(t *testing.T, found map[string][]string) {
 				seen[key]++
 				continue
 			}
-			t.Errorf("%s follows a link unchecked: call the follow function with the root check", call)
+			t.Errorf("%s is not known to be safe: route it through package follow, or add it to "+
+				"safeNames or allowedCalls with the reason it cannot follow a link", call)
 		}
 	}
 	for key, entry := range allowed {
@@ -195,7 +225,7 @@ func checkFoundCalls(t *testing.T, found map[string][]string) {
 	}
 }
 
-func TestGuardFindsEveryWayOfNamingAFollowingFunction(t *testing.T) {
+func TestGuardFindsEveryNameNotKnownToBeSafe(t *testing.T) {
 	cases := []struct {
 		name, source string
 		want         []string
@@ -210,7 +240,18 @@ func TestGuardFindsEveryWayOfNamingAFollowingFunction(t *testing.T) {
 			[]string{"filepath.EvalSymlinks"}},
 		{"a dot import fails outright", "import . \"os\"\nvar _, _ = Stat(\"x\")",
 			[]string{"dot import of os"}},
-		{"a function that does not follow passes", "import \"os\"\nvar _, _ = os.Lstat(\"x\")", nil},
+		{"a listed safe name passes", "import \"path/filepath\"\nvar _ = filepath.Join(\"a\", \"b\")",
+			nil},
+		{"an unlisted name fails, harmless or not", "import \"os\"\nvar _ = os.Getpid()",
+			[]string{"os.Getpid"}},
+		{"windows.Open fails",
+			"import \"golang.org/x/sys/windows\"\nvar _, _ = windows.Open(\"x\", 0, 0)",
+			[]string{"windows.Open"}},
+		{"windows.Chmod fails", "import \"golang.org/x/sys/windows\"\nvar _ = windows.Chmod(\"x\", 0)",
+			[]string{"windows.Chmod"}},
+		{"unix.Clonefile fails",
+			"import \"golang.org/x/sys/unix\"\nvar _ = unix.Clonefile(\"a\", \"b\", 0)",
+			[]string{"unix.Clonefile"}},
 		{"a local value named like the package is not it",
 			"import system \"os\"\nvar _ = system.Getenv\ntype files struct{}\n" +
 				"func (files) Stat() {}\nvar os files\nvar _ = os.Stat", nil},
@@ -234,20 +275,21 @@ func TestGuardFindsEveryWayOfNamingAFollowingFunction(t *testing.T) {
 }
 
 // followingCalls returns "file:line package.Name" for each reference in the
-// Go source of fileName to a function followingFunctions names, under
-// whatever local name its package is imported, and "file:line dot import of
-// package" for a dot import of one of those packages.
+// Go source of fileName to an exported name of a guarded package that
+// safeNames does not list, under whatever local name its package is
+// imported, and "file:line dot import of package" for a dot import of a
+// guarded package, whose names could then be used bare.
 func followingCalls(fileName string, source []byte) ([]string, error) {
 	files := token.NewFileSet()
 	parsed, err := parser.ParseFile(files, fileName, source, parser.SkipObjectResolution)
 	if err != nil {
 		return nil, err
 	}
-	banned := followingFunctions()
+	safe := safeNames()
 	local, calls := map[string]string{}, []string(nil)
 	for _, spec := range parsed.Imports {
 		importPath, err := strconv.Unquote(spec.Path.Value)
-		if err != nil || banned[importPath] == nil {
+		if err != nil || !slices.Contains(guardedPackages(), importPath) {
 			continue
 		}
 		name := path.Base(importPath)
@@ -273,7 +315,7 @@ func followingCalls(fileName string, source []byte) ([]string, error) {
 			return true
 		}
 		importPath, ok := local[ident.Name]
-		if ok && slices.Contains(banned[importPath], selector.Sel.Name) {
+		if ok && !slices.Contains(safe[importPath], selector.Sel.Name) {
 			calls = append(calls, files.Position(selector.Pos()).String()+" "+
 				path.Base(importPath)+"."+selector.Sel.Name)
 		}

@@ -231,3 +231,22 @@ func TestARelativeProjectThroughALinkOutOfTheRootIsNotTested(t *testing.T) {
 		t.Errorf("the run depends on what the link points at:\n%s\nversus\n%s", outputs[0], outputs[1])
 	}
 }
+
+func TestARelativeProjectOutOfTheRootIsNamedWhereItIs(t *testing.T) {
+	work := syspath.FromNative(t.TempDir())
+	writeTree(t, work, "img/srv/.keep", "img/home/alice/notes", "outside/proj/AGENTS.md")
+	host := testHost(t)
+	host.getwd = func() (string, error) { return work + "/img/srv", nil }
+	outDir := t.TempDir()
+	options := testOptions(work+"/img", outDir)
+	options.Projects = []string{"../../outside/proj", "../../outside/proj/"}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, host, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	line := "Project " + work + "/outside/proj: is outside the image root; not walked\n"
+	if strings.Count(log, "Project ") != 1 || !strings.Contains(log, line) {
+		t.Errorf("the log lacks the one line %q:\n%s", line, log)
+	}
+}

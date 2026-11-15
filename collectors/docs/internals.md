@@ -539,18 +539,27 @@ Every call that follows a link in the last component of a path (a stat, a
 directory or file test, an access check, a directory listing test, a read
 or write of a whole file, a resolution to the physical directory) goes
 through the `internal/follow` package, which asks the image root's check
-about the whole path first. A test there reads every non-test Go file of the
-binary and fails on any other reference to such a function, outside the
-packages it is built on (`follow`, `osfile`, `fsmeta`, `stage`) and a list
-of calls with their number and reason, which fall in four kinds: the run's
-own output and staging files and directories; the operator's own `-r` and
-`-o`, tested before any image path exists; a directory opened after its own
-lstat, or a listing that leaves reparse points out, typed it a directory
-under a path already checked; and the glob expander's lookups, made after
-it asked the check. The test sees package-level function references only:
-a method that follows (none today: `fsmeta.Opener.OpenRegular` refuses a
-link), a call through an interface or a function value, and a new following
-function exported by one of the four packages need a reviewer.
+about the whole path first. A test there denies by default: it reads every
+non-test Go file of the binary and, outside the packages `follow` is built
+on (`osfile`, `fsmeta`, `stage`), fails on any exported name of a package
+that can act on a file path (`os`, `path/filepath`, `io/ioutil`, `syscall`,
+`x/sys/unix`, `x/sys/windows` and its `registry`, `osfile`, `fsmeta`,
+`stage`) unless a reviewed list says the name follows no link (constants,
+types, text operations on a path, an lstat or readlink) or a counted list
+gives the call's reason. Those reasons fall in five kinds: the run's own
+output and staging files and directories; the operator's own `-r` and `-o`,
+and the image root itself, which the root check resolves once
+(`walk/project.go`); a directory opened after its own lstat, or a listing
+that leaves reparse points out, typed it a directory under a path already
+checked, and on Windows the listing of the parent of a candidate home the
+check let through (`users_windows.go`); the glob expander's lookups, made
+after it asked the check; and the test helper `internal/shortname`, which
+works under the test's own temporary directory. The test reads
+package-level names only, so it cannot see a method or a call through an
+interface or a function value. The methods in use take a path and do not
+follow its last component: `fsmeta.Opener.OpenRegular` opens without
+following it, and `hostcmd.Plutil` runs plutil on a hint file whose own
+lstat typed it a regular file.
 
 A new source goes into its group on both sides, at the same position.
 

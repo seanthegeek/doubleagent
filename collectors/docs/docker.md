@@ -57,7 +57,8 @@ whose `var` or a home's `.local` is such a link): it logs
 `docker: <link> leads out of the image root; nothing behind it was listed`
 (for a reparse point other than a symlink or junction,
 `docker: <link> is a reparse point other than a symlink or junction; nothing behind it was looked at`)
-once per link, also for a component of the volumes directory's own path, writes no note and lists no volume behind it, and the
+once per link, also for a reparse point other than a symlink or junction among the volumes
+directory's own components, writes no note and lists no volume behind it, and the
 Docker Desktop directories behind such a link are not looked at either.
 
 ## Matching and collection

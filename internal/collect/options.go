@@ -9,11 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
-	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
 // Options holds every option of `collect`, with the defaults the sh collector
@@ -254,11 +252,11 @@ func mebibytes(text string) (int64, bool) {
 // that differ only in case being one on Windows. A path is never prefixed
 // with the root: it names a place on the machine running the collector. An
 // empty path is dropped; the current directory is asked for only when a path
-// is relative.
+// or, on Unix with a relative -p, the root is relative (imageCheck).
 func ResolveProjects(options Options, getwd func() (string, error)) (Options, error) {
 	var resolved []string
 	seen := map[string]bool{}
-	check := imageCheck(options.Root, getwd)
+	check := imageCheck(options, getwd)
 	for _, project := range options.Projects {
 		if project == "" {
 			continue
@@ -278,30 +276,6 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 	}
 	options.Projects = resolved
 	return options, nil
-}
-
-// imageCheck returns the root check of the image root names, resolved as
-// ResolveRoot will resolve it, for the -p paths resolved before it: nil on a
-// live run. A root that cannot be resolved refuses every path, so nothing is
-// stat'ed through it; ResolveRoot then reports the root.
-func imageCheck(root string, getwd func() (string, error)) follow.Check {
-	refuseAll := func(path string) (string, bool) { return path, true }
-	if root == "" {
-		return nil
-	}
-	cwd := ""
-	if !filepath.IsAbs(root) {
-		var err error
-		if cwd, err = getwd(); err != nil {
-			return refuseAll
-		}
-	}
-	resolved, _ := absoluteRoot(cwd, root)
-	resolved = syspath.FromNative(resolved)
-	if liveRoot(resolved) {
-		return nil
-	}
-	return walk.NewRootCheck(resolved).Expansion()
 }
 
 // respellProjects returns the -p paths with their existing components
