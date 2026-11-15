@@ -55,7 +55,7 @@ help.
 | `0` | An archive was written, even if individual files failed to copy (manifest status `error_copy`) or directories could not be read (`error_read`). With `--inventory`, the walk ran, even if homes or Docker data roots were unreadable. Also `--list`, `--version` and `--help`. |
 | `1` | Usage error: unknown option, missing option value, a `--max-file-size` or `--env-scan-max-size` that is not a whole number (`Invalid --env-scan-max-size: <value>`). PowerShell: a negative `-MaxFileSizeMB`, an `-EnvScanMaxSizeMB` that is not a whole number (`Invalid -EnvScanMaxSizeMB`; the parameter is a string, so a value such as `x` reaches this check), or a parameter binding error. |
 | `2` | Fatal: the root is not a directory (`Root is not a directory: <dir>`), the output directory cannot be created (`Cannot create output dir: <dir>`, also when it is a file or lies under one) or written (`Output dir not writable: <dir>`), `tar` or `find` is missing (sh), the staging directory cannot be created (sh), the `CAC_ARCHIVER` test hook names an unknown archiver or leaves none to try (PowerShell, see [testing.md](testing.md)), or no archive could be written. With `--inventory` only the root and `find` checks apply. |
-| `130` | sh only: interrupted by `INT` or `TERM`. The staging directory is removed unless `-k` is given. |
+| `130` | sh only: interrupted by `INT` or `TERM`. The staging directory is removed unless `-k` is given. The `doubleagent` binary exits 130 too; it kills a host program it is running at that moment (`getent`, `dscl` or `plutil`) and starts none after it. |
 
 ## Environment
 

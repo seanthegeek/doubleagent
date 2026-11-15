@@ -3,6 +3,7 @@
 package users
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ func TestEnumerateLive(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "etc/passwd"), []byte("file:x:1:1::/srv/file:/bin/sh\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	getent := func(name string, args ...string) ([]byte, error) {
+	getent := func(_ context.Context, name string, args ...string) ([]byte, error) {
 		switch name {
 		case "getent":
 			return []byte("viagetent:x:1:1::/srv/getent:/bin/sh\n"), nil
@@ -27,7 +28,9 @@ func TestEnumerateLive(t *testing.T) {
 		}
 		return nil, errors.New("unexpected " + name)
 	}
-	failing := func(string, ...string) ([]byte, error) { return nil, errors.New("not found") }
+	failing := func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("not found")
+	}
 	cases := []struct {
 		name string
 		run  Runner
@@ -43,7 +46,8 @@ func TestEnumerateLive(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			// The fixture root stands in for a live run's empty root: getent's
 			// homes are prefixed with it, dscl's are not.
-			if got := Enumerate(true, root, "", testCase.run); !reflect.DeepEqual(got, testCase.want) {
+			got := Enumerate(context.Background(), true, root, "", testCase.run)
+			if !reflect.DeepEqual(got, testCase.want) {
 				t.Errorf("Enumerate = %v, want %v", got, testCase.want)
 			}
 		})
@@ -69,11 +73,41 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			report := Find(false, root, test.filter, nil)
+			report := Find(context.Background(), false, root, test.filter, nil)
 			if !reflect.DeepEqual(report.Unmatched, test.unmatched) ||
 				!reflect.DeepEqual(report.Found, []string{"alice"}) {
 				t.Errorf("unmatched %q, found %q; want %q and alice only", report.Unmatched,
 					report.Found, test.unmatched)
+			}
+		})
+	}
+}
+
+func TestFindRunsNoProgramOnceCancelled(t *testing.T) {
+	root := tree{dirs: []string{"home/alice"}}.build(t)
+	cases := []struct {
+		name      string
+		cancelled bool
+		want      []string
+	}{
+		{"a live run asks getent and dscl", false, []string{"getent", "dscl"}},
+		{"a cancelled run asks neither", true, nil},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if testCase.cancelled {
+				cancel()
+			}
+			var calls []string
+			recording := func(_ context.Context, name string, _ ...string) ([]byte, error) {
+				calls = append(calls, name)
+				return nil, errors.New(name + ": not installed")
+			}
+			Find(ctx, true, root, "", recording)
+			if !reflect.DeepEqual(calls, testCase.want) {
+				t.Errorf("calls = %q, want %q", calls, testCase.want)
 			}
 		})
 	}

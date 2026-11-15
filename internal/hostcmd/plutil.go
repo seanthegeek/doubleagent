@@ -1,6 +1,9 @@
 package hostcmd
 
-import "strings"
+import (
+	"context"
+	"strings"
+)
 
 // Plutil reads launchd property lists through plutil, the property list tool
 // macOS ships, so a value is the one launchd reads (binary plists, comments,
@@ -21,8 +24,8 @@ func (plutil Plutil) Available() bool {
 }
 
 // Lint reports whether `plutil -lint` accepts the file at path.
-func (plutil Plutil) Lint(path string) bool {
-	_, err := plutil.runner.Output("plutil", "-lint", path)
+func (plutil Plutil) Lint(ctx context.Context, path string) bool {
+	_, err := plutil.runner.Output(ctx, "plutil", "-lint", path)
 	return err == nil
 }
 
@@ -32,8 +35,10 @@ func (plutil Plutil) Lint(path string) bool {
 // a string, or reason says why there is none: `holds a newline` for a string
 // spanning lines, `holds an XML entity` for one plutil had to encode, `not a
 // string` for any other type.
-func (plutil Plutil) ExtractString(path, keyPath string) (value, reason string, found bool) {
-	output, err := plutil.runner.Output("plutil", "-extract", keyPath, "xml1", "-o", "-", path)
+func (plutil Plutil) ExtractString(ctx context.Context, path, keyPath string) (value, reason string,
+	found bool,
+) {
+	output, err := plutil.runner.Output(ctx, "plutil", "-extract", keyPath, "xml1", "-o", "-", path)
 	if err != nil {
 		return "", "", false
 	}

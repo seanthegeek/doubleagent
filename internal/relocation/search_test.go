@@ -35,10 +35,12 @@ type fakePlist struct {
 func (plist fakePlist) Available() bool { return plist.available }
 
 // Lint reports the table's setting.
-func (plist fakePlist) Lint(string) bool { return plist.lints }
+func (plist fakePlist) Lint(context.Context, string) bool { return plist.lints }
 
 // ExtractString returns the table's string for keyPath.
-func (plist fakePlist) ExtractString(_, keyPath string) (value, reason string, found bool) {
+func (plist fakePlist) ExtractString(_ context.Context, _, keyPath string) (value, reason string,
+	found bool,
+) {
 	value, found = plist.strings[keyPath]
 	return value, "", found
 }

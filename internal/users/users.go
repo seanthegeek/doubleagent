@@ -5,6 +5,7 @@
 package users
 
 import (
+	"context"
 	"regexp"
 	"slices"
 	"strings"
@@ -17,9 +18,10 @@ type Home struct {
 	Path string
 }
 
-// Runner runs a program and returns its standard output. hostcmd's Runner
-// provides it, as a method value, so this package does not import hostcmd.
-type Runner func(name string, args ...string) ([]byte, error)
+// Runner runs a program and returns its standard output, starting none once
+// ctx is cancelled. hostcmd's Runner provides it, as a method value, so this
+// package does not import hostcmd.
+type Runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
 // Skipped is a candidate home that could not be seen as a directory.
 // Denied is true when its parent directory lists it, so it exists but cannot
@@ -125,6 +127,6 @@ func lowerASCII(text string) string {
 
 // Enumerate returns the homes to collect, in enumeration order; it is the
 // homes of Find.
-func Enumerate(live bool, root, usersFilter string, run Runner) []Home {
-	return Find(live, root, usersFilter, run).Homes
+func Enumerate(ctx context.Context, live bool, root, usersFilter string, run Runner) []Home {
+	return Find(ctx, live, root, usersFilter, run).Homes
 }

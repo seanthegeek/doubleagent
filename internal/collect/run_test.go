@@ -65,7 +65,7 @@ func TestRun(t *testing.T) {
 type noPrograms struct{}
 
 // Output fails: no program exists.
-func (noPrograms) Output(name string, _ ...string) ([]byte, error) {
+func (noPrograms) Output(_ context.Context, name string, _ ...string) ([]byte, error) {
 	return nil, errors.New(name + ": not found")
 }
 
@@ -461,7 +461,7 @@ func TestProbeWrite(t *testing.T) {
 // and two candidates it could not see: one its parent lists, one gone.
 func skippedHomesHost(t *testing.T, root string) environment {
 	host := testHost(t)
-	host.findUsers = func(bool, string, string, users.Runner) users.Report {
+	host.findUsers = func(context.Context, bool, string, string, users.Runner) users.Report {
 		return users.Report{Skipped: []users.Skipped{
 			{Path: root + "/Users/locked", Reason: "access denied", Denied: true},
 			{Path: root + "/Users/gone", Reason: "missing"},
@@ -577,7 +577,7 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			host := testHost(t)
-			host.findUsers = func(bool, string, string, users.Runner) users.Report {
+			host.findUsers = func(context.Context, bool, string, string, users.Runner) users.Report {
 				return users.Report{Found: test.found, Unmatched: []string{"nobody", "Eve"}}
 			}
 			outDir := t.TempDir()

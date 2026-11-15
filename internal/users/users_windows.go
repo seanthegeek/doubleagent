@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -29,10 +30,10 @@ func homeGlobs(live bool) []string {
 // in Skipped, with Denied set when its parent lists it. Both tests read the
 // entry's own attributes, as .NET's File.Exists and Directory.Exists do. The
 // -u list is compared against the user name ignoring every letter's case
-// (wantedUser says why). A
-// ProfileList path is respelled as the disk holds it, so a home is kept once
-// by its ASCII-folded path. run is not used on Windows.
-func Find(live bool, root, usersFilter string, _ Runner) Report {
+// (wantedUser says why). A ProfileList path is respelled as the disk holds
+// it, so a home is kept once by its ASCII-folded path. ctx and run are not
+// used: Windows runs no program to list its users.
+func Find(_ context.Context, live bool, root, usersFilter string, _ Runner) Report {
 	var reader profileReader
 	if live {
 		reader = registryProfiles{}

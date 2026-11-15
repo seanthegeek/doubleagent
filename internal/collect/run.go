@@ -60,7 +60,7 @@ type environment struct {
 	now        func() time.Time
 	runner     hostcmd.Runner
 	getwd      func() (string, error)
-	findUsers  func(live bool, root, usersFilter string, run users.Runner) users.Report
+	findUsers  func(context.Context, bool, string, string, users.Runner) users.Report
 	lastAccess func() accessUpdates
 }
 

@@ -199,7 +199,7 @@ func (run *search) searchFiles(ctx context.Context, user, home, base string, fil
 		if !syspath.HasPrefix(file, prefix) || strings.Contains(file, "\n") {
 			continue
 		}
-		if err := run.recordFileHints(user, home, file); err != nil {
+		if err := run.recordFileHints(ctx, user, home, file); err != nil {
 			return err
 		}
 	}
@@ -213,7 +213,7 @@ func (run *search) searchFiles(ctx context.Context, user, home, base string, fil
 // The file's lstat is taken before it is read, so its row records the access
 // time the search's own read may move; a file lstat cannot read cannot be
 // read either, and has no hits.
-func (run *search) recordFileHints(user, home, path string) error {
+func (run *search) recordFileHints(ctx context.Context, user, home, path string) error {
 	before, err := fsmeta.Lstat(path)
 	if err != nil {
 		return nil
@@ -224,7 +224,10 @@ func (run *search) recordFileHints(user, home, path string) error {
 	}
 	hintUser, values := user, FileValues{}
 	if kind := Kind(path); kind != "" {
-		values = run.resolve(path, kind, run.resolveHome(user, home), hits)
+		values, err = run.resolve(ctx, path, kind, run.resolveHome(user, home), hits)
+		if err != nil {
+			return err
+		}
 		if user == "" && home == "" && values.User != "" && isDaemonPath(path) {
 			hintUser = values.User
 		}
@@ -276,14 +279,15 @@ func (run *search) resolveHome(user, home string) string {
 }
 
 // resolve reads the values of a hit file of a kind: a value reader that cannot
-// open the file reads nothing.
-func (run *search) resolve(path, kind, home string, hits []LineName) FileValues {
+// open the file reads nothing. Only a cancelled ctx is an error.
+func (run *search) resolve(ctx context.Context, path, kind, home string, hits []LineName,
+) (FileValues, error) {
 	if kind == "launchd" {
-		return ResolvePlist(run.deps.Plutil, path, hits)
+		return ResolvePlist(ctx, run.deps.Plutil, path, hits)
 	}
 	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
-		return FileValues{}
+		return FileValues{}, nil
 	}
 	defer file.Close()
 	var assignments []Assignment
@@ -292,5 +296,5 @@ func (run *search) resolve(path, kind, home string, hits []LineName) FileValues 
 	} else {
 		assignments, _ = ResolveEnvironmentD(file, run.names, home)
 	}
-	return FileValues{Assignments: assignments}
+	return FileValues{Assignments: assignments}, nil
 }

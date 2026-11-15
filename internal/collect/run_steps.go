@@ -25,11 +25,15 @@ const sharedAgent = "shared"
 // findHomes lists the homes to collect, as get_user_homes and Get-UserHomes
 // do, with a warning when there is none and a line for each candidate that
 // could not be seen as a directory, as Write-StartLog logs them. It keeps the
-// ProfileList entries for the registry pass.
-func (state *runState) findHomes(context.Context) error {
+// ProfileList entries for the registry pass. A cancelled ctx stops the run
+// before the report is used: getent and dscl are not run, or are stopped.
+func (state *runState) findHomes(ctx context.Context) error {
 	live := state.options.Root == ""
-	report := state.host.findUsers(live, state.options.Root, state.options.UsersFilter,
+	report := state.host.findUsers(ctx, live, state.options.Root, state.options.UsersFilter,
 		state.host.runner.Output)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	state.homes, state.skippedHomes = report.Homes, report.Skipped
 	for _, profile := range report.Profiles {
 		state.profiles = append(state.profiles, relocation.Profile(profile))

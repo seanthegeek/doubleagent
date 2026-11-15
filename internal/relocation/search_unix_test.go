@@ -3,6 +3,7 @@
 package relocation
 
 import (
+	"context"
 	"path/filepath"
 	"syscall"
 	"testing"
@@ -24,7 +25,8 @@ func TestSearchSkipsAPipeWithoutBlocking(t *testing.T) {
 		}},
 		{"the value reader reads nothing from a pipe", func() int {
 			hits := []LineName{{Line: 1, Name: "CODEX_HOME"}}
-			return len(run.resolve(pipe, "environment", "", hits).Assignments)
+			values, _ := run.resolve(context.Background(), pipe, "environment", "", hits)
+			return len(values.Assignments)
 		}},
 	}
 	for _, test := range cases {

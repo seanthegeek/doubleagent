@@ -4,6 +4,7 @@ package users
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"strings"
 
@@ -33,12 +34,14 @@ func isSystemHome(relative string) bool {
 // that fails is treated as absent. Otherwise passwd is root/etc/passwd. The
 // usual home parents follow. usersFilter is the -u list, compared
 // case-sensitively; a home listed twice keeps its first user; only existing
-// directories are returned. root is "" or "/" for the live system.
-func Find(live bool, root, usersFilter string, run Runner) Report {
+// directories are returned. root is "" or "/" for the live system. Once ctx
+// is cancelled no program is run, as if none were installed; the caller
+// checks ctx before using the report.
+func Find(ctx context.Context, live bool, root, usersFilter string, run Runner) Report {
 	root = strings.TrimSuffix(root, "/")
-	candidates := passwdHomes(live, root, run)
+	candidates := passwdHomes(ctx, live, root, run)
 	if live {
-		candidates = append(candidates, dsclHomes(run)...)
+		candidates = append(candidates, dsclHomes(ctx, run)...)
 	}
 	candidates = append(candidates, globHomes(root)...)
 	kept, found := filterHomes(candidates, root, usersFilter)
@@ -59,11 +62,11 @@ func sameName(name, user string) bool { return name == user }
 // passwdHomes returns the user and root-prefixed home of every passwd line
 // with at least six fields and a non-empty sixth. Live, the text is
 // getent's when getent runs, else the file's, as the sh collector does.
-func passwdHomes(live bool, root string, run Runner) []Home {
+func passwdHomes(ctx context.Context, live bool, root string, run Runner) []Home {
 	var text []byte
 	ran := false
-	if live && run != nil {
-		output, err := run("getent", "passwd")
+	if live && run != nil && ctx.Err() == nil {
+		output, err := run(ctx, "getent", "passwd")
 		text, ran = output, err == nil
 	}
 	if !ran {
@@ -83,11 +86,11 @@ func passwdHomes(live bool, root string, run Runner) []Home {
 // dsclHomes returns the user and home of each line of `dscl . -list /Users
 // NFSHomeDirectory`: the first two blank-separated fields, so a home with a
 // space in it is cut at the space, as the sh collector's awk cuts it.
-func dsclHomes(run Runner) []Home {
-	if run == nil {
+func dsclHomes(ctx context.Context, run Runner) []Home {
+	if run == nil || ctx.Err() != nil {
 		return nil
 	}
-	output, err := run("dscl", ".", "-list", "/Users", "NFSHomeDirectory")
+	output, err := run(ctx, "dscl", ".", "-list", "/Users", "NFSHomeDirectory")
 	if err != nil {
 		return nil
 	}
