@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/relocation"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -81,7 +82,9 @@ func systemBases(root string) volumes.Bases {
 	if programData == "" {
 		return volumes.Bases{System: system, ProgramData: system + "/ProgramData"}
 	}
-	return volumes.Bases{System: system, ProgramData: syspath.FromNative(programData)}
+	// The environment's spelling, respelled as the disk holds it.
+	return volumes.Bases{System: system,
+		ProgramData: fsmeta.OnDiskPath(syspath.FromNative(programData))}
 }
 
 // registryReader is the registry the relocation step reads: this host's.

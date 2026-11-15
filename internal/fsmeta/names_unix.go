@@ -7,3 +7,6 @@ package fsmeta
 func OnDiskName(_, name string) (string, bool) {
 	return name, false
 }
+
+// OnDiskPath returns path unchanged: on Unix a path has one spelling.
+func OnDiskPath(path string) string { return path }

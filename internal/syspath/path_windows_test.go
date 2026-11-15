@@ -19,8 +19,6 @@ func TestWindowsComparisonsIgnoreCase(t *testing.T) {
 		{"different paths are not equal", Equal("C:/Users/a", "C:/Users/b"), false},
 		{"a prefix matches ignoring case", HasPrefix("C:/Users/Alice/x", "c:/users/alice/"), true},
 		{"a longer prefix does not match", HasPrefix("C:/a", "C:/a/b"), false},
-		{"paths differing in non-ASCII case are equal", Equal("C:/Users/\u00c9mile", "C:/Users/\u00e9mile"), true},
-		{"a prefix matches ignoring non-ASCII case", HasPrefix("C:/Users/\u00c9mile/x", "C:/Users/\u00e9mile/"), true},
 		{"a backslashed drive path is absolute", IsAbs(`C:\x`), true},
 		{"a path on the current drive is not absolute", IsAbs("/x"), false},
 	}
@@ -37,12 +35,6 @@ func TestWindowsCutPrefixKeepsTheSpelling(t *testing.T) {
 	rest, found := CutPrefix("D:/Img/Users/Alice", "d:/img")
 	if rest != "/Users/Alice" || !found {
 		t.Fatalf("CutPrefix = %s, %t", rest, found)
-	}
-	// Dotless i folds to the one-byte I, so the cut must fall where the
-	// match ends in the path, not at the prefix's length.
-	rest, found = CutPrefix("D:/\u0131mg/Users", "d:/img")
-	if rest != "/Users" || !found {
-		t.Fatalf("CutPrefix across a shorter fold = %s, %t", rest, found)
 	}
 }
 

@@ -14,10 +14,9 @@ import "strings"
 
 // MatchPath reports whether path matches pattern as the shell's `case` does:
 // `*` and `?` match any byte, `/` and newline included, and a leading `.`
-// needs no literal dot. On Windows every test in this package ignores case,
-// pattern and subject folded first by syspath.Fold, which upper-cases every
-// letter as NTFS compares names; a bracket range is upper-cased as written
-// ([a-z] is [A-Z]).
+// needs no literal dot. On Windows every test in this package ignores ASCII
+// case, pattern and subject lowered first, as the PowerShell collector's
+// regexes do; a bracket range is lowered as written ([A-Z] is [a-z]).
 func MatchPath(pattern, path string) bool {
 	return match(fold(pattern), fold(path))
 }
@@ -50,6 +49,19 @@ func wildcardMatches(segment, name string, foldName func(string) string) bool {
 		return false
 	}
 	return match(foldName(segment), foldName(name))
+}
+
+// foldASCII returns text with the ASCII capitals A to Z lowered and every
+// other byte kept, the Windows fold; it is plain code so every platform
+// tests it.
+func foldASCII(text string) string {
+	lowered := []byte(text)
+	for i, character := range lowered {
+		if 'A' <= character && character <= 'Z' {
+			lowered[i] = character + 'a' - 'A'
+		}
+	}
+	return string(lowered)
 }
 
 // QuoteMeta returns text with `[`, `]`, `*`, `?` and `\` escaped by a

@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -20,7 +21,8 @@ type fakeProfiles []Profile
 func (fake fakeProfiles) Profiles() []Profile { return fake }
 
 // writeTree creates the directories and empty files under a fresh root and
-// returns the root in canonical form.
+// returns the root in canonical form, spelled as the disk holds it, so
+// respelled profile paths keep it as their prefix.
 func writeTree(t *testing.T, dirs, files []string) string {
 	t.Helper()
 	root := t.TempDir()
@@ -34,7 +36,7 @@ func writeTree(t *testing.T, dirs, files []string) string {
 			t.Fatal(err)
 		}
 	}
-	return syspath.FromNative(root)
+	return fsmeta.OnDiskPath(syspath.FromNative(root))
 }
 
 // profilesUnder turns "SID=relative/path" entries into profiles under root.
@@ -66,22 +68,27 @@ func TestFind(t *testing.T) {
 			homes:    []string{"dave:/srv/dave", "alice:/Users/alice", "bob:/Users/bob", "carol:/home/carol"},
 		},
 		{
-			name:     "a home repeated in another case keeps the first spelling",
+			name:     "a ProfileList path in another case takes the disk's spelling and is one home",
 			dirs:     []string{"Users/alice"},
 			profiles: []string{"S-1-5-21-1=Users/ALICE"},
-			homes:    []string{"ALICE:/Users/ALICE"},
+			homes:    []string{"ALICE:/Users/alice"},
 		},
 		{
-			name:     "a home repeated with an accented letter in another case is one home",
+			name:     "a ProfileList path differing in an accented letter's case is one home",
 			dirs:     []string{"Users/\u00e9mile"},
 			profiles: []string{"S-1-5-21-1=Users/\u00c9mile"},
-			homes:    []string{"\u00c9mile:/Users/\u00c9mile"},
+			homes:    []string{"\u00c9mile:/Users/\u00e9mile"},
 		},
 		{
-			name:   "the -u list ignores the case of an accented letter",
+			name:  "dotless-i img beside img is a second home, as NTFS keeps the two apart",
+			dirs:  []string{"Users/img", "Users/\u0131mg"},
+			image: true,
+			homes: []string{"img:/Users/img", "\u0131mg:/Users/\u0131mg"},
+		},
+		{
+			name:   "the -u list, a list of names, ignores ASCII case only",
 			dirs:   []string{"Users/\u00e9mile", "Users/bob"},
 			filter: "\u00c9MILE",
-			homes:  []string{"\u00e9mile:/Users/\u00e9mile"},
 		},
 		{
 			name:     "system and service profiles are dropped",
@@ -141,8 +148,17 @@ func TestFind(t *testing.T) {
 			if !reflect.DeepEqual(skipped, testCase.skipped) {
 				t.Errorf("skipped = %v, want %v", skipped, testCase.skipped)
 			}
-			if !testCase.image && !reflect.DeepEqual(report.Profiles, []Profile(reader.(fakeProfiles))) {
-				t.Errorf("Profiles = %v, want every entry of the reader in order", report.Profiles)
+			if testCase.image {
+				return
+			}
+			var wantProfiles []Profile
+			for _, profile := range reader.(fakeProfiles) {
+				profile.Path = fsmeta.OnDiskPath(profile.Path)
+				wantProfiles = append(wantProfiles, profile)
+			}
+			if !reflect.DeepEqual(report.Profiles, wantProfiles) {
+				t.Errorf("Profiles = %v, want every entry of the reader in order, respelled",
+					report.Profiles)
 			}
 		})
 	}

@@ -252,16 +252,15 @@ func liveRegistry() fakeRegistry {
 	}
 }
 
-func TestCollectedHomeComparesAsNTFSDoes(t *testing.T) {
-	homes := []users.Home{{User: "\u00e9mile", Path: "C:/Users/\u00e9mile"}}
+func TestCollectedHomeFoldsASCIIOnly(t *testing.T) {
+	homes := []users.Home{{User: "img", Path: "C:/Users/img"}}
 	run := registrySearch(t, fakeRegistry{}, nil, homes, &lineLog{})
 	cases := []struct {
 		name, path string
 		want       bool
 	}{
-		{"a ProfileList path differing in an accented letter's case is the home",
-			"c:/users/\u00c9MILE", true},
-		{"the same name without its accent is another directory", "C:/Users/emile", false},
+		{"a ProfileList path differing in ASCII case is the home", "c:/users/IMG", true},
+		{"dotless i names another directory, as NTFS keeps it apart", "C:/Users/\u0131mg", false},
 		{"the empty path is no home", "", false},
 	}
 	for _, test := range cases {

@@ -377,3 +377,25 @@ func TestOutsideStageErrorNamesTheNativePath(t *testing.T) {
 		t.Errorf("requireInside error %v, want a PathError of %q", err, syspath.ToNative(outside))
 	}
 }
+
+func TestHoldsRefusesANameNTFSKeepsApart(t *testing.T) {
+	base := syspath.FromNative(t.TempDir())
+	for _, name := range []string{".stage-x/fs", ".ſtage-x/fs"} {
+		mustDo(t, os.MkdirAll(syspath.Extended(base+"/"+name), 0o755))
+	}
+	stager := Stager{Dir: base + "/.stage-x", Physical: base + "/.stage-x"}
+	cases := []struct {
+		name, physical string
+		want           bool
+	}{
+		{"the staging directory in another ASCII case is held", base + "/.STAGE-X/fs", true},
+		{"a long-s sibling NTFS keeps apart is not held", base + "/.ſtage-x/fs", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := stager.holds(test.physical); got != test.want {
+				t.Errorf("holds(%q) = %t, want %t", test.physical, got, test.want)
+			}
+		})
+	}
+}

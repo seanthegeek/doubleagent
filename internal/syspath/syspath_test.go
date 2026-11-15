@@ -126,70 +126,21 @@ func TestFoldASCII(t *testing.T) {
 	})
 }
 
-func TestFoldUpper(t *testing.T) {
-	runConversions(t, foldUpper, []conversionCase{
-		{"ASCII letters are upper-cased", "C:/Users/alice", "C:/USERS/ALICE"},
-		{"an accented letter is upper-cased", "\u00e9mile", "\u00c9MILE"},
-		{"an upper-case accented letter is kept", "\u00c9mile", "\u00c9MILE"},
-		{"sharp s has no simple upper case and is kept", "stra\u00dfe", "STRA\u00dfE"},
-		{"dotless i becomes the ASCII I, shortening the text", "\u0131x", "IX"},
-		{"dotted capital I is kept", "\u0130x", "\u0130X"},
-		{"a lone surrogate's bytes are kept", "a\xed\xa0\x80b", "A\xed\xa0\x80B"},
-		{"other invalid UTF-8 is kept", "a\xff\xc3", "A\xff\xc3"},
-		{"the replacement character itself is kept", "\ufffda", "\ufffdA"},
-		{"the empty text stays", "", ""},
-	})
-}
-
-func TestFoldUpperMakesNTFSCaseVariantsOneKey(t *testing.T) {
-	cases := []struct {
-		name          string
-		first, second string
-		same          bool
-	}{
-		{"\u00c9 and \u00e9 are one name", "C:/Users/\u00c9mile", "c:/users/\u00e9mile", true},
-		{"dotless i and i are one name", "\u0131", "i", true},
-		{"dotted capital I and i are two names", "\u0130", "i", false},
-		{"sharp s and ss are two names", "\u00df", "ss", false},
-		{"two different lone surrogates are two names", "\xed\xa0\x80", "\xed\xa0\x81", false},
+func TestFoldASCIIKeepsApartNamesNTFSKeepsApart(t *testing.T) {
+	// NTFS's case table leaves each of these unchanged, so a volume can hold
+	// both names of a pair side by side; a fold that merged them would
+	// collect one and lose the other.
+	pairs := []struct{ name, first, second string }{
+		{"dotless i and I", "\u0131mg", "IMG"},
+		{"long s and S", "\u017fecret", "SECRET"},
+		{"micro sign and capital mu", "\u00b5", "\u039c"},
+		{"final sigma and capital sigma", "\u03c2", "\u03a3"},
+		{"a pair outside the Basic Multilingual Plane", "\U00010428", "\U00010400"},
 	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			if got := foldUpper(test.first) == foldUpper(test.second); got != test.same {
-				t.Errorf("foldUpper(%q) == foldUpper(%q) is %t, want %t", test.first, test.second,
-					got, test.same)
-			}
-		})
-	}
-}
-
-func TestMatchFoldedPrefix(t *testing.T) {
-	cases := []struct {
-		name, path, prefix string
-		restIndex          int
-		found              bool
-	}{
-		{"an ASCII prefix in another case matches", "C:/Users/Alice/x", "c:/users/alice/", 15, true},
-		{"an accented prefix in another case matches", "C:/Users/\u00c9mile/x", "c:/users/\u00e9mile/",
-			len("C:/Users/\u00c9mile/"), true},
-		{"a path whose fold is shorter than the prefix's ends the cut in the path",
-			"/\u0131/rest", "/i/", len("/\u0131/"), true},
-		{"a prefix whose fold is shorter than the path's ends the cut in the path",
-			"/i/rest", "/\u0131/", len("/i/"), true},
-		{"the empty prefix matches at the start", "C:/a", "", 0, true},
-		{"a longer prefix does not match", "C:/a", "C:/a/b", 0, false},
-		{"a different letter does not match", "C:/b", "C:/a", 0, false},
-		{"a prefix ending inside a character does not match", "/\u00e9", "/\xc3", 0, false},
-		{"lone surrogate bytes match only themselves", "/\xed\xa0\x80/x", "/\xed\xa0\x80/",
-			len("/\xed\xa0\x80/"), true},
-		{"sharp s does not match ss", "/stra\u00dfe", "/STRASS", 0, false},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			restIndex, found := matchFoldedPrefix(test.path, test.prefix)
-			if restIndex != test.restIndex || found != test.found {
-				t.Errorf("matchFoldedPrefix(%q, %q) = %d, %t, want %d, %t", test.path, test.prefix,
-					restIndex, found, test.restIndex, test.found)
+	for _, pair := range pairs {
+		t.Run(pair.name+" stay two keys", func(t *testing.T) {
+			if foldASCII(pair.first) == foldASCII(pair.second) {
+				t.Errorf("foldASCII(%q) == foldASCII(%q), want two keys", pair.first, pair.second)
 			}
 		})
 	}

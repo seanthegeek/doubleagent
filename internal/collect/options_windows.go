@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -14,7 +15,8 @@ import (
 // is that drive's root. A path starting with one separator is rooted on
 // CWD's drive. A drive-relative path (X:dir) is joined to CWD when CWD is on
 // that drive, else to the drive's root, the only directory of another drive
-// a new process knows.
+// a new process knows. Existing components then take the disk's spelling
+// (fsmeta.OnDiskPath; a missing one stays as typed), as -r and -o do here.
 func absoluteProject(cwd, project string) string {
 	switch {
 	case isBareDrive(project):
@@ -27,7 +29,7 @@ func absoluteProject(cwd, project string) string {
 	default:
 		project = filepath.Join(cwd, project)
 	}
-	return syspath.FromNative(filepath.Clean(project))
+	return fsmeta.OnDiskPath(syspath.FromNative(filepath.Clean(project)))
 }
 
 // driveRelative resolves the drive-relative PROJECT (X:dir) against CWD

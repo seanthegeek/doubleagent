@@ -2,8 +2,12 @@ package collect
 
 import (
 	"errors"
+	"os"
 	"reflect"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 func TestAbsoluteProjectOnWindows(t *testing.T) {
@@ -29,6 +33,26 @@ func TestAbsoluteProjectOnWindows(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := absoluteProject(cwd, test.project); got != test.want {
+				t.Errorf("absoluteProject(%q) = %q, want %q", test.project, got, test.want)
+			}
+		})
+	}
+}
+
+func TestAbsoluteProjectTakesTheDisksSpelling(t *testing.T) {
+	base := fsmeta.OnDiskPath(syspath.FromNative(t.TempDir()))
+	if err := os.MkdirAll(syspath.ToNative(base+"/\u00c9mile/Sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct{ name, project, want string }{
+		{"existing components take the disk's case, an accented letter's too",
+			syspath.ToNative(base + "/\u00e9mile/sub"), base + "/\u00c9mile/Sub"},
+		{"a missing tail stays as typed", syspath.ToNative(base + "/\u00e9MILE/sub/New"),
+			base + "/\u00c9mile/Sub/New"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := absoluteProject("", test.project); got != test.want {
 				t.Errorf("absoluteProject(%q) = %q, want %q", test.project, got, test.want)
 			}
 		})

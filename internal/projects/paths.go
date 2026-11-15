@@ -1,6 +1,10 @@
 package projects
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+)
 
 // pathRules says how localProjectPath turns a value a discovery source holds
 // into a project path. The zero value is the sh collector's rule; the
@@ -32,6 +36,8 @@ const asciiBlanks = " \t\n\v\f\r"
 // names, under root ("" live) in image mode, and false when the value names
 // no absolute path the host or image can hold. Under the sh rules a value
 // must start with /, then has every `\/` undone and root put before it.
+// Under the drive-letter rules the existing components of the result are
+// spelled as the disk holds them (fsmeta.OnDiskPath; a missing one stays).
 func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	if !rules.driveLetters {
 		if !strings.HasPrefix(value, "/") {
@@ -59,7 +65,9 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	default:
 		return "", false
 	}
-	value = strings.TrimRight(strings.ReplaceAll(value, `\`, "/"), "/")
+	// A value is a file's text, in whatever case its writer used; respelled
+	// as the disk holds it, it compares byte for byte with listed paths.
+	value = fsmeta.OnDiskPath(strings.TrimRight(strings.ReplaceAll(value, `\`, "/"), "/"))
 	return value, value != ""
 }
 

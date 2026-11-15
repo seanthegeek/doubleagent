@@ -508,9 +508,13 @@ for Go files as it does for the others.
 - **Paths are bytes.** A path is a `string` holding raw bytes: no `[]rune`,
   `strings.ToLower`, `utf8` decoding or `%q` on one; case folding is
   ASCII-only where the sh collector lowers under `LC_ALL=C`. Windows path
-  keys fold by character, because NTFS upper-cases every letter when it
-  compares names; that decoding lives in `internal/syspath` only, and every
-  other package compares Windows paths through `syspath.Fold`. Directory
+  keys (`syspath.Fold`) fold ASCII only too: NTFS's own case table keeps
+  apart pairs any other fold would merge (`ı` and `I`), and merging two
+  names loses one of them. A Windows path that comes from outside a
+  directory listing (the command line, the registry, a file's content, a
+  link target) is respelled as the disk holds it through
+  `fsmeta.OnDiskPath` before it is compared, so two spellings of one
+  directory become the same bytes. Directory
   listings use `(*os.File).ReadDir(-1)` (directory order) where the sh
   collector uses `find`, and the glob expander (sorted) where it expands a
   pattern; never `filepath.WalkDir` or `os.ReadDir` on a collected tree.

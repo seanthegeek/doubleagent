@@ -5,6 +5,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -26,8 +27,9 @@ func homeGlobs(live bool) []string {
 // that is a file is dropped; one whose entry cannot be looked at is reported
 // in Skipped, with Denied set when its parent lists it. Both tests read the
 // entry's own attributes, as .NET's File.Exists and Directory.Exists do. The
-// -u list is compared case-insensitively against the user name. A home is
-// kept once, by the case-folded path. run is not used on Windows.
+// -u list is compared against the user name ignoring ASCII case. A
+// ProfileList path is respelled as the disk holds it, so a home is kept once
+// by its ASCII-folded path. run is not used on Windows.
 func Find(live bool, root, usersFilter string, _ Runner) Report {
 	var reader profileReader
 	if live {
@@ -43,8 +45,12 @@ func find(reader profileReader, root, usersFilter string) Report {
 	var report Report
 	var candidates []Home
 	if reader != nil {
-		report.Profiles = reader.Profiles()
-		for _, profile := range report.Profiles {
+		// A ProfileList path is the registry's spelling, which may differ
+		// in case from the directory the Users listing gives; respelled as
+		// the disk holds it, one directory is one candidate path.
+		for _, profile := range reader.Profiles() {
+			profile.Path = fsmeta.OnDiskPath(profile.Path)
+			report.Profiles = append(report.Profiles, profile)
 			candidates = append(candidates, Home{profile.User, profile.Path})
 		}
 	}

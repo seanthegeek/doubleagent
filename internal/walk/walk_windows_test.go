@@ -254,14 +254,13 @@ func TestWalkListsDirectoriesBeforeFilesOnWindows(t *testing.T) {
 
 func TestClaimsAreFoldedOnWindows(t *testing.T) {
 	home := physicalTemp(t)
-	writeFiles(t, home, ".tool/a.txt", ".tool/n\u00e9sted/b.txt")
+	writeFiles(t, home, ".tool/a.txt", ".tool/nested/b.txt")
 	cases := []struct {
 		name  string
 		claim string
 	}{
-		{"a claim spelled as on disk prunes its path", home + "/.tool/n\u00e9sted"},
-		{"a claim spelled in other case, an accented letter included, prunes its path",
-			home + "/.TOOL/N\u00c9STED"},
+		{"a claim spelled as on disk prunes its path", home + "/.tool/nested"},
+		{"a claim spelled in other case prunes its path", home + "/.TOOL/NESTED"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -274,10 +273,38 @@ func TestClaimsAreFoldedOnWindows(t *testing.T) {
 			if got := recorder.summary(t, home); !slices.Equal(got, want) {
 				t.Errorf("events %q, want %q", got, want)
 			}
-			if !claimed(home+"/.tool/N\u00e9sted/b.txt", home, owner.claims) {
+			if !claimed(home+"/.tool/Nested/b.txt", home, owner.claims) {
 				t.Error("a path under the claim in a third spelling is not claimed")
 			}
 		})
+	}
+}
+
+func TestNamesNTFSKeepsApartAreTwoEntriesOnWindows(t *testing.T) {
+	home := physicalTemp(t)
+	// Written through the \\?\ form, so each name is made as given.
+	for _, file := range []string{".tool/img/a.txt", ".tool/\u0131mg/a.txt", ".tool/.secret",
+		".tool/.\u017fecret"} {
+		path := syspath.Extended(home + "/" + file)
+		mustDo(t, os.MkdirAll(path[:strings.LastIndexByte(path, '\\')], 0o755))
+		mustDo(t, os.WriteFile(path, []byte(file), 0o644))
+	}
+	collector, recorder := windowsCollector(t, "", nil)
+	table := []catalog.Entry{{Agent: "plain", Glob: ".tool/img"}, {Agent: "dotless", Glob: ".tool/\u0131mg"},
+		{Agent: "plain", Glob: ".tool/.secret"}, {Agent: "longs", Glob: ".tool/.\u017fecret"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
+	got := map[string]string{}
+	for _, row := range recorder.rows(t) {
+		got[row["path"].(string)] = row["agent"].(string) + " " + row["status"].(string)
+	}
+	want := map[string]string{
+		syspath.ToNative(home + "/.tool/img/a.txt"):      "plain collected",
+		syspath.ToNative(home + "/.tool/\u0131mg/a.txt"): "dotless collected",
+		syspath.ToNative(home + "/.tool/.secret"):        "plain collected",
+		syspath.ToNative(home + "/.tool/.\u017fecret"):   "longs collected",
+	}
+	if !maps.Equal(got, want) {
+		t.Errorf("rows by path %q, want one row for each of the four names %q", got, want)
 	}
 }
 

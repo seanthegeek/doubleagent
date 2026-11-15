@@ -284,7 +284,9 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []string, 
 	if !syspath.IsAbs(target) {
 		return parent, strings.Split(target, "/"), rootScope{}
 	}
-	rest, inside := walker.relative(target)
+	// A target is text its creator typed; respelled as the disk holds it,
+	// it compares byte for byte with the root's own spelling.
+	rest, inside := walker.relative(fsmeta.OnDiskPath(target))
 	if !inside {
 		return "", nil, rootScope{name: walker.named(link)}
 	}

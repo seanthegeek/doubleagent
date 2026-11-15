@@ -5,12 +5,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
 func TestDiscoverReadsDrivePathsAndIgnoresCase(t *testing.T) {
-	root := syspath.FromNative(t.TempDir())
+	root := fsmeta.OnDiskPath(syspath.FromNative(t.TempDir()))
 	writeTree(t, root, map[string]string{
 		"home/alice/.claude/history.jsonl": `{"project":"C:\\proj"}` + "\n" +
 			`{"project":"/PROJ"}` + "\n" + `{"project":"/HOME/ALICE"}` + "\n" +
@@ -29,6 +30,25 @@ func TestDiscoverReadsDrivePathsAndIgnoresCase(t *testing.T) {
 	// path or of the home is the same directory; the Codex filters fold.
 	want := []Project{{"alice", root + "/proj"}, {"alice", root + "/home/alice/inside"},
 		{"alice", root + "/HOME/ALICE/other"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestDiscoverRespellsAProjectAsTheDiskHoldsIt(t *testing.T) {
+	root := fsmeta.OnDiskPath(syspath.FromNative(t.TempDir()))
+	writeTree(t, root, map[string]string{
+		"Users/alice/.claude/history.jsonl": "{\"project\":\"C:\\\\\u00c9mile\"}\n" +
+			`{"project":"C:\\IMG"}` + "\n",
+	}, "\u00e9mile", "img", "\u0131mg")
+	homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
+	got, err := Discover(context.Background(), homes, root, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The accented name takes the disk's case; IMG names img, never the
+	// dotless-i img NTFS keeps beside it.
+	want := []Project{{"alice", root + "/\u00e9mile"}, {"alice", root + "/img"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -53,7 +73,7 @@ func TestDiscoverReadsDriveKeysAndStrings(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			root := syspath.FromNative(t.TempDir())
+			root := fsmeta.OnDiskPath(syspath.FromNative(t.TempDir()))
 			writeTree(t, root, map[string]string{"Users/alice/" + testCase.source: testCase.content},
 				testCase.project)
 			homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
@@ -81,7 +101,7 @@ func TestProjectComparisonsIgnoreCase(t *testing.T) {
 		}
 	})
 	t.Run("a home in another case is not a project", func(t *testing.T) {
-		root := syspath.FromNative(t.TempDir())
+		root := fsmeta.OnDiskPath(syspath.FromNative(t.TempDir()))
 		writeTree(t, root, nil, "Home")
 		got := keepProjectDirs([]Project{{"u", root + "/HOME"}}, "u:"+root+"/home", nil)
 		if got != nil {

@@ -5,7 +5,7 @@
 // //server/share), never the \\?\ extended-length prefix. On Unix that is
 // the native form and every conversion is the identity. On Windows FromNative
 // takes what the OS hands the binary, ToNative gives the output form, Extended
-// the form for the binary's own Win32 calls, and Fold the upper-cased key
+// the form for the binary's own Win32 calls, and Fold the ASCII-lowered key
 // paths are compared by. The Windows algorithms are plain functions here so
 // every platform tests them; the platform files bind the exported names.
 package syspath
@@ -15,38 +15,28 @@ import (
 	"io/fs"
 	"os"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 )
 
-// Equal reports whether two paths name the same file on this platform's
-// filesystem: byte equality on Unix, equality ignoring case on Windows.
+// Equal reports whether two paths are the same key: byte equality on Unix,
+// equality ignoring ASCII case on Windows (see Fold for why ASCII only).
 func Equal(first, second string) bool {
 	return Fold(first) == Fold(second)
 }
 
 // HasPrefix reports whether path starts with prefix, compared as Equal does.
 func HasPrefix(path, prefix string) bool {
-	_, found := matchPrefix(path, prefix)
-	return found
+	return len(path) >= len(prefix) && Fold(path[:len(prefix)]) == Fold(prefix)
 }
 
 // CutPrefix returns path without prefix and true when path starts with it,
 // compared as Equal does, else path unchanged and false. The rest keeps the
-// path's own spelling. On Windows the matched part of path may be longer or
-// shorter in bytes than prefix (ı against i), so the cut is where the match
-// ends in path, never len(prefix).
+// path's own spelling.
 func CutPrefix(path, prefix string) (rest string, found bool) {
-	restIndex, found := matchPrefix(path, prefix)
-	if !found {
+	if !HasPrefix(path, prefix) {
 		return path, false
 	}
-	return path[restIndex:], true
+	return path[len(prefix):], true
 }
-
-// WindowsFold returns the key Fold gives on Windows, on every platform, for
-// code that compares Windows paths whatever the host it is tested on.
-func WindowsFold(text string) string { return foldUpper(text) }
 
 // fromWindows turns a native Windows path into the canonical form: the
 // extended prefix dropped (\\?\UNC\ back to //), backslashes made forward and
@@ -133,66 +123,6 @@ func resolveSegments(body string, keep int) string {
 		resolved += `\`
 	}
 	return resolved
-}
-
-// foldUpper returns the key NTFS compares names by: each valid UTF-8
-// character replaced by its simple upper-case form, and every byte that
-// starts no valid character (a lone surrogate's WTF-8 bytes among them) kept
-// as it is. NTFS upper-cases names through its own $UpCase table, built from
-// the Unicode simple upper-case mapping of the Windows version that formatted
-// the volume; unicode.ToUpper is the closest portable equivalent. The key may
-// differ in byte length from text, so it is never sliced against text, and it
-// is never written.
-func foldUpper(text string) string {
-	folded := make([]byte, 0, len(text))
-	for index := 0; index < len(text); {
-		key, width := foldedAt(text, index)
-		if key < 0 {
-			folded = append(folded, text[index])
-		} else {
-			folded = utf8.AppendRune(folded, key)
-		}
-		index += width
-	}
-	return string(folded)
-}
-
-// foldedAt returns the upper-case form of the character starting at index
-// in text and its width in bytes; a byte that starts no valid UTF-8
-// character is one byte wide and gives -1 minus the byte, a key no character
-// has.
-func foldedAt(text string, index int) (key rune, width int) {
-	if character := text[index]; character < utf8.RuneSelf {
-		if 'a' <= character && character <= 'z' {
-			character -= 'a' - 'A'
-		}
-		return rune(character), 1
-	}
-	character, width := utf8.DecodeRuneInString(text[index:])
-	if character == utf8.RuneError && width == 1 {
-		return -1 - rune(text[index]), 1
-	}
-	return unicode.ToUpper(character), width
-}
-
-// matchFoldedPrefix reports whether path starts with prefix when the two are
-// compared character by character through foldedAt, and the byte index in
-// path where the rest begins. A prefix ending inside one of path's
-// characters does not match.
-func matchFoldedPrefix(path, prefix string) (restIndex int, found bool) {
-	pathAt, prefixAt := 0, 0
-	for prefixAt < len(prefix) {
-		if pathAt == len(path) {
-			return 0, false
-		}
-		pathKey, pathWidth := foldedAt(path, pathAt)
-		prefixKey, prefixWidth := foldedAt(prefix, prefixAt)
-		if pathKey != prefixKey {
-			return 0, false
-		}
-		pathAt, prefixAt = pathAt+pathWidth, prefixAt+prefixWidth
-	}
-	return pathAt, true
 }
 
 // foldASCII returns text with the ASCII capitals lowered and every other byte

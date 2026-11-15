@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-
-	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 func TestWindowsRowCarriesFieldsAfterMode(t *testing.T) {
@@ -30,19 +28,22 @@ func TestWriterWritesNativePaths(t *testing.T) {
 	}
 }
 
-func TestWriterFoldsAccentedLettersAsNTFSDoes(t *testing.T) {
+func TestWriterKeepsApartNamesNTFSKeepsApart(t *testing.T) {
 	var out strings.Builder
 	writer := NewWriter(&out)
-	err := writer.Write(Row{Home: "C:/Users/\u00e9mile", Path: "C:/Users/\u00e9mile/x", Status: Collected})
-	if err != nil {
-		t.Fatal(err)
+	for _, home := range []string{"C:/Users/img", "C:/Users/\u0131mg"} {
+		if err := writer.Write(Row{Home: home, Path: home + "/x", Status: Collected}); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if !writer.HasPath("C:/Users/\u00c9mile/X") {
-		t.Error("HasPath of the path with its accented letter upper-cased = false, want true")
+	if !writer.HasPath("c:/users/IMG/X") {
+		t.Error("HasPath in another ASCII case = false, want true")
 	}
-	if _, found := writer.HomesWithRows()[syspath.Fold("C:/USERS/\u00c9MILE")]; !found {
-		t.Errorf("HomesWithRows = %q, want the home under the fold of its other spelling",
-			writer.HomesWithRows())
+	if homes := writer.HomesWithRows(); len(homes) != 2 {
+		t.Errorf("HomesWithRows = %q, want img and dotless-i img as two homes", homes)
+	}
+	if writer.HasPath("C:/Users/\u0131mg/y") || !writer.HasPath("C:/Users/\u0131MG/X") {
+		t.Error("HasPath does not tell dotless-i img's rows from img's")
 	}
 }
 
