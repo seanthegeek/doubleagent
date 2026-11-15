@@ -7,14 +7,13 @@ import (
 	"testing"
 )
 
-// windowsCase is one run of smoke.ps1's run list. shared says the case
-// builds no fixture and changes nothing in the image, so it runs in parallel
-// with the other shared cases; fails says both collectors must exit non-zero
-// before writing anything, so there is no output to require.
+// windowsCase is one run of smoke.ps1's run list. A case marked parallel
+// builds no fixture and changes nothing in the image, so it runs beside the
+// other parallel cases; fails says both collectors must exit non-zero before
+// writing anything, so there is no output to require.
 type windowsCase struct {
 	parityCase
-	shared bool
-	fails  bool
+	fails bool
 }
 
 // run builds the case's fixtures and compares the two collectors' runs.
@@ -26,7 +25,7 @@ func (c windowsCase) run(t *testing.T, img image, reference oracle, binary []str
 	if c.setup != nil {
 		c.setup(t, img)
 	}
-	if !c.shared {
+	if !c.parallel {
 		settleTree(t, img.work)
 	}
 	if c.fails {
@@ -64,19 +63,18 @@ func requireEmptyDir(t *testing.T, label, dir string) {
 // windowsCases lists every case, in the order of smoke.ps1's run list.
 func windowsCases() []windowsCase {
 	cases := []windowsCase{
-		{parityCase: parityCase{name: "default"}, shared: true},
+		{parityCase: parityCase{name: "default", parallel: true}},
 		{parityCase: parityCase{name: "root71", root: `{WORK}\root71`, args: []string{"--no-docker"},
 			setup: setupNonASCIIRoot}},
 		{parityCase: parityCase{name: "root486", root: `{WORK}\r[1]`, args: []string{"--no-docker", "--no-projects"},
 			setup: setupPatternRoot}},
-		{parityCase: parityCase{name: "nosecrets", args: []string{"--no-secrets"}}, shared: true},
-		{parityCase: parityCase{name: "full", args: []string{"--full"}}, shared: true},
-		{parityCase: parityCase{name: "users", args: []string{"-u", "bob"}}, shared: true},
-		{parityCase: parityCase{name: "nodocker", args: []string{"--no-docker"}}, shared: true},
-		{parityCase: parityCase{name: "cwd105", cwd: `{WORK}\cwd105`, args: []string{"--no-docker", "--no-projects"}},
-			shared: true},
+		{parityCase: parityCase{name: "nosecrets", args: []string{"--no-secrets"}, parallel: true}},
+		{parityCase: parityCase{name: "full", args: []string{"--full"}, parallel: true}},
+		{parityCase: parityCase{name: "users", args: []string{"-u", "bob"}, parallel: true}},
+		{parityCase: parityCase{name: "nodocker", args: []string{"--no-docker"}, parallel: true}},
+		{parityCase: parityCase{name: "cwd105", cwd: `{WORK}\cwd105`, args: []string{"--no-docker", "--no-projects"}, parallel: true}},
 		{parityCase: parityCase{name: "claims106", args: []string{"--no-projects"},
-			env: []string{`NESTED_CLAIMS={ROOT}\var\lib\docker\volumes\a0_usr\_data\chats`}}, shared: true},
+			env: []string{`NESTED_CLAIMS={ROOT}\var\lib\docker\volumes\a0_usr\_data\chats`}, parallel: true}},
 	}
 	cases = append(cases, envScanCases()...)
 	cases = append(cases, []windowsCase{
@@ -85,7 +83,7 @@ func windowsCases() []windowsCase {
 		{parityCase: parityCase{name: "fwvolumesnosecrets", args: []string{"--no-secrets"}, setup: setupFrameworkVolumes}},
 	}...)
 	cases = append(cases, windowsInventoryCases()...)
-	cases = append(cases, windowsCase{parityCase: parityCase{name: "noproj31", args: []string{"--no-projects"}}, shared: true},
+	cases = append(cases, windowsCase{parityCase: parityCase{name: "noproj31", args: []string{"--no-projects"}, parallel: true}},
 		windowsCase{parityCase: parityCase{name: "links", root: `{WORK}\linkroot`, args: []string{"--no-docker"},
 			setup: setupLinkImage}},
 		windowsCase{parityCase: parityCase{name: "deniedhome", root: `{WORK}\deniedhome`, args: []string{"--no-docker"},
@@ -100,14 +98,14 @@ func windowsCases() []windowsCase {
 // limit.
 func envScanCases() []windowsCase {
 	return []windowsCase{
-		{parityCase: parityCase{name: "envscan", args: []string{"--env-scan-home"}}, shared: true},
+		{parityCase: parityCase{name: "envscan", args: []string{"--env-scan-home"}, parallel: true}},
 		{parityCase: parityCase{name: "envscanonce", args: []string{"--env-scan-home"}, setup: setupWindowsEnvScanOnce}},
 		{parityCase: parityCase{name: "envscanout", args: []string{"--env-scan-home"}, outDir: "{ALICE}"}},
 		{parityCase: parityCase{name: "envscanglob", args: []string{"--env-scan-home"}, outDir: `{BOB}\out [1]`,
 			setup: setupGlobOutput, expect: dropWildcardLogError}},
 		{parityCase: parityCase{name: "envscanroot", args: []string{"--env-scan-home", "-p", `{ROOT}\home`,
-			"-p", `{ROOT}\opt\daemonproj`}}, shared: true},
-		{parityCase: parityCase{name: "envscanbad", args: []string{"--env-scan-max-size", "x"}}, shared: true,
+			"-p", `{ROOT}\opt\daemonproj`}, parallel: true}},
+		{parityCase: parityCase{name: "envscanbad", args: []string{"--env-scan-max-size", "x"}, parallel: true},
 			fails: true},
 	}
 }
@@ -122,10 +120,8 @@ func projectAndOutputCases() []windowsCase {
 			args: []string{"-p", "relproj", "-p", `{ROOT}\nonexistent-cac`}, setup: setupWindowsRelativeProject}},
 		{parityCase: parityCase{name: "readonly", outDir: `{WORK}\readonly`, args: []string{"--no-docker"},
 			setup: setupReadOnlyOutput}, fails: true},
-		{parityCase: parityCase{name: "file108", outDir: `{WORK}\file108\out`, args: []string{"--no-docker"}},
-			shared: true, fails: true},
-		{parityCase: parityCase{name: "cwd109", cwd: `{WORK}\cwd109`, args: []string{"--no-docker", "--no-projects"}},
-			shared: true},
+		{parityCase: parityCase{name: "file108", outDir: `{WORK}\file108\out`, args: []string{"--no-docker"}, parallel: true}, fails: true},
+		{parityCase: parityCase{name: "cwd109", cwd: `{WORK}\cwd109`, args: []string{"--no-docker", "--no-projects"}, parallel: true}},
 	}
 }
 

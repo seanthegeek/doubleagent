@@ -176,7 +176,7 @@ func TestCollectAgreesWithThePowerShellCollector(t *testing.T) {
 	cases := windowsCases()
 	t.Run("shared image", func(t *testing.T) {
 		for _, testCase := range cases {
-			if testCase.shared {
+			if testCase.parallel {
 				t.Run(testCase.name, func(t *testing.T) {
 					t.Parallel()
 					testCase.run(t, img, reference, binary)
@@ -185,7 +185,7 @@ func TestCollectAgreesWithThePowerShellCollector(t *testing.T) {
 		}
 	})
 	for _, testCase := range cases {
-		if !testCase.shared {
+		if !testCase.parallel {
 			t.Run(testCase.name, func(t *testing.T) { testCase.run(t, img, reference, binary) })
 		}
 	}
