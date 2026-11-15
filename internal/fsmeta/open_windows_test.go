@@ -3,9 +3,11 @@ package fsmeta
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
@@ -156,5 +158,118 @@ func TestUpdatesOffHoldsAFileThroughALinkToARemoteVolume(t *testing.T) {
 	}
 	if !mayHoldTimes(t, NewOpener(false, true), link+"/file") {
 		t.Errorf("a file reached through a symlink to a share was opened read-only")
+	}
+}
+
+// denyTimeSetting adds to path's access list an entry denying the current
+// user the right to change the file's attributes, the inherited entries
+// still letting it read, and clears the list when the test ends so the
+// temporary directory can go. The test is skipped when the entry cannot be
+// set or does not refuse that right (a privilege may override it).
+func denyTimeSetting(t *testing.T, path string) {
+	t.Helper()
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	if err != nil {
+		t.Skipf("cannot read the process token: %v", err)
+	}
+	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{{
+		AccessPermissions: windows.FILE_WRITE_ATTRIBUTES,
+		AccessMode:        windows.DENY_ACCESS,
+		Inheritance:       windows.NO_INHERITANCE,
+		Trustee: windows.TRUSTEE{TrusteeForm: windows.TRUSTEE_IS_SID,
+			TrusteeType: windows.TRUSTEE_IS_USER, TrusteeValue: windows.TrusteeValueFromSID(user.User.Sid)},
+	}}, nil)
+	if err != nil {
+		t.Skipf("cannot build an access control list: %v", err)
+	}
+	native := syspath.ToNative(path)
+	if err := windows.SetNamedSecurityInfo(native, windows.SE_FILE_OBJECT,
+		windows.DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
+		t.Skipf("cannot set an access control list here: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = windows.SetNamedSecurityInfo(native, windows.SE_FILE_OBJECT,
+			windows.DACL_SECURITY_INFORMATION, nil, nil, nil, nil)
+	})
+	name, err := windows.UTF16PtrFromString(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES, shareAll, nil,
+		windows.OPEN_EXISTING, 0, 0)
+	if err == nil {
+		_ = windows.CloseHandle(handle)
+		t.Skip("the access list did not refuse the right to set the times (a privilege overrides it?)")
+	}
+}
+
+// readThrough reads the whole of path through opener, recording what the
+// opener reports, and returns the reports as "path: reason" lines.
+func readThrough(t *testing.T, opener *Opener, path string) []string {
+	t.Helper()
+	var reports []string
+	opener.Report = func(reported, reason string) {
+		reports = append(reports, reported+": "+reason)
+	}
+	file, err := opener.OpenRegular(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if content, err := io.ReadAll(file); err != nil || string(content) != "evidence" {
+		t.Fatalf("read %q, %v; want the file's contents", content, err)
+	}
+	return reports
+}
+
+// accessTimeOf reads path's access time through a handle opened for its
+// attributes alone, which records no access of its own.
+func accessTimeOf(t *testing.T, path string) uint64 {
+	t.Helper()
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, shareAll, nil,
+		windows.OPEN_EXISTING, windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+	accessed, err := accessTimeOn(handle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return accessed
+}
+
+func TestAFileWhoseRightToHoldIsRefusedIsReportedOnce(t *testing.T) {
+	path := tempFile(t)
+	denyTimeSetting(t, path)
+	reports := readThrough(t, NewOpener(false, false), path)
+	if want := path + ": " + reasonRightRefused; len(reports) != 1 || reports[0] != want {
+		t.Errorf("reports %q, want exactly %q", reports, want)
+	}
+}
+
+func TestAnOrdinaryFileIsHeldUnreported(t *testing.T) {
+	path := tempFile(t)
+	if err := os.Chtimes(path, time.Unix(1_600_000_000, 0), time.Unix(1_700_000_000, 0)); err != nil {
+		t.Fatal(err)
+	}
+	before := accessTimeOf(t, path)
+	if reports := readThrough(t, NewOpener(false, false), path); len(reports) != 0 {
+		t.Errorf("reports %q, want none", reports)
+	}
+	if got := accessTimeOf(t, path); got != before {
+		t.Errorf("access time %d after the read, want %d", got, before)
+	}
+}
+
+func TestNoPreserveAtimeReportsNothing(t *testing.T) {
+	path := tempFile(t)
+	denyTimeSetting(t, path)
+	if reports := readThrough(t, NewOpener(true, false), path); len(reports) != 0 {
+		t.Errorf("reports %q, want none: no hold was wanted", reports)
 	}
 }

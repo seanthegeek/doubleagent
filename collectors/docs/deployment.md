@@ -166,13 +166,63 @@ and each file it reads to find projects or relocation hints (with
   well as the right to read it, and tells Windows not to update the file's
   last-access time for the collector's own read. This helps protect
   forensic integrity: the access time on disk stays what it was before the
-  collection. The binary never changes a file. Where Windows refuses that
-  open (a file the account may only read), the binary reads the file
-  normally, and that file's access time may change.
+  collection. The binary changes no file's contents, and sets a file's
+  access time only to put back a value it read, as described below. Where
+  Windows refuses that open (a file the account may only read), the binary
+  reads the file normally, and that file's access time may change.
 
 The log says which case applied, in the line after the two start lines.
 The hold covers files the binary reads, not directories: listing a
 directory may update that directory's access time where updates are on.
+
+The request to hold the access time is a special value passed where a
+time would go. Windows's own file systems and Windows file servers take it
+as the request; a server or driver that stored it as a time instead would
+overwrite the file's access time with a date far in the future. So after
+asking, the binary reads the access time back on the same open file and
+compares it with the value it read just before asking. Where the two
+differ, it sets the access time back to the value read before (changing no
+other time), reads it again to check, then closes the file and reads it
+through a new read-only open, as any other program would, so nothing more
+is sent to a file system that misread the request; where that volume
+records reads, the read may move the access time. The check relies on the
+time the file system reports: on a share, that may come from the client's
+cache rather than the server, and a misread there would go unnoticed.
+
+Every file read without the hold the run wanted gets one log line, written
+when the file is opened:
+
+```text
+access time not held: <path>: <reason>
+```
+
+| Reason | What happened |
+| --- | --- |
+| `right to hold refused` | Windows refused the open with the right to change attributes, so the file was read read-only. |
+| `hold refused` | The file system refused the request to hold the access time; the file was read on the same open. |
+| `hold not verified` | The access time could not be read before or after the request; the request stands, unchecked. |
+| `hold not honoured, access time restored` | The access time changed when the hold was asked for; the binary set it back, checked it, and read the file through a new read-only open. |
+| `hold not honoured, restore failed` | The access time changed when the hold was asked for and could not be set back (or did not read back as set); the file was read through a new read-only open. |
+
+After the last file is read the log adds
+`access times not held: <N> file(s)`, the number of files listed, when
+there is at least one. With `--inventory`, which writes no log file, both
+lines go to standard error with the run's other log lines unless `-q` is
+given. Neither line is written under `--no-preserve-atime`, nor for a file
+on a local NTFS volume where updates are off, since no hold was wanted.
+
+For a listed file, treat the access time now on disk as possibly the
+binary's own: the read, or with `restore failed` the value the file system
+stored for the request. The manifest's `atime` of a collected file was
+taken before the binary read it and is the time to use; a listed file read
+only to find projects or relocation hints has no manifest row, so its
+earlier access time is not recorded.
+
+The binary tells a local NTFS volume by the name of its file system. A
+file system that reports the name NTFS without being Windows's own NTFS
+driver, as some user-mode file systems do, is treated as one: where
+last-access updates are off, its files are opened read-only, without the
+hold, and are not listed in the log.
 
 Asking for the right to change attributes may trigger security software:
 an EDR platform can watch for a program that opens many files with a right

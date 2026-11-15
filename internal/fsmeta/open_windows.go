@@ -33,7 +33,7 @@ func (o *Opener) Open(path string) (*os.File, error) {
 			windows.CloseHandle(handle)
 		}
 	}
-	handle, err := o.openHolding(name)
+	handle, err := o.openHolding(path, name)
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
 	}
@@ -42,23 +42,71 @@ func (o *Opener) Open(path string) (*os.File, error) {
 
 // openHolding tries each access accessList gives in turn and returns the
 // first handle, or the last refusal. A handle holding the right to set the
-// file's times asks that reads through it not move the file's access time;
-// one opened for reading only cannot ask, and a volume that records access
-// times moves it.
-func (o *Opener) openHolding(name *uint16) (windows.Handle, error) {
+// file's times asks that reads through it not move the file's access time
+// (holdOn); one opened for reading only cannot ask, and a volume that
+// records access times moves it, so a read-only open taken after the open
+// with the right was refused is reported under path.
+func (o *Opener) openHolding(path string, name *uint16) (windows.Handle, error) {
 	var handle windows.Handle
 	var err error
-	for _, access := range accessList(o.asksForRight()) {
+	for i, access := range accessList(o.asksForRight()) {
 		if handle, err = createSource(name, access); err != nil {
 			continue
 		}
 		if access&windows.FILE_WRITE_ATTRIBUTES != 0 {
-			// A file system that refuses the request still gets its file read.
-			_ = HoldTimes(handle, false)
+			return o.holdOn(path, name, handle)
+		}
+		if i > 0 {
+			o.report(path, reasonRightRefused)
 		}
 		return handle, nil
 	}
 	return handle, err
+}
+
+// holdOn asks the file system to hold the access time of the file open on
+// handle and checks that it did (verifyHold), reporting under path any
+// reason the hold is not in place. Where the hold was misread, handle is
+// closed and the file name names is opened again for reading only.
+func (o *Opener) holdOn(path string, name *uint16, handle windows.Handle) (windows.Handle, error) {
+	outcome := verifyHold(holdSteps{
+		accessTime: func() (uint64, error) { return accessTimeOn(handle) },
+		hold:       func() error { return HoldTimes(handle, false) },
+		restore:    func(accessTime uint64) error { return setAccessTime(handle, accessTime) },
+	})
+	if outcome.reason != "" {
+		o.report(path, outcome.reason)
+	}
+	if !outcome.reopen {
+		return handle, nil
+	}
+	windows.CloseHandle(handle)
+	return createSource(name, windows.GENERIC_READ)
+}
+
+// report passes path and reason to Report, when there is one.
+func (o *Opener) report(path, reason string) {
+	if o != nil && o.Report != nil {
+		o.Report(path, reason)
+	}
+}
+
+// accessTimeOn reads the last-access time of the file open on handle, as
+// the 64-bit count a FILETIME holds.
+func accessTimeOn(handle windows.Handle) (uint64, error) {
+	var data windows.ByHandleFileInformation
+	if err := windows.GetFileInformationByHandle(handle, &data); err != nil {
+		return 0, err
+	}
+	accessed := data.LastAccessTime
+	return uint64(accessed.HighDateTime)<<32 | uint64(accessed.LowDateTime), nil
+}
+
+// setAccessTime sets the last-access time of the file open on handle to
+// accessTime and leaves its creation and write times alone (nil).
+func setAccessTime(handle windows.Handle, accessTime uint64) error {
+	value := windows.Filetime{LowDateTime: uint32(accessTime), HighDateTime: uint32(accessTime >> 32)}
+	return windows.SetFileTime(handle, nil, &value, nil)
 }
 
 // createSource opens the file name names with access, through its own

@@ -57,6 +57,7 @@ type runState struct {
 
 	accessUpdates accessUpdates
 	opener        *fsmeta.Opener
+	notHeld       map[string]bool
 
 	homes         []users.Home
 	skippedHomes  []users.Skipped
@@ -91,6 +92,7 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 		tables: tables, plutil: hostcmd.NewPlutil(host.runner), started: host.now().UTC(),
 		dockerRecords: inventory.NewAggregator(), accessUpdates: host.lastAccess()}
 	state.opener = fsmeta.NewOpener(options.NoPreserveAtime, state.accessUpdates == accessOff)
+	state.opener.Report, state.notHeld = state.reportNotHeld, map[string]bool{}
 	state.setOutputNames()
 	return state, nil
 }
@@ -300,6 +302,26 @@ func (state *runState) line(text string) {
 	if !state.options.Quiet {
 		io.WriteString(state.stderr, text+"\n")
 	}
+}
+
+// reportNotHeld logs a file read without the hold on its access time the
+// run wanted, with the reason, the first time the file is reported, and
+// keeps it for the count logNotHeld writes.
+func (state *runState) reportNotHeld(path, reason string) {
+	if state.notHeld[path] {
+		return
+	}
+	state.notHeld[path] = true
+	state.line("access time not held: " + syspath.ToNative(path) + ": " + reason)
+}
+
+// logNotHeld logs how many files were read without the hold the run
+// wanted, when there were any.
+func (state *runState) logNotHeld() error {
+	if len(state.notHeld) == 0 {
+		return nil
+	}
+	return state.log.Line(fmt.Sprintf("access times not held: %d file(s)", len(state.notHeld)))
 }
 
 // cleanup closes the run's files and removes the staging directory unless

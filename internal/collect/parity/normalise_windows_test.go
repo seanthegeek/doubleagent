@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -45,6 +46,9 @@ var (
 	// right to hold the access time), which the PowerShell collector does
 	// not decide.
 	accessDecision = regexp.MustCompile(`^(?:last-access updates |--no-preserve-atime: files are opened)`)
+	// The binary's lines for a file read without the access-time hold and
+	// their count, which the PowerShell collector does not ask for.
+	accessNotHeld = regexp.MustCompile(`^access times? not held: `)
 )
 
 // newWindowsNormaliser returns the normaliser of one case. compare calls it
@@ -116,21 +120,20 @@ func sortedLines(text string) string {
 
 // normalWindowsLog returns the log's lines without their times, each start
 // line reduced to what both collectors print, the lines only one collector
-// writes dropped (the binary's find:, WARNING: -u and file-open lines; the
-// PowerShell collector's kinds in powerShellOnly), its two wordings mapped
-// onto the binary's, and failure reasons cut. binary says the log is the Go
-// binary's; timed says it is the log file, whose lines carry times. Every
-// untimed line of the PowerShell collector's log file comes after the log
-// is closed, from its archiver step (tar's own error output, the fallback
-// notes, staged-link cleanup), which the binary has no counterpart for, so
-// those are dropped too.
+// writes dropped (the binary's find:, WARNING: -u, file-open and not-held
+// lines; powerShellOnly), its two wordings mapped onto the binary's, and
+// failure reasons cut. binary says the log is the Go binary's; timed says it
+// is the log file, whose lines carry times. Every untimed line of the
+// PowerShell collector's log file comes after the log is closed, from its
+// archiver step (tar's own error output, the fallback notes, staged-link
+// cleanup), which the binary has no counterpart for, so those are dropped.
 func normalWindowsLog(text string, binary, timed bool) string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimSuffix(withoutCarriageReturns(text), "\n"), "\n") {
 		archiverLine := timed && !binary && !windowsLogTime.MatchString(line)
 		line = windowsLogTime.ReplaceAllString(line, "")
 		binaryOnly := strings.HasPrefix(line, "find: ") || strings.HasPrefix(line, "WARNING: -u ") ||
-			accessDecision.MatchString(line)
+			accessDecision.MatchString(line) || accessNotHeld.MatchString(line)
 		onlyOne := (binary && binaryOnly) || (!binary && powerShellOnly.MatchString(line))
 		if archiverLine || onlyOne {
 			continue
@@ -353,4 +356,31 @@ func normalWindowsArchive(members map[string]string) string {
 		normal[name] = description
 	}
 	return normalMembers(normal, normalManifest)
+}
+
+func TestTheWindowsLogDropsTheBinarysAccessTimeNotHeldLines(t *testing.T) {
+	lines := []string{
+		`2026-01-02T03:04:05Z access time not held: C:\img\Users\a\.claude\x.json: right to hold refused`,
+		"2026-01-02T03:04:05Z access times not held: 1 file(s)",
+		"2026-01-02T03:04:05Z Archiving",
+	}
+	cases := []struct {
+		name   string
+		binary bool
+		want   string
+	}{
+		{"the binary's lines are dropped", true, "Archiving"},
+		{"the same text in the PowerShell collector's log is kept", false,
+			strings.Join([]string{
+				`access time not held: C:\img\Users\a\.claude\x.json: right to hold refused`,
+				"access times not held: 1 file(s)", "Archiving"}, "\n")},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			got := normalWindowsLog(strings.Join(lines, "\n")+"\n", test.binary, true)
+			if got != test.want {
+				t.Errorf("normalWindowsLog = %q, want %q", got, test.want)
+			}
+		})
+	}
 }

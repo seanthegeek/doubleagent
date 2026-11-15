@@ -75,6 +75,16 @@ the same shared access as the copy, so a rollout a running agent holds
 open is read. The sh collector reads these sources with `grep`, discards
 its error messages, and logs nothing for an unreadable source.
 
+On Windows the `doubleagent` binary logs, on stderr unless `-q` is given
+and in the log, the line `access time not held: <path>: <reason>` for each
+file it read without the hold on its access time that the run wanted, once
+per file, and after the last file is read
+`access times not held: <N> file(s)` when there was at least one. Neither
+script writes these lines, and the binary writes neither on Linux, macOS
+or other Unix systems. The reasons and what an analyst does with a listed
+file are in
+[Access times with the `doubleagent` binary](deployment.md#access-times-with-the-doubleagent-binary).
+
 ## Output files
 
 The output directory receives five files named
