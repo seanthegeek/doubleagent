@@ -25,26 +25,70 @@ const volumeNameDOS = 0
 // following one, sharing it with every other opener. os.Open shares no
 // delete access, so it fails on a file another handle holds with
 // FILE_SHARE_DELETE alone; a symlink swapped in after the lstat opens as
-// itself, and CopyFile refuses it as not a regular file.
+// itself, and CopyFile refuses it as not a regular file. The open also asks
+// for the right to set the file's times, so the copy's reads can be kept
+// from moving the evidence's access time; where that right is refused (an
+// access list granting reading alone, a write-protected volume) the file is
+// opened for reading only, and a volume that records access times moves it.
 func openSource(path string) (*os.File, error) {
 	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
 	}
-	handle, err := windows.CreateFile(name, windows.GENERIC_READ, shareAll, nil,
-		windows.OPEN_EXISTING,
-		windows.FILE_FLAG_OPEN_REPARSE_POINT|windows.FILE_FLAG_SEQUENTIAL_SCAN, 0)
+	flags := uint32(windows.FILE_FLAG_OPEN_REPARSE_POINT | windows.FILE_FLAG_SEQUENTIAL_SCAN)
+	handle, err := windows.CreateFile(name, windows.GENERIC_READ|windows.FILE_WRITE_ATTRIBUTES,
+		shareAll, nil, windows.OPEN_EXISTING, flags, 0)
+	if err == nil {
+		// A file system that refuses the request still gets its file copied.
+		_ = holdTimes(handle, false)
+	} else {
+		// Any refusal falls back: the read-only open reports its own error.
+		handle, err = windows.CreateFile(name, windows.GENERIC_READ, shareAll, nil,
+			windows.OPEN_EXISTING, flags, 0)
+	}
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
 	}
 	return os.NewFile(uintptr(handle), syspath.ToNative(path)), nil
 }
 
+// holdTimes asks the file system not to change the file's access time, and
+// its write time too when write is set, for I/O through handle until it
+// closes. SetFileTime takes a time whose two halves are both 0xFFFFFFFF as
+// that request; a volume with last-access updates on would otherwise record
+// the copy's own reads.
+func holdTimes(handle windows.Handle, write bool) error {
+	hold := windows.Filetime{LowDateTime: 0xFFFFFFFF, HighDateTime: 0xFFFFFFFF}
+	var writeTime *windows.Filetime
+	if write {
+		writeTime = &hold
+	}
+	return windows.SetFileTime(handle, nil, &hold, writeTime)
+}
+
+// onHandle runs call on the handle of file, giving the error either returns.
+func onHandle(file *os.File, call func(windows.Handle) error) error {
+	connection, err := file.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var callError error
+	err = connection.Control(func(handle uintptr) {
+		callError = call(windows.Handle(handle))
+	})
+	if err != nil {
+		return err
+	}
+	return callError
+}
+
 // createDest opens the staged copy for writing, creating it, without
 // following a reparse point: one already at the path is refused, and the
 // open takes a reparse point swapped in after that check as itself, which
 // the regular-file test then refuses. The copy is emptied only after that
-// test, since truncating at open would empty whatever a link led to.
+// test, since truncating at open would empty whatever a link led to. The
+// copy's access and write times are then held, so the times preserve sets
+// are the ones the copy keeps whatever the volume records.
 func createDest(path string) (*os.File, error) {
 	refused := &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	if info, err := osfile.Lstat(path); err == nil && isReparsePoint(info) {
@@ -66,6 +110,8 @@ func createDest(path string) (*os.File, error) {
 		_ = file.Close()
 		return nil, err
 	}
+	// Best effort: preserve still sets the times where the hold is refused.
+	_ = onHandle(file, func(handle windows.Handle) error { return holdTimes(handle, true) })
 	return file, nil
 }
 
@@ -84,18 +130,10 @@ func preserve(target *os.File, dest string, info fs.FileInfo) error {
 	if !ok {
 		return nil
 	}
-	connection, err := target.SyscallConn()
-	if err != nil {
-		return &fs.PathError{Op: "utimes", Path: syspath.ToNative(dest), Err: err}
-	}
-	var setError error
-	err = connection.Control(func(handle uintptr) {
-		setError = syscall.SetFileTime(syscall.Handle(handle), &times.CreationTime,
+	err := onHandle(target, func(handle windows.Handle) error {
+		return syscall.SetFileTime(syscall.Handle(handle), &times.CreationTime,
 			&times.LastAccessTime, &times.LastWriteTime)
 	})
-	if err == nil {
-		err = setError
-	}
 	if err != nil {
 		return &fs.PathError{Op: "utimes", Path: syspath.ToNative(dest), Err: err}
 	}

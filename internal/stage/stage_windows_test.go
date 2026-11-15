@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"testing"
 	"unicode/utf16"
+	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -161,15 +162,123 @@ func TestCopyFileOnWindows(t *testing.T) {
 			hash, written, err := stager.CopyFile(source)
 			mustDo(t, err)
 			_, dest := stager.Dest(source)
+			// The times are read before the bytes: where the volume
+			// records access times, the test's own read moves the copy's.
+			got := fileTimes(t, dest)
 			staged, err := os.ReadFile(dest)
 			mustDo(t, err)
-			switch got := fileTimes(t, dest); {
+			switch {
 			case hash != hex.EncodeToString(sum[:]) || written != int64(len(content)):
 				t.Errorf("hash %s, written %d", hash, written)
 			case string(staged) != string(content):
 				t.Errorf("staged %q", staged)
 			case got != want:
 				t.Errorf("times (creation, access, write) %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// basicTimes returns the creation, access, write and change times of path,
+// the change time being the last change to the file's record, which no
+// other call shows; opening for attributes alone records no access.
+func basicTimes(t *testing.T, path string) [4]int64 {
+	t.Helper()
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, shareAll, nil,
+		windows.OPEN_EXISTING, windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	mustDo(t, err)
+	defer windows.CloseHandle(handle)
+	// FILE_BASIC_INFO: four times, the attributes, and padding to eight bytes.
+	var basic struct {
+		times      [4]int64
+		attributes uint32
+		_          uint32
+	}
+	mustDo(t, windows.GetFileInformationByHandleEx(handle, windows.FileBasicInfo,
+		(*byte)(unsafe.Pointer(&basic)), uint32(unsafe.Sizeof(basic))))
+	return basic.times
+}
+
+// refuseTimeSetting gives path an access list that lets the current user
+// read it and nothing else, so an open asking to set its times is refused,
+// and restores full access when the test ends. The test is skipped when the
+// list cannot be set or does not refuse that open.
+func refuseTimeSetting(t *testing.T, path string) {
+	t.Helper()
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	if err != nil {
+		t.Skipf("cannot read the process token: %v", err)
+	}
+	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{{
+		AccessPermissions: windows.FILE_GENERIC_READ,
+		AccessMode:        windows.GRANT_ACCESS,
+		Inheritance:       windows.NO_INHERITANCE,
+		Trustee: windows.TRUSTEE{TrusteeForm: windows.TRUSTEE_IS_SID,
+			TrusteeType: windows.TRUSTEE_IS_USER, TrusteeValue: windows.TrusteeValueFromSID(user.User.Sid)},
+	}}, nil)
+	if err != nil {
+		t.Skipf("cannot build an access control list: %v", err)
+	}
+	native := syspath.ToNative(path)
+	information := windows.SECURITY_INFORMATION(windows.DACL_SECURITY_INFORMATION |
+		windows.PROTECTED_DACL_SECURITY_INFORMATION)
+	if err := windows.SetNamedSecurityInfo(native, windows.SE_FILE_OBJECT, information,
+		nil, nil, acl, nil); err != nil {
+		t.Skipf("cannot set an access control list here: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = windows.SetNamedSecurityInfo(native, windows.SE_FILE_OBJECT,
+			windows.DACL_SECURITY_INFORMATION, nil, nil, nil, nil)
+	})
+	name, err := windows.UTF16PtrFromString(native)
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES, shareAll, nil,
+		windows.OPEN_EXISTING, 0, 0)
+	if err == nil {
+		_ = windows.CloseHandle(handle)
+		t.Skip("the access list did not refuse setting the times (a privilege overrides it?)")
+	}
+}
+
+func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
+	cases := []struct {
+		name string
+		// prepare changes the source before the copy; holds says the
+		// source keeps its access time where the volume records reads.
+		prepare func(t *testing.T, source string)
+		holds   bool
+	}{
+		{"a file keeps its four times", func(*testing.T, string) {}, true},
+		{"a read-only file keeps its four times", func(t *testing.T, source string) {
+			mustDo(t, os.Chmod(source, 0o444))
+			t.Cleanup(func() { _ = os.Chmod(source, 0o600) })
+		}, true},
+		{"a file whose times may not be set is still copied", refuseTimeSetting, false},
+	}
+	content := []byte("evidence")
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			stager, root := newWindowsStager(t)
+			source := root + "/home/file.txt"
+			mustDo(t, os.WriteFile(source, content, 0o600))
+			// An access time far in the past, which NTFS would move on a
+			// read even with its one-hour update granularity.
+			setTimes(t, source, 1_500_000_000, 1_600_000_000, 1_700_000_000)
+			test.prepare(t, source)
+			before := basicTimes(t, source)
+			_, written, err := stager.CopyFile(source)
+			if err != nil || written != int64(len(content)) {
+				t.Fatalf("CopyFile = %d bytes, %v", written, err)
+			}
+			after := basicTimes(t, source)
+			if !test.holds {
+				after[1] = before[1]
+			}
+			if after != before {
+				t.Errorf("source times (creation, access, write, change) %v, want %v",
+					after, before)
 			}
 		})
 	}
