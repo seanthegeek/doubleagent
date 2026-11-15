@@ -121,28 +121,40 @@ func TestTheHandleReturnedIsTheHandleJudged(t *testing.T) {
 	})
 }
 
-func TestUpdatesOffStillHoldsAFileOnARemoteVolume(t *testing.T) {
-	// The administrative share of the system drive, reached through the
-	// SMB redirector: a remote volume whose server reports NTFS.
-	share := "//localhost/C$/Windows/win.ini"
-	if _, err := os.Lstat(syspath.ToNative(share)); err != nil {
+// throughShare returns the canonical path of the local path reached through
+// the administrative share of its drive on this machine (C:/x as
+// //localhost/C$/x), a remote volume to the opener whose server reports
+// NTFS, or skips the test when the share cannot be reached.
+func throughShare(t *testing.T, path string) string {
+	t.Helper()
+	if len(path) < 3 || path[1] != ':' {
+		t.Skipf("%s is not on a drive letter", path)
+	}
+	shared := "//localhost/" + path[:1] + "$" + path[2:]
+	if _, err := os.Lstat(syspath.ToNative(shared)); err != nil {
 		t.Skipf("the administrative share is unreachable here: %v", err)
 	}
-	if !mayHoldTimes(t, NewOpener(false, true), share) {
-		t.Errorf("%s: opened read-only; a remote volume is not governed by the local setting", share)
+	return shared
+}
+
+func TestUpdatesOffStillHoldsAFileOnARemoteVolume(t *testing.T) {
+	// A file the test owns, so the right is granted wherever it is asked
+	// for, read through the loopback share.
+	shared := throughShare(t, tempFile(t))
+	if !mayHoldTimes(t, NewOpener(false, true), shared) {
+		t.Errorf("%s: opened read-only; a remote volume is not governed by the local setting", shared)
 	}
 }
 
 func TestUpdatesOffHoldsAFileThroughALinkToARemoteVolume(t *testing.T) {
-	share := `\\localhost\C$\Windows`
-	if _, err := os.Lstat(share); err != nil {
-		t.Skipf("the administrative share is unreachable here: %v", err)
-	}
-	link := syspath.FromNative(t.TempDir()) + "/windows"
-	if err := os.Symlink(share, syspath.ToNative(link)); err != nil {
+	file := tempFile(t)
+	shared := throughShare(t, file)
+	link := syspath.FromNative(t.TempDir()) + "/through"
+	directory := shared[:strings.LastIndexByte(shared, '/')]
+	if err := os.Symlink(syspath.ToNative(directory), syspath.ToNative(link)); err != nil {
 		t.Skipf("cannot create a directory symlink here (the privilege is needed): %v", err)
 	}
-	if !mayHoldTimes(t, NewOpener(false, true), link+"/win.ini") {
+	if !mayHoldTimes(t, NewOpener(false, true), link+"/file") {
 		t.Errorf("a file reached through a symlink to a share was opened read-only")
 	}
 }

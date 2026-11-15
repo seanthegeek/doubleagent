@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
@@ -96,11 +97,13 @@ func localFileSystem(handle windows.Handle) string {
 	return windows.UTF16ToString(fileSystem)
 }
 
-// remoteProtocolInfoSize is the size of the buffer given to the
-// FileRemoteProtocolInfo query: at least as large as FILE_REMOTE_PROTOCOL_INFO
-// in every layout Microsoft has published (180 bytes as its documentation
-// declares the structure; golang.org/x/sys does not define it). Only the
-// query's success is used.
+// remoteProtocolInfoSize is the size in bytes of the buffer given to the
+// FileRemoteProtocolInfo query, a multiple of 4. golang.org/x/sys does not
+// define FILE_REMOTE_PROTOCOL_INFO. Microsoft's documentation page declares
+// it with both a 64-byte reserved block and a 64-byte protocol-specific
+// block, 180 bytes in all; a layout with only one of the two is 116 bytes.
+// The buffer is at least as large as either. Only the query's success is
+// used.
 const remoteProtocolInfoSize = 180
 
 // onRemoteVolume reports whether the file handle is open on is reached
@@ -110,9 +113,11 @@ const remoteProtocolInfoSize = 180
 // as a UNC path, counts as remote too. Any doubt falls on the side of
 // holding the access time.
 func onRemoteVolume(handle windows.Handle) bool {
-	var protocol [remoteProtocolInfoSize]byte
+	// Words, not bytes, so the buffer has the 4-byte alignment the
+	// structure's fields need.
+	var protocol [remoteProtocolInfoSize / 4]uint32
 	if windows.GetFileInformationByHandleEx(handle, windows.FileRemoteProtocolInfo,
-		&protocol[0], uint32(len(protocol))) == nil {
+		(*byte)(unsafe.Pointer(&protocol[0])), remoteProtocolInfoSize) == nil {
 		return true
 	}
 	final, ok := finalDOSPath(handle)

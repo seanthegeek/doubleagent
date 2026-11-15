@@ -159,7 +159,8 @@ and each file it reads to find projects or relocation hints (with
   the next case. The binary first opens the file read-only and asks that
   open which volume the file is on, so a file reached through a junction or
   symlink is judged by the volume the link leads to; a file that is not on
-  a local NTFS volume is then opened again as in the next case.
+  a local NTFS volume, or whose first read-only open fails, is then opened
+  again as in the next case.
 - **Updates are on, or the value cannot be read or understood.** The
   binary opens each file with the right to change the file's attributes as
   well as the right to read it, and tells Windows not to update the file's
