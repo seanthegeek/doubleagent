@@ -387,7 +387,7 @@ func underRoot(root, physical string) string {
 	if physicalRoot == "/" {
 		return root + physical
 	}
-	if rest, found := syspath.CutPrefix(physical, physicalRoot+"/"); found {
+	if rest, found := stage.Under(physical, physicalRoot); found && rest != "" {
 		return root + "/" + rest
 	}
 	return physical

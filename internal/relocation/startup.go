@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
-	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/stage"
 )
 
 // ListStartupFiles returns the regular files under base ("" for the root)
@@ -63,10 +63,13 @@ func linkedParent(base, path string) bool {
 			if !ok {
 				return true
 			}
-			root = strings.TrimSuffix(physicalBase, "/") + "/"
+			root = physicalBase
 		}
 		physical, ok := physicalDirectory(directory)
-		if !ok || !syspath.HasPrefix(physical+"/", root) {
+		if !ok {
+			return true
+		}
+		if _, inside := stage.Under(physical, root); !inside {
 			return true
 		}
 	}

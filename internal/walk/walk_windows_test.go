@@ -732,3 +732,37 @@ func TestIsVisibleDirReadsTheEntryItself(t *testing.T) {
 		})
 	}
 }
+
+// caseSensitiveDir makes a new empty directory under base whose names are
+// compared with case, through FileCaseSensitiveInfo, and returns it; the test
+// is skipped where Windows refuses the setting.
+func caseSensitiveDir(t *testing.T, base string) string {
+	t.Helper()
+	dir := base + "/cs"
+	mustDo(t, os.Mkdir(dir, 0o755))
+	name, err := windows.UTF16PtrFromString(syspath.Extended(dir))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES|windows.FILE_READ_ATTRIBUTES,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	mustDo(t, err)
+	defer windows.CloseHandle(handle)
+	flags := uint32(windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR)
+	err = windows.SetFileInformationByHandle(handle, windows.FileCaseSensitiveInfo,
+		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags)))
+	if err != nil {
+		t.Skipf("a case-sensitive directory needs FileCaseSensitiveInfo, which Windows refused here: %v", err)
+	}
+	return dir
+}
+
+func TestLinkedParentComparesPhysicalPathsWithCase(t *testing.T) {
+	dir := caseSensitiveDir(t, physicalTemp(t))
+	writeFiles(t, dir, "home/a.txt", "HOME/x/f.txt")
+	makeJunction(t, dir+"/HOME/x", dir+"/home/j")
+	// The junction resolves to HOME/x, a sibling of home in this directory,
+	// so its files are not home's.
+	if _, outside := LinkedParent(dir+"/home", dir+"/home/j/f.txt"); !outside {
+		t.Error("a junction to the sibling HOME counts as inside home")
+	}
+}

@@ -257,3 +257,25 @@ func TestPhysicalDir(t *testing.T) {
 		})
 	}
 }
+
+func TestUnderComparesBytes(t *testing.T) {
+	cases := []struct {
+		name, physical, root, rest string
+		inside                     bool
+	}{
+		{"the root itself is inside with no rest", "C:/img", "C:/img", "", true},
+		{"a path below the root gives the rest", "C:/img/a/b", "C:/img", "a/b", true},
+		{"a root with a trailing slash still matches", "/a/b", "/", "a/b", true},
+		{"a sibling sharing a prefix is outside", "C:/img2/a", "C:/img", "", false},
+		{"another ASCII case is another directory", "C:/IMG/a", "C:/img", "", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			rest, inside := Under(test.physical, test.root)
+			if rest != test.rest || inside != test.inside {
+				t.Errorf("Under(%q, %q) = %q, %t, want %q, %t", test.physical, test.root, rest,
+					inside, test.rest, test.inside)
+			}
+		})
+	}
+}

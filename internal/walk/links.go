@@ -52,17 +52,16 @@ func LinkedParent(base, path string) (Links, bool) {
 			if err != nil {
 				return links, true
 			}
-			root = strings.TrimSuffix(physicalBase, "/") + "/"
+			root = physicalBase
 		}
 		physical, err := stage.PhysicalDir(directory)
 		if err != nil {
 			return links, true
 		}
-		insideRoot, found := syspath.CutPrefix(physical+"/", root)
+		inside, found := stage.Under(physical, root)
 		if !found {
 			return links, true
 		}
-		inside := strings.TrimSuffix(insideRoot, "/")
 		links.From = directory
 		links.Into = strings.TrimSuffix(base+"/"+inside, "/")
 		links.Passed = append(links.Passed, directory)

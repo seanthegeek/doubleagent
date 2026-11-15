@@ -109,15 +109,32 @@ func (stager Stager) requireInside(operation, dir string) error {
 	return nil
 }
 
+// Under reports whether the physical path lies at or under root and returns
+// the rest after root's slash ("" for root itself). Both must be PhysicalDir
+// results, which spell every name as the disk holds it, so they are compared
+// byte for byte: in a case-sensitive directory HOME is not home. A path
+// that is text someone wrote (a link target, an argument) is compared with
+// syspath instead.
+func Under(physical, root string) (rest string, inside bool) {
+	if physical == root {
+		return "", true
+	}
+	rest, inside = strings.CutPrefix(physical, strings.TrimSuffix(root, "/")+"/")
+	if !inside {
+		return "", false
+	}
+	return rest, true
+}
+
 // holds reports whether the physical directory lies at or under the
 // staging directory. Physical is compared first; when it does not match, or
 // is empty, the staging directory is resolved again, so a stager whose
 // Physical was given unresolved still stages. Both sides are PhysicalDir
-// results, spelled as the disk holds the names, so they are compared byte
-// for byte: in a case-sensitive directory .STAGE-x is another directory.
+// results, compared through Under.
 func (stager Stager) holds(physical string) bool {
 	under := func(root string) bool {
-		return root != "" && strings.HasPrefix(physical+"/", strings.TrimSuffix(root, "/")+"/")
+		_, inside := Under(physical, root)
+		return root != "" && inside
 	}
 	if under(stager.Physical) {
 		return true
