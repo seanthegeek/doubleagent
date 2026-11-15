@@ -12,32 +12,45 @@ import (
 
 // settleTree makes the tree under root quiescent, as a collected disk is,
 // before a collector reads it. NTFS copies a directory's newer write time
-// into its parent's index entry, which a directory listing reports, only
-// when a handle on the directory is closed; until then the collector that
-// runs first sees the stale entry and its own listing settles it for the
-// second, so the two would report different times for one directory. Each
-// directory is opened and closed once (WalkDir never enters a reparse
-// point), then every directory's listing entry is checked against the
-// directory itself, a few rounds at most with a growing pause; the test fails on a directory
-// whose entry still differs.
+// into its parent's index entry, which a directory listing reports, when a
+// handle on the directory is closed, but not always: until then the
+// collector that runs first sees the stale entry and its own listing may
+// settle it for the second. Each directory is opened and closed once, then
+// each one whose listing entry still differs from the directory has its
+// write time set to the value it already has and is closed, a change NTFS
+// carries into the parent's entry, a few rounds at most; the test fails on a
+// directory whose entry still differs.
 func settleTree(t *testing.T, root string) {
 	t.Helper()
-	unsettled := ""
-	for round := 0; round < 8; round++ {
-		// NTFS can take a moment to copy the time into the parent's entry:
-		// 0, 50, 100 ... 350 ms between rounds, 1.4 s in all at most.
-		time.Sleep(time.Duration(round) * 50 * time.Millisecond)
-		directories := treeDirectories(t, root)
-		for _, directory := range directories {
-			if handle, err := os.Open(directory); err == nil {
-				_ = handle.Close()
-			}
-		}
-		if unsettled = firstUnsettled(directories); unsettled == "" {
-			return
+	directories := treeDirectories(t, root)
+	for _, directory := range directories {
+		if handle, err := os.Open(directory); err == nil {
+			_ = handle.Close()
 		}
 	}
-	t.Fatalf("the listing entry of %s still holds an older write time than the directory", unsettled)
+	var unsettled []string
+	for round := 0; round < 5; round++ {
+		if unsettled = unsettledDirectories(directories); len(unsettled) == 0 {
+			return
+		}
+		for _, directory := range unsettled {
+			rewriteWriteTime(directory)
+		}
+		time.Sleep(time.Duration(round+1) * 20 * time.Millisecond)
+	}
+	t.Fatalf("the listing entry of %s still holds another write time than the directory", unsettled[0])
+}
+
+// rewriteWriteTime sets the directory's write time to the value it already
+// has. The tree is a fixture the harness built, not evidence, so writing to
+// it is allowed. os.Chtimes leaves a zero access time unchanged and opens
+// the path with backup semantics, following a link, which treeDirectories
+// never returns: a junction or directory symlink is not a directory to
+// WalkDir. A refusal (the fixtures with a deny rule) is left to the check.
+func rewriteWriteTime(directory string) {
+	if status, err := os.Stat(directory); err == nil {
+		_ = os.Chtimes(directory, time.Time{}, status.ModTime())
+	}
 }
 
 // treeDirectories returns root and every directory below it, not entering
@@ -57,10 +70,11 @@ func treeDirectories(t *testing.T, root string) []string {
 	return directories
 }
 
-// firstUnsettled returns the first directory whose entry in its parent's
-// listing reports another write time than the directory itself, or "". A
+// unsettledDirectories returns each directory whose entry in its parent's
+// listing reports another write time than the directory itself. A
 // directory that cannot be read is left to the collectors.
-func firstUnsettled(directories []string) string {
+func unsettledDirectories(directories []string) []string {
+	var unsettled []string
 	listings := map[string]map[string]time.Time{}
 	for _, directory := range directories {
 		parent := filepath.Dir(directory)
@@ -70,10 +84,10 @@ func firstUnsettled(directories []string) string {
 		listed, ok := listings[parent][filepath.Base(directory)]
 		status, err := os.Stat(directory)
 		if ok && err == nil && !listed.Equal(status.ModTime()) {
-			return directory
+			unsettled = append(unsettled, directory)
 		}
 	}
-	return ""
+	return unsettled
 }
 
 // listingTimes returns the write time of each entry of directory as its
