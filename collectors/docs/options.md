@@ -70,6 +70,11 @@ manifest is the same either way. The sh collector sets `LC_ALL=C`, puts
 `/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin` ahead of the inherited
 `PATH`, and unsets `CDPATH`, so a relative `-r` or `-o` is always resolved
 against the current directory.
+The `doubleagent` binary does not change its own `PATH`: it looks for the
+programs it runs (`getent`, `dscl` and `plutil`) in those five directories,
+in that order, before the directories of `PATH`, skipping a relative `PATH`
+entry, and runs them with `LC_ALL=C`. On Windows, which runs none of them,
+it looks along `PATH` alone.
 
 The PowerShell collector reads `COMPUTERNAME` for the host name (falling
 back to the DNS host name), `SystemDrive` for the drive whose `Users` and
