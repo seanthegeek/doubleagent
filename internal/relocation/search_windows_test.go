@@ -1,9 +1,14 @@
 package relocation
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -40,5 +45,37 @@ func TestSweepRulesIgnoreCaseOnWindows(t *testing.T) {
 				t.Errorf("got %v, want %v", test.got, test.want)
 			}
 		})
+	}
+}
+
+func TestSweepPrunesTheRunsOutputBelowAShortName(t *testing.T) {
+	temp := t.TempDir()
+	if !strings.Contains(temp, "~") {
+		t.Skipf("the temporary directory %q holds no short 8.3 name", temp)
+	}
+	tables, err := catalog.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	long, err := filepath.EvalSymlinks(temp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(long, "out"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	home := syspath.FromNative(long)
+	// OutDir as the command line resolves it, through fsmeta.OnDiskPath.
+	outDir := fsmeta.OnDiskPath("", syspath.FromNative(temp)+"/out")
+	run := &search{system: "C:", deps: Deps{Tables: tables, OutDir: outDir, RunName: "r",
+		Homes:  []users.Home{{User: "u", Path: home}},
+		Claims: func(string, []catalog.Entry) []string { return nil }}}
+	// The sweep prunes a directory with what is under it, so the staging
+	// directory itself is the path tested.
+	pruned := run.pruneTest(home, tables.Catalog, "home")
+	for _, path := range []string{home + "/out/.stage-r", home + "/out/r.log"} {
+		if !pruned(path) {
+			t.Errorf("%s is not pruned with OutDir %s", path, outDir)
+		}
 	}
 }

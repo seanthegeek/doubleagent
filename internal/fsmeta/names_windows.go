@@ -11,23 +11,26 @@ import (
 // may differ from name in case, and true, as the PowerShell collector's
 // Get-OnDiskName respells a literal catalog segment. It returns name and
 // false for . and .., when name holds a character the directory search reads
-// as a wildcard, when nothing or more than one entry matches, or when the
-// match is through the entry's short 8.3 name (see onDiskEntry).
+// as a wildcard, when nothing or more than one entry matches, or when name
+// matches only through the entry's short 8.3 name: a catalog literal names
+// a long name, never a short one.
 func OnDiskName(directory, name string) (string, bool) {
 	entry := onDiskEntry(directory, name)
-	return entry.spelling, entry.respelled
+	if !entry.exists || entry.shortOnly {
+		return name, false
+	}
+	return entry.name, true
 }
 
 // OnDiskPath returns path with each existing component below base spelled
-// as its directory holds it, so two spellings of one directory become the
-// same bytes without the binary judging case itself: the file system's own
-// name comparison decides. It stops at a link: a component that is a
-// symlink, junction or other reparse point is respelled from its own
+// as its directory holds it, a short 8.3 name (JOHNSM~1) as the long name,
+// so every spelling of one directory becomes the same bytes; the file
+// system's own name comparison decides, not the binary. It stops at a link:
+// a symlink, junction or other reparse point is respelled from its own
 // directory entry and nothing behind it is looked at. base ("" for the
 // path's drive or share) and everything above it are never looked at and
 // stay as written; a path not under base comes back unchanged. Respelling
-// also stops at a missing component and at . or ..; a component holding a
-// wildcard or matching only as a short 8.3 name stays as written.
+// also stops at a missing component, at . or .., and at a wildcard.
 func OnDiskPath(base, path string) string {
 	if base == "" {
 		base = volumeOf(path)
@@ -44,60 +47,55 @@ func OnDiskPath(base, path string) string {
 		if !entry.exists {
 			break
 		}
-		components[i] = entry.spelling
+		components[i] = entry.name
 		if entry.attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
 			break
 		}
-		directory += "/" + entry.spelling
+		directory += "/" + entry.name
 	}
 	return prefix + "/" + strings.Join(components, "/")
 }
 
-// diskEntry is what onDiskEntry found for a name.
+// diskEntry is what onDiskEntry found for a name: whether exactly one entry
+// matches, its long name and attributes, and whether the name matched only
+// its short 8.3 name.
 type diskEntry struct {
-	spelling   string
+	name       string
 	exists     bool
-	respelled  bool
+	shortOnly  bool
 	attributes uint32
 }
 
 // onDiskEntry looks name up in directory with FindFirstFile, which reads the
-// directory's entry and follows nothing. exists is true when one entry
-// matches, with its attributes; spelling is the entry's name when respelled
-// is true, else name as given: for . or .., a wildcard character in name,
-// several matches, or a short 8.3 name typed for a different long name (the
-// typed name equals the short name ignoring ASCII case, and the long name
-// does not). A short name typed with a non-ASCII letter in another case
-// is respelled to the long name, which names the same entry.
+// directory's entry and follows nothing. Nothing exists for . or .., a
+// wildcard character in name, or several matches. shortOnly is set when the
+// typed name equals the entry's short name ignoring ASCII case and its long
+// name does not; a short name typed with a non-ASCII letter in another case
+// is not told apart, and either way the match is the same entry.
 func onDiskEntry(directory, name string) diskEntry {
-	given := diskEntry{spelling: name}
 	// Extended resolves . and .. by name, so the search would name another
 	// directory's entry.
 	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `*?<>"`) {
-		return given
+		return diskEntry{}
 	}
 	pattern, err := windows.UTF16PtrFromString(syspath.Extended(directory + "/" + name))
 	if err != nil {
-		return given
+		return diskEntry{}
 	}
 	var data windows.Win32finddata
 	handle, err := windows.FindFirstFile(pattern, &data)
 	if err != nil {
-		return given
+		return diskEntry{}
 	}
 	defer windows.FindClose(handle)
 	var another windows.Win32finddata
 	if windows.FindNextFile(handle, &another) == nil {
-		return given
+		return diskEntry{}
 	}
-	given.exists, given.attributes = true, data.FileAttributes
 	found := windows.UTF16ToString(data.FileName[:])
 	short := windows.UTF16ToString(data.AlternateFileName[:])
-	if !syspath.Equal(found, name) && short != "" && syspath.Equal(short, name) {
-		return given
-	}
-	given.spelling, given.respelled = found, true
-	return given
+	return diskEntry{name: found, exists: true, attributes: data.FileAttributes,
+		shortOnly: !syspath.Equal(found, name) && short != "" && syspath.Equal(short, name)}
 }
 
 // volumeOf returns the drive (C:) or share (//server/share) a canonical path

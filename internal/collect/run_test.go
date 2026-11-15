@@ -79,7 +79,12 @@ func testHost(t *testing.T) environment {
 // returns its root.
 func fixtureImage(t *testing.T) string {
 	t.Helper()
-	root := t.TempDir()
+	// Resolved, so a short 8.3 name in the temporary directory is already
+	// the long name the run's resolved root has on Windows.
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	dir := filepath.Join(root, "home/alice/.claude")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)

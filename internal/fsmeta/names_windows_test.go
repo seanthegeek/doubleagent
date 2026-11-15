@@ -2,7 +2,10 @@ package fsmeta
 
 import (
 	"os"
+	"strings"
 	"testing"
+
+	"golang.org/x/sys/windows"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -72,4 +75,47 @@ func TestOnDiskPathNeverLooksAtOrAboveItsBase(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOnDiskPathGivesTheLongNameOfAShortOne(t *testing.T) {
+	temp := os.Getenv("TEMP")
+	if !strings.Contains(temp, "~") {
+		t.Skipf("TEMP %q holds no short 8.3 name to respell", temp)
+	}
+	got := OnDiskPath("", syspath.FromNative(temp))
+	want := syspath.FromNative(longPathName(t, temp))
+	if strings.Contains(got, "~") || !syspath.Equal(got, want) {
+		t.Errorf("OnDiskPath(%q) = %q, want the long form %q", temp, got, want)
+	}
+	// A catalog literal still never matches through a short name.
+	short := shortComponent(temp)
+	parent := syspath.FromNative(temp[:strings.Index(temp, `\`+short)])
+	if name, ok := OnDiskName(parent, short); ok {
+		t.Errorf("OnDiskName respelled the short name %q to %q, want it refused", short, name)
+	}
+}
+
+// shortComponent returns the first component of a native path holding ~.
+func shortComponent(path string) string {
+	for _, component := range strings.Split(path, `\`) {
+		if strings.Contains(component, "~") {
+			return component
+		}
+	}
+	return ""
+}
+
+// longPathName returns the long form of a native path, as Windows gives it.
+func longPathName(t *testing.T, path string) string {
+	t.Helper()
+	pointer, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buffer := make([]uint16, 4096)
+	n, err := windows.GetLongPathName(pointer, &buffer[0], uint32(len(buffer)))
+	if err != nil || int(n) >= len(buffer) {
+		t.Fatalf("GetLongPathName(%q): %v", path, err)
+	}
+	return windows.UTF16ToString(buffer[:n])
 }

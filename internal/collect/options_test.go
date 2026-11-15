@@ -102,7 +102,12 @@ type rootCase struct {
 }
 
 func TestResolveRoot(t *testing.T) {
-	native := t.TempDir()
+	// Resolved, so a short 8.3 name in the temporary directory is already
+	// the long name a resolved root gets on Windows.
+	native, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(filepath.Join(native, "img", "etc"), 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -1,12 +1,14 @@
 package collect
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/summary"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
 )
 
@@ -48,5 +50,26 @@ func TestCopyFileErrorNamesTheNativePath(t *testing.T) {
 	err := copyFile(source, filepath.Join(t.TempDir(), "copy"))
 	if err == nil || strings.Contains(err.Error(), `\\?\`) || !strings.Contains(err.Error(), source) {
 		t.Errorf("copyFile error = %v, want one naming %s without the \\\\?\\ prefix", err, source)
+	}
+}
+
+func TestOutDirUnderAShortNameTakesTheLongName(t *testing.T) {
+	temp := t.TempDir()
+	if !strings.Contains(temp, "~") {
+		t.Skipf("the temporary directory %q holds no short 8.3 name", temp)
+	}
+	// The sweep compares OutDir with homes as text, and homes carry long
+	// names, so a short name kept here would let it read the run's own
+	// staging directory.
+	got, err := resolveOutDir(temp+`\out`, os.Getwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	long, err := filepath.EvalSymlinks(temp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := syspath.FromNative(long) + "/out"; strings.Contains(got, "~") || !syspath.Equal(got, want) {
+		t.Errorf("resolveOutDir = %q, want the long form %q", got, want)
 	}
 }
