@@ -114,7 +114,10 @@ func (stager Stager) requireInside(operation, dir string) error {
 // results, which spell every name as the disk holds it, so they are compared
 // byte for byte: in a case-sensitive directory HOME is not home. A path
 // that is text someone wrote (a link target, an argument) is compared with
-// syspath instead.
+// syspath instead. This relies on GetFinalPathNameByHandle giving the disk's
+// spelling, as local NTFS does; on a share or file system that does not, a
+// link inside the root whose spelling differs in case counts as leading out,
+// and the walk does not go through it.
 func Under(physical, root string) (rest string, inside bool) {
 	if physical == root {
 		return "", true
@@ -129,8 +132,8 @@ func Under(physical, root string) (rest string, inside bool) {
 // holds reports whether the physical directory lies at or under the
 // staging directory. Physical is compared first; when it does not match, or
 // is empty, the staging directory is resolved again, so a stager whose
-// Physical was given unresolved still stages. Both sides are PhysicalDir
-// results, compared through Under.
+// Physical was given unresolved still stages; physical and the resolved
+// staging directory are PhysicalDir results, compared through Under.
 func (stager Stager) holds(physical string) bool {
 	under := func(root string) bool {
 		_, inside := Under(physical, root)

@@ -14,7 +14,8 @@ import (
 // false for . and .., when name holds a character the directory search reads
 // as a wildcard, when nothing or more than one entry matches, or when name
 // matches only through the entry's short 8.3 name: a catalog literal names
-// a long name, never a short one.
+// a long name, never a short one. In a case-sensitive directory a literal
+// matches only its exact spelling.
 func OnDiskName(directory, name string) (string, bool) {
 	entry := onDiskEntry(directory, name)
 	if !entry.exists || entry.shortOnly {
@@ -29,8 +30,9 @@ func OnDiskName(directory, name string) (string, bool) {
 // system's own name comparison decides, not the binary. It stops at a link:
 // a symlink, junction or other reparse point is respelled from its own
 // directory entry and nothing behind it is looked at. base ("" for the
-// path's drive or share) and everything above it are never looked at and
-// stay as written; a path not under base comes back unchanged. Respelling
+// path's drive or share) and everything above it are never respelled and
+// stay as written (base is listed, and its case-sensitivity read); a path
+// not under base comes back unchanged. Respelling
 // also stops at a missing component, at . or .., and at a wildcard.
 func OnDiskPath(base, path string) string {
 	if base == "" {
@@ -70,7 +72,8 @@ type diskEntry struct {
 // onDiskEntry looks name up in directory with FindFirstFile, which reads the
 // directory's entry and follows nothing. Nothing exists for . or .., a
 // wildcard character in name, several matches, or, in a case-sensitive
-// directory, an entry spelled otherwise than name. shortOnly is set when the
+// directory, an entry spelled otherwise than name, so there a name matches
+// only its exact spelling. shortOnly is set when the
 // typed name equals the entry's short name ignoring ASCII case and its long
 // name does not; a short name typed with a non-ASCII letter in another case
 // is not told apart, and either way the match is the same entry.

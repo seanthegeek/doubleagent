@@ -68,3 +68,10 @@ func TestUnixHostDescription(t *testing.T) {
 		t.Error("only / is live and Unix has no registry")
 	}
 }
+
+// longTempDir returns a new temporary directory as the test framework names
+// it, a symlinked parent included, which the resolution of -r goes through.
+func longTempDir(t *testing.T) string {
+	t.Helper()
+	return t.TempDir()
+}

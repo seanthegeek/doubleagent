@@ -73,3 +73,14 @@ func TestOutDirUnderAShortNameTakesTheLongName(t *testing.T) {
 		t.Errorf("resolveOutDir = %q, want the long form %q", got, want)
 	}
 }
+
+// longTempDir returns a new temporary directory with every short 8.3 name
+// in it replaced by the long name, as the resolution of -r spells it.
+func longTempDir(t *testing.T) string {
+	t.Helper()
+	long, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return long
+}
