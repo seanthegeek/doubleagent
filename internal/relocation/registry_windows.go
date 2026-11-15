@@ -2,6 +2,7 @@ package relocation
 
 import (
 	"errors"
+	"slices"
 
 	"golang.org/x/sys/windows/registry"
 
@@ -20,11 +21,13 @@ func SystemRegistry() Registry { return systemRegistry{} }
 // keeps its embedded NULs, as .NET's GetValue does, for acceptRegistryValue
 // to refuse; REG_EXPAND_SZ is never expanded; a value of another type keeps
 // only its name; the default (empty) name is skipped. A name ends at its
-// first NUL, as PowerShell 5.1's GetValueNames ends it, so a name holding
-// one may read as missing: it keeps only its name and the rest of the key
-// is still read, so a value any user plants in their own key hides no other.
+// first NUL, as PowerShell 5.1's GetValueNames ends it, so it is listed once
+// however many values cut to it, and one may read as missing: it is marked
+// Unreadable and the rest of the key is still read, so a value any user
+// plants in their own key hides no other.
 func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {
-	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{}}
+	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{},
+		Unreadable: map[string]bool{}}
 	key, err := registry.OpenKey(rootKey(root), subkey, registry.READ)
 	if errors.Is(err, registry.ErrNotExist) {
 		return values
@@ -40,13 +43,16 @@ func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings 
 		return values
 	}
 	for _, name := range names {
-		if name == "" {
+		if name == "" || slices.Contains(values.Names, name) {
 			continue
 		}
 		values.Names = append(values.Names, name)
 		text, kind, err := regtext.Read(key, name)
 		switch {
-		case errors.Is(err, registry.ErrUnexpectedType), errors.Is(err, registry.ErrNotExist):
+		case errors.Is(err, registry.ErrUnexpectedType):
+			continue
+		case errors.Is(err, registry.ErrNotExist):
+			values.Unreadable[name] = true
 			continue
 		case err != nil:
 			values.Reason = err.Error()

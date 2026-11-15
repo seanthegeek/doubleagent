@@ -34,16 +34,24 @@ const (
 	expansionLimit  = 32767
 )
 
-// RegistryStrings is what one registry key holds: every value name in
+// RegistryStrings is what one registry key holds: every value name once, in
 // registry order, the REG_SZ and REG_EXPAND_SZ values as name to raw text,
-// never expanded, which of those are REG_EXPAND_SZ, and why the key could not
-// be read ("" when it could). A missing key has no names and no reason.
+// never expanded, which of those are REG_EXPAND_SZ, the listed names whose
+// value could not be read, and why the key could not be read ("" when it
+// could). A missing key has no names and no reason.
 type RegistryStrings struct {
 	Names      []string
 	Text       map[string]string
 	Expandable map[string]bool
+	Unreadable map[string]bool
 	Reason     string
 }
+
+// The reasons a registry value has no value, besides acceptRegistryValue's.
+const (
+	reasonNotAString = "not a string"
+	reasonUnreadable = "unreadable"
+)
 
 // Registry reads the registry for the registry pass: Strings returns the
 // values of subkey under root, and LoadedHives the key names under
@@ -170,8 +178,8 @@ func (run *search) collectedHome(path string) bool {
 // registryHints records a hint, line 0, for every value of the key whose name
 // is a relocation variable in any ASCII case, in registry order, under the variable's
 // table spelling with the key path and the value's own name as source. A
-// REG_EXPAND_SZ value is expanded from tables first; a value that is not a
-// string has no value.
+// REG_EXPAND_SZ value is expanded from tables first; a value that could not
+// be read, or is not a string, has no value and says which.
 func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 	tables []map[string]string) error {
 	for _, name := range values.Names {
@@ -179,7 +187,10 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 			if !equalFoldASCII(variable, name) {
 				continue
 			}
-			value, reason := "", "not a string"
+			value, reason := "", reasonNotAString
+			if values.Unreadable[name] {
+				reason = reasonUnreadable
+			}
 			if text, ok := values.Text[name]; ok {
 				if values.Expandable[name] {
 					text = expandRegistryValue(text, tables)

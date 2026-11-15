@@ -252,6 +252,25 @@ func liveRegistry() fakeRegistry {
 	}
 }
 
+func TestRegistryHintOfAnUnreadableValueSaysSo(t *testing.T) {
+	unreadable := RegistryStrings{Names: []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR"},
+		Unreadable: map[string]bool{"CODEX_HOME": true}}
+	log := &lineLog{}
+	fake := fakeRegistry{keys: map[registryKey]RegistryStrings{
+		{LocalMachine, systemEnvironmentKey}: unreadable}}
+	if err := registrySearch(t, fake, nil, nil, log).registryPass(); err != nil {
+		t.Fatal(err)
+	}
+	system := `relocation hint: HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment\`
+	want := []string{"Relocation hints in the registry",
+		system + "CODEX_HOME names CODEX_HOME (codex-cli); value not resolved: unreadable",
+		system + "CLAUDE_CONFIG_DIR names CLAUDE_CONFIG_DIR (claude-code); value not resolved: " +
+			"not a string"}
+	if !slices.Equal(log.lines, want) {
+		t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 func TestCollectedHomeFoldsASCIIOnly(t *testing.T) {
 	homes := []users.Home{{User: "img", Path: "C:/Users/img"}}
 	run := registrySearch(t, fakeRegistry{}, nil, homes, &lineLog{})

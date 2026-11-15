@@ -106,10 +106,10 @@ func TestSystemRegistryCutsAValueNameAtItsNUL(t *testing.T) {
 	// No Win32 call takes a counted value name, so the second value, named
 	// CODEX_HOME, a NUL and x, is written through NtSetValueKey. Windows
 	// PowerShell 5.1's GetValueNames ends a name at its first NUL, so it
-	// lists CODEX_HOME twice; Add-RelocationHint keeps one hint per source.
+	// lists CODEX_HOME twice; Strings keeps the name once.
 	setCountedName(t, key, "CODEX_HOME\x00x", `C:\other`)
 	got := SystemRegistry().Strings(UsersRoot, usersPath)
-	wantNames := []string{"CODEX_HOME", "CODEX_HOME"}
+	wantNames := []string{"CODEX_HOME"}
 	if got.Reason != "" || !slices.Equal(got.Names, wantNames) {
 		t.Fatalf("names %q, reason %q; want %q and no reason", got.Names, got.Reason, wantNames)
 	}
@@ -139,8 +139,9 @@ func TestSystemRegistryReadsPastAListedValueThatCannotBeRead(t *testing.T) {
 	if text := got.Text["CODEX_HOME"]; text != `C:\real` {
 		t.Errorf("CODEX_HOME = %q, want C:\\real; names %q", text, got.Names)
 	}
-	if _, read := got.Text["AAA"]; read || !slices.Contains(got.Names, "AAA") {
-		t.Errorf("names %q, text %q; want AAA listed without text", got.Names, got.Text)
+	if _, read := got.Text["AAA"]; read || !slices.Contains(got.Names, "AAA") || !got.Unreadable["AAA"] {
+		t.Errorf("names %q, text %q, unreadable %v; want AAA listed, unreadable, without text",
+			got.Names, got.Text, got.Unreadable)
 	}
 }
 
