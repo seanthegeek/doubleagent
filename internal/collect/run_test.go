@@ -597,3 +597,21 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 		})
 	}
 }
+
+func TestNoPreserveAtimeReachesTheStager(t *testing.T) {
+	cases := []struct {
+		name string
+		set  bool
+	}{
+		{"by default sources are opened to hold their access time", false},
+		{"--no-preserve-atime opens sources read-only", true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			state := &runState{options: Options{NoPreserveAtime: test.set}, tables: &catalog.Tables{}}
+			if got := state.newCollector("").Stager.ReadOnlySources; got != test.set {
+				t.Errorf("ReadOnlySources %v, want %v", got, test.set)
+			}
+		})
+	}
+}

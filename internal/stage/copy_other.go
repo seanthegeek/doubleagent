@@ -10,8 +10,9 @@ import (
 )
 
 // openSource opens path for reading, refusing a symlink first, since this
-// platform has no flag that refuses one at open.
-func openSource(path string) (*os.File, error) {
+// platform has no flag that refuses one at open. The open is read-only
+// whatever readOnly says.
+func openSource(path string, _ bool) (*os.File, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, err

@@ -32,6 +32,14 @@ type Options struct {
 	Quiet           bool
 	MaxFileBytes    int64
 	EnvScanMaxBytes int64
+	// NoPreserveAtime, set by --no-preserve-atime, opens every collected
+	// file for reading alone. On Windows the copy then no longer asks for
+	// the right to change the file's attributes, which security software
+	// may watch for, and so cannot ask Windows to leave the file's access
+	// time as it was; the manifest's atime is read before the open either
+	// way. On Linux and macOS files are always opened for reading alone, so
+	// it changes nothing there.
+	NoPreserveAtime bool
 	// lexicalRoot is Root made absolute as typed, before its components
 	// were respelled from the disk; "" with no root.
 	lexicalRoot string
@@ -76,7 +84,8 @@ func (e *UsageError) Print(w io.Writer) {
 }
 
 // UsageText is the help text: the sh collector's, with the program name
-// `doubleagent collect` and without its worker-shell paragraph.
+// `doubleagent collect`, without its worker-shell paragraph and with the
+// binary's own --no-preserve-atime.
 const UsageText = `Usage: doubleagent collect [options]
 
   -o, --output DIR        Directory for the archive (default: current dir)
@@ -94,6 +103,8 @@ const UsageText = `Usage: doubleagent collect [options]
       --env-scan-max-size MB
                           Skip files larger than this in that search (default
                           1, 0 = none)
+      --no-preserve-atime Open files read-only; reading may change their
+                          access time on disk
   -k, --keep-staging      Keep the staging directory after archiving
       --inventory         Write nothing; print one JSON line per user and agent
                           found (file count, bytes, first and last mtime) to
@@ -187,17 +198,18 @@ func (raw *rawOptions) setValue(name, value string) {
 // one.
 func (raw *rawOptions) setFlag(name string) bool {
 	flags := map[string]*bool{
-		"--full":          &raw.options.Full,
-		"--no-secrets":    &raw.options.NoSecrets,
-		"--no-projects":   &raw.options.NoProjects,
-		"--no-docker":     &raw.options.NoDocker,
-		"--env-scan-home": &raw.options.EnvScanHome,
-		"-k":              &raw.options.KeepStaging,
-		"--keep-staging":  &raw.options.KeepStaging,
-		"--inventory":     &raw.options.Inventory,
-		"-q":              &raw.options.Quiet,
-		"--quiet":         &raw.options.Quiet,
-		"--list":          &raw.list,
+		"--full":              &raw.options.Full,
+		"--no-secrets":        &raw.options.NoSecrets,
+		"--no-projects":       &raw.options.NoProjects,
+		"--no-docker":         &raw.options.NoDocker,
+		"--env-scan-home":     &raw.options.EnvScanHome,
+		"--no-preserve-atime": &raw.options.NoPreserveAtime,
+		"-k":                  &raw.options.KeepStaging,
+		"--keep-staging":      &raw.options.KeepStaging,
+		"--inventory":         &raw.options.Inventory,
+		"-q":                  &raw.options.Quiet,
+		"--quiet":             &raw.options.Quiet,
+		"--list":              &raw.list,
 	}
 	flag, ok := flags[name]
 	if ok {

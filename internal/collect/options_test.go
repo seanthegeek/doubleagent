@@ -26,7 +26,8 @@ func TestParseOptionsDefaults(t *testing.T) {
 func TestParseOptionsReadsEveryOption(t *testing.T) {
 	args := []string{"-o", "out", "-r", "img", "-u", "a,b", "-p", "x", "--project", "y",
 		"--full", "--no-secrets", "--no-projects", "--no-docker", "--env-scan-home",
-		"-k", "--inventory", "-q", "--max-file-size", "0", "--env-scan-max-size", "3"}
+		"-k", "--inventory", "-q", "--max-file-size", "0", "--env-scan-max-size", "3",
+		"--no-preserve-atime"}
 	options, action, err := ParseOptions(args)
 	if err != nil || action != ActRun {
 		t.Fatalf("action %v, error %v", action, err)
@@ -34,9 +35,41 @@ func TestParseOptionsReadsEveryOption(t *testing.T) {
 	want := Options{OutDir: "out", OutDirSet: true, Root: "img", UsersFilter: "a,b",
 		Projects: []string{"x", "y"}, Full: true, NoSecrets: true, NoProjects: true,
 		NoDocker: true, EnvScanHome: true, KeepStaging: true, Inventory: true, Quiet: true,
-		MaxFileBytes: 0, EnvScanMaxBytes: 3 * mebibyte}
+		MaxFileBytes: 0, EnvScanMaxBytes: 3 * mebibyte, NoPreserveAtime: true}
 	if !reflect.DeepEqual(options, want) {
 		t.Errorf("options %+v, want %+v", options, want)
+	}
+}
+
+func TestNoPreserveAtimeIsAValuelessSwitch(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{"it is off by default", nil, false},
+		{"it is set on its own", []string{"--no-preserve-atime"}, true},
+		{"the argument after it is still an option", []string{"--no-preserve-atime", "-q"}, true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			options, action, err := ParseOptions(test.args)
+			if err != nil || action != ActRun || options.NoPreserveAtime != test.want {
+				t.Errorf("NoPreserveAtime %v, action %v, error %v; want %v",
+					options.NoPreserveAtime, action, err, test.want)
+			}
+		})
+	}
+	if _, _, err := ParseOptions([]string{"--no-preserve-atime=1"}); err == nil {
+		t.Error("--no-preserve-atime=1 was accepted; the switch takes no value")
+	}
+}
+
+func TestUsageTextNamesNoPreserveAtime(t *testing.T) {
+	want := "      --no-preserve-atime Open files read-only; reading may change their\n" +
+		"                          access time on disk\n"
+	if !strings.Contains(UsageText, want) {
+		t.Errorf("usage text lacks %q:\n%s", want, UsageText)
 	}
 }
 

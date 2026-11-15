@@ -284,6 +284,69 @@ func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
 	}
 }
 
+func TestSourceAccess(t *testing.T) {
+	cases := []struct {
+		name     string
+		readOnly bool
+		want     []uint32
+	}{
+		{"by default the first open may set times and the second only reads", false,
+			[]uint32{windows.GENERIC_READ | windows.FILE_WRITE_ATTRIBUTES, windows.GENERIC_READ}},
+		{"read-only sources are opened for reading alone", true,
+			[]uint32{windows.GENERIC_READ}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			got := sourceAccess(test.readOnly)
+			if len(got) != len(test.want) {
+				t.Fatalf("sourceAccess(%v) = %#x, want %#x", test.readOnly, got, test.want)
+			}
+			for i := range got {
+				if got[i] != test.want[i] {
+					t.Errorf("sourceAccess(%v) = %#x, want %#x", test.readOnly, got, test.want)
+				}
+			}
+		})
+	}
+}
+
+func TestCopyFileWithReadOnlySources(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(t *testing.T, source string)
+	}{
+		{"a file is copied with its three times", func(*testing.T, string) {}},
+		{"a file whose times may not be set is copied with its three times", refuseTimeSetting},
+	}
+	content := []byte("evidence")
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			stager, root := newWindowsStager(t)
+			stager.ReadOnlySources = true
+			source := root + "/home/file.txt"
+			mustDo(t, os.WriteFile(source, content, 0o600))
+			setTimes(t, source, 1_500_000_000, 1_600_000_000, 1_700_000_000)
+			want := fileTimes(t, source)
+			before := basicTimes(t, source)
+			test.prepare(t, source)
+			_, written, err := stager.CopyFile(source)
+			if err != nil || written != int64(len(content)) {
+				t.Fatalf("CopyFile = %d bytes, %v", written, err)
+			}
+			_, dest := stager.Dest(source)
+			if got := fileTimes(t, dest); got != want {
+				t.Errorf("copy times (creation, access, write) %v, want %v", got, want)
+			}
+			// Reading may move the access time, and the access list the
+			// change time; the creation and write times stay.
+			after := basicTimes(t, source)
+			if after[0] != before[0] || after[2] != before[2] {
+				t.Errorf("source times (creation, access, write) %v, want %v", after, before)
+			}
+		})
+	}
+}
+
 func TestCopyFileBesideAHandleWithDeleteAccess(t *testing.T) {
 	stager, root := newWindowsStager(t)
 	source := root + "/home/locked"

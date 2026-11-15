@@ -23,13 +23,18 @@ import (
 // host). From and Into, when set, are an in-base symlinked directory a path
 // ran through and that directory's physical path in the base: a path at or
 // under From is staged under Into, so nothing is staged through a link
-// recreated in the staging tree.
+// recreated in the staging tree. ReadOnlySources, set by
+// --no-preserve-atime, opens every source for reading alone: on Windows the
+// copy then does not ask the file system to keep the source's access time,
+// and on Linux and macOS, where a source is always opened for reading
+// alone, it changes nothing.
 type Stager struct {
-	Dir      string
-	Physical string
-	Root     string
-	From     string
-	Into     string
+	Dir             string
+	Physical        string
+	Root            string
+	From            string
+	Into            string
+	ReadOnlySources bool
 }
 
 // Through returns a copy of the stager that stages paths under from at into.
@@ -169,7 +174,7 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 	if err := stager.makeDir(parentOf(dest)); err != nil {
 		return "", 0, err
 	}
-	source, err := openSource(path)
+	source, err := openSource(path, stager.ReadOnlySources)
 	if err != nil {
 		return "", 0, err
 	}
