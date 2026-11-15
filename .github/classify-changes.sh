@@ -3,7 +3,7 @@
 # job runs only when a file it reads changed. Reads the changed paths, one per
 # line, on stdin; with the argument "all", ignores them. Prints one
 # "<category>=true|false" line per category: sh, sh-lint, powershell, python,
-# catalog, fork-budget and all. A path matching no category below, or no
+# catalog, fork-budget, go and all. A path matching no category below, or no
 # path at all, sets all, and all sets every category. AGENTS.md ("Validation
 # and testing") gives the rule.
 
@@ -14,6 +14,7 @@ powershell=false
 python=false
 catalog=false
 fork_budget=false
+go_tree=false
 [ "${1:-}" = all ] && all=true
 count=0
 
@@ -96,6 +97,15 @@ while IFS= read -r path; do
       ;;
   esac
 
+  # The Go job: the module, its vendored dependencies, every Go source file,
+  # the embedded catalog copy and the build script the job runs twice.
+  case "$path" in
+    go.mod | go.sum | vendor/* | *.go | internal/catalog/catalog.txt | .github/go-build.sh)
+      go_tree=true
+      matched=true
+      ;;
+  esac
+
   # Files only the always-run lint steps read (markdownlint, the document
   # checks, the drift checkers, code style), or no CI job reads at all.
   case "$path" in
@@ -118,8 +128,9 @@ if [ "$all" = true ]; then
   python=true
   catalog=true
   fork_budget=true
+  go_tree=true
 fi
 [ "$sh_collector" = true ] && sh_lint=true
 
-printf 'sh=%s\nsh-lint=%s\npowershell=%s\npython=%s\ncatalog=%s\nfork-budget=%s\nall=%s\n' \
-  "$sh_collector" "$sh_lint" "$powershell" "$python" "$catalog" "$fork_budget" "$all"
+printf 'sh=%s\nsh-lint=%s\npowershell=%s\npython=%s\ncatalog=%s\nfork-budget=%s\ngo=%s\nall=%s\n' \
+  "$sh_collector" "$sh_lint" "$powershell" "$python" "$catalog" "$fork_budget" "$go_tree" "$all"

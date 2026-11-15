@@ -1,0 +1,2387 @@
+# home artifacts (agent|glob relative to home)
+# Anthropic
+claude-code|.claude
+claude-code|.claude.json*
+# Claude Code config homes moved with CLAUDE_CONFIG_DIR (~/.claude-work):
+# anchored on Claude-only names, never a bare .claude-*
+claude-code|.claude-*/projects
+claude-code|.claude-*/file-history
+claude-code|.claude-*/history.jsonl
+claude-code|.claude-*/.claude.json*
+claude-code|.claude-*/.credentials.json
+claude-code|.claude-*/hfi-auth.json
+claude-code|.claude-*/.session_ingress_token
+claude-code|.claude-*/remote/.oauth_token
+claude-code|.claude-*/remote/.api_key
+claude-code|.claude-*/sessions/*.*.key
+claude-code|.claude-*/daemon/control.key
+claude-code|.claude-*/daemon/pipe.key
+claude-code|.claude-*/daemon/roster.json
+claude-code|.claude-*/backups/.claude.json.*
+# Running-process credentials in a relocated config home: the IDE bridge
+# lock (authToken) and the Remote Control spawn MCP definition
+claude-code|.claude-*/ide/*.lock
+claude-code|.claude-*/bridge-spawn/*/mcp.json
+claude-code|.local/share/claude
+# Claude Code version locks and its staging/ directory, home-relative on Linux
+# and Windows alike
+claude-code|.local/state/claude
+claude-code|.cache/claude
+# Claude Code CLI cache: MCP server logs per project. The Windows
+# entry names the children of Cache/: the PowerShell exclusion match ignores
+# case, so */Claude*/Cache would prune claude-cli-nodejs/Cache itself
+claude-code|Library/Caches/claude-cli-nodejs
+claude-code|.cache/claude-cli-nodejs
+claude-code|AppData/Local/claude-cli-nodejs/Cache/*
+# Claude Code Windows temp root, under the home (scratchpads and tasks); the
+# Linux and macOS roots are outside every home (research/claude-code.md)
+claude-code|AppData/Local/Temp/claude
+# Claude Code macOS URL handler: the bundle registering the claude-cli: URL
+# scheme, install evidence that outlives ~/.local
+claude-code|Applications/Claude Code URL Handler.app
+claude-desktop|Library/Application Support/Claude
+claude-desktop|Library/Application Support/Claude-3p
+claude-desktop|Library/Logs/Claude
+claude-desktop|Library/Logs/Claude-3p
+claude-desktop|.config/Claude
+claude-desktop|.config/Claude-3p
+claude-desktop|AppData/Roaming/Claude
+claude-desktop|AppData/Roaming/Claude-3p
+claude-desktop|AppData/Local/Claude-3p
+# Claude Desktop MSIX build: userData is virtualised under Packages,
+# logs stay in AppData/Local/Claude, Claude-Data is the unpackaged fallback
+claude-desktop|AppData/Local/Claude
+claude-desktop|AppData/Local/Claude-Data
+claude-desktop|AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude
+claude-desktop|AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude
+claude-desktop|Claude
+claude-desktop|Documents/Claude
+# Google: Gemini CLI and Antigravity (research/gemini-cli.md,
+# research/antigravity.md). The antigravity entries nest inside ~/.gemini and
+# claim their subtrees. The Antigravity Cache exclusion names its three bases:
+# the PowerShell match ignores case, so */Antigravity/Cache would also prune
+# .gemini/antigravity/cache. AppData/Local/antigravity names one whole
+# component, so it matches neither antigravity-updater nor the installed app.
+gemini-cli|.gemini
+gemini-cli|.cache/.gemini
+antigravity|.gemini/antigravity-cli
+antigravity|.gemini/antigravity-ide
+antigravity|.gemini/antigravity
+antigravity|.gemini/antigravity-backup
+antigravity|.gemini/config
+antigravity|.antigravity
+antigravity|.cache/antigravity
+antigravity|AppData/Local/antigravity
+antigravity|.config/Antigravity
+antigravity|Library/Application Support/Antigravity
+antigravity|Library/Logs/Antigravity
+antigravity|AppData/Roaming/Antigravity
+antigravity|.config/antigravity/plugin-secrets.json
+antigravity|Library/Application Support/antigravity/plugin-secrets.json
+antigravity|AppData/Roaming/antigravity/plugin-secrets.json
+antigravity|.config/Antigravity IDE/User
+antigravity|.config/Antigravity IDE/logs
+antigravity|Library/Application Support/Antigravity IDE/User
+antigravity|Library/Application Support/Antigravity IDE/logs
+antigravity|AppData/Roaming/Antigravity IDE/User
+antigravity|AppData/Roaming/Antigravity IDE/logs
+# OpenAI
+codex-cli|.codex
+# Codex: the working directory the ChatGPT desktop app gives a thread with no
+# project (research/codex-cli.md)
+codex-cli|Documents/Codex
+chatgpt-desktop|Library/Application Support/com.openai.chat
+chatgpt-desktop|AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalCache/Roaming/ChatGPT
+chatgpt-desktop|AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalState
+# ChatGPT desktop on Windows, Store package OpenAI.Codex: the profile and the
+# files beside it in the Chromium user-data directory are named rather than
+# the directory, so the Chromium component data is not walked
+# (research/chatgpt-desktop.md)
+chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Default
+chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Local State
+chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Last Version
+chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/statsig-state.json
+chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/.codex-tpp-local-executor-installation-id
+chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Local/Codex
+chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/Settings
+# ChatGPT desktop on macOS, bundle id com.openai.codex: the profile and the
+# files beside it in Application Support/Codex are named, as on Windows. The
+# com.openai.chat line above is the former native app.
+chatgpt-desktop|Library/Application Support/com.openai.codex
+chatgpt-desktop|Library/Application Support/Codex/Default
+chatgpt-desktop|Library/Application Support/Codex/Local State
+chatgpt-desktop|Library/Application Support/Codex/Last Version
+chatgpt-desktop|Library/Application Support/Codex/statsig-state.json
+chatgpt-desktop|Library/Application Support/Codex/.codex-tpp-local-executor-installation-id
+chatgpt-desktop|Library/Application Support/Codex/browser-sidebar-page-states.json
+chatgpt-desktop|Library/Application Support/Codex/executor-plugins
+chatgpt-desktop|Library/Application Support/Codex/artifact-sessions
+chatgpt-desktop|Library/Application Support/com.openai.codex.installer
+chatgpt-desktop|Library/Logs/com.openai.codex
+chatgpt-desktop|Library/Preferences/com.openai.codex.plist
+chatgpt-desktop|Library/Preferences/com.openai.codex.installer.plist
+chatgpt-desktop|Library/Preferences/com.openai.sky.CUAService.plist
+chatgpt-desktop|Library/HTTPStorages/com.openai.codex
+chatgpt-desktop|Library/HTTPStorages/com.openai.codex.binarycookies
+chatgpt-desktop|Library/HTTPStorages/com.openai.sky.CUAService
+chatgpt-desktop|Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+chatgpt-desktop|Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService
+# GitHub Copilot (CLI, and the OAuth token store used by Copilot plugins)
+copilot-cli|.copilot
+copilot-cli|.config/.copilot
+copilot-cli|.local/state/.copilot
+copilot-cli|.cache/copilot
+copilot-cli|Library/Caches/copilot
+copilot-cli|AppData/Local/copilot
+copilot|.config/github-copilot
+copilot|AppData/Local/github-copilot
+# GitHub Copilot Desktop (Tauri app, package "github"): runs its sessions through a bundled
+# Copilot CLI inside ~/.copilot (session-state stays copilot-cli); these nested entries claim
+# the store, chat and repository directories, run files and log of the app itself
+copilot-desktop|.copilot/data.db*
+copilot-desktop|.copilot/repo-metadata-cache.db*
+copilot-desktop|.copilot/chats
+copilot-desktop|.copilot/repos
+copilot-desktop|.copilot/repos/*/.git
+copilot-desktop|.copilot/run
+copilot-desktop|.copilot/media-cache
+copilot-desktop|.copilot/canvas-catalog-probe
+copilot-desktop|.copilot/logs/github-app.*.log
+copilot-desktop|.local/share/com.github.githubapp
+copilot-desktop|Library/Application Support/com.github.githubapp
+copilot-desktop|AppData/Roaming/com.github.githubapp
+copilot-desktop|AppData/Local/com.github.githubapp
+copilot-desktop|.github-copilot-cli
+# Cursor
+cursor|.cursor
+cursor|.config/cursor
+cursor|AppData/Roaming/Cursor/auth.json
+cursor|.cursor-server/data/User
+cursor|Library/Application Support/Cursor/User
+cursor|Library/Application Support/Cursor/logs
+cursor|Library/Application Support/Cursor/AgentStores
+cursor|Library/Application Support/Cursor/update-supervisor
+cursor|.config/Cursor/User
+cursor|.config/Cursor/logs
+cursor|.local/state/cursor/agent-stores
+cursor|.config/Cursor/update-supervisor
+cursor|AppData/Roaming/Cursor/User
+cursor|AppData/Roaming/Cursor/logs
+cursor|AppData/Local/Cursor/AgentStores
+cursor|AppData/Roaming/Cursor/update-supervisor
+# VS Code and VSCodium: globalStorage holds Copilot Chat, Cline, Roo, Kilo, Continue, Augment state
+vscode|.vscode*/extensions/extensions.json
+vscode|Library/Application Support/Code*/User
+vscode|Library/Application Support/Code*/logs
+vscode|.config/Code*/User
+vscode|.config/Code*/logs
+vscode|AppData/Roaming/Code*/User
+vscode|AppData/Roaming/Code*/logs
+vscode|Library/Application Support/VSCodium*/User
+vscode|Library/Application Support/VSCodium*/logs
+vscode|.config/VSCodium*/User
+vscode|.config/VSCodium*/logs
+vscode|AppData/Roaming/VSCodium*/User
+vscode|AppData/Roaming/VSCodium*/logs
+vscode|Library/Application Support/Positron/User
+vscode|.config/Positron/User
+vscode|AppData/Roaming/Positron/User
+vscode|Library/Application Support/Trae*/User
+vscode|.config/Trae*/User
+vscode|AppData/Roaming/Trae*/User
+vscode|.vscode*/argv.json
+vscode|.vscode*/cli/token*.json
+# Remote development servers (WSL, SSH, tunnels) keep the same User layout on the remote host
+vscode|.vscode-server*/data/User
+vscode|.vscode-server*/data/logs
+vscode|.vscodium-server*/data/User
+vscode|.positron-server/data/User
+# VS Code family extension state. Each editor User directory is collected
+# above; these nested entries claim the agent extension globalStorage from
+# that walk so Cline, Roo, Kilo, Continue, Cody and Twinny files are
+# attributed to them. Twinny also keeps per-workspace extension storage
+# (agent-changes/) under workspaceStorage/<id>/rjmacarthy.twinny.
+cline|.config/*/User/globalStorage/saoudrizwan.claude-dev
+cline|Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
+cline|AppData/Roaming/*/User/globalStorage/saoudrizwan.claude-dev
+roo-code|.config/*/User/globalStorage/rooveterinaryinc.roo-cline
+roo-code|Library/Application Support/*/User/globalStorage/rooveterinaryinc.roo-cline
+roo-code|AppData/Roaming/*/User/globalStorage/rooveterinaryinc.roo-cline
+kilo-code|.config/*/User/globalStorage/kilocode.kilo-code
+kilo-code|Library/Application Support/*/User/globalStorage/kilocode.kilo-code
+kilo-code|AppData/Roaming/*/User/globalStorage/kilocode.kilo-code
+continue|.config/*/User/globalStorage/continue.continue
+continue|Library/Application Support/*/User/globalStorage/continue.continue
+continue|AppData/Roaming/*/User/globalStorage/continue.continue
+cody|.config/*/User/globalStorage/sourcegraph.cody-ai
+cody|Library/Application Support/*/User/globalStorage/sourcegraph.cody-ai
+cody|AppData/Roaming/*/User/globalStorage/sourcegraph.cody-ai
+twinny|.config/*/User/globalStorage/rjmacarthy.twinny
+twinny|Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+twinny|AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+twinny|.config/*/User/workspaceStorage/*/rjmacarthy.twinny
+twinny|Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+twinny|AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
+cline|.*-server*/data/User/globalStorage/saoudrizwan.claude-dev
+roo-code|.*-server*/data/User/globalStorage/rooveterinaryinc.roo-cline
+kilo-code|.*-server*/data/User/globalStorage/kilocode.kilo-code
+continue|.*-server*/data/User/globalStorage/continue.continue
+cody|.*-server*/data/User/globalStorage/sourcegraph.cody-ai
+twinny|.*-server*/data/User/globalStorage/rjmacarthy.twinny
+twinny|.*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+# Windsurf (rebranding to Devin)
+windsurf|.codeium
+windsurf|.windsurf
+windsurf|.devin
+windsurf|.config/devin
+windsurf|.local/share/devin
+# On a case-insensitive disk AppData/Roaming/devin (the Devin CLI) is the same
+# directory as AppData/Roaming/Devin (the Devin IDE), so only the CLI files are named
+windsurf|AppData/Roaming/devin/mcp_config.json
+windsurf|AppData/Roaming/devin/credentials.toml
+windsurf|Library/Application Support/Windsurf/User
+windsurf|Library/Application Support/Windsurf/logs
+windsurf|.config/Windsurf/User
+windsurf|.config/Windsurf/logs
+windsurf|AppData/Roaming/Windsurf/User
+windsurf|AppData/Roaming/Windsurf/logs
+windsurf|Library/Application Support/Devin/User
+windsurf|Library/Application Support/Devin/logs
+windsurf|.config/Devin/User
+windsurf|.config/Devin/logs
+windsurf|AppData/Roaming/Devin/User
+windsurf|AppData/Roaming/Devin/logs
+windsurf|.windsurf-server/data/User
+windsurf|.devin-server/data/User
+# Cline, Roo Code, Kilo Code
+cline|.cline
+cline|Documents/Cline
+cline|Cline/Rules
+roo-code|.roo
+roo-code|.roo-code
+roo-code|.vscode-mock
+roo-code|.local/share/Roo-Code
+roo-code|AppData/Roaming/Roo-Code
+kilo-code|.kilo
+kilo-code|.kilocode
+kilo-code|.kilocodemodes
+kilo-code|.config/kilo
+kilo-code|.local/share/kilo
+kilo-code|.local/state/kilo
+kilo-code|.local/state/kilo-sandbox-policy
+kilo-code|.local/state/kilo-sandbox-preference
+# Kilo Code JetBrains plugin: its kilo folder in the IDE system directory, its settings files
+kilo-code|Library/Caches/JetBrains/*/kilo
+kilo-code|AppData/Local/JetBrains/*/kilo
+kilo-code|.cache/JetBrains/*/kilo
+kilo-code|Library/Application Support/JetBrains/*/options/kilo*.xml
+kilo-code|AppData/Roaming/JetBrains/*/options/kilo*.xml
+kilo-code|.config/JetBrains/*/options/kilo*.xml
+# Continue
+continue|.continue
+# Aider (history files live in the repo; these are the home-level ones)
+aider|.aider
+aider|.aider.conf.yml
+aider|.aider.model.settings.yml
+aider|.aider.model.metadata.json
+aider|.aider.chat.history.md
+aider|.aider.input.history
+aider|.aider.llm.history
+# OpenCode (XDG roots with no platform branch: same paths on macOS and Windows)
+opencode|.config/opencode
+opencode|.opencode
+opencode|.local/share/opencode
+opencode|.local/state/opencode
+opencode|Library/Application Support/ai.opencode.desktop*
+opencode|AppData/Roaming/ai.opencode.desktop*
+opencode|.config/ai.opencode.desktop*
+opencode|AppData/Local/Temp/opencode
+# Crush (~/.config on every OS; sessions live in each project .crush/crush.db)
+crush|.config/crush
+crush|.local/share/crush
+crush|AppData/Local/crush
+crush|.crush
+crush|.cache/crush
+# Goose (XDG on macOS too; Electron app dir is separate). On Windows Goose
+# writes only the config, data and cache directories under Block/goose. The
+# cache entry names the children of cache/: the PowerShell exclusion match
+# ignores case, so */Goose/Cache would prune Block/goose/cache itself
+goose|.config/goose
+goose|.local/share/goose
+goose|.local/state/goose
+goose|.cache/goose
+goose|.config/Goose
+goose|Library/Application Support/Goose
+goose|AppData/Roaming/Block/goose/config
+goose|AppData/Roaming/Block/goose/data
+goose|AppData/Local/Block/goose/cache/*
+goose|Library/Application Support/Block/goose
+goose|AppData/Roaming/Goose
+goose|.goose
+# Zed (config in ~/.config/zed on macOS too; data under Library)
+zed|.config/zed
+zed|.local/share/zed
+zed|Library/Application Support/Zed
+zed|Library/Logs/Zed
+zed|AppData/Roaming/Zed
+zed|AppData/Local/Zed
+zed|.var/app/dev.zed.Zed/config/zed
+zed|.var/app/dev.zed.Zed/data/zed
+zed|.var/app/dev.zed.ZedPreview/config/zed
+zed|.var/app/dev.zed.ZedPreview/data/zed
+zed|.var/app/dev.zed.ZedNightly/config/zed
+zed|.var/app/dev.zed.ZedNightly/data/zed
+# Qwen Code
+qwen-code|.qwen
+# Qwen Live, the voice daemon of the Qwen Code repository (~/.qwen-live on every OS)
+qwen-live|.qwen-live
+# Amp (data dir is ~/.local/share/amp on every OS; threads are server-side)
+amp|.config/amp
+amp|.local/share/amp
+amp|.cache/amp/logs
+amp|.cache/amp/terminal
+amp|.amp
+amp|AppData/Local/amp/logs
+# Factory Droid
+factory-droid|.factory
+# Meta Muse Code (XDG ~/.config/muse and ~/.local/share/muse on every OS; launcher state in its install dir)
+muse-code|.config/muse
+muse-code|.local/share/muse
+muse-code|.muse
+muse-code|.local/bin/.muse-*
+muse-code|AppData/Local/Programs/muse
+muse-code|AppData/LocalLow/muse-shell-sandbox-*
+# Augment (auggie CLI; the VS Code extension state is under the vscode entries)
+augment|.augment
+# Kiro (CLI, legacy Amazon Q CLI, and the Kiro IDE which is a VS Code fork)
+kiro|.kiro
+kiro|.kiro-server/data/User
+kiro|.aws/amazonq
+kiro|.aws/sso/cache
+kiro|.local/share/kiro-cli
+kiro|.local/share/amazon-q
+kiro|Library/Application Support/kiro-cli
+kiro|Library/Application Support/amazon-q
+kiro|AppData/Local/kiro-cli
+kiro|AppData/Local/amazon-q
+kiro|.config/Kiro/User
+kiro|.config/Kiro/logs
+kiro|Library/Application Support/Kiro/User
+kiro|Library/Application Support/Kiro/logs
+kiro|AppData/Roaming/Kiro/User
+kiro|AppData/Roaming/Kiro/logs
+# PearAI (VS Code fork; ~/.pearai is both the editor extension dir and the Continue fork home)
+pearai|.pearai
+pearai|.config/PearAI/User
+pearai|.config/PearAI/logs
+pearai|.config/pearai/User
+pearai|Library/Application Support/PearAI/User
+pearai|Library/Application Support/PearAI/logs
+pearai|AppData/Roaming/PearAI/User
+pearai|AppData/Roaming/PearAI/logs
+pearai|.pearai-server/data/User
+# Sourcegraph Cody (VS Code chat history and token are rows in state.vscdb; JetBrains and agent state under Cody-nodejs)
+cody|.vscode/cody.json
+cody|.cody
+cody|.local/share/Cody-nodejs
+cody|.config/Cody-nodejs
+cody|.local/state/Cody-nodejs
+cody|Library/Application Support/Cody-nodejs
+cody|Library/Preferences/Cody-nodejs
+cody|Library/Logs/Cody-nodejs
+cody|AppData/Local/Cody-nodejs
+cody|AppData/Roaming/Cody-nodejs
+cody|.sourcegraph
+cody|.config/JetBrains/*/options/cody*.xml
+cody|Library/Application Support/JetBrains/*/options/cody*.xml
+cody|AppData/Roaming/JetBrains/*/options/cody*.xml
+# Twinny (chats are rows in state.vscdb; embeddings, node and server state under ~/.twinny)
+twinny|.twinny
+# Tabby (self-hosted server state, editor agent config, JetBrains plugin settings)
+tabby|.tabby
+tabby|.tabby-client
+tabby|.config/JetBrains/*/options/intellij-tabby*.xml
+tabby|Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
+tabby|AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
+# Open Interpreter (a Codex CLI fork with the Codex layout under ~/.openinterpreter)
+open-interpreter|.openinterpreter
+open-interpreter|.config/open-interpreter
+open-interpreter|.config/Open Interpreter*
+open-interpreter|Library/Application Support/open-interpreter
+open-interpreter|Library/Application Support/Open Interpreter*
+open-interpreter|AppData/Local/open-interpreter
+open-interpreter|AppData/Local/Open Interpreter*
+open-interpreter|.cache/open-interpreter
+# OpenHands (CLI and Agent Server under ~/.openhands; Agent Canvas desktop app)
+openhands|.openhands
+openhands|Library/Application Support/OpenHands Agent Canvas
+openhands|.config/OpenHands Agent Canvas
+openhands|AppData/Roaming/OpenHands Agent Canvas
+# pi (same path on every OS); little-coder runs pi and its prompt history is a nested entry
+pi|.pi
+little-coder|.little-coder
+little-coder|.config/little-coder
+little-coder|.cache/little-coder
+little-coder|.pi/agent/little-coder-prompt-history.json
+# Letta Code, and the retired Letta (MemGPT) server
+letta|.letta
+letta|.config/letta
+letta|.memgpt
+# Hermes Agent (Nous Research; AppData/Local/hermes on Windows, Electron app dir Hermes)
+# HERMES_DATA_DIR_SUFFIX is appended to the home and the Electron dir with no
+# separator (.hermes-channel-build-canary), so ?* takes any suffix
+hermes|.hermes
+hermes|.hermes?*
+hermes|AppData/Local/hermes
+hermes|AppData/Local/hermes?*
+hermes|.config/Hermes
+hermes|.config/Hermes?*
+hermes|Library/Application Support/Hermes
+hermes|Library/Application Support/Hermes?*
+hermes|AppData/Roaming/Hermes
+hermes|AppData/Roaming/Hermes?*
+# OpenClaw (formerly Clawdbot and Moltbot; profiles are ~/.openclaw-<profile>; ~/.clawdbot and ~/.moltbot are legacy state directories)
+openclaw|.openclaw
+openclaw|.openclaw-*
+openclaw|.clawdbot
+openclaw|.moltbot
+openclaw|.config/openclaw
+openclaw|Library/Application Support/OpenClaw
+openclaw|Library/LaunchAgents/ai.openclaw.*
+openclaw|.config/systemd/user/openclaw-*
+openclaw|.config/systemd/user/clawdbot-*
+# nanobot (instances are ~/.nanobot-<name>)
+nanobot|.nanobot
+nanobot|.nanobot-*
+nanobot|Library/LaunchAgents/ai.nanobot.*
+nanobot|.config/systemd/user/nanobot-*
+nanobot|.local/share/nanobot/auth
+nanobot|Library/Application Support/nanobot/auth
+nanobot|AppData/Local/nanobot/auth
+# The default data directory of the oauth-cli-kit library, which the OpenAI Codex
+# provider of nanobot writes (the only catalog agent known to use the library)
+nanobot|.local/share/oauth-cli-kit/auth
+nanobot|Library/Application Support/oauth-cli-kit/auth
+nanobot|AppData/Local/oauth-cli-kit/auth
+# Agent Zero (state is under the install dir, not a dot dir: installer and launcher
+# default ~/agent-zero/<instance>/usr, or a clone in ~/agent-zero or ~/Desktop/agent-zero)
+agent-zero|agent-zero
+agent-zero|Desktop/agent-zero
+agent-zero|.agent-zero
+agent-zero|.local/share/a0
+agent-zero|Library/Application Support/A0
+agent-zero|AppData/Local/A0
+agent-zero|.config/Agent Zero Launcher
+agent-zero|Library/Application Support/Agent Zero Launcher
+agent-zero|AppData/Roaming/Agent Zero Launcher
+# computer-use screen captures of the A0 CLI connector in the system temp
+# directory, inside the home only on Windows
+agent-zero|AppData/Local/Temp/_a0_connector
+# ShellGPT (~/.config on every OS; chats default to the temp dir, under the home only on Windows)
+shellgpt|.config/shell_gpt
+shellgpt|AppData/Local/Temp/chat_cache
+shellgpt|AppData/Local/Temp/shell_gpt
+# Local Deep Research (platformdirs data dir; history is in an encrypted per-user database)
+local-deep-research|.local/share/local-deep-research
+local-deep-research|Library/Application Support/local-deep-research
+local-deep-research|AppData/Local/local-deep-research
+local-deep-research|Documents/LocalDeepResearch
+# AutoGen Studio (~/.autogenstudio on every OS; the SQLite db settings table can hold API keys)
+autogen-studio|.autogenstudio
+# CrewAI (appdirs; run data dir is named after the project folder, so file-anchored lines)
+crewai|.config/crewai
+crewai|.crewai
+crewai|.local/share/crewai
+crewai|.local/share/*/latest_kickoff_task_outputs.db*
+crewai|.local/share/*/flow_states.db*
+crewai|.local/share/*/.crewai_user.json
+crewai|Library/Application Support/crewai
+crewai|Library/Application Support/*/latest_kickoff_task_outputs.db*
+crewai|Library/Application Support/*/flow_states.db*
+crewai|Library/Application Support/*/.crewai_user.json
+crewai|AppData/Local/[Cc]rew[Aa][Ii]
+# CAMEL (camel-ai; ~/.camel is shared with Apache Camel JBang, so only CAMEL-specific names)
+camel-ai|.camel/gmail_token.json
+camel-ai|.camel/skills
+camel-ai|.config/camel
+# Dify (server state is in bind mounts beside the compose file; difyctl client config)
+dify|.config/difyctl
+dify|AppData/Roaming/difyctl
+dify|AppData/Local/difyctl
+# Flowise (~/.flowise on every OS; the README compose bind-mounts it)
+flowise|.flowise
+# Langflow (platformdirs cache dir; Desktop paths from docs)
+langflow|.cache/langflow
+langflow|Library/Caches/langflow
+langflow|AppData/Local/langflow/langflow/Cache
+langflow|.langflow
+langflow|Library/Application Support/com.LangflowDesktop
+langflow|Library/Logs/com.LangflowDesktop
+langflow|AppData/Roaming/com.LangflowDesktop
+langflow|AppData/Local/com.LangflowDesktop
+# MetaGPT (~/.metagpt on every OS; config2.yaml holds the LLM API key)
+metagpt|.metagpt
+# n8n (~/.n8n on every OS; computer-use gateway logs every tool call)
+n8n|.n8n
+n8n|.n8n-local-gateway
+n8n|.n8n-gateway
+# Pydantic AI CLIs: clai prompt history and the CLAI 2.0 coding agent (~/.config and ~/.local/state on every OS)
+pydantic-clai|.pydantic-ai
+pydantic-clai|.config/pydantic-clai2
+pydantic-clai|.local/state/pydantic-clai2
+# Shared cross-agent directories (skills and instructions read by several agents)
+shared|.agents
+shared|.config/AGENTS.md
+shared|.config/agents
+# GitHub CLI login that agents use for source-host access (gh auth login):
+# the token in plaintext when the login keychain is unreachable, a token-less
+# host entry when it is in the keychain
+shared|.config/gh/hosts.yml
+shared|AppData/Roaming/GitHub CLI/hosts.yml
+# Ollama
+ollama|.ollama
+ollama|Library/Application Support/Ollama
+ollama|AppData/Local/Ollama
+# project artifacts (relative to each discovered project)
+claude-code|.claude
+claude-code|CLAUDE.md
+claude-code|CLAUDE.local.md
+project|.mcp.json
+project|AGENTS.md
+project|AGENTS.override.md
+project|AGENT.md
+project|.agents
+project|.git/HEAD
+project|.git/config
+project|.git/FETCH_HEAD
+project|.git/packed-refs
+project|.git/refs
+project|.git/logs
+project|.git/worktrees
+project|.git/info/exclude
+gemini-cli|GEMINI.md
+gemini-cli|.gemini
+gemini-cli|.geminiignore
+qwen-code|QWEN.md
+qwen-code|.qwen
+qwen-code|.qwenignore
+codex-cli|.codex
+cursor|.cursor
+cursor|.cursorrules
+cursor|.cursorignore
+cursor|.cursorindexingignore
+windsurf|.windsurf
+windsurf|.windsurfrules
+windsurf|.windsurfignore
+windsurf|.codeiumignore
+windsurf|.devin
+windsurf|.devinignore
+antigravity|.antigravityignore
+cline|.clinerules
+cline|.clineignore
+cline|.cline
+roo-code|.roo
+roo-code|.roomodes
+roo-code|.rooignore
+roo-code|.roorules*
+roo-code|.rooprotected
+kilo-code|.kilo
+kilo-code|.kilocode
+kilo-code|.kilocodemodes
+kilo-code|.kilocodeignore
+kilo-code|.kilocoderules
+kilo-code|kilo.json*
+continue|.continue
+continue|.continuerc.json
+continue|.continueignore
+aider|.aider.chat.history.md
+aider|.aider.input.history
+aider|.aider.llm.history
+aider|.aider.conf.yml
+aider|.aider.model.settings.yml
+aider|.aider.model.metadata.json
+aider|.aiderignore
+opencode|.opencode
+opencode|opencode.json*
+crush|.crush
+crush|crush.json
+crush|.crush.json
+crush|crushrc
+crush|.crushrc
+crush|.crushignore
+crush|CRUSH.md
+crush|CRUSH.local.md
+crush|crush.md
+crush|crush.local.md
+crush|Crush.md
+crush|Crush.local.md
+goose|.goosehints
+goose|.goose
+goose|diagnostics_[0-9]*_*.json
+zed|.zed
+zed|.rules
+project|.github/copilot-instructions.md
+project|.github/git-commit-instructions.md
+copilot-cli|.github/copilot
+project|.github/instructions
+copilot-cli|.github/mcp.json
+copilot-cli|.github/hooks
+copilot-cli|.github/skills
+copilot-cli|.github/agents
+copilot-cli|.github/lsp.json
+vscode|.vscode/mcp.json
+amp|.amp
+factory-droid|.factory
+factory-droid|.factory-plugin
+factory-droid|.droid.yaml
+muse-code|.muse
+augment|.augment
+augment|.augment-guidelines
+augment|.augmentignore
+augment|.augment-plugin
+kiro|.kiro
+kiro|.kiroignore
+kiro|.amazonq
+kiro|AmazonQ.md
+pearai|.pearairc.json
+pearai|.pearaiignore
+pearai|.pearai-agent
+pearai|.pearai-agent-ignore
+pearai|.pearai-agent-modes
+cody|.cody
+cody|.vscode/cody.json
+cody|.sourcegraph
+cody|.idea/cody_history.xml
+cody|.idea/.sourcegraph
+open-interpreter|.openinterpreter
+open-interpreter|.codewhale
+openhands|.openhands
+pi|.pi
+little-coder|.pi/approved-plan.md
+pi|pi-session-*.html
+pi|pi-bug-report-*.zip
+pi|session-[0-9][0-9][0-9][0-9]-*.jsonl
+letta|.letta
+pydantic-clai|.clai
+letta|.skills
+crewai|.crewai
+hermes|.hermes.md
+hermes|HERMES.md
+hermes|.hermes
+hermes|trajectory_samples.jsonl
+hermes|failed_trajectories.jsonl
+openclaw|.openclaw
+project|SOUL.md
+openclaw|IDENTITY.md
+project|USER.md
+openclaw|TOOLS.md
+openclaw|BOOTSTRAP.md
+openclaw|MEMORY.md
+nanobot|.nanobot
+nanobot|HEARTBEAT.md
+nanobot|memory/MEMORY.md
+nanobot|memory/history.jsonl
+nanobot|memory/HISTORY.md
+nanobot|cron/jobs.json
+nanobot|cron/runs
+nanobot|triggers/triggers.json
+nanobot|triggers/runs
+# excluded unless --full
+.claude/cache
+.claude/plugins/marketplaces
+.claude/plugins/cache
+.claude/plugins/plugin-directory-cache*
+.claude/plugins/*/node_modules
+.claude/local/node_modules
+.claude/image-cache
+.claude/chrome
+.claude/worktrees
+.claude/checkpoints
+.local/share/claude/versions
+*/Claude*/Cache
+*/Claude*/Code Cache
+*/Claude*/GPUCache
+*/Claude*/DawnGraphiteCache
+*/Claude*/DawnWebGPUCache
+*/Claude*/claude-code
+*/Claude*/claude-code-vm
+*/Claude*/vm_bundles
+*/Claude*/sentry
+.gemini/whisper_models
+.gemini/bin
+.gemini/tmp/bin
+.gemini/extensions/*/node_modules
+.gemini/extensions/*/.git
+.gemini/cli-browser-profile
+.gemini/worktrees
+.gemini/antigravity/bin
+.gemini/antigravity-cli/bin
+.gemini/antigravity-ide/bin
+.gemini/antigravity-backup/bin
+.gemini/antigravity*/plugin_data/*/bin
+.gemini/antigravity*/cache/marketplaces
+.gemini/antigravity*/brain/*/.system_generated/worktrees
+.gemini/antigravity*/lib/node_modules
+.gemini/config/node_modules
+*/Antigravity/Code Cache
+*/Antigravity/GPUCache
+*/Antigravity/DawnGraphiteCache
+*/Antigravity/DawnWebGPUCache
+*/Antigravity/blob_storage
+*/Antigravity/Shared Dictionary
+*/Antigravity/CachedData
+*/Antigravity/Crashpad
+*/Antigravity/Dictionaries
+.config/Antigravity/Cache
+Library/Application Support/Antigravity/Cache
+AppData/Roaming/Antigravity/Cache
+.antigravity/extensions
+AppData/Local/agy
+.codex/packages
+.codex/cache
+.codex/.tmp
+.codex/plugins/cache
+.codex/plugins/.plugin-appserver
+.codex/plugins/.remote-plugin-install-staging
+.codex/computer-use/*.app
+.codex/skills/.system
+.codex/worktrees
+.codex/.sandbox
+.codex/.sandbox-bin
+.codex/tmp
+.codex/visualizations
+*/Roaming/ChatGPT/Cache
+*/Roaming/ChatGPT/Code Cache
+*/Roaming/ChatGPT/GPUCache
+*/Roaming/ChatGPT/DawnGraphiteCache
+*/Roaming/ChatGPT/DawnWebGPUCache
+*/Roaming/Codex/web/Codex/Default/Cache
+*/Roaming/Codex/web/Codex/Default/Code Cache
+*/Roaming/Codex/web/Codex/Default/GPUCache
+*/Roaming/Codex/web/Codex/Default/DawnGraphiteCache
+*/Roaming/Codex/web/Codex/Default/DawnWebGPUCache
+*/Roaming/Codex/web/Codex/Default/blob_storage
+*/Roaming/Codex/web/Codex/Default/Extensions
+*/Roaming/Codex/web/Codex/Default/Service Worker/CacheStorage
+*/Roaming/Codex/web/Codex/Default/Service Worker/ScriptCache
+*/Roaming/Codex/web/Codex/Default/Partitions/*/Cache
+*/Roaming/Codex/web/Codex/Default/Partitions/*/Code Cache
+*/Roaming/Codex/web/Codex/Default/Partitions/*/GPUCache
+*/Roaming/Codex/web/Codex/Default/Partitions/*/DawnGraphiteCache
+*/Roaming/Codex/web/Codex/Default/Partitions/*/DawnWebGPUCache
+*/Roaming/Codex/web/Codex/Default/Partitions/*/blob_storage
+*/Roaming/Codex/web/Codex/Default/Partitions/*/Extensions
+*/Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/CacheStorage
+*/Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/ScriptCache
+Library/Application Support/Codex/Default/Cache
+Library/Application Support/Codex/Default/Code Cache
+Library/Application Support/Codex/Default/GPUCache
+Library/Application Support/Codex/Default/DawnGraphiteCache
+Library/Application Support/Codex/Default/DawnWebGPUCache
+Library/Application Support/Codex/Default/blob_storage
+Library/Application Support/Codex/Default/Extensions
+Library/Application Support/Codex/Default/Service Worker/CacheStorage
+Library/Application Support/Codex/Default/Service Worker/ScriptCache
+Library/Application Support/Codex/Default/Partitions/*/Cache
+Library/Application Support/Codex/Default/Partitions/*/Code Cache
+Library/Application Support/Codex/Default/Partitions/*/GPUCache
+Library/Application Support/Codex/Default/Partitions/*/DawnGraphiteCache
+Library/Application Support/Codex/Default/Partitions/*/DawnWebGPUCache
+Library/Application Support/Codex/Default/Partitions/*/blob_storage
+Library/Application Support/Codex/Default/Partitions/*/Extensions
+Library/Application Support/Codex/Default/Partitions/*/Service Worker/CacheStorage
+Library/Application Support/Codex/Default/Partitions/*/Service Worker/ScriptCache
+Library/Application Support/Codex/executor-plugins/*/server.mjs
+.copilot/pkg
+.copilot/installed-plugins
+.cache/copilot/pkg
+Library/Caches/copilot/pkg
+AppData/Local/copilot/pkg
+.cache/copilot/marketplaces
+Library/Caches/copilot/marketplaces
+AppData/Local/copilot/marketplaces
+.copilot/repos
+.copilot/repos/*/.git/objects
+.copilot/repos/*/.git/index
+.copilot/chats/*/node_modules
+.local/share/com.github.githubapp/app-skills
+.local/share/com.github.githubapp/WebKitCache
+.local/share/com.github.githubapp/CacheStorage
+Library/Application Support/com.github.githubapp/app-skills
+AppData/Roaming/com.github.githubapp/app-skills
+AppData/Local/com.github.githubapp/EBWebView/Default/Cache
+AppData/Local/com.github.githubapp/EBWebView/Default/Code Cache
+AppData/Local/com.github.githubapp/EBWebView/Default/GPUCache
+AppData/Local/com.github.githubapp/EBWebView/Default/DawnGraphiteCache
+AppData/Local/com.github.githubapp/EBWebView/Default/DawnWebGPUCache
+AppData/Local/com.github.githubapp/EBWebView/Default/blob_storage
+AppData/Local/com.github.githubapp/EBWebView/Default/Shared Dictionary
+AppData/Local/com.github.githubapp/EBWebView/GrShaderCache
+AppData/Local/com.github.githubapp/EBWebView/ShaderCache
+AppData/Local/com.github.githubapp/EBWebView/GPUPersistentCache
+AppData/Local/com.github.githubapp/EBWebView/component_crx_cache
+AppData/Local/com.github.githubapp/EBWebView/extensions_crx_cache
+AppData/Local/com.github.githubapp/EBWebView/WidevineCdm
+AppData/Local/com.github.githubapp/EBWebView/Subresource Filter
+AppData/Local/com.github.githubapp/EBWebView/hyphen-data
+AppData/Local/com.github.githubapp/EBWebView/PKIMetadata
+AppData/Local/com.github.githubapp/EBWebView/CertificateRevocation
+AppData/Local/com.github.githubapp/EBWebView/BrowserMetrics-spare.pma
+.cursor/extensions
+.cursor/worktrees
+.cursor/plugins/marketplaces
+.cursor/plugins/cache
+.cursor-server/bin
+.cursor-server/extensions
+*/Cursor/User/globalStorage/state.vscdb.backup
+*/User/globalStorage/anysphere.cursor-agent-worker/agent-cli
+*/Cursor/update-supervisor/*/cursor-update-supervisor
+*/Cursor/update-supervisor/*/inno_updater.exe
+.cursor/projects/*/canvases/node_modules
+.cursor/statsig-cache.json
+.codeium/windsurf/implicit
+.codeium/*/bin
+.codeium/bin
+.codeium/ws-browser*
+.windsurf/extensions
+.devin/extensions
+*/User/globalStorage/saoudrizwan.claude-dev/checkpoints
+*/User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+*/User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
+*/User/globalStorage/rooveterinaryinc.roo-cline/cache
+*/User/globalStorage/kilocode.kilo-code/checkpoints
+*/User/globalStorage/kilocode.kilo-code/cache
+*/User/globalStorage/ms-*
+*/User/globalStorage/vscjava*
+*/User/globalStorage/redhat*
+*/User/globalStorage/eamodio*
+*/User/globalStorage/golang*
+*/User/globalStorage/rust-lang*
+*/User/globalStorage/yzane.markdown-pdf
+*/User/globalStorage/github.copilot-chat/logContextRecordings
+*/User/globalStorage/github.copilot-chat/workspaceRecordings
+*/User/workspaceStorage/*/GitHub.copilot-chat/codebase-external.sqlite*
+*/User/workspaceStorage/*/ms-*
+*/User/workspaceStorage/*/vscjava*
+*/User/workspaceStorage/*/redhat*
+*/User/workspaceStorage/*/rust-lang*
+.cline/data/checkpoint-scratch
+.cline/data/workspaces/chat
+.cline/data/agent-plugins
+.cline/plugins
+.cline/worktrees
+.vscode-mock/global-storage/tasks/*/checkpoints
+.vscode-mock/global-storage/checkpoints
+.roo/worktrees
+.roo-code/mcp
+.local/share/Roo-Code/MCP
+AppData/Roaming/Roo-Code/MCP
+.local/share/kilo/snapshot
+.local/share/kilo/repos
+.local/share/kilo/tool-output
+.local/share/kilo/worktree
+.local/state/kilo/indexing
+.local/share/kilo/state/indexing
+.kilo/worktrees
+.kilo/bin
+Library/Caches/JetBrains/*/kilo/cli
+Library/Caches/JetBrains/*/kilo/repo-cli
+AppData/Local/JetBrains/*/kilo/cli
+AppData/Local/JetBrains/*/kilo/repo-cli
+.cache/JetBrains/*/kilo/cli
+.cache/JetBrains/*/kilo/repo-cli
+.continue/index/lancedb
+.continue/index/*.sqlite
+.continue/.utils
+.continue/node_modules
+.continue/out
+.continue/types
+.continue/.diffs
+.continue/.migrations
+.continue/dev_data/devdata.sqlite
+.aider/caches
+.aider.tags.cache*
+.local/share/opencode/bin
+.local/share/opencode/snapshot
+.local/share/opencode/worktree
+.local/share/opencode/repos
+.local/share/opencode/tool-output
+.config/opencode/node_modules
+.opencode/bin
+.opencode/node_modules
+Library/Application Support/ai.opencode.desktop*/compile-cache
+AppData/Roaming/ai.opencode.desktop*/compile-cache
+.config/ai.opencode.desktop*/compile-cache
+Library/Application Support/ai.opencode.desktop*/cli
+AppData/Roaming/ai.opencode.desktop*/cli
+.config/ai.opencode.desktop*/cli
+.local/share/goose/models
+.local/share/goose/model_catalog
+.local/state/goose/codex
+.config/goose/mcp-apps-cache
+AppData/Roaming/Block/goose/data/models
+AppData/Roaming/Block/goose/data/model_catalog
+AppData/Roaming/Block/goose/data/codex
+AppData/Roaming/Block/goose/config/mcp-apps-cache
+*/Goose/Cache
+*/Goose/Code Cache
+*/Goose/GPUCache
+*/Goose/DawnGraphiteCache
+*/Goose/DawnWebGPUCache
+*/Goose/blob_storage
+*/[Zz]ed/extensions
+*/[Zz]ed/remote_extensions
+*/[Zz]ed/node
+*/[Zz]ed/languages
+*/[Zz]ed/copilot
+*/[Zz]ed/debug_adapters
+*/[Zz]ed/external_agents
+*/[Zz]ed/prettier
+*/[Zz]ed/remote_servers
+*/[Zz]ed/devcontainer
+*/[Zz]ed/embeddings
+*/[Zz]ed/server_state
+*/[Zz]ed/hang_traces
+*/[Zz]ed/build_timings
+.qwen/updates
+.qwen/extension-store
+.qwen/extensions/*/node_modules
+.qwen/bin
+.qwen/sandbox
+.qwen/scratch-workspaces
+.qwen/managed-local/workspaces
+.qwen/locales
+.qwen/arena
+.qwen/artifacts
+.qwen/resources
+.qwen/startup-perf
+.qwen/session-start-perf
+.qwen/cpu-profiles
+.qwen/memory-snapshots
+.qwen/worktrees
+.qwen/managed-local/worker-home/updates
+.qwen/managed-local/worker-home/extension-store
+.qwen/managed-local/worker-home/extensions/*/node_modules
+.qwen/managed-local/worker-home/bin
+.qwen/managed-local/worker-home/sandbox
+.qwen/managed-local/worker-home/scratch-workspaces
+.qwen/managed-local/worker-home/locales
+.qwen/managed-local/worker-home/arena
+.qwen/managed-local/worker-home/artifacts
+.qwen/managed-local/worker-home/resources
+.qwen/managed-local/worker-home/session-start-perf
+.qwen/managed-local/worker-home/worktrees
+.amp/bin
+.factory/updates
+.factory/cache/sounds
+.factory/bin
+.factory/tools
+.factory/software-factory/*/*/repos
+.factory/software-factory/*/*/worktrees
+.factory/temp/[!e]*
+.factory/worktrees
+.factory/snapshots
+.factory/generated-images
+.local/share/muse/plugins/cache/builtin
+.local/share/muse/skills/bundled
+.local/share/muse/plugins/marketplaces
+.local/bin/.muse-update.*
+AppData/Local/Programs/muse/muse-bin-*.exe
+AppData/Local/Programs/muse/.muse-update.*.exe
+.muse/worktrees
+.augment/binaries
+.augment/vfs
+.augment/knowledgebase
+.augment/uploads
+.augment/worktrees
+.augment/plugins/marketplaces
+.aws/amazonq/cli-checkouts
+.aws/amazonq/knowledge_bases
+.kiro/extensions
+.kiro/cloud-cache
+.kiro/sandbox-state
+.kiro/sandbox-curl
+*/User/globalStorage/kiro.kiroagent/*lance*
+*/User/globalStorage/kiro.kiroagent/index
+.pearai/extensions
+.pearai/index/lancedb
+.pearai/index/*.sqlite
+.pearai/types
+.pearai/out
+.pearai/node_modules
+.pearai/.diffs
+.pearai/.migrations
+.pearai/dev_data/devdata.sqlite
+*/User/globalStorage/pearai.pearai-roo-cline/checkpoints
+*/User/globalStorage/pearai.pearai-roo-cline/tasks/*/checkpoints
+*/User/globalStorage/pearai.pearai-roo-cline/cache
+*/globalStorage/sourcegraph.cody-ai/symf/symf-*
+*/Cody-nodejs/symf/symf-*
+*/Cody-nodejs/Data/symf/symf-*
+*/Cody-nodejs/dist
+*/Cody-nodejs/Config/dist
+.twinny/embeddings/*/chunks.lance
+.twinny/server/plugins/*/repos/*/checkout
+.twinny/server/plugins/*/repos/*/index
+.tabby/models
+.tabby/index
+.tabby/repositories
+.openinterpreter/packages
+.openinterpreter/cache
+.openinterpreter/.tmp
+.openinterpreter/tmp
+.openinterpreter/plugins/cache
+.openinterpreter/skills/.system
+.openinterpreter/worktrees
+.openinterpreter/.sandbox
+.openinterpreter/.sandbox-bin
+.openinterpreter/visualizations
+.openinterpreter/models-cache
+.config/open-interpreter/models
+Library/Application Support/open-interpreter/models
+AppData/Local/open-interpreter/open-interpreter/models
+.openhands/cache
+.openhands/agent-canvas/workspaces
+.openhands/agent-canvas/tmux
+.openhands/workspaces
+.pi/agent/bin
+.pi/agent/install/releases
+.pi/agent/install/staging
+.pi/agent/tools/fd*
+.pi/agent/tools/rg*
+.pi/agent/tmp
+.pi/agent/npm/node_modules
+.pi/agent/git/*/*/node_modules
+.pi/agent/git/*/*/.git
+.pi/npm/node_modules
+.pi/git/*/*/node_modules
+.pi/git/*/*/.git
+.pi/server/*.sock
+.letta/bin
+.letta/mod-cache
+.letta/tool_execution_dir
+.letta/chroma
+.memgpt/chroma
+.hermes*/hermes-agent/[!.]*
+.hermes*/hermes-agent/.[!e]*
+AppData/Local/hermes*/hermes-agent/[!.]*
+AppData/Local/hermes*/hermes-agent/.[!e]*
+.hermes*/models
+.hermes*/runtimes
+.hermes*/node
+.hermes*/installs
+.hermes*/tools
+.hermes*/sandboxes
+.hermes*/checkpoints/store/objects
+.hermes*/checkpoints/store/indexes
+.hermes*/checkpoints/legacy-*
+.hermes*/backups
+.hermes*/browser-profile
+.hermes*/browser-profiles
+.hermes*/browser_profiles
+.hermes*/chrome-debug
+.hermes*/bot-desktop/browser-profile
+.hermes*/plugins/*/node_modules
+.hermes*/plugins/*/.venv
+AppData/Local/hermes*/models
+AppData/Local/hermes*/runtimes
+AppData/Local/hermes*/node
+AppData/Local/hermes*/installs
+AppData/Local/hermes*/tools
+AppData/Local/hermes*/sandboxes
+AppData/Local/hermes*/checkpoints/store/objects
+AppData/Local/hermes*/checkpoints/store/indexes
+AppData/Local/hermes*/checkpoints/legacy-*
+AppData/Local/hermes*/backups
+AppData/Local/hermes*/browser-profile
+AppData/Local/hermes*/browser-profiles
+AppData/Local/hermes*/browser_profiles
+AppData/Local/hermes*/chrome-debug
+AppData/Local/hermes*/bot-desktop/browser-profile
+AppData/Local/hermes*/plugins/*/node_modules
+AppData/Local/hermes*/plugins/*/.venv
+AppData/Local/hermes-updater
+.config/Hermes*/Cache
+.config/Hermes*/Code Cache
+.config/Hermes*/GPUCache
+Library/Application Support/Hermes*/Cache
+Library/Application Support/Hermes*/Code Cache
+Library/Application Support/Hermes*/GPUCache
+AppData/Roaming/Hermes*/Cache
+AppData/Roaming/Hermes*/Code Cache
+AppData/Roaming/Hermes*/GPUCache
+.openclaw/dev
+.openclaw/git
+.openclaw/npm
+.openclaw/npm-runtime
+.openclaw/tmp
+.openclaw/tools
+.openclaw/worktrees
+.openclaw/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+.openclaw/plugin-skills
+.openclaw/extensions/*/node_modules
+.openclaw/sandbox/skills-workspaces
+.openclaw/cache/control-ui-assets
+.openclaw/agents/*/agent/tmp
+.openclaw/agents/*/agent/.tmp
+.openclaw/agents/*/agent/*/tmp
+.openclaw/agents/*/agent/*/.tmp
+.openclaw/browser/*/user-data/*/Cache
+.openclaw/browser/*/user-data/*/Code Cache
+.openclaw/browser/*/user-data/*/GPUCache
+.openclaw/browser/*/user-data/*/Service Worker
+.openclaw-*/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+.openclaw-*/plugin-skills
+.openclaw-*/extensions/*/node_modules
+.openclaw-*/sandbox/skills-workspaces
+.openclaw-*/cache/control-ui-assets
+.openclaw-*/agents/*/agent/tmp
+.openclaw-*/agents/*/agent/.tmp
+.openclaw-*/agents/*/agent/*/tmp
+.openclaw-*/agents/*/agent/*/.tmp
+.openclaw-*/browser/*/user-data/*/Cache
+.openclaw-*/browser/*/user-data/*/Code Cache
+.openclaw-*/browser/*/user-data/*/GPUCache
+.openclaw-*/browser/*/user-data/*/Service Worker
+.clawdbot/dev
+.clawdbot/git
+.clawdbot/npm
+.clawdbot/npm-runtime
+.clawdbot/tmp
+.clawdbot/tools
+.clawdbot/worktrees
+.clawdbot/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+.clawdbot/plugin-skills
+.clawdbot/extensions/*/node_modules
+.clawdbot/sandbox/skills-workspaces
+.clawdbot/cache/control-ui-assets
+.clawdbot/agents/*/agent/tmp
+.clawdbot/agents/*/agent/.tmp
+.clawdbot/agents/*/agent/*/tmp
+.clawdbot/agents/*/agent/*/.tmp
+.clawdbot/browser/*/user-data/*/Cache
+.clawdbot/browser/*/user-data/*/Code Cache
+.clawdbot/browser/*/user-data/*/GPUCache
+.clawdbot/browser/*/user-data/*/Service Worker
+.moltbot/dev
+.moltbot/git
+.moltbot/npm
+.moltbot/npm-runtime
+.moltbot/tmp
+.moltbot/tools
+.moltbot/worktrees
+.moltbot/projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
+.moltbot/plugin-skills
+.moltbot/extensions/*/node_modules
+.moltbot/sandbox/skills-workspaces
+.moltbot/cache/control-ui-assets
+.moltbot/agents/*/agent/tmp
+.moltbot/agents/*/agent/.tmp
+.moltbot/agents/*/agent/*/tmp
+.moltbot/agents/*/agent/*/.tmp
+.moltbot/browser/*/user-data/*/Cache
+.moltbot/browser/*/user-data/*/Code Cache
+.moltbot/browser/*/user-data/*/GPUCache
+.moltbot/browser/*/user-data/*/Service Worker
+.nanobot*/bin
+.nanobot*/run
+.nanobot*/cache
+agent-zero*/.venv
+Desktop/agent-zero*/.venv
+agent-zero*/.conda
+Desktop/agent-zero*/.conda
+agent-zero*/.git
+Desktop/agent-zero*/.git
+agent-zero*/tmp/playwright
+Desktop/agent-zero*/tmp/playwright
+agent-zero*/tmp/memory/embeddings
+Desktop/agent-zero*/tmp/memory/embeddings
+agent-zero*/usr/.time_travel
+Desktop/agent-zero*/usr/.time_travel
+agent-zero*/usr/workdir/*/.venv
+Desktop/agent-zero*/usr/workdir/*/.venv
+agent-zero*/usr/workdir/*/node_modules
+Desktop/agent-zero*/usr/workdir/*/node_modules
+.local/share/a0/browser-profiles
+Library/Application Support/A0/Browser Profiles
+AppData/Local/A0/Browser Profiles
+*/Agent Zero Launcher/Cache
+*/Agent Zero Launcher/Code Cache
+*/Agent Zero Launcher/GPUCache
+*/Agent Zero Launcher/docker_manager/cache
+.local/share/local-deep-research/cache
+.local/share/local-deep-research/models
+.local/share/local-deep-research/journal_data
+.local/share/local-deep-research/library
+Library/Application Support/local-deep-research/cache
+Library/Application Support/local-deep-research/models
+Library/Application Support/local-deep-research/journal_data
+Library/Application Support/local-deep-research/library
+AppData/Local/local-deep-research/local-deep-research/cache
+AppData/Local/local-deep-research/local-deep-research/models
+AppData/Local/local-deep-research/local-deep-research/journal_data
+AppData/Local/local-deep-research/local-deep-research/library
+Documents/LocalDeepResearch/Library
+.flowise/vectorstore
+.langflow/knowledge_bases
+AppData/Roaming/com.LangflowDesktop/knowledge_bases
+Library/Application Support/com.LangflowDesktop/venv
+Library/Application Support/com.LangflowDesktop/python_env
+AppData/Local/com.LangflowDesktop/venv
+AppData/Local/com.LangflowDesktop/python_env
+AppData/Local/com.LangflowDesktop/cache
+.cache/langflow/profile_pictures
+Library/Caches/langflow/profile_pictures
+AppData/Local/langflow/langflow/Cache/profile_pictures
+.n8n/nodes/node_modules
+.n8n/custom/node_modules
+.n8n/node-definitions
+.n8n/n8n-sdk-templates
+.local/state/pydantic-clai2/workspaces/clones
+.ollama/models/blobs
+AppData/Local/Ollama/updates
+.git/worktrees/*/index
+.git/worktrees/*/modules
+.git/worktrees/*/index.lock
+.git/worktrees/*/sharedindex.*
+.time_travel
+usr/.time_travel
+workdir/*/.venv
+workdir/*/node_modules
+usr/workdir/*/.venv
+usr/workdir/*/node_modules
+tmp/playwright
+tmp/memory/embeddings
+models
+index
+repositories
+journal_data
+library
+agent-canvas/workspaces
+agent-canvas/tmux
+hermes-agent/[!.]*
+hermes-agent/.[!e]*
+runtimes
+node
+installs
+tools
+sandboxes
+checkpoints/store/objects
+checkpoints/store/indexes
+checkpoints/legacy-*
+backups
+browser-profile
+browser-profiles
+browser_profiles
+chrome-debug
+bot-desktop/browser-profile
+plugins/*/node_modules
+plugins/*/.venv
+bin
+mod-cache
+tool_execution_dir
+chroma
+profile_pictures
+nodes/node_modules
+node-definitions
+n8n-sdk-templates
+
+# credential files (flagged secret, skipped with --no-secrets)
+.claude/.credentials.json
+.claude/.device-keys.json
+.claude/hfi-auth.json
+.claude/.session_ingress_token
+.claude/remote/.oauth_token
+.claude/remote/.api_key
+.claude/sessions/*.key
+.claude/daemon/control.key
+.claude/daemon/pipe.key
+.claude/daemon/roster.json
+.claude/backups/.claude.json.*
+.claude/ide/*.lock
+.claude/bridge-spawn/*/mcp.json
+.claude.json
+.claude.json.backup*
+.claude/settings.json
+.claude/settings.local.json
+.mcp.json
+.claude-*/.credentials.json
+.claude-*/hfi-auth.json
+.claude-*/.session_ingress_token
+.claude-*/remote/.oauth_token
+.claude-*/remote/.api_key
+.claude-*/sessions/*.key
+.claude-*/daemon/control.key
+.claude-*/daemon/pipe.key
+.claude-*/daemon/roster.json
+.claude-*/backups/.claude.json.*
+.claude-*/ide/*.lock
+.claude-*/bridge-spawn/*/mcp.json
+.claude-*/.claude.json
+.claude-*/.claude.json.backup*
+Library/Application Support/Claude*/config.json
+Library/Application Support/Claude*/Cookies*
+Library/Application Support/Claude*/host-creds-*.json
+Library/Application Support/Claude*/ccd-session-secrets/*
+.config/Claude*/config.json
+.config/Claude*/Cookies*
+.config/Claude*/host-creds-*.json
+.config/Claude*/ccd-session-secrets/*
+AppData/Roaming/Claude*/config.json
+AppData/Roaming/Claude*/Cookies*
+AppData/Roaming/Claude*/host-creds-*.json
+AppData/Roaming/Claude*/ccd-session-secrets/*
+AppData/Local/Claude*/config.json
+AppData/Local/Claude*/Cookies*
+AppData/Local/Claude*/host-creds-*.json
+AppData/Local/Claude*/ccd-session-secrets/*
+AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/config.json
+AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/Cookies*
+AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/config.json
+AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/Cookies*
+AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+*/Claude*/Local State
+*/Claude*/claude_desktop_config.json
+*/Claude*/local-agent-mode-sessions/*/.audit-key
+*/Claude*/spaces-present/*/link-key
+*.gemini/oauth_creds.json
+*.gemini/gemini-credentials.json
+*.gemini/mcp-oauth-tokens.json
+*.gemini/a2a-oauth-tokens.json
+*.gemini/.env
+*.gemini/settings.json
+*.gemini/.settings.json.*.tmp
+.gemini/integrity.key
+*.gemini/extensions/*/.env
+*.gemini/tmp/*/bug-memory-*.heapsnapshot
+*.gemini/antigravity-cli/antigravity-oauth-token
+*.gemini/antigravity*/plugin_data/*/token.json
+.gemini/config/mcp_config.json
+.config/[Aa]ntigravity/plugin-secrets.json
+Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+.qwen/oauth_creds.json
+.qwen/mcp-oauth-tokens*.json
+.qwen/extension-secrets-v1.json
+.qwen/.env
+.qwen/settings.json
+.qwen/settings.json.corrupted
+.qwen/settings.json.write-*/settings.json.orig
+.qwen/channels/*-credentials.json
+.qwen/channels/weixin/account.json
+.qwen/sessions/*.json
+.qwen/agent-hosts/*.json
+.qwen/managed-local/state.json
+.qwen/managed-local/worker-home/oauth_creds.json
+.qwen/managed-local/worker-home/mcp-oauth-tokens*.json
+.qwen/managed-local/worker-home/extension-secrets-v1.json
+.qwen/managed-local/worker-home/.env
+.qwen/managed-local/worker-home/settings.json
+.qwen/managed-local/worker-home/settings.json.write-*/settings.json.orig
+.qwen/managed-local/worker-home/settings.json.corrupted
+.qwen/managed-local/worker-home/sessions/*.json
+.qwen/live/daemon.json
+.qwen/live/.daemon.*.tmp
+.qwen-live/config.json*
+.codex/auth.json
+.codex/.credentials.json
+.codex/secrets/*
+.codex/.sandbox-secrets/*
+.codex/config.toml
+.codex/.env
+.codex/.codex-global-state.json*
+.codex/shell_snapshots/*
+*/Roaming/ChatGPT/Network/Cookies*
+*/Roaming/ChatGPT/Local State
+*/Roaming/Codex/web/Codex/Default/Network/Cookies*
+*/Roaming/Codex/web/Codex/Default/Partitions/*/Network/Cookies*
+*/Roaming/Codex/web/Codex/Default/Login Data*
+*/Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
+*/Roaming/Codex/web/Codex/Local State
+Library/Application Support/Codex/Default/Cookies*
+Library/Application Support/Codex/Default/Partitions/*/Cookies*
+Library/Application Support/Codex/Default/Login Data*
+Library/Application Support/Codex/Default/Partitions/*/Login Data*
+Library/HTTPStorages/com.openai.codex.binarycookies
+Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+.config/github-copilot/*.json
+AppData/Local/github-copilot/*.json
+.copilot/config.json
+.copilot/mcp-oauth-config*
+.copilot/mcp-config.json
+.copilot/run/*.token
+.copilot/settings.json
+.copilot/mcp-secrets/*
+.config/.copilot/config.json
+.config/.copilot/mcp-config*
+.config/.copilot/mcp-oauth-config*
+.github/copilot/settings.json
+.github/copilot/settings.local.json
+.github/mcp.json
+AppData/Local/com.github.githubapp/EBWebView/Default/Network/Cookies*
+AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
+AppData/Local/com.github.githubapp/EBWebView/Local State
+.cursor/auth.json
+.config/cursor/auth.json
+AppData/Roaming/Cursor/auth.json
+.cursor/mcp.json
+.cursor/projects/*/mcp-auth.json
+.vscode*/cli/token*.json
+*/User/mcp.json
+*/User/profiles/*/mcp.json
+.vscode/mcp.json
+.codeium/config.json
+.codeium/mcp_config.json
+.codeium/windsurf/mcp_config.json
+.config/devin/mcp_config.json
+AppData/Roaming/devin/mcp_config.json
+.local/share/devin/credentials.toml
+AppData/Roaming/devin/credentials.toml
+.cline/data/settings/providers.json
+.cline/data/settings/cline_mcp_settings.json
+.cline/data/settings/composio/*.json
+.cline/data/secrets.json
+.cline/data/connectors/settings.json
+.cline/data/db/connectors.db*
+*/User/globalStorage/saoudrizwan.claude-dev/cache/remote_config_*.json
+*/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+.config/gh/hosts.yml
+AppData/Roaming/GitHub CLI/hosts.yml
+Documents/Cline/webhook_config.json
+.vscode-mock/global-storage/secrets.json
+.roo/cli-credentials.json
+*/User/globalStorage/rooveterinaryinc.roo-cline/settings/*mcp_settings.json
+.vscode-mock/global-storage/settings/*mcp_settings.json
+.roo/mcp.json
+.local/share/kilo/auth.json
+.local/share/kilo/mcp-auth.json
+.local/share/kilo/kilo*.db*
+.local/share/kilo/opencode*.db*
+.config/kilo/kilo.json*
+.config/kilo/opencode.json*
+.config/kilo/config.json
+.kilocode/cli/config.json
+.local/state/kilo/daemon.json
+*/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json
+kilo.json*
+.kilo/kilo.json*
+.kilo/opencode.json*
+.kilocode/kilo.json*
+.kilocode/opencode.json*
+.continue/auth*.json
+.continue/.env
+.continue/config.yaml
+.continue/config.json
+.continue/config.ts
+.continue/.configs/*/config.js*
+.continue/mcpServers/*
+.continue/index/globalContext.json
+*/globalStorage/continue.continue/*.bin
+.aider/oauth-keys.env
+.aider.conf.yml
+.aider.model.settings.yml
+.local/share/opencode/auth.json
+.local/share/opencode/mcp-auth.json
+.local/share/opencode/opencode*.db*
+.config/opencode/opencode.json*
+.config/opencode/config.json
+.opencode/opencode.json*
+opencode.json*
+.config/opencode/service*.json*
+.config/opencode/cli.json*
+.local/state/opencode/service*.json*
+.local/state/opencode/pty/*/service.json
+.local/share/crush/crush.json
+AppData/Local/crush/crush.json
+.config/crush/crush.json
+.config/crush/crushrc
+.crush/crush.json
+crush.json
+.crush.json
+crushrc
+.crushrc
+.config/goose/secrets.yaml
+.config/goose/config.yaml
+.config/goose/config.tmp
+.config/goose/githubcopilot/info.json
+.config/goose/githubcopilot/*/info.json
+.config/goose/chatgpt_codex/tokens.json
+.config/goose/gemini_oauth/tokens.json
+.config/goose/kimicode/token.json
+.config/goose/muse_code/token.json
+.config/goose/huggingface/oauth/tokens.json
+.config/goose/databricks/oauth/*.json
+.config/goose/xai_oauth/tokens.json
+.config/goose/.tmp??????
+.config/goose/githubcopilot/.tmp??????
+.config/goose/githubcopilot/*/.tmp??????
+.config/goose/chatgpt_codex/.tmp??????
+.config/goose/gemini_oauth/.tmp??????
+.config/goose/muse_code/.tmp??????
+.config/goose/databricks/oauth/.tmp??????
+.config/goose/xai_oauth/.tmp??????
+.config/goose/custom_providers/*.json
+.config/goose/custom_providers/.tmp??????
+.config/goose/roaming_node_key
+.config/goose/tls/server.key
+.local/state/goose/claude-code/mcp-config-*.json
+AppData/Roaming/Block/goose/config/secrets.yaml
+AppData/Roaming/Block/goose/config/config.yaml
+AppData/Roaming/Block/goose/config/config.tmp
+AppData/Roaming/Block/goose/config/githubcopilot/info.json
+AppData/Roaming/Block/goose/config/githubcopilot/*/info.json
+AppData/Roaming/Block/goose/config/chatgpt_codex/tokens.json
+AppData/Roaming/Block/goose/config/gemini_oauth/tokens.json
+AppData/Roaming/Block/goose/config/kimicode/token.json
+AppData/Roaming/Block/goose/config/muse_code/token.json
+AppData/Roaming/Block/goose/config/huggingface/oauth/tokens.json
+AppData/Roaming/Block/goose/config/databricks/oauth/*.json
+AppData/Roaming/Block/goose/config/xai_oauth/tokens.json
+AppData/Roaming/Block/goose/config/.tmp??????
+AppData/Roaming/Block/goose/config/githubcopilot/.tmp??????
+AppData/Roaming/Block/goose/config/githubcopilot/*/.tmp??????
+AppData/Roaming/Block/goose/config/chatgpt_codex/.tmp??????
+AppData/Roaming/Block/goose/config/gemini_oauth/.tmp??????
+AppData/Roaming/Block/goose/config/muse_code/.tmp??????
+AppData/Roaming/Block/goose/config/databricks/oauth/.tmp??????
+AppData/Roaming/Block/goose/config/xai_oauth/.tmp??????
+AppData/Roaming/Block/goose/config/custom_providers/*.json
+AppData/Roaming/Block/goose/config/custom_providers/.tmp??????
+AppData/Roaming/Block/goose/config/roaming_node_key
+AppData/Roaming/Block/goose/config/tls/server.key
+AppData/Roaming/Block/goose/data/claude-code/mcp-config-*.json
+.config/[Gg]oose/settings.json
+Library/Application Support/Goose/settings.json
+AppData/Roaming/Goose/settings.json
+diagnostics_[0-9]*_*.json
+.config/zed/development_credentials
+.config/zed/settings.json
+.config/zed/settings_backup.json
+.config/zed/global_settings.json
+AppData/Roaming/Zed/development_credentials
+AppData/Roaming/Zed/settings.json
+AppData/Roaming/Zed/settings_backup.json
+AppData/Roaming/Zed/global_settings.json
+.var/app/dev.zed.Zed*/config/zed/settings.json
+.var/app/dev.zed.Zed*/config/zed/development_credentials
+.local/share/amp/secrets.json
+.local/share/amp/ide/*
+.local/share/amp/accounts.json
+.local/share/amp/accounts/*/secrets.json
+.amp/oauth/*
+.config/amp/settings.json*
+.amp/settings.json*
+.factory/auth.json
+.factory/auth.v2.*
+.factory/auth.encrypted
+.factory/config.json
+.factory/temp/env/*
+.factory/prem-auth/*/credentials.*
+.factory/mcp-oauth*
+.factory/settings.json
+.factory/settings.local.json
+.factory/mcp.json
+.config/muse/auth.json
+.config/muse/settings.json
+.augment/session.json
+.augment/settings.json
+.augment/settings.local.json
+*/kiro-cli/data.sqlite3*
+*/amazon-q/data.sqlite3*
+.aws/sso/cache/*.json
+.aws/amazonq/mcp.json
+.kiro/settings/mcp.json
+.kiro/powers/installed/*/mcp.json
+.kiro/agents/*.json
+.kiro/web-session/*
+.kiro/secrets.json
+.aws/amazonq/cli-agents/*.json
+.amazonq/cli-agents/*.json
+.amazonq/mcp.json
+.pearai/config.json
+.pearai/config.ts
+.pearai/.env
+.pearai/.configs/*/config.js*
+*/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json
+.pearai-agent/mcp.json
+*/Cody-nodejs/user-settings.json
+*/Cody-nodejs/Config/user-settings.json
+.config/JetBrains/*/options/cody_accounts.xml
+Library/Application Support/JetBrains/*/options/cody_accounts.xml
+AppData/Roaming/JetBrains/*/options/cody_accounts.xml
+.config/JetBrains/*/options/cody.xml
+Library/Application Support/JetBrains/*/options/cody.xml
+AppData/Roaming/JetBrains/*/options/cody.xml
+.sourcegraph/cody_settings.json
+.idea/.sourcegraph/cody_settings.json
+*/User/globalStorage/rjmacarthy.twinny/twinny-providers.json
+.twinny/node/identity.json
+.twinny/server/license
+.twinny/server/plugins/*/settings.json
+.twinny/server/plugins/*/repos.json
+.tabby/config.toml
+.tabby-client/agent/config.toml
+.openinterpreter/auth.json
+.openinterpreter/.credentials.json
+.openinterpreter/credentials/*
+.openinterpreter/device_id
+.openinterpreter/secrets/*
+.openinterpreter/.sandbox-secrets/*
+.openinterpreter/.env
+.openinterpreter/config.toml
+.config/open-interpreter/profiles/*
+Library/Application Support/open-interpreter/profiles/*
+AppData/Local/open-interpreter/open-interpreter/profiles/*
+.config/Open Interpreter*/config.yaml
+Library/Application Support/Open Interpreter*/config.yaml
+AppData/Local/Open Interpreter*/Open Interpreter*/config.yaml
+.openhands/agent-canvas/secret-key.txt
+.openhands/agent-canvas/api-key.txt
+.openhands/settings.json
+.openhands/secrets.json
+.openhands/profiles/*
+.openhands/provider-connections/*
+.openhands/auth/*
+.openhands/runtime-control/*
+.openhands/agent_settings.json
+.openhands/cloud/*
+.openhands/mcp.json
+.openhands/.jwt_secret
+.openhands/.keys
+.openhands/*/acp/codex/auth.json
+Library/Application Support/OpenHands Agent Canvas/mars-credentials.json
+.config/OpenHands Agent Canvas/mars-credentials.json
+AppData/Roaming/OpenHands Agent Canvas/mars-credentials.json
+.pi/agent/auth.json
+.pi/agent/mcp-auth.json
+.pi/agent/oauth.json*
+.pi/agent/models.json
+.pi/agent/mcp.json
+.pi/mcp.json
+.config/little-coder/models.json
+.little-coder/config.json
+.little-coder/mcp.json
+.letta/settings.json
+.letta/pg_uri
+.letta/credentials
+.letta/lc-local-backend/providers/auth.json
+.letta/channels/*/accounts.json
+.letta/channels/whatsapp/auth/*
+.letta/agents/*/memory/.git/config
+.letta/agents/*/memory/.git/letta-credential-helper.cmd
+.config/letta/settings.json
+.memgpt/credentials
+.hermes*/.env
+.hermes*/.env.bak*
+.hermes*/.op.env
+.hermes*/npmrc
+.hermes*/auth.json
+.hermes*/auth.json.*
+.hermes*/auth/*
+.hermes*/.anthropic_oauth.json
+.hermes*/.copilot_jwt.json
+.hermes*/google_*.json
+.hermes*/google_chat_user_tokens/*
+.hermes*/slack_tokens.json
+.hermes*/honcho.json
+.hermes*/mem0.json
+.hermes*/webhook_subscriptions.json
+.hermes*/teams_pipeline_store.json
+.hermes*/mcp-tokens/*
+.hermes*/vault/*
+.hermes*/browser_auth/*
+.hermes*/pairing/*
+.hermes*/platforms/pairing/*
+.hermes*/whatsapp/session/*
+.hermes*/platforms/whatsapp/session/*
+.hermes*/matrix/store/*
+.hermes*/platforms/matrix/store/*
+.hermes*/cache/bws_cache*.json
+.hermes*/weixin/accounts/*
+.hermes*/runtime/photon-sidecar.json
+.hermes*/proxy/*
+.hermes*/home/*
+.hermes*/config.yaml
+.hermes*/config.yaml.*
+.hermes*/bot-desktop/*
+.hermes*/webapp/*
+.hermes*/feishu_comment_pairing.json
+.hermes*/workspace/meetings/node_token.json
+.hermes*/.ssh/*
+.hermes*/.aws/*
+.hermes*/.gnupg/*
+.hermes*/.kube/*
+.hermes*/.docker/*
+.hermes*/.azure/*
+.hermes*/.config/gh/*
+.hermes*/.config/gcloud/*
+.hermes*/.envrc
+AppData/Local/hermes*/.env
+AppData/Local/hermes*/.env.bak*
+AppData/Local/hermes*/.op.env
+AppData/Local/hermes*/npmrc
+AppData/Local/hermes*/auth.json
+AppData/Local/hermes*/auth.json.*
+AppData/Local/hermes*/auth/*
+AppData/Local/hermes*/.anthropic_oauth.json
+AppData/Local/hermes*/.copilot_jwt.json
+AppData/Local/hermes*/google_*.json
+AppData/Local/hermes*/google_chat_user_tokens/*
+AppData/Local/hermes*/slack_tokens.json
+AppData/Local/hermes*/honcho.json
+AppData/Local/hermes*/mem0.json
+AppData/Local/hermes*/webhook_subscriptions.json
+AppData/Local/hermes*/teams_pipeline_store.json
+AppData/Local/hermes*/mcp-tokens/*
+AppData/Local/hermes*/vault/*
+AppData/Local/hermes*/browser_auth/*
+AppData/Local/hermes*/pairing/*
+AppData/Local/hermes*/platforms/pairing/*
+AppData/Local/hermes*/whatsapp/session/*
+AppData/Local/hermes*/platforms/whatsapp/session/*
+AppData/Local/hermes*/matrix/store/*
+AppData/Local/hermes*/platforms/matrix/store/*
+AppData/Local/hermes*/cache/bws_cache*.json
+AppData/Local/hermes*/weixin/accounts/*
+AppData/Local/hermes*/runtime/photon-sidecar.json
+AppData/Local/hermes*/proxy/*
+AppData/Local/hermes*/home/*
+AppData/Local/hermes*/config.yaml
+AppData/Local/hermes*/config.yaml.*
+AppData/Local/hermes*/bot-desktop/*
+AppData/Local/hermes*/webapp/*
+AppData/Local/hermes*/feishu_comment_pairing.json
+AppData/Local/hermes*/workspace/meetings/node_token.json
+AppData/Local/hermes*/.ssh/*
+AppData/Local/hermes*/.aws/*
+AppData/Local/hermes*/.gnupg/*
+AppData/Local/hermes*/.kube/*
+AppData/Local/hermes*/.docker/*
+AppData/Local/hermes*/.azure/*
+AppData/Local/hermes*/.config/gh/*
+AppData/Local/hermes*/.config/gcloud/*
+AppData/Local/hermes*/.envrc
+.config/Hermes*/connection*.json*
+Library/Application Support/Hermes*/connection*.json*
+AppData/Roaming/Hermes*/connection*.json*
+.openclaw*/openclaw.json*
+.openclaw*/clawdbot.json*
+.openclaw*/moltbot.json*
+.openclaw*/.env
+.openclaw*/credentials/*
+.openclaw*/service-env/*
+.openclaw*/client/credentials.sqlite*
+.openclaw*/identity/*
+.openclaw*/exec-approvals.json*
+.openclaw*/agents/*/agent/auth-profiles.json*
+.openclaw*/agents/*/agent/auth-state.json*
+.openclaw*/agents/*/agent/auth.json*
+.openclaw*/agents/*/agent/models.json
+.openclaw*/browser/*/user-data/*/Cookies*
+.clawdbot/openclaw.json*
+.clawdbot/clawdbot.json*
+.clawdbot/moltbot.json*
+.clawdbot/.env
+.clawdbot/credentials/*
+.clawdbot/service-env/*
+.clawdbot/client/credentials.sqlite*
+.clawdbot/identity/*
+.clawdbot/exec-approvals.json*
+.clawdbot/agents/*/agent/auth-profiles.json*
+.clawdbot/agents/*/agent/auth-state.json*
+.clawdbot/agents/*/agent/auth.json*
+.clawdbot/agents/*/agent/models.json
+.clawdbot/browser/*/user-data/*/Cookies*
+.moltbot/openclaw.json*
+.moltbot/clawdbot.json*
+.moltbot/moltbot.json*
+.moltbot/.env
+.moltbot/credentials/*
+.moltbot/service-env/*
+.moltbot/client/credentials.sqlite*
+.moltbot/identity/*
+.moltbot/exec-approvals.json*
+.moltbot/agents/*/agent/auth-profiles.json*
+.moltbot/agents/*/agent/auth-state.json*
+.moltbot/agents/*/agent/auth.json*
+.moltbot/agents/*/agent/models.json
+.moltbot/browser/*/user-data/*/Cookies*
+.openclaw-auth-profile-secrets/*
+.config/openclaw/gateway.env
+.nanobot*/config.json
+.nanobot*/auth/*
+.local/share/nanobot/auth/*
+Library/Application Support/nanobot/auth/*
+AppData/Local/nanobot/auth/*
+.local/share/oauth-cli-kit/auth/*
+Library/Application Support/oauth-cli-kit/auth/*
+AppData/Local/oauth-cli-kit/auth/*
+.nanobot*/whatsapp-auth/*
+.nanobot*/matrix-store/*
+.nanobot*/webui/remote-pairing/*/identity
+.nanobot*/webui/remote-pairing/*/exchange
+agent-zero*/usr/.env
+Desktop/agent-zero*/usr/.env
+agent-zero*/usr/secrets.env
+Desktop/agent-zero*/usr/secrets.env
+agent-zero*/usr/settings.json
+Desktop/agent-zero*/usr/settings.json
+agent-zero*/usr/projects/*/.a0proj/secrets.env
+Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
+agent-zero*/.env
+Desktop/agent-zero*/.env
+agent-zero*/tmp/secrets.env
+Desktop/agent-zero*/tmp/secrets.env
+agent-zero*/tmp/settings.json
+Desktop/agent-zero*/tmp/settings.json
+agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+agent-zero*/usr/plugins/*/config.json
+Desktop/agent-zero*/usr/plugins/*/config.json
+agent-zero*/usr/plugins/_oauth/*/auth.json
+agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp
+Desktop/agent-zero*/usr/plugins/_oauth/*/auth.json
+Desktop/agent-zero*/usr/plugins/_oauth/*/.auth.json.*.tmp
+agent-zero*/tmp/whatsapp/session/*
+Desktop/agent-zero*/tmp/whatsapp/session/*
+.agent-zero/.env
+.agent-zero/session_cookies.json
+*/Agent Zero Launcher/docker_manager/state.json
+*/Agent Zero Launcher/Local State
+.config/shell_gpt/.sgptrc
+.local/share/local-deep-research/.secret_key
+Library/Application Support/local-deep-research/.secret_key
+AppData/Local/local-deep-research/local-deep-research/.secret_key
+.autogenstudio/.env
+.autogenstudio/temp_env_vars.env
+.config/crewai/settings.json
+.local/share/crewai/credentials/*
+Library/Application Support/crewai/credentials/*
+AppData/Local/[Cc]rew[Aa][Ii]/credentials/*
+.camel/gmail_token.json
+.config/difyctl/tokens.yml
+AppData/Roaming/difyctl/tokens.yml
+AppData/Local/difyctl/tokens.yml
+.config/difyctl/login-pending.yml
+AppData/Roaming/difyctl/login-pending.yml
+AppData/Local/difyctl/login-pending.yml
+.flowise/encryption.key
+.flowise/*_secret.key
+.cache/langflow/*secret_key
+Library/Caches/langflow/*secret_key
+AppData/Local/langflow/langflow/Cache/*secret_key
+.cache/langflow/*/_mcp_servers_*.json
+Library/Caches/langflow/*/_mcp_servers_*.json
+AppData/Local/langflow/langflow/Cache/*/_mcp_servers_*.json
+.langflow/data/.env
+AppData/Roaming/com.LangflowDesktop/data/.env
+.metagpt/config2.yaml
+.metagpt/config2.bak
+.n8n/config
+.n8n/ssh/*
+.config/pydantic-clai2/credentials-*
+.config/pydantic-clai2/logfire/logfire_credentials.json
+.local/state/pydantic-clai2/workspaces/registry/*/token
+.config/pydantic-clai2/mcp.json
+.clai/mcp_servers.json
+.ollama/id_ed25519
+.ollama/backup/*
+.ollama/launch/muse-config/muse/settings.json
+.env
+secrets.env
+settings.json
+projects/*/.a0proj/secrets.env
+plugins/_desktop/profiles/*/.ssh/*
+plugins/_desktop/profiles/*/.gnupg/*
+plugins/*/config.json
+plugins/_oauth/*/auth.json
+plugins/_oauth/*/.auth.json.*.tmp
+usr/.env
+usr/secrets.env
+usr/settings.json
+usr/projects/*/.a0proj/secrets.env
+usr/plugins/_desktop/profiles/*/.ssh/*
+usr/plugins/_desktop/profiles/*/.gnupg/*
+usr/plugins/*/config.json
+usr/plugins/_oauth/*/auth.json
+usr/plugins/_oauth/*/.auth.json.*.tmp
+tmp/secrets.env
+tmp/settings.json
+tmp/whatsapp/session/*
+config.toml
+id_ed25519
+backup/*
+launch/muse-config/muse/settings.json
+.secret_key
+agent-canvas/secret-key.txt
+agent-canvas/api-key.txt
+secrets.json
+profiles/*.json
+profiles/tmp*.tmp
+provider-connections/*
+runtime-control/*
+agent_settings.json
+cloud/*
+mcp.json
+.jwt_secret
+.keys
+conversations/*/acp/codex/auth.json
+agent-canvas/*/acp/codex/auth.json
+pg_uri
+credentials
+lc-local-backend/providers/auth.json
+channels/*/accounts.json
+channels/whatsapp/auth/*
+agents/*/memory/.git/config
+agents/*/memory/.git/letta-credential-helper.cmd
+.env.bak*
+.op.env
+npmrc
+auth.json
+auth.json.*
+auth/*
+.anthropic_oauth.json
+.copilot_jwt.json
+google_*.json
+google_chat_user_tokens/*
+slack_tokens.json
+honcho.json
+mem0.json
+webhook_subscriptions.json
+teams_pipeline_store.json
+mcp-tokens/*
+vault/*
+browser_auth/*
+pairing/*
+platforms/pairing/*
+whatsapp/session/*
+platforms/whatsapp/session/*
+matrix/store/*
+platforms/matrix/store/*
+cache/bws_cache*.json
+weixin/accounts/*
+runtime/photon-sidecar.json
+proxy/*
+home/*
+config.yaml
+config.yaml.*
+bot-desktop/*
+webapp/*
+feishu_comment_pairing.json
+workspace/meetings/node_token.json
+.ssh/*
+.aws/credentials
+.aws/config
+.aws/cli/cache/*.json
+.gnupg/*
+.kube/*
+.docker/*
+.azure/*
+.config/gh/*
+.config/gcloud/*
+.envrc
+state-snapshots/*/.env
+state-snapshots/*/auth.json
+state-snapshots/*/config.yaml
+state-snapshots/*/feishu_comment_pairing.json
+state-snapshots/*/pairing/*
+state-snapshots/*/platforms/pairing/*
+profiles/*/.env
+profiles/*/.env.bak*
+profiles/*/.op.env
+profiles/*/npmrc
+profiles/*/auth.json
+profiles/*/auth.json.*
+profiles/*/auth/*
+profiles/*/.anthropic_oauth.json
+profiles/*/.copilot_jwt.json
+profiles/*/google_*.json
+profiles/*/google_chat_user_tokens/*
+profiles/*/slack_tokens.json
+profiles/*/honcho.json
+profiles/*/mem0.json
+profiles/*/webhook_subscriptions.json
+profiles/*/teams_pipeline_store.json
+profiles/*/mcp-tokens/*
+profiles/*/vault/*
+profiles/*/browser_auth/*
+profiles/*/pairing/*
+profiles/*/platforms/pairing/*
+profiles/*/whatsapp/session/*
+profiles/*/platforms/whatsapp/session/*
+profiles/*/matrix/store/*
+profiles/*/platforms/matrix/store/*
+profiles/*/cache/bws_cache*.json
+profiles/*/weixin/accounts/*
+profiles/*/runtime/photon-sidecar.json
+profiles/*/proxy/*
+profiles/*/home/*
+profiles/*/config.yaml
+profiles/*/config.yaml.*
+profiles/*/bot-desktop/*
+profiles/*/webapp/*
+profiles/*/feishu_comment_pairing.json
+profiles/*/workspace/meetings/node_token.json
+profiles/*/.ssh/*
+profiles/*/.aws/credentials
+profiles/*/.aws/config
+profiles/*/.aws/sso/cache/*.json
+profiles/*/.aws/cli/cache/*.json
+profiles/*/.gnupg/*
+profiles/*/.kube/*
+profiles/*/.docker/*
+profiles/*/.azure/*
+profiles/*/.config/gh/*
+profiles/*/.config/gcloud/*
+profiles/*/.envrc
+config.json
+whatsapp-auth/*
+matrix-store/*
+secret_key
+cache_secret_key
+[0-9a-f]*-*-*-*-*/_mcp_servers_*.json
+config
+ssh/*
+# docker volumes (agent|volume name glob)
+# Matched against each volume name; the first matching line wins. A matched
+# volume is collected whole as user "docker" with its _data directory as the
+# home, so EXCLUDES and SECRET_GLOBS apply relative to the volume root.
+# Agent Zero: a0_usr in the README docker run (Compose prefixes it as
+# <project>_a0_usr) and a0-launcher-<slug>-usr in the A0 Launcher named-volume
+# mode; both are mounted at /a0/usr
+agent-zero|*a0_usr
+agent-zero|a0-launcher-*-usr
+# Local Deep Research: ldr_data in docker-compose.yml, mounted at /data
+local-deep-research|*ldr_data
+# Ollama: ollama in docs/docker.mdx, ollama_data in the Local Deep Research
+# compose file; mounted at /root/.ollama
+ollama|ollama
+ollama|*ollama*
+# Dify: dify_agent_local_sandbox_home at /home/dify (shellctl job database and
+# output logs under .local/share/shellctl) and dify_agent_local_sandbox_workspace
+# at /workspace in docker/docker-compose.yaml; Compose prefixes them (docker_)
+dify|*dify_agent_local_sandbox_home
+dify|*dify_agent_local_sandbox_workspace
+# Langflow: langflow-data in docker_example/docker-compose.yml, mounted at
+# /app/langflow, the config dir (LANGFLOW_CONFIG_DIR)
+langflow|*langflow-data
+# n8n: n8n_data in the README docker run and n8n-data in the get-n8n.sh compose
+# file (n8n_n8n-data); both mounted at /home/node/.n8n
+n8n|*n8n_data
+n8n|*n8n-data
+# The OpenClaw Docker setup: OPENCLAW_HOME_VOLUME (openclaw_home in its guide),
+# mounted at /home/node, the home of a Claude Code install made in the container
+claude-code|*openclaw_home
+# Inferred names: the documentation of these tools bind-mounts the home directory
+# instead of a named volume; a volume replacing it has the same layout (~/.tabby
+# at /data, ~/.hermes at /opt/data, ...)
+tabby|*tabby*
+local-deep-research|*local-deep-research*
+openhands|*openhands*
+letta|*letta*
+hermes|*hermes*
+nanobot|*nanobot*
+# relocation variables (agent|VARIABLE|home-relative path it replaces)
+# Environment variables that move the state of an agent, agent|VARIABLE|replaces,
+# where replaces is the home-relative path the value stands in for (empty when the
+# variable adds a store with no default under the home). The research document of
+# the agent lists each variable under "Relocation variables"; a shared line is a
+# variable many programs honour, a weaker hint. The startup files below are
+# searched for these names; a value is never evaluated.
+agent-zero|A0_COMPUTER_USE_HOST_ARTIFACT_ROOT|
+aider|AIDER_ANALYTICS_LOG|
+aider|AIDER_CHAT_HISTORY_FILE|
+aider|AIDER_INPUT_HISTORY_FILE|
+aider|AIDER_LLM_HISTORY_FILE|
+amp|AMP_HOME|.amp
+augment|AUGMENT_VFS_DIR|.augment/vfs
+autogen-studio|AUTOGENSTUDIO_APPDIR|.autogenstudio
+autogen-studio|AUTOGENSTUDIO_DATABASE_URI|.autogenstudio/autogen04203.db
+camel-ai|CAMEL_LOG_DIR|
+camel-ai|CAMEL_WORKDIR|
+claude-code|CLAUDE_CODE_TMPDIR|AppData/Local/Temp/claude
+claude-code|CLAUDE_CONFIG_DIR|.claude
+claude-desktop|CLAUDE_USER_DATA_DIR|.config/Claude
+cline|CLINE_CONNECTORS_DB_PATH|.cline/data/db/connectors.db
+cline|CLINE_CONNECTOR_DATA_DIR|.cline/data/connectors
+cline|CLINE_CONNECTOR_SETTINGS_PATH|.cline/data/connectors/settings.json
+cline|CLINE_CRON_DB_PATH|.cline/data/db/cron.db
+cline|CLINE_DATA_DIR|.cline/data
+cline|CLINE_DB_DATA_DIR|.cline/data/db
+cline|CLINE_DIR|.cline
+cline|CLINE_GLOBAL_SETTINGS_PATH|.cline/data/settings/global-settings.json
+cline|CLINE_HOOKS_LOG_PATH|.cline/data/logs/hooks.jsonl
+cline|CLINE_MCP_SETTINGS_PATH|.cline/data/settings/cline_mcp_settings.json
+cline|CLINE_PROVIDER_SETTINGS_PATH|.cline/data/settings/providers.json
+cline|CLINE_SESSION_DATA_DIR|.cline/data/sessions
+cline|CLINE_TASKS_DB_PATH|.cline/data/db/tasks.db
+cline|CLINE_TEAM_DATA_DIR|.cline/data/teams
+cline|WORKSPACE_STORAGE_DIR|.cline/data/workspace
+codex-cli|CODEX_HOME|.codex
+codex-cli|CODEX_ROLLOUT_TRACE_ROOT|
+codex-cli|CODEX_SQLITE_HOME|.codex
+codex-cli|CODEX_TUI_SESSION_LOG_PATH|
+continue|CONTINUE_GLOBAL_DIR|.continue
+copilot-cli|COPILOT_CACHE_HOME|.cache/copilot
+copilot-cli|COPILOT_HOME|.copilot
+copilot-cli|COPILOT_PKG_CACHE_HOME|.cache/copilot
+copilot-cli|COPILOT_PROVIDERS_CONFIG|.copilot/providers.json
+copilot-desktop|COPILOT_HOME|.copilot
+copilot-desktop|COPILOT_HOME_OVERRIDE|.copilot
+crewai|CREWAI_STORAGE_DIR|
+crush|CRUSH_CACHE_DIR|.cache/crush
+crush|CRUSH_GLOBAL_CONFIG|.config/crush
+crush|CRUSH_GLOBAL_DATA|.local/share/crush
+crush|CRUSH_SKILLS_DIR|.config/crush/skills
+cursor|CURSOR_CONFIG_DIR|.cursor
+cursor|CURSOR_DATA_DIR|.cursor
+cursor|CURSOR_SANDBOX_POLICY_DIR|.cursor/sandbox-policies
+cursor|CURSOR_WORKTREES_ROOT|.cursor/worktrees
+dify|DIFY_CONFIG_DIR|.config/difyctl
+factory-droid|FACTORY_HOME_OVERRIDE|.
+factory-droid|FACTORY_LOG_FILE|.factory/logs/droid-log-single.log
+flowise|BLOB_STORAGE_PATH|.flowise/storage
+flowise|DATABASE_PATH|.flowise
+flowise|LOG_PATH|
+flowise|SECRETKEY_PATH|.flowise
+gemini-cli|GEMINI_CLI_ACTIVITY_LOG_TARGET|
+gemini-cli|GEMINI_CLI_HOME|.
+gemini-cli|GEMINI_CLI_TRUSTED_FOLDERS_PATH|.gemini/trustedFolders.json
+gemini-cli|GEMINI_CONTEXT_TRACE_DIR|
+gemini-cli|GEMINI_DEBUG_LOG_FILE|
+gemini-cli|GEMINI_WRITE_SYSTEM_MD|
+goose|GOOSE_ADDITIONAL_CONFIG_FILES|
+goose|GOOSE_PATH_ROOT|.config/goose
+goose|GOOSE_RECIPE_PATH|
+hermes|HERMES_DATA_DIR_SUFFIX|.hermes
+hermes|HERMES_DESKTOP_USER_DATA_DIR|.config/Hermes
+hermes|HERMES_HOME|.hermes
+hermes|TERMINAL_SANDBOX_DIR|.hermes/sandboxes
+kilo-code|KILO_CONFIG|
+kilo-code|KILO_CONFIG_DIR|
+kilo-code|KILO_DB|.local/share/kilo/kilo.db
+kiro|KIRO_HOME|.
+langflow|LANGFLOW_CONFIG_DIR|.cache/langflow
+langflow|LANGFLOW_FS_TOOL_BASE_DIR|.langflow/fs_tool/fs_sandbox
+langflow|LANGFLOW_KNOWLEDGE_BASES_DIR|.langflow/knowledge_bases
+langflow|LANGFLOW_LOG_FILE|
+letta|LETTA_ARTIFACTS_DIR|.letta/artifacts
+letta|LETTA_DEBUG_FILE|
+letta|LETTA_DIR|.letta
+letta|LETTA_EXTENSIONS_DIR|.letta/mods
+letta|LETTA_HOME|.letta
+letta|LETTA_LOCAL_BACKEND_DIR|.letta/lc-local-backend
+letta|LETTA_MODS_DIR|.letta/mods
+letta|LETTA_TRANSCRIPT_ROOT|.letta/transcripts
+letta|MEMGPT_CONFIG_PATH|.letta/config
+little-coder|LITTLE_CODER_EXTENSIONS_DIR|.config/little-coder/extensions
+little-coder|LITTLE_CODER_MODELS_FILE|.config/little-coder/models.json
+little-coder|PI_CODING_AGENT_DIR|.pi/agent
+local-deep-research|LDR_DATA_DIR|.local/share/local-deep-research
+metagpt|METAGPT_PROJECT_ROOT|
+muse-code|MUSE_AUTH_PATH|.config/muse/auth.json
+muse-code|MUSE_PROJECTS_HOME|.muse/projects
+n8n|DB_SQLITE_DATABASE|.n8n/database.sqlite
+n8n|N8N_BINARY_DATA_STORAGE_PATH|.n8n/binaryData
+n8n|N8N_EVENTBUS_LOGWRITER_LOGFULLPATH|.n8n/n8nEventLog.log
+n8n|N8N_STORAGE_PATH|.n8n/storage
+n8n|N8N_USER_FOLDER|.
+nanobot|NANOBOT_AGENTS__DEFAULTS__WORKSPACE|.nanobot/workspace
+nanobot|OAUTH_CLI_KIT_TOKEN_PATH|.local/share/nanobot/auth/github-copilot.json
+ollama|OLLAMA_MODELS|.ollama/models
+open-interpreter|CODEX_ROLLOUT_TRACE_ROOT|
+open-interpreter|CODEX_SQLITE_HOME|.openinterpreter
+open-interpreter|INTERPRETER_HOME|.openinterpreter
+open-interpreter|OPEN_INTERPRETER_HOME|.openinterpreter
+openclaw|OPENCLAW_CONFIG_PATH|.openclaw/openclaw.json
+openclaw|OPENCLAW_HOME|.
+openclaw|OPENCLAW_OAUTH_DIR|.openclaw/credentials
+openclaw|OPENCLAW_PROFILE|.openclaw
+openclaw|OPENCLAW_STATE_DIR|.openclaw
+openclaw|OPENCLAW_WORKSPACE_DIR|.openclaw/workspace
+opencode|OPENCODE_CONFIG_DIR|.config/opencode
+opencode|OPENCODE_DB|.local/share/opencode/opencode.db
+openhands|AUTOMATION_WORKSPACE_BASE|.openhands/agent-canvas/workspaces
+openhands|FILE_STORE_PATH|.openhands
+openhands|LOG_DIR|
+openhands|OH_BASH_EVENTS_DIR|.openhands/agent-canvas/bash_events
+openhands|OH_CANVAS_SAFE_STATE_DIR|.openhands/agent-canvas
+openhands|OH_CONVERSATIONS_PATH|.openhands/agent-canvas/conversations
+openhands|OH_CONVERSATION_WORKTREE_ROOT|
+openhands|OH_PERSISTENCE_DIR|.openhands
+openhands|OH_SECRET_KEY_PATH|.openhands/agent-canvas/secret-key.txt
+openhands|OH_SESSION_API_KEY_PATH|.openhands/agent-canvas/api-key.txt
+openhands|OPENHANDS_CONVERSATIONS_DIR|.openhands/conversations
+openhands|OPENHANDS_PERSISTENCE_DIR|.openhands
+openhands|VITE_WORKING_DIR|.openhands/agent-canvas/workspaces
+pearai|CONTINUE_GLOBAL_DIR|.pearai
+pearai|VSCODE_APPDATA|.config
+pearai|VSCODE_EXTENSIONS|.pearai/extensions
+pearai|VSCODE_PORTABLE|.config/PearAI
+pi|PI_CODING_AGENT_DIR|.pi/agent
+pi|PI_CODING_AGENT_SESSION_DIR|.pi/agent/sessions
+qwen-code|QWEN_CODE_MCP_APPROVALS_PATH|.qwen/mcpApprovals.json
+qwen-code|QWEN_CODE_TRUSTED_FOLDERS_PATH|.qwen/trustedFolders.json
+qwen-code|QWEN_HOME|.qwen
+qwen-code|QWEN_RUNTIME_DIR|.qwen
+qwen-code|WEIXIN_STATE_DIR|.qwen/channels/weixin
+qwen-live|QWEN_LIVE_DATA_DIR|.qwen-live
+qwen-live|QWEN_LIVE_DISCOVERY_DIR|.qwen
+shellgpt|CACHE_PATH|
+shellgpt|CHAT_CACHE_PATH|
+shellgpt|OPENAI_FUNCTIONS_PATH|.config/shell_gpt/functions
+shellgpt|ROLE_STORAGE_PATH|.config/shell_gpt/roles
+tabby|TABBY_MODEL_CACHE_ROOT|.tabby/models
+tabby|TABBY_ROOT|.tabby
+twinny|TWINNY_NODE_DIR|.twinny/node
+vscode|VSCODE_AGENT_FOLDER|.vscode-server
+vscode|VSCODE_APPDATA|.config
+vscode|VSCODE_EXTENSIONS|.vscode/extensions
+vscode|VSCODE_PORTABLE|.config/Code
+shared|BASH_ENV|
+shared|BASH_IT_CUSTOM|
+shared|ENV|
+shared|OMF_CONFIG|
+shared|XDG_CACHE_HOME|.cache
+shared|XDG_CONFIG_HOME|.config
+shared|XDG_DATA_HOME|.local/share
+shared|XDG_STATE_HOME|.local/state
+shared|ZDOTDIR|
+shared|ZSH_CUSTOM|
+# startup files searched for them (scope|glob; scope home, system or project)
+# Files that set the environment of a user or of the system, scope|glob: home (relative
+# to each home), system (absolute; under the root in image mode) or project
+# (relative to each discovered project). research/shared.md, "Startup and
+# environment files", names each one with its source.
+home|.bash_profile
+home|.bash_login
+home|.profile
+home|.bashrc
+home|.bashrc.d/*
+system|/etc/profile
+system|/etc/profile.d/*.sh
+system|/etc/profile.d/sh.local
+system|/etc/bash.bashrc
+system|/etc/bashrc
+home|.zshenv
+home|.zprofile
+home|.zshrc
+home|.zlogin
+system|/etc/zshenv
+system|/etc/zprofile
+system|/etc/zshrc
+system|/etc/zlogin
+system|/etc/zsh/zshenv
+system|/etc/zsh/zprofile
+system|/etc/zsh/zshrc
+system|/etc/zsh/zlogin
+system|/usr/local/etc/zshenv
+system|/usr/local/etc/zprofile
+system|/usr/local/etc/zshrc
+system|/usr/local/etc/zlogin
+home|.shrc
+home|.shinit
+system|/etc/suid_profile
+home|.kshrc
+system|/etc/ksh.kshrc
+home|.mkshrc
+home|.config/fish/config.fish
+home|.config/fish/conf.d/*.fish
+home|.config/fish/fish_variables
+home|.config/fish/fishd.*
+home|.local/share/fish/vendor_conf.d/*.fish
+system|/etc/fish/config.fish
+system|/etc/fish/conf.d/*.fish
+system|/usr/share/fish/vendor_conf.d/*.fish
+system|/usr/local/share/fish/vendor_conf.d/*.fish
+system|/usr/local/etc/fish/config.fish
+system|/usr/local/etc/fish/conf.d/*.fish
+system|/opt/homebrew/etc/fish/config.fish
+system|/opt/homebrew/etc/fish/conf.d/*.fish
+system|/opt/homebrew/share/fish/vendor_conf.d/*.fish
+home|.tcshrc
+home|.cshrc
+home|.login
+system|/etc/csh.cshrc
+system|/etc/csh.login
+system|/etc/.cshrc
+system|/etc/.login
+home|.config/nushell/env.nu
+home|.config/nushell/config.nu
+home|.config/nushell/login.nu
+home|.config/nushell/autoload/*.nu
+home|Library/Application Support/nushell/env.nu
+home|Library/Application Support/nushell/config.nu
+home|Library/Application Support/nushell/login.nu
+home|Library/Application Support/nushell/autoload/*.nu
+home|AppData/Roaming/nushell/env.nu
+home|AppData/Roaming/nushell/config.nu
+home|AppData/Roaming/nushell/login.nu
+home|AppData/Roaming/nushell/autoload/*.nu
+home|.local/share/nushell/vendor/autoload/*.nu
+system|/usr/share/nushell/vendor/autoload/*.nu
+system|/usr/local/share/nushell/vendor/autoload/*.nu
+system|/Library/Application Support/nushell/vendor/autoload/*.nu
+system|/ProgramData/nushell/vendor/autoload/*.nu
+home|.xonshrc
+home|.config/xonsh/rc.xsh
+home|.config/xonsh/rc.d/*.xsh
+home|.config/xonsh/rc.d/*.py
+system|/etc/xonsh/xonshrc
+system|/etc/xonsh/rc.d/*.xsh
+system|/etc/xonsh/rc.d/*.py
+home|.config/elvish/rc.elv
+home|.elvish/rc.elv
+home|AppData/Roaming/elvish/rc.elv
+home|Documents/WindowsPowerShell/*.ps1
+home|Documents/PowerShell/*.ps1
+home|.config/powershell/*.ps1
+system|/Windows/System32/WindowsPowerShell/v1.0/*.ps1
+system|/Program Files/PowerShell/7/*.ps1
+system|/opt/microsoft/powershell/7/*.ps1
+system|/usr/local/microsoft/powershell/7/*.ps1
+system|/etc/environment
+system|/etc/security/pam_env.conf
+home|.pam_environment
+home|.config/environment.d/*.conf
+system|/etc/environment.d/*.conf
+system|/run/environment.d/*.conf
+system|/usr/local/lib/environment.d/*.conf
+system|/usr/lib/environment.d/*.conf
+home|.config/plasma-workspace/env/*.sh
+system|/etc/xdg/plasma-workspace/env/*.sh
+home|.xsessionrc
+home|Library/LaunchAgents/*.plist
+system|/Library/LaunchAgents/*.plist
+system|/Library/LaunchDaemons/*.plist
+project|.envrc
+project|.env
+home|.config/direnv/direnvrc
+home|.config/direnv/direnv.toml
+home|.config/direnv/lib/*.sh
+project|mise.toml
+project|.mise.toml
+project|mise.local.toml
+project|.mise.local.toml
+project|mise/config.toml
+project|mise/conf.d/*.toml
+project|.mise/config.toml
+project|.mise/conf.d/*.toml
+project|.config/mise.toml
+project|.config/mise/mise.toml
+project|.config/mise/config.toml
+project|.config/mise/conf.d/*.toml
+home|.config/mise/config.toml
+home|.config/mise/conf.d/*.toml
+system|/etc/mise/config.toml
+system|/etc/mise/conf.d/*.toml
+home|.oh-my-zsh/custom/*.zsh
+home|.bash_it/custom/*.bash
+home|.bash_it/custom/*/*.bash
+home|.config/omf/before.init.fish
+home|.config/omf/init.fish

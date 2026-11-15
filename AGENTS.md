@@ -29,6 +29,13 @@ status.
 ## Repository layout
 
 ```text
+go.mod                       the Go module, github.com/seanthegeek/doubleagent, with the
+                             toolchain pinned; go.sum and vendor/ appear with the first
+                             dependency ("Go standards")
+cmd/doubleagent/             the doubleagent binary: subcommand dispatch and exit codes
+internal/<package>/          the binary's packages, one per concern ("Go standards");
+                             internal/version holds the build-time version string
+.github/go-build.sh          builds the six release targets and prints their hashes
 collectors/
   collect-agent-artifacts.sh   the macOS/Linux/BSD collector, single POSIX sh file
   Collect-AgentArtifacts.ps1   the Windows collector, single PowerShell 5.1 file
@@ -94,7 +101,7 @@ tools/check_doc_links.py       verifies every relative link and heading fragment
                                and that this file and CLAUDE.md link no issue or pull
                                request
 tools/check_code_style.py      verifies the names, comments and docstring lengths of
-                               every Python, sh and PowerShell file against "Code style"
+                               every Python, sh, PowerShell and Go file against "Code style"
 tools/drift_common.py          the drift checkers' shared module: findings, the baseline,
                                and readers of the research documents, tables and parsers
 tools/check_tables_research.py  compares the catalog tables with the Collection part of
@@ -138,8 +145,10 @@ ruff.toml, pyrightconfig.json, .markdownlint-cli2.jsonc, .shellcheckrc
                                site) and Dependabot configuration
 ```
 
-Nothing in `collectors/` may depend on `analyzer/`. Paths in this file are
-relative to the repository root unless stated otherwise.
+Nothing in `collectors/` may depend on `analyzer/`, and the Go tree depends on
+neither: until the rewrite removes them, `collectors/` and `analyzer/` are the
+oracle its output is diffed against ([Go standards](#go-standards)). Paths in
+this file are relative to the repository root unless stated otherwise.
 
 ## Non-negotiable standards
 
@@ -252,6 +261,11 @@ scope.
   volume-relative exclusions and secret globs (`tmp/playwright`,
   `secrets.env`) at the end of each table, never colliding with another
   tool's volume layout (no bare `tmp` or `cache`).
+- A glob in any table holds only `*`, `?` and a closed bracket list of
+  literal bytes, ranges and `!`, never a backslash, a caret, a character
+  class name, a collating or equivalence class or an unclosed bracket: the
+  shells of the collector's matrix disagree on those, and the Go matcher
+  follows one of them.
 - Catalog globs do not cross `/`; exclusion and secret globs do, match
   relative to the collection base (a home, a discovered project or a
   volume's `_data`), and never start with `*/`. `[...]` and `[!...]`
@@ -373,11 +387,13 @@ holds the architecture and function tables.
 
 ## Code style
 
-These rules hold for every Python, sh and PowerShell file, tests included.
+These rules hold for every Python, sh, PowerShell and Go file, tests included.
 `tools/check_code_style.py` enforces names, issue and pull request numbers,
 dates and the comment and docstring lengths, and ruff's pydocstyle rules
 with the `google` convention the docstring form
 ([Quality gates](#quality-gates)).
+The checker reads Go files too, with the exemptions of
+[Go standards](#go-standards) built in.
 
 - **Comments say what the code cannot.** A comment states why the code is
   as it is, the quirk of a platform, shell or format it works around, or the
@@ -421,6 +437,98 @@ with the `google` convention the docstring form
 - **Google-style docstrings** on every public Python module, class,
   function and method, in the form the docstrings bullet of
   [Analyzer standards](#analyzer-standards) gives.
+
+## Go standards
+
+The `doubleagent` binary (`cmd/doubleagent/`, `internal/`) replaces the
+collectors and the analyzer. Until the scripts and the Python package leave
+the tree, their output over the smoke images and the test fixtures is the
+oracle the Go code is diffed against, and [Code style](#code-style) holds
+for Go files as it does for the others.
+
+- **Gates.** `gofmt -l cmd internal` prints nothing; `go vet ./...`,
+  `staticcheck ./...` and `govulncheck ./...` pass at the versions the
+  [Quality gates](#quality-gates) table pins; `go test -race ./...` passes.
+  The `go` CI job runs them on the Ubuntu and macOS runners, then builds the
+  six release targets twice and fails when any hash differs.
+- **No cgo.** Every build of the binary sets `CGO_ENABLED=0`; a change that
+  needs `import "C"` is refused. The tests alone may run with cgo, because the
+  race detector needs it on Linux; nothing they build ships. Platform code lives in `_linux.go`, `_darwin.go`,
+  `_windows.go` and `_unix.go` files, never in a `runtime.GOOS` switch.
+- **Dependencies.** Standard library first. A third-party module is added only
+  with a row in the table below naming the module, its version, why the
+  standard library cannot serve and that it is pure Go. `vendor/` is
+  committed, so a build needs no network, and `go.mod` pins the toolchain.
+  The development tools (`staticcheck`, `govulncheck`) are not module
+  requirements: the workflow's `env` block and the gates table pin their
+  versions and run them with `go run <module>@<version>`, so `go.mod` and
+  `vendor/` hold only what the binary links.
+
+  | Module | Version | Why |
+  | --- | --- | --- |
+  | `golang.org/x/sys` | v0.50.0 | Birth time through `Statx` on Linux and `Lstat` on macOS, and `Uname` for `platform`; pure Go. |
+
+- **Programs run.** `os/exec` is imported by `internal/hostcmd` and test
+  files only, and runs only `getent`, `dscl` and `plutil`: the programs that
+  give a platform's user list, or a launchd value, that no file gives.
+  Copying, hashing, archiving, searching and listing are Go.
+- **Symlinks.** Never follow one: `os.Lstat`, never `os.Stat`, on anything
+  under a collection base; open with `O_NOFOLLOW` where the platform has it;
+  recreate a link with `os.Symlink`. A symlinked directory in the middle of
+  a catalog glob is followed only by the glob expander, as a shell does, and
+  handled as
+  [Paths through a symlinked directory in `collectors/docs/coverage.md`](collectors/docs/coverage.md#paths-through-a-symlinked-directory)
+  describes.
+- **Errors and exits.** Library code (`internal/`) returns errors wrapped with
+  `%w` and the path or item (`fmt.Errorf("stage %s: %w", path, err)`) and
+  never calls `os.Exit`, `log.Fatal` or `panic`; a panic in library code is a
+  bug. Only `cmd/doubleagent` and a subcommand's run function map errors to
+  the exit codes 0, 1 (usage), 2 (fatal) and 130 (interrupted). A manifest
+  `error` field holds the innermost `*fs.PathError` text.
+- **State.** No package-level mutable state; a run's state lives in a struct
+  passed down. The one exception is the version variable that `-ldflags -X`
+  sets. `init` only validates an embedded file. Timestamps come from one
+  injectable clock so tests can pin them.
+- **Goroutines.** Every goroutine is bounded by a `context.Context` and
+  waited for; the caller decides output order, never scheduling. Every loop
+  over directories or files checks `ctx.Err()` per directory; `SIGINT` and
+  `SIGTERM` cancel the context, and the run logs `interrupted`, removes the
+  staging directory and exits 130.
+- **Paths are bytes.** A path is a `string` holding raw bytes: no `[]rune`,
+  `strings.ToLower`, `utf8` decoding or `%q` on one; case folding is
+  ASCII-only where the sh collector lowers under `LC_ALL=C`. Directory
+  listings use `(*os.File).ReadDir(-1)` (directory order) where the sh
+  collector uses `find`, and the glob expander (sorted) where it expands a
+  pattern; never `filepath.WalkDir` or `os.ReadDir` on a collected tree.
+- **Interface files are written by hand.** The manifest, `collection.json`,
+  the inventory lines and the analyzer's JSON and JSONL outputs are written
+  through the project's own escaper in the documented field order;
+  `encoding/json` reads, it never writes an interface file.
+- **Catalog is data.** The seven tables are one embedded text file in the
+  `--list` format; code never holds a path or glob that belongs in a table.
+- **Names and comments.** [Code style](#code-style) holds, with these Go
+  exemptions: a one- or two-letter receiver; `ctx` for a `context.Context`;
+  `ok`; `err` alone or as a word of a longer name (`closeErr`, and the
+  `errNotFound` form staticcheck requires of a package's error variables); `w` and `r` for an `io.Writer` and an `io.Reader`
+  parameter; `i`, `j`, `k` and `n` for an index or count in a few lines; `t`
+  and `b` in tests. Every exported identifier has a doc comment starting with
+  its name, and every unexported function one comment, in the Code style
+  form. A function body stays under 40 lines, never over 60, with the
+  collectors' exceptions.
+- **Tests.** Table-driven, with `t.Run` names that read as sentences;
+  fixtures built under `t.TempDir()`; run with `-race`; no test reads the
+  developer's home or the network, and no test runs `collect` without `-r`:
+  a run without a root collects the developer's own credentials. The parity harness
+  (`internal/collect/parity`, build tag `parity`) diffs the binary against
+  the sh collector over the smoke image and runs in CI on both runners.
+- **Builds.** `.github/go-build.sh` builds the six `GOOS`/`GOARCH` targets
+  with `CGO_ENABLED=0 go build -trimpath -ldflags=-buildid=`; CI runs it
+  twice per commit and compares the hashes. The version is one string in
+  `internal/version`, set from the tag by the release workflow; a development
+  build reports `0.0.0-dev` and the commit.
+- **Logging and output.** Log lines go through the run log; `fmt.Print*`
+  outside the summary, inventory and usage writers is a defect; no file
+  contents, secret or matched line reaches the log.
 
 ## Analyzer standards
 
@@ -1454,15 +1562,18 @@ parser's docstring at review.
 
 ## Validation and testing
 
-CI (`.github/workflows/ci.yml`) runs the catalog drift test; shellcheck;
-the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
-drift test and sh smoke test under dash on macOS (BSD tools); the fork
-budget job on Linux; the PowerShell smoke test under PowerShell 7 on Linux
-and Windows PowerShell 5.1 on Windows; the analyzer tests on Python 3.11
-to 3.14, with the branch-coverage gate on the newest; the lint and site
-jobs of [Quality gates](#quality-gates); and a `CI result` job that fails
-when any of them failed or was cancelled. `CI result` is the one status
-check the ruleset on `main` requires.
+CI (`.github/workflows/ci.yml`) runs the catalog drift test; the analyzer
+tests on Python 3.11 to 3.14, with the branch-coverage gate on the newest;
+the Go gates, tests and six-target build and the parity job (the binary
+against the sh collector over the smoke image) on Ubuntu and macOS; the lint and
+site jobs of [Quality gates](#quality-gates); and a `CI result` job that
+fails when any of them failed or was cancelled. `CI result` is the one
+status check the ruleset on `main` requires. On the rewrite branch the sh
+smoke matrix, the macOS BSD smoke, the fork budget, the collector's
+shellcheck job and the two PowerShell smoke jobs do not run: the scripts
+are frozen there and the Go binary replaces them, so a change to a script
+on that branch is a defect, not a reason to run them. A new push to a branch
+cancels the run still going for its previous commit.
 
 CI runs a job only for the parts a change touches:
 [`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
@@ -1492,9 +1603,13 @@ job or lint step runs when one of its categories is set.
 - **Catalog** (either collector, `analyzer/doubleagent/catalog.txt`,
   `collectors/tests/catalog-sync.sh`): the catalog drift job and the
   analyzer tests.
+- **Go** (`go.mod`, `go.sum`, `vendor/`, every `.go` file,
+  `internal/catalog/catalog.txt`, `.github/go-build.sh`): the Go job's
+  gates, tests and builds, and the `go-parity` job.
 
 Markdownlint, the site build, the document checks, the drift checkers and
-code style run on every change. Everything runs for a push to `main`, a change to the
+code style run on every change. Everything runs for a push to `main` or to
+the rewrite branch `go-rewrite`, a change to the
 workflow, the classifier or `.gitattributes`, and a file the classifier
 does not list; a commit that makes a job read another file adds that file
 to the job's category. A push whose previous commit GitHub cannot name (a
@@ -1519,6 +1634,7 @@ cd ../analyzer && tests/run.sh
 cd ..
 python3 -m pytest tools/tests -q   # the drift checkers' tests, with the same python
 python3 -m pytest lab/round/tests -q   # the round pipeline's tests
+gofmt -l cmd internal && go vet ./... && go test -race ./...   # the Go tree
 # quality gates, from the repository root (see "Quality gates")
 uvx ruff@0.16.10 check . && uvx ruff@0.16.10 format --check .
 uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright
@@ -1532,7 +1648,7 @@ python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as te
 python3 tools/check_branch_coverage.py  # runs the analyzer suite again when a parser changed
 python3 tools/check_code_style.py
 python3 tools/check_fork_budget.py --base origin/main   # Linux only: needs strace
-shfmt -ln posix $(shfmt -f .) >/dev/null && shellcheck -s sh $(shfmt -f .) && checkbashisms -p $(shfmt -f .)
+shfmt -ln posix $(shfmt -f . | grep -v '^vendor/') >/dev/null && shellcheck -s sh $(shfmt -f . | grep -v '^vendor/') && checkbashisms -p $(shfmt -f . | grep -v '^vendor/')
 pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
 ```
 
@@ -1619,12 +1735,11 @@ skipped without it. Never add a `python3` requirement to the collector.
 
 Every gate runs in CI, never in the pre-commit hook: branch coverage in the
 `analyzer` job on its newest Python, the site build in the `site` job on the
-Python the Pages workflow uses, the fork budget in its own job, which
-names the `ubuntu-24.04` runner (it needs strace, and the count is that
-image's dash's), the others in the `lint` job. The
-versions are pinned in the workflow's `env` block, coverage.py's in
-`analyzer/requirements-dev.txt` and the fork budget's runner image in its
-job's `runs-on`; change it and this table together. Run the
+Python the Pages workflow uses, the Go gates in the `go` job, the others in
+the `lint` job. The versions are pinned in the workflow's `env` block and
+coverage.py's in `analyzer/requirements-dev.txt`; change it and this table
+together. The PSScriptAnalyzer and fork budget rows are not run on the
+rewrite branch, whose scripts are frozen. Run the
 commands from the repository root before pushing; a documentation-only
 change needs markdownlint, the site build and the rows from document links
 down.
@@ -1636,13 +1751,17 @@ down.
 | pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
 | site build, strict | the versions `requirements-docs.txt` pins | `pip install -r requirements-docs.txt && mkdocs build --strict -f mkdocs/mkdocs.yml -d /tmp/site` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
-| shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f .) >/dev/null` | none; never pass `-w` |
-| shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
-| checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
+| shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . \| grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
+| shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . \| grep -v '^vendor/')` | `.shellcheckrc` |
+| checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . \| grep -v '^vendor/')` | none |
 | PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
+| gofmt, go vet, go test | the toolchain `go.mod` pins | `gofmt -l cmd internal` (prints nothing), `go vet ./...`, `go test -race ./...` | none |
+| staticcheck | 0.8.2 | `go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
+| govulncheck | 1.9.0 | `go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` | none |
+| reproducible build | the toolchain `go.mod` pins | `sh .github/go-build.sh /tmp/b1 > /tmp/s1 && sh .github/go-build.sh /tmp/b2 > /tmp/s2 && cmp /tmp/s1 /tmp/s2` | none; see [Go standards](#go-standards) |
 | branch coverage of changed parser lines | coverage.py 7.17.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
 | fork budget | none pinned: the `ubuntu-24.04` runner's dash and strace | `python3 tools/check_fork_budget.py --base origin/main` | `collectors/tests/fork-budget.txt`; `--update-budget` rewrites it |
-| code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
+| code style | none | `python3 tools/check_code_style.py` | none; it reads `.go` files as well as Python, sh and PowerShell; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
 | research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |
 | tables against research | none | `python3 tools/check_tables_research.py` | the baseline under `tools/drift-baseline/` |
@@ -1658,6 +1777,9 @@ down.
   from fresh evidence. `--update-baseline` adds lines only in the commit
   that adds or changes a rule, whose body gives the reason; a finding an
   edit causes is fixed, never baselined.
+- Every checker skips `vendor/`: the vendored Go modules are third-party
+  source, audited as a dependency ([Go standards](#go-standards)), never held
+  to this project's style, links or pages.
 - `shfmt -f .` finds sh files by shebang as well as extension, so the hook
   script, `lab/lab.sh` and `analyzer/tests/run.sh` are checked too.
 - pyright runs with both analyzer dependencies installed; `zstandard` and
