@@ -3,7 +3,9 @@ package fsmeta
 import (
 	"io/fs"
 	"os"
+	"strings"
 	"sync"
+	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
@@ -44,7 +46,7 @@ func (o *Opener) Open(path string) (*os.File, error) {
 
 // asksForRight reports whether an open of path asks for the right to set the
 // file's times, so it can hold the access time: always for a nil opener,
-// else as holdsAccessTime decides. The volume's file system is looked up
+// else as holdsAccessTime decides. The file's file system is looked up
 // only when the decision depends on it.
 func (o *Opener) asksForRight(path string) bool {
 	if o == nil {
@@ -57,52 +59,97 @@ func (o *Opener) asksForRight(path string) bool {
 	return holdsAccessTime(o.ReadOnly, o.NTFSUpdatesOff, fileSystem)
 }
 
-// newVolumeLookup returns a lookup of the name of the file system of a
-// path's volume ("NTFS", "ReFS", "FAT32", "exFAT"), read once per volume
-// root and kept for the run, or "" when it cannot be read.
-// GetVolumePathName gives the root of the volume holding the path, a
-// mounted folder's own included, in the form the path was given (\\?\C:\
-// for \\?\C:\...).
+// newVolumeLookup returns a lookup of the name of the file system the file
+// at path is on ("NTFS", "ReFS", "FAT32", "exFAT"), or "" when that is not
+// known: the file cannot be opened, a call fails, or the file is on a remote
+// volume, whose file system is the server's and which the local NTFS
+// setting does not govern. It asks the file itself, through a handle opened
+// with no access right (which reads nothing, so moves no access time) and
+// without following a link at the last component, so a junction or symlink
+// in a middle component counts for the volume it leads to. Names are kept
+// for the run by volume serial number.
 func newVolumeLookup() func(path string) string {
 	var mutex sync.Mutex
-	fileSystems := map[string]string{}
+	fileSystems := map[uint32]string{}
 	return func(path string) string {
-		root := volumeRoot(path)
-		if root == "" {
+		name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+		if err != nil {
+			return ""
+		}
+		handle, err := openNoFollow(name)
+		if err != nil {
+			return ""
+		}
+		defer windows.CloseHandle(handle)
+		var data windows.ByHandleFileInformation
+		if onRemoteVolume(handle) || windows.GetFileInformationByHandle(handle, &data) != nil {
 			return ""
 		}
 		mutex.Lock()
 		defer mutex.Unlock()
-		if _, ok := fileSystems[root]; !ok {
-			fileSystems[root] = volumeFileSystem(root)
+		if _, ok := fileSystems[data.VolumeSerialNumber]; !ok {
+			fileSystems[data.VolumeSerialNumber] = handleFileSystem(handle)
 		}
-		return fileSystems[root]
+		return fileSystems[data.VolumeSerialNumber]
 	}
 }
 
-// volumeRoot returns the root of the volume holding path, or "".
-func volumeRoot(path string) string {
-	extended := syspath.Extended(path)
-	name, err := windows.UTF16PtrFromString(extended)
-	if err != nil {
-		return ""
-	}
-	volume := make([]uint16, len(extended)+2)
-	if windows.GetVolumePathName(name, &volume[0], uint32(len(volume))) != nil {
-		return ""
-	}
-	return windows.UTF16ToString(volume)
+// fileRemoteProtocolInfo is the FILE_REMOTE_PROTOCOL_INFO structure, which
+// golang.org/x/sys does not define, laid out as Microsoft's winbase.h
+// declares it; only its size and the call's success matter here.
+type fileRemoteProtocolInfo struct {
+	StructureVersion         uint16
+	StructureSize            uint16
+	Protocol                 uint32
+	ProtocolMajorVersion     uint16
+	ProtocolMinorVersion     uint16
+	ProtocolRevision         uint16
+	Reserved                 uint16
+	Flags                    uint32
+	GenericReserved          [8]uint32
+	ProtocolSpecificReserved [16]uint32
+	ProtocolSpecific         [16]uint32
 }
 
-// volumeFileSystem returns the file system name of the volume at root, a
-// path ending in a backslash, or "" when it cannot be read.
-func volumeFileSystem(root string) string {
-	name, err := windows.UTF16PtrFromString(root)
-	if err != nil {
-		return ""
+// onRemoteVolume reports whether the file handle is open on is reached
+// through a network redirector (a mapped drive, a share, the loopback
+// \\localhost\C$ included): the remote protocol query succeeds for such a
+// file. A file whose final path cannot be read in its drive form, or reads
+// as a UNC path, counts as remote too. Any doubt falls on the side of
+// holding the access time.
+func onRemoteVolume(handle windows.Handle) bool {
+	var protocol fileRemoteProtocolInfo
+	if windows.GetFileInformationByHandleEx(handle, windows.FileRemoteProtocolInfo,
+		(*byte)(unsafe.Pointer(&protocol)), uint32(unsafe.Sizeof(protocol))) == nil {
+		return true
 	}
+	final, ok := finalDOSPath(handle)
+	return !ok || strings.HasPrefix(final, `\\?\UNC\`)
+}
+
+// finalDOSPath returns the path Windows holds for the file handle is open
+// on, in the drive-letter or UNC form (flags 0, VOLUME_NAME_DOS), growing
+// the buffer to the length the first call asks for.
+func finalDOSPath(handle windows.Handle) (string, bool) {
+	size := uint32(windows.MAX_PATH)
+	for {
+		buffer := make([]uint16, size)
+		n, err := windows.GetFinalPathNameByHandle(handle, &buffer[0], size, 0)
+		if err != nil {
+			return "", false
+		}
+		if n < size {
+			return windows.UTF16ToString(buffer[:n]), true
+		}
+		size = n
+	}
+}
+
+// handleFileSystem returns the file system name of the volume the file
+// handle is open on holds, or "" when it cannot be read.
+func handleFileSystem(handle windows.Handle) string {
 	fileSystem := make([]uint16, windows.MAX_PATH+1)
-	if windows.GetVolumeInformation(name, nil, 0, nil, nil, nil, &fileSystem[0],
+	if windows.GetVolumeInformationByHandle(handle, nil, 0, nil, nil, nil, &fileSystem[0],
 		uint32(len(fileSystem))) != nil {
 		return ""
 	}

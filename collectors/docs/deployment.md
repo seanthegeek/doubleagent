@@ -150,11 +150,15 @@ a run and decides how to open every file it reads: each file it copies,
 and each file it reads to find projects or relocation hints (with
 `--env-scan-home`, every file it searches):
 
-- **Updates are off.** Reading a file on an NTFS volume does not change
-  its access time, so the binary opens it read-only and asks for no other
-  right. The setting governs NTFS alone: a file on another file system
-  (ReFS, as on a Windows 11 Dev Drive, FAT or exFAT), or on a volume whose
-  file system cannot be read, is opened as in the next case.
+- **Updates are off.** Reading a file on a local NTFS volume does not
+  change its access time, so the binary opens it read-only and asks for no
+  other right. The setting governs local NTFS volumes alone: a file on
+  another file system (ReFS, as on a Windows 11 Dev Drive, FAT or exFAT),
+  on a remote volume (a mapped drive or a share, whose server keeps its own
+  times), or on a volume whose file system cannot be read, is opened as in
+  the next case. The binary asks each file which volume it is on, so a
+  file reached through a junction or symlink is judged by the volume the
+  link leads to.
 - **Updates are on, or the value cannot be read or understood.** The
   binary opens each file with the right to change the file's attributes as
   well as the right to read it, and tells Windows not to update the file's
@@ -168,10 +172,9 @@ The log says which case applied, in the line after the two start lines.
 The hold covers files the binary reads, not directories: listing a
 directory may update that directory's access time where updates are on.
 
-Asking for the right to change attributes may trigger security software,
-so only machines where last-access updates are on (or undetermined) can be
-affected: an EDR platform can watch for a program that opens many files
-with a right to modify them. If it does, create a behaviour-specific
+Asking for the right to change attributes may trigger security software:
+an EDR platform can watch for a program that opens many files with a right
+to modify them. If it does, create a behaviour-specific
 exclusion in that platform for the file hash of the DoubleAgent executable
 in use. A hash (SHA-256, a fingerprint of the file's bytes) names one
 exact build, so the exclusion stops matching when the build changes and
@@ -181,12 +184,17 @@ with `sha256sum` or `shasum -a 256` on Linux and macOS.
 
 The `--no-preserve-atime` option makes the binary open files read-only,
 without the right to change attributes, whatever the setting says. Use it
-only when last-access updates are on, the security software cannot be
-tested before a live collection, and the operator accepts the trade-off:
-reading a file may then change its access time on disk. The original
-access time is still recorded in the collection: the manifest's `atime`
-is taken before the file is copied, and for a file the relocation search
-reads, before that read. The choice is recorded in
+only when the security software cannot be tested before a live collection
+and the operator accepts the trade-off: reading a file may then change its
+access time on disk. The original access time is still recorded for each
+file the binary collects: the manifest's `atime` is taken before the file
+is copied, and for a file the relocation search reads, before that read.
+A file the binary reads without collecting it has no manifest row, so its
+old access time is not recorded anywhere: a file read to find projects
+that no catalog line names, and a file the relocation search reads that
+holds no relocation variable. With `--no-preserve-atime` and
+`--env-scan-home` together, every file the sweep searches may have its
+access time changed with no record of the old one. The choice is recorded in
 `collection.json` as `options.no_preserve_atime` and at the end of the
 log's second line as `no_preserve_atime=0` or `no_preserve_atime=1`.
 

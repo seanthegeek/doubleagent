@@ -364,7 +364,8 @@ func TestCopyFileWithReadOnlySources(t *testing.T) {
 			// change time; the creation and write times stay.
 			after := basicTimes(t, source)
 			if after[0] != before[0] || after[2] != before[2] {
-				t.Errorf("source times (creation, access, write) %v, want %v", after, before)
+				t.Errorf("source times (creation, access, write, change) %v, want the creation and "+
+					"write times of %v", after, before)
 			}
 		})
 	}
