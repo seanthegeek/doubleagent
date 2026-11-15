@@ -484,27 +484,29 @@ the sh readers drop the files `test_inventory_secret` rejects (the
 its caller's `"$@"`), and the PowerShell readers go through
 `Read-DiscoverySource`, which asks `Test-InventorySecret`.
 
-In image mode the `doubleagent` binary reads no discovery source whose path
-leads out of the image root through a symbolic link (on Windows also a
-junction). Before it opens a source, tests one with `test -f` or `test -d`,
-or searches below a starting directory (`.codex/sessions`, a
-`workspaceStorage` directory, a `User` directory), it reads the links on the
-path one by one from the resolved root, as it does for a project's own path,
-and stats nothing outside the root. When one leads out, the source is
-neither read nor tested, and the log says so once per source:
-`Discovery source [alice] /img/home/alice/.claude/history.jsonl: under the symlinked directory /img/home/alice/.claude, which leads out of the image root; not read`,
-or `: a symlink that leads out of the image root; not read` when the source
-is itself the link. A link whose target stays inside the root is read
-through. A link whose target cannot be read, and a chain of more than 40
-links, count as leading out, since the analyst's host may resolve what the
-check could not (Windows follows up to 63 reparse points in a path); only a
-component missing inside the image is the image's own answer. The same rule
-decides whether a project's own path leaves the root. Both scripts read through such a link, which in image mode reads
+In image mode the `doubleagent` binary looks at nothing behind a symbolic
+link (on Windows also a junction) that leads out of the image root. Before
+it opens a source, tests one with `test -f` or `test -d`, searches below a
+starting directory (`.codex/sessions`, a `workspaceStorage` directory), or
+lets the glob expander list a directory or look a name up in one
+(`.copilot/session-state/*/events.jsonl`), it reads the links on that path
+one by one from the resolved root, as it does for a project's own path, and
+stats nothing outside the root. When one leads out, nothing behind it is
+listed, stat'ed or read, and the log names the link once per home:
+`Discovery [alice] /img/home/alice/.copilot: the symlink leads out of the image root; nothing behind it was listed or read`.
+The line says only that the link exists and leads out; it does not say
+whether any source is behind it, which only the analyst's host could
+answer, and no name from behind it reaches the log. A link whose target
+stays inside the root is read through. A link whose target cannot be read,
+and a chain of more than 40 links, count as leading out, since the
+analyst's host may resolve what the check could not (Windows follows up to
+63 reparse points in a path); only a component missing inside the image is
+the image's own answer. The same rule decides whether a project's own path
+leaves the root, and the catalog walk's expansion uses the same check
+([Paths through a symlinked directory in `coverage.md`](coverage.md#paths-through-a-symlinked-directory)).
+Both scripts read and list through such a link, which in image mode reads
 the analyst's own host: the binary differs on purpose. A live run has no
-root to leave and reads every source as the host holds it. The glob that
-lists a source's candidates (`.claude-*/history.jsonl`) still lists names
-through such a link, as a shell expands it, but nothing it finds there is
-opened.
+root to leave and reads every source as the host holds it.
 
 A new source goes into its group on both sides, at the same position.
 

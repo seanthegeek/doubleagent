@@ -180,11 +180,19 @@ the matched path.
   the staged path resolves to the source, the copy fails, and the log line ends `staged path
   resolves outside the staging directory, not removed`, since the collector never removes a
   file outside the staging directory.
-- Project discovery reads the agents' state through such a link too, in both scripts. In
-  image mode the `doubleagent` binary does not: a discovery source whose path leads out of
-  the image root through a link is not read, so the projects it names on the analyst's own
-  host are not collected, and the log names the source
-  ([Project discovery in `internals.md`](internals.md#project-discovery)).
+- In image mode the `doubleagent` binary differs from both scripts for a link whose target
+  leads out of the image root (a place on the analyst's own host): the glob expander asks
+  before it lists a directory or looks a name up in one, and looks at nothing behind such a
+  link. The catalog walk logs the link once, in the place of the first catalog line whose
+  glob reached it, as
+  `[vscode] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`,
+  and records the link itself as one `symlink` row of that line's agent, unless a match
+  claims it, whether or not anything behind it would have matched: the line and the row do
+  not depend on what the analyst's host holds. Project discovery reads no source behind such
+  a link and logs one line per link
+  ([Project discovery in `internals.md`](internals.md#project-discovery)). A link that
+  leaves the home but stays inside the image root is listed and refused as described above.
+  A live run is unchanged.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
   `bar|b/sub` names the same files; the archive holds the last copy of a file and the link
   the first row recreated, which the second leaves as it is: `ln -s` onto a link to a

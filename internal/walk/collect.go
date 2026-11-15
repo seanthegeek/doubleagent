@@ -74,11 +74,11 @@ func (collector *Collector) CollectCatalog(ctx context.Context, user, base strin
 func (collector *Collector) collectCatalog(ctx context.Context, user, base string,
 	table []catalog.Entry, header string, stager stage.Stager,
 ) error {
-	matches := ExpandCatalog(base, table)
+	matches := ExpandCatalog(base, table, collector.RootCheck.Expansion())
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
 		claims: map[string]struct{}{}, seen: map[string]struct{}{}}
 	for _, match := range matches {
-		if match.Note == "" {
+		if match.Note == "" && match.OutOfRoot == "" {
 			run.claims[syspath.Fold(match.Path)] = struct{}{}
 		}
 	}
@@ -93,6 +93,28 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 	return nil
 }
 
+// recordOutOfRoot logs a link out of the image root that the expansion of
+// match's glob stopped at, and records the link once as a symlink row of
+// match's agent when it lies inside the base, as a link a match runs through
+// is recorded; nothing behind it was listed or stat'ed, so the line and the
+// row do not depend on what the analyst's host holds there.
+func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun, match Match,
+) error {
+	link := match.OutOfRoot
+	line := "  [" + match.Agent + "] " + syspath.ToNative(link) +
+		": the symlinked directory leads out of the image root; nothing under it was listed," +
+		" not walked"
+	if err := collector.logLines(run, line); err != nil || collector.Inventory {
+		return err
+	}
+	if _, inside := pathUnder(link, run.base); !inside || syspath.Equal(link, run.base) {
+		return nil
+	}
+	owner := scope{user: run.user, home: run.base, agent: match.Agent, stager: run.stager,
+		claims: run.claims}
+	return collector.recordPassedLinks(ctx, owner, run.base, []string{link}, run.seen)
+}
+
 // collectMatch logs one match and collects it, as one pass of collect_catalog's
 // loop and collect_catalog_match do. A match under a symlinked directory that
 // leads out of the base is not walked; that link and the in-base links before
@@ -101,6 +123,9 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, match Match) error {
 	if match.Note != "" {
 		return collector.logLines(run, match.Note)
+	}
+	if match.OutOfRoot != "" {
+		return collector.recordOutOfRoot(ctx, run, match)
 	}
 	path := readField(match.Path)
 	links, outside := LinkedParent(run.base, path)

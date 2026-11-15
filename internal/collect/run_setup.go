@@ -235,7 +235,7 @@ func (state *runState) newCollector(physical string) *walk.Collector {
 			Opener: state.opener},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
-		Owners: fsmeta.NewOwners(),
+		Owners: fsmeta.NewOwners(), RootCheck: walk.NewRootCheck(root),
 	}
 }
 

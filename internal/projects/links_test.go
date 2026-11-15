@@ -95,8 +95,8 @@ func TestDiscoverReadsNoSourceThroughALinkOutOfTheImage(t *testing.T) {
 }
 
 // checkLinkedResult checks a run of the linked-source test: a refused run
-// finds no project and refuses at least one source under link, naming link;
-// any other finds the project and refuses nothing.
+// finds no project and refuses link alone, once; any other finds the project
+// and refuses nothing.
 func checkLinkedResult(t *testing.T, got []Project, refused []Refusal, root, link string,
 	wantRefused bool,
 ) {
@@ -108,14 +108,9 @@ func checkLinkedResult(t *testing.T, got []Project, refused []Refusal, root, lin
 		}
 		return
 	}
-	if len(got) != 0 || len(refused) == 0 {
-		t.Fatalf("projects %q, refused %q; want none found and a source refused", got, refused)
-	}
-	for _, refusal := range refused {
-		under := refusal.Source == link || strings.HasPrefix(refusal.Source, link+"/")
-		if refusal.User != "alice" || refusal.Link != link || !under {
-			t.Errorf("refusal %+v, want alice's source under %s, refused at it", refusal, link)
-		}
+	if want := []Refusal{{User: "alice", Link: link}}; len(got) != 0 ||
+		!reflect.DeepEqual(refused, want) {
+		t.Errorf("projects %q, refused %+v; want none found and %+v", got, refused, want)
 	}
 }
 

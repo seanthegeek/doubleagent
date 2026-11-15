@@ -96,10 +96,21 @@ func (s *homeScan) isRegularFile(path string) bool {
 // expandIn returns the shell expansion of each pattern inside base, in
 // pattern order, each pattern's matches sorted, as an unquoted word list
 // gives them; a pattern naming nothing that exists gives nothing.
-func expandIn(base string, patterns ...string) []string {
+// In image mode the expander asks outOfScope before it lists a directory or
+// looks a name up, so nothing behind a link out of the image root is looked
+// at; each such link becomes a Refusal.
+func (s *homeScan) expandIn(base string, patterns ...string) []string {
 	var paths []string
 	for _, pattern := range patterns {
-		paths = append(paths, glob.Expand(base, pattern)...)
+		var check glob.Check
+		if s.outOfScope != nil {
+			check = glob.Check(s.outOfScope)
+		}
+		matches, refused := glob.ExpandChecked(base, pattern, check)
+		paths = append(paths, matches...)
+		for _, refusal := range refused {
+			s.refuse(refusal.Link)
+		}
 	}
 	return paths
 }

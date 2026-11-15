@@ -454,11 +454,66 @@ func TestDiscoveryReadsNoSourceThroughALinkOutOfTheRoot(t *testing.T) {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	native := syspath.ToNative
-	requireOnce(t, "the log", runOutput(t, outDir, ".log"), "Discovery source [alice] "+
-		native(root+"/home/alice/.claude/history.jsonl")+": under the symlinked directory "+
-		native(root+"/home/alice/.claude")+", which leads out of the image root; not read\n")
+	requireOnce(t, "the log", runOutput(t, outDir, ".log"), "Discovery [alice] "+
+		native(root+"/home/alice/.claude")+
+		": the symlink leads out of the image root; nothing behind it was listed or read\n")
 	if rowUnder(t, outDir, root+"/p/") {
 		t.Error("the manifest holds a row from the project the outside source names")
+	}
+	requireOnce(t, "stdout", stdout.String(), "\nprojects:   0\n")
+}
+
+// outsideTree writes files (path to content) under a new directory outside
+// any image and returns it, resolved and canonical.
+func outsideTree(t *testing.T, files map[string]string) string {
+	t.Helper()
+	outside, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside = syspath.FromNative(outside)
+	for path, content := range files {
+		if err := os.MkdirAll(filepath.Dir(outside+"/"+path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(outside+"/"+path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return outside
+}
+
+func TestNoNameFromBehindALinkOutOfTheRootReachesTheLog(t *testing.T) {
+	copilot := outsideTree(t, map[string]string{
+		"session-state/ANALYST-SESSION-1/events.jsonl":   "{}\n",
+		"session-state/ANALYST-SESSION-1/workspace.yaml": "cwd: /p/one\n",
+		"session-state/ANALYST-SESSION-2/events.jsonl":   "{}\n",
+	})
+	config := outsideTree(t, map[string]string{
+		"Code/User/workspaceStorage/w/workspace.json": `{"folder": "file:///p/two"}`,
+		"SecretApp/User/settings.json":                "{}",
+	})
+	root := writeImage(t, map[string]string{"home/alice/notes": "", "p/one/AGENTS.md": "# 1\n",
+		"p/two/AGENTS.md": "# 2\n"},
+		map[string]string{"home/alice/.copilot": copilot, "home/alice/.config": config})
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	for _, name := range []string{"ANALYST-SESSION", "SecretApp", "workspaceStorage", "/p/"} {
+		if strings.Contains(log, name) {
+			t.Errorf("the log holds %q, a name from behind a link out of the root:\n%s", name, log)
+		}
+	}
+	for _, link := range []string{".copilot", ".config"} {
+		requireOnce(t, "the log", log, "Discovery [alice] "+syspath.ToNative(root+"/home/alice/"+link)+
+			": the symlink leads out of the image root; nothing behind it was listed or read\n")
+	}
+	if strings.Count(log, "Discovery [") != 2 {
+		t.Errorf("the log holds other discovery lines than one per link:\n%s", log)
 	}
 	requireOnce(t, "stdout", stdout.String(), "\nprojects:   0\n")
 }

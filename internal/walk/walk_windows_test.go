@@ -766,3 +766,38 @@ func TestLinkedParentComparesPhysicalPathsWithCase(t *testing.T) {
 		t.Error("a junction to the sibling HOME counts as inside home")
 	}
 }
+
+// walkThroughJunction walks u's home under root with a literal path and a
+// glob through .config, checking the image root, and returns what it wrote.
+func walkThroughJunction(t *testing.T, root string) []string {
+	t.Helper()
+	collector, recorder := windowsCollector(t, root, nil)
+	collector.RootCheck = NewRootCheck(root)
+	table := []catalog.Entry{{Agent: "vscode", Glob: ".config/Code/User"},
+		{Agent: "editors", Glob: ".config/*/User"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "u", root+"/home/u", table, "User u"))
+	return recorder.written
+}
+
+func TestCatalogLooksAtNothingBehindAJunctionOutOfTheRoot(t *testing.T) {
+	root, outside := physicalTemp(t), physicalTemp(t)
+	writeFiles(t, root, "home/u/notes")
+	link := root + "/home/u/.config"
+	makeJunction(t, outside, link)
+	empty := walkThroughJunction(t, root)
+	writeFiles(t, outside, "Code/User/settings.json", "SecretApp/User/settings.json")
+	full := walkThroughJunction(t, root)
+	if strings.Join(empty, "\n") != strings.Join(full, "\n") {
+		t.Errorf("what the outside holds changed the output:\n%q\nversus\n%q", empty, full)
+	}
+	wantLine := "log   [vscode] " + syspath.ToNative(link) +
+		": the symlinked directory leads out of the image root; nothing under it was listed," +
+		" not walked"
+	joined := strings.Join(full, "\n")
+	if strings.Count(joined, wantLine) != 1 || strings.Contains(joined, "SecretApp") {
+		t.Errorf("written %q, want %q once and no name from outside", full, wantLine)
+	}
+	if rows := (&events{written: full}).rows(t); len(rows) != 1 || rows[0]["type"] != "symlink" {
+		t.Errorf("rows %v, want the junction's symlink row alone", rows)
+	}
+}

@@ -1,6 +1,7 @@
 package glob
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -18,17 +19,42 @@ import (
 // segment comes back in on-disk case, and a word's matches are not sorted
 // but come in Get-ChildItem's order, as PowerShell's Expand-Glob gives them.
 func Expand(base, pattern string) []string {
+	matches, _ := ExpandChecked(base, pattern, nil)
+	return matches
+}
+
+// Check reports whether expansion must not look at path, a directory it is
+// about to list or look a name up in, and the link that decides it.
+type Check func(path string) (link string, refused bool)
+
+// Refusal is a link expansion did not look behind: the pattern word being
+// expanded, the link, and the directory whose listing or lookup it stopped.
+type Refusal struct {
+	Pattern   string
+	Link      string
+	Directory string
+}
+
+// ExpandChecked is Expand that asks check, when not nil, before it lists a
+// directory, looks a literal name up in one or respells a segment there, and
+// looks at nothing check refuses: the refused part of the pattern matches
+// nothing, and the link is reported once in the refusals. Image mode passes
+// the image-root check, so nothing behind a link out of the image is listed
+// or stat'ed, not even to learn that nothing matches there.
+func ExpandChecked(base, pattern string, check Check) ([]string, []Refusal) {
+	run := &expansion{base: base, check: check}
 	var results []string
 	for _, word := range strings.Split(pattern, "\n") {
 		if word == "" {
 			continue
 		}
+		run.word = word
 		var matches []string
 		if strings.ContainsAny(word, "*?[") {
-			expandFrom(base, "", word, &matches)
+			run.expandFrom("", word, &matches)
 		}
 		if len(matches) == 0 {
-			if exists(base + "/" + word) {
+			if run.allowed(base+"/"+word) && exists(base+"/"+word) {
 				results = append(results, base+"/"+respell(base, word))
 			}
 			continue
@@ -38,7 +64,42 @@ func Expand(base, pattern string) []string {
 			results = append(results, base+"/"+match)
 		}
 	}
-	return results
+	return results, run.refused
+}
+
+// expansion is one ExpandChecked call: the base, the check, the word being
+// expanded and the links refused so far.
+type expansion struct {
+	base    string
+	check   Check
+	word    string
+	refused []Refusal
+}
+
+// allowed reports whether path may be looked up: check is asked of the
+// directory holding it, or of path itself when it ends in a slash, since
+// that lookup follows the last component too.
+func (run *expansion) allowed(path string) bool {
+	if trimmed, isDirectory := strings.CutSuffix(path, "/"); isDirectory {
+		return run.permits(trimmed)
+	}
+	return run.permits(path[:max(strings.LastIndexByte(path, '/'), 0)])
+}
+
+// permits reports whether check lets expansion look in directory, recording
+// a refused link once.
+func (run *expansion) permits(directory string) bool {
+	if run.check == nil {
+		return true
+	}
+	link, refused := run.check(directory)
+	if !refused {
+		return true
+	}
+	if !slices.ContainsFunc(run.refused, func(refusal Refusal) bool { return refusal.Link == link }) {
+		run.refused = append(run.refused, Refusal{Pattern: run.word, Link: link, Directory: directory})
+	}
+	return false
 }
 
 // expandFrom appends to matches each path, relative to base, that extends
@@ -48,20 +109,25 @@ func Expand(base, pattern string) []string {
 // segment is kept only when exists finds it. Literal segments pass
 // through respell, which on Windows gives their on-disk case. A whole
 // pattern with no wildcard segment gives nothing here: Expand falls back to
-// the word itself.
-func expandFrom(base, prefix, rest string, matches *[]string) {
+// the word itself. Nothing is read or looked up where check refuses.
+func (run *expansion) expandFrom(prefix, rest string, matches *[]string) {
+	base := run.base
 	segmentAt, segmentEnd, separatorWidth, found := findWildcardSegment(rest)
 	if !found {
 		if prefix == "" {
 			return
 		}
 		tail := unescape(rest)
-		if exists(base + "/" + prefix + tail) {
+		if run.allowed(base+"/"+prefix+tail) && exists(base+"/"+prefix+tail) {
 			*matches = append(*matches, prefix+respell(base+"/"+prefix, tail))
 		}
 		return
 	}
-	prefix += respell(base+"/"+prefix, unescape(rest[:segmentAt]))
+	literal := unescape(rest[:segmentAt])
+	if !run.permits(strings.TrimSuffix(base+"/"+prefix+literal, "/")) {
+		return
+	}
+	prefix += respell(base+"/"+prefix, literal)
 	segment, atEnd := rest[segmentAt:segmentEnd], segmentEnd == len(rest)
 	for _, name := range readNames(base+"/"+prefix, segmentMatchesDot(segment)) {
 		if !wildcardMatches(segment, name, fold) {
@@ -70,7 +136,7 @@ func expandFrom(base, prefix, rest string, matches *[]string) {
 		if atEnd {
 			*matches = append(*matches, prefix+name)
 		} else {
-			expandFrom(base, prefix+name+"/", rest[segmentEnd+separatorWidth:], matches)
+			run.expandFrom(prefix+name+"/", rest[segmentEnd+separatorWidth:], matches)
 		}
 	}
 }

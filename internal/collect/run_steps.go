@@ -179,21 +179,18 @@ func (state *runState) projectLeavesRoot(path string) bool {
 }
 
 // rootExit reports whether path, under the image root, leads out of it
-// through a link, and the link (walk.LeavesRootAt).
+// through a link, and the link (walk.LeavesRootAt, the root resolved once).
 func (state *runState) rootExit(path string) (string, bool) {
-	return walk.LeavesRootAt(state.options.Root, path)
+	return state.collector.RootCheck.Exit(path)
 }
 
-// refusedSourceLine is the log line of a discovery source that was not read
-// because its path leads out of the image root, worded as the catalog walk's
-// line for a match under such a link, so an analyst sees the source existed.
+// refusedSourceLine is the log line of a link out of the image root on the
+// path of one or more discovery sources of a home: nothing behind it was
+// listed, stat'ed or read. It says nothing of whether any source exists
+// behind it, which only the analyst's host could answer.
 func refusedSourceLine(refusal projects.Refusal) string {
-	line := "Discovery source [" + refusal.User + "] " + syspath.ToNative(refusal.Source)
-	if refusal.Link == refusal.Source {
-		return line + ": a symlink that leads out of the image root; not read"
-	}
-	return line + ": under the symlinked directory " + syspath.ToNative(refusal.Link) +
-		", which leads out of the image root; not read"
+	return "Discovery [" + refusal.User + "] " + syspath.ToNative(refusal.Link) +
+		": the symlink leads out of the image root; nothing behind it was listed or read"
 }
 
 // projectNotWalked reports whether the project step leaves path, a project,
@@ -264,7 +261,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 		Projects: projectHomes, EnvScanHome: state.options.EnvScanHome,
 		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excludes: state.collector.Excludes,
 		OutDir: state.outDir, RunName: state.name, Plutil: state.plutil, Log: state.log,
-		Claims: catalogClaims, Collect: state.hintFileCollector(ctx),
+		Claims: state.catalogClaims, Collect: state.hintFileCollector(ctx),
 		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),
 		Profiles: state.profiles, Opener: state.opener,
 	})
@@ -273,11 +270,12 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 }
 
 // catalogClaims returns the paths table matches under base as the walk
-// expands them, case variants folded, which the sweep leaves to the walk.
-func catalogClaims(base string, table []catalog.Entry) []string {
+// expands them, case variants folded and nothing behind a link out of the
+// image root looked at, which the sweep leaves to the walk.
+func (state *runState) catalogClaims(base string, table []catalog.Entry) []string {
 	var claims []string
-	for _, match := range walk.ExpandCatalog(base, table) {
-		if match.Note == "" {
+	for _, match := range walk.ExpandCatalog(base, table, state.collector.RootCheck.Expansion()) {
+		if match.Note == "" && match.OutOfRoot == "" {
 			claims = append(claims, match.Path)
 		}
 	}

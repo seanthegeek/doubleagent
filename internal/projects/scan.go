@@ -28,20 +28,25 @@ type homeScan struct {
 }
 
 // leaves reports whether path, a source or a directory of sources, leads out
-// of the image root through a link, and records each such path once as a
-// Refusal. A live run (no outOfScope) has no image root to leave, so nothing
-// is refused there and every source is read as the host holds it.
+// of the image root through a link, and records the link once as a Refusal.
+// A live run (no outOfScope) has no image root to leave, so nothing is
+// refused there and every source is read as the host holds it.
 func (s *homeScan) leaves(path string) bool {
 	if s.outOfScope == nil {
 		return false
 	}
 	link, leaves := s.outOfScope(path)
-	if leaves && !slices.ContainsFunc(s.refused, func(refusal Refusal) bool {
-		return refusal.Source == path
-	}) {
-		s.refused = append(s.refused, Refusal{User: s.user, Source: path, Link: link})
+	if leaves {
+		s.refuse(link)
 	}
 	return leaves
+}
+
+// refuse records link as a Refusal unless it is recorded already.
+func (s *homeScan) refuse(link string) {
+	if !slices.ContainsFunc(s.refused, func(refusal Refusal) bool { return refusal.Link == link }) {
+		s.refused = append(s.refused, Refusal{User: s.user, Link: link})
+	}
 }
 
 // emit writes each value to the stream as one line.
@@ -68,7 +73,7 @@ func (s *homeScan) readable(files []string) []string {
 }
 
 // expand expands patterns inside the home.
-func (s *homeScan) expand(patterns ...string) []string { return expandIn(s.home, patterns...) }
+func (s *homeScan) expand(patterns ...string) []string { return s.expandIn(s.home, patterns...) }
 
 // jsonValues is json_vals KEY over files.
 func (s *homeScan) jsonValues(key string, files []string) {

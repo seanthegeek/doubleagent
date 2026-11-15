@@ -163,10 +163,10 @@ func (s *homeScan) editorSources() {
 			s.emit(s.grepFiles(s.findNamed(storage, "workspace.json"), workspaceFolderMatcher()))
 		}
 		global := userDir + "/globalStorage"
-		s.jsonValues("cwdOnTaskInitialization", expandIn(global,
+		s.jsonValues("cwdOnTaskInitialization", s.expandIn(global,
 			"saoudrizwan.claude-dev/state/taskHistory.json",
 			"saoudrizwan.claude-dev/tasks/*/task_metadata.json"))
-		s.jsonValues("workspace", expandIn(global, "rooveterinaryinc.roo-cline/tasks/_index.json",
+		s.jsonValues("workspace", s.expandIn(global, "rooveterinaryinc.roo-cline/tasks/_index.json",
 			"kilocode.kilo-code/tasks/_index.json"))
 	}
 }

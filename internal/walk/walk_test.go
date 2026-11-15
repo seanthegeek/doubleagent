@@ -170,7 +170,7 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		{Agent: "goose", Glob: ".config/Goose"}, {Agent: "pearai", Glob: ".config/goose"},
 		{Agent: "cursor", Glob: ".config/cursor"}, {Agent: "cursor", Glob: ".config/Cursor/User"},
 		{Agent: "split", Glob: "nl*"}}
-	got := ExpandCatalog(base, table)
+	got := ExpandCatalog(base, table, nil)
 	notes, paths := map[string]bool{}, map[string]string{}
 	var split []string
 	for _, match := range got {
@@ -474,5 +474,82 @@ func TestWriteReadErrorWritesTheRowAndTheLogLine(t *testing.T) {
 	if line := "read failed: " + project + ": permission denied"; len(log.lines) != 1 ||
 		log.lines[0] != line {
 		t.Errorf("log %q, want %q", log.lines, line)
+	}
+}
+
+// outOfRootTable is the catalog the out-of-root walk tests expand: a literal
+// path and a glob, both through .config.
+func outOfRootTable() []catalog.Entry {
+	return []catalog.Entry{{Agent: "vscode", Glob: ".config/Code/User"},
+		{Agent: "editors", Glob: ".config/*/User"}}
+}
+
+// walkOutOfRoot walks bob's home under root with the out-of-root table,
+// checking the image root unless live, and returns the rows and log lines.
+func walkOutOfRoot(t *testing.T, root string, live bool) (string, []string) {
+	t.Helper()
+	collector, rows, log := testCollector(t, root, nil)
+	if !live {
+		collector.RootCheck = NewRootCheck(root)
+	}
+	err := collector.CollectCatalog(context.Background(), "bob", root+"/home/bob",
+		outOfRootTable(), "User bob")
+	mustDo(t, err)
+	return rows.String(), log.lines
+}
+
+func TestCatalogLooksAtNothingBehindALinkOutOfTheRoot(t *testing.T) {
+	root := fixture{dirs: []string{"home/bob"}}.build(t)
+	outside := fixture{}.build(t)
+	mustDo(t, os.Symlink(outside, root+"/home/bob/.config"))
+	emptyRows, emptyLines := walkOutOfRoot(t, root, false)
+	for _, dir := range []string{"Code/User", "SecretApp/User"} {
+		mustDo(t, os.MkdirAll(outside+"/"+dir, 0o755))
+		mustDo(t, os.WriteFile(outside+"/"+dir+"/settings.json", []byte("{}"), 0o644))
+	}
+	fullRows, fullLines := walkOutOfRoot(t, root, false)
+	if fullRows != emptyRows || strings.Join(fullLines, "\n") != strings.Join(emptyLines, "\n") {
+		t.Errorf("what the outside holds changed the output:\n%s%q\nversus\n%s%q",
+			emptyRows, emptyLines, fullRows, fullLines)
+	}
+	link := root + "/home/bob/.config"
+	wantLine := "  [vscode] " + link + ": the symlinked directory leads out of the image root;" +
+		" nothing under it was listed, not walked"
+	if want := []string{"User bob", wantLine}; !reflect.DeepEqual(fullLines, want) {
+		t.Errorf("log %q, want %q", fullLines, want)
+	}
+	paths, kinds := field(rows(fullRows), "path"), field(rows(fullRows), "type")
+	if !reflect.DeepEqual(paths, []string{link}) || !reflect.DeepEqual(kinds, []string{"symlink"}) {
+		t.Errorf("rows %s, want one symlink row for %s", fullRows, link)
+	}
+}
+
+// rows wraps manifest text for field.
+func rows(text string) *bytes.Buffer { return bytes.NewBufferString(text) }
+
+func TestCatalogStillExpandsLiveAndThroughALinkInsideTheRoot(t *testing.T) {
+	cases := []struct {
+		name, target string
+		live         bool
+		wantLine     string
+	}{
+		{"a live run lists through the link as before", "{OUT}", true,
+			"/home/bob/.config/Code/User: under the symlinked directory"},
+		{"a link inside the home is expanded", "{ROOT}/home/bob/dotfiles", false,
+			"/home/bob/.config/Code/User (through the symlinked directory"},
+		{"a link out of the home inside the image root is listed and refused as before",
+			"{ROOT}/dotfiles", false, "/home/bob/.config/Code/User: under the symlinked directory"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := fixture{dirs: []string{"home/bob/dotfiles/Code/User", "dotfiles/Code/User"}}.build(t)
+			outside := fixture{dirs: []string{"Code/User"}}.build(t)
+			target := strings.NewReplacer("{OUT}", outside, "{ROOT}", root).Replace(testCase.target)
+			mustDo(t, os.Symlink(target, root+"/home/bob/.config"))
+			_, lines := walkOutOfRoot(t, root, testCase.live)
+			if !strings.Contains(strings.Join(lines, "\n"), testCase.wantLine) {
+				t.Errorf("log %q, want a line holding %q", lines, testCase.wantLine)
+			}
+		})
 	}
 }

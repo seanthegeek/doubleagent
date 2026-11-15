@@ -22,13 +22,13 @@ type Project struct {
 	Path  string
 }
 
-// Refusal is a discovery source of User's home that was not read, nor
-// stat'ed through, because its path leads out of the image root at Link: a
-// symlinked directory on its path, or Source itself when it is the link.
+// Refusal is a link in User's home that leads out of the image root (a
+// symlink or, on Windows, a junction, possibly a source itself): discovery
+// listed, stat'ed and read nothing behind it. It names no source, since the
+// names behind the link are the analyst's host's, not the image's.
 type Refusal struct {
-	User   string
-	Source string
-	Link   string
+	User string
+	Link string
 }
 
 // RootExit reports whether path leads out of the image root through a link,
@@ -37,14 +37,14 @@ type RootExit func(path string) (link string, leaves bool)
 
 // Discover returns the canonical paths of the projects named in the state of
 // each home (localProjectPath under the host's rules and root, "" or "/"
-// live), then the absolute -p directories in extra, in first-seen order, each
+// live), then the absolute -p directories in extra, first seen first, each
 // once (ignoring case on Windows) with its first non-empty owner, keeping
 // directories (test -d) that are not a home. dropSecret, nil outside
-// --inventory, names the files, relative to their home, not to read.
-// outOfScope, nil live, names the paths leaving the image root: such a
-// project is kept untested (test -d would answer for the analyst's host), and
-// such a source is neither read nor probed but returned as a Refusal. opener
-// reads every file (nil: see fsmeta.Opener). Only a cancelled ctx is an error.
+// --inventory, names files, relative to their home, not to read. outOfScope,
+// nil live, names paths leaving the image root: such a project is kept
+// untested; behind such a link nothing is listed, probed or read, and the
+// link is returned once as a Refusal. opener reads every file (nil: see
+// fsmeta.Opener). Only a cancelled ctx is an error.
 func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
 	dropSecret func(relative string) bool, outOfScope RootExit, opener *fsmeta.Opener,
 ) ([]Project, []Refusal, error) {

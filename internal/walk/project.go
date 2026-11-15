@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -160,11 +161,43 @@ func ProjectLeavesRoot(root, project string) bool {
 // link whose target climbs above the root with `..`. Project discovery asks
 // it before reading a source.
 func LeavesRootAt(root, path string) (string, bool) {
-	found := projectScope(root, path, imageProbes())
+	return NewRootCheck(root).Exit(path)
+}
+
+// RootCheck answers LeavesRootAt's question for one image root, resolved
+// once, so a caller that asks of many paths does not resolve the root each
+// time. The zero RootCheck, a live run's, has no root to leave.
+type RootCheck struct {
+	given    string
+	physical string
+	failed   bool
+}
+
+// NewRootCheck resolves root, "" for a live run, for a RootCheck.
+func NewRootCheck(root string) RootCheck {
+	if root == "" {
+		return RootCheck{}
+	}
+	physical, err := stage.PhysicalDir(root)
+	return RootCheck{given: root, physical: physical, failed: err != nil}
+}
+
+// Exit is LeavesRootAt for path under check's root.
+func (check RootCheck) Exit(path string) (string, bool) {
+	found := check.scope(path, imageProbes())
 	if found.name == "" || found.inImage {
 		return "", false
 	}
 	return found.name, true
+}
+
+// Expansion returns the check the glob expander asks before it lists a
+// directory or looks a name up in one, nil for a live run.
+func (check RootCheck) Expansion() glob.Check {
+	if check.given == "" {
+		return nil
+	}
+	return check.Exit
 }
 
 // imageProbes returns the probes of the file system itself.
@@ -204,18 +237,22 @@ type rootScope struct {
 	outside    bool
 }
 
-// projectScope decides ProjectOutOfRoot's question with probe. A project
-// whose path does not start with the root is outside it and is not probed
-// at all.
+// projectScope decides ProjectOutOfRoot's question with probe.
 func projectScope(root, project string, probe probes) rootScope {
-	if root == "" {
+	return NewRootCheck(root).scope(project, probe)
+}
+
+// scope decides ProjectOutOfRoot's question for check's root with probe. A
+// project whose path does not start with the root is outside it and is not
+// probed at all.
+func (check RootCheck) scope(project string, probe probes) rootScope {
+	if check.given == "" {
 		return rootScope{}
 	}
-	physicalRoot, err := stage.PhysicalDir(root)
-	if err != nil {
-		return rootScope{name: root, unverified: true}
+	if check.failed {
+		return rootScope{name: check.given, unverified: true}
 	}
-	walker := rootWalk{given: root, physical: physicalRoot, probe: probe}
+	walker := rootWalk{given: check.given, physical: check.physical, probe: probe}
 	rest, inside := walker.relative(project)
 	if !inside {
 		return rootScope{name: project, outside: true}

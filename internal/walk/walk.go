@@ -42,6 +42,9 @@ type Records interface {
 // to its base, is a credential file; MaxSize is the size cap in bytes, 0 for
 // none. Under Inventory nothing is staged or written: matches and files go to
 // Records. Owners names the owners the Windows rows record; nil records none.
+// RootCheck is the image root's check (NewRootCheck), the zero RootCheck on
+// a live run: the catalog expansion looks at nothing behind a link out of
+// the image root.
 // It is not safe for concurrent use, which the sequential walk never needs.
 type Collector struct {
 	Tables    *catalog.Tables
@@ -56,6 +59,7 @@ type Collector struct {
 	Inventory bool
 	Records   Records
 	Owners    *fsmeta.Owners
+	RootCheck RootCheck
 }
 
 // ownerOf returns the owner of path itself for its row, or "" without Owners.
