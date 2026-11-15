@@ -17,12 +17,12 @@ func SystemRegistry() Registry { return systemRegistry{} }
 // Strings reads the values of subkey under root as Read-RegistryStrings
 // does: a missing key gives nothing and no reason, a key that cannot be
 // opened or listed gives the error's text as the reason. A value's text
-// keeps its embedded NULs, as .NET's GetValue keeps them, so
-// acceptRegistryValue refuses it rather than accepting the text before the
-// first NUL. A REG_EXPAND_SZ value is never expanded, as
-// DoNotExpandEnvironmentNames asks; a value of another type keeps only its
-// name, and an empty name (the key's default value) is skipped. A value name
-// ends at its first NUL, as Windows PowerShell 5.1's GetValueNames ends it.
+// keeps its embedded NULs, as .NET's GetValue does, for acceptRegistryValue
+// to refuse; REG_EXPAND_SZ is never expanded; a value of another type keeps
+// only its name; the default (empty) name is skipped. A name ends at its
+// first NUL, as PowerShell 5.1's GetValueNames ends it, so a name holding
+// one may read as missing: it keeps only its name and the rest of the key
+// is still read, so a value any user plants in their own key hides no other.
 func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {
 	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{}}
 	key, err := registry.OpenKey(rootKey(root), subkey, registry.READ)
@@ -46,7 +46,7 @@ func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings 
 		values.Names = append(values.Names, name)
 		text, kind, err := regtext.Read(key, name)
 		switch {
-		case errors.Is(err, registry.ErrUnexpectedType):
+		case errors.Is(err, registry.ErrUnexpectedType), errors.Is(err, registry.ErrNotExist):
 			continue
 		case err != nil:
 			values.Reason = err.Error()

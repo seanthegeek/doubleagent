@@ -124,6 +124,26 @@ func TestSystemRegistryCutsAValueNameAtItsNUL(t *testing.T) {
 	}
 }
 
+func TestSystemRegistryReadsPastAListedValueThatCannotBeRead(t *testing.T) {
+	key, usersPath := testKey(t)
+	// AAA, a NUL and x is listed as AAA, a name no value has, so reading it
+	// fails as missing.
+	setCountedName(t, key, "AAA\x00x", `C:\planted`)
+	if err := key.SetStringValue("CODEX_HOME", `C:\real`); err != nil {
+		t.Fatal(err)
+	}
+	got := SystemRegistry().Strings(UsersRoot, usersPath)
+	if got.Reason != "" {
+		t.Fatalf("reason %q, want none: one unreadable value must not hide the key", got.Reason)
+	}
+	if text := got.Text["CODEX_HOME"]; text != `C:\real` {
+		t.Errorf("CODEX_HOME = %q, want C:\\real; names %q", text, got.Names)
+	}
+	if _, read := got.Text["AAA"]; read || !slices.Contains(got.Names, "AAA") {
+		t.Errorf("names %q, text %q; want AAA listed without text", got.Names, got.Text)
+	}
+}
+
 // setCountedName writes text as the REG_SZ value under key whose counted
 // name is name, a NUL in it included, through NtSetValueKey.
 func setCountedName(t *testing.T, key registry.Key, name, text string) {
