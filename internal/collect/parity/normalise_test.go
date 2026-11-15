@@ -39,6 +39,38 @@ func normalMembers(members map[string]string, manifest func(string) string) stri
 	return strings.Join(lines, "\n")
 }
 
+// normalLinkTarget returns a link target with / separators and without the
+// extended-length prefix: \\?\ as the binary and the PowerShell writer store
+// it, //?/ as tar.exe stores it after turning every \ into /, and the UNC
+// form of either (\\?\UNC\server\share) as //server/share.
+func normalLinkTarget(target string) string {
+	target = strings.ReplaceAll(target, `\`, "/")
+	if rest, ok := strings.CutPrefix(target, "//?/UNC/"); ok {
+		return "//" + rest
+	}
+	return strings.TrimPrefix(target, "//?/")
+}
+
+func TestNormalLinkTargetDropsTheExtendedPrefixInEitherSpelling(t *testing.T) {
+	cases := []struct {
+		name, target, want string
+	}{
+		{"a drive path with the backslash prefix", `\\?\C:\Users\a\x`, "C:/Users/a/x"},
+		{"a drive path with the slash prefix tar.exe writes", "//?/C:/Users/a/x", "C:/Users/a/x"},
+		{"a UNC path with the backslash prefix", `\\?\UNC\server\share\x`, "//server/share/x"},
+		{"a UNC path with the slash prefix", "//?/UNC/server/share/x", "//server/share/x"},
+		{"a relative target keeps its text", `..\dotfiles\camel`, "../dotfiles/camel"},
+		{"a plain UNC path keeps its two slashes", `\\server\share\x`, "//server/share/x"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := normalLinkTarget(test.target); got != test.want {
+				t.Errorf("normalLinkTarget(%q) = %q, want %q", test.target, got, test.want)
+			}
+		})
+	}
+}
+
 // compareRuns reports each part of the two normalised runs that differs, with
 // the first differing line.
 func compareRuns(t *testing.T, want, got collectorRun) {

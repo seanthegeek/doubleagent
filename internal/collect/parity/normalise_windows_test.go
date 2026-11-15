@@ -314,11 +314,11 @@ func blankFileHintValues(summary map[string]any) {
 }
 
 // normalWindowsArchive returns the archive's members as normalMembers lists
-// them, each link target without the \\?\ prefix and with / separators, and
-// without directory members: the binary stages a planned path's directory
-// before deciding its status, so a skipped file can leave an empty one, where
-// the PowerShell collector creates a directory only when it copies into it.
-// The files imply their directories.
+// them, each link target as normalLinkTarget gives it, and without directory
+// members: the binary stages a planned path's directory before deciding its
+// status, so a skipped file can leave an empty one, where the PowerShell
+// collector creates a directory only when it copies into it. The files imply
+// their directories.
 func normalWindowsArchive(members map[string]string) string {
 	normal := make(map[string]string, len(members))
 	for name, description := range members {
@@ -327,8 +327,7 @@ func normalWindowsArchive(members map[string]string) string {
 		}
 		if quoted, ok := strings.CutPrefix(description, "link "); ok {
 			if target, err := strconv.Unquote(quoted); err == nil {
-				target = strings.ReplaceAll(strings.TrimPrefix(target, `\\?\`), `\`, "/")
-				description = fmt.Sprintf("link %q", target)
+				description = fmt.Sprintf("link %q", normalLinkTarget(target))
 			}
 		}
 		normal[name] = description
