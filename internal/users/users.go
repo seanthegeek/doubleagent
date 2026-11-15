@@ -43,11 +43,16 @@ type Profile struct {
 // Report is what Find returns: the homes to collect in enumeration order,
 // the candidates that could not be seen as directories, and every
 // ProfileList entry in registry order before any filter. Skipped and
-// Profiles are empty off Windows.
+// Profiles are empty off Windows. Found lists, once each in enumeration
+// order, the user names of the candidates the -u list was tested against
+// (system and shared profiles left out); Unmatched the -u names, in the
+// order typed, that matched none of them.
 type Report struct {
-	Homes    []Home
-	Skipped  []Skipped
-	Profiles []Profile
+	Homes     []Home
+	Skipped   []Skipped
+	Profiles  []Profile
+	Found     []string
+	Unmatched []string
 }
 
 // userNames splits the -u list at commas into its names in the order typed,
@@ -60,6 +65,26 @@ func userNames(usersFilter string) []string {
 		}
 	}
 	return names
+}
+
+// unmatchedUsers returns the names, in order, that matches pairs with none
+// of found.
+func unmatchedUsers(names, found []string, matches func(name, user string) bool) []string {
+	var unmatched []string
+	for _, name := range names {
+		if !slices.ContainsFunc(found, func(user string) bool { return matches(name, user) }) {
+			unmatched = append(unmatched, name)
+		}
+	}
+	return unmatched
+}
+
+// addFound appends user to found unless found holds it already.
+func addFound(found []string, user string) []string {
+	if slices.Contains(found, user) {
+		return found
+	}
+	return append(found, user)
 }
 
 // transientProfile matches the ASCII-lowered names of the service profiles

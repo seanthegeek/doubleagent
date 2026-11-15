@@ -103,20 +103,21 @@ func sortedLines(text string) string {
 
 // normalWindowsLog returns the log's lines without their times, each start
 // line reduced to what both collectors print, the lines only one collector
-// writes dropped (the binary's sh-style find: line for a directory it cannot
-// list; the PowerShell collector's kinds in powerShellOnly), its two
-// wordings mapped onto the binary's, and the reasons of failure lines cut.
-// binary says the log is the Go binary's; timed says it is the log file,
-// whose lines carry times. Every untimed line of the PowerShell collector's
-// log file is written after the log is closed, by its archiver step (tar's
-// own error output, the fallback notes, staged-link cleanup), which the
-// binary has no counterpart for, so those are dropped too.
+// writes dropped (the binary's find: line for a directory it cannot list and
+// -u warning for a name matching no user; the PowerShell collector's kinds in
+// powerShellOnly), its two wordings mapped onto the binary's, and failure
+// reasons cut. binary says the log is the Go binary's; timed says it is the
+// log file, whose lines carry times. Every untimed line of the PowerShell
+// collector's log file comes after the log is closed, from its archiver step
+// (tar's own error output, the fallback notes, staged-link cleanup), which
+// the binary has no counterpart for, so those are dropped too.
 func normalWindowsLog(text string, binary, timed bool) string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimSuffix(withoutCarriageReturns(text), "\n"), "\n") {
 		archiverLine := timed && !binary && !windowsLogTime.MatchString(line)
 		line = windowsLogTime.ReplaceAllString(line, "")
-		onlyOne := (binary && strings.HasPrefix(line, "find: ")) || (!binary && powerShellOnly.MatchString(line))
+		binaryOnly := strings.HasPrefix(line, "find: ") || strings.HasPrefix(line, "WARNING: -u ")
+		onlyOne := (binary && binaryOnly) || (!binary && powerShellOnly.MatchString(line))
 		if archiverLine || onlyOne {
 			continue
 		}

@@ -41,14 +41,20 @@ func Find(live bool, root, usersFilter string, run Runner) Report {
 		candidates = append(candidates, dsclHomes(run)...)
 	}
 	candidates = append(candidates, globHomes(root)...)
+	kept, found := filterHomes(candidates, root, usersFilter)
 	var homes []Home
-	for _, home := range filterHomes(candidates, root, usersFilter) {
+	for _, home := range kept {
 		if isDirectory(home.Path) {
 			homes = append(homes, home)
 		}
 	}
-	return Report{Homes: homes}
+	return Report{Homes: homes, Found: found,
+		Unmatched: unmatchedUsers(userNames(usersFilter), found, sameName)}
 }
+
+// sameName reports whether a -u name names user: byte for byte, since Unix
+// account names are case-sensitive.
+func sameName(name, user string) bool { return name == user }
 
 // passwdHomes returns the user and root-prefixed home of every passwd line
 // with at least six fields and a non-empty sixth. Live, the text is
@@ -119,11 +125,11 @@ func globHomes(root string) []Home {
 // filterHomes drops the system and shared profile homes, the users the -u
 // list did not name, and every home already seen. A home under root is
 // compared with the system list without the root; the root counts as a prefix
-// of the text, so "/tmp/x" also matches "/tmp/xyz/home".
-func filterHomes(candidates []Home, root, usersFilter string) []Home {
+// of the text, so "/tmp/x" also matches "/tmp/xyz/home". found lists the
+// users the -u list was tested against.
+func filterHomes(candidates []Home, root, usersFilter string) (kept []Home, found []string) {
 	wanted, filtered := wantedUsers(usersFilter)
 	seen := map[string]struct{}{}
-	var kept []Home
 	for _, home := range candidates {
 		relative := home.Path
 		if root != "" && strings.HasPrefix(home.Path, root) {
@@ -132,6 +138,7 @@ func filterHomes(candidates []Home, root, usersFilter string) []Home {
 		if isSystemHome(relative) {
 			continue
 		}
+		found = addFound(found, home.User)
 		if _, named := wanted[home.User]; filtered && !named {
 			continue
 		}
@@ -141,7 +148,7 @@ func filterHomes(candidates []Home, root, usersFilter string) []Home {
 		seen[home.Path] = struct{}{}
 		kept = append(kept, home)
 	}
-	return kept
+	return kept, found
 }
 
 // wantedUsers splits the -u list at commas. filtered is true for any

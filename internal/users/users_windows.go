@@ -57,7 +57,8 @@ func find(reader profileReader, root, usersFilter string) Report {
 		}
 	}
 	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil)...)
-	report.Homes, report.Skipped = filterProfiles(candidates, usersFilter)
+	report.Homes, report.Skipped, report.Found = filterProfiles(candidates, usersFilter)
+	report.Unmatched = unmatchedUsers(userNames(usersFilter), report.Found, strings.EqualFold)
 	return report
 }
 
@@ -80,10 +81,11 @@ func globHomes(base string, live bool) []Home {
 // file symlink is a file whatever it leads to; one with it is a home, as
 // Directory.Exists reads it, so a junction or directory symlink whose target
 // is gone is collected, with its error_read row, rather than skipped.
-func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped) {
+func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped, []string) {
 	names := userNames(usersFilter)
 	var homes []Home
 	var skipped []Skipped
+	var found []string
 	seenHomes, seenSkipped := map[string]bool{}, map[string]bool{}
 	for _, candidate := range candidates {
 		if skipProfile(candidate.User) {
@@ -93,6 +95,7 @@ func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped) {
 		if err == nil && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
 			continue
 		}
+		found = addFound(found, candidate.User)
 		if usersFilter != "" && !wantedUser(names, candidate.User) {
 			continue
 		}
@@ -109,7 +112,7 @@ func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped) {
 			seenSkipped[key] = true
 		}
 	}
-	return homes, skipped
+	return homes, skipped, found
 }
 
 // wantedUser reports whether one of the -u names names user, ignoring the

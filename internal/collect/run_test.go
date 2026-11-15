@@ -553,3 +553,44 @@ func TestNativePaths(t *testing.T) {
 		t.Error("nativePaths changed the report it was given")
 	}
 }
+
+func TestUnmatchedUserNamesAreLogged(t *testing.T) {
+	cases := []struct {
+		name  string
+		found []string
+		want  []string
+	}{
+		{"each unmatched name gets a line listing the users found", []string{"alice", "bob"},
+			[]string{"WARNING: -u nobody matches no user; users found: alice, bob\n",
+				"WARNING: -u Eve matches no user; users found: alice, bob\n"}},
+		{"no user found reads none", nil,
+			[]string{"WARNING: -u nobody matches no user; users found: none\n",
+				"WARNING: -u Eve matches no user; users found: none\n"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			host := testHost(t)
+			host.findUsers = func(bool, string, string, users.Runner) users.Report {
+				return users.Report{Found: test.found, Unmatched: []string{"nobody", "Eve"}}
+			}
+			outDir := t.TempDir()
+			var stdout, stderr bytes.Buffer
+			options := testOptions(syspath.FromNative(fixtureImage(t)), outDir)
+			if code := runCollection(context.Background(), options, host, &stdout, &stderr); code != exitOK {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			log := runOutput(t, outDir, ".log")
+			position := strings.Index(log, "WARNING: no user home directories found\n")
+			if position < 0 {
+				t.Fatalf("the log lacks the no-home warning:\n%s", log)
+			}
+			for _, line := range test.want {
+				found := strings.Index(log[position:], line)
+				if found < 0 {
+					t.Fatalf("the log lacks %q in order:\n%s", line, log)
+				}
+				position += found + len(line)
+			}
+		})
+	}
+}

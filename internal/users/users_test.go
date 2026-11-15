@@ -236,8 +236,29 @@ func TestSkipProfile(t *testing.T) {
 	}
 }
 
-func TestUserNames(t *testing.T) {
+func TestUserNamesAndUnmatchedUsers(t *testing.T) {
 	if got, want := userNames("bob,,alice,bob, x"), []string{"bob", "alice", " x"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("userNames = %q, want %q", got, want)
+	}
+	found := []string{"alice", "émile"}
+	exact := func(name, user string) bool { return name == user }
+	cases := []struct {
+		name    string
+		names   []string
+		matches func(name, user string) bool
+		want    []string
+	}{
+		{"exact names match only their own spelling", []string{"alice", "ALICE", "ÉMILE"}, exact,
+			[]string{"ALICE", "ÉMILE"}},
+		{"Unicode folding matches every letter's case", []string{"ALICE", "ÉMILE", "nobody"},
+			strings.EqualFold, []string{"nobody"}},
+		{"no names leave nothing unmatched", nil, exact, nil},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := unmatchedUsers(test.names, found, test.matches); !reflect.DeepEqual(got, test.want) {
+				t.Errorf("unmatchedUsers(%q) = %q, want %q", test.names, got, test.want)
+			}
+		})
 	}
 }

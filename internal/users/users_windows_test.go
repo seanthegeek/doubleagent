@@ -392,3 +392,32 @@ func TestCanonicalProfilePath(t *testing.T) {
 		})
 	}
 }
+
+func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
+	cases := []struct {
+		name, filter     string
+		homes, unmatched []string
+	}{
+		{"an accented name in another case selects its home", "\u00c9MILE", []string{"\u00e9mile"}, nil},
+		{"an ASCII name in another case selects its home", "ALICE", []string{"alice"}, nil},
+		{"a name matching nothing selects nothing and is reported", "nobody,ALICE",
+			[]string{"alice"}, []string{"nobody"}},
+		{"no list reports nothing unmatched", "", []string{"alice", "\u00e9mile"}, nil},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			root := writeTree(t, []string{"Users/alice", "Users/\u00e9mile", "Users/Public"}, nil)
+			report := find(nil, root, test.filter)
+			var homes []string
+			for _, home := range report.Homes {
+				homes = append(homes, home.User)
+			}
+			wantFound := []string{"alice", "\u00e9mile"}
+			if !reflect.DeepEqual(homes, test.homes) || !reflect.DeepEqual(report.Unmatched, test.unmatched) ||
+				!reflect.DeepEqual(report.Found, wantFound) {
+				t.Errorf("homes %q, unmatched %q, found %q; want %q, %q, %q", homes, report.Unmatched,
+					report.Found, test.homes, test.unmatched, wantFound)
+			}
+		})
+	}
+}

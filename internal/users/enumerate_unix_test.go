@@ -49,3 +49,26 @@ func TestEnumerateLive(t *testing.T) {
 		})
 	}
 }
+
+func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
+	root := tree{dirs: []string{"home/alice", "home/bob", "Users/Shared"}}.build(t)
+	cases := []struct {
+		name, filter string
+		unmatched    []string
+	}{
+		{"a name in another case is unmatched, as Unix names are case-sensitive", "ALICE,bob",
+			[]string{"ALICE"}},
+		{"names that exist are all matched", "alice,bob", nil},
+		{"no list reports nothing unmatched", "", nil},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			report := Find(false, root, test.filter, nil)
+			if !reflect.DeepEqual(report.Unmatched, test.unmatched) ||
+				!reflect.DeepEqual(report.Found, []string{"alice", "bob"}) {
+				t.Errorf("unmatched %q, found %q; want %q and alice, bob", report.Unmatched,
+					report.Found, test.unmatched)
+			}
+		})
+	}
+}
