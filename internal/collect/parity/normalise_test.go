@@ -51,6 +51,70 @@ func normalLinkTarget(target string) string {
 	return strings.TrimPrefix(target, "//?/")
 }
 
+// emptyLinkTarget is the description of a link member stored without its
+// target.
+const emptyLinkTarget = `link ""`
+
+// emptyLinkTargets returns the names of the link members stored without a
+// target. The PowerShell collector's tar.exe has been seen to store a link
+// so (one member, in the case whose output directory lies inside the image,
+// on the lab VM, where tar.exe writes the archive); the cause was not
+// established. That is a defect of its archiver, and the binary's target for
+// the member is the real one.
+func emptyLinkTargets(members map[string]string) map[string]bool {
+	names := map[string]bool{}
+	for name, description := range members {
+		if description == emptyLinkTarget {
+			names[name] = true
+		}
+	}
+	return names
+}
+
+// blankLinkTargets returns members with the target of each link member
+// named in names left out, so the member, its type and its name are still
+// compared.
+func blankLinkTargets(members map[string]string, names map[string]bool) map[string]string {
+	blanked := make(map[string]string, len(members))
+	for name, description := range members {
+		if names[name] && strings.HasPrefix(description, "link ") {
+			description = emptyLinkTarget
+		}
+		blanked[name] = description
+	}
+	return blanked
+}
+
+func TestAnEmptyReferenceLinkTargetToleratesOnlyThatMembersTarget(t *testing.T) {
+	reference := map[string]string{
+		"./fs/empty": emptyLinkTarget, "./fs/kept": `link "C:/a"`,
+		"./fs/only-reference": emptyLinkTarget, "./fs/file": "hash1",
+	}
+	binary := blankLinkTargets(map[string]string{
+		"./fs/empty": `link "C:/elsewhere/out"`, "./fs/kept": `link "C:/b"`,
+		"./fs/only-binary": `link "C:/c"`, "./fs/file": "hash2",
+	}, emptyLinkTargets(reference))
+	cases := []struct {
+		name, member string
+		wantEqual    bool
+	}{
+		{"an empty reference target accepts any binary target", "./fs/empty", true},
+		{"a non-empty reference target must still match", "./fs/kept", false},
+		{"a member only the reference has still differs", "./fs/only-reference", false},
+		{"a member only the binary has still differs", "./fs/only-binary", false},
+		{"a file member is left as it was", "./fs/file", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			want, inReference := reference[test.member]
+			got, inBinary := binary[test.member]
+			if equal := inReference && inBinary && want == got; equal != test.wantEqual {
+				t.Errorf("member %s: reference %q, binary %q", test.member, want, got)
+			}
+		})
+	}
+}
+
 func TestNormalLinkTargetDropsTheExtendedPrefixInEitherSpelling(t *testing.T) {
 	cases := []struct {
 		name, target, want string

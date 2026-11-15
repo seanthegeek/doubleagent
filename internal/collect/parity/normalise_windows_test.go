@@ -44,9 +44,12 @@ var (
 // on the PowerShell collector's run first and on the binary's second (Go
 // evaluates call arguments left to right), and the stderr rule needs both:
 // a failed run's error record, kept without its whitespace by the oracle,
-// must contain the message the binary prints, whitespace dropped too.
+// must contain the message the binary prints, whitespace dropped too. The
+// archive rule needs both as well: the binary's target is blanked for each
+// link member the PowerShell collector's archive stores without one.
 func newWindowsNormaliser() normaliser {
 	var reference string
+	var emptyTargets map[string]bool
 	return func(run collectorRun, binary, logOnStderr bool) collectorRun {
 		stderr := withoutCarriageReturns(run.stderr)
 		switch {
@@ -63,6 +66,9 @@ func newWindowsNormaliser() normaliser {
 		manifest, members := run.files[".manifest.jsonl"], run.members
 		if binary {
 			manifest, members = replaceSurrogates(manifest), replaceMemberSurrogates(members)
+			members = blankLinkTargets(members, emptyTargets)
+		} else {
+			emptyTargets = emptyLinkTargets(members)
 		}
 		files := map[string]string{
 			".manifest.jsonl":  normalManifest(manifest),
