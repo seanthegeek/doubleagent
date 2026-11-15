@@ -477,3 +477,24 @@ func TestProjectOutsideTheRootAsGivenSaysSo(t *testing.T) {
 		t.Errorf("rows %q, want none", rows.String())
 	}
 }
+
+func TestRelativeKeepsTheGivenRootsSpelling(t *testing.T) {
+	cases := []struct {
+		name, given, path, rest string
+		inside                  bool
+	}{
+		{"a UNC root keeps its two leading slashes", "//server/share", "//server/share/a/b", "a/b", true},
+		{"a trailing slash is trimmed", "/img/", "/img/x", "x", true},
+		{"a path beside the root is outside", "/img", "/img2/x", "", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			walker := rootWalk{given: test.given, physical: "/resolved-elsewhere"}
+			rest, inside := walker.relative(test.path)
+			if rest != test.rest || inside != test.inside {
+				t.Errorf("relative(%q) under %q = %q, %t, want %q, %t", test.path, test.given, rest,
+					inside, test.rest, test.inside)
+			}
+		})
+	}
+}

@@ -2,7 +2,6 @@ package walk
 
 import (
 	"context"
-	"path"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -324,9 +323,15 @@ func (walker rootWalk) unreadable(path string) rootScope {
 }
 
 // relative returns name less the resolved root or the root as given (which
-// resolves to it), and whether name lies under either.
+// resolves to it), and whether name lies under either. The given root loses
+// only a trailing slash: cleaning it would turn a UNC root //server/share
+// into /server/share, which nothing lies under.
 func (walker rootWalk) relative(name string) (string, bool) {
-	for _, root := range []string{walker.physical, path.Clean(walker.given)} {
+	given := walker.given
+	if len(given) > 1 {
+		given = strings.TrimSuffix(given, "/")
+	}
+	for _, root := range []string{walker.physical, given} {
 		if rest, inside := pathUnder(name, root); inside {
 			return rest, true
 		}
