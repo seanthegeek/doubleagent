@@ -117,9 +117,10 @@ func TestCollectAgreesWithTheShCollector(t *testing.T) {
 		}
 		testCase.compare(t, img, shCollector(script), []string{binary, "collect"}, normalise)
 	}
-	// The cases that change nothing in the image run in parallel first;
-	// -run 'TestCollectAgreesWithTheShCollector/(shared_image/)?<case>$'
-	// selects one case in either group.
+	// The cases that change nothing in the image run in parallel first. go
+	// test splits a -run pattern at each slash, so a parallel case is selected
+	// with -run 'TestCollectAgreesWithTheShCollector/shared_image/^<case>$'
+	// and a serial one with -run 'TestCollectAgreesWithTheShCollector/^<case>$'.
 	t.Run("shared image", func(t *testing.T) {
 		for _, testCase := range cases {
 			if testCase.parallel {
