@@ -378,7 +378,7 @@ func TestOutsideStageErrorNamesTheNativePath(t *testing.T) {
 	}
 }
 
-func TestHoldsRefusesANameNTFSKeepsApart(t *testing.T) {
+func TestHoldsComparesPhysicalPathsByteForByte(t *testing.T) {
 	base := syspath.FromNative(t.TempDir())
 	for _, name := range []string{".stage-x/fs", ".ſtage-x/fs"} {
 		mustDo(t, os.MkdirAll(syspath.Extended(base+"/"+name), 0o755))
@@ -388,7 +388,10 @@ func TestHoldsRefusesANameNTFSKeepsApart(t *testing.T) {
 		name, physical string
 		want           bool
 	}{
-		{"the staging directory in another ASCII case is held", base + "/.STAGE-X/fs", true},
+		{"the staging directory as the disk spells it is held", base + "/.stage-x/fs", true},
+		// Physical paths are disk spellings, so another spelling names
+		// another directory, as it would in a case-sensitive directory.
+		{"a physical path differing only in ASCII case is not held", base + "/.STAGE-X/fs", false},
 		{"a long-s sibling NTFS keeps apart is not held", base + "/.ſtage-x/fs", false},
 	}
 	for _, test := range cases {

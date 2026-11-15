@@ -112,10 +112,12 @@ func (stager Stager) requireInside(operation, dir string) error {
 // holds reports whether the physical directory lies at or under the
 // staging directory. Physical is compared first; when it does not match, or
 // is empty, the staging directory is resolved again, so a stager whose
-// Physical was given unresolved still stages.
+// Physical was given unresolved still stages. Both sides are PhysicalDir
+// results, spelled as the disk holds the names, so they are compared byte
+// for byte: in a case-sensitive directory .STAGE-x is another directory.
 func (stager Stager) holds(physical string) bool {
 	under := func(root string) bool {
-		return root != "" && syspath.HasPrefix(physical+"/", strings.TrimSuffix(root, "/")+"/")
+		return root != "" && strings.HasPrefix(physical+"/", strings.TrimSuffix(root, "/")+"/")
 	}
 	if under(stager.Physical) {
 		return true
@@ -216,8 +218,7 @@ func (stager Stager) RemoveFailedCopy(dest string) bool {
 		return true
 	}
 	physical, err := PhysicalDir(parentOf(dest))
-	if stager.Physical == "" || err != nil ||
-		!syspath.HasPrefix(physical+"/", stager.Physical+"/") {
+	if stager.Physical == "" || err != nil || !stager.holds(physical) {
 		return false
 	}
 	// rm -f removes no directory, and os.Remove would remove an empty one.
