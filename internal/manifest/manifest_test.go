@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 func TestEscapeJSON(t *testing.T) {
@@ -75,11 +77,12 @@ func TestWriterBookkeeping(t *testing.T) {
 			t.Errorf("HasPath(%q) = %v, want %v", path, got, want)
 		}
 	}
+	// The keys are folded, upper-cased on Windows, so the lookups fold too.
 	homes := writer.HomesWithRows()
-	if _, ok := homes["/h/a"]; ok || len(homes) != 2 {
+	if _, ok := homes[syspath.Fold("/h/a")]; ok || len(homes) != 2 {
 		t.Errorf("homes = %v, want /h/b and /h/c only", homes)
 	}
-	if _, ok := homes["/h/b"]; !ok {
+	if _, ok := homes[syspath.Fold("/h/b")]; !ok {
 		t.Errorf("homes = %v, want /h/b", homes)
 	}
 	if got := strings.Count(out.String(), "\n"); got != len(rows) {
