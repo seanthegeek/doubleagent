@@ -183,22 +183,22 @@ it reads the value as the signed number -1, a date just before the year
 1601. So after asking, the binary reads the access time back on the same
 open file and compares it with the value it read just before asking. It
 sets the time back only when the value read back differs from the one
-read before and is one no access could have written: the request value
-itself, a time more than a day ahead of
-this machine's clock (a day leaves room for a file server whose clock runs
-ahead), or a time more than two seconds earlier than before (an access
-never moves the time back; two seconds covers file systems that keep
-coarser times). It then sets the access time back to the value read before,
-passing no other time, reads it again to check, and reads the file on the
-same open. Setting the access time is a change to the file's metadata: on
-NTFS it also updates the file's change time (the time its record last
-changed), even when the value set is the one already there, and it may
-add a record to the volume's change journal.
-A later time within that day is taken as another program's read between
-the two readings, made through its own open, and is left as it is. The
-check relies on the time the file system reports: on a share, that may
-come from the client's cache rather than the server, and a misread there
-would go unnoticed.
+read before and cannot be the time of any real access: the request value
+itself, a date before 1980 (the earliest date FAT can hold, which no file
+system stamps an access before), or a date more than 50 years ahead of
+this machine's clock (more than any clock error). It then sets the access
+time back to the value read before, passing no other time, reads it again
+to check, and reads the file on the same open. Setting the access time is
+a change to the file's metadata: it may also update the file's change time
+(the time its record last changed; setting the value a file already had
+did on one Windows machine and not on another) and may add a record to the
+volume's change journal. Any other change between the two readings is
+taken as another program's read through its own open, stamped by a clock
+that may be far from this machine's, and is left as it is. A server that
+stores the request as a date between 1980 and 50 years ahead (some clamp
+dates to 2038) is not caught. The check relies on the time the file system
+reports: on a share, that may come from the client's cache rather than the
+server, and a misread there would go unnoticed.
 
 Every file read without the hold the run wanted gets a log line, written
 when the file is opened, once for each file and reason:
@@ -212,9 +212,9 @@ access time not held: <path>: <reason>
 | `right to hold refused` | Windows refused the open with the right to change attributes, so the file was read read-only. |
 | `hold refused` | The file system refused the request to hold the access time; the file was read on the same open. |
 | `hold not verified` | The access time could not be read before or after the request; the request stands, unchecked. |
-| `access time changed while the hold was asked for` | The access time moved forward, within a day of this machine's clock, between the two readings: most likely another program's read. The binary left it as it was and read the file on the same open. |
-| `hold not honoured, access time restored` | The access time changed, when the hold was asked for, to a value no access could have written; the binary set the access time back to the value read before, checked it, and read the file on the same open. |
-| `hold not honoured, restore failed` | The access time changed, when the hold was asked for, to a value no access could have written, and could not be set back (it did not read back as set, or the value read before could not be sent as a time); or the first reading failed and the value read back was the request value itself, so the old time is unknown. The file was read on the same open. |
+| `access time changed while the hold was asked for` | The access time changed between the two readings to a value a real access could have written (from 1980 to 50 years ahead of this machine's clock): most likely another program's read. The binary left it as it was and read the file on the same open. |
+| `hold not honoured, access time restored` | The access time changed, when the hold was asked for, to a value no real access could have written (the request value, a date before 1980, or a date more than 50 years ahead); the binary set the access time back to the value read before, checked it, and read the file on the same open. |
+| `hold not honoured, restore failed` | The access time changed, when the hold was asked for, to a value no real access could have written, and could not be set back (it did not read back as set, or the value read before could not be sent as a time); or the first reading failed and the value read back was the request value itself, so the old time is unknown. The file was read on the same open. |
 
 After the last file is read the log adds
 `access times not held: <N> file(s)`, the number of distinct files listed,
@@ -225,8 +225,9 @@ is given. Neither line is written under `--no-preserve-atime`, nor for a
 file on a local NTFS volume where updates are off, since no hold was
 wanted. A refused right or hold is not listed for a file on a volume that
 reports itself read-only (a disk image mounted read-only, a shadow copy),
-where no read can move an access time; a read-only share does not report
-this and may still be listed.
+where no read can move an access time. A refused right or hold on a share
+is listed even when the share reports itself read-only, since the server's
+own disk may still record the read.
 
 For a listed file, treat the access time now on disk as possibly the
 binary's own: its read, or with `restore failed` the value the file system

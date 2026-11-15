@@ -25,14 +25,18 @@ const (
 	resumeTime = ^uint64(0) - 1
 )
 
-// Allowances of the misread test, in 100-nanosecond intervals. A time up to
-// a day ahead of this machine's clock may be genuine: a file server stamps
-// accesses with its own clock, which may run hours ahead. A time up to two
-// seconds behind the value read before may be the same time read at a
-// coarser grain (FAT keeps write times to two seconds).
+// The bounds of a possible access time, in FILETIME units. floorTime is the
+// first day of 1980, the earliest date FAT can hold: no file system Windows
+// reads stamps an access before it, and a server that takes all ones as the
+// signed number -1 stores a date at or just before 1601, or 1970 if it
+// clamps. ceilingSpan is 50 years past this machine's clock, more than any
+// clock error: all ones read as an unsigned time is tens of thousands of
+// years ahead. Of the dates servers clamp to, 2107 (for about thirty more
+// years), 2262 and 9999 lie past the ceiling; the end of 32-bit Unix time
+// does not, and a server clamping there is not caught.
 const (
-	futureAllowance = 24 * 60 * 60 * 10_000_000
-	grainAllowance  = 2 * 10_000_000
+	floorTime   = 119_600_064_000_000_000
+	ceilingSpan = 50 * 36525 * 24 * 60 * 60 * 10_000_000 / 100 // 365.25 days a year
 )
 
 // holdSteps are the operations verifyHold runs on one open file: read its
@@ -47,11 +51,12 @@ type holdSteps struct {
 
 // verifyHold asks for the hold, reading the access time before and after,
 // and returns the reason to report ("" when the hold is in place). Only a
-// time that changed to a value no access could have written (misread) is
-// taken as a misread hold and set back; a time that was already such a
-// value is left alone, and another reader may move the time forward
-// meanwhile. The answer to the hold is judged after the reads, since a
-// driver may store the value and still return an error.
+// time that changed to a value no real access could have written (misread)
+// is taken as a misread hold and set back. Any other change is reported
+// and left as it is: another program's read through its own open, stamped
+// by a clock that may be far from this machine's. The answer to the hold is
+// judged after the reads, since a driver may store the value and still
+// return an error.
 func verifyHold(steps holdSteps) string {
 	before, beforeErr := steps.accessTime()
 	holdErr := steps.hold()
@@ -67,22 +72,18 @@ func verifyHold(steps holdSteps) string {
 		return reasonHoldRefused
 	case beforeErr != nil || afterErr != nil:
 		return reasonNotVerified
-	case after > before:
+	case after != before:
 		return reasonChanged
 	}
-	// The same time, or one behind by less than the grain allowance.
 	return ""
 }
 
 // misread reports whether after, read once the hold was asked for, differs
-// from before and is a value no access could have written: the hold value
-// itself, a time more than futureAllowance ahead of now, or a time earlier
-// than before by more than grainAllowance (an access never moves the time
-// back), as a server taking all ones as the signed number -1 would store,
-// just before 1601.
+// from before and cannot be the time of any real access: the hold value
+// itself, a time before floorTime, or one more than ceilingSpan past now.
 func misread(before, after, now uint64) bool {
-	return after != before && (after == holdTime || after > now+futureAllowance ||
-		(after < before && before-after > grainAllowance))
+	return after != before &&
+		(after == holdTime || after < floorTime || after > now+ceilingSpan)
 }
 
 // restoreAccessTime sets the access time back to before, the value read on

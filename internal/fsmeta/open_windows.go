@@ -89,13 +89,16 @@ func (o *Opener) report(path string, handle windows.Handle, reason string) {
 	}
 }
 
-// onReadOnlyVolume reports whether the volume the file handle is open on
-// is read-only (FILE_READ_ONLY_VOLUME). A volume whose flags cannot be read,
-// a share among them (SMB answers no volume query), counts as writable.
+// onReadOnlyVolume reports whether the file handle is open on is on a local
+// volume that is read-only (FILE_READ_ONLY_VOLUME), where no read can move
+// an access time. A remote volume (onRemoteVolume) never counts: its flags
+// are the server's description of the share, and the server's own disk may
+// still record the read. A volume whose flags cannot be read counts as
+// writable.
 func onReadOnlyVolume(handle windows.Handle) bool {
 	var flags uint32
 	err := windows.GetVolumeInformationByHandle(handle, nil, 0, nil, nil, &flags, nil, 0)
-	return err == nil && flags&windows.FILE_READ_ONLY_VOLUME != 0
+	return err == nil && flags&windows.FILE_READ_ONLY_VOLUME != 0 && !onRemoteVolume(handle)
 }
 
 // currentFiletime reads this machine's clock as the count a FILETIME holds.
@@ -116,9 +119,9 @@ func accessTimeOn(handle windows.Handle) (uint64, error) {
 }
 
 // setAccessTime sets the last-access time of the file open on handle to
-// accessTime, passing no creation or write time (nil). On NTFS this also
-// moves the file's change time, even to the value already there, and may
-// add a change-journal record.
+// accessTime, passing no creation or write time (nil). It may also update
+// the file's change time (setting the value a file already had did on one
+// Windows machine and not on another) and may add a change-journal record.
 func setAccessTime(handle windows.Handle, accessTime uint64) error {
 	value := windows.Filetime{LowDateTime: uint32(accessTime), HighDateTime: uint32(accessTime >> 32)}
 	return windows.SetFileTime(handle, nil, &value, nil)
