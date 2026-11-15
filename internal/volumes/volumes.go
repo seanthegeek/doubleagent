@@ -11,10 +11,10 @@ import (
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/walk"
@@ -170,11 +170,11 @@ func (run *collection) volumeRoot(base, rel string) (string, bool, error) {
 				" is a symlink and was not followed; collect its target by hand"
 			return dir, false, run.addNote(note)
 		}
-		if !isDirectory(dir) {
+		if !run.isDirectory(dir) {
 			return dir, false, nil
 		}
 		last := index == len(parts)-1
-		if !canEnter(dir) || (last && !canRead(dir)) {
+		if !run.canEnter(dir) || (last && !run.canRead(dir)) {
 			run.counts.Seen = true
 			run.counts.Unreadable++
 			note := "docker: " + syspath.ToNative(dir) +
@@ -200,10 +200,25 @@ func splitComponents(rel string) []string {
 	return parts
 }
 
-// isDirectory reports whether target is, or links to, a directory, as test -d.
-func isDirectory(target string) bool {
-	info, err := osfile.Stat(target)
-	return err == nil && info.IsDir()
+// isDirectory reports whether target is, or links to, a directory, as test
+// -d; never for a target out of the image root, which is not followed.
+func (run *collection) isDirectory(target string) bool {
+	isDir, _ := follow.IsDirectory(run.collector.RootCheck.Expansion(), target)
+	return isDir
+}
+
+// canRead reports whether target may be read, as test -r; never for a target
+// out of the image root, which is not followed.
+func (run *collection) canRead(target string) bool {
+	readable, _ := follow.CanRead(run.collector.RootCheck.Expansion(), target)
+	return readable
+}
+
+// canEnter reports whether target may be searched, as test -x; never for a
+// target out of the image root, which is not followed.
+func (run *collection) canEnter(target string) bool {
+	enterable, _ := follow.CanEnter(run.collector.RootCheck.Expansion(), target)
+	return enterable
 }
 
 // collectVolumeDir collects every volume under base/rel, as collect_volume_dir
@@ -253,22 +268,27 @@ func volumeRule(table []catalog.Entry, name string) (catalog.Entry, bool) {
 
 // volumeUnreadable reports whether the volume directory, or its _data
 // directory when that is one, cannot be listed and entered.
-func volumeUnreadable(volume, data string) bool {
-	if !canRead(volume) || !canEnter(volume) {
+func (run *collection) volumeUnreadable(volume, data string) bool {
+	if !run.canRead(volume) || !run.canEnter(volume) {
 		return true
 	}
-	return isDirectory(data) && (!canRead(data) || !canEnter(data))
+	return run.isDirectory(data) && (!run.canRead(data) || !run.canEnter(data))
 }
 
 // collectVolume collects one volume's _data as user docker, or records an
-// unmatched or unreadable one, as collect_volume does.
+// unmatched or unreadable one, as collect_volume does. A _data that is a link
+// is skipped on its lstat alone, before anything would follow it, so the
+// outcome never depends on what the link points at; the sh collector tests
+// whether it can read through the link first.
 func (run *collection) collectVolume(ctx context.Context, volume string) error {
 	name := path.Base(volume)
 	data := volume + "/_data"
 	rule, matched := volumeRule(run.collector.Tables.DockerVolumes, name)
 	meta, dataError := fsmeta.Lstat(data)
 	switch {
-	case volumeUnreadable(volume, data):
+	case dataError == nil && follow.IsLink(meta):
+		return run.collector.Log.Line("  volume " + name + " has no _data directory, skipped")
+	case run.volumeUnreadable(volume, data):
 		run.counts.Unreadable++
 		label := "unmatched"
 		if matched {
@@ -276,7 +296,7 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 		}
 		return run.addNote("docker: volume " + name + " (" + label + ") at " +
 			syspath.ToNative(volume) + " is not readable; run as root to collect it")
-	case dataError != nil || meta.Kind == fsmeta.Symlink || !isDirectory(data):
+	case dataError != nil || !run.isDirectory(data):
 		return run.collector.Log.Line("  volume " + name + " has no _data directory, skipped")
 	case !matched && run.collector.Inventory:
 		return nil

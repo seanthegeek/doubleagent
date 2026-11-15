@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/inventory"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
@@ -212,11 +213,15 @@ func (state *runState) projectNotWalked(path string) bool {
 // report_missing_projects does. A value that leaves the image root is
 // skipped untested, whatever the analyst's host holds there.
 func (state *runState) reportMissingProjects() error {
+	check := state.roots.Expansion()
 	for _, path := range state.options.Projects {
-		if path == "" || state.projectLeavesRoot(path) || isDirectory(path) {
+		if path == "" || state.projectLeavesRoot(path) {
 			continue
 		}
-		reason, failed := fsmeta.DirReadError(path)
+		if isDir, err := follow.IsDirectory(check, path); isDir || err != nil {
+			continue
+		}
+		reason, failed, _ := follow.DirReadError(check, path)
 		if !failed {
 			reason = ""
 		}
@@ -332,7 +337,7 @@ func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
 		}
 	}
 	stagers := walk.PathStagers{Base: state.collector.Stager, File: state.collector.Stager}
-	if links, outside := walk.LinkedParent(base, path); !outside {
+	if links, outside := walk.LinkedParent(base, path, state.roots.Expansion()); !outside {
 		stagers.File = stagers.Base.Through(links.From, links.Into)
 		stagers.Passed = links.Passed
 	}
@@ -400,7 +405,7 @@ func (state *runState) countInventoryHomes() (scanned, unreadable int, err error
 			continue
 		}
 		scanned++
-		if _, failed := fsmeta.DirReadError(home.Path); !failed {
+		if _, failed, _ := follow.DirReadError(state.roots.Expansion(), home.Path); !failed {
 			continue
 		}
 		unreadable++

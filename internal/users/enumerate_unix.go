@@ -5,9 +5,9 @@ package users
 import (
 	"bytes"
 	"context"
-	"os"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
@@ -48,10 +48,10 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 		candidates = append(candidates, dsclHomes(ctx, run)...)
 	}
 	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
-	kept, found := filterHomes(candidates, root, usersFilter)
+	kept, found := filterHomes(candidates, root, usersFilter, guard)
 	var homes []Home
 	for _, home := range kept {
-		if isDirectory(home.Path) {
+		if guard.isDirectory(home.Path) {
 			homes = append(homes, home)
 		}
 	}
@@ -74,9 +74,13 @@ func passwdHomes(ctx context.Context, live bool, root string, run Runner, guard 
 		output, err := run(ctx, "getent", "passwd")
 		text, ran = output, err == nil
 	}
-	if !ran && guard.allows(root+"/etc/passwd") {
+	if !ran {
 		// test -f follows a link; a directory or missing file gives nothing.
-		text, _ = os.ReadFile(root + "/etc/passwd")
+		var err error
+		text, err = follow.ReadFile(guard.check, root+"/etc/passwd")
+		if link, out := follow.OutOfRoot(err); out {
+			guard.record(link)
+		}
 	}
 	var homes []Home
 	for _, line := range bytes.Split(text, []byte("\n")) {
@@ -121,7 +125,7 @@ func globHomes(root string, guard *rootGuard) []Home {
 	for _, pattern := range homeGlobs() {
 		for _, match := range guard.expand(root, pattern) {
 			for _, line := range strings.Split(match, "\n") {
-				if isDirectory(line) {
+				if guard.isDirectory(line) {
 					homes = append(homes, Home{line[strings.LastIndexByte(line, '/')+1:], line})
 				}
 			}
@@ -135,7 +139,8 @@ func globHomes(root string, guard *rootGuard) []Home {
 // compared with the system list without the root; the root counts as a prefix
 // of the text, so "/tmp/x" also matches "/tmp/xyz/home". found lists the
 // users of the candidates that pass every test but -u's and are directories.
-func filterHomes(candidates []Home, root, usersFilter string) (kept []Home, found []string) {
+func filterHomes(candidates []Home, root, usersFilter string, guard *rootGuard,
+) (kept []Home, found []string) {
 	wanted, filtered := wantedUsers(usersFilter)
 	seen := map[string]struct{}{}
 	for _, home := range candidates {
@@ -146,7 +151,7 @@ func filterHomes(candidates []Home, root, usersFilter string) (kept []Home, foun
 		if isSystemHome(relative) {
 			continue
 		}
-		if isDirectory(home.Path) {
+		if guard.isDirectory(home.Path) {
 			found = addFound(found, home.User)
 		}
 		if _, named := wanted[home.User]; filtered && !named {
@@ -176,8 +181,13 @@ func wantedUsers(usersFilter string) (wanted map[string]struct{}, filtered bool)
 	return wanted, true
 }
 
-// isDirectory is test -d: true for a directory or a link to one.
-func isDirectory(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
+// isDirectory is test -d: true for a directory or a link to one. A path
+// that leads out of the image root is not followed: its link is recorded and
+// it is no directory, whatever the link points at.
+func (guard *rootGuard) isDirectory(path string) bool {
+	isDir, err := follow.IsDirectory(guard.check, path)
+	if link, out := follow.OutOfRoot(err); out {
+		guard.record(link)
+	}
+	return isDir
 }

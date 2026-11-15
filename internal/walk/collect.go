@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -22,7 +23,7 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if reason, failed := fsmeta.DirReadError(home.Path); failed {
+		if reason, failed, _ := follow.DirReadError(collector.check(), home.Path); failed {
 			owner := scope{user: home.User, home: home.Path}
 			if err := collector.writeReadErrors(owner, []readError{{home.Path, reason}}); err != nil {
 				return err
@@ -128,7 +129,7 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 		return collector.recordOutOfRoot(ctx, run, match)
 	}
 	path := readField(match.Path)
-	links, outside := LinkedParent(run.base, path)
+	links, outside := LinkedParent(run.base, path, collector.check())
 	line := "  [" + match.Agent + "] " + syspath.ToNative(path)
 	switch {
 	case outside:
@@ -191,7 +192,8 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 ) (int, error) {
 	meta, statError := fsmeta.Lstat(path)
 	if statError == nil && meta.Kind == fsmeta.Dir {
-		if reason, failed := fsmeta.DirReadError(path); failed && !collector.Inventory {
+		reason, failed, _ := follow.DirReadError(collector.check(), path)
+		if failed && !collector.Inventory {
 			return 0, collector.writeReadErrors(owner, []readError{{path, reason}})
 		}
 		return collector.collectTree(ctx, owner, path)

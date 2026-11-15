@@ -508,6 +508,26 @@ Both scripts read and list through such a link, which in image mode reads
 the analyst's own host: the binary differs on purpose. A live run has no
 root to leave and reads every source as the host holds it.
 
+The binary logs a project the run lists but does not walk with one line
+and writes no row for it:
+`Project [alice] /img/home/alice/.claude/ext/proj: under the symlinked directory /img/home/alice/.claude/ext, which leads out of the image root; not walked`
+when a link on its path leads out of the root, and
+`Project [alice] /img/home/alice/.claude/loop/proj: under /img/home/alice/.claude/loop, which cannot be verified to lie inside the image root; not walked`
+when a link on its path cannot be followed: a loop, a chain of more than
+40 links, or a target that cannot be read. A `-p` value or discovered
+project in either case gets that line only: no
+`WARNING: project given with -p is not a directory` line and no `error_read`
+row, since testing it as a directory would follow the link on the
+analyst's host.
+
+Every test that follows a link in the last component of a path (a stat, a
+directory or file test, an access check, a directory listing test, a read
+of a whole file, a resolution to the physical directory) goes through the
+`internal/follow` package, which asks the image root's check about the
+whole path first; a test there fails on any other such call in the tree,
+apart from a short list of calls on the output directory, the staging tree
+and the operator's own `-r`, `-o` and `-p` paths, each with its reason.
+
 A new source goes into its group on both sides, at the same position.
 
 ## Relocation hints

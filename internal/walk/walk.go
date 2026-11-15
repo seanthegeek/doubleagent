@@ -8,6 +8,7 @@ package walk
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
@@ -60,6 +61,12 @@ type Collector struct {
 	Records   Records
 	Owners    *fsmeta.Owners
 	RootCheck RootCheck
+}
+
+// check is the root check the follow functions take: the image root's, nil
+// on a live run.
+func (collector *Collector) check() follow.Check {
+	return collector.RootCheck.Expansion()
 }
 
 // ownerOf returns the owner of path itself for its row, or "" without Owners.

@@ -36,7 +36,7 @@ func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glo
 				continue
 			}
 			meta, err := fsmeta.Lstat(path)
-			if err != nil || meta.Kind != fsmeta.File || linkedParent(base, path) {
+			if err != nil || meta.Kind != fsmeta.File || linkedParent(base, path, check) {
 				continue
 			}
 			files = append(files, path)
@@ -50,7 +50,8 @@ func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glo
 // outside base ("" for the root) once every link in it is resolved, or cannot
 // be resolved. path is base, a slash and the rest; the sh collector's
 // linked_parent counts the components of base off path in the same way.
-func linkedParent(base, path string) bool {
+// check is the image root's (nil live); a link it refuses is not resolved.
+func linkedParent(base, path string, check glob.Check) bool {
 	rest := path
 	for range strings.Count(base+"/", "/") {
 		if _, after, found := strings.Cut(rest, "/"); found {
@@ -68,13 +69,13 @@ func linkedParent(base, path string) bool {
 			continue
 		}
 		if root == "" {
-			physicalBase, ok := physicalDirectory(base)
+			physicalBase, ok := physicalDirectory(check, base)
 			if !ok {
 				return true
 			}
 			root = physicalBase
 		}
-		physical, ok := physicalDirectory(directory)
+		physical, ok := physicalDirectory(check, directory)
 		if !ok {
 			return true
 		}

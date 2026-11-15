@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -27,8 +28,9 @@ type Links struct {
 // does. Only the components of path past as many as base has are tested, and
 // path itself is not, unless it ends in "/", as a project's own path is given
 // so that the project directory is tested too; the components are counted,
-// never compared.
-func LinkedParent(base, path string) (Links, bool) {
+// never compared. check is the image root's (nil live): a link it refuses
+// counts as leading out, and is not resolved.
+func LinkedParent(base, path string, check follow.Check) (Links, bool) {
 	var links Links
 	relative := path
 	for range strings.Count(base, "/") + 1 {
@@ -48,13 +50,13 @@ func LinkedParent(base, path string) (Links, bool) {
 		}
 		links.Outside = directory
 		if root == "" {
-			physicalBase, err := stage.PhysicalDir(baseOrRoot(base))
+			physicalBase, err := follow.PhysicalDir(check, baseOrRoot(base))
 			if err != nil {
 				return links, true
 			}
 			root = physicalBase
 		}
-		physical, err := stage.PhysicalDir(directory)
+		physical, err := follow.PhysicalDir(check, directory)
 		if err != nil {
 			return links, true
 		}
@@ -157,7 +159,7 @@ func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, 
 			collector.Manifest.HasPath(link) {
 			continue
 		}
-		found, _ := LinkedParent(base, link)
+		found, _ := LinkedParent(base, link, collector.check())
 		owner.stager = throughLinks(baseStager, found.From, found.Into)
 		if _, err := collector.collectPath(ctx, owner, link); err != nil {
 			return err

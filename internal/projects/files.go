@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"io"
 
 	"github.com/seanthegeek/doubleagent/internal/glob"
@@ -71,26 +72,28 @@ func (s *homeScan) readWhole(path string) ([]byte, bool) {
 	return content, true
 }
 
-// isDirectory is test -d: true for a directory or a link to one.
-func isDirectory(path string) bool {
-	info, err := osfile.Stat(path)
-	return err == nil && info.IsDir()
-}
-
 // isDirectory is the scan's test -d: false, without a stat, for a path
-// leading out of the image root.
+// leading out of the image root, whose link is refused.
 func (s *homeScan) isDirectory(path string) bool {
-	return !s.leaves(path) && isDirectory(path)
+	isDir, err := follow.IsDirectory(s.outOfScope, path)
+	return !s.refusedBy(err) && isDir
 }
 
 // isRegularFile is test -f: true for a regular file or a link to one, and
 // false, without a stat, for a path leading out of the image root.
 func (s *homeScan) isRegularFile(path string) bool {
-	if s.leaves(path) {
-		return false
+	isFile, err := follow.IsRegularFile(s.outOfScope, path)
+	return !s.refusedBy(err) && isFile
+}
+
+// refusedBy records the link of err when it says a path leads out of the
+// image root, and reports whether it did.
+func (s *homeScan) refusedBy(err error) bool {
+	link, out := follow.OutOfRoot(err)
+	if out {
+		s.refuse(link)
 	}
-	info, err := osfile.Stat(path)
-	return err == nil && info.Mode().IsRegular()
+	return out
 }
 
 // expandIn returns the shell expansion of each pattern inside base, in

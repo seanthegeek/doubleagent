@@ -127,7 +127,7 @@ func TestLinkedParent(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			got, outside := LinkedParent(base, test.path)
+			got, outside := LinkedParent(base, test.path, nil)
 			if outside != test.outside || !reflect.DeepEqual(got, test.want) {
 				t.Errorf("LinkedParent = %+v, %v", got, outside)
 			}

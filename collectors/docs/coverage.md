@@ -192,7 +192,9 @@ the matched path.
   a link and logs one line per link
   ([Project discovery in `internals.md`](internals.md#project-discovery)). A link that
   leaves the home but stays inside the image root is listed and refused as described above.
-  A live run is unchanged.
+  An excluded path that is itself such a link gets its `skipped_excluded` row from its own
+  lstat, as a file, whatever the link points at; the scripts test it as a directory
+  through the link. A live run is unchanged.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
   `bar|b/sub` names the same files; the archive holds the last copy of a file and the link
   the first row recreated, which the second leaves as it is: `ln -s` onto a link to a
@@ -685,8 +687,10 @@ on Windows tests candidates the same way.
 In image mode the `doubleagent` binary takes nothing behind a link whose
 target leads out of the image root as a home: a home parent such as `home`
 that is such a link is not listed, a `<root>/etc/passwd` reached through one
-is not read, and a candidate home that is or lies behind one is dropped. The
-log names each link once, as
+is not read, and a candidate home that is or lies behind one is dropped
+without being tested as a directory, so the outcome is the same whatever
+the link points at, or whether it points at anything. The log names each
+link once, as
 `user homes: /img/home leads out of the image root; nothing behind it was listed or taken as a home`;
 the link gets no row of its own (it is not a home), and no user name from
 behind it appears in the outputs. Both scripts list the analyst's own

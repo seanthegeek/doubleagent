@@ -1,6 +1,7 @@
 package walk
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"golang.org/x/sys/windows"
 )
@@ -21,7 +22,7 @@ func collectedSize(file plannedFile) int64 {
 // whether it is sized as a directory, as Add-ExcludedPath writes it: the
 // path's own times and attributes, as a dir when Windows marks it a
 // directory (a junction or directory symlink included), else as a file.
-func excludedMeta(path string) (string, fsmeta.Meta, bool) {
+func excludedMeta(_ follow.Check, path string) (string, fsmeta.Meta, bool) {
 	meta, _ := lstatOrZero(path)
 	if meta.Attributes&windows.FILE_ATTRIBUTE_DIRECTORY != 0 {
 		return "dir", meta, true
@@ -33,7 +34,7 @@ func excludedMeta(path string) (string, fsmeta.Meta, bool) {
 // the Test-PathQuiet Container test of Write-ReadErrorRow: Directory.Exists
 // reads the entry without following a link, so a junction whose target is
 // gone still gets its owner, the junction's own.
-func isVisibleDir(path string) bool {
+func isVisibleDir(_ follow.Check, path string) bool {
 	meta, ok := lstatOrZero(path)
 	return ok && meta.Attributes&windows.FILE_ATTRIBUTE_DIRECTORY != 0
 }

@@ -185,7 +185,7 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 func (collector *Collector) writeExcluded(ctx context.Context, owner scope, paths []string,
 ) error {
 	for _, path := range paths {
-		kind, meta, isDir := excludedMeta(path)
+		kind, meta, isDir := excludedMeta(collector.check(), path)
 		if isDir {
 			size, err := fsmeta.DiskUsageBytes(ctx, path)
 			if err != nil {
@@ -210,7 +210,7 @@ func (collector *Collector) writeReadErrors(owner scope, failures []readError) e
 		meta, _ := lstatOrZero(failure.path)
 		row := metaRow(owner, failure.path, "dir", meta)
 		row.Size, row.Status, row.Error = 0, manifest.ErrorRead, failure.reason
-		if collector.Owners != nil && isVisibleDir(failure.path) {
+		if collector.Owners != nil && isVisibleDir(collector.check(), failure.path) {
 			row.Owner = collector.ownerOf(failure.path)
 		}
 		if err := collector.Manifest.Write(row); err != nil {

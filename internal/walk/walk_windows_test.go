@@ -574,7 +574,7 @@ func TestOtherReparsePointsAreLinksNeverEntered(t *testing.T) {
 	if !isSymlink(directory) {
 		t.Error("a directory with another reparse tag is not a link")
 	}
-	if links, outside := LinkedParent(home, directory+"/x"); !outside && links.From != directory {
+	if links, outside := LinkedParent(home, directory+"/x", nil); !outside && links.From != directory {
 		t.Errorf("LinkedParent through the placeholder = %+v, %v; want it taken as a link",
 			links, outside)
 	}
@@ -726,7 +726,7 @@ func TestIsVisibleDirReadsTheEntryItself(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := isVisibleDir(test.path); got != test.want {
+			if got := isVisibleDir(nil, test.path); got != test.want {
 				t.Errorf("isVisibleDir(%s) = %v, want %v", test.path, got, test.want)
 			}
 		})
@@ -762,7 +762,7 @@ func TestLinkedParentComparesPhysicalPathsWithCase(t *testing.T) {
 	makeJunction(t, dir+"/HOME/x", dir+"/home/j")
 	// The junction resolves to HOME/x, a sibling of home in this directory,
 	// so its files are not home's.
-	if _, outside := LinkedParent(dir+"/home", dir+"/home/j/f.txt"); !outside {
+	if _, outside := LinkedParent(dir+"/home", dir+"/home/j/f.txt", nil); !outside {
 		t.Error("a junction to the sibling HOME counts as inside home")
 	}
 }

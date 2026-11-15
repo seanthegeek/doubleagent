@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -132,7 +133,9 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	if !isDir {
 		return collector.record(ctx, owner, found, foundFile, path, "")
 	}
-	if reason, failed := fsmeta.DirReadError(path); failed {
+	// path's own lstat typed it a directory, so nothing is followed here;
+	// the check only keeps every directory test in one place.
+	if reason, failed, _ := follow.DirReadError(collector.check(), path); failed {
 		if err := collector.record(ctx, owner, found, foundReadError, path, reason); err != nil {
 			return err
 		}

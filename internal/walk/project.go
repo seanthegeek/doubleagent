@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -33,7 +34,7 @@ func (collector *Collector) CollectProject(ctx context.Context, user, home, proj
 	if place.outOfRoot != "" {
 		return nil
 	}
-	if reason, failed := fsmeta.DirReadError(project); failed {
+	if reason, failed, _ := follow.DirReadError(collector.check(), project); failed {
 		if err := collector.WriteReadError(user, project, project, reason); err != nil {
 			return err
 		}
@@ -74,7 +75,7 @@ func ProjectStagers(stager stage.Stager, home, project, path string) PathStagers
 		return PathStagers{Skip: true}
 	}
 	base := found.stager
-	links, outside := LinkedParent(project, path)
+	links, outside := LinkedParent(project, path, NewRootCheck(stager.Root).Expansion())
 	if outside {
 		return PathStagers{Base: base, File: base}
 	}
@@ -106,7 +107,8 @@ type place struct {
 // Whether the project is out of the image root is decided first, as
 // ProjectOutOfRoot decides it, before anything else of its path is stat'ed.
 func projectPlace(stager stage.Stager, home, project string) place {
-	scope := projectScope(stager.Root, project, imageProbes())
+	roots := NewRootCheck(stager.Root)
+	scope := roots.scope(project, imageProbes())
 	if scope.name != "" {
 		return place{outOfRoot: scope.name, unverified: scope.unverified, notUnder: scope.outside,
 			stager: stager}
@@ -114,12 +116,12 @@ func projectPlace(stager stage.Stager, home, project string) place {
 	if home == "" {
 		return place{stager: stager}
 	}
-	links, outside := LinkedParent(home, project+"/")
+	links, outside := LinkedParent(home, project+"/", roots.Expansion())
 	if !outside {
 		return place{links: links, stager: stager.Through(links.From, links.Into)}
 	}
 	found := place{links: links, outside: true, stager: stager}
-	if physical, err := stage.PhysicalDir(project); err == nil {
+	if physical, err := follow.PhysicalDir(roots.Expansion(), project); err == nil {
 		found.physical = underRoot(stager.Root, physical)
 		found.stager = stager.Through(project, found.physical)
 	}

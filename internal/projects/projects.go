@@ -9,6 +9,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -32,8 +33,9 @@ type Refusal struct {
 }
 
 // RootExit reports whether path leads out of the image root through a link,
-// and the link where it does (walk.LeavesRootAt).
-type RootExit func(path string) (link string, leaves bool)
+// and the link where it does (walk.LeavesRootAt): the check the follow
+// functions take.
+type RootExit = follow.Check
 
 // Discover returns the canonical paths of the projects named in the state of
 // each home (localProjectPath under the host's rules and root, "" or "/"
@@ -146,11 +148,8 @@ func keepProjectDirs(projects []Project, userList string, outOfScope RootExit) [
 	listed := "\n" + syspath.Fold(userList)
 	var kept []Project
 	for _, project := range projects {
-		skipTest := false
-		if outOfScope != nil {
-			_, skipTest = outOfScope(project.Path)
-		}
-		if !skipTest && !isDirectory(project.Path) {
+		isDir, err := follow.IsDirectory(outOfScope, project.Path)
+		if _, leaves := follow.OutOfRoot(err); !leaves && !isDir {
 			continue
 		}
 		folded := syspath.Fold(project.Path)

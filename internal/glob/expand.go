@@ -4,13 +4,15 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // Check reports whether expansion must not look at path, a directory it is
-// about to list or look a name up in, and the link that decides it.
-type Check func(path string) (link string, refused bool)
+// about to list or look a name up in, and the link that decides it: the
+// image root's check, which every function that follows a link also takes.
+type Check = follow.Check
 
 // Refusal is a link expansion did not look behind: the pattern word being
 // expanded, the link, and the directory whose listing or lookup it stopped.
