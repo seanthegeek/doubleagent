@@ -347,6 +347,48 @@ func TestCopyFileWithReadOnlySources(t *testing.T) {
 	}
 }
 
+// skipWithoutAccessUpdates skips the test unless a plain read of a scratch
+// file in dir moves its last-access time: where Windows has last-access
+// updates off for the volume, no read records one.
+func skipWithoutAccessUpdates(t *testing.T, dir string) {
+	t.Helper()
+	probe := dir + "/access-probe"
+	mustDo(t, os.WriteFile(probe, []byte("probe"), 0o600))
+	setTimes(t, probe, 1_500_000_000, 1_600_000_000, 1_700_000_000)
+	before := basicTimes(t, probe)
+	_, err := os.ReadFile(probe)
+	mustDo(t, err)
+	if basicTimes(t, probe)[1] == before[1] {
+		t.Skip("last-access updates are off on this volume: a read did not move the access time")
+	}
+}
+
+func TestReadOnlySourcesLetTheReadMoveTheAccessTime(t *testing.T) {
+	stager, root := newWindowsStager(t)
+	skipWithoutAccessUpdates(t, root)
+	stager.ReadOnlySources = true
+	source := root + "/home/file.txt"
+	mustDo(t, os.WriteFile(source, []byte("evidence"), 0o600))
+	setTimes(t, source, 1_500_000_000, 1_600_000_000, 1_700_000_000)
+	want := fileTimes(t, source)
+	before := basicTimes(t, source)
+	if _, _, err := stager.CopyFile(source); err != nil {
+		t.Fatal(err)
+	}
+	after := basicTimes(t, source)
+	_, dest := stager.Dest(source)
+	if got := fileTimes(t, dest); got != want {
+		t.Errorf("copy times (creation, access, write) %v, want the source's %v", got, want)
+	}
+	if after[1] == before[1] {
+		t.Errorf("source access time %d did not move; a read-only open cannot hold it", after[1])
+	}
+	if after[0] != before[0] || after[2] != before[2] {
+		t.Errorf("source times (creation, access, write) %v, want creation and write of %v",
+			after, before)
+	}
+}
+
 func TestCopyFileBesideAHandleWithDeleteAccess(t *testing.T) {
 	stager, root := newWindowsStager(t)
 	source := root + "/home/locked"
