@@ -156,9 +156,10 @@ and each file it reads to find projects or relocation hints (with
   another file system (ReFS, as on a Windows 11 Dev Drive, FAT or exFAT),
   on a remote volume (a mapped drive or a share, whose server keeps its own
   times), or on a volume whose file system cannot be read, is opened as in
-  the next case. The binary asks each file which volume it is on, so a
-  file reached through a junction or symlink is judged by the volume the
-  link leads to.
+  the next case. The binary first opens the file read-only and asks that
+  open which volume the file is on, so a file reached through a junction or
+  symlink is judged by the volume the link leads to; a file that is not on
+  a local NTFS volume is then opened again as in the next case.
 - **Updates are on, or the value cannot be read or understood.** The
   binary opens each file with the right to change the file's attributes as
   well as the right to read it, and tells Windows not to update the file's
@@ -191,9 +192,9 @@ file the binary collects: the manifest's `atime` is taken before the file
 is copied, and for a file the relocation search reads, before that read.
 A file the binary reads without collecting it has no manifest row, so its
 old access time is not recorded anywhere: a file read to find projects
-that no catalog line names, and a file the relocation search reads that
-holds no relocation variable. With `--no-preserve-atime` and
-`--env-scan-home` together, every file the sweep searches may have its
+that no catalog line names, and a startup file or swept file that holds no
+relocation variable. With `--no-preserve-atime` and `--env-scan-home`
+together, every swept file that holds no relocation variable may have its
 access time changed with no record of the old one. The choice is recorded in
 `collection.json` as `options.no_preserve_atime` and at the end of the
 log's second line as `no_preserve_atime=0` or `no_preserve_atime=1`.

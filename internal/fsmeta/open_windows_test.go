@@ -36,41 +36,77 @@ func tempFile(t *testing.T) string {
 	return path
 }
 
-func TestOpenerAccessList(t *testing.T) {
-	file := tempFile(t)
-	if fileSystem := newVolumeLookup()(file); fileSystem != "NTFS" {
-		t.Skipf("the temporary directory is on %q, not a local NTFS volume", fileSystem)
+// mayHoldTimes opens path through opener and reports whether the handle it
+// returns holds the right to set the file's times: SetFileTime with the
+// hold value is refused with access denied on a handle without it.
+func mayHoldTimes(t *testing.T, opener *Opener, path string) bool {
+	t.Helper()
+	file, err := opener.Open(path)
+	if err != nil {
+		t.Fatal(err)
 	}
-	both := []uint32{windows.GENERIC_READ | windows.FILE_WRITE_ATTRIBUTES, windows.GENERIC_READ}
-	readOnly := []uint32{windows.GENERIC_READ}
+	defer file.Close()
+	err = HoldTimes(windows.Handle(file.Fd()), false)
+	return !errors.Is(err, windows.ERROR_ACCESS_DENIED)
+}
+
+// requireLocalNTFS skips the test unless path is on a local NTFS volume.
+func requireLocalNTFS(t *testing.T, path string) {
+	t.Helper()
+	file, err := os.Open(syspath.ToNative(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if fileSystem := localFileSystem(windows.Handle(file.Fd())); fileSystem != "NTFS" {
+		t.Skipf("%s is on %q, not a local NTFS volume", path, fileSystem)
+	}
+}
+
+func TestOpenerDecision(t *testing.T) {
 	cases := []struct {
-		name   string
-		opener *Opener
-		want   []uint32
+		name       string
+		opener     *Opener
+		wantJudges bool
+		wantAccess []uint32
 	}{
-		{"a nil opener asks for the right, then reads only", nil, both},
-		{"the default opener asks for the right, then reads only", NewOpener(false, false), both},
-		{"--no-preserve-atime reads only", NewOpener(true, false), readOnly},
-		{"updates off reads a local NTFS file only", NewOpener(false, true), readOnly},
+		{"a nil opener holds", nil, false, holding},
+		{"the default opener holds", NewOpener(false, false), false, holding},
+		{"--no-preserve-atime reads only", NewOpener(true, false), false, readingOnly},
+		{"--no-preserve-atime with updates off reads only", NewOpener(true, true), false, readingOnly},
+		{"updates off judges the volume, then holds", NewOpener(false, true), true, holding},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			got := accessList(test.opener.asksForRight(file))
-			if fmt.Sprint(got) != fmt.Sprint(test.want) {
-				t.Errorf("access list %#x, want %#x", got, test.want)
+			judges, access := test.opener.judgesVolume(), accessList(test.opener.asksForRight())
+			if judges != test.wantJudges || fmt.Sprint(access) != fmt.Sprint(test.wantAccess) {
+				t.Errorf("judges %v, access %#x; want %v, %#x", judges, access,
+					test.wantJudges, test.wantAccess)
 			}
 		})
 	}
 }
 
-func TestVolumeLookupAsksTheFileItself(t *testing.T) {
-	file := tempFile(t)
-	local := newVolumeLookup()(file)
-	t.Logf("file system of %s: %q", file, local)
-	if local == "" {
-		t.Fatalf("no file system read for %s", file)
-	}
-	t.Run("a file reached through a junction is judged by the volume it is on", func(t *testing.T) {
+// The access lists openHolding tries.
+var (
+	holding     = []uint32{windows.GENERIC_READ | windows.FILE_WRITE_ATTRIBUTES, windows.GENERIC_READ}
+	readingOnly = []uint32{windows.GENERIC_READ}
+)
+
+func TestTheHandleReturnedIsTheHandleJudged(t *testing.T) {
+	local := tempFile(t)
+	requireLocalNTFS(t, local)
+	t.Run("updates off returns a local NTFS file on a read-only handle", func(t *testing.T) {
+		if mayHoldTimes(t, NewOpener(false, true), local) {
+			t.Error("the handle may set the file's times")
+		}
+	})
+	t.Run("updates on returns it on a handle that holds", func(t *testing.T) {
+		if !mayHoldTimes(t, NewOpener(false, false), local) {
+			t.Error("the handle may not set the file's times")
+		}
+	})
+	t.Run("a junction in the path does not stop the judgment", func(t *testing.T) {
 		parent := syspath.FromNative(t.TempDir())
 		if err := os.Mkdir(parent+"/target", 0o755); err != nil {
 			t.Fatal(err)
@@ -79,13 +115,8 @@ func TestVolumeLookupAsksTheFileItself(t *testing.T) {
 		if err := os.WriteFile(parent+"/target/file", []byte("x"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if got := newVolumeLookup()(parent + "/junction/file"); got != local {
-			t.Errorf("file system %q through the junction, want %q", got, local)
-		}
-	})
-	t.Run("a missing file is unknown", func(t *testing.T) {
-		if got := newVolumeLookup()(file + ".missing"); got != "" {
-			t.Errorf("file system %q, want none", got)
+		if mayHoldTimes(t, NewOpener(false, true), parent+"/junction/file") {
+			t.Error("a local NTFS file reached through a junction got the right")
 		}
 	})
 }
@@ -97,12 +128,8 @@ func TestUpdatesOffStillHoldsAFileOnARemoteVolume(t *testing.T) {
 	if _, err := os.Lstat(syspath.ToNative(share)); err != nil {
 		t.Skipf("the administrative share is unreachable here: %v", err)
 	}
-	opener := NewOpener(false, true)
-	if !opener.asksForRight(share) {
+	if !mayHoldTimes(t, NewOpener(false, true), share) {
 		t.Errorf("%s: opened read-only; a remote volume is not governed by the local setting", share)
-	}
-	if local := tempFile(t); opener.asksForRight(local) {
-		t.Errorf("%s: asked for the right on a local NTFS file with updates off", local)
 	}
 }
 
@@ -115,7 +142,7 @@ func TestUpdatesOffHoldsAFileThroughALinkToARemoteVolume(t *testing.T) {
 	if err := os.Symlink(share, syspath.ToNative(link)); err != nil {
 		t.Skipf("cannot create a directory symlink here (the privilege is needed): %v", err)
 	}
-	if !NewOpener(false, true).asksForRight(link + "/win.ini") {
+	if !mayHoldTimes(t, NewOpener(false, true), link+"/win.ini") {
 		t.Errorf("a file reached through a symlink to a share was opened read-only")
 	}
 }

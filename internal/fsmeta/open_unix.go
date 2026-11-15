@@ -9,12 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// newVolumeLookup returns a lookup that names no file system: no Unix open
-// depends on one.
-func newVolumeLookup() func(path string) string {
-	return func(string) string { return "" }
-}
-
 // Open opens path for reading, failing on a symlink at the last component
 // rather than following it, and returning at once on a pipe with no writer
 // rather than waiting for one; the caller checks what it opened. The open is

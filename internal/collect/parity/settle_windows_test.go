@@ -18,12 +18,15 @@ import (
 // second, so the two would report different times for one directory. Each
 // directory is opened and closed once (WalkDir never enters a reparse
 // point), then every directory's listing entry is checked against the
-// directory itself, a few rounds at most; the test fails on a directory
+// directory itself, a few rounds at most with a growing pause; the test fails on a directory
 // whose entry still differs.
 func settleTree(t *testing.T, root string) {
 	t.Helper()
 	unsettled := ""
-	for round := 0; round < 5; round++ {
+	for round := 0; round < 8; round++ {
+		// NTFS can take a moment to copy the time into the parent's entry:
+		// 0, 50, 100 ... 350 ms between rounds, 1.4 s in all at most.
+		time.Sleep(time.Duration(round) * 50 * time.Millisecond)
 		directories := treeDirectories(t, root)
 		for _, directory := range directories {
 			if handle, err := os.Open(directory); err == nil {
