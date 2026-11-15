@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
@@ -54,18 +55,11 @@ func TestCopyFileErrorNamesTheNativePath(t *testing.T) {
 }
 
 func TestOutDirUnderAShortNameTakesTheLongName(t *testing.T) {
-	temp := t.TempDir()
-	if !strings.Contains(temp, "~") {
-		t.Skipf("the temporary directory %q holds no short 8.3 name", temp)
-	}
+	short, long := shortname.Dir(t)
 	// The sweep compares OutDir with homes as text, and homes carry long
 	// names, so a short name kept here would let it read the run's own
 	// staging directory.
-	got, err := resolveOutDir(temp+`\out`, os.Getwd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	long, err := filepath.EvalSymlinks(temp)
+	got, err := resolveOutDir(short+`\out`, os.Getwd)
 	if err != nil {
 		t.Fatal(err)
 	}

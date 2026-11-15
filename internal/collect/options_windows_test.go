@@ -4,10 +4,10 @@ import (
 	"errors"
 	"os"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
@@ -129,15 +129,9 @@ func platformRootCases(base string) []rootCase {
 }
 
 func TestAProjectTypedLikeTheRootStaysUnderIt(t *testing.T) {
-	temp := os.Getenv("TEMP")
-	if !strings.Contains(temp, "~") {
-		t.Skipf("TEMP %q holds no short 8.3 name, which the root would lose", temp)
-	}
-	work, err := os.MkdirTemp(temp, "typed-root-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(work) })
+	// The working directory is typed with short names, which the root
+	// would lose.
+	work, _ := shortname.Dir(t)
 	if err := os.MkdirAll(work+`\img\proj`, 0o755); err != nil {
 		t.Fatal(err)
 	}

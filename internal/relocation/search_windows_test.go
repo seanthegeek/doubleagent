@@ -3,11 +3,11 @@ package relocation
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
@@ -49,15 +49,8 @@ func TestSweepRulesIgnoreCaseOnWindows(t *testing.T) {
 }
 
 func TestSweepPrunesTheRunsOutputBelowAShortName(t *testing.T) {
-	temp := t.TempDir()
-	if !strings.Contains(temp, "~") {
-		t.Skipf("the temporary directory %q holds no short 8.3 name", temp)
-	}
+	short, long := shortname.Dir(t)
 	tables, err := catalog.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	long, err := filepath.EvalSymlinks(temp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +59,7 @@ func TestSweepPrunesTheRunsOutputBelowAShortName(t *testing.T) {
 	}
 	home := syspath.FromNative(long)
 	// OutDir as the command line resolves it, through fsmeta.OnDiskPath.
-	outDir := fsmeta.OnDiskPath("", syspath.FromNative(temp)+"/out")
+	outDir := fsmeta.OnDiskPath("", syspath.FromNative(short)+"/out")
 	run := &search{system: "C:", deps: Deps{Tables: tables, OutDir: outDir, RunName: "r",
 		Homes:  []users.Home{{User: "u", Path: home}},
 		Claims: func(string, []catalog.Entry) []string { return nil }}}
