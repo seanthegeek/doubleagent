@@ -2,6 +2,7 @@ package fsmeta
 
 import (
 	"strings"
+	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
@@ -68,7 +69,8 @@ type diskEntry struct {
 
 // onDiskEntry looks name up in directory with FindFirstFile, which reads the
 // directory's entry and follows nothing. Nothing exists for . or .., a
-// wildcard character in name, or several matches. shortOnly is set when the
+// wildcard character in name, several matches, or, in a case-sensitive
+// directory, an entry spelled otherwise than name. shortOnly is set when the
 // typed name equals the entry's short name ignoring ASCII case and its long
 // name does not; a short name typed with a non-ASCII letter in another case
 // is not told apart, and either way the match is the same entry.
@@ -94,8 +96,34 @@ func onDiskEntry(directory, name string) diskEntry {
 	}
 	found := windows.UTF16ToString(data.FileName[:])
 	short := windows.UTF16ToString(data.AlternateFileName[:])
-	return diskEntry{name: found, exists: true, attributes: data.FileAttributes,
-		shortOnly: !syspath.Equal(found, name) && short != "" && syspath.Equal(short, name)}
+	shortOnly := !syspath.Equal(found, name) && short != "" && syspath.Equal(short, name)
+	if found != name && !shortOnly && caseSensitive(directory) {
+		// In a directory that compares names with case, a name spelled
+		// otherwise does not open the entry the search found.
+		return diskEntry{}
+	}
+	return diskEntry{name: found, exists: true, attributes: data.FileAttributes, shortOnly: shortOnly}
+}
+
+// caseSensitive reports whether directory compares the names it holds with
+// case, as a directory marked through FileCaseSensitiveInfo does; false when
+// it cannot be asked.
+func caseSensitive(directory string) bool {
+	name, err := windows.UTF16PtrFromString(syspath.Extended(directory))
+	if err != nil {
+		return false
+	}
+	handle, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, windows.FILE_SHARE_READ|
+		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		return false
+	}
+	defer windows.CloseHandle(handle)
+	var flags uint32
+	err = windows.GetFileInformationByHandleEx(handle, windows.FileCaseSensitiveInfo,
+		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags)))
+	return err == nil && flags&windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR != 0
 }
 
 // volumeOf returns the drive (C:) or share (//server/share) a canonical path

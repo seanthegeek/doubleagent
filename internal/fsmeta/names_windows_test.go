@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 
@@ -118,4 +119,48 @@ func longPathName(t *testing.T, path string) string {
 		t.Fatalf("GetLongPathName(%q): %v", path, err)
 	}
 	return windows.UTF16ToString(buffer[:n])
+}
+
+// caseSensitiveDir makes a new empty directory under base whose names are
+// compared with case, through FileCaseSensitiveInfo, and returns it; the test
+// is skipped where Windows refuses the setting.
+func caseSensitiveDir(t *testing.T, base string) string {
+	t.Helper()
+	dir := base + "/cs"
+	mkdirExtended(t, base, "cs")
+	name, err := windows.UTF16PtrFromString(syspath.Extended(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES|windows.FILE_READ_ATTRIBUTES,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+	flags := uint32(windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR)
+	err = windows.SetFileInformationByHandle(handle, windows.FileCaseSensitiveInfo,
+		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags)))
+	if err != nil {
+		t.Skipf("a case-sensitive directory needs FileCaseSensitiveInfo, which Windows refused here: %v", err)
+	}
+	return dir
+}
+
+func TestOnDiskPathInACaseSensitiveDirectory(t *testing.T) {
+	dir := caseSensitiveDir(t, OnDiskPath("", syspath.FromNative(t.TempDir())))
+	mkdirExtended(t, dir, "FOO", "Both", "both")
+	cases := []struct{ name, path, want string }{
+		{"a name spelled otherwise than the lone entry stays as typed", dir + "/foo", dir + "/foo"},
+		{"a name spelled as the entry is kept", dir + "/FOO", dir + "/FOO"},
+		{"of two entries differing in case the typed one is named", dir + "/both", dir + "/both"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := OnDiskPath("", test.path); got != test.want {
+				t.Errorf("OnDiskPath(%q) = %q, want %q", test.path, got, test.want)
+			}
+		})
+	}
 }
