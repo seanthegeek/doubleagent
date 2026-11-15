@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -137,5 +138,33 @@ func TestDiscoverNamesTheLinkThatClimbsAboveTheRoot(t *testing.T) {
 		if refusal.Link != home+"/.claude" {
 			t.Errorf("refusal %+v, want it to name the link %s, not the root", refusal, home+"/.claude")
 		}
+	}
+}
+
+func TestDiscoverRefusesAChainLongerThanTheCheckFollows(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	outside := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	home := root + "/home/alice"
+	writeTree(t, root, nil, "home/alice", "chain", "srv/p")
+	writeTree(t, outside, map[string]string{"history.jsonl": `{"project":"/srv/p"}`})
+	// .claude, then 45 links inside the image, the last leading out: more
+	// steps than the check takes, though Windows resolves up to 63.
+	const chain = 45
+	linkDirectory(t, root+"/chain/l0", home+"/.claude")
+	for i := 0; i < chain; i++ {
+		target := root + "/chain/l" + strconv.Itoa(i+1)
+		if i == chain-1 {
+			target = outside
+		}
+		linkDirectory(t, target, root+"/chain/l"+strconv.Itoa(i))
+	}
+	outOfScope := func(path string) (string, bool) { return walk.LeavesRootAt(root, path) }
+	homes := []users.Home{{User: "alice", Path: home}}
+	got, refused, err := Discover(context.Background(), homes, root, nil, nil, outOfScope, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 || len(refused) == 0 {
+		t.Errorf("projects %q, refused %q; want no project and the source refused", got, refused)
 	}
 }

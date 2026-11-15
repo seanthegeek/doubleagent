@@ -495,7 +495,11 @@ neither read nor tested, and the log says so once per source:
 `Discovery source [alice] /img/home/alice/.claude/history.jsonl: under the symlinked directory /img/home/alice/.claude, which leads out of the image root; not read`,
 or `: a symlink that leads out of the image root; not read` when the source
 is itself the link. A link whose target stays inside the root is read
-through. Both scripts read through such a link, which in image mode reads
+through. A link whose target cannot be read, and a chain of more than 40
+links, count as leading out, since the analyst's host may resolve what the
+check could not (Windows follows up to 63 reparse points in a path); only a
+component missing inside the image is the image's own answer. The same rule
+decides whether a project's own path leaves the root. Both scripts read through such a link, which in image mode reads
 the analyst's own host: the binary differs on purpose. A live run has no
 root to leave and reads every source as the host holds it. The glob that
 lists a source's candidates (`.claude-*/history.jsonl`) still lists names

@@ -271,7 +271,7 @@ func TestProjectOutOfTheImageRootIsNotWalked(t *testing.T) {
 		{name: "a dangling first link to an absolute path outside the root is not walked",
 			links: [][2]string{{"{OUT}/nope", "home/dot/ext"}}, project: "home/dot/ext/proj",
 			underHome: true, notWalked: "home/dot/ext"},
-		{name: "a symlink loop inside the root is reported unverifiable",
+		{name: "a symlink loop inside the root is unverifiable and counts as leaving it",
 			links:   [][2]string{{"ext2", "home/dot/ext"}, {"ext", "home/dot/ext2"}},
 			project: "home/dot/ext/proj", underHome: true, notWalked: "home/dot/ext", unverified: true},
 		{name: "a dot-dot after a link out of the root is taken from where that link leads",
@@ -412,9 +412,9 @@ func (testCase outOfRootCase) checkProbes(t *testing.T, root, physical, project 
 	found := projectScope(root, project, record)
 	want := rootScope{}
 	if testCase.notWalked != "" {
-		// The one unverified case is a link loop inside the root.
-		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified,
-			inImage: testCase.unverified}
+		// The one unverified case is a link loop inside the root: the step
+		// that reaches the bound counts as leaving it, so it is not inImage.
+		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified}
 	}
 	if found != want {
 		t.Errorf("scope %+v, want %+v", found, want)

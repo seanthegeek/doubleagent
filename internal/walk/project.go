@@ -133,8 +133,8 @@ func projectPlace(stager stage.Stager, home, project string) place {
 // the root as given. Such a target resolves on the analyst's
 // own host. The links are read one by one from the resolved root and nothing
 // outside it is ever stat'ed; a path that cannot be verified (a component
-// that cannot be stat'ed, a link loop, a root that does not resolve) counts
-// as outside.
+// that cannot be stat'ed, a link that cannot be read, a chain of more links
+// than maxLinkHops, a root that does not resolve) counts as outside.
 func ProjectOutOfRoot(root, project string) (string, bool) {
 	found := projectScope(root, project, imageProbes())
 	return found.name, found.name != ""
@@ -144,9 +144,10 @@ func ProjectOutOfRoot(root, project string) (string, bool) {
 // on a live host), lies outside the root as given, leads out of it through
 // a link, climbs above it with `..`, or sits under a root that cannot be
 // resolved, so that whether it is a directory is the analyst's host's answer
-// rather than the image's. A project ProjectOutOfRoot flags only because a path inside
-// the root cannot be read (missing, unreadable, a link loop) does not count:
-// that answer is the image's own, whatever the host holds.
+// rather than the image's. A link step that fails (a target that cannot be
+// read, more links than maxLinkHops) counts too, since the host may resolve
+// what the check could not. Only a component inside the root that is missing
+// or cannot be stat'ed does not count: that answer is the image's own.
 func ProjectLeavesRoot(root, project string) bool {
 	_, leaves := LeavesRootAt(root, project)
 	return leaves
@@ -179,7 +180,8 @@ func isLinkProbe(path string) (bool, error) {
 }
 
 // maxLinkHops bounds the links a project's path expands through, as the
-// kernel bounds a path's links, so a loop ends as unverifiable.
+// kernel bounds a path's links, so a loop ends; a path that reaches it counts
+// as leading out of the root.
 const maxLinkHops = 40
 
 // probes are the two calls the root check makes on the image: whether a
@@ -297,17 +299,17 @@ func (walker rootWalk) walk(components []step) rootScope {
 // names neither cannot be verified.
 func (walker rootWalk) follow(parent, link string, hops int) (string, []step, rootScope) {
 	if hops > maxLinkHops {
-		return "", nil, walker.unreadable(link)
+		return "", nil, walker.failedLink(link)
 	}
 	target, err := walker.probe.readlink(link)
 	if err != nil {
-		return "", nil, walker.unreadable(link)
+		return "", nil, walker.failedLink(link)
 	}
 	target = syspath.FromNative(target)
 	if strings.HasPrefix(target, "/") && !syspath.IsAbs(target) {
 		volume := volumeOf(parent)
 		if volume == "" {
-			return "", nil, walker.unreadable(link)
+			return "", nil, walker.failedLink(link)
 		}
 		target = volume + target
 	}
@@ -358,9 +360,19 @@ func (walker rootWalk) above(via string) rootScope {
 }
 
 // unreadable is the decision for path, under the resolved root, that a
-// probe could not read or a link loop runs through.
+// probe could not stat: missing or unreadable, which is the image's own
+// answer.
 func (walker rootWalk) unreadable(path string) rootScope {
 	return rootScope{name: walker.named(path), unverified: true, inImage: true}
+}
+
+// failedLink is the decision for link, under the resolved root, when its
+// step cannot be taken: its target cannot be read or placed, or the path has
+// run through more than maxLinkHops links. The operating system may still
+// resolve it (Windows allows more reparse points per path than the bound),
+// so it counts as leading out of the root.
+func (walker rootWalk) failedLink(link string) rootScope {
+	return rootScope{name: walker.named(link), unverified: true}
 }
 
 // relative returns name less the resolved root or the root as given (which
