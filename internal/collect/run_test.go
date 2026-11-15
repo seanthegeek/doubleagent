@@ -77,7 +77,7 @@ func testHost(t *testing.T) environment {
 	pinned := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	return environment{now: func() time.Time { return pinned }, runner: noPrograms{},
 		getwd:     func() (string, error) { return syspath.FromNative(t.TempDir()), nil },
-		findUsers: users.Find}
+		findUsers: users.Find, lastAccess: func() accessUpdates { return accessUnknown }}
 }
 
 // fixtureImage builds an image with one home holding one agent file and
@@ -603,19 +603,80 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 	}
 }
 
-func TestNoPreserveAtimeReachesTheStager(t *testing.T) {
+func TestReadOnlyDecisionReachesTheStager(t *testing.T) {
 	cases := []struct {
-		name string
-		set  bool
+		name  string
+		state accessUpdates
+		set   bool
+		want  bool
 	}{
-		{"by default sources are opened to hold their access time", false},
-		{"--no-preserve-atime opens sources read-only", true},
+		{"updates on, no option: open with the right to hold the time", accessOn, false, false},
+		{"updates unknown, no option: open with the right to hold the time", accessUnknown, false, false},
+		{"updates off, no option: open read-only", accessOff, false, true},
+		{"updates on, --no-preserve-atime: open read-only", accessOn, true, true},
+		{"updates unknown, --no-preserve-atime: open read-only", accessUnknown, true, true},
+		{"updates off, --no-preserve-atime: open read-only", accessOff, true, true},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			state := &runState{options: Options{NoPreserveAtime: test.set}, tables: &catalog.Tables{}}
-			if got := state.newCollector("").Stager.ReadOnlySources; got != test.set {
-				t.Errorf("ReadOnlySources %v, want %v", got, test.set)
+			if got := openReadOnly(test.state, test.set); got != test.want {
+				t.Errorf("openReadOnly = %v, want %v", got, test.want)
+			}
+			state := &runState{options: Options{NoPreserveAtime: test.set},
+				tables: &catalog.Tables{}, accessUpdates: test.state}
+			if got := state.newCollector("").Stager.ReadOnlySources; got != test.want {
+				t.Errorf("ReadOnlySources %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAccessUpdatesOf(t *testing.T) {
+	cases := []struct {
+		name    string
+		value   uint64
+		isDWORD bool
+		want    accessUpdates
+	}{
+		{"0 means updates are on", 0, true, accessOn},
+		{"1 means updates are off", 1, true, accessOff},
+		{"user managed, on", 0x80000000, true, accessOn},
+		{"user managed, off", 0x80000001, true, accessOff},
+		{"system managed, on", 0x80000002, true, accessOn},
+		{"system managed, off", 0x80000003, true, accessOff},
+		{"another number is unknown", 2, true, accessUnknown},
+		{"a high bit beyond the known ones is unknown", 0x80000004, true, accessUnknown},
+		{"a 64-bit value is unknown", 1, false, accessUnknown},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := accessUpdatesOf(test.value, test.isDWORD); got != test.want {
+				t.Errorf("accessUpdatesOf(%#x, %v) = %v, want %v", test.value, test.isDWORD, got, test.want)
+			}
+		})
+	}
+}
+
+func TestAccessDecisionLine(t *testing.T) {
+	cases := []struct {
+		name  string
+		state accessUpdates
+		set   bool
+		want  string
+	}{
+		{"updates off", accessOff, false,
+			"last-access updates are off on this system; files are opened read-only"},
+		{"updates on", accessOn, false,
+			"last-access updates are on; files are opened with the right to hold their access time"},
+		{"updates unknown", accessUnknown, false, "last-access updates could not be determined; " +
+			"files are opened with the right to hold their access time"},
+		{"the option wins over the setting", accessOn, true,
+			"--no-preserve-atime: files are opened read-only; reading may change their access time on disk"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := accessDecisionLine(test.state, test.set); got != test.want {
+				t.Errorf("line %q, want %q", got, test.want)
 			}
 		})
 	}
@@ -708,6 +769,7 @@ func TestNoPreserveAtimeRun(t *testing.T) {
 				}
 			}
 			requireRecorded(t, outDir, test.wantLog, test.wantField)
+			requireDecisionLine(t, outDir, test.set)
 		})
 	}
 }
@@ -736,5 +798,27 @@ func requireRecorded(t *testing.T, outDir, wantLog string, wantField bool) {
 	}
 	if got, ok := document.Options["no_preserve_atime"].(bool); !ok || got != wantField {
 		t.Errorf("options.no_preserve_atime %v, want %v", document.Options["no_preserve_atime"], wantField)
+	}
+}
+
+// requireDecisionLine checks that the run in outDir logged how files are
+// opened, for the unknown state testHost gives, where the platform logs it
+// (Windows), right after the two start lines, and logged no such line where
+// it does not.
+func requireDecisionLine(t *testing.T, outDir string, set bool) {
+	t.Helper()
+	lines := strings.Split(runOutput(t, outDir, ".log"), "\n")
+	third := ""
+	if len(lines) > 2 {
+		third = lines[2]
+	}
+	want := accessDecisionLine(accessUnknown, set)
+	if logsAccessDecision && !strings.HasSuffix(third, " "+want) {
+		t.Errorf("third log line %q, want it to end with %q", third, want)
+	}
+	log := strings.Join(lines, "\n")
+	if !logsAccessDecision && (strings.Contains(log, "last-access updates") ||
+		strings.Contains(log, "--no-preserve-atime:")) {
+		t.Errorf("log names an open decision this platform does not make:\n%s", log)
 	}
 }

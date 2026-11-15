@@ -135,43 +135,52 @@ On a disk image, mount it read-only with `noatime`.
 
 ### Access times with the `doubleagent` binary
 
-A file's last-access time (`atime`) is the time it was last read. By
-default, on a live Windows collection the `doubleagent` binary opens each
-file it collects with the right to change the file's attributes as well as
-the right to read it, and tells Windows not to update the file's
-last-access time for the collector's own read. This helps protect forensic
-integrity: the access time on disk stays what it was before the
-collection. The binary never changes a file. Where Windows refuses that
-open (a file the account may only read), the binary reads the file
-normally, and that file's access time may change.
+A file's last-access time (`atime`) is the time it was last read. Whether
+Windows updates it when a file is read is a system-wide setting that
+varies by machine: the registry value `NtfsDisableLastAccessUpdate` under
+`HKLM\SYSTEM\CurrentControlSet\Control\FileSystem`, which
+`fsutil behavior query disablelastaccess` shows (see Microsoft's
+[`fsutil behavior` reference](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-behavior);
+a change takes effect after a restart).
 
-Asking for the right to change attributes may trigger security software:
-an EDR platform can watch for a program that opens many files with a right
-to modify them. If it does, create a behaviour-specific exclusion in that
-platform for the file hash of the DoubleAgent executable in use. A hash
-(SHA-256, a fingerprint of the file's bytes) names one exact build, so the
-exclusion stops matching when the build changes and has to be renewed for
-each new version. Compute the hash on the executable itself, with
-`Get-FileHash` in PowerShell (it uses SHA-256 by default) or with
-`sha256sum` or `shasum -a 256` on Linux and macOS.
+On Windows the `doubleagent` binary reads that value once at the start of
+a run and decides how to open the files it collects:
+
+- **Updates are off.** Reading a file does not change its access time, so
+  the binary opens each file read-only and asks for no other right.
+- **Updates are on, or the value cannot be read or understood.** The
+  binary opens each file with the right to change the file's attributes as
+  well as the right to read it, and tells Windows not to update the file's
+  last-access time for the collector's own read. This helps protect
+  forensic integrity: the access time on disk stays what it was before the
+  collection. The binary never changes a file. Where Windows refuses that
+  open (a file the account may only read), the binary reads the file
+  normally, and that file's access time may change.
+
+The log says which case applied, in the line after the two start lines.
+
+Asking for the right to change attributes may trigger security software,
+so only machines where last-access updates are on (or undetermined) can be
+affected: an EDR platform can watch for a program that opens many files
+with a right to modify them. If it does, create a behaviour-specific
+exclusion in that platform for the file hash of the DoubleAgent executable
+in use. A hash (SHA-256, a fingerprint of the file's bytes) names one
+exact build, so the exclusion stops matching when the build changes and
+has to be renewed for each new version. Compute the hash on the executable
+itself, with `Get-FileHash` in PowerShell (it uses SHA-256 by default) or
+with `sha256sum` or `shasum -a 256` on Linux and macOS.
 
 The `--no-preserve-atime` option makes the binary open files read-only,
-without the right to change attributes. Use it only when the security
-software cannot be tested before a live collection and the operator
-accepts the trade-off: reading a file may then change its access time on
-disk. The original access time is still recorded in the collection,
-because the manifest's `atime` is read before the file is opened. The
-choice is recorded in `collection.json` as `options.no_preserve_atime` and
-at the end of the log's second line as `no_preserve_atime=0` or
-`no_preserve_atime=1`.
+without the right to change attributes, whatever the setting says. Use it
+only when last-access updates are on, the security software cannot be
+tested before a live collection, and the operator accepts the trade-off:
+reading a file may then change its access time on disk. The original
+access time is still recorded in the collection, because the manifest's
+`atime` is read before the file is opened. The choice is recorded in
+`collection.json` as `options.no_preserve_atime` and at the end of the
+log's second line as `no_preserve_atime=0` or `no_preserve_atime=1`.
 
 On Linux and macOS the option is accepted and has no effect in this
-version: the binary always opens files read-only there. Reading a file may
-update its access time as the volume's mount options decide, and the
-manifest records the time read before the copy.
-
-Whether Windows updates last-access times at all is a setting that varies
-by machine. `fsutil behavior query disablelastaccess` shows it; a value
-of `1` means the updates are off and `0` that they are on, as the
-[`fsutil behavior` reference](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-behavior)
-describes.
+version: the binary always opens files read-only there and logs no such
+decision. Reading a file may update its access time as the volume's mount
+options decide, and the manifest records the time read before the copy.

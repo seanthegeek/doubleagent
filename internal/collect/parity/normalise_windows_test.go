@@ -41,6 +41,10 @@ var (
 	// The binary's --no-preserve-atime, which the PowerShell collector does
 	// not have, ends the binary's second start line.
 	windowsNoPreserveAtime = regexp.MustCompile(` no_preserve_atime=[01]$`)
+	// The binary's line saying how it opens files (whether it asks for the
+	// right to hold the access time), which the PowerShell collector does
+	// not decide.
+	accessDecision = regexp.MustCompile(`^(?:last-access updates |--no-preserve-atime: files are opened)`)
 )
 
 // newWindowsNormaliser returns the normaliser of one case. compare calls it
@@ -112,20 +116,21 @@ func sortedLines(text string) string {
 
 // normalWindowsLog returns the log's lines without their times, each start
 // line reduced to what both collectors print, the lines only one collector
-// writes dropped (the binary's find: line for a directory it cannot list and
-// its WARNING: -u lines about the -u list; the PowerShell collector's kinds in
-// powerShellOnly), its two wordings mapped onto the binary's, and failure
-// reasons cut. binary says the log is the Go binary's; timed says it is the
-// log file, whose lines carry times. Every untimed line of the PowerShell
-// collector's log file comes after the log is closed, from its archiver step
-// (tar's own error output, the fallback notes, staged-link cleanup), which
-// the binary has no counterpart for, so those are dropped too.
+// writes dropped (the binary's find:, WARNING: -u and file-open lines; the
+// PowerShell collector's kinds in powerShellOnly), its two wordings mapped
+// onto the binary's, and failure reasons cut. binary says the log is the Go
+// binary's; timed says it is the log file, whose lines carry times. Every
+// untimed line of the PowerShell collector's log file comes after the log
+// is closed, from its archiver step (tar's own error output, the fallback
+// notes, staged-link cleanup), which the binary has no counterpart for, so
+// those are dropped too.
 func normalWindowsLog(text string, binary, timed bool) string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimSuffix(withoutCarriageReturns(text), "\n"), "\n") {
 		archiverLine := timed && !binary && !windowsLogTime.MatchString(line)
 		line = windowsLogTime.ReplaceAllString(line, "")
-		binaryOnly := strings.HasPrefix(line, "find: ") || strings.HasPrefix(line, "WARNING: -u ")
+		binaryOnly := strings.HasPrefix(line, "find: ") || strings.HasPrefix(line, "WARNING: -u ") ||
+			accessDecision.MatchString(line)
 		onlyOne := (binary && binaryOnly) || (!binary && powerShellOnly.MatchString(line))
 		if archiverLine || onlyOne {
 			continue

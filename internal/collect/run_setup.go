@@ -55,6 +55,8 @@ type runState struct {
 	manifest     *manifest.Writer
 	collector    *walk.Collector
 
+	accessUpdates accessUpdates
+
 	homes         []users.Home
 	skippedHomes  []users.Skipped
 	profiles      []relocation.Profile
@@ -86,7 +88,7 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 	}
 	state := &runState{options: options, host: host, stdout: stdout, stderr: stderr,
 		tables: tables, plutil: hostcmd.NewPlutil(host.runner), started: host.now().UTC(),
-		dockerRecords: inventory.NewAggregator()}
+		dockerRecords: inventory.NewAggregator(), accessUpdates: host.lastAccess()}
 	state.setOutputNames()
 	return state, nil
 }
@@ -224,7 +226,7 @@ func (state *runState) newCollector(physical string) *walk.Collector {
 		Tables: state.tables, Excludes: excludes, Secret: walk.MatchAny(state.tables.SecretGlobs),
 		Log: state.log, Manifest: state.manifest, Root: root,
 		Stager: stage.Stager{Dir: state.stageDir, Physical: physical, Root: root,
-			ReadOnlySources: state.options.NoPreserveAtime},
+			ReadOnlySources: openReadOnly(state.accessUpdates, state.options.NoPreserveAtime)},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
 		Owners: fsmeta.NewOwners(),
@@ -240,7 +242,8 @@ func (state *runState) mode() string {
 }
 
 // startLog writes the first log lines, as log_start does: the version, host,
-// mode, root and account, the options, then the warnings. The sizes are
+// mode, root and account, the options, on Windows how files are opened, then
+// the warnings. The sizes are
 // printed from their byte values in whole MiB.
 func (state *runState) startLog(context.Context) error {
 	system := uname()
@@ -259,6 +262,9 @@ func (state *runState) startLog(context.Context) error {
 			options.MaxFileBytes/mebibyte, flag(options.Full), flag(options.NoSecrets),
 			flag(options.NoDocker), flag(options.EnvScanHome), options.EnvScanMaxBytes/mebibyte,
 			flag(options.NoPreserveAtime)),
+	}
+	if logsAccessDecision {
+		lines = append(lines, accessDecisionLine(state.accessUpdates, options.NoPreserveAtime))
 	}
 	if state.mode() == "live" && !privileged(identity) {
 		lines = append(lines, privilegeWarning)

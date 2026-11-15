@@ -42,7 +42,7 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	host := environment{now: time.Now, runner: hostcmd.System(), getwd: canonicalGetwd,
-		findUsers: users.Find}
+		findUsers: users.Find, lastAccess: lastAccessUpdates}
 	return runCollection(ctx, options, host, stdout, stderr)
 }
 
@@ -54,12 +54,14 @@ func canonicalGetwd() (string, error) {
 
 // environment is what a run takes from the host, injected so tests can pin
 // the clock: the time, the host programs, the current directory, in
-// canonical form, and the user enumeration (users.Find).
+// canonical form, the user enumeration (users.Find) and whether the system
+// updates last-access times (lastAccessUpdates).
 type environment struct {
-	now       func() time.Time
-	runner    hostcmd.Runner
-	getwd     func() (string, error)
-	findUsers func(live bool, root, usersFilter string, run users.Runner) users.Report
+	now        func() time.Time
+	runner     hostcmd.Runner
+	getwd      func() (string, error)
+	findUsers  func(live bool, root, usersFilter string, run users.Runner) users.Report
+	lastAccess func() accessUpdates
 }
 
 // fatalError is a fatal condition met before the log exists; its text is
