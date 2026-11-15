@@ -9,6 +9,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
@@ -29,9 +30,11 @@ type Project struct {
 // --inventory, names the files, relative to their home, not to read.
 // outOfScope, nil live, names the paths that leave the image root, kept
 // without the directory test, which would answer for the analyst's host.
-// Only a cancelled ctx is an error.
+// opener reads every file read here (nil: see fsmeta.Opener). Only a
+// cancelled ctx is an error.
 func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
 	dropSecret func(relative string) bool, outOfScope func(path string) bool,
+	opener *fsmeta.Opener,
 ) ([]Project, error) {
 	root = strings.TrimSuffix(root, "/")
 	userList := userListText(homes)
@@ -46,7 +49,7 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 			continue
 		}
 		scan := &homeScan{ctx: ctx, root: root, home: home, rules: rules,
-			dropSecret: dropSecret}
+			dropSecret: dropSecret, opener: opener}
 		scan.claudeCodeSources()
 		scan.cliSessionSources()
 		scan.geminiSources()

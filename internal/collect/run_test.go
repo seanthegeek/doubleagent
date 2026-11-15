@@ -603,29 +603,34 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 	}
 }
 
-func TestReadOnlyDecisionReachesTheStager(t *testing.T) {
+func TestTheRunsOpenerCarriesTheDecision(t *testing.T) {
 	cases := []struct {
-		name  string
-		state accessUpdates
-		set   bool
-		want  bool
+		name         string
+		state        accessUpdates
+		set          bool
+		wantReadOnly bool
+		wantOff      bool
 	}{
-		{"updates on, no option: open with the right to hold the time", accessOn, false, false},
-		{"updates unknown, no option: open with the right to hold the time", accessUnknown, false, false},
-		{"updates off, no option: open read-only", accessOff, false, true},
-		{"updates on, --no-preserve-atime: open read-only", accessOn, true, true},
-		{"updates unknown, --no-preserve-atime: open read-only", accessUnknown, true, true},
-		{"updates off, --no-preserve-atime: open read-only", accessOff, true, true},
+		{"updates on, no option", accessOn, false, false, false},
+		{"updates unknown, no option", accessUnknown, false, false, false},
+		{"updates off, no option", accessOff, false, false, true},
+		{"updates on, --no-preserve-atime", accessOn, true, true, false},
+		{"updates off, --no-preserve-atime", accessOff, true, true, true},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := openReadOnly(test.state, test.set); got != test.want {
-				t.Errorf("openReadOnly = %v, want %v", got, test.want)
+			host := testHost(t)
+			host.lastAccess = func() accessUpdates { return test.state }
+			state, err := prepareRun(Options{OutDir: t.TempDir(), NoPreserveAtime: test.set}, host,
+				io.Discard, io.Discard)
+			if err != nil {
+				t.Fatal(err)
 			}
-			state := &runState{options: Options{NoPreserveAtime: test.set},
-				tables: &catalog.Tables{}, accessUpdates: test.state}
-			if got := state.newCollector("").Stager.ReadOnlySources; got != test.want {
-				t.Errorf("ReadOnlySources %v, want %v", got, test.want)
+			opener := state.newCollector("").Stager.Opener
+			if opener != state.opener || opener.ReadOnly != test.wantReadOnly ||
+				opener.NTFSUpdatesOff != test.wantOff {
+				t.Errorf("opener %+v (the run's: %v), want ReadOnly %v, NTFSUpdatesOff %v",
+					opener, opener == state.opener, test.wantReadOnly, test.wantOff)
 			}
 		})
 	}

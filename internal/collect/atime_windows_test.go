@@ -1,6 +1,8 @@
 package collect
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -97,4 +99,42 @@ func stateName(state accessUpdates) string {
 		return "updates off"
 	}
 	return "unknown"
+}
+
+func TestADefaultRunLeavesTheAccessTimeOfEveryFileItReads(t *testing.T) {
+	files := map[string]string{
+		// Read by project discovery and copied as a catalog file.
+		"Users/alice/.claude.json": "{\"projects\":{}}\n",
+		// Read by the startup-file search, then copied for its hint.
+		"Users/alice/.bashrc": "export CLAUDE_CONFIG_DIR=/home/alice/cc\n",
+		// Read only by the --env-scan-home sweep, then copied for its hint.
+		"Users/alice/notes/env.txt": "CODEX_HOME=/home/alice/cx\n",
+	}
+	root := writeImage(t, files, nil)
+	requireNTFS(t, root)
+	if measuredAccessUpdates(t, t.TempDir()) == accessOff {
+		t.Skip("last-access updates are off on this volume: a read did not move the access time")
+	}
+	accessed, written := time.Unix(1_600_000_000, 0), time.Unix(1_700_000_000, 0)
+	before := map[string]windows.Filetime{}
+	for path := range files {
+		if err := os.Chtimes(root+"/"+path, accessed, written); err != nil {
+			t.Fatal(err)
+		}
+		before[path] = accessTimeOf(t, root+"/"+path)
+	}
+	outDir := t.TempDir()
+	options := testOptions(root, outDir)
+	options.EnvScanHome = true
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, testHost(t), &stdout,
+		&stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	for path := range files {
+		manifestRow(t, outDir, root+"/"+path)
+		if got := accessTimeOf(t, root+"/"+path); got != before[path] {
+			t.Errorf("%s: access time %v after the run, want %v", path, got, before[path])
+		}
+	}
 }

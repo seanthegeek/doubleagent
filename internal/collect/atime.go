@@ -32,15 +32,6 @@ func accessUpdatesOf(value uint64, isDWORD bool) accessUpdates {
 	return accessUnknown
 }
 
-// openReadOnly reports whether collected files are opened for reading alone:
-// under --no-preserve-atime, or where reads do not update the access time,
-// so there is nothing to hold and no reason to ask for the right to change
-// attributes. Where updates are on or unknown the copy asks for that right,
-// so it can hold the access time.
-func openReadOnly(state accessUpdates, noPreserveAtime bool) bool {
-	return noPreserveAtime || state == accessOff
-}
-
 // accessDecisionLine is the log line that says how collected files are
 // opened and why.
 func accessDecisionLine(state accessUpdates, noPreserveAtime bool) string {

@@ -6,7 +6,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
@@ -16,8 +15,8 @@ import (
 // file. It reports false when the file cannot be opened or holds a NUL byte:
 // grep then takes the file as binary and prints none of its lines, so the
 // caller discards what each gathered. A read error keeps the lines before it.
-func scanLines(path string, each func(line []byte)) bool {
-	handle, err := fsmeta.OpenRegular(path)
+func (s *homeScan) scanLines(path string, each func(line []byte)) bool {
+	handle, err := s.opener.OpenRegular(path)
 	if err != nil {
 		return false
 	}
@@ -40,11 +39,11 @@ func scanLines(path string, each func(line []byte)) bool {
 // grepFiles returns what extract finds in each line of each file, in file
 // order, leaving out a file scanLines rejects, as `grep -h` over the files
 // does with `2>/dev/null`.
-func grepFiles(files []string, extract func(line []byte) []string) []string {
+func (s *homeScan) grepFiles(files []string, extract func(line []byte) []string) []string {
 	var values []string
 	for _, file := range files {
 		var found []string
-		if scanLines(file, func(line []byte) { found = append(found, extract(line)...) }) {
+		if s.scanLines(file, func(line []byte) { found = append(found, extract(line)...) }) {
 			values = append(values, found...)
 		}
 	}
@@ -53,8 +52,8 @@ func grepFiles(files []string, extract func(line []byte) []string) []string {
 
 // readWhole returns the bytes of the regular file at path, or false when it
 // cannot be opened or holds a NUL byte (the binary-file rule of scanLines).
-func readWhole(path string) ([]byte, bool) {
-	handle, err := fsmeta.OpenRegular(path)
+func (s *homeScan) readWhole(path string) ([]byte, bool) {
+	handle, err := s.opener.OpenRegular(path)
 	if err != nil {
 		return nil, false
 	}

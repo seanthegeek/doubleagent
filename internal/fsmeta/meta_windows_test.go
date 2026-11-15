@@ -512,10 +512,10 @@ func TestOpenRegularRefusesAJunction(t *testing.T) {
 	root := t.TempDir()
 	makeJunction(t, root, filepath.Join(root, "junction"))
 	writeFile(t, filepath.Join(root, "file"), "text")
-	if _, err := OpenRegular(filepath.Join(root, "junction")); !errors.Is(err, ErrNotRegular) {
+	if _, err := (&Opener{}).OpenRegular(filepath.Join(root, "junction")); !errors.Is(err, ErrNotRegular) {
 		t.Errorf("OpenRegular(junction) error %v, want ErrNotRegular", err)
 	}
-	handle, err := OpenRegular(filepath.Join(root, "file"))
+	handle, err := (&Opener{}).OpenRegular(filepath.Join(root, "file"))
 	if err != nil {
 		t.Fatal(err)
 	}

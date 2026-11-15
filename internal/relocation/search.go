@@ -86,6 +86,9 @@ type Deps struct {
 	Collect         func(user, home, path string) error
 	Registry        Registry
 	Profiles        []Profile
+	// Opener reads every file the search reads, as the run decided (nil
+	// asks to hold access times wherever the platform can).
+	Opener *fsmeta.Opener
 }
 
 // search is the state of one Search: the hint records already held, the
@@ -240,7 +243,7 @@ func (run *search) recordFileHints(user, home, path string) error {
 // text decoded first; a file that cannot be read has none, as grep lists no
 // file it cannot open.
 func (run *search) boundedNamesOf(path string) []LineName {
-	file, err := fsmeta.OpenRegular(path)
+	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
 		return nil
 	}
@@ -270,7 +273,7 @@ func (run *search) resolve(path, kind, home string, hits []LineName) FileValues 
 	if kind == "launchd" {
 		return ResolvePlist(run.deps.Plutil, path, hits)
 	}
-	file, err := fsmeta.OpenRegular(path)
+	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
 		return FileValues{}
 	}

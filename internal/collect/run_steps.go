@@ -120,7 +120,7 @@ func (state *runState) collectProjects(ctx context.Context) error {
 		leavesRoot = state.projectLeavesRoot
 	}
 	found, err := projects.Discover(ctx, state.homes, state.options.Root, state.options.Projects,
-		dropSecret, leavesRoot)
+		dropSecret, leavesRoot, state.opener)
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 		OutDir: state.outDir, RunName: state.name, Plutil: state.plutil, Log: state.log,
 		Claims: catalogClaims, Collect: state.hintFileCollector(ctx),
 		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),
-		Profiles: state.profiles,
+		Profiles: state.profiles, Opener: state.opener,
 	})
 	state.relocation = result
 	return err

@@ -9,20 +9,6 @@ import (
 	"syscall"
 )
 
-// openSource opens path for reading, refusing a symlink first, since this
-// platform has no flag that refuses one at open. The open is read-only
-// whatever readOnly says.
-func openSource(path string, _ bool) (*os.File, error) {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	if info.Mode()&fs.ModeSymlink != 0 {
-		return nil, &fs.PathError{Op: "open", Path: path, Err: notRegular{}}
-	}
-	return os.Open(path)
-}
-
 // createDest creates or truncates the staged copy, refusing a symlink
 // there first.
 func createDest(path string) (*os.File, error) {

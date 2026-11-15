@@ -40,7 +40,7 @@ func (s *homeScan) cliSessionSources() {
 	s.jsonValues("acp_cwd", chats)
 	// The sh grep for the extra directories reads the chats directly, so
 	// readable does not filter them.
-	s.emit(grepFiles(chats, additionalDirectoryMatcher()))
+	s.emit(s.grepFiles(chats, additionalDirectoryMatcher()))
 }
 
 // geminiSources is group 3: Gemini CLI projects, trusted folders and
@@ -67,7 +67,7 @@ func (s *homeScan) gooseSources() {
 	for _, project := range s.expand(".local/share/goose/projects/*.md",
 		"AppData/Roaming/Block/goose/data/projects/*.md") {
 		if isRegularFile(project) {
-			s.emit(gooseWorkingDirs(lines(project)))
+			s.emit(gooseWorkingDirs(s.lines(project)))
 		}
 	}
 }
@@ -87,7 +87,7 @@ func (s *homeScan) agentSessionSources() {
 		if isRegularFile(events) {
 			workspace := events[:len(events)-len("events.jsonl")] + "workspace.yaml"
 			copilot = append(copilot,
-				grepFiles(s.readable([]string{workspace}), yamlValueMatcher("cwd"))...)
+				s.grepFiles(s.readable([]string{workspace}), yamlValueMatcher("cwd"))...)
 		}
 	}
 	s.emitOutside(copilot, nil, []string{s.home + "/.copilot/"})
@@ -130,15 +130,15 @@ func (s *homeScan) configFileSources() {
 		configs := append(s.expand(".openclaw*/openclaw.json"), s.home+"/.clawdbot/openclaw.json",
 			s.home+"/.clawdbot/clawdbot.json", s.home+"/.clawdbot/moltbot.json",
 			s.home+"/.moltbot/moltbot.json")
-		s.emit(grepFiles(s.readable(configs), json5ValueMatcher(key)))
+		s.emit(s.grepFiles(s.readable(configs), json5ValueMatcher(key)))
 	}
 	for _, file := range s.expand(".nanobot*/sessions/*/.workspace") {
 		if isRegularFile(file) {
-			s.emit(lines(file))
+			s.emit(s.lines(file))
 		}
 	}
 	s.jsonValues("workspace", s.expand(".nanobot*/config.json"))
-	s.emit(grepFiles(s.readable([]string{s.home + "/.tabby/config.toml"}),
+	s.emit(s.grepFiles(s.readable([]string{s.home + "/.tabby/config.toml"}),
 		tomlFileURLMatcher("git_url")))
 	for _, manifest := range s.expand(".twinny/embeddings/*/manifest.json") {
 		if !isRegularFile(manifest) {
@@ -160,7 +160,7 @@ func (s *homeScan) editorSources() {
 			continue
 		}
 		if storage := userDir + "/workspaceStorage"; isDirectory(storage) {
-			s.emit(grepFiles(findNamed(s.ctx, storage, "workspace.json"), workspaceFolderMatcher()))
+			s.emit(s.grepFiles(findNamed(s.ctx, storage, "workspace.json"), workspaceFolderMatcher()))
 		}
 		global := userDir + "/globalStorage"
 		s.jsonValues("cwdOnTaskInitialization", expandIn(global,

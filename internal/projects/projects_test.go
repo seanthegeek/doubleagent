@@ -54,7 +54,7 @@ func TestScanLines(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var got []string
-			ok := scanLines(filepath.Join(root, test.file), func(line []byte) {
+			ok := (&homeScan{}).scanLines(filepath.Join(root, test.file), func(line []byte) {
 				got = append(got, string(line))
 			})
 			if ok != test.ok || (test.ok && !reflect.DeepEqual(got, test.want)) {
@@ -92,7 +92,7 @@ func TestDiscoverJoinsACopiedFileToTheNextValue(t *testing.T) {
 		"home/alice/.gemini/antigravity-cli/history.jsonl": `{"workspace":"/c"}`,
 	}, "srv/a/srv/b/c")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
-	got, err := Discover(context.Background(), homes, root, nil, nil, nil)
+	got, err := Discover(context.Background(), homes, root, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestDiscoverInventoryReadsNoSecretFile(t *testing.T) {
 	dropSecret := func(relative string) bool {
 		return relative == ".claude/history.jsonl" || relative == ".gemini/tmp/x/.project_root"
 	}
-	got, err := Discover(context.Background(), homes, root, nil, dropSecret, nil)
+	got, err := Discover(context.Background(), homes, root, nil, dropSecret, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestDiscoverMergesAndFilters(t *testing.T) {
 		{User: "bob", Path: root + "/home/bob"}}
 	extra := []string{root + "/srv/given", root + "/home/bob/inside", root + "/srv/bobs",
 		"relative", root + "/srv/missing"}
-	got, err := Discover(context.Background(), homes, root+"/", extra, nil, nil)
+	got, err := Discover(context.Background(), homes, root+"/", extra, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestDiscoverStopsWhenCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	homes := []users.Home{{User: "alice", Path: t.TempDir()}}
-	if _, err := Discover(ctx, homes, "", nil, nil, nil); !errors.Is(err, context.Canceled) {
+	if _, err := Discover(ctx, homes, "", nil, nil, nil, nil); !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }

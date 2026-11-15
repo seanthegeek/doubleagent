@@ -11,15 +11,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// openSource opens path for reading without following a final symlink.
-// O_NONBLOCK keeps the open from waiting on a FIFO that replaced the file
-// after its lstat; CopyFile then refuses it as not a regular file. The open
-// is read-only whatever readOnly says: these platforms offer no request to
-// hold the access time, which the mount options decide.
-func openSource(path string, _ bool) (*os.File, error) {
-	return os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
-}
-
 // createDest creates or truncates the staged copy without following a final
 // symlink, so a link recreated in the staging tree is never written through.
 func createDest(path string) (*os.File, error) {

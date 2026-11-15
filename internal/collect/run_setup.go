@@ -56,6 +56,7 @@ type runState struct {
 	collector    *walk.Collector
 
 	accessUpdates accessUpdates
+	opener        *fsmeta.Opener
 
 	homes         []users.Home
 	skippedHomes  []users.Skipped
@@ -89,6 +90,7 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 	state := &runState{options: options, host: host, stdout: stdout, stderr: stderr,
 		tables: tables, plutil: hostcmd.NewPlutil(host.runner), started: host.now().UTC(),
 		dockerRecords: inventory.NewAggregator(), accessUpdates: host.lastAccess()}
+	state.opener = fsmeta.NewOpener(options.NoPreserveAtime, state.accessUpdates == accessOff)
 	state.setOutputNames()
 	return state, nil
 }
@@ -226,7 +228,7 @@ func (state *runState) newCollector(physical string) *walk.Collector {
 		Tables: state.tables, Excludes: excludes, Secret: walk.MatchAny(state.tables.SecretGlobs),
 		Log: state.log, Manifest: state.manifest, Root: root,
 		Stager: stage.Stager{Dir: state.stageDir, Physical: physical, Root: root,
-			ReadOnlySources: openReadOnly(state.accessUpdates, state.options.NoPreserveAtime)},
+			Opener: state.opener},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
 		Owners: fsmeta.NewOwners(),

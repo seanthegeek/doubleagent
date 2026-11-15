@@ -5,84 +5,20 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
 )
 
-// shareAll lets other processes read, write, rename or delete a file while
-// a handle of ours is open, as Copy-FileShared opens a source with
-// FileShare ReadWrite and Delete, so a file another program holds open is
-// still copied.
+// shareAll lets other processes read, write, rename or delete a directory
+// while PhysicalDir's handle on it is open.
 const shareAll = windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE | windows.FILE_SHARE_DELETE
 
 // volumeNameDOS is the GetFinalPathNameByHandle flag word asking for the
 // drive-letter form of a normalised path (VOLUME_NAME_DOS and
 // FILE_NAME_NORMALIZED are both 0; golang.org/x/sys defines neither).
 const volumeNameDOS = 0
-
-// openSource opens path for reading through its own reparse point, never
-// following one, sharing it with every other opener. os.Open shares no
-// delete access, so it fails on a file another handle holds with
-// FILE_SHARE_DELETE alone; a symlink swapped in after the lstat opens as
-// itself, and CopyFile refuses it as not a regular file. Each access
-// sourceAccess lists is tried in turn and the last refusal is returned. An
-// open holding the right to set the file's times asks that the copy's reads
-// not move the evidence's access time; an open for reading only cannot ask,
-// and a volume that records access times moves it.
-func openSource(path string, readOnly bool) (*os.File, error) {
-	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
-	if err != nil {
-		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
-	}
-	flags := uint32(windows.FILE_FLAG_OPEN_REPARSE_POINT | windows.FILE_FLAG_SEQUENTIAL_SCAN)
-	var handle windows.Handle
-	for _, access := range sourceAccess(readOnly) {
-		handle, err = windows.CreateFile(name, access, shareAll, nil, windows.OPEN_EXISTING,
-			flags, 0)
-		if err != nil {
-			continue
-		}
-		if access&windows.FILE_WRITE_ATTRIBUTES != 0 {
-			// A file system that refuses the request still gets its file copied.
-			_ = holdTimes(handle, false)
-		}
-		break
-	}
-	if err != nil {
-		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
-	}
-	return os.NewFile(uintptr(handle), syspath.ToNative(path)), nil
-}
-
-// sourceAccess returns the access rights openSource asks for, in the order
-// it tries them. By default the first open also asks for the right to set
-// the file's times, so the access time can be held; where that right is
-// refused (an access list granting reading alone, a write-protected volume)
-// the file is opened for reading only. readOnly, set by
-// --no-preserve-atime, asks for reading alone from the start, for a run
-// where a program opening many files with a right to change them would
-// alarm the host's security software.
-func sourceAccess(readOnly bool) []uint32 {
-	if readOnly {
-		return []uint32{windows.GENERIC_READ}
-	}
-	return []uint32{windows.GENERIC_READ | windows.FILE_WRITE_ATTRIBUTES, windows.GENERIC_READ}
-}
-
-// holdTimes asks the file system not to change the file's access time, and
-// its write time too when write is set, for I/O through handle until it
-// closes. SetFileTime takes a time whose two halves are both 0xFFFFFFFF as
-// that request; a volume with last-access updates on would otherwise record
-// the copy's own reads.
-func holdTimes(handle windows.Handle, write bool) error {
-	hold := windows.Filetime{LowDateTime: 0xFFFFFFFF, HighDateTime: 0xFFFFFFFF}
-	var writeTime *windows.Filetime
-	if write {
-		writeTime = &hold
-	}
-	return windows.SetFileTime(handle, nil, &hold, writeTime)
-}
 
 // onHandle runs call on the handle of file, giving the error either returns.
 func onHandle(file *os.File, call func(windows.Handle) error) error {
@@ -129,7 +65,7 @@ func createDest(path string) (*os.File, error) {
 		return nil, err
 	}
 	// Best effort: preserve still sets the times where the hold is refused.
-	_ = onHandle(file, func(handle windows.Handle) error { return holdTimes(handle, true) })
+	_ = onHandle(file, func(handle windows.Handle) error { return fsmeta.HoldTimes(handle, true) })
 	return file, nil
 }
 

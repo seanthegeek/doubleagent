@@ -144,7 +144,9 @@ varies by machine: the registry value `NtfsDisableLastAccessUpdate` under
 a change takes effect after a restart).
 
 On Windows the `doubleagent` binary reads that value once at the start of
-a run and decides how to open the files it collects:
+a run and decides how to open every file it reads: each file it copies,
+and each file it reads to find projects or relocation hints (with
+`--env-scan-home`, every file it searches):
 
 - **Updates are off.** Reading a file does not change its access time, so
   the binary opens each file read-only and asks for no other right.
@@ -158,6 +160,8 @@ a run and decides how to open the files it collects:
   normally, and that file's access time may change.
 
 The log says which case applied, in the line after the two start lines.
+The hold covers files the binary reads, not directories: listing a
+directory may update that directory's access time where updates are on.
 
 Asking for the right to change attributes may trigger security software,
 so only machines where last-access updates are on (or undetermined) can be

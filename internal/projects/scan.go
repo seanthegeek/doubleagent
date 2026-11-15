@@ -5,6 +5,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -18,6 +19,7 @@ type homeScan struct {
 	home       string
 	rules      pathRules
 	dropSecret func(relative string) bool
+	opener     *fsmeta.Opener
 	stream     bytes.Buffer
 }
 
@@ -49,19 +51,19 @@ func (s *homeScan) expand(patterns ...string) []string { return expandIn(s.home,
 
 // jsonValues is json_vals KEY over files.
 func (s *homeScan) jsonValues(key string, files []string) {
-	s.emit(grepFiles(s.readable(files), jsonValueMatcher(key)))
+	s.emit(s.grepFiles(s.readable(files), jsonValueMatcher(key)))
 }
 
 // jsonPathKeys is json_path_keys over one file: next follows the colon.
 func (s *homeScan) jsonPathKeys(file, next string) {
 	if isRegularFile(file) && len(s.readable([]string{file})) == 1 {
-		s.emit(grepFiles([]string{file}, jsonPathKeyMatcher(next, s.rules)))
+		s.emit(s.grepFiles([]string{file}, jsonPathKeyMatcher(next, s.rules)))
 	}
 }
 
 // absStrings returns abs_strings over files.
 func (s *homeScan) absStrings(files []string) []string {
-	return grepFiles(s.readable(files), absStringMatcher(s.rules))
+	return s.grepFiles(s.readable(files), absStringMatcher(s.rules))
 }
 
 // sessionCwds is session_cwds: the cwd values of the files named name below
@@ -70,7 +72,7 @@ func (s *homeScan) sessionCwds(dir, name string) []string {
 	if !isDirectory(dir) {
 		return nil
 	}
-	return grepFiles(findNamed(s.ctx, dir, name), sessionCwdMatcher())
+	return s.grepFiles(findNamed(s.ctx, dir, name), sessionCwdMatcher())
 }
 
 // emitOutside emits the values whose path does not lie at or under any of
@@ -101,16 +103,16 @@ func (s *homeScan) emitOutside(values []string, exact []string, under []string) 
 // read through readable, as the sh code calls cat directly.
 func (s *homeScan) catFiles(files []string) {
 	for _, file := range files {
-		if content, ok := readWhole(file); ok {
+		if content, ok := s.readWhole(file); ok {
 			s.stream.Write(content)
 		}
 	}
 }
 
 // lines returns the lines of a regular file, or nil when scanLines rejects it.
-func lines(file string) []string {
+func (s *homeScan) lines(file string) []string {
 	var found []string
-	if !scanLines(file, func(line []byte) { found = append(found, string(line)) }) {
+	if !s.scanLines(file, func(line []byte) { found = append(found, string(line)) }) {
 		return nil
 	}
 	return found
