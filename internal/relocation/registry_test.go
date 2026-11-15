@@ -252,6 +252,27 @@ func liveRegistry() fakeRegistry {
 	}
 }
 
+func TestCollectedHomeComparesAsNTFSDoes(t *testing.T) {
+	homes := []users.Home{{User: "\u00e9mile", Path: "C:/Users/\u00e9mile"}}
+	run := registrySearch(t, fakeRegistry{}, nil, homes, &lineLog{})
+	cases := []struct {
+		name, path string
+		want       bool
+	}{
+		{"a ProfileList path differing in an accented letter's case is the home",
+			"c:/users/\u00c9MILE", true},
+		{"the same name without its accent is another directory", "C:/Users/emile", false},
+		{"the empty path is no home", "", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := run.collectedHome(test.path); got != test.want {
+				t.Errorf("collectedHome(%q) = %t, want %t", test.path, got, test.want)
+			}
+		})
+	}
+}
+
 func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
 	profiles := []Profile{
 		{SecurityID: "S-1-5-18", User: "alice", Path: "C:/Users/alice"},

@@ -72,6 +72,18 @@ func TestFind(t *testing.T) {
 			homes:    []string{"ALICE:/Users/ALICE"},
 		},
 		{
+			name:     "a home repeated with an accented letter in another case is one home",
+			dirs:     []string{"Users/\u00e9mile"},
+			profiles: []string{"S-1-5-21-1=Users/\u00c9mile"},
+			homes:    []string{"\u00c9mile:/Users/\u00c9mile"},
+		},
+		{
+			name:   "the -u list ignores the case of an accented letter",
+			dirs:   []string{"Users/\u00e9mile", "Users/bob"},
+			filter: "\u00c9MILE",
+			homes:  []string{"\u00e9mile:/Users/\u00e9mile"},
+		},
+		{
 			name:     "system and service profiles are dropped",
 			dirs:     []string{"Users/Public", "Users/default", "Users/All Users", "Users/UMFD-0", "Users/DWM-2", "Users/alice"},
 			profiles: []string{"S-1-5-18=Users/Default User", "S-1-5-21-1=Users/Temp.WIN"},

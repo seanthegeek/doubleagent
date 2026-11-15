@@ -14,9 +14,18 @@ func ToNative(path string) string { return toWindows(path) }
 // calls take, with . and .. resolved; a relative path comes back unchanged.
 func Extended(path string) string { return extendedWindows(path) }
 
-// Fold returns the key two paths are compared by: text with ASCII capitals
-// lowered, since NTFS ignores case. It is never written to output.
-func Fold(text string) string { return foldASCII(text) }
+// Fold returns the key two paths are compared by: text with each character
+// in its simple Unicode upper-case form (é as É, ı as I, ß kept) and each
+// byte of invalid UTF-8 kept, since NTFS compares names through an
+// upper-case table. The key may differ in byte length from text and is never
+// written to output.
+func Fold(text string) string { return foldUpper(text) }
+
+// matchPrefix reports whether path starts with prefix ignoring case, and the
+// byte index in path where the rest begins.
+func matchPrefix(path, prefix string) (restIndex int, found bool) {
+	return matchFoldedPrefix(path, prefix)
+}
 
 // IsAbs reports whether path, canonical or native, starts with a drive and a
 // separator, is a bare drive, or is a UNC path.

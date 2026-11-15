@@ -507,7 +507,10 @@ for Go files as it does for the others.
   staging directory and exits 130.
 - **Paths are bytes.** A path is a `string` holding raw bytes: no `[]rune`,
   `strings.ToLower`, `utf8` decoding or `%q` on one; case folding is
-  ASCII-only where the sh collector lowers under `LC_ALL=C`. Directory
+  ASCII-only where the sh collector lowers under `LC_ALL=C`. Windows path
+  keys fold by character, because NTFS upper-cases every letter when it
+  compares names; that decoding lives in `internal/syspath` only, and every
+  other package compares Windows paths through `syspath.Fold`. Directory
   listings use `(*os.File).ReadDir(-1)` (directory order) where the sh
   collector uses `find`, and the glob expander (sorted) where it expands a
   pattern; never `filepath.WalkDir` or `os.ReadDir` on a collected tree.

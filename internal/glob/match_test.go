@@ -3,6 +3,8 @@ package glob
 import (
 	"slices"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // matchPathCase is one MatchPath test: a pattern, a path and the result.
@@ -120,28 +122,9 @@ func TestQuoteMetaMakesAPatternMatchItsTextOnly(t *testing.T) {
 // identity is the Unix fold: names compared byte for byte.
 func identity(text string) string { return text }
 
-func TestFoldASCIILowersOnlyASCIICapitals(t *testing.T) {
-	cases := []struct {
-		name string
-		text string
-		want string
-	}{
-		{"capitals are lowered", "AppData/Local", "appdata/local"},
-		{"the letters around the range stay", "@[`{", "@[`{"},
-		{"bytes above 0x7f stay", "\xc3\x89T\xff", "\xc3\x89t\xff"},
-		{"the empty text stays", "", ""},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			if got := foldASCII(testCase.text); got != testCase.want {
-				t.Errorf("foldASCII(%q) = %q, want %q", testCase.text, got, testCase.want)
-			}
-		})
-	}
-}
-
 func TestSegmentsMatchAListOfNamesUnderEachFold(t *testing.T) {
-	names := []string{"Users", "USERS", "users", "Users2", ".Users", "AppData", "appdata"}
+	names := []string{"Users", "USERS", "users", "Users2", ".Users", "AppData", "appdata",
+		"\u00c9mile", "\u00e9mile"}
 	cases := []struct {
 		name     string
 		pattern  string
@@ -162,6 +145,10 @@ func TestSegmentsMatchAListOfNamesUnderEachFold(t *testing.T) {
 			[]string{"users"}, []string{"Users", "USERS", "users"}},
 		{"a leading dot opens dot names under the fold", ".u*",
 			nil, []string{".Users"}},
+		{"a literal segment ignores the case of an accented letter under the fold", "\u00e9mile",
+			[]string{"\u00e9mile"}, []string{"\u00c9mile", "\u00e9mile"}},
+		{"a star ignores the case of an accented letter under the fold", "\u00c9*",
+			[]string{"\u00c9mile"}, []string{"\u00c9mile", "\u00e9mile"}},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -169,7 +156,7 @@ func TestSegmentsMatchAListOfNamesUnderEachFold(t *testing.T) {
 				name     string
 				function func(string) string
 				want     []string
-			}{{"unix", identity, testCase.unixWant}, {"windows", foldASCII, testCase.foldWant}} {
+			}{{"unix", identity, testCase.unixWant}, {"windows", syspath.WindowsFold, testCase.foldWant}} {
 				var got []string
 				for _, name := range names {
 					if matchSegment(testCase.pattern, name, fold.function) {

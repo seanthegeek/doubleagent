@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 func TestWindowsRowCarriesFieldsAfterMode(t *testing.T) {
@@ -25,6 +27,22 @@ func TestWriterWritesNativePaths(t *testing.T) {
 	}
 	if !writer.HasPath("c:/users/A/X") {
 		t.Error("HasPath did not fold")
+	}
+}
+
+func TestWriterFoldsAccentedLettersAsNTFSDoes(t *testing.T) {
+	var out strings.Builder
+	writer := NewWriter(&out)
+	err := writer.Write(Row{Home: "C:/Users/\u00e9mile", Path: "C:/Users/\u00e9mile/x", Status: Collected})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !writer.HasPath("C:/Users/\u00c9mile/X") {
+		t.Error("HasPath of the path with its accented letter upper-cased = false, want true")
+	}
+	if _, found := writer.HomesWithRows()[syspath.Fold("C:/USERS/\u00c9MILE")]; !found {
+		t.Errorf("HomesWithRows = %q, want the home under the fold of its other spelling",
+			writer.HomesWithRows())
 	}
 }
 

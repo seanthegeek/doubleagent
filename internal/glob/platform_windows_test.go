@@ -75,11 +75,12 @@ func rootEntry(t *testing.T) string {
 }
 
 // platformMatchPathCases are the MatchPath cases that depend on case. A
-// class name is lowered with the rest of the pattern, so an upper-case
-// class matches nothing; no table holds a class name.
+// class name is upper-cased with the rest of the pattern, so it names no
+// class and the test fails; no table holds a class name.
 var platformMatchPathCases = []matchPathCase{
 	{"a class ignores case", "[a]", "A", true},
-	{"a POSIX upper-case class sees only lowered bytes", "[[:upper:]]", "Q", false},
+	{"a POSIX class name is upper-cased with the pattern and matches nothing", "[[:upper:]]", "Q", false},
+	{"an accented letter matches its other case", "C:/Users/\u00e9mile", "c:/users/\u00c9MILE", true},
 }
 
 func TestRespellGivesTheOnDiskCase(t *testing.T) {

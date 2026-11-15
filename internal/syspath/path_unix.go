@@ -20,6 +20,15 @@ func Extended(path string) string { return path }
 // text unchanged.
 func Fold(text string) string { return text }
 
+// matchPrefix reports whether path starts with prefix byte for byte, and the
+// byte index in path where the rest begins.
+func matchPrefix(path, prefix string) (restIndex int, found bool) {
+	if !strings.HasPrefix(path, prefix) {
+		return 0, false
+	}
+	return len(prefix), true
+}
+
 // IsAbs reports whether path starts with /.
 func IsAbs(path string) bool { return strings.HasPrefix(path, "/") }
 

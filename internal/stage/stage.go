@@ -47,9 +47,12 @@ func (stager Stager) Through(from, into string) Stager {
 // fs/server/share/a).
 func (stager Stager) Dest(path string) (archivePath, destPath string) {
 	relative := path
-	if stager.From != "" &&
-		(syspath.Equal(path, stager.From) || syspath.HasPrefix(path, stager.From+"/")) {
-		relative = stager.Into + path[len(stager.From):]
+	if stager.From != "" {
+		if syspath.Equal(path, stager.From) {
+			relative = stager.Into
+		} else if below, found := syspath.CutPrefix(path, stager.From+"/"); found {
+			relative = stager.Into + "/" + below
+		}
 	}
 	rest, _ := syspath.CutPrefix(relative, stager.Root)
 	archivePath = "fs" + syspath.ArchiveRel(rest)

@@ -3,6 +3,8 @@ package relocation
 import (
 	"slices"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // RegistryRoot names one of the two registry hives the registry pass reads.
@@ -152,13 +154,16 @@ func (run *search) userEnvironment(profile Profile, systemTables []map[string]st
 }
 
 // collectedHome reports whether path is the home of one of the run's users,
-// compared without regard to ASCII case as Windows compares paths.
+// compared as NTFS compares names, through syspath.WindowsFold on every
+// platform, since a ProfileList path is a Windows path wherever the pass is
+// tested.
 func (run *search) collectedHome(path string) bool {
 	if path == "" {
 		return false
 	}
+	key := syspath.WindowsFold(path)
 	for _, home := range run.deps.Homes {
-		if equalFoldASCII(home.Path, path) {
+		if syspath.WindowsFold(home.Path) == key {
 			return true
 		}
 	}
@@ -400,8 +405,8 @@ func isAccountIdentifier(securityID string) bool {
 }
 
 // equalFoldASCII reports whether first and second are equal when ASCII letters are
-// compared without case, the folding the binary applies to Windows paths and
-// security identifiers.
+// compared without case, the folding the binary applies to registry names and
+// security identifiers (paths fold through syspath).
 func equalFoldASCII(first, second string) bool {
 	return len(first) == len(second) && lowerASCII(first) == lowerASCII(second)
 }

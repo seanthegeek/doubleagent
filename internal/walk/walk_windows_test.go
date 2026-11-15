@@ -254,13 +254,14 @@ func TestWalkListsDirectoriesBeforeFilesOnWindows(t *testing.T) {
 
 func TestClaimsAreFoldedOnWindows(t *testing.T) {
 	home := physicalTemp(t)
-	writeFiles(t, home, ".tool/a.txt", ".tool/nested/b.txt")
+	writeFiles(t, home, ".tool/a.txt", ".tool/n\u00e9sted/b.txt")
 	cases := []struct {
 		name  string
 		claim string
 	}{
-		{"a claim spelled as on disk prunes its path", home + "/.tool/nested"},
-		{"a claim spelled in other case prunes its path", home + "/.TOOL/NESTED"},
+		{"a claim spelled as on disk prunes its path", home + "/.tool/n\u00e9sted"},
+		{"a claim spelled in other case, an accented letter included, prunes its path",
+			home + "/.TOOL/N\u00c9STED"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -273,7 +274,7 @@ func TestClaimsAreFoldedOnWindows(t *testing.T) {
 			if got := recorder.summary(t, home); !slices.Equal(got, want) {
 				t.Errorf("events %q, want %q", got, want)
 			}
-			if !claimed(home+"/.tool/Nested/b.txt", home, owner.claims) {
+			if !claimed(home+"/.tool/N\u00e9sted/b.txt", home, owner.claims) {
 				t.Error("a path under the claim in a third spelling is not claimed")
 			}
 		})
