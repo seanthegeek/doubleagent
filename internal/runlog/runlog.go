@@ -29,7 +29,7 @@ type Log struct {
 func Open(path string, quiet bool, stderr io.Writer, now func() time.Time) (*Log, error) {
 	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
 	if err != nil {
-		return nil, fmt.Errorf("open log %s: %w", path, err)
+		return nil, fmt.Errorf("open log %s: %w", syspath.ToNative(path), err)
 	}
 	return &Log{file: file, stderr: stderr, quiet: quiet, now: now}, nil
 }

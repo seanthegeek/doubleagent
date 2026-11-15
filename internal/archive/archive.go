@@ -33,7 +33,7 @@ func WriteTarGz(stageDir, archivePath string) error {
 	// form osfile opened it with.
 	err = syspath.NativeErrors(writeMembers(file, stageDir))
 	if closeError := file.Close(); err == nil && closeError != nil {
-		err = fmt.Errorf("close archive %s: %w", archivePath, syspath.NativeErrors(closeError))
+		err = fmt.Errorf("close archive %s: %w", syspath.ToNative(archivePath), syspath.NativeErrors(closeError))
 	}
 	if err != nil {
 		_ = osfile.Remove(archivePath)
@@ -111,7 +111,7 @@ func addEntry(archive *tar.Writer, full, member string, info os.FileInfo) error 
 	}
 	header, err := tar.FileInfoHeader(info, link)
 	if err != nil {
-		return fmt.Errorf("archive %s: %w", full, err)
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
 	header.Name = "./" + strings.TrimPrefix(member, "./")
 	if member == "." {
@@ -124,7 +124,7 @@ func addEntry(archive *tar.Writer, full, member string, info os.FileInfo) error 
 	header.ModTime = header.ModTime.Truncate(time.Second)
 	header.AccessTime, header.ChangeTime = time.Time{}, time.Time{}
 	if err := archive.WriteHeader(header); err != nil {
-		return fmt.Errorf("archive %s: %w", full, err)
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
 	if !info.Mode().IsRegular() {
 		return nil
@@ -140,7 +140,7 @@ func copyContent(archive *tar.Writer, full string) error {
 	}
 	defer source.Close()
 	if _, err := io.Copy(archive, source); err != nil {
-		return fmt.Errorf("archive %s: %w", full, syspath.NativeErrors(err))
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), syspath.NativeErrors(err))
 	}
 	return nil
 }
@@ -156,7 +156,7 @@ func SHA256File(path string) (string, int64, error) {
 	digest := sha256.New()
 	size, err := io.Copy(digest, source)
 	if err != nil {
-		return "", 0, fmt.Errorf("hash %s: %w", path, syspath.NativeErrors(err))
+		return "", 0, fmt.Errorf("hash %s: %w", syspath.ToNative(path), syspath.NativeErrors(err))
 	}
 	return hex.EncodeToString(digest.Sum(nil)), size, nil
 }

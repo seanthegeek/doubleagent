@@ -62,7 +62,7 @@ func (stager Stager) Dest(path string) (archivePath, destPath string) {
 func (stager Stager) MakeParent(path string) error {
 	_, dest := stager.Dest(path)
 	if err := stager.makeDir(parentOf(dest)); err != nil {
-		return fmt.Errorf("stage %s: %w", path, err)
+		return fmt.Errorf("stage %s: %w", syspath.ToNative(path), err)
 	}
 	return nil
 }
@@ -95,13 +95,13 @@ func (stager Stager) requireInside(operation, dir string) error {
 		}
 		parent := parentOf(existing)
 		if parent == existing || parent == "" {
-			return &fs.PathError{Op: operation, Path: dir, Err: outsideStage{}}
+			return &fs.PathError{Op: operation, Path: syspath.ToNative(dir), Err: outsideStage{}}
 		}
 		existing = parent
 	}
 	physical, err := PhysicalDir(existing)
 	if err != nil || !stager.holds(physical) {
-		return &fs.PathError{Op: operation, Path: dir, Err: outsideStage{}}
+		return &fs.PathError{Op: operation, Path: syspath.ToNative(dir), Err: outsideStage{}}
 	}
 	return nil
 }

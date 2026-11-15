@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 func TestLogErrorsNameTheNativePath(t *testing.T) {
@@ -34,5 +36,16 @@ func TestLogErrorsNameTheNativePath(t *testing.T) {
 				t.Errorf("error = %v, want one naming %s without the \\\\?\\ prefix", err, path)
 			}
 		})
+	}
+}
+
+func TestOpenErrorNamesTheNativePath(t *testing.T) {
+	canonical := syspath.FromNative(t.TempDir()) + "/missing/run.log"
+	_, err := Open(canonical, true, io.Discard, time.Now)
+	if err == nil {
+		t.Fatal("Open under a missing directory succeeded")
+	}
+	if !strings.Contains(err.Error(), "open log "+syspath.ToNative(canonical)+":") {
+		t.Errorf("error %q, want it to name %q", err, syspath.ToNative(canonical))
 	}
 }

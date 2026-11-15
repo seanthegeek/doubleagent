@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // ErrNotRegular is the error OpenRegular wraps when path is not a regular
@@ -23,7 +24,7 @@ func OpenRegular(path string) (*os.File, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return nil, &fs.PathError{Op: "open", Path: path, Err: ErrNotRegular}
+		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: ErrNotRegular}
 	}
 	handle, err := osfile.OpenFile(path, os.O_RDONLY|openRegularFlags, 0)
 	if err != nil {
@@ -32,7 +33,7 @@ func OpenRegular(path string) (*os.File, error) {
 	opened, err := handle.Stat()
 	if err != nil || !opened.Mode().IsRegular() {
 		handle.Close()
-		return nil, &fs.PathError{Op: "open", Path: path, Err: ErrNotRegular}
+		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: ErrNotRegular}
 	}
 	return handle, nil
 }

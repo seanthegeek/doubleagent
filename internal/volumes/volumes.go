@@ -287,7 +287,7 @@ func (run *collection) collectMatched(ctx context.Context, name, data string,
 	}
 	unreadable, err := collector.CollectPath(ctx, dockerUser, data, rule.Agent, data)
 	if err != nil {
-		return fmt.Errorf("collect volume %s: %w", data, err)
+		return fmt.Errorf("collect volume %s: %w", syspath.ToNative(data), err)
 	}
 	run.counts.Collected++
 	if unreadable > 0 && !collector.Inventory {

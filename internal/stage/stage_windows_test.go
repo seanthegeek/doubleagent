@@ -367,3 +367,13 @@ func TestRemoveFailedCopyOnWindows(t *testing.T) {
 		})
 	}
 }
+
+func TestOutsideStageErrorNamesTheNativePath(t *testing.T) {
+	stager, _ := newWindowsStager(t)
+	outside := syspath.FromNative(t.TempDir()) + "/outside/deeper"
+	err := stager.requireInside("mkdir", outside)
+	var pathError *fs.PathError
+	if !errors.As(err, &pathError) || pathError.Path != syspath.ToNative(outside) {
+		t.Errorf("requireInside error %v, want a PathError of %q", err, syspath.ToNative(outside))
+	}
+}
