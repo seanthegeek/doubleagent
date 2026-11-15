@@ -38,6 +38,9 @@ func settleTree(t *testing.T, root string) {
 		}
 		time.Sleep(time.Duration(round+1) * 20 * time.Millisecond)
 	}
+	if unsettled = unsettledDirectories(directories); len(unsettled) == 0 {
+		return
+	}
 	t.Fatalf("the listing entry of %s still holds another write time than the directory", unsettled[0])
 }
 
