@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+// presentProgram is a program every Unix system has.
+const presentProgram = "sh"
+
 // This runs /bin/sh, which Windows does not have.
 
 func TestSystemRunsProgramsInTheCLocale(t *testing.T) {

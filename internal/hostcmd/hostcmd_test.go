@@ -49,8 +49,8 @@ func TestFakeIsARunner(t *testing.T) {
 
 func TestSystemAvailable(t *testing.T) {
 	runner := System()
-	if !runner.Available("sh") {
-		t.Error("sh should be available")
+	if !runner.Available(presentProgram) {
+		t.Errorf("%s should be available", presentProgram)
 	}
 	if runner.Available("no-such-program-doubleagent") {
 		t.Error("a missing program should not be available")
