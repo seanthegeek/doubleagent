@@ -133,8 +133,9 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	if !isDir {
 		return collector.record(ctx, owner, found, foundFile, path, "")
 	}
-	// path's own lstat typed it a directory, so nothing is followed here;
-	// the check only keeps every directory test in one place.
+	// The listing typed path a directory and no reparse point, under a
+	// directory already checked, so a refusal cannot happen; the check
+	// still covers an entry swapped for a link after the listing.
 	if reason, failed, _ := follow.DirReadError(collector.check(), path); failed {
 		if err := collector.record(ctx, owner, found, foundReadError, path, reason); err != nil {
 			return err

@@ -508,13 +508,20 @@ Both scripts read and list through such a link, which in image mode reads
 the analyst's own host: the binary differs on purpose. A live run has no
 root to leave and reads every source as the host holds it.
 
-A reparse point that is not a link (a cloud-file placeholder, a
-deduplicated file, an AF_UNIX socket) on such a path is refused the same
-way, since a filter driver on the analyst's machine may act on it, but the
-line says what it is instead of calling it a link:
-`Discovery [alice] /img/home/alice/.claude.json is a reparse point that is not a link; nothing behind it was looked at`.
-The other steps' lines (`user homes:`, `docker:`, `startup files:` and the
-catalog walk's) word it the same way.
+A reparse point other than a symlink or junction (a cloud-file
+placeholder, a deduplicated file, an AF_UNIX socket, a WSL symlink, an app
+execution alias), whose target, if any, `os.Readlink` cannot read, is
+refused the same way on such a path, since a filter driver on the
+analyst's machine may act on it, but no line calls it a symlink that leads
+out. The five lines that can name one read, with the user, agent or path
+filled in (the catalog walk's is indented two spaces in the log, as its
+other match lines are):
+
+- `Discovery [alice] /img/home/alice/.claude.json is a reparse point other than a symlink or junction; nothing behind it was looked at`
+- `[claude-code] /img/home/alice/.claude is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`
+- `user homes: /img/home/alice is a reparse point other than a symlink or junction; nothing behind it was looked at`
+- `docker: /img/var/lib is a reparse point other than a symlink or junction; nothing behind it was looked at`
+- `startup files: /img/etc is a reparse point other than a symlink or junction; nothing behind it was looked at`
 
 The binary logs a project the run lists but does not walk with one line
 and writes no row for it:
@@ -528,13 +535,22 @@ project in either case gets that line only: no
 row, since testing it as a directory would follow the link on the
 analyst's host.
 
-Every test that follows a link in the last component of a path (a stat, a
+Every call that follows a link in the last component of a path (a stat, a
 directory or file test, an access check, a directory listing test, a read
-of a whole file, a resolution to the physical directory) goes through the
-`internal/follow` package, which asks the image root's check about the
-whole path first; a test there fails on any other such call in the tree,
-apart from a short list of calls on the output directory, the staging tree
-and the operator's own `-r`, `-o` and `-p` paths, each with its reason.
+or write of a whole file, a resolution to the physical directory) goes
+through the `internal/follow` package, which asks the image root's check
+about the whole path first. A test there reads every non-test Go file of the
+binary and fails on any other reference to such a function, outside the
+packages it is built on (`follow`, `osfile`, `fsmeta`, `stage`) and a list
+of calls with their number and reason, which fall in four kinds: the run's
+own output and staging files and directories; the operator's own `-r` and
+`-o`, tested before any image path exists; a directory opened after its own
+lstat, or a listing that leaves reparse points out, typed it a directory
+under a path already checked; and the glob expander's lookups, made after
+it asked the check. The test sees package-level function references only:
+a method that follows (none today: `fsmeta.Opener.OpenRegular` refuses a
+link), a call through an interface or a function value, and a new following
+function exported by one of the four packages need a reviewer.
 
 A new source goes into its group on both sides, at the same position.
 

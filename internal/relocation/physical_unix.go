@@ -13,11 +13,8 @@ func physicalDirectory(check follow.Check, directory string) (physical string, o
 	if directory == "" {
 		directory = "/"
 	}
+	// stage.PhysicalDir also fails unless the result is a directory the
+	// effective user may search, as cd requires.
 	physical, err := follow.PhysicalDir(check, directory)
-	if err != nil {
-		return "", false
-	}
-	isDir, _ := follow.IsDirectory(check, physical)
-	canEnter, _ := follow.CanEnter(check, physical)
-	return physical, isDir && canEnter
+	return physical, err == nil
 }

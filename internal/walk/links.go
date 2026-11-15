@@ -84,15 +84,7 @@ func baseOrRoot(base string) string {
 // attribute.
 func isSymlink(path string) bool {
 	meta, err := fsmeta.Lstat(path)
-	return err == nil && isLinkMeta(meta)
-}
-
-// reparsePointAttribute is FILE_ATTRIBUTE_REPARSE_POINT, never set on Unix.
-const reparsePointAttribute = 0x400
-
-// isLinkMeta reports whether meta describes a symlink or a reparse point.
-func isLinkMeta(meta fsmeta.Meta) bool {
-	return meta.Kind == fsmeta.Symlink || meta.Attributes&reparsePointAttribute != 0
+	return err == nil && meta.IsLink()
 }
 
 // physicalPath returns path with its leading from replaced by to, the path

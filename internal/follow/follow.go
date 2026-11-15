@@ -9,6 +9,15 @@
 // system does. Calls that never follow (lstat, readlink, listing a directory
 // whose own entry was typed a directory) stay where they are. A test in this
 // package fails on any other call in the tree of a function that follows.
+//
+// The test reads package-level function references only, so it cannot see:
+// a method that follows (fsmeta.Opener.OpenRegular opens with O_NOFOLLOW or
+// FILE_FLAG_OPEN_REPARSE_POINT and refuses a link; hostcmd.Plutil runs plutil
+// on a hint file whose own lstat typed it a regular file, under checked
+// paths); a call through an interface
+// or a function value (glob's and the walk's are this package's own
+// functions or the root check); or a new following export of an owner
+// package (fsmeta, osfile, stage), whose reviewer must add it to the list.
 package follow
 
 import (
@@ -93,11 +102,12 @@ func ReadFile(check Check, path string) ([]byte, error) {
 }
 
 // DirReadError is fsmeta.DirReadError of path: why the directory it names
-// cannot be listed or entered. err is set only when path leads out of the
-// image root.
+// cannot be listed or entered. A path that leads out of the image root is
+// reported as failed, with the refusal as its reason and in err, so a caller
+// that drops err cannot read it as readable.
 func DirReadError(check Check, path string) (reason string, failed bool, err error) {
 	if err := LeavesRoot(check, path); err != nil {
-		return "", false, err
+		return err.Error(), true, err
 	}
 	reason, failed = fsmeta.DirReadError(path)
 	return reason, failed, nil
@@ -112,25 +122,17 @@ func PhysicalDir(check Check, path string) (string, error) {
 	return stage.PhysicalDir(path)
 }
 
-// reparsePointAttribute is FILE_ATTRIBUTE_REPARSE_POINT; Attributes is 0 on
-// Unix.
-const reparsePointAttribute = 0x400
-
-// IsLink reports whether meta, an lstat, describes a link a path can run
-// through or a reparse point of any kind, which nothing here follows.
-func IsLink(meta fsmeta.Meta) bool {
-	return meta.Kind == fsmeta.Symlink || meta.Attributes&reparsePointAttribute != 0
-}
-
-// NotALink reports whether path is a reparse point that is not a link (a
-// cloud-file placeholder, a deduplicated file, an AF_UNIX socket): the root
-// check refuses it, since a filter driver on the analyst's machine may act on
-// it, but it leads nowhere, so a log line must not call it a link. Never on
-// Unix.
-func NotALink(path string) bool {
+// OtherReparsePoint reports whether path is a reparse point other than a
+// symlink or junction (fsmeta.Meta.IsOtherReparsePoint), whose target, if any,
+// os.Readlink cannot read: the root check refuses it, since a filter driver
+// on the analyst's machine may act on it, but a log line must not call it a
+// symlink that leads out. Never on Unix.
+func OtherReparsePoint(path string) bool {
 	meta, err := fsmeta.Lstat(path)
-	return err == nil && meta.Kind != fsmeta.Symlink && meta.Attributes&reparsePointAttribute != 0
+	return err == nil && meta.IsOtherReparsePoint()
 }
 
-// NotALinkReason is the end of a log line for a path NotALink reports.
-const NotALinkReason = "is a reparse point that is not a link; nothing behind it was looked at"
+// OtherReparseReason is the end of a log line for a path OtherReparsePoint
+// reports.
+const OtherReparseReason = "is a reparse point other than a symlink or junction; " +
+	"nothing behind it was looked at"

@@ -49,6 +49,7 @@ func TestDataJunctionOutOfTheRootGivesOneOutcome(t *testing.T) {
 		}
 		if !readable {
 			denyEveryone(t, outside)
+			requireUnlistable(t, outside)
 		}
 		makeJunction(t, outside, fixture.root+"/var/lib/docker/volumes/v1/_data")
 		var notes []string
@@ -100,6 +101,21 @@ func denyEveryone(t *testing.T, dir string) {
 			t.Errorf("give back access to %s: %v", dir, err)
 		}
 	})
+}
+
+// requireUnlistable stops the test unless dir, after denyEveryone, cannot be
+// listed: otherwise the unreadable case is the readable one again and proves
+// nothing. An elevated token whose rights pass the deny entry is a runner
+// fact, so the test skips there; anything else is a broken fixture.
+func requireUnlistable(t *testing.T, dir string) {
+	t.Helper()
+	if _, failed := fsmeta.DirReadError(dir); failed {
+		return
+	}
+	if windows.GetCurrentProcessToken().IsElevated() {
+		t.Skipf("%s is still listable after its deny entry under this elevated token", dir)
+	}
+	t.Fatalf("%s is still listable after its deny entry", dir)
 }
 
 // makeJunction makes link a junction to the directory target, both

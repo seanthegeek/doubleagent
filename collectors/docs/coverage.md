@@ -185,16 +185,20 @@ the matched path.
   before it lists a directory or looks a name up in one, and looks at nothing behind such a
   link. The catalog walk logs the link once, in the place of the first catalog line whose
   glob reached it, as
-  `[vscode] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`,
+  `[vscode] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
+  (for a reparse point other than a symlink or junction,
+  `[vscode] /img/home/bob/.config is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`),
   and records the link itself as one `symlink` row of that line's agent, unless a match
   claims it, whether or not anything behind it would have matched: the line and the row do
   not depend on what the analyst's host holds. Project discovery reads no source behind such
   a link and logs one line per link
   ([Project discovery in `internals.md`](internals.md#project-discovery)). A link that
   leaves the home but stays inside the image root is listed and refused as described above.
-  An excluded path that is itself such a link gets its `skipped_excluded` row from its own
-  lstat, as a file, whatever the link points at; the scripts test it as a directory
-  through the link. A live run is unchanged.
+  An excluded path that is itself such a link gets its `skipped_excluded` row from the
+  link's own entry, whatever the link points at: on Unix from its lstat, as a file, where
+  the sh collector tests it as a directory through the link; on Windows, from the entry's
+  own attributes, so a junction is a `dir` row of size 0, as the PowerShell collector,
+  which does not follow it either, writes it. A live run is unchanged.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
   `bar|b/sub` names the same files; the archive holds the last copy of a file and the link
   the first row recreated, which the second leaves as it is: `ln -s` onto a link to a
@@ -691,7 +695,9 @@ is not read, and a candidate home that is or lies behind one is dropped
 without being tested as a directory, so the outcome is the same whatever
 the link points at, or whether it points at anything. The log names each
 link once, as
-`user homes: /img/home leads out of the image root; nothing behind it was listed or taken as a home`;
+`user homes: /img/home leads out of the image root; nothing behind it was listed or taken as a home`
+(for a reparse point other than a symlink or junction,
+`user homes: /img/home is a reparse point other than a symlink or junction; nothing behind it was looked at`);
 the link gets no row of its own (it is not a home), and no user name from
 behind it appears in the outputs. Both scripts list the analyst's own
 directory there.

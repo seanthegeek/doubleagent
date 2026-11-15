@@ -65,7 +65,7 @@ func linkedParent(base, path string, check glob.Check) bool {
 			return false
 		}
 		directory, rest = directory+"/"+segment, after
-		if meta, err := fsmeta.Lstat(directory); err != nil || !isLink(meta) {
+		if meta, err := fsmeta.Lstat(directory); err != nil || !meta.IsLink() {
 			continue
 		}
 		if root == "" {
@@ -83,14 +83,4 @@ func linkedParent(base, path string, check glob.Check) bool {
 			return true
 		}
 	}
-}
-
-// reparsePointAttribute is FILE_ATTRIBUTE_REPARSE_POINT; Attributes is 0 on
-// Unix.
-const reparsePointAttribute = 0x400
-
-// isLink reports whether meta describes a link a glob may have followed: a
-// symlink, or on Windows any reparse point, as Get-LinkedParent takes one.
-func isLink(meta fsmeta.Meta) bool {
-	return meta.Kind == fsmeta.Symlink || meta.Attributes&reparsePointAttribute != 0
 }

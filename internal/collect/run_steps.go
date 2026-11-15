@@ -37,8 +37,8 @@ func (state *runState) findHomes(ctx context.Context) error {
 	}
 	for _, link := range report.OutOfRoot {
 		reason := "leads out of the image root; nothing behind it was listed or taken as a home"
-		if follow.NotALink(link) {
-			reason = follow.NotALinkReason
+		if follow.OtherReparsePoint(link) {
+			reason = follow.OtherReparseReason
 		}
 		if err := state.log.Line("user homes: " + syspath.ToNative(link) + " " + reason); err != nil {
 			return err
@@ -200,8 +200,8 @@ func (state *runState) rootExit(path string) (string, bool) {
 // behind it, which only the analyst's host could answer.
 func refusedSourceLine(refusal projects.Refusal) string {
 	line := "Discovery [" + refusal.User + "] " + syspath.ToNative(refusal.Link)
-	if follow.NotALink(refusal.Link) {
-		return line + " " + follow.NotALinkReason
+	if follow.OtherReparsePoint(refusal.Link) {
+		return line + " " + follow.OtherReparseReason
 	}
 	return line + ": the symlink leads out of the image root; nothing behind it was listed or read"
 }
@@ -226,6 +226,7 @@ func (state *runState) reportMissingProjects() error {
 		if isDir, err := follow.IsDirectory(check, path); isDir || err != nil {
 			continue
 		}
+		// projectLeavesRoot above passed path, so this is never a refusal.
 		reason, failed, _ := follow.DirReadError(check, path)
 		if !failed {
 			reason = ""
@@ -338,7 +339,7 @@ func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
 	for _, project := range state.projects {
 		if project.Path == base {
 			home := enclosingHome(state.homes, base)
-			return walk.ProjectStagers(state.collector.Stager, home, base, path)
+			return walk.ProjectStagers(state.roots, state.collector.Stager, home, base, path)
 		}
 	}
 	stagers := walk.PathStagers{Base: state.collector.Stager, File: state.collector.Stager}
@@ -410,6 +411,7 @@ func (state *runState) countInventoryHomes() (scanned, unreadable int, err error
 			continue
 		}
 		scanned++
+		// The users step kept no home that leads out of the root.
 		if _, failed, _ := follow.DirReadError(state.roots.Expansion(), home.Path); !failed {
 			continue
 		}

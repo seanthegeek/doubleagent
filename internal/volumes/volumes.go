@@ -145,8 +145,8 @@ func (run *collection) leavesRoot(path string) (bool, error) {
 	}
 	run.outOfRoot[link] = true
 	reason := "leads out of the image root; nothing behind it was listed"
-	if follow.NotALink(link) {
-		reason = follow.NotALinkReason
+	if follow.OtherReparsePoint(link) {
+		reason = follow.OtherReparseReason
 	}
 	return true, run.collector.Log.Line("docker: " + syspath.ToNative(link) + " " + reason)
 }
@@ -172,6 +172,12 @@ func (run *collection) volumeRoot(base, rel string) (string, bool, error) {
 			note := "docker: " + syspath.ToNative(dir) +
 				" is a symlink and was not followed; collect its target by hand"
 			return dir, false, run.addNote(note)
+		}
+		// A component the root check refuses (on Windows a reparse point
+		// other than a symlink or junction, which lstat does not call a
+		// symlink) gets its line once, as a base does.
+		if leaves, err := run.leavesRoot(dir); leaves || err != nil {
+			return dir, false, err
 		}
 		if !run.isDirectory(dir) {
 			return dir, false, nil
@@ -289,7 +295,7 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 	rule, matched := volumeRule(run.collector.Tables.DockerVolumes, name)
 	meta, dataError := fsmeta.Lstat(data)
 	switch {
-	case dataError == nil && follow.IsLink(meta):
+	case dataError == nil && meta.IsLink():
 		return run.collector.Log.Line("  volume " + name + " has no _data directory, skipped")
 	case run.volumeUnreadable(volume, data):
 		run.counts.Unreadable++

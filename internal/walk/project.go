@@ -27,13 +27,14 @@ func (collector *Collector) CollectProject(ctx context.Context, user, home, proj
 	// their rows; one leading out of home gets none. The files keep their
 	// recorded path and are staged where they physically are, never through
 	// a link recreated in the staging tree.
-	place := projectPlace(collector.Stager, home, project)
+	place := projectPlace(collector.RootCheck, collector.Stager, home, project)
 	if err := collector.Log.Line(projectLine(user, project, place)); err != nil {
 		return err
 	}
 	if place.outOfRoot != "" {
 		return nil
 	}
+	// place.outOfRoot returned above, so the project is inside the root.
 	if reason, failed, _ := follow.DirReadError(collector.check(), project); failed {
 		if err := collector.WriteReadError(user, project, project, reason); err != nil {
 			return err
@@ -69,13 +70,15 @@ type PathStagers struct {
 // them, and those between project and path inside the project are composed on
 // top. A link between project and path leading out of the project leaves path
 // staged at its project-level place, as linked_parent leaves such a file.
-func ProjectStagers(stager stage.Stager, home, project, path string) PathStagers {
-	found := projectPlace(stager, home, project)
+// roots is the run's root check (NewRootCheck of stager.Root).
+func ProjectStagers(roots RootCheck, stager stage.Stager, home, project, path string,
+) PathStagers {
+	found := projectPlace(roots, stager, home, project)
 	if found.outOfRoot != "" {
 		return PathStagers{Skip: true}
 	}
 	base := found.stager
-	links, outside := LinkedParent(project, path, NewRootCheck(stager.Root).Expansion())
+	links, outside := LinkedParent(project, path, roots.Expansion())
 	if outside {
 		return PathStagers{Base: base, File: base}
 	}
@@ -106,8 +109,7 @@ type place struct {
 // under their recorded path, since no home's walk recreated a link on it.
 // Whether the project is out of the image root is decided first, as
 // ProjectOutOfRoot decides it, before anything else of its path is stat'ed.
-func projectPlace(stager stage.Stager, home, project string) place {
-	roots := NewRootCheck(stager.Root)
+func projectPlace(roots RootCheck, stager stage.Stager, home, project string) place {
 	scope := roots.scope(project, imageProbes())
 	if scope.name != "" {
 		return place{outOfRoot: scope.name, unverified: scope.unverified, notUnder: scope.outside,
@@ -211,7 +213,7 @@ func imageProbes() probes {
 // reparse point, or the error when it cannot be stat'ed.
 func isLinkProbe(path string) (bool, error) {
 	meta, err := fsmeta.Lstat(path)
-	return err == nil && isLinkMeta(meta), err
+	return err == nil && meta.IsLink(), err
 }
 
 // maxLinkHops bounds the links a project's path expands through, as the

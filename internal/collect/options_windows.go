@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -17,7 +18,7 @@ import (
 // that drive, else to the drive's root, the only directory of another drive
 // a new process knows. Nothing is looked up: respellProjects takes the
 // disk's spelling once the root is known.
-func absoluteProject(cwd, project string) string {
+func absoluteProject(cwd, project string, _ follow.Check) string {
 	switch {
 	case isBareDrive(project):
 		project += `\`
@@ -56,11 +57,11 @@ func isBareDrive(text string) bool {
 // (fsmeta.OnDiskPath; a missing one stays as typed): -r and -o are the
 // analyst's own host paths.
 func absoluteRoot(cwd, root string) (resolved, checked string) {
-	resolved = fsmeta.OnDiskPath("", absoluteProject(cwd, root))
+	resolved = fsmeta.OnDiskPath("", absoluteProject(cwd, root, nil))
 	return resolved, syspath.ToNative(resolved)
 }
 
 // typedRoot returns ROOT made absolute against CWD as typed, before
 // absoluteRoot respells it from the disk, so a -p spelled like -r can be
 // matched with it.
-func typedRoot(cwd, root, _ string) string { return absoluteProject(cwd, root) }
+func typedRoot(cwd, root, _ string) string { return absoluteProject(cwd, root, nil) }

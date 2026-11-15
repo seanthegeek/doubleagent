@@ -197,8 +197,8 @@ func (run *search) logOutOfRoot(links []string) error {
 		}
 		run.outOfRoot[link] = true
 		reason := "leads out of the image root; nothing behind it was listed"
-		if follow.NotALink(link) {
-			reason = follow.NotALinkReason
+		if follow.OtherReparsePoint(link) {
+			reason = follow.OtherReparseReason
 		}
 		err := run.logSkip("startup files: " + syspath.ToNative(link) + " " + reason)
 		if err != nil {

@@ -220,7 +220,8 @@ func TestProjectStagers(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			collector, _, _ := testCollector(t, root, nil)
-			stagers := ProjectStagers(collector.Stager, testCase.home, project, testCase.path)
+			stagers := ProjectStagers(collector.RootCheck, collector.Stager, testCase.home, project,
+				testCase.path)
 			if got, _ := stagers.File.Dest(testCase.path); got != testCase.want {
 				t.Errorf("archive path %q, want %q", got, testCase.want)
 			}
@@ -333,7 +334,7 @@ func (testCase outOfRootCase) run(t *testing.T) {
 	collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
 		Glob: "AGENTS.md"}}}
 	if testCase.live {
-		collector.Root, collector.Stager.Root = "", ""
+		collector.Root, collector.Stager.Root, collector.RootCheck = "", "", RootCheck{}
 	}
 	home := ""
 	if testCase.underHome {
@@ -364,7 +365,9 @@ func (testCase outOfRootCase) run(t *testing.T) {
 	if entries, _ := os.ReadDir(collector.Stager.Dir); len(entries) != 0 {
 		t.Errorf("staged %d entries, want none", len(entries))
 	}
-	if stagers := ProjectStagers(collector.Stager, home, project, project+"/AGENTS.md"); !stagers.Skip {
+	stagers := ProjectStagers(collector.RootCheck, collector.Stager, home, project,
+		project+"/AGENTS.md")
+	if !stagers.Skip {
 		t.Errorf("stagers %+v, want the project skipped", stagers)
 	}
 }

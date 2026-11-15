@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"github.com/seanthegeek/doubleagent/internal/follow"
 	"io"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
@@ -127,8 +128,7 @@ func (s *homeScan) findNamed(dir, pattern string) []string {
 	if s.leaves(dir) {
 		return nil
 	}
-	info, err := osfile.Lstat(dir)
-	if err != nil || !info.IsDir() {
+	if !realDirectory(dir) {
 		return nil
 	}
 	var found []string
@@ -156,8 +156,16 @@ func walkNamed(ctx context.Context, dir, pattern string, found *[]string) {
 		if glob.MatchPath(pattern, entry.Name()) {
 			*found = append(*found, path)
 		}
-		if entry.IsDir() {
+		if entry.IsDir() && realDirectory(path) {
 			walkNamed(ctx, path, pattern, found)
 		}
 	}
+}
+
+// realDirectory reports whether path's own lstat types it a directory: not a
+// symlink, a junction or any other reparse point, which a listing on Windows
+// may still call a directory (a cloud-file placeholder directory).
+func realDirectory(path string) bool {
+	meta, err := fsmeta.Lstat(path)
+	return err == nil && meta.Kind == fsmeta.Dir
 }

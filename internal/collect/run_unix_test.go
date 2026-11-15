@@ -133,12 +133,20 @@ func writeTree(t *testing.T, dir string, files ...string) {
 func comparableOutput(t *testing.T, root string) string {
 	t.Helper()
 	outDir := t.TempDir()
+	return comparableRun(t, testOptions(root, outDir), testHost(t))
+}
+
+// comparableRun runs a collection with options on host and returns its
+// stdout, log, manifest and collection.json as comparableOutput does.
+func comparableRun(t *testing.T, options Options, host environment) string {
+	t.Helper()
+	outDir := options.OutDir
 	var stdout, stderr bytes.Buffer
-	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != 0 {
+	if code := runCollection(context.Background(), options, host, &stdout, &stderr); code != 0 {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
-	text := stdout.String() + runOutput(t, outDir, ".log") + runOutput(t, outDir, ".manifest.jsonl")
+	text := stdout.String() + runOutput(t, outDir, ".log") + runOutput(t, outDir, ".manifest.jsonl") +
+		runOutput(t, outDir, ".collection.json")
 	text = strings.ReplaceAll(text, outDir, "{OUT}")
 	var kept []string
 	for _, line := range strings.Split(text, "\n") {
@@ -197,5 +205,29 @@ func TestOutputsDoNotDependOnWhatALinkOutOfTheRootPointsAt(t *testing.T) {
 			}
 			_ = os.Chmod(target, 0o700)
 		})
+	}
+}
+
+func TestARelativeProjectThroughALinkOutOfTheRootIsNotTested(t *testing.T) {
+	work := syspath.FromNative(t.TempDir())
+	writeTree(t, work, "img/home/alice/notes")
+	if err := os.Symlink(work+"/outside", work+"/img/home/alice/out"); err != nil {
+		t.Fatal(err)
+	}
+	host := testHost(t)
+	host.getwd = func() (string, error) { return work, nil }
+	var outputs []string
+	for _, present := range []bool{true, false} {
+		if present {
+			writeTree(t, work, "outside/AGENTS.md")
+		} else if err := os.RemoveAll(work + "/outside"); err != nil {
+			t.Fatal(err)
+		}
+		options := testOptions("img", t.TempDir())
+		options.Projects = []string{"img//home/alice/out/"}
+		outputs = append(outputs, comparableRun(t, options, host))
+	}
+	if outputs[0] != outputs[1] {
+		t.Errorf("the run depends on what the link points at:\n%s\nversus\n%s", outputs[0], outputs[1])
 	}
 }

@@ -14,20 +14,35 @@ import (
 	"testing"
 )
 
-// followingFunctions returns, by import path, the functions that follow a
-// link in the last component of the path they are given.
+// followingFunctions returns, by import path, the exported functions of
+// each package that take a path and follow a link in its last component: they
+// read, write or describe the target, not the link. They were read off each
+// package's exports; the ones that act on the link itself (Lstat, Readlink,
+// Lchown, Remove, Rename, Symlink, Mkdir, Unlink) or follow nothing
+// (filepath.Abs, Clean, Join) are left out.
 func followingFunctions() map[string][]string {
+	unixCalls := []string{"Access", "Chdir", "Chflags", "Chmod", "Chown", "Chroot", "Creat",
+		"Faccessat", "Faccessat2", "Fchmodat", "Fchownat", "Fstatat", "Futimesat", "Getxattr",
+		"Listxattr", "Open", "Openat", "Openat2", "Opendir", "Pathconf", "Removexattr",
+		"Setxattr", "Stat", "Statfs", "Statvfs", "Statx", "Truncate", "Utime", "Utimes",
+		"UtimesNano", "UtimesNanoAt"}
+	windowsCalls := []string{"CreateFile", "FindFirstFile", "GetFileAttributes",
+		"GetFileAttributesEx", "SetFileAttributes", "GetVolumePathName", "GetNamedSecurityInfo",
+		"SetNamedSecurityInfo", "GetVolumeInformation", "GetDiskFreeSpaceEx"}
+	syscallCalls := append(append([]string{}, unixCalls...), windowsCalls...)
 	return map[string][]string{
-		"os": {"Stat", "Open", "OpenFile", "ReadDir", "ReadFile", "Chdir", "DirFS"},
-		"github.com/seanthegeek/doubleagent/internal/osfile": {"Stat", "Open", "OpenFile", "ReadDir",
-			"ReadFile"},
+		"os": {"Stat", "Open", "OpenFile", "Create", "ReadDir", "ReadFile", "WriteFile", "Chdir",
+			"Chmod", "Chown", "Chtimes", "Truncate", "CopyFS", "DirFS", "OpenRoot", "OpenInRoot",
+			"MkdirAll"},
+		"github.com/seanthegeek/doubleagent/internal/osfile": {"Stat", "Open", "OpenFile", "Create",
+			"ReadDir", "ReadFile", "WriteFile", "Chtimes", "MkdirAll"},
 		"path/filepath": {"EvalSymlinks", "Glob", "Walk", "WalkDir"},
 		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"DirReadError"},
 		"github.com/seanthegeek/doubleagent/internal/stage":  {"PhysicalDir"},
-		"golang.org/x/sys/unix": {"Access", "Faccessat", "Stat", "Open", "Openat",
-			"Chdir"},
-		"syscall":   {"Stat", "Open", "Access", "Chdir"},
-		"io/ioutil": {"ReadDir", "ReadFile"},
+		"golang.org/x/sys/unix":                              unixCalls,
+		"syscall":                                            syscallCalls,
+		"golang.org/x/sys/windows":                           windowsCalls,
+		"io/ioutil":                                          {"ReadDir", "ReadFile", "WriteFile"},
 	}
 }
 
@@ -56,6 +71,18 @@ func allowedCalls() map[string]allowance {
 		count      int
 		reason     string
 	}{
+		{"internal/archive/archive.go", "osfile.Create", 1,
+			"creates the archive in the output directory"},
+		{"internal/archive/archive.go", "osfile.WriteFile", 1,
+			"writes the archive's checksum file beside it"},
+		{"internal/collect/run_setup.go", "osfile.MkdirAll", 2,
+			"creates the output and staging directories"},
+		{"internal/collect/run_setup.go", "osfile.Create", 1,
+			"creates the manifest in the output directory"},
+		{"internal/collect/run_finish.go", "osfile.WriteFile", 1,
+			"writes collection.json into the output and staging directories"},
+		{"internal/shortname/shortname_windows.go", "osfile.MkdirAll", 1,
+			"makes a test directory under the test's own temporary directory"},
 		{"internal/archive/archive.go", "osfile.ReadDir", 1,
 			"lists the staging tree the run built"},
 		{"internal/archive/archive.go", "osfile.Open", 2,
@@ -77,9 +104,9 @@ func allowedCalls() map[string]allowance {
 		{"internal/glob/expand.go", "osfile.Open", 1,
 			"asked the root check of the directory first"},
 		{"internal/projects/files.go", "osfile.Open", 1,
-			"opens a directory its listing typed one, below a checked start"},
+			"opens a directory its own lstat typed one, below a checked start"},
 		{"internal/relocation/walk.go", "osfile.Open", 1,
-			"opens a directory its listing typed one, below a checked base"},
+			"opens a directory its own lstat typed one, below a checked base"},
 		{"internal/runlog/runlog.go", "osfile.OpenFile", 1,
 			"creates the run's log file"},
 		{"internal/users/users_windows.go", "osfile.ReadDir", 1,
@@ -87,7 +114,7 @@ func allowedCalls() map[string]allowance {
 		{"internal/walk/project.go", "stage.PhysicalDir", 2,
 			"resolves the image root the operator gave"},
 		{"internal/walk/tree.go", "osfile.Open", 2,
-			"opens a directory its own lstat typed a directory"},
+			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
 	} {
 		allowed[entry.file+" "+entry.call] = allowance{entry.count, entry.reason}
 	}

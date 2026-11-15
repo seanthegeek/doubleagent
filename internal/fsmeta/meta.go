@@ -43,6 +43,23 @@ type Meta struct {
 	Attributes uint32
 }
 
+// reparsePointAttribute is FILE_ATTRIBUTE_REPARSE_POINT, never set on Unix.
+const reparsePointAttribute = 0x400
+
+// IsLink reports whether m describes a symlink, a junction or any other
+// reparse point: an entry a path may run through elsewhere, which nothing
+// that must not follow a link enters.
+func (m Meta) IsLink() bool {
+	return m.Kind == Symlink || m.Attributes&reparsePointAttribute != 0
+}
+
+// IsOtherReparsePoint reports whether m describes a reparse point other than
+// a symlink or junction (a cloud-file placeholder, a deduplicated file, an
+// AF_UNIX socket, a WSL symlink, an app execution alias). Never on Unix.
+func (m Meta) IsOtherReparsePoint() bool {
+	return m.Kind != Symlink && m.Attributes&reparsePointAttribute != 0
+}
+
 // directoryAttribute is FILE_ATTRIBUTE_DIRECTORY, which Windows also sets on
 // a symlink made to a directory and on a junction.
 const directoryAttribute = 0x10

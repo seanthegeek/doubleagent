@@ -68,7 +68,8 @@ func testCollector(t *testing.T, root string, excludes []string,
 	return &Collector{
 		Tables: &catalog.Tables{}, Excludes: excludes, Secret: MatchAny([]string{"*secret*"}),
 		Log: log, Manifest: manifest.NewWriter(rows), Root: root, MaxSize: 10,
-		Stager: stage.Stager{Dir: stageDir, Physical: stageDir, Root: root},
+		Stager:    stage.Stager{Dir: stageDir, Physical: stageDir, Root: root},
+		RootCheck: NewRootCheck(root),
 	}, rows, log
 }
 
@@ -489,8 +490,8 @@ func outOfRootTable() []catalog.Entry {
 func walkOutOfRoot(t *testing.T, root string, live bool) (string, []string) {
 	t.Helper()
 	collector, rows, log := testCollector(t, root, nil)
-	if !live {
-		collector.RootCheck = NewRootCheck(root)
+	if live {
+		collector.RootCheck = RootCheck{}
 	}
 	err := collector.CollectCatalog(context.Background(), "bob", root+"/home/bob",
 		outOfRootTable(), "User bob")

@@ -34,7 +34,7 @@ func TestAbsoluteProjectOnWindows(t *testing.T) {
 		{"dot-dot never climbs above a share", `\\srv\share\..\p`, "//srv/share/p"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := absoluteProject(cwd, test.project); got != test.want {
+			if got := absoluteProject(cwd, test.project, nil); got != test.want {
 				t.Errorf("absoluteProject(%q) = %q, want %q", test.project, got, test.want)
 			}
 		})

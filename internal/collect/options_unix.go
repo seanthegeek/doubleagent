@@ -5,18 +5,22 @@ package collect
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/follow"
 )
 
 // absoluteProject returns PROJECT as the sh collector resolves a -p path. An
 // absolute path is kept as given. A relative one is joined to CWD: an
 // existing directory is cleaned (the shell's `cd` then `pwd`); anything else
-// keeps its spelling, minus one leading "./".
-func absoluteProject(cwd, project string) string {
+// keeps its spelling, minus one leading "./". check is the image root's (nil
+// live): a join that leads out of the image root is not tested, so it keeps
+// its spelling whatever the analyst's host holds there.
+func absoluteProject(cwd, project string, check follow.Check) string {
 	if filepath.IsAbs(project) {
 		return project
 	}
 	joined := filepath.Join(cwd, project)
-	if isDirectory(joined) {
+	if isDir, _ := follow.IsDirectory(check, joined); isDir {
 		return joined
 	}
 	return cwd + "/" + strings.TrimPrefix(project, "./")

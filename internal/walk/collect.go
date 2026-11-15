@@ -23,6 +23,7 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		// The users step kept no home that leads out of the root.
 		if reason, failed, _ := follow.DirReadError(collector.check(), home.Path); failed {
 			owner := scope{user: home.User, home: home.Path}
 			if err := collector.writeReadErrors(owner, []readError{{home.Path, reason}}); err != nil {
@@ -105,8 +106,8 @@ func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun
 	line := "  [" + match.Agent + "] " + syspath.ToNative(link) +
 		": the symlinked directory leads out of the image root; nothing under it was listed," +
 		" not walked"
-	if follow.NotALink(link) {
-		line = "  [" + match.Agent + "] " + syspath.ToNative(link) + " " + follow.NotALinkReason +
+	if follow.OtherReparsePoint(link) {
+		line = "  [" + match.Agent + "] " + syspath.ToNative(link) + " " + follow.OtherReparseReason +
 			", not walked"
 	}
 	if err := collector.logLines(run, line); err != nil || collector.Inventory {
@@ -196,6 +197,8 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 ) (int, error) {
 	meta, statError := fsmeta.Lstat(path)
 	if statError == nil && meta.Kind == fsmeta.Dir {
+		// path's own lstat typed it a directory, not a link, and the
+		// expansion that produced it checked its parents.
 		reason, failed, _ := follow.DirReadError(collector.check(), path)
 		if failed && !collector.Inventory {
 			return 0, collector.writeReadErrors(owner, []readError{{path, reason}})

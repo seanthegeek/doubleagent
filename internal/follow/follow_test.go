@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-func TestFollowingFunctionsAskTheCheckFirst(t *testing.T) {
+func TestFollowingFunctionsRefuseWhatTheCheckRefuses(t *testing.T) {
 	root := syspath.FromNative(t.TempDir())
 	if err := os.MkdirAll(filepath.Join(syspath.ToNative(root), "in", "dir"), 0o755); err != nil {
 		t.Fatal(err)
@@ -79,11 +79,19 @@ func TestIsDirectoryAnswersWithoutACheckRefusal(t *testing.T) {
 	}
 }
 
-func TestNotALinkIsFalseForPlainEntries(t *testing.T) {
+func TestOtherReparsePointIsFalseForPlainEntriesAndLinks(t *testing.T) {
 	directory := syspath.FromNative(t.TempDir())
-	for _, path := range []string{directory, directory + "/missing"} {
-		if NotALink(path) {
-			t.Errorf("NotALink(%s) = true, want false", path)
+	paths := []string{directory, directory + "/missing"}
+	link := directory + "/link"
+	err := os.Symlink(syspath.ToNative(directory), syspath.ToNative(link))
+	if err == nil {
+		paths = append(paths, link)
+	} else {
+		t.Logf("no symlink case, one cannot be made here: %v", err)
+	}
+	for _, path := range paths {
+		if OtherReparsePoint(path) {
+			t.Errorf("OtherReparsePoint(%s) = true, want false", path)
 		}
 	}
 }

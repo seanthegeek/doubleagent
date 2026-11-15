@@ -137,7 +137,8 @@ func TestALiveProjectOutOfItsHomeKeepsItsDrive(t *testing.T) {
 	base := physicalTemp(t)
 	writeFiles(t, base, "home/a.txt", "outside/proj/AGENTS.md")
 	makeJunction(t, base+"/outside/proj", base+"/home/ext")
-	found := projectPlace(stage.Stager{Dir: base + "/stage"}, base+"/home", base+"/home/ext")
+	found := projectPlace(RootCheck{}, stage.Stager{Dir: base + "/stage"}, base+"/home",
+		base+"/home/ext")
 	archive, _ := found.stager.Dest(base + "/home/ext/AGENTS.md")
 	want := "fs/" + strings.ToUpper(base[:1]) + base[2:] + "/outside/proj/AGENTS.md"
 	if !found.outside || archive != want {
