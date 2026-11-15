@@ -155,8 +155,9 @@ func ProjectLeavesRoot(root, project string) bool {
 // LeavesRootAt reports what ProjectLeavesRoot reports for path, any path
 // under the image root root, and the path that decides it, spelled under the
 // root as given: the first symlinked directory (or, on Windows, junction) of
-// path, path itself included, whose target leads out of the root. Project
-// discovery asks it before reading a source.
+// path, path itself included, whose target leads out of the root, or the
+// link whose target climbs above the root with `..`. Project discovery asks
+// it before reading a source.
 func LeavesRootAt(root, path string) (string, bool) {
 	found := projectScope(root, path, imageProbes())
 	if found.name == "" || found.inImage {
@@ -217,7 +218,24 @@ func projectScope(root, project string, probe probes) rootScope {
 	if !inside {
 		return rootScope{name: project, outside: true}
 	}
-	return walker.walk(strings.Split(rest, "/"))
+	return walker.walk(steps(rest, ""))
+}
+
+// step is one component of the path the root check walks, with via the link
+// whose target it came from ("" for a component of the path as given), so a
+// `..` that climbs above the root names that link.
+type step struct {
+	name string
+	via  string
+}
+
+// steps returns the components of path, each marked as coming from via.
+func steps(path, via string) []step {
+	var found []step
+	for _, name := range strings.Split(path, "/") {
+		found = append(found, step{name: name, via: via})
+	}
+	return found
 }
 
 // rootWalk walks a path's components from the resolved image root physical,
@@ -231,23 +249,23 @@ type rootWalk struct {
 // walk follows components from the resolved root, expanding each link whose
 // target stays inside the root into the target's own components, so every
 // path it probes is the resolved root or under it.
-func (walker rootWalk) walk(components []string) rootScope {
+func (walker rootWalk) walk(components []step) rootScope {
 	current, hops := walker.physical, 0
 	for len(components) > 0 {
 		component := components[0]
 		components = components[1:]
-		switch component {
+		switch component.name {
 		case "", ".":
 			continue
 		case "..":
 			// current is a physical path, so its parent is lexical.
 			if current == walker.physical {
-				return rootScope{name: walker.given, unverified: true}
+				return walker.above(component.via)
 			}
 			current = parentDir(current)
 			continue
 		}
-		candidate := joinPath(current, component)
+		candidate := joinPath(current, component.name)
 		isLink, err := walker.probe.isLink(candidate)
 		if err != nil {
 			return walker.unreadable(candidate)
@@ -277,7 +295,7 @@ func (walker rootWalk) walk(components []string) rootScope {
 // a single leading separator (`\x`) is rooted on the drive or share of the
 // link's own directory, as Windows resolves it, and a link whose directory
 // names neither cannot be verified.
-func (walker rootWalk) follow(parent, link string, hops int) (string, []string, rootScope) {
+func (walker rootWalk) follow(parent, link string, hops int) (string, []step, rootScope) {
 	if hops > maxLinkHops {
 		return "", nil, walker.unreadable(link)
 	}
@@ -294,7 +312,7 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []string, 
 		target = volume + target
 	}
 	if !syspath.IsAbs(target) {
-		return parent, strings.Split(target, "/"), rootScope{}
+		return parent, steps(target, link), rootScope{}
 	}
 	// The target is compared as text, ignoring ASCII case only: respelling
 	// it from the disk would look at paths outside the root, which nothing
@@ -304,7 +322,7 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []string, 
 	if !inside {
 		return "", nil, rootScope{name: walker.named(link)}
 	}
-	return walker.physical, strings.Split(rest, "/"), rootScope{}
+	return walker.physical, steps(rest, link), rootScope{}
 }
 
 // volumeOf returns the drive (`C:`) or UNC share (`//server/share`) a
@@ -327,6 +345,16 @@ func volumeOf(path string) string {
 // isASCIILetter reports whether char is an ASCII letter, a drive letter.
 func isASCIILetter(char byte) bool {
 	return ('a' <= char && char <= 'z') || ('A' <= char && char <= 'Z')
+}
+
+// above is the decision for a `..` that climbs above the resolved root: it
+// names via, the link whose target holds it, or the root as given when the
+// path itself holds it.
+func (walker rootWalk) above(via string) rootScope {
+	if via == "" {
+		return rootScope{name: walker.given, unverified: true}
+	}
+	return rootScope{name: walker.named(via), unverified: true}
 }
 
 // unreadable is the decision for path, under the resolved root, that a

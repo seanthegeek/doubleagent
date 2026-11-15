@@ -73,3 +73,11 @@ func linkDirectory(t *testing.T, target, link string) {
 		t.Fatal(err)
 	}
 }
+
+// linkRelative makes link a symlink holding the relative target as written.
+func linkRelative(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+}

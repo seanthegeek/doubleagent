@@ -117,3 +117,25 @@ func checkLinkedResult(t *testing.T, got []Project, refused []Refusal, root, lin
 		}
 	}
 }
+
+func TestDiscoverNamesTheLinkThatClimbsAboveTheRoot(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	home := root + "/home/alice"
+	writeTree(t, root, nil, "home/alice")
+	// .claude climbs out of the root: from home/alice, ../../.. is above it.
+	linkRelative(t, "../../../outside", home+"/.claude")
+	outOfScope := func(path string) (string, bool) { return walk.LeavesRootAt(root, path) }
+	homes := []users.Home{{User: "alice", Path: home}}
+	_, refused, err := Discover(context.Background(), homes, root, nil, nil, outOfScope, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refused) == 0 {
+		t.Fatal("no source was refused")
+	}
+	for _, refusal := range refused {
+		if refusal.Link != home+"/.claude" {
+			t.Errorf("refusal %+v, want it to name the link %s, not the root", refusal, home+"/.claude")
+		}
+	}
+}

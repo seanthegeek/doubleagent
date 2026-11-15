@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"os"
 	"reflect"
 	"testing"
@@ -199,4 +200,18 @@ func mountPointData(substitute, printName string) []byte {
 func linkDirectory(t *testing.T, target, link string) {
 	t.Helper()
 	makeJunction(t, target, link)
+}
+
+// linkRelative makes link a symlink holding the relative target as written,
+// skipping the test where the account may not create symlinks: a junction
+// cannot hold a relative target.
+func linkRelative(t *testing.T, target, link string) {
+	t.Helper()
+	err := os.Symlink(syspath.ToNative(target), syspath.ToNative(link))
+	if errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD) {
+		t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 }
