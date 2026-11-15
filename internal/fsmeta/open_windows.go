@@ -3,6 +3,7 @@ package fsmeta
 import (
 	"io/fs"
 	"os"
+	"sync"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
@@ -23,7 +24,7 @@ func (o *Opener) Open(path string) (*os.File, error) {
 	}
 	flags := uint32(windows.FILE_FLAG_OPEN_REPARSE_POINT | windows.FILE_FLAG_SEQUENTIAL_SCAN)
 	var handle windows.Handle
-	for _, access := range accessList(o.asksForRight()) {
+	for _, access := range accessList(o.asksForRight(path)) {
 		handle, err = windows.CreateFile(name, access, shareAll, nil, windows.OPEN_EXISTING,
 			flags, 0)
 		if err != nil {
@@ -41,11 +42,71 @@ func (o *Opener) Open(path string) (*os.File, error) {
 	return os.NewFile(uintptr(handle), syspath.ToNative(path)), nil
 }
 
-// asksForRight reports whether an open asks for the right to set the file's
-// times, so it can hold the access time: always for a nil opener, never
-// under ReadOnly or where the NTFS setting has updates off.
-func (o *Opener) asksForRight() bool {
-	return o == nil || (!o.ReadOnly && !o.NTFSUpdatesOff)
+// asksForRight reports whether an open of path asks for the right to set the
+// file's times, so it can hold the access time: always for a nil opener,
+// else as holdsAccessTime decides. The volume's file system is looked up
+// only when the decision depends on it.
+func (o *Opener) asksForRight(path string) bool {
+	if o == nil {
+		return true
+	}
+	fileSystem := ""
+	if o.NTFSUpdatesOff && !o.ReadOnly && o.fileSystemOf != nil {
+		fileSystem = o.fileSystemOf(path)
+	}
+	return holdsAccessTime(o.ReadOnly, o.NTFSUpdatesOff, fileSystem)
+}
+
+// newVolumeLookup returns a lookup of the name of the file system of a
+// path's volume ("NTFS", "ReFS", "FAT32", "exFAT"), read once per volume
+// root and kept for the run, or "" when it cannot be read.
+// GetVolumePathName gives the root of the volume holding the path, a
+// mounted folder's own included, in the form the path was given (\\?\C:\
+// for \\?\C:\...).
+func newVolumeLookup() func(path string) string {
+	var mutex sync.Mutex
+	fileSystems := map[string]string{}
+	return func(path string) string {
+		root := volumeRoot(path)
+		if root == "" {
+			return ""
+		}
+		mutex.Lock()
+		defer mutex.Unlock()
+		if _, ok := fileSystems[root]; !ok {
+			fileSystems[root] = volumeFileSystem(root)
+		}
+		return fileSystems[root]
+	}
+}
+
+// volumeRoot returns the root of the volume holding path, or "".
+func volumeRoot(path string) string {
+	extended := syspath.Extended(path)
+	name, err := windows.UTF16PtrFromString(extended)
+	if err != nil {
+		return ""
+	}
+	volume := make([]uint16, len(extended)+2)
+	if windows.GetVolumePathName(name, &volume[0], uint32(len(volume))) != nil {
+		return ""
+	}
+	return windows.UTF16ToString(volume)
+}
+
+// volumeFileSystem returns the file system name of the volume at root, a
+// path ending in a backslash, or "" when it cannot be read.
+func volumeFileSystem(root string) string {
+	name, err := windows.UTF16PtrFromString(root)
+	if err != nil {
+		return ""
+	}
+	fileSystem := make([]uint16, windows.MAX_PATH+1)
+	if windows.GetVolumeInformation(name, nil, 0, nil, nil, nil, &fileSystem[0],
+		uint32(len(fileSystem))) != nil {
+		return ""
+	}
+	return windows.UTF16ToString(fileSystem)
 }
 
 // accessList returns the access rights Open asks for, in the order it tries

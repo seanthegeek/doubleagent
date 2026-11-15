@@ -669,8 +669,8 @@ func TestAccessDecisionLine(t *testing.T) {
 		set   bool
 		want  string
 	}{
-		{"updates off", accessOff, false,
-			"last-access updates are off on this system; files are opened read-only"},
+		{"updates off", accessOff, false, "last-access updates are off for NTFS on this system; " +
+			"files on NTFS are opened read-only, others with the right to hold their access time"},
 		{"updates on", accessOn, false,
 			"last-access updates are on; files are opened with the right to hold their access time"},
 		{"updates unknown", accessUnknown, false, "last-access updates could not be determined; " +

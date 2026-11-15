@@ -25,6 +25,10 @@ func TestOpenRegularErrorNamesTheNativePath(t *testing.T) {
 }
 
 func TestOpenerAccessList(t *testing.T) {
+	file := syspath.FromNative(t.TempDir()) + "/file"
+	if fileSystem := newVolumeLookup()(file); fileSystem != "NTFS" {
+		t.Skipf("the temporary directory is on %q, not NTFS", fileSystem)
+	}
 	both := []uint32{windows.GENERIC_READ | windows.FILE_WRITE_ATTRIBUTES, windows.GENERIC_READ}
 	readOnly := []uint32{windows.GENERIC_READ}
 	cases := []struct {
@@ -35,14 +39,28 @@ func TestOpenerAccessList(t *testing.T) {
 		{"a nil opener asks for the right, then reads only", nil, both},
 		{"the default opener asks for the right, then reads only", NewOpener(false, false), both},
 		{"--no-preserve-atime reads only", NewOpener(true, false), readOnly},
-		{"updates off reads only", NewOpener(false, true), readOnly},
+		{"updates off reads an NTFS file only", NewOpener(false, true), readOnly},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			got := accessList(test.opener.asksForRight())
+			got := accessList(test.opener.asksForRight(file))
 			if fmt.Sprint(got) != fmt.Sprint(test.want) {
 				t.Errorf("access list %#x, want %#x", got, test.want)
 			}
 		})
+	}
+}
+
+func TestVolumeLookup(t *testing.T) {
+	lookup := newVolumeLookup()
+	first := syspath.FromNative(t.TempDir()) + "/a"
+	second := syspath.FromNative(t.TempDir()) + "/b"
+	got := lookup(first)
+	t.Logf("file system of %s: %q, volume root %q", first, got, volumeRoot(first))
+	if got == "" {
+		t.Fatalf("no file system read for %s", first)
+	}
+	if again := lookup(second); again != got {
+		t.Errorf("second lookup on the same volume %q, want %q", again, got)
 	}
 }

@@ -13,24 +13,38 @@ import (
 // file.
 var ErrNotRegular = errors.New("not a regular file")
 
-// Opener opens the files a run reads as evidence: the copy of each
-// collected file and every read of a file the run searches (project
-// discovery, the relocation search and sweep). It is the one place that
-// decides whether an open asks Windows to leave the file's last-access time
-// as it was, which takes the right to change the file's attributes.
-// ReadOnly, set by --no-preserve-atime, never asks for that right.
-// NTFSUpdatesOff says the system's NTFS setting has last-access updates off,
-// so a read moves no access time and the right is not asked for. A nil
-// Opener, or the zero one, always asks. On Linux, macOS and other Unix
-// systems every open is read-only and the fields change nothing.
+// Opener opens the files a run reads as evidence (the copy of each collected
+// file, and project discovery's and the relocation search's reads), and is
+// the one place that decides whether an open asks Windows to hold the
+// file's last-access time, which takes the right to change its attributes.
+// ReadOnly (--no-preserve-atime) never asks. NTFSUpdatesOff says the NTFS
+// setting has last-access updates off, so a file on NTFS is opened without
+// the right (holdsAccessTime). A nil or zero Opener always asks. On Linux,
+// macOS and other Unix systems every open is read-only.
 type Opener struct {
 	ReadOnly       bool
 	NTFSUpdatesOff bool
+	// fileSystemOf names the file system of a path's volume, "" when it
+	// cannot be read or the Opener was not made by NewOpener.
+	fileSystemOf func(path string) string
 }
 
-// NewOpener returns the opener of a run.
+// NewOpener returns the opener of a run, with its own cache of the file
+// system of each volume it opens a file on.
 func NewOpener(readOnly, ntfsUpdatesOff bool) *Opener {
-	return &Opener{ReadOnly: readOnly, NTFSUpdatesOff: ntfsUpdatesOff}
+	return &Opener{ReadOnly: readOnly, NTFSUpdatesOff: ntfsUpdatesOff,
+		fileSystemOf: newVolumeLookup()}
+}
+
+// holdsAccessTime reports whether an open of a file on a volume holding
+// fileSystem asks for the right to hold its access time. Never under
+// --no-preserve-atime (readOnly); otherwise always, unless the NTFS setting
+// has updates off and the volume is NTFS: the setting says nothing about
+// another file system (ReFS, as on a Dev Drive, FAT or exFAT), nor about a
+// volume whose file system could not be read (""), so those are taken to
+// update access times.
+func holdsAccessTime(readOnly, ntfsUpdatesOff bool, fileSystem string) bool {
+	return !readOnly && (!ntfsUpdatesOff || fileSystem != "NTFS")
 }
 
 // OpenRegular opens path for reading when it is a regular file. It refuses a

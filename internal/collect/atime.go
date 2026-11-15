@@ -39,7 +39,8 @@ func accessDecisionLine(state accessUpdates, noPreserveAtime bool) string {
 	case noPreserveAtime:
 		return "--no-preserve-atime: files are opened read-only; reading may change their access time on disk"
 	case state == accessOff:
-		return "last-access updates are off on this system; files are opened read-only"
+		return "last-access updates are off for NTFS on this system; files on NTFS are opened read-only, " +
+			"others with the right to hold their access time"
 	case state == accessOn:
 		return "last-access updates are on; files are opened with the right to hold their access time"
 	}

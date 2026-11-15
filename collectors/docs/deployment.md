@@ -140,16 +140,21 @@ Windows updates it when a file is read is a system-wide setting that
 varies by machine: the registry value `NtfsDisableLastAccessUpdate` under
 `HKLM\SYSTEM\CurrentControlSet\Control\FileSystem`, which
 `fsutil behavior query disablelastaccess` shows (see Microsoft's
-[`fsutil behavior` reference](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-behavior);
-a change takes effect after a restart).
+[`fsutil behavior` reference](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-behavior)).
+The binary follows the stored value. A change to it takes effect only
+after a restart, so on a machine changed since its last restart the stored
+value may not be what Windows does.
 
 On Windows the `doubleagent` binary reads that value once at the start of
 a run and decides how to open every file it reads: each file it copies,
 and each file it reads to find projects or relocation hints (with
 `--env-scan-home`, every file it searches):
 
-- **Updates are off.** Reading a file does not change its access time, so
-  the binary opens each file read-only and asks for no other right.
+- **Updates are off.** Reading a file on an NTFS volume does not change
+  its access time, so the binary opens it read-only and asks for no other
+  right. The setting governs NTFS alone: a file on another file system
+  (ReFS, as on a Windows 11 Dev Drive, FAT or exFAT), or on a volume whose
+  file system cannot be read, is opened as in the next case.
 - **Updates are on, or the value cannot be read or understood.** The
   binary opens each file with the right to change the file's attributes as
   well as the right to read it, and tells Windows not to update the file's
