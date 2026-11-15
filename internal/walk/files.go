@@ -70,7 +70,10 @@ func (collector *Collector) planFiles(owner scope, paths []string,
 func (collector *Collector) planFile(owner scope, path string,
 	secret func(string) bool,
 ) plannedFile {
-	meta, exists := lstatOrZero(path)
+	meta, exists := owner.before[path]
+	if !exists {
+		meta, exists = lstatOrZero(path)
+	}
 	file := plannedFile{path: path, meta: meta, kind: "file", owner: collector.ownerOf(path)}
 	relative, _ := syspath.CutPrefix(path, owner.home+"/")
 	file.secret = secret != nil && secret(relative)

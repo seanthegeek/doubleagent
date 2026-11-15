@@ -189,14 +189,19 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 // StageFile stages one path for user under home, attributed to agent, staged
 // by stager, as the relocation step runs the staging worker for a file that
 // names a relocation variable. With forceSecret the file is flagged secret
-// whatever its name, so --no-secrets skips it.
+// whatever its name, so --no-secrets skips it. before, when set, is path's
+// lstat taken before the caller read the file, which the row records in
+// place of a new one, so its access time is the one before that read.
 func (collector *Collector) StageFile(user, home, agent string, stager stage.Stager, path string,
-	forceSecret bool,
+	forceSecret bool, before *fsmeta.Meta,
 ) error {
 	secret := collector.Secret
 	if forceSecret {
 		secret = func(string) bool { return true }
 	}
 	owner := scope{user: user, home: home, agent: agent, stager: stager}
+	if before != nil {
+		owner.before = map[string]fsmeta.Meta{path: *before}
+	}
 	return collector.stageFiles(owner, []string{path}, secret)
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -145,7 +146,7 @@ func searchDeps(t *testing.T, root string, log *lineLog, collected *[]string) De
 		Plutil: fakePlist{available: true, lints: true, strings: map[string]string{
 			"EnvironmentVariables.CODEX_HOME": "/opt/d/", "UserName": "svc"}},
 		Claims: expandClaims,
-		Collect: func(user, home, path string) error {
+		Collect: func(user, home, path string, _ fsmeta.Meta) error {
 			*collected = append(*collected, user+"|"+home+"|"+path)
 			return nil
 		},

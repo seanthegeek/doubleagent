@@ -82,13 +82,14 @@ func MatchAny(globs []string) func(string) bool {
 
 // scope is what one collect_path call carries: whose rows it writes, where
 // its files are staged and which paths other catalog lines claim, keyed by
-// syspath.Fold.
+// syspath.Fold, and the lstat of a path a caller took before reading it.
 type scope struct {
 	user   string
 	home   string
 	agent  string
 	stager stage.Stager
 	claims map[string]struct{}
+	before map[string]fsmeta.Meta
 }
 
 // excludePatterns returns the active exclusions as patterns for full paths

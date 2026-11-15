@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
@@ -176,7 +177,7 @@ func goSearch(t *testing.T, root, outDir string, run shRun, sweep bool) (Result,
 		Projects: run.projects, EnvScanHome: sweep, EnvScanMaxBytes: 1 << 20,
 		Excludes: tables.Excludes, OutDir: outDir, RunName: run.name, Log: log,
 		Plutil: hostcmd.NewPlutil(hostcmd.System()), Claims: foldedClaims,
-		Collect: func(string, string, string) error { return nil }})
+		Collect: func(string, string, string, fsmeta.Meta) error { return nil }})
 	if err != nil {
 		t.Fatal(err)
 	}

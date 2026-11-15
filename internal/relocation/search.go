@@ -63,7 +63,8 @@ type Logger interface {
 // Excludes is the run's active EXCLUDES list, empty under --full. OutDir and
 // RunName name the run's own output files, which the sweep never reads.
 // Claims returns the paths the catalog table matches under a base, as the walk
-// expands them; Collect collects a hit file as agent shared, flagged secret.
+// expands them; Collect collects a hit file as agent shared, flagged secret,
+// given the file's metadata from before the search first read it.
 // Registry reads the Windows registry, nil off Windows; Profiles lists the
 // ProfileList entries in registry order, whose hives the registry pass reads.
 type Deps struct {
@@ -83,7 +84,7 @@ type Deps struct {
 	Plutil          PlistReader
 	Log             Logger
 	Claims          func(base string, table []catalog.Entry) []string
-	Collect         func(user, home, path string) error
+	Collect         func(user, home, path string, before fsmeta.Meta) error
 	Registry        Registry
 	Profiles        []Profile
 	// Opener reads every file the search reads, as the run decided (nil
@@ -209,7 +210,14 @@ func (run *search) searchFiles(ctx context.Context, user, home, base string, fil
 // its line assigns where Kind reads the file, then a hint on line 0 for each
 // value plutil read from a plist, and has the file collected. A system plist
 // under LaunchDaemons gives its hints the plist's UserName as their user.
+// The file's lstat is taken before it is read, so its row records the access
+// time the search's own read may move; a file lstat cannot read cannot be
+// read either, and has no hits.
 func (run *search) recordFileHints(user, home, path string) error {
+	before, err := fsmeta.Lstat(path)
+	if err != nil {
+		return nil
+	}
 	hits := run.boundedNamesOf(path)
 	if len(hits) == 0 {
 		return nil
@@ -236,7 +244,7 @@ func (run *search) recordFileHints(user, home, path string) error {
 			return err
 		}
 	}
-	return run.deps.Collect(user, home, path)
+	return run.deps.Collect(user, home, path, before)
 }
 
 // boundedNamesOf returns the hits of the file at path, a UTF-16 or UTF-32

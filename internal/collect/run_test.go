@@ -747,6 +747,8 @@ func TestNoPreserveAtimeRun(t *testing.T) {
 	files := map[string]string{
 		"home/alice/.claude/settings.json": "{\"theme\": \"dark\"}\n",
 		"home/alice/.claude.json":          "{\"projects\": {}}\n",
+		// Read by the startup-file search before its row is built.
+		"home/alice/.bashrc": "export CLAUDE_CONFIG_DIR=/home/alice/cc\n",
 	}
 	// An access time well before the write time, which a volume that
 	// records reads would move on the copy's read.

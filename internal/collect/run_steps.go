@@ -261,9 +261,11 @@ func catalogClaims(base string, table []catalog.Entry) []string {
 // file reached through symlinked directories inside the base gets their rows
 // and is staged where the base holds it; the file is flagged secret. A
 // project's files are staged where the project physically is, as the project
-// step stages them.
-func (state *runState) hintFileCollector(ctx context.Context) func(user, home, path string) error {
-	return func(user, home, path string) error {
+// step stages them. The row takes before, the file's lstat from before the
+// search read it.
+func (state *runState) hintFileCollector(ctx context.Context,
+) func(user, home, path string, before fsmeta.Meta) error {
+	return func(user, home, path string, before fsmeta.Meta) error {
 		if state.manifest.HasPath(path) {
 			return nil
 		}
@@ -282,7 +284,7 @@ func (state *runState) hintFileCollector(ctx context.Context) func(user, home, p
 				return err
 			}
 		}
-		return state.collector.StageFile(user, home, sharedAgent, stagers.File, path, true)
+		return state.collector.StageFile(user, home, sharedAgent, stagers.File, path, true, &before)
 	}
 }
 
