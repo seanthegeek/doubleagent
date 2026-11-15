@@ -47,10 +47,11 @@ type holdSteps struct {
 
 // verifyHold asks for the hold, reading the access time before and after,
 // and returns the reason to report ("" when the hold is in place). Only a
-// value no access could have written (misread) is taken as a misread hold
-// and set back; another reader may move the time forward meanwhile, and
-// that record is kept. The answer to the hold is judged after the reads,
-// since a driver may store the value and still return an error.
+// time that changed to a value no access could have written (misread) is
+// taken as a misread hold and set back; a time that was already such a
+// value is left alone, and another reader may move the time forward
+// meanwhile. The answer to the hold is judged after the reads, since a
+// driver may store the value and still return an error.
 func verifyHold(steps holdSteps) string {
 	before, beforeErr := steps.accessTime()
 	holdErr := steps.hold()
@@ -58,8 +59,9 @@ func verifyHold(steps holdSteps) string {
 	switch {
 	case afterErr == nil && beforeErr == nil && misread(before, after, steps.now()):
 		return restoreAccessTime(steps, before)
-	case afterErr == nil && misread(after, after, steps.now()):
-		// The first read failed: the misread is certain, the old time unknown.
+	case afterErr == nil && beforeErr != nil && after == holdTime:
+		// Only the hold value itself is a certain misread with no first
+		// reading; the old time is unknown, so nothing can be set back.
 		return reasonRestoreFailed
 	case holdErr != nil:
 		return reasonHoldRefused
@@ -72,14 +74,15 @@ func verifyHold(steps holdSteps) string {
 	return ""
 }
 
-// misread reports whether after, read once the hold was asked for, is a
-// value no access could have written: the hold value itself, a time more
-// than futureAllowance ahead of now, or a time earlier than before by more
-// than grainAllowance (an access never moves the time back), as a server
-// taking all ones as the signed number -1 would store, just before 1601.
+// misread reports whether after, read once the hold was asked for, differs
+// from before and is a value no access could have written: the hold value
+// itself, a time more than futureAllowance ahead of now, or a time earlier
+// than before by more than grainAllowance (an access never moves the time
+// back), as a server taking all ones as the signed number -1 would store,
+// just before 1601.
 func misread(before, after, now uint64) bool {
-	return after == holdTime || after > now+futureAllowance ||
-		(after < before && before-after > grainAllowance)
+	return after != before && (after == holdTime || after > now+futureAllowance ||
+		(after < before && before-after > grainAllowance))
 }
 
 // restoreAccessTime sets the access time back to before, the value read on

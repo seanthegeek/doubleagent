@@ -182,8 +182,9 @@ overwrite the file's access time, with a date far in the future, or, where
 it reads the value as the signed number -1, a date just before the year
 1601. So after asking, the binary reads the access time back on the same
 open file and compares it with the value it read just before asking. It
-sets the time back only when the value read back is one no access could
-have written: the request value itself, a time more than a day ahead of
+sets the time back only when the value read back differs from the one
+read before and is one no access could have written: the request value
+itself, a time more than a day ahead of
 this machine's clock (a day leaves room for a file server whose clock runs
 ahead), or a time more than two seconds earlier than before (an access
 never moves the time back; two seconds covers file systems that keep
@@ -212,8 +213,8 @@ access time not held: <path>: <reason>
 | `hold refused` | The file system refused the request to hold the access time; the file was read on the same open. |
 | `hold not verified` | The access time could not be read before or after the request; the request stands, unchecked. |
 | `access time changed while the hold was asked for` | The access time moved forward, within a day of this machine's clock, between the two readings: most likely another program's read. The binary left it as it was and read the file on the same open. |
-| `hold not honoured, access time restored` | The value read back was one no access could have written; the binary set the access time back to the value read before, checked it, and read the file on the same open. |
-| `hold not honoured, restore failed` | The value read back was one no access could have written, and the access time could not be set back (it did not read back as set, or the value read before was not known or could not be sent as a time); the file was read on the same open. |
+| `hold not honoured, access time restored` | The access time changed, when the hold was asked for, to a value no access could have written; the binary set the access time back to the value read before, checked it, and read the file on the same open. |
+| `hold not honoured, restore failed` | The access time changed, when the hold was asked for, to a value no access could have written, and could not be set back (it did not read back as set, or the value read before could not be sent as a time); or the first reading failed and the value read back was the request value itself, so the old time is unknown. The file was read on the same open. |
 
 After the last file is read the log adds
 `access times not held: <N> file(s)`, the number of distinct files listed,

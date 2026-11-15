@@ -2,6 +2,7 @@ package fsmeta
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 )
@@ -61,56 +62,105 @@ func (file *fakeFile) steps() holdSteps {
 // storesHold is a file system that stores the hold request as a time.
 func storesHold(uint64) uint64 { return holdTime }
 
+// secondReadings are what the second reading of the access time returns,
+// by name: what asking for the hold does to the stored time, or a failed
+// reading.
+var secondReadings = map[string]func(file *fakeFile){
+	"same":        func(*fakeFile) {},
+	"forward":     func(file *fakeFile) { file.onHold = func(uint64) uint64 { return fakeNow } },
+	"far future":  func(file *fakeFile) { file.onHold = func(uint64) uint64 { return fakeNow + 2*futureAllowance } },
+	"all ones":    func(file *fakeFile) { file.onHold = storesHold },
+	"backwards":   func(file *fakeFile) { file.onHold = func(uint64) uint64 { return 1 } },
+	"read failed": func(file *fakeFile) { file.failsRead = append(file.failsRead, 1) },
+}
+
 func TestVerifyHold(t *testing.T) {
+	// first: whether the first reading works; hold: whether the request is
+	// accepted; second: secondReadings; restores: whether a restore is sent.
 	cases := []struct {
-		name     string
-		file     fakeFile
-		want     string
-		wantTime uint64
+		first, hold bool
+		second      string
+		want        string
+		restores    bool
 	}{
-		{"an honoured hold is not reported", fakeFile{}, "", original},
-		{"a refused hold is reported", fakeFile{refusesHold: true}, reasonHoldRefused, original},
-		{"another reader moving the time forward is kept and reported",
-			fakeFile{onHold: func(uint64) uint64 { return fakeNow }}, reasonChanged, fakeNow},
-		{"a second read at a coarser grain is the same time, not reported",
-			fakeFile{onHold: func(time uint64) uint64 { return time - time%grainAllowance }}, "",
-			original - original%grainAllowance},
-		{"the hold value stored as a time is set back",
-			fakeFile{onHold: storesHold}, reasonRestored, original},
-		{"a time far in the future is set back",
-			fakeFile{onHold: func(uint64) uint64 { return fakeNow + 2*futureAllowance }},
-			reasonRestored, original},
-		{"a time before the one read first, beyond the grain, is set back",
-			fakeFile{onHold: func(uint64) uint64 { return 1 }}, reasonRestored, original},
-		{"a refused hold that stored the value is set back",
-			fakeFile{onHold: storesHold, refusesHold: true}, reasonRestored, original},
-		{"a stored hold whose restore fails is reported as failed",
-			fakeFile{onHold: storesHold, failsRestore: true}, reasonRestoreFailed, holdTime},
-		{"a failed first read with the hold value after is a failed restore",
-			fakeFile{onHold: storesHold, failsRead: []int{0}}, reasonRestoreFailed, holdTime},
-		{"a failed first read with an ordinary time after is unverified",
-			fakeFile{failsRead: []int{0}}, reasonNotVerified, original},
-		{"a failed second read is unverified", fakeFile{onHold: storesHold, failsRead: []int{1}},
-			reasonNotVerified, holdTime},
+		{true, true, "same", "", false},
+		{true, true, "forward", reasonChanged, false},
+		{true, true, "far future", reasonRestored, true},
+		{true, true, "all ones", reasonRestored, true},
+		{true, true, "backwards", reasonRestored, true},
+		{true, true, "read failed", reasonNotVerified, false},
+		{true, false, "same", reasonHoldRefused, false},
+		{true, false, "forward", reasonHoldRefused, false},
+		{true, false, "far future", reasonRestored, true},
+		{true, false, "all ones", reasonRestored, true},
+		{true, false, "backwards", reasonRestored, true},
+		{true, false, "read failed", reasonHoldRefused, false},
+		{false, true, "same", reasonNotVerified, false},
+		{false, true, "forward", reasonNotVerified, false},
+		{false, true, "far future", reasonNotVerified, false},
+		{false, true, "all ones", reasonRestoreFailed, false},
+		{false, true, "backwards", reasonNotVerified, false},
+		{false, true, "read failed", reasonNotVerified, false},
+		{false, false, "same", reasonHoldRefused, false},
+		{false, false, "forward", reasonHoldRefused, false},
+		{false, false, "far future", reasonHoldRefused, false},
+		{false, false, "all ones", reasonRestoreFailed, false},
+		{false, false, "backwards", reasonHoldRefused, false},
+		{false, false, "read failed", reasonHoldRefused, false},
 	}
 	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			file := test.file
-			file.accessTime = original
-			got := verifyHold(file.steps())
-			if got != test.want || file.accessTime != test.wantTime {
-				t.Errorf("reason %q, time %d; want %q, %d", got, file.accessTime, test.want,
-					test.wantTime)
+		name := fmt.Sprintf("first reading ok %v, hold accepted %v, second reading %s",
+			test.first, test.hold, test.second)
+		t.Run(name, func(t *testing.T) {
+			file := fakeFile{accessTime: original, refusesHold: !test.hold}
+			if !test.first {
+				file.failsRead = []int{0}
 			}
-			restored := test.want == reasonRestored ||
-				(test.want == reasonRestoreFailed && file.failsRestore)
-			if (len(file.restores) > 0) != restored {
-				t.Errorf("restores %v, want one only when the time is set back", file.restores)
+			secondReadings[test.second](&file)
+			got := verifyHold(file.steps())
+			if got != test.want || (len(file.restores) > 0) != test.restores {
+				t.Errorf("reason %q, restores %v; want %q, a restore sent %v", got, file.restores,
+					test.want, test.restores)
 			}
 			for _, value := range file.restores {
 				if value != original {
 					t.Errorf("restored %d, want the value read before the hold, %d", value, original)
 				}
+			}
+		})
+	}
+}
+
+func TestVerifyHoldEdgeCases(t *testing.T) {
+	cases := []struct {
+		name     string
+		file     fakeFile
+		want     string
+		wantTime uint64
+		restores int
+	}{
+		{"a time already far in the future, unchanged, is left alone",
+			fakeFile{accessTime: fakeNow + 2*futureAllowance}, "", fakeNow + 2*futureAllowance, 0},
+		{"a time already the hold value, unchanged, is left alone",
+			fakeFile{accessTime: holdTime, onHold: storesHold}, "", holdTime, 0},
+		{"a second reading at a coarser grain is the same time, not reported",
+			fakeFile{accessTime: original,
+				onHold: func(time uint64) uint64 { return time - time%grainAllowance }},
+			"", original - original%grainAllowance, 0},
+		{"a stored hold whose restore fails is reported as failed",
+			fakeFile{accessTime: original, onHold: storesHold, failsRestore: true},
+			reasonRestoreFailed, holdTime, 1},
+		{"a restored time is the value read before the hold",
+			fakeFile{accessTime: original, onHold: storesHold}, reasonRestored, original, 1},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			file := test.file
+			got := verifyHold(file.steps())
+			if got != test.want || file.accessTime != test.wantTime ||
+				len(file.restores) != test.restores {
+				t.Errorf("reason %q, time %d, restores %v; want %q, %d, %d restore(s)", got,
+					file.accessTime, file.restores, test.want, test.wantTime, test.restores)
 			}
 		})
 	}
