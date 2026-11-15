@@ -242,6 +242,41 @@ func refuseTimeSetting(t *testing.T, path string) {
 	}
 }
 
+// fileUSN returns the number of the last change-journal record written for
+// path, read with FSCTL_READ_FILE_USN_DATA through a handle opened for
+// attributes alone, or the error that says the volume keeps no journal.
+// golang.org/x/sys defines no USN record type: the record is USN_RECORD_V2
+// (Usn at byte 24) or USN_RECORD_V3 (file numbers of 16 bytes, Usn at byte
+// 40), told apart by MajorVersion at byte 4.
+func fileUSN(t *testing.T, path string) (int64, error) {
+	t.Helper()
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, shareAll, nil,
+		windows.OPEN_EXISTING, windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	mustDo(t, err)
+	defer windows.CloseHandle(handle)
+	// READ_FILE_USN_DATA: the lowest and highest record versions accepted.
+	versions := [2]uint16{2, 3}
+	record := make([]byte, 1024)
+	var returned uint32
+	err = windows.DeviceIoControl(handle, windows.FSCTL_READ_FILE_USN_DATA,
+		(*byte)(unsafe.Pointer(&versions[0])), uint32(unsafe.Sizeof(versions)),
+		&record[0], uint32(len(record)), &returned, nil)
+	if err != nil {
+		return 0, err
+	}
+	switch major := binary.LittleEndian.Uint16(record[4:]); {
+	case major == 2 && returned >= 32:
+		return int64(binary.LittleEndian.Uint64(record[24:])), nil
+	case major == 3 && returned >= 48:
+		return int64(binary.LittleEndian.Uint64(record[40:])), nil
+	default:
+		t.Fatalf("change-journal record of version %d, %d bytes", major, returned)
+		return 0, nil
+	}
+}
+
 func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
 	cases := []struct {
 		name string
@@ -268,6 +303,10 @@ func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
 			setTimes(t, source, 1_500_000_000, 1_600_000_000, 1_700_000_000)
 			test.prepare(t, source)
 			before := basicTimes(t, source)
+			usnBefore, journalErr := fileUSN(t, source)
+			if journalErr == nil && usnBefore == 0 {
+				journalErr = errors.New("the file has no journal record (USN 0)")
+			}
 			_, written, err := stager.CopyFile(source)
 			if err != nil || written != int64(len(content)) {
 				t.Fatalf("CopyFile = %d bytes, %v", written, err)
@@ -279,6 +318,16 @@ func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
 			if after != before {
 				t.Errorf("source times (creation, access, write, change) %v, want %v",
 					after, before)
+			}
+			// The hold is a SetFileTime call; it must leave no change-journal
+			// record (USN_REASON_BASIC_INFO_CHANGE) on the evidence.
+			if journalErr != nil {
+				t.Skipf("no change journal to read here: %v", journalErr)
+			}
+			usnAfter, err := fileUSN(t, source)
+			t.Logf("source USN before the copy %d, after %d", usnBefore, usnAfter)
+			if err != nil || usnAfter != usnBefore {
+				t.Errorf("source USN %d (%v) after the copy, want %d", usnAfter, err, usnBefore)
 			}
 		})
 	}
