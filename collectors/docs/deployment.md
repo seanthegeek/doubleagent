@@ -184,12 +184,14 @@ without the right to change attributes, whatever the setting says. Use it
 only when last-access updates are on, the security software cannot be
 tested before a live collection, and the operator accepts the trade-off:
 reading a file may then change its access time on disk. The original
-access time is still recorded in the collection, because the manifest's
-`atime` is read before the file is opened. The choice is recorded in
+access time is still recorded in the collection: the manifest's `atime`
+is taken before the file is copied, and for a file the relocation search
+reads, before that read. The choice is recorded in
 `collection.json` as `options.no_preserve_atime` and at the end of the
 log's second line as `no_preserve_atime=0` or `no_preserve_atime=1`.
 
-On Linux and macOS the option is accepted and has no effect in this
-version: the binary always opens files read-only there and logs no such
-decision. Reading a file may update its access time as the volume's mount
-options decide, and the manifest records the time read before the copy.
+On Linux, macOS and other Unix systems the option is accepted and has no
+effect in this version: the binary always opens files read-only there and
+logs no such decision. Reading a file may update its access time as the
+volume's mount options decide, and the manifest records the time taken
+before the binary read the file, as above.

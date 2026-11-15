@@ -32,13 +32,14 @@ type Options struct {
 	Quiet           bool
 	MaxFileBytes    int64
 	EnvScanMaxBytes int64
-	// NoPreserveAtime, set by --no-preserve-atime, opens every collected
-	// file for reading alone. Without it, the Windows copy asks for the
-	// right to change the file's attributes, which security software may
-	// watch for, wherever last-access updates are on or cannot be
-	// determined, so it can ask Windows to leave the file's access time as
-	// it was; with it, reading may change that time on disk. The manifest's
-	// atime is read before the open either way. On Linux and macOS files are always opened for reading alone, so
+	// NoPreserveAtime, set by --no-preserve-atime, opens every file the run
+	// reads for reading alone. Without it, Windows opens ask for the right
+	// to change the file's attributes, which security software may watch
+	// for, wherever a read could move the access time, so they can ask
+	// Windows to leave that time as it was; with it, reading may change the
+	// time on disk. A manifest row's atime is taken before the copy, and for
+	// a file the relocation search reads, before that read. On Linux, macOS
+	// and other Unix systems files are always opened for reading alone, so
 	// it changes nothing there.
 	NoPreserveAtime bool
 	// lexicalRoot is Root made absolute as typed, before its components
