@@ -39,12 +39,12 @@ func TestAbsoluteProjectOnWindows(t *testing.T) {
 	}
 }
 
-func TestAbsoluteProjectTakesTheDisksSpelling(t *testing.T) {
+func TestRootAndOutDirTakeTheDisksSpelling(t *testing.T) {
 	base := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
 	if err := os.MkdirAll(syspath.ToNative(base+"/\u00c9mile/Sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cases := []struct{ name, project, want string }{
+	cases := []struct{ name, path, want string }{
 		{"existing components take the disk's case, an accented letter's too",
 			syspath.ToNative(base + "/\u00e9mile/sub"), base + "/\u00c9mile/Sub"},
 		{"a missing tail stays as typed", syspath.ToNative(base + "/\u00e9MILE/sub/New"),
@@ -52,8 +52,36 @@ func TestAbsoluteProjectTakesTheDisksSpelling(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := absoluteProject("", test.project); got != test.want {
-				t.Errorf("absoluteProject(%q) = %q, want %q", test.project, got, test.want)
+			if got, _ := absoluteRoot("", test.path); got != test.want {
+				t.Errorf("absoluteRoot(%q) = %q, want %q", test.path, got, test.want)
+			}
+		})
+	}
+}
+
+func TestProjectsAreRespelledOnlyBelowAnImageRoot(t *testing.T) {
+	base := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	for _, dir := range []string{"img/Proj", "other"} {
+		if err := os.MkdirAll(syspath.ToNative(base+"/"+dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cases := []struct {
+		name, root string
+		projects   []string
+		want       []string
+	}{
+		{"a path outside the image root stays as typed, never looked at", base + "/img",
+			[]string{base + "/OTHER"}, []string{base + "/OTHER"}},
+		{"a path below the image root takes the disk's spelling", base + "/img",
+			[]string{base + "/img/proj"}, []string{base + "/img/Proj"}},
+		{"a live run respells from the drive and lists a directory once", "",
+			[]string{base + "/OTHER", base + "/other"}, []string{base + "/other"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if got := respellProjects(test.projects, test.root); !reflect.DeepEqual(got, test.want) {
+				t.Errorf("respellProjects(%q, %q) = %q, want %q", test.projects, test.root, got, test.want)
 			}
 		})
 	}

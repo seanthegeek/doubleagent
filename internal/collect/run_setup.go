@@ -74,6 +74,9 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 	if err == nil {
 		options, err = ResolveRoot(options, host.getwd)
 	}
+	if err == nil {
+		options.Projects = respellProjects(options.Projects, options.Root)
+	}
 	if err == nil && !options.Inventory {
 		options.OutDir, err = resolveOutDir(options.OutDir, host.getwd)
 	}

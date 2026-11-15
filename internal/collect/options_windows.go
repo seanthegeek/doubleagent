@@ -15,8 +15,8 @@ import (
 // is that drive's root. A path starting with one separator is rooted on
 // CWD's drive. A drive-relative path (X:dir) is joined to CWD when CWD is on
 // that drive, else to the drive's root, the only directory of another drive
-// a new process knows. Existing components then take the disk's spelling
-// (fsmeta.OnDiskPath; a missing one stays as typed), as -r and -o do here.
+// a new process knows. Nothing is looked up: respellProjects takes the
+// disk's spelling once the root is known.
 func absoluteProject(cwd, project string) string {
 	switch {
 	case isBareDrive(project):
@@ -29,7 +29,7 @@ func absoluteProject(cwd, project string) string {
 	default:
 		project = filepath.Join(cwd, project)
 	}
-	return fsmeta.OnDiskPath("", syspath.FromNative(filepath.Clean(project)))
+	return syspath.FromNative(filepath.Clean(project))
 }
 
 // driveRelative resolves the drive-relative PROJECT (X:dir) against CWD
@@ -52,7 +52,10 @@ func isBareDrive(text string) bool {
 // CWD as a -p path is, and its native form as the path whose directory test
 // decides: PowerShell resolves -Root's . and .. by name, and a bare drive
 // (X:) names that drive's root, which only the native X:\ says to Win32.
+// Existing components take the disk's spelling from the drive down
+// (fsmeta.OnDiskPath; a missing one stays as typed): -r and -o are the
+// analyst's own host paths.
 func absoluteRoot(cwd, root string) (resolved, checked string) {
-	resolved = absoluteProject(cwd, root)
+	resolved = fsmeta.OnDiskPath("", absoluteProject(cwd, root))
 	return resolved, syspath.ToNative(resolved)
 }

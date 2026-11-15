@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -257,6 +258,24 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 	}
 	options.Projects = resolved
 	return options, nil
+}
+
+// respellProjects returns the -p paths with their existing components
+// spelled as the disk holds them, each listed once: below root in image
+// mode, so a path outside the image stays as typed and is never looked at,
+// and from the drive on a live run. It runs once the root is resolved, after
+// ResolveProjects, so the order of the two errors stays the sh collector's.
+func respellProjects(projects []string, root string) []string {
+	var respelled []string
+	seen := map[string]bool{}
+	for _, project := range projects {
+		project = fsmeta.OnDiskPath(root, project)
+		if key := syspath.Fold(project); !seen[key] {
+			seen[key] = true
+			respelled = append(respelled, project)
+		}
+	}
+	return respelled
 }
 
 // isDirectory reports whether PATH is a directory or a link to one. The
