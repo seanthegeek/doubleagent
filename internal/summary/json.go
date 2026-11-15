@@ -102,6 +102,7 @@ func optionsJSON(options Options) string {
 		field("projects", jsonList(options.Projects)),
 		field("env_scan_home", jsonBool(options.EnvScanHome)),
 		field("env_scan_max_size_bytes", strconv.FormatInt(options.EnvScanMaxSize, 10)),
+		field("no_preserve_atime", jsonBool(options.NoPreserveAtime)),
 	)
 }
 

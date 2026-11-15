@@ -615,3 +615,37 @@ func TestNoPreserveAtimeReachesTheStager(t *testing.T) {
 		})
 	}
 }
+
+func TestNoPreserveAtimeIsRecorded(t *testing.T) {
+	cases := []struct {
+		name               string
+		set                bool
+		wantLog, wantField string
+	}{
+		{"the default is recorded as off", false, " no_preserve_atime=0",
+			`, "no_preserve_atime": false}`},
+		{"--no-preserve-atime is recorded as on", true, " no_preserve_atime=1",
+			`, "no_preserve_atime": true}`},
+	}
+	root := fixtureImage(t)
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			outDir := t.TempDir()
+			options := testOptions(root, outDir)
+			options.NoPreserveAtime = test.set
+			var stdout, stderr bytes.Buffer
+			if code := runCollection(context.Background(), options, testHost(t), &stdout,
+				&stderr); code != exitOK {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			lines := strings.SplitN(runOutput(t, outDir, ".log"), "\n", 3)
+			if len(lines) < 2 || !strings.HasSuffix(lines[1], test.wantLog) {
+				t.Errorf("second log line %q, want it to end with %q", lines[1:], test.wantLog)
+			}
+			if document := runOutput(t, outDir, ".collection.json"); !strings.Contains(document,
+				`"env_scan_max_size_bytes": 1048576`+test.wantField) {
+				t.Errorf("collection.json options lack %q:\n%s", test.wantField, document)
+			}
+		})
+	}
+}

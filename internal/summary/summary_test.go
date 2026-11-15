@@ -58,7 +58,7 @@ func sampleSummary() Summary {
 	return Summary{
 		Version: "1.2.3", Hostname: `ho"st`, Mode: "live", Platform: "Linux 6 x86_64", Identity: Identity{UID: 1000},
 		Started: "2026-01-02T03:04:05Z", Finished: "2026-01-02T03:04:06Z",
-		Options: Options{MaxFileBytes: 5, UsersFilter: "a,b", Projects: []string{"/p"}},
+		Options: Options{MaxFileBytes: 5, UsersFilter: "a,b", Projects: []string{"/p"}, NoPreserveAtime: true},
 		Users:   []string{"a", ""}, Homes: []string{"/h/a"},
 		Counts: manifest.Counts{ByStatus: map[manifest.Status]int{manifest.Collected: 2}, CollectedBytes: 9},
 		Docker: volumes.Counts{Found: 1},
@@ -80,7 +80,7 @@ const sampleJSON = `{
   "run_as_uid": "1000",
   "started": "2026-01-02T03:04:05Z",
   "finished": "2026-01-02T03:04:06Z",
-  "options": {"full": false, "no_secrets": false, "max_file_size_bytes": 5, "users_filter": "a,b", "no_docker": false, "no_projects": false, "projects": ["/p"], "env_scan_home": false, "env_scan_max_size_bytes": 0},
+  "options": {"full": false, "no_secrets": false, "max_file_size_bytes": 5, "users_filter": "a,b", "no_docker": false, "no_projects": false, "projects": ["/p"], "env_scan_home": false, "env_scan_max_size_bytes": 0, "no_preserve_atime": true},
   "capabilities": {"hash_tool": "crypto/sha256", "archiver": "archive/tar", "grep_text": true, "plutil": false},
   "users": ["a"],
   "homes": ["/h/a"],

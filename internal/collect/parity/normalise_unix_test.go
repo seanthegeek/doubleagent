@@ -24,6 +24,11 @@ var (
 	logProjectError   = regexp.MustCompile(`^(WARNING: project given with -p is not a directory: [^:]*): .*`)
 	stdoutVolatile    = regexp.MustCompile(`(?m)^(size|sha256): .*\n`)
 	inventoryVolatile = regexp.MustCompile(`"(at|collector)":"[^"]*"`)
+	// The binary's --no-preserve-atime, which the sh collector does not
+	// have, is recorded in collection.json's options and the log's second
+	// start line.
+	summaryNoPreserveAtime = regexp.MustCompile(`, "no_preserve_atime": (true|false)`)
+	logNoPreserveAtime     = regexp.MustCompile(` no_preserve_atime=[01]$`)
 )
 
 // normalLine returns a log line with what differs by design dropped: the tool
@@ -31,6 +36,7 @@ var (
 // and the error text of a failure line.
 func normalLine(line string) string {
 	line = logStart.ReplaceAllString(line, "TOOL starting on ")
+	line = logNoPreserveAtime.ReplaceAllString(line, "")
 	line = strings.TrimSpace(logCapability.ReplaceAllString(line, ""))
 	line = logDone.ReplaceAllString(line, "$1")
 	line = logProjectError.ReplaceAllString(line, "$1")
@@ -77,8 +83,8 @@ func normalise(run collectorRun, binary, logOnStderr bool) collectorRun {
 	manifest := manifestVolatile.ReplaceAllString(run.files[".manifest.jsonl"], "")
 	files := map[string]string{
 		".manifest.jsonl": manifest,
-		".collection.json": registryReason.ReplaceAllString(
-			summaryVolatile.ReplaceAllString(run.files[".collection.json"], ""), `"reason": R`),
+		".collection.json": summaryNoPreserveAtime.ReplaceAllString(registryReason.ReplaceAllString(
+			summaryVolatile.ReplaceAllString(run.files[".collection.json"], ""), `"reason": R`), ""),
 		".log":     normalLog(run.files[".log"], binary),
 		".archive": normalMembers(run.members, dropVolatileManifest),
 	}

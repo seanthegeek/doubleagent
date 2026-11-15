@@ -38,6 +38,9 @@ var (
 	windowsStdout    = regexp.MustCompile(`(?m)^(size|sha256): .*\n`)
 	windowsResolved  = regexp.MustCompile(`(?m)^(relocation: .*?), [0-9]+ resolved`)
 	windowsInventory = regexp.MustCompile(`"(at|collector)":"[^"]*"`)
+	// The binary's --no-preserve-atime, which the PowerShell collector does
+	// not have, ends the binary's second start line.
+	windowsNoPreserveAtime = regexp.MustCompile(` no_preserve_atime=[01]$`)
 )
 
 // newWindowsNormaliser returns the normaliser of one case. compare calls it
@@ -183,6 +186,7 @@ func normalWindowsLine(line string) string {
 	if match := windowsStartLine.FindStringSubmatch(line); match != nil {
 		return match[1]
 	}
+	line = windowsNoPreserveAtime.ReplaceAllString(line, "")
 	if match := windowsOptions.FindStringSubmatch(line); match != nil {
 		return windowsFlag.ReplaceAllStringFunc(match[1], func(flag string) string {
 			if flag == "=True" {
@@ -269,6 +273,11 @@ func normalSummary(text string, binary bool) string {
 	}
 	if root, ok := summary["root"].(string); ok {
 		summary["root"] = syspath.FromNative(root)
+	}
+	// The binary's --no-preserve-atime, which the PowerShell collector does
+	// not have, is recorded in its options.
+	if options, ok := summary["options"].(map[string]any); ok {
+		delete(options, "no_preserve_atime")
 	}
 	if binary {
 		blankFileHintValues(summary)

@@ -26,6 +26,9 @@ type Options struct {
 	Projects       []string
 	EnvScanHome    bool
 	EnvScanMaxSize int64
+	// NoPreserveAtime records --no-preserve-atime, written on every
+	// platform though it changes the copy on Windows alone.
+	NoPreserveAtime bool
 }
 
 // Hint is one relocation hint as collection.json lists it.

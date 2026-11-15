@@ -60,7 +60,7 @@ func (state *runState) summary(finished time.Time) summary.Summary {
 			MaxFileBytes: options.MaxFileBytes, UsersFilter: options.UsersFilter,
 			NoDocker: options.NoDocker, NoProjects: options.NoProjects,
 			Projects: options.Projects, EnvScanHome: options.EnvScanHome,
-			EnvScanMaxSize: options.EnvScanMaxBytes},
+			EnvScanMaxSize: options.EnvScanMaxBytes, NoPreserveAtime: options.NoPreserveAtime},
 		Plutil: state.plutil.Available(), Counts: state.manifest.Counts(),
 		Docker: state.docker, Relocation: state.relocationSummary(), Notes: state.notes,
 		Archive:     state.name + ".tar.gz",
