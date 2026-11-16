@@ -322,9 +322,16 @@ pairs. Such a run logs `NOTE: output directory <dir> ignores letter case;
 of two entries whose names differ only in case, one may not be staged and
 its row says why (an output directory on a case-sensitive volume keeps
 both)`, and every copy and link is checked against where it
-landed before anything is written: on Windows always
-(`GetFinalPathNameByHandle`, or the disk's spelling of a link's path), on
-macOS through `F_GETPATH`, on Linux through each directory's listing. The
+landed before anything is written. A copy's place is the open file's
+path (`GetFinalPathNameByHandle` on Windows, `F_GETPATH` on macOS); on
+Linux, and for a link or a failed copy on every platform, the staged path
+is walked from the staging directory as the tree spells it (`walkStaged`):
+the walk lists only directories it found typed as real directories, finds
+a component the volume resolved to another spelling by its device and
+inode, and stops at a link or file, so it never lists anything behind a
+recreated link. A copy, mkdir or link that fails is worded as a case
+collision only when that walk shows the component it is about spelled
+otherwise on disk. The
 copy is opened without truncating and emptied only after the check. The
 run keeps one record (`stage.Places`) of the source entry each staged
 place was filled from, by its identity (a copy's from its open source

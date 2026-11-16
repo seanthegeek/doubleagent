@@ -26,12 +26,6 @@ func (Stager) createCopy(_ [2]uint64, dest string) (*os.File, error) {
 	return createDest(dest)
 }
 
-// occupantOfPath reports false: these systems' staging directory is not
-// checked for folded case.
-func (Stager) occupantOfPath(string) (string, bool) {
-	return "", false
-}
-
 // checksPlaces reports false: these systems' staging directory is not
 // checked for folded case.
 func (Stager) checksPlaces() bool {

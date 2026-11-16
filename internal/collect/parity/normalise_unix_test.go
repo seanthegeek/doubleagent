@@ -33,7 +33,8 @@ var (
 	logNoPreserveAtime     = regexp.MustCompile(` no_preserve_atime=[01]$`)
 	// foldingNote is the binary's note that the output directory ignores
 	// letter case, as a default macOS volume does; neither script writes it.
-	foldingNote = regexp.MustCompile(`NOTE: output directory .* ignores letter case;`)
+	foldingNote = regexp.MustCompile(
+		`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z )?NOTE: output directory .* ignores letter case;`)
 )
 
 // normalLine returns a log line with what differs by design dropped: the tool

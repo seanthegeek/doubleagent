@@ -73,6 +73,8 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 	if marked {
 		mustDo(t, stage.MarkCaseSensitive(collector.Stager.Dir+"/fs"))
 	}
+	// As a run does: the probe says whether the staging directory folds case.
+	collector.Stager.FoldsCase = stage.FoldsCase(collector.Stager.Dir + "/fs")
 	table := []catalog.Entry{{Agent: "tool", Glob: "cs"}}
 	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
 	seen := map[string]bool{}

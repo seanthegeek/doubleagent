@@ -47,16 +47,6 @@ func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, erro
 	return file, nil
 }
 
-// occupantOfPath returns the staged path of the entry dest, a path in the
-// staging tree that exists, resolves to, and true, when that is not dest:
-// never where the staging directory tells case apart (occupantBelow).
-func (stager Stager) occupantOfPath(dest string) (string, bool) {
-	if !stager.FoldsCase {
-		return "", false
-	}
-	return occupantBelow(stager.Dir, dest)
-}
-
 // checksPlaces reports whether staged places are checked: only where the
 // staging directory folds case, so a case-sensitive one costs nothing.
 func (stager Stager) checksPlaces() bool {

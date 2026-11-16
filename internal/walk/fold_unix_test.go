@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/stage"
@@ -131,5 +132,58 @@ func TestACopyInADirectorySpelledInAnotherCaseKeepsItsBytes(t *testing.T) {
 	if err != nil || len(entries) != 1 || entries[0].Name() != "Zed" {
 		t.Errorf("staged .claude holds %v, %v; want the one directory Zed, so the archive "+
 			"member of zed/two is spelled Zed/two", entries, err)
+	}
+}
+
+func TestALinkOutOfTheStageIsNeverListedThroughAnotherSpelling(t *testing.T) {
+	parent, collectors, rows := foldingCollectors(t)
+	outside := parent + "/outside"
+	if err := os.MkdirAll(outside+"/User", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	for _, dir := range []string{outside + "/User", outside} {
+		// A later modification time: macOS then moves the access time on
+		// the next listing.
+		if err := os.Chtimes(dir, old, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	link := parent + "/one/home/u/.config/cursor"
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatal(err)
+	}
+	settings := parent + "/two/home/u/.config/Cursor/User/settings.json"
+	if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settings, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tables := [][]catalog.Entry{{{Agent: "cursor", Glob: ".config/cursor"}},
+		{{Agent: "cursor", Glob: ".config/Cursor/User"}}}
+	for i, name := range []string{"one", "two"} {
+		if err := collectors[i].CollectCatalog(context.Background(), "u",
+			parent+"/"+name+"/home/u", tables[i], ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, dir := range []string{outside, outside + "/User"} {
+		info, err := os.Lstat(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if accessTime(info) != old.Unix() {
+			t.Errorf("%s was listed through the staged link cursor: access time %d, want %d",
+				dir, accessTime(info), old.Unix())
+		}
+	}
+	row := rowByPath(t, rows[1], settings)
+	if row == nil || row["status"] != "error_copy" ||
+		!strings.Contains(row["error"].(string), "differs only in case") {
+		t.Errorf("row of Cursor/User/settings.json %v; want error_copy with the case collision", row)
 	}
 }

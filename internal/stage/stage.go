@@ -3,6 +3,16 @@
 // recreated symlinks, and the removal of a failed partial copy. It reproduces
 // the set_dest_var, copy_run and test_inside_stage steps of the sh
 // collector's STAGE_FILES_WORKER.
+//
+// A recreated link in the staging tree may lead to the source or to the
+// analyst's own files, so the stager makes no call on a staged path below a
+// link: a write, an open or a link's creation first passes requireInside
+// for its directory (which resolves it and checks that it lies inside the
+// staging directory, listing nothing), and every respelling walks the tree
+// (walkStaged on Unix, fsmeta.OnDiskPath on Windows), which stops at a
+// link. The one exception is RemoveFailedCopy's lstat of the staged path,
+// copy_run's test of whether a failed copy left anything, which reads the
+// entry's metadata and lists nothing.
 package stage
 
 import (
@@ -45,6 +55,8 @@ type Stager struct {
 	// afterOpen, set by tests, is called with a source's path right after
 	// CopyFile opens it.
 	afterOpen func(path string)
+	// stagedFS, set by tests, replaces the file system walkStaged asks.
+	stagedFS *stagedFS
 }
 
 // Through returns a copy of the stager that stages paths under from at into.
@@ -305,15 +317,18 @@ func (stager Stager) Symlink(path, target string, directory bool) error {
 		return err
 	}
 	collision := &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
+	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
+		if stager.takenByAnother(parentOf(dest)) {
+			return collision
+		}
+		return err
+	}
 	if _, err := osfile.Lstat(dest); err == nil {
 		if stager.checksPlaces() &&
 			!stager.mayFill(linkIdentity(path), dest, stager.placeOf(dest), true) {
 			return collision
 		}
 		return nil
-	}
-	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
-		return err
 	}
 	if err := createLink(target, dest, directory); err != nil {
 		return err
@@ -325,42 +340,47 @@ func (stager Stager) Symlink(path, target string, directory bool) error {
 }
 
 // takenByAnother reports whether path, a staged path the stager could not
-// make or open, resolves where staged places are checked to a place spelled
-// otherwise (occupantOfPath): another entry's link or directory sits there,
-// which a failed open or mkdir otherwise words as a link loop or a file in
-// the way.
+// make or open, is, where staged places are checked, another entry's place
+// (stagedSpelling.collides): the component the failure is about is spelled
+// otherwise on disk, a link, file or directory of another entry, which a
+// failed open or mkdir would word as a link loop or a file in the way.
 func (stager Stager) takenByAnother(path string) bool {
 	if !stager.checksPlaces() {
 		return false
 	}
-	occupant, other := stager.occupantOfPath(path)
-	return other && occupant != path
+	return stager.spelling(path).collides()
 }
 
 // placeOf returns the place dest, a staged path that exists, resolves to,
-// as the staging directory spells it (occupantOfPath), or dest itself.
+// as the staging directory spells it (Stager.spelling), or dest itself.
 func (stager Stager) placeOf(dest string) string {
-	if occupant, other := stager.occupantOfPath(dest); other {
-		return occupant
+	if spelling := stager.spelling(dest); spelling.stop == stagedEnd && spelling.respelled {
+		return spelling.path
 	}
 	return dest
 }
 
 // RemoveFailedCopy removes what a failed copy left at dest and reports true,
 // or reports true when it left nothing, or when what is at dest is an entry
-// staged under another spelling (occupantOfPath), which it leaves. It
+// staged under another spelling (Stager.spelling), which it leaves. It
 // reports false, removing nothing,
 // when dest's directory does not resolve inside the physical staging
 // directory: the staged path then leads through a recreated link out of the
 // staging tree, and a file there may be a source.
 func (stager Stager) RemoveFailedCopy(dest string) bool {
+	// The lstat is copy_run's test of whether the copy left anything; it
+	// lists nothing. The staged path is respelled only once its directory is
+	// known to lie inside the staging directory.
 	info, err := osfile.Lstat(dest)
-	if _, other := stager.occupantOfPath(dest); err != nil || other {
+	if err != nil {
 		return true
 	}
 	physical, err := PhysicalDir(parentOf(dest))
 	if stager.Physical == "" || err != nil || !stager.holds(physical) {
 		return false
+	}
+	if stager.spelling(dest).respelled {
+		return true
 	}
 	// rm -f removes no directory, and os.Remove would remove an empty one.
 	if !info.IsDir() {

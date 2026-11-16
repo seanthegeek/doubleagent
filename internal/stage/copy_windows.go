@@ -105,15 +105,6 @@ func MarkCaseSensitive(dir string) error {
 	return nil
 }
 
-// occupantOfPath returns dest, a path in the staging tree that exists,
-// spelled below the staging directory as the disk spells it
-// (fsmeta.OnDiskPath), and true, when that differs: the entry there is an
-// earlier one whose name differs only in case.
-func (stager Stager) occupantOfPath(dest string) (string, bool) {
-	occupant := fsmeta.OnDiskPath(stager.Dir, dest)
-	return occupant, occupant != dest
-}
-
 // createDest opens the staged copy for writing, creating it, without
 // following a reparse point: one already at the path is refused, and the
 // open takes a reparse point swapped in after that check as itself, which
