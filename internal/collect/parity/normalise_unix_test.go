@@ -31,6 +31,9 @@ var (
 	// start line.
 	summaryNoPreserveAtime = regexp.MustCompile(`, "no_preserve_atime": (true|false)`)
 	logNoPreserveAtime     = regexp.MustCompile(` no_preserve_atime=[01]$`)
+	// foldingNote is the binary's note that the output directory ignores
+	// letter case, as a default macOS volume does; neither script writes it.
+	foldingNote = regexp.MustCompile(`NOTE: output directory .* ignores letter case;`)
 )
 
 // normalLine returns a log line with what differs by design dropped: the tool
@@ -54,6 +57,9 @@ func normalLine(line string) string {
 func normalLog(text string, keepUntimed bool) string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimSuffix(text, "\n"), "\n") {
+		if foldingNote.MatchString(line) {
+			continue
+		}
 		if !logTime.MatchString(line) {
 			switch {
 			case keepUntimed && line != "":
@@ -73,7 +79,9 @@ func normalLog(text string, keepUntimed bool) string {
 func normalStderr(text string) string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimSuffix(text, "\n"), "\n") {
-		lines = append(lines, normalLine(line))
+		if !foldingNote.MatchString(line) {
+			lines = append(lines, normalLine(line))
+		}
 	}
 	return strings.Join(lines, "\n")
 }

@@ -321,10 +321,11 @@ the default macOS one, where a Linux image analysed on a Mac can hold such
 pairs. Such a run logs `NOTE: output directory <dir> ignores letter case;
 of two entries whose names differ only in case, the later gets an
 error_copy row instead of a copy (an output directory on a case-sensitive
-volume keeps both)`. On Windows every copy and link is checked against
-where it landed before anything is written (`GetFinalPathNameByHandle`, or
-the disk's spelling of a link's path); the copy is opened without
-truncating and emptied only after the check. A
+volume keeps both)`, and every copy and link is checked against where it
+landed before anything is written: on Windows always
+(`GetFinalPathNameByHandle`, or the disk's spelling of a link's path), on
+macOS through `F_GETPATH`, on Linux through each directory's listing. The
+copy is opened without truncating and emptied only after the check. A
 later entry whose staged path is already another's is not staged: a
 file's row is `error_copy` with the error `its staged path is already
 another entry's whose name differs only in case; not staged`, no archive
@@ -332,7 +333,9 @@ path and no hash; a link keeps its `symlink` row with no archive path and
 that reason after `not recreated in the archive:`. The earlier entry keeps
 its copy, and cleaning up after the refused one never removes it. The
 check is by the place the system reports, so it also catches names the
-volume merges in non-ASCII case.
+volume merges in non-ASCII case or Unicode normalisation (macOS stores a
+decomposed `é` as the composed one). Where the probe finds no folding, a
+Unix copy costs no extra call.
 
 A directory that a wildcard segment could not list is recorded by
 `Expand-Glob` in `$script:GlobReadErrors`; `Write-GlobErrorRows` writes an

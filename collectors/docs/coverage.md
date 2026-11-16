@@ -143,7 +143,8 @@ one entry when the file system gives both the same file identity, as in
 an ordinary directory, or when one of them does not exist. Both are staged
 and archived: the binary marks its staging directory case-sensitive. Where
 the output directory cannot hold such a pair (a Windows file system without
-the setting), the run logs a note, the
+the setting, or a case-insensitive volume such as the default macOS one,
+where a Linux image can hold `Alice` and `alice`), the run logs a note, the
 first entry staged keeps its copy, and each later file whose staged path is
 taken gets an `error_copy` row saying so (a link, a `symlink` row with that
 error), with no archive path

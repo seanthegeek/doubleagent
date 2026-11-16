@@ -17,22 +17,47 @@ func createDest(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
 }
 
+// createCopy creates the staged copy at dest (createDest). Where the
+// staging directory folds case (FoldsCase) the copy is opened without
+// truncating, checked against where it landed (placedFile), and refused with
+// caseCollision when that is another entry's place, which is left as it was,
+// or removed when this open created it; only then is it emptied.
+func (stager Stager) createCopy(dest string) (*os.File, error) {
+	if !stager.FoldsCase {
+		return createDest(dest)
+	}
+	_, statErr := os.Lstat(dest)
+	file, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if !stager.placedFile(file, dest) {
+		_ = file.Close()
+		if statErr != nil {
+			_ = os.Remove(dest)
+		}
+		return nil, caseCollision{}
+	}
+	if err := file.Truncate(0); err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	return file, nil
+}
+
+// spelledAsNamed reports whether dest, a path in the staging tree that
+// exists, is dest's own entry: always where the staging directory tells case
+// apart, else when each component below Dir is listed under its own name
+// (spelledBelow).
+func (stager Stager) spelledAsNamed(dest string) bool {
+	return !stager.FoldsCase || spelledBelow(stager.Dir, dest)
+}
+
 // MarkCaseSensitive does nothing: these systems have no per-directory case
 // setting, and whether the staging directory folds case is asked with
 // FoldsCase.
 func MarkCaseSensitive(string) error {
 	return nil
-}
-
-// createCopy creates the staged copy at dest (createDest).
-func (Stager) createCopy(dest string) (*os.File, error) {
-	return createDest(dest)
-}
-
-// spelledAsNamed reports true: the staging directory of these systems is
-// not compared with how the disk spells it.
-func (Stager) spelledAsNamed(string) bool {
-	return true
 }
 
 // preserve gives the copy the source's owner when running as root, its

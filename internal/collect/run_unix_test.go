@@ -551,3 +551,25 @@ func TestTwoHomesReachingOneFileAreNoMerge(t *testing.T) {
 		t.Errorf("a merge line for a file:\n%s", log)
 	}
 }
+
+func TestTheLogNotesAnOutputDirectoryThatIgnoresCase(t *testing.T) {
+	root := fixtureImage(t)
+	outDir := syspath.FromNative(t.TempDir())
+	if err := os.WriteFile(outDir+"/probe", nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, folds := os.Lstat(outDir + "/PROBE")
+	if err := os.Remove(outDir + "/probe"); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	if got := strings.Contains(log, foldingLine(outDir)+"\n"); got != (folds == nil) {
+		t.Errorf("the note is in the log: %v; the output directory folds case: %v\n%s", got,
+			folds == nil, log)
+	}
+}
