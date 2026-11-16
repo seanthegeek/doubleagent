@@ -20,6 +20,14 @@ version:
 
 Either script can collect a mounted disk image of any of the three platforms,
 because every catalog entry is tried against every home directory.
+An image can hold two names that differ only in letter case (a Linux volume,
+or a case-sensitive Windows directory). With the `doubleagent` binary, an
+output directory that ignores case (the default macOS volume, or a Windows
+volume where the binary cannot mark its staging directory case-sensitive)
+cannot hold both: one is not staged, its manifest row and the log say why,
+and a row's `archive_path` is spelled as the archive names the member. Put the
+output directory on a case-sensitive volume to keep both
+([details](docs/internals.md#claimed-paths-and-case-variants)).
 [CHANGELOG.md](CHANGELOG.md) lists what changed in each version, including
 manifest schema changes.
 
