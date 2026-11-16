@@ -604,6 +604,42 @@ line only: no
 row, since testing it as a directory would follow the link on the
 analyst's host.
 
+On Windows, in image mode, a second check stands behind the root check
+and does not depend on its walk being right. Every evidence file the run
+opens (a collected file's copy, project discovery's reads, the relocation
+search and sweep) and every directory it opens to list (the tree walk, the
+glob expander, discovery's name search, the relocation sweep) goes through
+the run's opener (`fsmeta.Opener.Open` and `fsmeta.OpenDir`), which asks
+the open handle where it is (`GetFinalPathNameByHandle`, its links
+resolved and each name spelled as the disk holds it) and requires that to
+be the image root's own place or below it. The place is asked in the NT
+device form (`\Device\HarddiskVolume3\...`, `\Device\Mup\server\share\...`
+for a network share), which every volume has: the drive-letter form fails
+for a volume without a letter and the volume GUID form for a network share
+or a volume the Mount Manager did not create. The two places are compared
+byte for byte, since both come from the same call; folding case would let
+in a sibling a case-sensitive directory keeps apart from the root. A root
+given through a link or a `subst` drive is compared at its physical place,
+a mounted VHD without a letter at its device, a UNC root at its share. A
+handle that lies elsewhere, or whose place cannot be asked, is closed and
+nothing from it is used: a file gets no copy and no row, a directory is not
+listed, and the path is logged once:
+`C:\img\Users\alice\j\notes: the root check allowed it but Windows opened it outside the image root; nothing from it was used`.
+When the root's own place cannot be asked, refusing every open would lose
+the whole image, so the run goes on with the root check alone and logs
+`image root: where C:\img lies cannot be read (<reason>); what is opened under it is checked by the root check alone`.
+The check costs one system call per open; a live run has none. The root
+check alone covers what opens no handle the run keeps: the stats behind
+`follow.Stat`, `IsDirectory` and `IsRegularFile`, the name lookups of
+`fsmeta.OnDiskName` and `OnDiskPath`, a candidate home's parent listing on
+Windows (`os.ReadDir`, which only says whether the parent lists the name),
+and `fsmeta.DiskUsageBytes`. Linux and macOS have no second check: their
+walk is the kernel's own physical resolution, compared with the kernel on
+every shape by a test, while asking an open file for its path there is not
+exact (Linux's `/proc/self/fd` names a deleted file with a suffix and
+depends on the mount namespace; macOS's `F_GETPATH` gives one of a file's
+hard links).
+
 Every call that follows a link in the last component of a path (a stat, a
 directory or file test, an access check, a directory listing test, a read
 or write of a whole file, a resolution to the physical directory) goes

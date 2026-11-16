@@ -172,7 +172,7 @@ func TestEnumerateImage(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			got := Enumerate(context.Background(), false, root, testCase.filter, nil, nil)
+			got := Enumerate(context.Background(), false, root, testCase.filter, nil, nil, nil)
 			entries := testCase.want
 			if onWindows && testCase.windowsWant != nil {
 				entries = testCase.windowsWant
@@ -194,7 +194,7 @@ func TestEnumerateRootWithBracket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := Enumerate(context.Background(), false, root, "", nil, nil)
+	got := Enumerate(context.Background(), false, root, "", nil, nil, nil)
 	if want := expected(root, "alice:/home/alice"); !reflect.DeepEqual(got, want) {
 		t.Errorf("Enumerate = %v, want %v", got, want)
 	}

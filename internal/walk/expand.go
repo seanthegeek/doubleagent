@@ -30,14 +30,15 @@ type Match struct {
 // inode, so one directory is collected once. check, nil for none, is asked
 // before the expander looks in a directory; each link it refuses is one
 // OutOfRoot match, in the place of the first glob that reached it.
-func ExpandCatalog(base string, table []catalog.Entry, check glob.Check) []Match {
+func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener *fsmeta.Opener,
+) []Match {
 	var found []Match
 	refused := map[string]bool{}
 	for _, entry := range table {
 		if entry.Agent == "" || strings.HasPrefix(entry.Agent, "#") {
 			continue
 		}
-		paths, refusals := glob.Expand(base, entry.Glob, check)
+		paths, refusals := glob.Expand(base, entry.Glob, check, opener)
 		for _, refusal := range refusals {
 			if !refused[refusal.Link] {
 				refused[refusal.Link] = true

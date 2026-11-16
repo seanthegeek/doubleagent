@@ -30,10 +30,10 @@ type Refusal struct {
 // that name exists. A symlinked directory in the middle of the pattern is
 // followed, as the shell reads directories. On Windows existing literal
 // segments come back in on-disk case and matches in Get-ChildItem's order.
-// check (expansion says when it is asked) is the image root's; a live run
-// passes nil, and every caller says so.
-func Expand(base, pattern string, check Check) ([]string, []Refusal) {
-	run := &expansion{base: base, check: check}
+// check (expansion says when it is asked) is the image root's, nil on a live
+// run; directories are listed through fsmeta.OpenDir with opener.
+func Expand(base, pattern string, check Check, opener *fsmeta.Opener) ([]string, []Refusal) {
+	run := &expansion{base: base, check: check, opener: opener}
 	var results []string
 	for _, word := range strings.Split(pattern, "\n") {
 		if word == "" {
@@ -66,6 +66,7 @@ func Expand(base, pattern string, check Check) ([]string, []Refusal) {
 type expansion struct {
 	base    string
 	check   Check
+	opener  *fsmeta.Opener
 	word    string
 	refused []Refusal
 }
@@ -125,7 +126,7 @@ func (run *expansion) expandFrom(prefix, rest string, matches *[]string) {
 	}
 	prefix += respell(base+"/"+prefix, literal)
 	segment, atEnd := rest[segmentAt:segmentEnd], segmentEnd == len(rest)
-	for _, name := range readNames(base+"/"+prefix, segmentMatchesDot(segment)) {
+	for _, name := range readNames(run.opener, base+"/"+prefix, segmentMatchesDot(segment)) {
 		if !wildcardMatches(segment, name, fold) {
 			continue
 		}
@@ -156,8 +157,8 @@ func exists(path string) bool {
 // whose directory read lists them (listsDotEntries), since a segment starting
 // with a dot matches them there. A directory that cannot be read gives the names read before
 // the error, as the shell's read loop stops.
-func readNames(directory string, withDots bool) []string {
-	handle, err := osfile.Open(directory)
+func readNames(opener *fsmeta.Opener, directory string, withDots bool) []string {
+	handle, err := fsmeta.OpenDir(opener, directory)
 	if err != nil {
 		return nil
 	}

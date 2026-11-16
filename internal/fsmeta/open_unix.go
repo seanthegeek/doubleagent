@@ -15,5 +15,9 @@ import (
 // read-only whatever the opener says: these systems offer no request to
 // hold the access time, which the mount options decide.
 func (o *Opener) Open(path string) (*os.File, error) {
-	return osfile.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	handle, err := osfile.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	return o.admitted(path, handle)
 }

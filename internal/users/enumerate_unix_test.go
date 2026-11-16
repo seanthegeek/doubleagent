@@ -46,7 +46,7 @@ func TestEnumerateLive(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			// The fixture root stands in for a live run's empty root: getent's
 			// homes are prefixed with it, dscl's are not.
-			got := Enumerate(context.Background(), true, root, "", testCase.run, nil)
+			got := Enumerate(context.Background(), true, root, "", testCase.run, nil, nil)
 			if !reflect.DeepEqual(got, testCase.want) {
 				t.Errorf("Enumerate = %v, want %v", got, testCase.want)
 			}
@@ -73,7 +73,7 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			report := Find(context.Background(), false, root, test.filter, nil, nil)
+			report := Find(context.Background(), false, root, test.filter, nil, nil, nil)
 			if !reflect.DeepEqual(report.Unmatched, test.unmatched) ||
 				!reflect.DeepEqual(report.Found, []string{"alice"}) {
 				t.Errorf("unmatched %q, found %q; want %q and alice only", report.Unmatched,
@@ -105,7 +105,7 @@ func TestFindRunsNoProgramOnceCancelled(t *testing.T) {
 				calls = append(calls, name)
 				return nil, errors.New(name + ": not installed")
 			}
-			Find(ctx, true, root, "", recording, nil)
+			Find(ctx, true, root, "", recording, nil, nil)
 			if !reflect.DeepEqual(calls, testCase.want) {
 				t.Errorf("calls = %q, want %q", calls, testCase.want)
 			}

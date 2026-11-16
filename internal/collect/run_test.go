@@ -17,10 +17,13 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
+	"runtime"
 )
 
 func TestRun(t *testing.T) {
@@ -78,7 +81,8 @@ func testHost(t *testing.T) environment {
 	pinned := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	return environment{now: func() time.Time { return pinned }, runner: noPrograms{},
 		getwd:     func() (string, error) { return syspath.FromNative(t.TempDir()), nil },
-		findUsers: users.Find, lastAccess: func() accessUpdates { return accessUnknown }}
+		findUsers: users.Find, lastAccess: func() accessUpdates { return accessUnknown },
+		confine: follow.NewConfinement}
 }
 
 // fixtureImage builds an image with one home holding one agent file and
@@ -602,7 +606,7 @@ func TestProbeWrite(t *testing.T) {
 func skippedHomesHost(t *testing.T, root string) environment {
 	host := testHost(t)
 	host.findUsers = func(context.Context, bool, string, string, users.Runner,
-		glob.Check) users.Report {
+		glob.Check, *fsmeta.Opener) users.Report {
 		return users.Report{Skipped: []users.Skipped{
 			{Path: root + "/Users/locked", Reason: "access denied", Denied: true},
 			{Path: root + "/Users/gone", Reason: "missing"},
@@ -719,7 +723,7 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			host := testHost(t)
 			host.findUsers = func(context.Context, bool, string, string, users.Runner,
-				glob.Check) users.Report {
+				glob.Check, *fsmeta.Opener) users.Report {
 				return users.Report{Found: test.found, Unmatched: []string{"nobody", "Eve"}}
 			}
 			outDir := t.TempDir()
@@ -1005,6 +1009,32 @@ func TestReadsWithoutTheHoldAreLoggedOncePerReasonAndCountedOnAnyExit(t *testing
 	for line, count := range want {
 		if got := strings.Count(log, line); got != count {
 			t.Errorf("%q appears %d time(s), want %d:\n%s", line, got, count, log)
+		}
+	}
+}
+
+func TestARootWhosePlaceCannotBeReadRunsOnTheRootCheckAlone(t *testing.T) {
+	files := map[string]string{"home/alice/.claude/settings.json": "{}\n"}
+	if runtime.GOOS == "windows" {
+		files = map[string]string{"Users/alice/.claude/settings.json": "{}\n"}
+	}
+	root := writeImage(t, files, nil)
+	outDir := syspath.FromNative(t.TempDir())
+	host := testHost(t)
+	host.confine = func(string, func(string)) (*follow.Confinement, error) {
+		return nil, errors.New("access denied")
+	}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), host, &stdout,
+		&stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	line := "image root: where " + syspath.ToNative(root) + " lies cannot be read (access denied);" +
+		" what is opened under it is checked by the root check alone\n"
+	requireOnce(t, "the log", runOutput(t, outDir, ".log"), line)
+	for path := range files {
+		if !strings.Contains(manifestRow(t, outDir, root+"/"+path), `"status":"collected"`) {
+			t.Errorf("%s was not collected", path)
 		}
 	}
 }

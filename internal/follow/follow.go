@@ -51,6 +51,10 @@ const (
 	Climbs
 	// Outside is a path not under the image root as given.
 	Outside
+	// OpenedOutside is a path the check let through whose open handle
+	// Windows places outside the image root (Confinement.Admit): a mistake
+	// of the check, caught after the open and before anything is read.
+	OpenedOutside
 )
 
 // Refusal is the root check's decision against a path: the path that
@@ -112,6 +116,9 @@ func Reason(refusal Refusal, leadsOut string) string {
 		return " climbs above the image root with .." + nothing
 	case Outside:
 		return " is outside the image root" + nothing
+	case OpenedOutside:
+		return ": the root check allowed it but Windows opened it outside the image root;" +
+			" nothing from it was used"
 	}
 	return leadsOut
 }

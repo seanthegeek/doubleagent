@@ -31,7 +31,7 @@ const sharedAgent = "shared"
 func (state *runState) findHomes(ctx context.Context) error {
 	live := state.options.Root == ""
 	report := state.host.findUsers(ctx, live, state.options.Root, state.options.UsersFilter,
-		state.host.runner.Output, state.roots.Expansion())
+		state.host.runner.Output, state.roots.Expansion(), state.opener)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 // image root looked at, which the sweep leaves to the walk.
 func (state *runState) catalogClaims(base string, table []catalog.Entry) []string {
 	var claims []string
-	for _, match := range walk.ExpandCatalog(base, table, state.roots.Expansion()) {
+	for _, match := range walk.ExpandCatalog(base, table, state.roots.Expansion(), state.opener) {
 		if match.Note == "" && match.OutOfRoot.Link == "" {
 			claims = append(claims, match.Path)
 		}

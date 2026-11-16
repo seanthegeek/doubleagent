@@ -123,7 +123,7 @@ func runGoCollector(t *testing.T, root string, settings runSettings) shRun {
 	if settings.full {
 		collector.Excludes = nil
 	}
-	homes := users.Enumerate(context.Background(), false, root, "", nil, nil)
+	homes := users.Enumerate(context.Background(), false, root, "", nil, nil, nil)
 	if err := collector.CollectUserHomes(context.Background(), homes); err != nil {
 		t.Fatal(err)
 	}

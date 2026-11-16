@@ -316,6 +316,6 @@ func TestSearchTakesTheSystemFilesUnderTheSystemBase(t *testing.T) {
 
 // expandGlob is glob.Expand without a check, as a live run calls it.
 func expandGlob(base, pattern string) []string {
-	matches, _ := glob.Expand(base, pattern, nil)
+	matches, _ := glob.Expand(base, pattern, nil, nil)
 	return matches
 }

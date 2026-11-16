@@ -34,20 +34,22 @@ func homeGlobs(live bool) []string {
 // it, so a home is kept once by its folded path. ctx and run are unused (no
 // program lists Windows users); check is the image root's, nil live.
 func Find(_ context.Context, live bool, root, usersFilter string, _ Runner,
-	check glob.Check,
+	check glob.Check, opener *fsmeta.Opener,
 ) Report {
 	var reader profileReader
 	if live {
 		reader = registryProfiles{}
 	}
-	return find(reader, root, usersFilter, check)
+	return find(reader, root, usersFilter, check, opener)
 }
 
 // find is Find with the ProfileList reader given; a nil reader means an
 // image run.
-func find(reader profileReader, root, usersFilter string, check glob.Check) Report {
+func find(reader profileReader, root, usersFilter string, check glob.Check,
+	opener *fsmeta.Opener,
+) Report {
 	root = syspath.FromNative(root)
-	guard := &rootGuard{check: check}
+	guard := &rootGuard{check: check, opener: opener}
 	var report Report
 	var candidates []Home
 	if reader != nil {

@@ -6,7 +6,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -160,7 +159,10 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 // none, and neither is evidence, since no entry can be read. The directory
 // keeps its error_read row from visit.
 func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
-	handle, err := osfile.Open(dir)
+	handle, err := fsmeta.OpenDir(collector.Stager.Opener, dir)
+	if _, refused := follow.OutOfRoot(err); refused {
+		return nil
+	}
 	if err != nil {
 		return collector.findError(found, dir, err.Error())
 	}
@@ -193,7 +195,12 @@ func (collector *Collector) visitEntries(ctx context.Context, owner scope, found
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	handle, err := osfile.Open(directory)
+	handle, err := fsmeta.OpenDir(collector.Stager.Opener, directory)
+	if _, refused := follow.OutOfRoot(err); refused {
+		// Windows opened it outside the image root: logged once by the
+		// opener's Admit, and nothing in it is listed.
+		return nil
+	}
 	if err != nil {
 		return collector.findError(found, directory, err.Error())
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
@@ -39,10 +40,10 @@ func isSystemHome(relative string) bool {
 // checks ctx before using the report. check is the image root's (nil live):
 // nothing behind a link out of the root is read, listed or taken as a home.
 func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
-	check glob.Check,
+	check glob.Check, opener *fsmeta.Opener,
 ) Report {
 	root = strings.TrimSuffix(root, "/")
-	guard := &rootGuard{check: check}
+	guard := &rootGuard{check: check, opener: opener}
 	candidates := passwdHomes(ctx, live, root, run, guard)
 	if live {
 		candidates = append(candidates, dsclHomes(ctx, run)...)

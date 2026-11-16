@@ -244,7 +244,8 @@ func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) e
 		return err
 	}
 	// dir passed the root check above, so the check refuses nothing here.
-	volumes, _ := glob.Expand(dir, "*", run.collector.RootCheck.Expansion())
+	volumes, _ := glob.Expand(dir, "*", run.collector.RootCheck.Expansion(),
+		run.collector.Stager.Opener)
 	for _, volume := range volumes {
 		if err := ctx.Err(); err != nil {
 			return err

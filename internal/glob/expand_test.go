@@ -93,6 +93,6 @@ func TestExpandOfAnEmptyBaseStartsAtTheRoot(t *testing.T) {
 
 // expandAll is Expand without a check, as a live run calls it.
 func expandAll(base, pattern string) []string {
-	matches, _ := Expand(base, pattern, nil)
+	matches, _ := Expand(base, pattern, nil, nil)
 	return matches
 }

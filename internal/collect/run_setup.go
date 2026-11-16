@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
 	"github.com/seanthegeek/doubleagent/internal/inventory"
@@ -307,6 +308,36 @@ func (state *runState) line(text string) {
 	if !state.options.Quiet {
 		io.WriteString(state.stderr, text+"\n")
 	}
+}
+
+// confine has the run's opener check, on an image run on Windows, that each
+// file or directory it opens lies under the image root's own place
+// (follow.Confinement), after the root check let the path through. When
+// that place cannot be asked, refusing every open would lose the whole
+// image, so the run goes on with the root check alone and one log line
+// says so. A live run and a Unix run have no confinement.
+func (state *runState) confine(context.Context) error {
+	if state.options.Root == "" {
+		return nil
+	}
+	confinement, err := state.host.confine(state.options.Root, state.reportOpenedOutside)
+	if err != nil {
+		return state.log.Line("image root: where " + syspath.ToNative(state.options.Root) +
+			" lies cannot be read (" + err.Error() + "); what is opened under it is checked" +
+			" by the root check alone")
+	}
+	if confinement != nil {
+		state.opener.Admit = confinement.Admit
+	}
+	return nil
+}
+
+// reportOpenedOutside logs, once per path (the confinement asks once), a
+// path the root check let through that Windows opened outside the image
+// root: nothing was read from it.
+func (state *runState) reportOpenedOutside(path string) {
+	state.line(syspath.ToNative(path) +
+		follow.Reason(follow.Refusal{Link: path, Kind: follow.OpenedOutside}, ""))
 }
 
 // reportNotHeld logs a file read without the hold on its access time the

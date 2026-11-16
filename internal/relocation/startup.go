@@ -21,12 +21,13 @@ import (
 // live run): the expansion looks at nothing behind a link out of the root,
 // and each such refusal is returned once in outOfRoot.
 func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glob.Check,
+	opener *fsmeta.Opener,
 ) (files []string, outOfRoot []follow.Refusal) {
 	for _, line := range table {
 		if line.Scope != scope {
 			continue
 		}
-		paths, refused := glob.Expand(base, strings.TrimPrefix(line.Glob, "/"), check)
+		paths, refused := glob.Expand(base, strings.TrimPrefix(line.Glob, "/"), check, opener)
 		for _, refusal := range refused {
 			if !slices.ContainsFunc(outOfRoot, func(known follow.Refusal) bool {
 				return known.Link == refusal.Link

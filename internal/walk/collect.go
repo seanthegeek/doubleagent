@@ -76,7 +76,7 @@ func (collector *Collector) CollectCatalog(ctx context.Context, user, base strin
 func (collector *Collector) collectCatalog(ctx context.Context, user, base string,
 	table []catalog.Entry, header string, stager stage.Stager,
 ) error {
-	matches := ExpandCatalog(base, table, collector.RootCheck.Expansion())
+	matches := ExpandCatalog(base, table, collector.RootCheck.Expansion(), collector.Stager.Opener)
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
 		claims: map[string]struct{}{}, seen: map[string]struct{}{}}
 	for _, match := range matches {

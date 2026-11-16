@@ -194,6 +194,10 @@ the matched path.
   a link and logs one line per link
   ([Project discovery in `internals.md`](internals.md#project-discovery)). A link that
   leaves the home but stays inside the image root is listed and refused as described above.
+  On Windows a file or directory the root check let through that Windows nonetheless opens
+  outside the image root is not copied or listed and is logged once
+  (`...: the root check allowed it but Windows opened it outside the image root; nothing from it was used`;
+  [Project discovery in `internals.md`](internals.md#project-discovery) has the detail).
   An excluded path that is itself such a link gets its `skipped_excluded` row from the
   link's own entry, whatever the link points at: on Unix from its lstat, as a file, where
   the sh collector tests it as a directory through the link; on Windows, from the entry's

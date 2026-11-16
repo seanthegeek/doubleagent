@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -16,6 +15,7 @@ import (
 // one), a pruned path left out with everything under it.
 type sweepWalk struct {
 	ctx     context.Context
+	opener  *fsmeta.Opener
 	pruned  func(path string) bool
 	limit   int64
 	files   []string
@@ -44,7 +44,7 @@ func (walk *sweepWalk) visit(path string) error {
 	if err := walk.ctx.Err(); err != nil {
 		return err
 	}
-	for _, name := range sweepOrder(readEntries(path)) {
+	for _, name := range sweepOrder(readEntries(walk.opener, path)) {
 		if err := walk.visit(path + "/" + name); err != nil {
 			return err
 		}
@@ -67,9 +67,10 @@ func (walk *sweepWalk) addFile(path string, size int64) {
 	}
 }
 
-// readEntries returns the entries of directory in directory order.
-func readEntries(directory string) []fs.DirEntry {
-	handle, err := osfile.Open(directory)
+// readEntries returns the entries of directory in directory order, listed
+// through fsmeta.OpenDir with opener.
+func readEntries(opener *fsmeta.Opener, directory string) []fs.DirEntry {
+	handle, err := fsmeta.OpenDir(opener, directory)
 	if err != nil {
 		return nil
 	}

@@ -29,7 +29,7 @@ func (o *Opener) Open(path string) (*os.File, error) {
 	if o.judgesVolume() {
 		if handle, err := createSource(name, windows.GENERIC_READ); err == nil {
 			if !holdsAccessTime(false, true, localFileSystem(handle)) {
-				return os.NewFile(uintptr(handle), syspath.ToNative(path)), nil
+				return o.admitted(path, os.NewFile(uintptr(handle), syspath.ToNative(path)))
 			}
 			windows.CloseHandle(handle)
 		}
@@ -38,7 +38,7 @@ func (o *Opener) Open(path string) (*os.File, error) {
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
 	}
-	return os.NewFile(uintptr(handle), syspath.ToNative(path)), nil
+	return o.admitted(path, os.NewFile(uintptr(handle), syspath.ToNative(path)))
 }
 
 // openHolding tries each access accessList gives in turn and returns the

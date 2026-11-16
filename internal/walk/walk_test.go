@@ -171,7 +171,7 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		{Agent: "goose", Glob: ".config/Goose"}, {Agent: "pearai", Glob: ".config/goose"},
 		{Agent: "cursor", Glob: ".config/cursor"}, {Agent: "cursor", Glob: ".config/Cursor/User"},
 		{Agent: "split", Glob: "nl*"}}
-	got := ExpandCatalog(base, table, nil)
+	got := ExpandCatalog(base, table, nil, nil)
 	notes, paths := map[string]bool{}, map[string]string{}
 	var split []string
 	for _, match := range got {

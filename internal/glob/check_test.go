@@ -51,7 +51,7 @@ func TestExpandLooksAtNothingTheCheckRefuses(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			asked = nil
-			got, refused := Expand(base, testCase.pattern, check)
+			got, refused := Expand(base, testCase.pattern, check, nil)
 			var relative []string
 			for _, path := range got {
 				relative = append(relative, strings.TrimPrefix(path, base+"/"))
@@ -78,7 +78,7 @@ func TestExpandLooksAtNothingTheCheckRefuses(t *testing.T) {
 
 func TestExpandWithoutACheckReadsEverything(t *testing.T) {
 	base := checkTree(t)
-	got, refused := Expand(base, "fenced/*", nil)
+	got, refused := Expand(base, "fenced/*", nil, nil)
 	if len(got) != 3 || len(refused) != 0 {
 		t.Errorf("matches %q, refusals %+v; want the three entries and no refusal", got, refused)
 	}

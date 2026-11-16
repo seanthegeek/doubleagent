@@ -48,7 +48,7 @@ func TestStartupFilesListNothingBehindALinkOutOfTheRoot(t *testing.T) {
 			if testCase.live {
 				check = nil
 			}
-			files, refused := ListStartupFiles(home, "home", table, check)
+			files, refused := ListStartupFiles(home, "home", table, check, nil)
 			if (len(files) > 0) != testCase.wantFiles {
 				t.Errorf("files %q, want some: %v", files, testCase.wantFiles)
 			}

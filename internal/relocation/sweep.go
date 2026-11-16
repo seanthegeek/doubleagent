@@ -101,7 +101,7 @@ func (run *search) holdsHome(base string) bool {
 // for their size.
 func (run *search) sweep(ctx context.Context, user, base string, table []catalog.Entry,
 	scope string) error {
-	walk := sweepWalk{ctx: ctx, pruned: run.pruneTest(base, table, scope),
+	walk := sweepWalk{ctx: ctx, opener: run.deps.Opener, pruned: run.pruneTest(base, table, scope),
 		limit: run.deps.EnvScanMaxBytes}
 	if err := walk.visit(base); err != nil {
 		return err
@@ -124,7 +124,8 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 		}
 	}
 	// The startup pass logged any link these globs stop at.
-	files, _ := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles, run.deps.Expansion)
+	files, _ := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles, run.deps.Expansion,
+		run.deps.Opener)
 	for _, file := range files {
 		literal[syspath.Fold(file)] = true
 	}

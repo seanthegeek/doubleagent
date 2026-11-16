@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
@@ -70,8 +71,9 @@ type Report struct {
 // and stats; nil check, a live run's, allows everything. Each refused link is
 // recorded once.
 type rootGuard struct {
-	check glob.Check
-	links []follow.Refusal
+	check  glob.Check
+	opener *fsmeta.Opener
+	links  []follow.Refusal
 }
 
 // allows reports whether path may be looked at, recording the link when not.
@@ -97,7 +99,7 @@ func (guard *rootGuard) record(refusal follow.Refusal) {
 
 // expand expands pattern in base through the check, recording what it refuses.
 func (guard *rootGuard) expand(base, pattern string) []string {
-	matches, refused := glob.Expand(base, pattern, guard.check)
+	matches, refused := glob.Expand(base, pattern, guard.check, guard.opener)
 	for _, refusal := range refused {
 		guard.record(refusal.Refusal)
 	}
@@ -185,7 +187,7 @@ func lowerASCII(text string) string {
 // Enumerate returns the homes to collect, in enumeration order; it is the
 // homes of Find.
 func Enumerate(ctx context.Context, live bool, root, usersFilter string, run Runner,
-	check glob.Check,
+	check glob.Check, opener *fsmeta.Opener,
 ) []Home {
-	return Find(ctx, live, root, usersFilter, run, check).Homes
+	return Find(ctx, live, root, usersFilter, run, check, opener).Homes
 }

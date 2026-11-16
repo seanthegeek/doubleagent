@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -27,6 +28,7 @@ type plannedFile struct {
 	sha256    string
 	written   int64
 	copyError string
+	refused   bool
 }
 
 // stageFiles stages paths as STAGE_FILES_WORKER does, in three phases kept
@@ -42,6 +44,9 @@ func (collector *Collector) stageFiles(owner scope, paths []string,
 		return err
 	}
 	for _, file := range files {
+		if file.refused {
+			continue
+		}
 		if err := collector.Manifest.Write(fileRow(owner, file)); err != nil {
 			return err
 		}
@@ -136,6 +141,12 @@ func (collector *Collector) transferFiles(owner scope, files []plannedFile) erro
 		hash, written, err := owner.stager.CopyFile(file.path)
 		if err == nil {
 			file.status, file.sha256, file.written = manifest.Collected, hash, written
+			continue
+		}
+		if _, refused := follow.OutOfRoot(err); refused {
+			// Windows opened it outside the image root: logged once by the
+			// opener's Admit; the file gets no copy and no row.
+			file.refused = true
 			continue
 		}
 		file.status, file.copyError = manifest.ErrorCopy, innermostError(syspath.NativeErrors(err))

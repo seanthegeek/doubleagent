@@ -9,7 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // scanLines calls each with every line of the regular file at path, without
@@ -110,7 +109,7 @@ func (s *homeScan) expandIn(base string, patterns ...string) []string {
 		if s.outOfScope != nil {
 			check = glob.Check(s.outOfScope)
 		}
-		matches, refused := glob.Expand(base, pattern, check)
+		matches, refused := glob.Expand(base, pattern, check, s.opener)
 		paths = append(paths, matches...)
 		for _, refusal := range refused {
 			s.refuse(refusal.Refusal)
@@ -132,18 +131,21 @@ func (s *homeScan) findNamed(dir, pattern string) []string {
 		return nil
 	}
 	var found []string
-	walkNamed(s.ctx, dir, pattern, &found)
+	walkNamed(s.ctx, s.opener, dir, pattern, &found)
 	return found
 }
 
 // walkNamed appends to found the matching paths below dir, for findNamed. An
-// unreadable directory contributes the entries read before the error, and
+// unreadable directory contributes the entries read before the error (each
+// directory is listed through fsmeta.OpenDir with opener), and
 // a cancelled ctx stops the walk at the next directory.
-func walkNamed(ctx context.Context, dir, pattern string, found *[]string) {
+func walkNamed(ctx context.Context, opener *fsmeta.Opener, dir, pattern string,
+	found *[]string,
+) {
 	if ctx.Err() != nil {
 		return
 	}
-	handle, err := osfile.Open(dir)
+	handle, err := fsmeta.OpenDir(opener, dir)
 	if err != nil {
 		return
 	}
@@ -157,7 +159,7 @@ func walkNamed(ctx context.Context, dir, pattern string, found *[]string) {
 			*found = append(*found, path)
 		}
 		if entry.IsDir() && realDirectory(path) {
-			walkNamed(ctx, path, pattern, found)
+			walkNamed(ctx, opener, path, pattern, found)
 		}
 	}
 }
