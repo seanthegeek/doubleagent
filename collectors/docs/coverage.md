@@ -142,17 +142,15 @@ two homes, two claims, two projects, two rows. It treats two spellings as
 one entry when the file system gives both the same file identity, as in
 an ordinary directory, or when neither exists. Both are staged
 and archived: the binary marks its staging directory case-sensitive. Where
-the output directory cannot hold such a pair (a Windows file system without
-the setting, or a case-insensitive volume such as the default macOS one,
-where a Linux image can hold `Alice` and `alice`), the run logs a note and
-one of the two is not staged: a file whose staged place already holds
-another entry's file, link or directory gets an `error_copy` row saying so
-(a link, a `symlink` row with that error), with no archive path. The entry
-staged first keeps its place, except that the directories a path needs are
-made before its files are copied, so a directory wins over a file of the
-same name in another case whatever their order. One entry reached through
-two spellings is staged as before
-([internals.md](internals.md#claimed-paths-and-case-variants)). With
+the output directory takes two names for one, by letter case (a Windows
+file system without the setting, the default macOS volume, an exFAT or FAT
+drive) or by Unicode form (every macOS volume: the same accented letter
+stored as one character, or as a letter and a combining mark), the run
+logs a note, and a file or link whose name it takes for another file's,
+link's or directory's is not staged: its row says so (`error_copy` for a
+file, a `symlink` row with that error for a link), with no archive path.
+One entry reached through two spellings is staged once, and both rows name
+its member ([internals.md](internals.md#claimed-paths-and-case-variants)). With
 `--inventory` (`-Inventory`) the same folding applies, and the dropped line's
 glob is left out of the agent's `evidence`.
 

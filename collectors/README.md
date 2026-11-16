@@ -21,14 +21,18 @@ version:
 Either script can collect a mounted disk image of any of the three platforms,
 because every catalog entry is tried against every home directory.
 
-An image can hold two names that differ only in letter case (a Linux volume,
-or a case-sensitive Windows directory). With the `doubleagent` binary, an
-output directory that ignores letter case (for example the default macOS
-volume, an exFAT or FAT drive, or a Windows volume where the binary cannot mark
-its staging directory case-sensitive) cannot hold two files or links whose
-names differ only in case: one of them is not staged, and its manifest row and
-the log say why. A row's `archive_path` is spelled as the archive names the
-member. Put the output directory on a case-sensitive volume to keep both
+An image can hold names that differ only in letter case, or only in Unicode
+form (the same accented letter stored as one character, or as a letter and a
+combining mark). With the `doubleagent` binary, an output directory that
+ignores the difference cannot hold both: a file or link whose name it takes
+for another file's, link's or directory's is not staged, and its manifest row
+and the log say why; a row's `archive_path` is spelled as the archive names
+the member. The default macOS volume, an exFAT or FAT drive, and a Windows
+volume where the binary cannot mark its staging directory case-sensitive
+ignore case; every macOS volume ignores Unicode form. For names that differ
+in case use a case-sensitive volume; for names that differ in Unicode form,
+an output directory on a file system that compares names byte for byte (for
+example a Linux ext4 or XFS volume)
 ([details](docs/internals.md#claimed-paths-and-case-variants)).
 
 [CHANGELOG.md](CHANGELOG.md) lists what changed in each version, including

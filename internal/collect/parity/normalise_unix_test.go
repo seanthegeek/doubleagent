@@ -35,7 +35,7 @@ var (
 	// foldingNote is the binary's note that the output directory ignores
 	// letter case, as a default macOS volume does; neither script writes it.
 	foldingNote = regexp.MustCompile(
-		`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z )?NOTE: output directory .* ignores letter case;`)
+		`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z )?NOTE: output directory .* ignores letter case or Unicode form in names;`)
 )
 
 // normalLine returns a log line with what differs by design dropped: the tool

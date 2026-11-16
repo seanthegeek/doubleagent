@@ -27,17 +27,18 @@ var (
 	windowsLogTime = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z `)
 	// windowsFoldingNote is the binary's note that the output directory
 	// ignores letter case, matched once the time is cut.
-	windowsFoldingNote = regexp.MustCompile(`^NOTE: output directory .* ignores letter case;`)
-	windowsStartLine   = regexp.MustCompile(`^\S+ \S+ starting on .* (mode=\S+ root=.*?)(?: (?:uid|run_as)=.*)?$`)
-	windowsOptions     = regexp.MustCompile(`^(?:archive|hash)=.*? (max_file_size=.*)$`)
-	windowsFlag        = regexp.MustCompile(`=(True|False)\b`)
-	windowsDone        = regexp.MustCompile(`^(done: .*?) \([0-9]+ bytes, sha256 [0-9a-f]+\)$`)
-	inventoryNote      = regexp.MustCompile(`^NOTE: -Inventory writes nothing; -OutputDir (.*) ignored$`)
-	invalidSize        = regexp.MustCompile(`(?m)^Invalid (--max-file-size|--env-scan-max-size): .*$`)
-	archiverNote       = regexp.MustCompile(`; fell back to |^tar failed; `)
-	hintOutcome        = regexp.MustCompile(`^(relocation hint: (.+?) names \S+ \([^)]*\))(?: = .*|; value not resolved: .*)$`)
-	powerShellOnly     = regexp.MustCompile(`^(?:discovery source unreadable: |stat failed: |(?:NOTE: )?tar(?:\.exe)? failed)`)
-	windowsReason      = regexp.MustCompile(`^((?:read failed|copy failed|symlink not recreated): .+?: |.*? not readable: |` +
+	windowsFoldingNote = regexp.MustCompile(
+		`^NOTE: output directory .* ignores letter case or Unicode form in names;`)
+	windowsStartLine = regexp.MustCompile(`^\S+ \S+ starting on .* (mode=\S+ root=.*?)(?: (?:uid|run_as)=.*)?$`)
+	windowsOptions   = regexp.MustCompile(`^(?:archive|hash)=.*? (max_file_size=.*)$`)
+	windowsFlag      = regexp.MustCompile(`=(True|False)\b`)
+	windowsDone      = regexp.MustCompile(`^(done: .*?) \([0-9]+ bytes, sha256 [0-9a-f]+\)$`)
+	inventoryNote    = regexp.MustCompile(`^NOTE: -Inventory writes nothing; -OutputDir (.*) ignored$`)
+	invalidSize      = regexp.MustCompile(`(?m)^Invalid (--max-file-size|--env-scan-max-size): .*$`)
+	archiverNote     = regexp.MustCompile(`; fell back to |^tar failed; `)
+	hintOutcome      = regexp.MustCompile(`^(relocation hint: (.+?) names \S+ \([^)]*\))(?: = .*|; value not resolved: .*)$`)
+	powerShellOnly   = regexp.MustCompile(`^(?:discovery source unreadable: |stat failed: |(?:NOTE: )?tar(?:\.exe)? failed)`)
+	windowsReason    = regexp.MustCompile(`^((?:read failed|copy failed|symlink not recreated): .+?: |.*? not readable: |` +
 		`WARNING: project given with -p is not a directory: .+?: ).*$`)
 	windowsStdout    = regexp.MustCompile(`(?m)^(size|sha256): .*\n`)
 	windowsResolved  = regexp.MustCompile(`(?m)^(relocation: .*?), [0-9]+ resolved`)

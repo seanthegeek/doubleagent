@@ -316,63 +316,66 @@ marks the staging directory's `fs` directory case-sensitive while it is
 still empty (`stage.MarkCaseSensitive`, `FileCaseSensitiveInfo`), and the
 directories made in it inherit the mark, measured on the CI runner, so
 `fs/.../Alice/x` and `fs/.../alice/x` are two files and two archive members,
-each with its own bytes. The run then probes the `fs` directory once
-(`stage.FoldsCase`: a file with a random lower-case name, looked up in
-upper case) for whether it still takes two such names for one: a Windows
-file system without the setting, or a case-insensitive Unix volume such as
-the default macOS one, where a Linux image analysed on a Mac can hold such
-pairs (an exFAT or FAT drive, or a Linux file system that folds case, does
-too). Directories whose names differ only in case merge there, and all
-their files are staged; of two files or links whose names differ only in
-case, one is not staged. Such a run logs `NOTE: output directory <dir>
-ignores letter case; of two files or links whose names differ only in case,
-one of them is not staged and its row says why (an output directory on a
-case-sensitive volume keeps both)`, and every copy and link is checked against where it
-landed before anything is written. A copy's place is the open file's
-path (`GetFinalPathNameByHandle` on Windows, `F_GETPATH` on macOS); on
-Linux, and for a link or a failed copy on every platform, the staged path
-is walked from the staging directory as the tree spells it (`walkStaged`):
-the walk lists only directories it found typed as real directories, finds
-a component the volume resolved to another spelling by its device and
-inode, and stops at a link or file, so it never lists anything behind a
-recreated link. A copy, mkdir or link that fails is worded as a case
-collision when that walk finds a component spelled otherwise on disk and
-either reaches the end or stops at a link or file where a directory was
-needed; when it finds a component missing or fails, the system's own
-error is kept. The
-copy is opened without truncating and emptied only after the check. The
-run keeps one record (`stage.Places`) of the source entry each staged
-place was filled from, by its identity (a copy's from its open source
-handle, a link's from its `lstat`), keyed by the place as the system
-spells it. A copy or link whose place already holds another entry's copy
-or link, or one the record does not hold, is not staged, and so is a file
-whose open or whose directory fails because its staged path resolves to
-another entry's link or directory spelled in another case: a
-file's row is `error_copy` with the error `its staged path is already
-another entry's whose name differs only in case; not staged`, no archive
-path and no hash; a link keeps its `symlink` row with no archive path and
-that reason after `not recreated in the archive:`. The entry staged first
-keeps its place, except that the directories a path needs are made before
-its files are copied, so a directory wins over a file of the same name in
-another case whatever their order. A refused copy made nothing, so nothing
-is cleaned up after it; a copy that fails after making or emptying its
-staged file removes that file and forgets its place, so no partial copy is
-left as a member without a row. The record also keeps each finished copy's
-result: a source already staged at that place (the same path again, as two
-rows sharing one archive path, or one source entry reached through two
-spellings, as the catalog's `AppData/Roaming/Devin` and
-`AppData/Roaming/devin` are on a volume that folds case) is not opened for
-write again, and its second row names the first copy's member and hash, on
-every platform, so no failed second copy can empty or remove a good one. A
-copy that lands in a
-directory spelled in another case where nothing else sits is staged
-there. Its row's archive path is spelled as the member is named, from the
-place the copy landed (the open file's path on Windows and macOS, the walk
-on Linux and for a link), so every row names a member that exists byte for
-byte; the sh collector writes the source's spelling there. The check is by the place the system
-reports, so it also catches names the volume merges in non-ASCII case or
-Unicode normalisation (macOS stores a decomposed `é` as the composed one).
-Where the probe finds no folding, a Unix copy costs no extra call.
+each with its own bytes. A volume can still take two names for one: one
+that ignores letter case (the default macOS volume, an exFAT or FAT drive,
+a Linux file system that folds case, a Windows file system without the
+setting), and every APFS volume, case-sensitive ones included, for Unicode
+form (the same accented letter stored as one character, or as a letter and
+a combining mark). Directories whose names it takes for one merge there,
+and all their files are staged.
+
+Safety does not depend on knowing which names a volume merges. Every
+staged copy is created exclusively (`O_CREAT|O_EXCL|O_NOFOLLOW`,
+`CREATE_NEW` on Windows), so when the volume takes its name for an
+existing entry's, by whatever rule, the create fails and nothing is
+opened for write, emptied or written over. The run keeps one record
+(`stage.Places`), keyed by each staged file's or link's own identity
+(device and inode, or volume serial number and file index, read from the
+new file's handle or an lstat of the new link), of the source identity it
+was made from and what was returned for it. On a refused create the
+staged path is lstat'ed and looked up: the same non-zero source (the same
+path again, as two rows sharing one archive path, or one source reached
+through two spellings, as the catalog's `AppData/Roaming/Devin` and
+`AppData/Roaming/devin` are on such a volume) returns the first copy's
+member and hash, so both rows name the one member; the second row's own
+metadata (its size and times, from its own lstat) can be newer than those
+bytes when a live file was rewritten in between. Anything else, another
+source, a directory, an entry this run did not record (such as one left
+by an earlier run of the same name in the same second), or an identity of
+0, is a collision: a file's row is `error_copy` with the error `the output
+directory takes its name for another file's, link's or directory's
+(letter case or Unicode form); not staged`, no archive path and no hash;
+a link keeps its `symlink` row with no archive path and that reason after
+`not recreated in the archive:`; nothing is touched. The record trusts the
+file system's identity. A copy that fails removes the file it created and
+leaves no record, so no partial copy becomes a member without a row.
+
+A file or link whose name the volume takes for an existing directory's is
+a collision by the same rule. A directory needed where another entry's
+file or link sits fails in the mkdir; that failure is worded as the
+collision when a walk of the staged path (`walkStaged`) finds a component
+the volume resolved to another spelling, by its device and inode, and
+either reaches the end or stops at a link or file; when it finds a
+component missing or fails, the system's own error is kept. The walk
+lists only directories it found typed as real directories, so it never
+lists anything behind a recreated link. Because the directories a path
+needs are made before its files are copied, a directory wins over a file
+of the same name in another spelling whatever their order.
+
+Each row's archive path is spelled as the member is named: on Windows and
+macOS from the path the system reports for the new file
+(`GetFinalPathNameByHandle`, `F_GETPATH`), always; on Linux and for links
+from the walk, where the run's probe (`stage.FoldsCase`: a random
+lower-case name looked up in upper case, and a precomposed `é` looked up
+decomposed) finds that the volume takes two names for one. The sh
+collector writes the source's spelling there. The probe also decides the
+run's note, `NOTE: output directory <dir> ignores letter case or Unicode
+form in names; a file or link whose name it takes for another file's,
+link's or directory's is not staged and its row says why (an output
+directory on a file system that compares names byte for byte keeps
+both)`; a probe that misses a rule costs, on Linux only, a row's archive
+path spelled as named for a member the volume spelled otherwise, never
+bytes. A refused copy made nothing, so nothing is cleaned up after it.
 
 A directory that a wildcard segment could not list is recorded by
 `Expand-Glob` in `$script:GlobReadErrors`; `Write-GlobErrorRows` writes an
