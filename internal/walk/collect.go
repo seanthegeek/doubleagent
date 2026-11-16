@@ -245,3 +245,25 @@ func (collector *Collector) StageFile(user, home, agent string, stager stage.Sta
 	}
 	return collector.stageFiles(owner, []string{path}, secret)
 }
+
+// ReachedHomes returns homes with each path holding a `.` or `..` component
+// replaced by the path the system reaches for it (RootCheck.Reached),
+// each path once: of two homes that reach one directory the first in
+// enumeration order is kept, the rule the users step already applies to two
+// passwd lines naming one home, so the home is walked once, under the user
+// the system lists first.
+func ReachedHomes(homes []users.Home, roots RootCheck) []users.Home {
+	var kept []users.Home
+	seen := map[string]bool{}
+	for _, home := range homes {
+		if home.Path != "" {
+			home.Path = roots.Reached(home.Path)
+			if seen[syspath.Fold(home.Path)] {
+				continue
+			}
+			seen[syspath.Fold(home.Path)] = true
+		}
+		kept = append(kept, home)
+	}
+	return kept
+}

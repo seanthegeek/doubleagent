@@ -43,7 +43,7 @@ func (state *runState) findHomes(ctx context.Context) error {
 			return err
 		}
 	}
-	state.homes, state.skippedHomes = reachedHomes(report.Homes, state.roots), report.Skipped
+	state.homes, state.skippedHomes = walk.ReachedHomes(report.Homes, state.roots), report.Skipped
 	for _, profile := range report.Profiles {
 		state.profiles = append(state.profiles, relocation.Profile(profile))
 	}
@@ -59,28 +59,6 @@ func (state *runState) findHomes(ctx context.Context) error {
 		}
 	}
 	return state.logUnmatchedUsers(report)
-}
-
-// reachedHomes returns homes with each path holding a `.` or `..` component
-// replaced by the path the system reaches for it (walk.RootCheck.Reached),
-// each path once: of two homes that reach one directory the first in
-// enumeration order is kept, the rule the users step already applies to two
-// passwd lines naming one home, so the home is walked once, under the user
-// the system lists first.
-func reachedHomes(homes []users.Home, roots walk.RootCheck) []users.Home {
-	var kept []users.Home
-	seen := map[string]bool{}
-	for _, home := range homes {
-		if home.Path != "" {
-			home.Path = roots.Reached(home.Path)
-			if seen[syspath.Fold(home.Path)] {
-				continue
-			}
-			seen[syspath.Fold(home.Path)] = true
-		}
-		kept = append(kept, home)
-	}
-	return kept
 }
 
 // logUnmatchedUsers writes a warning for each -u name that matched no user
