@@ -4,14 +4,17 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
+	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
 func TestWindowsHostDescription(t *testing.T) {
@@ -104,5 +107,18 @@ func TestHomeOwnershipPrefersTheExactSpelling(t *testing.T) {
 				t.Errorf("projectOwner = %q, want %q", got, testCase.owner)
 			}
 		})
+	}
+}
+
+func TestAMissingDashPSpellingKeepsTheRealOne(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	markCaseSensitive(t, root+"/src")
+	if err := os.Mkdir(syspath.ToNative(root+"/src/foo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := reachedProjects([]string{root + "/src/Foo", root + "/src/foo"}, walk.RootCheck{})
+	if want := []string{root + "/src/Foo", root + "/src/foo"}; !slices.Equal(got, want) {
+		t.Errorf("reachedProjects = %q, want %q: a missing -p spelling took the real one", got,
+			want)
 	}
 }
