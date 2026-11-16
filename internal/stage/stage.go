@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -28,17 +29,20 @@ import (
 // under From is staged under Into, so nothing is staged through a link
 // recreated in the staging tree. Opener opens each source, as the run
 // decided (whether to ask Windows to hold its access time); nil asks
-// wherever the platform can. FoldsCase, set where the staging directory
-// takes names differing only in case for one (FoldsCase), makes every copy
-// and link on Unix be checked against where it landed; Windows always checks.
+// wherever the platform can.
 type Stager struct {
-	Dir       string
-	Physical  string
-	Root      string
-	From      string
-	Into      string
-	Opener    *fsmeta.Opener
+	Dir      string
+	Physical string
+	Root     string
+	From     string
+	Into     string
+	Opener   *fsmeta.Opener
+	// FoldsCase is set where the staging directory takes names differing
+	// only in case for one (FoldsCase): every Unix copy and link is then
+	// checked against where it landed; Windows always checks.
 	FoldsCase bool
+	// Places is the run's one record of staged places (Places).
+	Places *Places
 }
 
 // Through returns a copy of the stager that stages paths under from at into.
@@ -225,7 +229,7 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 	if !info.Mode().IsRegular() {
 		return "", 0, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	}
-	target, err := stager.createCopy(dest)
+	target, err := stager.createCopy(path, dest)
 	if errors.As(err, &caseCollision{}) {
 		return "", 0, &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: err}
 	}
@@ -274,8 +278,8 @@ func (caseCollision) Error() string {
 // path. A staged path that already exists, a link included, is left as it
 // is: another entry's walk recreated it, and creating a link onto a link to a
 // directory would create it inside that directory, on the source. On Windows
-// a staged path the disk spells otherwise is another entry's whose name
-// differs only in case, and the link is refused (caseCollision). No link is
+// a staged path the disk spells otherwise holds another entry's link, the
+// link is refused (caseCollision) unless it was staged from the same entry. No link is
 // created in a directory that does not resolve inside the staging directory.
 // directory makes a Windows directory link, as a junction or a directory
 // symlink is recreated; Unix links have no kind and ignore it.
@@ -286,7 +290,7 @@ func (stager Stager) Symlink(path, target string, directory bool) error {
 	}
 	collision := &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
 	if _, err := osfile.Lstat(dest); err == nil {
-		if !stager.spelledAsNamed(dest) {
+		if !stager.mayFill(path, dest, stager.placeOf(dest), true) {
 			return collision
 		}
 		return nil
@@ -297,24 +301,28 @@ func (stager Stager) Symlink(path, target string, directory bool) error {
 	if err := createLink(target, dest, directory); err != nil {
 		return err
 	}
-	if !stager.spelledAsNamed(dest) {
-		// Made inside an earlier entry's directory of another case.
-		_ = osfile.Remove(dest)
-		return collision
-	}
+	stager.mayFill(path, dest, stager.placeOf(dest), false)
 	return nil
 }
 
+// placeOf returns the place dest, a staged path that exists, resolves to,
+// as the staging directory spells it (occupantOfPath), or dest itself.
+func (stager Stager) placeOf(dest string) string {
+	if occupant, other := stager.occupantOfPath(dest); other {
+		return occupant
+	}
+	return dest
+}
+
 // RemoveFailedCopy removes what a failed copy left at dest and reports true,
-// or reports true when it left nothing, or when what is at dest is another
-// entry's copy whose name differs only in case (spelledAsNamed), which it
-// leaves. It reports false, removing nothing,
+// or reports true when it left nothing, or when what is at dest is an
+// entry staged under another spelling (occupantOfPath), which it leaves. It reports false, removing nothing,
 // when dest's directory does not resolve inside the physical staging
 // directory: the staged path then leads through a recreated link out of the
 // staging tree, and a file there may be a source.
 func (stager Stager) RemoveFailedCopy(dest string) bool {
 	info, err := osfile.Lstat(dest)
-	if err != nil || !stager.spelledAsNamed(dest) {
+	if _, other := stager.occupantOfPath(dest); err != nil || other {
 		return true
 	}
 	physical, err := PhysicalDir(parentOf(dest))
@@ -355,4 +363,50 @@ func FoldsCase(dir string) bool {
 	_, err = osfile.Lstat(dir + "/" + strings.ToUpper(name))
 	_ = osfile.Remove(dir + "/" + name)
 	return err == nil
+}
+
+// Places records, for one run, the source entry each staged copy and link
+// was made from, keyed by its staged path as the staging directory spells
+// it, so the stager can tell an entry staged again (one source file reached
+// through two spellings on a volume that folds case) from another entry
+// whose staged path the directory resolves to the same place. The Stager
+// values a run derives (Through) share one.
+type Places struct {
+	mutex   sync.Mutex
+	sources map[string][2]uint64
+}
+
+// NewPlaces returns an empty record of staged places.
+func NewPlaces() *Places {
+	return &Places{sources: map[string][2]uint64{}}
+}
+
+// fill reports whether the entry of identity may be staged at place, and
+// records it: yes when nothing was there before (existed false) or what is
+// there was staged from the same non-zero identity; no for another entry's,
+// or for anything not recorded.
+func (places *Places) fill(place string, existed bool, identity [2]uint64) bool {
+	places.mutex.Lock()
+	defer places.mutex.Unlock()
+	recorded, found := places.sources[place]
+	if existed && (!found || recorded != identity || identity == [2]uint64{}) {
+		return false
+	}
+	places.sources[place] = identity
+	return true
+}
+
+// mayFill reports whether path's copy or link may be staged at dest, which
+// the staging directory resolved to place (dest itself, or another entry's
+// spelling); existed says whether something was there before. Without
+// Places, only dest's own place may be written over.
+func (stager Stager) mayFill(path, dest, place string, existed bool) bool {
+	if stager.Places == nil {
+		return !existed || place == dest
+	}
+	var identity [2]uint64
+	if meta, err := fsmeta.Lstat(path); err == nil {
+		identity = [2]uint64{meta.Dev, meta.Ino}
+	}
+	return stager.Places.fill(place, existed, identity)
 }

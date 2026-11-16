@@ -37,21 +37,25 @@ func onHandle(file *os.File, call func(windows.Handle) error) error {
 	return callError
 }
 
-// createCopy creates the staged copy at dest (createDest), refusing it with
-// caseCollision when Windows put it somewhere spelled otherwise than dest:
-// in a case-insensitive staging directory, the copy of one entry lands on
-// the copy, or in the directory, of an earlier entry whose name differs only
-// in case, as Alice and alice of a case-sensitive directory do.
-func (stager Stager) createCopy(dest string) (*os.File, error) {
-	return createDest(dest, func(file *os.File) bool {
+// createCopy creates the staged copy of path at dest (createDest), refusing
+// it with caseCollision when the place Windows opened already holds another
+// entry's copy (mayFill): in a staging directory that could not be marked
+// case-sensitive, Alice/x and alice/x of a case-sensitive image directory
+// are one place.
+func (stager Stager) createCopy(path, dest string) (*os.File, error) {
+	return createDest(dest, func(file *os.File, existed bool) bool {
 		var final string
 		err := onHandle(file, func(handle windows.Handle) error {
 			var err error
 			final, err = finalPath(handle)
 			return err
 		})
-		// A place that cannot be read is no evidence of another entry's copy.
-		return err != nil || stager.placedAt(syspath.FromNative(final), dest)
+		// A place that cannot be read is taken to be dest's own.
+		place := dest
+		if occupant, other := stager.occupantAt(syspath.FromNative(final), dest); err == nil && other {
+			place = occupant
+		}
+		return stager.mayFill(path, dest, place, existed)
 	})
 }
 
@@ -81,24 +85,25 @@ func MarkCaseSensitive(dir string) error {
 	return nil
 }
 
-// spelledAsNamed reports whether dest, a path in the staging tree that
-// exists, is spelled below the staging directory as the disk spells it
-// (fsmeta.OnDiskPath), so it is dest's own entry and not an earlier one
-// whose name differs only in case.
-func (stager Stager) spelledAsNamed(dest string) bool {
-	return fsmeta.OnDiskPath(stager.Dir, dest) == dest
+// occupantOfPath returns dest, a path in the staging tree that exists,
+// spelled below the staging directory as the disk spells it
+// (fsmeta.OnDiskPath), and true, when that differs: the entry there is an
+// earlier one whose name differs only in case.
+func (stager Stager) occupantOfPath(dest string) (string, bool) {
+	occupant := fsmeta.OnDiskPath(stager.Dir, dest)
+	return occupant, occupant != dest
 }
 
 // createDest opens the staged copy for writing, creating it, without
 // following a reparse point: one already at the path is refused, and the
 // open takes a reparse point swapped in after that check as itself, which
-// the regular-file test then refuses. placed then judges the open copy; a
-// copy it refuses is left as it was, or removed when this open created it,
-// with caseCollision. The copy is emptied only after both tests, since
+// the regular-file test then refuses. placed then judges the open copy,
+// told whether something was at path before; a copy it refuses, another
+// entry's, is left as it was, with caseCollision. The copy is emptied only after both tests, since
 // truncating at open would empty whatever a link led to or another entry's
 // copy. The copy's access and write times are then held, so the times
 // preserve sets are the ones the copy keeps whatever the volume records.
-func createDest(path string, placed func(*os.File) bool) (*os.File, error) {
+func createDest(path string, placed func(file *os.File, existed bool) bool) (*os.File, error) {
 	refused := &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	info, err := osfile.Lstat(path)
 	if err == nil && isReparsePoint(info) {
@@ -114,11 +119,8 @@ func createDest(path string, placed func(*os.File) bool) (*os.File, error) {
 	if err == nil && (!info.Mode().IsRegular() || isReparsePoint(info)) {
 		err = refused
 	}
-	if err == nil && !placed(file) {
+	if err == nil && !placed(file, existed) {
 		_ = file.Close()
-		if !existed {
-			_ = osfile.Remove(path)
-		}
 		return nil, caseCollision{}
 	}
 	if err == nil {

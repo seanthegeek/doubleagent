@@ -262,7 +262,7 @@ func (state *runState) newCollector(physical string) *walk.Collector {
 		Tables: state.tables, Excludes: excludes, Secret: walk.MatchAny(state.tables.SecretGlobs),
 		Log: state.log, Manifest: state.manifest, Root: root,
 		Stager: stage.Stager{Dir: state.stageDir, Physical: physical, Root: root,
-			Opener: state.opener, FoldsCase: state.stageFoldsCase},
+			Opener: state.opener, FoldsCase: state.stageFoldsCase, Places: stage.NewPlaces()},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
 		Owners: fsmeta.NewOwners(), RootCheck: state.roots,

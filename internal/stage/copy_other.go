@@ -18,15 +18,15 @@ func createDest(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 }
 
-// createCopy creates the staged copy at dest (createDest).
-func (Stager) createCopy(dest string) (*os.File, error) {
+// createCopy creates the staged copy of path at dest (createDest).
+func (Stager) createCopy(_, dest string) (*os.File, error) {
 	return createDest(dest)
 }
 
-// spelledAsNamed reports true: these systems' staging directory is not
+// occupantOfPath reports false: these systems' staging directory is not
 // checked for folded case.
-func (Stager) spelledAsNamed(string) bool {
-	return true
+func (Stager) occupantOfPath(string) (string, bool) {
+	return "", false
 }
 
 // MarkCaseSensitive does nothing: these systems have no per-directory case

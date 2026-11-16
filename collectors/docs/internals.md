@@ -325,17 +325,25 @@ volume keeps both)`, and every copy and link is checked against where it
 landed before anything is written: on Windows always
 (`GetFinalPathNameByHandle`, or the disk's spelling of a link's path), on
 macOS through `F_GETPATH`, on Linux through each directory's listing. The
-copy is opened without truncating and emptied only after the check. A
-later entry whose staged path is already another's is not staged: a
+copy is opened without truncating and emptied only after the check. The
+run keeps one record (`stage.Places`) of the source entry, by its `lstat`
+identity, each staged place was filled from, keyed by the place as the
+system spells it. A copy or link whose place already holds another
+entry's copy or link, or one the record does not hold, is not staged: a
 file's row is `error_copy` with the error `its staged path is already
 another entry's whose name differs only in case; not staged`, no archive
 path and no hash; a link keeps its `symlink` row with no archive path and
 that reason after `not recreated in the archive:`. The earlier entry keeps
-its copy, and cleaning up after the refused one never removes it. The
-check is by the place the system reports, so it also catches names the
-volume merges in non-ASCII case or Unicode normalisation (macOS stores a
-decomposed `é` as the composed one). Where the probe finds no folding, a
-Unix copy costs no extra call.
+its copy, and cleaning up after the refused one never removes it. One
+source entry reached through two spellings, as the catalog's
+`AppData/Roaming/Devin` and `AppData/Roaming/devin` are on a volume that
+folds case, is staged again at its one place, and a copy that lands in a
+directory spelled in another case where nothing else sits is staged
+there: its row's archive path then differs from the member's name only in
+case, as with the sh collector. The check is by the place the system
+reports, so it also catches names the volume merges in non-ASCII case or
+Unicode normalisation (macOS stores a decomposed `é` as the composed one).
+Where the probe finds no folding, a Unix copy costs no extra call.
 
 A directory that a wildcard segment could not list is recorded by
 `Expand-Glob` in `$script:GlobReadErrors`; `Write-GlobErrorRows` writes an

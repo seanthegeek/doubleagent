@@ -43,7 +43,7 @@ func TestNoCopyOverwritesAnotherEntrysCopyInAFoldingStage(t *testing.T) {
 		t.Fatal("FoldsCase says the staging directory tells case apart")
 	}
 	first := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/one",
-		FoldsCase: true}
+		FoldsCase: true, Places: NewPlaces()}
 	second := first
 	second.Root = parent + "/two"
 	sources := map[string]string{parent + "/one/Users/Alice/notes.txt": "Alice's notes",
@@ -76,19 +76,56 @@ func TestNoCopyOverwritesAnotherEntrysCopyInAFoldingStage(t *testing.T) {
 	}
 }
 
-func TestNoLinkLandsInAnotherEntrysDirectoryInAFoldingStage(t *testing.T) {
+func TestALinkIsNotStagedOverAnotherEntrysLinkInAFoldingStage(t *testing.T) {
 	parent := foldingStage(t)
-	stager := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/one",
-		FoldsCase: true}
-	if err := os.MkdirAll(parent+"/stage/fs/Users/Alice", 0o700); err != nil {
+	first := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/one",
+		FoldsCase: true, Places: NewPlaces()}
+	second := first
+	second.Root = parent + "/two"
+	for _, link := range []string{parent + "/one/Users/Alice/link", parent + "/two/Users/alice/link"} {
+		if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("target", link); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := first.MakeParent(parent + "/one/Users/Alice/link"); err != nil {
 		t.Fatal(err)
 	}
-	err := stager.Symlink(parent+"/one/Users/alice/link", "target", false)
-	if !errors.As(err, &caseCollision{}) {
-		t.Errorf("Symlink = %v; want the case collision error", err)
+	if err := first.Symlink(parent+"/one/Users/Alice/link", "target", false); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Lstat(parent + "/stage/fs/Users/Alice/link"); err == nil {
-		t.Error("alice's link was left in Alice's staged directory")
+	if err := first.Symlink(parent+"/one/Users/Alice/link", "target", false); err != nil {
+		t.Errorf("staging Alice's link again = %v; want it left in place", err)
+	}
+	if err := second.Symlink(parent+"/two/Users/alice/link", "target", false); !errors.As(err,
+		&caseCollision{}) {
+		t.Errorf("staging alice's link over Alice's = %v; want the case collision error", err)
+	}
+}
+
+func TestOneSourceReachedThroughTwoSpellingsIsStagedTwice(t *testing.T) {
+	// On a volume that folds case, the catalog's AppData/Roaming/Devin and
+	// AppData/Roaming/devin name one directory; both rows are collected.
+	parent := foldingStage(t)
+	stager := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/root",
+		FoldsCase: true, Places: NewPlaces()}
+	source := parent + "/root/Roaming/devin/User/settings.json"
+	if err := os.MkdirAll(filepath.Dir(source), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(source, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, spelling := range []string{source, parent + "/root/Roaming/Devin/User/settings.json",
+		parent + "/root/Roaming/Devin/User/settings.json"} {
+		if _, _, err := stager.CopyFile(spelling); err != nil {
+			t.Errorf("CopyFile(%s) = %v; want the one source file staged again", spelling, err)
+		}
+	}
+	if !fileHolds(parent+"/stage/fs/Roaming/devin/User/settings.json", "{}\n") {
+		t.Error("the staged copy does not hold the source's bytes")
 	}
 }
 

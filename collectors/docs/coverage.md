@@ -145,9 +145,10 @@ and archived: the binary marks its staging directory case-sensitive. Where
 the output directory cannot hold such a pair (a Windows file system without
 the setting, or a case-insensitive volume such as the default macOS one,
 where a Linux image can hold `Alice` and `alice`), the run logs a note, the
-first entry staged keeps its copy, and each later file whose staged path is
-taken gets an `error_copy` row saying so (a link, a `symlink` row with that
-error), with no archive path
+first entry staged keeps its copy, and each later file whose staged place
+already holds another entry's copy gets an `error_copy` row saying so (a
+link, a `symlink` row with that error), with no archive path; one entry
+reached through two spellings is staged as before
 ([internals.md](internals.md#claimed-paths-and-case-variants)). With
 `--inventory` (`-Inventory`) the same folding applies, and the dropped line's
 glob is left out of the agent's `evidence`.

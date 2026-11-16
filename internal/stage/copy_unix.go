@@ -17,12 +17,12 @@ func createDest(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
 }
 
-// createCopy creates the staged copy at dest (createDest). Where the
-// staging directory folds case (FoldsCase) the copy is opened without
-// truncating, checked against where it landed (placedFile), and refused with
-// caseCollision when that is another entry's place, which is left as it was,
-// or removed when this open created it; only then is it emptied.
-func (stager Stager) createCopy(dest string) (*os.File, error) {
+// createCopy creates the staged copy of path at dest (createDest). Where
+// the staging directory folds case (FoldsCase) the copy is opened without
+// truncating, checked against where it landed (occupantOf, mayFill), and
+// refused with caseCollision when another entry's copy is there, which is
+// left as it was; only then emptied.
+func (stager Stager) createCopy(path, dest string) (*os.File, error) {
 	if !stager.FoldsCase {
 		return createDest(dest)
 	}
@@ -31,11 +31,12 @@ func (stager Stager) createCopy(dest string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !stager.placedFile(file, dest) {
+	place := dest
+	if occupant, other := stager.occupantOf(file, dest); other {
+		place = occupant
+	}
+	if !stager.mayFill(path, dest, place, statErr == nil) {
 		_ = file.Close()
-		if statErr != nil {
-			_ = os.Remove(dest)
-		}
 		return nil, caseCollision{}
 	}
 	if err := file.Truncate(0); err != nil {
@@ -45,12 +46,14 @@ func (stager Stager) createCopy(dest string) (*os.File, error) {
 	return file, nil
 }
 
-// spelledAsNamed reports whether dest, a path in the staging tree that
-// exists, is dest's own entry: always where the staging directory tells case
-// apart, else when each component below Dir is listed under its own name
-// (spelledBelow).
-func (stager Stager) spelledAsNamed(dest string) bool {
-	return !stager.FoldsCase || spelledBelow(stager.Dir, dest)
+// occupantOfPath returns the staged path of the entry dest, a path in the
+// staging tree that exists, resolves to, and true, when that is not dest:
+// never where the staging directory tells case apart (occupantBelow).
+func (stager Stager) occupantOfPath(dest string) (string, bool) {
+	if !stager.FoldsCase {
+		return "", false
+	}
+	return occupantBelow(stager.Dir, dest)
 }
 
 // MarkCaseSensitive does nothing: these systems have no per-directory case

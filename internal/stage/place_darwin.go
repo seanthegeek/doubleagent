@@ -12,14 +12,14 @@ import (
 // F_GETPATH fills; golang.org/x/sys/unix does not define it for macOS.
 const pathMax = 1024
 
-// placedFile reports whether the copy open on file sits at dest: the path
-// macOS gives for the descriptor (F_GETPATH, spelled as the volume holds
-// it) must match dest below the staging directory byte for byte (placedAt).
-// A path that cannot be read is no evidence of another entry's copy.
-func (stager Stager) placedFile(file *os.File, dest string) bool {
+// occupantOf returns the staged path of the entry the copy open on file
+// sits at, and true, when that is not dest: macOS gives the descriptor's
+// path (F_GETPATH) spelled as the volume holds it (occupantAt). A path that
+// cannot be read is no evidence of another entry's copy.
+func (stager Stager) occupantOf(file *os.File, dest string) (string, bool) {
 	connection, err := file.SyscallConn()
 	if err != nil {
-		return true
+		return "", false
 	}
 	var buffer [pathMax]byte
 	var callErr error
@@ -34,11 +34,11 @@ func (stager Stager) placedFile(file *os.File, dest string) bool {
 		}
 	})
 	if err != nil || callErr != nil {
-		return true
+		return "", false
 	}
 	length := 0
 	for length < len(buffer) && buffer[length] != 0 {
 		length++
 	}
-	return stager.placedAt(string(buffer[:length]), dest)
+	return stager.occupantAt(string(buffer[:length]), dest)
 }
