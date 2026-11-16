@@ -334,29 +334,3 @@ func TestEachRefusalIsWordedByItsKind(t *testing.T) {
 		})
 	}
 }
-
-func TestADiscoveredProjectWithDotDotIsNotStagedOutsideFs(t *testing.T) {
-	files := map[string]string{
-		"home/alice/.claude.json":     "{\"projects\": {\"/home/alice/x/../work\": {}}}\n",
-		"home/alice/work/AGENTS.md":   "# work\n",
-		"home/alice/work/.git/config": "",
-		"home/alice/x/keep":           "",
-	}
-	root := writeImage(t, files, nil)
-	outDir := t.TempDir()
-	var stdout, stderr bytes.Buffer
-	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != exitOK {
-		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
-	}
-	for member := range archiveMembers(t, outDir) {
-		if strings.Contains(member, "..") || strings.Contains(member, "AGENTS.md") {
-			t.Errorf("archive member %s", member)
-		}
-	}
-	row := manifestRow(t, outDir, root+"/home/alice/x/../work/AGENTS.md")
-	if !strings.Contains(row, `"archive_path":"",`) || !strings.Contains(row, `"status":"error_copy"`) ||
-		!strings.Contains(row, "holds a . or .. component") {
-		t.Errorf("row %s", row)
-	}
-}

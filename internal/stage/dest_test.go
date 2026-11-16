@@ -3,6 +3,7 @@ package stage
 import (
 	"errors"
 	"io/fs"
+	"strings"
 	"testing"
 )
 
@@ -44,14 +45,18 @@ func mustDo(t *testing.T, err error) {
 	}
 }
 
-func TestDestRefusesADotOrDotDotComponent(t *testing.T) {
+func TestDestRefusesADotOrDotDotComponentOnWindows(t *testing.T) {
 	stager := Stager{Dir: "/out/.stage", Root: "/img"}
 	for _, path := range []string{"/img/../img/home/a/f", "/img/home/./a", "/img/a/..", "./f",
 		"/img/a/b/../../../../etc/f"} {
 		archive, dest, err := stager.Dest(path)
 		var pathError *fs.PathError
-		if !errors.As(err, &pathError) || archive != "" || dest != "" {
+		switch {
+		case refusesDotted && (!errors.As(err, &pathError) || archive != "" || dest != ""):
 			t.Errorf("Dest(%q) = %q, %q, %v; want an error", path, archive, dest, err)
+		case !refusesDotted && (err != nil || archive != "fs"+strings.TrimPrefix(path, "/img")):
+			// As set_dest_var does: the root removed as text, `..` kept.
+			t.Errorf("Dest(%q) = %q, %v; want the sh collector's archive path", path, archive, err)
 		}
 	}
 	for _, path := range []string{"/img/home/..a/f", "/img/home/a./f", "/img/.../f"} {

@@ -581,13 +581,14 @@ removes them, so the one string the run checks is the one it opens, stages
 and logs. On Linux and macOS, where the kernel resolves `..` from where a
 link leads, they and every passwd home reach the check as written and are
 judged as the system will open them; a link's target is followed by the
-walk above. Staging refuses a path that still holds a `.` or `..`
-component, on every platform: its row is `error_copy` with no archive path
-and the error `holds a . or .. component, so where it is staged is not
-known`, since removing them as text could name another file and keeping
-them would stage the copy outside `fs/`. The sh collector strips the root
-from such a path as text (`set_dest_var`) and copies it to that staged
-path with its `..` left in. ProfileList paths are read on a live run only, and a relocation
+walk above. On Windows, staging refuses a path that still holds a `.` or
+`..` component, which no path the run takes in should: its row is
+`error_copy` with no archive path and the error `holds a . or .. component,
+so where it is staged is not known`, since keeping them would stage the
+copy outside `fs/`. On Linux and macOS such a path (a passwd home such as
+`/srv/dotlink/../frank`) is staged as the sh collector stages it: the root
+removed as text (`set_dest_var`) and the `..` left in, for the kernel to
+resolve in the staging tree as it resolved the source. ProfileList paths are read on a live run only, and a relocation
 hint's value is recorded, never opened.
 
 The binary logs a project the run lists but does not walk with one line

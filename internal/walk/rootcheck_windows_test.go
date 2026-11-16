@@ -108,7 +108,8 @@ func TestTheRootCheckFollowsLinksAsWindowsDoes(t *testing.T) {
 		{path: "/as/l/m.txt", opens: "real/x/m.txt"},
 		{path: "/j/../j/l/m.txt", opens: "x/m.txt"},
 		{path: "/real/s/a/l/m.txt", opens: "real/x/m.txt"},
-		{path: "/j2/l/m.txt", kind: follow.LeadsOut, link: "j2/l"},
+		// The link is named where it physically is, through the junction.
+		{path: "/j2/l/m.txt", kind: follow.LeadsOut, link: "real/deep/a/l"},
 		{path: "/j1/j2/l/m.txt", opens: "x/m.txt"},
 	}
 	for _, testCase := range cases {
