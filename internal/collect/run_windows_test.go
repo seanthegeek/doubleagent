@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
 )
 
@@ -77,4 +78,31 @@ func longTempDir(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return long
+}
+
+func TestHomeOwnershipPrefersTheExactSpelling(t *testing.T) {
+	homes := []users.Home{{User: "Alice", Path: "C:/Users/Alice"}, {User: "alice", Path: "C:/Users/alice"}}
+	one := func(string, string) bool { return true }
+	two := func(string, string) bool { return false }
+	cases := []struct {
+		name, path, home, owner string
+		same                    syspath.SameEntry
+	}{
+		{"a home spelled as the path wins over an earlier one in another case",
+			"C:/Users/alice/p", "C:/Users/alice", "alice", two},
+		{"another spelling of a home holds the path when the file system says so",
+			"C:/Users/ALICE/p", "C:/Users/Alice", "Alice", one},
+		{"another spelling holds nothing the file system keeps apart",
+			"C:/Users/ALICE/p", "", "Alice", two},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := enclosingHome(homes, testCase.path, testCase.same); got != testCase.home {
+				t.Errorf("enclosingHome = %q, want %q", got, testCase.home)
+			}
+			if got := projectOwner(homes, testCase.path); got != testCase.owner {
+				t.Errorf("projectOwner = %q, want %q", got, testCase.owner)
+			}
+		})
+	}
 }

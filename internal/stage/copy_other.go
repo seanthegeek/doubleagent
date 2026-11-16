@@ -18,6 +18,17 @@ func createDest(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 }
 
+// createCopy creates the staged copy at dest (createDest).
+func (Stager) createCopy(dest string) (*os.File, error) {
+	return createDest(dest)
+}
+
+// spelledAsNamed reports true: the staging directory of these systems is
+// not compared with how the disk spells it.
+func (Stager) spelledAsNamed(string) bool {
+	return true
+}
+
 // preserve gives the copy the source's modification time, the one time this
 // platform's standard library sets.
 func preserve(_ *os.File, dest string, info fs.FileInfo) error {

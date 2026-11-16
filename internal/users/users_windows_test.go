@@ -432,23 +432,28 @@ func TestDropReachedRoots(t *testing.T) {
 		root          string
 		written, path string
 		kept          bool
+		distinct      bool
 	}{
-		{"a home reaching the image root", "C:/img", "C:/img/Users/x/../..", "C:/img", false},
+		{"a home reaching the image root", "C:/img", "C:/img/Users/x/../..", "C:/img", false, false},
 		{"a home reaching the image root in another case", "C:/img", "C:/img/x/..", "c:/IMG",
-			false},
-		{"a home reaching a drive root on a live run", "", "D:/x/..", "D:", false},
-		{"a home written as the image root, not reached", "C:/img", "C:/img", "C:/img", true},
+			false, false},
+		{"a home reaching a directory differing from the root only in case", "C:/img",
+			"C:/x/../IMG", "C:/IMG", true, true},
+		{"a home reaching a drive root on a live run", "", "D:/x/..", "D:", false, false},
+		{"a home written as the image root, not reached", "C:/img", "C:/img", "C:/img", true, false},
 		{"a home reaching a UNC image root", "//srv/share", "//srv/share/x/..", "//srv/share",
-			false},
+			false, false},
 		{"a home reaching a share root on a live run", "", "//srv/share/x/..", "//srv/share",
-			true},
+			true, false},
 		{"a home reaching a directory under the root", "C:/img", "C:/img/Users/x/../a",
-			"C:/img/Users/a", true},
+			"C:/img/Users/a", true, false},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
+			// The file system's answer for two spellings of one path.
+			same := func(string, string) bool { return !test.distinct }
 			homes, written := dropReachedRoots([]Home{{"u", test.path}}, []string{test.written},
-				test.root)
+				test.root, same)
 			if kept := len(homes) == 1 && len(written) == 1; kept != test.kept {
 				t.Errorf("dropReachedRoots kept %v (%v), want %v", homes, written, test.kept)
 			}
@@ -475,14 +480,14 @@ func TestFindMergesOnlyHomesReachingWrittenApart(t *testing.T) {
 	// Two candidates written apart only in ASCII case are one path as
 	// written: kept once, silently.
 	homes, _, _, merged := filterProfiles([]Home{{"alice", alice}, {"ALICE", alice}},
-		[]string{alice, strings.ToUpper(alice)}, "")
+		[]string{alice, strings.ToUpper(alice)}, "", nil)
 	if len(merged) != 0 || len(homes) != 1 {
 		t.Errorf("a case-only repeat: homes %+v, merged %+v; want one home, no merge", homes,
 			merged)
 	}
 	// Written apart by dots, reaching one directory: reported.
 	_, _, _, merged = filterProfiles([]Home{{"alice", alice}, {"dot", alice}},
-		[]string{alice, root + "/Users/x/../alice"}, "")
+		[]string{alice, root + "/Users/x/../alice"}, "", nil)
 	if want := []Merge{{Path: alice, Kept: "alice", Dropped: "dot"}}; !reflect.DeepEqual(merged,
 		want) {
 		t.Errorf("a dotted repeat: merged %+v, want %+v", merged, want)

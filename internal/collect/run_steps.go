@@ -70,15 +70,15 @@ func (state *runState) findHomes(ctx context.Context) error {
 
 // reachedProjects returns the -p paths, each holding a `.` or `..` component
 // replaced by the path the system reaches for it (walk.RootCheck.Reached),
-// each path once (ignoring case on Windows), first spelling first: two -p
-// values reaching one path are one project, warned about and recorded once.
+// each path once, first spelling first: two -p values reaching one entry
+// (syspath.Entries; on Windows also two spellings the file system calls one
+// directory) are one project, warned about and recorded once.
 func reachedProjects(projects []string, roots walk.RootCheck) []string {
 	var kept []string
-	seen := map[string]bool{}
+	seen := syspath.NewEntries[struct{}](follow.SameEntry(roots.Expansion()))
 	for _, project := range projects {
 		project = roots.Reached(project)
-		if key := syspath.Fold(project); !seen[key] {
-			seen[key] = true
+		if seen.Add(project, struct{}{}) {
 			kept = append(kept, project)
 		}
 	}
@@ -187,17 +187,24 @@ func (state *runState) collectProjects(ctx context.Context) error {
 // first home of any user that holds it as the base its path's links are
 // resolved in.
 func (state *runState) collectProject(ctx context.Context, project projects.Project) error {
-	home := enclosingHome(state.homes, project.Path)
+	home := enclosingHome(state.homes, project.Path, follow.SameEntry(state.roots.Expansion()))
 	return state.collector.CollectProject(ctx, project.Owner, home, project.Path)
 }
 
 // enclosingHome returns the first home of any user that holds path, or ""
 // when it lies under none: the home whose walk may have recorded and
-// recreated a link of path's, whoever owns the project. Paths are compared
-// as the platform's filesystem compares them.
-func enclosingHome(homes []users.Home, path string) string {
+// recreated a link of path's, whoever owns the project. A home spelling
+// path's start byte for byte is chosen first; one spelled otherwise only in
+// ASCII case holds path only where same says so, since the wrong home would
+// stage the project's files through another home's links.
+func enclosingHome(homes []users.Home, path string, same syspath.SameEntry) string {
 	for _, home := range homes {
-		if home.Path != "" && syspath.HasPrefix(path, home.Path+"/") {
+		if home.Path != "" && strings.HasPrefix(path, home.Path+"/") {
+			return home.Path
+		}
+	}
+	for _, home := range homes {
+		if _, inside := syspath.CutUnder(path, home.Path, same); home.Path != "" && inside {
 			return home.Path
 		}
 	}
@@ -274,8 +281,15 @@ func (state *runState) reportMissingProjects() error {
 }
 
 // projectOwner returns the user of the first home that holds path, as
-// get_project_owner does, or "", comparing as the platform's filesystem does.
+// get_project_owner does, or "": a home spelling path's start byte for byte
+// first, then on Windows the first matching it ignoring ASCII case, since the
+// owner only labels a row and a wrong one loses nothing.
 func projectOwner(homes []users.Home, path string) string {
+	for _, home := range homes {
+		if strings.HasPrefix(path, home.Path+"/") {
+			return home.User
+		}
+	}
 	for _, home := range homes {
 		if syspath.HasPrefix(path, home.Path+"/") {
 			return home.User
@@ -363,7 +377,7 @@ func (state *runState) hintFileCollector(ctx context.Context,
 func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
 	for _, project := range state.projects {
 		if project.Path == base {
-			home := enclosingHome(state.homes, base)
+			home := enclosingHome(state.homes, base, follow.SameEntry(state.roots.Expansion()))
 			return walk.ProjectStagers(state.roots, state.collector.Stager, home, base, path)
 		}
 	}

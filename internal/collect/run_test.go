@@ -217,7 +217,7 @@ func TestEnclosingHome(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			if got := enclosingHome(homes, testCase.path); got != testCase.want {
+			if got := enclosingHome(homes, testCase.path, nil); got != testCase.want {
 				t.Errorf("enclosingHome = %q, want %q", got, testCase.want)
 			}
 		})

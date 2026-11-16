@@ -111,13 +111,12 @@ func throughLinks(stager stage.Stager, from, into string) stage.Stager {
 	return stager.Through(from, into)
 }
 
-// claimed reports whether path, under base, is one of claims (keyed by
-// syspath.Fold) or lies under one through real directories only, as
-// test_claimed_path does: the claim's own walk then records it, and a walk
-// never descends a symlinked directory.
-func claimed(path, base string, claims map[string]struct{}) bool {
+// claimed reports whether path, under base, is one of claims or lies under
+// one through real directories only, as test_claimed_path does: the claim's
+// own walk then records it, and a walk never descends a symlinked directory.
+func claimed(path, base string, claims *syspath.Entries[struct{}]) bool {
 	for len(path) > len(base) {
-		if _, found := claims[syspath.Fold(path)]; found {
+		if claims.Has(path) {
 			return true
 		}
 		position := strings.LastIndexByte(path, '/')
@@ -138,15 +137,13 @@ func claimed(path, base string, claims map[string]struct{}) bool {
 // where base physically holds it, through the owner's stager, as
 // record_passed_links does.
 func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, base string,
-	links []string, seen map[string]struct{},
+	links []string, seen *syspath.Entries[struct{}],
 ) error {
 	baseStager := owner.stager
 	for _, link := range links {
-		key := syspath.Fold(link)
-		if _, done := seen[key]; done {
+		if !seen.Add(link, struct{}{}) {
 			continue
 		}
-		seen[key] = struct{}{}
 		if !isSymlink(link) || claimed(link, base, owner.claims) ||
 			collector.Manifest.HasPath(link) {
 			continue
@@ -168,7 +165,7 @@ func (collector *Collector) RecordPassedLinks(ctx context.Context, user, base, h
 	stager stage.Stager, links []string,
 ) error {
 	owner := scope{user: user, home: home, agent: agent, stager: stager}
-	return collector.recordPassedLinks(ctx, owner, base, links, map[string]struct{}{})
+	return collector.recordPassedLinks(ctx, owner, base, links, collector.pathSet())
 }
 
 // readField returns a match path as the sh collector's `IFS='|' read` gives it

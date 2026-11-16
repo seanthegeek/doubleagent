@@ -510,7 +510,12 @@ for Go files as it does for the others.
   ASCII-only where the sh collector lowers under `LC_ALL=C`. Windows path
   keys (`syspath.Fold`) fold ASCII only too: NTFS's own case table keeps
   apart pairs any other fold would merge (`ı` and `I`), and merging two
-  names loses one of them. A Windows path that comes from outside a
+  names loses one of them. The fold is only a lookup key: a set, map or
+  claim over paths is a `syspath.Entries`, where two paths differing only in
+  ASCII case are one entry only when the file system gives both one
+  identity (`follow.SameEntry`), since a directory marked case-sensitive
+  holds `Alice` and `alice` apart; a test of whether a path lies under a
+  home or base trusts bytes first (`syspath.CutUnder`). A Windows path that comes from outside a
   directory listing is respelled as the disk holds it through
   `fsmeta.OnDiskPath` before it is compared, so two spellings of one
   directory become the same bytes, stopping at the first link: `-r` and

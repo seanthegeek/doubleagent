@@ -18,7 +18,8 @@ import (
 )
 
 // Equal reports whether two paths are the same key: byte equality on Unix,
-// equality ignoring ASCII case on Windows (see Fold for why ASCII only).
+// equality ignoring ASCII case on Windows (see Fold for why ASCII only). It
+// cannot tell two entries of a case-sensitive directory apart; SameAs can.
 func Equal(first, second string) bool {
 	return Fold(first) == Fold(second)
 }

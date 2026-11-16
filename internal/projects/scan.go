@@ -107,8 +107,12 @@ func (s *homeScan) sessionCwds(dir, name string) []string {
 // the excluded paths (a `case` with "$1/x"* patterns, so a prefix match,
 // with exact naming the bare path). Under the sh rules the path is the raw
 // value after root, as sh tests it; under the drive-letter rules it is the
-// value's local path, as the PowerShell collector tests it, ignoring case.
+// value's local path, as the PowerShell collector tests it, ignoring ASCII
+// case only where the file system says the two spellings are one entry, so
+// a directory a case-sensitive directory keeps apart is not dropped. Each
+// prefix of under ends with a slash.
 func (s *homeScan) emitOutside(values []string, exact []string, under []string) {
+	same := follow.SameEntry(s.outOfScope)
 	for _, value := range values {
 		path := s.root + value
 		if s.rules.driveLetters {
@@ -116,10 +120,11 @@ func (s *homeScan) emitOutside(values []string, exact []string, under []string) 
 		}
 		excluded := false
 		for _, name := range exact {
-			excluded = excluded || syspath.Equal(path, name)
+			excluded = excluded || syspath.SameAs(path, name, same)
 		}
 		for _, prefix := range under {
-			excluded = excluded || syspath.HasPrefix(path, prefix)
+			_, inside := syspath.CutUnder(path, strings.TrimSuffix(prefix, "/"), same)
+			excluded = excluded || inside
 		}
 		if !excluded {
 			s.emit([]string{value})

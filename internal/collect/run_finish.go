@@ -71,7 +71,7 @@ func (state *runState) summary(finished time.Time) summary.Summary {
 		report.Users = append(report.Users, home.User)
 		report.Homes = append(report.Homes, home.Path)
 	}
-	for _, home := range summary.ActiveUsers(state.homes, state.manifest.HomesWithRows()) {
+	for _, home := range summary.ActiveUsers(state.homes, state.manifest.HasHomeRows) {
 		report.ActiveUsers = append(report.ActiveUsers, home.User)
 	}
 	for _, project := range state.projects {

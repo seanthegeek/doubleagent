@@ -132,7 +132,20 @@ the path is spelled in the manifest, differs:
 
 Claimed paths of nested entries are compared case-insensitively by the
 PowerShell collector on Windows and case-sensitively elsewhere, so pwsh on
-Linux keeps `.config/cursor/User` and `.config/Cursor/User` apart. With
+Linux keeps `.config/cursor/User` and `.config/Cursor/User` apart.
+
+Windows can mark a single directory case-sensitive, and WSL marks the
+directories it creates. Inside one, `Alice` and `alice` are two entries,
+and a catalog line or a typed path matches only its exact spelling. The
+`doubleagent` binary keeps such entries apart everywhere it compares paths:
+two homes, two claims, two projects, two rows. It treats two spellings as
+one entry only when the file system gives both the same file identity, as
+in an ordinary directory. Their staged copies cannot both be kept, because
+the staging directory does not tell the two names apart: the first entry
+staged keeps its copy, and each later file whose staged path is already
+taken gets an `error_copy` row saying so (a link, a `symlink` row with
+that error), with no archive path
+([internals.md](internals.md#claimed-paths-and-case-variants)). With
 `--inventory` (`-Inventory`) the same folding applies, and the dropped line's
 glob is left out of the agent's `evidence`.
 

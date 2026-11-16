@@ -44,22 +44,23 @@ func (stager Stager) Through(from, into string) Stager {
 
 // Dest returns the archive member of path, fs/ and the path without the
 // root, and where it is staged. As set_dest_var does, the root is removed
-// only as a leading string, and a path that does not start with it keeps
-// every byte after fs. On Windows the root and From are matched ignoring
-// case, and a drive or UNC path left is archived as Get-ArchivePath does (C:/a
-// under fs/C/a, //server/share/a under fs/server/share/a). A path with a
-// `.` or `..` component, which every entry point replaces by the path the
-// system reaches (walk.RootCheck.Reached), is refused with an error: kept,
-// it would stage the copy, and name its member, somewhere else.
+// only as a leading string (ignoring ASCII case on Windows), and a path not
+// starting with it keeps every byte after fs. From is matched byte for byte:
+// a sibling spelled otherwise may be another directory of a case-sensitive
+// one. A drive or UNC path left is archived as Get-ArchivePath does (C:/a
+// under fs/C/a, //server/share/a under fs/server/share/a). A path with a `.`
+// or `..` component, which every entry point replaces by the path the system
+// reaches (walk.RootCheck.Reached), is refused with an error: kept, it would
+// stage the copy, and name its member, somewhere else.
 func (stager Stager) Dest(path string) (archivePath, destPath string, err error) {
 	if hasDotComponent(path) {
 		return "", "", &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: dottedPath{}}
 	}
 	relative := path
 	if stager.From != "" {
-		if syspath.Equal(path, stager.From) {
+		if path == stager.From {
 			relative = stager.Into
-		} else if below, found := syspath.CutPrefix(path, stager.From+"/"); found {
+		} else if below, found := strings.CutPrefix(path, stager.From+"/"); found {
 			relative = stager.Into + "/" + below
 		}
 	}
@@ -215,7 +216,10 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 	if !info.Mode().IsRegular() {
 		return "", 0, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	}
-	target, err := createDest(dest)
+	target, err := stager.createCopy(dest)
+	if errors.As(err, &caseCollision{}) {
+		return "", 0, &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: err}
+	}
 	if err != nil {
 		return "", 0, syspath.NativeErrors(err)
 	}
@@ -243,10 +247,26 @@ type notRegular struct{}
 // Error returns the reason, in the text of the error it replaces.
 func (notRegular) Error() string { return "not a regular file" }
 
+// caseCollision is the reason a file or link is not staged: its staged path
+// is already another entry's, whose name differs from its own only in
+// letter case. A case-sensitive source directory can hold Alice and alice;
+// the staging directory, like most Windows directories, cannot, and staging
+// the second over the first would leave a row pointing at the other entry's
+// bytes. The first entry staged keeps its copy.
+type caseCollision struct{}
+
+// Error returns the reason.
+func (caseCollision) Error() string {
+	return "its staged path is already another entry's whose name differs only in case; " +
+		"not staged"
+}
+
 // Symlink recreates the symlink path, with its stored target, at its staged
 // path. A staged path that already exists, a link included, is left as it
 // is: another entry's walk recreated it, and creating a link onto a link to a
-// directory would create it inside that directory, on the source. No link is
+// directory would create it inside that directory, on the source. On Windows
+// a staged path the disk spells otherwise is another entry's whose name
+// differs only in case, and the link is refused (caseCollision). No link is
 // created in a directory that does not resolve inside the staging directory.
 // directory makes a Windows directory link, as a junction or a directory
 // symlink is recreated; Unix links have no kind and ignore it.
@@ -255,13 +275,25 @@ func (stager Stager) Symlink(path, target string, directory bool) error {
 	if err != nil {
 		return err
 	}
+	collision := &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
 	if _, err := osfile.Lstat(dest); err == nil {
+		if !stager.spelledAsNamed(dest) {
+			return collision
+		}
 		return nil
 	}
 	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
 		return err
 	}
-	return createLink(target, dest, directory)
+	if err := createLink(target, dest, directory); err != nil {
+		return err
+	}
+	if !stager.spelledAsNamed(dest) {
+		// Made inside an earlier entry's directory of another case.
+		_ = osfile.Remove(dest)
+		return collision
+	}
+	return nil
 }
 
 // RemoveFailedCopy removes what a failed copy left at dest and reports true,

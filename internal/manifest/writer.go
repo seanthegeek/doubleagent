@@ -16,32 +16,43 @@ type Counts struct {
 
 // Writer writes rows to an io.Writer, one write per row, and remembers what
 // the summary needs: the counts, the paths written and the homes that have a
-// row. It is not safe for use by several goroutines.
+// row, each path once per file system entry (syspath.Entries). It is not
+// safe for use by several goroutines.
 type Writer struct {
 	out    io.Writer
 	counts Counts
-	paths  map[string]struct{}
-	homes  map[string]struct{}
+	same   syspath.SameEntry
+	paths  *syspath.Entries[struct{}]
+	homes  *syspath.Entries[struct{}]
 	line   []byte
 }
 
-// NewWriter returns a Writer that appends rows to out.
+// NewWriter returns a Writer that appends rows to out. Until UseSameEntry
+// is called, two spellings of a path are two entries unless their bytes are
+// equal.
 func NewWriter(out io.Writer) *Writer {
-	return &Writer{
-		out:    out,
-		counts: Counts{ByStatus: map[Status]int{}},
-		paths:  map[string]struct{}{},
-		homes:  map[string]struct{}{},
+	writer := &Writer{out: out, counts: Counts{ByStatus: map[Status]int{}}}
+	same := func(first, second string) bool {
+		return writer.same != nil && writer.same(first, second)
 	}
+	writer.paths = syspath.NewEntries[struct{}](same)
+	writer.homes = syspath.NewEntries[struct{}](same)
+	return writer
+}
+
+// UseSameEntry sets the question the writer asks the file system about two
+// spellings of a path whose syspath.Fold keys are equal; the writer does no
+// file system call of its own.
+func (writer *Writer) UseSameEntry(same syspath.SameEntry) {
+	writer.same = same
 }
 
 // Write appends row as one line and counts it. A row is counted only when the
 // write succeeds.
 func (writer *Writer) Write(row Row) error {
 	// The canonical forms are the keys; the written forms are native.
-	pathKey := syspath.Fold(row.Path)
-	homeKey := syspath.Fold(row.Home)
-	ownRow := pathKey == homeKey && row.ArchivePath == "" && row.Type == "dir"
+	path, home := row.Path, row.Home
+	ownRow := path == home && row.ArchivePath == "" && row.Type == "dir"
 	row.Path = syspath.ToNative(row.Path)
 	row.Home = syspath.ToNative(row.Home)
 	writer.line = appendRow(writer.line[:0], row)
@@ -52,10 +63,10 @@ func (writer *Writer) Write(row Row) error {
 	if row.Status == Collected {
 		writer.counts.CollectedBytes += nonNegative(row.Size)
 	}
-	writer.paths[pathKey] = struct{}{}
+	writer.paths.Put(path, struct{}{})
 	// A home's own unreadable-directory row does not make it active.
-	if homeKey != "" && !ownRow {
-		writer.homes[homeKey] = struct{}{}
+	if home != "" && !ownRow {
+		writer.homes.Put(home, struct{}{})
 	}
 	return nil
 }
@@ -69,23 +80,18 @@ func (writer *Writer) Counts() Counts {
 	return Counts{ByStatus: byStatus, CollectedBytes: writer.counts.CollectedBytes}
 }
 
-// HasPath reports whether a row with this canonical path was written, comparing
-// case-insensitively where the platform's filesystem does.
+// HasPath reports whether a row was written for the file system entry the
+// canonical path names: one with the same bytes, or on Windows one spelled
+// otherwise in ASCII case that the file system says is the same entry. In a
+// case-sensitive directory Alice and alice are two entries.
 func (writer *Writer) HasPath(path string) bool {
-	_, found := writer.paths[syspath.Fold(path)]
-	return found
+	return writer.paths.Has(path)
 }
 
-// HomesWithRows returns the homes that have a row other than the
-// unreadable-directory row of the home itself, as a set. The keys are the
-// homes folded with syspath.Fold, so a caller folds its own home before it
-// looks one up.
-func (writer *Writer) HomesWithRows() map[string]struct{} {
-	homes := make(map[string]struct{}, len(writer.homes))
-	for home := range writer.homes {
-		homes[home] = struct{}{}
-	}
-	return homes
+// HasHomeRows reports whether home has a row other than its own
+// unreadable-directory row, its entry found as HasPath finds a path.
+func (writer *Writer) HasHomeRows(home string) bool {
+	return writer.homes.Has(home)
 }
 
 // nonNegative returns value, or 0 for a negative value: the sh collector writes

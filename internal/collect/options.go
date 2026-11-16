@@ -248,8 +248,10 @@ func mebibytes(text string) (int64, bool) {
 }
 
 // ResolveProjects returns OPTIONS with every -p path made absolute against the
-// current directory (absoluteProject, per platform) and listed once, paths
-// that differ only in case being one on Windows. A path is never prefixed
+// current directory (absoluteProject, per platform) and listed once by its
+// bytes: two spellings are judged one directory only after the root is
+// resolved (reachedProjects), when the root check can guard the file system
+// question it takes. A path is never prefixed
 // with the root: it names a place on the machine running the collector. An
 // empty path is dropped; the current directory is asked for only when a path
 // or, on Unix with a relative -p, the root is relative (imageCheck).
@@ -269,8 +271,8 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 			}
 		}
 		project = absoluteProject(cwd, project, check)
-		if key := syspath.Fold(project); !seen[key] {
-			seen[key] = true
+		if !seen[project] {
+			seen[project] = true
 			resolved = append(resolved, project)
 		}
 	}
@@ -280,7 +282,8 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 
 // respellProjects returns the -p paths, `.` and `..` removed by name on
 // Windows (syspath.Opened), with existing components spelled as the disk
-// holds them, each listed once: below root in image mode, so a path outside
+// holds them, each listed once by its bytes (two spellings of one existing
+// directory are one spelling by then): below root in image mode, so a path outside
 // the image stays as typed and is never looked at, and from the drive on a
 // live run. A path starting with lexicalRoot, the root as typed (which may
 // hold a short name or another case the respelled root lost), first has that
@@ -301,8 +304,8 @@ func respellProjects(projects []string, lexicalRoot, root string) []string {
 			project = root
 		}
 		project = fsmeta.OnDiskPath(root, project)
-		if key := syspath.Fold(project); !seen[key] {
-			seen[key] = true
+		if !seen[project] {
+			seen[project] = true
 			respelled = append(respelled, project)
 		}
 	}

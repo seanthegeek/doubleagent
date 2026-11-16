@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // sharedAgent is the agent of the catalog lines whose files are collected
@@ -69,6 +70,13 @@ func (collector *Collector) check() follow.Check {
 	return collector.RootCheck.Expansion()
 }
 
+// pathSet returns an empty set of paths, one per file system entry, that
+// asks the file system, under the root check, about two spellings of one
+// path that differ only in ASCII case.
+func (collector *Collector) pathSet() *syspath.Entries[struct{}] {
+	return syspath.NewEntries[struct{}](follow.SameEntry(collector.check()))
+}
+
 // ownerOf returns the owner of path itself for its row, or "" without Owners.
 func (collector *Collector) ownerOf(path string) string {
 	if collector.Owners == nil {
@@ -92,14 +100,15 @@ func MatchAny(globs []string) func(string) bool {
 }
 
 // scope is what one collect_path call carries: whose rows it writes, where
-// its files are staged and which paths other catalog lines claim, keyed by
-// syspath.Fold, and the lstat of a path a caller took before reading it.
+// its files are staged and which paths other catalog lines claim, one per
+// file system entry (syspath.Entries), and the lstat of a path a caller took
+// before reading it.
 type scope struct {
 	user   string
 	home   string
 	agent  string
 	stager stage.Stager
-	claims map[string]struct{}
+	claims *syspath.Entries[struct{}]
 	before map[string]fsmeta.Meta
 }
 

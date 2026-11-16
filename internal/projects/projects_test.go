@@ -169,7 +169,7 @@ func TestKeepProjectDirsKeepsAPathOutOfScopeUntested(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			projects := []Project{{"", root + "/srv/dir"}, {"", root + "/srv/file"},
 				{"", root + "/out/gone"}, {"", root + "/srv/missing"}, {"u", root + "/out/home"}}
-			got := keepProjectDirs(projects, "u:"+root+"/out/home", testCase.outOfScope)
+			got := keepProjectDirs(projects, "u:"+root+"/out/home", testCase.outOfScope, nil)
 			if !reflect.DeepEqual(got, testCase.want) {
 				t.Errorf("got %q, want %q", got, testCase.want)
 			}
@@ -179,7 +179,7 @@ func TestKeepProjectDirsKeepsAPathOutOfScopeUntested(t *testing.T) {
 
 func TestMergeProjectOwnersKeepsFirstNonEmptyOwner(t *testing.T) {
 	got := mergeProjectOwners([]Project{{"", "/a"}, {"bob", "/a"}, {"carol", "/a"},
-		{"dave", ""}, {"erin", "/b"}})
+		{"dave", ""}, {"erin", "/b"}}, nil)
 	want := []Project{{"bob", "/a"}, {"erin", "/b"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)

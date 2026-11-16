@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/seanthegeek/doubleagent/internal/manifest"
-	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
 )
@@ -102,12 +101,12 @@ type Summary struct {
 }
 
 // ActiveUsers returns the homes that have a manifest row other than their own
-// unreadable-directory row, in order, as list_active_users does. withRows is
-// manifest.Writer.HomesWithRows, whose keys are folded with syspath.Fold.
-func ActiveUsers(homes []users.Home, withRows map[string]struct{}) []users.Home {
+// unreadable-directory row, in order, as list_active_users does. hasRows is
+// manifest.Writer.HasHomeRows.
+func ActiveUsers(homes []users.Home, hasRows func(home string) bool) []users.Home {
 	var active []users.Home
 	for _, home := range homes {
-		if _, found := withRows[syspath.Fold(home.Path)]; home.Path != "" && found {
+		if home.Path != "" && hasRows(home.Path) {
 			active = append(active, home)
 		}
 	}

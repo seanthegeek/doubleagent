@@ -23,14 +23,19 @@ func TestWriterWritesNativePaths(t *testing.T) {
 	if want := `"home":"C:\\Users\\a","agent":"","path":"C:\\Users\\a\\x"`; !strings.Contains(out.String(), want) {
 		t.Errorf("row %s lacks %s", out.String(), want)
 	}
+	if writer.HasPath("c:/users/A/X") {
+		t.Error("HasPath matched another spelling the file system was not asked about")
+	}
+	writer.UseSameEntry(func(string, string) bool { return true })
 	if !writer.HasPath("c:/users/A/X") {
-		t.Error("HasPath did not fold")
+		t.Error("HasPath did not find another spelling the file system calls the same entry")
 	}
 }
 
 func TestWriterKeepsApartNamesNTFSKeepsApart(t *testing.T) {
 	var out strings.Builder
 	writer := NewWriter(&out)
+	writer.UseSameEntry(func(string, string) bool { return true })
 	for _, home := range []string{"C:/Users/img", "C:/Users/\u0131mg"} {
 		if err := writer.Write(Row{Home: home, Path: home + "/x", Status: Collected}); err != nil {
 			t.Fatal(err)
@@ -39,11 +44,33 @@ func TestWriterKeepsApartNamesNTFSKeepsApart(t *testing.T) {
 	if !writer.HasPath("c:/users/IMG/X") {
 		t.Error("HasPath in another ASCII case = false, want true")
 	}
-	if homes := writer.HomesWithRows(); len(homes) != 2 {
-		t.Errorf("HomesWithRows = %q, want img and dotless-i img as two homes", homes)
+	if !writer.HasHomeRows("C:/Users/img") || !writer.HasHomeRows("C:/Users/\u0131mg") {
+		t.Error("HasHomeRows lost img or dotless-i img")
 	}
 	if writer.HasPath("C:/Users/\u0131mg/y") || !writer.HasPath("C:/Users/\u0131MG/X") {
 		t.Error("HasPath does not tell dotless-i img's rows from img's")
+	}
+}
+
+func TestWriterKeepsApartCaseVariantsTheFileSystemKeepsApart(t *testing.T) {
+	var out strings.Builder
+	writer := NewWriter(&out)
+	asked := 0
+	writer.UseSameEntry(func(first, second string) bool {
+		asked++
+		return strings.EqualFold(first, "C:/Users/Alice/x") && strings.EqualFold(second, first) &&
+			second != "C:/Users/alice/x"
+	})
+	if err := writer.Write(Row{Home: "C:/Users/Alice", Path: "C:/Users/Alice/x"}); err != nil {
+		t.Fatal(err)
+	}
+	if writer.HasPath("C:/Users/alice/x") || !writer.HasPath("C:/Users/ALICE/x") ||
+		writer.HasHomeRows("C:/Users/alice") || !writer.HasHomeRows("C:/Users/Alice") {
+		t.Error("the writer merged alice, a separate entry, with Alice, or lost ALICE, a second " +
+			"spelling of Alice")
+	}
+	if asked == 0 {
+		t.Error("the writer never asked the file system about another spelling")
 	}
 }
 

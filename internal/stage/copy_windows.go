@@ -3,6 +3,7 @@ package stage
 import (
 	"io/fs"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -36,26 +37,83 @@ func onHandle(file *os.File, call func(windows.Handle) error) error {
 	return callError
 }
 
+// createCopy creates the staged copy at dest (createDest), refusing it with
+// caseCollision when Windows put it somewhere spelled otherwise than dest:
+// in a case-insensitive staging directory, the copy of one entry lands on
+// the copy, or in the directory, of an earlier entry whose name differs only
+// in case, as Alice and alice of a case-sensitive directory do.
+func (stager Stager) createCopy(dest string) (*os.File, error) {
+	return createDest(dest, func(file *os.File) bool {
+		var final string
+		err := onHandle(file, func(handle windows.Handle) error {
+			var err error
+			final, err = finalPath(handle)
+			return err
+		})
+		// A place that cannot be read is no evidence of another entry's copy.
+		return err != nil || stager.placedAt(syspath.FromNative(final), dest)
+	})
+}
+
+// spelledAsNamed reports whether dest, a path in the staging tree that
+// exists, is spelled below the staging directory as the disk spells it
+// (fsmeta.OnDiskPath), so it is dest's own entry and not an earlier one
+// whose name differs only in case.
+func (stager Stager) spelledAsNamed(dest string) bool {
+	return fsmeta.OnDiskPath(stager.Dir, dest) == dest
+}
+
+// placedAt reports whether final, the place Windows gives for the file
+// opened at dest, is dest's own place: the part of final below the physical
+// staging directory spells the part of dest below Dir byte for byte.
+func (stager Stager) placedAt(final, dest string) bool {
+	relative, found := strings.CutPrefix(dest, stager.Dir+"/")
+	if !found {
+		return true
+	}
+	for _, root := range []string{stager.Physical, stager.Dir} {
+		if rest, inside := Under(final, root); root != "" && inside {
+			return rest == relative
+		}
+	}
+	physical, err := PhysicalDir(stager.Dir)
+	if rest, inside := Under(final, physical); err == nil && inside {
+		return rest == relative
+	}
+	return true
+}
+
 // createDest opens the staged copy for writing, creating it, without
 // following a reparse point: one already at the path is refused, and the
 // open takes a reparse point swapped in after that check as itself, which
-// the regular-file test then refuses. The copy is emptied only after that
-// test, since truncating at open would empty whatever a link led to. The
-// copy's access and write times are then held, so the times preserve sets
-// are the ones the copy keeps whatever the volume records.
-func createDest(path string) (*os.File, error) {
+// the regular-file test then refuses. placed then judges the open copy; a
+// copy it refuses is left as it was, or removed when this open created it,
+// with caseCollision. The copy is emptied only after both tests, since
+// truncating at open would empty whatever a link led to or another entry's
+// copy. The copy's access and write times are then held, so the times
+// preserve sets are the ones the copy keeps whatever the volume records.
+func createDest(path string, placed func(*os.File) bool) (*os.File, error) {
 	refused := &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
-	if info, err := osfile.Lstat(path); err == nil && isReparsePoint(info) {
+	info, err := osfile.Lstat(path)
+	if err == nil && isReparsePoint(info) {
 		return nil, refused
 	}
+	existed := err == nil
 	file, err := osfile.OpenFile(path,
 		os.O_WRONLY|os.O_CREATE|syscall.FILE_FLAG_OPEN_REPARSE_POINT, 0o600)
 	if err != nil {
 		return nil, err
 	}
-	info, err := file.Stat()
+	info, err = file.Stat()
 	if err == nil && (!info.Mode().IsRegular() || isReparsePoint(info)) {
 		err = refused
+	}
+	if err == nil && !placed(file) {
+		_ = file.Close()
+		if !existed {
+			_ = osfile.Remove(path)
+		}
+		return nil, caseCollision{}
 	}
 	if err == nil {
 		err = file.Truncate(0)

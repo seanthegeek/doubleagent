@@ -17,6 +17,17 @@ func createDest(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
 }
 
+// createCopy creates the staged copy at dest (createDest).
+func (Stager) createCopy(dest string) (*os.File, error) {
+	return createDest(dest)
+}
+
+// spelledAsNamed reports true: the staging directory of these systems is
+// not compared with how the disk spells it.
+func (Stager) spelledAsNamed(string) bool {
+	return true
+}
+
 // preserve gives the copy the source's owner when running as root, its
 // permission bits and its access and modification times, as cp -p does. As
 // cp does when it cannot set the owner, the setuid and setgid bits are

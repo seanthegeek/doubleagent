@@ -268,7 +268,8 @@ func TestClaimsAreFoldedOnWindows(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			collector, recorder := windowsCollector(t, "", nil)
 			owner := scope{user: "u", home: home, agent: "agent", stager: collector.Stager,
-				claims: map[string]struct{}{syspath.Fold(testCase.claim): {}}}
+				claims: collector.pathSet()}
+			owner.claims.Put(testCase.claim, struct{}{})
 			_, err := collector.collectTree(context.Background(), owner, home+"/.tool")
 			mustDo(t, err)
 			want := []string{`row .tool\a.txt collected`}

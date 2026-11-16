@@ -18,6 +18,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // fixture is a test tree: directories, files and links relative to its base.
@@ -139,7 +140,9 @@ func TestLinkedParent(t *testing.T) {
 func TestClaimed(t *testing.T) {
 	base := fixture{dirs: []string{".gemini/antigravity-cli/x", "real"},
 		links: [][2]string{{"real", ".gemini/link"}}}.build(t)
-	claims := map[string]struct{}{base + "/.gemini": {}, base + "/.gemini/antigravity-cli": {}}
+	claims := syspath.NewEntries[struct{}](nil)
+	claims.Put(base+"/.gemini", struct{}{})
+	claims.Put(base+"/.gemini/antigravity-cli", struct{}{})
 	cases := []struct {
 		name string
 		path string

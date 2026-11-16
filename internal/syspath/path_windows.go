@@ -19,13 +19,14 @@ func Extended(path string) string { return extendedWindows(path) }
 // root check must judge.
 func Opened(path string) string { return openedWindows(path) }
 
-// Fold returns the key two paths are compared by: text with ASCII capitals
-// lowered and every other byte kept. NTFS also ignores the case of most other
-// letters, through a table written to each volume when it is formatted, but
-// that table keeps apart pairs Unicode folds (ı and I, ſ and S, µ and Μ, ς
-// and Σ, every pair outside the Basic Multilingual Plane), so no fold of ours
-// matches it. Folding ASCII only never merges two names NTFS keeps apart;
-// two spellings of one existing directory are made the same bytes by
+// Fold returns the key paths are looked up by: text with ASCII capitals
+// lowered and every other byte kept. NTFS ignores the case of most letters,
+// through a table no fold of ours matches (it keeps ı and I apart), and a
+// directory marked case-sensitive ignores none, so equal keys only say two
+// paths may be one entry: Entries, CutUnder and SameAs let the file system
+// decide, and Equal, HasPrefix and CutPrefix serve names Windows always
+// compares without case, or tests where a wrong match loses nothing. Two
+// spellings of one existing directory are made the same bytes by
 // fsmeta.OnDiskPath before they are compared. The key is never written.
 func Fold(text string) string { return foldASCII(text) }
 

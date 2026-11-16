@@ -287,6 +287,37 @@ case-insensitive filesystem ([coverage.md](coverage.md#case-variants)):
   keeps the first and lists the other with an empty agent, which
   `Add-CatalogMatches` logs and skips.
 
+The `doubleagent` binary folds the matches as the sh collector does, on
+every platform. Its claims, the links it has already recorded, the paths
+the manifest has a row for, the homes and the projects it keeps once, and
+the paths the relocation sweep leaves out are each a `syspath.Entries`: a
+set keyed by the path with ASCII capitals lowered, whose keys hold the
+exact spellings. Two paths with equal bytes are one entry; two that differ
+only in ASCII case are one entry only when both can be examined and their
+`lstat` gives one non-zero identity (volume serial number and file index,
+`follow.SameEntry`), and two entries otherwise. So in a Windows directory
+marked case-sensitive (`fsutil file setCaseSensitiveInfo`, or one WSL
+made) `Alice` and `alice` are two homes, two claims and two rows, while in
+an ordinary directory two spellings of one name are still one. On Linux
+and macOS the key is the bytes, so the set never asks the file system. A
+test of whether a path lies under a home or base (`syspath.CutUnder`)
+trusts a prefix spelled byte for byte, and one differing in ASCII case only
+when the file system says it is the same directory; where several homes
+could own a project, the one spelled as the project's path wins.
+
+Staging a copy cannot keep two such entries apart: the staging directory,
+like most Windows directories, is case-insensitive, so `fs/.../Alice/x` and
+`fs/.../alice/x` are one place there. On Windows the binary asks where each
+staged copy and link landed (`GetFinalPathNameByHandle`, or the disk's
+spelling of a link's path) and, when the place is spelled otherwise than
+the entry's archive path, stages nothing: a later file's row is
+`error_copy` with the error `its staged path is already another entry's
+whose name differs only in case; not staged`, no archive path and no
+hash; a later link keeps its `symlink` row with no archive path and that
+reason after `not recreated in the archive:`. The first entry keeps its
+copy. An empty directory the later
+entry needed may remain in the earlier entry's staged directory.
+
 A directory that a wildcard segment could not list is recorded by
 `Expand-Glob` in `$script:GlobReadErrors`; `Write-GlobErrorRows` writes an
 `error_read` row for each one that is neither the base nor at or under a

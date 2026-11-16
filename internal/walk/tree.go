@@ -123,7 +123,7 @@ func (collector *Collector) record(ctx context.Context, owner scope, found *tree
 func (collector *Collector) visit(ctx context.Context, owner scope, found *treeWalk,
 	path string, isDir bool,
 ) error {
-	if _, isClaim := owner.claims[syspath.Fold(path)]; isClaim && path != found.start {
+	if path != found.start && owner.claims.Has(path) {
 		return nil
 	}
 	if matchesAny(found.patterns, path) {

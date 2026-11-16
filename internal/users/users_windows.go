@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -65,9 +66,10 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil, guard)...)
 	candidates = guard.inside(candidates)
 	candidates, written := reachAll(candidates, reach)
-	candidates, written = dropReachedRoots(candidates, written, root)
+	same := follow.SameEntry(check)
+	candidates, written = dropReachedRoots(candidates, written, root, same)
 	report.Homes, report.Skipped, report.Found, report.Merged = filterProfiles(candidates,
-		written, usersFilter)
+		written, usersFilter, same)
 	report.OutOfRoot = guard.links
 	report.Unmatched = unmatchedUsers(userNames(usersFilter, strings.EqualFold), report.Found,
 		strings.EqualFold)
@@ -92,15 +94,18 @@ func globHomes(base string, live bool, guard *rootGuard) []Home {
 // directory attribute is a file, as System.IO.File.Exists reads it, so a
 // file symlink is a file whatever it leads to; one with it is a home, as
 // Directory.Exists reads it, so a junction or directory symlink whose target
-// is gone is collected, with its error_read row, rather than skipped.
+// is gone is collected, with its error_read row, rather than skipped. Two
+// paths are one home only when same says so (syspath.Entries): in a
+// case-sensitive Users directory, Alice and alice are two homes.
 func filterProfiles(candidates []Home, written []string, usersFilter string,
+	same syspath.SameEntry,
 ) ([]Home, []Skipped, []string, []Merge) {
 	names := userNames(usersFilter, strings.EqualFold)
 	var homes []Home
 	var skipped []Skipped
 	var found []string
 	var merged []Merge
-	seenHomes, seenSkipped := map[string]int{}, map[string]bool{}
+	seenHomes, seenSkipped := syspath.NewEntries[int](same), syspath.NewEntries[bool](same)
 	for i, candidate := range candidates {
 		if skipProfile(candidate.User) {
 			continue
@@ -113,22 +118,20 @@ func filterProfiles(candidates []Home, written []string, usersFilter string,
 		if usersFilter != "" && !wantedUser(names, candidate.User) {
 			continue
 		}
-		key := syspath.Fold(candidate.Path)
 		if err == nil {
-			first, seen := seenHomes[key]
+			first, _, seen := seenHomes.Find(candidate.Path)
 			switch {
 			case !seen:
 				homes = append(homes, candidate)
-				seenHomes[key] = i
+				seenHomes.Put(candidate.Path, i)
 			case !syspath.Equal(written[first], written[i]):
 				merged = append(merged, Merge{Path: candidate.Path,
 					Kept: candidates[first].User, Dropped: candidate.User})
 			}
 		} else {
-			if !seenSkipped[key] {
+			if seenSkipped.Add(candidate.Path, true) {
 				skipped = append(skipped, skippedHome(candidate.Path, err))
 			}
-			seenSkipped[key] = true
 		}
 	}
 	return homes, skipped, found, merged
@@ -137,13 +140,15 @@ func filterProfiles(candidates []Home, written []string, usersFilter string,
 // dropReachedRoots drops each candidate that reaching turned into the image
 // root itself, or on a live run (root "") into a drive root, which is never
 // a home; the skip list still applies to the others by their user name, the
-// leaf of the path as written.
-func dropReachedRoots(candidates []Home, written []string, root string) ([]Home, []string) {
+// leaf of the path as written. A path spelled otherwise than root is root
+// only when same says so.
+func dropReachedRoots(candidates []Home, written []string, root string, same syspath.SameEntry,
+) ([]Home, []string) {
 	var keptHomes []Home
 	var keptWritten []string
 	for i, candidate := range candidates {
 		path := candidate.Path
-		isRoot := (root != "" && syspath.Equal(path, root)) ||
+		isRoot := (root != "" && syspath.SameAs(path, root, same)) ||
 			(root == "" && len(path) == 2 && path[1] == ':')
 		if path != written[i] && isRoot {
 			continue

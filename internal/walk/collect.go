@@ -61,8 +61,8 @@ type catalogRun struct {
 	base   string
 	header string
 	stager stage.Stager
-	claims map[string]struct{}
-	seen   map[string]struct{}
+	claims *syspath.Entries[struct{}]
+	seen   *syspath.Entries[struct{}]
 }
 
 // CollectCatalog collects every match of table under base for user, logging
@@ -83,10 +83,10 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 ) error {
 	matches := ExpandCatalog(base, table, collector.RootCheck.Expansion(), collector.Stager.Opener)
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
-		claims: map[string]struct{}{}, seen: map[string]struct{}{}}
+		claims: collector.pathSet(), seen: collector.pathSet()}
 	for _, match := range matches {
 		if match.Note == "" && match.OutOfRoot.Link == "" {
-			run.claims[syspath.Fold(match.Path)] = struct{}{}
+			run.claims.Put(match.Path, struct{}{})
 		}
 	}
 	for _, match := range matches {

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/manifest"
-	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
 )
@@ -46,8 +45,8 @@ func TestCountNoun(t *testing.T) {
 
 func TestActiveUsers(t *testing.T) {
 	homes := []users.Home{{User: "a", Path: "/h/a"}, {User: "b", Path: "/H/B"}, {User: "c", Path: ""}}
-	withRows := map[string]struct{}{syspath.Fold("/H/B"): {}, "": {}}
-	got := ActiveUsers(homes, withRows)
+	withRows := map[string]bool{"/H/B": true, "": true}
+	got := ActiveUsers(homes, func(home string) bool { return withRows[home] })
 	if len(got) != 1 || got[0].User != "b" {
 		t.Errorf("ActiveUsers = %+v", got)
 	}

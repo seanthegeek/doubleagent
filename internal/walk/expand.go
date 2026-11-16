@@ -138,10 +138,12 @@ func respell(match Match, parent string) Match {
 }
 
 // fileID returns the device and inode of path itself, as file_id does, and
-// false when path cannot be stat'ed.
+// false when path cannot be stat'ed or has no identity (fsmeta.Lstat leaves
+// it 0 for a Windows file it cannot open), which proves nothing: two such
+// case variants stay apart.
 func fileID(path string) ([2]uint64, bool) {
 	meta, err := fsmeta.Lstat(path)
-	if err != nil {
+	if err != nil || meta.Ino == 0 {
 		return [2]uint64{}, false
 	}
 	return [2]uint64{meta.Dev, meta.Ino}, true
