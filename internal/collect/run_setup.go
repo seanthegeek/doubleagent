@@ -230,8 +230,9 @@ func (state *runState) openOutputs() error {
 
 // keepCaseApart marks dir, the new and empty staging fs directory, so it
 // holds two names differing only in case apart (Windows; a no-op elsewhere),
-// and reports whether it still takes them for one (stage.FoldsCase): a
-// default macOS volume, or a Windows file system without the setting.
+// and reports whether it still takes two names for one (stage.FoldsCase):
+// any macOS volume (Unicode forms), an exFAT or FAT drive, or a Windows file
+// system without the setting.
 func (state *runState) keepCaseApart(dir string) bool {
 	mark := state.host.markCaseSensitive
 	if mark == nil {

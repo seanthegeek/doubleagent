@@ -30,11 +30,11 @@ func newStager(t *testing.T) (Stager, string) {
 	if err := os.MkdirAll(parent+"/root/home", 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/root"},
-		parent + "/root"
+	return Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/root",
+		Places: NewPlaces()}, parent + "/root"
 }
 
-func TestCopyFile(t *testing.T) {
+func TestCopy(t *testing.T) {
 	stager, root := newStager(t)
 	source := root + "/home/a\"b\nc"
 	content := []byte("staged bytes")
@@ -70,7 +70,7 @@ func TestCopyFile(t *testing.T) {
 	}
 }
 
-func TestCopyFileRefuses(t *testing.T) {
+func TestCopyRefuses(t *testing.T) {
 	cases := []struct {
 		name  string
 		setup func(t *testing.T, stager Stager, source string)
@@ -107,6 +107,7 @@ func TestCopyFileRefuses(t *testing.T) {
 
 func TestSymlinkLeavesAnExistingDestination(t *testing.T) {
 	stager, root := newStager(t)
+	mustDo(t, os.Symlink("first", root+"/home/l"))
 	mustDo(t, stager.MakeParent(root+"/home/l"))
 	mustDo(t, symlink(stager, root+"/home/l", "first", false))
 	mustDo(t, symlink(stager, root+"/home/l", "second", false))
@@ -186,13 +187,13 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 	}
 }
 
-func TestCopyFileWithAnUnresolvedPhysicalPath(t *testing.T) {
+func TestCopyWithAnUnresolvedPhysicalPath(t *testing.T) {
 	stager, root := newStager(t)
 	mustDo(t, os.Symlink(stager.Dir, filepath.Dir(stager.Dir)+"/alias"))
 	stager.Physical = filepath.Dir(stager.Dir) + "/alias"
 	mustDo(t, os.WriteFile(root+"/home/f", []byte("x"), 0o644))
 	if _, _, err := copyFile(stager, root+"/home/f"); err != nil {
-		t.Errorf("CopyFile: %v", err)
+		t.Errorf("Copy: %v", err)
 	}
 }
 
@@ -206,11 +207,11 @@ func TestRemoveFailedCopy(t *testing.T) {
 		{"nothing left behind needs no removal", func(_ *testing.T, stager Stager, _ string) string {
 			return stager.Dir + "/fs/gone"
 		}, true, false},
-		{"a partial copy inside the staging directory is removed",
+		{"a file inside the staging directory is left: Copy removes its own",
 			func(t *testing.T, stager Stager, _ string) string {
 				mustDo(t, os.WriteFile(stager.Dir+"/fs/partial", []byte("x"), 0o600))
 				return stager.Dir + "/fs/partial"
-			}, true, false},
+			}, true, true},
 		{"a file reached through a recreated link out of the staging tree is left",
 			func(t *testing.T, stager Stager, outside string) string {
 				mustDo(t, os.WriteFile(outside+"/source", []byte("x"), 0o600))
@@ -280,14 +281,14 @@ func TestUnderComparesBytes(t *testing.T) {
 	}
 }
 
-func TestCopyFileRefusesAPathWithDotDot(t *testing.T) {
+func TestCopyRefusesAPathWithDotDot(t *testing.T) {
 	stager, root := newStager(t)
 	if err := os.WriteFile(root+"/home/f", []byte("source"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range []string{root + "/home/../home/f", root + "/home/./f"} {
 		if _, _, err := copyFile(stager, path); err == nil {
-			t.Errorf("CopyFile(%s) copied it", path)
+			t.Errorf("Copy(%s) copied it", path)
 		}
 		if err := stager.MakeParent(path); err == nil {
 			t.Errorf("MakeParent(%s) made its parent", path)

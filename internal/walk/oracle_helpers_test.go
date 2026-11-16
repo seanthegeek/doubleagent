@@ -118,7 +118,7 @@ func runGoCollector(t *testing.T, root string, settings runSettings) shRun {
 		Tables: tables, Excludes: tables.Excludes, Secret: MatchAny(tables.SecretGlobs),
 		Log: log, Manifest: manifest.NewWriter(&rows), Root: root, MaxSize: settings.maxSize,
 		NoSecrets: settings.noSecrets,
-		Stager:    stage.Stager{Dir: stageDir, Physical: physical, Root: root},
+		Stager:    stage.Stager{Dir: stageDir, Physical: physical, Root: root, Places: stage.NewPlaces()},
 	}
 	if settings.full {
 		collector.Excludes = nil

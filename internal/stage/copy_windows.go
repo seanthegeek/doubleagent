@@ -37,39 +37,6 @@ func onHandle(file *os.File, call func(windows.Handle) error) error {
 	return callError
 }
 
-// createCopy creates the staged copy of the source of identity at dest
-// (createDest), refusing it with caseCollision when the place Windows opened
-// already holds another entry's copy (mayFill): in a staging directory that
-// could not be marked case-sensitive, Alice/x and alice/x of a
-// case-sensitive image directory are one place. It also returns the staged
-// path as the staging tree names it (its place).
-func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, string, error) {
-	place := dest
-	file, err := createDest(dest, func(file *os.File, existed bool) bool {
-		var final string
-		err := onHandle(file, func(handle windows.Handle) error {
-			var err error
-			final, err = finalPath(handle)
-			return err
-		})
-		// A place that cannot be read is taken to be dest's own.
-		if occupant, other := stager.occupantAt(syspath.FromNative(final), dest); err == nil && other {
-			place = occupant
-		}
-		return stager.mayFill(identity, dest, place, existed)
-	})
-	if err != nil {
-		return nil, "", err
-	}
-	return file, place, nil
-}
-
-// checksPlaces reports true: Windows checks every staged place, since a
-// staging directory that could not be marked folds case.
-func (Stager) checksPlaces() bool {
-	return true
-}
-
 // handleIdentity returns the volume serial number and file index of the
 // open source, read from its handle, the identity fsmeta.Lstat gives.
 func handleIdentity(file *os.File, _ fs.FileInfo) [2]uint64 {
@@ -110,52 +77,29 @@ func MarkCaseSensitive(dir string) error {
 	return nil
 }
 
-// createDest opens the staged copy for writing, creating it, without
-// following a reparse point: one already at the path is refused, and the
-// open takes a reparse point swapped in after that check as itself, which
-// the regular-file test then refuses. placed then judges the open copy,
-// told whether something was at path before; a copy it refuses, another
-// entry's, is left as it was, with caseCollision. The copy is emptied only
-// after both tests, since truncating at open would empty whatever a link led
-// to or another entry's copy. The copy's access and write times are then held, so the times
-// preserve sets are the ones the copy keeps whatever the volume records.
-func createDest(path string, placed func(file *os.File, existed bool) bool) (*os.File, error) {
-	refused := &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
-	info, err := osfile.Lstat(path)
-	if err == nil && isReparsePoint(info) {
-		return nil, refused
-	}
-	existed := err == nil
-	file, err := osfile.OpenFile(path,
-		os.O_WRONLY|os.O_CREATE|syscall.FILE_FLAG_OPEN_REPARSE_POINT, 0o600)
+// createDest creates the staged copy at dest exclusively (CREATE_NEW), never
+// following a reparse point: when the volume takes the name for an existing
+// entry's, by any rule it has, the create fails and nothing is opened for
+// write. It returns the file with its own identity and the path Windows
+// gives for it. The copy's access and write times are then held, so the
+// times preserve sets are the ones the copy keeps whatever the volume
+// records.
+func createDest(dest string) (createdFile, error) {
+	file, err := osfile.OpenFile(dest,
+		os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.FILE_FLAG_OPEN_REPARSE_POINT, 0o600)
 	if err != nil {
-		return nil, err
+		return createdFile{}, err
 	}
-	info, err = file.Stat()
-	if err == nil && (!info.Mode().IsRegular() || isReparsePoint(info)) {
-		err = refused
-	}
-	if err == nil && !placed(file, existed) {
-		_ = file.Close()
-		return nil, caseCollision{}
-	}
-	if err == nil {
-		err = file.Truncate(0)
-	}
-	if err != nil {
-		_ = file.Close()
-		return nil, err
-	}
-	// Best effort: preserve still sets the times where the hold is refused.
-	_ = onHandle(file, func(handle windows.Handle) error { return fsmeta.HoldTimes(handle, true) })
-	return file, nil
-}
-
-// isReparsePoint reports whether info describes a reparse point of any
-// kind: a symlink, a junction, a socket or a placeholder.
-func isReparsePoint(info fs.FileInfo) bool {
-	attributes, ok := info.Sys().(*syscall.Win32FileAttributeData)
-	return ok && attributes.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT != 0
+	created := createdFile{file: file, staged: handleIdentity(file, nil)}
+	_ = onHandle(file, func(handle windows.Handle) error {
+		final, err := finalPath(handle)
+		if err == nil {
+			created.place = syspath.FromNative(final)
+		}
+		// Best effort: preserve still sets the times where the hold is refused.
+		return fsmeta.HoldTimes(handle, true)
+	})
+	return created, nil
 }
 
 // preserve gives the copy the source's creation, access and write times, as

@@ -12,47 +12,19 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// createDest creates or truncates the staged copy without following a final
-// symlink, so a link recreated in the staging tree is never written through.
-func createDest(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
-}
-
-// createCopy creates the staged copy of the source of identity at dest
-// (createDest), and the staged path as the staging tree names it (its
-// place). Where the staging directory folds case (FoldsCase) the copy is
-// opened without truncating, checked against where it landed (occupantOf,
-// mayFill), and refused with caseCollision when another entry's copy is
-// there, which is left as it was; only then emptied.
-func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, string, error) {
-	if !stager.FoldsCase {
-		file, err := createDest(dest)
-		return file, dest, err
-	}
-	_, statErr := os.Lstat(dest)
-	file, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
+// createDest creates the staged copy at dest exclusively, never following
+// a final symlink: when the volume takes the name for an existing entry's,
+// by any rule it has, the create fails and nothing is opened for write.
+func createDest(dest string) (createdFile, error) {
+	file, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {
-		return nil, "", err
+		return createdFile{}, err
 	}
-	place := dest
-	if occupant, other := stager.occupantOf(file, dest); other {
-		place = occupant
+	created := createdFile{file: file, place: reportedPath(file)}
+	if info, err := file.Stat(); err == nil {
+		created.staged = fsmeta.StatIdentity(info)
 	}
-	if !stager.mayFill(identity, dest, place, statErr == nil) {
-		_ = file.Close()
-		return nil, "", caseCollision{}
-	}
-	if err := file.Truncate(0); err != nil {
-		_ = file.Close()
-		return nil, "", err
-	}
-	return file, place, nil
-}
-
-// checksPlaces reports whether staged places are checked: only where the
-// staging directory folds case, so a case-sensitive one costs nothing.
-func (stager Stager) checksPlaces() bool {
-	return stager.FoldsCase
+	return created, nil
 }
 
 // handleIdentity returns the device and inode of the open source, from the
@@ -63,8 +35,8 @@ func handleIdentity(_ *os.File, info fs.FileInfo) [2]uint64 {
 }
 
 // MarkCaseSensitive does nothing: these systems have no per-directory case
-// setting, and whether the staging directory folds case is asked with
-// FoldsCase.
+// setting, and whether the staging directory takes two names for one is
+// asked with FoldsCase.
 func MarkCaseSensitive(string) error {
 	return nil
 }

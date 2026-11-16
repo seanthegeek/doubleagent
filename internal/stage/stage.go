@@ -23,7 +23,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -46,11 +45,11 @@ type Stager struct {
 	From     string
 	Into     string
 	Opener   *fsmeta.Opener
-	// FoldsCase is set where the staging directory takes names differing
-	// only in case for one (FoldsCase): every Unix copy and link is then
-	// checked against where it landed; Windows always checks.
+	// FoldsCase is set where the staging directory takes two names for one
+	// (FoldsCase): a member's spelling is then read from a walk of the tree
+	// where the system gives no path for it. Safety does not depend on it.
 	FoldsCase bool
-	// Places is the run's one record of staged places (Places).
+	// Places is the run's one record of what it staged (Places).
 	Places *Places
 	// afterOpen, set by tests, is called with a source's path right after
 	// Copy opens it.
@@ -232,17 +231,17 @@ type Copied struct {
 // unless the staged path's directory resolves inside the staging directory
 // and neither end is opened through a final link; the copy gets the source's
 // times, and on Unix its mode and, as root, its owner, as cp -p gives them.
-// A copy that fails once its staged file was made or emptied is removed. The
-// error is the innermost *fs.PathError the copy met.
+// The staged file is created exclusively, so no file already in the staging
+// tree is ever opened for write (again). A copy that fails removes the file
+// it created. The error is the innermost *fs.PathError the copy met.
 func (stager Stager) Copy(path string) (Copied, error) {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
 		return Copied{}, err
 	}
-	collision := &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
 	if err := stager.makeDir(parentOf(dest)); err != nil {
 		if stager.takenByAnother(parentOf(dest)) {
-			return Copied{}, collision
+			return Copied{}, collisionError(path)
 		}
 		return Copied{}, err
 	}
@@ -262,38 +261,51 @@ func (stager Stager) Copy(path string) (Copied, error) {
 		return Copied{}, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	}
 	identity := handleIdentity(source, info)
-	// The same source staged again at its place: the member already holds
-	// its bytes, and opening it for write could only empty it.
-	if copied, found := stager.Places.finished(identity, dest, stager.FoldsCase); found {
-		return copied, nil
-	}
-	target, place, err := stager.createCopy(identity, dest)
-	if errors.As(err, &caseCollision{}) || (err != nil && stager.takenByAnother(dest)) {
-		return Copied{}, collision
-	}
+	target, err := createDest(dest)
 	if err != nil {
+		if stager.exists(dest) {
+			return stager.again(path, dest, identity)
+		}
 		return Copied{}, syspath.NativeErrors(err)
 	}
-	hash := sha256.New()
-	written, err := io.Copy(io.MultiWriter(stager.writer(target), hash), source)
-	if err == nil {
-		err = preserve(target, dest, info)
+	copied, err := stager.fill(target, source, dest, info)
+	if err != nil {
+		// The file was created exclusively above, so it is this copy's own.
+		_ = osfile.Remove(dest)
+		return Copied{}, err
 	}
-	if closeError := target.Close(); err == nil {
+	stager.Places.record(target.staged, identity, copied)
+	return copied, nil
+}
+
+// fill writes the source to the staged file just created, gives it the
+// source's times and returns what was staged.
+func (stager Stager) fill(target createdFile, source io.Reader, dest string, info fs.FileInfo,
+) (Copied, error) {
+	hash := sha256.New()
+	written, err := io.Copy(io.MultiWriter(stager.writer(target.file), hash), source)
+	if err == nil {
+		err = preserve(target.file, dest, info)
+	}
+	if closeError := target.file.Close(); err == nil {
 		err = closeError
 	}
 	if err != nil {
-		stager.discard(place)
 		// The staged copy was opened through osfile, so its write and close
 		// errors name the \\?\ form.
 		return Copied{}, syspath.NativeErrors(err)
 	}
-	copied := Copied{SHA256: hex.EncodeToString(hash.Sum(nil)), Size: written,
-		ArchivePath: strings.TrimPrefix(place, stager.Dir+"/")}
-	if stager.Places != nil {
-		stager.Places.record(place, identity, copied)
-	}
-	return copied, nil
+	return Copied{SHA256: hex.EncodeToString(hash.Sum(nil)), Size: written,
+		ArchivePath: stager.member(target.place, dest)}, nil
+}
+
+// createdFile is a staged file Copy created: the open file, its own
+// identity (Places), and its path as the system reports it ("" where it
+// does not).
+type createdFile struct {
+	file   *os.File
+	staged [2]uint64
+	place  string
 }
 
 // writer returns where Copy writes the staged copy: target, or what a test
@@ -305,13 +317,56 @@ func (stager Stager) writer(target io.Writer) io.Writer {
 	return target
 }
 
-// discard removes the partial copy this Copy made or emptied at place, the
-// staged file as the staging tree names it, and forgets the place.
-func (stager Stager) discard(place string) {
-	_ = osfile.Remove(place)
-	if stager.Places != nil {
-		stager.Places.forget(place)
+// exists reports whether something is at dest, a staged path whose create
+// failed, its last component not followed.
+func (stager Stager) exists(dest string) bool {
+	_, err := stager.files().lstat(dest)
+	return err == nil
+}
+
+// again decides a copy or link of path whose staged path dest the system
+// says is taken: its result when the entry there is one this run staged
+// from the same source (identity, non-zero), else the collision error,
+// touching nothing. A directory, an entry this run did not stage and an
+// identity that is zero or cannot be read are all collisions.
+func (stager Stager) again(path, dest string, identity [2]uint64) (Copied, error) {
+	meta, err := stager.files().lstat(dest)
+	// An inode or file index of 0 identifies nothing.
+	if err == nil && meta.Ino != 0 && identity[1] != 0 {
+		if recorded, found := stager.Places.lookup([2]uint64{meta.Dev, meta.Ino}); found &&
+			recorded.source == identity {
+			return recorded.copied, nil
+		}
 	}
+	return Copied{}, collisionError(path)
+}
+
+// member returns the archive member of the staged file at dest, spelled as
+// the staging tree names it: from place, the path the system reports for
+// the file (Windows, macOS), when it lies in the staging directory, else
+// from a walk of dest where the staging directory folds names (spelling).
+func (stager Stager) member(place, dest string) string {
+	if place != "" {
+		if rest, inside := stager.inside(place); inside {
+			return rest
+		}
+	}
+	return strings.TrimPrefix(stager.spelling(dest).path, stager.Dir+"/")
+}
+
+// inside returns place, a path the system reported, less the physical
+// staging directory, and whether it lies there.
+func (stager Stager) inside(place string) (string, bool) {
+	roots := []string{stager.Physical, stager.Dir}
+	if physical, err := PhysicalDir(stager.Dir); err == nil {
+		roots = append(roots, physical)
+	}
+	for _, root := range roots {
+		if rest, inside := Under(place, root); root != "" && inside && rest != "" {
+			return rest, true
+		}
+	}
+	return "", false
 }
 
 // notRegular is the reason a path that stopped being a regular file between
@@ -322,121 +377,86 @@ type notRegular struct{}
 // Error returns the reason, in the text of the error it replaces.
 func (notRegular) Error() string { return "not a regular file" }
 
-// caseCollision is the reason a file or link is not staged: its staged path
-// is already another entry's file, link or directory, whose name differs
-// from its own only in letter case. A case-sensitive source directory can
-// hold Alice and alice; a staging directory that folds case cannot, and
-// staging one over the other would leave a row pointing at the other
-// entry's bytes. Whichever was staged first keeps the place, a directory
-// made for a later path included.
+// caseCollision is the reason a file or link is not staged: the output
+// directory takes its name for another file's, link's or directory's that
+// differs only in letter case or in Unicode form (one accented letter
+// stored as one character or as a letter and a combining mark). Staging one
+// over the other would leave a row pointing at the other entry's bytes.
 type caseCollision struct{}
 
+// collisionError is caseCollision for path.
+func collisionError(path string) error {
+	return &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
+}
+
 // IsCaseCollision reports whether err says a file or link was not staged
-// because its staged place holds another entry's copy (caseCollision), the
-// one link failure every platform records in the link's row.
+// because the output directory takes its name for another entry's
+// (caseCollision), the one link failure every platform records in its row.
 func IsCaseCollision(err error) bool {
 	return errors.As(err, &caseCollision{})
 }
 
 // Error returns the reason.
 func (caseCollision) Error() string {
-	return "its staged path is already another entry's whose name differs only in case; " +
-		"not staged"
+	return "the output directory takes its name for another file's, link's or directory's " +
+		"(letter case or Unicode form); not staged"
 }
 
 // Link recreates the symlink path, with its stored target, at its staged
 // path, and returns the archive member that holds it, spelled as the
-// staging tree names it. A staged path that already exists is left as it
-// is: a link made onto a link to a directory would land inside it, on the
-// source. Where staged places are checked (checksPlaces), one that holds
-// another entry's copy or link is refused with caseCollision. No link is
-// created in a directory that does not resolve inside the staging
-// directory. directory makes a Windows directory link, as a junction or
-// directory symlink is recreated; Unix ignores it.
+// staging tree names it. When the system says the staged path is taken,
+// the entry there is the same source link staged before, which is kept, or
+// a collision (again). No link is created in a directory that does not
+// resolve inside the staging directory. directory makes a Windows directory
+// link, as a junction or directory symlink is recreated; Unix ignores it.
 func (stager Stager) Link(path, target string, directory bool) (string, error) {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
 		return "", err
 	}
-	collision := &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
 	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
 		if stager.takenByAnother(parentOf(dest)) {
-			return "", collision
+			return "", collisionError(path)
 		}
 		return "", err
 	}
-	_, statErr := osfile.Lstat(dest)
-	if statErr != nil {
-		if err := createLink(target, dest, directory); err != nil {
-			return "", err
+	identity := linkIdentity(path)
+	if err := createLink(target, dest, directory); err != nil {
+		if stager.exists(dest) {
+			copied, err := stager.again(path, dest, identity)
+			return copied.ArchivePath, err
 		}
+		return "", err
 	}
-	place := dest
-	if stager.checksPlaces() {
-		place = stager.placeOf(dest)
-		if !stager.mayFill(linkIdentity(path), dest, place, statErr == nil) {
-			return "", collision
-		}
+	copied := Copied{ArchivePath: stager.member("", dest)}
+	if meta, err := stager.files().lstat(dest); err == nil {
+		stager.Places.record([2]uint64{meta.Dev, meta.Ino}, identity, copied)
 	}
-	return strings.TrimPrefix(place, stager.Dir+"/"), nil
+	return copied.ArchivePath, nil
 }
 
-// takenByAnother reports whether path, a staged path the stager could not
-// make or open, is, where staged places are checked, another entry's place
-// (stagedSpelling.collides): a component is spelled otherwise on disk and
-// leads to another entry's link, file or directory, which a failed open or
-// mkdir would word as a link loop or a file in the way.
+// takenByAnother reports whether path, a staged directory the stager could
+// not make or check, is another entry's place (stagedSpelling.collides): a
+// component the volume takes for another spelling leads to another entry's
+// link, file or directory, which a failed mkdir would word as a file in the
+// way or a link out of the staging tree.
 func (stager Stager) takenByAnother(path string) bool {
-	if !stager.checksPlaces() {
-		return false
-	}
 	return stager.spelling(path).collides()
 }
 
-// placeOf returns the place dest, a staged path that exists, resolves to,
-// as the staging directory spells it (Stager.spelling), or dest itself.
-func (stager Stager) placeOf(dest string) string {
-	if spelling := stager.spelling(dest); spelling.stop == stagedEnd && spelling.respelled {
-		return spelling.path
-	}
-	return dest
-}
-
-// RemoveFailedCopy removes what a failed copy left at dest and reports true,
-// or reports true when it left nothing. It reports false, removing nothing,
-// when dest's directory does not resolve inside the physical staging
-// directory: the staged path then leads through a recreated link out of the
-// staging tree, and a file there may be a source. It leaves a file whose
-// own name the staging tree spells otherwise, or whose place the run
-// records as staged (Places): another entry's. Copy removes its own partial
-// copy, so what is left here was made by no successful copy of this run.
+// RemoveFailedCopy reports, after a copy to dest failed, whether what is at
+// dest lies inside the staging directory, as copy_run's test does: true when
+// nothing is there or its directory resolves inside the physical staging
+// directory, false when the staged path leads through a recreated link out
+// of the staging tree, where a file may be a source. Copy removes the file
+// it created itself, so nothing is removed here; the walk logs the false
+// case.
 func (stager Stager) RemoveFailedCopy(dest string) bool {
-	info, err := stager.files().lstat(dest)
-	if err != nil {
+	if _, err := stager.files().lstat(dest); err != nil {
 		return true
 	}
 	physical, err := PhysicalDir(parentOf(dest))
-	if stager.Physical == "" || err != nil || !stager.holds(physical) {
-		return false
-	}
-	spelling := stager.spelling(dest)
-	place := dest
-	if spelling.stop == stagedEnd {
-		place = spelling.path
-	}
-	if spelling.stop == stagedEnd && spelling.stopRespelled {
-		return true
-	}
-	if stager.Places != nil {
-		if _, recorded := stager.Places.sources[place]; recorded {
-			return true
-		}
-	}
-	// rm -f removes no directory, and os.Remove would remove an empty one.
-	if info.Kind != fsmeta.Dir {
-		_ = osfile.Remove(dest)
-	}
-	return true
+	return stager.Physical != "" && err == nil && stager.holds(physical)
 }
 
 // parentOf returns path up to its last slash, as the shell's ${path%/*}
@@ -448,112 +468,76 @@ func parentOf(path string) string {
 	return path
 }
 
-// FoldsCase reports whether dir, a staging directory, takes two names that
-// differ only in letter case for one: it creates a probe file with a random
-// lower-case name, looks it up in upper case and removes it. The run asks
-// once; where it folds, every copy and link is checked against where it
-// landed before anything is written into it. A probe that cannot be made
-// counts as folding, the side that checks.
+// FoldsCase reports whether dir, a staging directory, takes two names for
+// one: two that differ in ASCII letter case, or the two Unicode forms of an
+// accented letter (a precomposed é, and e with a combining acute accent). It
+// makes a probe file of the first kind of each pair, looks it up as the
+// second and removes it. Safety does not depend on it: no staged file is
+// ever written over, whatever the volume merges (Copy). It decides only the
+// output-directory note and, on Linux and for links, whether a member's
+// spelling is read from the tree; a miss costs a row's archive path spelled
+// as named for a member the volume spelled otherwise, never bytes.
 func FoldsCase(dir string) bool {
 	random := make([]byte, 8)
 	_, _ = rand.Read(random)
-	name := ".case-probe-" + hex.EncodeToString(random)
-	probe, err := osfile.OpenFile(dir+"/"+name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return true
+	stem := ".case-probe-" + hex.EncodeToString(random)
+	for _, pair := range [][2]string{{stem, strings.ToUpper(stem)},
+		{stem + "-\u00e9", stem + "-e\u0301"}} {
+		probe, err := osfile.OpenFile(dir+"/"+pair[0], os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err != nil {
+			return true
+		}
+		_ = probe.Close()
+		_, err = osfile.Lstat(dir + "/" + pair[1])
+		_ = osfile.Remove(dir + "/" + pair[0])
+		if err == nil {
+			return true
+		}
 	}
-	_ = probe.Close()
-	_, err = osfile.Lstat(dir + "/" + strings.ToUpper(name))
-	_ = osfile.Remove(dir + "/" + name)
-	return err == nil
+	return false
 }
 
-// Places records, for one run, the source entry each staged copy and link
-// was made from, keyed by its staged path as the staging directory spells
-// it, so the stager can tell an entry staged again (one source file reached
-// through two spellings on a volume that folds case) from another entry
-// whose staged path the directory resolves to the same place. The Stager
-// values a run derives (Through) share one; a run stages from one
-// goroutine, so it takes no lock.
+// Places records, for one run, what the stager put in the staging tree:
+// for each staged file or link, by its own identity (device and inode, or
+// volume serial number and file index, as the file system gives them), the
+// identity of its source and what Copy or Link returned. When the system
+// refuses to create a staged path because the name is taken, the entry
+// there is looked up: the same source staged again keeps the first result;
+// anything else is a collision. The record trusts the file system's
+// identity (ReFS does not promise its 64-bit file index unique); a zero or
+// unreadable identity is refused. The Stager values a run derives share
+// one; a run stages from one goroutine, so it takes no lock.
 type Places struct {
-	sources    map[string]placed
-	byIdentity map[[2]uint64][]string
+	staged map[[2]uint64]placed
 }
 
-// placed is what one staged place holds: the identity of the source it was
-// filled from and, for a finished copy, what Copy returned for it.
+// placed is what one staged file or link was made from and what was
+// returned for it.
 type placed struct {
-	identity [2]uint64
-	copied   Copied
+	source [2]uint64
+	copied Copied
 }
 
 // NewPlaces returns an empty record of staged places.
 func NewPlaces() *Places {
-	return &Places{sources: map[string]placed{}, byIdentity: map[[2]uint64][]string{}}
+	return &Places{staged: map[[2]uint64]placed{}}
 }
 
-// record notes that place holds what was staged from identity, with copied
-// for a finished copy.
-func (places *Places) record(place string, identity [2]uint64, copied Copied) {
-	if _, found := places.sources[place]; !found {
-		places.byIdentity[identity] = append(places.byIdentity[identity], place)
-	}
-	places.sources[place] = placed{identity, copied}
-}
-
-// forget drops place from the record.
-func (places *Places) forget(place string) {
-	if recorded, found := places.sources[place]; found {
-		places.byIdentity[recorded.identity] = slices.DeleteFunc(
-			places.byIdentity[recorded.identity], func(other string) bool { return other == place })
-		delete(places.sources, place)
+// record notes that the staged entry of identity staged was made from
+// source with result copied; a nil record notes nothing.
+func (places *Places) record(staged, source [2]uint64, copied Copied) {
+	if places != nil {
+		places.staged[staged] = placed{source, copied}
 	}
 }
 
-// finished returns the finished copy of the source of identity whose staged
-// path is dest, or, where the staging directory folds case, one that
-// differs from dest only in case, as the one source file reached through
-// two spellings lands on one place. A match it misses only costs a second
-// copy; a match it finds names a member that holds that source's bytes.
-func (places *Places) finished(identity [2]uint64, dest string, foldsCase bool) (Copied, bool) {
-	if places == nil || identity == [2]uint64{} {
-		return Copied{}, false
+// lookup returns what the staged entry of identity staged was made from.
+func (places *Places) lookup(staged [2]uint64) (placed, bool) {
+	if places == nil {
+		return placed{}, false
 	}
-	for _, place := range places.byIdentity[identity] {
-		recorded := places.sources[place]
-		if recorded.copied.ArchivePath != "" &&
-			(place == dest || foldsCase && strings.EqualFold(place, dest)) {
-			return recorded.copied, true
-		}
-	}
-	return Copied{}, false
-}
-
-// fill reports whether the entry of identity may be staged at place, and
-// records it: yes when nothing was there before (existed false) or what is
-// there was staged from the same non-zero identity; no for another entry's,
-// or for anything not recorded.
-func (places *Places) fill(place string, existed bool, identity [2]uint64) bool {
-	recorded, found := places.sources[place]
-	if existed && (!found || recorded.identity != identity || identity == [2]uint64{}) {
-		return false
-	}
-	if !found {
-		places.record(place, identity, Copied{})
-	}
-	return true
-}
-
-// mayFill reports whether the entry of identity (device and inode, or
-// volume serial number and file index) may be staged at dest, which the
-// staging directory resolved to place (dest itself, or another entry's
-// spelling); existed says whether something was there before. Without
-// Places, only dest's own place may be written over.
-func (stager Stager) mayFill(identity [2]uint64, dest, place string, existed bool) bool {
-	if stager.Places == nil {
-		return !existed || place == dest
-	}
-	return stager.Places.fill(place, existed, identity)
+	recorded, found := places.staged[staged]
+	return recorded, found
 }
 
 // linkIdentity returns the identity of the link path itself from its lstat,

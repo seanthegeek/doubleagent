@@ -141,7 +141,7 @@ func fileTimes(t *testing.T, path string) [3]syscall.Filetime {
 	return [3]syscall.Filetime{data.CreationTime, data.LastAccessTime, data.LastWriteTime}
 }
 
-func TestCopyFileOnWindows(t *testing.T) {
+func TestCopyOnWindows(t *testing.T) {
 	cases := []struct {
 		name, directory string
 	}{
@@ -277,7 +277,7 @@ func fileUSN(t *testing.T, path string) (int64, error) {
 	}
 }
 
-func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
+func TestCopyLeavesTheSourceAsItWas(t *testing.T) {
 	cases := []struct {
 		name string
 		// prepare changes the source before the copy; holds says the
@@ -309,7 +309,7 @@ func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
 			}
 			_, written, err := copyFile(stager, source)
 			if err != nil || written != int64(len(content)) {
-				t.Fatalf("CopyFile = %d bytes, %v", written, err)
+				t.Fatalf("Copy = %d bytes, %v", written, err)
 			}
 			after := basicTimes(t, source)
 			if !test.holds {
@@ -333,7 +333,7 @@ func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
 	}
 }
 
-func TestCopyFileWithReadOnlySources(t *testing.T) {
+func TestCopyWithReadOnlySources(t *testing.T) {
 	cases := []struct {
 		name    string
 		prepare func(t *testing.T, source string)
@@ -354,7 +354,7 @@ func TestCopyFileWithReadOnlySources(t *testing.T) {
 			test.prepare(t, source)
 			_, written, err := copyFile(stager, source)
 			if err != nil || written != int64(len(content)) {
-				t.Fatalf("CopyFile = %d bytes, %v", written, err)
+				t.Fatalf("Copy = %d bytes, %v", written, err)
 			}
 			_, dest, _ := stager.Dest(source)
 			if got := fileTimes(t, dest); got != want {
@@ -413,7 +413,7 @@ func TestReadOnlySourcesLetTheReadMoveTheAccessTime(t *testing.T) {
 	}
 }
 
-func TestCopyFileBesideAHandleWithDeleteAccess(t *testing.T) {
+func TestCopyBesideAHandleWithDeleteAccess(t *testing.T) {
 	stager, root := newWindowsStager(t)
 	source := root + "/home/locked"
 	mustDo(t, os.WriteFile(source, []byte("held"), 0o600))
@@ -428,11 +428,11 @@ func TestCopyFileBesideAHandleWithDeleteAccess(t *testing.T) {
 		t.Fatal("os.Open shared the file with a delete-access handle; the case tests nothing")
 	}
 	if _, written, err := copyFile(stager, source); err != nil || written != 4 {
-		t.Errorf("CopyFile = %d bytes, %v; want 4 bytes copied", written, err)
+		t.Errorf("Copy = %d bytes, %v; want 4 bytes copied", written, err)
 	}
 }
 
-func TestCopyFileRefusesAReparsePointDestOnWindows(t *testing.T) {
+func TestCopyRefusesAReparsePointDestOnWindows(t *testing.T) {
 	cases := []struct {
 		name string
 		link func(t *testing.T, target, dest string) error
@@ -458,7 +458,7 @@ func TestCopyFileRefusesAReparsePointDestOnWindows(t *testing.T) {
 			skipWithoutSymlinkPrivilege(t, err)
 			mustDo(t, err)
 			if _, _, err := copyFile(stager, source); !errors.Is(err, notRegular{}) {
-				t.Errorf("CopyFile error %v, want not a regular file", err)
+				t.Errorf("Copy error %v, want not a regular file", err)
 			}
 			if data, err := os.ReadFile(outside + "/keep"); string(data) != "evidence" {
 				t.Errorf("the file beyond the link changed: %q, %v", data, err)
@@ -641,13 +641,13 @@ func TestHoldsComparesPhysicalPathsByteForByte(t *testing.T) {
 	}
 }
 
-func TestCopyFileRefusesAPathWithDotDot(t *testing.T) {
+func TestCopyRefusesAPathWithDotDot(t *testing.T) {
 	stager, root := newWindowsStager(t)
 	mustDo(t, os.WriteFile(syspath.ToNative(root+"/home/f"), []byte("source"), 0o644))
 	for _, path := range []string{root + "/home/../home/f", root + "/home/./f",
 		root + "/../root/home/f"} {
 		if _, _, err := copyFile(stager, path); err == nil {
-			t.Errorf("CopyFile(%s) copied it", path)
+			t.Errorf("Copy(%s) copied it", path)
 		}
 		if err := stager.MakeParent(path); err == nil {
 			t.Errorf("MakeParent(%s) made its parent", path)

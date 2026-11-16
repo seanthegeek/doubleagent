@@ -123,7 +123,7 @@ func TestOneSourceReachedThroughTwoSpellingsIsStagedTwice(t *testing.T) {
 	for _, spelling := range []string{source, parent + "/root/Roaming/Devin/User/settings.json",
 		parent + "/root/Roaming/Devin/User/settings.json"} {
 		if _, _, err := copyFile(stager, spelling); err != nil {
-			t.Errorf("CopyFile(%s) = %v; want the one source file staged again", spelling, err)
+			t.Errorf("Copy(%s) = %v; want the one source file staged again", spelling, err)
 		}
 	}
 	if !fileHolds(parent+"/stage/fs/Roaming/devin/User/settings.json", "{}\n") {
@@ -178,26 +178,8 @@ func TestTheRecordNamesTheFileWhoseBytesWereCopied(t *testing.T) {
 		}
 	}
 	if _, _, err := copyFile(stager, parent+"/root/X"); err != nil {
-		t.Errorf("CopyFile of the same open file under another spelling = %v; want it staged "+
+		t.Errorf("Copy of the same open file under another spelling = %v; want it staged "+
 			"again, judged by the file it opened, not by what the path names later", err)
-	}
-}
-
-func TestANonFoldingStageChecksNoLinkPlace(t *testing.T) {
-	stager, root := newStager(t)
-	stager.Places = NewPlaces()
-	if err := os.Symlink("target", root+"/home/link"); err != nil {
-		t.Fatal(err)
-	}
-	if err := stager.MakeParent(root + "/home/link"); err != nil {
-		t.Fatal(err)
-	}
-	if err := symlink(stager, root+"/home/link", "target", false); err != nil {
-		t.Fatal(err)
-	}
-	if len(stager.Places.sources) != 0 {
-		t.Errorf("a stage that tells case apart recorded %d link places, each an extra lstat; "+
-			"want none", len(stager.Places.sources))
 	}
 }
 
@@ -304,7 +286,7 @@ func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 		file := parent + "/two/A/cursor/User/x"
 		makeSource(t, file, false)
 		if _, _, err := copyFile(second, file); !IsCaseCollision(err) {
-			t.Errorf("CopyFile of A/cursor/User/x = %v; want the case collision error", err)
+			t.Errorf("Copy of A/cursor/User/x = %v; want the case collision error", err)
 		}
 	})
 	t.Run("a file where another entry's directory sits in another case", func(t *testing.T) {
@@ -316,7 +298,7 @@ func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 		}
 		makeSource(t, parent+"/two/zed/two", false)
 		if _, _, err := copyFile(second, parent+"/two/zed/two"); !IsCaseCollision(err) {
-			t.Errorf("CopyFile of zed/two = %v; want the case collision error", err)
+			t.Errorf("Copy of zed/two = %v; want the case collision error", err)
 		}
 	})
 }
@@ -346,8 +328,9 @@ func TestAFailedCopyInADirectorySpelledInAnotherCaseIsRemoved(t *testing.T) {
 	if _, err := os.Lstat(parent + "/stage/fs/Zed/two"); err == nil {
 		t.Error("the partial copy of zed/two is left in Zed, an archive member with no row")
 	}
-	if _, recorded := second.Places.sources[parent+"/stage/fs/Zed/two"]; recorded {
-		t.Error("the place of the failed copy is still recorded")
+	if len(second.Places.staged) != 1 {
+		t.Errorf("the record holds %d staged files; want Zed/one's alone, the failed copy's "+
+			"record gone with its file", len(second.Places.staged))
 	}
 	if !fileHolds(parent+"/stage/fs/Zed/one", parent+"/one/Zed/one") {
 		t.Error("Zed/one's copy was touched")

@@ -98,7 +98,7 @@ func TestAFailureWithNoOtherSpellingKeepsItsOwnError(t *testing.T) {
 		makeSource(t, source, false)
 		_, _, err := copyFile(stager, source)
 		if IsCaseCollision(err) || !errors.Is(err, fs.ErrPermission) {
-			t.Errorf("CopyFile = %v; want permission denied, not a case collision", err)
+			t.Errorf("Copy = %v; want permission denied, not a case collision", err)
 		}
 	})
 	t.Run("a staged path too long for the system", func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestAFailureWithNoOtherSpellingKeepsItsOwnError(t *testing.T) {
 		makeSource(t, source, false)
 		_, _, err := copyFile(stager, source)
 		if err == nil || IsCaseCollision(err) {
-			t.Errorf("CopyFile = %v; want the system's error for a path too long", err)
+			t.Errorf("Copy = %v; want the system's error for a path too long", err)
 		}
 	})
 }
