@@ -28,7 +28,10 @@ func TestSameEntryNeedsTheFileSystemsWord(t *testing.T) {
 	}{
 		{"two spellings with one identity are one entry", "C:/u/Alice", "C:/u/ALICE", true},
 		{"two identities are two entries", "C:/u/Alice", "C:/u/alice", false},
-		{"a spelling that does not exist joins the other", "C:/u/Alice", "C:/u/aLiCe", true},
+		{"a spelling that does not exist stays apart from one that does",
+			"C:/u/Alice", "C:/u/aLiCe", false},
+		{"an existing spelling stays apart from a missing one, in either order",
+			"C:/u/aLiCe", "C:/u/alice", false},
 		{"two spellings that do not exist are one", "C:/gone/X", "C:/gone/x", true},
 		{"one that cannot be examined for another reason proves nothing",
 			"C:/u/Alice", "C:/u/aLICE", false},

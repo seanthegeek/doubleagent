@@ -87,7 +87,8 @@ func safeNames() map[string][]string {
 			"Fifo", "File", "Kind", "ListingOrder", "Meta", "NewOpener", "NewOwners", "Opener",
 			"Owners", "Reparse", "Socket", "Symlink", "TagMountPoint", "TagSymlink", "ZeroMeta"},
 		// The staging type and a text comparison of two paths.
-		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Under", "NewPlaces"},
+		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Under", "NewPlaces",
+			"IsCaseCollision"},
 	}
 }
 

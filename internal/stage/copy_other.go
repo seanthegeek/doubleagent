@@ -19,7 +19,7 @@ func createDest(path string) (*os.File, error) {
 }
 
 // createCopy creates the staged copy of path at dest (createDest).
-func (Stager) createCopy(_, dest string) (*os.File, error) {
+func (Stager) createCopy(_ [2]uint64, dest string) (*os.File, error) {
 	return createDest(dest)
 }
 
@@ -27,6 +27,17 @@ func (Stager) createCopy(_, dest string) (*os.File, error) {
 // checked for folded case.
 func (Stager) occupantOfPath(string) (string, bool) {
 	return "", false
+}
+
+// checksPlaces reports false: these systems' staging directory is not
+// checked for folded case.
+func (Stager) checksPlaces() bool {
+	return false
+}
+
+// handleIdentity returns zero: no place is checked here.
+func handleIdentity(*os.File, fs.FileInfo) [2]uint64 {
+	return [2]uint64{}
 }
 
 // MarkCaseSensitive does nothing: these systems have no per-directory case

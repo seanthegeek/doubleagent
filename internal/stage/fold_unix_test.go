@@ -150,3 +150,51 @@ func fileHolds(path, text string) bool {
 	content, err := os.ReadFile(path)
 	return err == nil && string(content) == text
 }
+
+func TestTheRecordNamesTheFileWhoseBytesWereCopied(t *testing.T) {
+	parent := foldingStage(t)
+	stager := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/root",
+		FoldsCase: true, Places: NewPlaces()}
+	source := parent + "/root/x"
+	if err := os.MkdirAll(parent+"/root", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(source, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := stager.CopyFile(source); err != nil {
+		t.Fatal(err)
+	}
+	// The second spelling opens the same file; then the path is swapped for
+	// another file before anything else looks at it.
+	stager.afterOpen = func(string) {
+		if err := os.Rename(source, parent+"/root/moved"); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(source, []byte("swapped in"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := stager.CopyFile(parent + "/root/X"); err != nil {
+		t.Errorf("CopyFile of the same open file under another spelling = %v; want it staged "+
+			"again, judged by the file it opened, not by what the path names later", err)
+	}
+}
+
+func TestANonFoldingStageChecksNoLinkPlace(t *testing.T) {
+	stager, root := newStager(t)
+	stager.Places = NewPlaces()
+	if err := os.Symlink("target", root+"/home/link"); err != nil {
+		t.Fatal(err)
+	}
+	if err := stager.MakeParent(root + "/home/link"); err != nil {
+		t.Fatal(err)
+	}
+	if err := stager.Symlink(root+"/home/link", "target", false); err != nil {
+		t.Fatal(err)
+	}
+	if len(stager.Places.sources) != 0 {
+		t.Errorf("a stage that tells case apart recorded %d link places, each an extra lstat; "+
+			"want none", len(stager.Places.sources))
+	}
+}

@@ -17,12 +17,13 @@ func createDest(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
 }
 
-// createCopy creates the staged copy of path at dest (createDest). Where
+// createCopy creates the staged copy of the source of identity at dest
+// (createDest). Where
 // the staging directory folds case (FoldsCase) the copy is opened without
 // truncating, checked against where it landed (occupantOf, mayFill), and
 // refused with caseCollision when another entry's copy is there, which is
 // left as it was; only then emptied.
-func (stager Stager) createCopy(path, dest string) (*os.File, error) {
+func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, error) {
 	if !stager.FoldsCase {
 		return createDest(dest)
 	}
@@ -35,7 +36,7 @@ func (stager Stager) createCopy(path, dest string) (*os.File, error) {
 	if occupant, other := stager.occupantOf(file, dest); other {
 		place = occupant
 	}
-	if !stager.mayFill(path, dest, place, statErr == nil) {
+	if !stager.mayFill(identity, dest, place, statErr == nil) {
 		_ = file.Close()
 		return nil, caseCollision{}
 	}
@@ -54,6 +55,21 @@ func (stager Stager) occupantOfPath(dest string) (string, bool) {
 		return "", false
 	}
 	return occupantBelow(stager.Dir, dest)
+}
+
+// checksPlaces reports whether staged places are checked: only where the
+// staging directory folds case, so a case-sensitive one costs nothing.
+func (stager Stager) checksPlaces() bool {
+	return stager.FoldsCase
+}
+
+// handleIdentity returns the device and inode of the open source, from the
+// stat CopyFile already took of its handle.
+func handleIdentity(_ *os.File, info fs.FileInfo) [2]uint64 {
+	if status, ok := info.Sys().(*syscall.Stat_t); ok {
+		return [2]uint64{uint64(status.Dev), uint64(status.Ino)}
+	}
+	return [2]uint64{}
 }
 
 // MarkCaseSensitive does nothing: these systems have no per-directory case

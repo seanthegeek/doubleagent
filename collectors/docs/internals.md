@@ -295,10 +295,10 @@ set keyed by the path with ASCII capitals lowered, whose keys hold the
 exact spellings. Two paths with equal bytes are one entry; two that differ
 only in ASCII case are one entry when both can be examined and their
 `lstat` gives one non-zero identity (volume serial number and file index),
-or when either does not exist, since a missing path holds no evidence
+or when neither exists, since two missing paths hold no evidence
 (`fsmeta.SameEntry`, behind the root check in `follow.SameEntry`). They are
-two entries otherwise: two identities, an identity of 0, or an error other
-than not found, such as access denied. So in a Windows directory
+two entries otherwise: one missing and one present, two identities, an
+identity of 0, or an error other than not found, such as access denied. So in a Windows directory
 marked case-sensitive (`fsutil file setCaseSensitiveInfo`, or one WSL
 made) `Alice` and `alice` are two homes, two claims and two rows, while in
 an ordinary directory two spellings of one name are still one. On Linux

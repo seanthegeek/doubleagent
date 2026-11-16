@@ -140,7 +140,7 @@ and a catalog line or a typed path matches only its exact spelling. The
 `doubleagent` binary keeps such entries apart everywhere it compares paths:
 two homes, two claims, two projects, two rows. It treats two spellings as
 one entry when the file system gives both the same file identity, as in
-an ordinary directory, or when one of them does not exist. Both are staged
+an ordinary directory, or when neither exists. Both are staged
 and archived: the binary marks its staging directory case-sensitive. Where
 the output directory cannot hold such a pair (a Windows file system without
 the setting, or a case-insensitive volume such as the default macOS one,

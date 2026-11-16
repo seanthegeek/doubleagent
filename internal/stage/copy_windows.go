@@ -37,12 +37,13 @@ func onHandle(file *os.File, call func(windows.Handle) error) error {
 	return callError
 }
 
-// createCopy creates the staged copy of path at dest (createDest), refusing
+// createCopy creates the staged copy of the source of identity at dest
+// (createDest), refusing
 // it with caseCollision when the place Windows opened already holds another
 // entry's copy (mayFill): in a staging directory that could not be marked
 // case-sensitive, Alice/x and alice/x of a case-sensitive image directory
 // are one place.
-func (stager Stager) createCopy(path, dest string) (*os.File, error) {
+func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, error) {
 	return createDest(dest, func(file *os.File, existed bool) bool {
 		var final string
 		err := onHandle(file, func(handle windows.Handle) error {
@@ -55,8 +56,28 @@ func (stager Stager) createCopy(path, dest string) (*os.File, error) {
 		if occupant, other := stager.occupantAt(syspath.FromNative(final), dest); err == nil && other {
 			place = occupant
 		}
-		return stager.mayFill(path, dest, place, existed)
+		return stager.mayFill(identity, dest, place, existed)
 	})
+}
+
+// checksPlaces reports true: Windows checks every staged place, since a
+// staging directory that could not be marked folds case.
+func (Stager) checksPlaces() bool {
+	return true
+}
+
+// handleIdentity returns the volume serial number and file index of the
+// open source, read from its handle, the identity fsmeta.Lstat gives.
+func handleIdentity(file *os.File, _ fs.FileInfo) [2]uint64 {
+	var data windows.ByHandleFileInformation
+	err := onHandle(file, func(handle windows.Handle) error {
+		return windows.GetFileInformationByHandle(handle, &data)
+	})
+	if err != nil {
+		return [2]uint64{}
+	}
+	return [2]uint64{uint64(data.VolumeSerialNumber),
+		uint64(data.FileIndexHigh)<<32 | uint64(data.FileIndexLow)}
 }
 
 // MarkCaseSensitive marks dir, a directory the run just made and nothing is
@@ -99,9 +120,9 @@ func (stager Stager) occupantOfPath(dest string) (string, bool) {
 // open takes a reparse point swapped in after that check as itself, which
 // the regular-file test then refuses. placed then judges the open copy,
 // told whether something was at path before; a copy it refuses, another
-// entry's, is left as it was, with caseCollision. The copy is emptied only after both tests, since
-// truncating at open would empty whatever a link led to or another entry's
-// copy. The copy's access and write times are then held, so the times
+// entry's, is left as it was, with caseCollision. The copy is emptied only
+// after both tests, since truncating at open would empty whatever a link led
+// to or another entry's copy. The copy's access and write times are then held, so the times
 // preserve sets are the ones the copy keeps whatever the volume records.
 func createDest(path string, placed func(file *os.File, existed bool) bool) (*os.File, error) {
 	refused := &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}

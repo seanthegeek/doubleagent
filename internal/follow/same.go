@@ -7,8 +7,8 @@ import (
 
 // SameEntry returns the run's answer to whether two spellings of a path
 // whose syspath.Fold keys are equal name one file system entry: both pass
-// the root check and fsmeta.SameEntry says so (one non-zero identity, or one
-// of them does not exist). A path the check refuses is not looked at, and
+// the root check and fsmeta.SameEntry says so (one non-zero identity, or
+// neither exists). A path the check refuses is not looked at, and
 // the two stay apart.
 func SameEntry(check Check) syspath.SameEntry {
 	return func(first, second string) bool {

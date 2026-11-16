@@ -9,6 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -100,13 +101,15 @@ func (collector *Collector) planFile(owner scope, path string,
 // its staged path. Where recordsLinkErrors holds, a link that cannot be read
 // or recreated keeps the reason, as Add-StagedLink returns it; the sh
 // collector ignores both failures and still tries ln -s with an empty target.
+// A link refused because another entry's link holds its staged place is
+// recorded on every platform, so its row names no archive path.
 func planLink(owner scope, file *plannedFile) {
 	target, err := osfile.Readlink(file.path)
 	file.target = target
 	if err == nil || !recordsLinkErrors {
 		err = owner.stager.Symlink(file.path, target, file.meta.DirectoryLink())
 	}
-	if err != nil && recordsLinkErrors {
+	if err != nil && (recordsLinkErrors || stage.IsCaseCollision(err)) {
 		file.linkError = innermostError(syspath.NativeErrors(err))
 	}
 }

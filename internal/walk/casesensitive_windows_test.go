@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -61,7 +62,7 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 	home := physicalTemp(t)
 	caseSensitiveDir(t, home)
 	writeFiles(t, home, "cs/Notes.txt", "cs/notes.txt", "cs/Dir/f.txt", "cs/dir/f.txt",
-		"target/t.txt")
+		"cs/Zed/one", "cs/zed/two", "target/t.txt")
 	makeJunction(t, home+"/target", home+"/cs/J")
 	makeJunction(t, home+"/target", home+"/cs/j")
 	collector, recorder := windowsCollector(t, "", nil)
@@ -74,6 +75,7 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 	seen := map[string]bool{}
 	members := map[string]bool{}
 	refused := 0
+	var respelled []string // rows whose member the staging tree spells otherwise
 	for _, row := range recorder.rows(t) {
 		path := row["path"].(string)
 		seen[path] = true
@@ -87,11 +89,11 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 			continue
 		}
 		// The archive takes its member names from the staging tree's own
-		// spelling, which must be the row's.
+		// spelling; only a copy staged in an empty spot of a directory spelled
+		// in another case may differ, and only in case.
 		member := collector.Stager.Dir + "/" + row["archive_path"].(string)
 		if spelled := fsmeta.OnDiskPath(collector.Stager.Dir, member); spelled != member {
-			t.Errorf("row of %s points at %s, which the staging tree spells %s", path, member,
-				spelled)
+			respelled = append(respelled, path)
 		}
 		if row["status"] != "collected" {
 			continue
@@ -103,15 +105,25 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 				path, row["archive_path"], staged, err)
 		}
 	}
-	wantRefused, wantMembers := 3, 3
+	wantRefused, wantMembers := 3, 5
 	if marked {
-		wantRefused, wantMembers = 0, 6
+		wantRefused, wantMembers = 0, 8
+	}
+	// Unmarked, the later of Zed/one and zed/two (in listing order) lands in
+	// the staged directory of the earlier, where nothing else sits: staged
+	// there with its own bytes, its archive path spelled its own way.
+	zed := []string{syspath.ToNative(home + "/cs/Zed/one"), syspath.ToNative(home + "/cs/zed/two")}
+	if marked && len(respelled) != 0 ||
+		!marked && (len(respelled) != 1 || !slices.Contains(zed, respelled[0])) {
+		t.Errorf("rows whose member the staging tree spells otherwise: %q; want none marked, "+
+			"one of %q unmarked", respelled, zed)
 	}
 	if refused != wantRefused || len(members) != wantMembers {
 		t.Errorf("%d rows refused for a taken staged path and %d archive paths, want %d and %d:"+
 			" %q", refused, len(members), wantRefused, wantMembers, recorder.written)
 	}
-	for _, file := range []string{"Notes.txt", "notes.txt", "Dir/f.txt", "dir/f.txt", "J", "j"} {
+	for _, file := range []string{"Notes.txt", "notes.txt", "Dir/f.txt", "dir/f.txt", "J", "j",
+		"Zed/one", "zed/two"} {
 		if path := syspath.ToNative(home + "/cs/" + file); !seen[path] {
 			t.Errorf("no row of %s in %q", path, recorder.written)
 		}
