@@ -3,7 +3,9 @@ package collect
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"net"
 	"os"
@@ -11,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf16"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 
@@ -257,5 +260,74 @@ func TestARunWithALowerCaseDriveRootCollects(t *testing.T) {
 		if !found {
 			t.Errorf("no row of %s:\n%s", path, strings.Join(texts, "\n"))
 		}
+	}
+}
+
+func TestTwoHomesDifferingOnlyInCaseAreBothStaged(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	markCaseSensitive(t, root+"/Users")
+	texts := map[string]string{"Alice": `{"who": "Alice"}` + "\n", "alice": `{"who": "alice"}` + "\n"}
+	for user, text := range texts {
+		if err := os.MkdirAll(syspath.ToNative(root+"/Users/"+user), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		path := syspath.ToNative(root + "/Users/" + user + "/.claude.json")
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outDir := syspath.FromNative(t.TempDir())
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	members := archiveMembers(t, outDir)
+	rows, lines := manifestRows(t, outDir)
+	for user, text := range texts {
+		path := syspath.ToNative(root + "/Users/" + user + "/.claude.json")
+		sum := sha256.Sum256([]byte(text))
+		found := false
+		for i, row := range rows {
+			if row["path"] != path {
+				continue
+			}
+			found = true
+			archived, _ := row["archive_path"].(string)
+			if row["status"] != "collected" || row["sha256"] != hex.EncodeToString(sum[:]) ||
+				members["./"+archived] != row["sha256"] {
+				t.Errorf("%s's row %s; archive member %s holds %s", user, lines[i], archived,
+					members["./"+archived])
+			}
+		}
+		if !found {
+			t.Errorf("no row of %s:\n%s", path, strings.Join(lines, "\n"))
+		}
+	}
+}
+
+// markCaseSensitive makes the directory path, canonical, and marks it
+// case-sensitive, as WSL marks the directories it makes; the test is skipped
+// where Windows refuses.
+func markCaseSensitive(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(syspath.ToNative(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES, windows.FILE_SHARE_READ|
+		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+	flags := uint32(windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR)
+	if err := windows.SetFileInformationByHandle(handle, windows.FileCaseSensitiveInfo,
+		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags))); err != nil {
+		t.Skipf("cannot mark %s case-sensitive: %v", path, err)
 	}
 }
