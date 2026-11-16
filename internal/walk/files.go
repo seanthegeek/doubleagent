@@ -163,14 +163,15 @@ func (collector *Collector) transferFiles(owner scope, files []plannedFile) erro
 	return nil
 }
 
-// logCopyFailure logs the copy failed: line of file. A failed copy's partial
-// file is removed when it lies inside the staging directory, and the line
-// says when it was not; a copy refused as a case collision (collided) made
+// logCopyFailure logs the copy failed: line of file. Copy removes the file a
+// failed copy made; the line says when what is at the staged path lies
+// outside the staging directory, where nothing would be removed (as
+// copy_run's note does). A copy refused as a case collision (collided) made
 // nothing, so nothing is looked at.
 func (collector *Collector) logCopyFailure(owner scope, file *plannedFile, collided bool) error {
 	note := ""
 	if _, dest, err := owner.stager.Dest(file.path); err == nil && !collided &&
-		!owner.stager.RemoveFailedCopy(dest) {
+		!owner.stager.FailedCopyInside(dest) {
 		note = "; staged path resolves outside the staging directory, not removed"
 	}
 	return collector.Log.Line("copy failed: " + syspath.ToNative(file.path) + ": " +

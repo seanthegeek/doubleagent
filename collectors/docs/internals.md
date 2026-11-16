@@ -346,12 +346,16 @@ respelled), is a collision: a file's row is `error_copy` with the error
 `the output directory takes its name for another file's, link's or
 directory's (letter case or Unicode form); not staged`, no archive path
 and no hash; a link keeps its `symlink` row with no archive path and that
-reason after `not recreated in the archive:`. Anything else this run did
-not stage at that exact name, or whose identity is 0 or cannot be read, is
-refused with a plain reason: `not a regular file` for a link or other
-reparse point, else `already exists in the staging directory and is not a
-copy this run made` (such as a file an earlier run of the same name, in the
-same second, left). Nothing is touched either way. The record trusts the
+reason after `not recreated in the archive:`. The same source path staged
+again after its file was replaced (saved through a rename, or reached a
+second time later in the run) is refused with `changed since this run
+staged it; the earlier row holds its copy`, and its name is not called
+merged. Anything else not known to be this source's copy at that exact
+name, or whose identity is 0 or cannot be read, is refused with a plain
+reason: `not a regular file` for a link or other reparse point, else
+`already exists in the staging directory and is not known to be this
+source's copy` (such as a file an earlier run of the same name, in the same
+second, left). Nothing is touched either way. The record trusts the
 file system's identity. A copy that fails removes the file it created and
 leaves no record, so no partial copy becomes a member without a row.
 
@@ -378,7 +382,8 @@ run's note, `NOTE: output directory <dir> ignores letter case or Unicode
 form in names; a file or link whose name it takes for another file's,
 link's or directory's is not staged and its row says why (an output
 directory on a file system that compares names byte for byte keeps
-both)`; a probe that misses a rule costs, on Linux only, a row's archive
+both)`; a probe that misses a rule costs, on Linux, and for links on every
+platform, a row's archive
 path spelled as named for a member the volume spelled otherwise, never
 bytes. A refused copy made nothing, so nothing is cleaned up after it.
 

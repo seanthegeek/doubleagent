@@ -197,7 +197,7 @@ func TestCopyWithAnUnresolvedPhysicalPath(t *testing.T) {
 	}
 }
 
-func TestRemoveFailedCopy(t *testing.T) {
+func TestFailedCopyInside(t *testing.T) {
 	cases := []struct {
 		name        string
 		setup       func(t *testing.T, stager Stager, outside string) string
@@ -223,8 +223,8 @@ func TestRemoveFailedCopy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			stager, _ := newStager(t)
 			dest := test.setup(t, stager, t.TempDir())
-			if got := stager.RemoveFailedCopy(dest); got != test.wantResult {
-				t.Errorf("RemoveFailedCopy = %v", got)
+			if got := stager.FailedCopyInside(dest); got != test.wantResult {
+				t.Errorf("FailedCopyInside = %v", got)
 			}
 			if _, err := os.Lstat(dest); (err == nil) != test.wantPresent {
 				t.Errorf("present after: %v", err == nil)
@@ -362,5 +362,22 @@ func TestPhysicalDirAgreesWithTheKernel(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestAPathStagedAgainAfterItsFileWasReplacedIsNoCollision(t *testing.T) {
+	stager, root := newStager(t)
+	source := root + "/home/notes"
+	mustDo(t, os.WriteFile(source, []byte("first"), 0o644))
+	if _, err := stager.Copy(source); err != nil {
+		t.Fatal(err)
+	}
+	// Saved through a rename, as editors do: the path now names a new file.
+	mustDo(t, os.WriteFile(source+".tmp", []byte("second"), 0o644))
+	mustDo(t, os.Rename(source+".tmp", source))
+	_, err := stager.Copy(source)
+	if err == nil || IsCaseCollision(err) || !strings.Contains(err.Error(), "changed since") {
+		t.Errorf("Copy of the replaced file = %v; want the plain reason that it changed since "+
+			"this run staged it, not a name collision", err)
 	}
 }

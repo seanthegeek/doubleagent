@@ -31,10 +31,10 @@ func TestAgainKeepsOnlyTheSameSourcesRecordedResult(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			places := NewPlaces()
 			if testCase.recorded {
-				places.record([2]uint64{1, 7}, source, recorded)
+				places.record([2]uint64{1, 7}, source, "/src/y", recorded)
 				// Records an identity of 0 would match if it were trusted.
-				places.record([2]uint64{1, 0}, source, recorded)
-				places.record([2]uint64{1, 9}, [2]uint64{1, 0}, recorded)
+				places.record([2]uint64{1, 0}, source, "/src/y", recorded)
+				places.record([2]uint64{1, 9}, [2]uint64{1, 0}, "/src/y", recorded)
 			}
 			stager := Stager{Dir: "/s", Places: places, stagedFS: &stagedFS{
 				lstat: func(string) (fsmeta.Meta, error) {

@@ -138,6 +138,19 @@ func runGoCollector(t *testing.T, root string, settings runSettings) shRun {
 // the sh run's own reads change, and the error text, a documented difference.
 var volatileFields = regexp.MustCompile(`"atime":[0-9]+,|"error":"(\\.|[^"\\])*"`)
 
+// ignoresCase reports whether dir takes two names that differ only in ASCII
+// letter case for one, by making a lower-case probe file, looking it up in
+// upper case and removing it.
+func ignoresCase(t *testing.T, dir string) bool {
+	t.Helper()
+	if err := os.WriteFile(dir+"/case-probe", nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(dir + "/case-probe")
+	_, err := os.Lstat(dir + "/CASE-PROBE")
+	return err == nil
+}
+
 // archivePathField matches a row's archive_path field.
 var archivePathField = regexp.MustCompile(`"archive_path":"(\\.|[^"\\])*"`)
 
@@ -222,7 +235,7 @@ func compareRows(t *testing.T, want, got []string, goStage string) {
 	// directory devin made), the sh row the source's spelling: only that
 	// field is then compared without regard to ASCII case.
 	normal := func(row string) string { return volatileFields.ReplaceAllString(row, "") }
-	if stage.FoldsCase(goStage + "/fs") {
+	if ignoresCase(t, goStage+"/fs") {
 		normal = func(row string) string {
 			return archivePathField.ReplaceAllStringFunc(volatileFields.ReplaceAllString(row, ""),
 				strings.ToLower)

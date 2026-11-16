@@ -76,7 +76,7 @@ func TestNoStagedLinkTargetIsListed(t *testing.T) {
 				makeSource(t, file, false)
 				_, dest, _ := second.Dest(file)
 				_, _, _ = copyFile(second, file)
-				second.RemoveFailedCopy(dest)
+				second.FailedCopyInside(dest)
 				requireUntouched(t, outside, "after staging "+name+"/User/settings.json")
 			}
 		})

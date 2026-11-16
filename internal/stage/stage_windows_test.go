@@ -573,7 +573,7 @@ func TestSymlinkKindOnWindows(t *testing.T) {
 	}
 }
 
-func TestRemoveFailedCopyOnWindows(t *testing.T) {
+func TestFailedCopyInsideOnWindows(t *testing.T) {
 	cases := []struct {
 		name        string
 		setup       func(t *testing.T, stager Stager, outside string) string
@@ -597,8 +597,8 @@ func TestRemoveFailedCopyOnWindows(t *testing.T) {
 			stager, _ := newWindowsStager(t)
 			stager.Physical = syspath.Fold(stager.Physical)
 			dest := test.setup(t, stager, syspath.FromNative(t.TempDir()))
-			if got := stager.RemoveFailedCopy(dest); got != test.wantResult {
-				t.Errorf("RemoveFailedCopy = %v", got)
+			if got := stager.FailedCopyInside(dest); got != test.wantResult {
+				t.Errorf("FailedCopyInside = %v", got)
 			}
 			if _, err := os.Lstat(dest); (err == nil) != test.wantPresent {
 				t.Errorf("present after: %v", err == nil)

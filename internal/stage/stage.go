@@ -8,7 +8,7 @@
 // analyst's own files, so the stager lists or opens nothing below a link: a
 // write, an open or a link's creation first passes requireInside for its
 // directory, and every respelling walks the tree with walkStaged, which
-// stops at a link. requireInside, PhysicalDir and RemoveFailedCopy's lstat
+// stops at a link. requireInside, PhysicalDir and FailedCopyInside's lstat
 // of the staged path (copy_run's test, run after a copy that failed for a
 // reason other than a case collision) resolve through links and read
 // metadata only.
@@ -274,7 +274,7 @@ func (stager Stager) Copy(path string) (Copied, error) {
 		_ = osfile.Remove(dest)
 		return Copied{}, err
 	}
-	stager.Places.record(target.staged, identity, copied)
+	stager.Places.record(target.staged, identity, path, copied)
 	return copied, nil
 }
 
@@ -326,17 +326,24 @@ func (stager Stager) exists(dest string) bool {
 
 // again decides a copy or link of path whose staged path dest the system
 // says is taken, touching nothing: the recorded result when the entry there
-// is one this run staged from the same source (identity, non-zero); the
-// collision error when it was staged from another source, or when the
-// volume took dest for another spelling's entry (a walk finds a component
-// respelled); else a plain reason for what this run did not stage there.
+// is one this run staged from the same source (identity, non-zero); a plain
+// reason when it was staged from path itself, since replaced; the collision
+// error when it was staged from another path, or when the volume took dest
+// for another spelling's entry (a walk finds a component respelled); else a
+// plain reason for what is not known to be this source's copy.
 func (stager Stager) again(path, dest string, identity [2]uint64) (Copied, error) {
 	meta, err := stager.files().lstat(dest)
 	// An inode or file index of 0 identifies nothing.
 	if err == nil && meta.Ino != 0 && identity[1] != 0 {
 		if recorded, found := stager.Places.lookup([2]uint64{meta.Dev, meta.Ino}); found {
-			if recorded.source == identity {
+			switch {
+			case recorded.source == identity:
 				return recorded.copied, nil
+			case recorded.path == path:
+				// The same path, its file replaced since (saved through a
+				// rename, or reached again later): no name was merged.
+				return Copied{}, &fs.PathError{Op: "stage", Path: syspath.ToNative(path),
+					Err: changedSince{}}
 			}
 			return Copied{}, collisionError(path)
 		}
@@ -352,26 +359,39 @@ func (stager Stager) again(path, dest string, identity [2]uint64) (Copied, error
 }
 
 // notStagedHere is the reason a file or link is not staged when its staged
-// path holds something this run did not stage there, such as a file an
-// earlier run of the same name left.
+// path holds something not known to be its copy: a file an earlier run of
+// the same name left, or one whose identity could not be read.
 type notStagedHere struct{}
 
 // Error returns the reason.
 func (notStagedHere) Error() string {
-	return "already exists in the staging directory and is not a copy this run made"
+	return "already exists in the staging directory and is not known to be this source's copy"
+}
+
+// changedSince is the reason a file or link is not staged when this run
+// staged the same path before and the path now names another file.
+type changedSince struct{}
+
+// Error returns the reason.
+func (changedSince) Error() string {
+	return "changed since this run staged it; the earlier row holds its copy"
 }
 
 // member returns the archive member of the staged file at dest, spelled as
 // the staging tree names it: from place, the path the system reports for
 // the file (Windows, macOS), when it lies in the staging directory, else
-// from a walk of dest where the staging directory folds names (spelling).
+// from a walk of dest where the staging directory folds names (spelling)
+// that reaches the end, else dest as named.
 func (stager Stager) member(place, dest string) string {
 	if place != "" {
 		if rest, inside := stager.inside(place); inside {
 			return rest
 		}
 	}
-	return strings.TrimPrefix(stager.spelling(dest).path, stager.Dir+"/")
+	if spelling := stager.spelling(dest); spelling.stop == stagedEnd {
+		return strings.TrimPrefix(spelling.path, stager.Dir+"/")
+	}
+	return strings.TrimPrefix(dest, stager.Dir+"/")
 }
 
 // inside returns place, a path the system reported, less the physical
@@ -450,7 +470,7 @@ func (stager Stager) Link(path, target string, directory bool) (string, error) {
 	}
 	copied := Copied{ArchivePath: stager.member("", dest)}
 	if meta, err := stager.files().lstat(dest); err == nil {
-		stager.Places.record([2]uint64{meta.Dev, meta.Ino}, identity, copied)
+		stager.Places.record([2]uint64{meta.Dev, meta.Ino}, identity, path, copied)
 	}
 	return copied.ArchivePath, nil
 }
@@ -464,14 +484,14 @@ func (stager Stager) takenByAnother(path string) bool {
 	return stager.spelling(path).collides()
 }
 
-// RemoveFailedCopy reports, after a copy to dest failed, whether what is at
+// FailedCopyInside reports, after a copy to dest failed, whether what is at
 // dest lies inside the staging directory, as copy_run's test does: true when
 // nothing is there or its directory resolves inside the physical staging
 // directory, false when the staged path leads through a recreated link out
 // of the staging tree, where a file may be a source. Copy removes the file
 // it created itself, so nothing is removed here; the walk logs the false
 // case.
-func (stager Stager) RemoveFailedCopy(dest string) bool {
+func (stager Stager) FailedCopyInside(dest string) bool {
 	if _, err := stager.files().lstat(dest); err != nil {
 		return true
 	}
@@ -535,6 +555,7 @@ type Places struct {
 // returned for it.
 type placed struct {
 	source [2]uint64
+	path   string
 	copied Copied
 }
 
@@ -543,11 +564,12 @@ func NewPlaces() *Places {
 	return &Places{staged: map[[2]uint64]placed{}}
 }
 
-// record notes that the staged entry of identity staged was made from
-// source with result copied; a nil record notes nothing.
-func (places *Places) record(staged, source [2]uint64, copied Copied) {
+// record notes that the staged entry of identity staged was made from the
+// source of identity source at path, with result copied; a nil record
+// notes nothing.
+func (places *Places) record(staged, source [2]uint64, path string, copied Copied) {
 	if places != nil {
-		places.staged[staged] = placed{source, copied}
+		places.staged[staged] = placed{source, path, copied}
 	}
 }
 

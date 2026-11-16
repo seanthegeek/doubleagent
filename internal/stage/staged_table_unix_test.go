@@ -40,7 +40,7 @@ func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 	if _, _, err := copyFile(second, file); !IsCaseCollision(err) {
 		t.Errorf("Copy = %v; want the case collision error: the place is cursor's link", err)
 	}
-	second.RemoveFailedCopy(dest)
+	second.FailedCopyInside(dest)
 	staged := parent + "/stage/fs/home/u/.config/cursor"
 	if slices.ContainsFunc(listed, func(dir string) bool { return strings.HasPrefix(dir, staged) }) {
 		t.Errorf("listed %q, at or below the recreated link %s", listed, staged)

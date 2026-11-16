@@ -243,7 +243,7 @@ func (state *runState) keepCaseApart(dir string) bool {
 }
 
 // foldingLine is the log line of a run whose staging directory takes two
-// names differing only in case for one.
+// names that differ in letter case or Unicode form for one.
 func foldingLine(outDir string) string {
 	return "NOTE: output directory " + syspath.ToNative(outDir) + " ignores letter case or" +
 		" Unicode form in names; a file or link whose name it takes for another file's, link's" +

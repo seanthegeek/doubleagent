@@ -126,3 +126,13 @@ func TestWalkStagedFollowsTheTreeAndNoLink(t *testing.T) {
 		})
 	}
 }
+
+func TestMemberIsTheStagedPathWhenTheWalkStopsShort(t *testing.T) {
+	fake := &fakeTree{nodes: map[string]fakeNode{"/s": {fs.ModeDir, 1}, "/s/fs": {fs.ModeDir, 2},
+		"/s/fs/x": {0, 3}}, unlistable: map[string]bool{"/s/fs": true}}
+	files := fake.files()
+	stager := Stager{Dir: "/s", FoldsCase: true, stagedFS: &files}
+	if got := stager.member("", "/s/fs/x"); got != "fs/x" {
+		t.Errorf("member = %q; want fs/x, the staged path as named, when the walk stops short", got)
+	}
+}
