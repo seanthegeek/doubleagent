@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"net"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -56,6 +58,56 @@ func TestADiscoveredProjectWhoseDotDotNamesAJunctionOutIsNotWalked(t *testing.T)
 	}
 }
 
+func TestADiscoveredProjectWithDotDotIsStagedUnderFsOnce(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	name := root[strings.LastIndexByte(root, '/')+1:]
+	claudeJSON := `{"projects": {"C:\\..\\` + name + `\\Users\\alice\\work": {},` +
+		` "C:\\Users\\alice\\work": {}}}` + "\n"
+	for path, text := range map[string]string{
+		root + "/Users/alice/.claude.json":     claudeJSON,
+		root + "/Users/alice/work/AGENTS.md":   "# work\n",
+		root + "/Users/alice/work/.git/config": "",
+	} {
+		parent := syspath.ToNative(path[:strings.LastIndexByte(path, '/')])
+		if err := os.MkdirAll(parent, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(syspath.ToNative(path), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outDir := syspath.FromNative(t.TempDir())
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	for member := range archiveMembers(t, outDir) {
+		if slices.Contains(strings.Split(member, "/"), "..") ||
+			strings.Contains(member, "AGENTS.md") && !strings.HasPrefix(member, "./fs/") {
+			t.Errorf("archive member %s", member)
+		}
+	}
+	rows, texts := manifestRows(t, outDir)
+	agents := 0
+	for i, row := range rows {
+		archived, _ := row["archive_path"].(string)
+		if slices.Contains(strings.Split(archived, "/"), "..") {
+			t.Errorf("a manifest archive path holds ..: %s", texts[i])
+		}
+		if path, _ := row["path"].(string); strings.HasSuffix(path, `\AGENTS.md`) {
+			agents++
+			if path != syspath.ToNative(root+"/Users/alice/work/AGENTS.md") ||
+				row["status"] != "collected" {
+				t.Errorf("row %s", texts[i])
+			}
+		}
+	}
+	if agents != 1 {
+		t.Errorf("%d rows of AGENTS.md, want 1:\n%s", agents, strings.Join(texts, "\n"))
+	}
+}
+
 func TestAReparsePointThatIsNoLinkIsWordedAsOneAtEverySite(t *testing.T) {
 	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
 	if err := os.MkdirAll(syspath.ToNative(root+"/Users/alice"), 0o755); err != nil {
@@ -64,14 +116,7 @@ func TestAReparsePointThatIsNoLinkIsWordedAsOneAtEverySite(t *testing.T) {
 	if err := os.WriteFile(syspath.ToNative(root+"/Users/alice/notes"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/Users/alice/.config", "/Users/alice/.bashrc.d", "/Users/bob",
-		"/var"} {
-		listener, err := net.Listen("unix", syspath.ToNative(root+path))
-		if err != nil {
-			t.Skipf("creating an AF_UNIX socket needs Windows 10 1803 or later: %v", err)
-		}
-		defer listener.Close()
-	}
+	listenUnix(t, root, "Users/alice/.config", "Users/alice/.bashrc.d", "Users/bob", "var")
 	outDir := syspath.FromNative(t.TempDir())
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
@@ -148,4 +193,23 @@ func mountPointData(substitute, printName string) []byte {
 		data = binary.LittleEndian.AppendUint16(data, unit)
 	}
 	return data
+}
+
+// listenUnix makes an AF_UNIX socket at each of names, relative to dir, from
+// inside dir so that the name Go hands the system stays under its 108-byte
+// limit. It skips the test only where the system does not support AF_UNIX
+// sockets, and fails it on any other error.
+func listenUnix(t *testing.T, dir string, names ...string) {
+	t.Helper()
+	t.Chdir(syspath.ToNative(dir))
+	for _, name := range names {
+		listener, err := net.Listen("unix", syspath.ToNative(name))
+		if errors.Is(err, windows.WSAEAFNOSUPPORT) || errors.Is(err, windows.WSAEPROTONOSUPPORT) {
+			t.Skipf("this system does not support AF_UNIX sockets: %v", err)
+		}
+		if err != nil {
+			t.Fatalf("creating an AF_UNIX socket at %s in %s: %v", name, dir, err)
+		}
+		t.Cleanup(func() { _ = listener.Close() })
+	}
 }

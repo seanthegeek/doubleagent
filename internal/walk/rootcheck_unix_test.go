@@ -3,10 +3,13 @@
 package walk
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 )
 
@@ -55,5 +58,23 @@ func TestTheRootCheckAndTheKernelAgree(t *testing.T) {
 				t.Errorf("the check reached %s for %s, the kernel %s", reached, full, physical)
 			}
 		})
+	}
+}
+
+func TestAClimbingProjectIsWordedAsClimbing(t *testing.T) {
+	root := fixture{dirs: []string{"home/dot"}}.build(t)
+	collector, rows, log := testCollector(t, root, nil)
+	collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
+		Glob: "AGENTS.md"}}}
+	project := root + "/../../tmp/escape"
+	mustDo(t, collector.CollectProject(context.Background(), "alice", "", project))
+	native := project
+	want := []string{"Project [alice] " + native + ": " + native +
+		" climbs above the image root with ..; nothing behind it was looked at; not walked"}
+	if !reflect.DeepEqual(log.lines, want) {
+		t.Errorf("log %q, want %q", log.lines, want)
+	}
+	if rows.Len() != 0 {
+		t.Errorf("rows %q, want none", rows.String())
 	}
 }

@@ -79,6 +79,11 @@ func TestProjectsAreRespelledOnlyBelowAnImageRoot(t *testing.T) {
 			[]string{base + "/img/proj"}, []string{base + "/img/Proj"}},
 		{"a live run respells from the drive and lists a directory once", "",
 			[]string{base + "/OTHER", base + "/other"}, []string{base + "/other"}},
+		{"a path's . and .. are removed by name, as Win32 opens it, and it is listed once",
+			base + "/img", []string{base + "/img/../img/./proj", base + "/img/Proj"},
+			[]string{base + "/img/Proj"}},
+		{"a path whose .. leaves the image root by name is outside it", base + "/img",
+			[]string{base + "/img/../other"}, []string{base + "/other"}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

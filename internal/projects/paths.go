@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // pathRules says how localProjectPath turns a value a discovery source holds
@@ -68,8 +69,11 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	}
 	// A value is a file's text, in whatever case its writer used; respelled
 	// as the disk holds it, below root only and up to the first link, it
-	// compares byte for byte with listed paths.
-	value = fsmeta.OnDiskPath(root, strings.TrimRight(strings.ReplaceAll(value, `\`, "/"), "/"))
+	// compares byte for byte with listed paths. On Windows its `.` and `..`
+	// are first removed by name as Win32 removes them (syspath.Opened), so
+	// the one string the run checks is the one it opens, stages and logs.
+	value = syspath.Opened(strings.TrimRight(strings.ReplaceAll(value, `\`, "/"), "/"))
+	value = fsmeta.OnDiskPath(root, value)
 	return value, value != ""
 }
 

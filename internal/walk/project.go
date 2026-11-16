@@ -7,7 +7,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -31,10 +30,10 @@ func (collector *Collector) CollectProject(ctx context.Context, user, home, proj
 	if err := collector.Log.Line(projectLine(user, project, place)); err != nil {
 		return err
 	}
-	if place.outOfRoot != "" {
+	if place.refusal.Link != "" {
 		return nil
 	}
-	// place.outOfRoot returned above, so the project is inside the root.
+	// place.refusal returned above, so the project is inside the root.
 	if reason, failed, _ := follow.DirReadError(collector.check(), project); failed {
 		if err := collector.WriteReadError(user, project, project, reason); err != nil {
 			return err
@@ -74,7 +73,7 @@ type PathStagers struct {
 func ProjectStagers(roots RootCheck, stager stage.Stager, home, project, path string,
 ) PathStagers {
 	found := projectPlace(roots, stager, home, project)
-	if found.outOfRoot != "" {
+	if found.refusal.Link != "" {
 		return PathStagers{Skip: true}
 	}
 	base := found.stager
@@ -89,17 +88,16 @@ func ProjectStagers(roots RootCheck, stager stage.Stager, home, project, path st
 // place is where a project's files physically are: the links of its path
 // inside its home, the first one leading out of it (in links.Outside, with
 // physical the project's resolved path), and the stager of its files.
-// outOfRoot is the symlinked directory by which the path leads out of the
-// image root, the path that cannot be verified inside it (unverified), or
-// the project itself when it is not under the root as given (notUnder).
+// refusal is the root check's, when the project is not walked: its Link is
+// the symlinked directory by which the path leads out of the image root, the
+// path that cannot be verified inside it or climbs above it, or the project
+// itself when it is not under the root as given.
 type place struct {
-	outOfRoot  string
-	unverified bool
-	notUnder   bool
-	links      Links
-	outside    bool
-	physical   string
-	stager     stage.Stager
+	refusal  follow.Refusal
+	links    Links
+	outside  bool
+	physical string
+	stager   stage.Stager
 }
 
 // projectPlace resolves the links of project's own path, its last component
@@ -112,8 +110,7 @@ type place struct {
 func projectPlace(roots RootCheck, stager stage.Stager, home, project string) place {
 	scope := roots.scope(project, imageProbes())
 	if scope.name != "" {
-		return place{outOfRoot: scope.name, unverified: scope.unverified, notUnder: scope.outside,
-			stager: stager}
+		return place{refusal: follow.Refusal{Link: scope.name, Kind: scope.kind()}, stager: stager}
 	}
 	if home == "" {
 		return place{stager: stager}
@@ -199,7 +196,7 @@ func (check RootCheck) Expansion() glob.Check {
 
 // imageProbes returns the probes of the file system itself.
 func imageProbes() probes {
-	return probes{isLink: isLinkProbe, readlink: osfile.Readlink, junction: isJunctionProbe}
+	return platformProbes()
 }
 
 // isLinkProbe reports whether path itself is a symlink or, on Windows, any
@@ -209,25 +206,10 @@ func isLinkProbe(path string) (bool, error) {
 	return err == nil && meta.IsLink(), err
 }
 
-// isJunctionProbe reports whether path itself is a Windows junction; never
-// on Unix.
-func isJunctionProbe(path string) bool {
-	meta, err := fsmeta.Lstat(path)
-	return err == nil && meta.Junction
-}
-
 // maxLinkHops bounds the links a project's path expands through, as the
 // kernel bounds a path's links, so a loop ends; a path that reaches it counts
 // as leading out of the root.
 const maxLinkHops = 40
-
-// probes are the two calls the root check makes on the image: whether a
-// path is a link (a junction included), and a link's target.
-type probes struct {
-	isLink   func(path string) (bool, error)
-	readlink func(path string) (string, error)
-	junction func(path string) bool
-}
 
 // rootScope is RootCheck.OutOfRoot's decision: name is "" for a project inside
 // the root, else the path that decides it, spelled under the root as given;
@@ -283,23 +265,6 @@ type rootWalk struct {
 	probe    probes
 	reached  *string
 	path     string
-}
-
-// volumeOf returns the drive (`C:`) or UNC share (`//server/share`) a
-// canonical Windows path starts with, or "" when it starts with neither.
-func volumeOf(path string) string {
-	if len(path) >= 2 && path[1] == ':' && isASCIILetter(path[0]) {
-		return path[:2]
-	}
-	server, rest, found := strings.Cut(strings.TrimPrefix(path, "//"), "/")
-	if !strings.HasPrefix(path, "//") || !found || server == "" {
-		return ""
-	}
-	share, _, _ := strings.Cut(rest, "/")
-	if share == "" {
-		return ""
-	}
-	return "//" + server + "/" + share
 }
 
 // isASCIILetter reports whether char is an ASCII letter, a drive letter.
@@ -401,15 +366,15 @@ func projectLine(user, project string, found place) string {
 	if user != "" {
 		line = "Project [" + user + "] " + native(project)
 	}
+	refusal := found.refusal
 	switch {
-	case found.notUnder:
+	case refusal.Kind == follow.Outside:
 		return line + ": is outside the image root; not walked"
-	case found.unverified:
-		return line + ": under " + native(found.outOfRoot) +
-			", which cannot be verified to lie inside the image root; not walked"
-	case found.outOfRoot != "":
-		return line + ": under the symlinked directory " + native(found.outOfRoot) +
+	case refusal.Kind == follow.LeadsOut:
+		return line + ": under the symlinked directory " + native(refusal.Link) +
 			", which leads out of the image root; not walked"
+	case refusal.Link != "":
+		return line + ": " + native(refusal.Link) + follow.Reason(refusal, "") + "; not walked"
 	case found.outside && found.physical != "":
 		return line + " (through the symlinked directory " + native(found.links.Outside) +
 			", archived under " + native(found.physical) + ")"

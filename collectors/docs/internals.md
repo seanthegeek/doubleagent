@@ -525,7 +525,16 @@ that system resolves it, so the two can never name different files:
   `nope`. The open then starts again with that name, and so does the check.
   A junction is looked through without its target taking its name's place;
   Windows refuses a junction whose target holds `.` or `..`, and so does the
-  check. A missing component, or one whose name no file can have, ends the
+  check. A link's target is read from its reparse data, the name the file
+  system stores, not from the text `os.Readlink` rewrites it into, and the
+  check follows only a closed set of forms: a symbolic link marked relative
+  whose name is a plain relative path or `\x` (rooted on the link's own
+  drive or share); a symbolic link not marked relative whose name is
+  `\??\X:\...` or `\??\UNC\server\share\...`; and a junction whose name is
+  `\??\X:\...`. Every other target (a volume GUID name, `GLOBALROOT`, a
+  `\Device\` or `\GLOBAL??\` name, a `\\.\` path, a drive-relative `X:x`,
+  an empty name, data that cannot be parsed) cannot be verified, so a form
+  nobody listed is refused instead of taken for a relative name. A missing component, or one whose name no file can have, ends the
   check as the image's own answer, since no `..` is left to climb back out
   of it; any other component that cannot be stat'ed (access refused) is
   refused when names follow it, since traverse rights may let an open pass
@@ -548,12 +557,15 @@ than a symlink or junction` for one; `climbs above the image root with ..`
 for a path whose own `..` does, the line naming that path; and `is outside
 the image root` for a path not under it. Each of the last four ends
 `; nothing behind it was looked at`, with `, not walked` after it in the
-catalog walk's line. For a reparse point the five lines read, with the
+catalog walk's line and `; not walked` in a project's line, except that a
+project not under the root keeps its own line, given below. For a reparse
+point the six lines read, with the
 user, agent or path filled in (the catalog walk's is indented two spaces in
 the log, as its other match lines are):
 
 - `Discovery [alice] /img/home/alice/.claude.json is a reparse point other than a symlink or junction; nothing behind it was looked at`
 - `[claude-code] /img/home/alice/.claude is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`
+- `Project [alice] /img/home/alice/.claude/r/proj: /img/home/alice/.claude/r is a reparse point other than a symlink or junction; nothing behind it was looked at; not walked`
 - `user homes: /img/home/alice is a reparse point other than a symlink or junction; nothing behind it was looked at`
 - `docker: /img/var/lib is a reparse point other than a symlink or junction; nothing behind it was looked at`
 - `startup files: /img/etc is a reparse point other than a symlink or junction; nothing behind it was looked at`
@@ -563,20 +575,30 @@ An image passwd line whose home climbs above the root gives
 
 The paths that can carry `..` come from outside a listing: a discovered
 project value, a `-p` value, a passwd home, a link's target. A relative
-`-p` is cleaned when it holds `..` or leads out; every other one, and every
-discovered value and passwd home, reaches the check as written and is
-judged as the system will open it; a link's target is followed by the walk
-above. ProfileList paths are read on a live run only, and a relocation
+`-p` is cleaned when it holds `..` or leads out. On Windows a discovered
+value and every `-p` then have their `.` and `..` removed by name, as Win32
+removes them, so the one string the run checks is the one it opens, stages
+and logs. On Linux and macOS, where the kernel resolves `..` from where a
+link leads, they and every passwd home reach the check as written and are
+judged as the system will open them; a link's target is followed by the
+walk above. Staging refuses a path that still holds a `.` or `..`
+component, on every platform: its row is `error_copy` with no archive path
+and the error `holds a . or .. component, so where it is staged is not
+known`, since removing them as text could name another file and keeping
+them would stage the copy outside `fs/`. The sh collector strips the root
+from such a path as text (`set_dest_var`) and copies it to that staged
+path with its `..` left in. ProfileList paths are read on a live run only, and a relocation
 hint's value is recorded, never opened.
 
 The binary logs a project the run lists but does not walk with one line
 and writes no row for it:
 `Project [alice] /img/home/alice/.claude/ext/proj: under the symlinked directory /img/home/alice/.claude/ext, which leads out of the image root; not walked`
 when a link on its path leads out of the root, and
-`Project [alice] /img/home/alice/.claude/loop/proj: under /img/home/alice/.claude/loop, which cannot be verified to lie inside the image root; not walked`
+`Project [alice] /img/home/alice/.claude/loop/proj: /img/home/alice/.claude/loop cannot be verified to lie inside the image root; nothing behind it was looked at; not walked`
 when a link on its path cannot be followed: a loop, a chain of more than
-40 links, or a target that cannot be read. A `-p` value or discovered
-project in either case gets that line only: no
+40 links, or a target that cannot be read; a project whose own `..` climbs
+above the root is worded by its kind the same way. A `-p` value or discovered project in any of these cases gets that
+line only: no
 `WARNING: project given with -p is not a directory` line and no `error_read`
 row, since testing it as a directory would follow the link on the
 analyst's host.
@@ -595,7 +617,7 @@ guarded), and on any exported name of a guarded package (`os`, `os/exec`,
 its `registry`, `osfile`, `fsmeta`, `stage`) that is on none of three
 lists: names that take no path or treat it as text; names that take a
 path, never follow its last component and change nothing (an lstat, a
-readlink); and calls that write, remove, list, resolve or follow, counted
+readlink, a read of a reparse point's own data); and calls that write, remove, list, resolve or follow, counted
 per file with their reason. Those reasons fall in six kinds: the run's own
 output and staging files and directories, created, written and removed;
 the operator's own `-r` and `-o`, and the image root itself, which the run

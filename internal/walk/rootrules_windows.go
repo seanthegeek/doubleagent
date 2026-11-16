@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
 )
@@ -60,11 +61,11 @@ func (walker rootWalk) walkOnce(names []string, hops *int) (rootScope, string, s
 			continue
 		}
 		*hops++
-		target, verdict := walker.linkTarget(physical, candidate, *hops)
+		target, junction, verdict := walker.linkTarget(physical, candidate, *hops)
 		if verdict.name != "" {
 			return verdict, "", ""
 		}
-		if walker.probe.junction != nil && walker.probe.junction(candidate) {
+		if junction {
 			found, through := walker.throughJunction(target, candidate, hops)
 			if found.name != "" {
 				return found, "", ""
@@ -78,38 +79,39 @@ func (walker rootWalk) walkOnce(names []string, hops *int) (rootScope, string, s
 	return rootScope{}, physical, ""
 }
 
-// linkTarget reads link, a link in the physical directory parent, and
-// returns its target in canonical form, a target with one leading separator
-// rooted on parent's drive or share, or the decision when the step cannot be
-// taken.
-func (walker rootWalk) linkTarget(parent, link string, hops int) (string, rootScope) {
+// linkTarget reads the reparse data of link, a link in the physical
+// directory parent, and returns its target in canonical form (a `\x` target
+// rooted on parent's drive or share) and whether it is a junction, or the
+// decision when the step cannot be taken. Only a target acceptLink
+// recognises is followed; every other is refused as unverified, so a form
+// nobody thought of is never taken for a relative name.
+func (walker rootWalk) linkTarget(parent, link string, hops int) (string, bool, rootScope) {
 	if hops > maxLinkHops {
-		return "", walker.failedLink(link)
+		return "", false, walker.failedLink(link)
 	}
-	target, err := walker.probe.readlink(link)
+	data, err := walker.probe.reparse(link)
 	if err != nil {
-		return "", walker.failedLink(link)
+		return "", false, walker.failedLink(link)
 	}
-	target = syspath.FromNative(target)
-	if strings.HasPrefix(target, "/") && !syspath.IsAbs(target) {
+	form, ok := acceptLink(data)
+	if !ok {
+		return "", false, walker.failedLink(link)
+	}
+	target := form.target
+	if form.kind == rootedTarget {
 		volume := volumeOf(parent)
 		if volume == "" {
-			return "", walker.failedLink(link)
+			return "", false, walker.failedLink(link)
 		}
 		target = volume + target
 	}
-	return target, rootScope{}
+	return target, data.Tag == fsmeta.TagMountPoint, rootScope{}
 }
 
-// throughJunction walks the absolute target of the junction link as a path
-// of its own and returns where it physically leads. Windows refuses a
-// junction whose target holds a `.` or `..` component, so such a target
-// cannot be verified.
+// throughJunction walks the absolute target of the junction link, which
+// acceptLink has checked holds no `.` or `..`, as a path of its own and
+// returns where it physically leads.
 func (walker rootWalk) throughJunction(target, link string, hops *int) (rootScope, string) {
-	parts := strings.Split(target, "/")
-	if !syspath.IsAbs(target) || slices.Contains(parts, ".") || slices.Contains(parts, "..") {
-		return walker.failedLink(link), ""
-	}
 	rest, inside := walker.relative(target)
 	if !inside {
 		return rootScope{name: walker.named(link)}, ""
@@ -144,4 +146,34 @@ func (walker rootWalk) renamed(lexical, target, link string, after []string) (st
 // a directory whose own attributes could not be read.
 func stopAllows(err error, more bool) bool {
 	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, windows.ERROR_INVALID_NAME) || !more
+}
+
+// volumeOf returns the drive (`C:`) or UNC share (`//server/share`) a
+// canonical Windows path starts with, or "" when it starts with neither.
+func volumeOf(path string) string {
+	if len(path) >= 2 && path[1] == ':' && isASCIILetter(path[0]) {
+		return path[:2]
+	}
+	server, rest, found := strings.Cut(strings.TrimPrefix(path, "//"), "/")
+	if !strings.HasPrefix(path, "//") || !found || server == "" {
+		return ""
+	}
+	share, _, _ := strings.Cut(rest, "/")
+	if share == "" {
+		return ""
+	}
+	return "//" + server + "/" + share
+}
+
+// probes are the two calls the root check makes on the image: whether a
+// path is a link (a junction included), and the reparse data a link stores.
+type probes struct {
+	isLink  func(path string) (bool, error)
+	reparse func(path string) (fsmeta.Reparse, error)
+}
+
+// platformProbes returns the probes of the file system itself on Windows:
+// links are told apart and read from their reparse data.
+func platformProbes() probes {
+	return probes{isLink: isLinkProbe, reparse: fsmeta.ReadReparse}
 }

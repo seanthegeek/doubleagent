@@ -278,20 +278,23 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 	return options, nil
 }
 
-// respellProjects returns the -p paths with their existing components
-// spelled as the disk holds them, each listed once: below root in image
-// mode, so a path outside the image stays as typed and is never looked at,
-// and from the drive on a live run. A path starting with lexicalRoot, the
-// root as typed (which may hold a short name or another case the respelled
-// root lost), first has that start replaced by root, so a -p spelled like
-// -r stays under it; a -p reaching the root through another short or long
-// spelling or another case of a non-ASCII letter counts as outside the
-// image. It runs once the root is resolved, after ResolveProjects, so the
-// order of the two errors stays the sh collector's.
+// respellProjects returns the -p paths, `.` and `..` removed by name on
+// Windows (syspath.Opened), with existing components spelled as the disk
+// holds them, each listed once: below root in image mode, so a path outside
+// the image stays as typed and is never looked at, and from the drive on a
+// live run. A path starting with lexicalRoot, the root as typed (which may
+// hold a short name or another case the respelled root lost), first has that
+// start replaced by root, so a -p spelled like -r stays under it; another
+// spelling of the root counts as outside the image. It runs once the root is
+// resolved, after ResolveProjects, so the order of the errors is the sh one.
 func respellProjects(projects []string, lexicalRoot, root string) []string {
 	var respelled []string
 	seen := map[string]bool{}
+	lexicalRoot = syspath.Opened(lexicalRoot)
 	for _, project := range projects {
+		// On Windows, `.` and `..` are removed by name as Win32 removes
+		// them, so one string is checked, opened, staged and logged.
+		project = syspath.Opened(project)
 		if rest, found := syspath.CutPrefix(project, lexicalRoot+"/"); root != "" && found {
 			project = root + "/" + rest
 		} else if root != "" && syspath.Equal(project, lexicalRoot) {

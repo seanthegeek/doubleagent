@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"maps"
 	"net"
 	"os"
@@ -403,13 +404,9 @@ func TestJunctionIsASymlinkRowNeverDescended(t *testing.T) {
 
 func TestSocketIsSkippedAsOtherOnWindows(t *testing.T) {
 	home := physicalTemp(t)
-	listener, err := net.Listen("unix", syspath.ToNative(home+"/s"))
-	if err != nil {
-		t.Skipf("creating an AF_UNIX socket needs Windows 10 1803 or later: %v", err)
-	}
-	defer listener.Close()
+	listenUnix(t, home, "s")
 	collector, recorder := windowsCollector(t, "", nil)
-	_, err = collector.CollectPath(context.Background(), "u", home, "agent", home+"/s")
+	_, err := collector.CollectPath(context.Background(), "u", home, "agent", home+"/s")
 	mustDo(t, err)
 	row := recorder.rowOf(t, home+"/s")
 	if row["status"] != "skipped_special" || row["type"] != "other" || row["archive_path"] != "" {
@@ -698,7 +695,7 @@ func TestNamesEndingInADotOrASpaceAreTheirOwnEntries(t *testing.T) {
 				row["sha256"] != hex.EncodeToString(digest[:]) {
 				t.Errorf("row %v, want collected with the size and hash of %q", row, content)
 			}
-			member, dest := collector.Stager.Dest(path)
+			member, dest, _ := collector.Stager.Dest(path)
 			if row["archive_path"] != member || !strings.HasSuffix(member, "/"+relative) {
 				t.Errorf("archive_path %v, want %s ending in %s", row["archive_path"], member, relative)
 			}
@@ -800,5 +797,24 @@ func TestCatalogLooksAtNothingBehindAJunctionOutOfTheRoot(t *testing.T) {
 	}
 	if rows := (&events{written: full}).rows(t); len(rows) != 1 || rows[0]["type"] != "symlink" {
 		t.Errorf("rows %v, want the junction's symlink row alone", rows)
+	}
+}
+
+// listenUnix makes an AF_UNIX socket at each of names, relative to dir, from
+// inside dir so that the name Go hands the system stays under its 108-byte
+// limit. It skips the test only where the system does not support AF_UNIX
+// sockets, and fails it on any other error.
+func listenUnix(t *testing.T, dir string, names ...string) {
+	t.Helper()
+	t.Chdir(syspath.ToNative(dir))
+	for _, name := range names {
+		listener, err := net.Listen("unix", syspath.ToNative(name))
+		if errors.Is(err, windows.WSAEAFNOSUPPORT) || errors.Is(err, windows.WSAEPROTONOSUPPORT) {
+			t.Skipf("this system does not support AF_UNIX sockets: %v", err)
+		}
+		if err != nil {
+			t.Fatalf("creating an AF_UNIX socket at %s in %s: %v", name, dir, err)
+		}
+		t.Cleanup(func() { _ = listener.Close() })
 	}
 }

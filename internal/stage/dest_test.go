@@ -1,6 +1,10 @@
 package stage
 
-import "testing"
+import (
+	"errors"
+	"io/fs"
+	"testing"
+)
 
 func TestDest(t *testing.T) {
 	stager := Stager{Dir: "/out/.stage", Root: "/img"}
@@ -24,7 +28,7 @@ func TestDest(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			archive, dest := test.stager.Dest(test.path)
+			archive, dest, _ := test.stager.Dest(test.path)
 			if archive != test.wantArchive || dest != test.stager.Dir+"/"+test.wantArchive {
 				t.Errorf("Dest(%q) = %q, %q", test.path, archive, dest)
 			}
@@ -37,5 +41,22 @@ func mustDo(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDestRefusesADotOrDotDotComponent(t *testing.T) {
+	stager := Stager{Dir: "/out/.stage", Root: "/img"}
+	for _, path := range []string{"/img/../img/home/a/f", "/img/home/./a", "/img/a/..", "./f",
+		"/img/a/b/../../../../etc/f"} {
+		archive, dest, err := stager.Dest(path)
+		var pathError *fs.PathError
+		if !errors.As(err, &pathError) || archive != "" || dest != "" {
+			t.Errorf("Dest(%q) = %q, %q, %v; want an error", path, archive, dest, err)
+		}
+	}
+	for _, path := range []string{"/img/home/..a/f", "/img/home/a./f", "/img/.../f"} {
+		if _, _, err := stager.Dest(path); err != nil {
+			t.Errorf("Dest(%q): %v", path, err)
+		}
 	}
 }

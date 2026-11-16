@@ -41,7 +41,7 @@ func TestDestOnWindows(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			archive, dest := test.stager.Dest(test.path)
+			archive, dest, _ := test.stager.Dest(test.path)
 			if archive != test.wantArchive || dest != test.stager.Dir+"/"+test.wantArchive {
 				t.Errorf("Dest(%q) = %q, %q", test.path, archive, dest)
 			}
@@ -161,7 +161,7 @@ func TestCopyFileOnWindows(t *testing.T) {
 			want := fileTimes(t, source)
 			hash, written, err := stager.CopyFile(source)
 			mustDo(t, err)
-			_, dest := stager.Dest(source)
+			_, dest, _ := stager.Dest(source)
 			// The times are read before the bytes: where the volume
 			// records access times, the test's own read moves the copy's.
 			got := fileTimes(t, dest)
@@ -356,7 +356,7 @@ func TestCopyFileWithReadOnlySources(t *testing.T) {
 			if err != nil || written != int64(len(content)) {
 				t.Fatalf("CopyFile = %d bytes, %v", written, err)
 			}
-			_, dest := stager.Dest(source)
+			_, dest, _ := stager.Dest(source)
 			if got := fileTimes(t, dest); got != want {
 				t.Errorf("copy times (creation, access, write) %v, want %v", got, want)
 			}
@@ -400,7 +400,7 @@ func TestReadOnlySourcesLetTheReadMoveTheAccessTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	after := basicTimes(t, source)
-	_, dest := stager.Dest(source)
+	_, dest, _ := stager.Dest(source)
 	if got := fileTimes(t, dest); got != want {
 		t.Errorf("copy times (creation, access, write) %v, want the source's %v", got, want)
 	}
@@ -452,7 +452,7 @@ func TestCopyFileRefusesAReparsePointDestOnWindows(t *testing.T) {
 			mustDo(t, os.WriteFile(outside+"/keep", []byte("evidence"), 0o600))
 			source := root + "/home/f"
 			mustDo(t, os.WriteFile(source, []byte("x"), 0o600))
-			_, dest := stager.Dest(source)
+			_, dest, _ := stager.Dest(source)
 			mustDo(t, os.MkdirAll(parentOf(dest), 0o700))
 			err := test.link(t, outside, dest)
 			skipWithoutSymlinkPrivilege(t, err)
@@ -474,7 +474,7 @@ func TestNoWriteThroughARecreatedJunction(t *testing.T) {
 	source := home + "/dotfiles/claude/proj/AGENTS.md"
 	mustDo(t, os.WriteFile(source, []byte("x\n"), 0o600))
 	mustDo(t, stager.MakeParent(home+"/.claude"))
-	_, staged := stager.Dest(home + "/.claude")
+	_, staged, _ := stager.Dest(home + "/.claude")
 	makeJunction(t, home+"/dotfiles/claude", staged)
 	through := home + "/.claude/proj/AGENTS.md"
 	cases := []struct {
@@ -558,7 +558,7 @@ func TestSymlinkKindOnWindows(t *testing.T) {
 			err := stager.Symlink(path, `..\missing target`, test.directory)
 			skipWithoutSymlinkPrivilege(t, err)
 			mustDo(t, err)
-			_, dest := stager.Dest(path)
+			_, dest, _ := stager.Dest(path)
 			meta, err := fsmeta.Lstat(dest)
 			mustDo(t, err)
 			target, err := os.Readlink(dest)

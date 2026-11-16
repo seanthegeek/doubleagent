@@ -1,8 +1,14 @@
 package walk
 
 import (
+	"encoding/binary"
 	"errors"
+	"os"
+	"strings"
 	"testing"
+	"unicode/utf16"
+
+	"github.com/seanthegeek/doubleagent/internal/follow"
 
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -53,15 +59,20 @@ func finalPath(path string) (string, error) {
 	return syspath.FromNative(windows.UTF16ToString(buffer[:n])), nil
 }
 
-// measuredImage builds, under root, the links whose targets hold `..`: j a
-// junction to real/a; in real/a a directory link l to ..\x, a file link f to
-// ..\y.txt and a directory link t to nope\..\..\x; k a junction whose
-// absolute target is real\a\..\x; s1 a relative and as an absolute
-// directory link to real/a. Marker files tell which directory an open lands
-// in.
-func measuredImage(t *testing.T, root string) {
+// measuredImage builds, under base/img (returned), the links whose targets
+// hold `..`: j a junction to real/a; in real/a a directory link l to ..\x, a
+// file link f to ..\y.txt and a directory link t to nope\..\..\x; k a
+// junction whose absolute target is real\a\..\x; s1 a relative and as an
+// absolute directory link to real/a; real/s a link to deep, real/deep/a/l a
+// link to ..\..\x, j2 a junction to real\s\a (through the link s), and j1 a
+// junction to nest, where nest/j2 is that junction again. Marker files tell
+// which directory an open lands in, base/x/m.txt outside the image.
+func measuredImage(t *testing.T, base string) string {
 	t.Helper()
-	writeFiles(t, root, "x/m.txt", "real/x/m.txt", "y.txt", "real/y.txt", "real/a/keep")
+	root := base + "/img"
+	writeFiles(t, base, "x/m.txt")
+	writeFiles(t, root, "x/m.txt", "real/x/m.txt", "y.txt", "real/y.txt", "real/a/keep",
+		"real/deep/a/keep", "real/deep/x/m.txt", "nest/keep")
 	makeJunction(t, root+"/real/a", root+"/j")
 	makeJunction(t, root+"/real/a/../x", root+"/k")
 	makeSymlink(t, `..\x`, root+"/real/a/l", true)
@@ -69,31 +80,66 @@ func measuredImage(t *testing.T, root string) {
 	makeSymlink(t, `nope\..\..\x`, root+"/real/a/t", true)
 	makeSymlink(t, `real\a`, root+"/s1", true)
 	makeSymlink(t, syspath.ToNative(root+"/real/a"), root+"/as", true)
+	makeSymlink(t, `deep`, root+"/real/s", true)
+	makeSymlink(t, `..\..\x`, root+"/real/deep/a/l", true)
+	makeJunction(t, root+"/real/s/a", root+"/j2")
+	makeJunction(t, root+"/real/s/a", root+"/nest/j2")
+	makeJunction(t, root+"/nest", root+"/j1")
+	return root
 }
 
 func TestTheRootCheckFollowsLinksAsWindowsDoes(t *testing.T) {
-	root := physicalTemp(t)
-	measuredImage(t, root)
+	base := physicalTemp(t)
+	root := measuredImage(t, base)
 	check := NewRootCheck(root)
-	for _, path := range []string{"/j/l/m.txt", "/j/f", "/j/t/m.txt", "/k/m.txt", "/real/a/l/m.txt",
-		"/s1/l/m.txt", "/as/l/m.txt", "/j/../j/l/m.txt"} {
-		t.Run(path, func(t *testing.T) {
-			full := root + path
+	// Each path opens the file named, relative to the image root (".." for
+	// base, outside it), or is refused with the kind and link named.
+	cases := []struct {
+		path, opens string
+		kind        follow.Kind
+		link        string
+	}{
+		{path: "/j/l/m.txt", opens: "x/m.txt"},
+		{path: "/j/f", opens: "y.txt"},
+		{path: "/j/t/m.txt", opens: "x/m.txt"},
+		{path: "/k/m.txt", kind: follow.Unverified, link: "k"},
+		{path: "/real/a/l/m.txt", opens: "real/x/m.txt"},
+		{path: "/s1/l/m.txt", opens: "real/x/m.txt"},
+		{path: "/as/l/m.txt", opens: "real/x/m.txt"},
+		{path: "/j/../j/l/m.txt", opens: "x/m.txt"},
+		{path: "/real/s/a/l/m.txt", opens: "real/x/m.txt"},
+		{path: "/j2/l/m.txt", kind: follow.LeadsOut, link: "j2/l"},
+		{path: "/j1/j2/l/m.txt", opens: "x/m.txt"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.path, func(t *testing.T) {
+			full := root + testCase.path
 			found, reached := check.resolve(full, imageProbes())
 			opened, err := finalPath(full)
 			t.Logf("Windows opened %q (error %v); the check reached %q (%+v)", opened, err, reached,
 				found)
-			if err != nil {
+			refusal, refused := check.Exit(full)
+			if testCase.opens == "" {
+				want := follow.Refusal{Link: root + "/" + testCase.link, Kind: testCase.kind}
+				if !refused || refusal != want {
+					t.Errorf("Exit = %+v, %v; want %+v", refusal, refused, want)
+				}
 				return
 			}
-			if found.name != "" && !found.inImage {
-				t.Errorf("the check refused %s, which Windows opens at %s inside the root", full, opened)
-				return
+			want := root + "/" + testCase.opens
+			if err != nil || !syspath.Equal(opened, want) {
+				t.Errorf("Windows opened %q (error %v), want %s", opened, err, want)
 			}
-			if !syspath.Equal(reached, opened) {
-				t.Errorf("the check reached %s for %s, Windows opened %s", reached, full, opened)
+			if refused || !syspath.Equal(reached, want) {
+				t.Errorf("the check reached %q (refused %+v, %v), want %s", reached, refusal,
+					refused, want)
 			}
 		})
+	}
+	// Where Windows opens the leading-out case, outside the image.
+	if opened, err := finalPath(root + "/j2/l/m.txt"); err == nil &&
+		!syspath.Equal(opened, base+"/x/m.txt") {
+		t.Errorf("Windows opened j2/l/m.txt at %s, not %s/x/m.txt", opened, base)
 	}
 }
 
@@ -104,7 +150,27 @@ func TestTheRootCheckAndWindowsAgreeOnNastyPaths(t *testing.T) {
 	makeJunction(t, outside, root+"/Users/alice/j")
 	makeJunction(t, outside+"/secret", root+"/Users/alice/secret")
 	makeSymlink(t, `a\b`, root+"/Users/alice/link", true)
+	volume, device := systemVolumeNames(t)
+	// Links to the system volume by names os.Readlink does not turn into a
+	// drive path: its volume GUID name, the same volume through GLOBALROOT,
+	// and, stored raw without the relative flag, its device name and the
+	// global namespace. The check must refuse every one as unverified.
+	makeSymlink(t, volume, root+"/Users/alice/vol", true)
+	makeSymlink(t, `\\?\GLOBALROOT`+device+`\`, root+"/Users/alice/glob", true)
+	storeSymlink(t, device+`\`, root+"/Users/alice/dev")
+	storeSymlink(t, `\GLOBAL??\`+systemDrive()+`\`, root+"/Users/alice/global")
 	check := NewRootCheck(root)
+	for _, link := range []string{"vol", "glob", "dev", "global"} {
+		t.Run(link, func(t *testing.T) {
+			full := root + "/Users/alice/" + link + "/Windows/win.ini"
+			opened, err := finalPath(full)
+			t.Logf("Windows opens %s at %q (error %v)", full, opened, err)
+			want := follow.Refusal{Link: root + "/Users/alice/" + link, Kind: follow.Unverified}
+			if got, leaves := check.Exit(full); !leaves || got != want {
+				t.Errorf("Exit(%s) = %+v, %v; want %+v, true", full, got, leaves, want)
+			}
+		})
+	}
 	for _, path := range []string{
 		"/Users/alice/nope/../j/x", "/Users/alice/link/../secret/x", "/Users/alice/j./x",
 		"/Users/alice/j /x", "/Users/alice//a//b/f", "/Users/alice/a/./b/.", "/Users/../../..",
@@ -125,4 +191,66 @@ func TestTheRootCheckAndWindowsAgreeOnNastyPaths(t *testing.T) {
 			}
 		})
 	}
+}
+
+// systemDrive returns the drive Windows is installed on, `C:`.
+func systemDrive() string {
+	return os.Getenv("SystemDrive")
+}
+
+// systemVolumeNames returns the system volume's GUID name
+// (`\\?\Volume{...}\`) and its device name (`\Device\HarddiskVolumeN`).
+func systemVolumeNames(t *testing.T) (volume, device string) {
+	t.Helper()
+	drive := systemDrive()
+	if len(drive) != 2 {
+		t.Fatalf("SystemDrive is %q", drive)
+	}
+	mountPoint, err := windows.UTF16PtrFromString(drive + `\`)
+	mustDo(t, err)
+	buffer := make([]uint16, windows.MAX_PATH)
+	mustDo(t, windows.GetVolumeNameForVolumeMountPoint(mountPoint, &buffer[0], uint32(len(buffer))))
+	volume = windows.UTF16ToString(buffer)
+	name, err := windows.UTF16PtrFromString(drive)
+	mustDo(t, err)
+	_, err = windows.QueryDosDevice(name, &buffer[0], uint32(len(buffer)))
+	mustDo(t, err)
+	device = windows.UTF16ToString(buffer)
+	if !strings.HasPrefix(volume, `\\?\Volume{`) || !strings.HasPrefix(device, `\Device\`) {
+		t.Fatalf("system volume names %q and %q", volume, device)
+	}
+	return volume, device
+}
+
+// storeSymlink makes link a directory symbolic link whose reparse data holds
+// substitute exactly, without the relative flag, written with
+// FSCTL_SET_REPARSE_POINT so that no API rewrites it first.
+func storeSymlink(t *testing.T, substitute, link string) {
+	t.Helper()
+	mustDo(t, os.Mkdir(syspath.ToNative(link), 0o755))
+	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	mustDo(t, err)
+	defer windows.CloseHandle(handle)
+	text := utf16.Encode([]rune(substitute))
+	size := uint16(2 * len(text))
+	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_SYMLINK)
+	data = binary.LittleEndian.AppendUint16(data, 12+2*size)
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	for _, word := range []uint16{0, size, size, size} {
+		data = binary.LittleEndian.AppendUint16(data, word)
+	}
+	data = binary.LittleEndian.AppendUint32(data, 0)
+	for _, unit := range append(text, text...) {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	var returned uint32
+	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
+		uint32(len(data)), nil, 0, &returned, nil)
+	if errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD) {
+		t.Skipf("storing a symbolic link needs a privilege here: %v", err)
+	}
+	mustDo(t, err)
 }

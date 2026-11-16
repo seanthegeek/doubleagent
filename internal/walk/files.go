@@ -151,7 +151,8 @@ func (collector *Collector) transferFiles(owner scope, files []plannedFile) erro
 // says when it was not.
 func (collector *Collector) logCopyFailure(owner scope, file *plannedFile) error {
 	note := ""
-	if _, dest := owner.stager.Dest(file.path); !owner.stager.RemoveFailedCopy(dest) {
+	if _, dest, err := owner.stager.Dest(file.path); err == nil &&
+		!owner.stager.RemoveFailedCopy(dest) {
 		note = "; staged path resolves outside the staging directory, not removed"
 	}
 	return collector.Log.Line("copy failed: " + syspath.ToNative(file.path) + ": " +
@@ -171,7 +172,7 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 		row.Size = collectedSize(file)
 	}
 	if file.status == manifest.Collected || (file.status == manifest.Symlink && row.Error == "") {
-		row.ArchivePath, _ = owner.stager.Dest(file.path)
+		row.ArchivePath, _, _ = owner.stager.Dest(file.path)
 	}
 	return row
 }

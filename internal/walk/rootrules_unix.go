@@ -5,6 +5,7 @@ package walk
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -89,11 +90,8 @@ func (walker rootWalk) walk(components []step) rootScope {
 // root for an absolute one) and the target's components, or the decision
 // when the target leads out of the root or the link cannot be verified. The
 // target is never cleaned: a ".." after a link inside it goes up from where
-// that link leads, so the walk takes it one component at a time. A Windows
-// target is read with backslashes, so it is made canonical first; one with
-// a single leading separator (`\x`) is rooted on the drive or share of the
-// link's own directory, as Windows resolves it, and a link whose directory
-// names neither cannot be verified.
+// that link leads, so the walk takes it one component at a time. readlink
+// returns the bytes the link stores, unchanged.
 func (walker rootWalk) follow(parent, link string, hops int) (string, []step, rootScope) {
 	if hops > maxLinkHops {
 		return "", nil, walker.failedLink(link)
@@ -101,14 +99,6 @@ func (walker rootWalk) follow(parent, link string, hops int) (string, []step, ro
 	target, err := walker.probe.readlink(link)
 	if err != nil {
 		return "", nil, walker.failedLink(link)
-	}
-	target = syspath.FromNative(target)
-	if strings.HasPrefix(target, "/") && !syspath.IsAbs(target) {
-		volume := volumeOf(parent)
-		if volume == "" {
-			return "", nil, walker.failedLink(link)
-		}
-		target = volume + target
 	}
 	if !syspath.IsAbs(target) {
 		return parent, steps(target, link), rootScope{}
@@ -154,4 +144,16 @@ func parentDir(path string) string {
 		return "/"
 	}
 	return path[:position]
+}
+
+// probes are the two calls the root check makes on the image: whether a
+// path is a link, and a link's target, the bytes it stores.
+type probes struct {
+	isLink   func(path string) (bool, error)
+	readlink func(path string) (string, error)
+}
+
+// platformProbes returns the probes of the file system itself on Unix.
+func platformProbes() probes {
+	return probes{isLink: isLinkProbe, readlink: osfile.Readlink}
 }

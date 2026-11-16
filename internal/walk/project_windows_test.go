@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"golang.org/x/sys/windows"
@@ -35,7 +36,7 @@ func TestVolumeOf(t *testing.T) {
 }
 
 // rootedLinkProbes are the image's probes, except that link is a symlink
-// whose target is target, as readlink would return it.
+// whose target is target, as CreateSymbolicLink would store it.
 func rootedLinkProbes(link, target string) probes {
 	return probes{
 		isLink: func(path string) (bool, error) {
@@ -44,13 +45,23 @@ func rootedLinkProbes(link, target string) probes {
 			}
 			return isLinkProbe(path)
 		},
-		readlink: func(path string) (string, error) {
+		reparse: func(path string) (fsmeta.Reparse, error) {
 			if syspath.Equal(path, link) {
-				return target, nil
+				return storedSymlink(target), nil
 			}
-			return os.Readlink(path)
+			return fsmeta.ReadReparse(path)
 		},
 	}
+}
+
+// storedSymlink is the reparse data CreateSymbolicLink stores for target: a
+// drive path as `\??\X:\...` without the relative flag, anything else as
+// given with it.
+func storedSymlink(target string) fsmeta.Reparse {
+	if len(target) >= 2 && target[1] == ':' {
+		return fsmeta.Reparse{Tag: fsmeta.TagSymlink, Substitute: `\??\` + target}
+	}
+	return fsmeta.Reparse{Tag: fsmeta.TagSymlink, Substitute: target, Relative: true}
 }
 
 func TestRootedLinkTargetResolvesOnTheLinksDrive(t *testing.T) {
@@ -139,7 +150,7 @@ func TestALiveProjectOutOfItsHomeKeepsItsDrive(t *testing.T) {
 	makeJunction(t, base+"/outside/proj", base+"/home/ext")
 	found := projectPlace(RootCheck{}, stage.Stager{Dir: base + "/stage"}, base+"/home",
 		base+"/home/ext")
-	archive, _ := found.stager.Dest(base + "/home/ext/AGENTS.md")
+	archive, _, _ := found.stager.Dest(base + "/home/ext/AGENTS.md")
 	want := "fs/" + strings.ToUpper(base[:1]) + base[2:] + "/outside/proj/AGENTS.md"
 	if !found.outside || archive != want {
 		t.Errorf("outside %t, archive path %q, want a project out of its home archived at %q",

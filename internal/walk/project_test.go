@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // projectFixture builds a home whose .claude links to dotfiles/claude, by a
@@ -222,7 +224,7 @@ func TestProjectStagers(t *testing.T) {
 			collector, _, _ := testCollector(t, root, nil)
 			stagers := ProjectStagers(collector.RootCheck, collector.Stager, testCase.home, project,
 				testCase.path)
-			if got, _ := stagers.File.Dest(testCase.path); got != testCase.want {
+			if got, _, _ := stagers.File.Dest(testCase.path); got != testCase.want {
 				t.Errorf("archive path %q, want %q", got, testCase.want)
 			}
 			if !reflect.DeepEqual(stagers.Passed, testCase.passed) {
@@ -352,8 +354,9 @@ func (testCase outOfRootCase) run(t *testing.T) {
 	line := "Project [dot] " + project + ": under the symlinked directory " + root + "/" +
 		testCase.notWalked + ", which leads out of the image root; not walked"
 	if testCase.unverified {
-		line = "Project [dot] " + project + ": under " + root + "/" + testCase.notWalked +
-			", which cannot be verified to lie inside the image root; not walked"
+		line = "Project [dot] " + project + ": " + root + "/" + testCase.notWalked +
+			" cannot be verified to lie inside the image root; nothing behind it was looked at" +
+			"; not walked"
 	}
 	want := []string{line}
 	if !reflect.DeepEqual(log.lines, want) {
@@ -500,5 +503,31 @@ func TestRelativeKeepsTheGivenRootsSpelling(t *testing.T) {
 					inside, test.rest, test.inside)
 			}
 		})
+	}
+}
+
+func TestEachProjectRefusalIsWordedByItsKind(t *testing.T) {
+	const project, link = "/img/home/u/p", "/img/home/u/l"
+	native := syspath.ToNative
+	head := "Project [u] " + native(project) + ": "
+	cases := []struct {
+		kind follow.Kind
+		want string
+	}{
+		{follow.LeadsOut, head + "under the symlinked directory " + native(link) +
+			", which leads out of the image root; not walked"},
+		{follow.Unverified, head + native(link) + " cannot be verified to lie inside the image" +
+			" root; nothing behind it was looked at; not walked"},
+		{follow.OtherReparse, head + native(link) + " is a reparse point other than a symlink or" +
+			" junction; nothing behind it was looked at; not walked"},
+		{follow.Climbs, head + native(link) + " climbs above the image root with ..; nothing" +
+			" behind it was looked at; not walked"},
+		{follow.Outside, head + "is outside the image root; not walked"},
+	}
+	for _, testCase := range cases {
+		found := place{refusal: follow.Refusal{Link: link, Kind: testCase.kind}}
+		if got := projectLine("u", project, found); got != testCase.want {
+			t.Errorf("kind %d: %q, want %q", testCase.kind, got, testCase.want)
+		}
 	}
 }

@@ -48,8 +48,14 @@ func (stager Stager) Through(from, into string) Stager {
 // every byte after fs. On Windows the root and From are matched ignoring
 // case, and a drive or UNC path left after the root is archived as
 // Get-ArchivePath does (C:/a under fs/C/a, //server/share/a under
-// fs/server/share/a).
-func (stager Stager) Dest(path string) (archivePath, destPath string) {
+// fs/server/share/a). A path holding a `.` or `..` component is refused with
+// an error: removing it as text could name another file than the system
+// opens, and keeping it would put the staged copy and its archive member
+// somewhere other than under fs/.
+func (stager Stager) Dest(path string) (archivePath, destPath string, err error) {
+	if hasDotComponent(path) {
+		return "", "", &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: dottedPath{}}
+	}
 	relative := path
 	if stager.From != "" {
 		if syspath.Equal(path, stager.From) {
@@ -60,14 +66,36 @@ func (stager Stager) Dest(path string) (archivePath, destPath string) {
 	}
 	rest, _ := syspath.CutPrefix(relative, stager.Root)
 	archivePath = "fs" + syspath.ArchiveRel(rest)
-	return archivePath, stager.Dir + "/" + archivePath
+	return archivePath, stager.Dir + "/" + archivePath, nil
+}
+
+// hasDotComponent reports whether path, canonical, has a `.` or `..`
+// component.
+func hasDotComponent(path string) bool {
+	for _, part := range strings.Split(path, "/") {
+		if part == "." || part == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+// dottedPath is the reason Dest refuses a path with a `.` or `..` component.
+type dottedPath struct{}
+
+// Error returns the reason.
+func (dottedPath) Error() string {
+	return "holds a . or .. component, so where it is staged is not known"
 }
 
 // MakeParent creates the directory path is staged in, with its parents, as
 // mkdir -p does; the sh collector makes it for every file it is given,
 // skipped files included, so the archive holds those directories too.
 func (stager Stager) MakeParent(path string) error {
-	_, dest := stager.Dest(path)
+	_, dest, err := stager.Dest(path)
+	if err != nil {
+		return err
+	}
 	if err := stager.makeDir(parentOf(dest)); err != nil {
 		return fmt.Errorf("stage %s: %w", syspath.ToNative(path), err)
 	}
@@ -169,7 +197,10 @@ func (outsideStage) Error() string { return "does not resolve inside the staging
 // the source's times, and on Unix its mode and, as root, its owner, as cp -p
 // gives them. The error is the innermost *fs.PathError the copy met.
 func (stager Stager) CopyFile(path string) (string, int64, error) {
-	_, dest := stager.Dest(path)
+	_, dest, err := stager.Dest(path)
+	if err != nil {
+		return "", 0, err
+	}
 	if err := stager.makeDir(parentOf(dest)); err != nil {
 		return "", 0, err
 	}
@@ -221,7 +252,10 @@ func (notRegular) Error() string { return "not a regular file" }
 // directory makes a Windows directory link, as a junction or a directory
 // symlink is recreated; Unix links have no kind and ignore it.
 func (stager Stager) Symlink(path, target string, directory bool) error {
-	_, dest := stager.Dest(path)
+	_, dest, err := stager.Dest(path)
+	if err != nil {
+		return err
+	}
 	if _, err := osfile.Lstat(dest); err == nil {
 		return nil
 	}

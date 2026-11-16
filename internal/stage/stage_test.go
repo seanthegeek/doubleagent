@@ -50,7 +50,7 @@ func TestCopyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(content)
-	_, dest := stager.Dest(source)
+	_, dest, _ := stager.Dest(source)
 	info, err := os.Lstat(dest)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestCopyFileRefuses(t *testing.T) {
 			func(t *testing.T, _ Stager, source string) { mustDo(t, syscall.Mkfifo(source, 0o600)) }},
 		{"a staged path that is a recreated symlink", func(t *testing.T, stager Stager, source string) {
 			mustDo(t, os.WriteFile(source, []byte("x"), 0o644))
-			_, dest := stager.Dest(source)
+			_, dest, _ := stager.Dest(source)
 			mustDo(t, os.MkdirAll(filepath.Dir(dest), 0o700))
 			mustDo(t, os.Symlink(source, dest))
 		}},
@@ -110,7 +110,7 @@ func TestSymlinkLeavesAnExistingDestination(t *testing.T) {
 	mustDo(t, stager.MakeParent(root+"/home/l"))
 	mustDo(t, stager.Symlink(root+"/home/l", "first", false))
 	mustDo(t, stager.Symlink(root+"/home/l", "second", false))
-	_, dest := stager.Dest(root + "/home/l")
+	_, dest, _ := stager.Dest(root + "/home/l")
 	if target, _ := os.Readlink(dest); target != "first" {
 		t.Errorf("target %q", target)
 	}
@@ -277,5 +277,27 @@ func TestUnderComparesBytes(t *testing.T) {
 					inside, test.rest, test.inside)
 			}
 		})
+	}
+}
+
+func TestCopyFileRefusesAPathWithDotDot(t *testing.T) {
+	stager, root := newStager(t)
+	if err := os.WriteFile(root+"/home/f", []byte("source"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{root + "/home/../home/f", root + "/home/./f"} {
+		if _, _, err := stager.CopyFile(path); err == nil {
+			t.Errorf("CopyFile(%s) copied it", path)
+		}
+		if err := stager.MakeParent(path); err == nil {
+			t.Errorf("MakeParent(%s) made its parent", path)
+		}
+	}
+	entries, err := os.ReadDir(stager.Dir + "/fs")
+	if err != nil || len(entries) != 0 {
+		t.Errorf("the staging tree holds %v (%v), want nothing", entries, err)
+	}
+	if text, err := os.ReadFile(root + "/home/f"); err != nil || string(text) != "source" {
+		t.Errorf("the source reads %q, %v", text, err)
 	}
 }

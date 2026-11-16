@@ -159,12 +159,9 @@ func TestLstatSymlinksOnWindows(t *testing.T) {
 }
 
 func TestLstatSocketIsOther(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "socket")
-	listener, err := net.Listen("unix", path)
-	if err != nil {
-		t.Skipf("creating an AF_UNIX socket needs Windows 10 1803 or later: %v", err)
-	}
-	defer listener.Close()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "socket")
+	listenUnix(t, syspath.FromNative(dir), "socket")
 	meta, err := Lstat(syspath.FromNative(path))
 	if err != nil || meta.Kind != Other {
 		t.Errorf("Lstat(socket) = kind %v, error %v; want Other", meta.Kind, err)
@@ -520,4 +517,23 @@ func TestOpenRegularRefusesAJunction(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = handle.Close()
+}
+
+// listenUnix makes an AF_UNIX socket at each of names, relative to dir, from
+// inside dir so that the name Go hands the system stays under its 108-byte
+// limit. It skips the test only where the system does not support AF_UNIX
+// sockets, and fails it on any other error.
+func listenUnix(t *testing.T, dir string, names ...string) {
+	t.Helper()
+	t.Chdir(syspath.ToNative(dir))
+	for _, name := range names {
+		listener, err := net.Listen("unix", syspath.ToNative(name))
+		if errors.Is(err, windows.WSAEAFNOSUPPORT) || errors.Is(err, windows.WSAEPROTONOSUPPORT) {
+			t.Skipf("this system does not support AF_UNIX sockets: %v", err)
+		}
+		if err != nil {
+			t.Fatalf("creating an AF_UNIX socket at %s in %s: %v", name, dir, err)
+		}
+		t.Cleanup(func() { _ = listener.Close() })
+	}
 }

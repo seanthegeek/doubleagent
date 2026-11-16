@@ -81,22 +81,24 @@ func safeNames() map[string][]string {
 			"QUERY_VALUE", "READ", "SZ", "USERS"},
 		// Types, kinds, constructors and conversions of metadata already read;
 		// ListingOrder sorts entries it is given. The Opener's and Owners'
-		// methods take paths and do not follow their last component.
+		// methods take paths and do not follow their last component. A
+		// Reparse and the two link tags are reparse data already read.
 		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"AttributesString", "Device", "Dir",
 			"Fifo", "File", "Kind", "ListingOrder", "Meta", "NewOpener", "NewOwners", "Opener",
-			"Owners", "Socket", "Symlink", "ZeroMeta"},
+			"Owners", "Reparse", "Socket", "Symlink", "TagMountPoint", "TagSymlink", "ZeroMeta"},
 		// The staging type and a text comparison of two paths.
 		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Under"},
 	}
 }
 
 // noFollowNames are names that take a path, never follow its last component
-// and change nothing: an lstat or a readlink. They are everywhere and sound
-// wherever they are, so they are not counted.
+// and change nothing: an lstat, a readlink, or a read of a reparse point's
+// own data (opened with FILE_FLAG_OPEN_REPARSE_POINT). They are everywhere
+// and sound wherever they are, so they are not counted.
 func noFollowNames() map[string][]string {
 	return map[string][]string{
 		"github.com/seanthegeek/doubleagent/internal/osfile": {"Lstat", "Readlink"},
-		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"Lstat"},
+		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"Lstat", "ReadReparse"},
 	}
 }
 
