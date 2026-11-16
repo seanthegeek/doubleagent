@@ -2,11 +2,14 @@
 
 package follow
 
-import "golang.org/x/sys/unix"
+import (
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"golang.org/x/sys/unix"
+)
 
 // CanRead reports whether the effective user may read path, as test -r does,
 // following a link to its target.
-func CanRead(check Check, path string) (bool, error) {
+func CanRead(check Check, _ *fsmeta.Opener, path string) (bool, error) {
 	if err := LeavesRoot(check, path); err != nil {
 		return false, err
 	}

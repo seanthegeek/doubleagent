@@ -170,10 +170,37 @@ func volumeOf(path string) string {
 type probes struct {
 	isLink  func(path string) (bool, error)
 	reparse func(path string) (fsmeta.Reparse, error)
+	respell func(path string) string
 }
 
 // platformProbes returns the probes of the file system itself on Windows:
 // links are told apart and read from their reparse data.
 func platformProbes() probes {
-	return probes{isLink: isLinkProbe, reparse: fsmeta.ReadReparse}
+	return probes{isLink: isLinkProbe, reparse: fsmeta.ReadReparse, respell: respellFromDrive}
+}
+
+// Reached returns, for a path that enters the run from outside a listing,
+// the path Win32 opens for it: its `.` and `..` removed by name
+// (syspath.Opened), which is also how the check judges it. The run then
+// checks, opens, stages and logs that one path.
+func (RootCheck) Reached(path string) string {
+	return syspath.Opened(path)
+}
+
+// respellFromDrive returns path spelled as the disk holds it, from its
+// drive or share (fsmeta.OnDiskPath): the file system's own comparison of
+// names decides, so in a case-sensitive directory another case of a name is
+// another name.
+func respellFromDrive(path string) string {
+	return fsmeta.OnDiskPath("", path)
+}
+
+// sameDirectory reports whether prefix, which matched root only when ASCII
+// case is ignored, names root's own directory: spelled from the disk it is
+// root's bytes. In a case-sensitive directory holding both spellings it is
+// another directory, which Windows opens and the walk must not take for
+// the root. Only the root's ancestors are listed to answer, never anything
+// under prefix.
+func (walker rootWalk) sameDirectory(prefix, root string) bool {
+	return walker.probe.respell != nil && walker.probe.respell(prefix) == root
 }

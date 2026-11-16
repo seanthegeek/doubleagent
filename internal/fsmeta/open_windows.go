@@ -12,56 +12,58 @@ import (
 )
 
 // Open opens path for reading through its own reparse point, never
-// following one, shared with every other opener as Copy-FileShared shares
-// (os.Open shares no delete access); the caller checks what it opened.
-// Where the NTFS setting has updates off, the file is first opened for
-// reading alone and that same handle is asked for its volume: a file on a
-// local NTFS volume is returned on it. Otherwise the handle is closed and
-// the file opened with openHolding, so a link retargeted between the two
-// opens lands on a handle that holds the time. The first open reads
-// nothing: Microsoft's SetFileTime page names writing, reading and running
-// as what the access time records, and asks for the hold after the open.
+// following one, shared with every other opener as Copy-FileShared shares;
+// the caller checks what it opened. Each handle is admitted (Admit) before
+// anything else is done with it (sourceOpen). Where the NTFS setting has
+// updates off, a file on a local NTFS volume is read through a first open
+// for reading alone; otherwise the file is opened again with the right to
+// hold its access time, so a link retargeted between the two opens lands on
+// a handle that holds it. The first open reads nothing: Microsoft's
+// SetFileTime page asks for the hold after the open.
 func (o *Opener) Open(path string) (*os.File, error) {
 	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
 	}
+	steps := o.sourceSteps(path, name)
 	if o.judgesVolume() {
-		if handle, err := createSource(name, windows.GENERIC_READ); err == nil {
-			if !holdsAccessTime(false, true, localFileSystem(handle)) {
-				return o.admitted(path, os.NewFile(uintptr(handle), syspath.ToNative(path)))
+		handle, err := steps.first(windows.GENERIC_READ)
+		if _, failedOpen := err.(windows.Errno); err != nil && !failedOpen {
+			return nil, err // refused by Admit
+		}
+		if err == nil {
+			if !holdsAccessTime(false, true, localFileSystem(windows.Handle(handle))) {
+				return os.NewFile(handle, syspath.ToNative(path)), nil
 			}
-			windows.CloseHandle(handle)
+			windows.CloseHandle(windows.Handle(handle))
 		}
 	}
-	handle, err := o.openHolding(path, name)
-	if err != nil {
-		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
+	handle, err := steps.run(accessList(o.asksForRight()))
+	if errno, isErrno := err.(windows.Errno); isErrno {
+		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: errno}
 	}
-	return o.admitted(path, os.NewFile(uintptr(handle), syspath.ToNative(path)))
+	if err != nil {
+		return nil, err
+	}
+	return os.NewFile(handle, syspath.ToNative(path)), nil
 }
 
-// openHolding tries each access accessList gives in turn and returns the
-// first handle, or the last refusal. A handle holding the right to set the
-// file's times asks that reads through it not move the file's access time
-// (holdOn); one opened for reading only cannot ask, and a volume that
-// records access times moves it, so a read-only open taken after the open
-// with the right was refused is reported under path.
-func (o *Opener) openHolding(path string, name *uint16) (windows.Handle, error) {
-	var handle windows.Handle
-	var err error
-	for i, access := range accessList(o.asksForRight()) {
-		if handle, err = createSource(name, access); err != nil {
-			continue
-		}
-		if access&windows.FILE_WRITE_ATTRIBUTES != 0 {
-			o.report(path, handle, o.holdOn(handle))
-		} else if i > 0 {
-			o.report(path, handle, reasonRightRefused)
-		}
-		return handle, nil
+// sourceSteps returns the steps of an evidence open of path, named name in
+// the form CreateFile takes.
+func (o *Opener) sourceSteps(path string, name *uint16) sourceOpen {
+	return sourceOpen{
+		create: func(access uint32) (uintptr, error) {
+			handle, err := createSource(name, access)
+			return uintptr(handle), err
+		},
+		admit:     func(handle uintptr) error { return o.admit(path, handle) },
+		release:   func(handle uintptr) { windows.CloseHandle(windows.Handle(handle)) },
+		holdRight: func(access uint32) bool { return access&windows.FILE_WRITE_ATTRIBUTES != 0 },
+		hold:      func(handle uintptr) string { return o.holdOn(windows.Handle(handle)) },
+		report: func(handle uintptr, reason string) {
+			o.report(path, windows.Handle(handle), reason)
+		},
 	}
-	return handle, err
 }
 
 // holdOn asks the file system to hold the access time of the file open on
@@ -241,4 +243,11 @@ func HoldTimes(handle windows.Handle, write bool) error {
 		writeTime = &hold
 	}
 	return windows.SetFileTime(handle, nil, &hold, writeTime)
+}
+
+// admitFile asks Admit about file, just opened on path, closing it when
+// refused; it is admitted's check for a caller that keeps its own handle.
+func (o *Opener) admitFile(path string, file *os.File) error {
+	_, err := o.admitted(path, file)
+	return err
 }

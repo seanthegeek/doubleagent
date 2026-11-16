@@ -19,20 +19,25 @@ var errNotDirectory = errors.New("not a directory")
 // that may be links. A directory that can be listed can always be entered,
 // since Windows grants every user the right to pass through directories.
 // Only the first line of the text is kept, since a path can hold a newline.
-func DirReadError(path string) (reason string, failed bool) {
+// The listing opens through OpenDir with opener; a handle its Admit refuses
+// comes back as refused, with no reason, since nothing of it may be used.
+func DirReadError(opener *Opener, path string) (reason string, failed bool, refused error) {
 	info, statError := osfile.Stat(path)
 	if statError != nil || !info.IsDir() {
-		return nativeFirstLine(notDirectoryError(path)), true
+		return nativeFirstLine(notDirectoryError(path)), true, nil
 	}
 	handle, err := osfile.Open(path)
 	if err == nil {
+		if err := opener.admitFile(path, handle); err != nil {
+			return "", true, err
+		}
 		_, err = handle.ReadDir(-1)
 		_ = handle.Close()
 	}
 	if err != nil {
-		return nativeFirstLine(err), true
+		return nativeFirstLine(err), true, nil
 	}
-	return "", false
+	return "", false, nil
 }
 
 // nativeFirstLine is the first line of err's text with its paths in native

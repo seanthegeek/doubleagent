@@ -216,7 +216,8 @@ func (run *collection) isDirectory(target string) bool {
 // canRead reports whether target may be read, as test -r; never for a target
 // out of the image root, which is not followed.
 func (run *collection) canRead(target string) bool {
-	readable, _ := follow.CanRead(run.collector.RootCheck.Expansion(), target)
+	readable, _ := follow.CanRead(run.collector.RootCheck.Expansion(), run.collector.Stager.Opener,
+		target)
 	return readable
 }
 

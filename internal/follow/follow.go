@@ -161,13 +161,23 @@ func ReadFile(check Check, path string) ([]byte, error) {
 // DirReadError is fsmeta.DirReadError of path: why the directory it names
 // cannot be listed or entered. A path that leads out of the image root is
 // reported as failed, with the refusal as its reason and in err, so a caller
-// that drops err cannot read it as readable.
-func DirReadError(check Check, path string) (reason string, failed bool, err error) {
+// that drops err cannot read it as readable. The listing opens through
+// opener; one Windows opened outside the image root is failed with no
+// reason and the OpenedOutside refusal in err, and its caller writes no row.
+func DirReadError(check Check, opener *fsmeta.Opener, path string,
+) (reason string, failed bool, err error) {
 	if err := LeavesRoot(check, path); err != nil {
 		return err.Error(), true, err
 	}
-	reason, failed = fsmeta.DirReadError(path)
-	return reason, failed, nil
+	reason, failed, err = fsmeta.DirReadError(opener, path)
+	return reason, failed, err
+}
+
+// IsOpenedOutside reports whether err is the refusal of a path Windows opened
+// outside the image root (Confinement.Admit), already logged once.
+func IsOpenedOutside(err error) bool {
+	refusal, refused := OutOfRoot(err)
+	return refused && refusal.Kind == OpenedOutside
 }
 
 // PhysicalDir is stage.PhysicalDir of path: the directory it resolves to,

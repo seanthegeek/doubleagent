@@ -109,7 +109,7 @@ func denyEveryone(t *testing.T, dir string) {
 // fact, so the test skips there; anything else is a broken fixture.
 func requireUnlistable(t *testing.T, dir string) {
 	t.Helper()
-	if _, failed := fsmeta.DirReadError(dir); failed {
+	if _, failed, _ := fsmeta.DirReadError(nil, dir); failed {
 		return
 	}
 	if windows.GetCurrentProcessToken().IsElevated() {

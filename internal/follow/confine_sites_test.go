@@ -1,0 +1,108 @@
+package follow
+
+import (
+	"os"
+	"strings"
+	"testing"
+)
+
+// The second check's coverage, kept in step with the guard's counted list
+// and with internals.md: every counted call on an image path either opens
+// through the opener's Admit or is named, by its last name, in the sentence
+// of internals.md that lists what the root check alone covers.
+const (
+	admitted      = "admitted"
+	rootCheckOnly = "root check alone"
+	notImage      = "not an image path"
+)
+
+// siteClasses classifies every counted call of allowedCalls by file and name.
+func siteClasses() map[string]string {
+	return map[string]string{
+		"internal/glob/expand.go fsmeta.OpenDir":               admitted,
+		"internal/projects/files.go fsmeta.OpenDir":            admitted,
+		"internal/relocation/walk.go fsmeta.OpenDir":           admitted,
+		"internal/walk/tree.go fsmeta.OpenDir":                 admitted,
+		"internal/collect/options.go fsmeta.OnDiskPath":        rootCheckOnly,
+		"internal/projects/paths.go fsmeta.OnDiskPath":         rootCheckOnly,
+		"internal/walk/rootrules_windows.go fsmeta.OnDiskPath": rootCheckOnly,
+		"internal/glob/respell_windows.go fsmeta.OnDiskName":   rootCheckOnly,
+		"internal/walk/files.go fsmeta.DiskUsageBytes":         rootCheckOnly,
+		"internal/volumes/volumes.go fsmeta.DiskUsageBytes":    rootCheckOnly,
+		"internal/glob/expand.go osfile.Stat":                  rootCheckOnly,
+		"internal/users/users_windows.go osfile.ReadDir":       rootCheckOnly,
+		"internal/walk/project.go stage.PhysicalDir":           rootCheckOnly,
+		// The operator's own -r and -o, live ProfileList and ProgramData
+		// paths, the run's output and staging files, and host programs.
+		"internal/collect/options_windows.go fsmeta.OnDiskPath":            notImage,
+		"internal/collect/run_windows.go fsmeta.OnDiskPath":                notImage,
+		"internal/users/users_windows.go fsmeta.OnDiskPath":                notImage,
+		"internal/collect/options.go osfile.Stat":                          notImage,
+		"internal/collect/run_unix.go unix.Faccessat":                      notImage,
+		"internal/collect/run_setup.go stage.PhysicalDir":                  notImage,
+		"internal/archive/archive.go osfile.Remove":                        notImage,
+		"internal/archive/archive.go osfile.Create":                        notImage,
+		"internal/archive/archive.go osfile.WriteFile":                     notImage,
+		"internal/archive/archive.go osfile.ReadDir":                       notImage,
+		"internal/archive/archive.go osfile.Open":                          notImage,
+		"internal/collect/run_setup.go osfile.Remove":                      notImage,
+		"internal/collect/run_setup.go osfile.RemoveAll":                   notImage,
+		"internal/collect/run_setup.go osfile.MkdirAll":                    notImage,
+		"internal/collect/run_setup.go osfile.Create":                      notImage,
+		"internal/collect/run_setup.go osfile.OpenFile":                    notImage,
+		"internal/collect/run_finish.go osfile.Remove":                     notImage,
+		"internal/collect/run_finish.go osfile.WriteFile":                  notImage,
+		"internal/collect/run_finish.go osfile.Open":                       notImage,
+		"internal/collect/run_finish.go osfile.OpenFile":                   notImage,
+		"internal/runlog/runlog.go osfile.OpenFile":                        notImage,
+		"internal/hostcmd/hostcmd.go exec.CommandContext":                  notImage,
+		"internal/hostcmd/hostcmd.go exec.LookPath":                        notImage,
+		"internal/hostcmd/hostcmd.go exec.Error":                           notImage,
+		"internal/shortname/shortname_windows.go windows.GetShortPathName": notImage,
+		"internal/shortname/shortname_windows.go windows.GetLongPathName":  notImage,
+		"internal/shortname/shortname_windows.go osfile.MkdirAll":          notImage,
+	}
+}
+
+// ownRootCheckOnly are this package's own following calls that open no
+// handle the run keeps, or run only where there is no second check (ReadFile
+// reads the Unix /etc/passwd), named in the same sentence of internals.md.
+var ownRootCheckOnly = []string{"follow.Stat", "IsDirectory", "IsRegularFile", "follow.ReadFile",
+	"follow.PhysicalDir", "CanEnter"}
+
+func TestEveryImageSiteIsAdmittedOrDocumented(t *testing.T) {
+	classes := siteClasses()
+	for key := range allowedCalls() {
+		if _, known := classes[key]; !known {
+			t.Errorf("%s is counted but not classified in siteClasses: is it admitted, covered "+
+				"by the root check alone (and named in internals.md), or not an image path?", key)
+		}
+	}
+	allowed := allowedCalls()
+	for key := range classes {
+		if _, counted := allowed[key]; !counted {
+			t.Errorf("%s is classified but no longer counted", key)
+		}
+	}
+	text, err := os.ReadFile("../../collectors/docs/internals.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, sentence, found := strings.Cut(string(text), "The root\ncheck alone covers")
+	if !found {
+		t.Fatal(`internals.md has no "The root check alone covers" sentence`)
+	}
+	sentence, _, _ = strings.Cut(sentence, "\n\n")
+	names := append([]string{}, ownRootCheckOnly...)
+	for key, class := range classes {
+		if class == rootCheckOnly {
+			call := key[strings.LastIndexByte(key, ' ')+1:]
+			names = append(names, call[strings.IndexByte(call, '.')+1:])
+		}
+	}
+	for _, name := range names {
+		if !strings.Contains(sentence, name) {
+			t.Errorf("internals.md's root-check-alone sentence does not name %s", name)
+		}
+	}
+}

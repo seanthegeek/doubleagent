@@ -134,6 +134,8 @@ func allowedCalls() map[string]allowance {
 			"respells -r and -o, the operator's own paths"},
 		{"internal/collect/run_windows.go", "fsmeta.OnDiskPath", 1,
 			"respells the ProgramData directory the environment names"},
+		{"internal/walk/rootrules_windows.go", "fsmeta.OnDiskPath", 1,
+			"respells a link target matching the root only in ASCII case, from the drive"},
 		{"internal/projects/paths.go", "fsmeta.OnDiskPath", 1,
 			"respells a discovered value below the root, stopping at the first link"},
 		{"internal/users/users_windows.go", "fsmeta.OnDiskPath", 1,

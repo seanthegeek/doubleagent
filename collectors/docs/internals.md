@@ -575,20 +575,25 @@ An image passwd line whose home climbs above the root gives
 
 The paths that can carry `..` come from outside a listing: a discovered
 project value, a `-p` value, a passwd home, a link's target. A relative
-`-p` is cleaned when it holds `..` or leads out. On Windows a discovered
-value and every `-p` then have their `.` and `..` removed by name, as Win32
-removes them, so the one string the run checks is the one it opens, stages
-and logs. On Linux and macOS, where the kernel resolves `..` from where a
-link leads, they and every passwd home reach the check as written and are
-judged as the system will open them; a link's target is followed by the
-walk above. On Windows, staging refuses a path that still holds a `.` or
-`..` component, which no path the run takes in should: its row is
-`error_copy` with no archive path and the error `holds a . or .. component,
-so where it is staged is not known`, since keeping them would stage the
-copy outside `fs/`. On Linux and macOS such a path (a passwd home such as
-`/srv/dotlink/../frank`) is staged as the sh collector stages it: the root
-removed as text (`set_dest_var`) and the `..` left in, for the kernel to
-resolve in the staging tree as it resolved the source. ProfileList paths are read on a live run only, and a relocation
+`-p` is cleaned when it holds `..` or leads out. Every other one that
+holds a `.` or `..` component is replaced once, before anything else uses
+it, by the path the system reaches for it (`walk.RootCheck.Reached`): on
+Linux and macOS the physical path the root check's own walk reached, since
+the kernel resolves `..` from where a link leads, spelled under the root
+as given (on a live run, the directory it resolves to); on Windows the path
+with `.` and `..` removed by name, as Win32 removes them. Its row's home and
+path, its archive path, the log and `collection.json` then all name that
+one path, and two homes or projects that become the same path are one, the
+first in enumeration order kept, as two passwd lines naming one home
+already are. A path the check refuses, or one that cannot be resolved, is
+kept as written; staging refuses any path that still holds a `.` or `..`
+component, on every platform: its row is `error_copy` with no archive path
+and the error `holds a . or .. component, so where it is staged is not
+known`. The sh collector keeps the dotted spelling and stages the copy at
+`fs/` plus that spelling, which `mkdir -p` resolves lexically: a home
+`/srv/dotlink/../frank` with `srv/dotlink` a link to `b/c` is staged at
+`fs/srv/frank`, onto another user's home of that name (exception 47 in the
+plan). A link's target is followed by the walk above. ProfileList paths are read on a live run only, and a relocation
 hint's value is recorded, never opened.
 
 The binary logs a project the run lists but does not walk with one line
@@ -608,7 +613,9 @@ On Windows, in image mode, a second check stands behind the root check
 and does not depend on its walk being right. Every evidence file the run
 opens (a collected file's copy, project discovery's reads, the relocation
 search and sweep) and every directory it opens to list (the tree walk, the
-glob expander, discovery's name search, the relocation sweep) goes through
+glob expander, discovery's name search, the relocation sweep, and the
+listing test of `follow.DirReadError` and `CanRead`, whose refusal writes
+no `error_read` row) goes through
 the run's opener (`fsmeta.Opener.Open` and `fsmeta.OpenDir`), which asks
 the open handle where it is (`GetFinalPathNameByHandle`, its links
 resolved and each name spelled as the disk holds it) and requires that to
@@ -629,11 +636,18 @@ When the root's own place cannot be asked, refusing every open would lose
 the whole image, so the run goes on with the root check alone and logs
 `image root: where C:\img lies cannot be read (<reason>); what is opened under it is checked by the root check alone`.
 The check costs one system call per open; a live run has none. The root
-check alone covers what opens no handle the run keeps: the stats behind
-`follow.Stat`, `IsDirectory` and `IsRegularFile`, the name lookups of
-`fsmeta.OnDiskName` and `OnDiskPath`, a candidate home's parent listing on
-Windows (`os.ReadDir`, which only says whether the parent lists the name),
-and `fsmeta.DiskUsageBytes`. Linux and macOS have no second check: their
+check alone covers what opens no handle the run keeps, or reads only a
+handle's own name: the stats behind `follow.Stat`, `IsDirectory` and
+`IsRegularFile` and the glob expander's existence test (`os.Stat`); the
+name lookups of `fsmeta.OnDiskName` and `OnDiskPath`; a candidate home's
+parent listing on Windows (`os.ReadDir`, which only says whether the parent
+lists the name); `fsmeta.DiskUsageBytes`; `CanEnter`, which opens nothing
+on Windows; `follow.PhysicalDir` and `stage.PhysicalDir`, which read a
+directory handle's own final path, compared with the root by their
+callers; and `follow.ReadFile`, which reads only the Unix `/etc/passwd`. A
+test in `internal/follow` fails when a counted call on an image path is
+neither admitted nor named here.
+Linux and macOS have no second check: their
 walk is the kernel's own physical resolution, compared with the kernel on
 every shape by a test, while asking an open file for its path there is not
 exact (Linux's `/proc/self/fd` names a deleted file with a suffix and

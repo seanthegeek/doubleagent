@@ -2,7 +2,6 @@ package follow
 
 import (
 	"errors"
-	"os"
 	"reflect"
 	"testing"
 )
@@ -28,9 +27,9 @@ func TestConfinementAdmitsOnlyAHandleUnderTheRoot(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			var reported []string
 			confinement := newConfinement(root,
-				func(*os.File) (string, error) { return testCase.place, testCase.err },
+				func(uintptr) (string, error) { return testCase.place, testCase.err },
 				func(path string) { reported = append(reported, path) })
-			err := confinement.Admit("C:/cases/img/x", nil)
+			err := confinement.Admit("C:/cases/img/x", 0)
 			if testCase.admit {
 				if err != nil || len(reported) != 0 {
 					t.Errorf("Admit = %v, reported %q; want it admitted", err, reported)
@@ -51,10 +50,10 @@ func TestConfinementAdmitsOnlyAHandleUnderTheRoot(t *testing.T) {
 func TestConfinementReportsEachPathOnce(t *testing.T) {
 	var reported []string
 	confinement := newConfinement(`\Device\Mup\server\share\img\`,
-		func(*os.File) (string, error) { return `\Device\Mup\server\other\x`, nil },
+		func(uintptr) (string, error) { return `\Device\Mup\server\other\x`, nil },
 		func(path string) { reported = append(reported, path) })
 	for _, path := range []string{"a", "b", "a"} {
-		if err := confinement.Admit(path, nil); err == nil {
+		if err := confinement.Admit(path, 0); err == nil {
 			t.Fatalf("Admit(%s) admitted a handle outside the root", path)
 		}
 	}
@@ -64,15 +63,15 @@ func TestConfinementReportsEachPathOnce(t *testing.T) {
 	// A root given with its trailing separator (a volume's own root) still
 	// admits what is under it.
 	inside := newConfinement(`\Device\HarddiskVolume7\`,
-		func(*os.File) (string, error) { return `\Device\HarddiskVolume7\x`, nil }, nil)
-	if err := inside.Admit("x", nil); err != nil {
+		func(uintptr) (string, error) { return `\Device\HarddiskVolume7\x`, nil }, nil)
+	if err := inside.Admit("x", 0); err != nil {
 		t.Errorf("Admit under a volume root: %v", err)
 	}
 }
 
 func TestANilConfinementAdmitsEverything(t *testing.T) {
 	var confinement *Confinement
-	if err := confinement.Admit("x", nil); err != nil {
+	if err := confinement.Admit("x", 0); err != nil {
 		t.Errorf("Admit = %v", err)
 	}
 }

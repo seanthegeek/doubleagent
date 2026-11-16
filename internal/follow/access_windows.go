@@ -5,12 +5,12 @@ import "github.com/seanthegeek/doubleagent/internal/fsmeta"
 // CanRead reports whether path can be listed, as the PowerShell collector's
 // Test-DirReadable decides: Windows has no permission bits to test, and a
 // deny entry shows only when the listing fails.
-func CanRead(check Check, path string) (bool, error) {
+func CanRead(check Check, opener *fsmeta.Opener, path string) (bool, error) {
 	if err := LeavesRoot(check, path); err != nil {
 		return false, err
 	}
-	_, failed := fsmeta.DirReadError(path)
-	return !failed, nil
+	_, failed, err := fsmeta.DirReadError(opener, path)
+	return !failed, err
 }
 
 // CanEnter is always true: Windows lets every user pass through a directory

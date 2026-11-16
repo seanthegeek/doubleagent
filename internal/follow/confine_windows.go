@@ -2,7 +2,6 @@ package follow
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -19,7 +18,7 @@ func NewConfinement(root string, report func(path string)) (*Confinement, error)
 		return nil, err
 	}
 	defer handle.Close()
-	place, err := finalPlace(handle)
+	place, err := finalPlace(handle.Fd())
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", syspath.ToNative(root), err)
 	}
@@ -32,14 +31,14 @@ func NewConfinement(root string, report func(path string)) (*Confinement, error)
 // The NT form exists for every volume: the DOS form fails for one without a
 // drive letter and the GUID form for a network share or a volume the Mount
 // Manager did not create.
-func finalPlace(handle *os.File) (string, error) {
+func finalPlace(handle uintptr) (string, error) {
 	// x/sys does not name the flags; Microsoft's page gives
 	// VOLUME_NAME_NT = 0x2 and FILE_NAME_NORMALIZED = 0x0.
 	const volumeNameNT, fileNameNormalized = 0x2, 0x0
 	const flags = volumeNameNT | fileNameNormalized
 	buffer := make([]uint16, windows.MAX_PATH)
 	for {
-		n, err := windows.GetFinalPathNameByHandle(windows.Handle(handle.Fd()), &buffer[0],
+		n, err := windows.GetFinalPathNameByHandle(windows.Handle(handle), &buffer[0],
 			uint32(len(buffer)), flags)
 		if err != nil {
 			return "", err

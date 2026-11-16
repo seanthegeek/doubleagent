@@ -5,8 +5,10 @@ package walk
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"slices"
 )
 
 // walkPath walks rest, a path relative to the resolved root, as the kernel
@@ -153,7 +155,48 @@ type probes struct {
 	readlink func(path string) (string, error)
 }
 
+// Reached returns, for a path that enters the run from outside a listing (a
+// passwd home, a discovered project value, a -p) and holds a `.` or `..`
+// component, the path the kernel reaches for it: the physical path the
+// check's own walk reached, spelled under the root as given; on a live run,
+// the directory it resolves to. The run then checks, opens, stages and logs
+// that one path, and two spellings that reach one directory are one. A path
+// without such a component, one the check refuses, and one that cannot be
+// resolved (a missing component) come back unchanged; staging refuses a
+// dotted path (stage.Stager.Dest), so nothing of it is staged under a
+// guessed name.
+func (check RootCheck) Reached(path string) string {
+	if !hasDotComponent(path) {
+		return path
+	}
+	if check.given == "" {
+		if physical, err := follow.PhysicalDir(nil, path); err == nil {
+			return physical
+		}
+		return path
+	}
+	found, reached := check.resolve(path, imageProbes())
+	if found.name != "" || reached == "" {
+		return path
+	}
+	return check.underRoot(reached)
+}
+
+// sameDirectory is never asked on Unix, whose comparison of a target with
+// the root is byte for byte: a prefix that matched is the root.
+func (rootWalk) sameDirectory(prefix, root string) bool {
+	return prefix == root
+}
+
 // platformProbes returns the probes of the file system itself on Unix.
 func platformProbes() probes {
 	return probes{isLink: isLinkProbe, readlink: osfile.Readlink}
+}
+
+// hasDotComponent reports whether path, canonical, has a `.` or `..`
+// component.
+func hasDotComponent(path string) bool {
+	return slices.ContainsFunc(strings.Split(path, "/"), func(part string) bool {
+		return part == "." || part == ".."
+	})
 }

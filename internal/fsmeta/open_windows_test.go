@@ -354,3 +354,34 @@ func TestSettingTheAccessTimeLeavesTheCreationAndWriteTimes(t *testing.T) {
 			after[:3], before[:3])
 	}
 }
+
+func TestARefusedOpenHoldsNothingAndReportsNothing(t *testing.T) {
+	path := syspath.FromNative(t.TempDir()) + "/outside.txt"
+	if err := os.WriteFile(syspath.ToNative(path), []byte("analyst's own file"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)
+	if err := os.Chtimes(syspath.ToNative(path), old, old); err != nil {
+		t.Fatal(err)
+	}
+	before := basicTimesOf(t, path)
+	for _, opener := range []*Opener{{}, {NTFSUpdatesOff: true}, {ReadOnly: true}} {
+		var reported []string
+		admitted := 0
+		opener.Report = func(path, reason string) { reported = append(reported, path+": "+reason) }
+		opener.Admit = func(string, uintptr) error {
+			admitted++
+			return errors.New("opened outside the image root")
+		}
+		if file, err := opener.Open(path); err == nil {
+			file.Close()
+			t.Errorf("%+v: Open admitted a refused handle", opener)
+		}
+		if admitted != 1 || len(reported) != 0 {
+			t.Errorf("%+v: admitted %d times, reported %q", opener, admitted, reported)
+		}
+	}
+	if after := basicTimesOf(t, path); after != before {
+		t.Errorf("the refused file's times moved: %v, then %v", before, after)
+	}
+}

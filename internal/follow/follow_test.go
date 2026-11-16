@@ -34,14 +34,14 @@ func TestFollowingFunctionsRefuseWhatTheCheckRefuses(t *testing.T) {
 		}},
 		{"ReadFile", func(check Check) error { _, err := ReadFile(check, fenced+"/dir"); return err }},
 		{"DirReadError", func(check Check) error {
-			_, _, err := DirReadError(check, fenced+"/dir")
+			_, _, err := DirReadError(check, nil, fenced+"/dir")
 			return err
 		}},
 		{"PhysicalDir", func(check Check) error {
 			_, err := PhysicalDir(check, fenced+"/dir")
 			return err
 		}},
-		{"CanRead", func(check Check) error { _, err := CanRead(check, fenced+"/dir"); return err }},
+		{"CanRead", func(check Check) error { _, err := CanRead(check, nil, fenced+"/dir"); return err }},
 		{"CanEnter", func(check Check) error { _, err := CanEnter(check, fenced+"/dir"); return err }},
 	}
 	for _, call := range calls {
@@ -61,7 +61,7 @@ func TestFollowingFunctionsRefuseWhatTheCheckRefuses(t *testing.T) {
 
 func TestDirReadErrorReportsARefusalAsFailed(t *testing.T) {
 	refusing := func(path string) (Refusal, bool) { return Refusal{Link: path, Kind: LeadsOut}, true }
-	reason, failed, err := DirReadError(refusing, "/img/home/link")
+	reason, failed, err := DirReadError(refusing, nil, "/img/home/link")
 	if !failed || err == nil || reason != err.Error() || reason == "" {
 		t.Errorf("DirReadError = %q, %v, %v; want failed, with the refusal as the reason",
 			reason, failed, err)

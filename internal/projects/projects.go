@@ -39,16 +39,17 @@ type RootExit = follow.Check
 
 // Discover returns the canonical paths of the projects named in the state of
 // each home (localProjectPath under the host's rules and root, "" or "/"
-// live), then the absolute -p directories in extra, first seen first, each
-// once (ignoring case on Windows) with its first non-empty owner, keeping
-// directories (test -d) that are not a home. dropSecret, nil outside
-// --inventory, names files, relative to their home, not to read. outOfScope,
-// nil live, names paths leaving the image root: such a project is kept
-// untested; behind such a link nothing is listed, probed or read, and the
-// link is returned once as a Refusal. opener reads every file (nil: see
-// fsmeta.Opener). Only a cancelled ctx is an error.
+// live), then the absolute -p directories in extra, each path first put
+// through reach (walk.RootCheck.Reached; nil: none), then each once, first
+// seen first (ignoring case on Windows) with its first non-empty owner,
+// keeping directories that are not a home. dropSecret (nil outside
+// --inventory) names files not to read; outOfScope (nil live) names paths
+// leaving the image root, behind which nothing is read, each such link
+// returned once as a Refusal; opener reads every file. Only a cancelled ctx
+// is an error.
 func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
 	dropSecret func(relative string) bool, outOfScope RootExit, opener *fsmeta.Opener,
+	reach func(path string) string,
 ) ([]Project, []Refusal, error) {
 	root = strings.TrimSuffix(root, "/")
 	userList := userListText(homes)
@@ -82,6 +83,11 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 	for _, path := range strings.Split(strings.Join(extra, "\n"), "\n") {
 		if syspath.IsAbs(path) {
 			found = append(found, Project{Owner: projectOwner(userList, path), Path: path})
+		}
+	}
+	if reach != nil {
+		for i := range found {
+			found[i].Path = reach(found[i].Path)
 		}
 	}
 	return keepProjectDirs(mergeProjectOwners(found), userList, outOfScope), refused, nil

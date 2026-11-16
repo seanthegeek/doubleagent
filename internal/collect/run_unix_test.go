@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"crypto/sha256"
+	"encoding/hex"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
@@ -332,5 +334,64 @@ func TestEachRefusalIsWordedByItsKind(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestADottedHomeIsStagedWhereTheKernelReachesIt is the image of a home
+// given through a link and `..`: frank's passwd home /srv/dotlink/../frank,
+// with srv/dotlink a link to b/c, is srv/b/frank; gina's home is srv/frank.
+// Kept dotted, frank's copy would land on gina's staged path and his row
+// would point at her bytes.
+func TestADottedHomeIsStagedWhereTheKernelReachesIt(t *testing.T) {
+	files := map[string]string{
+		"etc/passwd": "frank:x:1001:1001::/srv/dotlink/../frank:/bin/sh\n" +
+			"gina:x:1002:1002::/srv/frank:/bin/sh\n" +
+			"frank2:x:1003:1003::/srv/b/frank:/bin/sh\n",
+		"srv/b/c/keep":                      "",
+		"srv/b/frank/.claude/settings.json": "{\"who\": \"frank\"}\n",
+		"srv/frank/.claude/settings.json":   "{\"who\": \"gina\"}\n",
+	}
+	root := writeImage(t, files, map[string]string{"srv/dotlink": "b/c"})
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	members := archiveMembers(t, outDir)
+	rows, texts := manifestRows(t, outDir)
+	for _, test := range []struct{ user, path, content string }{
+		{"frank", "srv/b/frank/.claude/settings.json", files["srv/b/frank/.claude/settings.json"]},
+		{"gina", "srv/frank/.claude/settings.json", files["srv/frank/.claude/settings.json"]},
+	} {
+		sum := sha256.Sum256([]byte(test.content))
+		want := hex.EncodeToString(sum[:])
+		if got := members["./fs/"+test.path]; got != want {
+			t.Errorf("archive member ./fs/%s has sha256 %q, want %s", test.path, got, want)
+		}
+		found := 0
+		for i, row := range rows {
+			if row["path"] != root+"/"+test.path {
+				continue
+			}
+			found++
+			if row["user"] != test.user || row["archive_path"] != "fs/"+test.path ||
+				row["sha256"] != want {
+				t.Errorf("row %s", texts[i])
+			}
+		}
+		if found != 1 {
+			t.Errorf("%d rows of %s, want 1:\n%s", found, test.path, strings.Join(texts, "\n"))
+		}
+	}
+	for i, row := range rows {
+		for _, field := range []string{"path", "home", "archive_path"} {
+			if value, _ := row[field].(string); strings.Contains(value, "..") {
+				t.Errorf("row %s holds .. in %s", texts[i], field)
+			}
+		}
+	}
+	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "dotlink/..") {
+		t.Errorf("the log names the dotted spelling:\n%s", log)
 	}
 }

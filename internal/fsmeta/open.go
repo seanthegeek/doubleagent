@@ -27,7 +27,7 @@ type Opener struct {
 	ReadOnly       bool
 	NTFSUpdatesOff bool
 	Report         func(path, reason string)
-	Admit          func(path string, handle *os.File) error
+	Admit          func(path string, handle uintptr) error
 }
 
 // NewOpener returns the opener of a run.
@@ -46,17 +46,89 @@ func holdsAccessTime(readOnly, ntfsUpdatesOff bool, fileSystem string) bool {
 	return !readOnly && (!ntfsUpdatesOff || fileSystem != "NTFS")
 }
 
-// admitted returns handle, just opened on path, when the opener's Admit lets
-// it through, and otherwise closes it and returns Admit's error.
-func (o *Opener) admitted(path string, handle *os.File) (*os.File, error) {
+// admit asks the opener's Admit about handle, the system handle just opened
+// on path, and returns its refusal; nil when there is no Admit.
+func (o *Opener) admit(path string, handle uintptr) error {
 	if o == nil || o.Admit == nil {
-		return handle, nil
+		return nil
 	}
-	if err := o.Admit(path, handle); err != nil {
-		handle.Close()
+	return o.Admit(path, handle)
+}
+
+// admitted returns file, just opened on path, when the opener's Admit lets
+// it through, and otherwise closes it and returns Admit's error. The handle
+// is read through SyscallConn, which leaves the file's mode as it is (Fd
+// would make a non-blocking Unix descriptor blocking).
+func (o *Opener) admitted(path string, file *os.File) (*os.File, error) {
+	if o == nil || o.Admit == nil {
+		return file, nil
+	}
+	raw, err := file.SyscallConn()
+	if err == nil {
+		controlErr := raw.Control(func(handle uintptr) { err = o.admit(path, handle) })
+		if err == nil {
+			err = controlErr
+		}
+	}
+	if err != nil {
+		file.Close()
 		return nil, err
 	}
+	return file, nil
+}
+
+// sourceOpen is the order of one evidence open, kept in one place so that
+// admission is always the first thing done with a new handle: create opens
+// the file with an access right, admit judges the bare handle (Admit),
+// release closes a refused one, and only an admitted handle is held
+// (hold, for an access that carries the right to set times) or reported.
+// It is compiled on every platform, so every runner tests the order.
+type sourceOpen struct {
+	create    func(access uint32) (uintptr, error)
+	admit     func(handle uintptr) error
+	release   func(handle uintptr)
+	holdRight func(access uint32) bool
+	hold      func(handle uintptr) string
+	report    func(handle uintptr, reason string)
+}
+
+// first opens with access and admits the handle, closing a refused one.
+func (steps sourceOpen) first(access uint32) (uintptr, error) {
+	handle, err := steps.create(access)
+	if err != nil {
+		return 0, err
+	}
+	if err := steps.admit(handle); err != nil {
+		steps.release(handle)
+		return 0, err
+	}
 	return handle, nil
+}
+
+// run tries each access in turn and returns the first admitted handle, held
+// when its access carries the right (the reason, "" when held, reported)
+// and reported when the right was refused; a refusal by admit ends the run,
+// since every access names the same file.
+func (steps sourceOpen) run(accesses []uint32) (uintptr, error) {
+	var err error
+	for i, access := range accesses {
+		handle, createErr := steps.create(access)
+		if createErr != nil {
+			err = createErr
+			continue
+		}
+		if err := steps.admit(handle); err != nil {
+			steps.release(handle)
+			return 0, err
+		}
+		if steps.holdRight(access) {
+			steps.report(handle, steps.hold(handle))
+		} else if i > 0 {
+			steps.report(handle, reasonRightRefused)
+		}
+		return handle, nil
+	}
+	return 0, err
 }
 
 // OpenDir opens the directory path to list it, as os.Open does, and asks

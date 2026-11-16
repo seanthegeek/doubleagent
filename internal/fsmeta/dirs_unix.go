@@ -18,18 +18,19 @@ var errNotDirectory error = syscall.ENOTDIR
 // sh collector prints ls's. It reports failed false for a directory that can
 // be both listed and entered. The tests follow a symlink, as test(1) does,
 // because the callers give it directories and homes that may be links. Only
-// the first line of the text is kept, since a path can hold a newline.
-func DirReadError(path string) (reason string, failed bool) {
+// the first line of the text is kept, since a path can hold a newline. It
+// opens no handle, so there is nothing for an opener's Admit to judge.
+func DirReadError(_ *Opener, path string) (reason string, failed bool, refused error) {
 	info, statError := os.Stat(path)
 	switch {
 	case statError != nil || !info.IsDir():
-		return firstLine(notDirectoryError(path).Error()), true
+		return firstLine(notDirectoryError(path).Error()), true, nil
 	case !canAccess(path, unix.R_OK):
-		return firstLine(openError(path)), true
+		return firstLine(openError(path)), true, nil
 	case !canAccess(path, unix.X_OK):
-		return firstLine(enterError(path)), true
+		return firstLine(enterError(path)), true, nil
 	}
-	return "", false
+	return "", false, nil
 }
 
 // canAccess reports whether the effective user may access path with the

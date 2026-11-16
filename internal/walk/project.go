@@ -34,7 +34,11 @@ func (collector *Collector) CollectProject(ctx context.Context, user, home, proj
 		return nil
 	}
 	// place.refusal returned above, so the project is inside the root.
-	if reason, failed, _ := follow.DirReadError(collector.check(), project); failed {
+	reason, failed, err := follow.DirReadError(collector.check(), collector.Stager.Opener, project)
+	if follow.IsOpenedOutside(err) {
+		return nil
+	}
+	if failed {
 		if err := collector.WriteReadError(user, project, project, reason); err != nil {
 			return err
 		}
@@ -300,9 +304,18 @@ func (walker rootWalk) relative(name string) (string, bool) {
 		given = strings.TrimSuffix(given, "/")
 	}
 	for _, root := range []string{walker.physical, given} {
-		if rest, inside := pathUnder(name, root); inside {
-			return rest, true
+		rest, inside := pathUnder(name, root)
+		if !inside {
+			continue
 		}
+		prefix := name
+		if rest != "" {
+			prefix = strings.TrimSuffix(name[:len(name)-len(rest)], "/")
+		}
+		// pathUnder ignores ASCII case on Windows; a prefix spelled
+		// otherwise than the root must be the root's own directory, which
+		// the disk decides (sameDirectory).
+		return rest, prefix == root || walker.sameDirectory(prefix, root)
 	}
 	return "", false
 }

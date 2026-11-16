@@ -3,7 +3,9 @@ package walk
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -160,7 +162,35 @@ func TestTheRootCheckAndWindowsAgreeOnNastyPaths(t *testing.T) {
 	makeSymlink(t, `\\?\GLOBALROOT`+device+`\`, root+"/Users/alice/glob", true)
 	storeSymlink(t, device+`\`, root+"/Users/alice/dev")
 	storeSymlink(t, `\GLOBAL??\`+systemDrive()+`\`, root+"/Users/alice/global")
+	// Lone surrogates, which Go names in WTF-8: a junction named U+D800 to
+	// the Windows directory, a link L whose stored target is that one
+	// unit, and a directory named U+D801 holding a file inside the image.
+	// Decoding L's target to U+FFFD would have the walk look for another
+	// name than the one Windows follows.
+	const loneD800, loneD801 = "\xed\xa0\x80", "\xed\xa1\x80"
+	makeJunction(t, systemDrive()+"/Windows", root+"/Users/alice/"+loneD800)
+	makeSymlink(t, loneD800, root+"/Users/alice/L", true)
+	writeFiles(t, root, "Users/alice/"+loneD801+"/f")
 	check := NewRootCheck(root)
+	t.Run("a link to a lone surrogate", func(t *testing.T) {
+		full := root + "/Users/alice/L/win.ini"
+		opened, err := finalPath(full)
+		t.Logf("Windows opens %s at %q (error %v)", full, opened, err)
+		want := follow.Refusal{Link: root + "/Users/alice/L", Kind: follow.Unverified}
+		if got, leaves := check.Exit(full); !leaves || got != want {
+			t.Errorf("Exit = %+v, %v; want %+v, true", got, leaves, want)
+		}
+	})
+	t.Run("a directory named by a lone surrogate", func(t *testing.T) {
+		full := root + "/Users/alice/" + loneD801 + "/f"
+		opened, err := finalPath(full)
+		if err != nil || !syspath.Equal(opened, full) {
+			t.Errorf("Windows opened %q (error %v), want %q", opened, err, full)
+		}
+		if refusal, leaves := check.Exit(full); leaves {
+			t.Errorf("Exit refused %+v", refusal)
+		}
+	})
 	for _, link := range []string{"vol", "glob", "dev", "global"} {
 		t.Run(link, func(t *testing.T) {
 			full := root + "/Users/alice/" + link + "/Windows/win.ini"
@@ -254,4 +284,44 @@ func storeSymlink(t *testing.T, substitute, link string) {
 		t.Skipf("storing a symbolic link needs a privilege here: %v", err)
 	}
 	mustDo(t, err)
+}
+
+func TestALinkToAnotherCaseOfTheRootIsJudgedByTheDisk(t *testing.T) {
+	for _, caseSensitive := range []bool{false, true} {
+		t.Run(fmt.Sprintf("case-sensitive %v", caseSensitive), func(t *testing.T) {
+			base := physicalTemp(t)
+			if caseSensitive {
+				output, err := exec.Command("fsutil", "file", "setCaseSensitiveInfo",
+					syspath.ToNative(base), "enable").CombinedOutput()
+				if err != nil {
+					t.Skipf("fsutil cannot make %s case-sensitive here: %v: %s", base, err,
+						strings.TrimSpace(string(output)))
+				}
+			}
+			root := base + "/img"
+			writeFiles(t, root, "x/m.txt")
+			if caseSensitive {
+				writeFiles(t, base, "IMG/x/m.txt")
+			}
+			// An absolute link whose target spells the root IMG.
+			makeSymlink(t, syspath.ToNative(base+"/IMG/x"), root+"/l", true)
+			check := NewRootCheck(root)
+			full := root + "/l/m.txt"
+			opened, err := finalPath(full)
+			t.Logf("Windows opens %s at %q (error %v)", full, opened, err)
+			refusal, refused := check.Exit(full)
+			if caseSensitive {
+				want := follow.Refusal{Link: root + "/l", Kind: follow.LeadsOut}
+				if !refused || refusal != want {
+					t.Errorf("Exit = %+v, %v; want %+v: IMG is another directory", refusal,
+						refused, want)
+				}
+				return
+			}
+			if refused || err != nil || !syspath.Equal(opened, root+"/x/m.txt") {
+				t.Errorf("Exit = %+v, %v; Windows opened %q (%v); want the root's own x/m.txt",
+					refusal, refused, opened, err)
+			}
+		})
+	}
 }

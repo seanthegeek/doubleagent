@@ -43,7 +43,7 @@ func (state *runState) findHomes(ctx context.Context) error {
 			return err
 		}
 	}
-	state.homes, state.skippedHomes = report.Homes, report.Skipped
+	state.homes, state.skippedHomes = reachedHomes(report.Homes, state.roots), report.Skipped
 	for _, profile := range report.Profiles {
 		state.profiles = append(state.profiles, relocation.Profile(profile))
 	}
@@ -59,6 +59,28 @@ func (state *runState) findHomes(ctx context.Context) error {
 		}
 	}
 	return state.logUnmatchedUsers(report)
+}
+
+// reachedHomes returns homes with each path holding a `.` or `..` component
+// replaced by the path the system reaches for it (walk.RootCheck.Reached),
+// each path once: of two homes that reach one directory the first in
+// enumeration order is kept, the rule the users step already applies to two
+// passwd lines naming one home, so the home is walked once, under the user
+// the system lists first.
+func reachedHomes(homes []users.Home, roots walk.RootCheck) []users.Home {
+	var kept []users.Home
+	seen := map[string]bool{}
+	for _, home := range homes {
+		if home.Path != "" {
+			home.Path = roots.Reached(home.Path)
+			if seen[syspath.Fold(home.Path)] {
+				continue
+			}
+			seen[syspath.Fold(home.Path)] = true
+		}
+		kept = append(kept, home)
+	}
+	return kept
 }
 
 // logUnmatchedUsers writes a warning for each -u name that matched no user
@@ -133,8 +155,11 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	if state.options.Root != "" {
 		leavesRoot = state.rootExit
 	}
+	for i, project := range state.options.Projects {
+		state.options.Projects[i] = state.roots.Reached(project)
+	}
 	found, refused, err := projects.Discover(ctx, state.homes, state.options.Root,
-		state.options.Projects, dropSecret, leavesRoot, state.opener)
+		state.options.Projects, dropSecret, leavesRoot, state.opener, state.roots.Reached)
 	if err != nil {
 		return err
 	}
@@ -224,7 +249,10 @@ func (state *runState) reportMissingProjects() error {
 			continue
 		}
 		// projectLeavesRoot above passed path, so this is never a refusal.
-		reason, failed, _ := follow.DirReadError(check, path)
+		reason, failed, err := follow.DirReadError(check, state.opener, path)
+		if follow.IsOpenedOutside(err) {
+			continue
+		}
 		if !failed {
 			reason = ""
 		}
@@ -409,7 +437,8 @@ func (state *runState) countInventoryHomes() (scanned, unreadable int, err error
 		}
 		scanned++
 		// The users step kept no home that leads out of the root.
-		if _, failed, _ := follow.DirReadError(state.roots.Expansion(), home.Path); !failed {
+		_, failed, err := follow.DirReadError(state.roots.Expansion(), state.opener, home.Path)
+		if !failed || follow.IsOpenedOutside(err) {
 			continue
 		}
 		unreadable++

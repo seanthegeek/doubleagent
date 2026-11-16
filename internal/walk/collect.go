@@ -24,7 +24,12 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 			return err
 		}
 		// The users step kept no home that leads out of the root.
-		if reason, failed, _ := follow.DirReadError(collector.check(), home.Path); failed {
+		reason, failed, refused := follow.DirReadError(collector.check(),
+			collector.Stager.Opener, home.Path)
+		if follow.IsOpenedOutside(refused) {
+			continue
+		}
+		if failed {
 			owner := scope{user: home.User, home: home.Path}
 			if err := collector.writeReadErrors(owner, []readError{{home.Path, reason}}); err != nil {
 				return err
@@ -197,7 +202,10 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 		// path's own lstat typed it a directory, not a link, and its parents
 		// were checked: by the expansion that produced a catalog match, or by
 		// the volume step for the _data that CollectPath gets from it.
-		reason, failed, _ := follow.DirReadError(collector.check(), path)
+		reason, failed, err := follow.DirReadError(collector.check(), collector.Stager.Opener, path)
+		if follow.IsOpenedOutside(err) {
+			return 0, nil
+		}
 		if failed && !collector.Inventory {
 			return 0, collector.writeReadErrors(owner, []readError{{path, reason}})
 		}

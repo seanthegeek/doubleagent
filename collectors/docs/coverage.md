@@ -194,6 +194,11 @@ the matched path.
   a link and logs one line per link
   ([Project discovery in `internals.md`](internals.md#project-discovery)). A link that
   leaves the home but stays inside the image root is listed and refused as described above.
+  A passwd home, discovered project or `-p` whose path holds `.` or `..` is collected under
+  the path the system reaches for it (on Unix the physical path: `/srv/dotlink/../frank`
+  with `srv/dotlink` a link to `b/c` is `/srv/b/frank`), where the scripts keep the dotted
+  spelling and can stage the copy onto another home of the lexical name
+  ([`internals.md`](internals.md#project-discovery)).
   On Windows a file or directory the root check let through that Windows nonetheless opens
   outside the image root is not copied or listed and is logged once
   (`...: the root check allowed it but Windows opened it outside the image root; nothing from it was used`;

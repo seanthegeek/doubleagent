@@ -1,7 +1,6 @@
 package follow
 
 import (
-	"os"
 	"strings"
 	"sync"
 )
@@ -14,7 +13,7 @@ import (
 // run on Windows (NewConfinement); a nil Confinement admits everything.
 type Confinement struct {
 	root   string
-	where  func(handle *os.File) (string, error)
+	where  func(handle uintptr) (string, error)
 	report func(path string)
 	mutex  sync.Mutex
 	seen   map[string]bool
@@ -23,19 +22,20 @@ type Confinement struct {
 // newConfinement returns the confinement under root, the place where reports
 // for the image root, with where asking a handle for its place and report
 // receiving each refused path once.
-func newConfinement(root string, where func(*os.File) (string, error),
+func newConfinement(root string, where func(handle uintptr) (string, error),
 	report func(path string),
 ) *Confinement {
 	return &Confinement{root: strings.TrimSuffix(root, `\`), where: where, report: report,
 		seen: map[string]bool{}}
 }
 
-// Admit returns nil when handle, just opened on path, lies under the image
-// root, and otherwise an *OutOfRootError of kind OpenedOutside, reporting
-// path the first time. A handle whose place cannot be asked is refused too,
+// Admit returns nil when handle, the operating system's handle just opened
+// on path and not yet used for anything, lies under the image root, and
+// otherwise an *OutOfRootError of kind OpenedOutside, reporting path the
+// first time. A handle whose place cannot be asked is refused too,
 // since nothing then says where it is. The caller closes a refused handle
 // and uses nothing from it.
-func (confinement *Confinement) Admit(path string, handle *os.File) error {
+func (confinement *Confinement) Admit(path string, handle uintptr) error {
 	if confinement == nil {
 		return nil
 	}

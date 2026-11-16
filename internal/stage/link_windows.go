@@ -8,10 +8,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// refusesDotted is whether Dest refuses a path with a `.` or `..` component:
-// on Windows, where none should be left.
-const refusesDotted = true
-
 // allowUnprivilegedCreate is SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE,
 // which golang.org/x/sys does not define: with developer mode on, it lets an
 // account without the symlink privilege create a link.

@@ -46,13 +46,13 @@ func (stager Stager) Through(from, into string) Stager {
 // root, and where it is staged. As set_dest_var does, the root is removed
 // only as a leading string, and a path that does not start with it keeps
 // every byte after fs. On Windows the root and From are matched ignoring
-// case, a drive or UNC path left is archived as Get-ArchivePath does (C:/a
-// under fs/C/a, //server/share/a under fs/server/share/a), and a path with
-// a `.` or `..` component, which every entry point has removed, is refused
-// with an error rather than staged outside fs/. On Unix such a path keeps
-// them, as set_dest_var does, for the kernel to resolve as for the source.
+// case, and a drive or UNC path left is archived as Get-ArchivePath does (C:/a
+// under fs/C/a, //server/share/a under fs/server/share/a). A path with a
+// `.` or `..` component, which every entry point replaces by the path the
+// system reaches (walk.RootCheck.Reached), is refused with an error: kept,
+// it would stage the copy, and name its member, somewhere else.
 func (stager Stager) Dest(path string) (archivePath, destPath string, err error) {
-	if refusesDotted && hasDotComponent(path) {
+	if hasDotComponent(path) {
 		return "", "", &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: dottedPath{}}
 	}
 	relative := path

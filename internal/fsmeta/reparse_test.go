@@ -2,6 +2,7 @@ package fsmeta
 
 import (
 	"encoding/binary"
+	"slices"
 	"testing"
 	"unicode/utf16"
 )
@@ -80,4 +81,76 @@ func TestParseReparseRefusesAShortBuffer(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseReparseRefusesANameThatDoesNotRoundTrip(t *testing.T) {
+	for name, units := range map[string][]uint16{
+		"an unpaired high surrogate": {'a', 0xD800, 'b'},
+		"an unpaired low surrogate":  {0xDC00},
+		"a reversed pair":            {0xDC00, 0xD800},
+		"a NUL unit":                 {'a', 0, 'b'},
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := reparseUnits(TagSymlink, units, 1)
+			if got, err := ParseReparse(data); err == nil {
+				t.Errorf("ParseReparse = %+v, want an error", got)
+			}
+		})
+	}
+	// A stored U+FFFD, and a pair outside the Basic Multilingual Plane, are
+	// names of their own and round-trip.
+	for _, name := range []string{"\uFFFD", "𝄞"} {
+		data := reparseBuffer(TagSymlink, name, name, 1)
+		if got, err := ParseReparse(data); err != nil || got.Substitute != name {
+			t.Errorf("ParseReparse(%q) = %+v, %v", name, got, err)
+		}
+	}
+}
+
+func TestParseReparseRefusesADataLengthPastTheBytes(t *testing.T) {
+	data := reparseBuffer(TagSymlink, `\??\C:\x`, `C:\x`, 0)
+	binary.LittleEndian.PutUint16(data[4:], uint16(len(data)-8+2))
+	if got, err := ParseReparse(data); err == nil {
+		t.Errorf("ParseReparse = %+v, want an error", got)
+	}
+	short := reparseBuffer(TagSymlink, `\??\C:\x`, `C:\x`, 0)
+	binary.LittleEndian.PutUint16(short[4:], 12+2)
+	if got, err := ParseReparse(short); err == nil {
+		t.Errorf("ParseReparse with the name past the data length = %+v, want an error", got)
+	}
+}
+
+// reparseUnits is reparseBuffer for a substitute name given as raw UTF-16
+// units, with no print name.
+func reparseUnits(tag uint32, units []uint16, flags uint32) []byte {
+	data := reparseBuffer(tag, "", "", flags)
+	binary.LittleEndian.PutUint16(data[4:], uint16(len(data)-8+2*len(units)))
+	binary.LittleEndian.PutUint16(data[10:], uint16(2*len(units)))
+	for _, unit := range units {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	return data
+}
+
+// FuzzParseReparseNameReEncodes checks the rule ParseReparse keeps: any
+// substitute name it accepts re-encodes to exactly the UTF-16 units stored.
+func FuzzParseReparseNameReEncodes(fuzz *testing.F) {
+	for _, seed := range [][]byte{{'a', 0}, {0x00, 0xD8}, {0x00, 0xDC, 0x00, 0xD8},
+		{0x34, 0xD8, 0x1E, 0xDD}, {0xFD, 0xFF}, {}} {
+		fuzz.Add(seed)
+	}
+	fuzz.Fuzz(func(t *testing.T, raw []byte) {
+		units := make([]uint16, len(raw)/2)
+		for i := range units {
+			units[i] = binary.LittleEndian.Uint16(raw[2*i:])
+		}
+		parsed, err := ParseReparse(reparseUnits(TagSymlink, units, 1))
+		if err != nil {
+			return
+		}
+		if got := utf16.Encode([]rune(parsed.Substitute)); !slices.Equal(got, units) {
+			t.Errorf("accepted %q, which re-encodes to %v, not the stored %v", parsed.Substitute,
+				got, units)
+		}
+	})
 }

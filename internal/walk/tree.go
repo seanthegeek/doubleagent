@@ -137,7 +137,12 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	// swapped for a link out of the root after the listing: it keeps an
 	// error_read row, typed dir with the link's own lstat metadata, and is
 	// not opened, so nothing behind the link is read.
-	if reason, failed, err := follow.DirReadError(collector.check(), path); failed {
+	if reason, failed, err := follow.DirReadError(collector.check(), collector.Stager.Opener,
+		path); failed {
+		if follow.IsOpenedOutside(err) {
+			// Logged once by the opener's Admit: no row, nothing listed.
+			return nil
+		}
 		if err := collector.record(ctx, owner, found, foundReadError, path, reason); err != nil {
 			return err
 		}

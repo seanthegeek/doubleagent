@@ -54,7 +54,7 @@ func TestDirReadError(t *testing.T) {
 			if testCase.asUser && os.Geteuid() == 0 {
 				t.Skip("root ignores permission bits")
 			}
-			reason, failed := DirReadError(testCase.path)
+			reason, failed, _ := DirReadError(nil, testCase.path)
 			if failed != testCase.failed {
 				t.Fatalf("failed = %v (%q), want %v", failed, reason, testCase.failed)
 			}
@@ -70,7 +70,7 @@ func TestDirReadError(t *testing.T) {
 
 func TestDirReadErrorKeepsFirstLine(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "a\nb")
-	reason, failed := DirReadError(path)
+	reason, failed, _ := DirReadError(nil, path)
 	if !failed || strings.Contains(reason, "\n") {
 		t.Errorf("reason = %q, failed = %v; want one line", reason, failed)
 	}

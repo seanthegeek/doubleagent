@@ -93,7 +93,7 @@ func TestDiscoverJoinsACopiedFileToTheNextValue(t *testing.T) {
 		"home/alice/.gemini/antigravity-cli/history.jsonl": `{"workspace":"/c"}`,
 	}, "srv/a/srv/b/c")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
-	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestDiscoverInventoryReadsNoSecretFile(t *testing.T) {
 	dropSecret := func(relative string) bool {
 		return relative == ".claude/history.jsonl" || relative == ".gemini/tmp/x/.project_root"
 	}
-	got, _, err := Discover(context.Background(), homes, root, nil, dropSecret, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, dropSecret, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestDiscoverMergesAndFilters(t *testing.T) {
 		{User: "bob", Path: root + "/home/bob"}}
 	extra := []string{root + "/srv/given", root + "/home/bob/inside", root + "/srv/bobs",
 		"relative", root + "/srv/missing"}
-	got, _, err := Discover(context.Background(), homes, root+"/", extra, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root+"/", extra, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +205,7 @@ func TestDiscoverStopsWhenCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	homes := []users.Home{{User: "alice", Path: t.TempDir()}}
-	if _, _, err := Discover(ctx, homes, "", nil, nil, nil, nil); !errors.Is(err, context.Canceled) {
+	if _, _, err := Discover(ctx, homes, "", nil, nil, nil, nil, nil); !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }

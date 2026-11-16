@@ -455,7 +455,7 @@ func TestDirReadErrorOnWindows(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			reason, failed := DirReadError(testCase.path)
+			reason, failed, _ := DirReadError(nil, testCase.path)
 			if failed != testCase.failed || !strings.HasPrefix(reason, testCase.want) {
 				t.Errorf("DirReadError = %q, %v; want %q..., %v", reason, failed,
 					testCase.want, testCase.failed)

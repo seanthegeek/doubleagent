@@ -51,6 +51,7 @@ func rootedLinkProbes(link, target string) probes {
 			}
 			return fsmeta.ReadReparse(path)
 		},
+		respell: respellFromDrive,
 	}
 }
 

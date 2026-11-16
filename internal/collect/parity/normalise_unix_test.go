@@ -80,6 +80,9 @@ func normalStderr(text string) string {
 // the run is the Go binary's, whose log must hold no untimestamped line;
 // logOnStderr says stderr carries the log, as it does without -q.
 func normalise(run collectorRun, binary, logOnStderr bool) collectorRun {
+	if !binary {
+		run = reachDottedHome(run)
+	}
 	manifest := manifestVolatile.ReplaceAllString(run.files[".manifest.jsonl"], "")
 	files := map[string]string{
 		".manifest.jsonl": manifest,
@@ -100,4 +103,41 @@ func normalise(run collectorRun, binary, logOnStderr bool) collectorRun {
 // dropVolatileManifest returns the manifest text without its volatile fields.
 func dropVolatileManifest(manifest string) string {
 	return manifestVolatile.ReplaceAllString(manifest, "")
+}
+
+// The smoke image's passwd home with a `..` after a link (exception 47):
+// frank's /srv/dotlink/../frank, srv/dotlink a link to ../opt/escape, is
+// opt/frank, which the binary records, logs and archives under that path.
+// The sh collector keeps the dotted spelling in every text and stages the
+// copy at fs/srv/dotlink/../frank, which mkdir -p makes fs/srv/frank beside
+// an empty fs/srv/dotlink directory.
+const (
+	dottedHome  = "/srv/dotlink/../frank"
+	reachedHome = "/opt/frank"
+)
+
+// reachDottedHome returns the sh collector's run with frank's dotted home
+// spelled as the path the kernel reaches, in its texts and archive members,
+// and nothing else changed.
+func reachDottedHome(run collectorRun) collectorRun {
+	reach := func(text string) string { return strings.ReplaceAll(text, dottedHome, reachedHome) }
+	files := map[string]string{}
+	for name, text := range run.files {
+		files[name] = reach(text)
+	}
+	members := map[string]string{}
+	for name, hash := range run.members {
+		switch {
+		case name == "./fs/srv/dotlink/":
+			continue
+		case strings.HasPrefix(name, "./fs/srv/frank/"):
+			name = "./fs" + reachedHome + "/" + strings.TrimPrefix(name, "./fs/srv/frank/")
+		case name == "./manifest.jsonl":
+			hash = reach(hash)
+		}
+		members[name] = hash
+	}
+	run.files, run.members = files, members
+	run.stdout, run.stderr = reach(run.stdout), reach(run.stderr)
+	return run
 }

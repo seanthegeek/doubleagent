@@ -279,3 +279,25 @@ func TestUnderComparesBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestCopyFileRefusesAPathWithDotDot(t *testing.T) {
+	stager, root := newStager(t)
+	if err := os.WriteFile(root+"/home/f", []byte("source"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{root + "/home/../home/f", root + "/home/./f"} {
+		if _, _, err := stager.CopyFile(path); err == nil {
+			t.Errorf("CopyFile(%s) copied it", path)
+		}
+		if err := stager.MakeParent(path); err == nil {
+			t.Errorf("MakeParent(%s) made its parent", path)
+		}
+	}
+	entries, err := os.ReadDir(stager.Dir + "/fs")
+	if err != nil || len(entries) != 0 {
+		t.Errorf("the staging tree holds %v (%v), want nothing", entries, err)
+	}
+	if text, err := os.ReadFile(root + "/home/f"); err != nil || string(text) != "source" {
+		t.Errorf("the source reads %q, %v", text, err)
+	}
+}
