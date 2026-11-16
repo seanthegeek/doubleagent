@@ -156,14 +156,17 @@ func filterHomes(candidates []Home, written []string, root, usersFilter string,
 		if isSystemHome(relative) {
 			continue
 		}
-		if guard.isDirectory(home.Path) {
+		isDir := guard.isDirectory(home.Path)
+		if isDir {
 			found = addFound(found, home.User)
 		}
 		if _, named := wanted[home.User]; filtered && !named {
 			continue
 		}
 		if first, repeated := seen[home.Path]; repeated {
-			if written[first] != written[i] {
+			// Only a directory is a home Find returns and walks once; two
+			// paths reaching one file are no merge.
+			if written[first] != written[i] && isDir {
 				merged = append(merged, Merge{Path: home.Path, Kept: candidates[first].User,
 					Dropped: home.User})
 			}

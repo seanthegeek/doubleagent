@@ -599,8 +599,9 @@ Windows a home reaching the image root itself, or on a live run a drive
 root, is dropped, and the skip list (`Public`, `Default` and the rest)
 still applies by user name. A path the check refuses, or one the kernel
 cannot resolve (a missing component, a file followed by anything, `/` and
-`/.` included, which fails with "not a directory", or a `..` out of a
-directory the user may not search, which fails with "permission denied"),
+`/.` included, which fails with "not a directory", or a `.` or `..` in a
+directory the user may not search, which fails with "permission denied",
+though the same directory with only a trailing `/` resolves),
 is kept as written; staging refuses any path that still holds a `.` or `..`
 component, on every platform: its row is `error_copy` with no archive path
 and the error `holds a . or .. component, so where it is staged is not

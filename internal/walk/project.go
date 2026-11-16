@@ -366,6 +366,11 @@ func (check RootCheck) underRoot(physical string) string {
 	if root == "" || check.failed {
 		return physical
 	}
+	// ResolveRoot cleans the root a run gives; a root given here with a
+	// trailing separator still joins with one.
+	if len(root) > 1 {
+		root = strings.TrimSuffix(root, "/")
+	}
 	if check.physical == "/" {
 		return root + physical
 	}

@@ -473,11 +473,11 @@ func TestAHomeReachingAnotherUsersHomeIsLogged(t *testing.T) {
 		"/srv/b/frank is the home of frank and of frank2; walked once, as frank's\n")
 }
 
-// TestADottedSystemHomeIsWarnedAboutAsAPlainOneIs is the table of -u against
+// TestADottedSystemHomeIsWarnedAboutAsAPlainOne is the table of -u against
 // a passwd home that reaches, through `..`, the image root itself or /usr,
 // with and without another user's home: the run warns as it does for a home
 // of / (the system home is no home, so -u names nobody with one).
-func TestADottedSystemHomeIsWarnedAboutAsAPlainOneIs(t *testing.T) {
+func TestADottedSystemHomeIsWarnedAboutAsAPlainOne(t *testing.T) {
 	for _, test := range []struct {
 		name, home string
 		others     bool
@@ -530,5 +530,24 @@ func TestAProjectGivenAsTheRootWithASlashIsInsideIt(t *testing.T) {
 	}
 	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "outside the image root") {
 		t.Errorf("the root with a slash is called outside itself:\n%s", log)
+	}
+}
+
+// TestTwoHomesReachingOneFileAreNoMerge has two passwd homes reach one file:
+// neither is a home, nothing is walked, so no line says one was.
+func TestTwoHomesReachingOneFileAreNoMerge(t *testing.T) {
+	root := writeImage(t, map[string]string{
+		"etc/passwd": "f1:x:1001:1001::/srv/notes:/bin/sh\n" +
+			"f2:x:1002:1002::/srv/x/../notes:/bin/sh\n",
+		"srv/notes": "not a home\n", "srv/x/keep": "",
+	}, nil)
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "is the home of") {
+		t.Errorf("a merge line for a file:\n%s", log)
 	}
 }

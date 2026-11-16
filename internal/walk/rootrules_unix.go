@@ -3,13 +3,13 @@
 package walk
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
-	"slices"
 )
 
 // walkPath walks rest, a path relative to the resolved root, as the kernel
@@ -52,7 +52,14 @@ func (walker rootWalk) walk(components []step) rootScope {
 		component := components[0]
 		components = components[1:]
 		switch component.name {
-		case "", ".":
+		case "":
+			continue
+		case ".":
+			// The kernel looks `.` up in current too, which needs the right
+			// to search it, as `..` does below.
+			if walker.probe.searchable != nil && !walker.probe.searchable(current) {
+				return walker.unreadable(current)
+			}
 			continue
 		case "..":
 			// current is a physical path, so its parent is lexical.

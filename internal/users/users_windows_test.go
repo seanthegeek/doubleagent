@@ -425,3 +425,66 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 		})
 	}
 }
+
+func TestDropReachedRoots(t *testing.T) {
+	cases := []struct {
+		name          string
+		root          string
+		written, path string
+		kept          bool
+	}{
+		{"a home reaching the image root", "C:/img", "C:/img/Users/x/../..", "C:/img", false},
+		{"a home reaching the image root in another case", "C:/img", "C:/img/x/..", "c:/IMG",
+			false},
+		{"a home reaching a drive root on a live run", "", "D:/x/..", "D:", false},
+		{"a home written as the image root, not reached", "C:/img", "C:/img", "C:/img", true},
+		{"a home reaching a UNC image root", "//srv/share", "//srv/share/x/..", "//srv/share",
+			false},
+		{"a home reaching a share root on a live run", "", "//srv/share/x/..", "//srv/share",
+			true},
+		{"a home reaching a directory under the root", "C:/img", "C:/img/Users/x/../a",
+			"C:/img/Users/a", true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			homes, written := dropReachedRoots([]Home{{"u", test.path}}, []string{test.written},
+				test.root)
+			if kept := len(homes) == 1 && len(written) == 1; kept != test.kept {
+				t.Errorf("dropReachedRoots kept %v (%v), want %v", homes, written, test.kept)
+			}
+		})
+	}
+}
+
+func TestFindMergesOnlyHomesReachingWrittenApart(t *testing.T) {
+	root := writeTree(t, []string{"Users/alice", "Users/bob"}, nil)
+	alice := root + "/Users/alice"
+	// bob's home, once reached, is alice's: as a dotted home reaching it.
+	reach := func(path string) string {
+		if syspath.Equal(path, root+"/Users/bob") {
+			return alice
+		}
+		return path
+	}
+	report := find(nil, root, "", nil, nil, reach)
+	want := []Merge{{Path: alice, Kept: "alice", Dropped: "bob"}}
+	if !reflect.DeepEqual(report.Merged, want) || len(report.Homes) != 1 {
+		t.Errorf("Merged %+v, homes %+v; want %+v and alice's home alone", report.Merged,
+			report.Homes, want)
+	}
+	// Two candidates written apart only in ASCII case are one path as
+	// written: kept once, silently.
+	homes, _, _, merged := filterProfiles([]Home{{"alice", alice}, {"ALICE", alice}},
+		[]string{alice, strings.ToUpper(alice)}, "")
+	if len(merged) != 0 || len(homes) != 1 {
+		t.Errorf("a case-only repeat: homes %+v, merged %+v; want one home, no merge", homes,
+			merged)
+	}
+	// Written apart by dots, reaching one directory: reported.
+	_, _, _, merged = filterProfiles([]Home{{"alice", alice}, {"dot", alice}},
+		[]string{alice, root + "/Users/x/../alice"}, "")
+	if want := []Merge{{Path: alice, Kept: "alice", Dropped: "dot"}}; !reflect.DeepEqual(merged,
+		want) {
+		t.Errorf("a dotted repeat: merged %+v, want %+v", merged, want)
+	}
+}

@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/stage"
-	"syscall"
 )
 
 // nastyImage builds an image root and an outside directory: a/b real, l a
@@ -47,6 +47,7 @@ func TestTheRootCheckAndTheKernelAgree(t *testing.T) {
 		"/l/f", "/toLink/c/..", "/srv/../out", "/a/b/../secret", "/l/../secret",
 		"/a/b/f/../c", "/a/secret/..", "/a/b/c/nope/..", "/l/f/x/../..",
 		"/a/b/f/", "/a/b/f/.", "/a/fifo/.", "/l/f/", "/noexec/..", "/noexec/../a",
+		"/noexec/.", "/noexec/./", "/noexec//.", "/noexec/",
 	}
 	// The root as resolved, with a trailing slash, and relative to the
 	// working directory.
@@ -138,7 +139,7 @@ func TestReachedAgreesWithTheKernel(t *testing.T) {
 		"srv/file.txt/../../home/bob", "home/bob/../nope", "home/..", "home/bob/../..",
 		"srv/dotlink/../../srv/frank", "..", "srv/dotlink/../../..", "srv/dotlink/..",
 		"srv/file.txt/", "srv/file.txt/.", "srv/fifo/.", "srv/file.txt/./..", "noexec/..",
-		"noexec/../home/bob"}
+		"noexec/../home/bob", "noexec/.", "noexec/./", "noexec//.", "noexec/"}
 	t.Chdir(filepath.Dir(base))
 	for _, root := range []struct{ name, given string }{
 		{"live", ""}, {"plain", base}, {"through a link", viaLink},
@@ -191,6 +192,9 @@ func TestReachedAgreesWithTheKernel(t *testing.T) {
 				if given != "" && got != given && !strings.HasPrefix(got, given+"/") {
 					t.Errorf("Reached(%s) = %s, not spelled under the root as given %s", path, got,
 						given)
+				}
+				if given != "" && strings.HasPrefix(got, given+"//") {
+					t.Errorf("Reached(%s) = %s, a doubled separator after the root", path, got)
 				}
 			})
 		}
