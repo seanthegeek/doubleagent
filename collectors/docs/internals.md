@@ -293,9 +293,12 @@ the manifest has a row for, the homes and the projects it keeps once, and
 the paths the relocation sweep leaves out are each a `syspath.Entries`: a
 set keyed by the path with ASCII capitals lowered, whose keys hold the
 exact spellings. Two paths with equal bytes are one entry; two that differ
-only in ASCII case are one entry only when both can be examined and their
-`lstat` gives one non-zero identity (volume serial number and file index,
-`follow.SameEntry`), and two entries otherwise. So in a Windows directory
+only in ASCII case are one entry when both can be examined and their
+`lstat` gives one non-zero identity (volume serial number and file index),
+or when either does not exist, since a missing path holds no evidence
+(`fsmeta.SameEntry`, behind the root check in `follow.SameEntry`). They are
+two entries otherwise: two identities, an identity of 0, or an error other
+than not found, such as access denied. So in a Windows directory
 marked case-sensitive (`fsutil file setCaseSensitiveInfo`, or one WSL
 made) `Alice` and `alice` are two homes, two claims and two rows, while in
 an ordinary directory two spellings of one name are still one. On Linux

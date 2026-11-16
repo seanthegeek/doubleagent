@@ -1,9 +1,9 @@
 package syspath
 
 // SameEntry reports whether two paths that differ in their bytes but not in
-// their Fold keys name one file system entry. Only the file system can say:
-// a directory Windows marks case-sensitive holds Alice and alice as two
-// entries, an ordinary one only one. A nil SameEntry proves nothing.
+// their Fold keys name one file system entry (follow.SameEntry asks the file
+// system): a directory Windows marks case-sensitive holds Alice and alice as
+// two entries, an ordinary one only one. A nil SameEntry proves nothing.
 type SameEntry func(first, second string) bool
 
 // Entries maps paths to values, one value per file system entry. Two paths

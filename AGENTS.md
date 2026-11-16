@@ -513,7 +513,7 @@ for Go files as it does for the others.
   names loses one of them. The fold is only a lookup key: a set, map or
   claim over paths is a `syspath.Entries`, where two paths differing only in
   ASCII case are one entry only when the file system gives both one
-  identity (`follow.SameEntry`), since a directory marked case-sensitive
+  identity or says one does not exist (`follow.SameEntry`), since a directory marked case-sensitive
   holds `Alice` and `alice` apart; a test of whether a path lies under a
   home or base trusts bytes first (`syspath.CutUnder`). A Windows path that comes from outside a
   directory listing is respelled as the disk holds it through

@@ -45,9 +45,9 @@ func (stager Stager) Through(from, into string) Stager {
 // Dest returns the archive member of path, fs/ and the path without the
 // root, and where it is staged. As set_dest_var does, the root is removed
 // only as a leading string (ignoring ASCII case on Windows), and a path not
-// starting with it keeps every byte after fs. From is matched byte for byte:
-// a sibling spelled otherwise may be another directory of a case-sensitive
-// one. A drive or UNC path left is archived as Get-ArchivePath does (C:/a
+// starting with it keeps every byte after fs. From is matched byte for byte,
+// or in another ASCII case where fsmeta.SameEntry calls the two one entry: a
+// case-sensitive directory may hold a sibling so spelled. A drive or UNC path left is archived as Get-ArchivePath does (C:/a
 // under fs/C/a, //server/share/a under fs/server/share/a). A path with a `.`
 // or `..` component, which every entry point replaces by the path the system
 // reaches (walk.RootCheck.Reached), is refused with an error: kept, it would
@@ -58,9 +58,10 @@ func (stager Stager) Dest(path string) (archivePath, destPath string, err error)
 	}
 	relative := path
 	if stager.From != "" {
-		if path == stager.From {
+		if syspath.Equal(path, stager.From) &&
+			(path == stager.From || fsmeta.SameEntry(path, stager.From)) {
 			relative = stager.Into
-		} else if below, found := strings.CutPrefix(path, stager.From+"/"); found {
+		} else if below, found := syspath.CutUnder(path, stager.From, fsmeta.SameEntry); found {
 			relative = stager.Into + "/" + below
 		}
 	}
@@ -297,13 +298,15 @@ func (stager Stager) Symlink(path, target string, directory bool) error {
 }
 
 // RemoveFailedCopy removes what a failed copy left at dest and reports true,
-// or reports true when it left nothing. It reports false, removing nothing,
+// or reports true when it left nothing, or when what is at dest is another
+// entry's copy whose name differs only in case (spelledAsNamed), which it
+// leaves. It reports false, removing nothing,
 // when dest's directory does not resolve inside the physical staging
 // directory: the staged path then leads through a recreated link out of the
 // staging tree, and a file there may be a source.
 func (stager Stager) RemoveFailedCopy(dest string) bool {
 	info, err := osfile.Lstat(dest)
-	if err != nil {
+	if err != nil || !stager.spelledAsNamed(dest) {
 		return true
 	}
 	physical, err := PhysicalDir(parentOf(dest))
