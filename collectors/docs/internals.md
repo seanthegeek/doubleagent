@@ -586,7 +586,9 @@ path, its archive path, the log and `collection.json` then all name that
 one path (the root as given when it reaches the image root itself), and
 two homes or projects that become the same path are one, the first in
 enumeration order kept, as two passwd lines naming one home already are;
-for homes the log names both users:
+for homes whose paths were written apart and that reach one directory, the
+log names both users (two homes reaching a file, which is no home, log
+nothing):
 `user homes: /img/srv/b/frank is the home of frank and of frank2; walked once, as frank's`.
 The users step reaches each candidate home before any of its tests, so the
 system-home test, the duplicate check, `-u`, the users found and the `-u`

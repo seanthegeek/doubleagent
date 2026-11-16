@@ -142,7 +142,8 @@ func globHomes(root string, guard *rootGuard) []Home {
 // of the text, so "/tmp/x" also matches "/tmp/xyz/home". found lists the
 // users of the candidates that pass every test but -u's and are directories.
 // written holds each candidate's path as written: a repeat that reaching
-// made (the two paths were written apart) is returned in merged.
+// made (the two paths were written apart) and that is a directory is
+// returned in merged.
 func filterHomes(candidates []Home, written []string, root, usersFilter string,
 	guard *rootGuard,
 ) (kept []Home, found []string, merged []Merge) {
