@@ -25,7 +25,7 @@ func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 	if err := first.MakeParent(link); err != nil {
 		t.Fatal(err)
 	}
-	if err := first.Symlink(link, outside, true); err != nil {
+	if err := symlink(first, link, outside, true); err != nil {
 		t.Fatal(err)
 	}
 	var listed []string
@@ -37,7 +37,7 @@ func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 	file := parent + "/two/home/u/.config/Cursor/User/settings.json"
 	makeSource(t, file, false)
 	_, dest, _ := second.Dest(file)
-	if _, _, err := second.CopyFile(file); !IsCaseCollision(err) {
+	if _, _, err := copyFile(second, file); !IsCaseCollision(err) {
 		t.Errorf("CopyFile = %v; want the case collision error: the place is cursor's link", err)
 	}
 	second.RemoveFailedCopy(dest)

@@ -245,8 +245,8 @@ func (state *runState) keepCaseApart(dir string) bool {
 // names differing only in case for one.
 func foldingLine(outDir string) string {
 	return "NOTE: output directory " + syspath.ToNative(outDir) + " ignores letter case;" +
-		" of two entries whose names differ only in case, one may not be staged and its row" +
-		" says why (an output directory on a case-sensitive volume keeps both)"
+		" of two files or links whose names differ only in case, one of them is not staged and" +
+		" its row says why (an output directory on a case-sensitive volume keeps both)"
 }
 
 // newCollector returns the walk settings of the run: the active exclusions

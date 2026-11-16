@@ -1040,18 +1040,52 @@ func TestARootWhosePlaceCannotBeReadRunsOnTheRootCheckAlone(t *testing.T) {
 }
 
 // requireRowsNameMembers fails unless every row of the run in outDir that
-// has a hash names, in its archive path, an archive member of exactly that
-// name holding exactly those bytes.
+// has an archive path names an archive member of exactly that name: a
+// hashed row one holding exactly those bytes, a link row a symlink member
+// with the row's target.
 func requireRowsNameMembers(t *testing.T, outDir string) {
 	t.Helper()
-	members := archiveMembers(t, outDir)
+	members, links := archiveMembers(t, outDir), archiveLinks(t, outDir)
 	rows, lines := manifestRows(t, outDir)
 	for i, row := range rows {
-		hash, _ := row["sha256"].(string)
 		archived, _ := row["archive_path"].(string)
-		if hash != "" && members["./"+archived] != hash {
+		if archived == "" {
+			continue
+		}
+		if row["status"] == "symlink" {
+			if target, found := links["./"+archived]; !found || target != row["target"] {
+				t.Errorf("row %s names link member %s, which the archive holds as %q, %v",
+					lines[i], archived, target, found)
+			}
+			continue
+		}
+		if hash, _ := row["sha256"].(string); members["./"+archived] != hash {
 			t.Errorf("row %s names member %s, which the archive holds as %q", lines[i], archived,
 				members["./"+archived])
+		}
+	}
+}
+
+// archiveLinks returns the symlink members of the archive in outDir, each
+// with its target.
+func archiveLinks(t *testing.T, outDir string) map[string]string {
+	t.Helper()
+	compressed, err := gzip.NewReader(strings.NewReader(runOutput(t, outDir, ".tar.gz")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	links := map[string]string{}
+	reader := tar.NewReader(compressed)
+	for {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			return links
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if header.Typeflag == tar.TypeSymlink {
+			links[header.Name] = header.Linkname
 		}
 	}
 }

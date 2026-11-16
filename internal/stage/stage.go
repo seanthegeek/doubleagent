@@ -23,6 +23,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -52,7 +53,7 @@ type Stager struct {
 	// Places is the run's one record of staged places (Places).
 	Places *Places
 	// afterOpen, set by tests, is called with a source's path right after
-	// CopyFile opens it.
+	// Copy opens it.
 	afterOpen func(path string)
 	// stagedFS, set by tests, replaces the file system walkStaged asks.
 	stagedFS *stagedFS
@@ -217,13 +218,6 @@ type outsideStage struct{}
 // Error returns the reason.
 func (outsideStage) Error() string { return "does not resolve inside the staging directory" }
 
-// CopyFile copies the regular file path to its staged path and returns the
-// SHA-256 of the bytes written and their count (Copy).
-func (stager Stager) CopyFile(path string) (string, int64, error) {
-	copied, err := stager.Copy(path)
-	return copied.SHA256, copied.Size, err
-}
-
 // Copied is what Copy staged: the SHA-256 of the bytes written, in
 // lower-case hex, their count, and the archive member that holds them,
 // spelled as the staging tree names it.
@@ -267,7 +261,13 @@ func (stager Stager) Copy(path string) (Copied, error) {
 	if !info.Mode().IsRegular() {
 		return Copied{}, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	}
-	target, place, err := stager.createCopy(handleIdentity(source, info), dest)
+	identity := handleIdentity(source, info)
+	// The same source staged again at its place: the member already holds
+	// its bytes, and opening it for write could only empty it.
+	if copied, found := stager.Places.finished(identity, dest, stager.FoldsCase); found {
+		return copied, nil
+	}
+	target, place, err := stager.createCopy(identity, dest)
 	if errors.As(err, &caseCollision{}) || (err != nil && stager.takenByAnother(dest)) {
 		return Copied{}, collision
 	}
@@ -288,8 +288,12 @@ func (stager Stager) Copy(path string) (Copied, error) {
 		// errors name the \\?\ form.
 		return Copied{}, syspath.NativeErrors(err)
 	}
-	return Copied{SHA256: hex.EncodeToString(hash.Sum(nil)), Size: written,
-		ArchivePath: strings.TrimPrefix(place, stager.Dir+"/")}, nil
+	copied := Copied{SHA256: hex.EncodeToString(hash.Sum(nil)), Size: written,
+		ArchivePath: strings.TrimPrefix(place, stager.Dir+"/")}
+	if stager.Places != nil {
+		stager.Places.record(place, identity, copied)
+	}
+	return copied, nil
 }
 
 // writer returns where Copy writes the staged copy: target, or what a test
@@ -306,7 +310,7 @@ func (stager Stager) writer(target io.Writer) io.Writer {
 func (stager Stager) discard(place string) {
 	_ = osfile.Remove(place)
 	if stager.Places != nil {
-		delete(stager.Places.sources, place)
+		stager.Places.forget(place)
 	}
 }
 
@@ -340,21 +344,15 @@ func (caseCollision) Error() string {
 		"not staged"
 }
 
-// Symlink recreates the symlink path, with its stored target, at its staged
-// path. A staged path that already exists is left as it is: the same entry
-// was staged there before, and a link made onto a link to a directory would
-// land inside that directory, on the source. Where staged places are checked
-// (checksPlaces), a path that holds another entry's copy or link is refused
-// with caseCollision. No link is created in a directory that does not
-// resolve inside the staging directory. directory makes a Windows directory
-// link, as a junction or directory symlink is recreated; Unix ignores it.
-func (stager Stager) Symlink(path, target string, directory bool) error {
-	_, err := stager.Link(path, target, directory)
-	return err
-}
-
-// Link is Symlink, also returning the archive member that holds the link,
-// spelled as the staging tree names it.
+// Link recreates the symlink path, with its stored target, at its staged
+// path, and returns the archive member that holds it, spelled as the
+// staging tree names it. A staged path that already exists is left as it
+// is: a link made onto a link to a directory would land inside it, on the
+// source. Where staged places are checked (checksPlaces), one that holds
+// another entry's copy or link is refused with caseCollision. No link is
+// created in a directory that does not resolve inside the staging
+// directory. directory makes a Windows directory link, as a junction or
+// directory symlink is recreated; Unix ignores it.
 func (stager Stager) Link(path, target string, directory bool) (string, error) {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
@@ -478,12 +476,57 @@ func FoldsCase(dir string) bool {
 // values a run derives (Through) share one; a run stages from one
 // goroutine, so it takes no lock.
 type Places struct {
-	sources map[string][2]uint64
+	sources    map[string]placed
+	byIdentity map[[2]uint64][]string
+}
+
+// placed is what one staged place holds: the identity of the source it was
+// filled from and, for a finished copy, what Copy returned for it.
+type placed struct {
+	identity [2]uint64
+	copied   Copied
 }
 
 // NewPlaces returns an empty record of staged places.
 func NewPlaces() *Places {
-	return &Places{sources: map[string][2]uint64{}}
+	return &Places{sources: map[string]placed{}, byIdentity: map[[2]uint64][]string{}}
+}
+
+// record notes that place holds what was staged from identity, with copied
+// for a finished copy.
+func (places *Places) record(place string, identity [2]uint64, copied Copied) {
+	if _, found := places.sources[place]; !found {
+		places.byIdentity[identity] = append(places.byIdentity[identity], place)
+	}
+	places.sources[place] = placed{identity, copied}
+}
+
+// forget drops place from the record.
+func (places *Places) forget(place string) {
+	if recorded, found := places.sources[place]; found {
+		places.byIdentity[recorded.identity] = slices.DeleteFunc(
+			places.byIdentity[recorded.identity], func(other string) bool { return other == place })
+		delete(places.sources, place)
+	}
+}
+
+// finished returns the finished copy of the source of identity whose staged
+// path is dest, or, where the staging directory folds case, one that
+// differs from dest only in case, as the one source file reached through
+// two spellings lands on one place. A match it misses only costs a second
+// copy; a match it finds names a member that holds that source's bytes.
+func (places *Places) finished(identity [2]uint64, dest string, foldsCase bool) (Copied, bool) {
+	if places == nil || identity == [2]uint64{} {
+		return Copied{}, false
+	}
+	for _, place := range places.byIdentity[identity] {
+		recorded := places.sources[place]
+		if recorded.copied.ArchivePath != "" &&
+			(place == dest || foldsCase && strings.EqualFold(place, dest)) {
+			return recorded.copied, true
+		}
+	}
+	return Copied{}, false
 }
 
 // fill reports whether the entry of identity may be staged at place, and
@@ -492,10 +535,12 @@ func NewPlaces() *Places {
 // or for anything not recorded.
 func (places *Places) fill(place string, existed bool, identity [2]uint64) bool {
 	recorded, found := places.sources[place]
-	if existed && (!found || recorded != identity || identity == [2]uint64{}) {
+	if existed && (!found || recorded.identity != identity || identity == [2]uint64{}) {
 		return false
 	}
-	places.sources[place] = identity
+	if !found {
+		places.record(place, identity, Copied{})
+	}
 	return true
 }
 
@@ -512,7 +557,7 @@ func (stager Stager) mayFill(identity [2]uint64, dest, place string, existed boo
 }
 
 // linkIdentity returns the identity of the link path itself from its lstat,
-// or zero. Symlink is handed no lstat of its own, so a link swapped after
+// or zero. Link is handed no lstat of its own, so a link swapped after
 // the walk's lstat is judged by what is there now.
 func linkIdentity(path string) [2]uint64 {
 	meta, err := fsmeta.Lstat(path)

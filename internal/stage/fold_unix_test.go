@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -57,11 +58,11 @@ func TestNoCopyOverwritesAnotherEntrysCopyInAFoldingStage(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	firstHash, _, err := first.CopyFile(parent + "/one/Users/Alice/notes.txt")
+	firstHash, _, err := copyFile(first, parent+"/one/Users/Alice/notes.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = second.CopyFile(parent + "/two/Users/alice/notes.txt")
+	_, _, err = copyFile(second, parent+"/two/Users/alice/notes.txt")
 	staged, readErr := os.ReadFile(parent + "/stage/fs/Users/Alice/notes.txt")
 	sum := sha256.Sum256(staged)
 	if readErr != nil || hex.EncodeToString(sum[:]) != firstHash {
@@ -94,13 +95,13 @@ func TestALinkIsNotStagedOverAnotherEntrysLinkInAFoldingStage(t *testing.T) {
 	if err := first.MakeParent(parent + "/one/Users/Alice/link"); err != nil {
 		t.Fatal(err)
 	}
-	if err := first.Symlink(parent+"/one/Users/Alice/link", "target", false); err != nil {
+	if err := symlink(first, parent+"/one/Users/Alice/link", "target", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := first.Symlink(parent+"/one/Users/Alice/link", "target", false); err != nil {
+	if err := symlink(first, parent+"/one/Users/Alice/link", "target", false); err != nil {
 		t.Errorf("staging Alice's link again = %v; want it left in place", err)
 	}
-	if err := second.Symlink(parent+"/two/Users/alice/link", "target", false); !errors.As(err,
+	if err := symlink(second, parent+"/two/Users/alice/link", "target", false); !errors.As(err,
 		&caseCollision{}) {
 		t.Errorf("staging alice's link over Alice's = %v; want the case collision error", err)
 	}
@@ -121,7 +122,7 @@ func TestOneSourceReachedThroughTwoSpellingsIsStagedTwice(t *testing.T) {
 	}
 	for _, spelling := range []string{source, parent + "/root/Roaming/Devin/User/settings.json",
 		parent + "/root/Roaming/Devin/User/settings.json"} {
-		if _, _, err := stager.CopyFile(spelling); err != nil {
+		if _, _, err := copyFile(stager, spelling); err != nil {
 			t.Errorf("CopyFile(%s) = %v; want the one source file staged again", spelling, err)
 		}
 	}
@@ -163,7 +164,7 @@ func TestTheRecordNamesTheFileWhoseBytesWereCopied(t *testing.T) {
 	if err := os.WriteFile(source, []byte("original"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := stager.CopyFile(source); err != nil {
+	if _, _, err := copyFile(stager, source); err != nil {
 		t.Fatal(err)
 	}
 	// The second spelling opens the same file; then the path is swapped for
@@ -176,7 +177,7 @@ func TestTheRecordNamesTheFileWhoseBytesWereCopied(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, _, err := stager.CopyFile(parent + "/root/X"); err != nil {
+	if _, _, err := copyFile(stager, parent+"/root/X"); err != nil {
 		t.Errorf("CopyFile of the same open file under another spelling = %v; want it staged "+
 			"again, judged by the file it opened, not by what the path names later", err)
 	}
@@ -191,7 +192,7 @@ func TestANonFoldingStageChecksNoLinkPlace(t *testing.T) {
 	if err := stager.MakeParent(root + "/home/link"); err != nil {
 		t.Fatal(err)
 	}
-	if err := stager.Symlink(root+"/home/link", "target", false); err != nil {
+	if err := symlink(stager, root+"/home/link", "target", false); err != nil {
 		t.Fatal(err)
 	}
 	if len(stager.Places.sources) != 0 {
@@ -250,9 +251,9 @@ func TestAFileWhosePlaceHoldsALinkOrDirectoryIsACaseCollision(t *testing.T) {
 					if err := stager.MakeParent(path); err != nil {
 						return err
 					}
-					return stager.Symlink(path, "t", false)
+					return symlink(stager, path, "t", false)
 				}
-				_, _, err := stager.CopyFile(path)
+				_, _, err := copyFile(stager, path)
 				return err
 			}
 			if err := stage(first, parent+"/one/"+testCase.first, testCase.firstIsLink); err != nil {
@@ -297,12 +298,12 @@ func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 		if err := first.MakeParent(link); err != nil {
 			t.Fatal(err)
 		}
-		if err := first.Symlink(link, "t", true); err != nil {
+		if err := symlink(first, link, "t", true); err != nil {
 			t.Fatal(err)
 		}
 		file := parent + "/two/A/cursor/User/x"
 		makeSource(t, file, false)
-		if _, _, err := second.CopyFile(file); !IsCaseCollision(err) {
+		if _, _, err := copyFile(second, file); !IsCaseCollision(err) {
 			t.Errorf("CopyFile of A/cursor/User/x = %v; want the case collision error", err)
 		}
 	})
@@ -310,11 +311,11 @@ func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 		parent := foldingStage(t)
 		first, second := twoFoldingStagers(parent)
 		makeSource(t, parent+"/one/Zed/two/x", false)
-		if _, _, err := first.CopyFile(parent + "/one/Zed/two/x"); err != nil {
+		if _, _, err := copyFile(first, parent+"/one/Zed/two/x"); err != nil {
 			t.Fatal(err)
 		}
 		makeSource(t, parent+"/two/zed/two", false)
-		if _, _, err := second.CopyFile(parent + "/two/zed/two"); !IsCaseCollision(err) {
+		if _, _, err := copyFile(second, parent+"/two/zed/two"); !IsCaseCollision(err) {
 			t.Errorf("CopyFile of zed/two = %v; want the case collision error", err)
 		}
 	})
@@ -330,13 +331,13 @@ func TestAFailedCopyInADirectorySpelledInAnotherCaseIsRemoved(t *testing.T) {
 	parent := foldingStage(t)
 	first, second := twoFoldingStagers(parent)
 	makeSource(t, parent+"/one/Zed/one", false)
-	if _, _, err := first.CopyFile(parent + "/one/Zed/one"); err != nil {
+	if _, _, err := copyFile(first, parent+"/one/Zed/one"); err != nil {
 		t.Fatal(err)
 	}
 	second.wrapWriter = func(io.Writer) io.Writer { return failingWriter{} }
 	makeSource(t, parent+"/two/zed/two", false)
 	_, dest, _ := second.Dest(parent + "/two/zed/two")
-	if _, _, err := second.CopyFile(parent + "/two/zed/two"); err == nil {
+	if _, _, err := copyFile(second, parent+"/two/zed/two"); err == nil {
 		t.Fatal("the copy did not fail")
 	}
 	if !second.RemoveFailedCopy(dest) {
@@ -351,4 +352,61 @@ func TestAFailedCopyInADirectorySpelledInAnotherCaseIsRemoved(t *testing.T) {
 	if !fileHolds(parent+"/stage/fs/Zed/one", parent+"/one/Zed/one") {
 		t.Error("Zed/one's copy was touched")
 	}
+}
+
+func TestTheSameSourceStagedAgainKeepsTheFirstCopy(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root writes a read-only copy")
+	}
+	stageTwice := func(t *testing.T, stager Stager, first, second string) (Copied, Copied, int) {
+		t.Helper()
+		writes := 0
+		stager.wrapWriter = func(target io.Writer) io.Writer { writes++; return target }
+		one, err := stager.Copy(first)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Any second write fails, as a read error or a full disk would.
+		stager.wrapWriter = func(io.Writer) io.Writer { writes++; return failingWriter{} }
+		two, err := stager.Copy(second)
+		if err != nil {
+			t.Errorf("staging %s again = %v; want the first copy's member", second, err)
+		}
+		return one, two, writes
+	}
+	for _, readOnly := range []bool{false, true} {
+		name := fmt.Sprintf("through another spelling on a stage that folds case, read-only %v",
+			readOnly)
+		t.Run(name, func(t *testing.T) {
+			parent := foldingStage(t)
+			stager := Stager{Dir: parent + "/stage", Physical: parent + "/stage",
+				Root: parent + "/root", FoldsCase: true, Places: NewPlaces()}
+			makeSource(t, parent+"/root/Devin/x", false)
+			if readOnly {
+				if err := os.Chmod(parent+"/root/Devin/x", 0o444); err != nil {
+					t.Fatal(err)
+				}
+			}
+			one, two, writes := stageTwice(t, stager, parent+"/root/Devin/x",
+				parent+"/root/devin/x")
+			if two != one || writes != 1 || !fileHolds(parent+"/stage/"+one.ArchivePath,
+				parent+"/root/Devin/x") {
+				t.Errorf("second copy %+v after %+v with %d writes; want the first copy's "+
+					"member, written once and intact", two, one, writes)
+			}
+		})
+	}
+	t.Run("by the same path on a stage that tells case apart", func(t *testing.T) {
+		stager, root := newStager(t)
+		stager.Places = NewPlaces()
+		makeSource(t, root+"/home/x", false)
+		if err := os.Chmod(root+"/home/x", 0o444); err != nil {
+			t.Fatal(err)
+		}
+		one, two, writes := stageTwice(t, stager, root+"/home/x", root+"/home/x")
+		if two != one || writes != 1 || !fileHolds(stager.Dir+"/"+one.ArchivePath, root+"/home/x") {
+			t.Errorf("second copy %+v after %+v with %d writes; want the first copy's member, "+
+				"written once and intact", two, one, writes)
+		}
+	})
 }

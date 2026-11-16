@@ -159,7 +159,7 @@ func TestCopyFileOnWindows(t *testing.T) {
 			mustDo(t, os.WriteFile(source, content, 0o600))
 			setTimes(t, source, 1_500_000_000, 1_600_000_000, 1_700_000_000)
 			want := fileTimes(t, source)
-			hash, written, err := stager.CopyFile(source)
+			hash, written, err := copyFile(stager, source)
 			mustDo(t, err)
 			_, dest, _ := stager.Dest(source)
 			// The times are read before the bytes: where the volume
@@ -307,7 +307,7 @@ func TestCopyFileLeavesTheSourceAsItWas(t *testing.T) {
 			if journalErr == nil && usnBefore == 0 {
 				journalErr = errors.New("the file has no journal record (USN 0)")
 			}
-			_, written, err := stager.CopyFile(source)
+			_, written, err := copyFile(stager, source)
 			if err != nil || written != int64(len(content)) {
 				t.Fatalf("CopyFile = %d bytes, %v", written, err)
 			}
@@ -352,7 +352,7 @@ func TestCopyFileWithReadOnlySources(t *testing.T) {
 			want := fileTimes(t, source)
 			before := basicTimes(t, source)
 			test.prepare(t, source)
-			_, written, err := stager.CopyFile(source)
+			_, written, err := copyFile(stager, source)
 			if err != nil || written != int64(len(content)) {
 				t.Fatalf("CopyFile = %d bytes, %v", written, err)
 			}
@@ -396,7 +396,7 @@ func TestReadOnlySourcesLetTheReadMoveTheAccessTime(t *testing.T) {
 	setTimes(t, source, 1_500_000_000, 1_600_000_000, 1_700_000_000)
 	want := fileTimes(t, source)
 	before := basicTimes(t, source)
-	if _, _, err := stager.CopyFile(source); err != nil {
+	if _, _, err := copyFile(stager, source); err != nil {
 		t.Fatal(err)
 	}
 	after := basicTimes(t, source)
@@ -427,7 +427,7 @@ func TestCopyFileBesideAHandleWithDeleteAccess(t *testing.T) {
 		_ = file.Close()
 		t.Fatal("os.Open shared the file with a delete-access handle; the case tests nothing")
 	}
-	if _, written, err := stager.CopyFile(source); err != nil || written != 4 {
+	if _, written, err := copyFile(stager, source); err != nil || written != 4 {
 		t.Errorf("CopyFile = %d bytes, %v; want 4 bytes copied", written, err)
 	}
 }
@@ -457,7 +457,7 @@ func TestCopyFileRefusesAReparsePointDestOnWindows(t *testing.T) {
 			err := test.link(t, outside, dest)
 			skipWithoutSymlinkPrivilege(t, err)
 			mustDo(t, err)
-			if _, _, err := stager.CopyFile(source); !errors.Is(err, notRegular{}) {
+			if _, _, err := copyFile(stager, source); !errors.Is(err, notRegular{}) {
 				t.Errorf("CopyFile error %v, want not a regular file", err)
 			}
 			if data, err := os.ReadFile(outside + "/keep"); string(data) != "evidence" {
@@ -482,14 +482,14 @@ func TestNoWriteThroughARecreatedJunction(t *testing.T) {
 		write func() error
 	}{
 		{"a copy into the junction is refused", func() error {
-			_, _, err := stager.CopyFile(through)
+			_, _, err := copyFile(stager, through)
 			return err
 		}},
 		{"a directory under the junction is not made", func() error {
 			return stager.MakeParent(home + "/.claude/proj/new/f")
 		}},
 		{"a link under the junction is not created", func() error {
-			return stager.Symlink(home+"/.claude/proj/link", "target", false)
+			return symlink(stager, home+"/.claude/proj/link", "target", false)
 		}},
 	}
 	for _, test := range cases {
@@ -555,7 +555,7 @@ func TestSymlinkKindOnWindows(t *testing.T) {
 			stager, root := newWindowsStager(t)
 			path := root + "/home/link"
 			mustDo(t, stager.MakeParent(path))
-			err := stager.Symlink(path, `..\missing target`, test.directory)
+			err := symlink(stager, path, `..\missing target`, test.directory)
 			skipWithoutSymlinkPrivilege(t, err)
 			mustDo(t, err)
 			_, dest, _ := stager.Dest(path)
@@ -646,7 +646,7 @@ func TestCopyFileRefusesAPathWithDotDot(t *testing.T) {
 	mustDo(t, os.WriteFile(syspath.ToNative(root+"/home/f"), []byte("source"), 0o644))
 	for _, path := range []string{root + "/home/../home/f", root + "/home/./f",
 		root + "/../root/home/f"} {
-		if _, _, err := stager.CopyFile(path); err == nil {
+		if _, _, err := copyFile(stager, path); err == nil {
 			t.Errorf("CopyFile(%s) copied it", path)
 		}
 		if err := stager.MakeParent(path); err == nil {

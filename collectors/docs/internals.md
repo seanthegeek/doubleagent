@@ -321,10 +321,13 @@ each with its own bytes. The run then probes the `fs` directory once
 upper case) for whether it still takes two such names for one: a Windows
 file system without the setting, or a case-insensitive Unix volume such as
 the default macOS one, where a Linux image analysed on a Mac can hold such
-pairs. Such a run logs `NOTE: output directory <dir> ignores letter case;
-of two entries whose names differ only in case, one may not be staged and
-its row says why (an output directory on a case-sensitive volume keeps
-both)`, and every copy and link is checked against where it
+pairs (an exFAT or FAT drive, or a Linux file system that folds case, does
+too). Directories whose names differ only in case merge there, and all
+their files are staged; of two files or links whose names differ only in
+case, one is not staged. Such a run logs `NOTE: output directory <dir>
+ignores letter case; of two files or links whose names differ only in case,
+one of them is not staged and its row says why (an output directory on a
+case-sensitive volume keeps both)`, and every copy and link is checked against where it
 landed before anything is written. A copy's place is the open file's
 path (`GetFinalPathNameByHandle` on Windows, `F_GETPATH` on macOS); on
 Linux, and for a link or a failed copy on every platform, the staged path
@@ -354,10 +357,14 @@ its files are copied, so a directory wins over a file of the same name in
 another case whatever their order. A refused copy made nothing, so nothing
 is cleaned up after it; a copy that fails after making or emptying its
 staged file removes that file and forgets its place, so no partial copy is
-left as a member without a row. One
-source entry reached through two spellings, as the catalog's
-`AppData/Roaming/Devin` and `AppData/Roaming/devin` are on a volume that
-folds case, is staged again at its one place, and a copy that lands in a
+left as a member without a row. The record also keeps each finished copy's
+result: a source already staged at that place (the same path again, as two
+rows sharing one archive path, or one source entry reached through two
+spellings, as the catalog's `AppData/Roaming/Devin` and
+`AppData/Roaming/devin` are on a volume that folds case) is not opened for
+write again, and its second row names the first copy's member and hash, on
+every platform, so no failed second copy can empty or remove a good one. A
+copy that lands in a
 directory spelled in another case where nothing else sits is staged
 there. Its row's archive path is spelled as the member is named, from the
 place the copy landed (the open file's path on Windows and macOS, the walk
@@ -784,7 +791,7 @@ place a program is run. The test reads package-level names only, so it
 cannot see a method or a call through an interface or a function value.
 The methods in use take a path and do not follow its last component:
 `fsmeta.Opener.Open` and `OpenRegular` open without following it,
-`stage.Stager.CopyFile` reads its source through them, and
+`stage.Stager.Copy` reads its source through them, and
 `hostcmd.Plutil` runs plutil on a hint file whose own lstat typed it a
 regular file.
 

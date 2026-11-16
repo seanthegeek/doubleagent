@@ -56,7 +56,7 @@ func (stager Stager) checksPlaces() bool {
 }
 
 // handleIdentity returns the device and inode of the open source, from the
-// stat CopyFile already took of its handle, in the form fsmeta.Lstat gives a
+// stat Copy already took of its handle, in the form fsmeta.Lstat gives a
 // link's (fsmeta.StatIdentity).
 func handleIdentity(_ *os.File, info fs.FileInfo) [2]uint64 {
 	return fsmeta.StatIdentity(info)

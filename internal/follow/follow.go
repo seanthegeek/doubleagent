@@ -19,7 +19,7 @@
 // package-level names only, so it cannot see a method or a call through an
 // interface or a function value; the methods in use take a path and do not
 // follow its last component (fsmeta.Opener.Open and OpenRegular open with
-// O_NOFOLLOW or FILE_FLAG_OPEN_REPARSE_POINT; stage.Stager.CopyFile reads
+// O_NOFOLLOW or FILE_FLAG_OPEN_REPARSE_POINT; stage.Stager.Copy reads
 // its source through them; hostcmd.Plutil runs plutil on a hint file whose
 // own lstat typed it a regular file).
 package follow

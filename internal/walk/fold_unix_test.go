@@ -107,12 +107,20 @@ func TestACopyInADirectorySpelledInAnotherCaseKeepsItsBytes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if err := os.Symlink("two", parent+"/two/home/u/.claude/zed/link"); err != nil {
+		t.Fatal(err)
+	}
 	table := []catalog.Entry{{Agent: "claude", Glob: ".claude"}}
 	for i, name := range []string{"one", "two"} {
 		if err := collectors[i].CollectCatalog(context.Background(), "u",
 			parent+"/"+name+"/home/u", table, ""); err != nil {
 			t.Fatal(err)
 		}
+	}
+	link := rowByPath(t, rows[1], parent+"/two/home/u/.claude/zed/link")
+	if link == nil || link["archive_path"] != "fs/home/u/.claude/Zed/link" {
+		t.Errorf("row of zed/link %v; want archive path fs/home/u/.claude/Zed/link, the member "+
+			"as the archive names it", link)
 	}
 	// zed/two lands in the staged directory Zed, where nothing else sits:
 	// it is staged there, its row's archive path spelled as the member is.

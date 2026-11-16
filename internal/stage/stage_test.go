@@ -45,7 +45,7 @@ func TestCopyFile(t *testing.T) {
 	if err := os.Chtimes(source, mtime, mtime); err != nil {
 		t.Fatal(err)
 	}
-	hash, written, err := stager.CopyFile(source)
+	hash, written, err := copyFile(stager, source)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestCopyFileRefuses(t *testing.T) {
 			stager, root := newStager(t)
 			source := root + "/home/f"
 			test.setup(t, stager, source)
-			if hash, _, err := stager.CopyFile(source); err == nil {
+			if hash, _, err := copyFile(stager, source); err == nil {
 				t.Fatalf("copied, hash %s", hash)
 			}
 			if info, err := os.Lstat(source); err == nil && info.Mode().IsRegular() {
@@ -108,8 +108,8 @@ func TestCopyFileRefuses(t *testing.T) {
 func TestSymlinkLeavesAnExistingDestination(t *testing.T) {
 	stager, root := newStager(t)
 	mustDo(t, stager.MakeParent(root+"/home/l"))
-	mustDo(t, stager.Symlink(root+"/home/l", "first", false))
-	mustDo(t, stager.Symlink(root+"/home/l", "second", false))
+	mustDo(t, symlink(stager, root+"/home/l", "first", false))
+	mustDo(t, symlink(stager, root+"/home/l", "second", false))
 	_, dest, _ := stager.Dest(root + "/home/l")
 	if target, _ := os.Readlink(dest); target != "first" {
 		t.Errorf("target %q", target)
@@ -127,7 +127,7 @@ func linkedSource(t *testing.T, stager Stager, root string) string {
 	mustDo(t, os.WriteFile(home+"/dotfiles/claude/proj/AGENTS.md", []byte("x\n"), 0o644))
 	mustDo(t, os.Symlink(home+"/dotfiles/claude", home+"/.claude"))
 	mustDo(t, stager.MakeParent(home+"/.claude"))
-	mustDo(t, stager.Symlink(home+"/.claude", home+"/dotfiles/claude", false))
+	mustDo(t, symlink(stager, home+"/.claude", home+"/dotfiles/claude", false))
 	return home + "/.claude/proj/AGENTS.md"
 }
 
@@ -149,7 +149,7 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 		write func(stager Stager, source string) error
 	}{
 		{"a copy of the file the link leads to is refused", func(stager Stager, source string) error {
-			_, _, err := stager.CopyFile(source)
+			_, _, err := copyFile(stager, source)
 			return err
 		}},
 		{"the file's staging directory is not made", func(stager Stager, source string) error {
@@ -159,7 +159,7 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 			return stager.MakeParent(filepath.Dir(source) + "/new/f")
 		}},
 		{"a link under the link is not created", func(stager Stager, source string) error {
-			return stager.Symlink(filepath.Dir(source)+"/new", "target", false)
+			return symlink(stager, filepath.Dir(source)+"/new", "target", false)
 		}},
 	}
 	want := []string{"", "/fs", "/fs/home", "/fs/home/dot", "/fs/home/dot/.claude"}
@@ -191,7 +191,7 @@ func TestCopyFileWithAnUnresolvedPhysicalPath(t *testing.T) {
 	mustDo(t, os.Symlink(stager.Dir, filepath.Dir(stager.Dir)+"/alias"))
 	stager.Physical = filepath.Dir(stager.Dir) + "/alias"
 	mustDo(t, os.WriteFile(root+"/home/f", []byte("x"), 0o644))
-	if _, _, err := stager.CopyFile(root + "/home/f"); err != nil {
+	if _, _, err := copyFile(stager, root+"/home/f"); err != nil {
 		t.Errorf("CopyFile: %v", err)
 	}
 }
@@ -286,7 +286,7 @@ func TestCopyFileRefusesAPathWithDotDot(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{root + "/home/../home/f", root + "/home/./f"} {
-		if _, _, err := stager.CopyFile(path); err == nil {
+		if _, _, err := copyFile(stager, path); err == nil {
 			t.Errorf("CopyFile(%s) copied it", path)
 		}
 		if err := stager.MakeParent(path); err == nil {

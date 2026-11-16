@@ -68,14 +68,14 @@ func TestNoStagedLinkTargetIsListed(t *testing.T) {
 			if err := first.MakeParent(link); err != nil {
 				t.Fatal(err)
 			}
-			if err := first.Symlink(link, outside, true); err != nil {
+			if err := symlink(first, link, outside, true); err != nil {
 				t.Fatal(err)
 			}
 			for _, name := range []string{"Cursor", "cursor"} {
 				file := parent + "/two/home/u/.config/" + name + "/User/settings.json"
 				makeSource(t, file, false)
 				_, dest, _ := second.Dest(file)
-				_, _, _ = second.CopyFile(file)
+				_, _, _ = copyFile(second, file)
 				second.RemoveFailedCopy(dest)
 				requireUntouched(t, outside, "after staging "+name+"/User/settings.json")
 			}
@@ -96,7 +96,7 @@ func TestAFailureWithNoOtherSpellingKeepsItsOwnError(t *testing.T) {
 		t.Cleanup(func() { _ = os.Chmod(parent+"/stage/fs/a", 0o755) })
 		source := parent + "/two/a/b/c/x"
 		makeSource(t, source, false)
-		_, _, err := stager.CopyFile(source)
+		_, _, err := copyFile(stager, source)
 		if IsCaseCollision(err) || !errors.Is(err, fs.ErrPermission) {
 			t.Errorf("CopyFile = %v; want permission denied, not a case collision", err)
 		}
@@ -111,7 +111,7 @@ func TestAFailureWithNoOtherSpellingKeepsItsOwnError(t *testing.T) {
 			Places: NewPlaces()}
 		source := parent + "/two/" + strings.Repeat(strings.Repeat("s", 50)+"/", 9) + "x"
 		makeSource(t, source, false)
-		_, _, err := stager.CopyFile(source)
+		_, _, err := copyFile(stager, source)
 		if err == nil || IsCaseCollision(err) {
 			t.Errorf("CopyFile = %v; want the system's error for a path too long", err)
 		}
@@ -122,12 +122,12 @@ func TestALinkUnderAnotherEntrysFileIsACaseCollision(t *testing.T) {
 	parent := foldingStage(t)
 	first, second := twoFoldingStagers(parent)
 	makeSource(t, parent+"/one/s", false)
-	if _, _, err := first.CopyFile(parent + "/one/s"); err != nil {
+	if _, _, err := copyFile(first, parent+"/one/s"); err != nil {
 		t.Fatal(err)
 	}
 	makeSource(t, parent+"/two/S/y", true)
 	_ = second.MakeParent(parent + "/two/S/y")
-	if err := second.Symlink(parent+"/two/S/y", "t", false); !IsCaseCollision(err) {
+	if err := symlink(second, parent+"/two/S/y", "t", false); !IsCaseCollision(err) {
 		t.Errorf("Symlink of S/y under the staged file s = %v; want the case collision error", err)
 	}
 }

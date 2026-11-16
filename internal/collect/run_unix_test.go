@@ -588,6 +588,10 @@ func TestEveryRowNamesItsMemberOnAnOutputDirectoryThatIgnoresCase(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
+	// A link the catalog's Devin/User line reaches, in the directory devin.
+	if err := os.Symlink("settings.json", filepath.Join(dir, "User/link")); err != nil {
+		t.Fatal(err)
+	}
 	outDir := syspath.FromNative(t.TempDir())
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
