@@ -49,6 +49,9 @@ type runState struct {
 	logPath      string
 	manifestPath string
 	summaryPath  string
+	// stageFoldsCase is set where the staging directory takes two names
+	// differing only in case for one (keepCaseApart).
+	stageFoldsCase bool
 
 	log          *runlog.Log
 	manifestFile *os.File
@@ -204,6 +207,7 @@ func (state *runState) openOutputs() error {
 		if err := osfile.MkdirAll(state.stageDir+"/fs", 0o777); err != nil {
 			return &fatalError{message: "Cannot create staging dir"}
 		}
+		state.stageFoldsCase = state.keepCaseApart(state.stageDir + "/fs")
 		var err error
 		if physical, err = stage.PhysicalDir(state.stageDir); err != nil {
 			return &fatalError{message: "Cannot create staging dir"}
@@ -224,6 +228,27 @@ func (state *runState) openOutputs() error {
 	return nil
 }
 
+// keepCaseApart marks dir, the new and empty staging fs directory, so it
+// holds two names differing only in case apart (Windows; a no-op elsewhere),
+// and reports whether it still takes them for one (stage.FoldsCase): a
+// default macOS volume, or a Windows file system without the setting.
+func (state *runState) keepCaseApart(dir string) bool {
+	mark := state.host.markCaseSensitive
+	if mark == nil {
+		mark = stage.MarkCaseSensitive
+	}
+	_ = mark(dir) // whatever the outcome, the probe says what dir does
+	return stage.FoldsCase(dir)
+}
+
+// foldingLine is the log line of a run whose staging directory takes two
+// names differing only in case for one.
+func foldingLine(outDir string) string {
+	return "NOTE: output directory " + syspath.ToNative(outDir) + " ignores letter case;" +
+		" of two entries whose names differ only in case, the later gets an error_copy row" +
+		" instead of a copy (an output directory on a case-sensitive volume keeps both)"
+}
+
 // newCollector returns the walk settings of the run: the active exclusions
 // (none under --full), the credential test, the staging directory and the
 // run's one cache of owner names.
@@ -237,7 +262,7 @@ func (state *runState) newCollector(physical string) *walk.Collector {
 		Tables: state.tables, Excludes: excludes, Secret: walk.MatchAny(state.tables.SecretGlobs),
 		Log: state.log, Manifest: state.manifest, Root: root,
 		Stager: stage.Stager{Dir: state.stageDir, Physical: physical, Root: root,
-			Opener: state.opener},
+			Opener: state.opener, FoldsCase: state.stageFoldsCase},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
 		Owners: fsmeta.NewOwners(), RootCheck: state.roots,
@@ -282,6 +307,9 @@ func (state *runState) startLog(context.Context) error {
 	}
 	if options.Inventory && options.OutDirSet {
 		lines = append(lines, "NOTE: --inventory writes nothing; -o "+options.OutDir+" ignored")
+	}
+	if state.stageFoldsCase {
+		lines = append(lines, foldingLine(state.outDir))
 	}
 	for _, line := range lines {
 		if err := state.log.Line(line); err != nil {

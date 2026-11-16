@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -40,9 +42,22 @@ func TestANestedClaimPrunesNoOtherSpellingInACaseSensitiveDirectory(t *testing.T
 }
 
 func TestNoRowPointsAtAnotherEntrysStagedBytes(t *testing.T) {
-	// The staging directory is case-insensitive, so the copies of Notes.txt
-	// and notes.txt, of Dir and dir, or the recreated links J and j would
-	// share one place there.
+	// A run marks its staging directory case-sensitive, so the copies of
+	// Notes.txt and notes.txt, of Dir and dir, and the recreated links J and
+	// j are all kept. Where the mark cannot be set the directory folds case,
+	// and the later of each pair is refused rather than staged over the
+	// earlier one.
+	for _, marked := range []bool{true, false} {
+		t.Run(fmt.Sprintf("staging directory marked case-sensitive %v", marked), func(t *testing.T) {
+			stagesBothOrRefuses(t, marked)
+		})
+	}
+}
+
+// stagesBothOrRefuses walks a case-sensitive directory holding three pairs
+// of entries differing only in case, into a staging directory marked
+// case-sensitive or not, and checks the rows against the staged tree.
+func stagesBothOrRefuses(t *testing.T, marked bool) {
 	home := physicalTemp(t)
 	caseSensitiveDir(t, home)
 	writeFiles(t, home, "cs/Notes.txt", "cs/notes.txt", "cs/Dir/f.txt", "cs/dir/f.txt",
@@ -50,13 +65,21 @@ func TestNoRowPointsAtAnotherEntrysStagedBytes(t *testing.T) {
 	makeJunction(t, home+"/target", home+"/cs/J")
 	makeJunction(t, home+"/target", home+"/cs/j")
 	collector, recorder := windowsCollector(t, "", nil)
+	mustDo(t, os.Mkdir(syspath.ToNative(collector.Stager.Dir+"/fs"), 0o755))
+	if marked {
+		mustDo(t, stage.MarkCaseSensitive(collector.Stager.Dir+"/fs"))
+	}
 	table := []catalog.Entry{{Agent: "tool", Glob: "cs"}}
 	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
 	seen := map[string]bool{}
+	members := map[string]bool{}
 	refused := 0
 	for _, row := range recorder.rows(t) {
 		path := row["path"].(string)
 		seen[path] = true
+		if archived, _ := row["archive_path"].(string); archived != "" {
+			members[archived] = true
+		}
 		if row["archive_path"] == "" && strings.Contains(row["error"].(string), "differs only in case") {
 			refused++
 		}
@@ -80,9 +103,13 @@ func TestNoRowPointsAtAnotherEntrysStagedBytes(t *testing.T) {
 				path, row["archive_path"], staged, err)
 		}
 	}
-	if refused != 3 {
-		t.Errorf("%d rows refused for a taken staged path, want 3 (the later of each pair): %q",
-			refused, recorder.written)
+	wantRefused, wantMembers := 3, 3
+	if marked {
+		wantRefused, wantMembers = 0, 6
+	}
+	if refused != wantRefused || len(members) != wantMembers {
+		t.Errorf("%d rows refused for a taken staged path and %d archive paths, want %d and %d:"+
+			" %q", refused, len(members), wantRefused, wantMembers, recorder.written)
 	}
 	for _, file := range []string{"Notes.txt", "notes.txt", "Dir/f.txt", "dir/f.txt", "J", "j"} {
 		if path := syspath.ToNative(home + "/cs/" + file); !seen[path] {

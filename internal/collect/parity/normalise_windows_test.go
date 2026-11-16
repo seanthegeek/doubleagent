@@ -120,8 +120,8 @@ func sortedLines(text string) string {
 
 // normalWindowsLog returns the log's lines without their times, each start
 // line reduced to what both collectors print, the lines only one collector
-// writes dropped (the binary's find:, WARNING: -u, file-open and not-held
-// lines; powerShellOnly), its two wordings mapped onto the binary's, and
+// writes dropped (the binary's find:, WARNING: -u, output-directory case
+// note, file-open and not-held lines; powerShellOnly), its two wordings mapped onto the binary's, and
 // failure reasons cut. binary says the log is the Go binary's; timed says it
 // is the log file, whose lines carry times. Every untimed line of the
 // PowerShell collector's log file comes after the log is closed, from its
@@ -133,6 +133,7 @@ func normalWindowsLog(text string, binary, timed bool) string {
 		archiverLine := timed && !binary && !windowsLogTime.MatchString(line)
 		line = windowsLogTime.ReplaceAllString(line, "")
 		binaryOnly := strings.HasPrefix(line, "find: ") || strings.HasPrefix(line, "WARNING: -u ") ||
+			strings.HasPrefix(line, "NOTE: output directory ") ||
 			accessDecision.MatchString(line) || accessNotHeld.MatchString(line)
 		onlyOne := (binary && binaryOnly) || (!binary && powerShellOnly.MatchString(line))
 		if archiverLine || onlyOne {

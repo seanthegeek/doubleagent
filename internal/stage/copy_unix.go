@@ -17,6 +17,13 @@ func createDest(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
 }
 
+// MarkCaseSensitive does nothing: these systems have no per-directory case
+// setting, and whether the staging directory folds case is asked with
+// FoldsCase.
+func MarkCaseSensitive(string) error {
+	return nil
+}
+
 // createCopy creates the staged copy at dest (createDest).
 func (Stager) createCopy(dest string) (*os.File, error) {
 	return createDest(dest)

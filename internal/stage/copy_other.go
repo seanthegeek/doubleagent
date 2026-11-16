@@ -23,10 +23,17 @@ func (Stager) createCopy(dest string) (*os.File, error) {
 	return createDest(dest)
 }
 
-// spelledAsNamed reports true: the staging directory of these systems is
-// not compared with how the disk spells it.
+// spelledAsNamed reports true: these systems' staging directory is not
+// checked for folded case.
 func (Stager) spelledAsNamed(string) bool {
 	return true
+}
+
+// MarkCaseSensitive does nothing: these systems have no per-directory case
+// setting, and whether the staging directory folds case is asked with
+// FoldsCase.
+func MarkCaseSensitive(string) error {
+	return nil
 }
 
 // preserve gives the copy the source's modification time, the one time this

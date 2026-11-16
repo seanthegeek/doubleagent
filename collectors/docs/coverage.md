@@ -140,11 +140,13 @@ and a catalog line or a typed path matches only its exact spelling. The
 `doubleagent` binary keeps such entries apart everywhere it compares paths:
 two homes, two claims, two projects, two rows. It treats two spellings as
 one entry when the file system gives both the same file identity, as in
-an ordinary directory, or when one of them does not exist. Their staged copies cannot both be kept, because
-the staging directory does not tell the two names apart: the first entry
-staged keeps its copy, and each later file whose staged path is already
-taken gets an `error_copy` row saying so (a link, a `symlink` row with
-that error), with no archive path
+an ordinary directory, or when one of them does not exist. Both are staged
+and archived: the binary marks its staging directory case-sensitive. Where
+the output directory cannot hold such a pair (a Windows file system without
+the setting), the run logs a note, the
+first entry staged keeps its copy, and each later file whose staged path is
+taken gets an `error_copy` row saying so (a link, a `symlink` row with that
+error), with no archive path
 ([internals.md](internals.md#claimed-paths-and-case-variants)). With
 `--inventory` (`-Inventory`) the same folding applies, and the dropped line's
 glob is left out of the agent's `evidence`.

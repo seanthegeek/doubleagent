@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -55,6 +56,32 @@ func (stager Stager) createCopy(dest string) (*os.File, error) {
 	})
 }
 
+// MarkCaseSensitive marks dir, a directory the run just made and nothing is
+// in yet, case-sensitive (FileCaseSensitiveInfo), so two entries whose names
+// differ only in case, as a case-sensitive image directory holds them, are
+// staged as two; directories made in it later inherit the mark. It fails on
+// a file system or Windows build without per-directory case sensitivity.
+func MarkCaseSensitive(dir string) error {
+	name, err := windows.UTF16PtrFromString(syspath.Extended(dir))
+	if err != nil {
+		return &fs.PathError{Op: "mark case-sensitive", Path: syspath.ToNative(dir), Err: err}
+	}
+	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES, shareAll, nil,
+		windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS|
+			windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		return &fs.PathError{Op: "mark case-sensitive", Path: syspath.ToNative(dir), Err: err}
+	}
+	defer windows.CloseHandle(handle)
+	flags := uint32(windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR)
+	err = windows.SetFileInformationByHandle(handle, windows.FileCaseSensitiveInfo,
+		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags)))
+	if err != nil {
+		return &fs.PathError{Op: "mark case-sensitive", Path: syspath.ToNative(dir), Err: err}
+	}
+	return nil
+}
+
 // spelledAsNamed reports whether dest, a path in the staging tree that
 // exists, is spelled below the staging directory as the disk spells it
 // (fsmeta.OnDiskPath), so it is dest's own entry and not an earlier one
@@ -63,9 +90,11 @@ func (stager Stager) spelledAsNamed(dest string) bool {
 	return fsmeta.OnDiskPath(stager.Dir, dest) == dest
 }
 
-// placedAt reports whether final, the place Windows gives for the file
-// opened at dest, is dest's own place: the part of final below the physical
-// staging directory spells the part of dest below Dir byte for byte.
+// placedAt reports whether final, the place the system gives for the file
+// opened at dest (GetFinalPathNameByHandle on Windows, F_GETPATH on macOS),
+// is dest's own place: the part of final below the physical staging
+// directory spells the part of dest below Dir byte for byte, so a name the
+// directory took for another in case or Unicode normalisation is caught.
 func (stager Stager) placedAt(final, dest string) bool {
 	relative, found := strings.CutPrefix(dest, stager.Dir+"/")
 	if !found {

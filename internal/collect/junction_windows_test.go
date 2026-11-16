@@ -331,3 +331,39 @@ func markCaseSensitive(t *testing.T, path string) {
 		t.Skipf("cannot mark %s case-sensitive: %v", path, err)
 	}
 }
+
+func TestAStagingDirectoryThatCannotBeMarkedRefusesTheLaterEntry(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	markCaseSensitive(t, root+"/Users")
+	for _, user := range []string{"Alice", "alice"} {
+		if err := os.MkdirAll(syspath.ToNative(root+"/Users/"+user), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		path := syspath.ToNative(root + "/Users/" + user + "/.claude.json")
+		if err := os.WriteFile(path, []byte(user+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outDir := syspath.FromNative(t.TempDir())
+	host := testHost(t)
+	host.markCaseSensitive = func(string) error { return errors.New("not supported") }
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), host, &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	if log := runOutput(t, outDir, ".log"); !strings.Contains(log, foldingLine(outDir)+"\n") {
+		t.Errorf("the log lacks %q:\n%s", foldingLine(outDir), log)
+	}
+	rows, lines := manifestRows(t, outDir)
+	statuses := map[string]int{}
+	for _, row := range rows {
+		if path, _ := row["path"].(string); strings.HasSuffix(path, `\.claude.json`) {
+			statuses[row["status"].(string)]++
+		}
+	}
+	if statuses["collected"] != 1 || statuses["error_copy"] != 1 {
+		t.Errorf("statuses %v, want one collected and one error_copy:\n%s", statuses,
+			strings.Join(lines, "\n"))
+	}
+}

@@ -6,12 +6,14 @@
 package stage
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -26,14 +28,17 @@ import (
 // under From is staged under Into, so nothing is staged through a link
 // recreated in the staging tree. Opener opens each source, as the run
 // decided (whether to ask Windows to hold its access time); nil asks
-// wherever the platform can.
+// wherever the platform can. FoldsCase, set where the staging directory
+// takes names differing only in case for one (FoldsCase), makes every copy
+// and link on Unix be checked against where it landed; Windows always checks.
 type Stager struct {
-	Dir      string
-	Physical string
-	Root     string
-	From     string
-	Into     string
-	Opener   *fsmeta.Opener
+	Dir       string
+	Physical  string
+	Root      string
+	From      string
+	Into      string
+	Opener    *fsmeta.Opener
+	FoldsCase bool
 }
 
 // Through returns a copy of the stager that stages paths under from at into.
@@ -45,9 +50,9 @@ func (stager Stager) Through(from, into string) Stager {
 // Dest returns the archive member of path, fs/ and the path without the
 // root, and where it is staged. As set_dest_var does, the root is removed
 // only as a leading string (ignoring ASCII case on Windows), and a path not
-// starting with it keeps every byte after fs. From is matched byte for byte,
-// or in another ASCII case where fsmeta.SameEntry calls the two one entry: a
-// case-sensitive directory may hold a sibling so spelled. A drive or UNC path left is archived as Get-ArchivePath does (C:/a
+// starting with it keeps every byte after fs. From is matched byte for
+// byte, or in another ASCII case where fsmeta.SameEntry calls the two one
+// entry. A drive or UNC path left is archived as Get-ArchivePath does (C:/a
 // under fs/C/a, //server/share/a under fs/server/share/a). A path with a `.`
 // or `..` component, which every entry point replaces by the path the system
 // reaches (walk.RootCheck.Reached), is refused with an error: kept, it would
@@ -58,6 +63,9 @@ func (stager Stager) Dest(path string) (archivePath, destPath string, err error)
 	}
 	relative := path
 	if stager.From != "" {
+		// SameEntry is asked without the root check: path is a path the walk
+		// stages, under a base the check let through, and From an in-base
+		// link already judged; the two lstats follow no last component.
 		if syspath.Equal(path, stager.From) &&
 			(path == stager.From || fsmeta.SameEntry(path, stager.From)) {
 			relative = stager.Into
@@ -327,4 +335,24 @@ func parentOf(path string) string {
 		return path[:position]
 	}
 	return path
+}
+
+// FoldsCase reports whether dir, a staging directory, takes two names that
+// differ only in letter case for one: it creates a probe file with a random
+// lower-case name, looks it up in upper case and removes it. The run asks
+// once; where it folds, every copy and link is checked against where it
+// landed before anything is written into it. A probe that cannot be made
+// counts as folding, the side that checks.
+func FoldsCase(dir string) bool {
+	random := make([]byte, 8)
+	_, _ = rand.Read(random)
+	name := ".case-probe-" + hex.EncodeToString(random)
+	probe, err := osfile.OpenFile(dir+"/"+name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return true
+	}
+	_ = probe.Close()
+	_, err = osfile.Lstat(dir + "/" + strings.ToUpper(name))
+	_ = osfile.Remove(dir + "/" + name)
+	return err == nil
 }

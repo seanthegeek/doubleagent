@@ -308,18 +308,31 @@ trusts a prefix spelled byte for byte, and one differing in ASCII case only
 when the file system says it is the same directory; where several homes
 could own a project, the one spelled as the project's path wins.
 
-Staging a copy cannot keep two such entries apart: the staging directory,
-like most Windows directories, is case-insensitive, so `fs/.../Alice/x` and
-`fs/.../alice/x` are one place there. On Windows the binary asks where each
-staged copy and link landed (`GetFinalPathNameByHandle`, or the disk's
-spelling of a link's path) and, when the place is spelled otherwise than
-the entry's archive path, stages nothing: a later file's row is
-`error_copy` with the error `its staged path is already another entry's
-whose name differs only in case; not staged`, no archive path and no
-hash; a later link keeps its `symlink` row with no archive path and that
-reason after `not recreated in the archive:`. The first entry keeps its
-copy. An empty directory the later
-entry needed may remain in the earlier entry's staged directory.
+The staging tree keeps both copies where it can. On Windows the binary
+marks the staging directory's `fs` directory case-sensitive while it is
+still empty (`stage.MarkCaseSensitive`, `FileCaseSensitiveInfo`), and the
+directories made in it inherit the mark, measured on the CI runner, so
+`fs/.../Alice/x` and `fs/.../alice/x` are two files and two archive members,
+each with its own bytes. The run then probes the `fs` directory once
+(`stage.FoldsCase`: a file with a random lower-case name, looked up in
+upper case) for whether it still takes two such names for one: a Windows
+file system without the setting, or a case-insensitive Unix volume such as
+the default macOS one, where a Linux image analysed on a Mac can hold such
+pairs. Such a run logs `NOTE: output directory <dir> ignores letter case;
+of two entries whose names differ only in case, the later gets an
+error_copy row instead of a copy (an output directory on a case-sensitive
+volume keeps both)`. On Windows every copy and link is checked against
+where it landed before anything is written (`GetFinalPathNameByHandle`, or
+the disk's spelling of a link's path); the copy is opened without
+truncating and emptied only after the check. A
+later entry whose staged path is already another's is not staged: a
+file's row is `error_copy` with the error `its staged path is already
+another entry's whose name differs only in case; not staged`, no archive
+path and no hash; a link keeps its `symlink` row with no archive path and
+that reason after `not recreated in the archive:`. The earlier entry keeps
+its copy, and cleaning up after the refused one never removes it. The
+check is by the place the system reports, so it also catches names the
+volume merges in non-ASCII case.
 
 A directory that a wildcard segment could not list is recorded by
 `Expand-Glob` in `$script:GlobReadErrors`; `Write-GlobErrorRows` writes an

@@ -68,6 +68,9 @@ type environment struct {
 		*fsmeta.Opener, func(string) string) users.Report
 	lastAccess func() accessUpdates
 	confine    func(root string, report func(path string)) (*follow.Confinement, error)
+	// markCaseSensitive marks the empty staging fs directory case-sensitive
+	// on Windows (stage.MarkCaseSensitive); nil marks it the same way.
+	markCaseSensitive func(dir string) error
 }
 
 // fatalError is a fatal condition met before the log exists; its text is
