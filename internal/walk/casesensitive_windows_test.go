@@ -62,9 +62,12 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 	home := physicalTemp(t)
 	caseSensitiveDir(t, home)
 	writeFiles(t, home, "cs/Notes.txt", "cs/notes.txt", "cs/Dir/f.txt", "cs/dir/f.txt",
-		"cs/Zed/one", "cs/zed/two", "target/t.txt")
+		"cs/Zed/one", "cs/zed/two", "cs/p", "cs/r", "cs/R/x", "target/t.txt")
 	makeJunction(t, home+"/target", home+"/cs/J")
 	makeJunction(t, home+"/target", home+"/cs/j")
+	// A file whose staged place, unmarked, holds a link or a directory of
+	// another case is refused as a case collision too.
+	makeJunction(t, home+"/target", home+"/cs/P")
 	collector, recorder := windowsCollector(t, "", nil)
 	mustDo(t, os.Mkdir(syspath.ToNative(collector.Stager.Dir+"/fs"), 0o755))
 	if marked {
@@ -105,9 +108,9 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 				path, row["archive_path"], staged, err)
 		}
 	}
-	wantRefused, wantMembers := 3, 5
+	wantRefused, wantMembers := 5, 7
 	if marked {
-		wantRefused, wantMembers = 0, 8
+		wantRefused, wantMembers = 0, 12
 	}
 	// Unmarked, the later of Zed/one and zed/two (in listing order) lands in
 	// the staged directory of the earlier, where nothing else sits: staged
@@ -123,7 +126,7 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 			" %q", refused, len(members), wantRefused, wantMembers, recorder.written)
 	}
 	for _, file := range []string{"Notes.txt", "notes.txt", "Dir/f.txt", "dir/f.txt", "J", "j",
-		"Zed/one", "zed/two"} {
+		"Zed/one", "zed/two", "p", "P", "r", "R/x"} {
 		if path := syspath.ToNative(home + "/cs/" + file); !seen[path] {
 			t.Errorf("no row of %s in %q", path, recorder.written)
 		}
