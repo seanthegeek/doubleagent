@@ -198,3 +198,91 @@ func TestANonFoldingStageChecksNoLinkPlace(t *testing.T) {
 			"want none", len(stager.Places.sources))
 	}
 }
+
+// twoFoldingStagers returns two stagers over the roots one and two under
+// parent, staging into one folding staging directory with one record.
+func twoFoldingStagers(parent string) (Stager, Stager) {
+	first := Stager{Dir: parent + "/stage", Physical: parent + "/stage", Root: parent + "/one",
+		FoldsCase: true, Places: NewPlaces()}
+	second := first
+	second.Root = parent + "/two"
+	return first, second
+}
+
+// makeSource makes path, a regular file holding its name, or with link set
+// a symlink to t, with its parents.
+func makeSource(t *testing.T, path string, link bool) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var err error
+	if link {
+		err = os.Symlink("t", path)
+	} else {
+		err = os.WriteFile(path, []byte(path), 0o644)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAFileWhosePlaceHoldsALinkOrDirectoryIsACaseCollision(t *testing.T) {
+	cases := []struct {
+		name          string
+		first, second string
+		firstIsLink   bool
+		secondIsLink  bool
+	}{
+		{"a file after a link of another case", "P", "p", true, false},
+		{"a link after a file of another case", "Q", "q", false, true},
+		{"a file after a directory of another case", "R/x", "r", false, false},
+		{"a directory after a file of another case", "s", "S/x", false, false},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			parent := foldingStage(t)
+			first, second := twoFoldingStagers(parent)
+			stage := func(stager Stager, path string, link bool) error {
+				makeSource(t, path, link)
+				if link {
+					if err := stager.MakeParent(path); err != nil {
+						return err
+					}
+					return stager.Symlink(path, "t", false)
+				}
+				_, _, err := stager.CopyFile(path)
+				return err
+			}
+			if err := stage(first, parent+"/one/"+testCase.first, testCase.firstIsLink); err != nil {
+				t.Fatal(err)
+			}
+			err := stage(second, parent+"/two/"+testCase.second, testCase.secondIsLink)
+			if !IsCaseCollision(err) {
+				t.Errorf("staging %s after %s = %v; want the case collision error", testCase.second,
+					testCase.first, err)
+			}
+		})
+	}
+}
+
+func TestACopyAndALinkOfOneFileHaveOneIdentity(t *testing.T) {
+	path := t.TempDir() + "/file"
+	if err := os.WriteFile(path, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fromHandle, fromLstat := handleIdentity(file, info), linkIdentity(path); fromHandle !=
+		fromLstat || fromHandle == [2]uint64{} {
+		t.Errorf("identity from the open file %v, from lstat %v; want one non-zero form",
+			fromHandle, fromLstat)
+	}
+}

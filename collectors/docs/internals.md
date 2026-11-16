@@ -319,22 +319,28 @@ upper case) for whether it still takes two such names for one: a Windows
 file system without the setting, or a case-insensitive Unix volume such as
 the default macOS one, where a Linux image analysed on a Mac can hold such
 pairs. Such a run logs `NOTE: output directory <dir> ignores letter case;
-of two entries whose names differ only in case, the later gets an
-error_copy row instead of a copy (an output directory on a case-sensitive
-volume keeps both)`, and every copy and link is checked against where it
+of two entries whose names differ only in case, one may not be staged and
+its row says why (an output directory on a case-sensitive volume keeps
+both)`, and every copy and link is checked against where it
 landed before anything is written: on Windows always
 (`GetFinalPathNameByHandle`, or the disk's spelling of a link's path), on
 macOS through `F_GETPATH`, on Linux through each directory's listing. The
 copy is opened without truncating and emptied only after the check. The
-run keeps one record (`stage.Places`) of the source entry, by its `lstat`
-identity, each staged place was filled from, keyed by the place as the
-system spells it. A copy or link whose place already holds another
-entry's copy or link, or one the record does not hold, is not staged: a
+run keeps one record (`stage.Places`) of the source entry each staged
+place was filled from, by its identity (a copy's from its open source
+handle, a link's from its `lstat`), keyed by the place as the system
+spells it. A copy or link whose place already holds another entry's copy
+or link, or one the record does not hold, is not staged, and so is a file
+whose open or whose directory fails because its staged path resolves to
+another entry's link or directory spelled in another case: a
 file's row is `error_copy` with the error `its staged path is already
 another entry's whose name differs only in case; not staged`, no archive
 path and no hash; a link keeps its `symlink` row with no archive path and
-that reason after `not recreated in the archive:`. The earlier entry keeps
-its copy, and cleaning up after the refused one never removes it. One
+that reason after `not recreated in the archive:`. The entry staged first
+keeps its place, except that the directories a path needs are made before
+its files are copied, so a directory wins over a file of the same name in
+another case whatever their order; cleaning up after a refused copy never
+removes the other entry's. One
 source entry reached through two spellings, as the catalog's
 `AppData/Roaming/Devin` and `AppData/Roaming/devin` are on a volume that
 folds case, is staged again at its one place, and a copy that lands in a

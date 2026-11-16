@@ -216,7 +216,11 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 	if err != nil {
 		return "", 0, err
 	}
+	collision := &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
 	if err := stager.makeDir(parentOf(dest)); err != nil {
+		if stager.takenByAnother(parentOf(dest)) {
+			return "", 0, collision
+		}
 		return "", 0, err
 	}
 	source, err := stager.Opener.Open(path)
@@ -235,8 +239,8 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 		return "", 0, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	}
 	target, err := stager.createCopy(handleIdentity(source, info), dest)
-	if errors.As(err, &caseCollision{}) {
-		return "", 0, &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: err}
+	if errors.As(err, &caseCollision{}) || (err != nil && stager.takenByAnother(dest)) {
+		return "", 0, collision
 	}
 	if err != nil {
 		return "", 0, syspath.NativeErrors(err)
@@ -266,11 +270,12 @@ type notRegular struct{}
 func (notRegular) Error() string { return "not a regular file" }
 
 // caseCollision is the reason a file or link is not staged: its staged path
-// is already another entry's, whose name differs from its own only in
-// letter case. A case-sensitive source directory can hold Alice and alice;
-// the staging directory, like most Windows directories, cannot, and staging
-// the second over the first would leave a row pointing at the other entry's
-// bytes. The first entry staged keeps its copy.
+// is already another entry's file, link or directory, whose name differs
+// from its own only in letter case. A case-sensitive source directory can
+// hold Alice and alice; a staging directory that folds case cannot, and
+// staging one over the other would leave a row pointing at the other
+// entry's bytes. Whichever was staged first keeps the place, a directory
+// made for a later path included.
 type caseCollision struct{}
 
 // IsCaseCollision reports whether err says a file or link was not staged
@@ -317,6 +322,19 @@ func (stager Stager) Symlink(path, target string, directory bool) error {
 		stager.mayFill(linkIdentity(path), dest, stager.placeOf(dest), false)
 	}
 	return nil
+}
+
+// takenByAnother reports whether path, a staged path the stager could not
+// make or open, resolves where staged places are checked to a place spelled
+// otherwise (occupantOfPath): another entry's link or directory sits there,
+// which a failed open or mkdir otherwise words as a link loop or a file in
+// the way.
+func (stager Stager) takenByAnother(path string) bool {
+	if !stager.checksPlaces() {
+		return false
+	}
+	occupant, other := stager.occupantOfPath(path)
+	return other && occupant != path
 }
 
 // placeOf returns the place dest, a staged path that exists, resolves to,

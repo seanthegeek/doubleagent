@@ -38,11 +38,10 @@ func onHandle(file *os.File, call func(windows.Handle) error) error {
 }
 
 // createCopy creates the staged copy of the source of identity at dest
-// (createDest), refusing
-// it with caseCollision when the place Windows opened already holds another
-// entry's copy (mayFill): in a staging directory that could not be marked
-// case-sensitive, Alice/x and alice/x of a case-sensitive image directory
-// are one place.
+// (createDest), refusing it with caseCollision when the place Windows opened
+// already holds another entry's copy (mayFill): in a staging directory that
+// could not be marked case-sensitive, Alice/x and alice/x of a
+// case-sensitive image directory are one place.
 func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, error) {
 	return createDest(dest, func(file *os.File, existed bool) bool {
 		var final string

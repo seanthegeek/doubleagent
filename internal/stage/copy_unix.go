@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"golang.org/x/sys/unix"
 )
 
@@ -18,11 +19,10 @@ func createDest(path string) (*os.File, error) {
 }
 
 // createCopy creates the staged copy of the source of identity at dest
-// (createDest). Where
-// the staging directory folds case (FoldsCase) the copy is opened without
-// truncating, checked against where it landed (occupantOf, mayFill), and
-// refused with caseCollision when another entry's copy is there, which is
-// left as it was; only then emptied.
+// (createDest). Where the staging directory folds case (FoldsCase) the copy
+// is opened without truncating, checked against where it landed
+// (occupantOf, mayFill), and refused with caseCollision when another
+// entry's copy is there, which is left as it was; only then emptied.
 func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, error) {
 	if !stager.FoldsCase {
 		return createDest(dest)
@@ -64,12 +64,10 @@ func (stager Stager) checksPlaces() bool {
 }
 
 // handleIdentity returns the device and inode of the open source, from the
-// stat CopyFile already took of its handle.
+// stat CopyFile already took of its handle, in the form fsmeta.Lstat gives a
+// link's (fsmeta.StatIdentity).
 func handleIdentity(_ *os.File, info fs.FileInfo) [2]uint64 {
-	if status, ok := info.Sys().(*syscall.Stat_t); ok {
-		return [2]uint64{uint64(status.Dev), uint64(status.Ino)}
-	}
-	return [2]uint64{}
+	return fsmeta.StatIdentity(info)
 }
 
 // MarkCaseSensitive does nothing: these systems have no per-directory case

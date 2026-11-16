@@ -2,6 +2,8 @@ package fsmeta
 
 import (
 	"errors"
+	"io/fs"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -84,4 +86,14 @@ func statMeta(stat *unix.Stat_t) Meta {
 		Nlink:  uint64(stat.Nlink),
 		Blocks: int64(stat.Blocks),
 	}
+}
+
+// StatIdentity returns the device and inode info describes, from the stat
+// of an open file, in the form Lstat gives them; zero when info carries no
+// stat.
+func StatIdentity(info fs.FileInfo) [2]uint64 {
+	if status, ok := info.Sys().(*syscall.Stat_t); ok {
+		return [2]uint64{uint64(status.Dev), uint64(status.Ino)}
+	}
+	return [2]uint64{}
 }

@@ -21,6 +21,10 @@ func TestPlacesTellAnotherEntryFromTheSameOne(t *testing.T) {
 			t.Errorf("%s: fill = %v, want %v", step.name, got, step.want)
 		}
 	}
+	if !places.fill("/s/fs/nameless", false, [2]uint64{}) ||
+		places.fill("/s/fs/nameless", true, [2]uint64{}) {
+		t.Error("an entry with no identity was staged over another with none")
+	}
 	if places.fill("/s/fs/unrecorded", true, alice) {
 		t.Error("a place the stager did not record was written over")
 	}

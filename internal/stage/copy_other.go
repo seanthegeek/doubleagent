@@ -9,6 +9,9 @@ import (
 	"syscall"
 )
 
+// The binary is built for Linux, macOS and Windows only (.github/go-build.sh),
+// and fsmeta has no Lstat elsewhere, so no build compiles this file today.
+
 // createDest creates or truncates the staged copy, refusing a symlink
 // there first.
 func createDest(path string) (*os.File, error) {
