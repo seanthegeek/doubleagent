@@ -3,7 +3,6 @@
 package parity
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -134,7 +133,7 @@ func (c parityCase) compare(t *testing.T, img image, reference oracle, binary []
 	want.foldsCase = goDir != "" && foldsCase(t, goDir)
 	got.foldsCase = want.foldsCase
 	if got.foldsCase {
-		requireArchivePathsNameMembers(t, got)
+		guardCaseFreeArchivePaths(t, got)
 	}
 	compareRuns(t, normalise(want, false, c.stderrLog), normalise(got, true, c.stderrLog))
 	if c.after != nil {
@@ -154,24 +153,4 @@ func foldsCase(t *testing.T, dir string) bool {
 	defer os.Remove(probe)
 	_, err := os.Lstat(filepath.Join(dir, "CASE-PROBE"))
 	return err == nil
-}
-
-// requireArchivePathsNameMembers fails unless every row of run's manifest
-// with an archive path names an archive member of exactly that name, byte
-// for byte: the guard behind comparing archive_path without regard to case
-// on an output directory that ignores case.
-func requireArchivePathsNameMembers(t *testing.T, run collectorRun) {
-	t.Helper()
-	for _, line := range strings.Split(run.files[".manifest.jsonl"], "\n") {
-		var row struct {
-			ArchivePath string `json:"archive_path"`
-		}
-		if json.Unmarshal([]byte(line), &row) != nil || row.ArchivePath == "" {
-			continue
-		}
-		if _, found := run.members["./"+row.ArchivePath]; !found {
-			t.Errorf("the binary's row names %s, which the archive holds under no such name",
-				row.ArchivePath)
-		}
-	}
 }

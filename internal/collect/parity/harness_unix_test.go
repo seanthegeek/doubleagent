@@ -52,6 +52,7 @@
 package parity
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -134,6 +135,26 @@ func TestCollectAgreesWithTheShCollector(t *testing.T) {
 	for _, testCase := range cases {
 		if !testCase.parallel {
 			t.Run(testCase.name, func(t *testing.T) { run(t, testCase) })
+		}
+	}
+}
+
+// guardCaseFreeArchivePaths is the guard behind the Unix normaliser's
+// comparing archive_path without regard to case (caseFreeArchivePaths):
+// every row of the binary's manifest with an archive path must name an
+// archive member of exactly that name, byte for byte.
+func guardCaseFreeArchivePaths(t *testing.T, run collectorRun) {
+	t.Helper()
+	for _, line := range strings.Split(run.files[".manifest.jsonl"], "\n") {
+		var row struct {
+			ArchivePath string `json:"archive_path"`
+		}
+		if json.Unmarshal([]byte(line), &row) != nil || row.ArchivePath == "" {
+			continue
+		}
+		if _, found := run.members["./"+row.ArchivePath]; !found {
+			t.Errorf("the binary's row names %s, which the archive holds under no such name",
+				row.ArchivePath)
 		}
 	}
 }

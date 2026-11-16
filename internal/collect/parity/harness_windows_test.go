@@ -210,3 +210,7 @@ func TestCollectAgreesWithThePowerShellCollector(t *testing.T) {
 		}
 	}
 }
+
+// guardCaseFreeArchivePaths does nothing: the Windows normaliser compares
+// archive_path as written, with no case-free comparison to guard.
+func guardCaseFreeArchivePaths(*testing.T, collectorRun) {}
