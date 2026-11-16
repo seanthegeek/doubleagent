@@ -38,11 +38,13 @@ type stagedSpelling struct {
 	stopRespelled bool
 }
 
-// collides reports whether the walk shows path's own place taken by another
-// entry: the component it ended or stopped at is spelled otherwise on disk
-// and is the last one, or is a link or file where a directory was needed.
+// collides reports whether the walk shows path's place taken by another
+// entry: some component is spelled otherwise on disk and the walk either
+// reached the end or stopped at a link or file where a directory was
+// needed. A walk that found a component missing, or failed, proves nothing,
+// and the caller keeps its own error.
 func (spelling stagedSpelling) collides() bool {
-	return spelling.stopRespelled &&
+	return spelling.respelled &&
 		(spelling.stop == stagedEnd || spelling.stop == stagedNotDirectory)
 }
 
@@ -60,11 +62,16 @@ func (stager Stager) spelling(path string) stagedSpelling {
 	if !stager.FoldsCase {
 		return stagedSpelling{path: path}
 	}
-	fsys := systemFS()
+	return walkStaged(stager.files(), stager.Dir, path)
+}
+
+// files returns the file system the stager's walks and lstats of staged
+// paths ask: the system's, or a test's.
+func (stager Stager) files() stagedFS {
 	if stager.stagedFS != nil {
-		fsys = *stager.stagedFS
+		return *stager.stagedFS
 	}
-	return walkStaged(fsys, stager.Dir, path)
+	return systemFS()
 }
 
 // systemFS is the file system itself.
@@ -73,14 +80,13 @@ func systemFS() stagedFS {
 }
 
 // walkStaged spells path, below base, as the staging tree holds it. It
-// lists only base and directories it found typed as real directories in
-// their parent's listing, so it never opens, lists or stats anything
-// through a link. In each, a component listed with its own bytes is kept;
-// one that is not listed but that an lstat in that directory still finds
-// was resolved by the volume to an entry spelled otherwise, which is found
-// by its device and inode, whatever the volume's case or Unicode rule. The
-// walk goes on only into a real directory (internals.md, Claimed paths and
-// case variants).
+// lists only base and directories its parent's listing types as real, so
+// it never opens, lists or stats anything through a link. A component
+// listed with its own bytes is kept; one an lstat in that directory still
+// finds was resolved by the volume to another spelling, found by device
+// and inode at one lstat per listed entry until one matches. It goes on
+// only into a real directory, which it lists by path: only a writer inside
+// the binary's own staging directory could swap one for a link meanwhile.
 func walkStaged(fsys stagedFS, base, path string) stagedSpelling {
 	rest, found := strings.CutPrefix(path, base+"/")
 	if !found {

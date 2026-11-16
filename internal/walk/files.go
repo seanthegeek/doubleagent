@@ -153,7 +153,7 @@ func (collector *Collector) transferFiles(owner scope, files []plannedFile) erro
 			continue
 		}
 		file.status, file.copyError = manifest.ErrorCopy, innermostError(syspath.NativeErrors(err))
-		if err := collector.logCopyFailure(owner, file); err != nil {
+		if err := collector.logCopyFailure(owner, file, stage.IsCaseCollision(err)); err != nil {
 			return err
 		}
 	}
@@ -162,10 +162,11 @@ func (collector *Collector) transferFiles(owner scope, files []plannedFile) erro
 
 // logCopyFailure logs the copy failed: line of file. A failed copy's partial
 // file is removed when it lies inside the staging directory, and the line
-// says when it was not.
-func (collector *Collector) logCopyFailure(owner scope, file *plannedFile) error {
+// says when it was not; a copy refused as a case collision (collided) made
+// nothing, so nothing is looked at.
+func (collector *Collector) logCopyFailure(owner scope, file *plannedFile, collided bool) error {
 	note := ""
-	if _, dest, err := owner.stager.Dest(file.path); err == nil &&
+	if _, dest, err := owner.stager.Dest(file.path); err == nil && !collided &&
 		!owner.stager.RemoveFailedCopy(dest) {
 		note = "; staged path resolves outside the staging directory, not removed"
 	}

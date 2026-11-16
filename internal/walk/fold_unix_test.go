@@ -187,3 +187,44 @@ func TestALinkOutOfTheStageIsNeverListedThroughAnotherSpelling(t *testing.T) {
 		t.Errorf("row of Cursor/User/settings.json %v; want error_copy with the case collision", row)
 	}
 }
+
+func TestARefusedCopyLooksAtNothingBehindAnotherEntrysLink(t *testing.T) {
+	parent, collectors, rows := foldingCollectors(t)
+	outside := parent + "/outside"
+	if err := os.MkdirAll(outside+"/User", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(outside+"/User/settings.json", []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := parent + "/one/home/u/.config/cursor"
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatal(err)
+	}
+	settings := parent + "/two/home/u/.Config/cursor/User/settings.json"
+	if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settings, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tables := [][]catalog.Entry{{{Agent: "cursor", Glob: ".config/cursor"}},
+		{{Agent: "cursor", Glob: ".Config/cursor/User"}}}
+	for i, name := range []string{"one", "two"} {
+		if err := collectors[i].CollectCatalog(context.Background(), "u",
+			parent+"/"+name+"/home/u", tables[i], ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	row := rowByPath(t, rows[1], settings)
+	if row == nil || !strings.Contains(row["error"].(string), "differs only in case") {
+		t.Errorf("row of .Config/cursor/User/settings.json %v; want the case collision", row)
+	}
+	log := strings.Join(collectors[1].Log.(*lineLog).lines, "\n")
+	if strings.Contains(log, "not removed") {
+		t.Errorf("the refused copy was looked for behind the staged link:\n%s", log)
+	}
+}

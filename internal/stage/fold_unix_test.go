@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -284,5 +285,70 @@ func TestACopyAndALinkOfOneFileHaveOneIdentity(t *testing.T) {
 		fromLstat || fromHandle == [2]uint64{} {
 		t.Errorf("identity from the open file %v, from lstat %v; want one non-zero form",
 			fromHandle, fromLstat)
+	}
+}
+
+func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
+	t.Run("a copy under another entry's link reached through another case", func(t *testing.T) {
+		parent := foldingStage(t)
+		first, second := twoFoldingStagers(parent)
+		link := parent + "/one/a/cursor"
+		makeSource(t, link, true)
+		if err := first.MakeParent(link); err != nil {
+			t.Fatal(err)
+		}
+		if err := first.Symlink(link, "t", true); err != nil {
+			t.Fatal(err)
+		}
+		file := parent + "/two/A/cursor/User/x"
+		makeSource(t, file, false)
+		if _, _, err := second.CopyFile(file); !IsCaseCollision(err) {
+			t.Errorf("CopyFile of A/cursor/User/x = %v; want the case collision error", err)
+		}
+	})
+	t.Run("a file where another entry's directory sits in another case", func(t *testing.T) {
+		parent := foldingStage(t)
+		first, second := twoFoldingStagers(parent)
+		makeSource(t, parent+"/one/Zed/two/x", false)
+		if _, _, err := first.CopyFile(parent + "/one/Zed/two/x"); err != nil {
+			t.Fatal(err)
+		}
+		makeSource(t, parent+"/two/zed/two", false)
+		if _, _, err := second.CopyFile(parent + "/two/zed/two"); !IsCaseCollision(err) {
+			t.Errorf("CopyFile of zed/two = %v; want the case collision error", err)
+		}
+	})
+}
+
+// failingWriter fails every write.
+type failingWriter struct{}
+
+// Write fails.
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("file too large") }
+
+func TestAFailedCopyInADirectorySpelledInAnotherCaseIsRemoved(t *testing.T) {
+	parent := foldingStage(t)
+	first, second := twoFoldingStagers(parent)
+	makeSource(t, parent+"/one/Zed/one", false)
+	if _, _, err := first.CopyFile(parent + "/one/Zed/one"); err != nil {
+		t.Fatal(err)
+	}
+	second.wrapWriter = func(io.Writer) io.Writer { return failingWriter{} }
+	makeSource(t, parent+"/two/zed/two", false)
+	_, dest, _ := second.Dest(parent + "/two/zed/two")
+	if _, _, err := second.CopyFile(parent + "/two/zed/two"); err == nil {
+		t.Fatal("the copy did not fail")
+	}
+	if !second.RemoveFailedCopy(dest) {
+		t.Error("RemoveFailedCopy = false; the staged path lies inside the staging directory")
+	}
+	if _, err := os.Lstat(parent + "/stage/fs/Zed/two"); err == nil {
+		t.Error("the partial copy of zed/two is left in Zed, an archive member with no row")
+	}
+	if _, recorded := second.Places.sources[parent+"/stage/fs/Zed/two"]; recorded {
+		t.Error("the place of the failed copy is still recorded")
+	}
+	if !fileHolds(parent+"/stage/fs/Zed/one", parent+"/one/Zed/one") {
+		t.Error("Zed/one's copy was touched")
 	}
 }

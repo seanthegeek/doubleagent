@@ -22,8 +22,9 @@ func createDest(path string) (*os.File, error) {
 }
 
 // createCopy creates the staged copy of path at dest (createDest).
-func (Stager) createCopy(_ [2]uint64, dest string) (*os.File, error) {
-	return createDest(dest)
+func (Stager) createCopy(_ [2]uint64, dest string) (*os.File, string, error) {
+	file, err := createDest(dest)
+	return file, dest, err
 }
 
 // checksPlaces reports false: these systems' staging directory is not

@@ -5,14 +5,13 @@
 // collector's STAGE_FILES_WORKER.
 //
 // A recreated link in the staging tree may lead to the source or to the
-// analyst's own files, so the stager makes no call on a staged path below a
-// link: a write, an open or a link's creation first passes requireInside
-// for its directory (which resolves it and checks that it lies inside the
-// staging directory, listing nothing), and every respelling walks the tree
-// (walkStaged on Unix, fsmeta.OnDiskPath on Windows), which stops at a
-// link. The one exception is RemoveFailedCopy's lstat of the staged path,
-// copy_run's test of whether a failed copy left anything, which reads the
-// entry's metadata and lists nothing.
+// analyst's own files, so the stager lists or opens nothing below a link: a
+// write, an open or a link's creation first passes requireInside for its
+// directory, and every respelling walks the tree with walkStaged, which
+// stops at a link. requireInside, PhysicalDir and RemoveFailedCopy's lstat
+// of the staged path (copy_run's test, run after a copy that failed for a
+// reason other than a case collision) resolve through links and read
+// metadata only.
 package stage
 
 import (
@@ -57,6 +56,8 @@ type Stager struct {
 	afterOpen func(path string)
 	// stagedFS, set by tests, replaces the file system walkStaged asks.
 	stagedFS *stagedFS
+	// wrapWriter, set by tests, wraps the staged copy Copy writes to.
+	wrapWriter func(target io.Writer) io.Writer
 }
 
 // Through returns a copy of the stager that stages paths under from at into.
@@ -217,27 +218,43 @@ type outsideStage struct{}
 func (outsideStage) Error() string { return "does not resolve inside the staging directory" }
 
 // CopyFile copies the regular file path to its staged path and returns the
-// SHA-256 of the bytes written, in lower-case hex, and their count, which
-// the Windows rows give as the size, as Copy-FileShared does. Nothing is
-// written unless the staged path's directory resolves inside the staging
-// directory and neither end is opened through a final link; the copy gets
-// the source's times, and on Unix its mode and, as root, its owner, as cp -p
-// gives them. The error is the innermost *fs.PathError the copy met.
+// SHA-256 of the bytes written and their count (Copy).
 func (stager Stager) CopyFile(path string) (string, int64, error) {
+	copied, err := stager.Copy(path)
+	return copied.SHA256, copied.Size, err
+}
+
+// Copied is what Copy staged: the SHA-256 of the bytes written, in
+// lower-case hex, their count, and the archive member that holds them,
+// spelled as the staging tree names it.
+type Copied struct {
+	SHA256      string
+	Size        int64
+	ArchivePath string
+}
+
+// Copy copies the regular file path to its staged path; the count is the
+// size the Windows rows give, as Copy-FileShared does. Nothing is written
+// unless the staged path's directory resolves inside the staging directory
+// and neither end is opened through a final link; the copy gets the source's
+// times, and on Unix its mode and, as root, its owner, as cp -p gives them.
+// A copy that fails once its staged file was made or emptied is removed. The
+// error is the innermost *fs.PathError the copy met.
+func (stager Stager) Copy(path string) (Copied, error) {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
-		return "", 0, err
+		return Copied{}, err
 	}
 	collision := &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
 	if err := stager.makeDir(parentOf(dest)); err != nil {
 		if stager.takenByAnother(parentOf(dest)) {
-			return "", 0, collision
+			return Copied{}, collision
 		}
-		return "", 0, err
+		return Copied{}, err
 	}
 	source, err := stager.Opener.Open(path)
 	if err != nil {
-		return "", 0, err
+		return Copied{}, err
 	}
 	defer source.Close()
 	if stager.afterOpen != nil {
@@ -245,20 +262,20 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 	}
 	info, err := source.Stat()
 	if err != nil {
-		return "", 0, err
+		return Copied{}, err
 	}
 	if !info.Mode().IsRegular() {
-		return "", 0, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
+		return Copied{}, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: notRegular{}}
 	}
-	target, err := stager.createCopy(handleIdentity(source, info), dest)
+	target, place, err := stager.createCopy(handleIdentity(source, info), dest)
 	if errors.As(err, &caseCollision{}) || (err != nil && stager.takenByAnother(dest)) {
-		return "", 0, collision
+		return Copied{}, collision
 	}
 	if err != nil {
-		return "", 0, syspath.NativeErrors(err)
+		return Copied{}, syspath.NativeErrors(err)
 	}
 	hash := sha256.New()
-	written, err := io.Copy(io.MultiWriter(target, hash), source)
+	written, err := io.Copy(io.MultiWriter(stager.writer(target), hash), source)
 	if err == nil {
 		err = preserve(target, dest, info)
 	}
@@ -266,11 +283,31 @@ func (stager Stager) CopyFile(path string) (string, int64, error) {
 		err = closeError
 	}
 	if err != nil {
+		stager.discard(place)
 		// The staged copy was opened through osfile, so its write and close
 		// errors name the \\?\ form.
-		return "", 0, syspath.NativeErrors(err)
+		return Copied{}, syspath.NativeErrors(err)
 	}
-	return hex.EncodeToString(hash.Sum(nil)), written, nil
+	return Copied{SHA256: hex.EncodeToString(hash.Sum(nil)), Size: written,
+		ArchivePath: strings.TrimPrefix(place, stager.Dir+"/")}, nil
+}
+
+// writer returns where Copy writes the staged copy: target, or what a test
+// wraps it in.
+func (stager Stager) writer(target io.Writer) io.Writer {
+	if stager.wrapWriter != nil {
+		return stager.wrapWriter(target)
+	}
+	return target
+}
+
+// discard removes the partial copy this Copy made or emptied at place, the
+// staged file as the staging tree names it, and forgets the place.
+func (stager Stager) discard(place string) {
+	_ = osfile.Remove(place)
+	if stager.Places != nil {
+		delete(stager.Places.sources, place)
+	}
 }
 
 // notRegular is the reason a path that stopped being a regular file between
@@ -361,17 +398,15 @@ func (stager Stager) placeOf(dest string) string {
 }
 
 // RemoveFailedCopy removes what a failed copy left at dest and reports true,
-// or reports true when it left nothing, or when what is at dest is an entry
-// staged under another spelling (Stager.spelling), which it leaves. It
-// reports false, removing nothing,
+// or reports true when it left nothing. It reports false, removing nothing,
 // when dest's directory does not resolve inside the physical staging
 // directory: the staged path then leads through a recreated link out of the
-// staging tree, and a file there may be a source.
+// staging tree, and a file there may be a source. It leaves a file whose
+// own name the staging tree spells otherwise, or whose place the run
+// records as staged (Places): another entry's. Copy removes its own partial
+// copy, so what is left here was made by no successful copy of this run.
 func (stager Stager) RemoveFailedCopy(dest string) bool {
-	// The lstat is copy_run's test of whether the copy left anything; it
-	// lists nothing. The staged path is respelled only once its directory is
-	// known to lie inside the staging directory.
-	info, err := osfile.Lstat(dest)
+	info, err := stager.files().lstat(dest)
 	if err != nil {
 		return true
 	}
@@ -379,11 +414,21 @@ func (stager Stager) RemoveFailedCopy(dest string) bool {
 	if stager.Physical == "" || err != nil || !stager.holds(physical) {
 		return false
 	}
-	if stager.spelling(dest).respelled {
+	spelling := stager.spelling(dest)
+	place := dest
+	if spelling.stop == stagedEnd {
+		place = spelling.path
+	}
+	if spelling.stop == stagedEnd && spelling.stopRespelled {
 		return true
 	}
+	if stager.Places != nil {
+		if _, recorded := stager.Places.sources[place]; recorded {
+			return true
+		}
+	}
 	// rm -f removes no directory, and os.Remove would remove an empty one.
-	if !info.IsDir() {
+	if info.Kind != fsmeta.Dir {
 		_ = osfile.Remove(dest)
 	}
 	return true

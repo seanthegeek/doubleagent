@@ -330,8 +330,10 @@ the walk lists only directories it found typed as real directories, finds
 a component the volume resolved to another spelling by its device and
 inode, and stops at a link or file, so it never lists anything behind a
 recreated link. A copy, mkdir or link that fails is worded as a case
-collision only when that walk shows the component it is about spelled
-otherwise on disk. The
+collision when that walk finds a component spelled otherwise on disk and
+either reaches the end or stops at a link or file where a directory was
+needed; when it finds a component missing or fails, the system's own
+error is kept. The
 copy is opened without truncating and emptied only after the check. The
 run keeps one record (`stage.Places`) of the source entry each staged
 place was filled from, by its identity (a copy's from its open source
@@ -346,8 +348,10 @@ path and no hash; a link keeps its `symlink` row with no archive path and
 that reason after `not recreated in the archive:`. The entry staged first
 keeps its place, except that the directories a path needs are made before
 its files are copied, so a directory wins over a file of the same name in
-another case whatever their order; cleaning up after a refused copy never
-removes the other entry's. One
+another case whatever their order. A refused copy made nothing, so nothing
+is cleaned up after it; a copy that fails after making or emptying its
+staged file removes that file and forgets its place, so no partial copy is
+left as a member without a row. One
 source entry reached through two spellings, as the catalog's
 `AppData/Roaming/Devin` and `AppData/Roaming/devin` are on a volume that
 folds case, is staged again at its one place, and a copy that lands in a

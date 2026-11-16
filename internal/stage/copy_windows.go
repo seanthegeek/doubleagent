@@ -41,9 +41,11 @@ func onHandle(file *os.File, call func(windows.Handle) error) error {
 // (createDest), refusing it with caseCollision when the place Windows opened
 // already holds another entry's copy (mayFill): in a staging directory that
 // could not be marked case-sensitive, Alice/x and alice/x of a
-// case-sensitive image directory are one place.
-func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, error) {
-	return createDest(dest, func(file *os.File, existed bool) bool {
+// case-sensitive image directory are one place. It also returns the staged
+// path as the staging tree names it (its place).
+func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, string, error) {
+	place := dest
+	file, err := createDest(dest, func(file *os.File, existed bool) bool {
 		var final string
 		err := onHandle(file, func(handle windows.Handle) error {
 			var err error
@@ -51,12 +53,15 @@ func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, erro
 			return err
 		})
 		// A place that cannot be read is taken to be dest's own.
-		place := dest
 		if occupant, other := stager.occupantAt(syspath.FromNative(final), dest); err == nil && other {
 			place = occupant
 		}
 		return stager.mayFill(identity, dest, place, existed)
 	})
+	if err != nil {
+		return nil, "", err
+	}
+	return file, place, nil
 }
 
 // checksPlaces reports true: Windows checks every staged place, since a

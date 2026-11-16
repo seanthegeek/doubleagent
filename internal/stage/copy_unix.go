@@ -19,18 +19,20 @@ func createDest(path string) (*os.File, error) {
 }
 
 // createCopy creates the staged copy of the source of identity at dest
-// (createDest). Where the staging directory folds case (FoldsCase) the copy
-// is opened without truncating, checked against where it landed
-// (occupantOf, mayFill), and refused with caseCollision when another
-// entry's copy is there, which is left as it was; only then emptied.
-func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, error) {
+// (createDest), and the staged path as the staging tree names it (its
+// place). Where the staging directory folds case (FoldsCase) the copy is
+// opened without truncating, checked against where it landed (occupantOf,
+// mayFill), and refused with caseCollision when another entry's copy is
+// there, which is left as it was; only then emptied.
+func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, string, error) {
 	if !stager.FoldsCase {
-		return createDest(dest)
+		file, err := createDest(dest)
+		return file, dest, err
 	}
 	_, statErr := os.Lstat(dest)
 	file, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	place := dest
 	if occupant, other := stager.occupantOf(file, dest); other {
@@ -38,13 +40,13 @@ func (stager Stager) createCopy(identity [2]uint64, dest string) (*os.File, erro
 	}
 	if !stager.mayFill(identity, dest, place, statErr == nil) {
 		_ = file.Close()
-		return nil, caseCollision{}
+		return nil, "", caseCollision{}
 	}
 	if err := file.Truncate(0); err != nil {
 		_ = file.Close()
-		return nil, err
+		return nil, "", err
 	}
-	return file, nil
+	return file, place, nil
 }
 
 // checksPlaces reports whether staged places are checked: only where the
