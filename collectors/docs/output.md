@@ -186,7 +186,7 @@ Each manifest row is one JSON object:
 | `secret` | `true` when the path, relative to `home`, matched a credential pattern. |
 | `status` | See below. |
 | `target` | For a symlink, its target as stored. The PowerShell collector joins several reparse point targets with `;`. |
-| `error` | For `error_copy`, why the copy failed: `cp`'s message or the .NET exception. For `error_read`, why the directory could not be read: the first line of `ls`'s message (sh, for example `ls: cannot open directory '/home/carol': Permission denied`) or the .NET exception message. For a PowerShell `symlink` row with no `archive_path`, why the link is not in the archive, starting `not recreated in the archive:` or `not in the archive:`. |
+| `error` | For `error_copy`, why the copy failed: `cp`'s message or the .NET exception. For `error_read`, why the directory could not be read: the first line of `ls`'s message (sh, for example `ls: cannot open directory '/home/carol': Permission denied`) or the .NET exception message. For a PowerShell `symlink` row with no `archive_path`, why the link is not in the archive, starting `not recreated in the archive:` or `not in the archive:`; the `doubleagent` binary writes `not recreated in the archive: <why>` for every link it could not read or recreate, on every platform, and logs `symlink not recreated: <path>: <why>`, where the sh collector ignores a failed `ln -s` and keeps the `archive_path`. |
 
 Timestamps come from `lstat` on the original file (sh), or from the item's
 times before the copy (PowerShell). The copy of each file is hashed after

@@ -228,3 +228,41 @@ func TestARefusedCopyLooksAtNothingBehindAnotherEntrysLink(t *testing.T) {
 		t.Errorf("the refused copy was looked for behind the staged link:\n%s", log)
 	}
 }
+
+func TestALinkThatCannotBeRecreatedIsRecorded(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root writes any directory")
+	}
+	root := t.TempDir()
+	root, _ = filepath.EvalSymlinks(root)
+	home := root + "/home/u"
+	if err := os.MkdirAll(home+"/.claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("t", home+"/.claude/L"); err != nil {
+		t.Fatal(err)
+	}
+	collector, rows, log := testCollector(t, root, nil)
+	// The link's staged directory exists and cannot be written.
+	staged := collector.Stager.Dir + "/fs/home/u/.claude"
+	if err := os.MkdirAll(staged, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(staged, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(staged, 0o755) })
+	table := []catalog.Entry{{Agent: "claude", Glob: ".claude"}}
+	if err := collector.CollectCatalog(context.Background(), "u", home, table, ""); err != nil {
+		t.Fatal(err)
+	}
+	row := rowByPath(t, rows, home+"/.claude/L")
+	if row == nil || row["archive_path"] != "" ||
+		!strings.HasPrefix(row["error"].(string), "not recreated in the archive: ") {
+		t.Errorf("row of L %v; want the reason and no archive path", row)
+	}
+	if text := strings.Join(log.lines, "\n"); !strings.Contains(text,
+		"symlink not recreated: "+home+"/.claude/L: ") {
+		t.Errorf("the log does not say the link was not recreated:\n%s", text)
+	}
+}

@@ -141,7 +141,10 @@ this order, which keeps the per-file order of the forensic rules:
    recreates symlinks with `readlink` and `ln -s` (a link already recreated at
    the destination by another entry's walk is left as it is, since `ln -s`
    onto a link to a directory would create the new link inside that
-   directory), tests `SECRET_GLOBS`
+   directory; a failed `readlink` or `ln -s` is ignored, and the row keeps
+   its `archive_path`, where the `doubleagent` binary records the reason as
+   `not recreated in the archive:` with no archive path and logs
+   `symlink not recreated:`), tests `SECRET_GLOBS`
    with `is_secret`, and marks each file `symlink`, `skipped_special`, `skipped_secret`,
    `skipped_size` or `copy`. A path that exists and is neither a symlink
    nor a regular file is `skipped_special`, its `type_N` set to `socket`,
