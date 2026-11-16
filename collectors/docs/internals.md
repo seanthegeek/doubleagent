@@ -583,10 +583,17 @@ the kernel resolves `..` from where a link leads, spelled under the root
 as given (on a live run, the directory it resolves to); on Windows the path
 with `.` and `..` removed by name, as Win32 removes them. Its row's home and
 path, its archive path, the log and `collection.json` then all name that
-one path, and two homes or projects that become the same path are one, the
-first in enumeration order kept, as two passwd lines naming one home
-already are. A path the check refuses, or one that cannot be resolved, is
-kept as written; staging refuses any path that still holds a `.` or `..`
+one path (the root as given when it reaches the image root itself), and
+two homes or projects that become the same path are one, the first in
+enumeration order kept, as two passwd lines naming one home already are;
+for homes the log names both users:
+`user homes: /img/srv/b/frank is the home of frank and of frank2; walked once, as frank's`.
+A home that reaches the image root itself, or another home the users step
+never takes (such as `/usr`), is dropped, as the sh collector drops a
+passwd home of `/`. A path the check refuses, or one the kernel cannot
+resolve (a missing component, or a file followed by more names, which
+fails with "not a directory" however many `..` follow), is kept as
+written; staging refuses any path that still holds a `.` or `..`
 component, on every platform: its row is `error_copy` with no archive path
 and the error `holds a . or .. component, so where it is staged is not
 known`. The sh collector keeps the dotted spelling and stages the copy at

@@ -43,7 +43,15 @@ func (state *runState) findHomes(ctx context.Context) error {
 			return err
 		}
 	}
-	state.homes, state.skippedHomes = walk.ReachedHomes(report.Homes, state.roots), report.Skipped
+	homes, merged := walk.ReachedHomes(report.Homes, state.roots)
+	state.homes, state.skippedHomes = homes, report.Skipped
+	for _, merge := range merged {
+		line := "user homes: " + syspath.ToNative(merge.Path) + " is the home of " + merge.Kept +
+			" and of " + merge.Dropped + "; walked once, as " + merge.Kept + "'s"
+		if err := state.log.Line(line); err != nil {
+			return err
+		}
+	}
 	for _, profile := range report.Profiles {
 		state.profiles = append(state.profiles, relocation.Profile(profile))
 	}
@@ -59,6 +67,23 @@ func (state *runState) findHomes(ctx context.Context) error {
 		}
 	}
 	return state.logUnmatchedUsers(report)
+}
+
+// reachedProjects returns the -p paths, each holding a `.` or `..` component
+// replaced by the path the system reaches for it (walk.RootCheck.Reached),
+// each path once (ignoring case on Windows), first spelling first: two -p
+// values reaching one path are one project, warned about and recorded once.
+func reachedProjects(projects []string, roots walk.RootCheck) []string {
+	var kept []string
+	seen := map[string]bool{}
+	for _, project := range projects {
+		project = roots.Reached(project)
+		if key := syspath.Fold(project); !seen[key] {
+			seen[key] = true
+			kept = append(kept, project)
+		}
+	}
+	return kept
 }
 
 // logUnmatchedUsers writes a warning for each -u name that matched no user
@@ -133,9 +158,7 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	if state.options.Root != "" {
 		leavesRoot = state.rootExit
 	}
-	for i, project := range state.options.Projects {
-		state.options.Projects[i] = state.roots.Reached(project)
-	}
+	state.options.Projects = reachedProjects(state.options.Projects, state.roots)
 	found, refused, err := projects.Discover(ctx, state.homes, state.options.Root,
 		state.options.Projects, dropSecret, leavesRoot, state.opener, state.roots.Reached)
 	if err != nil {

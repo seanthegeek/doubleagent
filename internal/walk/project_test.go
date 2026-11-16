@@ -414,6 +414,10 @@ func (testCase outOfRootCase) checkProbes(t *testing.T, root, physical, project 
 			probed = append(probed, path)
 			return os.Readlink(path)
 		},
+		isDir: func(path string) bool {
+			probed = append(probed, path)
+			return isDirProbe(path)
+		},
 	}
 	found := projectScope(root, project, record)
 	want := rootScope{}

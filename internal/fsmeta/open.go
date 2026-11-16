@@ -94,15 +94,23 @@ type sourceOpen struct {
 
 // first opens with access and admits the handle, closing a refused one.
 func (steps sourceOpen) first(access uint32) (uintptr, error) {
-	handle, err := steps.create(access)
+	handle, _, err := steps.admittedOpen(access)
+	return handle, err
+}
+
+// admittedOpen opens with access and admits the handle, closing a refused
+// one; opened says whether the open itself succeeded, so a caller can tell
+// a failed open (try the next access) from a refusal (stop).
+func (steps sourceOpen) admittedOpen(access uint32) (handle uintptr, opened bool, err error) {
+	handle, err = steps.create(access)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	if err := steps.admit(handle); err != nil {
 		steps.release(handle)
-		return 0, err
+		return 0, true, err
 	}
-	return handle, nil
+	return handle, true, nil
 }
 
 // run tries each access in turn and returns the first admitted handle, held
@@ -112,14 +120,13 @@ func (steps sourceOpen) first(access uint32) (uintptr, error) {
 func (steps sourceOpen) run(accesses []uint32) (uintptr, error) {
 	var err error
 	for i, access := range accesses {
-		handle, createErr := steps.create(access)
-		if createErr != nil {
-			err = createErr
+		handle, opened, openErr := steps.admittedOpen(access)
+		if !opened {
+			err = openErr
 			continue
 		}
-		if err := steps.admit(handle); err != nil {
-			steps.release(handle)
-			return 0, err
+		if openErr != nil {
+			return 0, openErr
 		}
 		if steps.holdRight(access) {
 			steps.report(handle, steps.hold(handle))

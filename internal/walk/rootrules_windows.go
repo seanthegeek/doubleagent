@@ -187,6 +187,15 @@ func (RootCheck) Reached(path string) string {
 	return syspath.Opened(path)
 }
 
+// systemHome reports whether path, a home the system reaches, is the image
+// root itself (or, on a live run, a drive root), which is never a home.
+func (check RootCheck) systemHome(path string) bool {
+	if check.given == "" {
+		return len(path) == 2 && path[1] == ':'
+	}
+	return syspath.Equal(path, check.given)
+}
+
 // respellFromDrive returns path spelled as the disk holds it, from its
 // drive or share (fsmeta.OnDiskPath): the file system's own comparison of
 // names decides, so in a case-sensitive directory another case of a name is
@@ -196,11 +205,21 @@ func respellFromDrive(path string) string {
 }
 
 // sameDirectory reports whether prefix, which matched root only when ASCII
-// case is ignored, names root's own directory: spelled from the disk it is
-// root's bytes. In a case-sensitive directory holding both spellings it is
-// another directory, which Windows opens and the walk must not take for
-// the root. Only the root's ancestors are listed to answer, never anything
-// under prefix.
+// case is ignored, names root's own directory: its volume part (drive
+// letter, UNC server and share) equal ignoring case, as Windows compares
+// it, and the components after it, spelled from the disk, root's bytes. In
+// a case-sensitive directory holding both spellings the prefix is another
+// directory. Answering lists the directories that hold each component of
+// prefix (the root's ancestors, and in a case-sensitive directory the
+// sibling the prefix names), never anything under it. A target spelling
+// the root with an 8.3 short name never matches it, and is refused as
+// leading out of the root, the refusal logged.
 func (walker rootWalk) sameDirectory(prefix, root string) bool {
-	return walker.probe.respell != nil && walker.probe.respell(prefix) == root
+	if walker.probe.respell == nil {
+		return false
+	}
+	respelled := walker.probe.respell(prefix)
+	volume, rootVolume := volumeOf(respelled), volumeOf(root)
+	return volume != "" && syspath.Equal(volume, rootVolume) &&
+		respelled[len(volume):] == root[len(rootVolume):]
 }

@@ -213,3 +213,49 @@ func listenUnix(t *testing.T, dir string, names ...string) {
 		t.Cleanup(func() { _ = listener.Close() })
 	}
 }
+
+// TestARunWithALowerCaseDriveRootCollects runs the whole chain, ResolveRoot
+// through NewRootCheck to the copy, with -r spelled with its drive letter in
+// lower case: every file under the root is still inside it.
+func TestARunWithALowerCaseDriveRootCollects(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	for path, text := range map[string]string{
+		root + "/Users/alice/.claude/settings.json": "{}\n",
+		root + "/Users/alice/.claude.json":          `{"projects": {"C:\\Users\\alice\\work": {}}}` + "\n",
+		root + "/Users/alice/work/AGENTS.md":        "# work\n",
+	} {
+		parent := syspath.ToNative(path[:strings.LastIndexByte(path, '/')])
+		if err := os.MkdirAll(parent, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(syspath.ToNative(path), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lower := strings.ToLower(root[:1]) + root[1:]
+	outDir := syspath.FromNative(t.TempDir())
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(syspath.ToNative(lower), outDir),
+		testHost(t), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	if strings.Contains(log, "outside the image root") {
+		t.Errorf("the log refuses a path as outside the root:\n%s", log)
+	}
+	for _, path := range []string{"/Users/alice/.claude/settings.json", "/Users/alice/work/AGENTS.md"} {
+		rows, texts := manifestRows(t, outDir)
+		found := false
+		for i, row := range rows {
+			if native, _ := row["path"].(string); syspath.Equal(syspath.FromNative(native), root+path) {
+				found = true
+				if row["status"] != "collected" {
+					t.Errorf("row %s", texts[i])
+				}
+			}
+		}
+		if !found {
+			t.Errorf("no row of %s:\n%s", path, strings.Join(texts, "\n"))
+		}
+	}
+}

@@ -395,3 +395,80 @@ func TestADottedHomeIsStagedWhereTheKernelReachesIt(t *testing.T) {
 		t.Errorf("the log names the dotted spelling:\n%s", log)
 	}
 }
+
+// TestAPathReachingTheRootIsNamedByTheRootAsGiven gives the image root
+// through a link: eve's passwd home /home/.. reaches the root itself, which
+// is skipped as a home, as the sh collector skips a home of /; a -p that
+// reaches the root is named by the root as given. No row, log line or
+// collection.json value carries the analyst's own path for the root.
+func TestAPathReachingTheRootIsNamedByTheRootAsGiven(t *testing.T) {
+	root := writeImage(t, map[string]string{
+		"etc/passwd":                     "eve:x:1001:1001::/home/..:/bin/sh\n",
+		"home/bob/.claude/settings.json": "{}\n",
+		"AGENTS.md":                      "# image root\n",
+	}, nil)
+	via := t.TempDir() + "/via"
+	if err := os.Symlink(root, via); err != nil {
+		t.Fatal(err)
+	}
+	outDir := t.TempDir()
+	options := testOptions(via, outDir)
+	options.Projects = []string{via + "/home/bob/../.."}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, testHost(t), &stdout,
+		&stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	if strings.Contains(log, "User eve") {
+		t.Errorf("the image root was walked as eve's home:\n%s", log)
+	}
+	requireOnce(t, "the log", log, "Project "+via+"\n")
+	for _, suffix := range []string{".log", ".manifest.jsonl", ".collection.json"} {
+		if text := runOutput(t, outDir, suffix); strings.Contains(text, root) {
+			t.Errorf("%s names the root by the analyst's path %s:\n%s", suffix, root, text)
+		}
+	}
+}
+
+// TestTwoProjectsReachingOnePathAreOne gives -p twice for one path, once
+// with a `.`: the run lists it once, warns once and records it once.
+func TestTwoProjectsReachingOnePathAreOne(t *testing.T) {
+	root := writeImage(t, map[string]string{"srv/file.txt": "x\n"}, nil)
+	outDir := t.TempDir()
+	options := testOptions(root, outDir)
+	options.Projects = []string{root + "/srv/file.txt", root + "/srv/./file.txt"}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, testHost(t), &stdout,
+		&stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	if got := strings.Count(log, "WARNING: project given with -p is not a directory"); got != 1 {
+		t.Errorf("%d warnings for one path, want 1:\n%s", got, log)
+	}
+	if summary := runOutput(t, outDir, ".collection.json"); strings.Count(summary,
+		root+"/srv/file.txt") != 1 || strings.Contains(summary, "/./") {
+		t.Errorf("collection.json lists the path other than once:\n%s", summary)
+	}
+}
+
+// TestAHomeReachingAnotherUsersHomeIsLogged has frank's passwd home reach,
+// through a link and `..`, the home frank2 also names: the home is walked
+// once, as frank's, the user listed first, and one line names both.
+func TestAHomeReachingAnotherUsersHomeIsLogged(t *testing.T) {
+	root := writeImage(t, map[string]string{
+		"etc/passwd": "frank:x:1001:1001::/srv/dotlink/../frank:/bin/sh\n" +
+			"frank2:x:1003:1003::/srv/b/frank:/bin/sh\n",
+		"srv/b/c/keep":                      "",
+		"srv/b/frank/.claude/settings.json": "{}\n",
+	}, map[string]string{"srv/dotlink": "b/c"})
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	requireOnce(t, "the log", runOutput(t, outDir, ".log"), "user homes: "+root+
+		"/srv/b/frank is the home of frank and of frank2; walked once, as frank's\n")
+}

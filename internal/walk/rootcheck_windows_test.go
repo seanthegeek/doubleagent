@@ -325,3 +325,58 @@ func TestALinkToAnotherCaseOfTheRootIsJudgedByTheDisk(t *testing.T) {
 		})
 	}
 }
+
+// otherDriveCase returns path with its drive letter in the other case.
+func otherDriveCase(path string) string {
+	if len(path) < 2 || path[1] != ':' {
+		return path
+	}
+	letter := path[0]
+	if 'a' <= letter && letter <= 'z' {
+		return string(letter-'a'+'A') + path[1:]
+	}
+	return string(letter-'A'+'a') + path[1:]
+}
+
+// TestTheRootCheckIgnoresTheCaseOfTheVolume is the table of the volume part
+// of a root and of a path: the root's drive letter as Windows reports it or
+// in the other case, a drive root, a UNC root; the path under it spelled
+// with either case of the letter (or of the server and share), and an
+// absolute link target spelled with the other case. Windows ignores the case
+// of a drive letter and of server and share names, and so must the check.
+func TestTheRootCheckIgnoresTheCaseOfTheVolume(t *testing.T) {
+	root := physicalTemp(t)
+	writeFiles(t, root, "a/f")
+	makeSymlink(t, syspath.ToNative(otherDriveCase(root)+"/a"), root+"/l", true)
+	roots := []string{root, otherDriveCase(root)}
+	share := "//localhost/" + root[:1] + "$" + root[2:]
+	if _, err := os.Stat(syspath.ToNative(share)); err == nil {
+		roots = append(roots, share, "//LOCALHOST/"+strings.ToLower(root[:1])+"$"+root[2:])
+	} else {
+		t.Logf("no administrative share here (%v): the UNC rows are not run", err)
+	}
+	for _, given := range roots {
+		check := NewRootCheck(given)
+		for _, path := range []string{given + "/a/f", otherDriveCase(given) + "/a/f",
+			given + "/l/f"} {
+			t.Run(given+" "+path, func(t *testing.T) {
+				if refusal, refused := check.Exit(path); refused {
+					t.Errorf("NewRootCheck(%s).Exit(%s) refused %+v", given, path, refusal)
+				}
+				_, reached := check.resolve(path, imageProbes())
+				if !syspath.Equal(reached, root+"/a/f") && !strings.HasPrefix(given, "//") {
+					t.Errorf("reached %q, want %s/a/f", reached, root)
+				}
+			})
+		}
+	}
+	// A drive root given with its letter in lower case: a path under it is
+	// inside, whichever case spells the letter.
+	drive := strings.ToLower(systemDrive())
+	check := NewRootCheck(drive + "/")
+	for _, path := range []string{drive + "/Windows/win.ini", strings.ToUpper(drive) + "/Windows/win.ini"} {
+		if refusal, refused := check.Exit(path); refused {
+			t.Errorf("NewRootCheck(%s/).Exit(%s) refused %+v", drive, path, refusal)
+		}
+	}
+}

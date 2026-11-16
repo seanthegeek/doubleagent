@@ -2,14 +2,17 @@ package follow
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
 
 // The second check's coverage, kept in step with the guard's counted list
 // and with internals.md: every counted call on an image path either opens
-// through the opener's Admit or is named, by its last name, in the sentence
-// of internals.md that lists what the root check alone covers.
+// through the opener's Admit or is named, as a whole code span, in the
+// sentence of internals.md that lists what the root check alone covers.
+// The test checks that the lists agree; which class each call belongs to is
+// reviewed by hand when a call is added.
 const (
 	admitted      = "admitted"
 	rootCheckOnly = "root check alone"
@@ -95,16 +98,26 @@ func TestEveryImageSiteIsAdmittedOrDocumented(t *testing.T) {
 		t.Fatal(`internals.md has no "The root check alone covers" sentence`)
 	}
 	sentence, _, _ = strings.Cut(sentence, "\n\n")
-	names := append([]string{}, ownRootCheckOnly...)
-	for key, class := range classes {
-		if class == rootCheckOnly {
-			call := key[strings.LastIndexByte(key, ' ')+1:]
-			names = append(names, call[strings.IndexByte(call, '.')+1:])
+	// Each name must appear as a whole code span: the call itself, its last
+	// name alone, or for osfile, which wraps package os, the os name.
+	named := func(spellings ...string) bool {
+		return slices.ContainsFunc(spellings, func(spelling string) bool {
+			return strings.Contains(sentence, "`"+spelling+"`")
+		})
+	}
+	for _, name := range ownRootCheckOnly {
+		if !named(name) {
+			t.Errorf("internals.md's root-check-alone sentence does not name %s", name)
 		}
 	}
-	for _, name := range names {
-		if !strings.Contains(sentence, name) {
-			t.Errorf("internals.md's root-check-alone sentence does not name %s", name)
+	for key, class := range classes {
+		if class != rootCheckOnly {
+			continue
+		}
+		call := key[strings.LastIndexByte(key, ' ')+1:]
+		last := call[strings.IndexByte(call, '.')+1:]
+		if !named(call, last, "os."+strings.TrimPrefix(call, "osfile.")) {
+			t.Errorf("internals.md's root-check-alone sentence does not name %s (%s)", call, key)
 		}
 	}
 }

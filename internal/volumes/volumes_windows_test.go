@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/walk"
@@ -168,4 +169,25 @@ func mountPointData(substitute, printName string) []byte {
 		data = binary.LittleEndian.AppendUint16(data, unit)
 	}
 	return data
+}
+
+// TestAVolumeDirectoryTheOpenerRefusesIsNotCountedUnreadable has the run's
+// opener refuse every directory handle, as it does one Windows opened
+// outside the image root: the volume directories are skipped (the opener
+// logged them), not counted as unreadable or noted as needing root.
+func TestAVolumeDirectoryTheOpenerRefusesIsNotCountedUnreadable(t *testing.T) {
+	fixture := newSetup(t, false)
+	fixture.write(t, "var/lib/docker/volumes/postgres/_data/PG_VERSION", "16")
+	fixture.collector.Stager.Opener = &fsmeta.Opener{Admit: func(path string, _ uintptr) error {
+		return &follow.OutOfRootError{Path: path,
+			Refusal: follow.Refusal{Link: path, Kind: follow.OpenedOutside}}
+	}}
+	var notes []string
+	counts, err := Collect(context.Background(), fixture.collector, fixture.bases(), nil, &notes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counts.Unreadable != 0 || len(notes) != 0 {
+		t.Errorf("unreadable %d, notes %q; want none", counts.Unreadable, notes)
+	}
 }

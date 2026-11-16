@@ -246,24 +246,39 @@ func (collector *Collector) StageFile(user, home, agent string, stager stage.Sta
 	return collector.stageFiles(owner, []string{path}, secret)
 }
 
+// HomeMerge is a home ReachedHomes dropped because it reaches the directory
+// an earlier home already names: Path, walked once as Kept's, also Dropped's.
+type HomeMerge struct {
+	Path    string
+	Kept    string
+	Dropped string
+}
+
 // ReachedHomes returns homes with each path holding a `.` or `..` component
-// replaced by the path the system reaches for it (RootCheck.Reached),
-// each path once: of two homes that reach one directory the first in
-// enumeration order is kept, the rule the users step already applies to two
-// passwd lines naming one home, so the home is walked once, under the user
-// the system lists first.
-func ReachedHomes(homes []users.Home, roots RootCheck) []users.Home {
-	var kept []users.Home
-	seen := map[string]bool{}
+// replaced by the path the system reaches for it (RootCheck.Reached), each
+// path once. Of two homes that reach one directory the first in enumeration
+// order is kept, the rule the users step applies to two passwd lines naming
+// one home, and the other is returned in merged so the log can name both. A
+// home that reaches a system home (systemHome: the image root itself, as the
+// sh collector skips a home of /) is dropped, as the users step drops one
+// named so.
+func ReachedHomes(homes []users.Home, roots RootCheck) (kept []users.Home, merged []HomeMerge) {
+	owner := map[string]string{}
 	for _, home := range homes {
 		if home.Path != "" {
-			home.Path = roots.Reached(home.Path)
-			if seen[syspath.Fold(home.Path)] {
+			reached := roots.Reached(home.Path)
+			if reached != home.Path && roots.systemHome(reached) {
 				continue
 			}
-			seen[syspath.Fold(home.Path)] = true
+			home.Path = reached
+			key := syspath.Fold(home.Path)
+			if first, seen := owner[key]; seen {
+				merged = append(merged, HomeMerge{Path: home.Path, Kept: first, Dropped: home.User})
+				continue
+			}
+			owner[key] = home.User
 		}
 		kept = append(kept, home)
 	}
-	return kept
+	return kept, merged
 }

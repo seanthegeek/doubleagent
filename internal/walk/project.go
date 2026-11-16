@@ -314,8 +314,11 @@ func (walker rootWalk) relative(name string) (string, bool) {
 		}
 		// pathUnder ignores ASCII case on Windows; a prefix spelled
 		// otherwise than the root must be the root's own directory, which
-		// the disk decides (sameDirectory).
-		return rest, prefix == root || walker.sameDirectory(prefix, root)
+		// the disk decides (sameDirectory). One that is not may still lie
+		// under the other spelling of the root.
+		if prefix == root || walker.sameDirectory(prefix, root) {
+			return rest, true
+		}
 	}
 	return "", false
 }
@@ -364,7 +367,11 @@ func (check RootCheck) underRoot(physical string) string {
 	if check.physical == "/" {
 		return root + physical
 	}
-	if rest, found := stage.Under(physical, check.physical); found && rest != "" {
+	rest, found := stage.Under(physical, check.physical)
+	switch {
+	case found && rest == "":
+		return root
+	case found:
 		return root + "/" + rest
 	}
 	return physical

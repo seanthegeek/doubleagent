@@ -6,8 +6,11 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/users"
 	"slices"
 )
 
@@ -70,6 +73,12 @@ func (walker rootWalk) walk(components []step) rootScope {
 			return walker.failedLink(candidate)
 		}
 		if !isLink {
+			// A file followed by more names: the kernel fails the whole
+			// path (ENOTDIR), so nothing behind it can be reached, which
+			// is the image's own answer; a `..` never climbs out of it.
+			if hasNames(components) && walker.probe.isDir != nil && !walker.probe.isDir(candidate) {
+				return walker.unreadable(candidate)
+			}
 			current = candidate
 			continue
 		}
@@ -148,11 +157,13 @@ func parentDir(path string) string {
 	return path[:position]
 }
 
-// probes are the two calls the root check makes on the image: whether a
-// path is a link, and a link's target, the bytes it stores.
+// probes are the calls the root check makes on the image: whether a path is
+// a link, a link's target (the bytes it stores), and whether a path that is
+// no link is a directory.
 type probes struct {
 	isLink   func(path string) (bool, error)
 	readlink func(path string) (string, error)
+	isDir    func(path string) bool
 }
 
 // Reached returns, for a path that enters the run from outside a listing (a
@@ -182,6 +193,24 @@ func (check RootCheck) Reached(path string) string {
 	return check.underRoot(reached)
 }
 
+// systemHome reports whether path, a home the system reaches, is one the
+// users step never takes as a home (users.IsSystemHome), relative to the
+// root as given: the image root itself above all.
+func (check RootCheck) systemHome(path string) bool {
+	relative := path
+	if check.given != "" {
+		rest, inside := stage.Under(path, check.given)
+		if !inside {
+			return false
+		}
+		relative = "/" + rest
+		if rest == "" {
+			relative = "/"
+		}
+	}
+	return users.IsSystemHome(relative)
+}
+
 // sameDirectory is never asked on Unix, whose comparison of a target with
 // the root is byte for byte: a prefix that matched is the root.
 func (rootWalk) sameDirectory(prefix, root string) bool {
@@ -190,7 +219,13 @@ func (rootWalk) sameDirectory(prefix, root string) bool {
 
 // platformProbes returns the probes of the file system itself on Unix.
 func platformProbes() probes {
-	return probes{isLink: isLinkProbe, readlink: osfile.Readlink}
+	return probes{isLink: isLinkProbe, readlink: osfile.Readlink, isDir: isDirProbe}
+}
+
+// isDirProbe reports whether path itself, not followed, is a directory.
+func isDirProbe(path string) bool {
+	meta, err := fsmeta.Lstat(path)
+	return err == nil && meta.Kind == fsmeta.Dir
 }
 
 // hasDotComponent reports whether path, canonical, has a `.` or `..`

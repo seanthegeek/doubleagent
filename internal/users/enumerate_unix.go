@@ -18,9 +18,9 @@ func homeGlobs() []string {
 	return []string{"home/*", "Users/*", "root", "var/root", "usr/home/*", "export/home/*"}
 }
 
-// isSystemHome reports whether a home, relative to the root, belongs to a
+// IsSystemHome reports whether a home, relative to the root, belongs to a
 // system or shared profile that is never collected.
-func isSystemHome(relative string) bool {
+func IsSystemHome(relative string) bool {
 	switch relative {
 	case "", "/", "/bin", "/sbin", "/usr", "/usr/bin", "/usr/sbin", "/dev", "/dev/null",
 		"/proc", "/sys", "/nonexistent", "/var/empty", "/Users/Shared", "/Users/Public",
@@ -149,7 +149,7 @@ func filterHomes(candidates []Home, root, usersFilter string, guard *rootGuard,
 		if root != "" && strings.HasPrefix(home.Path, root) {
 			relative = home.Path[len(root):]
 		}
-		if isSystemHome(relative) {
+		if IsSystemHome(relative) {
 			continue
 		}
 		if guard.isDirectory(home.Path) {

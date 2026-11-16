@@ -180,7 +180,14 @@ func (run *collection) volumeRoot(base, rel string) (string, bool, error) {
 			return dir, false, nil
 		}
 		last := index == len(parts)-1
-		if !run.canEnter(dir) || (last && !run.canRead(dir)) {
+		readable, refused := true, false
+		if last {
+			readable, refused = run.canRead(dir)
+		}
+		if refused {
+			return dir, false, nil
+		}
+		if !run.canEnter(dir) || !readable {
 			run.counts.Seen = true
 			run.counts.Unreadable++
 			note := "docker: " + syspath.ToNative(dir) +
@@ -214,11 +221,13 @@ func (run *collection) isDirectory(target string) bool {
 }
 
 // canRead reports whether target may be read, as test -r; never for a target
-// out of the image root, which is not followed.
-func (run *collection) canRead(target string) bool {
-	readable, _ := follow.CanRead(run.collector.RootCheck.Expansion(), run.collector.Stager.Opener,
-		target)
-	return readable
+// out of the image root, which is not followed. refused is set for a
+// directory the opener refused because Windows opened it outside the image
+// root: logged once already, it is neither readable nor unreadable.
+func (run *collection) canRead(target string) (readable, refused bool) {
+	readable, err := follow.CanRead(run.collector.RootCheck.Expansion(),
+		run.collector.Stager.Opener, target)
+	return readable, follow.IsOpenedOutside(err)
 }
 
 // canEnter reports whether target may be searched, as test -x; never for a
@@ -275,12 +284,18 @@ func volumeRule(table []catalog.Entry, name string) (catalog.Entry, bool) {
 }
 
 // volumeUnreadable reports whether the volume directory, or its _data
-// directory when that is one, cannot be listed and entered.
-func (run *collection) volumeUnreadable(volume, data string) bool {
-	if !run.canRead(volume) || !run.canEnter(volume) {
-		return true
+// directory when that is one, cannot be listed and entered; refused when the
+// opener refused one of them (canRead).
+func (run *collection) volumeUnreadable(volume, data string) (unreadable, refused bool) {
+	readable, refused := run.canRead(volume)
+	if refused || !readable || !run.canEnter(volume) {
+		return !refused, refused
 	}
-	return run.isDirectory(data) && (!run.canRead(data) || !run.canEnter(data))
+	if !run.isDirectory(data) {
+		return false, false
+	}
+	readable, refused = run.canRead(data)
+	return !refused && (!readable || !run.canEnter(data)), refused
 }
 
 // collectVolume collects one volume's _data as user docker, or records an
@@ -293,10 +308,19 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 	data := volume + "/_data"
 	rule, matched := volumeRule(run.collector.Tables.DockerVolumes, name)
 	meta, dataError := fsmeta.Lstat(data)
+	isLink := dataError == nil && meta.IsLink()
+	unreadable, refused := false, false
+	if !isLink {
+		unreadable, refused = run.volumeUnreadable(volume, data)
+	}
 	switch {
-	case dataError == nil && meta.IsLink():
+	case isLink:
 		return run.collector.Log.Line("  volume " + name + " has no _data directory, skipped")
-	case run.volumeUnreadable(volume, data):
+	case refused:
+		// Windows opened it outside the image root: logged once by the
+		// opener's Admit, and nothing in it is used.
+		return nil
+	case unreadable:
 		run.counts.Unreadable++
 		label := "unmatched"
 		if matched {
