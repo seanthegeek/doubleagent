@@ -88,7 +88,9 @@ func TestEveryImageSiteIsAdmittedOrDocumented(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, sentence, found := strings.Cut(string(text), "The root\ncheck alone covers")
+	// A Windows checkout may end its lines with CRLF.
+	_, sentence, found := strings.Cut(strings.ReplaceAll(string(text), "\r\n", "\n"),
+		"The root\ncheck alone covers")
 	if !found {
 		t.Fatal(`internals.md has no "The root check alone covers" sentence`)
 	}

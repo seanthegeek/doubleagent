@@ -3,7 +3,9 @@
 package parity
 
 import (
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -110,7 +112,7 @@ func dropVolatileManifest(manifest string) string {
 // opt/frank, which the binary records, logs and archives under that path.
 // The sh collector keeps the dotted spelling in every text and stages the
 // copy at fs/srv/dotlink/../frank, which mkdir -p makes fs/srv/frank beside
-// an empty fs/srv/dotlink directory.
+// an empty fs/srv/dotlink directory, and fs/srv/ holds nothing else.
 const (
 	dottedHome  = "/srv/dotlink/../frank"
 	reachedHome = "/opt/frank"
@@ -136,6 +138,14 @@ func reachDottedHome(run collectorRun) collectorRun {
 			hash = reach(hash)
 		}
 		members[name] = hash
+	}
+	// fs/srv/ is left a directory member of its own when frank's were its
+	// only entries, as in the binary's archive it is not there at all.
+	if _, present := members["./fs/srv/"]; present && !slices.ContainsFunc(slices.Collect(
+		maps.Keys(members)), func(name string) bool {
+		return name != "./fs/srv/" && strings.HasPrefix(name, "./fs/srv/")
+	}) {
+		delete(members, "./fs/srv/")
 	}
 	run.files, run.members = files, members
 	run.stdout, run.stderr = reach(run.stdout), reach(run.stderr)
