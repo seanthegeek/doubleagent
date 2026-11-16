@@ -545,12 +545,16 @@ for Go files as it does for the others.
   enables, which run only on the disposable CI runner and the lab VM and
   delete their output: a run without a root collects the developer's own
   credentials. An empty root (`-r ""`) is live mode too, exactly as no `-r`
-  at all, and so, on Linux and macOS, is a root that comes out as `/` once
-  its `..` components are taken away by name (`-r /`, `-r /tmp/..`); a
-  symlink to `/` is not resolved, so it gives an image run whose root is the
-  whole workstation, which reads the same files, as does `-r C:\` on
-  Windows. A test or a hand run passes `-r` a real image directory built for
-  it, never an empty or computed value that can come out empty. The parity harness
+  at all, and so, on Linux and macOS, is a root that comes out as `/` once a
+  relative root is joined to the current directory and its `..` components
+  are taken away by name (`-r /`, `-r /tmp/..`, `-r ..` run from `/tmp`).
+  The sh collector also runs live when it is given a root it cannot enter
+  (one `[ -d ]` accepts but `cd` refuses), where the binary keeps image
+  mode. A symlink to `/` is not resolved, so it gives an image run whose
+  root is the whole workstation, which reads the same files, as does
+  `-r C:\` on Windows. A test or a hand run passes `-r` a real image
+  directory built for it, never an empty or computed value that can come
+  out empty. The parity harness
   (`internal/collect/parity`, build tag `parity`) diffs the binary against
   the sh collector over the sh smoke image on Linux and macOS and against the
   PowerShell collector over the PowerShell smoke image on Windows, and runs
@@ -1328,9 +1332,11 @@ changes, and the main session reviews. The brief sets the safety envelope:
 - A blocked clone or download is reported, never worked around from
   memory.
 - Nobody runs `doubleagent collect`, either collector script or a smoke
-  test on the workstation by accident: `-r ""`, `-r /` (Unix) and
-  `-Root ''` are live runs, not image runs, and a root that is a symlink to
-  `/` or a drive's root (`-r C:\`) reads the whole workstation as an image.
+  test on the workstation by accident: `-r ""`, `-r /` (Unix), a relative
+  root that comes out as `/` from the current directory (`-r ..` from
+  `/tmp`) and `-Root ''` are live runs, not image runs, and so is any root
+  the sh collector cannot enter; a root that is a symlink to `/` or a
+  drive's root (`-r C:\`) reads the whole workstation as an image.
   A reviewer trying root spellings uses a root inside a scratch image, and a
   brief for a subagent says so.
 - A subagent that runs a live collection against the workstation writes it

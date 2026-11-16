@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -93,8 +92,10 @@ type Deps struct {
 	// asks to hold access times wherever the platform can).
 	Opener *fsmeta.Opener
 	// Expansion is the image root's check the startup-file globs are expanded
-	// through (nil on a live run, which has no root to leave).
-	Expansion glob.Check
+	// through (nil on a live run, which has no root to leave), and
+	// RefusalReason words a link it refused (walk.RootCheck.RefusalReason).
+	Expansion     glob.Check
+	RefusalReason func(link, leadsOut string) string
 }
 
 // search is the state of one Search: the hint records already held, the
@@ -196,11 +197,11 @@ func (run *search) logOutOfRoot(links []string) error {
 			continue
 		}
 		run.outOfRoot[link] = true
-		reason := "leads out of the image root; nothing behind it was listed"
-		if follow.OtherReparsePoint(link) {
-			reason = follow.OtherReparseReason
+		reason := " leads out of the image root; nothing behind it was listed"
+		if run.deps.RefusalReason != nil {
+			reason = run.deps.RefusalReason(link, reason)
 		}
-		err := run.logSkip("startup files: " + syspath.ToNative(link) + " " + reason)
+		err := run.logSkip("startup files: " + syspath.ToNative(link) + reason)
 		if err != nil {
 			return err
 		}

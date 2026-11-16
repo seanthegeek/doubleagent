@@ -124,7 +124,7 @@ func projectPlace(roots RootCheck, stager stage.Stager, home, project string) pl
 	}
 	found := place{links: links, outside: true, stager: stager}
 	if physical, err := follow.PhysicalDir(roots.Expansion(), project); err == nil {
-		found.physical = underRoot(stager.Root, physical)
+		found.physical = roots.underRoot(physical)
 		found.stager = stager.Through(project, found.physical)
 	}
 	return found
@@ -141,7 +141,13 @@ func projectPlace(roots RootCheck, stager stage.Stager, home, project string) pl
 // that cannot be stat'ed, a link that cannot be read, a chain of more links
 // than maxLinkHops, a root that does not resolve) counts as outside.
 func ProjectOutOfRoot(root, project string) (string, bool) {
-	found := projectScope(root, project, imageProbes())
+	return NewRootCheck(root).OutOfRoot(project)
+}
+
+// OutOfRoot is ProjectOutOfRoot for project under check's root, resolved
+// once.
+func (check RootCheck) OutOfRoot(project string) (string, bool) {
+	found := check.scope(project, imageProbes())
 	return found.name, found.name != ""
 }
 
@@ -475,25 +481,45 @@ func joinPath(dir, name string) string {
 }
 
 // underRoot returns physical, a resolved path, with the resolved image root
-// it starts with replaced by root as given, so the archive path is taken
+// it starts with replaced by the root as given (resolved once, with the
+// check), so the archive path is taken
 // from it as from any path under the root; a path outside the root, and
 // every path on a live run (no root, where the physical path keeps its
 // drive), is returned unchanged.
-func underRoot(root, physical string) string {
-	if root == "" {
+func (check RootCheck) underRoot(physical string) string {
+	root := check.given
+	if root == "" || check.failed {
 		return physical
 	}
-	physicalRoot, err := stage.PhysicalDir(root)
-	if err != nil {
-		return physical
-	}
-	if physicalRoot == "/" {
+	if check.physical == "/" {
 		return root + physical
 	}
-	if rest, found := stage.Under(physical, physicalRoot); found && rest != "" {
+	if rest, found := stage.Under(physical, check.physical); found && rest != "" {
 		return root + "/" + rest
 	}
 	return physical
+}
+
+// unverifiedReason is the end of a refusal line for a link the root check
+// could not follow, or a root it could not resolve: it says no more than is
+// known.
+const unverifiedReason = "cannot be verified to lie inside the image root; " +
+	"nothing behind it was looked at"
+
+// RefusalReason returns the end of a log line, after the link, for a link
+// the root check refused: leadsOut, the line's own words, when the link's
+// target leads out of the root; follow.OtherReparseReason for a reparse
+// point other than a symlink or junction; unverifiedReason when the step
+// could not be taken or the root could not be resolved. leadsOut starts with
+// its own separator; the other two follow a space.
+func (check RootCheck) RefusalReason(link, leadsOut string) string {
+	switch {
+	case follow.OtherReparsePoint(link):
+		return " " + follow.OtherReparseReason
+	case check.scope(link, imageProbes()).unverified:
+		return " " + unverifiedReason
+	}
+	return leadsOut
 }
 
 // projectLine returns the log line that opens a project, with the words a

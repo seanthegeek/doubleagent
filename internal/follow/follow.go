@@ -8,17 +8,20 @@
 // A live run passes a nil check, and the functions follow as the operating
 // system does.
 //
-// A test in this package denies by default: outside the packages this one is
-// built on (osfile, fsmeta, stage), a non-test file may use an exported name
-// of a package that can act on a file path (os, path/filepath, io/ioutil,
-// syscall, x/sys/unix, x/sys/windows and its registry, osfile, fsmeta, stage)
-// only when a reviewed list says the name follows no link, or a counted list
-// gives the call's reason. The test reads package-level names only, so it
-// cannot see a method or a call through an interface or a function value;
-// the methods in use take a path and do not follow its last component
-// (fsmeta.Opener.OpenRegular opens with O_NOFOLLOW or
-// FILE_FLAG_OPEN_REPARSE_POINT; hostcmd.Plutil runs plutil on a hint file
-// whose own lstat typed it a regular file).
+// A test in this package denies by default. Outside the directories of this
+// package and the ones it is built on (osfile, fsmeta, stage), every non-test
+// Go file of the module may import only a reviewed standard or vendored
+// package, and may use an exported name of a package that can act on a file
+// path (os, os/exec, os/user, path/filepath, syscall, x/sys/unix,
+// x/sys/windows and its registry, osfile, fsmeta, stage) only when a list
+// says it takes no path, or never follows its last component and changes
+// nothing, or a counted list gives the call's reason. The test reads
+// package-level names only, so it cannot see a method or a call through an
+// interface or a function value; the methods in use take a path and do not
+// follow its last component (fsmeta.Opener.Open and OpenRegular open with
+// O_NOFOLLOW or FILE_FLAG_OPEN_REPARSE_POINT; stage.Stager.CopyFile reads
+// its source through them; hostcmd.Plutil runs plutil on a hint file whose
+// own lstat typed it a regular file).
 package follow
 
 import (

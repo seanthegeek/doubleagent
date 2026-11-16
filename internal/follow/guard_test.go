@@ -14,155 +14,30 @@ import (
 	"testing"
 )
 
-// guardedPackages are the packages whose exported names a file outside the
-// owner packages may select only when safeNames or allowedCalls lists them:
-// every package of the standard library, x/sys or this module that can act
-// on a file path. A name not listed fails, so a new function cannot slip in
-// because nobody thought to ban it.
-func guardedPackages() []string {
-	return []string{"os", "path/filepath", "io/ioutil", "syscall", "golang.org/x/sys/unix",
-		"golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
-		"github.com/seanthegeek/doubleagent/internal/osfile",
-		"github.com/seanthegeek/doubleagent/internal/fsmeta",
-		"github.com/seanthegeek/doubleagent/internal/stage"}
-}
-
-// safeNames are, by import path, the exported names of guarded packages
-// known not to follow a link on a path: constants, types, error values,
-// functions that take no path or work on its text alone, and functions that
-// act on the last component itself (an lstat, a readlink, a remove), each
-// read in its source or documentation. A new entry needs the same reading.
-func safeNames() map[string][]string {
-	return map[string][]string{
-		// The process, its environment and standard streams, the null
-		// device's name, file types and flags; Getwd reads no path given.
-		"os": {"Args", "DevNull", "Environ", "Exit", "File", "FileInfo", "Getenv", "Getuid",
-			"Getwd", "Hostname", "Interrupt", "LinkError", "ModeSymlink", "O_CREATE", "O_EXCL",
-			"O_TRUNC", "O_WRONLY", "Stderr", "Stdout"},
-		// Text operations on a path; none touches the file system.
-		"path/filepath": {"Base", "Clean", "IsAbs", "Join", "SplitList", "VolumeName"},
-		// Constants, a signal and an attribute record type.
-		"syscall": {"ERROR_MORE_DATA", "FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_REPARSE_POINT",
-			"SIGTERM", "Win32FileAttributeData"},
-		// Constants, the umask, the kernel's name and a byte conversion.
-		"golang.org/x/sys/unix": {"AT_EACCESS", "AT_FDCWD", "ByteSliceToString", "Umask", "Uname",
-			"Utsname", "W_OK", "X_OK"},
-		// Security identifiers, the version call, a token type, constants and
-		// string conversions.
-		"golang.org/x/sys/windows": {"CreateWellKnownSid", "FILE_ATTRIBUTE_DIRECTORY",
-			"MAX_LONG_PATH", "RtlGetVersion", "Token", "UTF16PtrFromString", "UTF16ToString",
-			"WinBuiltinAdministratorsSid"},
-		// Registry keys and values, which are not file paths.
-		"golang.org/x/sys/windows/registry": {"DWORD", "ENUMERATE_SUB_KEYS", "EXPAND_SZ",
-			"ErrNotExist", "ErrUnexpectedType", "ExpandString", "Key", "LOCAL_MACHINE", "OpenKey",
-			"QUERY_VALUE", "READ", "SZ", "USERS"},
-		// Act on the last component itself and follow nothing.
-		"github.com/seanthegeek/doubleagent/internal/osfile": {"Lstat", "Readlink", "Remove",
-			"RemoveAll"},
-		// Lstat-based metadata, sizes that never descend a link, the listing
-		// order, on-disk spellings that stop at the first link, and types; the
-		// Opener's methods open without following the last component.
-		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"AttributesString", "Device", "Dir",
-			"DiskUsageBytes", "Fifo", "File", "Kind", "ListingOrder", "Lstat", "Meta", "NewOpener",
-			"NewOwners", "OnDiskName", "OnDiskPath", "Opener", "Owners", "Socket", "Symlink",
-			"ZeroMeta"},
-		// The staging type and a text comparison of two paths.
-		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Under"},
-	}
-}
-
-// ownerPackages are the directories under internal whose every file may call
-// a following function: this package, the path wrappers it is built on, the
-// metadata layer whose functions it wraps, and the staging layer, which
-// works on the output directory and resolves the root the run is given.
-func ownerPackages() []string {
-	return []string{"follow", "osfile", "fsmeta", "stage"}
-}
-
-// allowance is how many calls of one following function one file may make,
-// and why none of them can follow a link out of the image root.
-type allowance struct {
-	count  int
-	reason string
-}
-
-// allowedCalls are the other calls of a following function, keyed by file
-// and function, with their number and reason: a further call in the same
-// file fails too.
-func allowedCalls() map[string]allowance {
-	allowed := map[string]allowance{}
-	for _, entry := range []struct {
-		file, call string
-		count      int
-		reason     string
-	}{
-		{"internal/archive/archive.go", "osfile.Create", 1,
-			"creates the archive in the output directory"},
-		{"internal/archive/archive.go", "osfile.WriteFile", 1,
-			"writes the archive's checksum file beside it"},
-		{"internal/collect/run_setup.go", "osfile.MkdirAll", 2,
-			"creates the output and staging directories"},
-		{"internal/collect/run_setup.go", "osfile.Create", 1,
-			"creates the manifest in the output directory"},
-		{"internal/collect/run_finish.go", "osfile.WriteFile", 1,
-			"writes collection.json into the output and staging directories"},
-		{"internal/shortname/shortname_windows.go", "windows.GetShortPathName", 1,
-			"names a test directory the helper made under the test's temporary directory"},
-		{"internal/shortname/shortname_windows.go", "windows.GetLongPathName", 1,
-			"names a test directory the helper made under the test's temporary directory"},
-		{"internal/shortname/shortname_windows.go", "osfile.MkdirAll", 1,
-			"makes a test directory under the test's own temporary directory"},
-		{"internal/archive/archive.go", "osfile.ReadDir", 1,
-			"lists the staging tree the run built"},
-		{"internal/archive/archive.go", "osfile.Open", 2,
-			"reads files of the staging tree the run built"},
-		{"internal/collect/options.go", "osfile.Stat", 1,
-			"tests -r and -o as the operator gives them"},
-		{"internal/collect/run_finish.go", "osfile.Open", 1,
-			"copies the run's own output files"},
-		{"internal/collect/run_finish.go", "osfile.OpenFile", 1,
-			"creates the run's own output files"},
-		{"internal/collect/run_setup.go", "osfile.OpenFile", 1,
-			"creates the probe file in the output directory"},
-		{"internal/collect/run_setup.go", "stage.PhysicalDir", 1,
-			"resolves the staging directory"},
-		{"internal/collect/run_unix.go", "unix.Faccessat", 1,
-			"tests the output directory -o names"},
-		{"internal/glob/expand.go", "osfile.Stat", 1,
-			"asked the root check of the path first"},
-		{"internal/glob/expand.go", "osfile.Open", 1,
-			"asked the root check of the directory first"},
-		{"internal/projects/files.go", "osfile.Open", 1,
-			"opens a directory its own lstat typed one, below a checked start"},
-		{"internal/relocation/walk.go", "osfile.Open", 1,
-			"opens a directory its own lstat typed one, below a checked base"},
-		{"internal/runlog/runlog.go", "osfile.OpenFile", 1,
-			"creates the run's log file"},
-		{"internal/users/users_windows.go", "osfile.ReadDir", 1,
-			"lists the parent of a candidate the root check let through"},
-		{"internal/walk/project.go", "stage.PhysicalDir", 2,
-			"resolves the image root the operator gave"},
-		{"internal/walk/tree.go", "osfile.Open", 2,
-			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
-	} {
-		allowed[entry.file+" "+entry.call] = allowance{entry.count, entry.reason}
-	}
-	return allowed
-}
-
 func TestNoFollowingCallOutsideThisPackage(t *testing.T) {
+	found, err := scanTree("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkFoundCalls(t, found)
+}
+
+// scanTree returns, by file relative to root, what followingCalls finds in
+// every Go file under root that is not a test, not vendored and not in an
+// owner package, in every directory of the module.
+func scanTree(root string) (map[string][]string, error) {
 	found := map[string][]string{}
-	err := filepath.WalkDir("../..", func(file string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(file string, entry fs.DirEntry, err error) error {
 		switch {
 		case err != nil:
 			return err
 		case entry.IsDir() && (entry.Name() == "vendor" || strings.HasPrefix(entry.Name(), ".")) &&
-			file != "../..":
+			file != root:
 			return filepath.SkipDir
 		case entry.IsDir() || !strings.HasSuffix(file, ".go") || strings.HasSuffix(file, "_test.go"):
 			return nil
 		}
-		relative := strings.TrimPrefix(filepath.ToSlash(file), "../../")
+		relative := strings.TrimPrefix(filepath.ToSlash(file), filepath.ToSlash(root)+"/")
 		if owned(relative) {
 			return nil
 		}
@@ -174,24 +49,44 @@ func TestNoFollowingCallOutsideThisPackage(t *testing.T) {
 		found[relative] = append(found[relative], calls...)
 		return err
 	})
+	return found, err
+}
+
+func TestTheScanCoversEveryDirectoryButTheOwnersOwn(t *testing.T) {
+	root := t.TempDir()
+	source := "package x\nimport \"os\"\nvar _, _ = os.Stat(\"x\")\n"
+	for _, file := range []string{"pkgx/s.go", "internal/stage/sub/s.go", "internal/stage/s.go",
+		"vendor/v/s.go", "pkgx/s_test.go"} {
+		full := filepath.Join(root, filepath.FromSlash(file))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(source), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	found, err := scanTree(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkFoundCalls(t, found)
-}
-
-// owned reports whether file, relative to the repository, is in an owner
-// package or outside the binary's tree.
-func owned(file string) bool {
-	if !strings.HasPrefix(file, "internal/") && !strings.HasPrefix(file, "cmd/") {
-		return true
-	}
-	for _, owner := range ownerPackages() {
-		if strings.HasPrefix(file, "internal/"+owner+"/") {
-			return true
+	var scanned []string
+	for file, calls := range found {
+		if len(calls) > 0 {
+			scanned = append(scanned, file)
 		}
 	}
-	return false
+	slices.Sort(scanned)
+	if want := []string{"internal/stage/sub/s.go", "pkgx/s.go"}; !slices.Equal(scanned, want) {
+		t.Errorf("files with findings %q, want %q: a file outside internal and a subpackage "+
+			"of an owner are scanned, the owner's own files, vendor and tests are not", scanned, want)
+	}
+}
+
+// owned reports whether file, relative to the repository, is in one of the
+// owner packages: its directory is exactly an owner's, so a subpackage of an
+// owner is scanned like any other.
+func owned(file string) bool {
+	return slices.Contains(ownerPackages(), path.Dir(file))
 }
 
 // checkFoundCalls fails on every call not allowed, on every allowed call
@@ -210,8 +105,8 @@ func checkFoundCalls(t *testing.T, found map[string][]string) {
 				seen[key]++
 				continue
 			}
-			t.Errorf("%s is not known to be safe: route it through package follow, or add it to "+
-				"safeNames or allowedCalls with the reason it cannot follow a link", call)
+			t.Errorf("%s is not reviewed: route a path call through package follow, or list "+
+				"the name or import in guard_lists_test.go with the reason it is sound", call)
 		}
 	}
 	for key, entry := range allowed {
@@ -244,6 +139,18 @@ func TestGuardFindsEveryNameNotKnownToBeSafe(t *testing.T) {
 			nil},
 		{"an unlisted name fails, harmless or not", "import \"os\"\nvar _ = os.Getpid()",
 			[]string{"os.Getpid"}},
+		{"an import nobody reviewed fails", "import \"debug/elf\"\nvar _, _ = elf.Open(\"x\")",
+			[]string{"import of debug/elf"}},
+		{"a call of os/exec fails", "import \"os/exec\"\nvar _ = exec.Command(\"sh\")",
+			[]string{"exec.Command"}},
+		{"a removal is counted, not safe",
+			"import \"github.com/seanthegeek/doubleagent/internal/osfile\"\n" +
+				"var _ = osfile.Remove(\"x\")",
+			[]string{"osfile.Remove"}},
+		{"an lstat needs no count",
+			"import \"github.com/seanthegeek/doubleagent/internal/osfile\"\n" +
+				"var _, _ = osfile.Lstat(\"x\")",
+			nil},
 		{"windows.Open fails",
 			"import \"golang.org/x/sys/windows\"\nvar _, _ = windows.Open(\"x\", 0, 0)",
 			[]string{"windows.Open"}},
@@ -274,34 +181,25 @@ func TestGuardFindsEveryNameNotKnownToBeSafe(t *testing.T) {
 	}
 }
 
+// modulePath is the import path every package of this module starts with.
+const modulePath = "github.com/seanthegeek/doubleagent/"
+
 // followingCalls returns "file:line package.Name" for each reference in the
-// Go source of fileName to an exported name of a guarded package that
-// safeNames does not list, under whatever local name its package is
-// imported, and "file:line dot import of package" for a dot import of a
-// guarded package, whose names could then be used bare.
+// Go source of fileName to an exported name of a guarded package that no
+// list allows, under whatever local name its package is imported, "file:line
+// import of P" for an import reviewedImports does not list, and "file:line
+// dot import of P" for a dot import of a guarded package.
 func followingCalls(fileName string, source []byte) ([]string, error) {
 	files := token.NewFileSet()
 	parsed, err := parser.ParseFile(files, fileName, source, parser.SkipObjectResolution)
 	if err != nil {
 		return nil, err
 	}
-	safe := safeNames()
-	local, calls := map[string]string{}, []string(nil)
-	for _, spec := range parsed.Imports {
-		importPath, err := strconv.Unquote(spec.Path.Value)
-		if err != nil || !slices.Contains(guardedPackages(), importPath) {
-			continue
-		}
-		name := path.Base(importPath)
-		if spec.Name != nil {
-			name = spec.Name.Name
-		}
-		switch name {
-		case ".":
-			calls = append(calls, files.Position(spec.Pos()).String()+" dot import of "+importPath)
-		case "_":
-		default:
-			local[name] = importPath
+	local, calls := guardedImports(files, parsed)
+	allowed := map[string][]string{}
+	for _, list := range []map[string][]string{safeNames(), noFollowNames()} {
+		for importPath, names := range list {
+			allowed[importPath] = append(allowed[importPath], names...)
 		}
 	}
 	shadowed := declaredNames(parsed)
@@ -315,13 +213,41 @@ func followingCalls(fileName string, source []byte) ([]string, error) {
 			return true
 		}
 		importPath, ok := local[ident.Name]
-		if ok && !slices.Contains(safe[importPath], selector.Sel.Name) {
+		if ok && !slices.Contains(allowed[importPath], selector.Sel.Name) {
 			calls = append(calls, files.Position(selector.Pos()).String()+" "+
 				path.Base(importPath)+"."+selector.Sel.Name)
 		}
 		return true
 	})
 	return calls, nil
+}
+
+// guardedImports returns the local names of the file's guarded imports, by
+// import path, and an entry for each import that is not reviewed and each
+// dot import of a guarded package.
+func guardedImports(files *token.FileSet, parsed *ast.File) (map[string]string, []string) {
+	reviewed := reviewedImports()
+	local, calls := map[string]string{}, []string(nil)
+	for _, spec := range parsed.Imports {
+		importPath, err := strconv.Unquote(spec.Path.Value)
+		where := files.Position(spec.Pos()).String()
+		module := strings.HasPrefix(importPath, modulePath)
+		guarded := reviewed[importPath] == "guarded" ||
+			slices.Contains(guardedModulePackages(), importPath)
+		switch {
+		case err != nil:
+		case !module && reviewed[importPath] == "":
+			calls = append(calls, where+" import of "+importPath)
+		case !guarded:
+		case spec.Name == nil:
+			local[path.Base(importPath)] = importPath
+		case spec.Name.Name == ".":
+			calls = append(calls, where+" dot import of "+importPath)
+		case spec.Name.Name != "_":
+			local[spec.Name.Name] = importPath
+		}
+	}
+	return local, calls
 }
 
 // declaredNames returns the names the file declares at package level, which

@@ -135,8 +135,9 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	}
 	// The listing typed path a directory and no reparse point, under a
 	// directory already checked, so a refusal can only come from an entry
-	// swapped for a link out of the root after the listing: it keeps its
-	// error_read row and is not opened, so nothing behind the link is read.
+	// swapped for a link out of the root after the listing: it keeps an
+	// error_read row, typed dir with the link's own lstat metadata, and is
+	// not opened, so nothing behind the link is read.
 	if reason, failed, err := follow.DirReadError(collector.check(), path); failed {
 		if err := collector.record(ctx, owner, found, foundReadError, path, reason); err != nil {
 			return err

@@ -144,11 +144,9 @@ func (run *collection) leavesRoot(path string) (bool, error) {
 		return leaves, nil
 	}
 	run.outOfRoot[link] = true
-	reason := "leads out of the image root; nothing behind it was listed"
-	if follow.OtherReparsePoint(link) {
-		reason = follow.OtherReparseReason
-	}
-	return true, run.collector.Log.Line("docker: " + syspath.ToNative(link) + " " + reason)
+	reason := run.collector.RootCheck.RefusalReason(link,
+		" leads out of the image root; nothing behind it was listed")
+	return true, run.collector.Log.Line("docker: " + syspath.ToNative(link) + reason)
 }
 
 // addNote records a note and logs it with the NOTE prefix.

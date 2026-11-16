@@ -523,6 +523,12 @@ other match lines are):
 - `docker: /img/var/lib is a reparse point other than a symlink or junction; nothing behind it was looked at`
 - `startup files: /img/etc is a reparse point other than a symlink or junction; nothing behind it was looked at`
 
+A link the check cannot follow (a loop, more than 40 links, a target that
+cannot be read or placed) and a root it cannot resolve are not called a
+link that leads out: each of those lines then ends `cannot be verified to
+lie inside the image root; nothing behind it was looked at` (with
+`, not walked` after it in the catalog walk's).
+
 The binary logs a project the run lists but does not walk with one line
 and writes no row for it:
 `Project [alice] /img/home/alice/.claude/ext/proj: under the symlinked directory /img/home/alice/.claude/ext, which leads out of the image root; not walked`
@@ -539,27 +545,35 @@ Every call that follows a link in the last component of a path (a stat, a
 directory or file test, an access check, a directory listing test, a read
 or write of a whole file, a resolution to the physical directory) goes
 through the `internal/follow` package, which asks the image root's check
-about the whole path first. A test there denies by default: it reads every
-non-test Go file of the binary and, outside the packages `follow` is built
-on (`osfile`, `fsmeta`, `stage`), fails on any exported name of a package
-that can act on a file path (`os`, `path/filepath`, `io/ioutil`, `syscall`,
-`x/sys/unix`, `x/sys/windows` and its `registry`, `osfile`, `fsmeta`,
-`stage`) unless a reviewed list says the name follows no link (constants,
-types, text operations on a path, an lstat or readlink) or a counted list
-gives the call's reason. Those reasons fall in five kinds: the run's own
-output and staging files and directories; the operator's own `-r` and `-o`,
-and the image root itself, which the root check resolves once
-(`walk/project.go`); a directory opened after its own lstat, or a listing
-that leaves reparse points out, typed it a directory under a path already
-checked, and on Windows the listing of the parent of a candidate home the
-check let through (`users_windows.go`); the glob expander's lookups, made
-after it asked the check; and the test helper `internal/shortname`, which
-works under the test's own temporary directory. The test reads
-package-level names only, so it cannot see a method or a call through an
-interface or a function value. The methods in use take a path and do not
-follow its last component: `fsmeta.Opener.OpenRegular` opens without
-following it, and `hostcmd.Plutil` runs plutil on a hint file whose own
-lstat typed it a regular file.
+about the whole path first. A test there denies by default. It reads every
+non-test Go file of the module outside `vendor/` and outside the exact
+directories `internal/follow`, `internal/osfile`, `internal/fsmeta` and
+`internal/stage`, and fails on an import of any standard or vendored
+package not on a reviewed list (each marked as taking no path, or as
+guarded), and on any exported name of a guarded package (`os`, `os/exec`,
+`os/user`, `path/filepath`, `syscall`, `x/sys/unix`, `x/sys/windows` and
+its `registry`, `osfile`, `fsmeta`, `stage`) that is on none of three
+lists: names that take no path or treat it as text; names that take a
+path, never follow its last component and change nothing (an lstat, a
+readlink); and calls that write, remove, list, resolve or follow, counted
+per file with their reason. Those reasons fall in six kinds: the run's own
+output and staging files and directories, created, written and removed;
+the operator's own `-r` and `-o`, and the image root itself, which the run
+resolves once into its check (and once more, for a relative `-p`, before
+the root is resolved); a directory opened after its own lstat, or a
+listing that leaves reparse points out, typed it a directory under a path
+already checked, and on Windows the listing of the parent of a candidate
+home the check let through; spellings and sizes taken below a checked path
+that stop at the first link; the glob expander's lookups, made after it
+asked the check; and the test helper `internal/shortname`, which works
+under the test's own temporary directory, and `internal/hostcmd`, the one
+place a program is run. The test reads package-level names only, so it
+cannot see a method or a call through an interface or a function value.
+The methods in use take a path and do not follow its last component:
+`fsmeta.Opener.Open` and `OpenRegular` open without following it,
+`stage.Stager.CopyFile` reads its source through them, and
+`hostcmd.Plutil` runs plutil on a hint file whose own lstat typed it a
+regular file.
 
 A new source goes into its group on both sides, at the same position.
 

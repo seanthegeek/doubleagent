@@ -250,3 +250,45 @@ func TestARelativeProjectOutOfTheRootIsNamedWhereItIs(t *testing.T) {
 		t.Errorf("the log lacks the one line %q:\n%s", line, log)
 	}
 }
+
+func TestAMissingRelativeProjectThatClimbsIsNotADirectory(t *testing.T) {
+	work := syspath.FromNative(t.TempDir())
+	writeTree(t, work, "img/srv/.keep", "img/home/alice/notes")
+	host := testHost(t)
+	host.getwd = func() (string, error) { return work + "/img/srv", nil }
+	outDir := t.TempDir()
+	options := testOptions(work+"/img", outDir)
+	options.Projects = []string{"../../img/missing"}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, host, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	line := "WARNING: project given with -p is not a directory: " + work + "/img/missing: "
+	if !strings.Contains(log, line) || strings.Contains(log, "cannot be verified") {
+		t.Errorf("the log lacks %q, or says the path cannot be verified:\n%s", line, log)
+	}
+}
+
+func TestARootTheCheckCannotResolveIsNotCalledALinkOut(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root may search any directory")
+	}
+	root := writeImage(t, map[string]string{"home/alice/notes": ""}, nil)
+	if err := os.Chmod(root, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(root, 0o700) })
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	line := "user homes: " + root + " cannot be verified to lie inside the image root; " +
+		"nothing behind it was looked at\n"
+	if !strings.Contains(log, line) || strings.Contains(log, "leads out of the image root") {
+		t.Errorf("the log lacks %q, or calls the root a link out:\n%s", line, log)
+	}
+}

@@ -18,13 +18,17 @@ import (
 // live): a join that leads out of the image root, or is not under it, is not
 // tested but cleaned, whatever the analyst's host holds there, so the project
 // step names it by where it lexically is and two spellings are one project.
+// In image mode a path holding a `..` component is cleaned too, so the
+// project step judges the same path this test did.
 func absoluteProject(cwd, project string, check follow.Check) string {
 	if filepath.IsAbs(project) {
 		return project
 	}
 	joined := filepath.Join(cwd, project)
 	isDir, err := follow.IsDirectory(check, joined)
-	if _, leaves := follow.OutOfRoot(err); isDir || leaves {
+	_, leaves := follow.OutOfRoot(err)
+	climbs := slices.Contains(strings.Split(project, "/"), "..")
+	if isDir || leaves || (check != nil && climbs) {
 		return joined
 	}
 	return cwd + "/" + strings.TrimPrefix(project, "./")

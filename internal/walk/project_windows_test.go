@@ -131,8 +131,8 @@ func TestALinkTargetIsComparedWithTheRootAsText(t *testing.T) {
 }
 
 func TestALiveProjectOutOfItsHomeKeepsItsDrive(t *testing.T) {
-	if got := underRoot("", "C:/x/y"); got != "C:/x/y" {
-		t.Errorf(`underRoot("", "C:/x/y") = %q, want C:/x/y`, got)
+	if got := (RootCheck{}).underRoot("C:/x/y"); got != "C:/x/y" {
+		t.Errorf(`underRoot("C:/x/y") of a live run = %q, want C:/x/y`, got)
 	}
 	base := physicalTemp(t)
 	writeFiles(t, base, "home/a.txt", "outside/proj/AGENTS.md")
