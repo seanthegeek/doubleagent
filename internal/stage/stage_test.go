@@ -301,3 +301,65 @@ func TestCopyFileRefusesAPathWithDotDot(t *testing.T) {
 		t.Errorf("the source reads %q, %v", text, err)
 	}
 }
+
+// TestPhysicalDirAgreesWithTheKernel is the table of PhysicalDir's inputs:
+// the path absolute or relative to the working directory; plain, dotted
+// through a link, through a file followed by `..`, `/` or `/.`, through a
+// FIFO, missing, a file itself, and a `..` out of a directory that cannot
+// be searched. Where the kernel cannot resolve the path, or it is no
+// directory, PhysicalDir fails; where it resolves to a directory, PhysicalDir
+// names the same one.
+func TestPhysicalDirAgreesWithTheKernel(t *testing.T) {
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{"a", "opt/escape", "opt/frank", "noexec"} {
+		if err := os.MkdirAll(base+"/"+dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(base+"/a/f", nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(base+"/a/fifo", 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(base+"/srv", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../opt/escape", base+"/srv/dotlink"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(base+"/noexec", 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(base+"/noexec", 0o755) })
+	t.Chdir(base)
+	rows := []string{"a", "a/.", "a/f", "a/f/..", "a/f/", "a/f/.", "a/fifo/.", "nope",
+		"srv/dotlink/../frank", "srv/dotlink/..", "noexec/..", "noexec/../a"}
+	for _, rel := range rows {
+		for _, path := range []string{base + "/" + rel, rel} {
+			t.Run(path, func(t *testing.T) {
+				if strings.HasPrefix(rel, "noexec") && os.Geteuid() == 0 {
+					t.Skip("root searches any directory, so the kernel resolves noexec/..")
+				}
+				got, err := PhysicalDir(path)
+				kernel, kernelErr := os.Stat(path)
+				if kernelErr != nil || !kernel.IsDir() {
+					if err == nil {
+						t.Errorf("PhysicalDir(%s) = %s; the kernel: %v, a directory %v", path, got,
+							kernelErr, kernelErr == nil && kernel.IsDir())
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("PhysicalDir(%s): %v; the kernel resolves it", path, err)
+				}
+				if info, err := os.Stat(got); err != nil || !os.SameFile(info, kernel) {
+					t.Errorf("PhysicalDir(%s) = %s, not the kernel's directory", path, got)
+				}
+			})
+		}
+	}
+}

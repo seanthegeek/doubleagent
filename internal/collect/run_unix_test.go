@@ -472,3 +472,63 @@ func TestAHomeReachingAnotherUsersHomeIsLogged(t *testing.T) {
 	requireOnce(t, "the log", runOutput(t, outDir, ".log"), "user homes: "+root+
 		"/srv/b/frank is the home of frank and of frank2; walked once, as frank's\n")
 }
+
+// TestADottedSystemHomeIsWarnedAboutAsAPlainOneIs is the table of -u against
+// a passwd home that reaches, through `..`, the image root itself or /usr,
+// with and without another user's home: the run warns as it does for a home
+// of / (the system home is no home, so -u names nobody with one).
+func TestADottedSystemHomeIsWarnedAboutAsAPlainOneIs(t *testing.T) {
+	for _, test := range []struct {
+		name, home string
+		others     bool
+	}{
+		{"reaching the root", "/srv/x/../..", false},
+		{"reaching the root, other homes", "/srv/x/../..", true},
+		{"reaching /usr", "/srv/x/../../usr", false},
+		{"reaching /usr, other homes", "/srv/x/../../usr", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			files := map[string]string{
+				"etc/passwd": "dot1:x:1001:1001::" + test.home + ":/bin/sh\n",
+				"srv/x/keep": "", "usr/keep": "",
+			}
+			found := "none"
+			if test.others {
+				files["home/alice/.claude/settings.json"] = "{}\n"
+				found = "alice"
+			}
+			root := writeImage(t, files, nil)
+			outDir := t.TempDir()
+			options := testOptions(root, outDir)
+			options.UsersFilter = "dot1"
+			var stdout, stderr bytes.Buffer
+			if code := runCollection(context.Background(), options, testHost(t), &stdout,
+				&stderr); code != exitOK {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			log := runOutput(t, outDir, ".log")
+			requireOnce(t, "the log", log,
+				"WARNING: -u dot1 matches no user home; homes found for: "+found+"\n")
+			if strings.Contains(log, "User dot1") {
+				t.Errorf("the system home was walked as dot1's:\n%s", log)
+			}
+		})
+	}
+}
+
+// TestAProjectGivenAsTheRootWithASlashIsInsideIt gives -p as the root with a
+// trailing slash: it is the root, not outside it.
+func TestAProjectGivenAsTheRootWithASlashIsInsideIt(t *testing.T) {
+	root := writeImage(t, map[string]string{"AGENTS.md": "# root\n"}, nil)
+	outDir := t.TempDir()
+	options := testOptions(root, outDir)
+	options.Projects = []string{root + "/"}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, testHost(t), &stdout,
+		&stderr); code != exitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "outside the image root") {
+		t.Errorf("the root with a slash is called outside itself:\n%s", log)
+	}
+}

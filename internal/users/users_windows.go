@@ -34,19 +34,19 @@ func homeGlobs(live bool) []string {
 // it, so a home is kept once by its folded path. ctx and run are unused (no
 // program lists Windows users); check is the image root's, nil live.
 func Find(_ context.Context, live bool, root, usersFilter string, _ Runner,
-	check glob.Check, opener *fsmeta.Opener,
+	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
 	var reader profileReader
 	if live {
 		reader = registryProfiles{}
 	}
-	return find(reader, root, usersFilter, check, opener)
+	return find(reader, root, usersFilter, check, opener, reach)
 }
 
 // find is Find with the ProfileList reader given; a nil reader means an
 // image run.
 func find(reader profileReader, root, usersFilter string, check glob.Check,
-	opener *fsmeta.Opener,
+	opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
 	root = syspath.FromNative(root)
 	guard := &rootGuard{check: check, opener: opener}
@@ -64,7 +64,10 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 	}
 	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil, guard)...)
 	candidates = guard.inside(candidates)
-	report.Homes, report.Skipped, report.Found = filterProfiles(candidates, usersFilter)
+	candidates, written := reachAll(candidates, reach)
+	candidates, written = dropReachedRoots(candidates, written, root)
+	report.Homes, report.Skipped, report.Found, report.Merged = filterProfiles(candidates,
+		written, usersFilter)
 	report.OutOfRoot = guard.links
 	report.Unmatched = unmatchedUsers(userNames(usersFilter, strings.EqualFold), report.Found,
 		strings.EqualFold)
@@ -90,13 +93,15 @@ func globHomes(base string, live bool, guard *rootGuard) []Home {
 // file symlink is a file whatever it leads to; one with it is a home, as
 // Directory.Exists reads it, so a junction or directory symlink whose target
 // is gone is collected, with its error_read row, rather than skipped.
-func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped, []string) {
+func filterProfiles(candidates []Home, written []string, usersFilter string,
+) ([]Home, []Skipped, []string, []Merge) {
 	names := userNames(usersFilter, strings.EqualFold)
 	var homes []Home
 	var skipped []Skipped
 	var found []string
-	seenHomes, seenSkipped := map[string]bool{}, map[string]bool{}
-	for _, candidate := range candidates {
+	var merged []Merge
+	seenHomes, seenSkipped := map[string]int{}, map[string]bool{}
+	for i, candidate := range candidates {
 		if skipProfile(candidate.User) {
 			continue
 		}
@@ -110,10 +115,15 @@ func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped, [
 		}
 		key := syspath.Fold(candidate.Path)
 		if err == nil {
-			if !seenHomes[key] {
+			first, seen := seenHomes[key]
+			switch {
+			case !seen:
 				homes = append(homes, candidate)
+				seenHomes[key] = i
+			case !syspath.Equal(written[first], written[i]):
+				merged = append(merged, Merge{Path: candidate.Path,
+					Kept: candidates[first].User, Dropped: candidate.User})
 			}
-			seenHomes[key] = true
 		} else {
 			if !seenSkipped[key] {
 				skipped = append(skipped, skippedHome(candidate.Path, err))
@@ -121,7 +131,26 @@ func filterProfiles(candidates []Home, usersFilter string) ([]Home, []Skipped, [
 			seenSkipped[key] = true
 		}
 	}
-	return homes, skipped, found
+	return homes, skipped, found, merged
+}
+
+// dropReachedRoots drops each candidate that reaching turned into the image
+// root itself, or on a live run (root "") into a drive root, which is never
+// a home; the skip list still applies to the others by their user name, the
+// leaf of the path as written.
+func dropReachedRoots(candidates []Home, written []string, root string) ([]Home, []string) {
+	var keptHomes []Home
+	var keptWritten []string
+	for i, candidate := range candidates {
+		path := candidate.Path
+		isRoot := (root != "" && syspath.Equal(path, root)) ||
+			(root == "" && len(path) == 2 && path[1] == ':')
+		if path != written[i] && isRoot {
+			continue
+		}
+		keptHomes, keptWritten = append(keptHomes, candidate), append(keptWritten, written[i])
+	}
+	return keptHomes, keptWritten
 }
 
 // wantedUser reports whether one of the -u names names user, ignoring case

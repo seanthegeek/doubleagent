@@ -326,6 +326,22 @@ func TestALinkToAnotherCaseOfTheRootIsJudgedByTheDisk(t *testing.T) {
 	}
 }
 
+// otherShareCase returns a UNC path with its server and share names in the
+// other case of each ASCII letter, the rest unchanged.
+func otherShareCase(path string) string {
+	volume := volumeOf(path)
+	swapped := []byte(volume)
+	for i, char := range swapped {
+		switch {
+		case 'a' <= char && char <= 'z':
+			swapped[i] = char - 'a' + 'A'
+		case 'A' <= char && char <= 'Z':
+			swapped[i] = char - 'A' + 'a'
+		}
+	}
+	return string(swapped) + path[len(volume):]
+}
+
 // otherDriveCase returns path with its drive letter in the other case.
 func otherDriveCase(path string) string {
 	if len(path) < 2 || path[1] != ':' {
@@ -358,11 +374,20 @@ func TestTheRootCheckIgnoresTheCaseOfTheVolume(t *testing.T) {
 	for _, given := range roots {
 		check := NewRootCheck(given)
 		paths := []string{given + "/a/f", otherDriveCase(given) + "/a/f"}
-		if !strings.HasPrefix(given, "//") {
-			// l's target is a drive path in the other case of the letter:
-			// inside a drive root, but under a UNC root it names another
-			// volume, refused as leading out (and Windows does not follow a
-			// link from a share to a local path by default).
+		if strings.HasPrefix(given, "//") {
+			// The same directory through the share spelled in the other
+			// case of the server and share names.
+			paths = append(paths, otherShareCase(given)+"/a/f")
+			// l's target is a drive path. The administrative share is the
+			// same disk, but the check cannot connect a drive path to the
+			// share, so it refuses the link as leading out; Windows does
+			// not follow a link from a share to a local path by default.
+			want := follow.Refusal{Link: given + "/l", Kind: follow.LeadsOut}
+			if refusal, refused := check.Exit(given + "/l/f"); !refused || refusal != want {
+				t.Errorf("NewRootCheck(%s).Exit(%s/l/f) = %+v, %v; want %+v", given, given,
+					refusal, refused, want)
+			}
+		} else {
 			paths = append(paths, given+"/l/f")
 		}
 		for _, path := range paths {

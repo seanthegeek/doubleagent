@@ -65,6 +65,32 @@ type Report struct {
 	// enumeration did not look behind (a home parent, the passwd file's
 	// directory, a candidate home); none of them gives a home.
 	OutOfRoot []follow.Refusal
+	// Merged lists the homes dropped because, once reached, they name the
+	// directory an earlier home names: walked once, as the earlier user's.
+	Merged []Merge
+}
+
+// Merge is a home Find dropped because its path, once reached, is the path
+// of an earlier home: Path, walked once as Kept's, is also Dropped's.
+type Merge struct {
+	Path    string
+	Kept    string
+	Dropped string
+}
+
+// reachAll returns candidates with each path put through reach (nil:
+// unchanged), and the paths as written, in the same order.
+func reachAll(candidates []Home, reach func(path string) string) (reached []Home,
+	written []string,
+) {
+	for _, candidate := range candidates {
+		written = append(written, candidate.Path)
+		if reach != nil && candidate.Path != "" {
+			candidate.Path = reach(candidate.Path)
+		}
+		reached = append(reached, candidate)
+	}
+	return reached, written
 }
 
 // rootGuard applies an image run's root check to what the enumeration lists
@@ -187,7 +213,7 @@ func lowerASCII(text string) string {
 // Enumerate returns the homes to collect, in enumeration order; it is the
 // homes of Find.
 func Enumerate(ctx context.Context, live bool, root, usersFilter string, run Runner,
-	check glob.Check, opener *fsmeta.Opener,
+	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) []Home {
-	return Find(ctx, live, root, usersFilter, run, check, opener).Homes
+	return Find(ctx, live, root, usersFilter, run, check, opener, reach).Homes
 }

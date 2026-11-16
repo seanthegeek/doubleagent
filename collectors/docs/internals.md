@@ -588,12 +588,20 @@ two homes or projects that become the same path are one, the first in
 enumeration order kept, as two passwd lines naming one home already are;
 for homes the log names both users:
 `user homes: /img/srv/b/frank is the home of frank and of frank2; walked once, as frank's`.
-A home that reaches the image root itself, or another home the users step
-never takes (such as `/usr`), is dropped, as the sh collector drops a
-passwd home of `/`. A path the check refuses, or one the kernel cannot
-resolve (a missing component, or a file followed by more names, which
-fails with "not a directory" however many `..` follow), is kept as
-written; staging refuses any path that still holds a `.` or `..`
+The users step reaches each candidate home before any of its tests, so the
+system-home test, the duplicate check, `-u`, the users found and the `-u`
+warnings all see the reached path. On Linux and macOS a home whose reached
+path, relative to the root as given, is a system home (the root itself,
+`/usr`, `/var/empty`) is dropped, as the sh collector drops a passwd home
+of `/`; the list is matched as spelled, so on a live macOS run a dotted home
+reaching `/var/empty` is reached as `/private/var/empty` and kept. On
+Windows a home reaching the image root itself, or on a live run a drive
+root, is dropped, and the skip list (`Public`, `Default` and the rest)
+still applies by user name. A path the check refuses, or one the kernel
+cannot resolve (a missing component, a file followed by anything, `/` and
+`/.` included, which fails with "not a directory", or a `..` out of a
+directory the user may not search, which fails with "permission denied"),
+is kept as written; staging refuses any path that still holds a `.` or `..`
 component, on every platform: its row is `error_copy` with no archive path
 and the error `holds a . or .. component, so where it is staged is not
 known`. The sh collector keeps the dotted spelling and stages the copy at

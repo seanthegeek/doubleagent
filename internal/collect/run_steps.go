@@ -31,7 +31,7 @@ const sharedAgent = "shared"
 func (state *runState) findHomes(ctx context.Context) error {
 	live := state.options.Root == ""
 	report := state.host.findUsers(ctx, live, state.options.Root, state.options.UsersFilter,
-		state.host.runner.Output, state.roots.Expansion(), state.opener)
+		state.host.runner.Output, state.roots.Expansion(), state.opener, state.roots.Reached)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -43,9 +43,8 @@ func (state *runState) findHomes(ctx context.Context) error {
 			return err
 		}
 	}
-	homes, merged := walk.ReachedHomes(report.Homes, state.roots)
-	state.homes, state.skippedHomes = homes, report.Skipped
-	for _, merge := range merged {
+	state.homes, state.skippedHomes = report.Homes, report.Skipped
+	for _, merge := range report.Merged {
 		line := "user homes: " + syspath.ToNative(merge.Path) + " is the home of " + merge.Kept +
 			" and of " + merge.Dropped + "; walked once, as " + merge.Kept + "'s"
 		if err := state.log.Line(line); err != nil {

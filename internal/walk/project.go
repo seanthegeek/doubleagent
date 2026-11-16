@@ -308,9 +308,11 @@ func (walker rootWalk) relative(name string) (string, bool) {
 		if !inside {
 			continue
 		}
-		prefix := name
-		if rest != "" {
-			prefix = strings.TrimSuffix(name[:len(name)-len(rest)], "/")
+		// The part of name that matched the root, without its separator
+		// (name may be the root with a trailing slash).
+		prefix := strings.TrimSuffix(name[:len(name)-len(rest)], "/")
+		if prefix == "" {
+			prefix = "/"
 		}
 		// pathUnder ignores ASCII case on Windows; a prefix spelled
 		// otherwise than the root must be the root's own directory, which

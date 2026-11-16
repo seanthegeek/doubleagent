@@ -187,15 +187,6 @@ func (RootCheck) Reached(path string) string {
 	return syspath.Opened(path)
 }
 
-// systemHome reports whether path, a home the system reaches, is the image
-// root itself (or, on a live run, a drive root), which is never a home.
-func (check RootCheck) systemHome(path string) bool {
-	if check.given == "" {
-		return len(path) == 2 && path[1] == ':'
-	}
-	return syspath.Equal(path, check.given)
-}
-
 // respellFromDrive returns path spelled as the disk holds it, from its
 // drive or share (fsmeta.OnDiskPath): the file system's own comparison of
 // names decides, so in a case-sensitive directory another case of a name is

@@ -72,7 +72,7 @@ func TestEnumerateMatchesShCollection(t *testing.T) {
 				t.Fatal(err)
 			}
 			var wantUsers, wantHomes []string
-			for _, home := range Enumerate(context.Background(), false, root, filter, nil, nil, nil) {
+			for _, home := range Enumerate(context.Background(), false, root, filter, nil, nil, nil, nil) {
 				wantUsers = append(wantUsers, home.User)
 				wantHomes = append(wantHomes, home.Path)
 			}

@@ -606,7 +606,7 @@ func TestProbeWrite(t *testing.T) {
 func skippedHomesHost(t *testing.T, root string) environment {
 	host := testHost(t)
 	host.findUsers = func(context.Context, bool, string, string, users.Runner,
-		glob.Check, *fsmeta.Opener) users.Report {
+		glob.Check, *fsmeta.Opener, func(string) string) users.Report {
 		return users.Report{Skipped: []users.Skipped{
 			{Path: root + "/Users/locked", Reason: "access denied", Denied: true},
 			{Path: root + "/Users/gone", Reason: "missing"},
@@ -723,7 +723,7 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			host := testHost(t)
 			host.findUsers = func(context.Context, bool, string, string, users.Runner,
-				glob.Check, *fsmeta.Opener) users.Report {
+				glob.Check, *fsmeta.Opener, func(string) string) users.Report {
 				return users.Report{Found: test.found, Unmatched: []string{"nobody", "Eve"}}
 			}
 			outDir := t.TempDir()

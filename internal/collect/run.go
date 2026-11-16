@@ -65,7 +65,7 @@ type environment struct {
 	runner    hostcmd.Runner
 	getwd     func() (string, error)
 	findUsers func(context.Context, bool, string, string, users.Runner, glob.Check,
-		*fsmeta.Opener) users.Report
+		*fsmeta.Opener, func(string) string) users.Report
 	lastAccess func() accessUpdates
 	confine    func(root string, report func(path string)) (*follow.Confinement, error)
 }

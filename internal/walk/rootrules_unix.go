@@ -8,9 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
-	"github.com/seanthegeek/doubleagent/internal/users"
 	"slices"
 )
 
@@ -61,6 +59,12 @@ func (walker rootWalk) walk(components []step) rootScope {
 			if current == walker.physical {
 				return walker.above(component.via)
 			}
+			// The kernel looks `..` up in current, which needs the right to
+			// search it: without it the path fails (EACCES), and nothing
+			// behind it can be reached.
+			if walker.probe.searchable != nil && !walker.probe.searchable(current) {
+				return walker.unreadable(current)
+			}
 			current = parentDir(current)
 			continue
 		}
@@ -73,10 +77,11 @@ func (walker rootWalk) walk(components []step) rootScope {
 			return walker.failedLink(candidate)
 		}
 		if !isLink {
-			// A file followed by more names: the kernel fails the whole
-			// path (ENOTDIR), so nothing behind it can be reached, which
-			// is the image's own answer; a `..` never climbs out of it.
-			if hasNames(components) && walker.probe.isDir != nil && !walker.probe.isDir(candidate) {
+			// A file followed by anything at all, even an empty or `.`
+			// component (`f/`, `f/.`): the kernel fails the whole path
+			// (ENOTDIR), so nothing behind it can be reached, which is the
+			// image's own answer; a `..` never climbs out of it.
+			if len(components) > 0 && walker.probe.isDir != nil && !walker.probe.isDir(candidate) {
 				return walker.unreadable(candidate)
 			}
 			current = candidate
@@ -158,12 +163,13 @@ func parentDir(path string) string {
 }
 
 // probes are the calls the root check makes on the image: whether a path is
-// a link, a link's target (the bytes it stores), and whether a path that is
-// no link is a directory.
+// a link, a link's target (the bytes it stores), whether a path that is no
+// link is a directory, and whether a directory may be searched.
 type probes struct {
-	isLink   func(path string) (bool, error)
-	readlink func(path string) (string, error)
-	isDir    func(path string) bool
+	isLink     func(path string) (bool, error)
+	readlink   func(path string) (string, error)
+	isDir      func(path string) bool
+	searchable func(path string) bool
 }
 
 // Reached returns, for a path that enters the run from outside a listing (a
@@ -193,24 +199,6 @@ func (check RootCheck) Reached(path string) string {
 	return check.underRoot(reached)
 }
 
-// systemHome reports whether path, a home the system reaches, is one the
-// users step never takes as a home (users.IsSystemHome), relative to the
-// root as given: the image root itself above all.
-func (check RootCheck) systemHome(path string) bool {
-	relative := path
-	if check.given != "" {
-		rest, inside := stage.Under(path, check.given)
-		if !inside {
-			return false
-		}
-		relative = "/" + rest
-		if rest == "" {
-			relative = "/"
-		}
-	}
-	return users.IsSystemHome(relative)
-}
-
 // sameDirectory is never asked on Unix, whose comparison of a target with
 // the root is byte for byte: a prefix that matched is the root.
 func (rootWalk) sameDirectory(prefix, root string) bool {
@@ -219,7 +207,16 @@ func (rootWalk) sameDirectory(prefix, root string) bool {
 
 // platformProbes returns the probes of the file system itself on Unix.
 func platformProbes() probes {
-	return probes{isLink: isLinkProbe, readlink: osfile.Readlink, isDir: isDirProbe}
+	return probes{isLink: isLinkProbe, readlink: osfile.Readlink, isDir: isDirProbe,
+		searchable: searchableProbe}
+}
+
+// searchableProbe reports whether the effective user may search the
+// directory path, as the kernel requires before it looks a name, `..`
+// included, up in it (follow.CanEnter, test -x).
+func searchableProbe(path string) bool {
+	searchable, _ := follow.CanEnter(nil, path)
+	return searchable
 }
 
 // isDirProbe reports whether path itself, not followed, is a directory.

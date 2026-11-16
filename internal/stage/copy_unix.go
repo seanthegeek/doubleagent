@@ -49,9 +49,10 @@ func preserve(target *os.File, dest string, info fs.FileInfo) error {
 // directory or cannot be searched. A `..` is never removed as text (as
 // filepath.Abs would): it goes up from where the path physically is, as the
 // kernel resolves it, so `/srv/dotlink/../frank` with srv/dotlink a link to
-// ../opt/escape is /opt/frank. The kernel's own stat of dir must name the
-// same directory, since filepath.EvalSymlinks takes a `..` after a file as
-// the parent of its name where the kernel fails the path (ENOTDIR).
+// ../opt/escape is /opt/frank. filepath.EvalSymlinks agrees with the kernel
+// on a file followed by `..`, `/` or `/.` (ENOTDIR), but it never asks for
+// the right to search a directory before taking its `..`, so the kernel's
+// own stat of dir is asked first: `noexec/..` fails there (EACCES).
 func PhysicalDir(dir string) (string, error) {
 	absolute := dir
 	if !filepath.IsAbs(dir) {
@@ -61,16 +62,12 @@ func PhysicalDir(dir string) (string, error) {
 		}
 		absolute = cwd + "/" + dir
 	}
-	kernel, err := os.Stat(absolute)
-	if err != nil {
+	if _, err := os.Stat(absolute); err != nil {
 		return "", err
 	}
 	resolved, err := filepath.EvalSymlinks(absolute)
 	if err != nil {
 		return "", err
-	}
-	if same, err := os.Stat(resolved); err != nil || !os.SameFile(same, kernel) {
-		return "", &fs.PathError{Op: "chdir", Path: dir, Err: syscall.ENOENT}
 	}
 	var status unix.Stat_t
 	if err := unix.Lstat(resolved, &status); err != nil {
