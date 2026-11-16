@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 	"testing"
 
@@ -94,8 +93,7 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 			continue
 		}
 		// The archive takes its member names from the staging tree's own
-		// spelling; only a copy staged in an empty spot of a directory spelled
-		// in another case may differ, and only in case.
+		// spelling, which every row's archive path must match byte for byte.
 		member := collector.Stager.Dir + "/" + row["archive_path"].(string)
 		if spelled := fsmeta.OnDiskPath(collector.Stager.Dir, member); spelled != member {
 			respelled = append(respelled, path)
@@ -116,12 +114,9 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 	}
 	// Unmarked, the later of Zed/one and zed/two (in listing order) lands in
 	// the staged directory of the earlier, where nothing else sits: staged
-	// there with its own bytes, its archive path spelled its own way.
-	zed := []string{syspath.ToNative(home + "/cs/Zed/one"), syspath.ToNative(home + "/cs/zed/two")}
-	if marked && len(respelled) != 0 ||
-		!marked && (len(respelled) != 1 || !slices.Contains(zed, respelled[0])) {
-		t.Errorf("rows whose member the staging tree spells otherwise: %q; want none marked, "+
-			"one of %q unmarked", respelled, zed)
+	// there with its own bytes, its archive path spelled as the member is.
+	if len(respelled) != 0 {
+		t.Errorf("rows whose member the staging tree spells otherwise: %q; want none", respelled)
 	}
 	if refused != wantRefused || len(members) != wantMembers {
 		t.Errorf("%d rows refused for a taken staged path and %d archive paths, want %d and %d:"+

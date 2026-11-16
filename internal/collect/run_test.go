@@ -1038,3 +1038,20 @@ func TestARootWhosePlaceCannotBeReadRunsOnTheRootCheckAlone(t *testing.T) {
 		}
 	}
 }
+
+// requireRowsNameMembers fails unless every row of the run in outDir that
+// has a hash names, in its archive path, an archive member of exactly that
+// name holding exactly those bytes.
+func requireRowsNameMembers(t *testing.T, outDir string) {
+	t.Helper()
+	members := archiveMembers(t, outDir)
+	rows, lines := manifestRows(t, outDir)
+	for i, row := range rows {
+		hash, _ := row["sha256"].(string)
+		archived, _ := row["archive_path"].(string)
+		if hash != "" && members["./"+archived] != hash {
+			t.Errorf("row %s names member %s, which the archive holds as %q", lines[i], archived,
+				members["./"+archived])
+		}
+	}
+}

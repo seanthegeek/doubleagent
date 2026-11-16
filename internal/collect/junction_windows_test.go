@@ -304,6 +304,7 @@ func TestTwoHomesDifferingOnlyInCaseAreBothStaged(t *testing.T) {
 			t.Errorf("no row of %s:\n%s", path, strings.Join(lines, "\n"))
 		}
 	}
+	requireRowsNameMembers(t, outDir)
 }
 
 // markCaseSensitive makes the directory path, canonical, and marks it
@@ -368,4 +369,5 @@ func TestAStagingDirectoryThatCannotBeMarkedRefusesTheLaterEntry(t *testing.T) {
 		t.Errorf("statuses %v, want one collected and one error_copy:\n%s", statuses,
 			strings.Join(lines, "\n"))
 	}
+	requireRowsNameMembers(t, outDir)
 }

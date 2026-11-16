@@ -115,13 +115,17 @@ func TestACopyInADirectorySpelledInAnotherCaseKeepsItsBytes(t *testing.T) {
 		}
 	}
 	// zed/two lands in the staged directory Zed, where nothing else sits:
-	// it is staged there, its row's archive path spelled zed, as documented.
+	// it is staged there, its row's archive path spelled as the member is.
 	for i, file := range []string{"one/home/u/.claude/Zed/one", "two/home/u/.claude/zed/two"} {
 		row := rowByPath(t, rows[i], parent+"/"+file)
 		if row == nil || row["status"] != "collected" {
 			t.Fatalf("row of %s %v; want collected; rows %s", file, row, rows[i].String())
 		}
 		archived := row["archive_path"].(string)
+		if want := "fs/home/u/.claude/Zed/" + filepath.Base(file); archived != want {
+			t.Errorf("row of %s names %s; want %s, the member as the archive names it",
+				file, archived, want)
+		}
 		staged, err := os.ReadFile(parent + "/stage/" + archived)
 		if err != nil || string(staged) != files[file] {
 			t.Errorf("%s resolves to %q, %v; want its own bytes %q", archived, staged, err,

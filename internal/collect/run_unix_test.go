@@ -573,3 +573,26 @@ func TestTheLogNotesAnOutputDirectoryThatIgnoresCase(t *testing.T) {
 			folds == nil, log)
 	}
 }
+
+func TestEveryRowNamesItsMemberOnAnOutputDirectoryThatIgnoresCase(t *testing.T) {
+	root := longTempDir(t)
+	// On a volume that folds case, the catalog's AppData/Roaming/Devin and
+	// AppData/Roaming/devin are this one directory.
+	dir := filepath.Join(root, "home/alice/AppData/Roaming/devin")
+	for name, text := range map[string]string{"User/settings.json": "{}\n",
+		"mcp_config.json": "{\"mcpServers\": {}}\n"} {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outDir := syspath.FromNative(t.TempDir())
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	requireRowsNameMembers(t, outDir)
+}
