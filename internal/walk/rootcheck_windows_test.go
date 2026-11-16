@@ -357,8 +357,15 @@ func TestTheRootCheckIgnoresTheCaseOfTheVolume(t *testing.T) {
 	}
 	for _, given := range roots {
 		check := NewRootCheck(given)
-		for _, path := range []string{given + "/a/f", otherDriveCase(given) + "/a/f",
-			given + "/l/f"} {
+		paths := []string{given + "/a/f", otherDriveCase(given) + "/a/f"}
+		if !strings.HasPrefix(given, "//") {
+			// l's target is a drive path in the other case of the letter:
+			// inside a drive root, but under a UNC root it names another
+			// volume, refused as leading out (and Windows does not follow a
+			// link from a share to a local path by default).
+			paths = append(paths, given+"/l/f")
+		}
+		for _, path := range paths {
 			t.Run(given+" "+path, func(t *testing.T) {
 				if refusal, refused := check.Exit(path); refused {
 					t.Errorf("NewRootCheck(%s).Exit(%s) refused %+v", given, path, refusal)
