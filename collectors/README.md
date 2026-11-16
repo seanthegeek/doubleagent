@@ -24,9 +24,10 @@ because every catalog entry is tried against every home directory.
 With the `doubleagent` binary, an output directory that treats two names as
 one (letter case: the default macOS volume, exFAT/FAT, a Windows volume where
 the staging directory cannot be marked case-sensitive; Unicode form: every
-macOS volume) stages only one of them; the other's row and the log say why. To
-keep both, write to a case-sensitive volume, or for names differing in Unicode
-form, a byte-exact file system such as Linux ext4 or XFS
+macOS volume) stages only one of two such files or links; the other's row and
+the log say why. To keep both, write to a case-sensitive volume, or for names
+differing in Unicode form, to a file system that compares names byte for byte,
+such as Linux ext4 or XFS
 ([details](docs/internals.md#claimed-paths-and-case-variants)).
 
 [CHANGELOG.md](CHANGELOG.md) lists what changed in each version, including

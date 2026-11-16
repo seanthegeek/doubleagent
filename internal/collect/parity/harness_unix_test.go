@@ -52,10 +52,10 @@
 package parity
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -146,15 +146,45 @@ func TestCollectAgreesWithTheShCollector(t *testing.T) {
 func guardCaseFreeArchivePaths(t *testing.T, run collectorRun) {
 	t.Helper()
 	for _, line := range strings.Split(run.files[".manifest.jsonl"], "\n") {
-		var row struct {
-			ArchivePath string `json:"archive_path"`
-		}
-		if json.Unmarshal([]byte(line), &row) != nil || row.ArchivePath == "" {
+		field := archivePathField.FindString(line)
+		if field == "" {
 			continue
 		}
-		if _, found := run.members["./"+row.ArchivePath]; !found {
-			t.Errorf("the binary's row names %s, which the archive holds under no such name",
-				row.ArchivePath)
+		archived := unescapeManifest(strings.TrimSuffix(
+			strings.TrimPrefix(field, `"archive_path":"`), `"`))
+		if _, found := run.members["./"+archived]; archived != "" && !found {
+			t.Errorf("the binary's row names %q, which the archive holds under no such name",
+				archived)
 		}
 	}
+}
+
+// unescapeManifest undoes manifest.EscapeJSON byte for byte: \" and \\, the
+// named escapes and \u00xx; every other byte, invalid UTF-8 included, is a
+// path byte as written. encoding/json would turn invalid UTF-8 into U+FFFD.
+func unescapeManifest(escaped string) string {
+	named := map[byte]byte{'"': '"', '\\': '\\', 'b': '\b', 't': '\t', 'n': '\n', 'f': '\f',
+		'r': '\r'}
+	var out []byte
+	for i := 0; i < len(escaped); i++ {
+		if escaped[i] != '\\' || i+1 >= len(escaped) {
+			out = append(out, escaped[i])
+			continue
+		}
+		i++
+		if char, found := named[escaped[i]]; found {
+			out = append(out, char)
+		} else if escaped[i] == 'u' && i+4 < len(escaped) {
+			value, err := strconv.ParseUint(escaped[i+1:i+5], 16, 8)
+			if err == nil {
+				out = append(out, byte(value))
+				i += 4
+				continue
+			}
+			out = append(out, '\\', 'u')
+		} else {
+			out = append(out, '\\', escaped[i])
+		}
+	}
+	return string(out)
 }

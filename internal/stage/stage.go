@@ -274,7 +274,7 @@ func (stager Stager) Copy(path string) (Copied, error) {
 		_ = osfile.Remove(dest)
 		return Copied{}, err
 	}
-	stager.Places.record(target.staged, identity, path, copied)
+	stager.Places.record(target.staged, identity, dest, copied)
 	return copied, nil
 }
 
@@ -327,10 +327,11 @@ func (stager Stager) exists(dest string) bool {
 // again decides a copy or link of path whose staged path dest the system
 // says is taken, touching nothing: the recorded result when the entry there
 // is one this run staged from the same source (identity, non-zero); a plain
-// reason when it was staged from path itself, since replaced; the collision
-// error when it was staged from another path, or when the volume took dest
-// for another spelling's entry (a walk finds a component respelled); else a
-// plain reason for what is not known to be this source's copy.
+// reason when it was staged for this very staged path, its source since
+// replaced; the collision error when it was staged for another staged path,
+// or when the volume took dest for another spelling's entry (a walk finds a
+// component respelled); else a plain reason for what is not known to be this
+// source's copy. Every refusal names path, the source.
 func (stager Stager) again(path, dest string, identity [2]uint64) (Copied, error) {
 	meta, err := stager.files().lstat(dest)
 	// An inode or file index of 0 identifies nothing.
@@ -339,9 +340,10 @@ func (stager Stager) again(path, dest string, identity [2]uint64) (Copied, error
 			switch {
 			case recorded.source == identity:
 				return recorded.copied, nil
-			case recorded.path == path:
-				// The same path, its file replaced since (saved through a
-				// rename, or reached again later): no name was merged.
+			case recorded.dest == dest:
+				// The same staged path, its source replaced since (saved
+				// through a rename, or reached again later, perhaps through
+				// a link): no name was merged.
 				return Copied{}, &fs.PathError{Op: "stage", Path: syspath.ToNative(path),
 					Err: changedSince{}}
 			}
@@ -355,7 +357,7 @@ func (stager Stager) again(path, dest string, identity [2]uint64) (Copied, error
 	if err == nil && meta.IsLink() {
 		reason = notRegular{}
 	}
-	return Copied{}, &fs.PathError{Op: "open", Path: syspath.ToNative(dest), Err: reason}
+	return Copied{}, &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: reason}
 }
 
 // notStagedHere is the reason a file or link is not staged when its staged
@@ -470,7 +472,7 @@ func (stager Stager) Link(path, target string, directory bool) (string, error) {
 	}
 	copied := Copied{ArchivePath: stager.member("", dest)}
 	if meta, err := stager.files().lstat(dest); err == nil {
-		stager.Places.record([2]uint64{meta.Dev, meta.Ino}, identity, path, copied)
+		stager.Places.record([2]uint64{meta.Dev, meta.Ino}, identity, dest, copied)
 	}
 	return copied.ArchivePath, nil
 }
@@ -555,7 +557,7 @@ type Places struct {
 // returned for it.
 type placed struct {
 	source [2]uint64
-	path   string
+	dest   string
 	copied Copied
 }
 
@@ -564,12 +566,12 @@ func NewPlaces() *Places {
 	return &Places{staged: map[[2]uint64]placed{}}
 }
 
-// record notes that the staged entry of identity staged was made from the
-// source of identity source at path, with result copied; a nil record
-// notes nothing.
-func (places *Places) record(staged, source [2]uint64, path string, copied Copied) {
+// record notes that the staged entry of identity staged, at the staged path
+// dest as Dest names it, was made from the source of identity source, with
+// result copied; a nil record notes nothing.
+func (places *Places) record(staged, source [2]uint64, dest string, copied Copied) {
 	if places != nil {
-		places.staged[staged] = placed{source, path, copied}
+		places.staged[staged] = placed{source, dest, copied}
 	}
 }
 

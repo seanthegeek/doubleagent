@@ -381,3 +381,21 @@ func TestAPathStagedAgainAfterItsFileWasReplacedIsNoCollision(t *testing.T) {
 			"this run staged it, not a name collision", err)
 	}
 }
+
+func TestAPlaceReachedThroughALinkThenDirectlyAfterAReplaceIsNoCollision(t *testing.T) {
+	stager, root := newStager(t)
+	mustDo(t, os.MkdirAll(root+"/real", 0o755))
+	mustDo(t, os.WriteFile(root+"/real/f", []byte("first"), 0o644))
+	mustDo(t, os.Symlink("real", root+"/link"))
+	// A path through the link is staged where the base holds it (Through).
+	if _, err := stager.Through(root+"/link", root+"/real").Copy(root + "/link/f"); err != nil {
+		t.Fatal(err)
+	}
+	mustDo(t, os.WriteFile(root+"/real/f.tmp", []byte("second"), 0o644))
+	mustDo(t, os.Rename(root+"/real/f.tmp", root+"/real/f"))
+	_, err := stager.Copy(root + "/real/f")
+	if err == nil || IsCaseCollision(err) || !strings.Contains(err.Error(), "changed since") {
+		t.Errorf("Copy of the replaced file at the same staged path = %v; want the plain "+
+			"reason that it changed since this run staged it, not a name collision", err)
+	}
+}

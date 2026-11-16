@@ -346,11 +346,12 @@ respelled), is a collision: a file's row is `error_copy` with the error
 `the output directory takes its name for another file's, link's or
 directory's (letter case or Unicode form); not staged`, no archive path
 and no hash; a link keeps its `symlink` row with no archive path and that
-reason after `not recreated in the archive:`. The same source path staged
-again after its file was replaced (saved through a rename, or reached a
-second time later in the run) is refused with `changed since this run
-staged it; the earlier row holds its copy`, and its name is not called
-merged. Anything else not known to be this source's copy at that exact
+reason after `not recreated in the archive:`. A source staged again at
+the same staged path, byte for byte as `Dest` names it, after its file was
+replaced (saved through a rename, or reached a second time later in the
+run, perhaps once through an in-base link and once directly) is refused
+with `changed since this run staged it; the earlier row holds its copy`,
+and its name is not called merged. Every refusal names the source path. Anything else not known to be this source's copy at that exact
 name, or whose identity is 0 or cannot be read, is refused with a plain
 reason: `not a regular file` for a link or other reparse point, else
 `already exists in the staging directory and is not known to be this
