@@ -352,8 +352,10 @@ func TestAStagingDirectoryThatCannotBeMarkedRefusesTheLaterEntry(t *testing.T) {
 		&stderr); code != 0 {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
-	if log := runOutput(t, outDir, ".log"); !strings.Contains(log, foldingLine(outDir)+"\n") {
-		t.Errorf("the log lacks %q:\n%s", foldingLine(outDir), log)
+	// The run names -o as the disk spells it, a short name as the long one.
+	note := foldingLine(fsmeta.OnDiskPath("", outDir))
+	if log := runOutput(t, outDir, ".log"); !strings.Contains(log, note+"\n") {
+		t.Errorf("the log lacks %q:\n%s", note, log)
 	}
 	rows, lines := manifestRows(t, outDir)
 	statuses := map[string]int{}
