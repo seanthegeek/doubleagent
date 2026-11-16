@@ -325,20 +325,40 @@ func (stager Stager) exists(dest string) bool {
 }
 
 // again decides a copy or link of path whose staged path dest the system
-// says is taken: its result when the entry there is one this run staged
-// from the same source (identity, non-zero), else the collision error,
-// touching nothing. A directory, an entry this run did not stage and an
-// identity that is zero or cannot be read are all collisions.
+// says is taken, touching nothing: the recorded result when the entry there
+// is one this run staged from the same source (identity, non-zero); the
+// collision error when it was staged from another source, or when the
+// volume took dest for another spelling's entry (a walk finds a component
+// respelled); else a plain reason for what this run did not stage there.
 func (stager Stager) again(path, dest string, identity [2]uint64) (Copied, error) {
 	meta, err := stager.files().lstat(dest)
 	// An inode or file index of 0 identifies nothing.
 	if err == nil && meta.Ino != 0 && identity[1] != 0 {
-		if recorded, found := stager.Places.lookup([2]uint64{meta.Dev, meta.Ino}); found &&
-			recorded.source == identity {
-			return recorded.copied, nil
+		if recorded, found := stager.Places.lookup([2]uint64{meta.Dev, meta.Ino}); found {
+			if recorded.source == identity {
+				return recorded.copied, nil
+			}
+			return Copied{}, collisionError(path)
 		}
 	}
-	return Copied{}, collisionError(path)
+	if stager.spelling(dest).collides() {
+		return Copied{}, collisionError(path)
+	}
+	reason := error(notStagedHere{})
+	if err == nil && meta.IsLink() {
+		reason = notRegular{}
+	}
+	return Copied{}, &fs.PathError{Op: "open", Path: syspath.ToNative(dest), Err: reason}
+}
+
+// notStagedHere is the reason a file or link is not staged when its staged
+// path holds something this run did not stage there, such as a file an
+// earlier run of the same name left.
+type notStagedHere struct{}
+
+// Error returns the reason.
+func (notStagedHere) Error() string {
+	return "already exists in the staging directory and is not a copy this run made"
 }
 
 // member returns the archive member of the staged file at dest, spelled as

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"strings"
@@ -59,8 +60,8 @@ func newWindowsStager(t *testing.T) (Stager, string) {
 	mustDo(t, os.MkdirAll(parent+"/root/home", 0o755))
 	physical, err := PhysicalDir(parent + "/stage")
 	mustDo(t, err)
-	return Stager{Dir: parent + "/stage", Physical: physical, Root: parent + "/root"},
-		parent + "/root"
+	return Stager{Dir: parent + "/stage", Physical: physical, Root: parent + "/root",
+		Places: NewPlaces()}, parent + "/root"
 }
 
 // makeJunction makes link a junction to the directory target without
@@ -579,11 +580,11 @@ func TestRemoveFailedCopyOnWindows(t *testing.T) {
 		wantResult  bool
 		wantPresent bool
 	}{
-		{"a partial copy is removed when the staging path differs in case",
+		{"a file in the staging directory is inside when its physical path differs in case",
 			func(t *testing.T, stager Stager, _ string) string {
 				mustDo(t, os.WriteFile(stager.Dir+"/fs/partial", []byte("x"), 0o600))
 				return stager.Dir + "/fs/partial"
-			}, true, false},
+			}, true, true},
 		{"a file reached through a junction out of the staging tree is left",
 			func(t *testing.T, stager Stager, outside string) string {
 				mustDo(t, os.WriteFile(outside+"/source", []byte("x"), 0o600))
@@ -605,6 +606,27 @@ func TestRemoveFailedCopyOnWindows(t *testing.T) {
 		})
 	}
 }
+
+func TestAFailedCopyRemovesItsOwnFileWhenTheStagingPathDiffersInCase(t *testing.T) {
+	stager, root := newWindowsStager(t)
+	stager.Physical = syspath.Fold(stager.Physical)
+	source := root + "/home/f"
+	mustDo(t, os.WriteFile(source, []byte("x"), 0o600))
+	stager.wrapWriter = func(io.Writer) io.Writer { return failingWriter{} }
+	if _, err := stager.Copy(source); err == nil {
+		t.Fatal("the copy did not fail")
+	}
+	_, dest, _ := stager.Dest(source)
+	if _, err := os.Lstat(dest); err == nil {
+		t.Error("the failed copy's partial file is left in the staging directory")
+	}
+}
+
+// failingWriter fails every write.
+type failingWriter struct{}
+
+// Write fails.
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
 
 func TestOutsideStageErrorNamesTheNativePath(t *testing.T) {
 	stager, _ := newWindowsStager(t)

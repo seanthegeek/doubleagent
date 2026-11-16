@@ -21,11 +21,11 @@ func TestAgainKeepsOnlyTheSameSourcesRecordedResult(t *testing.T) {
 	}{
 		{"the same source again keeps its result", 7, false, source, true, true},
 		{"another source is a collision", 7, false, other, false, true},
-		{"an entry this run did not stage is a collision", 8, false, source, false, true},
-		{"nothing recorded at all is a collision", 7, false, source, false, false},
-		{"a staged entry that cannot be examined is a collision", 7, true, source, false, true},
-		{"a staged entry of inode 0 is a collision", 0, false, source, false, true},
-		{"a source of inode 0 is a collision", 9, false, [2]uint64{1, 0}, false, true},
+		{"an entry this run did not stage is refused", 8, false, source, false, true},
+		{"nothing recorded at all is refused", 7, false, source, false, false},
+		{"a staged entry that cannot be examined is refused", 7, true, source, false, true},
+		{"a staged entry of inode 0 is refused", 0, false, source, false, true},
+		{"a source of inode 0 is refused", 9, false, [2]uint64{1, 0}, false, true},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -46,9 +46,13 @@ func TestAgainKeepsOnlyTheSameSourcesRecordedResult(t *testing.T) {
 				list: func(string) ([]fs.DirEntry, error) { return nil, nil },
 			}}
 			got, err := stager.again("/src/x", "/s/fs/x", testCase.source)
-			if testCase.want && (err != nil || got != recorded) ||
-				!testCase.want && !IsCaseCollision(err) {
+			if testCase.want && (err != nil || got != recorded) || !testCase.want && err == nil {
 				t.Errorf("again = %+v, %v; want the recorded result: %v", got, err, testCase.want)
+			}
+			// Only another source recorded at the place is that entry's name.
+			wantCollision := testCase.name == "another source is a collision"
+			if IsCaseCollision(err) != wantCollision {
+				t.Errorf("again = %v; a collision: %v", err, wantCollision)
 			}
 		})
 	}

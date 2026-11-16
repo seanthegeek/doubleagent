@@ -339,14 +339,19 @@ through two spellings, as the catalog's `AppData/Roaming/Devin` and
 `AppData/Roaming/devin` are on such a volume) returns the first copy's
 member and hash, so both rows name the one member; the second row's own
 metadata (its size and times, from its own lstat) can be newer than those
-bytes when a live file was rewritten in between. Anything else, another
-source, a directory, an entry this run did not record (such as one left
-by an earlier run of the same name in the same second), or an identity of
-0, is a collision: a file's row is `error_copy` with the error `the output
-directory takes its name for another file's, link's or directory's
-(letter case or Unicode form); not staged`, no archive path and no hash;
-a link keeps its `symlink` row with no archive path and that reason after
-`not recreated in the archive:`; nothing is touched. The record trusts the
+bytes when a live file was rewritten in between. A recorded entry of
+another source, or an entry the volume reached through another spelling
+of the name (a walk of the staged path, below, finds a component
+respelled), is a collision: a file's row is `error_copy` with the error
+`the output directory takes its name for another file's, link's or
+directory's (letter case or Unicode form); not staged`, no archive path
+and no hash; a link keeps its `symlink` row with no archive path and that
+reason after `not recreated in the archive:`. Anything else this run did
+not stage at that exact name, or whose identity is 0 or cannot be read, is
+refused with a plain reason: `not a regular file` for a link or other
+reparse point, else `already exists in the staging directory and is not a
+copy this run made` (such as a file an earlier run of the same name, in the
+same second, left). Nothing is touched either way. The record trusts the
 file system's identity. A copy that fails removes the file it created and
 leaves no record, so no partial copy becomes a member without a row.
 
