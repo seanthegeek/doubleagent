@@ -359,8 +359,10 @@ source entry reached through two spellings, as the catalog's
 `AppData/Roaming/Devin` and `AppData/Roaming/devin` are on a volume that
 folds case, is staged again at its one place, and a copy that lands in a
 directory spelled in another case where nothing else sits is staged
-there: its row's archive path then differs from the member's name only in
-case, as with the sh collector. The check is by the place the system
+there. Its row's archive path is spelled as the member is named, from the
+place the copy landed (the open file's path on Windows and macOS, the walk
+on Linux and for a link), so every row names a member that exists byte for
+byte; the sh collector writes the source's spelling there. The check is by the place the system
 reports, so it also catches names the volume merges in non-ASCII case or
 Unicode normalisation (macOS stores a decomposed `é` as the composed one).
 Where the probe finds no folding, a Unix copy costs no extra call.

@@ -30,6 +30,9 @@ type plannedFile struct {
 	written   int64
 	copyError string
 	refused   bool
+	// member is the archive member the stager put the copy or link in,
+	// spelled as the staging tree names it.
+	member string
 }
 
 // stageFiles stages paths as STAGE_FILES_WORKER does, in three phases kept
@@ -106,7 +109,7 @@ func planLink(owner scope, file *plannedFile) {
 	target, err := osfile.Readlink(file.path)
 	file.target = target
 	if err == nil {
-		err = owner.stager.Symlink(file.path, target, file.meta.DirectoryLink())
+		file.member, err = owner.stager.Link(file.path, target, file.meta.DirectoryLink())
 	}
 	if err != nil {
 		file.linkError = innermostError(syspath.NativeErrors(err))
@@ -140,9 +143,10 @@ func (collector *Collector) transferFiles(owner scope, files []plannedFile) erro
 		if file.status != "" {
 			continue
 		}
-		hash, written, err := owner.stager.CopyFile(file.path)
+		copied, err := owner.stager.Copy(file.path)
 		if err == nil {
-			file.status, file.sha256, file.written = manifest.Collected, hash, written
+			file.status, file.sha256, file.written = manifest.Collected, copied.SHA256, copied.Size
+			file.member = copied.ArchivePath
 			continue
 		}
 		if _, refused := follow.OutOfRoot(err); refused {
@@ -173,8 +177,9 @@ func (collector *Collector) logCopyFailure(owner scope, file *plannedFile, colli
 		file.copyError + note)
 }
 
-// fileRow is the manifest row of one staged file. A link that could not be
-// recreated has its reason as the error and no archive path.
+// fileRow is the manifest row of one staged file, its archive path the
+// member the stager put it in, spelled as the archive names it. A link that
+// could not be recreated has its reason as the error and no archive path.
 func fileRow(owner scope, file plannedFile) manifest.Row {
 	row := metaRow(owner, file.path, file.kind, file.meta)
 	row.Secret, row.Status, row.Target = file.secret, file.status, file.target
@@ -186,7 +191,7 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 		row.Size = collectedSize(file)
 	}
 	if file.status == manifest.Collected || (file.status == manifest.Symlink && row.Error == "") {
-		row.ArchivePath, _, _ = owner.stager.Dest(file.path)
+		row.ArchivePath = file.member
 	}
 	return row
 }

@@ -349,38 +349,45 @@ func (caseCollision) Error() string {
 // resolve inside the staging directory. directory makes a Windows directory
 // link, as a junction or directory symlink is recreated; Unix ignores it.
 func (stager Stager) Symlink(path, target string, directory bool) error {
+	_, err := stager.Link(path, target, directory)
+	return err
+}
+
+// Link is Symlink, also returning the archive member that holds the link,
+// spelled as the staging tree names it.
+func (stager Stager) Link(path, target string, directory bool) (string, error) {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 	collision := &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: caseCollision{}}
 	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
 		if stager.takenByAnother(parentOf(dest)) {
-			return collision
+			return "", collision
 		}
-		return err
+		return "", err
 	}
-	if _, err := osfile.Lstat(dest); err == nil {
-		if stager.checksPlaces() &&
-			!stager.mayFill(linkIdentity(path), dest, stager.placeOf(dest), true) {
-			return collision
+	_, statErr := osfile.Lstat(dest)
+	if statErr != nil {
+		if err := createLink(target, dest, directory); err != nil {
+			return "", err
 		}
-		return nil
 	}
-	if err := createLink(target, dest, directory); err != nil {
-		return err
-	}
+	place := dest
 	if stager.checksPlaces() {
-		stager.mayFill(linkIdentity(path), dest, stager.placeOf(dest), false)
+		place = stager.placeOf(dest)
+		if !stager.mayFill(linkIdentity(path), dest, place, statErr == nil) {
+			return "", collision
+		}
 	}
-	return nil
+	return strings.TrimPrefix(place, stager.Dir+"/"), nil
 }
 
 // takenByAnother reports whether path, a staged path the stager could not
 // make or open, is, where staged places are checked, another entry's place
-// (stagedSpelling.collides): the component the failure is about is spelled
-// otherwise on disk, a link, file or directory of another entry, which a
-// failed open or mkdir would word as a link loop or a file in the way.
+// (stagedSpelling.collides): a component is spelled otherwise on disk and
+// leads to another entry's link, file or directory, which a failed open or
+// mkdir would word as a link loop or a file in the way.
 func (stager Stager) takenByAnother(path string) bool {
 	if !stager.checksPlaces() {
 		return false

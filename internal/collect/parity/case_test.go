@@ -130,8 +130,24 @@ func (c parityCase) compare(t *testing.T, img image, reference oracle, binary []
 	}
 	got := execute(t, binary, c.invocation(img, goDir))
 	c.requireNoOutput(t, "binary", goDir)
+	want.foldsCase = goDir != "" && foldsCase(t, goDir)
+	got.foldsCase = want.foldsCase
 	compareRuns(t, normalise(want, false, c.stderrLog), normalise(got, true, c.stderrLog))
 	if c.after != nil {
 		c.after(t, img)
 	}
+}
+
+// foldsCase reports whether dir, an output directory, takes two names that
+// differ only in letter case for one, by making a lower-case probe file in
+// it, looking it up in upper case and removing it.
+func foldsCase(t *testing.T, dir string) bool {
+	t.Helper()
+	probe := filepath.Join(dir, "case-probe")
+	if err := os.WriteFile(probe, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(probe)
+	_, err := os.Lstat(filepath.Join(dir, "CASE-PROBE"))
+	return err == nil
 }

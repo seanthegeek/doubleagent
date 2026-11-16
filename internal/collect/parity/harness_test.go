@@ -24,13 +24,15 @@ type image struct {
 
 // collectorRun is what one collector run left: its exit code, its standard
 // streams, the text of each output file keyed by its suffix after the run
-// name, and the archive's members.
+// name, and the archive's members. foldsCase says the run's output
+// directory takes two names differing only in case for one.
 type collectorRun struct {
-	code    int
-	stdout  string
-	stderr  string
-	files   map[string]string
-	members map[string]string
+	code      int
+	stdout    string
+	stderr    string
+	files     map[string]string
+	members   map[string]string
+	foldsCase bool
 }
 
 // invocation is one collector run: its arguments after the program, its

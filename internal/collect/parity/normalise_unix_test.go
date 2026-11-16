@@ -31,6 +31,7 @@ var (
 	// start line.
 	summaryNoPreserveAtime = regexp.MustCompile(`, "no_preserve_atime": (true|false)`)
 	logNoPreserveAtime     = regexp.MustCompile(` no_preserve_atime=[01]$`)
+	archivePathField       = regexp.MustCompile(`"archive_path":"(\\.|[^"\\])*"`)
 	// foldingNote is the binary's note that the output directory ignores
 	// letter case, as a default macOS volume does; neither script writes it.
 	foldingNote = regexp.MustCompile(
@@ -94,13 +95,17 @@ func normalise(run collectorRun, binary, logOnStderr bool) collectorRun {
 	if !binary {
 		run = reachDottedHome(run)
 	}
-	manifest := manifestVolatile.ReplaceAllString(run.files[".manifest.jsonl"], "")
+	archived := dropVolatileManifest
+	if run.foldsCase {
+		archived = func(text string) string { return caseFreeArchivePaths(dropVolatileManifest(text)) }
+	}
+	manifest := archived(run.files[".manifest.jsonl"])
 	files := map[string]string{
 		".manifest.jsonl": manifest,
 		".collection.json": summaryNoPreserveAtime.ReplaceAllString(registryReason.ReplaceAllString(
 			summaryVolatile.ReplaceAllString(run.files[".collection.json"], ""), `"reason": R`), ""),
 		".log":     normalLog(run.files[".log"], binary),
-		".archive": normalMembers(run.members, dropVolatileManifest),
+		".archive": normalMembers(run.members, archived),
 	}
 	stdout := inventoryVolatile.ReplaceAllString(stdoutVolatile.ReplaceAllString(run.stdout, ""),
 		`"$1":X`)
@@ -109,6 +114,16 @@ func normalise(run collectorRun, binary, logOnStderr bool) collectorRun {
 		stderr = normalStderr(stderr)
 	}
 	return collectorRun{code: run.code, stdout: stdout, stderr: stderr, files: files}
+}
+
+// caseFreeArchivePaths returns manifest text with every archive_path value
+// lower-cased. On an output directory that folds case the binary names a
+// row's member as the staging tree spells it (Devin/User/... staged in the
+// directory devin made), where the sh collector writes the source's
+// spelling; only that field is compared without regard to case, and only
+// for such a run, while the archive's member names still compare exactly.
+func caseFreeArchivePaths(manifest string) string {
+	return archivePathField.ReplaceAllStringFunc(manifest, strings.ToLower)
 }
 
 // dropVolatileManifest returns the manifest text without its volatile fields.
