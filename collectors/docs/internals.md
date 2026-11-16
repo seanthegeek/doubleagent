@@ -633,7 +633,9 @@ opens (a collected file's copy, project discovery's reads, the relocation
 search and sweep) and every directory it opens to list (the tree walk, the
 glob expander, discovery's name search, the relocation sweep, and the
 listing test of `follow.DirReadError` and `CanRead`, whose refusal writes
-no `error_read` row) goes through
+no `error_read` row, and the sizing of an excluded directory or an
+unmatched volume by `fsmeta.DiskUsageBytes`, where a refused directory adds
+nothing to the size) goes through
 the run's opener (`fsmeta.Opener.Open` and `fsmeta.OpenDir`), which asks
 the open handle where it is (`GetFinalPathNameByHandle`, its links
 resolved and each name spelled as the disk holds it) and requires that to
@@ -659,7 +661,7 @@ handle's own name: the stats behind `follow.Stat`, `IsDirectory` and
 `IsRegularFile` and the glob expander's existence test (`os.Stat`); the
 name lookups of `fsmeta.OnDiskName` and `OnDiskPath`; a candidate home's
 parent listing on Windows (`os.ReadDir`, which only says whether the parent
-lists the name); `fsmeta.DiskUsageBytes`; `CanEnter`, which opens nothing
+lists the name); `CanEnter`, which opens nothing
 on Windows; `follow.PhysicalDir` and `stage.PhysicalDir`, which read a
 directory handle's own final path, compared with the root by their
 callers; and `follow.ReadFile`, which reads only the Unix `/etc/passwd`. A

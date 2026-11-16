@@ -143,9 +143,11 @@ func allowedCalls() map[string]allowance {
 		{"internal/glob/respell_windows.go", "fsmeta.OnDiskName", 1,
 			"looks a name up in a directory the root check let through"},
 		{"internal/walk/files.go", "fsmeta.DiskUsageBytes", 1,
-			"sizes an excluded directory under a checked base, never descending a link"},
+			"sizes an excluded directory under a checked base, each directory opened without " +
+				"following a link and admitted"},
 		{"internal/volumes/volumes.go", "fsmeta.DiskUsageBytes", 1,
-			"sizes a volume's _data, typed a directory by its lstat under checked parents"},
+			"sizes a volume's _data under checked parents, each directory opened without " +
+				"following a link and admitted"},
 		{"internal/hostcmd/hostcmd.go", "exec.CommandContext", 1,
 			"runs getent, dscl or plutil, the one place the binary runs a program"},
 		{"internal/hostcmd/hostcmd.go", "exec.LookPath", 2,

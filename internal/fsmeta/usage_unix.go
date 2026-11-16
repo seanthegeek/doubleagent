@@ -5,6 +5,9 @@ package fsmeta
 import (
 	"context"
 	"os"
+	"syscall"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // dirKey identifies a file by device and inode.
@@ -49,7 +52,12 @@ func (walk usageWalk) countBlocks(ctx context.Context, path string, seen map[dir
 		return 0, err
 	}
 	walk.aboutToOpen(path)
-	handle, err := os.Open(path)
+	// A directory swapped for a symlink after the lstat is not opened, so
+	// nothing behind the link is counted.
+	handle, err := osfile.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_DIRECTORY, 0)
+	if err == nil {
+		handle, err = walk.opener.admitted(path, handle)
+	}
 	if err != nil {
 		return total, nil
 	}
