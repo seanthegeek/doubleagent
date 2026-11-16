@@ -488,7 +488,7 @@ func TestDiskUsageBytesOnWindows(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			got, err := DiskUsageBytes(context.Background(), testCase.path)
+			got, err := DiskUsageBytes(context.Background(), nil, testCase.path)
 			if err != nil || got != testCase.want {
 				t.Errorf("DiskUsageBytes = %d, %v; want %d", got, err, testCase.want)
 			}
@@ -499,7 +499,7 @@ func TestDiskUsageBytesOnWindows(t *testing.T) {
 func TestDiskUsageBytesStopsWhenCancelledOnWindows(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	got, err := DiskUsageBytes(ctx, syspath.FromNative(t.TempDir()))
+	got, err := DiskUsageBytes(ctx, nil, syspath.FromNative(t.TempDir()))
 	if !errors.Is(err, context.Canceled) || got != 0 {
 		t.Errorf("DiskUsageBytes = %d, %v; want 0, context.Canceled", got, err)
 	}

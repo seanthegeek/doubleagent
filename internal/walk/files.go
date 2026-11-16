@@ -199,7 +199,7 @@ func (collector *Collector) writeExcluded(ctx context.Context, owner scope, path
 	for _, path := range paths {
 		kind, meta, isDir := excludedMeta(collector.check(), path)
 		if isDir {
-			size, err := fsmeta.DiskUsageBytes(ctx, path)
+			size, err := fsmeta.DiskUsageBytes(ctx, collector.Stager.Opener, path)
 			if err != nil {
 				return err
 			}

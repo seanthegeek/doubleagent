@@ -344,7 +344,7 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 // empty, as both collectors write them, and on Windows its attributes are
 // those of the _data directory (meta), as Write-UnmatchedVolumeRow reads them.
 func (run *collection) writeUnmatched(ctx context.Context, data string, meta fsmeta.Meta) error {
-	size, err := fsmeta.DiskUsageBytes(ctx, data)
+	size, err := fsmeta.DiskUsageBytes(ctx, run.collector.Stager.Opener, data)
 	if err != nil {
 		return err
 	}

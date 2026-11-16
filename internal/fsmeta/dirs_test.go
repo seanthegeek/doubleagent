@@ -104,11 +104,11 @@ func TestDiskUsageBytesMatchesDu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := DiskUsageBytes(context.Background(), tree); err != nil || got != kibibytes*1024 {
+	if got, err := DiskUsageBytes(context.Background(), nil, tree); err != nil || got != kibibytes*1024 {
 		t.Errorf("DiskUsageBytes = %d, %v; du -sk says %d KiB", got, err, kibibytes)
 	}
 	missing := filepath.Join(root, "missing")
-	if got, err := DiskUsageBytes(context.Background(), missing); err != nil || got != 0 {
+	if got, err := DiskUsageBytes(context.Background(), nil, missing); err != nil || got != 0 {
 		t.Errorf("DiskUsageBytes of a missing path = %d, %v; want 0, nil", got, err)
 	}
 }
@@ -124,7 +124,7 @@ func TestDiskUsageBytesStopsWhenCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	started := time.Now()
-	got, err := DiskUsageBytes(ctx, tree)
+	got, err := DiskUsageBytes(ctx, nil, tree)
 	if !errors.Is(err, context.Canceled) || got != 0 {
 		t.Errorf("DiskUsageBytes = %d, %v; want 0, context.Canceled", got, err)
 	}
