@@ -78,8 +78,8 @@ func passwdHomes(ctx context.Context, live bool, root string, run Runner, guard 
 		// test -f follows a link; a directory or missing file gives nothing.
 		var err error
 		text, err = follow.ReadFile(guard.check, root+"/etc/passwd")
-		if link, out := follow.OutOfRoot(err); out {
-			guard.record(link)
+		if refusal, out := follow.OutOfRoot(err); out {
+			guard.record(refusal)
 		}
 	}
 	var homes []Home
@@ -186,8 +186,8 @@ func wantedUsers(usersFilter string) (wanted map[string]struct{}, filtered bool)
 // it is no directory, whatever the link points at.
 func (guard *rootGuard) isDirectory(path string) bool {
 	isDir, err := follow.IsDirectory(guard.check, path)
-	if link, out := follow.OutOfRoot(err); out {
-		guard.record(link)
+	if refusal, out := follow.OutOfRoot(err); out {
+		guard.record(refusal)
 	}
 	return isDir
 }

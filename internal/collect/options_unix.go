@@ -66,7 +66,9 @@ func imageCheck(options Options, getwd func() (string, error)) follow.Check {
 	if !filepath.IsAbs(options.Root) {
 		var err error
 		if cwd, err = getwd(); err != nil {
-			return func(path string) (string, bool) { return path, true }
+			return func(path string) (follow.Refusal, bool) {
+				return follow.Refusal{Link: path, Kind: follow.Unverified}, true
+			}
 		}
 	}
 	resolved, _ := absoluteRoot(cwd, options.Root)

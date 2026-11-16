@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"errors"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -151,8 +152,9 @@ func TestDiscoverMergesAndFilters(t *testing.T) {
 func TestKeepProjectDirsKeepsAPathOutOfScopeUntested(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string]string{"srv/file": ""}, "srv/dir")
-	outOfScope := func(path string) (string, bool) {
-		return root + "/out", strings.HasPrefix(path, root+"/out/")
+	outOfScope := func(path string) (follow.Refusal, bool) {
+		return follow.Refusal{Link: root + "/out", Kind: follow.LeadsOut},
+			strings.HasPrefix(path, root+"/out/")
 	}
 	cases := []struct {
 		name       string

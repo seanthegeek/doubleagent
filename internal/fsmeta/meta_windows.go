@@ -149,6 +149,8 @@ func metaOf(attributes, tag uint32, size int64, times [3]windows.Filetime) Meta 
 		Btime:      epochSeconds(times[2]),
 		Kind:       kindOfAttributes(attributes, tag),
 		Attributes: attributes,
+		Junction: attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 &&
+			tag == windows.IO_REPARSE_TAG_MOUNT_POINT,
 	}
 }
 

@@ -1,0 +1,151 @@
+package collect
+
+import (
+	"bytes"
+	"context"
+	"encoding/binary"
+	"net"
+	"os"
+	"strings"
+	"testing"
+	"unicode/utf16"
+
+	"golang.org/x/sys/windows"
+
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/walk"
+)
+
+func TestADiscoveredProjectWhoseDotDotNamesAJunctionOutIsNotWalked(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	outside := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	for path, text := range map[string]string{
+		root + "/Users/alice/.claude.json": `{"projects": {"C:\\Users\\alice\\nope\\..\\j": {}}}` + "\n",
+		outside + "/CLAUDE.md":             "# analyst\n",
+	} {
+		parent := syspath.ToNative(path[:strings.LastIndexByte(path, '/')])
+		if err := os.MkdirAll(parent, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(syspath.ToNative(path), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	makeJunction(t, outside, root+"/Users/alice/j")
+	refusal, leaves := walk.NewRootCheck(root).Exit(root + "/Users/alice/nope/../j/CLAUDE.md")
+	if !leaves || !syspath.Equal(refusal.Link, root+"/Users/alice/j") ||
+		refusal.Kind != follow.LeadsOut {
+		t.Errorf("Exit = %+v, %v; want the junction refused as leading out", refusal, leaves)
+	}
+	outDir := syspath.FromNative(t.TempDir())
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log, rows := runOutput(t, outDir, ".log"), runOutput(t, outDir, ".manifest.jsonl")
+	if strings.Contains(rows, "CLAUDE.md") || strings.Contains(rows, syspath.ToNative(outside)) {
+		t.Errorf("the manifest holds a row from outside the root:\n%s", rows)
+	}
+	notWalked := syspath.ToNative(root+"/Users/alice/j") +
+		", which leads out of the image root; not walked"
+	if !strings.Contains(log, notWalked) {
+		t.Errorf("the log lacks %q:\n%s", notWalked, log)
+	}
+}
+
+func TestAReparsePointThatIsNoLinkIsWordedAsOneAtEverySite(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	if err := os.MkdirAll(syspath.ToNative(root+"/Users/alice"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(syspath.ToNative(root+"/Users/alice/notes"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/Users/alice/.config", "/Users/alice/.bashrc.d", "/Users/bob",
+		"/var"} {
+		listener, err := net.Listen("unix", syspath.ToNative(root+path))
+		if err != nil {
+			t.Skipf("creating an AF_UNIX socket needs Windows 10 1803 or later: %v", err)
+		}
+		defer listener.Close()
+	}
+	outDir := syspath.FromNative(t.TempDir())
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
+		&stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	const reason = " is a reparse point other than a symlink or junction; " +
+		"nothing behind it was looked at"
+	native := func(path string) string { return syspath.ToNative(root + path) }
+	for _, line := range []string{
+		"user homes: " + native("/Users/bob") + reason + "\n",
+		"Discovery [alice] " + native("/Users/alice/.config") + reason + "\n",
+		native("/Users/alice/.config") + reason + ", not walked\n",
+		"startup files: " + native("/Users/alice/.bashrc.d") + reason + "\n",
+		"docker: " + native("/var") + reason + "\n",
+	} {
+		if !strings.Contains(log, line) {
+			t.Errorf("the log lacks %q:\n%s", line, log)
+		}
+	}
+	if strings.Contains(log, "leads out of the image root") {
+		t.Errorf("the log calls a reparse point that is no link a link out:\n%s", log)
+	}
+}
+
+// makeJunction makes link a junction to the directory target, both
+// canonical, by setting on a new empty directory the mount-point reparse
+// data mklink /J writes.
+func makeJunction(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Mkdir(syspath.ToNative(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+	native := syspath.ToNative(target)
+	data := mountPointData(`\??\`+native+`\`, native)
+	var returned uint32
+	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
+		uint32(len(data)), nil, 0, &returned, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
+// (junction) reparse buffer: the tag, the data length, a reserved word, the
+// offsets and lengths in bytes of the two names, then the substitute name
+// the system follows and the print name shown to people, each ending in NUL.
+func mountPointData(substitute, printName string) []byte {
+	substituteText := utf16.Encode([]rune(substitute))
+	printText := utf16.Encode([]rune(printName))
+	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
+	names = append(append(names, substituteText...), 0)
+	names = append(append(names, printText...), 0)
+	substituteBytes := uint16(2 * len(substituteText))
+	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
+	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
+	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
+	for _, unit := range names {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	return data
+}

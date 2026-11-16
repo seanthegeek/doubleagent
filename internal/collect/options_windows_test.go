@@ -143,7 +143,7 @@ func TestAProjectTypedLikeTheRootStaysUnderIt(t *testing.T) {
 	if len(options.Projects) != 1 || !syspath.HasPrefix(options.Projects[0], options.Root+"/") {
 		t.Fatalf("projects %q, want one under the root %q", options.Projects, options.Root)
 	}
-	if name, out := walk.ProjectOutOfRoot(options.Root, options.Projects[0]); out {
+	if name, out := walk.NewRootCheck(options.Root).OutOfRoot(options.Projects[0]); out {
 		t.Errorf("the project %q counts as out of the root %q at %q", options.Projects[0],
 			options.Root, name)
 	}

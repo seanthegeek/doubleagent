@@ -14,6 +14,11 @@ func ToNative(path string) string { return toWindows(path) }
 // calls take, with . and .. resolved; a relative path comes back unchanged.
 func Extended(path string) string { return extendedWindows(path) }
 
+// Opened returns the path Windows will open for path, in canonical form, its
+// . and .. segments removed by name as Extended removes them: the path the
+// root check must judge.
+func Opened(path string) string { return openedWindows(path) }
+
 // Fold returns the key two paths are compared by: text with ASCII capitals
 // lowered and every other byte kept. NTFS also ignores the case of most other
 // letters, through a table written to each volume when it is formatted, but

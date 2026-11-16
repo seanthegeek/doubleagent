@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
@@ -62,7 +63,7 @@ type Report struct {
 	// OutOfRoot lists, once each, the links out of the image root that the
 	// enumeration did not look behind (a home parent, the passwd file's
 	// directory, a candidate home); none of them gives a home.
-	OutOfRoot []string
+	OutOfRoot []follow.Refusal
 }
 
 // rootGuard applies an image run's root check to what the enumeration lists
@@ -70,7 +71,7 @@ type Report struct {
 // recorded once.
 type rootGuard struct {
 	check glob.Check
-	links []string
+	links []follow.Refusal
 }
 
 // allows reports whether path may be looked at, recording the link when not.
@@ -78,17 +79,19 @@ func (guard *rootGuard) allows(path string) bool {
 	if guard.check == nil {
 		return true
 	}
-	link, refused := guard.check(path)
+	refusal, refused := guard.check(path)
 	if refused {
-		guard.record(link)
+		guard.record(refusal)
 	}
 	return !refused
 }
 
-// record keeps link once.
-func (guard *rootGuard) record(link string) {
-	if !slices.Contains(guard.links, link) {
-		guard.links = append(guard.links, link)
+// record keeps refusal once per link.
+func (guard *rootGuard) record(refusal follow.Refusal) {
+	if !slices.ContainsFunc(guard.links, func(known follow.Refusal) bool {
+		return known.Link == refusal.Link
+	}) {
+		guard.links = append(guard.links, refusal)
 	}
 }
 
@@ -96,7 +99,7 @@ func (guard *rootGuard) record(link string) {
 func (guard *rootGuard) expand(base, pattern string) []string {
 	matches, refused := glob.Expand(base, pattern, guard.check)
 	for _, refusal := range refused {
-		guard.record(refusal.Link)
+		guard.record(refusal.Refusal)
 	}
 	return matches
 }

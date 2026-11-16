@@ -29,7 +29,7 @@ type Project struct {
 // names behind the link are the analyst's host's, not the image's.
 type Refusal struct {
 	User string
-	Link string
+	follow.Refusal
 }
 
 // RootExit reports whether path leads out of the image root through a link,

@@ -497,25 +497,60 @@ listed, stat'ed or read, and the log names the link once per home:
 The line says only that the link exists and leads out; it does not say
 whether any source is behind it, which only the analyst's host could
 answer, and no name from behind it reaches the log. A link whose target
-stays inside the root is read through. A link whose target cannot be read,
-and a chain of more than 40 links, count as leading out, since the
-analyst's host may resolve what the check could not (Windows follows up to
-63 reparse points in a path); only a component missing inside the image is
-the image's own answer. The same rule decides whether a project's own path
-leaves the root, and the catalog walk's expansion uses the same check
+stays inside the root is read through. The same rule decides whether a
+project's own path leaves the root, and the catalog walk's expansion uses
+the same check
 ([Paths through a symlinked directory in `coverage.md`](coverage.md#paths-through-a-symlinked-directory)).
 Both scripts read and list through such a link, which in image mode reads
 the analyst's own host: the binary differs on purpose. A live run has no
 root to leave and reads every source as the host holds it.
 
-A reparse point other than a symlink or junction (a cloud-file
-placeholder, a deduplicated file, an AF_UNIX socket, a WSL symlink, an app
-execution alias), whose target, if any, `os.Readlink` cannot read, is
-refused the same way on such a path, since a filter driver on the
-analyst's machine may act on it, but no line calls it a symlink that leads
-out. The five lines that can name one read, with the user, agent or path
-filled in (the catalog walk's is indented two spaces in the log, as its
-other match lines are):
+The check judges the path the operating system will open, resolved the way
+that system resolves it, so the two can never name different files:
+
+- **Linux and macOS.** The path as given. The kernel resolves each
+  component in turn, a link's target included, from where it has
+  physically got to, so a `..` goes up from the directory a link really
+  leads to, and so does the check. A component that cannot be stat'ed ends
+  the check as the image's own answer whatever follows, since the kernel
+  fails the whole path at the same component.
+- **Windows**, as a test measures on the CI runner. Win32 removes `.` and
+  `..` from a path by name before the file system sees it, so the check
+  first does the same (`syspath.Opened`, the code `Extended` uses):
+  `Users/alice/nope/../j` is judged as `Users/alice/j`. A symbolic link's
+  relative target is joined to the path as named up to the link, a
+  junction's name included, and its `..` removed by name: with `j` a
+  junction to `real/a` and `real/a/l` a link to `..\x`, `j/l` opens `x`,
+  not `real/x`, and `l` to `nope\..\..\x` opens `x` without looking for
+  `nope`. The open then starts again with that name, and so does the check.
+  A junction is looked through without its target taking its name's place;
+  Windows refuses a junction whose target holds `.` or `..`, and so does the
+  check. A missing component, or one whose name no file can have, ends the
+  check as the image's own answer, since no `..` is left to climb back out
+  of it; any other component that cannot be stat'ed (access refused) is
+  refused when names follow it, since traverse rights may let an open pass
+  through it.
+
+A link whose target cannot be read, and a chain of more than 40 links, count
+as leaving the root, since the analyst's host may resolve what the check
+could not (Windows follows up to 63 reparse points in a path). A reparse
+point other than a symlink or junction (a cloud-file placeholder, a
+deduplicated file, an AF_UNIX socket, a WSL symlink, an app execution
+alias), whose target, if any, `os.Readlink` cannot read, is refused the same
+way, since a filter driver on the analyst's machine may act on it.
+
+Each refusal carries why it was made, and every line that reports one words
+it by that kind, after the refused path: the line's own words when a link
+leads out of the root (a link whose target climbs above the root with `..`
+included); `cannot be verified to lie inside the image root` for a link the
+check cannot follow or a root it cannot resolve; `is a reparse point other
+than a symlink or junction` for one; `climbs above the image root with ..`
+for a path whose own `..` does, the line naming that path; and `is outside
+the image root` for a path not under it. Each of the last four ends
+`; nothing behind it was looked at`, with `, not walked` after it in the
+catalog walk's line. For a reparse point the five lines read, with the
+user, agent or path filled in (the catalog walk's is indented two spaces in
+the log, as its other match lines are):
 
 - `Discovery [alice] /img/home/alice/.claude.json is a reparse point other than a symlink or junction; nothing behind it was looked at`
 - `[claude-code] /img/home/alice/.claude is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`
@@ -523,11 +558,16 @@ other match lines are):
 - `docker: /img/var/lib is a reparse point other than a symlink or junction; nothing behind it was looked at`
 - `startup files: /img/etc is a reparse point other than a symlink or junction; nothing behind it was looked at`
 
-A link the check cannot follow (a loop, more than 40 links, a target that
-cannot be read or placed) and a root it cannot resolve are not called a
-link that leads out: each of those lines then ends `cannot be verified to
-lie inside the image root; nothing behind it was looked at` (with
-`, not walked` after it in the catalog walk's).
+An image passwd line whose home climbs above the root gives
+`user homes: /img/../../tmp climbs above the image root with ..; nothing behind it was looked at`.
+
+The paths that can carry `..` come from outside a listing: a discovered
+project value, a `-p` value, a passwd home, a link's target. A relative
+`-p` is cleaned when it holds `..` or leads out; every other one, and every
+discovered value and passwd home, reaches the check as written and is
+judged as the system will open it; a link's target is followed by the walk
+above. ProfileList paths are read on a live run only, and a relocation
+hint's value is recorded, never opened.
 
 The binary logs a project the run lists but does not walk with one line
 and writes no row for it:

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
@@ -19,7 +20,7 @@ type Match struct {
 	Glob      string
 	Path      string
 	Note      string
-	OutOfRoot string
+	OutOfRoot follow.Refusal
 }
 
 // ExpandCatalog returns every match of table under base, in table order, as
@@ -41,7 +42,7 @@ func ExpandCatalog(base string, table []catalog.Entry, check glob.Check) []Match
 			if !refused[refusal.Link] {
 				refused[refusal.Link] = true
 				found = append(found, Match{Agent: entry.Agent, Glob: entry.Glob,
-					OutOfRoot: refusal.Link})
+					OutOfRoot: refusal.Refusal})
 			}
 		}
 		for _, path := range paths {
@@ -63,14 +64,14 @@ func foldCaseMatches(found []Match) []Match {
 	lowered := make([]string, len(found))
 	for i, match := range found {
 		lowered[i] = asciiLower(match.Path)
-		if match.OutOfRoot != "" {
+		if match.OutOfRoot.Link != "" {
 			// No path holds a NUL, so a link out of the root folds with none.
-			lowered[i] = "\x00" + match.OutOfRoot
+			lowered[i] = "\x00" + match.OutOfRoot.Link
 		}
 	}
 	folded := make([]Match, 0, len(found))
 	for i, match := range found {
-		if match.OutOfRoot != "" {
+		if match.OutOfRoot.Link != "" {
 			folded = append(folded, match)
 		} else if same := firstEqual(lowered, i); same >= 0 {
 			folded = append(folded, dropSameFile(match, found[same].Path))

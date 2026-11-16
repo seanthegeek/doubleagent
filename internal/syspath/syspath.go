@@ -80,6 +80,18 @@ func extendedWindows(path string) string {
 	return prefix + resolveSegments(body, keep)
 }
 
+// openedWindows returns the path Windows opens for path, in canonical form:
+// an absolute path has its empty, . and .. segments removed by name, by the
+// same resolveSegments that Extended uses, since Win32 removes them before
+// the file system sees the path; a relative path comes back unchanged.
+func openedWindows(path string) string {
+	extended := extendedWindows(path)
+	if extended == path {
+		return path
+	}
+	return fromWindows(extended)
+}
+
 // extendedParts splits path, its slashes made backslashes, into the extended
 // prefix to put before it, the body after that prefix and how many leading
 // segments of the body are never popped (the drive, or server and share).

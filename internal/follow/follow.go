@@ -33,41 +33,87 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/stage"
 )
 
-// Check reports whether path leads out of the image root, and the link that
-// decides it; walk.RootCheck provides it, nil on a live run.
-type Check func(path string) (link string, leaves bool)
+// Kind says why the root check refused a path.
+type Kind int
 
-// OutOfRootError says that Path leads out of the image root at Link, so
-// nothing was followed.
+// The kinds of refusal. Each log line that reports one words it by its
+// kind (Reason), so a refusal is never described as what it is not.
+const (
+	// LeadsOut is a link whose target leads out of the image root.
+	LeadsOut Kind = iota + 1
+	// Unverified is a link the check could not follow (a loop, more than
+	// maxLinkHops links, a target it cannot read or place) or a root it
+	// could not resolve.
+	Unverified
+	// OtherReparse is a reparse point other than a symlink or junction.
+	OtherReparse
+	// Climbs is a path whose own `..` climbs above the image root.
+	Climbs
+	// Outside is a path not under the image root as given.
+	Outside
+)
+
+// Refusal is the root check's decision against a path: the path that
+// decides it (the link, or the path itself for Climbs and Outside) and why.
+type Refusal struct {
+	Link string
+	Kind Kind
+}
+
+// Check reports whether the image root's check refuses path, and why;
+// walk.RootCheck provides it, nil on a live run.
+type Check func(path string) (Refusal, bool)
+
+// OutOfRootError says that the root check refused Path, so nothing was
+// followed.
 type OutOfRootError struct {
 	Path string
-	Link string
+	Refusal
 }
 
 // Error describes the refusal.
 func (e *OutOfRootError) Error() string {
-	return e.Path + ": leads out of the image root at " + e.Link
+	return e.Path + ":" + Reason(e.Refusal, " leads out of the image root at "+e.Link)
 }
 
-// LeavesRoot returns the error that says path leads out of the image root,
-// or nil when check is nil or lets it through.
+// LeavesRoot returns the error that says the check refuses path, or nil
+// when check is nil or lets it through.
 func LeavesRoot(check Check, path string) error {
 	if check == nil {
 		return nil
 	}
-	if link, leaves := check(path); leaves {
-		return &OutOfRootError{Path: path, Link: link}
+	if refusal, refused := check(path); refused {
+		return &OutOfRootError{Path: path, Refusal: refusal}
 	}
 	return nil
 }
 
-// OutOfRoot returns the link of err when it is an *OutOfRootError.
-func OutOfRoot(err error) (string, bool) {
-	var refusal *OutOfRootError
-	if errors.As(err, &refusal) {
-		return refusal.Link, true
+// OutOfRoot returns the refusal err carries when it is an *OutOfRootError.
+func OutOfRoot(err error) (Refusal, bool) {
+	var refused *OutOfRootError
+	if errors.As(err, &refused) {
+		return refused.Refusal, true
 	}
-	return "", false
+	return Refusal{}, false
+}
+
+// Reason returns the end of a log line, after the refused path, for
+// refusal: leadsOut, the line's own words starting with their separator,
+// when a link leads out of the root, and the words of its kind otherwise,
+// after a space.
+func Reason(refusal Refusal, leadsOut string) string {
+	const nothing = "; nothing behind it was looked at"
+	switch refusal.Kind {
+	case Unverified:
+		return " cannot be verified to lie inside the image root" + nothing
+	case OtherReparse:
+		return " is a reparse point other than a symlink or junction" + nothing
+	case Climbs:
+		return " climbs above the image root with .." + nothing
+	case Outside:
+		return " is outside the image root" + nothing
+	}
+	return leadsOut
 }
 
 // Stat is os.Stat of path, the last component followed.
@@ -125,18 +171,3 @@ func PhysicalDir(check Check, path string) (string, error) {
 	}
 	return stage.PhysicalDir(path)
 }
-
-// OtherReparsePoint reports whether path is a reparse point other than a
-// symlink or junction (fsmeta.Meta.IsOtherReparsePoint), whose target, if any,
-// os.Readlink cannot read: the root check refuses it, since a filter driver
-// on the analyst's machine may act on it, but a log line must not call it a
-// symlink that leads out. Never on Unix.
-func OtherReparsePoint(path string) bool {
-	meta, err := fsmeta.Lstat(path)
-	return err == nil && meta.IsOtherReparsePoint()
-}
-
-// OtherReparseReason is the end of a log line for a path OtherReparsePoint
-// reports.
-const OtherReparseReason = "is a reparse point other than a symlink or junction; " +
-	"nothing behind it was looked at"

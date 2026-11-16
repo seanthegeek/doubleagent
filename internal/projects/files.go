@@ -90,9 +90,9 @@ func (s *homeScan) isRegularFile(path string) bool {
 // refusedBy records the link of err when it says a path leads out of the
 // image root, and reports whether it did.
 func (s *homeScan) refusedBy(err error) bool {
-	link, out := follow.OutOfRoot(err)
+	refusal, out := follow.OutOfRoot(err)
 	if out {
-		s.refuse(link)
+		s.refuse(refusal)
 	}
 	return out
 }
@@ -113,7 +113,7 @@ func (s *homeScan) expandIn(base string, patterns ...string) []string {
 		matches, refused := glob.Expand(base, pattern, check)
 		paths = append(paths, matches...)
 		for _, refusal := range refused {
-			s.refuse(refusal.Link)
+			s.refuse(refusal.Refusal)
 		}
 	}
 	return paths

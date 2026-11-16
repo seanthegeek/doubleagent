@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -92,10 +93,8 @@ type Deps struct {
 	// asks to hold access times wherever the platform can).
 	Opener *fsmeta.Opener
 	// Expansion is the image root's check the startup-file globs are expanded
-	// through (nil on a live run, which has no root to leave), and
-	// RefusalReason words a link it refused (walk.RootCheck.RefusalReason).
-	Expansion     glob.Check
-	RefusalReason func(link, leadsOut string) string
+	// through (nil on a live run, which has no root to leave).
+	Expansion glob.Check
 }
 
 // search is the state of one Search: the hint records already held, the
@@ -188,20 +187,17 @@ func (run *search) searchStartup(ctx context.Context, user, home, base, scope st
 	return run.searchFiles(ctx, user, home, base, files)
 }
 
-// logOutOfRoot logs each link out of the image root a startup-file glob
-// stopped at, once per run, as the skipped sweeps are logged, without the
-// base's header, which heads hints only.
-func (run *search) logOutOfRoot(links []string) error {
-	for _, link := range links {
-		if run.outOfRoot[link] {
+// logOutOfRoot logs each path the root check refused a startup-file glob,
+// once per run, worded by the refusal's kind, as the skipped sweeps are
+// logged, without the base's header, which heads hints only.
+func (run *search) logOutOfRoot(refusals []follow.Refusal) error {
+	for _, refusal := range refusals {
+		if run.outOfRoot[refusal.Link] {
 			continue
 		}
-		run.outOfRoot[link] = true
-		reason := " leads out of the image root; nothing behind it was listed"
-		if run.deps.RefusalReason != nil {
-			reason = run.deps.RefusalReason(link, reason)
-		}
-		err := run.logSkip("startup files: " + syspath.ToNative(link) + reason)
+		run.outOfRoot[refusal.Link] = true
+		reason := follow.Reason(refusal, " leads out of the image root; nothing behind it was listed")
+		err := run.logSkip("startup files: " + syspath.ToNative(refusal.Link) + reason)
 		if err != nil {
 			return err
 		}

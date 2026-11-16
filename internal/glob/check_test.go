@@ -1,6 +1,7 @@
 package glob
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,9 +32,10 @@ func TestExpandLooksAtNothingTheCheckRefuses(t *testing.T) {
 	base := checkTree(t)
 	fenced := base + "/fenced"
 	var asked []string
-	check := func(path string) (string, bool) {
+	check := func(path string) (follow.Refusal, bool) {
 		asked = append(asked, path)
-		return fenced, path == fenced || strings.HasPrefix(path, fenced+"/")
+		return follow.Refusal{Link: fenced, Kind: follow.LeadsOut},
+			path == fenced || strings.HasPrefix(path, fenced+"/")
 	}
 	cases := []struct {
 		name, pattern string

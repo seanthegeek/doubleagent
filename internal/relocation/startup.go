@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/stage"
@@ -18,17 +19,19 @@ import (
 // resolves outside base, nor a path holding a newline, which would forge a
 // line of the sh collector's file list. check is the image root's (nil on a
 // live run): the expansion looks at nothing behind a link out of the root,
-// and each such link is returned once in outOfRoot.
+// and each such refusal is returned once in outOfRoot.
 func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glob.Check,
-) (files, outOfRoot []string) {
+) (files []string, outOfRoot []follow.Refusal) {
 	for _, line := range table {
 		if line.Scope != scope {
 			continue
 		}
 		paths, refused := glob.Expand(base, strings.TrimPrefix(line.Glob, "/"), check)
 		for _, refusal := range refused {
-			if !slices.Contains(outOfRoot, refusal.Link) {
-				outOfRoot = append(outOfRoot, refusal.Link)
+			if !slices.ContainsFunc(outOfRoot, func(known follow.Refusal) bool {
+				return known.Link == refusal.Link
+			}) {
+				outOfRoot = append(outOfRoot, refusal.Refusal)
 			}
 		}
 		for _, path := range paths {

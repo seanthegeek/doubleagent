@@ -1,6 +1,7 @@
 package relocation
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -51,12 +52,12 @@ func TestStartupFilesListNothingBehindALinkOutOfTheRoot(t *testing.T) {
 			if (len(files) > 0) != testCase.wantFiles {
 				t.Errorf("files %q, want some: %v", files, testCase.wantFiles)
 			}
-			var want []string
+			var want []follow.Refusal
 			if testCase.wantRefused {
-				want = []string{home + "/.bashrc.d"}
+				want = []follow.Refusal{{Link: home + "/.bashrc.d", Kind: follow.LeadsOut}}
 			}
 			if !reflect.DeepEqual(refused, want) {
-				t.Errorf("refused %q, want %q", refused, want)
+				t.Errorf("refused %+v, want %+v", refused, want)
 			}
 		})
 	}

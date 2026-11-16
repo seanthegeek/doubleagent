@@ -72,9 +72,9 @@ func safeNames() map[string][]string {
 			"Utsname", "W_OK", "X_OK"},
 		// Security identifiers, the version call, a token type, constants and
 		// string conversions.
-		"golang.org/x/sys/windows": {"CreateWellKnownSid", "FILE_ATTRIBUTE_DIRECTORY",
-			"MAX_LONG_PATH", "RtlGetVersion", "Token", "UTF16PtrFromString", "UTF16ToString",
-			"WinBuiltinAdministratorsSid"},
+		"golang.org/x/sys/windows": {"CreateWellKnownSid", "ERROR_INVALID_NAME",
+			"FILE_ATTRIBUTE_DIRECTORY", "MAX_LONG_PATH", "RtlGetVersion", "Token",
+			"UTF16PtrFromString", "UTF16ToString", "WinBuiltinAdministratorsSid"},
 		// Registry keys and values, which are not file paths.
 		"golang.org/x/sys/windows/registry": {"DWORD", "ENUMERATE_SUB_KEYS", "EXPAND_SZ",
 			"ErrNotExist", "ErrUnexpectedType", "ExpandString", "Key", "LOCAL_MACHINE", "OpenKey",
@@ -193,7 +193,7 @@ func allowedCalls() map[string]allowance {
 		{"internal/users/users_windows.go", "osfile.ReadDir", 1,
 			"lists the parent of a candidate the root check let through"},
 		{"internal/walk/project.go", "stage.PhysicalDir", 1,
-			"resolves the image root the operator gave, once per run (NewRootCheck)"},
+			"resolves the image root the operator gave, in NewRootCheck"},
 		{"internal/walk/tree.go", "osfile.Open", 2,
 			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
 	} {

@@ -2,6 +2,7 @@ package projects
 
 import (
 	"context"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"reflect"
 	"strconv"
 	"strings"
@@ -79,7 +80,7 @@ func TestDiscoverReadsNoSourceThroughALinkOutOfTheImage(t *testing.T) {
 				if mode.live {
 					discoverRoot = ""
 				} else {
-					outOfScope = func(path string) (string, bool) { return walk.LeavesRootAt(root, path) }
+					outOfScope = walk.NewRootCheck(root).Exit
 				}
 				homes := []users.Home{{User: "alice", Path: home}}
 				got, refused, err := Discover(context.Background(), homes, discoverRoot, nil, nil,
@@ -104,11 +105,12 @@ func checkLinkedResult(t *testing.T, got []Project, refused []Refusal, root, lin
 	if !wantRefused {
 		want := []Project{{"alice", root + "/srv/p"}}
 		if !reflect.DeepEqual(got, want) || len(refused) != 0 {
-			t.Errorf("projects %q, refused %q; want %q and none refused", got, refused, want)
+			t.Errorf("projects %q, refused %+v; want %q and none refused", got, refused, want)
 		}
 		return
 	}
-	if want := []Refusal{{User: "alice", Link: link}}; len(got) != 0 ||
+	want := []Refusal{{User: "alice", Refusal: follow.Refusal{Link: link, Kind: follow.LeadsOut}}}
+	if len(got) != 0 ||
 		!reflect.DeepEqual(refused, want) {
 		t.Errorf("projects %q, refused %+v; want none found and %+v", got, refused, want)
 	}
@@ -120,7 +122,7 @@ func TestDiscoverNamesTheLinkThatClimbsAboveTheRoot(t *testing.T) {
 	writeTree(t, root, nil, "home/alice")
 	// .claude climbs out of the root: from home/alice, ../../.. is above it.
 	linkRelative(t, "../../../outside", home+"/.claude")
-	outOfScope := func(path string) (string, bool) { return walk.LeavesRootAt(root, path) }
+	outOfScope := walk.NewRootCheck(root).Exit
 	homes := []users.Home{{User: "alice", Path: home}}
 	_, refused, err := Discover(context.Background(), homes, root, nil, nil, outOfScope, nil)
 	if err != nil {
@@ -153,13 +155,13 @@ func TestDiscoverRefusesAChainLongerThanTheCheckFollows(t *testing.T) {
 		}
 		linkDirectory(t, target, root+"/chain/l"+strconv.Itoa(i))
 	}
-	outOfScope := func(path string) (string, bool) { return walk.LeavesRootAt(root, path) }
+	outOfScope := walk.NewRootCheck(root).Exit
 	homes := []users.Home{{User: "alice", Path: home}}
 	got, refused, err := Discover(context.Background(), homes, root, nil, nil, outOfScope, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 0 || len(refused) == 0 {
-		t.Errorf("projects %q, refused %q; want no project and the source refused", got, refused)
+		t.Errorf("projects %q, refused %+v; want no project and the source refused", got, refused)
 	}
 }

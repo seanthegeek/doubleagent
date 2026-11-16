@@ -269,3 +269,29 @@ func TestNativeErrorsLeavesOtherErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenedWindowsIsThePathWin32Opens(t *testing.T) {
+	cases := []struct{ name, path, want string }{
+		{"a missing name before .. is removed by name", "C:/img/Users/alice/nope/../j/x",
+			"C:/img/Users/alice/j/x"},
+		{"a link before .. is removed by name too", "C:/img/Users/alice/link/../secret",
+			"C:/img/Users/alice/secret"},
+		{". and empty segments go", `C:\img\.\a\\b\.`, "C:/img/a/b"},
+		{".. never climbs past the drive", "C:/../../x", "C:/x"},
+		{"a UNC share keeps its server and share", "//srv/share/a/../b", "//srv/share/b"},
+		{"trailing dots and spaces stay, as \\\\?\\ keeps them", "C:/img/j./x ", "C:/img/j./x "},
+		{"a relative path is unchanged", "a/../b", "a/../b"},
+		{"a drive-relative path is unchanged", "C:a/../b", "C:a/../b"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := openedWindows(testCase.path); got != testCase.want {
+				t.Errorf("openedWindows(%q) = %q, want %q", testCase.path, got, testCase.want)
+			}
+			if extended := extendedWindows(testCase.path); extended != testCase.path &&
+				fromWindows(extended) != testCase.want {
+				t.Errorf("Extended opens %q, not the checked %q", extended, testCase.want)
+			}
+		})
+	}
+}

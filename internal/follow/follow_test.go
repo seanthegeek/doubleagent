@@ -2,6 +2,7 @@ package follow
 
 import (
 	"errors"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +16,9 @@ func TestFollowingFunctionsRefuseWhatTheCheckRefuses(t *testing.T) {
 		t.Fatal(err)
 	}
 	fenced := root + "/in"
-	refusing := func(path string) (string, bool) { return fenced, path == fenced+"/dir" }
+	refusing := func(path string) (Refusal, bool) {
+		return Refusal{Link: fenced, Kind: LeadsOut}, path == fenced+"/dir"
+	}
 	calls := []struct {
 		name string
 		run  func(check Check) error
@@ -44,7 +47,7 @@ func TestFollowingFunctionsRefuseWhatTheCheckRefuses(t *testing.T) {
 	for _, call := range calls {
 		t.Run(call.name+" refuses a path the check refuses and follows nothing", func(t *testing.T) {
 			err := call.run(refusing)
-			if link, out := OutOfRoot(err); !out || link != fenced {
+			if refusal, out := OutOfRoot(err); !out || refusal.Link != fenced {
 				t.Errorf("error %v, want an *OutOfRootError at %s", err, fenced)
 			}
 		})
@@ -57,7 +60,7 @@ func TestFollowingFunctionsRefuseWhatTheCheckRefuses(t *testing.T) {
 }
 
 func TestDirReadErrorReportsARefusalAsFailed(t *testing.T) {
-	refusing := func(path string) (string, bool) { return path, true }
+	refusing := func(path string) (Refusal, bool) { return Refusal{Link: path, Kind: LeadsOut}, true }
 	reason, failed, err := DirReadError(refusing, "/img/home/link")
 	if !failed || err == nil || reason != err.Error() || reason == "" {
 		t.Errorf("DirReadError = %q, %v, %v; want failed, with the refusal as the reason",
@@ -88,7 +91,7 @@ func TestIsDirectoryAnswersWithoutACheckRefusal(t *testing.T) {
 	}
 }
 
-func TestOtherReparsePointIsFalseForPlainEntriesAndLinks(t *testing.T) {
+func TestPlainEntriesAndLinksAreNoOtherReparsePoint(t *testing.T) {
 	directory := syspath.FromNative(t.TempDir())
 	paths := []string{directory, directory + "/missing"}
 	link := directory + "/link"
@@ -99,8 +102,28 @@ func TestOtherReparsePointIsFalseForPlainEntriesAndLinks(t *testing.T) {
 		t.Logf("no symlink case, one cannot be made here: %v", err)
 	}
 	for _, path := range paths {
-		if OtherReparsePoint(path) {
-			t.Errorf("OtherReparsePoint(%s) = true, want false", path)
+		if meta, err := fsmeta.Lstat(path); err == nil && meta.IsOtherReparsePoint() {
+			t.Errorf("%s reads as a reparse point other than a symlink or junction", path)
+		}
+	}
+}
+
+func TestReasonWordsEachKindOfRefusal(t *testing.T) {
+	const leadsOut = ": the link leads out"
+	cases := []struct {
+		kind Kind
+		want string
+	}{
+		{LeadsOut, leadsOut},
+		{Unverified, " cannot be verified to lie inside the image root; nothing behind it was looked at"},
+		{OtherReparse, " is a reparse point other than a symlink or junction; " +
+			"nothing behind it was looked at"},
+		{Climbs, " climbs above the image root with ..; nothing behind it was looked at"},
+		{Outside, " is outside the image root; nothing behind it was looked at"},
+	}
+	for _, testCase := range cases {
+		if got := Reason(Refusal{Link: "/img/l", Kind: testCase.kind}, leadsOut); got != testCase.want {
+			t.Errorf("Reason(kind %d) = %q, want %q", testCase.kind, got, testCase.want)
 		}
 	}
 }

@@ -159,9 +159,6 @@ func TestGuardFindsEveryNameNotKnownToBeSafe(t *testing.T) {
 		{"unix.Clonefile fails",
 			"import \"golang.org/x/sys/unix\"\nvar _ = unix.Clonefile(\"a\", \"b\", 0)",
 			[]string{"unix.Clonefile"}},
-		{"a local value named like the package is not it",
-			"import system \"os\"\nvar _ = system.Getenv\ntype files struct{}\n" +
-				"func (files) Stat() {}\nvar os files\nvar _ = os.Stat", nil},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -202,14 +199,13 @@ func followingCalls(fileName string, source []byte) ([]string, error) {
 			allowed[importPath] = append(allowed[importPath], names...)
 		}
 	}
-	shadowed := declaredNames(parsed)
 	ast.Inspect(parsed, func(node ast.Node) bool {
 		selector, ok := node.(*ast.SelectorExpr)
 		if !ok {
 			return true
 		}
 		ident, ok := selector.X.(*ast.Ident)
-		if !ok || shadowed[ident.Name] {
+		if !ok {
 			return true
 		}
 		importPath, ok := local[ident.Name]
@@ -248,24 +244,4 @@ func guardedImports(files *token.FileSet, parsed *ast.File) (map[string]string, 
 		}
 	}
 	return local, calls
-}
-
-// declaredNames returns the names the file declares at package level, which
-// hide an imported package of the same name in the guard's simple reading.
-func declaredNames(parsed *ast.File) map[string]bool {
-	names := map[string]bool{}
-	for _, declaration := range parsed.Decls {
-		general, ok := declaration.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		for _, spec := range general.Specs {
-			if value, ok := spec.(*ast.ValueSpec); ok {
-				for _, name := range value.Names {
-					names[name.Name] = true
-				}
-			}
-		}
-	}
-	return names
 }

@@ -20,6 +20,10 @@ func Extended(path string) string { return path }
 // text unchanged.
 func Fold(text string) string { return text }
 
+// Opened returns the path the kernel will open for path: path itself, whose
+// .. segments the kernel resolves one by one from where each link leads.
+func Opened(path string) string { return path }
+
 // IsAbs reports whether path starts with /.
 func IsAbs(path string) bool { return strings.HasPrefix(path, "/") }
 

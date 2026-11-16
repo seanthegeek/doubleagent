@@ -14,11 +14,12 @@ import (
 // image root's check, which every function that follows a link also takes.
 type Check = follow.Check
 
-// Refusal is a link expansion did not look behind: the pattern word being
-// expanded, the link, and the directory whose listing or lookup it stopped.
+// Refusal is a path expansion did not look behind: the pattern word being
+// expanded, the check's refusal (the link and why), and the directory whose
+// listing or lookup it stopped.
 type Refusal struct {
-	Pattern   string
-	Link      string
+	Pattern string
+	follow.Refusal
 	Directory string
 }
 
@@ -85,12 +86,14 @@ func (run *expansion) permits(directory string) bool {
 	if run.check == nil {
 		return true
 	}
-	link, refused := run.check(directory)
+	refusal, refused := run.check(directory)
 	if !refused {
 		return true
 	}
-	if !slices.ContainsFunc(run.refused, func(refusal Refusal) bool { return refusal.Link == link }) {
-		run.refused = append(run.refused, Refusal{Pattern: run.word, Link: link, Directory: directory})
+	known := func(earlier Refusal) bool { return earlier.Link == refusal.Link }
+	if !slices.ContainsFunc(run.refused, known) {
+		run.refused = append(run.refused, Refusal{Pattern: run.word, Refusal: refusal,
+			Directory: directory})
 	}
 	return false
 }

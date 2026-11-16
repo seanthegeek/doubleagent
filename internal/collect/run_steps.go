@@ -35,10 +35,11 @@ func (state *runState) findHomes(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	for _, link := range report.OutOfRoot {
-		reason := state.roots.RefusalReason(link,
+	for _, refusal := range report.OutOfRoot {
+		reason := follow.Reason(refusal,
 			" leads out of the image root; nothing behind it was listed or taken as a home")
-		if err := state.log.Line("user homes: " + syspath.ToNative(link) + reason); err != nil {
+		line := "user homes: " + syspath.ToNative(refusal.Link) + reason
+		if err := state.log.Line(line); err != nil {
 			return err
 		}
 	}
@@ -139,7 +140,7 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	}
 	state.projects = found
 	for _, refusal := range refused {
-		if err := state.log.Line(refusedSourceLine(state.roots, refusal)); err != nil {
+		if err := state.log.Line(refusedSourceLine(refusal)); err != nil {
 			return err
 		}
 	}
@@ -187,20 +188,18 @@ func (state *runState) projectLeavesRoot(path string) bool {
 	return leaves
 }
 
-// rootExit reports whether path, under the image root, leads out of it
-// through a link, and the link (walk.LeavesRootAt, the root resolved once).
-func (state *runState) rootExit(path string) (string, bool) {
+// rootExit is the run's root check, resolved once, for project discovery.
+func (state *runState) rootExit(path string) (follow.Refusal, bool) {
 	return state.roots.Exit(path)
 }
 
 // refusedSourceLine is the log line of a link out of the image root on the
 // path of one or more discovery sources of a home: nothing behind it was
 // listed, stat'ed or read. It says nothing of whether any source exists
-// behind it, which only the analyst's host could answer. roots words the
-// refusal.
-func refusedSourceLine(roots walk.RootCheck, refusal projects.Refusal) string {
+// behind it, which only the analyst's host could answer.
+func refusedSourceLine(refusal projects.Refusal) string {
 	return "Discovery [" + refusal.User + "] " + syspath.ToNative(refusal.Link) +
-		roots.RefusalReason(refusal.Link,
+		follow.Reason(refusal.Refusal,
 			": the symlink leads out of the image root; nothing behind it was listed or read")
 }
 
@@ -280,7 +279,6 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 		Claims: state.catalogClaims, Collect: state.hintFileCollector(ctx),
 		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),
 		Profiles: state.profiles, Opener: state.opener, Expansion: state.roots.Expansion(),
-		RefusalReason: state.roots.RefusalReason,
 	})
 	state.relocation = result
 	return err
@@ -292,7 +290,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 func (state *runState) catalogClaims(base string, table []catalog.Entry) []string {
 	var claims []string
 	for _, match := range walk.ExpandCatalog(base, table, state.roots.Expansion()) {
-		if match.Note == "" && match.OutOfRoot == "" {
+		if match.Note == "" && match.OutOfRoot.Link == "" {
 			claims = append(claims, match.Path)
 		}
 	}

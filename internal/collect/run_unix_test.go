@@ -270,25 +270,67 @@ func TestAMissingRelativeProjectThatClimbsIsNotADirectory(t *testing.T) {
 	}
 }
 
-func TestARootTheCheckCannotResolveIsNotCalledALinkOut(t *testing.T) {
+// refusalCase is an image whose collection must log refusals worded by
+// their kind: wantLines hold {ROOT} for the image root.
+type refusalCase struct {
+	name      string
+	files     map[string]string
+	links     map[string]string
+	locked    bool
+	wantLines []string
+}
+
+// refusalCases are the kinds of refusal each log site can produce on Unix.
+func refusalCases() []refusalCase {
+	const unverified = " cannot be verified to lie inside the image root; " +
+		"nothing behind it was looked at"
+	return []refusalCase{
+		{"a root the check cannot resolve is unverified for users, docker and startup files",
+			map[string]string{"home/alice/notes": ""}, nil, true, []string{
+				"user homes: {ROOT}" + unverified, "docker: {ROOT}" + unverified,
+				"startup files: {ROOT}" + unverified}},
+		{"a link loop is unverified for discovery and the catalog walk",
+			map[string]string{"home/alice/notes": ""},
+			map[string]string{"home/alice/.config": "loop2", "home/alice/loop2": ".config"}, false,
+			[]string{"Discovery [alice] {ROOT}/home/alice/.config" + unverified,
+				"  [claude-desktop] {ROOT}/home/alice/.config" + unverified + ", not walked"}},
+		{"a passwd home whose own .. climbs above the root names the path",
+			map[string]string{"home/alice/notes": "", "etc/passwd": "eve:x:1:1::/../../tmp:/bin/sh\n"},
+			nil, false, []string{"user homes: {ROOT}/../../tmp climbs above the image root with ..; " +
+				"nothing behind it was looked at"}},
+		{"a link whose target climbs above the root leads out",
+			map[string]string{"home/alice/notes": ""},
+			map[string]string{"home/alice/.codex": "../../../../../../../../.."}, false,
+			[]string{"Discovery [alice] {ROOT}/home/alice/.codex: the symlink leads out of the " +
+				"image root; nothing behind it was listed or read"}},
+	}
+}
+
+func TestEachRefusalIsWordedByItsKind(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root may search any directory")
 	}
-	root := writeImage(t, map[string]string{"home/alice/notes": ""}, nil)
-	if err := os.Chmod(root, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(root, 0o700) })
-	outDir := t.TempDir()
-	var stdout, stderr bytes.Buffer
-	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != 0 {
-		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
-	}
-	log := runOutput(t, outDir, ".log")
-	line := "user homes: " + root + " cannot be verified to lie inside the image root; " +
-		"nothing behind it was looked at\n"
-	if !strings.Contains(log, line) || strings.Contains(log, "leads out of the image root") {
-		t.Errorf("the log lacks %q, or calls the root a link out:\n%s", line, log)
+	for _, testCase := range refusalCases() {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := writeImage(t, testCase.files, testCase.links)
+			if testCase.locked {
+				if err := os.Chmod(root, 0o600); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = os.Chmod(root, 0o700) })
+			}
+			outDir := t.TempDir()
+			var stdout, stderr bytes.Buffer
+			if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t),
+				&stdout, &stderr); code != 0 {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			log := runOutput(t, outDir, ".log")
+			for _, line := range testCase.wantLines {
+				if want := strings.ReplaceAll(line, "{ROOT}", root) + "\n"; !strings.Contains(log, want) {
+					t.Errorf("the log lacks %q:\n%s", want, log)
+				}
+			}
+		})
 	}
 }

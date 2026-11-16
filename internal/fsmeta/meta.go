@@ -41,6 +41,10 @@ type Meta struct {
 	// Attributes holds the Win32 file attribute bits (FILE_ATTRIBUTE_*); 0 on
 	// Unix.
 	Attributes uint32
+	// Junction is set for a Windows mount point (a junction), whose target
+	// Windows does not put in place of its name when it later resolves a
+	// relative symbolic link; false on Unix.
+	Junction bool
 }
 
 // reparsePointAttribute is FILE_ATTRIBUTE_REPARSE_POINT, never set on Unix.

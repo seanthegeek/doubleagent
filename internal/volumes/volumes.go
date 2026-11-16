@@ -139,14 +139,13 @@ func (run *collection) noteDesktop(dirs []string) error {
 // once: nothing behind it is stat'ed or listed, so no volume or Docker
 // Desktop directory of the analyst's host is reported.
 func (run *collection) leavesRoot(path string) (bool, error) {
-	link, leaves := run.collector.RootCheck.Exit(path)
-	if !leaves || run.outOfRoot[link] {
+	refusal, leaves := run.collector.RootCheck.Exit(path)
+	if !leaves || run.outOfRoot[refusal.Link] {
 		return leaves, nil
 	}
-	run.outOfRoot[link] = true
-	reason := run.collector.RootCheck.RefusalReason(link,
-		" leads out of the image root; nothing behind it was listed")
-	return true, run.collector.Log.Line("docker: " + syspath.ToNative(link) + reason)
+	run.outOfRoot[refusal.Link] = true
+	reason := follow.Reason(refusal, " leads out of the image root; nothing behind it was listed")
+	return true, run.collector.Log.Line("docker: " + syspath.ToNative(refusal.Link) + reason)
 }
 
 // addNote records a note and logs it with the NOTE prefix.

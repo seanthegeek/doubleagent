@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -35,17 +36,18 @@ func (s *homeScan) leaves(path string) bool {
 	if s.outOfScope == nil {
 		return false
 	}
-	link, leaves := s.outOfScope(path)
+	refusal, leaves := s.outOfScope(path)
 	if leaves {
-		s.refuse(link)
+		s.refuse(refusal)
 	}
 	return leaves
 }
 
-// refuse records link as a Refusal unless it is recorded already.
-func (s *homeScan) refuse(link string) {
-	if !slices.ContainsFunc(s.refused, func(refusal Refusal) bool { return refusal.Link == link }) {
-		s.refused = append(s.refused, Refusal{User: s.user, Link: link})
+// refuse records refusal unless its link is recorded already.
+func (s *homeScan) refuse(refusal follow.Refusal) {
+	known := func(earlier Refusal) bool { return earlier.Link == refusal.Link }
+	if !slices.ContainsFunc(s.refused, known) {
+		s.refused = append(s.refused, Refusal{User: s.user, Refusal: refusal})
 	}
 }
 

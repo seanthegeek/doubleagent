@@ -80,7 +80,7 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
 		claims: map[string]struct{}{}, seen: map[string]struct{}{}}
 	for _, match := range matches {
-		if match.Note == "" && match.OutOfRoot == "" {
+		if match.Note == "" && match.OutOfRoot.Link == "" {
 			run.claims[syspath.Fold(match.Path)] = struct{}{}
 		}
 	}
@@ -102,9 +102,9 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 // row do not depend on what the analyst's host holds there.
 func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun, match Match,
 ) error {
-	link := match.OutOfRoot
+	link := match.OutOfRoot.Link
 	line := "  [" + match.Agent + "] " + syspath.ToNative(link) +
-		collector.RootCheck.RefusalReason(link,
+		follow.Reason(match.OutOfRoot,
 			": the symlinked directory leads out of the image root; nothing under it was listed") +
 		", not walked"
 	if err := collector.logLines(run, line); err != nil || collector.Inventory {
@@ -127,7 +127,7 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 	if match.Note != "" {
 		return collector.logLines(run, match.Note)
 	}
-	if match.OutOfRoot != "" {
+	if match.OutOfRoot.Link != "" {
 		return collector.recordOutOfRoot(ctx, run, match)
 	}
 	path := readField(match.Path)
