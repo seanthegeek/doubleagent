@@ -1,0 +1,196 @@
+// Package qwencode reads Qwen Code's chat files, prompt logs, settings,
+// channel files and past-use stores, under ~/.qwen and the managed local
+// mode's .qwen/managed-local/harness/ and .qwen/managed-local/worker-home/,
+// which are read as .qwen/ is.
+//
+// The transcripts are projects/<cwd>/chats/[archive/]<sessionId>.jsonl, one
+// ChatRecord per line, with the sidecar <sessionId>.worktree.json of a
+// session in a worktree checkout and <sessionId>.pr.json of its pull
+// requests. tmp/<hash>/logs.json, usage_record.jsonl and a channel's
+// <channel>-group-history.jsonl are secondary sources. The parser also
+// reads the token usage log, the todo files, the Web Shell's session
+// organization, PROJECT_SUMMARY.md, trustedFolders.json (through Gemini
+// CLI's reader, whose form the fork keeps), settings.json (only the
+// permission lists and the approval mode, since the file holds provider
+// keys and channel tokens), the channel routes and the GitHub channel's
+// audit log. Model and approval mode are tracked per sessionId.
+//
+// A group history message matches the transcript's quote of it at the time
+// the quote cleared it, not at its own: the parser declares deduplication
+// hooks (MatchForm, MatchAnchor) for that. See research/qwen-code.md.
+package qwencode
+
+import (
+	"path"
+	"regexp"
+	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parser/geminicli"
+)
+
+// workerHome is the managed local workers' $QWEN_HOME, a global directory
+// of its own; the harness moves only its runtime base.
+const workerHome = ".qwen/managed-local/worker-home/"
+
+// runtimeRoots are the managed local mode's roots, each read as the .qwen/
+// runtime base it mirrors.
+func runtimeRoots() []string {
+	return []string{".qwen/managed-local/harness/", workerHome}
+}
+
+// chatsExpression is a session's path without its suffix: a session id
+// in a project's chats/ or chats/archive/.
+const chatsExpression = `^\.qwen/projects/[^/]+/chats/(?:archive/)?[0-9a-fA-F-]{32,36}`
+
+// The artifacts the parser reads, by path relative to the home. The chat
+// pattern is the session list's own file name test, which leaves out the
+// sidecars.
+var (
+	sessionPattern      = regexp.MustCompile(chatsExpression + `\.jsonl\z`)
+	logsPattern         = regexp.MustCompile(`^\.qwen/tmp/[^/]+/logs\.json\z`)
+	tokenUsagePattern   = regexp.MustCompile(`^\.qwen/usage/token-usage-[0-9]{4}-[0-9]{2}\.jsonl\z`)
+	todoPattern         = regexp.MustCompile(`^\.qwen/todos/[^/]+\.json\z`)
+	organizationPattern = regexp.MustCompile(`^\.qwen/projects/[^/]+/session-organization\.v1\.json\z`)
+	pullRequestsPattern = regexp.MustCompile(chatsExpression + `\.pr\.json\z`)
+	trustedPattern      = regexp.MustCompile(`^\.qwen/trustedFolders\.json\z`)
+	channelsPattern     = regexp.MustCompile(`^\.qwen/channels/sessions\.json\z`)
+	daemonRoutesPattern = regexp.MustCompile(`^\.qwen/channels/daemon/[^/]+/routes\.json\z`)
+	groupHistoryPattern = regexp.MustCompile(`^\.qwen/channels/[^/]+-group-history\.jsonl\z`)
+	auditPattern        = regexp.MustCompile(
+		`^\.qwen/channels/[^/]+/[^/]+-[0-9a-f]{16}-github-audit\.jsonl\z`)
+	settingsPattern = regexp.MustCompile(`^\.qwen/settings\.json\z`)
+	usagePattern    = regexp.MustCompile(`^\.qwen/usage_record\.jsonl\z`)
+	summaryPattern  = regexp.MustCompile(`^\.qwen/PROJECT_SUMMARY\.md\z`)
+)
+
+// runtimePatterns are the files of the runtime base, matched on the path
+// below a managed local root too.
+func runtimePatterns() []*regexp.Regexp {
+	return []*regexp.Regexp{sessionPattern, logsPattern, tokenUsagePattern, todoPattern,
+		organizationPattern, pullRequestsPattern}
+}
+
+// homePatterns are the files matched on the path as it is.
+func homePatterns() []*regexp.Regexp {
+	return []*regexp.Regexp{trustedPattern, channelsPattern, daemonRoutesPattern,
+		groupHistoryPattern, auditPattern, settingsPattern, usagePattern, summaryPattern}
+}
+
+// runtimeRel returns rel with a managed local root replaced by .qwen/, the
+// runtime base it mirrors.
+func runtimeRel(rel string) string {
+	for _, root := range runtimeRoots() {
+		if rest, ok := strings.CutPrefix(rel, root); ok {
+			return ".qwen/" + rest
+		}
+	}
+	return rel
+}
+
+// workerRel returns rel with the managed local workers' $QWEN_HOME
+// replaced by .qwen/.
+func workerRel(rel string) string {
+	if rest, ok := strings.CutPrefix(rel, workerHome); ok {
+		return ".qwen/" + rest
+	}
+	return rel
+}
+
+// Parser reads Qwen Code's chat files, prompt logs, settings, routes and
+// usage records.
+type Parser struct {
+	parser.Base
+}
+
+// New returns the parser.
+func New() *Parser {
+	return &Parser{Base: parser.NewBase("qwen-code", "qwen-code")}
+}
+
+// Marks says the parser records sessions relayed through a messaging
+// channel.
+func (p *Parser) Marks() parser.Marks {
+	return parser.Marks{Relay: true}
+}
+
+// DedupHooks returns the match form and the match time under which a group
+// history message meets the transcript's quote of it.
+func (p *Parser) DedupHooks() parser.AgentHooks {
+	return parser.AgentHooks{Form: MatchForm, Anchor: MatchAnchor}
+}
+
+// Wants reports whether the artifact is a chat file (not a ledger or
+// runtime sidecar) or another file the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	rel := runtimeRel(artifact.Rel)
+	for _, pattern := range runtimePatterns() {
+		if pattern.MatchString(rel) {
+			return true
+		}
+	}
+	for _, pattern := range homePatterns() {
+		if pattern.MatchString(artifact.Rel) {
+			return true
+		}
+	}
+	return usagePattern.MatchString(workerRel(artifact.Rel))
+}
+
+// Secondary reports whether the artifact is a prompt log, the usage
+// records or a channel's group history.
+func (p *Parser) Secondary(artifact *input.Artifact) bool {
+	return logsPattern.MatchString(runtimeRel(artifact.Rel)) ||
+		usagePattern.MatchString(workerRel(artifact.Rel)) ||
+		groupHistoryPattern.MatchString(artifact.Rel)
+}
+
+// Parse emits the rows of one Qwen Code file, by the file it is.
+func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit parser.Emit) error {
+	rel, own := runtimeRel(artifact.Rel), artifact.Rel
+	switch {
+	case trustedPattern.MatchString(own):
+		geminicli.TrustedFolderRows(p.Base, artifact, emit)
+	case settingsPattern.MatchString(own):
+		p.settings(artifact, emit)
+	case usagePattern.MatchString(workerRel(own)):
+		p.usage(artifact, emit)
+	case channelsPattern.MatchString(own) || daemonRoutesPattern.MatchString(own):
+		// Named without the leading .qwen/, as the row text names it.
+		_, name, _ := strings.Cut(own, "/")
+		p.channelRoutes(artifact, name, emit)
+	case groupHistoryPattern.MatchString(own):
+		p.groupHistory(artifact, emit)
+	case auditPattern.MatchString(own):
+		p.audit(artifact, emit)
+	case summaryPattern.MatchString(own):
+		p.summary(artifact, emit)
+	case logsPattern.MatchString(rel):
+		p.logs(artifact, emit)
+	case tokenUsagePattern.MatchString(rel):
+		p.tokenUsage(artifact, emit)
+	case todoPattern.MatchString(rel):
+		p.todos(artifact, emit)
+	case organizationPattern.MatchString(rel):
+		p.organization(artifact, emit)
+	case pullRequestsPattern.MatchString(rel):
+		p.pullRequests(artifact, emit)
+	default:
+		p.session(artifact, options, emit)
+	}
+	return nil
+}
+
+// fileName returns the artifact's file name, the last part of its path.
+func fileName(artifact *input.Artifact) string {
+	return path.Base(artifact.Rel)
+}
+
+// The interfaces the registry looks for, checked when the package builds.
+var (
+	_ parser.Parser          = (*Parser)(nil)
+	_ parser.SecondaryReader = (*Parser)(nil)
+	_ parser.Marker          = (*Parser)(nil)
+	_ parser.HooksDeclarer   = (*Parser)(nil)
+)

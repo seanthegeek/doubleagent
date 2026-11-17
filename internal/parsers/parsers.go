@@ -40,6 +40,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/openhands"
 	"github.com/seanthegeek/doubleagent/internal/parser/openinterpreter"
 	"github.com/seanthegeek/doubleagent/internal/parser/pearai"
+	"github.com/seanthegeek/doubleagent/internal/parser/qwencode"
 	"github.com/seanthegeek/doubleagent/internal/parser/roocode"
 	"github.com/seanthegeek/doubleagent/internal/parser/shellgpt"
 	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
@@ -59,6 +60,7 @@ func constructors() []func() parser.Parser {
 		func() parser.Parser { return claudedesktop.New() },
 		func() parser.Parser { return codex.New() },
 		func() parser.Parser { return antigravity.New() },
+		func() parser.Parser { return qwencode.New() },
 		func() parser.Parser { return kiro.New() },
 		func() parser.Parser { return geminicli.New() },
 		func() parser.Parser { return crush.New() },
