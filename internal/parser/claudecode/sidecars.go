@@ -2,7 +2,6 @@ package claudecode
 
 import (
 	"io/fs"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -35,30 +34,33 @@ func isLink(path string) bool {
 	return err == nil && info.Mode()&fs.ModeSymlink != 0
 }
 
-// withoutSuffix returns a slash path without the suffix of its last
-// element, the part from its last dot when the dot is neither first nor
-// last.
-func withoutSuffix(rel string) string {
-	name := path.Base(rel)
+// withoutSuffix returns a file name without its suffix, the part from its
+// last dot when the dot is neither first nor last.
+func withoutSuffix(name string) string {
 	dot := strings.LastIndexByte(name, '.')
 	if dot <= 0 || dot == len(name)-1 {
-		return rel
+		return name
 	}
-	return rel[:len(rel)-len(name)+dot]
+	return name[:dot]
 }
 
-// sessionRel returns the home-relative path of the directory that holds a
-// transcript's sidecars: <session>/ beside a session file, or the directory
-// above subagents/ for a subagent's file.
-func sessionRel(rel string) string {
-	if !subagentPattern.MatchString(rel) {
-		return withoutSuffix(rel)
+// sessionDir returns the directory that holds a transcript's sidecars:
+// <session>/ beside a session file, or the directory above subagents/ for a
+// subagent's file. It is false when no subagents/ directory lies below the
+// artifact's home.
+func sessionDir(artifact *input.Artifact) (string, bool) {
+	if !subagentPattern.MatchString(artifact.Rel) {
+		return parser.Beside(artifact, withoutSuffix(filepath.Base(artifact.DiskPath))), true
 	}
-	directory := path.Dir(rel)
-	for path.Base(directory) != "subagents" && directory != "." && directory != "/" {
-		directory = path.Dir(directory)
+	for levels := 0; ; levels++ {
+		directory, ok := parser.Above(artifact, levels)
+		if !ok {
+			return "", false
+		}
+		if filepath.Base(directory) == "subagents" {
+			return parser.Above(artifact, levels+1)
+		}
 	}
-	return path.Dir(directory)
 }
 
 // persistedText returns the full text of a persisted tool output, read
@@ -77,13 +79,12 @@ func persistedText(artifact *input.Artifact, stub, savedPath string, problems *p
 	}
 	parts := pathSeparators.Split(savedPath, -1)
 	name := parts[len(parts)-1]
-	session := sessionRel(artifact.Rel)
+	directory, found := sessionDir(artifact)
 	note := stub + "\n[persisted output not found: tool-results/" + name + "]"
 	if len(parts) < 3 || parts[len(parts)-2] != "tool-results" ||
-		parts[len(parts)-3] != path.Base(session) || name == "" || name == "." || name == ".." {
+		!found || parts[len(parts)-3] != filepath.Base(directory) || name == "" || name == "." || name == ".." {
 		return note
 	}
-	directory := artifact.Home.PathOf(session)
 	results := filepath.Join(directory, "tool-results")
 	output := filepath.Join(results, name)
 	if isLink(directory) || isLink(results) || !parser.RegularFile(output) {

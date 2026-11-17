@@ -22,6 +22,7 @@ package claudedesktop
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
@@ -93,11 +94,11 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 	rel := artifact.Rel
 	switch {
 	case transcriptPattern.MatchString(rel):
-		p.transcript(artifact, options, sessionRel(transcriptPattern, artifact.Rel), emit)
+		p.transcript(artifact, options, sessionLevels(transcriptPattern, artifact.Rel), emit)
 	case stagedPattern.MatchString(rel):
-		p.transcript(artifact, options, "", emit)
+		p.transcript(artifact, options, noSession, emit)
 	case auditPattern.MatchString(rel):
-		p.audit(artifact, options, sessionRel(auditPattern, artifact.Rel), emit)
+		p.audit(artifact, options, sessionLevels(auditPattern, artifact.Rel), emit)
 	case recordPattern.MatchString(rel):
 		p.record(artifact, emit)
 	case scheduledTasksPattern.MatchString(rel):
@@ -110,10 +111,15 @@ func (p *Parser) Parse(artifact *input.Artifact, options parser.Options, emit pa
 	return nil
 }
 
-// sessionRel returns the session dir, relative to the home, that pattern's
-// group "sess" finds in rel.
-func sessionRel(pattern *regexp.Regexp, rel string) string {
-	return pattern.FindStringSubmatch(rel)[pattern.SubexpIndex("sess")]
+// noSession is the level a transcript gets when it has no session dir.
+const noSession = -1
+
+// sessionLevels returns how many directories above the artifact's own
+// directory the session dir lies, the session dir being the path that
+// pattern's group "sess" finds in rel.
+func sessionLevels(pattern *regexp.Regexp, rel string) int {
+	session := pattern.FindStringSubmatch(rel)[pattern.SubexpIndex("sess")]
+	return strings.Count(rel, "/") - strings.Count(session, "/") - 1
 }
 
 // The interfaces the registry looks for, checked when the package builds.

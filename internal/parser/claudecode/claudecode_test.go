@@ -281,11 +281,14 @@ func TestSidecarPathsFollowPythonsPathRules(t *testing.T) {
 		{".claude/projects/p/s1/subagents/x/y/agent-a.jsonl", ".claude/projects/p/s1"},
 	}
 	for _, test := range tests {
-		if got := sessionRel(test.rel); got != test.want {
-			t.Errorf("sessionRel(%q) = %q, want %q", test.rel, got, test.want)
+		home := filepath.Join(t.TempDir(), "home")
+		artifact := &input.Artifact{Rel: test.rel, DiskPath: filepath.Join(home, filepath.FromSlash(test.rel))}
+		got, ok := sessionDir(artifact)
+		if want := filepath.Join(home, filepath.FromSlash(test.want)); !ok || got != want {
+			t.Errorf("sessionDir(%q) = %q, %v, want %q", test.rel, got, ok, want)
 		}
 	}
-	if got := withoutSuffix("p/name."); got != "p/name." {
+	if got := withoutSuffix("name."); got != "name." {
 		t.Errorf("withoutSuffix of a name ending in a dot = %q", got)
 	}
 	for hash, want := range map[string]bool{"abc123XYZ": true, "": false, "a.b": false, "a\n": false,

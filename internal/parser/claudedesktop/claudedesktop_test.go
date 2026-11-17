@@ -103,8 +103,9 @@ func TestARecordIsFoundByTheSessionDirsFullOrShortName(t *testing.T) {
 			if err := osfile.WriteFile(path, []byte(test.content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			home := &input.Home{DiskPath: filepath.Dir(org)}
-			record, _ := findRecord(home, filepath.Base(org)+"/"+test.sessionDir)
+			artifact := &input.Artifact{DiskPath: filepath.Join(org, filepath.FromSlash(test.sessionDir), "audit.jsonl"),
+				Rel: filepath.Base(org) + "/" + test.sessionDir + "/audit.jsonl"}
+			record, _ := findRecord(artifact, 0)
 			if got := text(record.Get("title")); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}

@@ -27,7 +27,7 @@ const (
 // placeholders expanded, then a row per problem.
 func (r *Reader) history(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	historyDir := artifact.Home.PathOf(path.Dir(artifact.Rel))
+	historyDir := parser.Beside(artifact)
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		row := r.BaseRow(artifact)
 		row.SourceLine = line
