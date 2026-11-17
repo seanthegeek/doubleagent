@@ -25,6 +25,9 @@ func TestRun(t *testing.T) {
 		{"collect with an unknown option", []string{"collect", "--bogus"}, exitUsage, "", "Unknown option: --bogus\nUsage: doubleagent collect"},
 		{"collect with a bad size", []string{"collect", "--max-file-size", "x"}, exitUsage, "", "Invalid --max-file-size: x\n"},
 		{"collect with a bad root", []string{"collect", "-r", "/no/such/dir"}, exitFatal, "", "Root is not a directory: /no/such/dir"},
+		{"catalog prints the catalog", []string{"catalog"}, exitOK, "# home artifacts", ""},
+		{"catalog --agents names the agents", []string{"catalog", "--agents"}, exitOK, "claude-code ", ""},
+		{"an analysis command's mistake exits 2", []string{"catalog", "--bogus"}, exitFatal, "", "doubleagent catalog: error: unrecognized arguments: --bogus"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
