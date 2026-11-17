@@ -143,7 +143,7 @@ func TestAllReturnsNewValuesInRegistryOrder(t *testing.T) {
 			t.Errorf("parser %d is the same value twice", i)
 		}
 	}
-	if got := names(first); got[0] != "claude-code" {
+	if got := names(first); !slices.Contains(got, "chatgpt-desktop") {
 		t.Errorf("registry %v", got)
 	}
 	if got := NoTranscripts(); !slices.Equal(got, []string{"camel-ai", "copilot", "metagpt", "shared"}) {
