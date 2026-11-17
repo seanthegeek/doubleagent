@@ -12,15 +12,15 @@ package follow
 // checked one by one. An import not listed fails, so a new one is reviewed.
 // Packages that open a path by name and that nothing imports today
 // (debug/elf, debug/macho, debug/pe, debug/plan9obj, debug/buildinfo,
-// plugin, net with its Unix sockets, io/ioutil, archive/zip) are not listed,
-// so importing one fails.
+// plugin, net with its Unix sockets, io/ioutil) are not listed, so importing
+// one fails.
 func reviewedImports() map[string]string {
-	noPath := []string{"archive/tar", "bufio", "bytes", "compress/gzip", "context",
-		"crypto/rand", "crypto/sha256", "embed", "encoding/binary", "encoding/hex", "errors",
-		"fmt", "io", "io/fs", "math", "math/big", "math/bits", "os/signal", "path", "regexp",
-		"runtime", "runtime/debug", "slices", "sort", "strconv", "strings", "testing", "time",
-		"unicode", "unicode/utf16", "unicode/utf8"}
-	guarded := []string{"os", "os/exec", "os/user", "path/filepath", "syscall",
+	noPath := []string{"archive/tar", "bufio", "bytes", "compress/bzip2", "compress/gzip",
+		"context", "crypto/rand", "crypto/sha256", "embed", "encoding/binary", "encoding/hex",
+		"errors", "fmt", "hash/crc32", "io", "io/fs", "math", "math/big", "math/bits",
+		"os/signal", "path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv",
+		"strings", "testing", "time", "unicode", "unicode/utf16", "unicode/utf8"}
+	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry"}
 	reviewed := map[string]string{}
 	for _, name := range noPath {
@@ -61,7 +61,10 @@ func safeNames() map[string][]string {
 		// check $PWD. SameFile compares two FileInfo values already read.
 		"os": {"Args", "DevNull", "Environ", "Exit", "File", "FileInfo", "Getenv", "Getuid",
 			"Getwd", "Hostname", "Interrupt", "LinkError", "ModeSymlink", "O_CREATE", "O_EXCL",
-			"O_TRUNC", "O_WRONLY", "SameFile", "Stderr", "Stdout", "SyscallError"},
+			"O_TRUNC", "O_WRONLY", "SameFile", "Stderr", "Stdout", "SyscallError", "TempDir"},
+		// A zip reader over a handle already open, its types and errors;
+		// OpenReader, which opens a path by name, is left out.
+		"archive/zip": {"ErrAlgorithm", "ErrChecksum", "ErrFormat", "File", "FileHeader", "NewReader"},
 		// The running account's own record, looked up by the system.
 		"os/user": {"Current"},
 		// Text operations on a path; none touches the file system.
@@ -212,6 +215,39 @@ func allowedCalls() map[string]allowance {
 			"lists the parent of a candidate the root check let through"},
 		{"internal/walk/project.go", "stage.PhysicalDir", 1,
 			"resolves the image root the operator gave, in NewRootCheck"},
+		{"internal/input/input.go", "osfile.Stat", 1,
+			"stats the input the analyst names, following a link as the analyst chose it"},
+		{"internal/input/input.go", "osfile.ReadDir", 1,
+			"lists the input directory the analyst names, to refuse an unlistable one"},
+		{"internal/input/input.go", "osfile.RemoveAll", 1,
+			"removes the extraction directory the run made, after its lstat typed it one"},
+		{"internal/input/archive.go", "osfile.Open", 2,
+			"reads the archive the analyst names, to fail before extracting and to hash it"},
+		{"internal/input/archive.go", "osfile.Stat", 1,
+			"tests the checksum file beside the archive the analyst names"},
+		{"internal/input/archive.go", "osfile.ReadFile", 1,
+			"reads the checksum file beside the archive the analyst names"},
+		{"internal/input/archive.go", "osfile.MkdirAll", 2,
+			"creates the analyst's work directory and a new extraction directory whose lstat " +
+				"showed nothing there"},
+		{"internal/input/extract.go", "osfile.Open", 1,
+			"reads the archive the analyst names"},
+		{"internal/input/extract.go", "osfile.MkdirAll", 1,
+			"creates one directory of the extraction whose lstat showed nothing there"},
+		{"internal/input/extract.go", "osfile.OpenFile", 2,
+			"creates an extracted file exclusively, so never through a link"},
+		{"internal/input/extract.go", "osfile.Remove", 1,
+			"removes a regular file an earlier member of the same archive wrote"},
+		{"internal/input/extract.go", "osfile.Chtimes", 2,
+			"sets the time of a file or directory the extraction made, from its member"},
+		{"internal/input/manifest.go", "osfile.ReadFile", 2,
+			"reads manifest.jsonl and collection.json, each typed a regular file by its lstat"},
+		{"internal/input/matches.go", "osfile.ReadDir", 2,
+			"lists a home, the input, or a directory its parent's listing typed a real directory"},
+		{"internal/input/loose.go", "osfile.ReadDir", 1,
+			"lists the input, or a directory its parent's listing typed a real directory"},
+		{"internal/input/loose.go", "stage.PhysicalDir", 1,
+			"resolves the input directory the analyst names, for the owner of its parent"},
 		{"internal/walk/tree.go", "fsmeta.OpenDir", 2,
 			"opens a directory its own lstat, or a listing with reparse points left out, typed one"},
 	} {

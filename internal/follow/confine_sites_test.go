@@ -68,6 +68,24 @@ func siteClasses() map[string]string {
 		"internal/shortname/shortname_windows.go osfile.MkdirAll":          notImage,
 		// A database the analyzer reads from a collection it was given.
 		"internal/sqlitefile/path.go osfile.Open": notImage,
+		// The analyzer's input: the analyst's own archive or directory, read
+		// with no image root, and the extraction directory it makes.
+		"internal/input/input.go osfile.Stat":        notImage,
+		"internal/input/input.go osfile.ReadDir":     notImage,
+		"internal/input/input.go osfile.RemoveAll":   notImage,
+		"internal/input/archive.go osfile.Open":      notImage,
+		"internal/input/archive.go osfile.Stat":      notImage,
+		"internal/input/archive.go osfile.ReadFile":  notImage,
+		"internal/input/archive.go osfile.MkdirAll":  notImage,
+		"internal/input/extract.go osfile.Open":      notImage,
+		"internal/input/extract.go osfile.MkdirAll":  notImage,
+		"internal/input/extract.go osfile.OpenFile":  notImage,
+		"internal/input/extract.go osfile.Remove":    notImage,
+		"internal/input/extract.go osfile.Chtimes":   notImage,
+		"internal/input/manifest.go osfile.ReadFile": notImage,
+		"internal/input/matches.go osfile.ReadDir":   notImage,
+		"internal/input/loose.go osfile.ReadDir":     notImage,
+		"internal/input/loose.go stage.PhysicalDir":  notImage,
 	}
 }
 
