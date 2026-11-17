@@ -23,6 +23,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -100,12 +101,9 @@ func (stager Stager) Dest(path string) (archivePath, destPath string, err error)
 // hasDotComponent reports whether path, canonical, has a `.` or `..`
 // component.
 func hasDotComponent(path string) bool {
-	for _, part := range strings.Split(path, "/") {
-		if part == "." || part == ".." {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(strings.Split(path, "/"), func(part string) bool {
+		return part == "." || part == ".."
+	})
 }
 
 // dottedPath is the reason Dest refuses a path with a `.` or `..` component.

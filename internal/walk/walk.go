@@ -7,6 +7,8 @@
 package walk
 
 import (
+	"slices"
+
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -90,12 +92,9 @@ func (collector *Collector) ownerOf(path string) string {
 func MatchAny(globs []string) func(string) bool {
 	patterns := append([]string(nil), globs...)
 	return func(text string) bool {
-		for _, pattern := range patterns {
-			if glob.MatchPath(pattern, text) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(patterns, func(pattern string) bool {
+			return glob.MatchPath(pattern, text)
+		})
 	}
 }
 
@@ -128,10 +127,7 @@ func (collector *Collector) excludePatterns(home string) []string {
 
 // matchesAny reports whether path matches one of patterns.
 func matchesAny(patterns []string, path string) bool {
-	for _, pattern := range patterns {
-		if glob.MatchPath(pattern, path) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(patterns, func(pattern string) bool {
+		return glob.MatchPath(pattern, path)
+	})
 }

@@ -8,7 +8,9 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/follow"
@@ -200,17 +202,7 @@ func (run *collection) volumeRoot(base, rel string) (string, bool, error) {
 
 // splitComponents splits a relative path into its non-empty components.
 func splitComponents(rel string) []string {
-	var parts []string
-	start := 0
-	for index := 0; index <= len(rel); index++ {
-		if index == len(rel) || rel[index] == '/' {
-			if index > start {
-				parts = append(parts, rel[start:index])
-			}
-			start = index + 1
-		}
-	}
-	return parts
+	return slices.DeleteFunc(strings.Split(rel, "/"), func(part string) bool { return part == "" })
 }
 
 // isDirectory reports whether target is, or links to, a directory, as test

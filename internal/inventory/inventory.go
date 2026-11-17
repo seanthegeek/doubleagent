@@ -7,6 +7,7 @@ package inventory
 import (
 	"encoding/json"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -54,12 +55,9 @@ func (aggregator *Aggregator) Match(agent, glob string) {
 		entry.files, entry.bytes = 0, 0
 		aggregator.order = append(aggregator.order, agent)
 	}
-	for _, known := range entry.evidence {
-		if known == glob {
-			return
-		}
+	if !slices.Contains(entry.evidence, glob) {
+		entry.evidence = append(entry.evidence, glob)
 	}
-	entry.evidence = append(entry.evidence, glob)
 }
 
 // File records one regular file of agent. A modification time of 0 or less
