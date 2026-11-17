@@ -9,11 +9,11 @@
 // ASCII digits with at most one point, is an epoch: milliseconds when it
 // is above 1e11, else seconds. An epoch is read from its decimal digits,
 // exactly, and cut to the millisecond. Other text is a date, or a date and
-// time, in one of these forms (time.Parse layouts):
+// time, in one of these forms, read through time.Parse layouts:
 //
-//	2006-01-02
-//	2006-01-02T15:04    2006-01-02T15:04:05    2006-01-02T15:04:05.999999999
-//	either time form followed by Z, -07:00, -0700 or -07
+//	YYYY-MM-DD
+//	YYYY-MM-DDTHH:MM    YYYY-MM-DDTHH:MM:SS    YYYY-MM-DDTHH:MM:SS.fffffffff
+//	either time form followed by Z, +HH:MM, +HHMM or +HH (or a minus)
 //
 // The fraction may have any number of digits, after a point or a comma;
 // T, a lower-case t or one space separates date and time; a lower-case z
