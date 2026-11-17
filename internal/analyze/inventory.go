@@ -1,7 +1,6 @@
 package analyze
 
 import (
-	"maps"
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -268,9 +267,7 @@ func newProjectValue(rows, sessions int, agents map[string]agentTallyJSON, label
 func agentTallies(agents map[string]*agentTally, disk *onDisk) map[string]agentTallyJSON {
 	out := make(map[string]agentTallyJSON, len(agents))
 	for agent, tally := range agents {
-		turnTypes := make(map[string]int, len(tally.turnTypes))
-		maps.Copy(turnTypes, tally.turnTypes)
-		entry := agentTallyJSON{Rows: tally.rows, Sessions: tally.sessions, TurnTypes: turnTypes}
+		entry := agentTallyJSON{Rows: tally.rows, Sessions: tally.sessions, TurnTypes: tally.turnTypes}
 		if disk != nil {
 			var files fileCounts
 			if index := slices.IndexFunc(disk.agents, func(each fileCounts) bool { return each.agent == agent }); index >= 0 {
