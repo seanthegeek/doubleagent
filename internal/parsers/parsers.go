@@ -159,15 +159,16 @@ func (r *Registry) All() []parser.Parser {
 // For returns the parsers offered an artifact of the agent: every parser
 // for a project file no single agent owns (input.ProjectAgent), else the
 // agent's own parsers followed by the others that read its artifacts
-// (parser.AgentReader), in registry order.
+// (parser.AgentReader), in registry order. A parser is told apart from the
+// agent's own by its agent, never by comparing parser values, which panics
+// for a parser type Go cannot compare.
 func (r *Registry) For(agent string) []parser.Parser {
 	if agent == input.ProjectAgent {
 		return r.All()
 	}
 	offered := slices.Clone(r.byAgent[agent])
-	own := len(offered)
 	for _, each := range r.all {
-		if slices.Contains(parser.ReadsAgentsOf(each), agent) && !slices.Contains(offered[:own], each) {
+		if each.Agent() != agent && slices.Contains(parser.ReadsAgentsOf(each), agent) {
 			offered = append(offered, each)
 		}
 	}

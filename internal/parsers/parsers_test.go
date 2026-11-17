@@ -90,6 +90,43 @@ func TestRegistryRoutesAnArtifactAsTheAnalyzerDoes(t *testing.T) {
 	}
 }
 
+// sliceParser is a parser held by value whose slice field makes it a type
+// Go cannot compare with ==: comparing two such values in interfaces panics.
+type sliceParser struct {
+	parser.Base
+	reads []string
+}
+
+// Wants takes nothing.
+func (s sliceParser) Wants(*input.Artifact) bool { return false }
+
+// Parse emits nothing.
+func (s sliceParser) Parse(*input.Artifact, parser.Options, parser.Emit) error { return nil }
+
+// ReadsAgents returns the agents the parser names.
+func (s sliceParser) ReadsAgents() []string { return s.reads }
+
+func TestRegistryRoutesParsersOfATypeGoCannotCompare(t *testing.T) {
+	editor := sliceParser{Base: parser.NewBase("editor", "editor")}
+	extension := sliceParser{Base: parser.NewBase("extension", "extension"), reads: []string{"editor"}}
+	both := sliceParser{Base: parser.NewBase("editor", "self"), reads: []string{"editor"}}
+	registry := NewOf([]parser.Parser{editor, extension, both})
+	tests := []struct {
+		agent string
+		want  []string
+	}{
+		{"editor", []string{"editor", "self", "extension"}},
+		{"extension", []string{"extension"}},
+	}
+	for _, test := range tests {
+		t.Run("the "+test.agent+" artifacts reach their parsers once each", func(t *testing.T) {
+			if got := names(registry.For(test.agent)); !slices.Equal(got, test.want) {
+				t.Errorf("got %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestCollectRunsEveryWantingParserInArtifactThenRegistryOrder(t *testing.T) {
 	denied := &fs.PathError{Op: "open", Path: "/x", Err: fs.ErrPermission}
 	first := &stub{Base: parser.NewBase("codex-cli", "first"), wants: "a", project: `c:\Work`}
