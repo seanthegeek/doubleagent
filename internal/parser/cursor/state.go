@@ -82,20 +82,9 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parser.Op
 	reader.loadBubbles()
 	var deleted []*composer
 	for _, current := range found.list {
-		stamp := p.newStamper(artifact, current, emit)
-		if current.hasData {
-			entries := reader.entries(current)
-			if len(entries) > 0 || !isText(current.data.Get("status"), "none") {
-				reader.conversation(stamp, entries)
-			}
-		} else if current.head.Get("agentLocationHistory").Truthy() || current.archived() {
+		if reader.composer(current, drafts, emit) {
 			deleted = append(deleted, current)
-			p.deleted(stamp)
 		}
-		if draft, ok := drafts[current.ident]; ok {
-			p.draft(stamp, draft)
-		}
-		parser.EmitAll(emit, p.ErrorRows(artifact, current.problems, current.ident, stamp.path))
 	}
 	if len(deleted) > 0 && keyValues != nil {
 		reader.blobs(deleted, emit)
@@ -108,6 +97,28 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parser.Op
 	items.mcp(emit)
 	items.plugins(emit)
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
+// composer emits the rows of one composer: its conversation (a draft never
+// sent has none) or, when only its header is left, its deletion, then its
+// unsent draft and its problems. It reports whether it was deleted.
+func (r *stateReader) composer(current *composer, drafts map[string]keyed, emit parser.Emit) bool {
+	stamp := r.owner.newStamper(r.artifact, current, emit)
+	deleted := false
+	if current.hasData {
+		entries := r.entries(current)
+		if len(entries) > 0 || !isText(current.data.Get("status"), "none") {
+			r.conversation(stamp, entries)
+		}
+	} else if current.head.Get("agentLocationHistory").Truthy() || current.archived() {
+		deleted = true
+		r.owner.deleted(stamp)
+	}
+	if draft, ok := drafts[current.ident]; ok {
+		r.owner.draft(stamp, draft)
+	}
+	parser.EmitAll(emit, r.owner.ErrorRows(r.artifact, current.problems, current.ident, stamp.path))
+	return deleted
 }
 
 // isText reports whether value is the string text.

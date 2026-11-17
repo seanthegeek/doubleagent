@@ -31,14 +31,8 @@ func (p *Parser) tool(stamp *stamper, bubble, entry pyjson.Value, rowid int64, m
 	review := extra.Get("reviewData")
 	pending := false
 	if review.IsObject() {
-		text := stoppedText
-		if !isText(review.Get("status"), "None") || !isText(extra.Get("status"), "rejected") {
-			pending = !isText(review.Get("status"), "Done") || isText(tool.Get("status"), "loading")
-			text = permissionText(extra, review)
-			if pending {
-				text = pendingText(name, extra, review)
-			}
-		}
+		var text string
+		text, pending = reviewText(name, tool, extra, review)
 		row(timeline.TurnSystem, text, started)
 	}
 	resultText := ""
@@ -53,6 +47,19 @@ func (p *Parser) tool(stamp *stamper, bubble, entry pyjson.Value, rowid int64, m
 		}
 		row(timeline.TurnToolResult, timeline.Compact(text), firstTruthy(bubble.Get("completedAtMs"), started))
 	}
+}
+
+// reviewText returns the text of a tool call's permission review and
+// whether its prompt is still open: a turn the user stopped (whose
+// selectedOption is a preset), an open prompt, or an answer.
+func reviewText(name string, tool, extra, review pyjson.Value) (string, bool) {
+	if isText(review.Get("status"), "None") && isText(extra.Get("status"), "rejected") {
+		return stoppedText, false
+	}
+	if !isText(review.Get("status"), "Done") || isText(tool.Get("status"), "loading") {
+		return pendingText(name, extra, review), true
+	}
+	return permissionText(extra, review), false
 }
 
 // fieldOf returns a decoded value as row text, "-" when it is null or "".

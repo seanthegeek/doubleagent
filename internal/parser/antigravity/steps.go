@@ -24,13 +24,7 @@ func (r *conversationReader) stepRows(index int64, stored sqlitefile.Row, step, 
 	if completed == "" {
 		completed = created
 	}
-	kind := ""
-	for _, name := range r.owner.payloadKinds {
-		if step.has(name) {
-			kind = name
-			break
-		}
-	}
+	kind := r.owner.stepKind(step)
 	payload := step.child(kind)
 	switch kind {
 	case "user_input":
@@ -57,13 +51,30 @@ func (r *conversationReader) stepRows(index int64, stored sqlitefile.Row, step, 
 	}
 	r.add(row)
 	if (kind == "run_command" || kind == "mcp_tool") && payload.truthy("user_rejected") {
-		decision := r.stepRow(index, row.TimestampUTC, model, timeline.TurnSystem, "permission decision: user_rejected")
-		decision.ToolName, decision.ToolUseID = row.ToolName, row.ToolUseID
-		if decision.ToolName == "" {
-			decision.ToolName = payload.child("tool_call").text("name")
-		}
-		r.add(decision)
+		r.rejection(row, payload)
 	}
+}
+
+// stepKind returns the kind of a step: the first payload kind it holds, in
+// declaration order, or "".
+func (p *Parser) stepKind(step message) string {
+	for _, name := range p.payloadKinds {
+		if step.has(name) {
+			return name
+		}
+	}
+	return ""
+}
+
+// rejection keeps the user's rejection of a command or MCP call as its own
+// row, beside the result that also says "[rejected by user]".
+func (r *conversationReader) rejection(result timeline.Row, payload message) {
+	decision := result
+	decision.TurnType, decision.Text = timeline.TurnSystem, "permission decision: user_rejected"
+	if decision.ToolName == "" {
+		decision.ToolName = payload.child("tool_call").text("name")
+	}
+	r.add(decision)
 }
 
 // userInput keeps the row of a prompt: a system row for one the user did

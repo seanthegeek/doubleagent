@@ -211,18 +211,7 @@ func (p *Parser) legacyChat(artifact *input.Artifact, chat *element, account, pr
 	if account == "" {
 		account = chat.childValue("accountId")
 	}
-	model := ""
-	if llm := chat.child("llm"); llm != nil {
-		for _, each := range llm.descendants("model", nil) {
-			if each.value != "" {
-				model = each.value
-				break
-			}
-		}
-	}
-	if model == "" {
-		model = chat.childValue("model")
-	}
+	model := legacyModel(chat)
 	var messages []*element
 	if holder := chat.child("messages"); holder != nil {
 		messages = holder.descendants("message", nil)
@@ -245,6 +234,19 @@ func (p *Parser) legacyChat(artifact *input.Artifact, chat *element, account, pr
 	row(timeline.TurnSystem, "chat: "+internal+" | account="+shownAccount+" | messages="+
 		strconv.Itoa(len(messages))+" (legacy JetBrains history)", "")
 	legacyMessages(messages, model, row)
+}
+
+// legacyModel returns a legacy chat's model: the first model under its llm
+// element with a value, else its own model element's.
+func legacyModel(chat *element) string {
+	if llm := chat.child("llm"); llm != nil {
+		for _, each := range llm.descendants("model", nil) {
+			if each.value != "" {
+				return each.value
+			}
+		}
+	}
+	return chat.childValue("model")
 }
 
 // legacyMessages emits the rows of a legacy chat's messages through row,

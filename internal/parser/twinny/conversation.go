@@ -87,16 +87,7 @@ func (c conversationRows) message(message pyjson.Value, models parser.Tracker, o
 	if images := message.Get("images"); images.IsArray() && images.Len() > 0 {
 		text = pytext.Strip(text + "\n[" + strconv.Itoa(images.Len()) + " image(s)]")
 	}
-	if text != "" {
-		switch {
-		case role.IsString() && role.Text() == "user":
-			c.row(timeline.TurnUser, text, "", "", "")
-		case isAssistant:
-			c.row(timeline.TurnAssistant, text, model, "", "")
-		default:
-			c.row(timeline.TurnSystem, roleName(role)+": "+text, model, "", "")
-		}
-	}
+	c.text(role, text, model)
 	for _, step := range parser.Elements(message.Get("toolSteps")) {
 		if step.IsObject() {
 			c.toolStep(step, model)
@@ -105,6 +96,20 @@ func (c conversationRows) message(message pyjson.Value, models parser.Tracker, o
 	c.changes(message.Get("changes"), model)
 	if withheld := meta.Get("withheld"); withheld.Truthy() {
 		c.row(timeline.TurnSystem, "secret shield withheld: "+parser.CompactJSON(withheld), model, "", "")
+	}
+}
+
+// text emits a message's text as a user or assistant row, or as a system
+// row naming any other role; empty text gives nothing.
+func (c conversationRows) text(role pyjson.Value, text, model string) {
+	switch {
+	case text == "":
+	case role.IsString() && role.Text() == "user":
+		c.row(timeline.TurnUser, text, "", "", "")
+	case role.IsString() && role.Text() == "assistant":
+		c.row(timeline.TurnAssistant, text, model, "", "")
+	default:
+		c.row(timeline.TurnSystem, roleName(role)+": "+text, model, "", "")
 	}
 }
 
