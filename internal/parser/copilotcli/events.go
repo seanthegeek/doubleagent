@@ -122,7 +122,7 @@ func (w *eventWalk) noteEvent(kind string, data jsonvalue.Value) {
 		w.system("compaction summary: " + text(data.Get("summaryContent")))
 	case kind == "abort" || kind == "session.error" || kind == "session.warning":
 		w.system(kind + ": " + firstNonEmpty(text(data.Get("reason")), text(data.Get("message")),
-			parser.CompactJSON(data)))
+			parser.JSONText(data)))
 	case kind == "hook.start" || kind == "hook.end":
 		w.emit(w.row(timeline.TurnSystem, hookText(kind, data), "", text(data.Get("parentToolCallId")), ""))
 	case isNoteType(kind):
@@ -133,7 +133,7 @@ func (w *eventWalk) noteEvent(kind string, data jsonvalue.Value) {
 				break
 			}
 		}
-		w.system(kind + ": " + firstNonEmpty(main, parser.CompactJSON(data)))
+		w.system(kind + ": " + firstNonEmpty(main, parser.JSONText(data)))
 	case kind == "session.shutdown":
 		w.system(shutdownText(data))
 	}
@@ -378,7 +378,7 @@ func hookText(kind string, data jsonvalue.Value) string {
 	if kind == "hook.start" {
 		payload := "{}"
 		if input := data.Get("input"); !input.IsNull() {
-			payload = parser.CompactJSON(input)
+			payload = parser.JSONText(input)
 		}
 		return "hook " + hook + " start: " + payload
 	}
@@ -387,11 +387,11 @@ func hookText(kind string, data jsonvalue.Value) string {
 		success = parser.SettingValue(flag)
 	}
 	if value := data.Get("output"); !value.IsNull() {
-		output = parser.CompactJSON(value)
+		output = parser.JSONText(value)
 	}
 	line := "hook " + hook + " end: success=" + success + " output=" + output
 	if failure := data.Get("error"); !failure.IsNull() {
-		line += " error=" + parser.CompactJSON(failure)
+		line += " error=" + parser.JSONText(failure)
 	}
 	return line
 }

@@ -70,7 +70,7 @@ func uriText(uri jsonvalue.Value) string {
 	if uri.IsNull() {
 		return ""
 	}
-	return parser.CompactJSON(uri)
+	return parser.JSONText(uri)
 }
 
 // textOrJSON returns a string as it is and any other value as JSON.
@@ -78,7 +78,7 @@ func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // toolCallText returns a tool invocation's command line or raw input, else
@@ -141,7 +141,7 @@ func confirmationPartText(part jsonvalue.Value) string {
 		pairs = append(pairs, "isUsed="+strconv.FormatBool(!part.Get("isUsed").IsEmpty()))
 	}
 	if buttons := part.Get("buttons"); buttons.IsArray() {
-		pairs = append(pairs, "buttons="+parser.CompactJSON(buttons))
+		pairs = append(pairs, "buttons="+parser.JSONText(buttons))
 	}
 	if title := part.Get("title"); !title.IsEmpty() {
 		pairs = append(pairs, "title="+parser.SettingValue(title))
@@ -236,8 +236,8 @@ func editStateText(entry jsonvalue.Value) string {
 		name = parser.SettingValue(state)
 	}
 	info := entry.Get("telemetryInfo")
-	text := "edit state: " + name + " " + orDash(antigravity.URIToPath(parser.Str(entry.Get("resource")))) +
-		" request=" + orDash(parser.Str(info.Get("requestId"))) + " model=" + orDash(parser.Str(info.Get("modelId")))
+	text := "edit state: " + name + " " + orDash(antigravity.URIToPath(parser.Text(entry.Get("resource")))) +
+		" request=" + orDash(parser.Text(info.Get("requestId"))) + " model=" + orDash(parser.Text(info.Get("modelId")))
 	if !entry.Get("isDeleted").IsEmpty() {
 		text += " deleted=true"
 	}

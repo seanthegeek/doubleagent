@@ -23,7 +23,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event j
 		rows = append(rows, made)
 		return made
 	}
-	kind := parser.Str(event.Get("kind"))
+	kind := parser.Text(event.Get("kind"))
 	switch kind {
 	case "MessageEvent":
 		messageRows(event, options, row)
@@ -35,13 +35,13 @@ func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event j
 		if !observation.Get("is_error").IsEmpty() {
 			text = "[error] " + text
 		}
-		row(timeline.TurnToolResult, text, parser.Str(event.Get("tool_name")),
-			parser.Str(event.Get("tool_call_id")))
+		row(timeline.TurnToolResult, text, parser.Text(event.Get("tool_name")),
+			parser.Text(event.Get("tool_call_id")))
 	case "UserRejectObservation":
 		rejectionRows(event, row)
 	case "AgentErrorEvent":
 		row(timeline.TurnToolResult, "[error] "+orDefault(event.Get("error"), ""),
-			parser.Str(event.Get("tool_name")), parser.Str(event.Get("tool_call_id")))
+			parser.Text(event.Get("tool_name")), parser.Text(event.Get("tool_call_id")))
 	case "ACPToolCallEvent":
 		acpRows(event, row)
 	case "SecurityAnalysisEvent":
@@ -71,7 +71,7 @@ func otherKindRows(kind string, event jsonvalue.Value, row eventRowMaker) {
 		if ids := event.Get("forgotten_event_ids"); ids.IsArray() {
 			forgotten = strconv.Itoa(ids.Len()) + " events forgotten"
 		}
-		row(timeline.TurnSystem, join(kind+":", forgotten, parser.Str(event.Get("summary"))), "", "")
+		row(timeline.TurnSystem, join(kind+":", forgotten, parser.Text(event.Get("summary"))), "", "")
 	case "HookExecutionEvent":
 		hookRow(event, row)
 	case "ConversationStateUpdateEvent":
@@ -81,7 +81,7 @@ func otherKindRows(kind string, event jsonvalue.Value, row eventRowMaker) {
 		if !value.IsObject() && !value.IsArray() && !isString(event.Get("key"), "full_state") {
 			shown = value.Text()
 		}
-		text := "state update: " + parser.Str(event.Get("key"))
+		text := "state update: " + parser.Text(event.Get("key"))
 		if shown != "" {
 			text += "=" + shown
 		}
@@ -104,7 +104,7 @@ func otherRow(kind string, event jsonvalue.Value, row eventRowMaker) {
 	}
 	text := ""
 	if len(rest) > 0 {
-		text = parser.CompactJSON(jsonvalue.NewObject(rest...))
+		text = parser.JSONText(jsonvalue.NewObject(rest...))
 	}
 	if kind == "" {
 		kind = "event"
@@ -131,7 +131,7 @@ func thinkingText(record jsonvalue.Value) string {
 // tool result it carries, and its tool calls.
 func messageRows(event jsonvalue.Value, options parser.Options, row eventRowMaker) {
 	message := event.Get("llm_message")
-	role := parser.Str(firstTruthy(message.Get("role"), event.Get("source")))
+	role := parser.Text(firstTruthy(message.Get("role"), event.Get("source")))
 	if options.IncludeThinking {
 		if thinking := thinkingText(message); thinking != "" {
 			row(timeline.TurnThinking, thinking, "", "")
@@ -140,8 +140,8 @@ func messageRows(event jsonvalue.Value, options parser.Options, row eventRowMake
 	text := parser.TextOf(message.Get("content"))
 	switch {
 	case role == "tool":
-		row(timeline.TurnToolResult, text, parser.Str(message.Get("name")),
-			parser.Str(message.Get("tool_call_id")))
+		row(timeline.TurnToolResult, text, parser.Text(message.Get("name")),
+			parser.Text(message.Get("tool_call_id")))
 	case text != "" || role == "user" || role == "system":
 		turn := timeline.TurnSystem
 		if role == "user" || role == "assistant" {
@@ -152,9 +152,9 @@ func messageRows(event jsonvalue.Value, options parser.Options, row eventRowMake
 	for _, call := range parser.Elements(message.Get("tool_calls")) {
 		function := call.Get("function")
 		row(timeline.TurnToolUse,
-			parser.Str(firstTruthy(call.Get("arguments"), function.Get("arguments"))),
-			parser.Str(firstTruthy(call.Get("name"), function.Get("name"))),
-			parser.Str(call.Get("id")))
+			parser.Text(firstTruthy(call.Get("arguments"), function.Get("arguments"))),
+			parser.Text(firstTruthy(call.Get("name"), function.Get("name"))),
+			parser.Text(call.Get("id")))
 	}
 }
 
@@ -169,8 +169,8 @@ func actionRows(event jsonvalue.Value, options parser.Options, row eventRowMaker
 	if risk := event.Get("security_risk"); !risk.IsNull() && !isString(risk, "") {
 		text += " security_risk=" + risk.Text()
 	}
-	row(timeline.TurnToolUse, text, parser.Str(event.Get("tool_name")),
-		parser.Str(event.Get("tool_call_id")))
+	row(timeline.TurnToolUse, text, parser.Text(event.Get("tool_name")),
+		parser.Text(event.Get("tool_call_id")))
 }
 
 // actionText returns a terminal action's command, a file edit's "<command>
@@ -197,36 +197,36 @@ func actionText(event jsonvalue.Value) string {
 		}
 	}
 	if len(rest) > 0 {
-		return parser.CompactJSON(jsonvalue.NewObject(rest...))
+		return parser.JSONText(jsonvalue.NewObject(rest...))
 	}
-	return parser.Str(action.Get("kind"))
+	return parser.Text(action.Get("kind"))
 }
 
 // rejectionRows emits the result and the permission decision of a rejected
 // action.
 func rejectionRows(event jsonvalue.Value, row eventRowMaker) {
-	toolName, toolUseID := parser.Str(event.Get("tool_name")), parser.Str(event.Get("tool_call_id"))
+	toolName, toolUseID := parser.Text(event.Get("tool_name")), parser.Text(event.Get("tool_call_id"))
 	source, reason := event.Get("rejection_source"), event.Get("rejection_reason")
 	row(timeline.TurnToolResult, "[rejected by "+orDefault(source, "user")+"] "+orDefault(reason, ""),
 		toolName, toolUseID)
 	row(timeline.TurnSystem, joinSpace("permission decision: rejected rejection_source="+
-		orDefault(source, "-"), parser.Str(reason)), toolName, toolUseID)
+		orDefault(source, "-"), parser.Text(reason)), toolName, toolUseID)
 }
 
 // acpRows emits the call and the result of an ACP tool call.
 func acpRows(event jsonvalue.Value, row eventRowMaker) {
-	name, callID := orDefault(event.Get("tool_kind"), "acp"), parser.Str(event.Get("tool_call_id"))
+	name, callID := orDefault(event.Get("tool_kind"), "acp"), parser.Text(event.Get("tool_call_id"))
 	input := ""
 	if raw := event.Get("raw_input"); !raw.IsNull() {
-		input = parser.CompactJSON(raw)
+		input = parser.JSONText(raw)
 	}
-	row(timeline.TurnToolUse, join(parser.Str(event.Get("title")), input), name, callID)
+	row(timeline.TurnToolUse, join(parser.Text(event.Get("title")), input), name, callID)
 	output, content := "", ""
 	switch raw := event.Get("raw_output"); {
 	case raw.IsString():
 		output = raw.StringValue()
 	case !raw.IsNull():
-		output = parser.CompactJSON(raw)
+		output = parser.JSONText(raw)
 	}
 	if event.Get("content").IsArray() {
 		content = parser.TextOf(event.Get("content"))
@@ -251,8 +251,8 @@ func hookRow(event jsonvalue.Value, row eventRowMaker) {
 	if !event.Get("blocked").IsEmpty() {
 		blocked = "blocked"
 	}
-	row(timeline.TurnSystem, join("hook "+parser.Str(event.Get("hook_event_type"))+": "+
-		parser.Str(event.Get("hook_command")), exit, blocked, parser.Str(event.Get("stderr"))), "", "")
+	row(timeline.TurnSystem, join("hook "+parser.Text(event.Get("hook_event_type"))+": "+
+		parser.Text(event.Get("hook_command")), exit, blocked, parser.Text(event.Get("stderr"))), "", "")
 }
 
 // securityRows emits one permission decision row per action the security
@@ -267,7 +267,7 @@ func securityRows(event jsonvalue.Value, conv *conversation, row eventRowMaker) 
 		}
 		detailText := ""
 		if detail := details.Get(risk.Key); !detail.IsEmpty() {
-			detailText = "details=" + parser.CompactJSON(detail)
+			detailText = "details=" + parser.JSONText(detail)
 		}
 		row(timeline.TurnSystem, joinSpace("permission decision: analyzed risk="+risk.Value.Text()+
 			" analyzer="+orDefault(event.Get("analyzer"), "-")+" policy="+

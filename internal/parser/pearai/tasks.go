@@ -57,7 +57,7 @@ func (p *Parser) askTimes(task clinelegacy.Task) []jsonvalue.Value {
 	var asks []jsonvalue.Value
 	for _, message := range p.CachedJSON(task.InDir(clinelegacy.UIFile)).Items() {
 		stamp := message.Get("ts")
-		kind := parser.Str(clinelegacy.FirstTruthy(message.Get("ask"), message.Get("say")))
+		kind := parser.Text(clinelegacy.FirstTruthy(message.Get("ask"), message.Get("say")))
 		if clinelegacy.IsNumber(stamp) && clinelegacy.IsToolUseKind(kind) {
 			asks = append(asks, stamp)
 		}

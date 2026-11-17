@@ -133,12 +133,12 @@ func (p *Parser) parseCrashes(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
 	for index, record := range parser.JSONArray(artifact.DiskPath, &problems) {
 		if !record.IsObject() {
-			problems.AddRaw(index, notObjectRecord(index), parser.CompactJSON(record))
+			problems.AddRaw(index, notObjectRecord(index), parser.JSONText(record))
 			continue
 		}
 		text, sessionID := p.crashText(record, "(from "+artifact.Rel+", record timestamp)")
 		emit(p.systemRow(artifact, index, timeutil.FromValue(record.Get("timestamp")), sessionID,
-			parser.Str(record.Get("cwd")), text))
+			parser.Text(record.Get("cwd")), text))
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
@@ -152,7 +152,7 @@ func notObjectRecord(position int) string {
 // crashText returns a crash record's `crash:` row text, ending with source,
 // and the session id its sessionFile names.
 func (p *Parser) crashText(record jsonvalue.Value, source string) (string, string) {
-	sessionFile := parser.Str(record.Get("sessionFile"))
+	sessionFile := parser.Text(record.Get("sessionFile"))
 	sessionID := ""
 	if match := p.sessionName.FindStringSubmatch(strings.ReplaceAll(sessionFile, `\`, "/")); match != nil {
 		sessionID = match[1]
@@ -175,7 +175,7 @@ func (p *Parser) parseMeta(artifact *input.Artifact, sessionID string, emit pars
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
 	}
-	cwd := parser.Str(meta.Get("cwd"))
+	cwd := parser.Text(meta.Get("cwd"))
 	emit(p.systemRow(artifact, 1, timeutil.FromValue(meta.Get("createdAt")), sessionID, cwd,
 		"experimental durable session created: cwd="+cwd+" (transcript in session.sqlite, not parsed)"))
 }

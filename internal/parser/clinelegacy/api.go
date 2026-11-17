@@ -115,7 +115,7 @@ func ContentRows(content jsonvalue.Value, baseTurn string, includeThinking bool)
 		if !Present(content) {
 			return nil
 		}
-		return []ContentRow{{TurnType: baseTurn, Text: parser.CompactJSON(content)}}
+		return []ContentRow{{TurnType: baseTurn, Text: parser.JSONText(content)}}
 	}
 	var rows []ContentRow
 	for _, block := range content.Items() {
@@ -144,14 +144,14 @@ func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (Con
 		text := block.Get("text")
 		return ContentRow{TurnType: baseTurn, Text: text.Text()}, !text.IsEmpty()
 	case isText(blockType, "tool_use"):
-		name := parser.Str(block.Get("name"))
+		name := parser.Text(block.Get("name"))
 		return ContentRow{TurnType: timeline.TurnToolUse, ToolName: name,
 			Text:      claudecode.ToolSummary(name, block.Get("input")),
-			ToolUseID: parser.Str(FirstTruthy(block.Get("id"), block.Get("call_id")))}, true
+			ToolUseID: parser.Text(FirstTruthy(block.Get("id"), block.Get("call_id")))}, true
 	case isText(blockType, "tool_result"):
 		return toolResultRow(block), true
 	case isText(blockType, "thinking") || isText(blockType, "reasoning"):
-		text := parser.Str(FirstTruthy(block.Get("thinking"), block.Get("text")))
+		text := parser.Text(FirstTruthy(block.Get("thinking"), block.Get("text")))
 		return ContentRow{TurnType: timeline.TurnThinking, Text: text}, includeThinking
 	case isText(blockType, "redacted_thinking"):
 		return ContentRow{TurnType: timeline.TurnThinking, Text: "[redacted thinking]"}, includeThinking
@@ -170,7 +170,7 @@ func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (Con
 // "[error]" for a failed call.
 func toolResultRow(block jsonvalue.Value) ContentRow {
 	content := block.Get("content")
-	body := parser.CompactJSON(content)
+	body := parser.JSONText(content)
 	if content.IsString() || content.IsArray() || content.IsNull() {
 		body = parser.TextOf(content)
 	}
@@ -178,5 +178,5 @@ func toolResultRow(block jsonvalue.Value) ContentRow {
 		body = "[error] " + body
 	}
 	return ContentRow{TurnType: timeline.TurnToolResult, Text: body,
-		ToolName: parser.Str(block.Get("name")), ToolUseID: parser.Str(block.Get("tool_use_id"))}
+		ToolName: parser.Text(block.Get("name")), ToolUseID: parser.Text(block.Get("tool_use_id"))}
 }

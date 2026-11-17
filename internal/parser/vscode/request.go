@@ -12,7 +12,7 @@ import (
 // permission level, the prompt, a confirmation, the response's parts, and
 // an error or a cancel.
 func (s *sessionRows) request(request jsonvalue.Value, line int, options parser.Options) {
-	model := parser.Str(request.Get("modelId"))
+	model := parser.Text(request.Get("modelId"))
 	asked := request.Get("timestamp")
 	s.change("model", "model", modelText(model, request.Get("modelConfiguration")), asked, line, model)
 	modeInfo := request.Get("modeInfo")
@@ -54,7 +54,7 @@ func promptText(request jsonvalue.Value) string {
 	message := request.Get("message")
 	text := message.StringValue()
 	if message.IsObject() {
-		text = parser.Str(message.Get("text"))
+		text = parser.Text(message.Get("text"))
 	}
 	var names []string
 	for _, variable := range parser.Elements(request.Get("variableData").Get("variables")) {
@@ -114,7 +114,7 @@ func (r *responseRows) parts(parts []jsonvalue.Value, options parser.Options) {
 			r.run = append(r.run, mdText(part.Get("content")))
 			continue
 		case isText(kind, "inlineReference"):
-			name := parser.Str(part.Get("name"))
+			name := parser.Text(part.Get("name"))
 			if name == "" {
 				name = uriText(part.Get("inlineReference"))
 			}
@@ -135,7 +135,7 @@ func (r *responseRows) part(kind, part jsonvalue.Value, options parser.Options) 
 			r.row(timeline.TurnThinking, thought, "", "")
 		}
 	case isText(kind, "toolInvocationSerialized"):
-		toolUseID, toolName := parser.Str(part.Get("toolCallId")), parser.Str(part.Get("toolId"))
+		toolUseID, toolName := parser.Text(part.Get("toolCallId")), parser.Text(part.Get("toolId"))
 		r.row(timeline.TurnToolUse, toolCallText(part), toolName, toolUseID)
 		r.row(timeline.TurnToolResult, toolResultText(part), toolName, toolUseID)
 		if decision := confirmedText(part); decision != "" {

@@ -55,7 +55,7 @@ func (p *Parser) parseResponses(artifact *input.Artifact, options parser.Options
 // the same position.
 func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, names map[string]string,
 	seen map[string]map[string]bool, reader *messageReader, problems *parser.Problems) {
-	sessionID := parser.Str(entry.data.Get("session_id"))
+	sessionID := parser.Text(entry.data.Get("session_id"))
 	response := entry.data.Get("response")
 	if !response.IsObject() {
 		response = jsonvalue.NewObject()
@@ -77,10 +77,10 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 		if !item.IsObject() {
 			problems.AddRaw(int(entry.rowid), "unparseable record "+rowid+
 				" (responses.data conversation_history "+strconv.Itoa(i)+": not an object)",
-				parser.CompactJSON(item))
+				parser.JSONText(item))
 			continue
 		}
-		key := strconv.Itoa(i) + "\x00" + parser.CompactJSON(item)
+		key := strconv.Itoa(i) + "\x00" + parser.JSONText(item)
 		if seen[sessionID][key] {
 			continue
 		}

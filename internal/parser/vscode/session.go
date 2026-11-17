@@ -56,7 +56,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	if !state.IsObject() {
 		state = jsonvalue.NewObject()
 	}
-	sessionID := parser.Str(state.Get("sessionId"))
+	sessionID := parser.Text(state.Get("sessionId"))
 	if sessionID == "" {
 		sessionID = path.Base(artifact.Rel)
 		if dot := strings.LastIndex(sessionID, "."); dot >= 0 {
@@ -64,7 +64,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		}
 	}
 	folder, workspaceFile := p.workspaceFolder(artifact, &problems)
-	project := antigravity.URIToPath(parser.Str(state.Get("workingDirectory")))
+	project := antigravity.URIToPath(parser.Text(state.Get("workingDirectory")))
 	if project == "" {
 		project = folder
 	}
@@ -131,8 +131,8 @@ func workspaceJSON(artifact *input.Artifact, levels int, problems *parser.Proble
 		problems.Add(0, "workspace.json is not a JSON object")
 		return "", ""
 	}
-	return antigravity.URIToPath(parser.Str(data.Get("folder"))),
-		antigravity.URIToPath(parser.Str(data.Get("workspace")))
+	return antigravity.URIToPath(parser.Text(data.Get("folder"))),
+		antigravity.URIToPath(parser.Text(data.Get("workspace")))
 }
 
 // tracked emits a system row when a tracked state of the session changes.

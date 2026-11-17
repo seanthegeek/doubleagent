@@ -47,7 +47,7 @@ func (p *TaskParser) parseMetadata(artifact *input.Artifact, context *TaskContex
 	for position, entry := range data.Get("model_usage").Items() {
 		if entry.IsObject() {
 			events = append(events, metadataEvent{timestamp: FirstTruthy(entry.Get("ts"), zero),
-				position: position + 1, model: parser.Str(entry.Get("model_id")), usage: entry})
+				position: position + 1, model: parser.Text(entry.Get("model_id")), usage: entry})
 		}
 	}
 	for position, entry := range data.Get("environment_history").Items() {
@@ -85,7 +85,7 @@ func eventTexts(event metadataEvent, taskID string, models, modes parser.Tracker
 		}
 		texts = append(texts, change)
 	}
-	if mode := modes.Change("permission mode", taskID, parser.Str(event.usage.Get("mode"))); mode != "" {
+	if mode := modes.Change("permission mode", taskID, parser.Text(event.usage.Get("mode"))); mode != "" {
 		texts = append(texts, mode)
 	}
 	return texts
@@ -113,9 +113,9 @@ func fileEvents(files jsonvalue.Value) []metadataEvent {
 			}
 			seen[signature] = true
 			events = append(events, metadataEvent{timestamp: timestamp, position: position + 1,
-				text: "file " + strings.TrimSuffix(key, "_date") + ": " + parser.Str(entry.Get("path")) +
-					" (source=" + parser.Str(entry.Get("record_source")) + " state=" +
-					parser.Str(entry.Get("record_state")) + ")"})
+				text: "file " + strings.TrimSuffix(key, "_date") + ": " + parser.Text(entry.Get("path")) +
+					" (source=" + parser.Text(entry.Get("record_source")) + " state=" +
+					parser.Text(entry.Get("record_state")) + ")"})
 		}
 	}
 	return events

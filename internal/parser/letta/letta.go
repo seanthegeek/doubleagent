@@ -185,11 +185,11 @@ func (p *Parser) parseLocal(artifact *input.Artifact, directory string, options 
 	emit parser.Emit) {
 	session := pi.ReadSession(artifact.DiskPath)
 	key := DecodeKey(directory)
-	sessionID := parser.Str(session.Header.Get("id"))
+	sessionID := parser.Text(session.Header.Get("id"))
 	if sessionID == "" {
 		_, sessionID, _ = strings.Cut(key, ":")
 	}
-	cwd := parser.Str(session.Header.Get("cwd"))
+	cwd := parser.Text(session.Header.Get("cwd"))
 	if isBareMessages(session) {
 		session = bareMessages(session)
 	} else {

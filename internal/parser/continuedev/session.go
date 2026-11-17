@@ -70,9 +70,9 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 		answered: map[string]bool{}}
 	state.base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
 	state.base.SessionID = sessionID
-	state.base.ProjectPath = parser.Str(clinelegacy.FirstTruthy(document.Get("workspaceDirectory"),
+	state.base.ProjectPath = parser.Text(clinelegacy.FirstTruthy(document.Get("workspaceDirectory"),
 		entry.Get("workspaceDirectory")))
-	state.model = parser.Str(document.Get("chatModelTitle"))
+	state.model = parser.Text(document.Get("chatModelTitle"))
 	history := document.Get("history").Items()
 	state.header(document, entry, len(history))
 	for _, item := range history {
@@ -97,7 +97,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 // scratch directory row of a cn review worktree.
 func (s *sessionFile) header(document, entry jsonvalue.Value, items int) {
 	model := s.model
-	bits := []string{"session start: " + parser.Str(clinelegacy.FirstTruthy(document.Get("title"),
+	bits := []string{"session start: " + parser.Text(clinelegacy.FirstTruthy(document.Get("title"),
 		entry.Get("title")))}
 	if mode := document.Get("mode"); !mode.IsEmpty() {
 		bits = append(bits, "mode="+mode.Text())
@@ -158,7 +158,7 @@ func (s *sessionFile) item(position int, item, message jsonvalue.Value) {
 		}
 	case isText(role, "tool"):
 		row := s.row(position, "", timeline.TurnToolResult)
-		row.ToolUseID = parser.Str(message.Get("toolCallId"))
+		row.ToolUseID = parser.Text(message.Get("toolCallId"))
 		row.ToolName = s.names[row.ToolUseID]
 		s.text(row, text)
 	case text != "":

@@ -180,7 +180,7 @@ func (d *database) session(session sqlitefile.Row) {
 	}
 	modelValue := ""
 	if config.value.IsObject() {
-		modelValue = parser.Str(config.value.Get("model_name"))
+		modelValue = parser.Text(config.value.Get("model_name"))
 	}
 	sessionID := orText(session.Get("id"))
 	provider := orText(session.Get("provider_name"))
@@ -277,7 +277,7 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 				if answered[sessionID] == nil {
 					answered[sessionID] = map[string]bool{}
 				}
-				answered[sessionID][parser.Str(data.Get("id"))] = true
+				answered[sessionID][parser.Text(data.Get("id"))] = true
 			}
 		}
 		return nil
@@ -340,11 +340,11 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 // messageModel returns the model of a message from its inference
 // metadata, else its session's, and emits the model row of a change.
 func (d *database) messageModel(base timeline.Row, inference jsonvalue.Value) string {
-	resolved := parser.Str(inference.Get("resolvedModel"))
+	resolved := parser.Text(inference.Get("resolvedModel"))
 	if resolved == "" {
-		resolved = parser.Str(inference.Get("requestedModel"))
+		resolved = parser.Text(inference.Get("requestedModel"))
 	}
-	provider := parser.Str(inference.Get("provider"))
+	provider := parser.Text(inference.Get("provider"))
 	base.Model = modelName(provider, resolved)
 	if base.Model == "" {
 		base.Model = d.byModel[base.SessionID]
@@ -353,7 +353,7 @@ func (d *database) messageModel(base timeline.Row, inference jsonvalue.Value) st
 		if provider != "" {
 			text += " provider=" + provider
 		}
-		if requested := parser.Str(inference.Get("requestedModel")); requested != "" && requested != resolved {
+		if requested := parser.Text(inference.Get("requestedModel")); requested != "" && requested != resolved {
 			text += " requested=" + requested
 		}
 		d.emit(systemCopy(base, text))

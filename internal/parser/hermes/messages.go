@@ -118,7 +118,7 @@ func toolCalls(message jsonvalue.Value, line jsonvalue.Value) ([]jsonvalue.Value
 	if value.IsNull() || value.IsString() && value.StringValue() == "" {
 		return nil, nil
 	}
-	raw := parser.CompactJSON(value)
+	raw := parser.JSONText(value)
 	if value.IsString() {
 		raw = value.StringValue()
 	}
@@ -171,12 +171,12 @@ func callSummary(arguments jsonvalue.Value) string {
 				return value.Text()
 			}
 		}
-		return parser.CompactJSON(decoded)
+		return parser.JSONText(decoded)
 	}
 	if decoded.IsString() {
 		return decoded.StringValue()
 	}
-	return parser.CompactJSON(decoded)
+	return parser.JSONText(decoded)
 }
 
 // terminalDecision returns the "permission decision:" text, less its label,
@@ -237,7 +237,7 @@ func rewound(message jsonvalue.Value) bool {
 func (m *messageReader) message(message, session, line jsonvalue.Value) {
 	number := lineNumber(line)
 	timestamp := timeutil.FromValue(message.Get("timestamp"))
-	role := parser.Str(message.Get("role"))
+	role := parser.Text(message.Get("role"))
 	if isText(message.Get("display_kind"), "model_switch") {
 		m.emit(m.switchRow(message, session, number))
 		return
@@ -285,12 +285,12 @@ func (m *messageReader) toolUses(message, session, line jsonvalue.Value,
 			function = jsonvalue.NewObject()
 		}
 		row := makeRow(timeline.TurnToolUse, callSummary(function.Get("arguments")))
-		row.ToolUseID = parser.Str(either(call.Get("id"), call.Get("call_id")))
-		row.ToolName = parser.Str(function.Get("name"))
+		row.ToolUseID = parser.Text(either(call.Get("id"), call.Get("call_id")))
+		row.ToolName = parser.Text(function.Get("name"))
 		m.toolNames[row.ToolUseID] = row.ToolName
 		m.emit(row)
 	}
-	parser.EmitAll(m.emit, m.parser.ErrorRows(m.artifact, problems, parser.Str(session.Get("id")),
+	parser.EmitAll(m.emit, m.parser.ErrorRows(m.artifact, problems, parser.Text(session.Get("id")),
 		projectOf(session)))
 }
 
@@ -298,8 +298,8 @@ func (m *messageReader) toolUses(message, session, line jsonvalue.Value,
 // permission decision its result records.
 func (m *messageReader) toolResult(message, session jsonvalue.Value, row timeline.Row, number int,
 	timestamp string) {
-	row.ToolUseID = parser.Str(message.Get("tool_call_id"))
-	row.ToolName = parser.Str(message.Get("tool_name"))
+	row.ToolUseID = parser.Text(message.Get("tool_call_id"))
+	row.ToolName = parser.Text(message.Get("tool_name"))
 	if row.ToolName == "" {
 		row.ToolName = m.toolNames[row.ToolUseID]
 	}
@@ -334,7 +334,7 @@ func (m *messageReader) switchRow(message, session jsonvalue.Value, number int) 
 	if old == "" && isNumber {
 		for _, usage := range m.usage[row.SessionID] {
 			if first, ok := numberValue(usage.Get("first_seen")); ok && first < switchTime {
-				old = parser.Str(usage.Get("model"))
+				old = parser.Text(usage.Get("model"))
 			}
 		}
 	}

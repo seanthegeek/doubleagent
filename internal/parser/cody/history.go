@@ -33,7 +33,7 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 			if !chat.Value.IsObject() {
 				continue
 			}
-			sessionID := parser.Str(chat.Value.Get("id"))
+			sessionID := parser.Text(chat.Value.Get("id"))
 			if sessionID == "" {
 				sessionID = chat.Key
 			}
@@ -77,14 +77,14 @@ func (c *chatRows) row(turnType, text, model, toolName, toolUseID string) {
 // chat emits a heading row, then the rows of each interaction's human and
 // assistant messages.
 func (c *chatRows) chat(account string, chat jsonvalue.Value) {
-	c.timestamp = chatTime(parser.Str(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
+	c.timestamp = chatTime(parser.Text(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
 	var interactions []jsonvalue.Value
 	for _, entry := range chat.Get("interactions").Items() {
 		if entry.IsObject() {
 			interactions = append(interactions, entry)
 		}
 	}
-	c.row(timeline.TurnSystem, "chat: "+parser.Str(chat.Get("chatTitle"))+" | account="+account+
+	c.row(timeline.TurnSystem, "chat: "+parser.Text(chat.Get("chatTitle"))+" | account="+account+
 		" | interactions="+strconv.Itoa(len(interactions)), "", "", "")
 	for _, interaction := range interactions {
 		for _, key := range []string{"humanMessage", "assistantMessage"} {
@@ -106,7 +106,7 @@ func (c *chatRows) message(message jsonvalue.Value) {
 	speaker := message.Get("speaker")
 	model := ""
 	if isText(speaker, "assistant") {
-		model = parser.Str(message.Get("model"))
+		model = parser.Text(message.Get("model"))
 	}
 	if change := c.models.Change("model", "model", model); change != "" {
 		c.row(timeline.TurnSystem, change, model, "", "")
@@ -179,24 +179,24 @@ func (c *chatRows) parts(parts []jsonvalue.Value, model string) map[string]bool 
 	for _, part := range parts {
 		kind := part.Get("type")
 		if call := part.Get("tool_call"); isText(kind, "tool_call") && call.IsObject() {
-			toolID, name := parser.Str(call.Get("id")), parser.Str(call.Get("name"))
+			toolID, name := parser.Text(call.Get("id")), parser.Text(call.Get("name"))
 			callIDs[toolID] = true
 			c.names[toolID] = name
 			args := call.Get("arguments")
 			text := args.StringValue()
 			if !args.IsString() {
-				text = parser.CompactJSON(args)
+				text = parser.JSONText(args)
 			}
 			c.row(timeline.TurnToolUse, text, model, name, toolID)
 		} else if result := part.Get("tool_result"); isText(kind, "tool_result") && result.IsObject() {
-			toolID := parser.Str(result.Get("id"))
+			toolID := parser.Text(result.Get("id"))
 			content := result.Get("content")
 			text := content.StringValue()
 			switch {
 			case content.IsArray():
 				text = parser.TextOf(content)
 			case !content.IsString():
-				text = parser.CompactJSON(content)
+				text = parser.JSONText(content)
 			}
 			c.row(timeline.TurnToolResult, text, model, c.names[toolID], toolID)
 		}
@@ -210,7 +210,7 @@ func (c *chatRows) parts(parts []jsonvalue.Value, model string) map[string]bool 
 func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool, model string) {
 	for _, process := range parser.Elements(processes) {
 		kind := process.Get("type")
-		toolID := parser.Str(process.Get("id"))
+		toolID := parser.Text(process.Get("id"))
 		if isText(kind, "confirmation") {
 			lines := []string{confirmationHead(process)}
 			for _, key := range []string{"description", "content"} {
@@ -224,12 +224,12 @@ func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool,
 		if !isText(kind, "tool") || (toolID != "" && callIDs[toolID]) {
 			continue
 		}
-		name := parser.Str(process.Get("title"))
+		name := parser.Text(process.Get("title"))
 		c.names[toolID] = name
 		content := process.Get("content")
 		body := content.StringValue()
 		if !content.IsString() && !content.IsNull() {
-			body = parser.CompactJSON(content)
+			body = parser.JSONText(content)
 		}
 		if state := process.Get("state"); !state.IsEmpty() && !isText(state, "success") {
 			body = "[" + state.Text() + "] " + body

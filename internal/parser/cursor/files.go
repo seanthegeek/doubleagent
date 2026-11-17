@@ -44,8 +44,8 @@ func (p *Parser) transcript(artifact *input.Artifact, emit parser.Emit) {
 					emit(row(timeline.TurnAssistant, text, "", number))
 				}
 			case isText(block.Get("type"), "tool_use"):
-				made := row(timeline.TurnToolUse, parser.CompactJSON(block.Get("input")), "", number)
-				made.ToolName = parser.Str(block.Get("name"))
+				made := row(timeline.TurnToolUse, parser.JSONText(block.Get("input")), "", number)
+				made.ToolName = parser.Text(block.Get("name"))
 				emit(made)
 			}
 		}

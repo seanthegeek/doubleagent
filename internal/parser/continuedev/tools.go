@@ -53,8 +53,8 @@ func (s *sessionFile) toolCalls(position int, model string, item, message jsonva
 			continue
 		}
 		row := s.row(position, model, timeline.TurnToolUse)
-		row.ToolUseID = parser.Str(call.Get("id"))
-		row.ToolName = parser.Str(call.Get("function").Get("name"))
+		row.ToolUseID = parser.Text(call.Get("id"))
+		row.ToolName = parser.Text(call.Get("function").Get("name"))
 		s.names[row.ToolUseID] = row.ToolName
 		s.text(row, argumentsText(call.Get("function").Get("arguments")))
 	}
@@ -72,19 +72,19 @@ func argumentsText(arguments jsonvalue.Value) string {
 	case arguments.IsNull():
 		return ""
 	}
-	return parser.CompactJSON(arguments)
+	return parser.JSONText(arguments)
 }
 
 // callState emits the result row of a call state no tool message answers,
 // when it has output or a status beyond the running ones, and the
 // permission decision it records.
 func (s *sessionFile) callState(position int, model string, state jsonvalue.Value) {
-	callID := parser.Str(state.Get("toolCallId"))
+	callID := parser.Text(state.Get("toolCallId"))
 	if callID == "" {
 		return
 	}
 	output := outputText(state.Get("output"))
-	status := parser.Str(state.Get("status"))
+	status := parser.Text(state.Get("status"))
 	running := status == "" || status == "done" || status == "generated" || status == "generating" ||
 		status == "calling"
 	if !s.answered[callID] && (output != "" || !running) {
@@ -119,9 +119,9 @@ func outputText(output jsonvalue.Value) string {
 			case content.IsString():
 				part = content.StringValue()
 			case !content.IsNull():
-				part = parser.CompactJSON(content)
+				part = parser.JSONText(content)
 			default:
-				part = parser.Str(item.Get("name"))
+				part = parser.Text(item.Get("name"))
 			}
 		}
 		if part != "" {

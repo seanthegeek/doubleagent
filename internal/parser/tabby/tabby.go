@@ -327,7 +327,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, emit parser.Emit) {
 		event := record.Get("event")
 		if !event.IsObject() {
 			emit(p.row(artifact, rowSpec{line: number, timestamp: timestamp,
-				text: "unknown log entry: " + parser.CompactJSON(record)}))
+				text: "unknown log entry: " + parser.JSONText(record)}))
 			continue
 		}
 		p.eventRows(artifact, rowSpec{line: number, timestamp: timestamp}, owner, event, "", emit)
@@ -341,7 +341,7 @@ func (p *Parser) parseEvents(artifact *input.Artifact, emit parser.Emit) {
 func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string, event jsonvalue.Value,
 	kind string, emit parser.Emit) {
 	if event.Len() != 1 {
-		spec.text = joinParts(timeutil.FirstNonEmpty(kind, "event"), owner, parser.CompactJSON(event))
+		spec.text = joinParts(timeutil.FirstNonEmpty(kind, "event"), owner, parser.JSONText(event))
 		emit(p.row(artifact, spec))
 		return
 	}
@@ -350,7 +350,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	if !body.IsObject() {
 		body = jsonvalue.NewObject()
 	}
-	spec.sessionID = parser.Str(body.Get("completion_id"))
+	spec.sessionID = parser.Text(body.Get("completion_id"))
 	switch {
 	case tag == "completion":
 		p.completionRows(artifact, spec, owner, body, emit)
@@ -369,7 +369,7 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	default:
 		detail := ""
 		if !body.IsEmpty() {
-			detail = parser.CompactJSON(body)
+			detail = parser.JSONText(body)
 		}
 		spec.text = joinParts(tag, owner, detail)
 		emit(p.row(artifact, spec))
@@ -393,15 +393,15 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 	if !segments.IsObject() {
 		segments = jsonvalue.NewObject()
 	}
-	spec.projectPath = parser.Str(segments.Get("git_url"))
+	spec.projectPath = parser.Text(segments.Get("git_url"))
 	spec.text = joinParts("completion", owner, labelled("language=", body.Get("language")),
 		labelled("file=", segments.Get("filepath")), labelled("client=", body.Get("user_agent")))
 	emit(p.row(artifact, spec))
-	spec.turnType, spec.text = timeline.TurnUser, parser.Str(body.Get("prompt"))
+	spec.turnType, spec.text = timeline.TurnUser, parser.Text(body.Get("prompt"))
 	emit(p.row(artifact, spec))
 	for _, choice := range arrayItems(body.Get("choices")) {
 		if choice.IsObject() {
-			spec.turnType, spec.text = timeline.TurnAssistant, parser.Str(choice.Get("text"))
+			spec.turnType, spec.text = timeline.TurnAssistant, parser.Text(choice.Get("text"))
 			emit(p.row(artifact, spec))
 		}
 	}

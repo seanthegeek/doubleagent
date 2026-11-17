@@ -85,9 +85,9 @@ func resultText(result jsonvalue.Value) string {
 		case block.Get("Text").IsString():
 			parts = append(parts, block.Get("Text").StringValue())
 		case block.Has("Json"):
-			parts = append(parts, parser.CompactJSON(block.Get("Json")))
+			parts = append(parts, parser.JSONText(block.Get("Json")))
 		default:
-			parts = append(parts, parser.CompactJSON(block))
+			parts = append(parts, parser.JSONText(block))
 		}
 	}
 	text := strings.Join(parts, "\n")
@@ -124,7 +124,7 @@ func (p *Parser) decisionText(prompt jsonvalue.Value) string {
 // which a snapshot entry, a clone of the history entry, is equal to it.
 func entryKey(entry jsonvalue.Value) string {
 	user := entry.Get("user")
-	return parser.CompactJSON(jsonvalue.NewArray(user.Get("content"), user.Get("timestamp"),
+	return parser.JSONText(jsonvalue.NewArray(user.Get("content"), user.Get("timestamp"),
 		entry.Get("assistant")))
 }
 
@@ -168,7 +168,7 @@ func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // conversation emits the rows of one serialised ConversationState read
@@ -187,7 +187,7 @@ func (p *Parser) conversation(artifact *input.Artifact, options parser.Options, 
 		return
 	}
 	reader := &conversation{parser: p, artifact: artifact, options: options, emit: emit,
-		line: line, sessionID: parser.Str(state.Get("conversation_id")), project: key,
+		line: line, sessionID: parser.Text(state.Get("conversation_id")), project: key,
 		names: map[string]string{}}
 	if info := state.Get("model_info"); info.IsObject() && !info.Get("model_id").IsEmpty() {
 		reader.stateModel, reader.source = info.Get("model_id").Text(), "model_info"
@@ -292,7 +292,7 @@ func historyCopies(state jsonvalue.Value) []historyCopy {
 			if !checkpoint.IsObject() || !snapshot.IsArray() {
 				continue
 			}
-			head := "checkpoint snapshot: tag=" + parser.Str(checkpoint.Get("tag"))
+			head := "checkpoint snapshot: tag=" + parser.Text(checkpoint.Get("tag"))
 			if tool := checkpoint.Get("tool_name"); !tool.IsEmpty() {
 				head += " tool=" + tool.Text()
 			}
@@ -322,7 +322,7 @@ func (c *conversation) summary(summary jsonvalue.Value) {
 	}
 	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")),
 		timeutil.FromValue(meta.Get("request_start_timestamp_ms")))
-	c.emit(fill(c.base(timestamp, parser.Str(meta.Get("model_id"))), timeline.TurnSystem,
+	c.emit(fill(c.base(timestamp, parser.Text(meta.Get("model_id"))), timeline.TurnSystem,
 		"summary: "+textOrJSON(summary.Index(0))))
 }
 
@@ -333,10 +333,10 @@ func (c *conversation) pending(pending jsonvalue.Value) {
 	}
 	text := ""
 	if tag, body := variant(pending.Get("content")); tag == "Prompt" || tag == "CancelledToolUses" {
-		text = parser.Str(body.Get("prompt"))
+		text = parser.Text(body.Get("prompt"))
 	}
 	if text == "" {
-		text = parser.CompactJSON(pending.Get("content"))
+		text = parser.JSONText(pending.Get("content"))
 	}
 	c.emit(fill(c.base(timeutil.FromValue(pending.Get("timestamp")), ""), timeline.TurnSystem,
 		"pending message (not sent): "+text))
@@ -394,10 +394,10 @@ func (c *conversation) toolUses(uses jsonvalue.Value, end, model string, emit pa
 		if !use.IsObject() {
 			continue
 		}
-		toolID := parser.Str(use.Get("id"))
-		toolName := parser.Str(use.Get("name"))
+		toolID := parser.Text(use.Get("id"))
+		toolName := parser.Text(use.Get("name"))
 		if toolName == "" {
-			toolName = parser.Str(use.Get("orig_name"))
+			toolName = parser.Text(use.Get("orig_name"))
 		}
 		c.names[toolID] = toolName
 		row := c.base(end, model)
@@ -437,7 +437,7 @@ func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string
 			continue
 		}
 		row := c.base(timestamp, model)
-		row.ToolUseID = parser.Str(result.Get("tool_use_id"))
+		row.ToolUseID = parser.Text(result.Get("tool_use_id"))
 		row.ToolName = c.names[row.ToolUseID]
 		text := resultText(result)
 		switch {

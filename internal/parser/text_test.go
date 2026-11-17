@@ -49,7 +49,7 @@ func TestTextOfReadsEachShapeOfMessageContent(t *testing.T) {
 	}
 }
 
-func TestCompactJSONKeepsKeyOrderAndNumberForms(t *testing.T) {
+func TestJSONTextKeepsKeyOrderAndNumberForms(t *testing.T) {
 	tests := []struct {
 		name, value, want string
 	}{
@@ -62,7 +62,7 @@ func TestCompactJSONKeepsKeyOrderAndNumberForms(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := CompactJSON(decoded(t, test.value)); got != test.want {
+			if got := JSONText(decoded(t, test.value)); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
@@ -134,7 +134,7 @@ func TestTrackerReportsTheFirstValueAndEachChangePerKey(t *testing.T) {
 	}
 }
 
-func TestStrGivesNothingForAFalseValue(t *testing.T) {
+func TestTextGivesNothingForAnEmptyValue(t *testing.T) {
 	tests := []struct {
 		name, value, want string
 	}{
@@ -151,7 +151,7 @@ func TestStrGivesNothingForAFalseValue(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := Str(decoded(t, test.value)); got != test.want {
+			if got := Text(decoded(t, test.value)); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})

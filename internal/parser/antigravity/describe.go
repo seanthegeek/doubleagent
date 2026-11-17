@@ -37,9 +37,9 @@ func toolArgsSummary(argumentsJSON string) string {
 		if value.IsString() {
 			return value.StringValue()
 		}
-		return parser.CompactJSON(value)
+		return parser.JSONText(value)
 	}
-	return parser.CompactJSON(args)
+	return parser.JSONText(args)
 }
 
 // pathOf returns the path of a PathScopeItem.
@@ -159,7 +159,7 @@ func describePayload(kind string, payload message) string {
 	if describe, ok := eventDescribers()[kind]; ok {
 		return describe(payload)
 	}
-	return parser.CompactJSON(jsonValue(payload.decoded))
+	return parser.JSONText(jsonValue(payload.decoded))
 }
 
 // runCommandText describes a command run.

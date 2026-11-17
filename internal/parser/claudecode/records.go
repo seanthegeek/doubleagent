@@ -44,7 +44,7 @@ func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 	row := s.row(timeline.TurnSystem, "")
 	for _, block := range record.Get("message").Get("content").Items() {
 		if block.IsObject() && isText(block.Get("type"), "tool_result") {
-			row.ToolUseID = parser.Str(block.Get("tool_use_id"))
+			row.ToolUseID = parser.Text(block.Get("tool_use_id"))
 			break
 		}
 	}
@@ -61,13 +61,13 @@ func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 	case decision.IsNull():
 		text = "permission decision: - source=- reason=-"
 	case !decision.IsObject():
-		text = "permission decision: " + parser.CompactJSON(decision)
+		text = "permission decision: " + parser.JSONText(decision)
 	default:
 		text = "permission decision: " + strOr(decision.Get("decision"), "-") + " source=" +
 			strOr(decision.Get("source"), "-") + " reason=" + strOr(decision.Get("reasonType"), "-")
 		for _, key := range decision.Keys() {
 			if key != "decision" && key != "source" && key != "reasonType" {
-				text += " " + parser.CompactJSON(decision)
+				text += " " + parser.JSONText(decision)
 				break
 			}
 		}
@@ -154,7 +154,7 @@ func (s *session) toolResult(block jsonvalue.Value, savedPath string) {
 		text = "[error] " + text
 	}
 	row := s.row(timeline.TurnToolResult, text)
-	row.ToolUseID = parser.Str(block.Get("tool_use_id"))
+	row.ToolUseID = parser.Text(block.Get("tool_use_id"))
 	s.emit(row)
 }
 
@@ -163,7 +163,7 @@ func (s *session) toolResult(block jsonvalue.Value, savedPath string) {
 // for, thinking block.
 func (s *session) assistant(record jsonvalue.Value) {
 	message := record.Get("message")
-	model := parser.Str(message.Get("model"))
+	model := parser.Text(message.Get("model"))
 	content := message.Get("content")
 	if !record.Get("isApiErrorMessage").IsEmpty() || model == "<synthetic>" {
 		var status, parts []string
@@ -202,8 +202,8 @@ func (s *session) assistantBlock(record, block jsonvalue.Value, model string) {
 		row := s.base(s.timestamp)
 		row.TurnType = timeline.TurnToolUse
 		row.Model = model
-		row.ToolName = parser.Str(block.Get("name"))
-		row.ToolUseID = parser.Str(block.Get("id"))
+		row.ToolName = parser.Text(block.Get("name"))
+		row.ToolUseID = parser.Text(block.Get("id"))
 		toolInput := block.Get("input")
 		if row.ToolName == "Bash" {
 			if sent := record.Get("wireToolInputs").Get(row.ToolUseID); sent.IsObject() &&
@@ -276,9 +276,9 @@ func (s *session) attachmentRow(attachment jsonvalue.Value) (timeline.Row, bool)
 		}
 		return s.row(timeline.TurnUser, text), true
 	case isText(kind, "hook_system_message"):
-		name := parser.Str(attachment.Get("hookName"))
+		name := parser.Text(attachment.Get("hookName"))
 		if name == "" {
-			name = parser.Str(attachment.Get("hookEvent"))
+			name = parser.Text(attachment.Get("hookEvent"))
 		}
 		var parts []string
 		for _, part := range []string{name, parser.TextOf(attachment.Get("content"))} {
@@ -288,7 +288,7 @@ func (s *session) attachmentRow(attachment jsonvalue.Value) (timeline.Row, bool)
 		}
 		return s.row(timeline.TurnSystem, "hook: "+strings.Join(parts, ": ")), true
 	case isText(kind, "edited_text_file"):
-		return s.row(timeline.TurnSystem, "edited file: "+parser.Str(attachment.Get("filename"))), true
+		return s.row(timeline.TurnSystem, "edited file: "+parser.Text(attachment.Get("filename"))), true
 	}
 	return timeline.Row{}, false
 }
@@ -341,7 +341,7 @@ func equalityKey(value jsonvalue.Value) string {
 	if value.IsString() {
 		return "s" + value.StringValue()
 	}
-	return "j" + parser.CompactJSON(value)
+	return "j" + parser.JSONText(value)
 }
 
 // bridgeURL returns the URL of a bridge's first bridge_status record at or

@@ -94,11 +94,11 @@ func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
 		entry, line, timestamp := each.entry, each.rowid, each.updatedAt
 		sessionID := columnStr(each.currentSessionID)
 		if grant := entry.Get("publicShare"); grant.IsObject() && !grant.Get("id").IsEmpty() {
-			generation := parser.Str(grant.Get("sessionId"))
+			generation := parser.Text(grant.Get("sessionId"))
 			a.store.attach(orText(generation, sessionID), line,
 				timeutil.FromValue(grant.Get("createdAt")), fmt.Sprintf("session synced: public"+
 					" share %s generation %s (from openclaw-agent.sqlite session_nodes.entry_json,"+
-					" publicShare.createdAt)", orDash(parser.Str(grant.Get("id"))), orDash(generation)), "")
+					" publicShare.createdAt)", orDash(parser.Text(grant.Get("id"))), orDash(generation)), "")
 		}
 		if relay := deliveryRelay(entry.Get("delivery")); relay != "" && !relayed[sessionID] {
 			a.store.attach(sessionID, line, timestamp, relay, "")
@@ -131,7 +131,7 @@ func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // archiveText returns the `session archived:` text of a session's entry,
@@ -145,7 +145,7 @@ func archiveText(entry jsonvalue.Value) string {
 		}
 	}
 	return fmt.Sprintf("session archived: %s by %s (from openclaw-agent.sqlite"+
-		" session_nodes.entry_json, archivedAt)", orDash(parser.Str(entry.Get("archiveReason"))),
+		" session_nodes.entry_json, archivedAt)", orDash(parser.Text(entry.Get("archiveReason"))),
 		orDash(strings.Join(actor, ":")))
 }
 
@@ -162,7 +162,7 @@ func deliveryRelay(delivery jsonvalue.Value) string {
 	if !channel.IsString() || !isPlatform(channel.StringValue()) {
 		return ""
 	}
-	field := func(value jsonvalue.Value) string { return orDash(parser.Str(value)) }
+	field := func(value jsonvalue.Value) string { return orDash(parser.Text(value)) }
 	return fmt.Sprintf("session relayed: %s account %s %s from %s to %s (from openclaw-agent.sqlite"+
 		" session_nodes.entry_json delivery, updated_at)", channel.StringValue(),
 		orDash(firstStr(route.Get("accountId"), origin.Get("accountId"))), field(origin.Get("chatType")),
@@ -195,6 +195,6 @@ func overrideText(entry jsonvalue.Value) string {
 	}
 	return fmt.Sprintf("model: %s provider=%s source=%s%s (from openclaw-agent.sqlite"+
 		" session_nodes.entry_json modelOverride, updated_at)", entry.Get("modelOverride").Text(),
-		orDash(parser.Str(entry.Get("providerOverride"))),
-		orDash(parser.Str(entry.Get("modelOverrideSource"))), fallback)
+		orDash(parser.Text(entry.Get("providerOverride"))),
+		orDash(parser.Text(entry.Get("modelOverrideSource"))), fallback)
 }

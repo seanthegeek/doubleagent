@@ -170,8 +170,8 @@ func (w *writer) entry(current *session, line int, record jsonvalue.Value, creat
 		return
 	}
 	if isText(entryType, "model_change") {
-		current.model = parser.Str(record.Get("modelId"))
-		text := pi.SwitchText(current.seen, current.sessionID, current.model, parser.Str(record.Get("provider")))
+		current.model = parser.Text(record.Get("modelId"))
+		text := pi.SwitchText(current.seen, current.sessionID, current.model, parser.Text(record.Get("provider")))
 		if text != "" {
 			w.system(current, line, timestamp, text, current.model)
 		}
@@ -183,7 +183,7 @@ func (w *writer) entry(current *session, line int, record jsonvalue.Value, creat
 // entryText returns the text of the system row of an entry that is neither
 // a message nor a model change.
 func entryText(entryType, record jsonvalue.Value) string {
-	field := func(key string) string { return parser.Str(record.Get(key)) }
+	field := func(key string) string { return parser.Text(record.Get(key)) }
 	switch {
 	case isText(entryType, "thinking_level_change"):
 		return "thinking level: " + field("thinkingLevel")
@@ -204,7 +204,7 @@ func entryText(entryType, record jsonvalue.Value) string {
 	case isText(entryType, "branch_summary"):
 		return "branch summary: " + field("summary")
 	case isText(entryType, "custom"):
-		return "custom " + field("customType") + ": " + parser.CompactJSON(record.Get("data"))
+		return "custom " + field("customType") + ": " + parser.JSONText(record.Get("data"))
 	case isText(entryType, "custom_message"):
 		return "custom message " + field("customType") + ": " + parser.TextOf(record.Get("content"))
 	case isText(entryType, "label"):
@@ -220,7 +220,7 @@ func entryText(entryType, record jsonvalue.Value) string {
 			rest = append(rest, member)
 		}
 	}
-	return orText(parser.Str(entryType), "entry") + ": " + parser.CompactJSON(jsonvalue.NewObject(rest...))
+	return orText(parser.Text(entryType), "entry") + ": " + parser.JSONText(jsonvalue.NewObject(rest...))
 }
 
 // isText reports whether value is the string text.

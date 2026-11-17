@@ -106,7 +106,7 @@ func syncRows(servers jsonvalue.Value, rel string, put func(sessionID, text stri
 			continue
 		}
 		entry := server.Value
-		put(parser.Str(entry.Get("conversationId")), fmt.Sprintf("session synced: last session on %s "+
+		put(parser.Text(entry.Get("conversationId")), fmt.Sprintf("session synced: last session on %s "+
 			"agent %s conversation %s (from %s, file mtime)", server.Key, strOrDash(entry.Get("agentId")),
 			strOrDash(entry.Get("conversationId")), rel))
 	}
@@ -154,7 +154,7 @@ func (p *Parser) parseRouting(artifact *input.Artifact, channel string, emit par
 			dash(route.Get("chatType")), dash(route.Get("threadId")), dash(route.Get("accountId")),
 			dash(route.Get("agentId")), dash(route.Get("enabled")), dash(route.Get("outboundEnabled")),
 			dash(route.Get("detached")), timeOrDash(route.Get("updatedAt")), artifact.Rel, source))
-		row.SessionID = parser.Str(route.Get("conversationId"))
+		row.SessionID = parser.Text(route.Get("conversationId"))
 		emit(row)
 	}
 }
@@ -178,7 +178,7 @@ func (p *Parser) parseCrons(artifact *input.Artifact, emit parser.Emit) {
 			continue
 		}
 		created := timeutil.FromValue(task.Get("created_at"))
-		conversation := parser.Str(task.Get("conversation_id"))
+		conversation := parser.Text(task.Get("conversation_id"))
 		row := p.lineOne(artifact, timeutil.FirstNonEmpty(created, mtime), taskText(task, conversation,
 			created != "", artifact.Rel))
 		if conversation != "new" {
@@ -220,7 +220,7 @@ func (p *Parser) parseRuns(artifact *input.Artifact, emit parser.Emit) {
 			artifact.Rel)))
 		row.SourceLine = line
 		row.TimestampUTC = timeutil.FromValue(record.Get("ts"))
-		row.SessionID = parser.Str(record.Get("conversationId"))
+		row.SessionID = parser.Text(record.Get("conversationId"))
 		emit(row)
 	}
 	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
@@ -243,7 +243,7 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 		emit(row)
 		return
 	}
-	sessionID, cwd := parser.Str(document.Get("conversationId")), parser.Str(document.Get("workingDirectory"))
+	sessionID, cwd := parser.Text(document.Get("conversationId")), parser.Text(document.Get("workingDirectory"))
 	put := func(turn, toolUseID, text string) {
 		row := p.lineOne(artifact, timestamp, text)
 		row.TurnType, row.ToolUseID = turn, toolUseID
@@ -257,7 +257,7 @@ func (p *Parser) parseInterrupted(artifact *input.Artifact, emit parser.Emit) {
 		joinedIDs(document.Get("toolCallIds")), joinedIDs(document.Get("unstartedToolCallIds")),
 		len(results), dash(jsonvalue.NewString(cwd)), dash(document.Get("actingUserId")), artifact.Rel))
 	for _, result := range results {
-		callID := parser.Str(result.Get("tool_call_id"))
+		callID := parser.Text(result.Get("tool_call_id"))
 		if result.Has("approve") {
 			put(timeline.TurnSystem, callID, interruptedDecision(result, artifact.Rel))
 			continue
@@ -314,11 +314,11 @@ func (p *Parser) parseSessions(artifact *input.Artifact, emit parser.Emit) {
 		row := p.SystemRow(artifact, timeline.Compact(sessionText(record)))
 		row.SourceLine = line
 		row.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		row.SessionID = parser.Str(record.Get("session_id"))
-		row.ProjectPath = parser.Str(record.Get("project"))
-		row.Model = parser.Str(record.Get("model"))
+		row.SessionID = parser.Text(record.Get("session_id"))
+		row.ProjectPath = parser.Text(record.Get("project"))
+		row.Model = parser.Text(record.Get("model"))
 		emit(row)
-		if text := pi.ModelText(models, row.SessionID, row.Model, parser.Str(record.Get("provider")),
+		if text := pi.ModelText(models, row.SessionID, row.Model, parser.Text(record.Get("provider")),
 			""); text != "" {
 			row.Text = timeline.Compact(text)
 			emit(row)
@@ -330,7 +330,7 @@ func (p *Parser) parseSessions(artifact *input.Artifact, emit parser.Emit) {
 // sessionText returns the text of a sessions.jsonl line: the end of a CLI
 // session when it has exit_reason or message_count, else its start.
 func sessionText(record jsonvalue.Value) string {
-	field := func(key string) string { return parser.Str(record.Get(key)) }
+	field := func(key string) string { return parser.Text(record.Get(key)) }
 	present := func(value jsonvalue.Value, key string) string {
 		if item, ok := value.Lookup(key); ok {
 			return item.Text()

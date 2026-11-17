@@ -38,7 +38,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parser.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = line
 		row.TimestampUTC = timeutil.FromValue(record.Get("ts"))
-		row.SessionID = parser.Str(record.Get("session_id"))
+		row.SessionID = parser.Text(record.Get("session_id"))
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.CompactValue(record.Get("text"))
 		emit(row)
@@ -70,13 +70,13 @@ func (p *Parser) parseLedger(artifact *input.Artifact, emit parser.Emit) {
 		if !record.IsObject() {
 			continue
 		}
-		text := "imported session from " + parser.Str(record.Get("source_path")) + " sha256=" +
-			parser.Str(record.Get("content_sha256"))
+		text := "imported session from " + parser.Text(record.Get("source_path")) + " sha256=" +
+			parser.Text(record.Get("content_sha256"))
 		if modified := timeutil.FromValue(record.Get("source_modified_at")); modified != "" {
 			text += " source_modified=" + modified
 		}
 		row := p.systemRow(artifact, timeline.Compact(text),
-			parser.Str(record.Get("imported_thread_id")), i+1)
+			parser.Text(record.Get("imported_thread_id")), i+1)
 		row.TimestampUTC = timeutil.FromValue(record.Get("imported_at"))
 		emit(row)
 	}

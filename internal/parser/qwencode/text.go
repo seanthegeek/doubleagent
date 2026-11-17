@@ -37,7 +37,7 @@ func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // orElse returns the first value Python counts as true, else the last, as
@@ -73,7 +73,7 @@ func argsSummary(arguments jsonvalue.Value) string {
 				return textOrJSON(value)
 			}
 		}
-		return parser.CompactJSON(arguments)
+		return parser.JSONText(arguments)
 	}
 	if !isSet(arguments) {
 		return ""
@@ -102,7 +102,7 @@ func responseText(response jsonvalue.Value) string {
 				return value.StringValue()
 			}
 		}
-		return parser.CompactJSON(response)
+		return parser.JSONText(response)
 	}
 	if !isSet(response) {
 		return ""
@@ -113,7 +113,7 @@ func responseText(response jsonvalue.Value) string {
 // systemText returns the row text of a system record: its subtype and a
 // summary of its payload.
 func systemText(subtype string, payload jsonvalue.Value) string {
-	field := func(key string) string { return parser.Str(payload.Get(key)) }
+	field := func(key string) string { return parser.Text(payload.Get(key)) }
 	var detail string
 	switch subtype {
 	case "slash_command":
@@ -128,11 +128,11 @@ func systemText(subtype string, payload jsonvalue.Value) string {
 		detail = "truncated " + payload.Get("truncatedCount").Text() + " record(s)"
 	case "chat_compression":
 		if info := payload.Get("info"); !info.IsNull() {
-			detail = parser.CompactJSON(info)
+			detail = parser.JSONText(info)
 		}
 	default:
 		if !payload.IsEmpty() {
-			detail = parser.CompactJSON(payload)
+			detail = parser.JSONText(payload)
 		}
 	}
 	if detail = strings.TrimSpace(detail); detail != "" {
@@ -147,8 +147,8 @@ func systemText(subtype string, payload jsonvalue.Value) string {
 // user's when its provenance is absent or real_user, unless its subtype is
 // one only the system or another agent writes.
 func injectedOrigin(record jsonvalue.Value) string {
-	provenance := parser.Str(record.Get("provenance"))
-	subtype := parser.Str(record.Get("subtype"))
+	provenance := parser.Text(record.Get("provenance"))
+	subtype := parser.Text(record.Get("subtype"))
 	injected := subtype == "notification" || subtype == "cron" || subtype == "agent_message"
 	if (provenance == "" || provenance == "real_user") && !injected {
 		return ""

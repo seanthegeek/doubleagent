@@ -127,7 +127,7 @@ func userMessage(out *transcript, message jsonvalue.Value) {
 		case part.Has("Image"):
 			parts = append(parts, "[image]")
 		default:
-			parts = append(parts, parser.CompactJSON(part))
+			parts = append(parts, parser.JSONText(part))
 		}
 	}
 	out.add(timeline.TurnUser, strings.Join(parts, "\n"))
@@ -141,14 +141,14 @@ func (p *Parser) toolResult(out *transcript, key string, result jsonvalue.Value)
 	if output, ok := result.Lookup("output"); text == "" && ok && !output.IsNull() {
 		text = contentText(output)
 		if output.IsObject() {
-			text = parser.CompactJSON(output)
+			text = parser.JSONText(output)
 		}
 	}
 	if !result.Get("is_error").IsEmpty() {
 		text = "[error] " + text
 	}
-	toolUseID := cmp.Or(parser.Str(result.Get("tool_use_id")), key)
-	p.resultItems(out, text, parser.Str(result.Get("tool_name")), toolUseID, result)
+	toolUseID := cmp.Or(parser.Text(result.Get("tool_use_id")), key)
+	p.resultItems(out, text, parser.Text(result.Get("tool_name")), toolUseID, result)
 }
 
 // resultItems adds a tool result row with the given text, and the denial

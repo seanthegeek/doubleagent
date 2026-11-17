@@ -10,7 +10,7 @@ import (
 // orDash returns a value as row text the way Python's "%s" % (value or
 // "-") writes it: "-" for a value Python counts as false.
 func orDash(value jsonvalue.Value) string {
-	if text := parser.Str(value); text != "" {
+	if text := parser.Text(value); text != "" {
 		return text
 	}
 	return "-"

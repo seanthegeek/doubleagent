@@ -152,7 +152,7 @@ func (s *store) v2Messages(skip map[string]bool) error {
 		}
 		name := columnText(kind)
 		if name == "" {
-			name = parser.Str(data.Get("type"))
+			name = parser.Text(data.Get("type"))
 		}
 		s.owner.recordRows(s.artifact, s.scopeFor(identifier), name, data, int(row.Rowid),
 			parser.ColumnTime(row.Get("time_created")), s.options, s.emit)

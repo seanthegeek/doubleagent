@@ -70,7 +70,7 @@ func threadParent(record sqlitefile.Row, value jsonvalue.Value) string {
 	if parent := record.Get("parent_id"); !parent.IsEmpty() {
 		return parent.String()
 	}
-	return parser.Str(value.Get("subagent_context").Get("parent_thread_id"))
+	return parser.Text(value.Get("subagent_context").Get("parent_thread_id"))
 }
 
 // threadState fills in the thread's project, branch, model and time, and
@@ -81,7 +81,7 @@ func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonv
 	snapshot := objectOrEmpty(value.Get("initial_project_snapshot"))
 	worktrees := worktreeSnapshots(snapshot)
 	if context.project == "" && len(worktrees) > 0 {
-		context.project = parser.Str(worktrees[0].Get("worktree_path"))
+		context.project = parser.Text(worktrees[0].Get("worktree_path"))
 	}
 	branch, remote := branchAndRemote(worktrees, context.project)
 	modelInfo := objectOrEmpty(value.Get("model"))
@@ -119,7 +119,7 @@ func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonv
 // and parent thread.
 func startText(record sqlitefile.Row, value jsonvalue.Value) string {
 	parts := []string{"thread start:"}
-	title := parser.Str(value.Get("title"))
+	title := parser.Text(value.Get("title"))
 	if title == "" {
 		title = columnStr(record.Get("summary"))
 	}

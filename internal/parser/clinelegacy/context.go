@@ -42,14 +42,14 @@ func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey st
 	if !metadata.IsObject() {
 		metadata = jsonvalue.NewNull()
 	}
-	context := &TaskContext{TaskID: taskID, ProjectPath: parser.Str(item.Get(projectKey)),
-		defaultModel: parser.Str(item.Get("modelId"))}
+	context := &TaskContext{TaskID: taskID, ProjectPath: parser.Text(item.Get(projectKey)),
+		defaultModel: parser.Text(item.Get("modelId"))}
 	for _, entry := range metadata.Get("model_usage").Items() {
 		if !entry.IsObject() || entry.Get("model_id").IsEmpty() {
 			continue
 		}
 		since, _ := pythonFloat(FirstTruthy(entry.Get("ts"), jsonvalue.NewInt(0)))
-		context.usage = append(context.usage, modelUse{since: since, model: parser.Str(entry.Get("model_id"))})
+		context.usage = append(context.usage, modelUse{since: since, model: parser.Text(entry.Get("model_id"))})
 	}
 	slices.SortStableFunc(context.usage, func(left, right modelUse) int {
 		if order := CompareNumbers(left.since, right.since); order != 0 {

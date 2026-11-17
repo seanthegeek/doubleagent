@@ -195,7 +195,7 @@ func (p *Parser) searchProject(artifact *input.Artifact, sessionID, workspace st
 	if !manifest.IsObject() {
 		return workspace
 	}
-	return parser.Str(clinelegacy.FirstTruthy(manifest.Get("cwd"), manifest.Get("workspace_root")))
+	return parser.Text(clinelegacy.FirstTruthy(manifest.Get("cwd"), manifest.Get("workspace_root")))
 }
 
 // searchDetail returns the "key=value" fields of a search session's index

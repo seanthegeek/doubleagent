@@ -158,7 +158,7 @@ func (p *Parser) parseProjects(artifact *input.Artifact, emit parser.Emit) {
 		}
 		row := p.system(artifact, "", position+1)
 		row.TimestampUTC = timeutil.FromValue(project.Get("last_accessed"))
-		row.ProjectPath = parser.Str(project.Get("path"))
+		row.ProjectPath = parser.Text(project.Get("path"))
 		dataDir := ""
 		if value := project.Get("data_dir"); !value.IsEmpty() {
 			dataDir = "data_dir=" + value.Text()

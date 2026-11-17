@@ -166,12 +166,10 @@ func ReadDir(path string) ([]os.DirEntry, error) {
 // else the file's own, else "". Rows for standing settings carry it.
 func FileMtime(artifact *input.Artifact) string {
 	mtime := artifact.Mtime()
-	if mtime.IsNumber() {
-		// An integer too large for a float gives an infinity here, as its
-		// comparison in Python does, and then no timestamp.
-		if number, _ := mtime.Float(); number > 0 {
-			return timeutil.FromValue(mtime)
-		}
+	// A positive number beyond the years a timestamp holds gives no
+	// timestamp rather than the file's own.
+	if mtime.IsNumber() && !mtime.IsEmpty() && !strings.HasPrefix(string(mtime.Number()), "-") {
+		return timeutil.FromValue(mtime)
 	}
 	info, err := osfile.Lstat(artifact.DiskPath)
 	if err != nil {
@@ -181,15 +179,15 @@ func FileMtime(artifact *input.Artifact) string {
 }
 
 // MtimeSeconds returns the modification time of an entry already looked
-// at, in seconds since the epoch as the float Python's st_mtime holds, for
-// a parser that compares or converts the times of several files.
+// at, in seconds since the epoch as a float, for a parser that compares or
+// converts the times of several files.
 func MtimeSeconds(info fs.FileInfo) float64 {
 	return statSeconds(info.ModTime().Unix(), info.ModTime().Nanosecond())
 }
 
-// statSeconds returns a modification time as Python's st_mtime gives it:
-// seconds plus nanoseconds times 1e-9, each step rounded as a float64, so
-// the sum is the same double and not a fused multiply-add.
+// statSeconds returns a modification time in seconds: seconds plus
+// nanoseconds times 1e-9, each step rounded to a float64, so the sum is the
+// same double on every platform and never a fused multiply-add.
 func statSeconds(seconds int64, nanoseconds int) float64 {
 	fraction := float64(float64(nanoseconds) * 1e-9)
 	return float64(seconds) + fraction

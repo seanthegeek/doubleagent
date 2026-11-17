@@ -196,9 +196,9 @@ func (p *Parser) load(directory string) *conversation {
 		actions: map[string][2]string{}}
 	meta := loadObject(filepath.Join(directory, "meta.json"), &conv.problems)
 	state := loadObject(filepath.Join(directory, "base_state.json"), &conv.problems)
-	conv.projectPath = parser.Str(firstTruthy(meta.Get("workspace").Get("working_dir"),
+	conv.projectPath = parser.Text(firstTruthy(meta.Get("workspace").Get("working_dir"),
 		state.Get("workspace").Get("working_dir")))
-	conv.model = parser.Str(state.Get("agent").Get("llm").Get("model"))
+	conv.model = parser.Text(state.Get("agent").Get("llm").Get("model"))
 	files := p.eventFiles(directory)
 	if len(files) > 0 {
 		conv.firstEvent = files[0].name
@@ -276,7 +276,7 @@ func header(conv *conversation, meta, state jsonvalue.Value, events int, first j
 	if model != "" {
 		model = "model=" + model
 	}
-	return join("conversation start", parser.Str(meta.Get("title")), labelled("id", meta.Get("id")),
+	return join("conversation start", parser.Text(meta.Get("title")), labelled("id", meta.Get("id")),
 		labelled("parent", meta.Get("parent_conversation_id")),
 		labelled("forked_from", meta.Get("forked_from_conversation_id")), model,
 		labelled("status", state.Get("execution_status")), strconv.Itoa(events)+" events", basis)
@@ -455,7 +455,7 @@ func (c *conversation) trackModels(state jsonvalue.Value, loaded []loadedEvent) 
 			switched = true
 			break
 		}
-		initial = byResponse[parser.Str(each.event.Get("llm_response_id"))]
+		initial = byResponse[parser.Text(each.event.Get("llm_response_id"))]
 		if initial != "" {
 			break
 		}
@@ -468,10 +468,10 @@ func (c *conversation) trackModels(state jsonvalue.Value, loaded []loadedEvent) 
 	for _, each := range loaded {
 		event := each.event
 		if isString(event.Get("kind"), "ActionEvent") && !event.Get("id").IsEmpty() {
-			c.actions[event.Get("id").Text()] = [2]string{parser.Str(event.Get("tool_name")),
-				parser.Str(event.Get("tool_call_id"))}
+			c.actions[event.Get("id").Text()] = [2]string{parser.Text(event.Get("tool_name")),
+				parser.Text(event.Get("tool_call_id"))}
 		}
-		if model := byResponse[parser.Str(event.Get("llm_response_id"))]; model != "" && model != current {
+		if model := byResponse[parser.Text(event.Get("llm_response_id"))]; model != "" && model != current {
 			c.modelBefore[each.name] = modelText(current, model)
 			current = model
 		}

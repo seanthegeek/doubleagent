@@ -64,9 +64,9 @@ func (p *Parser) sessionStart(artifact *input.Artifact, session jsonvalue.Value,
 	row := p.BaseRow(artifact)
 	row.SourceLine = position
 	row.TimestampUTC = timeutil.FromValue(session.Get(timeKey))
-	row.SessionID = parser.Str(session.Get("session_id"))
-	row.ProjectPath = parser.Str(clinelegacy.FirstTruthy(session.Get("cwd"), session.Get("workspace_root")))
-	row.Model = parser.Str(session.Get("model"))
+	row.SessionID = parser.Text(session.Get("session_id"))
+	row.ProjectPath = parser.Text(clinelegacy.FirstTruthy(session.Get("cwd"), session.Get("workspace_root")))
+	row.Model = parser.Text(session.Get("model"))
 	row.TurnType = timeline.TurnSystem
 	row.Text = timeline.Compact(label + ": " + clinelegacy.FormatCounts(session, keys...))
 	return row
@@ -77,11 +77,11 @@ func (p *Parser) sessionStart(artifact *input.Artifact, session jsonvalue.Value,
 func (p *Parser) startRows(start timeline.Row, session, meta jsonvalue.Value, source string,
 	emit parser.Emit) {
 	emit(start)
-	if model := parser.Str(session.Get("model")); model != "" {
+	if model := parser.Text(session.Get("model")); model != "" {
 		row := start
 		row.Model = model
 		row.Text = "model: " + model
-		if provider := parser.Str(session.Get("provider")); provider != "" {
+		if provider := parser.Text(session.Get("provider")); provider != "" {
 			row.Text += " provider=" + provider
 		}
 		row.Text = timeline.Compact(row.Text)

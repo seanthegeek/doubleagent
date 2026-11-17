@@ -167,7 +167,7 @@ func webuiEvents(record jsonvalue.Value, options parser.Options) []event {
 	case "fork_marker":
 		return only(timeline.TurnSystem, "webui fork marker: the fork starts here")
 	case "context_compaction":
-		return only(timeline.TurnSystem, "context compaction: "+parser.Str(record.Get("phase")))
+		return only(timeline.TurnSystem, "context compaction: "+parser.Text(record.Get("phase")))
 	}
 	return only(timeline.TurnSystem, "webui event: "+name.StringValue())
 }
@@ -229,8 +229,8 @@ func fileEdits(record jsonvalue.Value) []event {
 			firstStr(entry.Get("status"), entry.Get("phase")),
 			firstStr(entry.Get("absolute_path"), entry.Get("path")),
 			getOr(entry, "added", "0"), getOr(entry, "deleted", "0"), operation)
-		events = append(events, event{timeline.TurnSystem, text, parser.Str(entry.Get("tool")),
-			parser.Str(entry.Get("call_id"))})
+		events = append(events, event{timeline.TurnSystem, text, parser.Text(entry.Get("tool")),
+			parser.Text(entry.Get("call_id"))})
 	}
 	return events
 }
@@ -240,7 +240,7 @@ func fileEdits(record jsonvalue.Value) []event {
 func toolEventRows(toolEvents []jsonvalue.Value) []event {
 	var events []event
 	for _, entry := range toolEvents {
-		name, callID := parser.Str(entry.Get("name")), parser.Str(entry.Get("call_id"))
+		name, callID := parser.Text(entry.Get("name")), parser.Text(entry.Get("call_id"))
 		phase := entry.Get("phase")
 		switch {
 		case isText(phase, "start"):
@@ -248,13 +248,13 @@ func toolEventRows(toolEvents []jsonvalue.Value) []event {
 				openclaw.ToolArgsText(entry.Get("arguments")), name, callID})
 		case isText(phase, "end"):
 			result := entry.Get("result")
-			body := parser.CompactJSON(result)
+			body := parser.JSONText(result)
 			if result.IsString() {
 				body = result.StringValue()
 			}
 			events = append(events, event{timeline.TurnToolResult, body, name, callID})
 		case isText(phase, "error"):
-			events = append(events, event{timeline.TurnToolResult, parser.Str(entry.Get("error")),
+			events = append(events, event{timeline.TurnToolResult, parser.Text(entry.Get("error")),
 				name, callID})
 		}
 	}

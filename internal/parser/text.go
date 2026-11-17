@@ -9,8 +9,8 @@ import (
 // TextOf returns the text of a chat message's content: a string as it is;
 // for a list of blocks, the strings and each block's string "text" joined
 // by LF, an image block without text as "[image]"; for an object, its
-// string "text", else the object as JSON (", " and ": " separators,
-// non-ASCII kept); "" for null; any other value as Python's str() writes it.
+// string "text", else the object as JSONText; "" for null; any other value
+// as its row text (jsonvalue.Value.Text).
 func TextOf(content jsonvalue.Value) string {
 	switch {
 	case content.IsNull():
@@ -35,16 +35,16 @@ func TextOf(content jsonvalue.Value) string {
 		if text := content.Get("text"); text.IsString() {
 			return text.StringValue()
 		}
-		return content.JSON()
+		return JSONText(content)
 	}
 	return content.Text()
 }
 
-// Str returns a value as Python's str(value or "") gives it, the form most
-// parsers read an identifier or a name in: "" for a value Python counts as
-// false (null, false, zero, an empty string, array or object), else the
-// value's str().
-func Str(value jsonvalue.Value) string {
+// Text returns a value as row text, the form most parsers read an
+// identifier or a name in: "" for an empty value (null, false, zero, an
+// empty string, array or object), else jsonvalue.Value.Text: a string as it
+// is, a number as written, true, or an array or object as JSONText.
+func Text(value jsonvalue.Value) string {
 	if value.IsEmpty() {
 		return ""
 	}
@@ -56,14 +56,15 @@ func isString(value jsonvalue.Value, text string) bool {
 	return value.IsString() && value.StringValue() == text
 }
 
-// CompactJSON returns a value as compact JSON with sorted keys and non-ASCII
-// text kept, the form parsers give a structured value inside row text.
-func CompactJSON(value jsonvalue.Value) string {
+// JSONText returns a value as the JSON a row embeds: compact, keys in the
+// evidence's order, numbers as written, non-ASCII text kept, and U+2028
+// and U+2029 escaped as encoding/json escapes them.
+func JSONText(value jsonvalue.Value) string {
 	return value.JSON()
 }
 
 // SettingValue returns a setting as row text: "true" or "false" for a
-// boolean, a string as it is, anything else as CompactJSON.
+// boolean, a string as it is, anything else as JSONText.
 func SettingValue(value jsonvalue.Value) string {
 	if flag, ok := value.Bool(); ok {
 		if flag {
@@ -74,7 +75,7 @@ func SettingValue(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return CompactJSON(value)
+	return JSONText(value)
 }
 
 // SettingOrDash returns a record value as row text, "-" when it is null or

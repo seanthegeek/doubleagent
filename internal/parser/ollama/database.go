@@ -285,7 +285,7 @@ func callText(arguments sqlitefile.Value) string {
 			return value.StringValue()
 		}
 	}
-	return parser.CompactJSON(decoded)
+	return parser.JSONText(decoded)
 }
 
 // resultFallback returns a tool message's tool_result JSON as compact text,
@@ -303,5 +303,5 @@ func resultFallback(value sqlitefile.Value) string {
 	if err != nil {
 		return string(value.Bytes)
 	}
-	return parser.CompactJSON(decoded)
+	return parser.JSONText(decoded)
 }

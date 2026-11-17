@@ -70,8 +70,8 @@ type entryKey struct {
 
 // keyOf returns the identity of an entry record.
 func keyOf(record jsonvalue.Value) entryKey {
-	return entryKey{identifier: parser.Str(record.Get("id")),
-		timestamp: parser.Str(record.Get("timestamp"))}
+	return entryKey{identifier: parser.Text(record.Get("id")),
+		timestamp: parser.Text(record.Get("timestamp"))}
 }
 
 // entryKeys returns the identity of every entry of the session file at path

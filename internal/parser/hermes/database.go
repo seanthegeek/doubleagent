@@ -124,7 +124,7 @@ func (s *stateReader) rows(options parser.Options) error {
 	if s.tables["sessions"] {
 		seen := parser.Tracker{}
 		err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session jsonvalue.Value) error {
-			s.sessions[parser.Str(session.Get("id"))] = session
+			s.sessions[parser.Text(session.Get("id"))] = session
 			s.sessionRows(session, seen)
 			return nil
 		})
@@ -134,7 +134,7 @@ func (s *stateReader) rows(options parser.Options) error {
 	}
 	reader := s.parser.newMessageReader(s.artifact, options, s.usage, s.emit)
 	err = s.each("messages", false, nil, []string{"timestamp", "id"}, func(message jsonvalue.Value) error {
-		sessionID := parser.Str(message.Get("session_id"))
+		sessionID := parser.Text(message.Get("session_id"))
 		session, ok := s.sessions[sessionID]
 		if !ok {
 			session = sessionOf(sessionID)
@@ -183,7 +183,7 @@ func (s *stateReader) readUsage() error {
 	}
 	return s.each("session_model_usage", true, nil, []string{"first_seen", "rowid"}, func(usage jsonvalue.Value) error {
 		if usage.Get("task").IsEmpty() {
-			sessionID := parser.Str(usage.Get("session_id"))
+			sessionID := parser.Text(usage.Get("session_id"))
 			s.usage[sessionID] = append(s.usage[sessionID], usage)
 		}
 		return nil
@@ -205,7 +205,7 @@ func (s *stateReader) columnJSON(session jsonvalue.Value, column string) jsonval
 	if raw.IsNull() || raw.IsString() && raw.StringValue() == "" {
 		return jsonvalue.NewObject()
 	}
-	sessionID, project := parser.Str(session.Get("id")), projectOf(session)
+	sessionID, project := parser.Text(session.Get("id")), projectOf(session)
 	rowid := session.Get("_rowid")
 	label := "unparseable record " + rowid.Text() + " (sessions." + column
 	value := raw
@@ -246,14 +246,14 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 		archived = "archived=1"
 	}
 	start := s.parser.system(s.artifact, lineNumber(session.Get("_rowid")), session,
-		timeline.Compact(joinParts("session start", parser.Str(session.Get("title")),
+		timeline.Compact(joinParts("session start", parser.Text(session.Get("title")),
 			labelled("source=", session.Get("source")),
 			labelled("parent=", session.Get("parent_session_id")),
 			labelled("end=", session.Get("end_reason")), archived, imported)))
 	start.TimestampUTC = timeutil.FromValue(session.Get("started_at"))
 	s.emit(start)
 	s.modelRows(session, start, seen)
-	source := parser.Str(session.Get("source"))
+	source := parser.Text(session.Get("source"))
 	if slices.Contains(messagingSources(), source) ||
 		!session.Get("chat_id").IsEmpty() && source != "local" && source != "api_server" {
 		s.emit(copyRow(start, "session relayed: "+source+" chat "+dash(session.Get("chat_id"))+
@@ -266,7 +266,7 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parser.Tracker) 
 		s.emit(copyRow(start, "permission setting: yolo_mode="+parser.SettingValue(yolo)+
 			" (from state.db sessions.model_config, started_at)", start.Model))
 	}
-	cwd, branch := parser.Str(session.Get("cwd")), parser.Str(session.Get("git_branch"))
+	cwd, branch := parser.Text(session.Get("cwd")), parser.Text(session.Get("git_branch"))
 	if tree := s.parser.worktree.FindStringSubmatch(cwd); tree != nil &&
 		(strings.HasPrefix(branch, "hermes/") || strings.HasPrefix(branch, "hermes-subagent/")) {
 		s.emit(copyRow(start, "scratch directory: "+cwd+" (git worktree the agent created in "+
@@ -288,14 +288,14 @@ func labelled(label string, value jsonvalue.Value) string {
 func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, seen parser.Tracker) {
 	uses := s.usage[start.SessionID]
 	if len(uses) == 0 {
-		model := parser.Str(session.Get("model"))
+		model := parser.Text(session.Get("model"))
 		if text := seen.Change("model", start.SessionID, model); text != "" {
 			s.emit(copyRow(start, text, model))
 		}
 		return
 	}
 	for _, usage := range uses {
-		model := parser.Str(usage.Get("model"))
+		model := parser.Text(usage.Get("model"))
 		text := seen.Change("model", start.SessionID, model)
 		if text == "" {
 			continue
@@ -330,7 +330,7 @@ func jsonText(value jsonvalue.Value) (jsonvalue.Value, string) {
 
 // orEmpty returns str(value or "").
 func orEmpty(value jsonvalue.Value) string {
-	return parser.Str(value)
+	return parser.Text(value)
 }
 
 // retiredRows emits one "session deleted:" row per state_meta deletion
@@ -420,7 +420,7 @@ func (s *stateReader) roomRows() error {
 			return nil
 		}
 		kind, room := orEmpty(event.Get("kind")), orEmpty(event.Get("room_id"))
-		body := parser.CompactJSON(payload)
+		body := parser.JSONText(payload)
 		if text := payload.Get("text"); text.IsString() && (kind == "message.user" || kind == "message.member") {
 			body = text.StringValue()
 		}

@@ -249,7 +249,7 @@ func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, 
 		}
 		sessionID, timestamp := "copilot-cloud-agent:/task/"+task.Key, timeutil.FromValue(recorded)
 		emit(p.systemRow(artifact, sessionID, timestamp, "session synced: cloud agent task "+task.Key+
-			" application="+orDash(parser.Str(application))+" "+source))
+			" application="+orDash(parser.Text(application))+" "+source))
 		emit(p.systemRow(artifact, sessionID, timestamp, "session origin: remote GitHub cloud agent "+source))
 	}
 }

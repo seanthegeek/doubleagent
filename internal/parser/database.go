@@ -45,9 +45,9 @@ func DatabaseError(err error) string {
 	return "SQLite error: " + err.Error()
 }
 
-// ColumnTime returns the timestamp of a column value as Python's sqlite3
-// module hands it to the time conversion: an integer or a float as an epoch
-// number, text as a time or a digit string, and "" for NULL and a blob.
+// ColumnTime returns the timestamp of a column value: an integer or a
+// float as an epoch number, text as a time or a digit string (timeutil),
+// and "" for NULL and a blob.
 func ColumnTime(value sqlitefile.Value) string {
 	switch value.Type {
 	case sqlitefile.Integer:
@@ -61,10 +61,8 @@ func ColumnTime(value sqlitefile.Value) string {
 }
 
 // ColumnText returns a column value as the text a parser writes into a row
-// for a value that may be of any type: "" for NULL, text as it is, and
-// anything else as the compact JSON of the value the sqlite3 module returns
-// for it (an integer in decimal, a float as Python writes it, with
-// Infinity and -Infinity for the infinities), a blob as its bytes literal.
+// for a value that may be of any type: its row text (sqlitefile.Value's
+// String), with an infinite float as Infinity or -Infinity.
 func ColumnText(value sqlitefile.Value) string {
 	switch {
 	case value.IsNull():

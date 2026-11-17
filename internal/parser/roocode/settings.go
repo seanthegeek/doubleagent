@@ -279,7 +279,7 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 			" (Roo Code Cloud retry queue, from "+source+" "+retryQueueKey+", request timestamp)"))
 		row.SourceLine = i + 1
 		row.TimestampUTC = timeutil.FromValue(request.Get("timestamp"))
-		row.SessionID = parser.Str(taskID)
+		row.SessionID = parser.Text(taskID)
 		emit(row)
 	}
 }

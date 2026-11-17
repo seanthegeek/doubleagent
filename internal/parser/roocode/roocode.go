@@ -187,7 +187,7 @@ func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 		if !entry.IsObject() {
 			continue
 		}
-		if taskID, named := parser.Component(parser.Str(entry.Get("id"))); named &&
+		if taskID, named := parser.Component(parser.Text(entry.Get("id"))); named &&
 			parser.RegularFile(parser.Beside(artifact, taskID, itemFile)) {
 			continue
 		}

@@ -186,7 +186,7 @@ func (r *stateReader) conversation(stamp *stamper, entries []jsonvalue.Value) {
 	r.owner.origin(stamp)
 	tracked, model := parser.Tracker{}, ""
 	for _, entry := range entries {
-		bubbleID := parser.Str(entry.Get("bubbleId"))
+		bubbleID := parser.Text(entry.Get("bubbleId"))
 		key := "bubbleId:" + current.ident + ":" + bubbleID
 		found, ok := r.bubbles[key]
 		if bubbleID == "" || !ok {
@@ -212,7 +212,7 @@ func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowi
 	ident := stamp.composer.ident
 	switch {
 	case equalsOne(firstTruthy(bubble.Get("type"), entry.Get("type"))):
-		change := tracked.Change("model", ident, parser.Str(bubble.Get("modelInfo").Get("modelName")))
+		change := tracked.Change("model", ident, parser.Text(bubble.Get("modelInfo").Get("modelName")))
 		model = tracked[ident]
 		when := timeutil.FromValue(firstTruthy(bubble.Get("createdAt"), entry.Get("createdAt")))
 		if change != "" {
@@ -249,7 +249,7 @@ func equalsOne(value jsonvalue.Value) bool {
 // origin emits "session origin: remote <type>" for a conversation whose
 // agent ran anywhere but locally.
 func (p *Parser) origin(stamp *stamper) {
-	kind := parser.Str(stamp.composer.head.Get("agentLocation").Get("type"))
+	kind := parser.Text(stamp.composer.head.Get("agentLocation").Get("type"))
 	if kind != "" && kind != "local" {
 		stamp.add(timeline.TurnSystem, "session origin: remote "+kind, stamp.composer.created(), 0, "")
 	}
@@ -297,7 +297,7 @@ func (r *stateReader) blobs(deleted []*composer, emit parser.Emit) {
 				continue
 			}
 			stamp := r.owner.newStamper(r.artifact, current, emit)
-			role := parser.Str(blob.Get("role"))
+			role := parser.Text(blob.Get("role"))
 			text := timeline.Compact(parser.TextOf(content))
 			if role == "user" || role == "assistant" {
 				made := stamp.row(role, text, "", row.rowid, "")

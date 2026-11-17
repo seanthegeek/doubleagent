@@ -55,9 +55,9 @@ func (p *Parser) tokenUsage(artifact *input.Artifact, emit parser.Emit) {
 			dash(record.Get("authType")) + " source " + dash(record.Get("source")) + " tokens " +
 			strings.Join(counts, " ") + " api " + duration + " (from " + fileName(artifact) + ")"
 		row := p.systemRow(artifact, line, timeutil.FromValue(record.Get("timestamp")), text)
-		row.SessionID = parser.Str(record.Get("sessionId"))
+		row.SessionID = parser.Text(record.Get("sessionId"))
 		// "unknown" is Qwen Code's placeholder for a response naming no model.
-		if model := parser.Str(record.Get("model")); model != "unknown" {
+		if model := parser.Text(record.Get("model")); model != "unknown" {
 			row.Model = model
 		}
 		emit(row)
@@ -78,7 +78,7 @@ func clearTimes(records []numbered) map[int]string {
 	nextClear := map[string]string{}
 	clearedAt := map[int]string{}
 	for _, each := range slices.Backward(records) {
-		key := parser.CompactJSON(each.record.Get("key"))
+		key := parser.JSONText(each.record.Get("key"))
 		if isText(each.record.Get("type"), "clear") {
 			nextClear[key] = timeutil.FromValue(each.record.Get("recordedAt"))
 		} else if cleared, ok := nextClear[key]; ok {
@@ -111,8 +111,8 @@ func (p *Parser) groupHistory(artifact *input.Artifact, emit parser.Emit) {
 			} else if ok {
 				state = "cleared, time not recorded"
 			}
-			sender := parser.Str(orElse(entry.Get("senderName"), entry.Get("senderId")))
-			text = "group message: [" + sender + "] " + parser.Str(entry.Get("text")) + " (" + state + ")"
+			sender := parser.Text(orElse(entry.Get("senderName"), entry.Get("senderId")))
+			text = "group message: [" + sender + "] " + parser.Text(entry.Get("text")) + " (" + state + ")"
 			timestamp = timeutil.FromValue(entry.Get("timestamp"))
 		case isText(record.Get("type"), "clear"):
 			text = "group history cleared: " + orDash(record.Get("key")) + " (from " +
@@ -120,7 +120,7 @@ func (p *Parser) groupHistory(artifact *input.Artifact, emit parser.Emit) {
 			timestamp = timeutil.FromValue(record.Get("recordedAt"))
 		default:
 			problems.AddRaw(each.line, "unparseable line (not a group history record)",
-				parser.CompactJSON(record))
+				parser.JSONText(record))
 			continue
 		}
 		emit(p.systemRow(artifact, each.line, timestamp, text))
@@ -134,7 +134,7 @@ func (p *Parser) groupHistory(artifact *input.Artifact, emit parser.Emit) {
 
 // orDash returns a value as Python's "%s" % (value or "-") writes it.
 func orDash(value jsonvalue.Value) string {
-	if text := parser.Str(value); text != "" {
+	if text := parser.Text(value); text != "" {
 		return text
 	}
 	return "-"
@@ -181,7 +181,7 @@ func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
 	}
-	if sessionID = parser.Str(document.Get("sessionId")); sessionID == "" {
+	if sessionID = parser.Text(document.Get("sessionId")); sessionID == "" {
 		sessionID = name
 	}
 	if sessionID == "default" {
@@ -201,7 +201,7 @@ func (p *Parser) todos(artifact *input.Artifact, emit parser.Emit) {
 		if blockedBy == "" {
 			blockedBy = "-"
 		}
-		text := "todo: [" + dash(item.Get("status")) + "] " + parser.Str(item.Get("content")) +
+		text := "todo: [" + dash(item.Get("status")) + "] " + parser.Text(item.Get("content")) +
 			" (id " + dash(item.Get("id")) + ", blocked by " + blockedBy + ", from todos/" +
 			fileName(artifact) + ", file mtime)"
 		row := p.systemRow(artifact, i+1, mtime, text)
@@ -247,7 +247,7 @@ func (p *Parser) organization(artifact *input.Artifact, emit parser.Emit) {
 				group = name
 			}
 		}
-		pinned := parser.Str(entry.Get("pinnedAt"))
+		pinned := parser.Text(entry.Get("pinnedAt"))
 		if pinned == "" {
 			pinned = "no"
 		}

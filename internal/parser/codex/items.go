@@ -48,38 +48,38 @@ func systemItem(text string) []itemRow {
 // turn-item form: a tool item gives a tool_use and a tool_result on the
 // item's id, anything else one system row.
 func itemRows(item jsonvalue.Value) []itemRow {
-	itemType := parser.Str(item.Get("type"))
-	itemID := parser.Str(item.Get("id"))
+	itemType := parser.Text(item.Get("type"))
+	itemID := parser.Text(item.Get("id"))
 	switch {
 	case itemType == "CommandExecution":
-		output := withExit(parser.Str(item.Get("aggregated_output")), item.Get("exit_code"))
+		output := withExit(parser.Text(item.Get("aggregated_output")), item.Get("exit_code"))
 		return toolPair(itemID, "shell", joinedCommand(item.Get("command")), output)
 	case itemType == "McpToolCall":
-		name := parser.Str(item.Get("server")) + "." + parser.Str(item.Get("tool"))
+		name := parser.Text(item.Get("server")) + "." + parser.Text(item.Get("tool"))
 		result := itemFailure(item)
 		if !item.Get("result").IsEmpty() {
 			result = resultText(item.Get("result"))
 		}
-		return toolPair(itemID, name, parser.CompactJSON(item.Get("arguments")), result)
+		return toolPair(itemID, name, parser.JSONText(item.Get("arguments")), result)
 	case itemType == "DynamicToolCall":
 		result := resultText(item.Get("content_items"))
 		if result == "" {
 			result = itemFailure(item)
 		}
-		return toolPair(itemID, parser.Str(item.Get("tool")),
-			parser.CompactJSON(item.Get("arguments")), result)
+		return toolPair(itemID, parser.Text(item.Get("tool")),
+			parser.JSONText(item.Get("arguments")), result)
 	case itemType == "FileChange":
 		return fileChangeRows(item, itemID)
 	case itemType == "FunctionCallOutput":
 		return []itemRow{{turnType: timeline.TurnToolResult, when: atEnd,
-			toolName: parser.Str(item.Get("name")), toolUseID: itemID,
+			toolName: parser.Text(item.Get("name")), toolUseID: itemID,
 			text: parser.TextOf(item.Get("output"))}}
 	case itemType == "WebSearch" || (itemType == "Extension" && isText(item.Get("kind"), "web.search")):
 		results := item.Get("results")
 		if results.IsEmpty() {
 			results = jsonvalue.NewArray()
 		}
-		return toolPair(itemID, "web_search", parser.Str(item.Get("query")), parser.CompactJSON(results))
+		return toolPair(itemID, "web_search", parser.Text(item.Get("query")), parser.JSONText(results))
 	}
 	return systemItemRows(item, itemType)
 }
@@ -98,24 +98,24 @@ func systemItemRows(item jsonvalue.Value, itemType string) []itemRow {
 	case itemType == "ImageGeneration" || itemType == "Extension":
 		return systemItem(imageText(item, itemType))
 	case itemType == "Plan":
-		return systemItem("plan: " + parser.Str(item.Get("text")))
+		return systemItem("plan: " + parser.Text(item.Get("text")))
 	case itemType == "SubAgentActivity":
-		return systemItem("subagent activity: " + parser.Str(item.Get("kind")) + " " +
-			parser.Str(item.Get("agent_path")) + " " + parser.Str(item.Get("agent_thread_id")))
+		return systemItem("subagent activity: " + parser.Text(item.Get("kind")) + " " +
+			parser.Text(item.Get("agent_path")) + " " + parser.Text(item.Get("agent_thread_id")))
 	}
 	rest := without(item, "type", "id", "result")
-	return systemItem("item " + itemType + ": " + parser.CompactJSON(rest))
+	return systemItem("item " + itemType + ": " + parser.JSONText(rest))
 }
 
 // imageText returns the text of an image generation item, or of an
 // Extension item of another kind, which is shown as its JSON.
 func imageText(item jsonvalue.Value, itemType string) string {
 	if itemType == "Extension" && !isText(item.Get("kind"), "image_gen.generation") {
-		return "item Extension: " + parser.CompactJSON(without(item, "type", "id"))
+		return "item Extension: " + parser.JSONText(without(item, "type", "id"))
 	}
-	prompt := parser.Str(firstTruthy(item.Get("revised_prompt"), item.Get("revisedPrompt")))
-	text := "image generation: " + prompt + " status=" + parser.Str(item.Get("status"))
-	if saved := parser.Str(firstTruthy(item.Get("saved_path"), item.Get("savedPath"))); saved != "" {
+	prompt := parser.Text(firstTruthy(item.Get("revised_prompt"), item.Get("revisedPrompt")))
+	text := "image generation: " + prompt + " status=" + parser.Text(item.Get("status"))
+	if saved := parser.Text(firstTruthy(item.Get("saved_path"), item.Get("savedPath"))); saved != "" {
 		text += " saved=" + saved
 	}
 	return text
@@ -136,7 +136,7 @@ func fileChangeRows(item jsonvalue.Value, itemID string) []itemRow {
 	}
 	result := strings.Join(output, "\n")
 	if result == "" {
-		result = parser.Str(item.Get("status"))
+		result = parser.Text(item.Get("status"))
 	}
 	return toolPair(itemID, "apply_patch", paths, result)
 }
@@ -145,7 +145,7 @@ func fileChangeRows(item jsonvalue.Value, itemID string) []itemRow {
 // spaces, anything else as its text.
 func joinedCommand(command jsonvalue.Value) string {
 	if !command.IsArray() {
-		return parser.Str(command)
+		return parser.Text(command)
 	}
 	parts := make([]string, 0, command.Len())
 	for _, part := range command.Items() {
@@ -163,7 +163,7 @@ func itemFailure(item jsonvalue.Value) string {
 		if !message.IsEmpty() {
 			return "[error] " + message.Text()
 		}
-		return "[error] " + parser.CompactJSON(failure)
+		return "[error] " + parser.JSONText(failure)
 	}
 	if !failure.IsEmpty() {
 		return "[error] " + failure.Text()
@@ -179,7 +179,7 @@ func resultText(value jsonvalue.Value) string {
 		if content, ok := value.Lookup("content"); ok {
 			return parser.TextOf(content)
 		}
-		return parser.CompactJSON(value)
+		return parser.JSONText(value)
 	}
 	return parser.TextOf(value)
 }

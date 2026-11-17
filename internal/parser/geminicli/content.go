@@ -149,10 +149,10 @@ func classified(text string) []run {
 // for any other part.
 func mediaText(part jsonvalue.Value) string {
 	if data := part.Get("inlineData"); data.IsObject() {
-		return "[inlineData " + parser.Str(data.Get("mimeType")) + "]"
+		return "[inlineData " + parser.Text(data.Get("mimeType")) + "]"
 	}
 	if data := part.Get("fileData"); data.IsObject() {
-		return "[fileData " + parser.Str(data.Get("fileUri")) + "]"
+		return "[fileData " + parser.Text(data.Get("fileUri")) + "]"
 	}
 	return ""
 }
@@ -232,7 +232,7 @@ func responseText(functionResponse jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // resultText returns a tool_result text: the response's text, then each of
@@ -255,7 +255,7 @@ func callResultText(result jsonvalue.Value, callID string) string {
 	}
 	_, responses := contentRuns(result, false)
 	for _, each := range responses {
-		if parser.Str(each.value.Get("id")) == callID {
+		if parser.Text(each.value.Get("id")) == callID {
 			return each.resultText()
 		}
 	}
@@ -274,7 +274,7 @@ func callResultText(result jsonvalue.Value, callID string) string {
 				media = mediaText(part)
 			}
 			if media == "" {
-				media = parser.CompactJSON(part)
+				media = parser.JSONText(part)
 			}
 			texts = append(texts, media)
 		}
@@ -289,7 +289,7 @@ func toolText(call jsonvalue.Value) string {
 	arguments := call.Get("args")
 	argumentsText := ""
 	if !arguments.IsNull() && !(arguments.IsString() && arguments.StringValue() == "") {
-		argumentsText = parser.CompactJSON(arguments)
+		argumentsText = parser.JSONText(arguments)
 	}
 	label := call.Get("displayName")
 	if !label.IsEmpty() && !equal(label, call.Get("name")) {

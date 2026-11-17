@@ -40,14 +40,14 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 	emit parser.Emit) {
 	rows := conversationRows{owner: p, artifact: artifact, emit: emit,
 		timestamp: timeutil.FromValue(conversation.Get("updatedAt")),
-		sessionID: parser.Str(conversation.Get("id"))}
+		sessionID: parser.Text(conversation.Get("id"))}
 	var messages []jsonvalue.Value
 	for _, message := range conversation.Get("messages").Items() {
 		if message.IsObject() {
 			messages = append(messages, message)
 		}
 	}
-	heading := "conversation: " + parser.Str(conversation.Get("title")) + " | messages=" +
+	heading := "conversation: " + parser.Text(conversation.Get("title")) + " | messages=" +
 		strconv.Itoa(len(messages))
 	if rows.timestamp == "" {
 		heading += " | updatedAt unknown"
@@ -65,7 +65,7 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker, options parser.Options) {
 	role := message.Get("role")
 	meta := message.Get("meta")
-	model := parser.Str(meta.Get("model"))
+	model := parser.Text(meta.Get("model"))
 	isAssistant := role.IsString() && role.StringValue() == "assistant"
 	if isAssistant {
 		if change := models.Change("model", "model", model); change != "" {
@@ -94,7 +94,7 @@ func (c conversationRows) message(message jsonvalue.Value, models parser.Tracker
 	}
 	c.changes(message.Get("changes"), model)
 	if withheld := meta.Get("withheld"); !withheld.IsEmpty() {
-		c.row(timeline.TurnSystem, "secret shield withheld: "+parser.CompactJSON(withheld), model, "", "")
+		c.row(timeline.TurnSystem, "secret shield withheld: "+parser.JSONText(withheld), model, "", "")
 	}
 }
 
@@ -115,7 +115,7 @@ func (c conversationRows) text(role jsonvalue.Value, text, model string) {
 // roleName returns a role as a system row names it, "unknown" when it is
 // missing or empty.
 func roleName(role jsonvalue.Value) string {
-	if name := parser.Str(role); name != "" {
+	if name := parser.Text(role); name != "" {
 		return name
 	}
 	return "unknown"
@@ -128,19 +128,19 @@ func (c conversationRows) toolStep(step jsonvalue.Value, model string) {
 		summary := step.Get("summary")
 		text := summary.StringValue()
 		if !summary.IsString() && !summary.IsNull() {
-			text = parser.CompactJSON(summary) // a summary that is not a string is kept whole
+			text = parser.JSONText(summary) // a summary that is not a string is kept whole
 		}
 		c.row(timeline.TurnUser, text, "", "", "")
 		return
 	}
-	name, toolUseID := parser.Str(step.Get("name")), parser.Str(step.Get("id"))
+	name, toolUseID := parser.Text(step.Get("name")), parser.Text(step.Get("id"))
 	c.row(timeline.TurnToolUse, stepBody(step), model, name, toolUseID)
 	output := step.Get("output")
 	out := output.StringValue()
 	if !output.IsString() && !output.IsNull() {
-		out = parser.CompactJSON(output)
+		out = parser.JSONText(output)
 	}
-	status := parser.Str(step.Get("status"))
+	status := parser.Text(step.Get("status"))
 	if status != "" && status != "done" {
 		out = "[" + status + "] " + out
 	}
@@ -161,7 +161,7 @@ func stepBody(step jsonvalue.Value) string {
 		return command.Text()
 	}
 	if args := step.Get("args"); !args.IsEmpty() {
-		return parser.CompactJSON(args)
+		return parser.JSONText(args)
 	}
 	if summary := step.Get("summary"); !summary.IsEmpty() {
 		return summary.Text()

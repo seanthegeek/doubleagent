@@ -108,9 +108,9 @@ func TestResultTextJoinsTheBlocksAndAddsTheStatus(t *testing.T) {
 		{`{"content": [{"Text": "a"}, {"Json": {"b": 1, "a": 2}}, {"x": 1}, "s", 3], "status": "Success"}`,
 			"a\n{\"b\":1,\"a\":2}\n{\"x\":1}\ns\n3 [Success]"},
 		{`{"content": [], "status": "Error"}`, "[Error]"},
-		{`{"content": "ab"}`, "a\nb"},
+		{`{"content": "ab"}`, ""},
 		{`{"content": null}`, ""},
-		{`{"content": {"k": 1}, "status": 0}`, "k"},
+		{`{"content": {"k": 1}, "status": 0}`, ""},
 	}
 	for _, test := range tests {
 		t.Run(test.result, func(t *testing.T) {

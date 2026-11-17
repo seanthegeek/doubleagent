@@ -132,17 +132,17 @@ func argsSummary(args jsonvalue.Value) string {
 				return value.Text()
 			}
 		}
-		return parser.CompactJSON(object)
+		return parser.JSONText(object)
 	}
 	if args.IsString() {
 		return args.StringValue()
 	}
-	return parser.CompactJSON(args)
+	return parser.JSONText(args)
 }
 
 // modelOf returns a history message's provider_model_key, or "".
 func modelOf(message jsonvalue.Value) string {
-	return parser.Str(message.Get("metadata").Get("responses").Get("provider_model_key"))
+	return parser.Text(message.Get("metadata").Get("responses").Get("provider_model_key"))
 }
 
 // contentText returns a message's content as text: a list of blocks as their
@@ -150,7 +150,7 @@ func modelOf(message jsonvalue.Value) string {
 // of a chat message.
 func contentText(value jsonvalue.Value) string {
 	if value.IsObject() && !value.Has("text") {
-		return parser.CompactJSON(value)
+		return parser.JSONText(value)
 	}
 	return parser.TextOf(value)
 }
@@ -233,7 +233,7 @@ func slicesAny(names []string, holds func(string) bool) bool {
 func modelName(config jsonvalue.Value) string {
 	var parts []string
 	for _, name := range []string{"provider", "name"} {
-		if part := strings.TrimSpace(parser.Str(config.Get(name))); part != "" {
+		if part := strings.TrimSpace(parser.Text(config.Get(name))); part != "" {
 			parts = append(parts, part)
 		}
 	}
@@ -296,7 +296,7 @@ func chatSettingRows(data jsonvalue.Value) []chatSetting {
 // warningDecision returns the text and tool name of a warning log item's
 // "permission decision:" row, two empty texts when it records no decision.
 func (p *Parser) warningDecision(item jsonvalue.Value) (string, string) {
-	heading := parser.Str(item.Get("heading"))
+	heading := parser.Text(item.Get("heading"))
 	if content := item.Get("content"); content.IsString() {
 		if match := p.blocked.FindStringSubmatch(content.StringValue()); match != nil {
 			return "permission decision: blocked tool=" + match[1] + " profile=" + match[2], match[1]
@@ -440,7 +440,7 @@ func (c *chat) startRows(document, data jsonvalue.Value) {
 		}
 		return ""
 	}
-	text := join("chat start", parser.Str(document.Get("name")), label("type", document.Get("type")),
+	text := join("chat start", parser.Text(document.Get("name")), label("type", document.Get("type")),
 		label("profile", document.Get("agent_profile")), label("project", data.Get("project")))
 	start := c.row(timeline.TurnSystem, text, 0, "")
 	start.TimestampUTC = timeutil.FromValue(document.Get("created_at"))
@@ -531,7 +531,7 @@ func (c *chat) trimmedRows(logs []jsonvalue.Value, ordered []historyItem) {
 		switch {
 		case each.summary:
 			c.emit(c.row(timeline.TurnSystem, prefix(each.agent, "[summary] "+contentText(each.node)), 0, ""))
-		case !inLog[parser.Str(each.node.Get("id"))]:
+		case !inLog[parser.Text(each.node.Get("id"))]:
 			c.historyRows(each.agent, each.node)
 		}
 	}
@@ -562,7 +562,7 @@ func (c *chat) historyRows(agent, message jsonvalue.Value) {
 	switch {
 	case content.IsObject() && content.Has("tool_result"):
 		row := c.row(timeline.TurnToolResult, prefix(agent, contentText(content.Get("tool_result"))), 0, "")
-		row.ToolName, row.ToolUseID = parser.Str(content.Get("tool_name")), parser.Str(message.Get("id"))
+		row.ToolName, row.ToolUseID = parser.Text(content.Get("tool_name")), parser.Text(message.Get("id"))
 		c.emit(row)
 	case content.IsObject() && content.Has("user_message"):
 		c.emit(c.row(timeline.TurnUser, prefix(agent, contentText(content.Get("user_message"))), 0, ""))
@@ -636,9 +636,9 @@ type logItem struct {
 
 // newLogItem reads a log item against the chat's history.
 func (c *chat) newLogItem(item jsonvalue.Value) *logItem {
-	current := &logItem{item: item, kind: parser.Str(item.Get("type")),
+	current := &logItem{item: item, kind: parser.Text(item.Get("type")),
 		timestamp: timeutil.FromValue(item.Get("timestamp")), kvps: item.Get("kvps"),
-		itemID: parser.Str(item.Get("id")), agent: jsonvalue.NewInt(0), content: jsonvalue.NewString(""),
+		itemID: parser.Text(item.Get("id")), agent: jsonvalue.NewInt(0), content: jsonvalue.NewString(""),
 		message: jsonvalue.NewNull(), body: jsonvalue.NewNull()}
 	if number, ok := item.Get("no").Int(); ok && item.Get("no").IsInt() {
 		current.line = int(number)
@@ -763,7 +763,7 @@ func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timelin
 // otherLogRows emits the row of any other log item: its type, heading and
 // content, and for a warning the permission decision it records.
 func (c *chat) otherLogRows(current *logItem, row func(turn, text string) timeline.Row) {
-	heading := strings.TrimSpace(c.parser.icon.ReplaceAllString(parser.Str(current.item.Get("heading")), ""))
+	heading := strings.TrimSpace(c.parser.icon.ReplaceAllString(parser.Text(current.item.Get("heading")), ""))
 	text := join(heading, contentText(current.content))
 	kind := firstNonEmpty(current.kind, "log")
 	if text != "" {

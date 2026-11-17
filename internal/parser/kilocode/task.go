@@ -66,11 +66,11 @@ func (p *Parser) task(artifact *input.Artifact, options parser.Options, emit par
 	var problems parser.Problems
 	current := &task{owner: p, artifact: artifact, taskID: parts[len(parts)-2], options: options}
 	item := historyItem(artifact, current.taskID, &problems)
-	current.project = parser.Str(item.Get("workspace"))
+	current.project = parser.Text(item.Get("workspace"))
 	current.started = taskTime(item.Get("ts"), current.taskID)
 	if item.Len() > 0 {
 		emit(current.row(0, current.started, timeline.TurnSystem, strings.Join(slices.DeleteFunc(
-			[]string{"task:", parser.Str(item.Get("task")), labelled("mode=", item.Get("mode")),
+			[]string{"task:", parser.Text(item.Get("task")), labelled("mode=", item.Get("mode")),
 				labelled("status=", item.Get("status")), labelled("parent=", item.Get("parentTaskId"))},
 			func(part string) bool { return part == "" }), " ")))
 	}
@@ -124,7 +124,7 @@ func (t *task) messageRows(position int, message jsonvalue.Value) []timeline.Row
 		}
 		text := parser.TextOf(message.Get("summary"))
 		if text == "" {
-			text = parser.Str(firstTruthy(message.Get("reasoning_content"), message.Get("text")))
+			text = parser.Text(firstTruthy(message.Get("reasoning_content"), message.Get("text")))
 		}
 		if text == "" {
 			return nil
@@ -184,7 +184,7 @@ func (b *blocks) block(block jsonvalue.Value) {
 	case "text", "image":
 		text := "[image]"
 		if textOf(kind) == "text" {
-			text = parser.Str(block.Get("text"))
+			text = parser.Text(block.Get("text"))
 		}
 		switch {
 		case strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "<environment_details>"):
@@ -197,24 +197,24 @@ func (b *blocks) block(block jsonvalue.Value) {
 		}
 	case "tool_use":
 		row := b.add(timeline.TurnToolUse, opencode.ToolSummary(block.Get("input")))
-		row.ToolName, row.ToolUseID = parser.Str(block.Get("name")), parser.Str(block.Get("id"))
+		row.ToolName, row.ToolUseID = parser.Text(block.Get("name")), parser.Text(block.Get("id"))
 	case "tool_result":
 		text := parser.TextOf(block.Get("content"))
 		if !block.Get("is_error").IsEmpty() {
 			text = "[error] " + text
 		}
-		b.add(timeline.TurnToolResult, text).ToolUseID = parser.Str(block.Get("tool_use_id"))
+		b.add(timeline.TurnToolResult, text).ToolUseID = parser.Text(block.Get("tool_use_id"))
 	case "thinking", "reasoning":
 		text := firstTruthy(block.Get("thinking"), block.Get("text"))
 		if b.owner.options.IncludeThinking && !text.IsEmpty() {
-			b.add(timeline.TurnThinking, parser.Str(text))
+			b.add(timeline.TurnThinking, parser.Text(text))
 		}
 	default:
 		label := "block"
 		if !kind.IsEmpty() {
 			label = kind.Text()
 		}
-		b.add(timeline.TurnSystem, label+": "+parser.CompactJSON(block))
+		b.add(timeline.TurnSystem, label+": "+parser.JSONText(block))
 	}
 }
 

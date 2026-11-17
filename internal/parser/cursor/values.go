@@ -71,7 +71,7 @@ func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // plain returns a short ItemTable value's JSON value when it decodes, else

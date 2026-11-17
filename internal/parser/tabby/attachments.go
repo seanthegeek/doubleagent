@@ -59,7 +59,7 @@ func arrayItems(value jsonvalue.Value) []jsonvalue.Value {
 // location returns "<file>:<line>", or the file alone when the line is
 // null or empty text, or "" when there is no file.
 func location(filepath, startLine jsonvalue.Value) string {
-	path := parser.Str(filepath)
+	path := parser.Text(filepath)
 	if path == "" || startLine.IsNull() || startLine.IsString() && startLine.StringValue() == "" {
 		return path
 	}
@@ -75,7 +75,7 @@ func attachmentParts(attachment jsonvalue.Value) []string {
 		if !code.IsObject() {
 			continue
 		}
-		repository := parser.Str(code.Get("git_url"))
+		repository := parser.Text(code.Get("git_url"))
 		if commit := code.Get("commit"); !commit.IsEmpty() {
 			repository += "@" + commit.Text()
 		}
@@ -107,7 +107,7 @@ func firstTruthy(object jsonvalue.Value, first, second string) string {
 	if value := object.Get(first); !value.IsEmpty() {
 		return value.Text()
 	}
-	return parser.Str(object.Get(second))
+	return parser.Text(object.Get(second))
 }
 
 // messageAttachment returns a thread message's attachment, built from the
@@ -179,5 +179,5 @@ func commandText(item jsonvalue.Value) string {
 	case item.IsString():
 		return item.StringValue()
 	}
-	return parser.CompactJSON(item)
+	return parser.JSONText(item)
 }

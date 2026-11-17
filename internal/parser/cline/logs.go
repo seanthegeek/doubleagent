@@ -28,13 +28,13 @@ func (p *Parser) hooksLog(artifact *input.Artifact, emit parser.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = line
 		row.TimestampUTC = timeutil.FromValue(clinelegacy.FirstTruthy(record.Get("ts"), record.Get("timestamp")))
-		row.SessionID = parser.Str(clinelegacy.FirstTruthy(record.Get("sessionContext").Get("rootSessionId"),
+		row.SessionID = parser.Text(clinelegacy.FirstTruthy(record.Get("sessionContext").Get("rootSessionId"),
 			record.Get("taskId"), record.Get("sessionId")))
 		if roots := record.Get("workspaceRoots"); roots.Len() > 0 && roots.IsArray() &&
 			roots.Index(0).IsString() {
 			row.ProjectPath = roots.Index(0).StringValue()
 		}
-		hook := parser.Str(record.Get("hookName"))
+		hook := parser.Text(record.Get("hookName"))
 		if !hookEvent(&row, hook, record) {
 			row.TurnType = timeline.TurnSystem
 			row.Text = timeline.Compact("hook audit: " + orDash(hook) + auditDetail(record))
@@ -81,8 +81,8 @@ func hookEvent(row *timeline.Row, hook string, record jsonvalue.Value) bool {
 	case "tool_call":
 		call := record.Get("tool_call")
 		row.TurnType = timeline.TurnToolUse
-		row.ToolName = parser.Str(call.Get("name"))
-		row.ToolUseID = parser.Str(call.Get("id"))
+		row.ToolName = parser.Text(call.Get("name"))
+		row.ToolUseID = parser.Text(call.Get("id"))
 		row.Text = timeline.Compact(claudecode.ToolSummary(row.ToolName, call.Get("input")))
 	case "tool_result":
 		toolResult(row, record.Get("tool_result"), record.Get("postToolUse"))
@@ -102,8 +102,8 @@ func hookEvent(row *timeline.Row, hook string, record jsonvalue.Value) bool {
 // hook's result text, else the output.
 func toolResult(row *timeline.Row, result, post jsonvalue.Value) {
 	row.TurnType = timeline.TurnToolResult
-	row.ToolName = parser.Str(clinelegacy.FirstTruthy(result.Get("name"), post.Get("toolName")))
-	row.ToolUseID = parser.Str(result.Get("id"))
+	row.ToolName = parser.Text(clinelegacy.FirstTruthy(result.Get("name"), post.Get("toolName")))
+	row.ToolUseID = parser.Text(result.Get("id"))
 	output := result.Get("output")
 	switch {
 	case !result.Get("error").IsEmpty():
@@ -113,7 +113,7 @@ func toolResult(row *timeline.Row, result, post jsonvalue.Value) {
 	case output.IsString() || output.IsArray():
 		row.Text = timeline.Compact(parser.TextOf(output))
 	default:
-		row.Text = timeline.Compact(parser.CompactJSON(output))
+		row.Text = timeline.Compact(parser.JSONText(output))
 	}
 }
 
@@ -182,11 +182,11 @@ func (p *Parser) syncQueue(artifact *input.Artifact, emit parser.Emit) {
 			dash(item.Get("key"))+" retries "+dash(item.Get("retryCount"))+
 			" (from saoudrizwan.claude-dev/cache/sync-queue.json, item timestamp)")
 		row.SourceLine = i + 1
-		row.SessionID = parser.Str(item.Get("taskId"))
+		row.SessionID = parser.Text(item.Get("taskId"))
 		if row.SessionID != "" {
 			history := p.HistoryItem(clinelegacy.Task{Artifact: artifact, TaskID: row.SessionID,
 				RootLevels: 1})
-			row.ProjectPath = parser.Str(history.Get(p.ProjectKey()))
+			row.ProjectPath = parser.Text(history.Get(p.ProjectKey()))
 		}
 		row.TimestampUTC = timeutil.FromValue(item.Get("timestamp"))
 		if isText(item.Get("status"), "synced") {

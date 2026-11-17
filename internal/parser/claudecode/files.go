@@ -32,8 +32,8 @@ func (r *Reader) history(artifact *input.Artifact, emit parser.Emit) {
 		row := r.BaseRow(artifact)
 		row.SourceLine = line
 		row.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		row.SessionID = parser.Str(record.Get("sessionId"))
-		row.ProjectPath = parser.Str(record.Get("project"))
+		row.SessionID = parser.Text(record.Get("sessionId"))
+		row.ProjectPath = parser.Text(record.Get("project"))
 		row.TurnType = timeline.TurnUser
 		if display := record.Get("display"); display.IsString() {
 			row.Text = timeline.Compact(expandPastes(historyDir, display.StringValue(),

@@ -52,10 +52,10 @@ func (p *Parser) parseHTMLExport(artifact *input.Artifact, options parser.Option
 		if record.IsObject() {
 			session.Entries = append(session.Entries, Entry{Line: i + 1, Record: record})
 		} else {
-			problems.AddRaw(i+1, notObjectRecord(i+1), parser.CompactJSON(record))
+			problems.AddRaw(i+1, notObjectRecord(i+1), parser.JSONText(record))
 		}
 	}
-	sessionID, cwd := parser.Str(header.Get("id")), parser.Str(header.Get("cwd"))
+	sessionID, cwd := parser.Text(header.Get("id")), parser.Text(header.Get("cwd"))
 	emit(p.systemRow(artifact, 0, parser.FileMtime(artifact), sessionID, cwd, fmt.Sprintf(
 		"session exported: HTML /export of session %s, %d entries of every branch, leaf %s (from %s, "+
 			"file mtime)", sessionID, len(session.Entries), parser.SettingOrDash(sessionData.Get("leafId")),
@@ -124,7 +124,7 @@ func (p *Parser) parseJSONLExport(artifact *input.Artifact, options parser.Optio
 		return
 	}
 	header := session.Header
-	sessionID, cwd := parser.Str(header.Get("id")), parser.Str(header.Get("cwd"))
+	sessionID, cwd := parser.Text(header.Get("id")), parser.Text(header.Get("cwd"))
 	emit(p.systemRow(artifact, session.HeaderLine, timeutil.FromValue(header.Get("timestamp")),
 		sessionID, cwd, fmt.Sprintf("session exported: JSONL /export of the current branch of "+
 			"session %s, %d entries (from %s, header timestamp)", sessionID, len(session.Entries),
@@ -140,7 +140,7 @@ func (p *Parser) parseJSONLExport(artifact *input.Artifact, options parser.Optio
 func (p *Parser) copyRows(artifact *input.Artifact, session *Session, options parser.Options,
 	emit parser.Emit) {
 	header := session.Header
-	sessionID, cwd := parser.Str(header.Get("id")), parser.Str(header.Get("cwd"))
+	sessionID, cwd := parser.Text(header.Get("id")), parser.Text(header.Get("cwd"))
 	entryRows(p.Base, artifact, session, options, sessionID, cwd, nil, func(row timeline.Row) {
 		if !(row.TurnType == timeline.TurnSystem && strings.HasPrefix(row.Text, "model: ")) {
 			emit(row)
@@ -157,8 +157,8 @@ func (p *Parser) parseBugZip(artifact *input.Artifact, options parser.Options, e
 	report := bugJSONMember(artifact.Rel, members, "report.json", &problems)
 	diagnostics := bugJSONMember(artifact.Rel, members, "diagnostics.json", &problems)
 	reportSession := report.Get("session")
-	sessionID := parser.Str(either(reportSession.Get("id"), diagnostics.Get("sessionId")))
-	cwd := parser.Str(reportSession.Get("cwd"))
+	sessionID := parser.Text(either(reportSession.Get("id"), diagnostics.Get("sessionId")))
+	cwd := parser.Text(reportSession.Get("cwd"))
 	created := timeutil.FromValue(report.Get("createdAt"))
 	source := func(member, what string) string {
 		return "(from " + artifact.Rel + " " + member + ", " + what + ")"
@@ -198,7 +198,7 @@ func (p *Parser) bugCrashRows(artifact *input.Artifact, crashes jsonvalue.Value,
 		if record.IsObject() {
 			text, crashSession := p.crashText(record, source)
 			emit(p.systemRow(artifact, 0, timeutil.FromValue(record.Get("timestamp")), crashSession,
-				parser.Str(record.Get("cwd")), text))
+				parser.Text(record.Get("cwd")), text))
 		}
 	}
 }

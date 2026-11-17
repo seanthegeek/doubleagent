@@ -193,7 +193,7 @@ func (r *messageReader) part(current *message, part jsonvalue.Value) {
 	text, keep := "", true
 	switch {
 	case !kind.IsString():
-		row.TurnType, text = timeline.TurnSystem, kind.Text()+": "+parser.CompactJSON(data)
+		row.TurnType, text = timeline.TurnSystem, kind.Text()+": "+parser.JSONText(data)
 	case kind.StringValue() == "text":
 		text, after = r.textPart(current, data, &row)
 	case kind.StringValue() == "reasoning":
@@ -206,8 +206,8 @@ func (r *messageReader) part(current *message, part jsonvalue.Value) {
 	case kind.StringValue() == "tool_call":
 		row.TurnType = timeline.TurnToolUse
 		row.TimestampUTC = timeutil.FirstNonEmpty(current.finished, current.created)
-		row.ToolName, row.ToolUseID = parser.Str(data.Get("name")), parser.Str(data.Get("id"))
-		text = parser.CompactJSON(data.Get("input"))
+		row.ToolName, row.ToolUseID = parser.Text(data.Get("name")), parser.Text(data.Get("id"))
+		text = parser.JSONText(data.Get("input"))
 		if input := data.Get("input"); input.IsString() {
 			text = input.StringValue()
 		}
@@ -230,7 +230,7 @@ func (r *messageReader) part(current *message, part jsonvalue.Value) {
 func (r *messageReader) textPart(current *message, data jsonvalue.Value, row *timeline.Row) (string,
 	[]timeline.Row) {
 	row.TurnType = current.textType
-	text := parser.Str(data.Get("text"))
+	text := parser.Text(data.Get("text"))
 	if current.textType == timeline.TurnSystem {
 		text = current.role + ": " + text
 	}
@@ -275,8 +275,8 @@ func (r *messageReader) resultPart(current *message, data jsonvalue.Value, row *
 	[]timeline.Row) {
 	row.TurnType = timeline.TurnToolResult
 	row.TimestampUTC = timeutil.FirstNonEmpty(current.finished, current.created)
-	row.ToolName, row.ToolUseID = parser.Str(data.Get("name")), parser.Str(data.Get("tool_call_id"))
-	text := parser.Str(data.Get("content"))
+	row.ToolName, row.ToolUseID = parser.Text(data.Get("name")), parser.Text(data.Get("tool_call_id"))
+	text := parser.Text(data.Get("content"))
 	if mime := data.Get("mime_type"); text == "" && !mime.IsEmpty() {
 		text = "[" + mime.Text() + "]"
 	}
@@ -302,25 +302,25 @@ func (r *messageReader) otherPart(current *message, kind string, data jsonvalue.
 	row.TurnType = timeline.TurnSystem
 	switch kind {
 	case "finish":
-		reason := parser.Str(data.Get("reason"))
+		reason := parser.Text(data.Get("reason"))
 		if slices.Contains(normalFinish[:], reason) && data.Get("message").IsEmpty() {
 			return "", false
 		}
 		if stamp := data.Get("time"); !stamp.IsEmpty() {
 			row.TimestampUTC = timeutil.FromValue(stamp)
 		}
-		return joinParts("finish: "+reason, parser.Str(data.Get("message")),
-			parser.Str(data.Get("details"))), true
+		return joinParts("finish: "+reason, parser.Text(data.Get("message")),
+			parser.Text(data.Get("details"))), true
 	case "shell_command":
 		exit := ""
 		if code, ok := data.Lookup("exit_code"); ok {
 			exit = "exit=" + code.Text()
 		}
-		return joinParts("shell: "+parser.Str(data.Get("command")), exit,
-			parser.Str(data.Get("output"))), true
+		return joinParts("shell: "+parser.Text(data.Get("command")), exit,
+			parser.Text(data.Get("output"))), true
 	case "image_url":
 		row.TurnType = current.textType
-		url := parser.Str(data.Get("url"))
+		url := parser.Text(data.Get("url"))
 		if strings.HasPrefix(url, "data:") {
 			url, _, _ = strings.Cut(url, ",")
 		}
@@ -330,7 +330,7 @@ func (r *messageReader) otherPart(current *message, kind string, data jsonvalue.
 		return "[binary] " + joinParts(firstStr(data, "Path", "path"),
 			firstStr(data, "MIMEType", "mime_type")), true
 	}
-	return kind + ": " + parser.CompactJSON(data), true
+	return kind + ": " + parser.JSONText(data), true
 }
 
 // firstStr returns str(data[first] or data[second] or "").
@@ -338,7 +338,7 @@ func firstStr(data jsonvalue.Value, first, second string) string {
 	if value := data.Get(first); !value.IsEmpty() {
 		return value.Text()
 	}
-	return parser.Str(data.Get(second))
+	return parser.Text(data.Get(second))
 }
 
 // metadata returns a tool result's metadata, stored as a JSON string, as

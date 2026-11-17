@@ -53,7 +53,7 @@ func contentText(content jsonvalue.Value) string {
 	case content.IsString():
 		return content.StringValue()
 	case !content.IsObject() && !content.IsArray():
-		return parser.CompactJSON(content)
+		return parser.JSONText(content)
 	}
 	var parts []string
 	for _, item := range asList(content) {
@@ -68,7 +68,7 @@ func contentText(content jsonvalue.Value) string {
 		case item.Get("text").IsString():
 			parts = append(parts, item.Get("text").StringValue())
 		default:
-			parts = append(parts, parser.CompactJSON(item))
+			parts = append(parts, parser.JSONText(item))
 		}
 	}
 	return strings.Join(parts, "\n")
@@ -87,7 +87,7 @@ func textOrJSON(value jsonvalue.Value) string {
 	if value.IsString() {
 		return value.StringValue()
 	}
-	return parser.CompactJSON(value)
+	return parser.JSONText(value)
 }
 
 // toolInputText returns a tool use's input as text, unwrapping a
@@ -142,7 +142,7 @@ func firstFolder(folderPaths sqlitefile.Value) string {
 // a marker for an image or audio block, and anything else as CompactJSON.
 func acpBlocksText(blocks jsonvalue.Value) string {
 	if !blocks.IsObject() && !blocks.IsArray() {
-		return parser.CompactJSON(blocks)
+		return parser.JSONText(blocks)
 	}
 	var parts []string
 	for _, block := range asList(blocks) {
@@ -166,7 +166,7 @@ func acpBlockText(block jsonvalue.Value) string {
 	case isText(kind, "image"), isText(kind, "audio"):
 		return "[" + kind.StringValue() + "]"
 	}
-	return parser.CompactJSON(block)
+	return parser.JSONText(block)
 }
 
 // isText reports whether value is the string text.

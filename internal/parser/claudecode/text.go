@@ -44,7 +44,7 @@ func toolKeys(name string) []string {
 // an empty string.
 func ToolSummary(name string, toolInput jsonvalue.Value) string {
 	if !toolInput.IsObject() {
-		return parser.CompactJSON(toolInput)
+		return parser.JSONText(toolInput)
 	}
 	var values []string
 	for _, key := range toolKeys(name) {
@@ -61,7 +61,7 @@ func ToolSummary(name string, toolInput jsonvalue.Value) string {
 			return value.Text()
 		}
 	}
-	return parser.CompactJSON(toolInput)
+	return parser.JSONText(toolInput)
 }
 
 // ResultText returns the text of a tool_result block's content: for a list
@@ -75,7 +75,7 @@ func ResultText(content jsonvalue.Value) string {
 	for _, block := range content.Items() {
 		part := ""
 		if block.IsObject() && isText(block.Get("type"), "tool_reference") {
-			part = parser.Str(block.Get("tool_name"))
+			part = parser.Text(block.Get("tool_name"))
 		} else {
 			part = parser.TextOf(jsonvalue.NewArray(block))
 		}
