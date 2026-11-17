@@ -17,6 +17,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
 	"github.com/seanthegeek/doubleagent/internal/parser/aider"
+	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
 	"github.com/seanthegeek/doubleagent/internal/parser/chatgptdesktop"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudedesktop"
@@ -55,6 +56,7 @@ func constructors() []func() parser.Parser {
 		func() parser.Parser { return claudecode.New() },
 		func() parser.Parser { return claudedesktop.New() },
 		func() parser.Parser { return codex.New() },
+		func() parser.Parser { return antigravity.New() },
 		func() parser.Parser { return kiro.New() },
 		func() parser.Parser { return crush.New() },
 		func() parser.Parser { return goose.New() },
