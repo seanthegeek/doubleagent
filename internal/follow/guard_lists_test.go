@@ -31,11 +31,17 @@ func reviewedImports() map[string]string {
 		// history); the names used are NewDecoder, the token types, Name and
 		// SyntaxError.
 		"encoding/xml",
-		// Writes the manifest rows, collection.json and the inventory lines to
-		// an io.Writer the caller gives it; the names used are NewEncoder and
-		// the Encoder's SetEscapeHTML, SetIndent and Encode, none of which
-		// takes a path.
-		"encoding/json"}
+		// Writes the manifest rows, collection.json, the inventory lines and
+		// the analysis outputs to an io.Writer the caller gives it, and reads
+		// JSON from text or bytes already read; the names used are NewEncoder
+		// and its SetEscapeHTML, SetIndent and Encode, NewDecoder and its
+		// UseNumber, Token and InputOffset, and the Delim, Number,
+		// SyntaxError and Token types, none of which takes a path.
+		"encoding/json",
+		// Writes the fleet CSV's records to an io.Writer the caller gives
+		// it; the names used are NewWriter and the Writer's WriteAll, which
+		// take no path.
+		"encoding/csv"}
 	guarded := []string{"archive/zip", "os", "os/exec", "os/user", "path/filepath", "syscall",
 		"golang.org/x/sys/unix", "golang.org/x/sys/windows", "golang.org/x/sys/windows/registry",
 		"github.com/BurntSushi/toml"}
