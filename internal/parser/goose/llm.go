@@ -1,0 +1,258 @@
+package goose
+
+import (
+	"math"
+	"slices"
+	"strconv"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/pyjson"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
+)
+
+// llmLog is the state of one request log being read: the last request's
+// row, the rows after it, the model of the last request, and the message
+// being assembled from streamed chunks (its first chunk's row, its id, its
+// role and its content blocks so far).
+type llmLog struct {
+	parser   *Parser
+	artifact *input.Artifact
+	reader   *blockReader
+	request  *timeline.Row
+	pending  []timeline.Row
+	model    string
+	current  *assembly
+}
+
+// assembly is a message being assembled from streamed chunks.
+type assembly struct {
+	base      timeline.Row
+	messageID string
+	role      string
+	blocks    []pyjson.Value
+}
+
+// flush adds the rows of the message assembled so far.
+func (l *llmLog) flush() {
+	if l.current == nil {
+		return
+	}
+	l.reader.blocks(l.current.base, l.current.role, pyjson.NewArray(l.current.blocks...), true, nil,
+		func(row timeline.Row) { l.pending = append(l.pending, row) })
+	l.current = nil
+}
+
+// parseLLMLog emits the rows of a request log: the last request's row
+// first, then the messages and errors in order, then the bad lines.
+func (p *Parser) parseLLMLog(artifact *input.Artifact, options parser.Options, emit parser.Emit) {
+	var problems parser.Problems
+	log := &llmLog{parser: p, artifact: artifact, reader: &blockReader{parser: p, artifact: artifact,
+		options: options, toolNames: map[string]string{}}}
+	for number, record := range parser.JSONLines(artifact.DiskPath, &problems) {
+		log.record(number, record)
+	}
+	log.flush()
+	if log.request != nil {
+		emit(*log.request)
+	}
+	parser.EmitAll(emit, log.pending)
+	parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
+// record reads one line of the log.
+func (l *llmLog) record(number int, record pyjson.Value) {
+	if record.Has("input") || record.Has("model_config") {
+		l.flush()
+		l.requestRow(number, record)
+		return
+	}
+	data := record.Get("data")
+	switch {
+	case data.IsObject() && data.Has("content"):
+		l.chunk(number, data)
+	case record.Get("error").Truthy():
+		l.flush()
+		failure := record.Get("error")
+		text := parser.CompactJSON(failure)
+		if failure.IsString() {
+			text = failure.Text()
+		}
+		row := l.parser.row(l.artifact, number, "", "", l.model, "")
+		row.TurnType, row.Text = timeline.TurnSystem, timeline.Compact("llm error: "+text)
+		l.pending = append(l.pending, row)
+	}
+}
+
+// requestRow replaces the request row with the one of a request line,
+// whose model the rows after it take.
+func (l *llmLog) requestRow(number int, record pyjson.Value) {
+	config := orObject(record.Get("model_config"))
+	request := record.Get("input")
+	if !request.IsObject() {
+		request = pyjson.NewObject()
+	}
+	l.model = parser.Str(config.Get("model_name"))
+	if l.model == "" {
+		l.model = parser.Str(request.Get("model"))
+	}
+	messages := arrayItems(request.Get("messages"))
+	lastUser := ""
+	for i := len(messages) - 1; i >= 0; i-- {
+		if message := messages[i]; message.IsObject() && isText(message.Get("role"), "user") {
+			lastUser = parser.TextOf(message.Get("content"))
+			break
+		}
+	}
+	if lastUser != "" {
+		lastUser = "last user: " + lastUser
+	}
+	row := l.parser.row(l.artifact, number, "", "", l.model, "")
+	row.TurnType = timeline.TurnSystem
+	row.Text = timeline.Compact(joinParts("llm request", strconv.Itoa(len(messages))+" messages", lastUser))
+	l.request = &row
+}
+
+// chunk reads one streamed chunk: a chunk of the message being assembled
+// is merged into it, any other starts a new message. A chunk without
+// content (usage or metadata) adds nothing.
+func (l *llmLog) chunk(number int, data pyjson.Value) {
+	content := textBlocks(data.Get("content"))
+	if !content.IsArray() || content.Len() == 0 {
+		return
+	}
+	messageID := parser.Str(data.Get("id"))
+	if l.current != nil && messageID != "" && l.current.messageID == messageID {
+		l.current.blocks = mergeDelta(l.current.blocks, content.Items())
+		return
+	}
+	l.flush()
+	base := l.parser.row(l.artifact, number, "", "", l.model, epochJSON(data.Get("created")))
+	if l.request != nil && l.request.TimestampUTC == "" {
+		l.request.TimestampUTC = base.TimestampUTC
+	}
+	role := parser.Str(data.Get("role"))
+	if role == "" {
+		role = timeline.TurnAssistant
+	}
+	l.current = &assembly{base: base, messageID: messageID, role: role,
+		blocks: append([]pyjson.Value(nil), content.Items()...)}
+}
+
+// mergeDelta appends one streamed chunk's blocks to the message assembled
+// so far, as Goose's conversation does for chunks with the same message
+// id: a one-block text chunk extends a last text block of the same
+// audience, a one-block thinking chunk extends a last thinking block that
+// is unsigned or has its signature, and anything else is appended.
+func mergeDelta(blocks, added []pyjson.Value) []pyjson.Value {
+	if len(added) != 1 || len(blocks) == 0 || !blocks[len(blocks)-1].IsObject() || !added[0].IsObject() {
+		return append(blocks, added...)
+	}
+	last, block := blocks[len(blocks)-1], added[0]
+	kind := last.Get("type")
+	switch {
+	case isText(kind, "text") && isText(block.Get("type"), "text") &&
+		pyEqual(audience(last), audience(block)):
+		blocks[len(blocks)-1] = withMember(last, "text",
+			pyjson.NewString(parser.Str(last.Get("text"))+parser.Str(block.Get("text"))))
+	case isText(kind, "thinking") && isText(block.Get("type"), "thinking") &&
+		(!last.Get("signature").Truthy() || pyEqual(block.Get("signature"), last.Get("signature"))):
+		merged := withMember(last, "thinking",
+			pyjson.NewString(parser.Str(last.Get("thinking"))+parser.Str(block.Get("thinking"))))
+		if signature := block.Get("signature"); signature.Truthy() {
+			merged = withMember(merged, "signature", signature)
+		}
+		blocks[len(blocks)-1] = merged
+	default:
+		return append(blocks, added...)
+	}
+	return blocks
+}
+
+// audience returns a block's annotations.audience, JSON null when there is
+// none.
+func audience(block pyjson.Value) pyjson.Value {
+	if annotations := block.Get("annotations"); annotations.IsObject() {
+		return annotations.Get("audience")
+	}
+	return pyjson.NewNull()
+}
+
+// withMember returns a copy of an object with key set to value, in the
+// key's place or at the end.
+func withMember(object pyjson.Value, key string, value pyjson.Value) pyjson.Value {
+	members := slices.Clone(object.Members())
+	for i := range members {
+		if members[i].Key == key {
+			members[i].Value = value
+			return pyjson.NewObject(members...)
+		}
+	}
+	return pyjson.NewObject(append(members, pyjson.Member{Key: key, Value: value})...)
+}
+
+// pyEqual reports whether two decoded values are equal as Python's ==
+// compares them: numbers (and booleans, which are 0 and 1) by value,
+// objects by their keys and values whatever the order.
+func pyEqual(left, right pyjson.Value) bool {
+	leftNumber, leftIsNumber := numberOf(left)
+	rightNumber, rightIsNumber := numberOf(right)
+	switch {
+	case leftIsNumber || rightIsNumber:
+		if left.IsNumber() && right.IsNumber() && left.IsInt() && right.IsInt() {
+			return left.NumberText() == right.NumberText()
+		}
+		return leftIsNumber && rightIsNumber && leftNumber == rightNumber
+	case left.Kind() != right.Kind():
+		return false
+	case left.IsString():
+		return left.Text() == right.Text()
+	case left.IsArray():
+		return arraysEqual(left.Items(), right.Items())
+	case left.IsObject():
+		return objectsEqual(left, right)
+	}
+	return true
+}
+
+// numberOf returns a number or a boolean as a float.
+func numberOf(value pyjson.Value) (float64, bool) {
+	if flag, ok := value.Bool(); ok {
+		if flag {
+			return 1, true
+		}
+		return 0, true
+	}
+	if !value.IsNumber() {
+		return math.NaN(), false
+	}
+	number, _ := value.Float()
+	return number, true
+}
+
+// arraysEqual compares two arrays item by item.
+func arraysEqual(left, right []pyjson.Value) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if !pyEqual(left[i], right[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// objectsEqual compares two objects by their keys and values.
+func objectsEqual(left, right pyjson.Value) bool {
+	if left.Len() != right.Len() {
+		return false
+	}
+	for _, member := range left.Members() {
+		other, ok := right.Lookup(member.Key)
+		if !ok || !pyEqual(member.Value, other) {
+			return false
+		}
+	}
+	return true
+}
