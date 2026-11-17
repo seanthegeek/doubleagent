@@ -304,9 +304,8 @@ func JSON(result Result) string {
 		}
 		fmt.Fprintf(&text, "\n    {\"user\": \"%s\", \"source\": \"%s\", \"line\": %d, ",
 			stringBody(hint.User), stringBody(hint.Source), hint.Line)
-		fmt.Fprintf(&text, "\"variable\": \"%s\", \"agent\": \"%s\", \"value\": \"%s\"}",
-			stringBody(hint.Variable), stringBody(hint.Agent),
-			stringBody(hint.Value))
+		text.WriteString(`"variable": "` + stringBody(hint.Variable) + `", "agent": "` +
+			stringBody(hint.Agent) + `", "value": "` + stringBody(hint.Value) + `"}`)
 	}
 	if len(result.Hints) > 0 {
 		text.WriteString("\n  ")
