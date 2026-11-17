@@ -22,6 +22,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser/claudedesktop"
 	"github.com/seanthegeek/doubleagent/internal/parser/cline"
 	"github.com/seanthegeek/doubleagent/internal/parser/codex"
+	"github.com/seanthegeek/doubleagent/internal/parser/cody"
 	"github.com/seanthegeek/doubleagent/internal/parser/continuedev"
 	"github.com/seanthegeek/doubleagent/internal/parser/copilotcli"
 	"github.com/seanthegeek/doubleagent/internal/parser/copilotdesktop"
@@ -68,6 +69,7 @@ func constructors() []func() parser.Parser {
 		func() parser.Parser { return hermes.New() },
 		func() parser.Parser { return agentzero.New() },
 		func() parser.Parser { return openinterpreter.New() },
+		func() parser.Parser { return cody.New() },
 		func() parser.Parser { return twinny.New() },
 		func() parser.Parser { return pearai.New() },
 		func() parser.Parser { return musecode.New() },
