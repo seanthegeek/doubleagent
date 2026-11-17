@@ -163,7 +163,8 @@ var libraryShapes = []struct {
 	// a lead-in such as "JSON: " before one is not taken into the detail.
 	{regexp.MustCompile(`(?:Expecting|Unterminated|Invalid|Extra data|Illegal|Unexpected UTF-8 BOM)` +
 		`[^()"\n]*: line [0-9]+ column [0-9]+ \(char [0-9]+\)`), "{json error}"},
-	{regexp.MustCompile(`invalid JSON at line [0-9]+, column [0-9]+: [^()"\n]*`), "{json error}"},
+	// The binary's message holds no semicolon, so a note after one stays.
+	{regexp.MustCompile(`invalid JSON at line [0-9]+, column [0-9]+: [^();"\n]*`), "{json error}"},
 	{regexp.MustCompile(`[A-Za-z][^()"\n]*(?: \([^()"\n]*\))?: line [0-9]+, column [0-9]+`),
 		"{xml error}"},
 	{regexp.MustCompile(`[A-Z][^()"\n]* \(at (?:line [0-9]+, column [0-9]+|end of document)\)`),
