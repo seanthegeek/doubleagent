@@ -246,6 +246,72 @@ jobs:
           PARITY_LIVE: ${{ runner.os == 'Windows' && '1' || '0' }}
         run: go test -count=1 -timeout 90m -tags parity ./...
 
+  # The replay corpus: the Python analyzer's test suite runs once with the
+  # recorder plugin (analyzer/tests/recorder), which saves every parser, input
+  # and command call with its input files and its output. The suite must run
+  # in one process, so -n 0 turns pytest-xdist off.
+  record:
+    name: Record the analyzer corpus
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.python == 'true'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install analyzer dependencies
+        run: pip install -r analyzer/requirements-dev.txt
+      - name: Record the corpus
+        working-directory: analyzer
+        env:
+          PARITY_CORPUS: ${{ runner.temp }}/corpus
+        run: python3 -m pytest -q -n 0 -p no:cacheprovider -p recorder.plugin
+      - name: Pack the corpus
+        run: tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/corpus.tar.gz" corpus
+      - uses: actions/upload-artifact@v7
+        with:
+          name: analyzer-corpus
+          path: ${{ runner.temp }}/corpus.tar.gz
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: error
+
+  # The replay: every recorded case runs through the binary's own code on
+  # the three runners and is compared with what Python produced
+  # (internal/parity/replay).
+  replay:
+    name: Replay the analyzer corpus on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: [changes, record]
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.python == 'true'
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v8
+        with:
+          name: analyzer-corpus
+          path: ${{ runner.temp }}
+      - name: Unpack the corpus
+        run: tar -C "$RUNNER_TEMP" -xzf "$RUNNER_TEMP/corpus.tar.gz"
+      - name: go test (replay)
+        env:
+          PARITY_CORPUS: ${{ runner.temp }}/corpus
+        run: go test -count=1 -timeout 50m -tags parity ./internal/parity/replay/...
+
   lint:
     name: Lint (ruff, pyright, markdownlint, sh linters)
     runs-on: ubuntu-latest
@@ -258,8 +324,10 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      # The test requirements too: pyright resolves the pytest import of the
+      # corpus recorder under analyzer/tests/recorder.
       - name: Install analyzer dependencies
-        run: pip install -r analyzer/requirements.txt
+        run: pip install -r analyzer/requirements-dev.txt
       # Each linter below runs when a file of its language changed.
       - name: Install Python linters
         if: needs.changes.outputs.python == 'true'
@@ -354,6 +422,8 @@ jobs:
       - analyzer
       - go
       - go-parity
+      - record
+      - replay
       - lint
       - site
     steps:

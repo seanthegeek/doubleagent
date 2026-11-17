@@ -1617,6 +1617,11 @@ CI (`.github/workflows/ci.yml`) runs the catalog drift test; the analyzer
 tests on Python 3.11 to 3.14, with the branch-coverage gate on the newest;
 the Go gates, tests and six-target build and the parity job (the binary
 against the sh collector over the smoke image) on Ubuntu, macOS and Windows;
+the `record` job, which runs the analyzer's test suite once with the recorder
+plugin (`analyzer/tests/recorder`) and saves every parser, input and command
+call as a corpus, and the `replay` job, which runs each recorded case through
+the binary's code on the three runners (`internal/parity/replay`, build tag
+`parity`, corpus directory in `PARITY_CORPUS`);
 the lint and site jobs of [Quality gates](#quality-gates); and a `CI result`
 job that fails when any of them failed or was cancelled. CI also runs on a
 push to a `go-rewrite-*` integration branch or a `unit-*` branch of the
@@ -1658,7 +1663,8 @@ job or lint step runs when one of its categories is set.
   analyzer tests.
 - **Go** (`go.mod`, `go.sum`, `vendor/`, every `.go` file,
   `internal/catalog/catalog.txt`, `.github/go-build.sh`): the Go job's
-  gates, tests and builds, and the `go-parity` job.
+  gates, tests and builds, and the `go-parity` job. A Go or a Python
+  change also runs the `record` and `replay` jobs.
 
 Markdownlint, the site build, the document checks, the drift checkers and
 code style run on every change. Everything runs for a push to `main` or to
