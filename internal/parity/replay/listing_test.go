@@ -35,7 +35,7 @@ type filePair struct {
 	want, got string
 }
 
-// otherOfEqualRows is documented difference 57 for a loose tree's timeline:
+// otherOfEqualRows is documented difference 107 for a loose tree's timeline:
 // the binary lists the tree in name order and the recording in its file
 // system's, so where deduplication kept one of two copies of a row that
 // differ only in source_file and source_line, the two may keep different

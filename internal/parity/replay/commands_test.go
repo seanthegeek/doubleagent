@@ -61,7 +61,7 @@ type commandReplay struct {
 	// looseTimelines counts the loose timeline cases whose order was
 	// checked; multisets lists those whose rows differ in order from the
 	// recording's and are compared as multisets, and equalRows those where
-	// difference 57 took the other of two equal rows, with the count.
+	// difference 107 took the other of two equal rows, with the count.
 	looseTimelines int
 	multisets      []string
 	equalRows      []string
@@ -114,7 +114,7 @@ func (r *commandReplay) report(t *testing.T) {
 	}
 	if r.looseTimelines > 0 {
 		t.Logf("listing order: %d loose timeline cases in the documented order; compared as row "+
-			"multisets: %s; the other of two equal rows kept (difference 57): %s", r.looseTimelines,
+			"multisets: %s; the other of two equal rows kept (difference 107): %s", r.looseTimelines,
 			namesOrNone(r.multisets), namesOrNone(r.equalRows))
 	}
 	for _, block := range slices.Sorted(maps.Keys(r.blocks)) {
@@ -513,14 +513,14 @@ func hasKey(entries map[string]string, key string) bool {
 // after the documented differences their recorded text shows. root is the
 // run's root, which stands where the recording's stood. A loose tree's
 // timeline and sessions must be in the documented order and are compared
-// after difference 57, as multisets of lines when their order differs,
+// after difference 107, as multisets of lines when their order differs,
 // since rows of equal sort keys keep the listing order.
 func (r *commandReplay) compareFull(t *testing.T, node, root string, want, got commandOutput) {
 	if want.loose && holdsTimeline(want.outputs) {
 		checkDocumentedOrder(t, node, got.outputs)
 		want.outputs, got.outputs = maps.Clone(want.outputs), maps.Clone(got.outputs)
 		r.looseTimelines++
-		if rows := difference(t, 57).Outputs(want.outputs, got.outputs); rows > 0 {
+		if rows := difference(t, 107).Outputs(want.outputs, got.outputs); rows > 0 {
 			r.equalRows = append(r.equalRows, fmt.Sprintf("%s (%d rows)", node, rows))
 		}
 		if rowOrderDiffers(t, node, want.outputs, got.outputs) {
@@ -628,14 +628,14 @@ func normalisedPair(t *testing.T, node, want, got string) (string, string) {
 }
 
 // commandDifferences returns the table of documented differences as the
-// command replay applies them: difference 52 also rewrites the system
+// command replay applies them: difference 102 also rewrites the system
 // message of a file a command could not read, which Python printed as
 // its capitalised strerror at the end of a problem line or a JSON string
 // and the binary prints as the shared lower-case reason.
 func commandDifferences() []Difference {
 	table := Differences()
 	for i := range table {
-		if library := table[i].Text; table[i].Number == 52 && library != nil {
+		if library := table[i].Text; table[i].Number == 102 && library != nil {
 			table[i].Text = func(text string) (string, int) {
 				text, found := library(text)
 				text, system := systemMessageText(text)
@@ -779,12 +779,12 @@ func TestDifference52RewritesACommandsSystemMessage(t *testing.T) {
 		numbers         []int
 		fails, equal    bool
 	}{
-		{"a problem line's message is compared under 52", python, binary, []int{52}, false, true},
-		{"a JSON string's message is compared under 52", pythonJSON, binaryJSON, []int{52}, false, true},
-		{"the shape names difference 52", python, binary, textDifferences(python), false, true},
+		{"a problem line's message is compared under 102", python, binary, []int{102}, false, true},
+		{"a JSON string's message is compared under 102", pythonJSON, binaryJSON, []int{102}, false, true},
+		{"the shape names difference 102", python, binary, textDifferences(python), false, true},
 		{"another capitalised word is not a system message", "problem:   /x: Permission granted\n",
-			"problem:   /x: permission granted\n", []int{52}, true, false},
-		{"52 named on a text without its shape fails the case", "rows: 3\n", "rows: 3\n", []int{52},
+			"problem:   /x: permission granted\n", []int{102}, true, false},
+		{"102 named on a text without its shape fails the case", "rows: 3\n", "rows: 3\n", []int{102},
 			true, true},
 	}
 	for _, test := range tests {

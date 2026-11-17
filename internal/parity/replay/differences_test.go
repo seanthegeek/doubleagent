@@ -9,10 +9,10 @@ import (
 	"testing"
 )
 
-func TestTheTableNumbersEachDifferenceOnceFrom51(t *testing.T) {
+func TestTheTableNumbersEachAnalysisDifferenceOnceFrom101(t *testing.T) {
 	seen := map[int]bool{}
 	for i, entry := range Differences() {
-		if entry.Number != 51+i || seen[entry.Number] {
+		if entry.Number != 101+i || seen[entry.Number] {
 			t.Errorf("entry %d is numbered %d", i, entry.Number)
 		}
 		seen[entry.Number] = true
@@ -37,103 +37,103 @@ func TestTextDifferencesRewriteOnlyTheirShape(t *testing.T) {
 		want   string
 		found  int
 	}{
-		{"51 replaces a usage message to the end", 51,
+		{"101 replaces a usage message to the end", 101,
 			"usage: doubleagent [-h]\ndoubleagent: error: bad\n", "{usage}\n", 1},
-		{"51 leaves a text without usage alone", 51, "error: no such file\n",
+		{"101 leaves a text without usage alone", 101, "error: no such file\n",
 			"error: no such file\n", 0},
-		{"52 rewrites a JSON decoder detail in a parser row", 52,
+		{"102 rewrites a JSON decoder detail in a parser row", 102,
 			"parser: unparseable line (Expecting ',' delimiter: line 1 column 5 (char 4)): {\"a\" 1",
 			"parser: unparseable line ({json error}): {\"a\" 1", 1},
-		{"52 rewrites the binary's JSON decoder detail in a parser row", 52,
+		{"102 rewrites the binary's JSON decoder detail in a parser row", 102,
 			"parser: unparseable record 2 (invalid JSON at line 1, column 4: trailing comma before ']'): ]",
 			"parser: unparseable record 2 ({json error}): ]", 1},
-		{"52 rewrites a SQLite error up to a JSON quote", 52,
+		{"102 rewrites a SQLite error up to a JSON quote", 102,
 			`{"text":"parser: SQLite error: file is not a database","source_line":0}`,
 			`{"text":"parser: SQLite error: {sqlite error}","source_line":0}`, 1},
-		{"52 rewrites a system error of a problem line", 52,
+		{"102 rewrites a system error of a problem line", 102,
 			"problem:   /x/y: could not be read (Permission denied)\n",
 			"problem:   /x/y: could not be read ({system error})\n", 1},
-		{"52 rewrites the binary's TOML reader detail in a parser row", 52,
+		{"102 rewrites the binary's TOML reader detail in a parser row", 102,
 			"parser: unreadable automation.toml: invalid TOML at line 2, column 20: strings cannot contain newlines",
 			"parser: unreadable automation.toml: {toml error}", 1},
-		{"52 rewrites a zip reader's detail in a parser row", 52,
+		{"102 rewrites a zip reader's detail in a parser row", 102,
 			"parser: report.zip is not a zip archive (File is not a zip file)",
 			"parser: report.zip is not a zip archive ({zip error})", 1},
-		{"52 rewrites a base64 decoder's detail in a parser row", 52,
+		{"102 rewrites a base64 decoder's detail in a parser row", 102,
 			"parser: session data is not base64 (Only base64 data is allowed)",
 			"parser: session data is not base64 ({base64 error})", 1},
-		{"52 rewrites the database detail of an unreadable OpenCode store", 52,
+		{"102 rewrites the database detail of an unreadable OpenCode store", 102,
 			"parser: database could not be read: file is not a database",
 			"parser: database could not be read: {sqlite error}", 1},
-		{"52 leaves a lead-in in capitals before Python's JSON detail", 52,
+		{"102 leaves a lead-in in capitals before Python's JSON detail", 102,
 			"parser: unparseable record 4 (tool_calls is not valid JSON: Expecting value: line 1 column 1 (char 0)): nope",
 			"parser: unparseable record 4 (tool_calls is not valid JSON: {json error}): nope", 1},
-		{"52 leaves a record's key before Python's JSON detail", 52,
+		{"102 leaves a record's key before Python's JSON detail", 102,
 			"parser: unparseable record 14 (bubbleId:Ab: Expecting value: line 1 column 1 (char 0)): x",
 			"parser: unparseable record 14 (bubbleId:Ab: {json error}): x", 1},
-		{"52 rewrites the database detail of an unreadable editor state store", 52,
+		{"102 rewrites the database detail of an unreadable editor state store", 102,
 			"parser: state.vscdb unreadable: database disk image is malformed",
 			"parser: state.vscdb unreadable: {sqlite error}", 1},
-		{"52 leaves a note after the binary's JSON detail", 52,
+		{"102 leaves a note after the binary's JSON detail", 102,
 			"parser: unparseable record 2 (invalid JSON at line 1, column 1: expected a value; stored zstd blob as hex): 28b5",
 			"parser: unparseable record 2 ({json error}; stored zstd blob as hex): 28b5", 1},
-		{"the note for an unreadable persisted output keeps its form", 52,
+		{"the note for an unreadable persisted output keeps its form", 102,
 			"output\n[persisted output could not be read (Permission denied)]",
 			"output\n[persisted output could not be read ({system error})]", 1},
-		{"52 rewrites an XML parse error", 52,
+		{"102 rewrites an XML parse error", 102,
 			"parser: cody_history.xml did not parse; read 0 chat(s) (not well-formed (invalid token): line 1, column 5)",
 			"parser: cody_history.xml did not parse; read 0 chat(s) ({xml error})", 1},
-		{"52 rewrites a TOML error", 52,
+		{"102 rewrites a TOML error", 102,
 			"parser: unreadable config.toml: Invalid value (at line 2, column 7)",
 			"parser: unreadable config.toml: {toml error}", 1},
-		{"52 rewrites Python's JSON error with its class name", 52,
+		{"102 rewrites Python's JSON error with its class name", 102,
 			"parser: unparseable record 2 (JSONDecodeError: Expecting value: line 1 column 1 (char 0); stored zstd blob as hex): 28b5",
 			"parser: unparseable record 2 ({json error}; stored zstd blob as hex): 28b5", 1},
-		{"52 rewrites Python's JSON error with its class name after a key", 52,
+		{"102 rewrites Python's JSON error with its class name after a key", 102,
 			"parser: unparseable record 5 (agent_draft_prompts d: JSONDecodeError: Unterminated string starting at: line 1 column 24 (char 23)): [",
 			"parser: unparseable record 5 (agent_draft_prompts d: {json error}): [", 1},
-		{"52 rewrites the binary's JSON error after a key", 52,
+		{"102 rewrites the binary's JSON error after a key", 102,
 			"parser: unparseable record 5 (agent_draft_prompts d: invalid JSON at line 1, column 24: unterminated string): [",
 			"parser: unparseable record 5 (agent_draft_prompts d: {json error}): [", 1},
-		{"52 rewrites Python's thread that is not an object", 52,
+		{"102 rewrites Python's thread that is not an object", 102,
 			`parser: unparseable record 2 (ValueError: not a JSON object): ["not"]`,
 			`parser: unparseable record 2 ({thread not an object}): ["not"]`, 1},
-		{"52 rewrites the binary's thread that is not an object", 52,
+		{"102 rewrites the binary's thread that is not an object", 102,
 			`parser: unparseable record 2 (the thread is not a JSON object): ["not"]`,
 			`parser: unparseable record 2 ({thread not an object}): ["not"]`, 1},
-		{"52 rewrites Python's worktree record without its seconds", 52,
+		{"102 rewrites Python's worktree record without its seconds", 102,
 			`parser: unparseable record 6 (created_git_worktrees: KeyError: 'created_at_seconds'): {}`,
 			`parser: unparseable record 6 (created_git_worktrees: {no creation time}): {}`, 1},
-		{"52 rewrites the binary's worktree record without its seconds", 52,
+		{"102 rewrites the binary's worktree record without its seconds", 102,
 			`parser: unparseable record 6 (created_git_worktrees: no created_at_seconds field): {}`,
 			`parser: unparseable record 6 (created_git_worktrees: {no creation time}): {}`, 1},
-		{"52 rewrites Python's UTF-8 codec error on one byte", 52,
+		{"102 rewrites Python's UTF-8 codec error on one byte", 102,
 			"parser: unparseable line ('utf-8' codec can't decode byte 0xc3 in position 0: invalid continuation byte): x",
 			"parser: unparseable line ({utf-8 error}): x", 1},
-		{"52 rewrites Python's UTF-8 codec error on several bytes", 52,
+		{"102 rewrites Python's UTF-8 codec error on several bytes", 102,
 			"parser: unparseable line ('utf-8' codec can't decode bytes in position 2-3: unexpected end of data): x",
 			"parser: unparseable line ({utf-8 error}): x", 1},
-		{"52 rewrites the binary's UTF-8 error", 52,
+		{"102 rewrites the binary's UTF-8 error", 102,
 			"parser: unparseable line (not valid UTF-8 at byte offset 10): x",
 			"parser: unparseable line ({utf-8 error}): x", 1},
-		{"52 leaves a UTF-8 error that names no offset alone", 52,
+		{"102 leaves a UTF-8 error that names no offset alone", 102,
 			"parser: unparseable line (not valid UTF-8): x", "parser: unparseable line (not valid UTF-8): x", 0},
-		{"52 rewrites Python's path of a mutation not applied", 52,
+		{"102 rewrites Python's path of a mutation not applied", 102,
 			`parser: mutation not applied (path ['nowhere'] not found): {"kind": 1}`,
 			`parser: mutation not applied (path {mutation path} not found): {"kind": 1}`, 1},
-		{"52 rewrites the binary's path of a mutation not applied", 52,
+		{"102 rewrites the binary's path of a mutation not applied", 102,
 			`parser: mutation not applied (path ["nowhere"] not found): {"kind": 1}`,
 			`parser: mutation not applied (path {mutation path} not found): {"kind": 1}`, 1},
-		{"52 rewrites Python's unclosed quote", 52,
+		{"102 rewrites Python's unclosed quote", 102,
 			"parser: unparseable line (No closing quotation): permissions allow 'x",
 			"parser: unparseable line ({unclosed quote}): permissions allow 'x", 1},
-		{"52 rewrites the binary's unclosed quote", 52,
+		{"102 rewrites the binary's unclosed quote", 102,
 			"parser: unparseable line (a quote is not closed): permissions allow 'x",
 			"parser: unparseable line ({unclosed quote}): permissions allow 'x", 1},
-		{"52 leaves the analyzer's own wording alone", 52,
+		{"102 leaves the analyzer's own wording alone", 102,
 			"parser: unparseable line (not a JSON object): [1]",
 			"parser: unparseable line (not a JSON object): [1]", 0},
-		{"52 leaves an assistant row that quotes an error alone", 52,
+		{"102 leaves an assistant row that quotes an error alone", 102,
 			"SQLite error: file is not a database", "SQLite error: file is not a database", 0},
 	}
 	for _, test := range tests {
@@ -153,16 +153,16 @@ func TestExcludingDifferencesSeeOnlyTheirShape(t *testing.T) {
 		text   string
 		want   bool
 	}{
-		{"53 sees a lookahead", 53, "timeline\n/in\n--match\nfoo(?=bar)", true},
-		{"53 sees a backreference in the joined form", 53, "--match=(a)\\1", true},
-		{"53 sees a pattern Go cannot compile", 53, "--match\n[z-a]", true},
-		{"53 passes a pattern both read alike", 53, "--match\nfoo|bar", false},
-		{"54 sees an ISO week date", 54, "--since\n2026-W40", true},
-		{"54 sees an ordinal date", 54, "--until\n2026-274", true},
-		{"54 sees a non-ASCII digit", 54, "--since\n٢٠٢٦-10-01", true},
-		{"54 passes a calendar date", 54, "--since\n2026-10-01", false},
-		{"56 sees SQLite without FTS5", 56, "parser: SQLite error: no such module: fts5", true},
-		{"56 passes another SQLite error", 56, "parser: SQLite error: disk I/O error", false},
+		{"103 sees a lookahead", 103, "timeline\n/in\n--match\nfoo(?=bar)", true},
+		{"103 sees a backreference in the joined form", 103, "--match=(a)\\1", true},
+		{"103 sees a pattern Go cannot compile", 103, "--match\n[z-a]", true},
+		{"103 passes a pattern both read alike", 103, "--match\nfoo|bar", false},
+		{"104 sees an ISO week date", 104, "--since\n2026-W40", true},
+		{"104 sees an ordinal date", 104, "--until\n2026-274", true},
+		{"104 sees a non-ASCII digit", 104, "--since\n٢٠٢٦-10-01", true},
+		{"104 passes a calendar date", 104, "--since\n2026-10-01", false},
+		{"106 sees SQLite without FTS5", 106, "parser: SQLite error: no such module: fts5", true},
+		{"106 passes another SQLite error", 106, "parser: SQLite error: disk I/O error", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -176,7 +176,7 @@ func TestExcludingDifferencesSeeOnlyTheirShape(t *testing.T) {
 func TestPlannerOrderSortsOnlyRunsOfItsRows(t *testing.T) {
 	rows := []Row{{Text: "user prompt"}, {Text: "archived worktree: b"},
 		{Text: "archived worktree: a"}, {Text: "assistant"}, {Text: "archived worktree: c"}}
-	got, found := difference(t, 55).Rows(rows)
+	got, found := difference(t, 105).Rows(rows)
 	texts := []string{}
 	for _, row := range got {
 		texts = append(texts, string(row.Text))
@@ -198,22 +198,22 @@ func TestANamedDifferenceThatFindsNothingFailsTheCase(t *testing.T) {
 		fails bool
 	}{
 		{"a text difference with its shape passes", func(reporter *recordingTB) {
-			NormaliseTexts(reporter, "n", []int{51}, "usage: x\n", "usage: y\n")
+			NormaliseTexts(reporter, "n", []int{101}, "usage: x\n", "usage: y\n")
 		}, false},
 		{"a text difference without its shape fails", func(reporter *recordingTB) {
-			NormaliseTexts(reporter, "n", []int{51}, "x\n", "x\n")
+			NormaliseTexts(reporter, "n", []int{101}, "x\n", "x\n")
 		}, true},
 		{"a row difference without its shape fails", func(reporter *recordingTB) {
-			NormaliseRows(reporter, "n", []int{52}, []Row{{Text: "hello"}}, nil)
+			NormaliseRows(reporter, "n", []int{102}, []Row{{Text: "hello"}}, nil)
 		}, true},
 		{"an excluding difference that shows passes", func(reporter *recordingTB) {
-			Excluded(reporter, "n", []int{54}, "--since\n2026-W01")
+			Excluded(reporter, "n", []int{104}, "--since\n2026-W01")
 		}, false},
 		{"an excluding difference that does not show fails", func(reporter *recordingTB) {
-			Excluded(reporter, "n", []int{54}, "--since\n2026-01-01")
+			Excluded(reporter, "n", []int{104}, "--since\n2026-01-01")
 		}, true},
 		{"a difference of another kind is left to its own call", func(reporter *recordingTB) {
-			NormaliseTexts(reporter, "n", []int{54}, "x", "x")
+			NormaliseTexts(reporter, "n", []int{104}, "x", "x")
 		}, false},
 	}
 	for _, test := range tests {
@@ -233,7 +233,7 @@ func TestNormaliseRowsRewritesBothSides(t *testing.T) {
 	want := []Row{{Text: "parser: SQLite error: file is not a database"}}
 	got := []Row{{Text: "parser: SQLite error: malformed database: bad header"}}
 	reporter := &recordingTB{TB: t}
-	normalWant, normalGot := NormaliseRows(reporter, "n", []int{52}, want, got)
+	normalWant, normalGot := NormaliseRows(reporter, "n", []int{102}, want, got)
 	if !DiffRows(reporter, "n", normalWant, normalGot) || len(reporter.errors) > 0 {
 		t.Errorf("rows still differ: %v", reporter.errors)
 	}
@@ -295,7 +295,7 @@ func TestListingOrderTakesOnlyTheOtherOfTwoEqualRows(t *testing.T) {
 				"out/sessions.jsonl": test.wantSessions + "\n"}
 			got := map[string]string{"out/timeline.jsonl": strings.Join(test.got, "\n") + "\n",
 				"out/sessions.jsonl": test.gotSessions + "\n"}
-			rows := difference(t, 57).Outputs(want, got)
+			rows := difference(t, 107).Outputs(want, got)
 			if rows != test.rows {
 				t.Errorf("rewrote %d rows, want %d", rows, test.rows)
 			}
