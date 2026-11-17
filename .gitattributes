@@ -12,3 +12,8 @@ vendor/** linguist-generated=true
 # The embedded catalog is compared byte for byte with `collect --list`.
 internal/catalog/catalog.txt text eol=lf
 analyzer/doubleagent/catalog.txt text eol=lf
+
+# SQLite test databases and their sidecars are bytes, never text.
+internal/sqlitefile/testdata/*.db binary
+internal/sqlitefile/testdata/*.db-wal binary
+internal/sqlitefile/testdata/*.db-journal binary
