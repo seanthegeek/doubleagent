@@ -5,6 +5,11 @@
 // left out of the result, and a nested message that is cut off is left out
 // whole, so one damaged field costs only itself; only a damaged top-level
 // buffer is an error.
+//
+// google.golang.org/protobuf decodes through code generated from .proto
+// files; the agents' schemas are unpublished and change, so a parser names
+// the few fields it reads in a table instead, and a damaged or unknown
+// field never fails the rest of the message.
 package protowire
 
 import (

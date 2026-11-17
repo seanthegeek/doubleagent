@@ -21,6 +21,10 @@
 // symbolic link inside the input, and extraction never writes outside its
 // directory: no link, hard link or device member is created, a member's name
 // is confined to the directory, and every file is created new.
+// archive/tar and archive/zip only read members; they create no file and
+// leave a member's name, type and size for the caller to check, so the
+// extraction makes those checks itself, a member name with stricter rules
+// than filepath.IsLocal (any ".." element of a zip name is refused).
 package input
 
 import (

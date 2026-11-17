@@ -6,15 +6,11 @@
 // sidecars; the -shm file is ignored, since SQLite rebuilds it.
 //
 // A rollback journal (name-journal) is played back, its saved pages read in
-// place of the main file's, when the main file is not empty, the journal's
-// first byte is not zero, the journal is at least 512 bytes long and names
-// no super-journal (SQLite plays such a journal only when the named file
-// exists, which a copy never has), and its first header has the journal
-// magic and a sector size and page size (0 meaning the database's) that are
-// powers of two in range. The main file is then cut or grown to the size
-// that header records; records are restored segment by segment, pages past
-// that size skipped, until a short read, a page number of 0 or of the lock
-// page, or a checksum mismatch.
+// place of the main file's, when the main file is not empty and the journal
+// is 512 bytes or more, has the journal magic, names no super-journal (a
+// copy never has the named file) and gives sector and page sizes that are
+// powers of two in range, until a short read, a page number of 0 or of the
+// lock page, or a checksum mismatch.
 //
 // A write-ahead log (name-wal) is used when the main file, after any
 // rollback, is not empty and the log's header has a known magic, a page
@@ -27,5 +23,9 @@
 // OpenPath, Open and OpenBytes open a database; Schema lists the schema
 // table, TableRows and IndexRows walk one b-tree in key order, and Table
 // and Select read a table's rows as SQL's SELECT returns them. Damage
-// gives an error wrapping ErrMalformed, never a panic.
+// gives an error wrapping ErrMalformed, never a panic. database/sql with a
+// SQLite driver needs cgo or a whole SQL engine run on schemas the
+// evidence's writer chose, and SQLite reads a -wal only through a -shm file
+// it creates beside the database; this package parses the file format
+// alone, without cgo, and never writes.
 package sqlitefile

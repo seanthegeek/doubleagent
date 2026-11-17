@@ -19,6 +19,11 @@
 // IsEmpty is DoubleAgent's rule for a value that is left out of a row: null,
 // false, zero, an empty string, array or object. Equal compares two values
 // with numbers by value and objects without regard to key order.
+//
+// encoding/json can decode into any (map[string]any, float64): a map loses
+// the evidence's key order, which rows and embedded JSON keep, and a float
+// loses a number's text (1.50, a 20-digit id); UseNumber keeps the text but
+// not the order. This package reads tokens to keep both.
 package jsonvalue
 
 import (

@@ -19,6 +19,10 @@
 //
 // Bounds are timestamps in the timeline's own form, so a row is kept by a
 // plain string comparison: since <= timestamp_utc <= until.
+//
+// time.ParseDuration reads units from nanoseconds to hours, with no days,
+// weeks, months or years and no calendar arithmetic, and time.Parse reads
+// one layout at a time, so the WHEN forms are read here.
 package rowfilter
 
 import (
