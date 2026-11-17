@@ -186,8 +186,11 @@ func (p *Parser) searchProject(artifact *input.Artifact, sessionID, workspace st
 		return workspace
 	}
 	var ignored parser.Problems
-	manifest, _ := parser.LoadJSON(artifact.Home.PathOf(
-		sessionsDir(artifact.Rel)+"/"+sessionID+"/"+sessionID+".json"), &ignored)
+	manifestPath, found := parser.Above(artifact, 1, "sessions", sessionID, sessionID+".json")
+	if !found {
+		return workspace
+	}
+	manifest, _ := parser.LoadJSON(manifestPath, &ignored)
 	if !manifest.IsObject() {
 		return workspace
 	}

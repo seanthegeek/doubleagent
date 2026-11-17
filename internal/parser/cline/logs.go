@@ -1,8 +1,6 @@
 package cline
 
 import (
-	"path"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
@@ -173,7 +171,6 @@ func (p *Parser) syncQueue(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	rootRel := path.Dir(path.Dir(artifact.Rel))
 	for i, member := range items.Members() {
 		item := member.Value
 		if !item.IsObject() {
@@ -187,7 +184,7 @@ func (p *Parser) syncQueue(artifact *input.Artifact, emit parser.Emit) {
 		row.SessionID = parser.Str(item.Get("taskId"))
 		if row.SessionID != "" {
 			history := p.HistoryItem(clinelegacy.Task{Artifact: artifact, TaskID: row.SessionID,
-				DirRel: rootRel, RootRel: rootRel})
+				RootLevels: 1})
 			row.ProjectPath = parser.Str(history.Get(p.ProjectKey()))
 		}
 		row.TimestampUTC = timeutil.FromValue(item.Get("timestamp"))

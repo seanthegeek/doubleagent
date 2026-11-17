@@ -1,7 +1,7 @@
 package continuedev
 
 import (
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -18,12 +18,15 @@ import (
 // dev_data file is in: .continue/dev_data/<file> or
 // .continue/dev_data/<schema>/<file>.
 func (p *Parser) devIndex(artifact *input.Artifact) map[string]pyjson.Value {
-	directory := path.Dir(artifact.Rel)
-	base := path.Dir(path.Dir(directory))
-	if parent := path.Dir(directory); path.Base(parent) == ".continue" {
-		base = parent
+	levels := 2
+	if parent, found := parser.Above(artifact, 1); found && filepath.Base(parent) == ".continue" {
+		levels = 1
 	}
-	return p.indexes.Index(artifact.Home.PathOf(base + "/sessions"))
+	sessions, found := parser.Above(artifact, levels, "sessions")
+	if !found {
+		return nil
+	}
+	return p.indexes.Index(sessions)
 }
 
 // recordText returns a prompt or completion as row text: a string as it

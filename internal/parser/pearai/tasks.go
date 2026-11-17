@@ -1,7 +1,6 @@
 package pearai
 
 import (
-	"path"
 	"slices"
 	"strings"
 
@@ -26,7 +25,11 @@ func standingKeys() []string {
 // HistoryItem returns the task's taskHistory[] entry from the editor's
 // global state, or null.
 func (p *Parser) HistoryItem(task clinelegacy.Task) pyjson.Value {
-	state := p.globalState(task.PathOf(path.Dir(task.RootRel) + "/state.vscdb")).value
+	database, found := task.InRootParent("state.vscdb")
+	if !found {
+		return pyjson.NewNull()
+	}
+	state := p.globalState(database).value
 	for _, entry := range state.Get("taskHistory").Items() {
 		if entry.IsObject() && entry.Get("id").Str() == task.TaskID {
 			return entry

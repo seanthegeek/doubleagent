@@ -1,12 +1,12 @@
 package pearai
 
 import (
-	"path"
 	"regexp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/pyjson"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -123,7 +123,10 @@ func settingsModel(header string) string {
 // as promptTurn reads it, the completion, and the user's feedback.
 func (p *Parser) devChat(artifact *input.Artifact, emit parser.Emit) {
 	var problems parser.Problems
-	index := p.indexes.Index(artifact.Home.PathOf(path.Dir(path.Dir(artifact.Rel)) + "/sessions"))
+	var index map[string]pyjson.Value
+	if sessions, found := parser.Above(artifact, 1, "sessions"); found {
+		index = p.indexes.Index(sessions)
+	}
 	for line, record := range parser.JSONLines(artifact.DiskPath, &problems) {
 		base := p.BaseRow(artifact)
 		base.SourceLine = line

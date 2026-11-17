@@ -1,7 +1,6 @@
 package pearai
 
 import (
-	"path"
 	"strconv"
 	"strings"
 
@@ -27,7 +26,7 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parser.Em
 	document, problem := continuedev.LoadSession(raw)
 	base := p.BaseRow(artifact)
 	base.SessionID = parser.Str(clinelegacy.FirstTruthy(document.Get("sessionId"), pyjson.NewString(fileID)))
-	entry := p.indexes.Index(artifact.Home.PathOf(path.Dir(artifact.Rel)))[base.SessionID]
+	entry := p.indexes.Index(parser.Beside(artifact))[base.SessionID]
 	base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
 	base.ProjectPath = parser.Str(clinelegacy.FirstTruthy(document.Get("workspaceDirectory"),
 		entry.Get("workspaceDirectory")))

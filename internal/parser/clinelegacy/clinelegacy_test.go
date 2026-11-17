@@ -1,9 +1,11 @@
 package clinelegacy
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
@@ -186,4 +188,34 @@ func FuzzArrayAfterKeyFindsAnOpeningBracket(fuzz *testing.F) {
 			t.Errorf("ArrayAfterKey(%q) = %d, not a bracket", text, offset)
 		}
 	})
+}
+
+func TestTaskPathsComeFromTheArtifactsDiskPath(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	file := &input.Artifact{Rel: "store/tasks/t1/ui_messages.json",
+		DiskPath: filepath.Join(home, "store", "tasks", "t1", "ui_messages.json")}
+	task := TaskOf(file)
+	if task.TaskID != "t1" {
+		t.Errorf("TaskID = %q", task.TaskID)
+	}
+	if got := task.InDir("x.json"); got != filepath.Join(home, "store", "tasks", "t1", "x.json") {
+		t.Errorf("InDir = %q", got)
+	}
+	if got, ok := task.InRoot("state/taskHistory.json"); !ok || got != filepath.Join(home, "store", "state", "taskHistory.json") {
+		t.Errorf("InRoot = %q, %v", got, ok)
+	}
+	if got, ok := task.InRootParent("state.vscdb"); !ok || got != filepath.Join(home, "state.vscdb") {
+		t.Errorf("InRootParent = %q, %v", got, ok)
+	}
+	queue := &input.Artifact{Rel: "store/cache/sync-queue.json",
+		DiskPath: filepath.Join(home, "store", "cache", "sync-queue.json")}
+	if got, ok := (Task{Artifact: queue, RootLevels: 1}).InRoot("state/taskHistory.json"); !ok ||
+		got != filepath.Join(home, "store", "state", "taskHistory.json") {
+		t.Errorf("sync-queue InRoot = %q, %v", got, ok)
+	}
+	shallow := &input.Artifact{Rel: "tasks/t1/ui_messages.json",
+		DiskPath: filepath.Join(home, "tasks", "t1", "ui_messages.json")}
+	if _, ok := TaskOf(shallow).InRootParent("state.vscdb"); ok {
+		t.Error("a root above the home was named")
+	}
 }

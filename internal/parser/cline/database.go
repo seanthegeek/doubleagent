@@ -94,13 +94,12 @@ func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parser.Emit) {
 		emit(p.ProblemRow(artifact, message))
 		return
 	}
-	sessions := sessionsDir(artifact.Rel)
 	keys := append(startKeys(), "ended_at", "exit_code")
 	for _, record := range rows {
 		session := rowObject(record)
 		sessionID := parser.Str(session.Get("session_id"))
-		if sessionID != "" && parser.RegularFile(artifact.Home.PathOf(
-			sessions+"/"+sessionID+"/"+sessionID+".json")) {
+		if manifest, found := parser.Above(artifact, 1, "sessions", sessionID, sessionID+".json"); sessionID != "" &&
+			found && parser.RegularFile(manifest) {
 			continue
 		}
 		meta := metadataJSON(record.Get("metadata_json"))

@@ -71,37 +71,39 @@ type APIRower interface {
 		includeThinking bool) []ContentRow
 }
 
-// Task names the directories of the task a file belongs to, as paths
-// relative to the home: its own and the storage root's.
+// Task names where the task a file belongs to keeps its files: the file's
+// own directory, and the storage root some levels above it.
 type Task struct {
 	Artifact *input.Artifact
-	// ID is the task directory's name.
+	// TaskID is the task directory's name.
 	TaskID string
-	// DirRel is the task directory and RootRel the storage root above
-	// tasks/.
-	DirRel, RootRel string
+	// RootLevels is how many directories above the artifact's own the
+	// storage root lies: 2 for a task file (the root is above tasks/), 1
+	// for the extension's cache/sync-queue.json.
+	RootLevels int
 }
 
 // TaskOf returns the task of a file directly inside a task directory.
 func TaskOf(artifact *input.Artifact) Task {
-	directory := path.Dir(artifact.Rel)
-	return Task{Artifact: artifact, TaskID: path.Base(directory), DirRel: directory,
-		RootRel: path.Dir(path.Dir(directory))}
+	return Task{Artifact: artifact, TaskID: path.Base(path.Dir(artifact.Rel)), RootLevels: 2}
 }
 
-// PathOf returns the disk path of a path relative to the home.
-func (t Task) PathOf(rel string) string {
-	return t.Artifact.Home.PathOf(rel)
-}
-
-// InDir returns the disk path of a file in the task directory.
+// InDir returns the disk path of a file beside the artifact, in the task
+// directory.
 func (t Task) InDir(name string) string {
-	return t.PathOf(t.DirRel + "/" + name)
+	return parser.Beside(t.Artifact, name)
 }
 
-// InRoot returns the disk path of a path under the storage root.
-func (t Task) InRoot(rel string) string {
-	return t.PathOf(t.RootRel + "/" + rel)
+// InRoot returns the disk path of a path under the storage root, or false
+// when the root lies outside the artifact's home.
+func (t Task) InRoot(rel string) (string, bool) {
+	return parser.Above(t.Artifact, t.RootLevels, rel)
+}
+
+// InRootParent returns the disk path of a file in the directory that holds
+// the storage root, or false when that lies outside the artifact's home.
+func (t Task) InRootParent(name string) (string, bool) {
+	return parser.Above(t.Artifact, t.RootLevels+1, name)
 }
 
 // cacheKey identifies one state of a file: its path, modification time in

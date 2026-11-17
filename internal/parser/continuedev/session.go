@@ -1,7 +1,6 @@
 package continuedev
 
 import (
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -65,7 +64,7 @@ func (p *Parser) session(artifact *input.Artifact, options parser.Options, emit 
 	}
 	document, problem := LoadSession(pytext.DecodeUTF8(content))
 	sessionID := clinelegacy.FirstTruthy(document.Get("sessionId"), pyjson.NewString(fileID)).Str()
-	entry := p.indexes.Index(artifact.Home.PathOf(path.Dir(artifact.Rel)))[sessionID]
+	entry := p.indexes.Index(parser.Beside(artifact))[sessionID]
 	state := &sessionFile{parser: p, artifact: artifact, options: options, emit: emit,
 		base: p.BaseRow(artifact), models: parser.Tracker{}, names: map[string]string{},
 		answered: map[string]bool{}}

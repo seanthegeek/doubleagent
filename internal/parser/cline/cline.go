@@ -20,7 +20,6 @@
 package cline
 
 import (
-	"path"
 	"regexp"
 	"strings"
 
@@ -128,7 +127,11 @@ func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
 
 // HistoryItem returns the task's entry in state/taskHistory.json, or null.
 func (p *Parser) HistoryItem(task clinelegacy.Task) pyjson.Value {
-	items := p.CachedJSON(task.InRoot("state/taskHistory.json"))
+	history, found := task.InRoot("state/taskHistory.json")
+	if !found {
+		return pyjson.NewNull()
+	}
+	items := p.CachedJSON(history)
 	for _, item := range items.Items() {
 		if item.IsObject() && item.Get("id").Str() == task.TaskID {
 			return item
@@ -178,12 +181,6 @@ func (p *Parser) settingsFile(artifact *input.Artifact, emit parser.Emit) {
 	case pendingStartPattern.MatchString(rel):
 		p.pendingStarts(artifact, emit)
 	}
-}
-
-// sessionsDir returns the path, relative to the home, of the sessions
-// directory beside a file two levels under ~/.cline/data.
-func sessionsDir(rel string) string {
-	return path.Dir(path.Dir(rel)) + "/sessions"
 }
 
 // The interfaces the registry looks for, checked when the package builds.

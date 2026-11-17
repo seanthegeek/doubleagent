@@ -103,7 +103,11 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) pyjson.Value {
 	if item, _ := parser.LoadJSON(task.InDir(itemFile), &ignored); item.IsObject() {
 		return item
 	}
-	index := p.CachedJSON(task.InRoot("tasks/_index.json"))
+	indexPath, found := task.InRoot("tasks/_index.json")
+	if !found {
+		return pyjson.NewNull()
+	}
+	index := p.CachedJSON(indexPath)
 	for _, entry := range index.Get("entries").Items() {
 		if entry.IsObject() && entry.Get("id").Str() == task.TaskID {
 			return entry
@@ -179,13 +183,12 @@ func (p *Parser) index(artifact *input.Artifact, emit parser.Emit) {
 		parser.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	tasks := path.Dir(artifact.Rel)
 	for i, entry := range index.Get("entries").Items() {
 		if !entry.IsObject() {
 			continue
 		}
 		taskID := parser.Str(entry.Get("id"))
-		if taskID != "" && parser.RegularFile(artifact.Home.PathOf(tasks+"/"+taskID+"/"+itemFile)) {
+		if taskID != "" && parser.RegularFile(parser.Beside(artifact, taskID, itemFile)) {
 			continue
 		}
 		p.historyRows(artifact, entry, i+1, emit)
