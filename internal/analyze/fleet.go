@@ -1,7 +1,10 @@
 package analyze
 
 import (
+	"bufio"
+	"bytes"
 	"cmp"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"io/fs"
@@ -109,7 +112,7 @@ func fleetRows(text string) ([][]string, int) {
 			rows = append(rows, append(slices.Clone(host), make([]string, len(agentFields()))...))
 		}
 	}
-	for _, line := range universalLines(text) {
+	for _, line := range inputLines(text) {
 		record, ok := inventoryRecord(line)
 		switch {
 		case !ok:
@@ -131,16 +134,38 @@ func fleetRows(text string) ([][]string, int) {
 	return rows, junk
 }
 
-// universalLines returns the lines of text split at LF, CR LF or a lone
-// CR, as a text file is read line by line, without their ends.
-func universalLines(text string) []string {
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	text = strings.ReplaceAll(text, "\r", "\n")
-	lines := strings.Split(text, "\n")
-	if lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
+// inputLines returns the lines of text, each ending at LF, CR LF or a lone
+// CR, without its end. A saved console output can hold a progress line
+// ended by a lone CR before a record, so the record still starts a line.
+// A line may be as long as the text.
+func inputLines(text string) []string {
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	scanner.Buffer(nil, max(len(text)+1, bufio.MaxScanTokenSize))
+	scanner.Split(scanLineEnds)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
 	}
 	return lines
+}
+
+// scanLineEnds is a bufio.SplitFunc for inputLines: a line ends at LF, at CR
+// LF or at a CR not followed by LF; the last line may have no end.
+func scanLineEnds(data []byte, atEOF bool) (int, []byte, error) {
+	end := bytes.IndexAny(data, "\r\n")
+	switch {
+	case end < 0 && atEOF && len(data) > 0:
+		return len(data), data, nil
+	case end < 0:
+		return 0, nil, nil
+	case data[end] == '\n':
+		return end + 1, data[:end], nil
+	case end+1 < len(data) && data[end+1] == '\n':
+		return end + 2, data[:end], nil
+	case end+1 < len(data) || atEOF:
+		return end + 1, data[:end], nil
+	}
+	return 0, nil, nil
 }
 
 // inventoryRecord returns the host or agent record a line holds: a JSON
@@ -172,7 +197,7 @@ func cells(record jsonvalue.Value, fields []string) []string {
 }
 
 // cell returns one field's CSV cell: "" for a missing or null value, a
-// time field as a timeline timestamp, anything else as Python's str() of it.
+// time field as a timeline timestamp, anything else as its row text (Text).
 func cell(field string, value jsonvalue.Value) string {
 	switch {
 	case value.IsNull():
@@ -263,20 +288,20 @@ func plural(count int, noun string) string {
 	return noun + "s"
 }
 
-// writeFleetCSV writes the header and rows to path, creating its parent
-// directory.
+// writeFleetCSV writes the header and rows to path through encoding/csv
+// with its defaults (fields quoted where needed, lines ending in LF),
+// creating its parent directory.
 func writeFleetCSV(path string, rows [][]string) error {
 	if parent := pathParent(path); parent != "." {
 		if err := osfile.MkdirAll(parent, 0o777); err != nil {
 			return err
 		}
 	}
-	var out []byte
-	out = appendCSVRow(out, FleetColumns())
-	for _, row := range rows {
-		out = appendCSVRow(out, row)
+	var out bytes.Buffer
+	if err := csv.NewWriter(&out).WriteAll(append([][]string{FleetColumns()}, rows...)); err != nil {
+		return err
 	}
-	return osfile.WriteFile(path, out, 0o666)
+	return osfile.WriteFile(path, out.Bytes(), 0o666)
 }
 
 // printFleet prints how many rows from how many hosts were written, and the

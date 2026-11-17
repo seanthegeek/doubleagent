@@ -1,9 +1,9 @@
 package analyze
 
 import (
+	"maps"
 	"slices"
 
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -171,7 +171,36 @@ func agentList(counts []fileCounts) []agentFiles {
 // display path.
 type projectEntryJSON struct {
 	path  string
-	value jsonvalue.Value
+	value projectValueJSON
+}
+
+// projectValueJSON is the object of a project path, or of the rows outside
+// any project: the counts, the four marks and, for a project path only
+// (the fields that are then set), its status, shared files, repository and
+// recorded remotes.
+type projectValueJSON struct {
+	Status          string                    `json:"status,omitempty"`
+	Rows            int                       `json:"rows"`
+	Sessions        int                       `json:"sessions"`
+	Agents          map[string]agentTallyJSON `json:"agents"`
+	SharedFiles     *int64                    `json:"shared_files,omitempty"`
+	Synced          string                    `json:"synced"`
+	Relayed         string                    `json:"relayed"`
+	Origin          string                    `json:"origin"`
+	Recovered       string                    `json:"recovered"`
+	Remotes         *[]remoteJSON             `json:"remotes,omitempty"`
+	Head            *string                   `json:"head,omitempty"`
+	RecordedRemotes *[]string                 `json:"recorded_remotes,omitempty"`
+}
+
+// agentTallyJSON is one agent of a project: its rows, sessions and turn
+// types and, for a project path, its files and bytes.
+type agentTallyJSON struct {
+	Rows      int            `json:"rows"`
+	Sessions  int            `json:"sessions"`
+	TurnTypes map[string]int `json:"turn_types"`
+	Files     *int64         `json:"files,omitempty"`
+	Bytes     *int64         `json:"bytes,omitempty"`
 }
 
 // entries returns each project's object in order of its display path: the
@@ -193,7 +222,7 @@ func (p *projectInventory) entries(marks []sessionMark,
 
 // entry returns the object of one project key.
 func (p *projectInventory) entry(key string, marks []sessionMark,
-	remotes map[string]map[string]bool) jsonvalue.Value {
+	remotes map[string]map[string]bool) projectValueJSON {
 	totals, path := p.groups[key], p.names[key]
 	var disk *onDisk
 	if path != "" {
@@ -202,62 +231,60 @@ func (p *projectInventory) entry(key string, marks []sessionMark,
 			disk = &onDisk{git: emptyGit()}
 		}
 	}
-	members := []jsonvalue.Member{}
+	labels := make([]string, len(marks))
+	for i, mark := range marks {
+		labels[i] = mark.label(p.marks[key], totals.agents)
+	}
+	value := newProjectValue(totals.rows, totals.sessions, agentTallies(totals.agents, disk), labels)
 	if disk != nil {
-		status := "referenced"
+		value.Status = "referenced"
 		if p.collected[key] {
-			status = "collected"
+			value.Status = "collected"
 		}
-		members = append(members, member("status", jsonvalue.NewString(status)))
-	}
-	members = append(members, member("rows", jsonvalue.NewInt(int64(totals.rows))),
-		member("sessions", jsonvalue.NewInt(int64(totals.sessions))),
-		member("agents", agentTallies(totals.agents, disk)))
-	if disk != nil {
-		members = append(members, member("shared_files", jsonvalue.NewInt(disk.sharedFiles)))
-	}
-	for _, mark := range marks {
-		members = append(members, member(mark.key, jsonvalue.NewString(mark.label(p.marks[key], totals.agents))))
-	}
-	if disk != nil {
 		git := emptyGit()
 		if p.collected[key] {
 			git = disk.git
 		}
-		members = append(members, member("remotes", remotesJSON(git.remotes)),
-			member("head", jsonvalue.NewString(git.head)),
-			member("recorded_remotes", stringArray(sortedKeys(remotes[key]))))
+		remoteList, recorded := remotesJSON(git.remotes), list(sortedKeys(remotes[key]))
+		value.SharedFiles, value.Remotes, value.Head = &disk.sharedFiles, &remoteList, &git.head
+		value.RecordedRemotes = &recorded
 	}
-	return jsonvalue.NewObject(members...)
+	return value
 }
 
-// agentTallies returns the agents object of a project: per agent, sorted,
-// its rows, sessions and turn types and, with disk, its files and bytes.
-func agentTallies(agents map[string]*agentTally, disk *onDisk) jsonvalue.Value {
-	var members []jsonvalue.Member
-	for _, agent := range sortedKeys(agents) {
-		tally := agents[agent]
-		var turnTypes []jsonvalue.Member
-		for _, turnType := range sortedKeys(tally.turnTypes) {
-			turnTypes = append(turnTypes, member(turnType, jsonvalue.NewInt(int64(tally.turnTypes[turnType]))))
-		}
-		fields := []jsonvalue.Member{member("rows", jsonvalue.NewInt(int64(tally.rows))),
-			member("sessions", jsonvalue.NewInt(int64(tally.sessions))),
-			member("turn_types", jsonvalue.NewObject(turnTypes...))}
+// newProjectValue returns a project object with its counts, its agents and
+// the labels of the four marks in the order of projectMarks.
+func newProjectValue(rows, sessions int, agents map[string]agentTallyJSON, labels []string) projectValueJSON {
+	value := projectValueJSON{Rows: rows, Sessions: sessions, Agents: agents}
+	fields := []*string{&value.Synced, &value.Relayed, &value.Origin, &value.Recovered}
+	for i, label := range labels {
+		*fields[i] = label
+	}
+	return value
+}
+
+// agentTallies returns the agents object of a project: per agent its rows,
+// sessions and turn types and, with disk, its files and bytes.
+func agentTallies(agents map[string]*agentTally, disk *onDisk) map[string]agentTallyJSON {
+	out := make(map[string]agentTallyJSON, len(agents))
+	for agent, tally := range agents {
+		turnTypes := make(map[string]int, len(tally.turnTypes))
+		maps.Copy(turnTypes, tally.turnTypes)
+		entry := agentTallyJSON{Rows: tally.rows, Sessions: tally.sessions, TurnTypes: turnTypes}
 		if disk != nil {
 			var files fileCounts
 			if index := slices.IndexFunc(disk.agents, func(each fileCounts) bool { return each.agent == agent }); index >= 0 {
 				files = disk.agents[index]
 			}
-			fields = append(fields, member("files", jsonvalue.NewInt(files.files)),
-				member("bytes", jsonvalue.NewInt(files.bytes)))
+			entry.Files, entry.Bytes = &files.files, &files.bytes
 		}
-		members = append(members, member(agent, jsonvalue.NewObject(fields...)))
+		out[agent] = entry
 	}
-	return jsonvalue.NewObject(members...)
+	return out
 }
 
-// compareText orders two texts by code point, as Python compares strings.
+// compareText orders two texts byte by byte, which for UTF-8 is the order
+// of their characters.
 func compareText(left, right string) int {
 	switch {
 	case left < right:

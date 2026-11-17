@@ -1,10 +1,13 @@
 package analyze
 
 import (
+	"bufio"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -50,25 +53,39 @@ func TestFleetRowsReadEachRecordShapeAsTheAnalyzerDoes(t *testing.T) {
 	}
 }
 
-func TestAppendCSVRowWritesPythonsDefaultDialect(t *testing.T) {
+func TestFleetLinesEndAtLFCRLFOrALoneCR(t *testing.T) {
 	tests := []struct {
-		name   string
-		fields []string
-		want   string
+		name string
+		text string
+		want []string
 	}{
-		{"only a comma, a quote, a CR or an LF is quoted",
-			[]string{"a b", " x", "a,b", "a\"b", "a\nb", "a\rb", "", "é", "\t", "x ", "\x00", "#",
-				" ", "a;b", "a\x1cb"},
-			"a b, x,\"a,b\",\"a\"\"b\",\"a\nb\",\"a\rb\",,é,\t,x ,\x00,#, ,a;b,a\x1cb\r\n"},
-		{"a row of one empty field is quoted", []string{""}, "\"\"\r\n"},
-		{"a row of two empty fields is not", []string{"", ""}, ",\r\n"},
+		{"LF and CR LF end a line", "a\nb\r\nc", []string{"a", "b", "c"}},
+		{"a lone CR ends a line", "a\rb\n", []string{"a", "b"}},
+		{"a CR at the end ends the last line", "a\r", []string{"a"}},
+		{"a blank line between CR LF ends is kept", "a\r\n\r\nb", []string{"a", "", "b"}},
+		{"a final LF gives no empty line", "a\n\n", []string{"a", ""}},
+		{"no text gives no line", "", nil},
+		{"a line longer than the scanner's default buffer is one line", strings.Repeat("x", 70000),
+			[]string{strings.Repeat("x", 70000)}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := string(appendCSVRow(nil, test.fields)); got != test.want {
+			if got := inputLines(test.text); !slices.Equal(got, test.want) {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestALineEndSplitAcrossReadsIsOneEnd(t *testing.T) {
+	scanner := bufio.NewScanner(iotest.OneByteReader(strings.NewReader("a\r\nb\rc")))
+	scanner.Split(scanLineEnds)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if want := []string{"a", "b", "c"}; !slices.Equal(lines, want) {
+		t.Errorf("got %q, want %q", lines, want)
 	}
 }
 
@@ -95,9 +112,9 @@ func TestFleetWritesTheCSVAndPrintsTheRollup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantCSV := "host,collector,mode,at,user,agent,files,bytes,first,last,projects,evidence\r\n" +
-		"ws9,,,,,,,,,,,\r\n" + "orphan,,,,u0,aider,1,,,,,\r\n"
-	if !strings.HasPrefix(string(data), wantCSV) || strings.Count(string(data), "\r\n") != 7 {
+	wantCSV := "host,collector,mode,at,user,agent,files,bytes,first,last,projects,evidence\n" +
+		"ws9,,,,,,,,,,,\n" + "orphan,,,,u0,aider,1,,,,,\n"
+	if !strings.HasPrefix(string(data), wantCSV) || strings.Contains(string(data), "\r") {
 		t.Errorf("CSV:\n%q", data)
 	}
 }
