@@ -3,8 +3,10 @@ package analyze
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -140,7 +142,7 @@ func countRows(rows []timeline.Row) map[[2]string]int {
 
 // outputPath returns the path of one output file, as the summary prints it.
 func (r *timelineRun) outputPath(name string) string {
-	return input.JoinPath(r.output, name)
+	return filepath.Join(r.output, name)
 }
 
 // writeRows writes timeline.jsonl and sessions.jsonl.
@@ -161,7 +163,7 @@ func (r *timelineRun) writeRows() error {
 func writeOutput(path string, write func(w io.Writer) error) error {
 	file, err := osfile.Create(path)
 	if err != nil {
-		return fmt.Errorf("%s", reason.Describe(path, err))
+		return errors.New(reason.Describe(path, err))
 	}
 	buffered := bufio.NewWriter(file)
 	err = write(buffered)
@@ -172,7 +174,7 @@ func writeOutput(path string, write func(w io.Writer) error) error {
 		err = closeErr
 	}
 	if err != nil {
-		return fmt.Errorf("%s", reason.Describe(path, err))
+		return errors.New(reason.Describe(path, err))
 	}
 	return nil
 }
@@ -202,13 +204,13 @@ func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) i
 // printHeader prints the input, host, notes, problems, filters and the
 // dropped duplicates.
 func (r *timelineRun) printHeader(w io.Writer) {
-	fmt.Fprintf(w, "input:     %s (%s)\n", r.collection.Source, r.collection.Kind)
-	fmt.Fprintf(w, "host:      %s\n", orUnknown(r.collection.Host))
+	fmt.Fprint(w, "input:     "+r.collection.Source+" ("+r.collection.Kind+")\n")
+	fmt.Fprint(w, "host:      "+orUnknown(r.collection.Host)+"\n")
 	for _, note := range r.collection.Notes {
-		fmt.Fprintf(w, "note:      %s\n", note)
+		fmt.Fprint(w, "note:      "+note+"\n")
 	}
 	for _, problem := range r.problems {
-		fmt.Fprintf(w, "problem:   %s\n", problem)
+		fmt.Fprint(w, "problem:   "+problem+"\n")
 	}
 	filter := r.filter
 	if filter.Since != "" || filter.Until != "" {
@@ -216,21 +218,21 @@ func (r *timelineRun) printHeader(w io.Writer) {
 		if filter.KeepUndated {
 			kept = ", undated rows kept"
 		}
-		fmt.Fprintf(w, "window:    %s to %s%s\n", orText(filter.Since, "(start)"),
-			orText(filter.Until, "(end)"), kept)
+		fmt.Fprint(w, "window:    "+orText(filter.Since, "(start)")+" to "+
+			orText(filter.Until, "(end)")+kept+"\n")
 	}
 	if len(r.options.Match) > 0 {
 		ignoring := ""
 		if r.options.IgnoreCase {
 			ignoring = " (ignore case)"
 		}
-		fmt.Fprintf(w, "match:     %s%s\n", strings.Join(r.options.Match, " | "), ignoring)
+		fmt.Fprint(w, "match:     "+strings.Join(r.options.Match, " | ")+ignoring+"\n")
 	}
 	if filter.Active() {
 		fmt.Fprintf(w, "filtered:  %d outside the window, %d without a timestamp, %d not matching\n",
 			filter.DroppedWindow, filter.DroppedUndated, filter.DroppedMatch)
 	}
-	fmt.Fprintf(w, "dropped:   %s\n", droppedSummary(r.dropped))
+	fmt.Fprint(w, "dropped:   "+droppedSummary(r.dropped)+"\n")
 }
 
 // orText returns text, or fallback for an empty one.

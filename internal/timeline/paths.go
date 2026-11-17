@@ -2,9 +2,12 @@ package timeline
 
 import (
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 )
 
-// CanonicalProjectPath returns one spelling for a Windows project path:
+// CanonicalProjectPath returns one spelling for a Windows project path, a
+// path as the evidence's machine wrote it (evidencepath):
 // c:/Users/a/demo, C:\Users\a\demo\ and \\?\C:\Users\a\demo all become
 // C:\Users\a\demo, with an upper-case drive letter, backslashes, no
 // repeated or trailing separator and no extended-length prefix (\\?\ or
@@ -45,34 +48,16 @@ func windowsForm(path string) (string, bool) {
 			path = `\\` + rest[4:]
 		}
 	}
-	if isDriveStart(path) {
-		parts := pathParts(path[2:])
+	if evidencepath.IsDrivePath(path) {
+		parts := evidencepath.Elements(path[2:], true)
 		return string(upperASCII(path[0])) + `:\` + strings.Join(parts, `\`), true
 	}
 	if rest, ok := strings.CutPrefix(path, `\\`); ok {
-		if parts := pathParts(rest); len(parts) > 0 {
+		if parts := evidencepath.Elements(rest, true); len(parts) > 0 {
 			return `\\` + strings.Join(parts, `\`), true
 		}
 	}
 	return "", false
-}
-
-// isDriveStart reports whether path starts with a drive letter, a colon and
-// a separator (C:\ or c:/).
-func isDriveStart(path string) bool {
-	return len(path) >= 3 && isASCIILetter(path[0]) && path[1] == ':' &&
-		(path[2] == '\\' || path[2] == '/')
-}
-
-// pathParts returns the non-empty components of path split at both kinds
-// of slash.
-func pathParts(path string) []string {
-	return strings.FieldsFunc(path, func(char rune) bool { return char == '\\' || char == '/' })
-}
-
-// isASCIILetter reports whether char is an ASCII letter.
-func isASCIILetter(char byte) bool {
-	return char|0x20 >= 'a' && char|0x20 <= 'z'
 }
 
 // upperASCII returns char in upper case when it is an ASCII letter.

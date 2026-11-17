@@ -69,7 +69,7 @@ func agentsSummary(detected bool, parsed, unparsed, noRows, collectedOnly []stri
 	if !detected && len(parsed) == 0 {
 		return "none were found"
 	}
-	text := fmt.Sprintf("parsed: %s; detected but not parsed: %s", names(parsed), names(unparsed))
+	text := "parsed: " + names(parsed) + "; detected but not parsed: " + names(unparsed)
 	if len(collectedOnly) > 0 {
 		text += "; collected only: " + names(collectedOnly)
 	}
@@ -111,8 +111,8 @@ func markNames() [4][2]string {
 // printTotals prints the agents, rows, sessions and inventory lines.
 func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 	unparsed, collectedOnly, noRows := r.agentLists(agents)
-	fmt.Fprintf(w, "agents:    %s\n", agentsSummary(len(agents) > 0, r.parsed, unparsed, noRows,
-		collectedOnly))
+	fmt.Fprint(w, "agents:    "+agentsSummary(len(agents) > 0, r.parsed, unparsed, noRows,
+		collectedOnly)+"\n")
 	fmt.Fprintf(w, "rows:      %d in %s\n", len(r.rows), r.outputPath(TimelineFile))
 	keys := make([][2]string, 0, len(r.counts))
 	for key := range r.counts {
@@ -138,8 +138,8 @@ func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 		shown = " (" + strings.Join(marks, ", ") + ")"
 	}
 	fmt.Fprintf(w, "sessions:  %d in %s%s\n", len(r.sessions), r.outputPath(SessionsFile), shown)
-	fmt.Fprintf(w, "inventory: %s (homes, projects, scratch directories, counts per agent, problems)\n",
-		r.outputPath(InventoryFile))
+	fmt.Fprint(w, "inventory: "+r.outputPath(InventoryFile)+
+		" (homes, projects, scratch directories, counts per agent, problems)\n")
 }
 
 // inventoryJSON is inventory.json, its keys in the documented order.

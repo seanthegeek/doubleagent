@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -169,15 +170,16 @@ func (f *scratchFinder) scratchKeys(collection *input.Collection, rows []timelin
 
 // underProjectEntry reports whether a project key lies under a directory a
 // project entry names inside a project: with at least one segment before
-// the entry and one after it. A Windows path is split at backslashes and
-// matched without regard to case.
+// the entry and one after it. The key is split by the evidence's rules
+// (evidencepath), "." elements dropped; a Windows path is matched without
+// regard to case.
 func (f *scratchFinder) underProjectEntry(key string) bool {
 	windows := timeline.IsWindowsPath(key)
-	separator, mode := "/", 0
+	mode := 0
 	if windows {
-		separator, mode = `\`, 1
+		mode = 1
 	}
-	parts := pathParts(key, separator)
+	parts := slices.DeleteFunc(evidencepath.Elements(key, windows), func(part string) bool { return part == "." })
 	for _, entry := range f.entries {
 		segments := entry[mode]
 		for start := 1; start < len(parts)-len(segments); start++ {

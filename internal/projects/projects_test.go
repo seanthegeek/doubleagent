@@ -3,12 +3,13 @@ package projects
 import (
 	"context"
 	"errors"
-	"github.com/seanthegeek/doubleagent/internal/follow"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/follow"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"

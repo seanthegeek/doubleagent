@@ -3,6 +3,7 @@ package projects
 import (
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
@@ -54,7 +55,7 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
 	value = driveFromURIPath(value)
 	switch {
-	case isDrivePath(value):
+	case evidencepath.IsDrivePath(value):
 		value = string(upperASCII(value[0])) + value[1:]
 		if root != "" {
 			value = root + value[2:]
@@ -108,7 +109,7 @@ func driveFromURIPath(value string) string {
 	default:
 		return value
 	}
-	if drive := value[1:2] + ":" + rest; isDrivePath(drive) {
+	if drive := value[1:2] + ":" + rest; evidencepath.IsDrivePath(drive) {
 		return drive
 	}
 	return value
@@ -150,13 +151,6 @@ func hexDigit(text string, position int) (byte, bool) {
 		return digit - 'A' + 10, true
 	}
 	return 0, false
-}
-
-// isDrivePath reports whether value starts with a drive letter, a colon and
-// a separator of either kind.
-func isDrivePath(value string) bool {
-	return len(value) >= 3 && isLetter(value[0]) && value[1] == ':' &&
-		(value[2] == '/' || value[2] == '\\')
 }
 
 // upperASCII returns char upper-cased when it is an ASCII small letter.
