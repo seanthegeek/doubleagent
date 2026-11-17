@@ -326,6 +326,6 @@ func (r *commandReplay) replayRecordedRows(t *testing.T, node string, recorded C
 		r.skipped["artifacts listed in another order than the recording's"]++
 		return
 	}
-	compareFull(t, node, want, got)
+	compareFull(t, node, root, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
 }

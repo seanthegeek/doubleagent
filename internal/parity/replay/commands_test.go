@@ -22,6 +22,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/pyjson"
 )
 
 // The reasons a recorded command case is not compared in full, as the test
@@ -147,7 +148,7 @@ func (r *commandReplay) replay(t *testing.T, command string, recorded CommandCas
 	if strerrorShape.MatchString(want.stdout + strings.Join(slices.Collect(maps.Values(want.outputs)), "")) {
 		r.proposed = append(r.proposed, node)
 	}
-	compareFull(t, node, want, got)
+	compareFull(t, node, root, want, got)
 	checkNoOtherOutput(t, node, root, before, want.outputs)
 }
 
@@ -507,16 +508,55 @@ func hasKey(entries map[string]string, key string) bool {
 }
 
 // compareFull compares the exit code, both streams and every output file,
-// after the documented differences their recorded text shows.
-func compareFull(t *testing.T, node string, want, got commandOutput) {
+// after the documented differences their recorded text shows. root is the
+// run's root, which stands where the recording's stood.
+func compareFull(t *testing.T, node, root string, want, got commandOutput) {
 	if got.exit != want.exit {
 		t.Errorf("%s: exit %d, want %d", node, got.exit, want.exit)
 	}
 	compareText(t, node, "stdout", want.stdout, got.stdout, want.loose)
 	compareText(t, node, "stderr", want.stderr, got.stderr, false)
 	for _, path := range slices.Sorted(maps.Keys(want.outputs)) {
-		compareText(t, node, path, want.outputs[path], got.outputs[path], want.loose)
+		wanted, gotten := want.outputs[path], got.outputs[path]
+		if strings.HasSuffix(path, analyze.InventoryFile) {
+			wanted, gotten = rootKeyOrder(t, wanted, root), rootKeyOrder(t, gotten, root)
+		}
+		compareText(t, node, path, wanted, gotten, want.loose)
 	}
+}
+
+// rootSortedObjects are the members of inventory.json whose keys are
+// project paths in sorted order.
+func rootSortedObjects() []string {
+	return []string{"projects", "scratch_directories"}
+}
+
+// rootKeyOrder returns an inventory.json with the project paths of its
+// projects and scratch_directories objects sorted, when one of them lies
+// under root. Those objects are sorted by path, and a path under the root
+// sorts by the root's own text, which the run's root and the recording's
+// share only in length; any other inventory.json is returned unchanged, so
+// its order is still compared.
+func rootKeyOrder(t testing.TB, text, root string) string {
+	if !strings.Contains(text, root) {
+		return text
+	}
+	document, err := pyjson.DecodeString(text)
+	if err != nil {
+		t.Fatalf("inventory.json: %v", err)
+	}
+	var members []pyjson.Member
+	for _, entry := range document.Members() {
+		if slices.Contains(rootSortedObjects(), entry.Key) {
+			sorted := slices.Clone(entry.Value.Members())
+			slices.SortStableFunc(sorted, func(left, right pyjson.Member) int {
+				return strings.Compare(left.Key, right.Key)
+			})
+			entry.Value = pyjson.NewObject(sorted...)
+		}
+		members = append(members, entry)
+	}
+	return pyjson.Indented(pyjson.NewObject(members...))
 }
 
 // comparePart compares what does not depend on the parsers of a case that
@@ -641,4 +681,25 @@ func sortedJSONArrays(t *testing.T, text string) string {
 		t.Fatal(err)
 	}
 	return string(rest) + "\n" + strings.Join(sorted, "\n")
+}
+
+func TestRootKeyOrderSortsOnlyAnInventoryWithPathsUnderTheRoot(t *testing.T) {
+	root := "/run/root"
+	tests := []struct {
+		name, text, want string
+	}{
+		{"keys under the root are sorted",
+			`{"projects": {"/z": 1, "/run/root/home": 2}, "scratch_directories": {"/y": 3, "/run/root/x": 4}, "rows": 0}`,
+			"{\n  \"projects\": {\n    \"/run/root/home\": 2,\n    \"/z\": 1\n  },\n" +
+				"  \"scratch_directories\": {\n    \"/run/root/x\": 4,\n    \"/y\": 3\n  },\n  \"rows\": 0\n}"},
+		{"an inventory without the root keeps its order", `{"projects": {"/z": 1, "/a": 2}}`,
+			`{"projects": {"/z": 1, "/a": 2}}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := rootKeyOrder(t, test.text, root); got != test.want {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
 }
