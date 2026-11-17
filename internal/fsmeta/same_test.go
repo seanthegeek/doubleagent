@@ -3,6 +3,7 @@ package fsmeta
 import (
 	"errors"
 	"io/fs"
+	"strings"
 	"testing"
 )
 
@@ -17,7 +18,7 @@ func TestSameEntryNeedsTheFileSystemsWord(t *testing.T) {
 		if meta, found := metas[path]; found {
 			return meta, nil
 		}
-		if path == "C:/u/aLICE" {
+		if path == "C:/u/aLICE" || strings.HasPrefix(path, "D:/") {
 			return Meta{}, &fs.PathError{Op: "lstat", Path: path, Err: denied}
 		}
 		return Meta{}, &fs.PathError{Op: "lstat", Path: path, Err: fs.ErrNotExist}
@@ -35,6 +36,8 @@ func TestSameEntryNeedsTheFileSystemsWord(t *testing.T) {
 		{"two spellings that do not exist are one", "C:/gone/X", "C:/gone/x", true},
 		{"one that cannot be examined for another reason proves nothing",
 			"C:/u/Alice", "C:/u/aLICE", false},
+		{"two spellings neither of which can be examined, as on a drive with no disc, " +
+			"stay apart", "D:/img/h/.A", "D:/img/h/.a", false},
 		{"zero identities prove nothing", "C:/u/Busy", "C:/u/BUSY", false},
 		{"one file index on two volumes is two entries", "C:/u/Alice", "C:/v/Alice", false},
 	}

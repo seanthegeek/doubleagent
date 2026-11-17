@@ -39,14 +39,35 @@ func TestDestOnWindows(t *testing.T) {
 		{"an image root is removed ignoring case", Stager{Dir: "C:/s", Root: "d:/IMG"},
 			"D:/img/Users/a", "fs/Users/a"},
 		{"a path off the image root keeps its drive", image, "E:/other/f", "fs/E/other/f"},
-		{"a path under an in-base link spelled in another case is moved",
-			image.Through("D:/img/h/.A", "D:/img/h/dot/a"), "D:/img/h/.a/b", "fs/h/dot/a/b"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			archive, dest, _ := test.stager.Dest(test.path)
 			if archive != test.wantArchive || dest != test.stager.Dir+"/"+test.wantArchive {
 				t.Errorf("Dest(%q) = %q, %q", test.path, archive, dest)
+			}
+		})
+	}
+}
+
+func TestDestMovesAPathUnderAnInBaseLinkSpelledInAnotherCase(t *testing.T) {
+	// From is matched in another case only where the file system calls the
+	// two spellings one entry: one directory, or two paths neither of which
+	// exists. Both are built under the test's own directory.
+	root := syspath.FromNative(t.TempDir())
+	mustDo(t, os.MkdirAll(root+"/h/.A", 0o755))
+	image := Stager{Dir: "C:/out/.stage", Root: root}
+	cases := []struct {
+		name, from, path string
+	}{
+		{"one existing directory reached in another case", root + "/h/.A", root + "/h/.a/b"},
+		{"two spellings neither of which exists", root + "/h/.Gone", root + "/h/.gone/b"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			archive, _, _ := image.Through(test.from, root+"/h/dot/a").Dest(test.path)
+			if archive != "fs/h/dot/a/b" {
+				t.Errorf("Dest(%q) = %q, want fs/h/dot/a/b", test.path, archive)
 			}
 		})
 	}

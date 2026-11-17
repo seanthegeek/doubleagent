@@ -95,7 +95,10 @@ func TestProjectsAreRespelledOnlyBelowAnImageRoot(t *testing.T) {
 }
 
 func TestResolveProjectsOnWindows(t *testing.T) {
-	getwd := func() (string, error) { return `C:\work`, nil }
+	// The case-variant paths lie under the test's own directory and do not
+	// exist there: two spellings of a missing path are one, wherever it runs.
+	base := t.TempDir()
+	getwd := func() (string, error) { return base + `\work`, nil }
 	failing := func() (string, error) { return "", errors.New("no cwd") }
 	cases := []struct {
 		name  string
@@ -104,7 +107,8 @@ func TestResolveProjectsOnWindows(t *testing.T) {
 		want  []string
 	}{
 		{"case variants are listed once in the first spelling",
-			[]string{`C:\Work\P`, `c:\work\p\`, "p"}, getwd, []string{"C:/Work/P"}},
+			[]string{base + `\Work\P`, base + `\work\p\`, "p"}, getwd,
+			[]string{syspath.FromNative(base) + "/Work/P"}},
 		{"an empty path is dropped", []string{"", `D:\a`}, getwd, []string{"D:/a"}},
 		{"an absolute path needs no current directory", []string{`D:\a`}, failing,
 			[]string{"D:/a"}},

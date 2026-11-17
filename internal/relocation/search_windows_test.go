@@ -17,12 +17,21 @@ func TestSweepRulesIgnoreCaseOnWindows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The homes and the project are real directories under the test's own
+	// directory, so another spelling of one is the same entry wherever the
+	// test runs; the home-root and output patterns compare text alone.
+	base := syspath.FromNative(t.TempDir())
+	for _, dir := range []string{"/Users/alice", "/Proj/.codex"} {
+		if err := os.MkdirAll(syspath.ToNative(base+dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	run := &search{system: "C:", deps: Deps{
-		Tables: tables, Homes: []users.Home{{User: "alice", Path: "C:/Users/alice"}},
+		Tables: tables, Homes: []users.Home{{User: "alice", Path: base + "/Users/alice"}},
 		OutDir: "C:/Out", RunName: "host_run", Excludes: []string{"node_modules"},
-		Claims: func(string, []catalog.Entry) []string { return []string{"c:/proj/.Codex"} },
+		Claims: func(string, []catalog.Entry) []string { return []string{base + "/proj/.Codex"} },
 	}}
-	pruned := run.pruneTest("C:/Proj", tables.ProjectCatalog, "project")
+	pruned := run.pruneTest(base+"/Proj", tables.ProjectCatalog, "project")
 	cases := []struct {
 		name      string
 		got, want bool
@@ -31,13 +40,14 @@ func TestSweepRulesIgnoreCaseOnWindows(t *testing.T) {
 			run.underHomeRoot("c:/USERS/alice"), true},
 		{"a home outside the home roots is not swept",
 			run.underHomeRoot("C:/Windows/ServiceProfiles/x"), false},
-		{"a project spelled in another case holds the home", run.holdsHome("c:/users"), true},
-		{"a project above the home in another case holds it", run.holdsHome("C:/USERS/Alice"), true},
-		{"a project beside the home holds none", run.holdsHome("C:/Users/bob"), false},
-		{"a catalog match is pruned in another case", pruned("C:/PROJ/.codex"), true},
+		{"a project spelled in another case holds the home", run.holdsHome(base + "/users"), true},
+		{"a project above the home in another case holds it",
+			run.holdsHome(base + "/USERS/Alice"), true},
+		{"a project beside the home holds none", run.holdsHome(base + "/Users/bob"), false},
+		{"a catalog match is pruned in another case", pruned(base + "/PROJ/.codex"), true},
 		{"the run's output file is pruned in another case", pruned("c:/out/HOST_RUN.log"), true},
-		{"an exclusion is pruned in another case", pruned("C:/proj/Node_Modules"), true},
-		{"another file of the project is not pruned", pruned("C:/Proj/notes.txt"), false},
+		{"an exclusion is pruned in another case", pruned(base + "/proj/Node_Modules"), true},
+		{"another file of the project is not pruned", pruned(base + "/Proj/notes.txt"), false},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
