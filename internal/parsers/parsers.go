@@ -17,6 +17,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 	"github.com/seanthegeek/doubleagent/internal/parser/chatgptdesktop"
 	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
+	"github.com/seanthegeek/doubleagent/internal/parser/claudedesktop"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -28,6 +29,7 @@ import (
 func constructors() []func() parser.Parser {
 	return []func() parser.Parser{
 		func() parser.Parser { return claudecode.New() },
+		func() parser.Parser { return claudedesktop.New() },
 		func() parser.Parser { return chatgptdesktop.New() },
 	}
 }
