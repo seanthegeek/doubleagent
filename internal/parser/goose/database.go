@@ -314,28 +314,10 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	if !meta.IsObject() {
 		meta = pyjson.NewObject()
 	}
-	inference := orObject(meta.Get("inference"))
-	resolved := parser.Str(inference.Get("resolvedModel"))
-	if resolved == "" {
-		resolved = parser.Str(inference.Get("requestedModel"))
-	}
-	provider := parser.Str(inference.Get("provider"))
-	model := modelName(provider, resolved)
-	if model == "" {
-		model = d.byModel[sessionID]
-	}
-	base := d.parser.row(d.artifact, line, sessionID, projectPath, model,
+	base := d.parser.row(d.artifact, line, sessionID, projectPath, "",
 		timeutil.FirstNonEmpty(epochColumn(message.Get("created_timestamp")),
 			parser.ColumnTime(message.Get("timestamp"))))
-	if text := d.models.Change("model", sessionID, resolved); text != "" {
-		if provider != "" {
-			text += " provider=" + provider
-		}
-		if requested := parser.Str(inference.Get("requestedModel")); requested != "" && requested != resolved {
-			text += " requested=" + requested
-		}
-		d.emit(systemCopy(base, text))
-	}
+	base.Model = d.messageModel(base, orObject(meta.Get("inference")))
 	parser.EmitAll(d.emit, d.parser.ErrorRows(d.artifact, problems, sessionID, projectPath))
 	content := readStored(message.Get("content_json"), true)
 	if content.value.IsNull() && content.reason == "" {
@@ -353,6 +335,30 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 	}
 	reader.blocks(base, orText(message.Get("role")), content.value, userVisible(meta),
 		answeredOf(answered, sessionID), d.emit)
+}
+
+// messageModel returns the model of a message from its inference
+// metadata, else its session's, and emits the model row of a change.
+func (d *database) messageModel(base timeline.Row, inference pyjson.Value) string {
+	resolved := parser.Str(inference.Get("resolvedModel"))
+	if resolved == "" {
+		resolved = parser.Str(inference.Get("requestedModel"))
+	}
+	provider := parser.Str(inference.Get("provider"))
+	base.Model = modelName(provider, resolved)
+	if base.Model == "" {
+		base.Model = d.byModel[base.SessionID]
+	}
+	if text := d.models.Change("model", base.SessionID, resolved); text != "" {
+		if provider != "" {
+			text += " provider=" + provider
+		}
+		if requested := parser.Str(inference.Get("requestedModel")); requested != "" && requested != resolved {
+			text += " requested=" + requested
+		}
+		d.emit(systemCopy(base, text))
+	}
+	return base.Model
 }
 
 // answeredOf returns the answered ids of a session, an empty set when it

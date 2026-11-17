@@ -70,15 +70,9 @@ func parseXML(data []byte) (*element, error) {
 			if root != nil && len(open) == 0 {
 				return nil, xmlError(decoder, "junk after document element")
 			}
-			node := &element{tag: qualifiedName(token.Name), attributes: map[string]string{}}
-			for _, attribute := range token.Attr {
-				name := qualifiedName(attribute.Name)
-				if _, seen := node.attributes[name]; seen {
-					return nil, xmlError(decoder, "duplicate attribute")
-				}
-				if attribute.Name.Space != "xmlns" && attribute.Name.Local != "xmlns" {
-					node.attributes[name] = attribute.Value
-				}
+			node, problem := newElement(token)
+			if problem != "" {
+				return nil, xmlError(decoder, problem)
 			}
 			if len(open) == 0 {
 				root = node
@@ -99,6 +93,22 @@ func parseXML(data []byte) (*element, error) {
 		return nil, xmlError(decoder, "no element found")
 	}
 	return root, nil
+}
+
+// newElement returns the element a start tag opens, or why it is refused:
+// an attribute given twice. Namespace declarations are not attributes.
+func newElement(token xml.StartElement) (*element, string) {
+	node := &element{tag: qualifiedName(token.Name), attributes: map[string]string{}}
+	for _, attribute := range token.Attr {
+		name := qualifiedName(attribute.Name)
+		if _, seen := node.attributes[name]; seen {
+			return nil, "duplicate attribute"
+		}
+		if attribute.Name.Space != "xmlns" && attribute.Name.Local != "xmlns" {
+			node.attributes[name] = attribute.Value
+		}
+	}
+	return node, ""
 }
 
 // xmlError words a reading failure with the line and column the decoder

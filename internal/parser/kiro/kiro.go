@@ -287,9 +287,18 @@ func (p *Parser) parseDelegate(artifact *input.Artifact, emit parser.Emit) {
 	}
 	event(positiveTime(document.Get("launched_at")), "delegate task launched: agent="+agent+
 		" pid="+pid+trust+": "+parser.Str(document.Get("task")))
+	if text, ended := delegateEnd(document); ended {
+		event(positiveTime(document.Get("completed_at")), text)
+	}
+}
+
+// delegateEnd returns the status row text of a delegate task that ended,
+// with its exit code, summary and output, or false while it runs.
+func delegateEnd(document pyjson.Value) (string, bool) {
+	agent := parser.Str(document.Get("agent"))
 	status, completed := parser.Str(document.Get("status")), document.Get("completed_at")
 	if completed.IsNull() && (status == "" || status == "running") {
-		return
+		return "", false
 	}
 	exitCode := ""
 	if value := document.Get("exit_code"); !value.IsNull() {
@@ -305,7 +314,7 @@ func (p *Parser) parseDelegate(artifact *input.Artifact, emit parser.Emit) {
 	if output := document.Get("output"); output.Truthy() {
 		text += "\noutput: " + output.Str()
 	}
-	event(positiveTime(completed), text)
+	return text, true
 }
 
 // parseExport emits the rows of a /save export.

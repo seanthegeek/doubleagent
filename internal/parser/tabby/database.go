@@ -378,6 +378,12 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 		body.turnType, body.text = timeline.TurnAssistant, content.Str()
 		s.emit(s.parser.row(s.artifact, body))
 	}
+	s.sectionRows(spec, sections, attachments)
+}
+
+// sectionRows emits a page's sections as assistant rows: the title and
+// content, then the attachments, each at its created_at, else the page's.
+func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments []pyjson.Value) {
 	for i, section := range sections {
 		var pieces []string
 		for _, value := range []sqlitefile.Value{section.Get("title"), section.Get("content")} {

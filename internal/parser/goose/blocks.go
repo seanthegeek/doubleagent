@@ -104,13 +104,7 @@ func (r *blockReader) block(base timeline.Row, role, textType string, visible bo
 	case kindText == "toolRequest":
 		text = r.toolRequest(&row, block)
 	case kindText == "toolResponse":
-		row.TurnType = timeline.TurnToolResult
-		row.ToolUseID = parser.Str(block.Get("id"))
-		row.ToolName = r.toolNames[row.ToolUseID]
-		var isError bool
-		if text, isError = resultText(block.Get("toolResult")); isError {
-			text = "[error] " + text
-		}
+		text = r.toolResponse(&row, block)
 	case kindText == "thinking" || kindText == "redactedThinking":
 		if !r.options.IncludeThinking {
 			return row, false
@@ -141,6 +135,18 @@ func (r *blockReader) toolRequest(row *timeline.Row, block pyjson.Value) string 
 		text = parser.CompactJSON(orObject(value.Get("arguments")))
 	}
 	r.toolNames[row.ToolUseID] = row.ToolName
+	return text
+}
+
+// toolResponse fills the row of a toolResponse block and returns its text.
+func (r *blockReader) toolResponse(row *timeline.Row, block pyjson.Value) string {
+	row.TurnType = timeline.TurnToolResult
+	row.ToolUseID = parser.Str(block.Get("id"))
+	row.ToolName = r.toolNames[row.ToolUseID]
+	text, isError := resultText(block.Get("toolResult"))
+	if isError {
+		text = "[error] " + text
+	}
 	return text
 }
 

@@ -22,7 +22,8 @@ func (p *Parser) standingRow(artifact *input.Artifact, line int, timestamp, text
 }
 
 // unquote returns a YAML scalar as the serialiser writes it: plain,
-// single-quoted with ” for a quote, or double-quoted with JSON's escapes.
+// single-quoted with a doubled single quote for a quote, or double-quoted
+// with JSON's escapes.
 func unquote(value string) string {
 	if len(value) >= 2 && value[0] == '\'' && value[len(value)-1] == '\'' {
 		return strings.ReplaceAll(value[1:len(value)-1], "''", "'")
