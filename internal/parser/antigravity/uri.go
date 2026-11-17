@@ -8,14 +8,24 @@ import (
 
 // URIToPath returns the local path of a file: URI, with a Windows drive
 // path's leading slash removed ("file:///C:/x" is "C:/x"); any other text
-// is returned as it is. The host is dropped, the query and fragment cut
-// off, tabs and line breaks removed, and percent escapes decoded as UTF-8
-// with replacement.
+// is returned as it is.
 func URIToPath(uri string) string {
 	if !strings.HasPrefix(uri, "file:") {
 		return uri
 	}
-	rest := strings.NewReplacer("\t", "", "\r", "", "\n", "").Replace(uri)[len("file:"):]
+	path := URIPath(uri)
+	if IsDrivePath(path) {
+		path = path[1:]
+	}
+	return path
+}
+
+// URIPath returns the path of a file: URI: the host dropped, the query and
+// fragment cut off, tabs and line breaks removed, and percent escapes
+// decoded as UTF-8 with replacement.
+func URIPath(uri string) string {
+	rest := strings.NewReplacer("\t", "", "\r", "", "\n", "").Replace(uri)
+	rest = rest[strings.IndexByte(rest, ':')+1:]
 	if strings.HasPrefix(rest, "//") {
 		end := strings.IndexAny(rest[2:], "/?#")
 		if end < 0 {
@@ -25,11 +35,13 @@ func URIToPath(uri string) string {
 	}
 	rest, _, _ = strings.Cut(rest, "#")
 	rest, _, _ = strings.Cut(rest, "?")
-	path := unquote(rest)
-	if len(path) >= 3 && path[0] == '/' && isASCIILetter(path[1]) && path[2] == ':' {
-		path = path[1:]
-	}
-	return path
+	return unquote(rest)
+}
+
+// IsDrivePath reports whether a URI's path names a Windows drive: a slash,
+// a letter and a colon.
+func IsDrivePath(path string) bool {
+	return len(path) >= 3 && path[0] == '/' && isASCIILetter(path[1]) && path[2] == ':'
 }
 
 // isASCIILetter reports whether char is an ASCII letter.
